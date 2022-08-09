@@ -104,6 +104,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config2.Config, bin
 	}
 
 	healthz.InstallHandler(httpMux, checks...)
+	installPprofHandlers(httpMux)
 
 	// Start http server for pprof and health checks handlers.
 	go func() {
