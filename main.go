@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
+	config2 "castai-sec-agent/config"
 	"castai-sec-agent/version"
 
-	"castai-sec-agent/.github/config"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -36,9 +36,9 @@ var (
 )
 
 func main() {
-	cfg := config.Get()
+	cfg := config2.Get()
 
-	binVersion := &config.SecurityAgentVersion{
+	binVersion := &config2.SecurityAgentVersion{
 		GitCommit: GitCommit,
 		GitRef:    GitRef,
 		Version:   Version,
@@ -60,7 +60,7 @@ func main() {
 
 }
 
-func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion) (reterr error) {
+func run(ctx context.Context, logger logrus.FieldLogger, cfg config2.Config, binVersion *config2.SecurityAgentVersion) (reterr error) {
 	fields := logrus.Fields{}
 
 	defer func() {
@@ -138,7 +138,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 func runWithLeaderElection(
 	ctx context.Context,
 	log logrus.FieldLogger,
-	cfg config.LeaderElection,
+	cfg config2.LeaderElection,
 	clientset kubernetes.Interface,
 	watchDog *leaderelection.HealthzAdaptor,
 	runFunc func(ctx context.Context),
@@ -223,7 +223,7 @@ func retrieveKubeConfig(log logrus.FieldLogger) (*rest.Config, error) {
 }
 
 func kubeConfigFromEnv() (*rest.Config, error) {
-	kubepath := config.Get().Kubeconfig
+	kubepath := config2.Get().Kubeconfig
 	if kubepath == "" {
 		return nil, nil
 	}
