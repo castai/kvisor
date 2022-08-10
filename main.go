@@ -121,8 +121,13 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config2.Config, bin
 	// TODO: do actual work.
 	work := func(ctx context.Context) {
 		for range time.Tick(time.Second) {
-			// https://en.wikipedia.org/wiki/Heart_sounds
-			fmt.Println("lub dub")
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				// https://en.wikipedia.org/wiki/Heart_sounds
+				fmt.Println("lub dub")
+			}
 		}
 	}
 
