@@ -1,4 +1,4 @@
-module castai-sec-agent
+module github.com/castai/sec-agent
 
 go 1.18
 
