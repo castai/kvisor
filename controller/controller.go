@@ -185,6 +185,8 @@ func (c *Controller) genericHandler(
 		o.Kind = "Service"
 		o.APIVersion = v1
 	case *corev1.Pod:
+		o.Kind = "Pod"
+		o.APIVersion = v1
 		// Do not process not static pods.
 		if !isStaticPod(o) {
 			return

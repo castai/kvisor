@@ -9,7 +9,7 @@ import (
 )
 
 func NewHandler(log logrus.FieldLogger) *Handler {
-	linter := New(lo.Keys(Rules))
+	linter := New(rules)
 
 	return &Handler{
 		log:     log,
