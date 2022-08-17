@@ -121,13 +121,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
-	kubelinterHandler := kubelinter.NewHandler(log)
-
-	itemHandlers := []controller.ItemHandler{
-		kubelinterHandler,
+	objectSubscribers := []controller.ObjectSubscriber{
+		kubelinter.NewSubscriber(log),
 	}
+
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	ctrl := controller.New(log, informersFactory, itemHandlers, k8sVersion)
+	ctrl := controller.New(log, informersFactory, objectSubscribers)
 
 	work := func(ctx context.Context) {
 		if err := ctrl.Run(ctx); err != nil {

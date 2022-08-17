@@ -4,25 +4,22 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	batch "google.golang.org/genproto/googleapis/cloud/batch/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
-
-	"github.com/castai/sec-agent/version"
 )
 
 func New(
 	log logrus.FieldLogger,
 	f informers.SharedInformerFactory,
-	itemHandlers []ItemHandler,
-	v version.Interface,
+	subscribers []ObjectSubscriber,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
 		reflect.TypeOf(&corev1.Node{}):               f.Core().V1().Nodes().Informer(),
@@ -33,17 +30,23 @@ func New(
 		reflect.TypeOf(&appsv1.Deployment{}):         f.Apps().V1().Deployments().Informer(),
 		reflect.TypeOf(&appsv1.DaemonSet{}):          f.Apps().V1().DaemonSets().Informer(),
 		reflect.TypeOf(&appsv1.StatefulSet{}):        f.Apps().V1().StatefulSets().Informer(),
-		// TODO: Add jobs, cronjobs and other resources for kubelinter.
+		reflect.TypeOf(&batch.Job{}):                 f.Batch().V1().Jobs().Informer(),
 	}
 
 	c := &Controller{
 		log:             log,
 		informerFactory: f,
-		itemHandlers:    itemHandlers,
-		queue:           workqueue.NewNamed("castai-sec-agent"),
 		informers:       typeInformerMap,
+		subscribers:     subscribers,
 	}
-	c.registerEventHandlers()
+
+	for typ, informer := range c.informers {
+		for _, subscriber := range c.subscribers {
+			if subscriber.Supports(typ) {
+				informer.AddEventHandler(c.wrapHandler(subscriber))
+			}
+		}
+	}
 
 	return c
 }
@@ -51,14 +54,11 @@ func New(
 type Controller struct {
 	log             logrus.FieldLogger
 	informerFactory informers.SharedInformerFactory
-	itemHandlers    []ItemHandler
-	queue           workqueue.Interface
 	informers       map[reflect.Type]cache.SharedInformer
+	subscribers     []ObjectSubscriber
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	defer c.queue.ShutDown()
-
 	c.informerFactory.Start(ctx.Done())
 
 	syncs := make([]cache.InformerSynced, 0, len(c.informers))
@@ -74,140 +74,61 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	c.log.Infof("informers cache synced after %v", time.Since(waitStartedAt))
 
-	go func() {
-		<-ctx.Done()
-		c.queue.ShutDown()
-	}()
+	<-ctx.Done()
 
-	c.pollQueueUntilShutdown()
-
-	return nil
+	return c.shutdownSubscribers()
 }
 
-func (c *Controller) pollQueueUntilShutdown() {
-	for {
-		i, shutdown := c.queue.Get()
-		if shutdown {
-			return
-		}
-		c.processItem(i)
-	}
-}
-
-func (c *Controller) processItem(i interface{}) {
-	defer c.queue.Done(i)
-
-	item, ok := i.(*Item)
-	if !ok {
-		c.log.Errorf("queue Item is not of type *Item")
-	}
-	c.log.Infof("processing item %v: %s", item.ObjectKey(), item.Event)
-
-	for _, handler := range c.itemHandlers {
-		handler.Handle(item)
-	}
-}
-
-func (c *Controller) registerEventHandlers() {
-	for typ, informer := range c.informers {
-		typ := typ
-		informer := informer
-		log := c.log.WithField("informer", typ.String())
-		h := c.createEventHandlers(log, typ)
-		informer.AddEventHandler(h)
-	}
-}
-
-func (c *Controller) createEventHandlers(log logrus.FieldLogger, typ reflect.Type) cache.ResourceEventHandler {
+func (c *Controller) wrapHandler(handler cache.ResourceEventHandler) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.deletedUnknownHandler(log, EventAdd, obj, func(log logrus.FieldLogger, e Event, obj interface{}) {
-				c.genericHandler(log, typ, e, obj)
-			})
+			deleted, ok := obj.(cache.DeletedFinalStateUnknown)
+			if ok {
+				handler.OnDelete(deleted)
+			} else {
+				handler.OnAdd(obj)
+			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.deletedUnknownHandler(log, EventUpdate, newObj, func(log logrus.FieldLogger, e Event, obj interface{}) {
-				c.genericHandler(log, typ, e, obj)
-			})
+			deleted, ok := newObj.(cache.DeletedFinalStateUnknown)
+			if ok {
+				handler.OnDelete(deleted)
+			} else {
+				handler.OnUpdate(oldObj, newObj)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.deletedUnknownHandler(log, EventDelete, obj, func(log logrus.FieldLogger, e Event, obj interface{}) {
-				c.genericHandler(log, typ, e, obj)
-			})
+			handler.OnDelete(obj)
 		},
 	}
 }
 
-type handlerFunc func(log logrus.FieldLogger, event Event, obj interface{})
+func (c *Controller) shutdownSubscribers() error {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
 
-// deletedUnknownHandler is used to handle cache.DeletedFinalStateUnknown where an Object was deleted but the watch
-// deletion Event was missed while disconnected from the api-server.
-func (c *Controller) deletedUnknownHandler(log logrus.FieldLogger, e Event, obj interface{}, next handlerFunc) {
-	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		next(log, EventDelete, deleted.Obj)
-	} else {
-		next(log, e, obj)
-	}
-}
+	wg := sync.WaitGroup{}
+	doneChan := make(chan struct{})
 
-// genericHandler is used to add an Object to the queue.
-func (c *Controller) genericHandler(
-	log logrus.FieldLogger,
-	expected reflect.Type,
-	e Event,
-	obj interface{},
-) {
-	if reflect.TypeOf(obj) != expected {
-		log.Errorf("expected to get %v but got %T", expected, obj)
-		return
+	for _, subscriber := range c.subscribers {
+		go func(subscriber ObjectSubscriber) {
+			wg.Add(1)
+			defer wg.Done()
+			if err := subscriber.Shutdown(shutdownCtx); err != nil {
+				c.log.Error(err)
+			}
+		}(subscriber)
 	}
 
-	// Map missing metadata since kubernetes client removes object kind and api version information.
-	appsV1 := "apps/v1"
-	v1 := "v1"
-	switch o := obj.(type) {
-	case *appsv1.Deployment:
-		o.Kind = "Deployment"
-		o.APIVersion = appsV1
-	case *appsv1.StatefulSet:
-		o.Kind = "StatefulSet"
-		o.APIVersion = appsV1
-	case *appsv1.DaemonSet:
-		o.Kind = "DaemonSet"
-		o.APIVersion = appsV1
-	case *corev1.Node:
-		o.Kind = "Node"
-		o.APIVersion = v1
-	case *corev1.Namespace:
-		o.Kind = "Namespace"
-		o.APIVersion = v1
-	case *corev1.Service:
-		o.Kind = "Service"
-		o.APIVersion = v1
-	case *corev1.Pod:
-		o.Kind = "Pod"
-		o.APIVersion = v1
-		// Do not process not static pods.
-		if !isStaticPod(o) {
-			return
-		}
-	case *rbacv1.ClusterRoleBinding:
-		o.Kind = "ClusterRoleBinding"
-		o.APIVersion = "rbac.authorization.k8s.io/v1"
-	default:
-		log.Error("object is not handled")
-		return
-	}
+	go func() {
+		wg.Wait()
+		doneChan <- struct{}{}
+	}()
 
-	c.queue.Add(&Item{
-		Obj:   obj.(Object),
-		Event: e,
-	})
-}
-
-func isStaticPod(pod *corev1.Pod) bool {
-	if pod.Spec.NodeName == "" {
-		return false
+	select {
+	case <-doneChan:
+		return nil
+	case <-shutdownCtx.Done():
+		return fmt.Errorf("shutdown timed out")
 	}
-	return strings.HasSuffix(pod.ObjectMeta.Name, pod.Spec.NodeName)
 }
