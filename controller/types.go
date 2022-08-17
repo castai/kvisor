@@ -1,41 +1,15 @@
 package controller
 
 import (
-	"fmt"
+	"context"
+	"reflect"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 )
 
-type ItemHandler interface {
-	Handle(item *Item)
-}
+type ObjectSubscriber interface {
+	cache.ResourceEventHandler
 
-type Event string
-
-const (
-	EventAdd    Event = "add"
-	EventDelete Event = "delete"
-	EventUpdate Event = "update"
-)
-
-type Object interface {
-	runtime.Object
-	metav1.Object
-}
-
-type Item struct {
-	Obj   Object
-	Event Event
-}
-
-func (i *Item) ObjectKey() string {
-	kind := i.Obj.GetObjectKind().GroupVersionKind()
-	return fmt.Sprintf(
-		"%s/%s/%s/%s",
-		kind.Version,
-		kind.Kind,
-		i.Obj.GetNamespace(),
-		i.Obj.GetName(),
-	)
+	Supports(typ reflect.Type) bool
+	Shutdown(ctx context.Context) error
 }

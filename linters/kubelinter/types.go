@@ -1,5 +1,12 @@
 package kubelinter
 
+import (
+	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
 var rules = []string{
 	"dangling-service",
 	"deprecated-service-account-field",
@@ -29,4 +36,33 @@ var rules = []string{
 	"unset-memory-requirements",
 	"use-namespace",
 	"writable-host-mount",
+}
+
+type event string
+
+const (
+	eventAdd    event = "add"
+	eventDelete event = "delete"
+	eventUpdate event = "update"
+)
+
+type object interface {
+	runtime.Object
+	metav1.Object
+}
+
+type queueItem struct {
+	obj   object
+	event event
+}
+
+func (i *queueItem) ObjectKey() string {
+	kind := i.obj.GetObjectKind().GroupVersionKind()
+	return fmt.Sprintf(
+		"%s/%s/%s/%s",
+		kind.Version,
+		kind.Kind,
+		i.obj.GetNamespace(),
+		i.obj.GetName(),
+	)
 }
