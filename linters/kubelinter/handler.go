@@ -33,6 +33,7 @@ func (h *Handler) Handle(item *controller.Item) {
 		delete(h.objects, key)
 	}
 
+	// TODO: Queue items and handle periodically + wait for initial state to sync in informers.
 	lintObjects := lo.Map(lo.Values(h.objects), func(t controller.Object, i int) lintcontext.Object {
 		return lintcontext.Object{K8sObject: t}
 	})

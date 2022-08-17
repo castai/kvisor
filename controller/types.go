@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +30,12 @@ type Item struct {
 }
 
 func (i *Item) ObjectKey() string {
-	fmt.Println(i.Obj.GetObjectKind().GroupVersionKind())
-	return fmt.Sprintf("%s::%s/%s", reflect.TypeOf(i.Obj).String(), i.Obj.GetNamespace(), i.Obj.GetName())
+	kind := i.Obj.GetObjectKind().GroupVersionKind()
+	return fmt.Sprintf(
+		"%s/%s/%s/%s",
+		kind.Version,
+		kind.Kind,
+		i.Obj.GetNamespace(),
+		i.Obj.GetName(),
+	)
 }

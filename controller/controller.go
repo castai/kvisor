@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -25,28 +25,16 @@ func New(
 	v version.Interface,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
-		reflect.TypeOf(&corev1.Node{}):                  f.Core().V1().Nodes().Informer(),
-		reflect.TypeOf(&corev1.PersistentVolume{}):      f.Core().V1().PersistentVolumes().Informer(),
-		reflect.TypeOf(&corev1.PersistentVolumeClaim{}): f.Core().V1().PersistentVolumeClaims().Informer(),
-		reflect.TypeOf(&corev1.Namespace{}):             f.Core().V1().Namespaces().Informer(),
-		reflect.TypeOf(&corev1.Service{}):               f.Core().V1().Services().Informer(),
-		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}):    f.Rbac().V1().ClusterRoleBindings().Informer(),
-		reflect.TypeOf(&rbacv1.RoleBinding{}):           f.Rbac().V1().RoleBindings().Informer(),
-		reflect.TypeOf(&appsv1.Deployment{}):            f.Apps().V1().Deployments().Informer(),
-		reflect.TypeOf(&appsv1.DaemonSet{}):             f.Apps().V1().DaemonSets().Informer(),
-		reflect.TypeOf(&appsv1.StatefulSet{}):           f.Apps().V1().StatefulSets().Informer(),
-		reflect.TypeOf(&storagev1.StorageClass{}):       f.Storage().V1().StorageClasses().Informer(),
-		// reflect.TypeOf(&batchv1.CronJob{}):              f.Batch().V1().CronJobs().Informer(), // TODO: Add jobs.
+		reflect.TypeOf(&corev1.Node{}):               f.Core().V1().Nodes().Informer(),
+		reflect.TypeOf(&corev1.Pod{}):                f.Core().V1().Pods().Informer(),
+		reflect.TypeOf(&corev1.Namespace{}):          f.Core().V1().Namespaces().Informer(),
+		reflect.TypeOf(&corev1.Service{}):            f.Core().V1().Services().Informer(),
+		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}): f.Rbac().V1().ClusterRoleBindings().Informer(),
+		reflect.TypeOf(&appsv1.Deployment{}):         f.Apps().V1().Deployments().Informer(),
+		reflect.TypeOf(&appsv1.DaemonSet{}):          f.Apps().V1().DaemonSets().Informer(),
+		reflect.TypeOf(&appsv1.StatefulSet{}):        f.Apps().V1().StatefulSets().Informer(),
+		// TODO: Add jobs, cronjobs and other resources for kubelinter.
 	}
-
-	//if v.MinorInt() >= 17 {
-	//	typeInformerMap[reflect.TypeOf(&storagev1.CSINode{})] = f.Storage().V1().CSINodes().Informer()
-	//}
-	//
-	//if v.MinorInt() >= 18 {
-	//	typeInformerMap[reflect.TypeOf(&autoscalingv1.HorizontalPodAutoscaler{})] =
-	//		f.Autoscaling().V1().HorizontalPodAutoscalers().Informer()
-	//}
 
 	c := &Controller{
 		log:             log,
@@ -174,8 +162,50 @@ func (c *Controller) genericHandler(
 		return
 	}
 
+	// Map missing metadata since kubernetes client removes object kind and api version information.
+	appsV1 := "apps/v1"
+	v1 := "v1"
+	switch o := obj.(type) {
+	case *appsv1.Deployment:
+		o.Kind = "Deployment"
+		o.APIVersion = appsV1
+	case *appsv1.StatefulSet:
+		o.Kind = "StatefulSet"
+		o.APIVersion = appsV1
+	case *appsv1.DaemonSet:
+		o.Kind = "DaemonSet"
+		o.APIVersion = appsV1
+	case *corev1.Node:
+		o.Kind = "Node"
+		o.APIVersion = v1
+	case *corev1.Namespace:
+		o.Kind = "Namespace"
+		o.APIVersion = v1
+	case *corev1.Service:
+		o.Kind = "Service"
+		o.APIVersion = v1
+	case *corev1.Pod:
+		// Do not process not static pods.
+		if !isStaticPod(o) {
+			return
+		}
+	case *rbacv1.ClusterRoleBinding:
+		o.Kind = "ClusterRoleBinding"
+		o.APIVersion = "rbac.authorization.k8s.io/v1"
+	default:
+		log.Error("object is not handled")
+		return
+	}
+
 	c.queue.Add(&Item{
 		Obj:   obj.(Object),
 		Event: e,
 	})
+}
+
+func isStaticPod(pod *corev1.Pod) bool {
+	if pod.Spec.NodeName == "" {
+		return false
+	}
+	return strings.HasSuffix(pod.ObjectMeta.Name, pod.Spec.NodeName)
 }
