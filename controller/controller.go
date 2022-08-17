@@ -18,7 +18,12 @@ import (
 	"github.com/castai/sec-agent/version"
 )
 
-func New(log logrus.FieldLogger, f informers.SharedInformerFactory, v version.Interface) *Controller {
+func New(
+	log logrus.FieldLogger,
+	f informers.SharedInformerFactory,
+	itemHandlers []ItemHandler,
+	v version.Interface,
+) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
 		reflect.TypeOf(&corev1.Node{}):                  f.Core().V1().Nodes().Informer(),
 		reflect.TypeOf(&corev1.PersistentVolume{}):      f.Core().V1().PersistentVolumes().Informer(),
@@ -46,6 +51,7 @@ func New(log logrus.FieldLogger, f informers.SharedInformerFactory, v version.In
 	c := &Controller{
 		log:             log,
 		informerFactory: f,
+		itemHandlers:    itemHandlers,
 		queue:           workqueue.NewNamed("castai-sec-agent"),
 		informers:       typeInformerMap,
 	}
@@ -57,6 +63,7 @@ func New(log logrus.FieldLogger, f informers.SharedInformerFactory, v version.In
 type Controller struct {
 	log             logrus.FieldLogger
 	informerFactory informers.SharedInformerFactory
+	itemHandlers    []ItemHandler
 	queue           workqueue.Interface
 	informers       map[reflect.Type]cache.SharedInformer
 }
@@ -102,12 +109,15 @@ func (c *Controller) pollQueueUntilShutdown() {
 func (c *Controller) processItem(i interface{}) {
 	defer c.queue.Done(i)
 
-	item, ok := i.(*item)
+	item, ok := i.(*Item)
 	if !ok {
-		c.log.Errorf("queue item is not of type *item")
+		c.log.Errorf("queue Item is not of type *Item")
 	}
+	c.log.Infof("processing item %v: %s", item.ObjectKey(), item.Event)
 
-	c.log.Infof("processing item %v: %s", reflect.TypeOf(item.obj), item.event)
+	for _, handler := range c.itemHandlers {
+		handler.Handle(item)
+	}
 }
 
 func (c *Controller) registerEventHandlers() {
@@ -123,40 +133,40 @@ func (c *Controller) registerEventHandlers() {
 func (c *Controller) createEventHandlers(log logrus.FieldLogger, typ reflect.Type) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.deletedUnknownHandler(log, eventAdd, obj, func(log logrus.FieldLogger, e event, obj interface{}) {
+			c.deletedUnknownHandler(log, EventAdd, obj, func(log logrus.FieldLogger, e Event, obj interface{}) {
 				c.genericHandler(log, typ, e, obj)
 			})
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.deletedUnknownHandler(log, eventUpdate, newObj, func(log logrus.FieldLogger, e event, obj interface{}) {
+			c.deletedUnknownHandler(log, EventUpdate, newObj, func(log logrus.FieldLogger, e Event, obj interface{}) {
 				c.genericHandler(log, typ, e, obj)
 			})
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.deletedUnknownHandler(log, eventDelete, obj, func(log logrus.FieldLogger, e event, obj interface{}) {
+			c.deletedUnknownHandler(log, EventDelete, obj, func(log logrus.FieldLogger, e Event, obj interface{}) {
 				c.genericHandler(log, typ, e, obj)
 			})
 		},
 	}
 }
 
-type handlerFunc func(log logrus.FieldLogger, event event, obj interface{})
+type handlerFunc func(log logrus.FieldLogger, event Event, obj interface{})
 
-// deletedUnknownHandler is used to handle cache.DeletedFinalStateUnknown where an object was deleted but the watch
-// deletion event was missed while disconnected from the api-server.
-func (c *Controller) deletedUnknownHandler(log logrus.FieldLogger, e event, obj interface{}, next handlerFunc) {
+// deletedUnknownHandler is used to handle cache.DeletedFinalStateUnknown where an Object was deleted but the watch
+// deletion Event was missed while disconnected from the api-server.
+func (c *Controller) deletedUnknownHandler(log logrus.FieldLogger, e Event, obj interface{}, next handlerFunc) {
 	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		next(log, eventDelete, deleted.Obj)
+		next(log, EventDelete, deleted.Obj)
 	} else {
 		next(log, e, obj)
 	}
 }
 
-// genericHandler is used to add an object to the queue.
+// genericHandler is used to add an Object to the queue.
 func (c *Controller) genericHandler(
 	log logrus.FieldLogger,
 	expected reflect.Type,
-	e event,
+	e Event,
 	obj interface{},
 ) {
 	if reflect.TypeOf(obj) != expected {
@@ -164,8 +174,8 @@ func (c *Controller) genericHandler(
 		return
 	}
 
-	c.queue.Add(&item{
-		obj:   obj.(object),
-		event: e,
+	c.queue.Add(&Item{
+		Obj:   obj.(Object),
+		Event: e,
 	})
 }
