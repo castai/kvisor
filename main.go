@@ -14,6 +14,7 @@ import (
 
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/linters/kubelinter"
 	"github.com/castai/sec-agent/version"
 
 	"github.com/cenkalti/backoff/v4"
@@ -120,8 +121,13 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
+	kubelinterHandler := kubelinter.NewHandler(log)
+
+	itemHandlers := []controller.ItemHandler{
+		kubelinterHandler,
+	}
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	ctrl := controller.New(log, informersFactory, k8sVersion)
+	ctrl := controller.New(log, informersFactory, itemHandlers, k8sVersion)
 
 	work := func(ctx context.Context) {
 		if err := ctrl.Run(ctx); err != nil {
