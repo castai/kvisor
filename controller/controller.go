@@ -111,8 +111,8 @@ func (c *Controller) shutdownSubscribers() error {
 	doneChan := make(chan struct{})
 
 	for _, subscriber := range c.subscribers {
+		wg.Add(1)
 		go func(subscriber ObjectSubscriber) {
-			wg.Add(1)
 			defer wg.Done()
 			if err := subscriber.Shutdown(shutdownCtx); err != nil {
 				c.log.Error(err)
