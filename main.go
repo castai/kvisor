@@ -10,7 +10,11 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/informers"
+
 	"github.com/castai/sec-agent/config"
+	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/linters/kubelinter"
 	"github.com/castai/sec-agent/version"
 
 	"github.com/cenkalti/backoff/v4"
@@ -57,7 +61,6 @@ func main() {
 		}
 		log.Fatalf("castai-sec-agent failed: %v", err)
 	}
-
 }
 
 func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion) (reterr error) {
@@ -118,16 +121,18 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
-	// TODO: do actual work.
+	kubelinterHandler := kubelinter.NewHandler(log)
+
+	itemHandlers := []controller.ItemHandler{
+		kubelinterHandler,
+	}
+	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
+	ctrl := controller.New(log, informersFactory, itemHandlers, k8sVersion)
+
 	work := func(ctx context.Context) {
-		for range time.Tick(time.Second) {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				// https://en.wikipedia.org/wiki/Heart_sounds
-				fmt.Println("lub dub")
-			}
+		if err := ctrl.Run(ctx); err != nil {
+			log.Errorf("running controller: %v", err)
+			return
 		}
 	}
 
