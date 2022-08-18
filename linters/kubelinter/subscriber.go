@@ -33,20 +33,20 @@ func NewSubscriber(log logrus.FieldLogger) controller.ObjectSubscriber {
 	linter := New(rules)
 
 	return &Subscriber{
-		ctx:       ctx,
-		cancel:    cancel,
-		linter:    linter,
-		debouncer: newDebouncer(),
-		log:       log,
+		ctx:    ctx,
+		cancel: cancel,
+		linter: linter,
+		delta:  newDeltaState(),
+		log:    log,
 	}
 }
 
 type Subscriber struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	linter    *Linter
-	debouncer *debouncer
-	log       logrus.FieldLogger
+	ctx    context.Context
+	cancel context.CancelFunc
+	linter *Linter
+	delta  *deltaState
+	log    logrus.FieldLogger
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -59,7 +59,7 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(15 * time.Second):
-			s.lintObjects(s.debouncer.flush())
+			s.lintObjects(s.delta.flush())
 		}
 	}
 }
@@ -75,18 +75,18 @@ func (s *Subscriber) Supports(typ reflect.Type) bool {
 }
 
 func (s *Subscriber) OnAdd(obj interface{}) {
-	s.debounce(eventAdd, obj)
+	s.modifyDelta(eventAdd, obj)
 }
 
 func (s *Subscriber) OnUpdate(_, newObj interface{}) {
-	s.debounce(eventUpdate, newObj)
+	s.modifyDelta(eventUpdate, newObj)
 }
 
 func (s *Subscriber) OnDelete(obj interface{}) {
-	s.debounce(eventDelete, obj)
+	s.modifyDelta(eventDelete, obj)
 }
 
-func (s *Subscriber) debounce(event event, o interface{}) {
+func (s *Subscriber) modifyDelta(event event, o interface{}) {
 	// Map missing metadata since kubernetes client removes object kind and api version information.
 	appsV1 := "apps/v1"
 	v1 := "v1"
@@ -126,11 +126,11 @@ func (s *Subscriber) debounce(event event, o interface{}) {
 
 	switch event {
 	case eventAdd:
-		s.debouncer.add(o.(object))
+		s.delta.add(o.(object))
 	case eventUpdate:
-		s.debouncer.add(o.(object))
+		s.delta.add(o.(object))
 	case eventDelete:
-		s.debouncer.delete(o.(object))
+		s.delta.delete(o.(object))
 	}
 }
 

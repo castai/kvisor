@@ -51,31 +51,31 @@ type object interface {
 	metav1.Object
 }
 
-func newDebouncer() *debouncer {
-	return &debouncer{
+func newDeltaState() *deltaState {
+	return &deltaState{
 		objectMap: make(map[object]struct{}),
 		mutex:     sync.Mutex{},
 	}
 }
 
-type debouncer struct {
+type deltaState struct {
 	objectMap map[object]struct{}
 	mutex     sync.Mutex
 }
 
-func (d *debouncer) add(o object) {
+func (d *deltaState) add(o object) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.objectMap[o] = struct{}{}
 }
 
-func (d *debouncer) delete(o object) {
+func (d *deltaState) delete(o object) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	delete(d.objectMap, o)
 }
 
-func (d *debouncer) flush() []object {
+func (d *deltaState) flush() []object {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	defer func() {
