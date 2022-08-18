@@ -10,6 +10,7 @@ import (
 type ObjectSubscriber interface {
 	cache.ResourceEventHandler
 
+	Run(ctx context.Context) error
+	RequiredInformers() []reflect.Type
 	Supports(typ reflect.Type) bool
-	Shutdown(ctx context.Context) error
 }

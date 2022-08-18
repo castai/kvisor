@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
-	batch "google.golang.org/genproto/googleapis/cloud/batch/v1alpha1"
+	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/informers"
@@ -30,7 +29,7 @@ func New(
 		reflect.TypeOf(&appsv1.Deployment{}):         f.Apps().V1().Deployments().Informer(),
 		reflect.TypeOf(&appsv1.DaemonSet{}):          f.Apps().V1().DaemonSets().Informer(),
 		reflect.TypeOf(&appsv1.StatefulSet{}):        f.Apps().V1().StatefulSets().Informer(),
-		reflect.TypeOf(&batch.Job{}):                 f.Batch().V1().Jobs().Informer(),
+		reflect.TypeOf(&batchv1.Job{}):               f.Batch().V1().Jobs().Informer(),
 	}
 
 	c := &Controller{
@@ -61,22 +60,35 @@ type Controller struct {
 func (c *Controller) Run(ctx context.Context) error {
 	c.informerFactory.Start(ctx.Done())
 
-	syncs := make([]cache.InformerSynced, 0, len(c.informers))
-	for _, informer := range c.informers {
+	errGroup, ctx := errgroup.WithContext(ctx)
+	for _, subscriber := range c.subscribers {
+		func(ctx context.Context, subscriber ObjectSubscriber) {
+			errGroup.Go(func() error {
+				return c.runSubscriber(ctx, subscriber)
+			})
+		}(ctx, subscriber)
+	}
+
+	return errGroup.Wait()
+}
+
+func (c *Controller) runSubscriber(ctx context.Context, subscriber ObjectSubscriber) error {
+	requiredInformerTypes := subscriber.RequiredInformers()
+	syncs := make([]cache.InformerSynced, 0, len(requiredInformerTypes))
+
+	for _, typ := range requiredInformerTypes {
+		informer, ok := c.informers[typ]
+		if !ok {
+			return fmt.Errorf("no informer for type %q", typ.Name())
+		}
 		syncs = append(syncs, informer.HasSynced)
 	}
 
-	waitStartedAt := time.Now()
-	c.log.Infof("waiting for %d informers cache to sync", len(syncs))
-	if !cache.WaitForCacheSync(ctx.Done(), syncs...) {
-		c.log.Error("failed to sync")
+	if len(syncs) > 0 && !cache.WaitForCacheSync(ctx.Done(), syncs...) {
 		return fmt.Errorf("failed to wait for cache sync")
 	}
-	c.log.Infof("informers cache synced after %v", time.Since(waitStartedAt))
 
-	<-ctx.Done()
-
-	return c.shutdownSubscribers()
+	return subscriber.Run(ctx)
 }
 
 func (c *Controller) wrapHandler(handler cache.ResourceEventHandler) cache.ResourceEventHandler {
@@ -100,35 +112,5 @@ func (c *Controller) wrapHandler(handler cache.ResourceEventHandler) cache.Resou
 		DeleteFunc: func(obj interface{}) {
 			handler.OnDelete(obj)
 		},
-	}
-}
-
-func (c *Controller) shutdownSubscribers() error {
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
-
-	wg := sync.WaitGroup{}
-	doneChan := make(chan struct{})
-
-	for _, subscriber := range c.subscribers {
-		wg.Add(1)
-		go func(subscriber ObjectSubscriber) {
-			defer wg.Done()
-			if err := subscriber.Shutdown(shutdownCtx); err != nil {
-				c.log.Error(err)
-			}
-		}(subscriber)
-	}
-
-	go func() {
-		wg.Wait()
-		doneChan <- struct{}{}
-	}()
-
-	select {
-	case <-doneChan:
-		return nil
-	case <-shutdownCtx.Done():
-		return fmt.Errorf("shutdown timed out")
 	}
 }

@@ -1,7 +1,7 @@
 package kubelinter
 
 import (
-	"fmt"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,18 +51,41 @@ type object interface {
 	metav1.Object
 }
 
-type queueItem struct {
-	obj   object
-	event event
+func newDebouncer() *debouncer {
+	return &debouncer{
+		objectMap: make(map[object]struct{}),
+		mutex:     sync.Mutex{},
+	}
 }
 
-func (i *queueItem) ObjectKey() string {
-	kind := i.obj.GetObjectKind().GroupVersionKind()
-	return fmt.Sprintf(
-		"%s/%s/%s/%s",
-		kind.Version,
-		kind.Kind,
-		i.obj.GetNamespace(),
-		i.obj.GetName(),
-	)
+type debouncer struct {
+	objectMap map[object]struct{}
+	mutex     sync.Mutex
+}
+
+func (d *debouncer) add(o object) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.objectMap[o] = struct{}{}
+}
+
+func (d *debouncer) delete(o object) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	delete(d.objectMap, o)
+}
+
+func (d *debouncer) flush() []object {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	defer func() {
+		d.objectMap = make(map[object]struct{})
+	}()
+
+	res := make([]object, 0, len(d.objectMap))
+	for o := range d.objectMap {
+		res = append(res, o)
+	}
+
+	return res
 }

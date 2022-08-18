@@ -2,29 +2,29 @@ package kubelinter
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"strings"
+	"time"
 
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/castai/sec-agent/controller"
 )
 
-var supportedTypes = map[reflect.Type]struct{}{
-	reflect.TypeOf(&corev1.Node{}):               {},
-	reflect.TypeOf(&corev1.Pod{}):                {},
-	reflect.TypeOf(&corev1.Namespace{}):          {},
-	reflect.TypeOf(&corev1.Service{}):            {},
-	reflect.TypeOf(&rbacv1.ClusterRoleBinding{}): {},
-	reflect.TypeOf(&appsv1.Deployment{}):         {},
-	reflect.TypeOf(&appsv1.DaemonSet{}):          {},
-	reflect.TypeOf(&appsv1.StatefulSet{}):        {},
+var supportedTypes = []reflect.Type{
+	//reflect.TypeOf(&corev1.Node{}),
+	reflect.TypeOf(&corev1.Pod{}),
+	reflect.TypeOf(&corev1.Namespace{}),
+	reflect.TypeOf(&corev1.Service{}),
+	reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
+	reflect.TypeOf(&appsv1.Deployment{}),
+	reflect.TypeOf(&appsv1.DaemonSet{}),
+	reflect.TypeOf(&appsv1.StatefulSet{}),
 }
 
 func NewSubscriber(log logrus.FieldLogger) controller.ObjectSubscriber {
@@ -32,56 +32,61 @@ func NewSubscriber(log logrus.FieldLogger) controller.ObjectSubscriber {
 
 	linter := New(rules)
 
-	s := &Subscriber{
-		ctx:    ctx,
-		cancel: cancel,
-		queue:  workqueue.NewNamed("castai-sec-agent-kubelinter"),
-		linter: linter,
-		log:    log,
+	return &Subscriber{
+		ctx:       ctx,
+		cancel:    cancel,
+		linter:    linter,
+		debouncer: newDebouncer(),
+		log:       log,
 	}
-
-	go s.loop()
-
-	return s
 }
 
 type Subscriber struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	queue  workqueue.Interface
-	linter *Linter
-	log    logrus.FieldLogger
+	ctx       context.Context
+	cancel    context.CancelFunc
+	linter    *Linter
+	debouncer *debouncer
+	log       logrus.FieldLogger
 }
 
-func (s *Subscriber) Supports(typ reflect.Type) bool {
-	_, ok := supportedTypes[typ]
-	return ok
+func (s *Subscriber) RequiredInformers() []reflect.Type {
+	return supportedTypes
 }
 
-func (s *Subscriber) Shutdown(shutdownCtx context.Context) error {
-	s.queue.ShutDown()
-
-	select {
-	case <-s.ctx.Done():
-		return nil
-	case <-shutdownCtx.Done():
-		return errors.New("kubelinter subscriber shutdown timed out")
+func (s *Subscriber) Run(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(15 * time.Second):
+			s.lintObjects(s.debouncer.flush())
+		}
 	}
 }
 
+func (s *Subscriber) Supports(typ reflect.Type) bool {
+	for i := range supportedTypes {
+		if supportedTypes[i] == typ {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (s *Subscriber) OnAdd(obj interface{}) {
-	s.queueObject(eventAdd, obj)
+	s.debounce(eventAdd, obj)
 }
 
 func (s *Subscriber) OnUpdate(_, newObj interface{}) {
-	s.queueObject(eventUpdate, newObj)
+	s.debounce(eventUpdate, newObj)
 }
 
 func (s *Subscriber) OnDelete(obj interface{}) {
-	s.queueObject(eventDelete, obj)
+	s.debounce(eventDelete, obj)
 }
 
-func (s *Subscriber) queueObject(event event, o interface{}) {
+func (s *Subscriber) debounce(event event, o interface{}) {
 	// Map missing metadata since kubernetes client removes object kind and api version information.
 	appsV1 := "apps/v1"
 	v1 := "v1"
@@ -119,42 +124,26 @@ func (s *Subscriber) queueObject(event event, o interface{}) {
 	}
 	// TODO: Add jobs, cronjobs and other resources for kubelinter.
 
-	s.queue.Add(&queueItem{
-		obj:   o.(object),
-		event: event,
-	})
-}
-
-func (s *Subscriber) loop() {
-	for {
-		item, shutdown := s.queue.Get()
-		if shutdown {
-			s.cancel()
-			return
-		}
-
-		s.lintItem(item)
+	switch event {
+	case eventAdd:
+		s.debouncer.add(o.(object))
+	case eventUpdate:
+		s.debouncer.add(o.(object))
+	case eventDelete:
+		s.debouncer.delete(o.(object))
 	}
 }
 
-func (s *Subscriber) lintItem(i interface{}) {
-	defer s.queue.Done(i)
-
-	item, ok := i.(*queueItem)
-	if !ok {
-		s.log.Errorf("queue item is not of type *queueItem")
+func (s *Subscriber) lintObjects(objects []object) {
+	checks, err := s.linter.Run(lo.Map(objects, func(o object, i int) lintcontext.Object {
+		return lintcontext.Object{K8sObject: o}
+	}))
+	if err != nil {
+		s.log.Errorf("lint failed: %v", err)
 		return
 	}
 
-	if item.event == eventAdd || item.event == eventUpdate {
-		checks, err := s.linter.Run([]lintcontext.Object{{K8sObject: item.obj}})
-		if err != nil {
-			s.log.Errorf("lint failed: %v", err)
-			return
-		}
-
-		s.log.Infof("lint finished, checks: %d", len(checks))
-	}
+	s.log.Infof("lint finished, checks: %d", len(checks))
 }
 
 func isStaticPod(pod *corev1.Pod) bool {
