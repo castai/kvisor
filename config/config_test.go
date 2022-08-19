@@ -3,22 +3,33 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
-	require.NoError(t, os.Setenv("KUBECONFIG", "~/.kube/config"))
-	require.NoError(t, os.Setenv("LEADER_ELECTION_ENABLED", "true"))
-	require.NoError(t, os.Setenv("LEADER_ELECTION_NAMESPACE", "castai-sec-agent"))
-	require.NoError(t, os.Setenv("LEADER_ELECTION_LOCK_NAME", "castai-sec-agent"))
+	r := require.New(t)
+
+	r.NoError(os.Setenv("KUBECONFIG", "~/.kube/config"))
+	r.NoError(os.Setenv("LEADER_ELECTION_ENABLED", "true"))
+	r.NoError(os.Setenv("LEADER_ELECTION_NAMESPACE", "castai-sec-agent"))
+	r.NoError(os.Setenv("LEADER_ELECTION_LOCK_NAME", "castai-sec-agent"))
+	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_ENABLED", "true"))
+	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_INTERVAL", "15s"))
+	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS", "5"))
+	r.NoError(os.Setenv("FEATURES_KUBEBENCH_ENABLED", "true"))
+	r.NoError(os.Setenv("FEATURES_KUBELINTER_ENABLED", "true"))
 
 	cfg := Get()
 
-	require.Equal(t, "~/.kube/config", cfg.Kubeconfig)
-	require.Equal(t, true, cfg.LeaderElection.Enabled)
-	require.Equal(t, "castai-sec-agent", cfg.LeaderElection.Namespace)
-	require.Equal(t, "castai-sec-agent", cfg.LeaderElection.LockName)
-	require.Equal(t, 25, cfg.KubeClient.QPS)
-	require.Equal(t, 150, cfg.KubeClient.Burst)
+	r.Equal("~/.kube/config", cfg.Kubeconfig)
+	r.Equal(true, cfg.LeaderElection.Enabled)
+	r.Equal("castai-sec-agent", cfg.LeaderElection.Namespace)
+	r.Equal("castai-sec-agent", cfg.LeaderElection.LockName)
+	r.Equal(25, cfg.KubeClient.QPS)
+	r.Equal(150, cfg.KubeClient.Burst)
+	r.Equal(ImageScan(ImageScan{Enabled: true, ScanInterval: 15 * time.Second, MaxConcurrentScans: 5}), cfg.Features.ImageScan)
+	r.Equal(KubeBench{Enabled: true}, cfg.Features.KubeBench)
+	r.Equal(KubeLinter{Enabled: true}, cfg.Features.KubeLinter)
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -16,6 +17,27 @@ type Config struct {
 	PprofPort      int
 	ClusterID      string
 	Provider       string
+	Features       Features
+}
+
+type Features struct {
+	ImageScan  ImageScan
+	KubeLinter KubeLinter
+	KubeBench  KubeBench
+}
+
+type ImageScan struct {
+	Enabled            bool
+	ScanInterval       time.Duration
+	MaxConcurrentScans int64
+}
+
+type KubeLinter struct {
+	Enabled bool
+}
+
+type KubeBench struct {
+	Enabled bool
 }
 
 type KubeClient struct {
@@ -61,6 +83,11 @@ func Get() Config {
 	_ = viper.BindEnv("leaderelection.lockname", "LEADER_ELECTION_LOCK_NAME")
 	_ = viper.BindEnv("pprofport", "PPROF_PORT")
 	_ = viper.BindEnv("provider", "PROVIDER")
+	_ = viper.BindEnv("features.imagescan.enabled", "FEATURES_IMAGE_SCAN_ENABLED")
+	_ = viper.BindEnv("features.imagescan.scaninterval", "FEATURES_IMAGE_SCAN_INTERVAL")
+	_ = viper.BindEnv("features.imagescan.maxconcurrentscans", "FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS")
+	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
+	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
 
 	cfg = &Config{}
 	if err := viper.Unmarshal(&cfg); err != nil {

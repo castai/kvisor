@@ -15,6 +15,7 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/imagescan"
 	"github.com/castai/sec-agent/linters/kubebench"
 	"github.com/castai/sec-agent/linters/kubelinter"
 	agentlog "github.com/castai/sec-agent/log"
@@ -110,7 +111,6 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 	log := logger.WithFields(logrus.Fields{
 		"version":     binVersion.Version,
 		"k8s_version": k8sVersion.Full(),
-		"provider":    cfg.Provider,
 	})
 
 	httpMux := http.NewServeMux()
@@ -136,9 +136,25 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
-	objectSubscribers := []controller.ObjectSubscriber{
-		kubelinter.NewSubscriber(log),
-		kubebench.NewSubscriber(log, clientset, cfg.Provider),
+	var objectSubscribers []controller.ObjectSubscriber
+	if cfg.Features.KubeLinter.Enabled {
+		log.Info("kubelinter enabled")
+		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log))
+	}
+	if cfg.Features.KubeBench.Enabled {
+		log.Info("kubebench enabled")
+		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.Provider))
+	}
+	if cfg.Features.ImageScan.Enabled {
+		log.Info("imagescan enabled")
+		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(log, imagescan.Config{
+			ScanInterval:       cfg.Features.ImageScan.ScanInterval,
+			MaxConcurrentScans: cfg.Features.ImageScan.MaxConcurrentScans,
+		}, imagescan.NewImageScanner(clientset)))
+	}
+
+	if len(objectSubscribers) == 0 {
+		log.Fatal("no features enabled")
 	}
 
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
