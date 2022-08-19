@@ -71,7 +71,7 @@ type Linter struct {
 	checks []string
 }
 
-func (l *Linter) Run(objects []lintcontext.Object) ([]types.LintCheck, error) {
+func (l *Linter) Run(objects []lintcontext.Object) ([]LintCheck, error) {
 	registry := checkregistry.New()
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
@@ -98,7 +98,7 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]types.LintCheck, error) {
 
 	// For wow we group by objects and do not include multiple diagnostics, eg. pod with multiple containers.
 	// Kubelinter can report issues on container level, but container name is included only as string in diagnostic message.
-	checks := make(map[string]types.LintCheck)
+	checks := make(map[string]LintCheck)
 	for _, check := range res.Reports {
 		obj := check.Object.K8sObject
 
@@ -108,7 +108,7 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]types.LintCheck, error) {
 			apiVersion = fmt.Sprintf("%s/%s", kind.Group, kind.Version)
 		}
 
-		resCheck := types.LintCheck{
+		resCheck := LintCheck{
 			ID:      check.Check,
 			Message: check.Diagnostic.Message,
 			Failed:  check.Diagnostic.Message != "",

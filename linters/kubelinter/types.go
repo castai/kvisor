@@ -3,8 +3,8 @@ package kubelinter
 import (
 	"sync"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/types"
 )
 
 var rules = []string{
@@ -38,52 +38,55 @@ var rules = []string{
 	"writable-host-mount",
 }
 
-type event string
+type LintCheck struct {
+	ID       string
+	Message  string
+	Resource types.Resource
+	Linter   string
+	Failed   bool
+	Category string
+}
 
-const (
-	eventAdd    event = "add"
-	eventDelete event = "delete"
-	eventUpdate event = "update"
-)
-
-type object interface {
-	runtime.Object
-	metav1.Object
+func (c *LintCheck) ObjectKey() string {
+	return c.Resource.ObjectKey()
 }
 
 func newDeltaState() *deltaState {
 	return &deltaState{
-		objectMap: make(map[object]struct{}),
-		mutex:     sync.Mutex{},
+		objectMap: make(map[string]controller.Object),
+		mu:        sync.Mutex{},
 	}
 }
 
 type deltaState struct {
-	objectMap map[object]struct{}
-	mutex     sync.Mutex
+	objectMap map[string]controller.Object
+	mu        sync.Mutex
 }
 
-func (d *deltaState) add(o object) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	d.objectMap[o] = struct{}{}
+func (d *deltaState) upsert(o controller.Object) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	key := controller.ObjectKey(o)
+	d.objectMap[key] = o
 }
 
-func (d *deltaState) delete(o object) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	delete(d.objectMap, o)
+func (d *deltaState) delete(o controller.Object) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	delete(d.objectMap, controller.ObjectKey(o))
 }
 
-func (d *deltaState) flush() []object {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+func (d *deltaState) flush() []controller.Object {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	defer func() {
-		d.objectMap = make(map[object]struct{})
+		d.objectMap = make(map[string]controller.Object)
 	}()
 
-	res := make([]object, 0, len(d.objectMap))
-	for o := range d.objectMap {
+	res := make([]controller.Object, 0, len(d.objectMap))
+	for _, o := range d.objectMap {
 		res = append(res, o)
 	}
 
