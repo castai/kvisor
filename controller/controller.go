@@ -91,26 +91,70 @@ func (c *Controller) runSubscriber(ctx context.Context, subscriber ObjectSubscri
 	return subscriber.Run(ctx)
 }
 
-func (c *Controller) wrapHandler(handler cache.ResourceEventHandler) cache.ResourceEventHandler {
+func (c *Controller) wrapHandler(handler ResourceEventHandler) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			deleted, ok := obj.(cache.DeletedFinalStateUnknown)
-			if ok {
-				handler.OnDelete(deleted)
-			} else {
-				handler.OnAdd(obj)
-			}
+			deletedUnknownHandler(obj, handler.OnDelete, handler.OnAdd)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			deleted, ok := newObj.(cache.DeletedFinalStateUnknown)
-			if ok {
-				handler.OnDelete(deleted)
-			} else {
-				handler.OnUpdate(oldObj, newObj)
-			}
+			deletedUnknownHandler(newObj, handler.OnDelete, handler.OnUpdate)
 		},
 		DeleteFunc: func(obj interface{}) {
-			handler.OnDelete(obj)
+			deletedUnknownHandler(obj, handler.OnDelete, handler.OnDelete)
 		},
+	}
+}
+
+type handlerFunc func(obj Object)
+
+// deletedUnknownHandler is used to handle cache.DeletedFinalStateUnknown where an Object was deleted but the watch
+// deletion Event was missed while disconnected from the api-server.
+func deletedUnknownHandler(obj interface{}, deletedHandler, nextHandler handlerFunc) {
+	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj, ok := deleted.Obj.(Object)
+		if !ok {
+			return
+		}
+		addObjectMeta(obj)
+		deletedHandler(obj)
+	} else {
+		obj, ok := obj.(Object)
+		if !ok {
+			return
+		}
+		addObjectMeta(obj)
+		nextHandler(obj)
+	}
+}
+
+// addObjectMeta adds missing metadata since kubernetes client removes object kind and api version information.
+func addObjectMeta(o Object) {
+	appsV1 := "apps/v1"
+	v1 := "v1"
+	switch o := o.(type) {
+	case *appsv1.Deployment:
+		o.Kind = "Deployment"
+		o.APIVersion = appsV1
+	case *appsv1.StatefulSet:
+		o.Kind = "StatefulSet"
+		o.APIVersion = appsV1
+	case *appsv1.DaemonSet:
+		o.Kind = "DaemonSet"
+		o.APIVersion = appsV1
+	case *corev1.Node:
+		o.Kind = "Node"
+		o.APIVersion = v1
+	case *corev1.Namespace:
+		o.Kind = "Namespace"
+		o.APIVersion = v1
+	case *corev1.Service:
+		o.Kind = "Service"
+		o.APIVersion = v1
+	case *corev1.Pod:
+		o.Kind = "Pod"
+		o.APIVersion = v1
+	case *rbacv1.ClusterRoleBinding:
+		o.Kind = "ClusterRoleBinding"
+		o.APIVersion = "rbac.authorization.k8s.io/v1"
 	}
 }
