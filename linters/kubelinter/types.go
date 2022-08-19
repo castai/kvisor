@@ -1,7 +1,6 @@
 package kubelinter
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/castai/sec-agent/controller"
@@ -69,7 +68,6 @@ func (d *deltaState) upsert(o controller.Object) {
 	defer d.mu.Unlock()
 
 	key := controller.ObjectKey(o)
-	fmt.Println(key)
 	d.objectMap[key] = o
 }
 
