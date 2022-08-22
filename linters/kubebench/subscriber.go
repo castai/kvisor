@@ -45,12 +45,13 @@ func (s *Subscriber) OnDelete(obj controller.Object) {
 }
 
 func (s *Subscriber) Run(ctx context.Context) error {
-	ticker := time.Tick(scanInterval)
+	ticker := time.NewTicker(scanInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker:
+		case <-ticker.C:
 			go s.lintNodes(ctx, s.delta.flush())
 		}
 	}
