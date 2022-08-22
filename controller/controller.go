@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -64,7 +65,12 @@ func (c *Controller) Run(ctx context.Context) error {
 	for _, subscriber := range c.subscribers {
 		func(ctx context.Context, subscriber ObjectSubscriber) {
 			errGroup.Go(func() error {
-				return c.runSubscriber(ctx, subscriber)
+				err := c.runSubscriber(ctx, subscriber)
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+
+				return err
 			})
 		}(ctx, subscriber)
 	}

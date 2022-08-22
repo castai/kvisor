@@ -13,6 +13,7 @@ type Config struct {
 	LeaderElection LeaderElection
 	Log            Log
 	PprofPort      int
+	Provider       string
 }
 
 type KubeClient struct {
@@ -49,6 +50,7 @@ func Get() Config {
 	_ = viper.BindEnv("leaderelection.namespace", "LEADER_ELECTION_NAMESPACE")
 	_ = viper.BindEnv("leaderelection.lockname", "LEADER_ELECTION_LOCK_NAME")
 	_ = viper.BindEnv("pprofport", "PPROF_PORT")
+	_ = viper.BindEnv("provider", "PROVIDER")
 
 	cfg = &Config{}
 	if err := viper.Unmarshal(&cfg); err != nil {
@@ -74,6 +76,9 @@ func Get() Config {
 	}
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6060
+	}
+	if cfg.Provider == "" {
+		cfg.Provider = "on-premise"
 	}
 
 	return *cfg
