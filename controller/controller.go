@@ -42,8 +42,10 @@ func New(
 
 	for typ, informer := range c.informers {
 		for _, subscriber := range c.subscribers {
-			if subscriber.Supports(typ) {
-				informer.AddEventHandler(c.wrapHandler(subscriber))
+			for _, supportedType := range subscriber.RequiredInformers() {
+				if supportedType == typ {
+					informer.AddEventHandler(c.wrapHandler(subscriber))
+				}
 			}
 		}
 	}

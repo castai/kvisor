@@ -63,16 +63,6 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) Supports(typ reflect.Type) bool {
-	for i := range supportedTypes {
-		if supportedTypes[i] == typ {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (s *Subscriber) OnAdd(obj controller.Object) {
 	s.modifyDelta(controller.EventAdd, obj)
 }

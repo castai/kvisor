@@ -36,8 +36,8 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	s.delta.upsert(obj)
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
-	s.delta.upsert(obj)
+func (s *Subscriber) OnUpdate(_ controller.Object) {
+	// do not run on updates
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
@@ -52,7 +52,7 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			go s.lintNodes(ctx, s.delta.flush())
+			s.lintNodes(ctx, s.delta.flush())
 		}
 	}
 }
@@ -61,29 +61,30 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	return []reflect.Type{reflect.TypeOf(&corev1.Node{})}
 }
 
-func (s *Subscriber) Supports(typ reflect.Type) bool {
-	return typ == reflect.TypeOf(&corev1.Node{})
-}
+func (s *Subscriber) lintNodes(ctx context.Context, objects []controller.Object) {
+	for _, object := range objects {
+		node, ok := object.(*corev1.Node)
+		if !ok {
+			continue
+		}
 
-func (s *Subscriber) lintNodes(ctx context.Context, nodes []controller.Object) {
-	for _, node := range nodes {
 		jobName := "kube-bench-node-" + node.GetName()
-		err := s.client.BatchV1().Jobs("castai-sec-agent").Delete(ctx, jobName, metav1.DeleteOptions{
+		err := s.client.BatchV1().Jobs("castai-sec").Delete(ctx, jobName, metav1.DeleteOptions{
 			PropagationPolicy: lo.ToPtr(metav1.DeletionPropagation("Background")),
 		})
-		if err != nil {
-			if statusErr, ok := err.(*errors.StatusError); !ok || statusErr.Status().Reason != metav1.StatusReasonNotFound {
-				s.log.WithError(err).Errorf("can not delete job %q", jobName)
-			}
+		if err != nil && !errors.IsNotFound(err) {
+			s.log.WithError(err).Errorf("can not delete job %q", jobName)
+			return
 		}
 
 		specFn := resolveSpec(s.provider, node)
 
 		_, err = s.client.BatchV1().
-			Jobs("castai-sec-agent").
+			Jobs("castai-sec").
 			Create(ctx, specFn(node.GetName(), jobName), metav1.CreateOptions{})
 		if err != nil {
 			s.log.WithError(err).Error("can not create kube-bench scan job")
+			return
 		}
 
 		s.log.Infof("job %q created", jobName)
