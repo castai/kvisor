@@ -54,7 +54,7 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	resp, err := c.rest.R().
 		SetBody(req).
 		SetContext(ctx).
-		Post(fmt.Sprintf("/v1/security/insights/%s/logs", c.clusterID))
+		Post(fmt.Sprintf("/v1/security/insights/%s/log", c.clusterID))
 
 	if err != nil {
 		return fmt.Errorf("sending logs: %w", err)
