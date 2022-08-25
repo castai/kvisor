@@ -4,12 +4,14 @@ go 1.18
 
 require (
 	github.com/cenkalti/backoff/v4 v4.1.3
+	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/samber/lo v1.27.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.stackrox.io/kube-linter v0.0.0-20220527124635-d2add731b059
 	k8s.io/api v0.24.3
 	k8s.io/apimachinery v0.24.3
@@ -108,7 +110,6 @@ require (
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
