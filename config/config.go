@@ -12,7 +12,9 @@ type Config struct {
 	Kubeconfig     string
 	LeaderElection LeaderElection
 	Log            Log
+	API            API
 	PprofPort      int
+	ClusterID      string
 	Provider       string
 }
 
@@ -35,6 +37,11 @@ type Log struct {
 	Level int
 }
 
+type API struct {
+	Key string
+	URL string
+}
+
 var cfg *Config
 
 func Get() Config {
@@ -42,6 +49,9 @@ func Get() Config {
 		return *cfg
 	}
 
+	_ = viper.BindEnv("api.key", "API_KEY")
+	_ = viper.BindEnv("api.url", "API_URL")
+	_ = viper.BindEnv("clusterid", "CLUSTER_ID")
 	_ = viper.BindEnv("kubeclient.qps", "KUBECLIENT_QPS")
 	_ = viper.BindEnv("kubeclient.burst", "KUBECLIENT_BURST")
 	_ = viper.BindEnv("kubeconfig")

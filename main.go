@@ -12,10 +12,12 @@ import (
 
 	"k8s.io/client-go/informers"
 
+	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/linters/kubebench"
 	"github.com/castai/sec-agent/linters/kubelinter"
+	agentlog "github.com/castai/sec-agent/log"
 	"github.com/castai/sec-agent/version"
 
 	"github.com/cenkalti/backoff/v4"
@@ -54,7 +56,16 @@ func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
 
+	client := castai.NewClient(
+		logger,
+		castai.NewDefaultClient(cfg.API.URL, cfg.API.Key, logger.Level, binVersion),
+		cfg.ClusterID,
+	)
+
 	log := logrus.WithFields(logrus.Fields{})
+	e := agentlog.NewExporter(logger, client)
+	logger.AddHook(e)
+	logrus.RegisterExitHandler(e.Wait)
 
 	ctx := signals.SetupSignalHandler()
 	if err := run(ctx, logger, cfg, binVersion); err != nil {
