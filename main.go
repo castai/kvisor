@@ -15,6 +15,7 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/linters/kubebench"
 	"github.com/castai/sec-agent/linters/kubelinter"
 	agentlog "github.com/castai/sec-agent/log"
 	"github.com/castai/sec-agent/version"
@@ -32,6 +33,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/flowcontrol"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 // These should be set via `go build` during a release.
@@ -107,6 +110,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 	log := logger.WithFields(logrus.Fields{
 		"version":     binVersion.Version,
 		"k8s_version": k8sVersion.Full(),
+		"provider":    cfg.Provider,
 	})
 
 	httpMux := http.NewServeMux()
@@ -134,6 +138,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 
 	objectSubscribers := []controller.ObjectSubscriber{
 		kubelinter.NewSubscriber(log),
+		kubebench.NewSubscriber(log, clientset, cfg.Provider),
 	}
 
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)

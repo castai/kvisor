@@ -19,7 +19,6 @@ type ObjectSubscriber interface {
 	ResourceEventHandler
 	Run(ctx context.Context) error
 	RequiredInformers() []reflect.Type
-	Supports(typ reflect.Type) bool
 }
 
 type Event string

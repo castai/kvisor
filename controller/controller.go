@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -41,8 +42,10 @@ func New(
 
 	for typ, informer := range c.informers {
 		for _, subscriber := range c.subscribers {
-			if subscriber.Supports(typ) {
-				informer.AddEventHandler(c.wrapHandler(subscriber))
+			for _, supportedType := range subscriber.RequiredInformers() {
+				if supportedType == typ {
+					informer.AddEventHandler(c.wrapHandler(subscriber))
+				}
 			}
 		}
 	}
@@ -64,7 +67,12 @@ func (c *Controller) Run(ctx context.Context) error {
 	for _, subscriber := range c.subscribers {
 		func(ctx context.Context, subscriber ObjectSubscriber) {
 			errGroup.Go(func() error {
-				return c.runSubscriber(ctx, subscriber)
+				err := c.runSubscriber(ctx, subscriber)
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+
+				return err
 			})
 		}(ctx, subscriber)
 	}
