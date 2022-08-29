@@ -1,9 +1,10 @@
+//go:generate mockgen -source $GOFILE -destination ./mock/client.go . Client
+
 package castai
 
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -33,10 +34,10 @@ func NewClient(log *logrus.Logger, rest *resty.Client, clusterID string) Client 
 // NewDefaultClient configures a default instance of the resty.Client used to do HTTP requests.
 func NewDefaultClient(url, key string, level logrus.Level, binVersion *config.SecurityAgentVersion) *resty.Client {
 	client := resty.New()
-	client.SetHostURL(url)
+	client.SetBaseURL(url)
 	client.SetTimeout(5 * time.Minute) // Hard timeout for any request.
-	client.Header.Set(http.CanonicalHeaderKey(headerAPIKey), key)
-	client.Header.Set(http.CanonicalHeaderKey(headerUserAgent), "castai-sec-agent/"+binVersion.Version)
+	client.Header.Set(headerAPIKey, key)
+	client.Header.Set(headerUserAgent, "castai-sec-agent/"+binVersion.Version)
 	if level == logrus.TraceLevel {
 		client.SetDebug(true)
 	}
