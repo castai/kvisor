@@ -48,7 +48,7 @@ func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr erro
 	h := fnv.New128()
 	h.Write([]byte(cfg.ImageName))
 	imgHash := hex.EncodeToString(h.Sum(nil))
-	jobName := fmt.Sprintf("imgsan-%s", imgHash)
+	jobName := fmt.Sprintf("imgscan-%s", imgHash)
 
 	jobSpec := scanJobSpec(cfg.NodeName, cfg.ImageName, jobName)
 	jobs := s.client.BatchV1().Jobs(ns)

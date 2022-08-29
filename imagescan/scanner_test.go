@@ -16,7 +16,8 @@ import (
 
 func TestScanner(t *testing.T) {
 	r := require.New(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
@@ -24,7 +25,7 @@ func TestScanner(t *testing.T) {
 		job := &batchv1.Job{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "imgsan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
+				Name:      "imgscan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
 				Namespace: ns,
 			},
 			Spec: batchv1.JobSpec{},
