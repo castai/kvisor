@@ -70,7 +70,7 @@ func (s *Subscriber) lintNodes(ctx context.Context, objects []controller.Object)
 
 		jobName := "kube-bench-node-" + node.GetName()
 		err := s.client.BatchV1().Jobs("castai-sec").Delete(ctx, jobName, metav1.DeleteOptions{
-			PropagationPolicy: lo.ToPtr(metav1.DeletionPropagation("Background")),
+			PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
 		})
 		if err != nil && !errors.IsNotFound(err) {
 			s.log.WithError(err).Errorf("can not delete job %q", jobName)

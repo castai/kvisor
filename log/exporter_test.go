@@ -11,8 +11,8 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
-	"castai-agent/internal/castai"
-	mock_castai "castai-agent/internal/castai/mock"
+	"github.com/castai/sec-agent/castai"
+	mock_castai "github.com/castai/sec-agent/castai/mock"
 )
 
 func TestSetupLogExporter(t *testing.T) {
@@ -21,21 +21,22 @@ func TestSetupLogExporter(t *testing.T) {
 	mockClusterID := uuid.New().String()
 	ctrl := gomock.NewController(t)
 	mockapi := mock_castai.NewMockClient(ctrl)
-	SetupLogExporter(logger, nil, mockapi, &Config{ClusterID: mockClusterID, SendTimeout: time.Second})
+	e := NewExporter(logger, mockapi)
+	logger.AddHook(e)
 
 	t.Run("sends the log msg", func(t *testing.T) {
 		r := require.New(t)
 
-		mockapi.EXPECT().SendLogEvent(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_ context.Context, clusterID string, req *castai.IngestAgentLogsRequest) *castai.IngestAgentLogsResponse {
-				fields := req.LogEvent.Fields
+		mockapi.EXPECT().SendLogs(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *castai.LogEvent) error {
+				fields := req.Fields
 				r.Equal(mockClusterID, fields["cluster_id"])
 				r.Equal("eks", fields["provider"])
-				r.Equal("false", fields["sample_boolean_value"])
-				r.Equal("3", fields["int_val"])
-				r.Equal("1.000000004", fields["float_val"])
-				return &castai.IngestAgentLogsResponse{}
-			}).Return(&castai.IngestAgentLogsResponse{}, nil).Times(1)
+				r.Equal(false, fields["sample_boolean_value"])
+				r.Equal(3, fields["int_val"])
+				r.Equal(1.000000004, fields["float_val"])
+				return nil
+			}).Times(1)
 
 		log := logger.WithFields(logrus.Fields{
 			"cluster_id": mockClusterID,
