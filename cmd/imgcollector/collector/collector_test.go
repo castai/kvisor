@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/castai/sec-agent/cmd/artifacts-collector/config"
+	"github.com/castai/sec-agent/cmd/imgcollector/config"
 )
 
 func TestCollector(t *testing.T) {

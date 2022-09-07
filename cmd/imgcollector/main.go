@@ -5,8 +5,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/castai/sec-agent/cmd/artifacts-collector/collector"
-	"github.com/castai/sec-agent/cmd/artifacts-collector/config"
+	"github.com/castai/sec-agent/cmd/imgcollector/collector"
+	"github.com/castai/sec-agent/cmd/imgcollector/config"
 )
 
 func main() {

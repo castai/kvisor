@@ -9,8 +9,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
 
-	"github.com/castai/sec-agent/cmd/artifacts-collector/config"
-	"github.com/castai/sec-agent/cmd/artifacts-collector/image"
+	"github.com/castai/sec-agent/cmd/imgcollector/config"
+	"github.com/castai/sec-agent/cmd/imgcollector/image"
 
 	"gopkg.in/yaml.v3"
 
