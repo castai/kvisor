@@ -36,8 +36,15 @@ jobs:
         if: github.event_name == 'release'
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-      - name: Build Agent Go binary
+      - name: Build agent go binary
         run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-sec-agent ./cmd/agent
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+
+      - name: Build imgcollector go binary
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector ./cmd/imgcollector
         env:
           GOOS: linux
           GOARCH: amd64
@@ -75,6 +82,15 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: us-docker.pkg.dev/castai-hub/library/sec-agent:${{ github.sha }}
 
+      - name: Build and push main (imgcollector)
+        if: github.event_name != 'release'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile.imgcollector
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: us-docker.pkg.dev/castai-hub/library/sec-imgcollector:${{ github.sha }}
+
       - name: Build and push release (agent)
         if: github.event_name == 'release'
         uses: docker/build-push-action@v2
@@ -86,9 +102,27 @@ jobs:
             us-docker.pkg.dev/castai-hub/library/sec-agent:${{ env.RELEASE_TAG }}
             us-docker.pkg.dev/castai-hub/library/sec-agent:latest
 
+      - name: Build and push release (imgcollector)
+        if: github.event_name == 'release'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          file: ./Dockerfile.imgcollector
+          tags: |
+            us-docker.pkg.dev/castai-hub/library/sec-imgcollector:${{ env.RELEASE_TAG }}
+            us-docker.pkg.dev/castai-hub/library/sec-imgcollector:latest
+
       - name: FOSSA scan docker image (agent)
         if: github.event_name == 'release'
         uses: fossas/fossa-action@v1
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
           container: us-docker.pkg.dev/castai-hub/library/sec-agent:${{ env.RELEASE_TAG }}
+
+      - name: FOSSA scan docker image (imgcollector)
+        if: github.event_name == 'release'
+        uses: fossas/fossa-action@v1
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}
+          container: us-docker.pkg.dev/castai-hub/library/sec-imgcollector:${{ env.RELEASE_TAG }}

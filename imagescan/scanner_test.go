@@ -16,7 +16,7 @@ import (
 
 func TestScanner(t *testing.T) {
 	r := require.New(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
