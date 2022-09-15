@@ -3,8 +3,10 @@
 package castai
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -21,6 +23,7 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
+	SendCISReport(ctx context.Context, report io.Reader) error
 }
 
 func NewClient(log *logrus.Logger, rest *resty.Client, clusterID string) Client {
@@ -62,6 +65,37 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	}
 	if resp.IsError() {
 		return fmt.Errorf("sending logs: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+
+	return nil
+}
+
+func (c *client) SendCISReport(ctx context.Context, report io.Reader) error {
+	pipeReader, pipeWriter := io.Pipe()
+
+	go func() {
+		defer pipeWriter.Close()
+
+		gzip := gzip.NewWriter(pipeWriter)
+		defer gzip.Close()
+
+		_, err := io.Copy(gzip, report)
+		if err != nil {
+			c.log.Errorf("compressing report: %v", err)
+		}
+	}()
+
+	resp, err := c.rest.R().
+		SetBody(pipeReader).
+		SetHeader("Content-Encoding", "gzip").
+		SetContext(ctx).
+		Post(fmt.Sprintf("/v1/security/insights/cis/%s/submit", c.clusterID))
+
+	if err != nil {
+		return fmt.Errorf("sending report: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("sending report: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
 	}
 
 	return nil

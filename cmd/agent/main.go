@@ -69,7 +69,7 @@ func main() {
 	logrus.RegisterExitHandler(e.Wait)
 
 	ctx := signals.SetupSignalHandler()
-	if err := run(ctx, logger, cfg, binVersion); err != nil {
+	if err := run(ctx, logger, cfg, binVersion, client); err != nil {
 		logErr := &logContextErr{}
 		if errors.As(err, &logErr) {
 			log = logger.WithFields(logErr.fields)
@@ -78,7 +78,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion) (reterr error) {
+func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion, castClient castai.Client) (reterr error) {
 	fields := logrus.Fields{}
 
 	defer func() {
@@ -143,7 +143,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 	}
 	if cfg.Features.KubeBench.Enabled {
 		log.Info("kubebench enabled")
-		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.Provider))
+		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.Provider, castClient))
 	}
 	if cfg.Features.ImageScan.Enabled {
 		log.Info("imagescan enabled")
