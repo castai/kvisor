@@ -68,13 +68,14 @@ func (s *Subscriber) Run(ctx context.Context) error {
 
 			sem := semaphore.NewWeighted(maxConcurrentJobs)
 			for _, obj := range objs {
+				object := obj
 				err := sem.Acquire(ctx, 1)
 				if err != nil {
 					s.log.Errorf("kube-bench semaphore: %v", err)
 				}
 				go func() {
 					defer sem.Release(1)
-					err = s.lintNode(ctx, obj)
+					err = s.lintNode(ctx, object)
 					if err != nil {
 						s.log.Errorf("kube-bench: %v", err)
 					}
@@ -162,7 +163,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 	}
 
 	var customReport CustomReport
-	err = json.Unmarshal(report, customReport)
+	err = json.Unmarshal(report, &customReport)
 	if err != nil {
 		return err
 	}
@@ -174,7 +175,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 
 	nodeID, err := uuid.Parse(string(node.UID))
 	if err != nil {
-		fmt.Errorf("can't parse node UID: %v", err)
+		return fmt.Errorf("can't parse node UID: %v", err)
 	}
 
 	customReport.Node = Node{

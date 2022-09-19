@@ -6,11 +6,6 @@ import (
 	"github.com/castai/sec-agent/controller"
 )
 
-const (
-	castNodeConfigKey = "provisioner.cast.ai/node-configuration-id"
-	gkeNodepoolKey    = "cloud.google.com/gke-nodepool"
-)
-
 func newDeltaState() *nodeDeltaState {
 	return &nodeDeltaState{
 		objectMap: make(map[string]controller.Object),

@@ -27,7 +27,7 @@ func TestSubscriber(t *testing.T) {
 			provider: "gke",
 		}
 
-		subscriber.lintNode(ctx,
+		err := subscriber.lintNode(ctx,
 			&corev1.Node{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Node",
@@ -38,8 +38,9 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		)
+		r.NoError(err)
 
-		_, err := clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
+		_, err = clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
 		r.NoError(err)
 	})
 
@@ -54,7 +55,7 @@ func TestSubscriber(t *testing.T) {
 			provider: "gke",
 		}
 
-		subscriber.lintNode(ctx,
+		err := subscriber.lintNode(ctx,
 			&corev1.Node{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Node",
@@ -65,8 +66,9 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		)
+		r.NoError(err)
 
-		subscriber.lintNode(ctx,
+		err = subscriber.lintNode(ctx,
 			&corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
@@ -77,7 +79,9 @@ func TestSubscriber(t *testing.T) {
 				},
 			})
 
-		_, err := clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_pod", metav1.GetOptions{})
+		r.NoError(err)
+
+		_, err = clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_pod", metav1.GetOptions{})
 		r.True(errors.IsNotFound(err))
 		_, err = clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
 		r.NoError(err)
