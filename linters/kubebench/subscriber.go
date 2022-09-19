@@ -110,7 +110,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 
 	job, err := s.client.BatchV1().
 		Jobs(castAINamespace).
-		Create(ctx, specFn(node.GetName(), jobName, "kube-benč"), metav1.CreateOptions{})
+		Create(ctx, specFn(node.GetName(), jobName), metav1.CreateOptions{})
 	if err != nil {
 		s.log.WithError(err).Error("can not create kube-bench scan job")
 		return err
@@ -198,7 +198,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 	return nil
 }
 
-func resolveSpec(provider string, nodeObject controller.Object) func(nodeName, jobname, podname string) *batchv1.Job {
+func resolveSpec(provider string, nodeObject controller.Object) func(nodeName, jobname string) *batchv1.Job {
 	switch provider {
 	case "gke":
 		return spec.GKE

@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func AKS(nodeName, jobName, podname string) *batchv1.Job {
+func AKS(nodeName, jobName string) *batchv1.Job {
 	//https://raw.githubusercontent.com/aquasecurity/kube-bench/v0.6.9/job-aks.yaml
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
