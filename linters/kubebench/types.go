@@ -6,19 +6,24 @@ import (
 	"github.com/castai/sec-agent/controller"
 )
 
-func newDeltaState() *deltaState {
-	return &deltaState{
+const (
+	castNodeConfigKey = "provisioner.cast.ai/node-configuration-id"
+	gkeNodepoolKey    = "cloud.google.com/gke-nodepool"
+)
+
+func newDeltaState() *nodeDeltaState {
+	return &nodeDeltaState{
 		objectMap: make(map[string]controller.Object),
 		mu:        sync.Mutex{},
 	}
 }
 
-type deltaState struct {
+type nodeDeltaState struct {
 	objectMap map[string]controller.Object
 	mu        sync.Mutex
 }
 
-func (d *deltaState) upsert(o controller.Object) {
+func (d *nodeDeltaState) upsert(o controller.Object) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -26,14 +31,14 @@ func (d *deltaState) upsert(o controller.Object) {
 	d.objectMap[key] = o
 }
 
-func (d *deltaState) delete(o controller.Object) {
+func (d *nodeDeltaState) delete(o controller.Object) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	delete(d.objectMap, controller.ObjectKey(o))
 }
 
-func (d *deltaState) flush() []controller.Object {
+func (d *nodeDeltaState) flush() []controller.Object {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	defer func() {

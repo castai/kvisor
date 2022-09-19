@@ -6,9 +6,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GKE(nodeName, jobName string) *batchv1.Job {
+func GKE(nodeName, jobName, podName string) *batchv1.Job {
 	//https://raw.githubusercontent.com/aquasecurity/kube-bench/v0.6.9/job-gke.yaml
-	return &batchv1.Job{
+	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   jobName,
@@ -95,4 +95,10 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 			},
 		},
 	}
+
+	if podName != "" {
+		job.Spec.Template.Name = podName
+	}
+
+	return job
 }

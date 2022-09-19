@@ -23,7 +23,7 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	SendCISReport(ctx context.Context, report io.Reader) error
+	SendCISReport(ctx context.Context, report []byte) error
 }
 
 func NewClient(log *logrus.Logger, rest *resty.Client, clusterID string) Client {
@@ -70,16 +70,16 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
-func (c *client) SendCISReport(ctx context.Context, report io.Reader) error {
+func (c *client) SendCISReport(ctx context.Context, report []byte) error {
 	pipeReader, pipeWriter := io.Pipe()
 
 	go func() {
 		defer pipeWriter.Close()
 
-		gzip := gzip.NewWriter(pipeWriter)
-		defer gzip.Close()
+		gzipWriter := gzip.NewWriter(pipeWriter)
+		defer gzipWriter.Close()
 
-		_, err := io.Copy(gzip, report)
+		_, err := gzipWriter.Write(report)
 		if err != nil {
 			c.log.Errorf("compressing report: %v", err)
 		}
