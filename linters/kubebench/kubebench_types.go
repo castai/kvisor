@@ -19,13 +19,13 @@ const (
 )
 
 type Node struct {
-	NodeName   string    `json:"nodes"`
+	NodeName   string    `json:"node_name"`
 	ResourceID uuid.UUID `json:"resource_id"`
 }
 
 type CustomReport struct {
 	OverallControls
-	Node Node
+	Node
 }
 
 type OverallControls struct {
