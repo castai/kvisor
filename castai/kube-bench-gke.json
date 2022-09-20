@@ -1,7 +1,4 @@
 {
-  "Resource_id": "239ca5b2-afca-49bd-887a-09e5c01e8921",
-  "Resource_gvk": "core/v1/Node",
-  "Node_name": "node1",
   "Controls": [
     {
       "id": "3",

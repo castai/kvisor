@@ -1,29 +1,44 @@
 package kubebench
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"os"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/castai/sec-agent/castai/mock"
 )
 
 func TestSubscriber(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	t.Run("creates jobs", func(t *testing.T) {
+	t.Run("creates job and sends report from log reader", func(t *testing.T) {
+		mockctrl := gomock.NewController(t)
 		r := require.New(t)
 		ctx := context.Background()
 		clientset := fake.NewSimpleClientset()
+		mockCast := mock_castai.NewMockClient(mockctrl)
+
+		logProvider := newMockLogProvider(readReport())
+
 		subscriber := &Subscriber{
-			log:      log,
-			client:   clientset,
-			delta:    newDeltaState(),
-			provider: "gke",
+			log:          log,
+			client:       clientset,
+			delta:        newDeltaState(),
+			provider:     "gke",
+			logsProvider: logProvider,
+			castClient:   mockCast,
 		}
 
 		jobName := "kube-bench-node-test_node"
@@ -50,10 +65,12 @@ func TestSubscriber(t *testing.T) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test_node",
+				UID:  types.UID(uuid.NewString()),
 			},
 		}
+		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any())
 
-		_, err = subscriber.createKubebenchJob(ctx, node, jobName)
+		err = subscriber.lintNode(ctx, node)
 		r.NoError(err)
 
 		_, err = clientset.BatchV1().Jobs(castAINamespace).Get(ctx, jobName, metav1.GetOptions{})
@@ -94,4 +111,23 @@ func TestSubscriber(t *testing.T) {
 
 		r.Len(subscriber.delta.objectMap, 1)
 	})
+}
+
+type mockProvider struct {
+	logs []byte
+}
+
+func newMockLogProvider(b []byte) PodLogProvider {
+	return &mockProvider{logs: b}
+}
+
+func (m *mockProvider) GetLogReader(_ context.Context, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(m.logs)), nil
+}
+
+func readReport() []byte {
+	file, _ := os.OpenFile("../../castai/kube-bench-gke.json", os.O_RDONLY, 0666)
+	reportBytes, _ := io.ReadAll(file)
+
+	return reportBytes
 }

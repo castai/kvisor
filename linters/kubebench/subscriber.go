@@ -32,16 +32,17 @@ const (
 	maxConcurrentJobs = 5
 )
 
-func NewSubscriber(log logrus.FieldLogger, client kubernetes.Interface, provider string, castClient castai.Client) controller.ObjectSubscriber {
-	return &Subscriber{log: log, client: client, delta: newDeltaState(), provider: provider, castClient: castClient}
+func NewSubscriber(log logrus.FieldLogger, client kubernetes.Interface, provider string, castClient castai.Client, logsReader PodLogProvider) controller.ObjectSubscriber {
+	return &Subscriber{log: log, client: client, delta: newDeltaState(), provider: provider, castClient: castClient, logsProvider: logsReader}
 }
 
 type Subscriber struct {
-	log        logrus.FieldLogger
-	client     kubernetes.Interface
-	castClient castai.Client
-	delta      *nodeDeltaState
-	provider   string
+	log          logrus.FieldLogger
+	client       kubernetes.Interface
+	castClient   castai.Client
+	delta        *nodeDeltaState
+	provider     string
+	logsProvider PodLogProvider
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
@@ -168,6 +169,7 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 			}
 
 			kubeBenchPod = &pods.Items[0]
+
 			if kubeBenchPod.Status.Phase == corev1.PodFailed {
 				return backoff.Permanent(fmt.Errorf("kube-bench failed: %s", kubeBenchPod.Status.Message))
 			}
@@ -187,14 +189,12 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 }
 
 func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) ([]byte, error) {
-	req := s.client.CoreV1().Pods(castAINamespace).GetLogs(kubeBenchPodName, &corev1.PodLogOptions{})
-	podLogs, err := req.Stream(ctx)
+	logReader, err := s.logsProvider.GetLogReader(ctx, kubeBenchPodName)
 	if err != nil {
-		return nil, fmt.Errorf("error in opening stream: %v", err)
+		return nil, err
 	}
-	defer podLogs.Close()
 
-	report, err := io.ReadAll(podLogs)
+	report, err := io.ReadAll(logReader)
 	if err != nil {
 		return nil, err
 	}
