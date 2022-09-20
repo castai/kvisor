@@ -1,6 +1,7 @@
 package kubebench
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"sync"
 
 	"github.com/castai/sec-agent/controller"
@@ -8,39 +9,39 @@ import (
 
 func newDeltaState() *nodeDeltaState {
 	return &nodeDeltaState{
-		objectMap: make(map[string]controller.Object),
+		objectMap: make(map[string]corev1.Node),
 		mu:        sync.Mutex{},
 	}
 }
 
 type nodeDeltaState struct {
-	objectMap map[string]controller.Object
+	objectMap map[string]corev1.Node
 	mu        sync.Mutex
 }
 
-func (d *nodeDeltaState) upsert(o controller.Object) {
+func (d *nodeDeltaState) upsert(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	key := controller.ObjectKey(o)
-	d.objectMap[key] = o
+	d.objectMap[key] = *o
 }
 
-func (d *nodeDeltaState) delete(o controller.Object) {
+func (d *nodeDeltaState) delete(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	delete(d.objectMap, controller.ObjectKey(o))
 }
 
-func (d *nodeDeltaState) flush() []controller.Object {
+func (d *nodeDeltaState) flush() []corev1.Node {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	defer func() {
-		d.objectMap = make(map[string]controller.Object)
+		d.objectMap = make(map[string]corev1.Node)
 	}()
 
-	res := make([]controller.Object, 0, len(d.objectMap))
+	res := make([]corev1.Node, 0, len(d.objectMap))
 	for _, o := range d.objectMap {
 		res = append(res, o)
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -38,52 +37,45 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		)
-		r.NoError(err)
+		// fake clientset doesn't create pod for job
+		r.Errorf(err, "pod-not-found")
 
-		_, err = clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
+		_, err = clientset.BatchV1().Jobs(castAINamespace).Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
 		r.NoError(err)
 	})
 
 	t.Run("works only with nodes", func(t *testing.T) {
 		r := require.New(t)
-		ctx := context.Background()
-		clientset := fake.NewSimpleClientset()
 		subscriber := &Subscriber{
 			log:      log,
-			client:   clientset,
+			client:   nil,
 			delta:    newDeltaState(),
 			provider: "gke",
 		}
 
-		err := subscriber.lintNode(ctx,
-			&corev1.Node{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Node",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test_node",
-				},
+		node := &corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
 			},
-		)
-		r.NoError(err)
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test_node",
+			},
+		}
 
-		err = subscriber.lintNode(ctx,
-			&corev1.Pod{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Pod",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test_pod",
-				},
-			})
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test_pod",
+			},
+		}
 
-		r.NoError(err)
+		subscriber.OnAdd(node)
+		subscriber.OnAdd(pod)
 
-		_, err = clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_pod", metav1.GetOptions{})
-		r.True(errors.IsNotFound(err))
-		_, err = clientset.BatchV1().Jobs("castai-sec").Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
-		r.NoError(err)
+		r.Len(subscriber.delta.objectMap, 1)
 	})
 }

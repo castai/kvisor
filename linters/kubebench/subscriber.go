@@ -2,7 +2,6 @@ package kubebench
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
@@ -44,7 +44,10 @@ type Subscriber struct {
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
-	s.delta.upsert(obj)
+	node, ok := obj.(*corev1.Node)
+	if ok {
+		s.delta.upsert(node)
+	}
 }
 
 func (s *Subscriber) OnUpdate(_ controller.Object) {
@@ -52,7 +55,10 @@ func (s *Subscriber) OnUpdate(_ controller.Object) {
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
-	s.delta.delete(obj)
+	node, ok := obj.(*corev1.Node)
+	if ok {
+		s.delta.delete(node)
+	}
 }
 
 func (s *Subscriber) Run(ctx context.Context) error {
@@ -64,40 +70,44 @@ func (s *Subscriber) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			s.log.Infof("linting nodes")
-			objs := s.delta.flush()
-
-			sem := semaphore.NewWeighted(maxConcurrentJobs)
-			for _, obj := range objs {
-				object := obj
-				err := sem.Acquire(ctx, 1)
-				if err != nil {
-					s.log.Errorf("kube-bench semaphore: %v", err)
-				}
-				go func() {
-					defer sem.Release(1)
-					err = s.lintNode(ctx, object)
-					if err != nil {
-						s.log.Errorf("kube-bench: %v", err)
-					}
-				}()
-			}
-			if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
-				return err
+			err := s.processCachedNodes(ctx)
+			if err != nil {
+				s.log.Errorf("error linting nodes: %v", err)
 			}
 		}
 	}
+}
+
+func (s *Subscriber) processCachedNodes(ctx context.Context) error {
+	nodes := s.delta.flush()
+	sem := semaphore.NewWeighted(maxConcurrentJobs)
+	for _, n := range nodes {
+		node := n
+		err := sem.Acquire(ctx, 1)
+		if err != nil {
+			s.log.Errorf("kube-bench semaphore: %v", err)
+			continue
+		}
+		go func() {
+			defer sem.Release(1)
+			err = s.lintNode(ctx, &node)
+			if err != nil {
+				s.log.Errorf("kube-bench: %v", err)
+			}
+		}()
+	}
+	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
 	return []reflect.Type{reflect.TypeOf(&corev1.Node{})}
 }
 
-func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) error {
-	node, ok := object.(*corev1.Node)
-	if !ok {
-		return fmt.Errorf("provided object is not v1/Node")
-	}
-
+func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 	jobName := "kube-bench-node-" + node.GetName()
 	err := s.client.BatchV1().Jobs(castAINamespace).Delete(ctx, jobName, metav1.DeleteOptions{
 		PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
@@ -145,7 +155,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 		},
 		backoff.WithMaxRetries(
 			backoff.NewConstantBackOff(time.Second),
-			10),
+			15),
 	)
 	if err != nil {
 		return err
@@ -156,6 +166,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 	if err != nil {
 		return fmt.Errorf("error in opening stream: %v", err)
 	}
+	defer podLogs.Close()
 
 	report, err := io.ReadAll(podLogs)
 	if err != nil {
@@ -163,7 +174,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 	}
 
 	var customReport CustomReport
-	err = json.Unmarshal(report, &customReport)
+	err = jsoniter.Unmarshal(report, &customReport)
 	if err != nil {
 		return err
 	}
@@ -183,7 +194,7 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 		ResourceID: nodeID,
 	}
 
-	reportBytes, err := json.Marshal(report)
+	reportBytes, err := jsoniter.Marshal(report)
 	if err != nil {
 		s.log.Errorf("marshalling report: %v", err)
 	}
@@ -192,14 +203,10 @@ func (s *Subscriber) lintNode(ctx context.Context, object controller.Object) err
 	if err != nil {
 		return err
 	}
-	err = podLogs.Close()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func resolveSpec(provider string, nodeObject controller.Object) func(nodeName, jobname string) *batchv1.Job {
+func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname string) *batchv1.Job {
 	switch provider {
 	case "gke":
 		return spec.GKE
@@ -208,7 +215,7 @@ func resolveSpec(provider string, nodeObject controller.Object) func(nodeName, j
 	case "eks":
 		return spec.EKS
 	default:
-		labels := nodeObject.GetLabels()
+		labels := node.GetLabels()
 		if _, ok := labels["node-role.kubernetes.io/control-plane"]; ok {
 			return spec.Master
 		}
