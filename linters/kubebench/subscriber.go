@@ -70,7 +70,6 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			s.log.Infof("linting nodes")
 			err := s.processCachedNodes(ctx)
 			if err != nil {
 				s.log.Errorf("error linting nodes: %v", err)
@@ -80,7 +79,8 @@ func (s *Subscriber) Run(ctx context.Context) error {
 }
 
 func (s *Subscriber) processCachedNodes(ctx context.Context) error {
-	nodes := s.delta.flush()
+	nodes := s.delta.peek()
+	s.log.Infof("linting %d nodes", len(nodes))
 	sem := semaphore.NewWeighted(maxConcurrentJobs)
 	for _, n := range nodes {
 		node := n
@@ -94,7 +94,9 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 			err = s.lintNode(ctx, &node)
 			if err != nil {
 				s.log.Errorf("kube-bench: %v", err)
+				return
 			}
+			s.delta.delete(&node)
 		}()
 	}
 	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
@@ -149,6 +151,9 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	selector := labels.Set{labelJobName: job.Name}
 	var kubeBenchPod *corev1.Pod
 
+	podCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
 	err = backoff.Retry(
 		func() error {
 			pods, err := s.client.CoreV1().Pods(castAINamespace).List(ctx, metav1.ListOptions{
@@ -172,11 +177,8 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 			}
 
 			return fmt.Errorf("unknown err")
-		},
-		backoff.WithMaxRetries(
-			backoff.NewConstantBackOff(time.Second),
-			15),
-	)
+		}, backoff.WithContext(backoff.NewConstantBackOff(10*time.Second), podCtx))
+
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +220,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 		ResourceID: nodeID,
 	}
 
-	reportBytes, err := jsoniter.Marshal(report)
+	reportBytes, err := jsoniter.Marshal(customReport)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling report: %v", err)
 	}

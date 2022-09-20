@@ -29,7 +29,7 @@ type CustomReport struct {
 }
 
 type OverallControls struct {
-	Controls []*Controls
+	Controls []*Controls `json:"Controls"`
 }
 
 type Controls struct {

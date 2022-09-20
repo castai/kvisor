@@ -34,12 +34,9 @@ func (d *nodeDeltaState) delete(o *corev1.Node) {
 	delete(d.objectMap, controller.ObjectKey(o))
 }
 
-func (d *nodeDeltaState) flush() []corev1.Node {
+func (d *nodeDeltaState) peek() []corev1.Node {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	defer func() {
-		d.objectMap = make(map[string]corev1.Node)
-	}()
 
 	res := make([]corev1.Node, 0, len(d.objectMap))
 	for _, o := range d.objectMap {
