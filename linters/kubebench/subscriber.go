@@ -28,6 +28,7 @@ import (
 const (
 	scanInterval      = 15 * time.Second
 	castAINamespace   = "castai-sec"
+	labelJobName      = "job-name"
 	maxConcurrentJobs = 5
 )
 
@@ -117,6 +118,25 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 		return err
 	}
 
+	kubeBenchPod, err := s.createKubebenchJob(ctx, node, jobName)
+	if err != nil {
+		return err
+	}
+
+	reportBytes, err := s.getReportFromLogs(ctx, node, kubeBenchPod.Name)
+	if err != nil {
+		return err
+	}
+
+	err = s.castClient.SendCISReport(ctx, reportBytes)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// We are interested in kube-bench pod succeeding and not the Job
+func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
 	specFn := resolveSpec(s.provider, node)
 
 	job, err := s.client.BatchV1().
@@ -124,10 +144,10 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 		Create(ctx, specFn(node.GetName(), jobName), metav1.CreateOptions{})
 	if err != nil {
 		s.log.WithError(err).Error("can not create kube-bench scan job")
-		return err
+		return nil, err
 	}
-	selector := labels.Set{"job-name": job.Name}
-	var kubeBenchPod corev1.Pod
+	selector := labels.Set{labelJobName: job.Name}
+	var kubeBenchPod *corev1.Pod
 
 	err = backoff.Retry(
 		func() error {
@@ -142,7 +162,7 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 				return fmt.Errorf("pod not found")
 			}
 
-			kubeBenchPod = pods.Items[0]
+			kubeBenchPod = &pods.Items[0]
 			if kubeBenchPod.Status.Phase == corev1.PodFailed {
 				return backoff.Permanent(fmt.Errorf("kube-bench failed: %s", kubeBenchPod.Status.Message))
 			}
@@ -158,35 +178,39 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 			15),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	req := s.client.CoreV1().Pods(castAINamespace).GetLogs(kubeBenchPod.Name, &corev1.PodLogOptions{})
+	return kubeBenchPod, nil
+}
+
+func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) ([]byte, error) {
+	req := s.client.CoreV1().Pods(castAINamespace).GetLogs(kubeBenchPodName, &corev1.PodLogOptions{})
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
-		return fmt.Errorf("error in opening stream: %v", err)
+		return nil, fmt.Errorf("error in opening stream: %v", err)
 	}
 	defer podLogs.Close()
 
 	report, err := io.ReadAll(podLogs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var customReport CustomReport
 	err = jsoniter.Unmarshal(report, &customReport)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(customReport.Controls) == 0 {
 		s.log.Infof("no checks found for node: %s", node.Name)
-		return nil
+		return nil, nil
 	}
 
 	nodeID, err := uuid.Parse(string(node.UID))
 	if err != nil {
-		return fmt.Errorf("can't parse node UID: %v", err)
+		return nil, fmt.Errorf("can't parse node UID: %v", err)
 	}
 
 	customReport.Node = Node{
@@ -196,14 +220,10 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 
 	reportBytes, err := jsoniter.Marshal(report)
 	if err != nil {
-		s.log.Errorf("marshalling report: %v", err)
+		return nil, fmt.Errorf("marshalling report: %v", err)
 	}
 
-	err = s.castClient.SendCISReport(ctx, reportBytes)
-	if err != nil {
-		return err
-	}
-	return nil
+	return reportBytes, nil
 }
 
 func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname string) *batchv1.Job {

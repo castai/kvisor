@@ -26,21 +26,37 @@ func TestSubscriber(t *testing.T) {
 			provider: "gke",
 		}
 
-		err := subscriber.lintNode(ctx,
-			&corev1.Node{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Node",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test_node",
-				},
-			},
-		)
-		// fake clientset doesn't create pod for job
-		r.Errorf(err, "pod-not-found")
+		jobName := "kube-bench-node-test_node"
 
-		_, err = clientset.BatchV1().Jobs(castAINamespace).Get(ctx, "kube-bench-node-test_node", metav1.GetOptions{})
+		// fake clientset doesn't create pod for job
+		_, err := clientset.CoreV1().Pods(castAINamespace).Create(ctx,
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						labelJobName: jobName,
+					},
+					Namespace: castAINamespace,
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodSucceeded,
+				},
+			}, metav1.CreateOptions{})
+		r.NoError(err)
+
+		node := &corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test_node",
+			},
+		}
+
+		_, err = subscriber.createKubebenchJob(ctx, node, jobName)
+		r.NoError(err)
+
+		_, err = clientset.BatchV1().Jobs(castAINamespace).Get(ctx, jobName, metav1.GetOptions{})
 		r.NoError(err)
 	})
 
