@@ -110,8 +110,6 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 }
 
 func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
-	c.log.Debugf("sending delta with items[%d]", len(delta.Items))
-
 	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/%s/deltas", c.apiURL, c.clusterID))
 	if err != nil {
 		return fmt.Errorf("invalid url: %w", err)
@@ -183,7 +181,6 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 		}
 		return fmt.Errorf("delta request error status_code=%d body=%s", resp.StatusCode, buf.String())
 	}
-	c.log.WithField("full_snapshot", delta.FullSnapshot).Infof("delta with items[%d] sent, response_code=%d", len(delta.Items), resp.StatusCode)
 
 	return nil
 }
@@ -196,8 +193,8 @@ type LogEvent struct {
 }
 
 type Delta struct {
-	FullSnapshot bool         `json:"full_snapshot,omitempty"`
-	Items        []*DeltaItem `json:"items"`
+	FullSnapshot bool        `json:"full_snapshot,omitempty"`
+	Items        []DeltaItem `json:"items"`
 }
 
 type DeltaItem struct {

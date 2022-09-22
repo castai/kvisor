@@ -17,7 +17,7 @@ func newDelta(log logrus.FieldLogger, logLevel logrus.Level) *delta {
 		log:          log,
 		logLevel:     logLevel,
 		fullSnapshot: true,
-		cache:        map[string]*castai.DeltaItem{},
+		cache:        map[string]castai.DeltaItem{},
 		skippers: []skipper{
 			nonStaticPodsSkipper(),
 			cronJobOwnerJobsSkipper(),
@@ -55,7 +55,7 @@ type delta struct {
 	log          logrus.FieldLogger
 	logLevel     logrus.Level
 	fullSnapshot bool
-	cache        map[string]*castai.DeltaItem
+	cache        map[string]castai.DeltaItem
 	skippers     []skipper
 }
 
@@ -69,11 +69,9 @@ func (d *delta) add(event controller.Event, obj object) {
 
 	key := string(obj.GetUID())
 	gvr := obj.GetObjectKind().GroupVersionKind()
-	//if d.logLevel == logrus.TraceLevel {
-	d.log.Debug("add delta, event=%s, gvr=%s, ns=%s, name=%s", gvr.String(), obj.GetNamespace(), obj.GetName())
-	//}
+	d.log.Debugf("add delta, event=%s, gvr=%s, ns=%s, name=%s", event, gvr.String(), obj.GetNamespace(), obj.GetName())
 
-	d.cache[key] = &castai.DeltaItem{
+	d.cache[key] = castai.DeltaItem{
 		Event:            toCASTAIEvent(event),
 		ObjectUID:        string(obj.GetUID()),
 		ObjectName:       obj.GetName(),
@@ -87,7 +85,7 @@ func (d *delta) add(event controller.Event, obj object) {
 // delivered.
 func (d *delta) clear() {
 	d.fullSnapshot = false
-	d.cache = map[string]*castai.DeltaItem{}
+	d.cache = map[string]castai.DeltaItem{}
 }
 
 // toCASTAIRequest maps the collected delta cache to the castai.Delta type.
@@ -101,11 +99,6 @@ func (d *delta) toCASTAIRequest() *castai.Delta {
 type object interface {
 	runtime.Object
 	metav1.Object
-}
-
-type item struct {
-	delta []*castai.DeltaItem
-	event controller.Event
 }
 
 func toCASTAIEvent(e controller.Event) castai.EventType {

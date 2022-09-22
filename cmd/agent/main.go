@@ -139,7 +139,13 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
 	objectSubscribers := []controller.ObjectSubscriber{
-		delta.NewSubscriber(log, log.Level, delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval}, castaiClient),
+		delta.NewSubscriber(
+			log,
+			log.Level,
+			delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
+			castaiClient,
+			k8sVersion.MinorInt(),
+		),
 	}
 	if cfg.Features.KubeLinter.Enabled {
 		log.Info("kubelinter enabled")
@@ -162,7 +168,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	ctrl := controller.New(log, informersFactory, objectSubscribers)
+	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)
 
 	work := func(ctx context.Context) {
 		if err := ctrl.Run(ctx); err != nil {

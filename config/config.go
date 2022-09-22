@@ -103,7 +103,7 @@ func Get() Config {
 		cfg.KubeClient.Burst = 150
 	}
 	if cfg.Log.Level == 0 {
-		cfg.Log.Level = int(logrus.InfoLevel)
+		cfg.Log.Level = int(logrus.DebugLevel)
 	}
 	if cfg.LeaderElection.Enabled {
 		if cfg.LeaderElection.Namespace == "" {

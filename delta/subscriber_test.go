@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,7 @@ func TestSubscriber(t *testing.T) {
 
 	castaiClient := &mockCastaiClient{}
 
-	sub := NewSubscriber(log, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient)
+	sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, 21)
 
 	pod1 := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
@@ -32,7 +33,8 @@ func TestSubscriber(t *testing.T) {
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "v1",
-					Kind:       "Node",
+					Kind:       kindNode,
+					Controller: lo.ToPtr(true),
 					Name:       "node1",
 				},
 			},
