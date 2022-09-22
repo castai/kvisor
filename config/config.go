@@ -9,15 +9,16 @@ import (
 )
 
 type Config struct {
-	KubeClient     KubeClient
-	Kubeconfig     string
-	LeaderElection LeaderElection
-	Log            Log
-	API            API
-	PprofPort      int
-	ClusterID      string
-	Provider       string
-	Features       Features
+	KubeClient        KubeClient
+	Kubeconfig        string
+	LeaderElection    LeaderElection
+	Log               Log
+	API               API
+	PprofPort         int
+	ClusterID         string
+	Provider          string
+	DeltaSyncInterval time.Duration
+	Features          Features
 }
 
 type Features struct {
@@ -88,6 +89,7 @@ func Get() Config {
 	_ = viper.BindEnv("features.imagescan.maxconcurrentscans", "FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS")
 	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
 	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
+	_ = viper.BindEnv("deltasynciterval", "DELTA_SNC_INTERVAL")
 
 	cfg = &Config{}
 	if err := viper.Unmarshal(&cfg); err != nil {
@@ -116,6 +118,9 @@ func Get() Config {
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = "on-premise"
+	}
+	if cfg.DeltaSyncInterval == 0 {
+		cfg.DeltaSyncInterval = 15 * time.Second
 	}
 
 	return *cfg
