@@ -12,6 +12,10 @@ func TestConfig(t *testing.T) {
 	r := require.New(t)
 
 	r.NoError(os.Setenv("KUBECONFIG", "~/.kube/config"))
+	r.NoError(os.Setenv("API_URL", "https://api.cast.ai"))
+	r.NoError(os.Setenv("API_KEY", "api-key"))
+	r.NoError(os.Setenv("CLUSTER_ID", "c1"))
+	r.NoError(os.Setenv("KUBECONFIG", "~/.kube/config"))
 	r.NoError(os.Setenv("LEADER_ELECTION_ENABLED", "true"))
 	r.NoError(os.Setenv("LEADER_ELECTION_NAMESPACE", "castai-sec-agent"))
 	r.NoError(os.Setenv("LEADER_ELECTION_LOCK_NAME", "castai-sec-agent"))
@@ -24,6 +28,9 @@ func TestConfig(t *testing.T) {
 	cfg := Get()
 
 	r.Equal("~/.kube/config", cfg.Kubeconfig)
+	r.Equal("https://api.cast.ai", cfg.API.URL)
+	r.Equal("api-key", cfg.API.Key)
+	r.Equal("c1", cfg.ClusterID)
 	r.Equal(true, cfg.LeaderElection.Enabled)
 	r.Equal("castai-sec-agent", cfg.LeaderElection.Namespace)
 	r.Equal("castai-sec-agent", cfg.LeaderElection.LockName)
