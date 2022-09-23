@@ -100,7 +100,7 @@ func Get() Config {
 		required("API_URL")
 	}
 	if cfg.API.Key == "" {
-		required("API_KEy")
+		required("API_KEY")
 	}
 	if cfg.ClusterID == "" {
 		required("CLUSTER_ID")
