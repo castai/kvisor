@@ -193,6 +193,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 	if err != nil {
 		return nil, err
 	}
+	defer logReader.Close()
 
 	report, err := io.ReadAll(logReader)
 	if err != nil {
