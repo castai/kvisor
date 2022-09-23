@@ -10,7 +10,7 @@ import (
 	"github.com/castai/sec-agent/controller"
 )
 
-// newDelta initializes the delta struct which is used to collect cluster deltas, debounce them and map to CASTAI
+// newDelta initializes the delta struct which is used to collect cluster deltas, debounce them and map to CAST AI
 // requests.
 func newDelta(log logrus.FieldLogger, logLevel logrus.Level) *delta {
 	return &delta{
@@ -49,7 +49,7 @@ func cronJobOwnerJobsSkipper() skipper {
 	}
 }
 
-// delta is used to colelct cluster deltas, debounce them and map to CASTAI requests. It holds a cache of queue items
+// delta is used to collect cluster deltas, debounce them and map to CAST AI requests. It holds a cache of queue items
 // which is referenced any time a new item is added to debounce the items.
 type delta struct {
 	log          logrus.FieldLogger
@@ -124,6 +124,6 @@ func isCronJobOwnedJob(p metav1.Object) bool {
 	return ctrl != nil && ctrl.Kind == kindCronJob
 }
 
-func getObjectKind(ojb object) string {
-	return ojb.GetObjectKind().GroupVersionKind().Kind
+func getObjectKind(obj object) string {
+	return obj.GetObjectKind().GroupVersionKind().Kind
 }

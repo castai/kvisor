@@ -179,7 +179,7 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 		if _, err := buf.ReadFrom(resp.Body); err != nil {
 			c.log.Errorf("failed reading error response body: %v", err)
 		}
-		return fmt.Errorf("delta request error status_code=%d body=%s", resp.StatusCode, buf.String())
+		return fmt.Errorf("delta request error status_code=%d body=%s url=%s", resp.StatusCode, buf.String(), uri.String())
 	}
 
 	return nil
