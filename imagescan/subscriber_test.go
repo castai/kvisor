@@ -107,7 +107,12 @@ func TestSubscriber(t *testing.T) {
 	err := sub.Run(ctx)
 	r.True(errors.Is(err, context.DeadlineExceeded))
 
-	r.Equal([]ScanImageConfig{{ImageName: "nginx:1.23", NodeName: "n1"}, {ImageName: "argocd:0.0.1", NodeName: "n2"}}, scanner.imgs)
+	sort.Slice(scanner.imgs, func(i, j int) bool {
+		return scanner.imgs[i].ImageName < scanner.imgs[j].ImageName
+	})
+	r.Equal("argocd:0.0.1", scanner.imgs[0].ImageName)
+	r.Equal("nginx:1.23", scanner.imgs[1].ImageName)
+	// TODO: Assert selected nodes.
 }
 
 type mockImageScanner struct {
