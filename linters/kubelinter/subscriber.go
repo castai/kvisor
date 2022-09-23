@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
+	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
 )
 
@@ -26,7 +27,7 @@ var supportedTypes = []reflect.Type{
 	reflect.TypeOf(&appsv1.StatefulSet{}),
 }
 
-func NewSubscriber(log logrus.FieldLogger) controller.ObjectSubscriber {
+func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	linter := New(rules)
@@ -34,6 +35,7 @@ func NewSubscriber(log logrus.FieldLogger) controller.ObjectSubscriber {
 	return &Subscriber{
 		ctx:    ctx,
 		cancel: cancel,
+		client: client,
 		linter: linter,
 		delta:  newDeltaState(),
 		log:    log,
@@ -43,6 +45,7 @@ func NewSubscriber(log logrus.FieldLogger) controller.ObjectSubscriber {
 type Subscriber struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+	client castai.Client
 	linter *Linter
 	delta  *deltaState
 	log    logrus.FieldLogger
@@ -58,7 +61,10 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(15 * time.Second):
-			s.lintObjects(s.delta.flush())
+			objects := s.delta.flush()
+			if len(objects) > 0 {
+				s.lintObjects(objects)
+			}
 		}
 	}
 }
@@ -100,11 +106,18 @@ func (s *Subscriber) lintObjects(objects []controller.Object) {
 		return lintcontext.Object{K8sObject: o}
 	}))
 	if err != nil {
-		s.log.Errorf("lint failed: %v", err)
+		s.log.Errorf("kubelinter failed: %v", err)
 		return
 	}
 
-	s.log.Infof("lint finished, checks: %d", len(checks))
+	ctx, cancel := context.WithTimeout(s.ctx, time.Second*5)
+	defer cancel()
+
+	if err := s.client.SendLinterChecks(ctx, checks); err != nil {
+		s.log.WithError(err).Error("can not send kubelinter checks")
+	}
+
+	s.log.Infof("kubelinter finished, checks: %d", len(checks))
 }
 
 func isStaticPod(pod *corev1.Pod) bool {

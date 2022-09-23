@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
@@ -72,7 +72,7 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	case config.ModeRemote:
 		opts := image.DockerOption{}
 		if c.cfg.DockerOptionPath != "" {
-			bytes, err := ioutil.ReadFile(c.cfg.DockerOptionPath)
+			bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading docker options file: %w", err)
 			}
@@ -92,5 +92,5 @@ func dumpToFile(res *image.ArtifactReference) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile("image-artifacts.json", js, 0755)
+	return os.WriteFile("image-artifacts.json", js, 0755)
 }

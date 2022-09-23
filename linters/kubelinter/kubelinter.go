@@ -2,6 +2,7 @@ package kubelinter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/builtinchecks"
@@ -60,7 +61,7 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
 
-	"github.com/castai/sec-agent/types"
+	"github.com/castai/sec-agent/castai/contract"
 )
 
 func New(checks []string) *Linter {
@@ -71,7 +72,7 @@ type Linter struct {
 	checks []string
 }
 
-func (l *Linter) Run(objects []lintcontext.Object) ([]LintCheck, error) {
+func (l *Linter) Run(objects []lintcontext.Object) ([]contract.LinterCheck, error) {
 	registry := checkregistry.New()
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
@@ -96,35 +97,19 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]LintCheck, error) {
 		return nil, err
 	}
 
-	// For wow we group by objects and do not include multiple diagnostics, eg. pod with multiple containers.
-	// Kubelinter can report issues on container level, but container name is included only as string in diagnostic message.
-	checks := make(map[string]LintCheck)
+	now := time.Now().UTC
+
+	checks := make(map[string]contract.LinterCheck)
 	for _, check := range res.Reports {
 		obj := check.Object.K8sObject
 
-		kind := obj.GetObjectKind().GroupVersionKind()
-		apiVersion := "v1"
-		if kind.Group != "" {
-			apiVersion = fmt.Sprintf("%s/%s", kind.Group, kind.Version)
+		resCheck := contract.LinterCheck{
+			ResourceID: string(obj.GetUID()),
+			RuleID:     check.Check,
+			Failed:     check.Diagnostic.Message != "",
+			Timestamp:  now(),
 		}
-
-		resCheck := LintCheck{
-			ID:      check.Check,
-			Message: check.Diagnostic.Message,
-			Failed:  check.Diagnostic.Message != "",
-			Linter:  "kubelinter",
-			Resource: types.Resource{
-				ObjectMeta: types.ObjectMeta{
-					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
-				},
-				ObjectType: types.ObjectType{
-					APIVersion: apiVersion,
-					Kind:       kind.Kind,
-				},
-			},
-		}
-		checks[resCheck.ID+resCheck.ObjectKey()] = resCheck
+		checks[resCheck.RuleID+resCheck.ResourceID] = resCheck
 	}
 	return lo.Values(checks), nil
 }

@@ -3,13 +3,18 @@
 package castai
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
 
+	"github.com/castai/sec-agent/castai/contract"
 	"github.com/castai/sec-agent/config"
 )
 
@@ -21,6 +26,7 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
+	SendLinterChecks(ctx context.Context, checks []contract.LinterCheck) error
 }
 
 func NewClient(log *logrus.Logger, rest *resty.Client, clusterID string) Client {
@@ -62,6 +68,41 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	}
 	if resp.IsError() {
 		return fmt.Errorf("sending logs: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+
+	return nil
+}
+
+func (c *client) SendLinterChecks(ctx context.Context, checks []contract.LinterCheck) error {
+	var buffer bytes.Buffer
+	if err := json.NewEncoder(&buffer).Encode(checks); err != nil {
+		return err
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+
+	go func() {
+		defer pipeWriter.Close()
+
+		gzipWriter := gzip.NewWriter(pipeWriter)
+		defer gzipWriter.Close()
+
+		_, err := gzipWriter.Write(buffer.Bytes())
+		if err != nil {
+			c.log.Errorf("compressing checks: %v", err)
+		}
+	}()
+
+	resp, err := c.rest.R().
+		SetBody(pipeReader).
+		SetHeader("Content-Type", "application/json").
+		SetContext(ctx).
+		Post(fmt.Sprintf("/v1/security/insights/agent/%s/linter-checks", c.clusterID))
+	if err != nil {
+		return fmt.Errorf("sending checks: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("sending checks: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
 	}
 
 	return nil

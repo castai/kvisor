@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	castai "github.com/castai/sec-agent/castai"
+	contract "github.com/castai/sec-agent/castai/contract"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -33,6 +34,20 @@ func NewMockClient(ctrl *gomock.Controller) *MockClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
+}
+
+// SendLinterChecks mocks base method.
+func (m *MockClient) SendLinterChecks(ctx context.Context, checks []contract.LinterCheck) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendLinterChecks", ctx, checks)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendLinterChecks indicates an expected call of SendLinterChecks.
+func (mr *MockClientMockRecorder) SendLinterChecks(ctx, checks interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLinterChecks", reflect.TypeOf((*MockClient)(nil).SendLinterChecks), ctx, checks)
 }
 
 // SendLogs mocks base method.

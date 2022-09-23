@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -69,7 +68,7 @@ func main() {
 	logrus.RegisterExitHandler(e.Wait)
 
 	ctx := signals.SetupSignalHandler()
-	if err := run(ctx, logger, cfg, binVersion); err != nil {
+	if err := run(ctx, logger, cfg, binVersion, client); err != nil {
 		logErr := &logContextErr{}
 		if errors.As(err, &logErr) {
 			log = logger.WithFields(logErr.fields)
@@ -78,7 +77,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion) (reterr error) {
+func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion, client castai.Client) (reterr error) {
 	fields := logrus.Fields{}
 
 	defer func() {
@@ -139,7 +138,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 	var objectSubscribers []controller.ObjectSubscriber
 	if cfg.Features.KubeLinter.Enabled {
 		log.Info("kubelinter enabled")
-		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log))
+		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, client))
 	}
 	if cfg.Features.KubeBench.Enabled {
 		log.Info("kubebench enabled")
@@ -270,7 +269,7 @@ func kubeConfigFromEnv() (*rest.Config, error) {
 		return nil, nil
 	}
 
-	data, err := ioutil.ReadFile(kubepath)
+	data, err := os.ReadFile(kubepath)
 	if err != nil {
 		return nil, fmt.Errorf("reading kubeconfig at %s: %w", kubepath, err)
 	}
