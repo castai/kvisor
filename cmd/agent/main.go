@@ -14,6 +14,7 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/delta"
 	"github.com/castai/sec-agent/imagescan"
 	"github.com/castai/sec-agent/linters/kubebench"
 	"github.com/castai/sec-agent/linters/kubelinter"
@@ -57,9 +58,10 @@ func main() {
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
 
 	client := castai.NewClient(
+		cfg.API.URL, cfg.API.Key,
 		logger,
-		castai.NewDefaultClient(cfg.API.URL, cfg.API.Key, logger.Level, binVersion),
 		cfg.ClusterID,
+		binVersion,
 	)
 
 	log := logrus.WithFields(logrus.Fields{})
@@ -68,7 +70,7 @@ func main() {
 	logrus.RegisterExitHandler(e.Wait)
 
 	ctx := signals.SetupSignalHandler()
-	if err := run(ctx, logger, cfg, binVersion, client); err != nil {
+	if err := run(ctx, logger, client, cfg, binVersion); err != nil {
 		logErr := &logContextErr{}
 		if errors.As(err, &logErr) {
 			log = logger.WithFields(logErr.fields)
@@ -77,7 +79,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binVersion *config.SecurityAgentVersion, client castai.Client) (reterr error) {
+func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Client, cfg config.Config, binVersion *config.SecurityAgentVersion) (reterr error) {
 	fields := logrus.Fields{}
 
 	defer func() {
@@ -135,7 +137,15 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
-	var objectSubscribers []controller.ObjectSubscriber
+	objectSubscribers := []controller.ObjectSubscriber{
+		delta.NewSubscriber(
+			log,
+			log.Level,
+			delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
+			castaiClient,
+			k8sVersion.MinorInt(),
+		),
+	}
 	if cfg.Features.KubeLinter.Enabled {
 		log.Info("kubelinter enabled")
 		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, client))
@@ -153,11 +163,11 @@ func run(ctx context.Context, logger logrus.FieldLogger, cfg config.Config, binV
 	}
 
 	if len(objectSubscribers) == 0 {
-		log.Fatal("no features enabled")
+		log.Fatal("no subscribers enabled")
 	}
 
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	ctrl := controller.New(log, informersFactory, objectSubscribers)
+	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)
 
 	work := func(ctx context.Context) {
 		if err := ctrl.Run(ctx); err != nil {

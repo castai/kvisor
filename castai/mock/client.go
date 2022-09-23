@@ -36,6 +36,20 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// SendDelta mocks base method.
+func (m *MockClient) SendDelta(ctx context.Context, delta *castai.Delta) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendDelta", ctx, delta)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendDelta indicates an expected call of SendDelta.
+func (mr *MockClientMockRecorder) SendDelta(ctx, delta interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDelta", reflect.TypeOf((*MockClient)(nil).SendDelta), ctx, delta)
+}
+
 // SendLinterChecks mocks base method.
 func (m *MockClient) SendLinterChecks(ctx context.Context, checks []contract.LinterCheck) error {
 	m.ctrl.T.Helper()

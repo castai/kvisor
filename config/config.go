@@ -9,15 +9,16 @@ import (
 )
 
 type Config struct {
-	KubeClient     KubeClient
-	Kubeconfig     string
-	LeaderElection LeaderElection
-	Log            Log
-	API            API
-	PprofPort      int
-	ClusterID      string
-	Provider       string
-	Features       Features
+	KubeClient        KubeClient
+	Kubeconfig        string
+	LeaderElection    LeaderElection
+	Log               Log
+	API               API
+	PprofPort         int
+	ClusterID         string
+	Provider          string
+	DeltaSyncInterval time.Duration
+	Features          Features
 }
 
 type Features struct {
@@ -88,12 +89,22 @@ func Get() Config {
 	_ = viper.BindEnv("features.imagescan.maxconcurrentscans", "FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS")
 	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
 	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
+	_ = viper.BindEnv("deltasynciterval", "DELTA_SYNC_INTERVAL")
 
 	cfg = &Config{}
 	if err := viper.Unmarshal(&cfg); err != nil {
 		panic(fmt.Errorf("parsing configuration: %v", err))
 	}
 
+	if cfg.API.URL == "" {
+		required("API_URL")
+	}
+	if cfg.API.Key == "" {
+		required("API_KEY")
+	}
+	if cfg.ClusterID == "" {
+		required("CLUSTER_ID")
+	}
 	if cfg.KubeClient.QPS == 0 {
 		cfg.KubeClient.QPS = 25
 	}
@@ -101,7 +112,7 @@ func Get() Config {
 		cfg.KubeClient.Burst = 150
 	}
 	if cfg.Log.Level == 0 {
-		cfg.Log.Level = int(logrus.InfoLevel)
+		cfg.Log.Level = int(logrus.DebugLevel)
 	}
 	if cfg.LeaderElection.Enabled {
 		if cfg.LeaderElection.Namespace == "" {
@@ -116,6 +127,9 @@ func Get() Config {
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = "on-premise"
+	}
+	if cfg.DeltaSyncInterval == 0 {
+		cfg.DeltaSyncInterval = 15 * time.Second
 	}
 
 	return *cfg

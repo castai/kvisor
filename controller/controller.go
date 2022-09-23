@@ -10,16 +10,20 @@ import (
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/castai/sec-agent/version"
 )
 
 func New(
 	log logrus.FieldLogger,
 	f informers.SharedInformerFactory,
 	subscribers []ObjectSubscriber,
+	k8sVersion version.Interface,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
 		reflect.TypeOf(&corev1.Node{}):               f.Core().V1().Nodes().Informer(),
@@ -31,6 +35,12 @@ func New(
 		reflect.TypeOf(&appsv1.DaemonSet{}):          f.Apps().V1().DaemonSets().Informer(),
 		reflect.TypeOf(&appsv1.StatefulSet{}):        f.Apps().V1().StatefulSets().Informer(),
 		reflect.TypeOf(&batchv1.Job{}):               f.Batch().V1().Jobs().Informer(),
+	}
+
+	if k8sVersion.MinorInt() >= 21 {
+		typeInformerMap[reflect.TypeOf(&batchv1.CronJob{})] = f.Batch().V1().CronJobs().Informer()
+	} else {
+		typeInformerMap[reflect.TypeOf(&batchv1beta1.CronJob{})] = f.Batch().V1beta1().CronJobs().Informer()
 	}
 
 	c := &Controller{
@@ -87,7 +97,7 @@ func (c *Controller) runSubscriber(ctx context.Context, subscriber ObjectSubscri
 	for _, typ := range requiredInformerTypes {
 		informer, ok := c.informers[typ]
 		if !ok {
-			return fmt.Errorf("no informer for type %q", typ.Name())
+			return fmt.Errorf("no informer for type %v", typ)
 		}
 		syncs = append(syncs, informer.HasSynced)
 	}
