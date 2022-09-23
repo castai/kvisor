@@ -16,7 +16,7 @@ func newDelta(log logrus.FieldLogger, logLevel logrus.Level) *delta {
 	return &delta{
 		log:          log,
 		logLevel:     logLevel,
-		fullSnapshot: true,
+		fullSnapshot: false, // TODO: Implement full snapshot concept.
 		cache:        map[string]castai.DeltaItem{},
 		skippers: []skipper{
 			nonStaticPodsSkipper(),
@@ -78,6 +78,7 @@ func (d *delta) add(event controller.Event, obj object) {
 		ObjectNamespace:  obj.GetNamespace(),
 		ObjectKind:       gvr.Kind,
 		ObjectAPIVersion: gvr.GroupVersion().String(),
+		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
 	}
 }
 

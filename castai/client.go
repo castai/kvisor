@@ -110,7 +110,7 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 }
 
 func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
-	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/%s/deltas", c.apiURL, c.clusterID))
+	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/delta", c.apiURL, c.clusterID))
 	if err != nil {
 		return fmt.Errorf("invalid url: %w", err)
 	}
@@ -204,6 +204,7 @@ type DeltaItem struct {
 	ObjectNamespace  string    `json:"object_namespace,omitempty"`
 	ObjectKind       string    `json:"object_kind,omitempty"`
 	ObjectAPIVersion string    `json:"object_api_version,omitempty"`
+	ObjectCreatedAt  time.Time `json:"object_created_at,omitempty"`
 }
 
 type EventType string

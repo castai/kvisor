@@ -89,13 +89,22 @@ func Get() Config {
 	_ = viper.BindEnv("features.imagescan.maxconcurrentscans", "FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS")
 	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
 	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
-	_ = viper.BindEnv("deltasynciterval", "DELTA_SNC_INTERVAL")
+	_ = viper.BindEnv("deltasynciterval", "DELTA_SYNC_INTERVAL")
 
 	cfg = &Config{}
 	if err := viper.Unmarshal(&cfg); err != nil {
 		panic(fmt.Errorf("parsing configuration: %v", err))
 	}
 
+	if cfg.API.URL == "" {
+		required("API_URL")
+	}
+	if cfg.API.Key == "" {
+		required("API_KEy")
+	}
+	if cfg.ClusterID == "" {
+		required("CLUSTER_ID")
+	}
 	if cfg.KubeClient.QPS == 0 {
 		cfg.KubeClient.QPS = 25
 	}
