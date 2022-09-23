@@ -110,34 +110,36 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
-//func (c *client) SendCISReport(ctx context.Context, report []byte) error {
-//	pipeReader, pipeWriter := io.Pipe()
-//
-//	go func() {
-//		defer pipeWriter.Close()
-//
-//		gzipWriter := gzip.NewWriter(pipeWriter)
-//		defer gzipWriter.Close()
-//
-//		_, err := gzipWriter.Write(report)
-//		if err != nil {
-//			c.log.Errorf("compressing report: %v", err)
-//		}
-//	}()
-//
-//	resp, err := c.restClient.
-//		SetBody(pipeReader).
-//		SetHeader("Content-Encoding", "gzip").
-//		SetContext(ctx).
-//		Post(fmt.Sprintf("/v1/security/insights/cis/%s/submit", c.clusterID))
-//
-//	if err != nil {
-//		return fmt.Errorf("sending report: %w", err)
-//	}
-//	if resp.IsError() {
-//		return fmt.Errorf("sending report: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
-//	}
-//}
+func (c *client) SendCISReport(ctx context.Context, report []byte) error {
+	pipeReader, pipeWriter := io.Pipe()
+
+	go func() {
+		defer pipeWriter.Close()
+
+		gzipWriter := gzip.NewWriter(pipeWriter)
+		defer gzipWriter.Close()
+
+		_, err := gzipWriter.Write(report)
+		if err != nil {
+			c.log.Errorf("compressing report: %v", err)
+		}
+	}()
+
+	resp, err := c.restClient.R().
+		SetBody(pipeReader).
+		SetHeader("Content-Encoding", "gzip").
+		SetContext(ctx).
+		Post(fmt.Sprintf("/v1/security/insights/agent/%s/cis-report", c.clusterID))
+
+	if err != nil {
+		return fmt.Errorf("sending report: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("sending report: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+
+	return nil
+}
 
 func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/delta", c.apiURL, c.clusterID))
