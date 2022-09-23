@@ -71,7 +71,7 @@ func main() {
 	logrus.RegisterExitHandler(e.Wait)
 
 	ctx := signals.SetupSignalHandler()
-	if err := run(ctx, logger, cfg, binVersion, client); err != nil {
+	if err := run(ctx, logger, client, cfg, binVersion); err != nil {
 		logErr := &logContextErr{}
 		if errors.As(err, &logErr) {
 			log = logger.WithFields(logErr.fields)
@@ -154,7 +154,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	if cfg.Features.KubeBench.Enabled {
 		log.Info("kubebench enabled")
 		podLogReader := kubebench.NewPodLogReader(clientset)
-		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.Provider, castClient, podLogReader))
+		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.Provider, castaiClient, podLogReader))
 	}
 	if cfg.Features.ImageScan.Enabled {
 		log.Info("imagescan enabled")
