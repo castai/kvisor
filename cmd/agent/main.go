@@ -148,7 +148,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 	if cfg.Features.KubeLinter.Enabled {
 		log.Info("kubelinter enabled")
-		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, client))
+		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, castaiClient))
 	}
 	if cfg.Features.KubeBench.Enabled {
 		log.Info("kubebench enabled")
