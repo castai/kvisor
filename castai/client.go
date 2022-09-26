@@ -32,7 +32,7 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	SendReport(ctx context.Context, report interface{}, reportType string) error
+	SendReport(ctx context.Context, report any, reportType string) error
 }
 
 func NewClient(
