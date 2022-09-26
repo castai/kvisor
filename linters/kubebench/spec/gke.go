@@ -31,6 +31,7 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 								"node,policies,managedservices",
 								"--benchmark",
 								"gke-1.2.0",
+								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{

@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
 )
 
@@ -34,7 +33,7 @@ func init() {
 }
 
 type castaiClient interface {
-	SendDelta(ctx context.Context, delta *castai.Delta) error
+	SendReport(ctx context.Context, report interface{}, reportType string) error
 }
 
 type Config struct {
@@ -131,7 +130,7 @@ func (s *Subscriber) sendDelta(ctx context.Context) error {
 	}
 
 	s.log.Debugf("sending delta with items[%d]", len(deltaReq.Items))
-	if err := s.client.SendDelta(ctx, deltaReq); err != nil {
+	if err := s.client.SendReport(ctx, deltaReq, "delta"); err != nil {
 		return err
 	}
 	s.log.WithField("full_snapshot", "todo").Infof("delta with items[%d] sent", len(deltaReq.Items))

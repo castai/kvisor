@@ -35,20 +35,6 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
-// SendDelta mocks base method.
-func (m *MockClient) SendDelta(ctx context.Context, delta *castai.Delta) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendDelta", ctx, delta)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendDelta indicates an expected call of SendDelta.
-func (mr *MockClientMockRecorder) SendDelta(ctx, delta interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDelta", reflect.TypeOf((*MockClient)(nil).SendDelta), ctx, delta)
-}
-
 // SendLogs mocks base method.
 func (m *MockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
 	m.ctrl.T.Helper()
@@ -61,4 +47,18 @@ func (m *MockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
 func (mr *MockClientMockRecorder) SendLogs(ctx, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLogs", reflect.TypeOf((*MockClient)(nil).SendLogs), ctx, req)
+}
+
+// SendReport mocks base method.
+func (m *MockClient) SendReport(ctx context.Context, report interface{}, reportType string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendReport", ctx, report, reportType)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendReport indicates an expected call of SendReport.
+func (mr *MockClientMockRecorder) SendReport(ctx, report, reportType interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendReport", reflect.TypeOf((*MockClient)(nil).SendReport), ctx, report, reportType)
 }
