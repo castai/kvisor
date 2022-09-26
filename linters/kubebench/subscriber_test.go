@@ -68,7 +68,7 @@ func TestSubscriber(t *testing.T) {
 				UID:  types.UID(uuid.NewString()),
 			},
 		}
-		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any())
+		mockCast.EXPECT().SendReport(gomock.Any(), gomock.Any(), "cis-report")
 
 		err = subscriber.lintNode(ctx, node)
 		r.NoError(err)

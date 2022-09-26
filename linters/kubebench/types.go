@@ -1,8 +1,10 @@
 package kubebench
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"sync"
+
+	"github.com/samber/lo"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/castai/sec-agent/controller"
 )
@@ -38,10 +40,5 @@ func (d *nodeDeltaState) peek() []corev1.Node {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	res := make([]corev1.Node, 0, len(d.objectMap))
-	for _, o := range d.objectMap {
-		res = append(res, o)
-	}
-
-	return res
+	return lo.Values(d.objectMap)
 }

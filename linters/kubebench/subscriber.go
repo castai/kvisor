@@ -126,12 +126,12 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 		return err
 	}
 
-	reportBytes, err := s.getReportFromLogs(ctx, node, kubeBenchPod.Name)
+	report, err := s.getReportFromLogs(ctx, node, kubeBenchPod.Name)
 	if err != nil {
 		return err
 	}
 
-	err = s.castClient.SendCISReport(ctx, reportBytes)
+	err = s.castClient.SendReport(ctx, report, "cis-report")
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	return kubeBenchPod, nil
 }
 
-func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) ([]byte, error) {
+func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*CustomReport, error) {
 	logReader, err := s.logsProvider.GetLogReader(ctx, kubeBenchPodName)
 	if err != nil {
 		return nil, err
@@ -221,12 +221,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 		ResourceID: nodeID,
 	}
 
-	reportBytes, err := jsoniter.Marshal(customReport)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling report: %v", err)
-	}
-
-	return reportBytes, nil
+	return &customReport, nil
 }
 
 func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname string) *batchv1.Job {

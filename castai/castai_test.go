@@ -27,7 +27,7 @@ func TestClient_SendCISReport(t *testing.T) {
 
 	report := readReport()
 
-	err := cl.SendCISReport(context.Background(), report)
+	err := cl.SendReport(context.Background(), report, "cis-report")
 	r.NoError(err)
 }
 
