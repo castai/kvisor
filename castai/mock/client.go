@@ -77,3 +77,17 @@ func (mr *MockClientMockRecorder) SendLogs(ctx, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLogs", reflect.TypeOf((*MockClient)(nil).SendLogs), ctx, req)
 }
+
+// SendReport mocks base method.
+func (m *MockClient) SendReport(ctx context.Context, report interface{}, reportType string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendReport", ctx, report, reportType)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendReport indicates an expected call of SendReport.
+func (mr *MockClientMockRecorder) SendReport(ctx, report, reportType interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendReport", reflect.TypeOf((*MockClient)(nil).SendReport), ctx, report, reportType)
+}

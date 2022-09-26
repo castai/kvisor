@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	json "github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -33,7 +33,7 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	SendDelta(ctx context.Context, delta *Delta) error
+	SendReport(ctx context.Context, report any, reportType string) error
 	SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error
 }
 
@@ -111,8 +111,8 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
-func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
-	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/delta", c.apiURL, c.clusterID))
+func (c *client) SendReport(ctx context.Context, report any, reportType string) error {
+	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/%s", c.apiURL, c.clusterID, reportType))
 	if err != nil {
 		return fmt.Errorf("invalid url: %w", err)
 	}
@@ -133,7 +133,7 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 			}
 		}()
 
-		if err := json.NewEncoder(gzipWriter).Encode(delta); err != nil {
+		if err := json.NewEncoder(gzipWriter).Encode(report); err != nil {
 			c.log.Errorf("compressing json: %v", err)
 		}
 	}()
@@ -143,7 +143,7 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri.String(), pipeReader)
 	if err != nil {
-		return fmt.Errorf("creating delta request: %w", err)
+		return fmt.Errorf("creating request for report type %s: %w", reportType, err)
 	}
 
 	req.Header.Set(headerContentType, "application/json")
@@ -162,8 +162,8 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 	err = wait.ExponentialBackoffWithContext(ctx, backoff, func() (done bool, err error) {
 		resp, err = c.httpClient.Do(req)
 		if err != nil {
-			c.log.Warnf("failed sending delta request: %v", err)
-			return false, fmt.Errorf("sending delta request: %w", err)
+			c.log.Warnf("failed sending request for report %s: %v", reportType, err)
+			return false, fmt.Errorf("sending request %s: %w", reportType, err)
 		}
 		return true, nil
 	})
@@ -181,7 +181,7 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 		if _, err := buf.ReadFrom(resp.Body); err != nil {
 			c.log.Errorf("failed reading error response body: %v", err)
 		}
-		return fmt.Errorf("delta request error status_code=%d body=%s url=%s", resp.StatusCode, buf.String(), uri.String())
+		return fmt.Errorf("%s request error status_code=%d body=%s url=%s", reportType, resp.StatusCode, buf.String(), uri.String())
 	}
 
 	return nil

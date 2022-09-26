@@ -56,6 +56,8 @@ jobs:
         uses: golangci/golangci-lint-action@v3.2.0
         with:
           args: --timeout=5m
+          skip-pkg-cache: true
+          skip-build-cache: true
 
       - name: Test
         run: go test -race ./...

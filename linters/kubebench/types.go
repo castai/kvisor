@@ -3,47 +3,42 @@ package kubebench
 import (
 	"sync"
 
+	"github.com/samber/lo"
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/castai/sec-agent/controller"
 )
 
-func newDeltaState() *deltaState {
-	return &deltaState{
-		objectMap: make(map[string]controller.Object),
+func newDeltaState() *nodeDeltaState {
+	return &nodeDeltaState{
+		objectMap: make(map[string]corev1.Node),
 		mu:        sync.Mutex{},
 	}
 }
 
-type deltaState struct {
-	objectMap map[string]controller.Object
+type nodeDeltaState struct {
+	objectMap map[string]corev1.Node
 	mu        sync.Mutex
 }
 
-func (d *deltaState) upsert(o controller.Object) {
+func (d *nodeDeltaState) upsert(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	key := controller.ObjectKey(o)
-	d.objectMap[key] = o
+	d.objectMap[key] = *o
 }
 
-func (d *deltaState) delete(o controller.Object) {
+func (d *nodeDeltaState) delete(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	delete(d.objectMap, controller.ObjectKey(o))
 }
 
-func (d *deltaState) flush() []controller.Object {
+func (d *nodeDeltaState) peek() []corev1.Node {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	defer func() {
-		d.objectMap = make(map[string]controller.Object)
-	}()
 
-	res := make([]controller.Object, 0, len(d.objectMap))
-	for _, o := range d.objectMap {
-		res = append(res, o)
-	}
-
-	return res
+	return lo.Values(d.objectMap)
 }

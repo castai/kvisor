@@ -114,7 +114,7 @@ type mockCastaiClient struct {
 	delta *castai.Delta
 }
 
-func (m *mockCastaiClient) SendDelta(ctx context.Context, delta *castai.Delta) error {
-	m.delta = delta
+func (m *mockCastaiClient) SendReport(ctx context.Context, report any, reportType string) error {
+	m.delta = report.(*castai.Delta)
 	return nil
 }
