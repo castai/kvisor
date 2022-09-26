@@ -18,8 +18,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/castai/sec-agent/castai/contract"
 	"github.com/castai/sec-agent/config"
+	"github.com/castai/sec-agent/types"
 )
 
 const (
@@ -34,7 +34,7 @@ const (
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
 	SendDelta(ctx context.Context, delta *Delta) error
-	SendLinterChecks(ctx context.Context, checks []contract.LinterCheck) error
+	SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error
 }
 
 func NewClient(
@@ -187,7 +187,7 @@ func (c *client) SendDelta(ctx context.Context, delta *Delta) error {
 	return nil
 }
 
-func (c *client) SendLinterChecks(ctx context.Context, checks []contract.LinterCheck) error {
+func (c *client) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
 	var buffer bytes.Buffer
 	if err := json.NewEncoder(&buffer).Encode(checks); err != nil {
 		return err
@@ -221,33 +221,3 @@ func (c *client) SendLinterChecks(ctx context.Context, checks []contract.LinterC
 
 	return nil
 }
-
-type LogEvent struct {
-	Level   string        `json:"level"`
-	Time    time.Time     `json:"time"`
-	Message string        `json:"message"`
-	Fields  logrus.Fields `json:"fields"`
-}
-
-type Delta struct {
-	FullSnapshot bool        `json:"full_snapshot,omitempty"`
-	Items        []DeltaItem `json:"items"`
-}
-
-type DeltaItem struct {
-	Event            EventType `json:"event"`
-	ObjectUID        string    `json:"object_uid"`
-	ObjectName       string    `json:"object_name,omitempty"`
-	ObjectNamespace  string    `json:"object_namespace,omitempty"`
-	ObjectKind       string    `json:"object_kind,omitempty"`
-	ObjectAPIVersion string    `json:"object_api_version,omitempty"`
-	ObjectCreatedAt  time.Time `json:"object_created_at,omitempty"`
-}
-
-type EventType string
-
-const (
-	EventAdd    EventType = "add"
-	EventUpdate EventType = "update"
-	EventDelete EventType = "delete"
-)

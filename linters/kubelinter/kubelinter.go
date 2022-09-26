@@ -2,7 +2,6 @@ package kubelinter
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/builtinchecks"
@@ -60,8 +59,9 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/updateconfig"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
+	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/sec-agent/castai/contract"
+	casttypes "github.com/castai/sec-agent/types"
 )
 
 func New(checks []string) *Linter {
@@ -72,7 +72,7 @@ type Linter struct {
 	checks []string
 }
 
-func (l *Linter) Run(objects []lintcontext.Object) ([]contract.LinterCheck, error) {
+func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, error) {
 	registry := checkregistry.New()
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
@@ -97,21 +97,25 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]contract.LinterCheck, erro
 		return nil, err
 	}
 
-	now := time.Now().UTC
-
-	checks := make(map[string]contract.LinterCheck)
+	resources := make(map[types.UID]casttypes.LinterCheck)
 	for _, check := range res.Reports {
 		obj := check.Object.K8sObject
-
-		resCheck := contract.LinterCheck{
-			ResourceID: string(obj.GetUID()),
-			RuleID:     check.Check,
-			Failed:     check.Diagnostic.Message != "",
-			Timestamp:  now(),
+		if _, ok := resources[obj.GetUID()]; !ok {
+			resources[obj.GetUID()] = casttypes.LinterCheck{
+				ResourceID: string(obj.GetUID()),
+				Failed:     new(casttypes.LinterRuleSet),
+				Passed:     new(casttypes.LinterRuleSet),
+			}
 		}
-		checks[resCheck.RuleID+resCheck.ResourceID] = resCheck
+
+		if check.Diagnostic.Message != "" {
+			resources[obj.GetUID()].Failed.Add(casttypes.LinterRuleMap[check.Check])
+		} else {
+			resources[obj.GetUID()].Passed.Add(casttypes.LinterRuleMap[check.Check])
+		}
 	}
-	return lo.Values(checks), nil
+
+	return lo.Values(resources), nil
 }
 
 func runKubeLinter(lintCtxs []lintcontext.LintContext, registry checkregistry.CheckRegistry, checks []string) (run.Result, error) {

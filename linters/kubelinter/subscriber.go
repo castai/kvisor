@@ -2,6 +2,7 @@ package kubelinter
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
+	casttypes "github.com/castai/sec-agent/types"
 )
 
 var supportedTypes = []reflect.Type{
@@ -30,7 +32,7 @@ var supportedTypes = []reflect.Type{
 func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	linter := New(rules)
+	linter := New(lo.Keys(casttypes.LinterRuleMap))
 
 	return &Subscriber{
 		ctx:    ctx,
@@ -63,7 +65,14 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-time.After(15 * time.Second):
 			objects := s.delta.flush()
 			if len(objects) > 0 {
-				s.lintObjects(objects)
+				if err := s.lintObjects(objects); err != nil {
+					s.log.Error(err)
+
+					// return unprocessed objects to the delta queue
+					for _, obj := range objects {
+						s.delta.upsert(obj)
+					}
+				}
 			}
 		}
 	}
@@ -101,23 +110,23 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 	}
 }
 
-func (s *Subscriber) lintObjects(objects []controller.Object) {
+func (s *Subscriber) lintObjects(objects []controller.Object) error {
 	checks, err := s.linter.Run(lo.Map(objects, func(o controller.Object, i int) lintcontext.Object {
 		return lintcontext.Object{K8sObject: o}
 	}))
 	if err != nil {
-		s.log.Errorf("kubelinter failed: %v", err)
-		return
+		return fmt.Errorf("kubelinter failed: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(s.ctx, time.Second*5)
 	defer cancel()
 
 	if err := s.client.SendLinterChecks(ctx, checks); err != nil {
-		s.log.WithError(err).Error("can not send kubelinter checks")
+		return fmt.Errorf("can not send kubelinter checks: %w", err)
 	}
 
 	s.log.Infof("kubelinter finished, checks: %d", len(checks))
+	return nil
 }
 
 func isStaticPod(pod *corev1.Pod) bool {

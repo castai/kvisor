@@ -73,7 +73,7 @@ func (s *Subscriber) lintNodes(ctx context.Context, objects []controller.Object)
 			PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
 		})
 		if err != nil && !errors.IsNotFound(err) {
-			s.log.WithError(err).Errorf("can not delete job %q", jobName)
+			s.log.Errorf("can not delete job %q: %v", jobName, err)
 			return
 		}
 
@@ -83,7 +83,7 @@ func (s *Subscriber) lintNodes(ctx context.Context, objects []controller.Object)
 			Jobs("castai-sec").
 			Create(ctx, specFn(node.GetName(), jobName), metav1.CreateOptions{})
 		if err != nil {
-			s.log.WithError(err).Error("can not create kube-bench scan job")
+			s.log.Error("can not create kube-bench scan job: %v", err)
 			return
 		}
 

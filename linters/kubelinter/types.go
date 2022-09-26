@@ -4,52 +4,7 @@ import (
 	"sync"
 
 	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/types"
 )
-
-var rules = []string{
-	"dangling-service",
-	"deprecated-service-account-field",
-	"docker-sock",
-	"drop-net-raw-capability",
-	"env-var-secret",
-	"exposed-services",
-	"host-ipc",
-	"host-network",
-	"host-pid",
-	"invalid-target-ports",
-	"latest-tag",
-	"mismatching-selector",
-	"no-anti-affinity",
-	"no-liveness-probe",
-	"no-read-only-root-fs",
-	"no-readiness-probe",
-	"no-rolling-update-strategy",
-	"privilege-escalation-container",
-	"privileged-container",
-	"privileged-ports",
-	"run-as-non-root",
-	"sensitive-host-mounts",
-	"ssh-port",
-	"unsafe-proc-mount",
-	"unsafe-sysctls",
-	"unset-memory-requirements",
-	"use-namespace",
-	"writable-host-mount",
-}
-
-type LintCheck struct {
-	ID       string
-	Message  string
-	Resource types.Resource
-	Linter   string
-	Failed   bool
-	Category string
-}
-
-func (c *LintCheck) ObjectKey() string {
-	return c.Resource.ObjectKey()
-}
 
 func newDeltaState() *deltaState {
 	return &deltaState{
