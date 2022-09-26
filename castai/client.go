@@ -33,7 +33,8 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	SendReport(ctx context.Context, report any, reportType string) error
+	SendCISReport(ctx context.Context, report *CustomReport) error
+	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error
 }
 
@@ -111,7 +112,19 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
-func (c *client) SendReport(ctx context.Context, report any, reportType string) error {
+func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {
+	return c.sendReport(ctx, report, "delta")
+}
+
+func (c *client) SendCISReport(ctx context.Context, report *CustomReport) error {
+	return c.sendReport(ctx, report, "cis-report")
+}
+
+func (c *client) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
+	return c.sendReport(ctx, checks, "linter-checks")
+}
+
+func (c *client) sendReport(ctx context.Context, report any, reportType string) error {
 	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/%s", c.apiURL, c.clusterID, reportType))
 	if err != nil {
 		return fmt.Errorf("invalid url: %w", err)
@@ -182,41 +195,6 @@ func (c *client) SendReport(ctx context.Context, report any, reportType string) 
 			c.log.Errorf("failed reading error response body: %v", err)
 		}
 		return fmt.Errorf("%s request error status_code=%d body=%s url=%s", reportType, resp.StatusCode, buf.String(), uri.String())
-	}
-
-	return nil
-}
-
-func (c *client) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
-	var buffer bytes.Buffer
-	if err := json.NewEncoder(&buffer).Encode(checks); err != nil {
-		return err
-	}
-
-	pipeReader, pipeWriter := io.Pipe()
-
-	go func() {
-		defer pipeWriter.Close()
-
-		gzipWriter := gzip.NewWriter(pipeWriter)
-		defer gzipWriter.Close()
-
-		_, err := gzipWriter.Write(buffer.Bytes())
-		if err != nil {
-			c.log.Errorf("compressing checks: %v", err)
-		}
-	}()
-
-	resp, err := c.restClient.R().
-		SetBody(pipeReader).
-		SetHeader("Content-Type", "application/json").
-		SetContext(ctx).
-		Post(fmt.Sprintf("/v1/security/insights/agent/%s/linter-checks", c.clusterID))
-	if err != nil {
-		return fmt.Errorf("sending checks: %w", err)
-	}
-	if resp.IsError() {
-		return fmt.Errorf("sending checks: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
 	}
 
 	return nil

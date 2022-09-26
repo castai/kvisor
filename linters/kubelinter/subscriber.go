@@ -68,10 +68,8 @@ func (s *Subscriber) Run(ctx context.Context) error {
 				if err := s.lintObjects(objects); err != nil {
 					s.log.Error(err)
 
-					// return unprocessed objects to the delta queue
-					for _, obj := range objects {
-						s.delta.upsert(obj)
-					}
+					// put unprocessed objects back to delta queue
+					s.delta.insert(objects...)
 				}
 			}
 		}

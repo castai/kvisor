@@ -3,10 +3,13 @@ package castai
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
 type EventType string
+type State string
+type NodeType string
 
 const (
 	EventAdd    EventType = "add"
@@ -14,11 +17,54 @@ const (
 	EventDelete EventType = "delete"
 )
 
+const (
+	// PASS check passed.
+	PASS State = "PASS"
+	// FAIL check failed.
+	FAIL State = "FAIL"
+	// WARN could not carry out check.
+	WARN State = "WARN"
+	// INFO informational message
+	INFO State = "INFO"
+)
+
 type LogEvent struct {
 	Level   string        `json:"level"`
 	Time    time.Time     `json:"time"`
 	Message string        `json:"message"`
 	Fields  logrus.Fields `json:"fields"`
+}
+
+type Node struct {
+	NodeName   string    `json:"node_name"`
+	ResourceID uuid.UUID `json:"resource_id"`
+}
+
+type CustomReport struct {
+	OverallControls
+	Node
+}
+
+type OverallControls struct {
+	Controls []*Controls `json:"Controls"`
+}
+
+type Controls struct {
+	Groups []*Group `json:"tests"`
+}
+
+// Group is a collection of similar checks.
+type Group struct {
+	Checks []*Check `json:"results"`
+}
+
+// Check contains information about a recommendation in the
+// CIS Kubernetes document.
+type Check struct {
+	ID       string   `yaml:"id" json:"test_number"`
+	Text     string   `json:"test_desc"`
+	TestInfo []string `json:"test_info"`
+	State    `json:"status"`
 }
 
 type Delta struct {
