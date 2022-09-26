@@ -27,6 +27,8 @@ var supportedTypes = []reflect.Type{
 	reflect.TypeOf(&appsv1.Deployment{}),
 	reflect.TypeOf(&appsv1.DaemonSet{}),
 	reflect.TypeOf(&appsv1.StatefulSet{}),
+	// rbac
+	reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
 }
 
 func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.ObjectSubscriber {

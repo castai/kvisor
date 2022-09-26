@@ -34,6 +34,7 @@ const (
 	UnsetMempryRequirements
 	UseNamespace
 	WritableHostMount
+	ClusterAdminRoleBinding
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -65,6 +66,7 @@ var LinterRuleMap = map[string]LinterRule{
 	"unset-memory-requirements":        UnsetMempryRequirements,
 	"use-namespace":                    UseNamespace,
 	"writable-host-mount":              WritableHostMount,
+	"cluster-admin-role-binding":       ClusterAdminRoleBinding,
 }
 
 type LinterCheck struct {
