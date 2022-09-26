@@ -135,6 +135,12 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 	if err != nil {
 		return err
 	}
+
+	err = s.deleteJob(ctx, jobName)
+	if err != nil {
+		s.log.Errorf("failed deleting job %s: %v", jobName, err)
+	}
+
 	return nil
 }
 
@@ -186,6 +192,10 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	}
 
 	return kubeBenchPod, nil
+}
+
+func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
+	return s.client.BatchV1().Jobs(castAINamespace).Delete(ctx, jobName, metav1.DeleteOptions{})
 }
 
 func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*CustomReport, error) {

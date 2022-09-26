@@ -73,8 +73,9 @@ func TestSubscriber(t *testing.T) {
 		err = subscriber.lintNode(ctx, node)
 		r.NoError(err)
 
+		// job should be deleted
 		_, err = clientset.BatchV1().Jobs(castAINamespace).Get(ctx, jobName, metav1.GetOptions{})
-		r.NoError(err)
+		r.Error(err)
 	})
 
 	t.Run("works only with nodes", func(t *testing.T) {
