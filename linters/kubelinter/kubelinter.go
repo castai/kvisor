@@ -100,6 +100,7 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 	resources := make(map[types.UID]casttypes.LinterCheck)
 	for _, check := range res.Reports {
 		obj := check.Object.K8sObject
+
 		if _, ok := resources[obj.GetUID()]; !ok {
 			resources[obj.GetUID()] = casttypes.LinterCheck{
 				ResourceID: string(obj.GetUID()),
@@ -113,6 +114,7 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 		} else {
 			resources[obj.GetUID()].Passed.Add(casttypes.LinterRuleMap[check.Check])
 		}
+
 	}
 
 	return lo.Values(resources), nil
