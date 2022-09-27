@@ -5,6 +5,7 @@ load('ext://restart_process', 'docker_build_with_restart')
 load('ext://namespace', 'namespace_create')
 
 update_settings(max_parallel_updates=16)
+secret_settings ( disable_scrub = True)
 allow_k8s_contexts(['tilt', 'kind-tilt', 'docker-desktop', 'minikube'])
 namespace = 'castai-sec'
 user = os.environ.get('USER', 'unknown-user')
@@ -17,6 +18,9 @@ namespace_create(namespace)
 local_resource(
     'agent-compile',
     'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-sec-agent ./cmd/agent',
+    deps=[
+        './'
+    ],
     ignore=[
         './bin',
     ],
@@ -25,6 +29,9 @@ local_resource(
 local_resource(
     'imgcollector-compile',
     'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-imgcollector ./cmd/imgcollector',
+    deps=[
+        './cmd/imgcollector'
+    ],
     ignore=[
         './bin',
     ],
@@ -67,7 +74,8 @@ k8s_yaml(helm(
         'castai.apiKey='+api_key,
         'castai.apiURL='+api_url,
         'image.repository=agent',
-        'features.imagescan.image.repository=imgcollector'
+        'features.imagescan.image.repository=imgcollector',
+        'agentContainerSecurityContext=null'
     ]
 ))
 

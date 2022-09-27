@@ -101,7 +101,7 @@ func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr erro
 	defer func() {
 		if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
 			PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
-		}); err != nil {
+		}); err != nil && !apierrors.IsNotFound(err) {
 			rerr = err
 		}
 	}()

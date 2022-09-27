@@ -57,6 +57,7 @@ func main() {
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
+	logger.Infof("cluster_id is: %s", cfg.ClusterID)
 
 	client := castai.NewClient(
 		cfg.API.URL, cfg.API.Key,
