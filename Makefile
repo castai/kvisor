@@ -1,14 +1,20 @@
-build:
+build-agent:
 	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/castai-sec-agent ./cmd/agent
 
-build-gcr-docker: build
-	docker build -t us-docker.pkg.dev/castai-hub/library/sec-agent:$(IMAGE_TAG) -f Dockerfile.agent .
-
-build-github-docker: build
+build-agent-github-docker: build-agent
 	docker build -t ghcr.io/castai/sec-agent:$(IMAGE_TAG) -f Dockerfile.agent .
 
-push-github-docker: build-github-docker
+push-agent-github-docker: build-agent-github-docker
 	docker push ghcr.io/castai/sec-agent:$(IMAGE_TAG)
+
+build-imgcollector:
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/castai-imgcollector ./cmd/imgcollector
+
+build-imgcollector-github-docker: build-imgcollector
+	docker build -t ghcr.io/castai/sec-agent-imgcollector:$(IMAGE_TAG) -f Dockerfile.imgcollector .
+
+push-imgcollector-github-docker: build-imgcollector-github-docker
+	docker push ghcr.io/castai/sec-agent-imgcollector:$(IMAGE_TAG)
 
 generate:
 	go generate ./...
