@@ -59,7 +59,6 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/updateconfig"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	casttypes "github.com/castai/sec-agent/types"
@@ -101,10 +100,6 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 	resources := make(map[types.UID]casttypes.LinterCheck)
 	for _, check := range res.Reports {
 		obj := check.Object.K8sObject
-		_, ok := obj.(*rbacv1.ClusterRoleBinding)
-		if ok && check.Diagnostic.Message == "" {
-			continue
-		}
 
 		if _, ok := resources[obj.GetUID()]; !ok {
 			resources[obj.GetUID()] = casttypes.LinterCheck{
