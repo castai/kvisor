@@ -2,13 +2,14 @@ package collector
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
 
+	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
 
@@ -17,16 +18,18 @@ import (
 	_ "github.com/aquasecurity/trivy/pkg/scanner" // Import all registered analyzers.
 )
 
-func New(log logrus.FieldLogger, cfg config.Config) *Collector {
+func New(log logrus.FieldLogger, cfg config.Config, client castai.Client) *Collector {
 	return &Collector{
-		log: log,
-		cfg: cfg,
+		log:    log,
+		cfg:    cfg,
+		client: client,
 	}
 }
 
 type Collector struct {
-	log logrus.FieldLogger
-	cfg config.Config
+	log    logrus.FieldLogger
+	cfg    config.Config
+	client castai.Client
 }
 
 type ImageInfo struct {
@@ -47,16 +50,21 @@ func (c *Collector) Collect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	res, err := artifact.Inspect(ctx)
+	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
 		return err
 	}
-
-	// TODO: Send to cast api. For now dump to file.
-	if err := dumpToFile(res); err != nil {
+	res := &castai.ImageMetadata{
+		ImageName:   c.cfg.ImageName,
+		ImageID:     c.cfg.ImageID,
+		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
+		BlobsInfo:   arRef.BlobsInfo,
+		ConfigFile:  arRef.ConfigFile,
+		OsInfo:      arRef.OsInfo,
+	}
+	if err := c.client.SendImageMetadata(ctx, res); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -87,12 +95,4 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	return nil, nil, fmt.Errorf("unknown mode %q", c.cfg.Mode)
-}
-
-func dumpToFile(res *image.ArtifactReference) error {
-	js, err := json.Marshal(res)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile("image-artifacts.json", js, 0755)
 }

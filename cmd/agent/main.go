@@ -48,7 +48,7 @@ var (
 func main() {
 	cfg := config.Get()
 
-	binVersion := &config.SecurityAgentVersion{
+	binVersion := config.SecurityAgentVersion{
 		GitCommit: GitCommit,
 		GitRef:    GitRef,
 		Version:   Version,
@@ -61,6 +61,7 @@ func main() {
 		cfg.API.URL, cfg.API.Key,
 		logger,
 		cfg.ClusterID,
+		"castai-sec-agent",
 		binVersion,
 	)
 
@@ -79,7 +80,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Client, cfg config.Config, binVersion *config.SecurityAgentVersion) (reterr error) {
+func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Client, cfg config.Config, binVersion config.SecurityAgentVersion) (reterr error) {
 	fields := logrus.Fields{}
 
 	defer func() {
@@ -157,10 +158,17 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 	if cfg.Features.ImageScan.Enabled {
 		log.Info("imagescan enabled")
-		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(log, imagescan.Config{
+		imgScanCfg := imagescan.Config{
 			ScanInterval:       cfg.Features.ImageScan.ScanInterval,
 			MaxConcurrentScans: cfg.Features.ImageScan.MaxConcurrentScans,
-		}, imagescan.NewImageScanner(clientset, cfg)))
+		}
+		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
+			log,
+			imgScanCfg,
+			castaiClient,
+			imagescan.NewImageScanner(clientset, cfg),
+			k8sVersion.MinorInt(),
+		))
 	}
 
 	if len(objectSubscribers) == 0 {

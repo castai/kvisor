@@ -22,7 +22,7 @@ func TestConfig(t *testing.T) {
 	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_ENABLED", "true"))
 	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_INTERVAL", "15s"))
 	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS", "5"))
-	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_IMAGE_COLLECTOR_IMAGE", "img"))
+	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE", "img"))
 	r.NoError(os.Setenv("FEATURES_KUBEBENCH_ENABLED", "true"))
 	r.NoError(os.Setenv("FEATURES_KUBELINTER_ENABLED", "true"))
 
@@ -38,11 +38,12 @@ func TestConfig(t *testing.T) {
 	r.Equal(25, cfg.KubeClient.QPS)
 	r.Equal(150, cfg.KubeClient.Burst)
 	r.Equal(ImageScan{
-		Enabled:             true,
-		ScanInterval:        15 * time.Second,
-		MaxConcurrentScans:  5,
-		ImageCollectorImage: "img",
-		DockerOptionsPath:   "/etc/docker/config.json",
+		Enabled:                  true,
+		ScanInterval:             15 * time.Second,
+		MaxConcurrentScans:       5,
+		CollectorImage:           "img",
+		CollectorImagePullPolicy: "IfNotPresent",
+		DockerOptionsPath:        "/etc/docker/config.json",
 	}, cfg.Features.ImageScan)
 	r.Equal(KubeBench{Enabled: true}, cfg.Features.KubeBench)
 	r.Equal(KubeLinter{Enabled: true}, cfg.Features.KubeLinter)

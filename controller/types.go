@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"path"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +34,5 @@ type Object interface {
 }
 
 func ObjectKey(obj Object) string {
-	gvk := obj.GetObjectKind().GroupVersionKind()
-	return path.Join(gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName())
+	return string(obj.GetUID())
 }

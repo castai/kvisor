@@ -32,6 +32,7 @@ func New(
 		reflect.TypeOf(&corev1.Service{}):            f.Core().V1().Services().Informer(),
 		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}): f.Rbac().V1().ClusterRoleBindings().Informer(),
 		reflect.TypeOf(&appsv1.Deployment{}):         f.Apps().V1().Deployments().Informer(),
+		reflect.TypeOf(&appsv1.ReplicaSet{}):         f.Apps().V1().ReplicaSets().Informer(),
 		reflect.TypeOf(&appsv1.DaemonSet{}):          f.Apps().V1().DaemonSets().Informer(),
 		reflect.TypeOf(&appsv1.StatefulSet{}):        f.Apps().V1().StatefulSets().Informer(),
 		reflect.TypeOf(&batchv1.Job{}):               f.Batch().V1().Jobs().Informer(),
