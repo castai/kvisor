@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -57,7 +56,6 @@ func main() {
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
-	logger.Infof("cluster_id is: %s", cfg.ClusterID)
 
 	client := castai.NewClient(
 		cfg.API.URL, cfg.API.Key,
@@ -282,7 +280,7 @@ func kubeConfigFromEnv() (*rest.Config, error) {
 		return nil, nil
 	}
 
-	data, err := ioutil.ReadFile(kubepath)
+	data, err := os.ReadFile(kubepath)
 	if err != nil {
 		return nil, fmt.Errorf("reading kubeconfig at %s: %w", kubepath, err)
 	}

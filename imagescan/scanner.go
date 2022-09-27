@@ -45,9 +45,11 @@ type Scanner struct {
 }
 
 type ScanImageConfig struct {
-	ImageName string
-	ImageID   string
-	NodeName  string
+	ImageName         string
+	ImageID           string
+	NodeName          string
+	DeleteFinishedJob bool
+	WaitForCompletion bool
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr error) {
@@ -98,13 +100,15 @@ func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr erro
 	jobSpec := scanJobSpec(s.cfg.Features.ImageScan.ImageCollectorImage, cfg.NodeName, jobName, envVars)
 	jobs := s.client.BatchV1().Jobs(ns)
 
-	defer func() {
-		if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
-			PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
-		}); err != nil && !apierrors.IsNotFound(err) {
-			rerr = err
-		}
-	}()
+	if cfg.DeleteFinishedJob {
+		defer func() {
+			if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
+				PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
+			}); err != nil && !apierrors.IsNotFound(err) {
+				rerr = err
+			}
+		}()
+	}
 
 	// If job already exist wait for completion and exit.
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
@@ -117,7 +121,11 @@ func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr erro
 	if err != nil {
 		return err
 	}
-	return s.waitForCompletion(ctx, jobs, jobName)
+
+	if cfg.WaitForCompletion {
+		return s.waitForCompletion(ctx, jobs, jobName)
+	}
+	return nil
 }
 
 func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {

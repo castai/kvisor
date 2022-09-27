@@ -37,12 +37,13 @@ func TestConfig(t *testing.T) {
 	r.Equal("castai-sec-agent", cfg.LeaderElection.LockName)
 	r.Equal(25, cfg.KubeClient.QPS)
 	r.Equal(150, cfg.KubeClient.Burst)
-	r.Equal(ImageScan(ImageScan{
+	r.Equal(ImageScan{
 		Enabled:             true,
 		ScanInterval:        15 * time.Second,
 		MaxConcurrentScans:  5,
 		ImageCollectorImage: "img",
-	}), cfg.Features.ImageScan)
+		DockerOptionsPath:   "/etc/docker/config.json",
+	}, cfg.Features.ImageScan)
 	r.Equal(KubeBench{Enabled: true}, cfg.Features.KubeBench)
 	r.Equal(KubeLinter{Enabled: true}, cfg.Features.KubeLinter)
 }

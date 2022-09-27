@@ -133,7 +133,7 @@ func Get() Config {
 			required("FEATURES_IMAGE_SCAN_IMAGE_COLLECTOR_IMAGE")
 		}
 		if cfg.Features.ImageScan.DockerOptionsPath == "" {
-			cfg.Features.ImageScan.DockerOptionsPath = "/etc/"
+			cfg.Features.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
 		}
 	}
 
