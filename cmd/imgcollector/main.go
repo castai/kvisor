@@ -18,6 +18,9 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Infof("done: %+v", cfg)
+	return
+
 	c := collector.New(log, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
