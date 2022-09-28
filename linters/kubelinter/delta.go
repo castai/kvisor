@@ -3,6 +3,7 @@ package kubelinter
 import (
 	"sync"
 
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/castai/sec-agent/controller"
@@ -54,10 +55,5 @@ func (d *deltaState) flush() []controller.Object {
 		d.objectMap = make(map[types.UID]controller.Object)
 	}()
 
-	res := make([]controller.Object, 0, len(d.objectMap))
-	for _, o := range d.objectMap {
-		res = append(res, o)
-	}
-
-	return res
+	return lo.Values(d.objectMap)
 }
