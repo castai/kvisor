@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/castai/sec-agent/castai/mock"
+	mock_castai "github.com/castai/sec-agent/castai/mock"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -68,7 +68,7 @@ func TestSubscriber(t *testing.T) {
 				UID:  types.UID(uuid.NewString()),
 			},
 		}
-		mockCast.EXPECT().SendReport(gomock.Any(), gomock.Any(), "cis-report")
+		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any())
 
 		err = subscriber.lintNode(ctx, node)
 		r.NoError(err)

@@ -2,12 +2,14 @@ package castai
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"testing"
 
-	"github.com/castai/sec-agent/config"
 	"github.com/stretchr/testify/require"
+
+	"github.com/castai/sec-agent/config"
 )
 
 func TestClient_SendCISReport(t *testing.T) {
@@ -25,15 +27,28 @@ func TestClient_SendCISReport(t *testing.T) {
 		Version: "69",
 	})
 
-	report := readReport()
+	report, err := readReport()
+	r.NoError(err)
 
-	err := cl.SendReport(context.Background(), report, "cis-report")
+	err = cl.SendCISReport(context.Background(), report)
 	r.NoError(err)
 }
 
-func readReport() []byte {
-	file, _ := os.OpenFile("./kube-bench-gke.json", os.O_RDONLY, 0666)
-	reportBytes, _ := io.ReadAll(file)
+func readReport() (*CustomReport, error) {
+	file, err := os.OpenFile("./kube-bench-gke.json", os.O_RDONLY, 0666)
+	if err != nil {
+		return nil, err
+	}
 
-	return reportBytes
+	reportBytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var report CustomReport
+	if err := json.Unmarshal(reportBytes, &report); err != nil {
+		return nil, err
+	}
+
+	return &report, nil
 }

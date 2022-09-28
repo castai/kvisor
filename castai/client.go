@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/castai/sec-agent/config"
+	"github.com/castai/sec-agent/types"
 )
 
 const (
@@ -32,7 +33,9 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	SendReport(ctx context.Context, report any, reportType string) error
+	SendCISReport(ctx context.Context, report *CustomReport) error
+	SendDeltaReport(ctx context.Context, report *Delta) error
+	SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error
 }
 
 func NewClient(
@@ -109,7 +112,19 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
-func (c *client) SendReport(ctx context.Context, report any, reportType string) error {
+func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {
+	return c.sendReport(ctx, report, "delta")
+}
+
+func (c *client) SendCISReport(ctx context.Context, report *CustomReport) error {
+	return c.sendReport(ctx, report, "cis-report")
+}
+
+func (c *client) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
+	return c.sendReport(ctx, checks, "linter-checks")
+}
+
+func (c *client) sendReport(ctx context.Context, report any, reportType string) error {
 	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/%s", c.apiURL, c.clusterID, reportType))
 	if err != nil {
 		return fmt.Errorf("invalid url: %w", err)
@@ -184,33 +199,3 @@ func (c *client) SendReport(ctx context.Context, report any, reportType string) 
 
 	return nil
 }
-
-type LogEvent struct {
-	Level   string        `json:"level"`
-	Time    time.Time     `json:"time"`
-	Message string        `json:"message"`
-	Fields  logrus.Fields `json:"fields"`
-}
-
-type Delta struct {
-	FullSnapshot bool        `json:"full_snapshot,omitempty"`
-	Items        []DeltaItem `json:"items"`
-}
-
-type DeltaItem struct {
-	Event            EventType `json:"event"`
-	ObjectUID        string    `json:"object_uid"`
-	ObjectName       string    `json:"object_name,omitempty"`
-	ObjectNamespace  string    `json:"object_namespace,omitempty"`
-	ObjectKind       string    `json:"object_kind,omitempty"`
-	ObjectAPIVersion string    `json:"object_api_version,omitempty"`
-	ObjectCreatedAt  time.Time `json:"object_created_at,omitempty"`
-}
-
-type EventType string
-
-const (
-	EventAdd    EventType = "add"
-	EventUpdate EventType = "update"
-	EventDelete EventType = "delete"
-)

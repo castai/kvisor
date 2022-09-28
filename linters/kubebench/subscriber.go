@@ -131,7 +131,7 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 		return err
 	}
 
-	err = s.castClient.SendReport(ctx, report, "cis-report")
+	err = s.castClient.SendCISReport(ctx, report)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 	return s.client.BatchV1().Jobs(castAINamespace).Delete(ctx, jobName, metav1.DeleteOptions{})
 }
 
-func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*CustomReport, error) {
+func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.CustomReport, error) {
 	logReader, err := s.logsProvider.GetLogReader(ctx, kubeBenchPodName)
 	if err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 		return nil, err
 	}
 
-	var customReport CustomReport
+	var customReport castai.CustomReport
 	err = jsoniter.Unmarshal(report, &customReport)
 	if err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 		return nil, fmt.Errorf("can't parse node UID: %v", err)
 	}
 
-	customReport.Node = Node{
+	customReport.Node = castai.Node{
 		NodeName:   node.Name,
 		ResourceID: nodeID,
 	}

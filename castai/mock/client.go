@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	castai "github.com/castai/sec-agent/castai"
+	types "github.com/castai/sec-agent/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -35,6 +36,48 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// SendCISReport mocks base method.
+func (m *MockClient) SendCISReport(ctx context.Context, report *castai.CustomReport) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCISReport", ctx, report)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCISReport indicates an expected call of SendCISReport.
+func (mr *MockClientMockRecorder) SendCISReport(ctx, report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCISReport", reflect.TypeOf((*MockClient)(nil).SendCISReport), ctx, report)
+}
+
+// SendDeltaReport mocks base method.
+func (m *MockClient) SendDeltaReport(ctx context.Context, report *castai.Delta) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendDeltaReport", ctx, report)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendDeltaReport indicates an expected call of SendDeltaReport.
+func (mr *MockClientMockRecorder) SendDeltaReport(ctx, report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDeltaReport", reflect.TypeOf((*MockClient)(nil).SendDeltaReport), ctx, report)
+}
+
+// SendLinterChecks mocks base method.
+func (m *MockClient) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendLinterChecks", ctx, checks)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendLinterChecks indicates an expected call of SendLinterChecks.
+func (mr *MockClientMockRecorder) SendLinterChecks(ctx, checks interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLinterChecks", reflect.TypeOf((*MockClient)(nil).SendLinterChecks), ctx, checks)
+}
+
 // SendLogs mocks base method.
 func (m *MockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
 	m.ctrl.T.Helper()
@@ -47,18 +90,4 @@ func (m *MockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
 func (mr *MockClientMockRecorder) SendLogs(ctx, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLogs", reflect.TypeOf((*MockClient)(nil).SendLogs), ctx, req)
-}
-
-// SendReport mocks base method.
-func (m *MockClient) SendReport(ctx context.Context, report interface{}, reportType string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendReport", ctx, report, reportType)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendReport indicates an expected call of SendReport.
-func (mr *MockClientMockRecorder) SendReport(ctx, report, reportType interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendReport", reflect.TypeOf((*MockClient)(nil).SendReport), ctx, report, reportType)
 }

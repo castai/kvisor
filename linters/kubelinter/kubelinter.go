@@ -59,8 +59,9 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/updateconfig"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
+	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/sec-agent/types"
+	casttypes "github.com/castai/sec-agent/types"
 )
 
 func New(checks []string) *Linter {
@@ -71,7 +72,7 @@ type Linter struct {
 	checks []string
 }
 
-func (l *Linter) Run(objects []lintcontext.Object) ([]LintCheck, error) {
+func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, error) {
 	registry := checkregistry.New()
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
@@ -96,37 +97,27 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]LintCheck, error) {
 		return nil, err
 	}
 
-	// For wow we group by objects and do not include multiple diagnostics, eg. pod with multiple containers.
-	// Kubelinter can report issues on container level, but container name is included only as string in diagnostic message.
-	checks := make(map[string]LintCheck)
+	resources := make(map[types.UID]casttypes.LinterCheck)
 	for _, check := range res.Reports {
 		obj := check.Object.K8sObject
 
-		kind := obj.GetObjectKind().GroupVersionKind()
-		apiVersion := "v1"
-		if kind.Group != "" {
-			apiVersion = fmt.Sprintf("%s/%s", kind.Group, kind.Version)
+		if _, ok := resources[obj.GetUID()]; !ok {
+			resources[obj.GetUID()] = casttypes.LinterCheck{
+				ResourceID: string(obj.GetUID()),
+				Failed:     new(casttypes.LinterRuleSet),
+				Passed:     new(casttypes.LinterRuleSet),
+			}
 		}
 
-		resCheck := LintCheck{
-			ID:      check.Check,
-			Message: check.Diagnostic.Message,
-			Failed:  check.Diagnostic.Message != "",
-			Linter:  "kubelinter",
-			Resource: types.Resource{
-				ObjectMeta: types.ObjectMeta{
-					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
-				},
-				ObjectType: types.ObjectType{
-					APIVersion: apiVersion,
-					Kind:       kind.Kind,
-				},
-			},
+		if check.Diagnostic.Message != "" {
+			resources[obj.GetUID()].Failed.Add(casttypes.LinterRuleMap[check.Check])
+		} else {
+			resources[obj.GetUID()].Passed.Add(casttypes.LinterRuleMap[check.Check])
 		}
-		checks[resCheck.ID+resCheck.ObjectKey()] = resCheck
+
 	}
-	return lo.Values(checks), nil
+
+	return lo.Values(resources), nil
 }
 
 func runKubeLinter(lintCtxs []lintcontext.LintContext, registry checkregistry.CheckRegistry, checks []string) (run.Result, error) {
