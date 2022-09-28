@@ -11,8 +11,8 @@ import (
 	"golang.org/x/sync/semaphore"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/types"
 )
 
 var supportedTypes = []reflect.Type{
@@ -103,7 +103,7 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 }
 
 type imageInfo struct {
-	Resources []types.Resource
+	Resources []castai.Resource
 	NodeNames map[string]struct{}
 }
 
@@ -172,7 +172,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func appendImage(imgs map[string]*imageInfo, containers []corev1.Container, nodeName string, resource types.Resource) map[string]*imageInfo {
+func appendImage(imgs map[string]*imageInfo, containers []corev1.Container, nodeName string, resource castai.Resource) map[string]*imageInfo {
 	for _, cont := range containers {
 		v, ok := imgs[cont.Image]
 		if ok {
@@ -180,7 +180,7 @@ func appendImage(imgs map[string]*imageInfo, containers []corev1.Container, node
 			v.Resources = append(v.Resources, resource)
 		} else {
 			imgs[cont.Image] = &imageInfo{
-				Resources: []types.Resource{resource},
+				Resources: []castai.Resource{resource},
 				NodeNames: map[string]struct{}{
 					nodeName: {},
 				},
@@ -190,15 +190,15 @@ func appendImage(imgs map[string]*imageInfo, containers []corev1.Container, node
 	return imgs
 }
 
-func toResource(pod *corev1.Pod) types.Resource {
+func toResource(pod *corev1.Pod) castai.Resource {
 	objMeta := pod.ObjectMeta
 	owner := getPodOwner(pod)
-	return types.Resource{
-		ObjectMeta: types.ObjectMeta{
+	return castai.Resource{
+		ObjectMeta: castai.ObjectMeta{
 			Namespace: owner.name,
 			Name:      objMeta.Namespace,
 		},
-		ObjectType: types.ObjectType{
+		ObjectType: castai.ObjectType{
 			APIVersion: owner.APIVersion,
 			Kind:       owner.kind,
 		},

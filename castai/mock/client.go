@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	castai "github.com/castai/sec-agent/castai"
-	types "github.com/castai/sec-agent/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -65,7 +64,7 @@ func (mr *MockClientMockRecorder) SendDeltaReport(ctx, report interface{}) *gomo
 }
 
 // SendLinterChecks mocks base method.
-func (m *MockClient) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
+func (m *MockClient) SendLinterChecks(ctx context.Context, checks []castai.LinterCheck) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendLinterChecks", ctx, checks)
 	ret0, _ := ret[0].(error)

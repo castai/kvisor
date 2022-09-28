@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/castai/sec-agent/config"
-	"github.com/castai/sec-agent/types"
 )
 
 const (
@@ -35,7 +34,7 @@ type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
 	SendCISReport(ctx context.Context, report *CustomReport) error
 	SendDeltaReport(ctx context.Context, report *Delta) error
-	SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error
+	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
 }
 
 func NewClient(
@@ -120,7 +119,7 @@ func (c *client) SendCISReport(ctx context.Context, report *CustomReport) error 
 	return c.sendReport(ctx, report, "cis-report")
 }
 
-func (c *client) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
+func (c *client) SendLinterChecks(ctx context.Context, checks []LinterCheck) error {
 	return c.sendReport(ctx, checks, "linter-checks")
 }
 

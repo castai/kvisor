@@ -16,7 +16,6 @@ import (
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
-	casttypes "github.com/castai/sec-agent/types"
 )
 
 var supportedTypes = []reflect.Type{
@@ -34,7 +33,7 @@ var supportedTypes = []reflect.Type{
 func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	linter := New(lo.Keys(casttypes.LinterRuleMap))
+	linter := New(lo.Keys(castai.LinterRuleMap))
 
 	return &Subscriber{
 		ctx:    ctx,
