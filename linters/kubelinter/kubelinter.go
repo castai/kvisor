@@ -61,6 +61,7 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks"
 	casttypes "github.com/castai/sec-agent/types"
 )
 
@@ -77,6 +78,10 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
 		return nil, fmt.Errorf("load info from registry: %w", err)
+	}
+
+	if err := registry.Register(customchecks.Check()); err != nil {
+		return nil, fmt.Errorf("load custom CAST check: %w", err)
 	}
 
 	cfg := kubelinterconfig.Config{
