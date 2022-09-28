@@ -160,7 +160,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(log, imagescan.Config{
 			ScanInterval:       cfg.Features.ImageScan.ScanInterval,
 			MaxConcurrentScans: cfg.Features.ImageScan.MaxConcurrentScans,
-		}, imagescan.NewImageScanner(clientset)))
+		}, imagescan.NewImageScanner(clientset, cfg)))
 	}
 
 	if len(objectSubscribers) == 0 {

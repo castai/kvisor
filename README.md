@@ -5,6 +5,13 @@ To run agent locally you only need to have correct kubernetes contex and KUBECON
 go run ./cmd/agent
 ```
 
+### Running locally on tilt
+
+Start tilt on local kind cluster with mockapi backend which is located in ./tools/mockapi.
+```
+API_URL=http://mockapi tilt up
+```
+
 ### Build and run on k8s cluster
 
 Build and push docker image to github registry.

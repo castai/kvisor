@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -17,6 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
+
+	imgcollectorconfig "github.com/castai/sec-agent/cmd/imgcollector/config"
+	"github.com/castai/sec-agent/config"
 )
 
 const (
@@ -27,7 +31,7 @@ type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageConfig) (err error)
 }
 
-func NewImageScanner(client kubernetes.Interface) *Scanner {
+func NewImageScanner(client kubernetes.Interface, cfg config.Config) *Scanner {
 	return &Scanner{
 		client:           client,
 		jobCheckInterval: 5 * time.Second,
@@ -36,12 +40,16 @@ func NewImageScanner(client kubernetes.Interface) *Scanner {
 
 type Scanner struct {
 	client           kubernetes.Interface
+	cfg              config.Config
 	jobCheckInterval time.Duration
 }
 
 type ScanImageConfig struct {
-	ImageName string
-	NodeName  string
+	ImageName         string
+	ImageID           string
+	NodeName          string
+	DeleteFinishedJob bool
+	WaitForCompletion bool
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr error) {
@@ -50,16 +58,57 @@ func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr erro
 	imgHash := hex.EncodeToString(h.Sum(nil))
 	jobName := fmt.Sprintf("imgscan-%s", imgHash)
 
-	jobSpec := scanJobSpec(cfg.NodeName, cfg.ImageName, jobName)
+	mode := imgcollectorconfig.Mode(s.cfg.Features.ImageScan.Mode)
+	if mode == "" {
+		imgParts := strings.Split(cfg.ImageID, "://")
+		containerRuntime := imgParts[0]
+		switch containerRuntime {
+		case "docker":
+			mode = imgcollectorconfig.ModeDockerDaemon
+		case "containerd":
+			mode = imgcollectorconfig.ModeContainerdDaemon
+		}
+	}
+
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "ARTIFACTS_COLLECTOR_IMAGE_ID",
+			Value: cfg.ImageID,
+		},
+		{
+			Name:  "ARTIFACTS_COLLECTOR_IMAGE_NAME",
+			Value: cfg.ImageName,
+		},
+		{
+			Name:  "ARTIFACTS_COLLECTOR_TIMEOUT",
+			Value: "5m",
+		},
+		{
+			Name:  "ARTIFACTS_COLLECTOR_MODE",
+			Value: string(mode),
+		},
+		{
+			Name:  "ARTIFACTS_COLLECTOR_API_URL",
+			Value: s.cfg.Features.ImageScan.ImageCollectorImage,
+		},
+		{
+			Name:  "ARTIFACTS_COLLECTOR_DOCKER_OPTION_PATH",
+			Value: s.cfg.Features.ImageScan.DockerOptionsPath,
+		},
+	}
+
+	jobSpec := scanJobSpec(s.cfg.Features.ImageScan.ImageCollectorImage, cfg.NodeName, jobName, envVars)
 	jobs := s.client.BatchV1().Jobs(ns)
 
-	defer func() {
-		if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
-			PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
-		}); err != nil {
-			rerr = err
-		}
-	}()
+	if cfg.DeleteFinishedJob {
+		defer func() {
+			if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
+				PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
+			}); err != nil && !apierrors.IsNotFound(err) {
+				rerr = err
+			}
+		}()
+	}
 
 	// If job already exist wait for completion and exit.
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
@@ -72,7 +121,11 @@ func (s *Scanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (rerr erro
 	if err != nil {
 		return err
 	}
-	return s.waitForCompletion(ctx, jobs, jobName)
+
+	if cfg.WaitForCompletion {
+		return s.waitForCompletion(ctx, jobs, jobName)
+	}
+	return nil
 }
 
 func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {
@@ -101,7 +154,7 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 }
 
 // TODO: Pass imageName or imageID dependency on actual job implementation.
-func scanJobSpec(nodeName, imageName, jobName string) *batchv1.Job {
+func scanJobSpec(collectorImage, nodeName, jobName string, envVars []corev1.EnvVar) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -110,7 +163,7 @@ func scanJobSpec(nodeName, imageName, jobName string) *batchv1.Job {
 			Labels:    map[string]string{"app": "castai-image-scan"},
 		},
 		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: lo.ToPtr(int32(10)),
+			TTLSecondsAfterFinished: lo.ToPtr(int32(100)),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					NodeName:      nodeName,
@@ -136,12 +189,9 @@ func scanJobSpec(nodeName, imageName, jobName string) *batchv1.Job {
 					// TODO: Tolerations
 					Containers: []corev1.Container{
 						{
-							Name:  "image-scan",
-							Image: "alpine:3.16.2",
-							Command: []string{
-								"echo",
-								"done scanning image " + imageName,
-							},
+							Name:  "image-collector",
+							Image: collectorImage,
+							Env:   envVars,
 							// TODO: Mount /var/lib/docker/image/overlay2 for images parsing.
 							VolumeMounts: []corev1.VolumeMount{},
 							Resources: corev1.ResourceRequirements{
@@ -150,7 +200,7 @@ func scanJobSpec(nodeName, imageName, jobName string) *batchv1.Job {
 									corev1.ResourceMemory: resource.MustParse("2Gi"),
 								},
 								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
 									corev1.ResourceMemory: resource.MustParse("100Mi"),
 								},
 							},

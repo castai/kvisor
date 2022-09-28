@@ -1,12 +1,25 @@
 package image
 
 import (
+	"context"
+
 	"github.com/aquasecurity/trivy/pkg/fanal/image/daemon"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
 type Image = types.Image
+
+func NewFromContainerdDaemon(ctx context.Context, imageName string) (types.Image, func(), error) {
+	img, cleanup, err := daemon.ContainerdImage(ctx, imageName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return daemonImage{
+		Image: img,
+		name:  imageName,
+	}, cleanup, nil
+}
 
 func NewFromDockerDaemon(imageName string, ref name.Reference) (types.Image, func(), error) {
 	img, cleanup, err := daemon.DockerImage(ref)

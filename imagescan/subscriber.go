@@ -150,14 +150,16 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 			log.Info("scanning image")
 			if err := s.imageScanner.ScanImage(ctx, ScanImageConfig{
-				ImageName: imageName,
-				NodeName:  nodeName,
+				ImageName:         imageName,
+				ImageID:           "todo",
+				NodeName:          nodeName,
+				DeleteFinishedJob: true,
+				WaitForCompletion: true,
 			}); err != nil {
 				log.Errorf("image scan failed: %v", err)
 				return
 			}
 			log.Info("image scan finished")
-
 		}(imageName, info)
 	}
 

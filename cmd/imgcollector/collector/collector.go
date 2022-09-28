@@ -67,6 +67,8 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	switch c.cfg.Mode {
+	case config.ModeContainerdDaemon:
+		return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
 	case config.ModeDockerDaemon:
 		return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
 	case config.ModeRemote:
