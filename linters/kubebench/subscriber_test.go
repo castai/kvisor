@@ -127,7 +127,7 @@ func (m *mockProvider) GetLogReader(_ context.Context, _ string) (io.ReadCloser,
 }
 
 func readReport() []byte {
-	file, _ := os.OpenFile("../../castai/kube-bench-gke.json", os.O_RDONLY, 0666)
+	file, _ := os.OpenFile("../../testdata/kube-bench-gke.json", os.O_RDONLY, 0666)
 	reportBytes, _ := io.ReadAll(file)
 
 	return reportBytes
