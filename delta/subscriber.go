@@ -76,6 +76,9 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&appsv1.DaemonSet{}),
 		reflect.TypeOf(&appsv1.StatefulSet{}),
 		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
+		reflect.TypeOf(&rbacv1.RoleBinding{}),
+		reflect.TypeOf(&rbacv1.ClusterRole{}),
+		reflect.TypeOf(&rbacv1.Role{}),
 		reflect.TypeOf(&batchv1.Job{}),
 	}
 	if s.k8sVersionMinor >= 21 {

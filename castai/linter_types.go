@@ -10,7 +10,7 @@ const (
 	DeprecatedServiceAccountField
 	DokerSock
 	DropNetRawCapability
-	EnvVarSercret
+	EnvVarSecret
 	ExposedService
 	HostIPC
 	HostNetwork
@@ -35,6 +35,11 @@ const (
 	UseNamespace
 	WritableHostMount
 	ClusterAdminRoleBinding
+	AccessToSecrets
+	DefaultServiceAccount
+	WildcardInRules
+	AccessToCreatePods
+	TokenAutomount
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -42,7 +47,7 @@ var LinterRuleMap = map[string]LinterRule{
 	"deprecated-service-account-field": DeprecatedServiceAccountField,
 	"docker-sock":                      DokerSock,
 	"drop-net-raw-capability":          DropNetRawCapability,
-	"env-var-secret":                   EnvVarSercret,
+	"env-var-secret":                   EnvVarSecret,
 	"exposed-services":                 ExposedService,
 	"host-ipc":                         HostIPC,
 	"host-network":                     HostNetwork,
@@ -66,7 +71,13 @@ var LinterRuleMap = map[string]LinterRule{
 	"unset-memory-requirements":        UnsetMempryRequirements,
 	"use-namespace":                    UseNamespace,
 	"writable-host-mount":              WritableHostMount,
-	"cluster-admin-role-binding":       ClusterAdminRoleBinding,
+	// CIS 4.1
+	"cluster-admin-role-binding": ClusterAdminRoleBinding,
+	"access-to-secrets":          AccessToSecrets,
+	"wildcard-in-rules":          WildcardInRules,
+	"access-to-create-pods":      AccessToCreatePods,
+	"default-service-account":    DefaultServiceAccount,
+	"sa-token-automount":         TokenAutomount,
 }
 
 type LinterCheck struct {

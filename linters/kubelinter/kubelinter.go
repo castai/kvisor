@@ -62,6 +62,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	casttypes "github.com/castai/sec-agent/castai"
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks"
 )
 
 func New(checks []string) *Linter {
@@ -77,6 +78,10 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
 		return nil, fmt.Errorf("load info from registry: %w", err)
+	}
+
+	if err := registry.Register(customchecks.Check()); err != nil {
+		return nil, fmt.Errorf("load custom CAST check: %w", err)
 	}
 
 	cfg := kubelinterconfig.Config{
