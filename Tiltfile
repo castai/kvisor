@@ -4,7 +4,9 @@ if config.tilt_subcommand == "down":
 load('ext://restart_process', 'docker_build_with_restart')
 load('ext://namespace', 'namespace_create')
 load('ext://dotenv', 'dotenv')
-dotenv()
+
+if read_file ('.env' , default = '' ):
+    dotenv()
 
 update_settings(max_parallel_updates=16)
 secret_settings ( disable_scrub = True)
