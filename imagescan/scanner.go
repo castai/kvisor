@@ -24,6 +24,7 @@ import (
 
 	imgcollectorconfig "github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/config"
+	"github.com/castai/sec-agent/log"
 )
 
 const (
@@ -36,7 +37,7 @@ type imageScanner interface {
 
 func NewImageScanner(client kubernetes.Interface, cfg config.Config) *Scanner {
 	return &Scanner{
-		podLogProvider:   newPodLogReader(client),
+		podLogProvider:   log.NewPodLogReader(client),
 		client:           client,
 		jobCheckInterval: 5 * time.Second,
 		cfg:              cfg,
@@ -44,7 +45,7 @@ func NewImageScanner(client kubernetes.Interface, cfg config.Config) *Scanner {
 }
 
 type Scanner struct {
-	podLogProvider   podLogProvider
+	podLogProvider   log.PodLogProvider
 	client           kubernetes.Interface
 	cfg              config.Config
 	jobCheckInterval time.Duration
@@ -125,6 +126,8 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				MountPath: "/run/containerd/containerd.sock",
 			})
 			mode = imgcollectorconfig.ModeContainerdDaemon
+		default:
+			return fmt.Errorf("unsupported container runtime: %s", containerRuntime)
 		}
 	}
 
@@ -254,7 +257,7 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 				return true, errors.New("job pod not found")
 			}
 			jobPod := jobPods.Items[0]
-			logsStream, err := s.podLogProvider.GetLogReader(ctx, jobPod.Name)
+			logsStream, err := s.podLogProvider.GetLogReader(ctx, ns, jobPod.Name)
 			if err != nil {
 				return true, fmt.Errorf("creating logs stream: %w", err)
 			}

@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sync/semaphore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/castai/sec-agent/castai"
@@ -71,11 +70,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	rt := []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&appsv1.ReplicaSet{}),
-	}
-	if s.k8sVersionMinor >= 21 {
-		rt = append(rt, reflect.TypeOf(&batchv1.CronJob{}))
-	} else {
-		rt = append(rt, reflect.TypeOf(&batchv1beta1.CronJob{}))
+		reflect.TypeOf(&batchv1.Job{}),
 	}
 	return rt
 }
