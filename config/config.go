@@ -28,12 +28,13 @@ type Features struct {
 }
 
 type ImageScan struct {
-	Enabled             bool
-	ScanInterval        time.Duration
-	MaxConcurrentScans  int64
-	ImageCollectorImage string
-	Mode                string
-	DockerOptionsPath   string
+	Enabled                  bool
+	ScanInterval             time.Duration
+	MaxConcurrentScans       int64
+	CollectorImage           string
+	CollectorImagePullPolicy string
+	Mode                     string
+	DockerOptionsPath        string
 }
 
 type KubeLinter struct {
@@ -90,7 +91,8 @@ func Get() Config {
 	_ = viper.BindEnv("features.imagescan.enabled", "FEATURES_IMAGE_SCAN_ENABLED")
 	_ = viper.BindEnv("features.imagescan.scaninterval", "FEATURES_IMAGE_SCAN_INTERVAL")
 	_ = viper.BindEnv("features.imagescan.maxconcurrentscans", "FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS")
-	_ = viper.BindEnv("features.imagescan.imagecollectorimage", "FEATURES_IMAGE_SCAN_IMAGE_COLLECTOR_IMAGE")
+	_ = viper.BindEnv("features.imagescan.collectorimage", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
+	_ = viper.BindEnv("features.imagescan.collectorimagepullpolicy", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE_PULL_POLICY")
 	_ = viper.BindEnv("features.imagescan.dockeroptionspath", "FEATURES_IMAGE_SCAN_DOCKER_OPTIONS_PATH")
 	_ = viper.BindEnv("features.imagescan.mode", "FEATURES_IMAGE_SCAN_MODE")
 	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
@@ -129,8 +131,11 @@ func Get() Config {
 		}
 	}
 	if cfg.Features.ImageScan.Enabled {
-		if cfg.Features.ImageScan.ImageCollectorImage == "" {
-			required("FEATURES_IMAGE_SCAN_IMAGE_COLLECTOR_IMAGE")
+		if cfg.Features.ImageScan.CollectorImage == "" {
+			required("FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
+		}
+		if cfg.Features.ImageScan.CollectorImagePullPolicy == "" {
+			cfg.Features.ImageScan.CollectorImagePullPolicy = "IfNotPresent"
 		}
 		if cfg.Features.ImageScan.DockerOptionsPath == "" {
 			cfg.Features.ImageScan.DockerOptionsPath = "/etc/docker/config.json"

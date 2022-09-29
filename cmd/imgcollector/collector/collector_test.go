@@ -28,7 +28,7 @@ func TestCollector(t *testing.T) {
 		ImageName: img,
 		Timeout:   5 * time.Minute,
 		Mode:      config.ModeDockerDaemon,
-	})
+	}, nil)
 	err := c.Collect(ctx)
 	r.NoError(err)
 }

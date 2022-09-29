@@ -25,18 +25,27 @@ func TestScanner(t *testing.T) {
 	log.SetLevel(logrus.DebugLevel)
 
 	t.Run("create scan job", func(t *testing.T) {
-		t.Skip()
-		// TODO: Finish test.
-
 		r := require.New(t)
 
 		client := fake.NewSimpleClientset()
-		scanner := NewImageScanner(client, config.Config{})
+		scanner := NewImageScanner(client, config.Config{
+			API: config.API{URL: "https://api.cast.ai"},
+			Features: config.Features{
+				ImageScan: config.ImageScan{
+					Enabled:           true,
+					CollectorImage:    "imgcollector:1.0.0",
+					DockerOptionsPath: "/etc/docker/config.json",
+				},
+			},
+		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
-		err := scanner.ScanImage(ctx, ScanImageConfig{
-			ImageName: "test-image",
-			NodeName:  "n1",
+		err := scanner.ScanImage(ctx, ScanImageParams{
+			ImageName:   "test-image",
+			ImageID:     "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerID: "containerd://6282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			NodeName:    "n1",
+			ResourceIDs: []string{"p1", "p2"},
 		})
 		r.NoError(err)
 
@@ -44,16 +53,20 @@ func TestScanner(t *testing.T) {
 		r.NoError(err)
 		r.Len(jobs.Items, 1)
 		r.Equal(batchv1.Job{
-			TypeMeta: metav1.TypeMeta{},
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Job",
+				APIVersion: "batch/v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "imgscan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
 				Namespace: ns,
 			},
 			Spec: batchv1.JobSpec{
 				TTLSecondsAfterFinished: lo.ToPtr(int32(100)),
+				BackoffLimit:            lo.ToPtr(int32(0)),
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
-						NodeName:      "test",
+						NodeName:      "n1",
 						RestartPolicy: "Never",
 						Priority:      lo.ToPtr(int32(0)),
 						Affinity: &corev1.Affinity{
@@ -73,14 +86,76 @@ func TestScanner(t *testing.T) {
 								},
 							},
 						},
-						// TODO: Tolerations
 						Containers: []corev1.Container{
 							{
-								Name:  "image-collector",
-								Image: "image-name",
-								Env:   []corev1.EnvVar{},
-								// TODO: Mount /var/lib/docker/image/overlay2 for images parsing.
-								VolumeMounts: []corev1.VolumeMount{},
+								Name:  "collector",
+								Image: "imgcollector:1.0.0",
+								Env: []corev1.EnvVar{
+									{
+										Name:  "COLLECTOR_IMAGE_ID",
+										Value: "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+									},
+									{
+										Name:  "COLLECTOR_IMAGE_NAME",
+										Value: "test-image",
+									},
+									{
+										Name:  "COLLECTOR_TIMEOUT",
+										Value: "5m",
+									},
+									{
+										Name:  "COLLECTOR_MODE",
+										Value: "containerd_daemon",
+									},
+									{
+										Name:  "COLLECTOR_DOCKER_OPTION_PATH",
+										Value: "/etc/docker/config.json",
+									},
+									{
+										Name:  "COLLECTOR_RESOURCE_IDS",
+										Value: "p1,p2",
+									},
+									{
+										Name: "API_URL",
+										ValueFrom: &corev1.EnvVarSource{
+											ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: "castai-sec-agent",
+												},
+												Key: "API_URL",
+											},
+										},
+									},
+									{
+										Name: "API_KEY",
+										ValueFrom: &corev1.EnvVarSource{
+											SecretKeyRef: &corev1.SecretKeySelector{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: "castai-sec-agent",
+												},
+												Key: "API_KEY",
+											},
+										},
+									},
+									{
+										Name: "CLUSTER_ID",
+										ValueFrom: &corev1.EnvVarSource{
+											ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: "castai-sec-agent",
+												},
+												Key: "CLUSTER_ID",
+											},
+										},
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "containerd-sock",
+										ReadOnly:  true,
+										MountPath: "/run/containerd/containerd.sock",
+									},
+								},
 								Resources: corev1.ResourceRequirements{
 									Limits: map[corev1.ResourceName]resource.Quantity{
 										corev1.ResourceCPU:    resource.MustParse("500m"),
@@ -93,19 +168,21 @@ func TestScanner(t *testing.T) {
 								},
 							},
 						},
-						// TODO: Mount /var/lib/docker/image/overlay2 for images parsing.
-						Volumes: []corev1.Volume{},
+						Volumes: []corev1.Volume{
+							{
+								Name: "containerd-sock",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/run/containerd/containerd.sock",
+										Type: lo.ToPtr(corev1.HostPathSocket),
+									},
+								},
+							},
+						},
 					},
 				},
 			},
-			Status: batchv1.JobStatus{
-				Conditions: []batchv1.JobCondition{
-					//{
-					//	Type:   batchv1.JobComplete,
-					//	Status: corev1.ConditionTrue,
-					//},
-				},
-			},
+			Status: batchv1.JobStatus{},
 		}, jobs.Items[0])
 	})
 
@@ -132,9 +209,12 @@ func TestScanner(t *testing.T) {
 		scanner := NewImageScanner(client, config.Config{})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
-		err := scanner.ScanImage(ctx, ScanImageConfig{
+		err := scanner.ScanImage(ctx, ScanImageParams{
 			ImageName:         "test-image",
+			ImageID:           "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerID:       "containerd://6282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
 			NodeName:          "n1",
+			ResourceIDs:       []string{"p1", "p2"},
 			DeleteFinishedJob: true,
 		})
 		r.NoError(err)

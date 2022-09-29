@@ -8,10 +8,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	mock_castai "github.com/castai/sec-agent/castai/mock"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -19,19 +25,16 @@ func TestSubscriber(t *testing.T) {
 	ctx := context.Background()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
+	ctrl := gomock.NewController(t)
+
+	client := mock_castai.NewMockClient(ctrl)
 
 	pod1 := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
+			UID:       types.UID(uuid.New().String()),
 			Name:      "nginx-1",
 			Namespace: "default",
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: "apps/v1",
-					Kind:       "ReplicaSet",
-					Name:       "nginx-abc1",
-				},
-			},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: "n1",
@@ -42,20 +45,20 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{Name: "nginx", ImageID: "nginx:1.23@sha256", ContainerID: "containerd://sha256"},
+			},
+		},
 	}
 
 	pod2 := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
+			UID:       types.UID(uuid.New().String()),
 			Name:      "nginx-2",
 			Namespace: "kube-system",
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: "apps/v1",
-					Kind:       "ReplicaSet",
-					Name:       "nginx-abc1",
-				},
-			},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: "n2",
@@ -66,16 +69,43 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		},
-		Status: corev1.PodStatus{},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{Name: "nginx", ImageID: "nginx:1.23@sha256", ContainerID: "containerd://sha256"},
+			},
+		},
+	}
+
+	pod3DeploymentSet := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: types.UID(uuid.New().String()),
+		},
+	}
+
+	pod3ReplicaSet := &appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: types.UID(uuid.New().String()),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					UID:        pod3DeploymentSet.UID,
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "argocd-a123",
+				},
+			},
+		},
 	}
 
 	pod3 := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
+			UID:       types.UID(uuid.New().String()),
 			Name:      "argocd",
 			Namespace: "argo",
 			OwnerReferences: []metav1.OwnerReference{
 				{
+					UID:        pod3ReplicaSet.UID,
 					APIVersion: "apps/v1",
 					Kind:       "ReplicaSet",
 					Name:       "argocd-a123",
@@ -90,42 +120,74 @@ func TestSubscriber(t *testing.T) {
 					Image: "argocd:0.0.1",
 				},
 			},
+			InitContainers: []corev1.Container{
+				{
+					Name:  "init-argo",
+					Image: "init-argo:0.0.1",
+				},
+			},
 		},
-		Status: corev1.PodStatus{},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodSucceeded,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{Name: "argocd", ImageID: "argocd:1.23@sha256", ContainerID: "containerd://sha256"},
+			},
+			InitContainerStatuses: []corev1.ContainerStatus{
+				{Name: "init-argo", ImageID: "init-argo:1.23@sha256", ContainerID: "containerd://sha256"},
+			},
+		},
 	}
 
 	cfg := Config{ScanInterval: 1 * time.Millisecond}
 
 	scanner := &mockImageScanner{}
-	sub := NewSubscriber(log, cfg, scanner)
+	sub := NewSubscriber(log, cfg, client, scanner, 21)
 	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
 
 	sub.OnAdd(pod1)
 	sub.OnAdd(pod2)
 	sub.OnAdd(pod3)
+	sub.OnAdd(pod3ReplicaSet)
+	sub.OnAdd(pod3DeploymentSet)
 	err := sub.Run(ctx)
 	r.True(errors.Is(err, context.DeadlineExceeded))
 
 	sort.Slice(scanner.imgs, func(i, j int) bool {
 		return scanner.imgs[i].ImageName < scanner.imgs[j].ImageName
 	})
-	r.Equal("argocd:0.0.1", scanner.imgs[0].ImageName)
-	r.Equal("nginx:1.23", scanner.imgs[1].ImageName)
-	// TODO: Assert selected nodes.
+	r.Len(scanner.imgs, 3)
+	argoImg := scanner.imgs[0]
+	argoInitImg := scanner.imgs[1]
+	ngnxImage := scanner.imgs[2]
+	r.Equal("argocd:0.0.1", argoImg.ImageName)
+	r.Equal("init-argo:0.0.1", argoInitImg.ImageName)
+	r.Equal([]string{string(pod3DeploymentSet.UID)}, argoImg.ResourceIDs)
+
+	actualNginxPodResourceIDs := []string{string(pod1.UID), string(pod2.UID)}
+	sort.Strings(ngnxImage.ResourceIDs)
+	sort.Strings(actualNginxPodResourceIDs)
+	r.Equal(ngnxImage.ResourceIDs, actualNginxPodResourceIDs)
+	r.NotEmpty(ngnxImage.NodeName)
+	r.Equal(ScanImageParams{
+		ImageName:         "nginx:1.23",
+		ImageID:           "nginx:1.23@sha256",
+		ContainerID:       "containerd://sha256",
+		NodeName:          ngnxImage.NodeName,
+		ResourceIDs:       ngnxImage.ResourceIDs,
+		DeleteFinishedJob: true,
+		WaitForCompletion: true,
+	}, ngnxImage)
 }
 
 type mockImageScanner struct {
 	mu   sync.Mutex
-	imgs []ScanImageConfig
+	imgs []ScanImageParams
 }
 
-func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageConfig) (err error) {
+func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)
-	sort.Slice(m.imgs, func(i, j int) bool {
-		return m.imgs[i].ImageName > m.imgs[j].ImageName
-	})
 	return nil
 }

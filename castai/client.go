@@ -35,20 +35,22 @@ type Client interface {
 	SendCISReport(ctx context.Context, report *CustomReport) error
 	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
+	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
 }
 
 func NewClient(
 	apiURL, apiKey string,
 	log *logrus.Logger,
 	clusterID string,
-	binVersion *config.SecurityAgentVersion,
+	binName string,
+	binVersion config.SecurityAgentVersion,
 ) Client {
 
 	httpClient := newDefaultDeltaHTTPClient()
 	restClient := resty.NewWithClient(httpClient)
 	restClient.SetBaseURL(apiURL)
 	restClient.Header.Set(headerAPIKey, apiKey)
-	restClient.Header.Set(headerUserAgent, "castai-sec-agent/"+binVersion.Version)
+	restClient.Header.Set(headerUserAgent, binName+"/"+binVersion.Version)
 	if log.Level == logrus.TraceLevel {
 		restClient.SetDebug(true)
 	}
@@ -92,7 +94,7 @@ type client struct {
 	restClient *resty.Client
 	httpClient *http.Client
 	clusterID  string
-	binVersion *config.SecurityAgentVersion
+	binVersion config.SecurityAgentVersion
 }
 
 func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
@@ -121,6 +123,10 @@ func (c *client) SendCISReport(ctx context.Context, report *CustomReport) error 
 
 func (c *client) SendLinterChecks(ctx context.Context, checks []LinterCheck) error {
 	return c.sendReport(ctx, checks, "linter-checks")
+}
+
+func (c *client) SendImageMetadata(ctx context.Context, meta *ImageMetadata) error {
+	return c.sendReport(ctx, meta, "image-metadata")
 }
 
 func (c *client) sendReport(ctx context.Context, report any, reportType string) error {

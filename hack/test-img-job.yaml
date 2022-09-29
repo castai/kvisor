@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: imgscan-test
+  namespace: castai-sec
+spec:
+  backoffLimit: 0
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  suspend: false
+  template:
+    metadata:
+      name: imgscan-test
+      namespace: castai-sec
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+      containers:
+        - env:
+            - name: COLLECTOR_IMAGE_ID
+              value: sha256:25f8c7f3da61c2a810effe5fa779cf80ca171afb0adf94c7cb51eb9a8546629d
+            - name: COLLECTOR_IMAGE_NAME
+              value: k8s.gcr.io/etcd:3.5.1-0
+            - name: COLLECTOR_TIMEOUT
+              value: 5m
+            - name: COLLECTOR_MODE
+              value: containerd_daemon
+            - name: COLLECTOR_DOCKER_OPTION_PATH
+              value: /etc/docker/config.json
+            - name: COLLECTOR_RESOURCE_IDS
+              value: b1d82eea-d522-48ca-b215-4007bb337226
+            - name: API_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: API_URL
+                  name: castai-sec-agent
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: API_KEY
+                  name: castai-sec-agent
+            - name: CLUSTER_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: CLUSTER_ID
+                  name: castai-sec-agent
+          image: localhost:5000/sec-agent-imgcollector:latest
+          imagePullPolicy: Always
+          name: collector
+          resources:
+            limits:
+              cpu: 500m
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /run/containerd/containerd.sock
+              name: containerd-sock
+              readOnly: true
+      dnsPolicy: ClusterFirst
+      nodeName: tilt-control-plane
+      priority: 0
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoExecute
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+          name: containerd-sock
+  ttlSecondsAfterFinished: 100

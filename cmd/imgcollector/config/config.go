@@ -16,12 +16,15 @@ const (
 )
 
 type Config struct {
-	ImageID          string        `envconfig:"ARTIFACTS_COLLECTOR_IMAGE_ID" required:"true"`
-	ImageName        string        `envconfig:"ARTIFACTS_COLLECTOR_IMAGE_NAME" required:"true"`
-	Timeout          time.Duration `envconfig:"ARTIFACTS_COLLECTOR_TIMEOUT" default:"5m"`
-	Mode             Mode          `envconfig:"ARTIFACTS_COLLECTOR_MODE" default:"docker_daemon"`
-	APIUrl           string        `envconfig:"ARTIFACTS_COLLECTOR_API_URL" default:"https://api.cast.ai"`
-	DockerOptionPath string        `envconfig:"ARTIFACTS_COLLECTOR_DOCKER_OPTION_PATH" default:""`
+	ApiKey           string        `envconfig:"API_KEY" required:"true"`
+	ApiURL           string        `envconfig:"API_URL" default:"https://api.cast.ai"`
+	ClusterID        string        `envconfig:"CLUSTER_ID" required:"true"`
+	ImageID          string        `envconfig:"COLLECTOR_IMAGE_ID" required:"true"`
+	ImageName        string        `envconfig:"COLLECTOR_IMAGE_NAME" required:"true"`
+	Timeout          time.Duration `envconfig:"COLLECTOR_TIMEOUT" default:"5m"`
+	Mode             Mode          `envconfig:"COLLECTOR_MODE" default:"docker_daemon"`
+	ResourceIDs      string        `envconfig:"COLLECTOR_RESOURCE_IDS" required:"true"`
+	DockerOptionPath string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
 }
 
 func FromEnv() (Config, error) {

@@ -23,7 +23,7 @@ func TestClient_SendCISReport(t *testing.T) {
 		t.Skip("no api key provided")
 	}
 
-	cl := NewClient(apiURL, apiKey, nil, clusterID, &config.SecurityAgentVersion{
+	cl := NewClient(apiURL, apiKey, nil, clusterID, "castai-sec-agent", config.SecurityAgentVersion{
 		Version: "69",
 	})
 
