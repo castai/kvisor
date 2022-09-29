@@ -23,6 +23,7 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/linters/kubebench/spec"
+	"github.com/castai/sec-agent/log"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 	maxConcurrentJobs = 5
 )
 
-func NewSubscriber(log logrus.FieldLogger, client kubernetes.Interface, provider string, castClient castai.Client, logsReader PodLogProvider) controller.ObjectSubscriber {
+func NewSubscriber(log logrus.FieldLogger, client kubernetes.Interface, provider string, castClient castai.Client, logsReader log.PodLogProvider) controller.ObjectSubscriber {
 	return &Subscriber{log: log, client: client, delta: newDeltaState(), provider: provider, castClient: castClient, logsProvider: logsReader}
 }
 
@@ -42,7 +43,7 @@ type Subscriber struct {
 	castClient   castai.Client
 	delta        *nodeDeltaState
 	provider     string
-	logsProvider PodLogProvider
+	logsProvider log.PodLogProvider
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
@@ -199,7 +200,7 @@ func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 }
 
 func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.CustomReport, error) {
-	logReader, err := s.logsProvider.GetLogReader(ctx, kubeBenchPodName)
+	logReader, err := s.logsProvider.GetLogReader(ctx, castAINamespace, kubeBenchPodName)
 	if err != nil {
 		return nil, err
 	}

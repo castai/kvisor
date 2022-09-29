@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	mock_castai "github.com/castai/sec-agent/castai/mock"
+	"github.com/castai/sec-agent/log"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -118,16 +119,16 @@ type mockProvider struct {
 	logs []byte
 }
 
-func newMockLogProvider(b []byte) PodLogProvider {
+func newMockLogProvider(b []byte) log.PodLogProvider {
 	return &mockProvider{logs: b}
 }
 
-func (m *mockProvider) GetLogReader(_ context.Context, _ string) (io.ReadCloser, error) {
+func (m *mockProvider) GetLogReader(_ context.Context, _, _ string) (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(m.logs)), nil
 }
 
 func readReport() []byte {
-	file, _ := os.OpenFile("../../castai/kube-bench-gke.json", os.O_RDONLY, 0666)
+	file, _ := os.OpenFile("../../testdata/kube-bench-gke.json", os.O_RDONLY, 0666)
 	reportBytes, _ := io.ReadAll(file)
 
 	return reportBytes

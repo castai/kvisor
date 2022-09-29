@@ -3,9 +3,10 @@ package image
 import (
 	"context"
 
-	"github.com/aquasecurity/trivy/pkg/fanal/image/daemon"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/google/go-containerregistry/pkg/name"
+
+	"github.com/castai/sec-agent/cmd/imgcollector/image/daemon"
 )
 
 type Image = types.Image

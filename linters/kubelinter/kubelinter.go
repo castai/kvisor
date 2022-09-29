@@ -61,8 +61,8 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
 	"k8s.io/apimachinery/pkg/types"
 
+	casttypes "github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks"
-	casttypes "github.com/castai/sec-agent/types"
 )
 
 func New(checks []string) *Linter {

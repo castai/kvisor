@@ -3,39 +3,37 @@ package kubelinter
 import (
 	"context"
 	"fmt"
-	appsv1 "k8s.io/api/apps/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/controller"
-	casttypes "github.com/castai/sec-agent/types"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+
+	"github.com/castai/sec-agent/castai"
+	"github.com/castai/sec-agent/controller"
 )
 
 var supportedTypes = []reflect.Type{
 	reflect.TypeOf(&corev1.Pod{}),
 	reflect.TypeOf(&corev1.Namespace{}),
 	reflect.TypeOf(&corev1.Service{}),
+	reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
 	reflect.TypeOf(&appsv1.Deployment{}),
 	reflect.TypeOf(&appsv1.DaemonSet{}),
 	reflect.TypeOf(&appsv1.StatefulSet{}),
 	// rbac
 	reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
-	reflect.TypeOf(&rbacv1.RoleBinding{}),
-	reflect.TypeOf(&rbacv1.ClusterRole{}),
-	reflect.TypeOf(&rbacv1.Role{}),
 }
 
 func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	linter := New(lo.Keys(casttypes.LinterRuleMap))
+	linter := New(lo.Keys(castai.LinterRuleMap))
 
 	return &Subscriber{
 		ctx:    ctx,

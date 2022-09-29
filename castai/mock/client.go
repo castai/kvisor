@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	castai "github.com/castai/sec-agent/castai"
-	types "github.com/castai/sec-agent/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -64,8 +63,22 @@ func (mr *MockClientMockRecorder) SendDeltaReport(ctx, report interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDeltaReport", reflect.TypeOf((*MockClient)(nil).SendDeltaReport), ctx, report)
 }
 
+// SendImageMetadata mocks base method.
+func (m *MockClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendImageMetadata", ctx, meta)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendImageMetadata indicates an expected call of SendImageMetadata.
+func (mr *MockClientMockRecorder) SendImageMetadata(ctx, meta interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImageMetadata", reflect.TypeOf((*MockClient)(nil).SendImageMetadata), ctx, meta)
+}
+
 // SendLinterChecks mocks base method.
-func (m *MockClient) SendLinterChecks(ctx context.Context, checks []types.LinterCheck) error {
+func (m *MockClient) SendLinterChecks(ctx context.Context, checks []castai.LinterCheck) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendLinterChecks", ctx, checks)
 	ret0, _ := ret[0].(error)

@@ -12,6 +12,7 @@ user = os.environ.get('USER', 'unknown-user')
 api_url = os.environ.get('API_URL', 'https://api-{}.localenv.cast.ai'.format(user))
 api_key = os.environ.get('API_KEY', 'not-set')
 cluster_id = os.environ.get('CLUSTER_ID', 'not-set')
+image_scan_enabled = os.environ.get('IMAGE_SCAN_ENABLED', 'false')
 
 namespace_create(namespace)
 
@@ -37,6 +38,14 @@ local_resource(
     ],
 )
 
+local_resource(
+    'imgcollector-docker-build',
+    'docker build -t localhost:5000/sec-agent-imgcollector . -f Dockerfile.imgcollector && docker push localhost:5000/sec-agent-imgcollector',
+    deps=[
+        './bin/castai-imgcollector'
+    ],
+)
+
 docker_build_with_restart(
     'agent',
     '.',
@@ -50,21 +59,7 @@ docker_build_with_restart(
     ],
 )
 
-docker_build_with_restart(
-    'imgcollector',
-    '.',
-    entrypoint=['/usr/local/bin/castai-imgcollector'],
-    dockerfile='Dockerfile.imgcollector',
-    only=[
-        './bin/castai-imgcollector',
-    ],
-    live_update=[
-        sync('./bin/castai-imgcollector', '/usr/local/bin/castai-imgcollector'),
-    ],
-)
-
 chart_path = '../gh-helm-charts/charts/castai-sec-agent'
-
 k8s_yaml(helm(
     chart_path,
     name='castai-sec-agent',
@@ -74,7 +69,11 @@ k8s_yaml(helm(
         'castai.apiKey='+api_key,
         'castai.apiURL='+api_url,
         'image.repository=agent',
-        'features.imagescan.image.repository=imgcollector',
+        'features.imagescan.enabled='+image_scan_enabled,
+        'features.imagescan.scanInterval=2s',
+        'features.imagescan.image.repository=localhost:5000/sec-agent-imgcollector',
+        'features.imagescan.image.tag=latest',
+        'features.imagescan.image.pullPolicy=Always',
         'agentContainerSecurityContext=null'
     ]
 ))
@@ -84,7 +83,7 @@ if api_url == 'http://mockapi':
         'mockapi-compile',
         'CGO_ENABLED=0 GOOS=linux go build -o ./bin/mockapi ./tools/mockapi',
         deps=[
-            './toos/mockapi',
+            './tools/mockapi',
         ],
     )
     docker_build_with_restart(
