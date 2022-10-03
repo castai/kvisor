@@ -11,14 +11,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aquasecurity/trivy/pkg/fanal/image/daemon"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
 // DockerImage implements v1.Image by extending daemon.Image.
 // The caller must call cleanup() to remove a temporary file.
-func DockerImage(ref name.Reference) (daemon.Image, func(), error) {
+func DockerImage(ref name.Reference) (Image, func(), error) {
 	cleanup := func() {}
 
 	c, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -63,6 +62,6 @@ func DockerImage(ref name.Reference) (daemon.Image, func(), error) {
 	return &image{
 		opener:  imageOpener(context.Background(), imageID, f, c.ImageSave),
 		inspect: inspect,
-		history: history,
+		history: configHistory(history),
 	}, cleanup, nil
 }

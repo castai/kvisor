@@ -25,6 +25,7 @@ import (
 	api "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/samber/lo"
@@ -96,7 +97,7 @@ func ContainerdImage(ctx context.Context, imageName string) (Image, func(), erro
 		_ = os.Remove(f.Name())
 	}
 
-	insp, err := inspect(ctx, img, ref)
+	insp, history, err := inspect(ctx, img, ref)
 	if err != nil {
 		return nil, nil, fmt.Errorf("inspect error: %w", err)
 	}
@@ -104,6 +105,7 @@ func ContainerdImage(ctx context.Context, imageName string) (Image, func(), erro
 	return &image{
 		opener:  imageOpener(ctx, ref.String(), f, imageWriter(client, img)),
 		inspect: insp,
+		history: history,
 	}, cleanup, nil
 }
 
@@ -127,7 +129,7 @@ func readImageConfig(ctx context.Context, img containerd.Image) (ocispec.Image, 
 }
 
 // ported from https://github.com/containerd/nerdctl/blob/d110fea18018f13c3f798fa6565e482f3ff03591/pkg/inspecttypes/dockercompat/dockercompat.go#L279-L321
-func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.ImageInspect, error) {
+func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.ImageInspect, []v1.History, error) {
 	var tag string
 	if tagged, ok := ref.(refdocker.Tagged); ok {
 		tag = tagged.Tag()
@@ -136,12 +138,23 @@ func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.I
 
 	imgConfig, imgConfigDesc, err := readImageConfig(ctx, img)
 	if err != nil {
-		return api.ImageInspect{}, err
+		return api.ImageInspect{}, nil, err
 	}
 
 	var lastHistory ocispec.History
 	if len(imgConfig.History) > 0 {
 		lastHistory = imgConfig.History[len(imgConfig.History)-1]
+	}
+
+	var history []v1.History
+	for _, h := range imgConfig.History {
+		history = append(history, v1.History{
+			Author:     h.Author,
+			Created:    v1.Time{Time: *h.Created},
+			CreatedBy:  h.CreatedBy,
+			Comment:    h.Comment,
+			EmptyLayer: h.EmptyLayer,
+		})
 	}
 
 	portSet := make(nat.PortSet)
@@ -174,5 +187,5 @@ func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.I
 				return d.String()
 			}),
 		},
-	}, nil
+	}, history, nil
 }

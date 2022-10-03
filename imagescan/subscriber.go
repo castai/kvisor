@@ -36,7 +36,7 @@ func NewSubscriber(
 		cfg.ScanInterval = 15 * time.Second
 	}
 	if cfg.MaxConcurrentScans == 0 {
-		cfg.MaxConcurrentScans = 5
+		cfg.MaxConcurrentScans = 2
 	}
 
 	scannedImagesCache, _ := lru.New(10000)
