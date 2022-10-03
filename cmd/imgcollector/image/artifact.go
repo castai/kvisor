@@ -85,7 +85,7 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 
 	// Try to detect base layers.
 	baseDiffIDs := a.guessBaseLayers(diffIDs, configFile)
-	a.log.Debugf("Base Layers: %v", baseDiffIDs)
+	a.log.Debugf("base layers: %v", baseDiffIDs)
 
 	// Convert image ID and layer IDs to cache keys
 	imageKey, layerKeys, layerKeyMap, err := a.calcCacheKeys(imageID, diffIDs)
