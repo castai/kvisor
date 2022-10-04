@@ -2,6 +2,7 @@ package delta
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 	"time"
@@ -95,7 +96,7 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(s.cfg.DeltaSyncInterval):
-			if err := s.sendDelta(ctx); err != nil {
+			if err := s.sendDelta(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				s.log.Errorf("sending delta: %v", err)
 			}
 		}

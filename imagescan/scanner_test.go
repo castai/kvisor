@@ -60,6 +60,9 @@ func TestScanner(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "imgscan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
 				Namespace: ns,
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "castai",
+				},
 			},
 			Spec: batchv1.JobSpec{
 				TTLSecondsAfterFinished: lo.ToPtr(int32(100)),
