@@ -2,6 +2,7 @@ package kubebench
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -15,7 +16,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -28,6 +29,7 @@ import (
 
 const (
 	scanInterval      = 15 * time.Second
+	nodeScanTimeout   = 5 * time.Minute
 	castAINamespace   = "castai-sec"
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 5
@@ -73,7 +75,7 @@ func (s *Subscriber) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			err := s.processCachedNodes(ctx)
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				s.log.Errorf("error linting nodes: %v", err)
 			}
 		}
@@ -93,6 +95,8 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 		}
 		go func() {
 			defer sem.Release(1)
+			ctx, cancel := context.WithTimeout(ctx, nodeScanTimeout)
+			defer cancel()
 			err = s.lintNode(ctx, &node)
 			if err != nil {
 				s.log.Errorf("kube-bench: %v", err)
@@ -117,7 +121,7 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 	err := s.client.BatchV1().Jobs(castAINamespace).Delete(ctx, jobName, metav1.DeleteOptions{
 		PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
 	})
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
 		return err
 	}

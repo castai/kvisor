@@ -16,6 +16,7 @@ import (
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/delta"
 	"github.com/castai/sec-agent/imagescan"
+	"github.com/castai/sec-agent/jobsgc"
 	"github.com/castai/sec-agent/linters/kubebench"
 	"github.com/castai/sec-agent/linters/kubelinter"
 	agentlog "github.com/castai/sec-agent/log"
@@ -174,6 +175,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	if len(objectSubscribers) == 0 {
 		log.Fatal("no subscribers enabled")
 	}
+
+	gc := jobsgc.NewGC(log, clientset, jobsgc.Config{
+		CleanupInterval: 10 * time.Minute,
+		CleanupJobAge:   10 * time.Minute,
+	})
+	go gc.Start(ctx)
 
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)

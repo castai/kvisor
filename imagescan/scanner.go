@@ -298,6 +298,9 @@ func scanJobSpec(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: ns,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "castai",
+			},
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: lo.ToPtr(int32(100)),

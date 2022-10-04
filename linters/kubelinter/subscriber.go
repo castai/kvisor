@@ -2,6 +2,7 @@ package kubelinter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -66,7 +67,7 @@ func (s *Subscriber) Run(ctx context.Context) error {
 		case <-time.After(15 * time.Second):
 			objects := s.delta.flush()
 			if len(objects) > 0 {
-				if err := s.lintObjects(objects); err != nil {
+				if err := s.lintObjects(objects); err != nil && !errors.Is(err, context.Canceled) {
 					s.log.Error(err)
 
 					// put unprocessed objects back to delta queue
