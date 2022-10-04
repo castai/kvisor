@@ -12,12 +12,12 @@ import (
 
 // newDelta initializes the delta struct which is used to collect cluster deltas, debounce them and map to CAST AI
 // requests.
-func newDelta(log logrus.FieldLogger, logLevel logrus.Level) *delta {
+func newDelta(log logrus.FieldLogger, logLevel logrus.Level, provider SnapshotProvider) *delta {
 	return &delta{
-		log:          log,
-		logLevel:     logLevel,
-		fullSnapshot: false, // TODO: Implement full snapshot concept.
-		cache:        map[string]castai.DeltaItem{},
+		log:      log,
+		logLevel: logLevel,
+		snapshot: provider,
+		cache:    map[string]castai.DeltaItem{},
 		skippers: []skipper{
 			nonStaticPodsSkipper(),
 			cronJobOwnerJobsSkipper(),
@@ -52,11 +52,11 @@ func cronJobOwnerJobsSkipper() skipper {
 // delta is used to collect cluster deltas, debounce them and map to CAST AI requests. It holds a cache of queue items
 // which is referenced any time a new item is added to debounce the items.
 type delta struct {
-	log          logrus.FieldLogger
-	logLevel     logrus.Level
-	fullSnapshot bool
-	cache        map[string]castai.DeltaItem
-	skippers     []skipper
+	log      logrus.FieldLogger
+	logLevel logrus.Level
+	snapshot SnapshotProvider
+	cache    map[string]castai.DeltaItem
+	skippers []skipper
 }
 
 // add will add an item to the delta cache. It will debounce the objects.
@@ -80,20 +80,19 @@ func (d *delta) add(event controller.Event, obj object) {
 		ObjectAPIVersion: gvr.GroupVersion().String(),
 		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
 	}
+
+	d.snapshot.append(d.cache[key])
 }
 
-// clear resets the delta cache and sets fullSnapshot to false. Should be called after toCASTAIRequest is successfully
-// delivered.
+// clear resets the delta cache. Should be called after toCASTAIRequest is successfully delivered.
 func (d *delta) clear() {
-	d.fullSnapshot = false
 	d.cache = map[string]castai.DeltaItem{}
 }
 
 // toCASTAIRequest maps the collected delta cache to the castai.Delta type.
 func (d *delta) toCASTAIRequest() *castai.Delta {
 	return &castai.Delta{
-		FullSnapshot: d.fullSnapshot,
-		Items:        lo.Values(d.cache),
+		Items: lo.Values(d.cache),
 	}
 }
 
