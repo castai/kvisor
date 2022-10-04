@@ -29,7 +29,7 @@ func TestModifyConfig(t *testing.T) {
 	}
 
 	newCfg := ModifyConfig(oldCfg, &castai.TelemetryResponse{
-		DisabledFeatures: []string{"kubelinter", "imagescan", "kubebench"},
+		DisabledFeatures: []string{"linter", "imagescan", "kubebench"},
 		FullResync:       false,
 	})
 

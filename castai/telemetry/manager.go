@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -34,7 +35,9 @@ func (s *Manager) Observe(observers ...Observer) {
 		case <-time.After(telemetryInterval):
 			resp, err := s.postTelemetry()
 			if err != nil {
-				s.log.Errorf("can not post telemetry: %v", err)
+				if !errors.Is(err, context.Canceled) {
+					s.log.Errorf("can not post telemetry: %v", err)
+				}
 				continue
 			}
 

@@ -12,9 +12,9 @@ import (
 type feature string
 
 const (
-	kubeLinter feature = "kubelinter"
-	kubeBench  feature = "kubebench"
-	imageScan  feature = "imagescan"
+	linter    feature = "linter"
+	kubeBench feature = "kubebench"
+	imageScan feature = "imagescan"
 )
 
 // ModifyConfig takes config.Config and castai.TelemetryResponse as arguments
@@ -22,7 +22,7 @@ const (
 func ModifyConfig(cfg config.Config, response *castai.TelemetryResponse) config.Config {
 	for _, disabledFeature := range response.DisabledFeatures {
 		switch feature(disabledFeature) {
-		case kubeLinter:
+		case linter:
 			cfg.Features.KubeLinter.Enabled = false
 		case kubeBench:
 			cfg.Features.KubeBench.Enabled = false
@@ -50,7 +50,7 @@ func ObserveDisabledFeatures(ctx context.Context, cfg config.Config, log logrus.
 func featuresHaveChanged(cfg *config.Config, response *castai.TelemetryResponse) bool {
 	for _, disabledFeature := range response.DisabledFeatures {
 		switch feature(disabledFeature) {
-		case kubeLinter:
+		case linter:
 			if cfg.Features.KubeLinter.Enabled {
 				return true
 			}
