@@ -181,8 +181,9 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info *imageInfo) error {
 	// If image is already scanned, sync update resource ids.
+	uniqueResourceIDs := lo.Uniq(info.resourcesIDs)
 	if cacheResourceIDs, ok := s.scannedImagesCache.Get(info.imageID); ok {
-		diff, _ := lo.Difference(cacheResourceIDs.([]string), info.resourcesIDs)
+		diff, _ := lo.Difference(cacheResourceIDs.([]string), uniqueResourceIDs)
 		if len(diff) == 0 {
 			log.Debug("skipping scan, image already scanned and synced")
 			return nil
@@ -190,7 +191,7 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 		if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
 			ImageName:   info.imageName,
 			ImageID:     info.imageID,
-			ResourceIDs: info.resourcesIDs,
+			ResourceIDs: diff,
 		}); err != nil {
 			return fmt.Errorf("sending image metadata resources update: %w", err)
 		}
@@ -210,7 +211,7 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 		ImageName:         info.imageName,
 		ImageID:           info.imageID,
 		ContainerID:       info.containerID,
-		ResourceIDs:       info.resourcesIDs,
+		ResourceIDs:       uniqueResourceIDs,
 		NodeName:          nodeName,
 		Tolerations:       info.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
 		DeleteFinishedJob: true,
