@@ -21,6 +21,7 @@ import (
 type Config struct {
 	ScanInterval       time.Duration
 	MaxConcurrentScans int64
+	ImageScanTimeout   time.Duration
 }
 
 func NewSubscriber(
@@ -37,6 +38,9 @@ func NewSubscriber(
 	}
 	if cfg.MaxConcurrentScans == 0 {
 		cfg.MaxConcurrentScans = 2
+	}
+	if cfg.ImageScanTimeout == 0 {
+		cfg.ImageScanTimeout = 10 * time.Minute
 	}
 
 	scannedImagesCache, _ := lru.New(10000)
@@ -157,7 +161,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 		go func(imageName string, info *imageInfo) {
 			defer sem.Release(1)
 
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			ctx, cancel := context.WithTimeout(ctx, s.cfg.ImageScanTimeout)
 			defer cancel()
 
 			log := s.log.WithField("image", imageName)

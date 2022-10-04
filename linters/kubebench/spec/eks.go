@@ -11,8 +11,11 @@ func EKS(nodeName, jobName string) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
-			Labels: map[string]string{"app": "kube-bench"},
+			Name: jobName,
+			Labels: map[string]string{
+				"app":                          "kube-bench",
+				"app.kubernetes.io/managed-by": "castai",
+			},
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{

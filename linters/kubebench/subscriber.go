@@ -28,6 +28,7 @@ import (
 
 const (
 	scanInterval      = 15 * time.Second
+	nodeScanTimeout   = 5 * time.Minute
 	castAINamespace   = "castai-sec"
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 5
@@ -93,6 +94,8 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 		}
 		go func() {
 			defer sem.Release(1)
+			ctx, cancel := context.WithTimeout(ctx, nodeScanTimeout)
+			defer cancel()
 			err = s.lintNode(ctx, &node)
 			if err != nil {
 				s.log.Errorf("kube-bench: %v", err)
