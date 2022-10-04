@@ -1,6 +1,6 @@
 package castai
 
 type TelemetryResponse struct {
-	DisabledFeatures []string `json:"disabled_features"`
-	FullResync       bool     `json:"full_resync"`
+	DisabledFeatures []string `json:"disabledFeatures"`
+	FullResync       bool     `json:"fullResync"`
 }
