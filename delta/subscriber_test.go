@@ -68,7 +68,7 @@ func TestSubscriber(t *testing.T) {
 	}
 
 	t.Run("send add event", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, 21)
+		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
@@ -81,7 +81,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("send update event", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, 21)
+		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 		sub.OnUpdate(pod1)
 
@@ -95,7 +95,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("send delete event", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, 21)
+		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 		sub.OnUpdate(pod1)
 		sub.OnDelete(pod1)
@@ -117,4 +117,16 @@ type mockCastaiClient struct {
 func (m *mockCastaiClient) SendDeltaReport(ctx context.Context, report *castai.Delta) error {
 	m.delta = report
 	return nil
+}
+
+type snapshotProviderMock struct {
+	items []castai.DeltaItem
+}
+
+func (s *snapshotProviderMock) append(item castai.DeltaItem) {
+	s.items = append(s.items, item)
+}
+
+func (s *snapshotProviderMock) snapshot() []castai.DeltaItem {
+	return s.items
 }

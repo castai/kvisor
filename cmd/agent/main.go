@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/informers"
 
 	"github.com/castai/sec-agent/castai"
+	"github.com/castai/sec-agent/castai/telemetry"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/delta"
@@ -138,15 +139,26 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	log.Infof("running castai-sec-agent version %v", binVersion)
 
+	snapshotProvider := delta.NewSnapshotProvider()
+
 	objectSubscribers := []controller.ObjectSubscriber{
 		delta.NewSubscriber(
 			log,
 			log.Level,
 			delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
 			castaiClient,
+			snapshotProvider,
 			k8sVersion.MinorInt(),
 		),
 	}
+
+	telemetryResponse, err := castaiClient.PostTelemetry(ctx)
+	if err != nil {
+		log.Warnf("initial telemetry: %v", err)
+	} else {
+		cfg = telemetry.ModifyConfig(cfg, telemetryResponse)
+	}
+
 	if cfg.Features.KubeLinter.Enabled {
 		log.Info("kubelinter enabled")
 		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, castaiClient))
@@ -178,6 +190,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)
 
+	telemetryManager := telemetry.NewManager(ctx, log, castaiClient)
+	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
+	featureObserver, featuresCtx := telemetry.ObserveDisabledFeatures(ctx, cfg, log)
+
+	go telemetryManager.Observe(resyncObserver, featureObserver)
+
 	work := func(ctx context.Context) {
 		if err := ctrl.Run(ctx); err != nil {
 			log.Errorf("running controller: %v", err)
@@ -187,11 +205,11 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	if cfg.LeaderElection.Enabled {
 		// Run actions service with leader election. Blocks.
-		return runWithLeaderElection(ctx, log, cfg.LeaderElection, clientset, leaderHealthCheck, work)
+		return runWithLeaderElection(featuresCtx, log, cfg.LeaderElection, clientset, leaderHealthCheck, work)
 	}
 
 	// Does the work. Blocks.
-	work(ctx)
+	work(featuresCtx)
 	return nil
 }
 

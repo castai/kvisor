@@ -36,6 +36,8 @@ type Client interface {
 	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
 	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
+
+	PostTelemetry(ctx context.Context) (*TelemetryResponse, error)
 }
 
 func NewClient(
@@ -95,6 +97,25 @@ type client struct {
 	httpClient *http.Client
 	clusterID  string
 	binVersion config.SecurityAgentVersion
+}
+
+func (c *client) PostTelemetry(ctx context.Context) (*TelemetryResponse, error) {
+	resp, err := c.restClient.R().
+		SetContext(ctx).
+		Post(fmt.Sprintf("/v1/security/insights/%s/telemetry", c.clusterID))
+	if err != nil {
+		return nil, fmt.Errorf("sending telemetry: %w", err)
+	}
+	if resp.IsError() {
+		return nil, fmt.Errorf("sending telemetry: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+
+	var response TelemetryResponse
+	if err := json.Unmarshal(resp.Body(), &response); err != nil {
+		return nil, fmt.Errorf("unmarshal telemetry response: %w", err)
+	}
+
+	return &response, nil
 }
 
 func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {

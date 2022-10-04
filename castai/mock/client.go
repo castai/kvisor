@@ -35,6 +35,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// PostTelemetry mocks base method.
+func (m *MockClient) PostTelemetry(ctx context.Context) (*castai.TelemetryResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PostTelemetry", ctx)
+	ret0, _ := ret[0].(*castai.TelemetryResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PostTelemetry indicates an expected call of PostTelemetry.
+func (mr *MockClientMockRecorder) PostTelemetry(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostTelemetry", reflect.TypeOf((*MockClient)(nil).PostTelemetry), ctx)
+}
+
 // SendCISReport mocks base method.
 func (m *MockClient) SendCISReport(ctx context.Context, report *castai.CustomReport) error {
 	m.ctrl.T.Helper()

@@ -41,7 +41,13 @@ type Config struct {
 	DeltaSyncInterval time.Duration
 }
 
-func NewSubscriber(log logrus.FieldLogger, logLevel logrus.Level, cfg Config, client castaiClient, k8sVersionMinor int) controller.ObjectSubscriber {
+func NewSubscriber(
+	log logrus.FieldLogger,
+	logLevel logrus.Level,
+	cfg Config, client castaiClient,
+	stateProvider SnapshotProvider,
+	k8sVersionMinor int,
+) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Subscriber{
@@ -51,7 +57,7 @@ func NewSubscriber(log logrus.FieldLogger, logLevel logrus.Level, cfg Config, cl
 		k8sVersionMinor: k8sVersionMinor,
 		log:             log,
 		client:          client,
-		delta:           newDelta(log, logLevel),
+		delta:           newDelta(log, logLevel, stateProvider),
 	}
 }
 
