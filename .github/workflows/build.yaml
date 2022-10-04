@@ -91,7 +91,7 @@ jobs:
           context: .
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name != 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/sec-imgcollector:${{ github.sha }}
+          tags: us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:${{ github.sha }}
 
       - name: Build and push release (agent)
         if: github.event_name == 'release'
@@ -112,8 +112,8 @@ jobs:
           push: true
           file: ./Dockerfile.imgcollector
           tags: |
-            us-docker.pkg.dev/castai-hub/library/sec-imgcollector:${{ env.RELEASE_TAG }}
-            us-docker.pkg.dev/castai-hub/library/sec-imgcollector:latest
+            us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:${{ env.RELEASE_TAG }}
+            us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:latest
 
       - name: FOSSA scan docker image (agent)
         if: github.event_name == 'release'
@@ -127,4 +127,4 @@ jobs:
         uses: fossas/fossa-action@v1
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
-          container: us-docker.pkg.dev/castai-hub/library/sec-imgcollector:${{ env.RELEASE_TAG }}
+          container: us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:${{ env.RELEASE_TAG }}
