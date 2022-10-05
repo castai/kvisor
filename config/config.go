@@ -11,10 +11,10 @@ import (
 type Config struct {
 	KubeClient        KubeClient
 	Kubeconfig        string
-	LeaderElection    LeaderElection
 	Log               Log
 	API               API
 	PprofPort         int
+	BlobsCachePort    int
 	ClusterID         string
 	Provider          string
 	DeltaSyncInterval time.Duration
@@ -54,12 +54,6 @@ type KubeClient struct {
 	Burst int
 }
 
-type LeaderElection struct {
-	Enabled   bool
-	Namespace string
-	LockName  string
-}
-
 type Log struct {
 	Level int
 }
@@ -87,6 +81,7 @@ func Get() Config {
 	_ = viper.BindEnv("leaderelection.namespace", "LEADER_ELECTION_NAMESPACE")
 	_ = viper.BindEnv("leaderelection.lockname", "LEADER_ELECTION_LOCK_NAME")
 	_ = viper.BindEnv("pprofport", "PPROF_PORT")
+	_ = viper.BindEnv("blobscacheport", "BLOBS_CACHE_PORT")
 	_ = viper.BindEnv("provider", "PROVIDER")
 	_ = viper.BindEnv("features.imagescan.enabled", "FEATURES_IMAGE_SCAN_ENABLED")
 	_ = viper.BindEnv("features.imagescan.scaninterval", "FEATURES_IMAGE_SCAN_INTERVAL")
@@ -122,14 +117,6 @@ func Get() Config {
 	if cfg.Log.Level == 0 {
 		cfg.Log.Level = int(logrus.DebugLevel)
 	}
-	if cfg.LeaderElection.Enabled {
-		if cfg.LeaderElection.Namespace == "" {
-			required("LEADER_ELECTION_NAMESPACE")
-		}
-		if cfg.LeaderElection.LockName == "" {
-			required("LEADER_ELECTION_LOCK_NAME")
-		}
-	}
 	if cfg.Features.ImageScan.Enabled {
 		if cfg.Features.ImageScan.CollectorImage == "" {
 			required("FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
@@ -144,6 +131,9 @@ func Get() Config {
 
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6060
+	}
+	if cfg.BlobsCachePort == 0 {
+		cfg.BlobsCachePort = 8080
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = "on-premise"

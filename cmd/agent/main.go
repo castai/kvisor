@@ -182,6 +182,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			imagescan.NewImageScanner(clientset, cfg),
 			k8sVersion.MinorInt(),
 		))
+		blobsCache := imagescan.NewBlobsCacheServer(log, imagescan.BlobsCacheServerConfig{ServePort: cfg.BlobsCachePort})
+		go blobsCache.Start(ctx)
 	}
 
 	if len(objectSubscribers) == 0 {
