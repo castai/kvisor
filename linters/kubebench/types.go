@@ -26,10 +26,7 @@ type NodeJob struct {
 }
 
 func (n *NodeJob) ready() bool {
-	if n.next.Before(time.Now()) {
-		return true
-	}
-	return false
+	return n.next.Before(time.Now())
 }
 
 func (n *NodeJob) failed() {
