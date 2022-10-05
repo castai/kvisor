@@ -108,7 +108,10 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	if err != nil {
 		return nil, err
 	}
-	missingLayersKeys, _ := lo.Difference(layerKeys, lo.Keys(cachedLayers))
+	missingLayersKeys := lo.Filter(layerKeys, func(v string, _ int) bool {
+		_, ok := cachedLayers[v]
+		return !ok
+	})
 
 	// Inspect all not cached layers.
 	blobsInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayersKeys, baseDiffIDs, layerKeyMap)
