@@ -41,6 +41,7 @@ const (
 	AccessToCreatePods
 	TokenAutomount
 	ReadSecretFromEnvVar
+	HasSecurityContext
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -80,6 +81,7 @@ var LinterRuleMap = map[string]LinterRule{
 	"default-service-account":    DefaultServiceAccount,
 	"sa-token-automount":         TokenAutomount,
 	"read-secret-from-env-var":   ReadSecretFromEnvVar,
+	"has-security-context":       HasSecurityContext,
 }
 
 type LinterCheck struct {
