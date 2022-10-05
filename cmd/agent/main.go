@@ -11,6 +11,7 @@ import (
 
 	"k8s.io/client-go/informers"
 
+	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/castai/telemetry"
 	"github.com/castai/sec-agent/config"
@@ -24,16 +25,12 @@ import (
 	"github.com/castai/sec-agent/version"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/leaderelection"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/flowcontrol"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
@@ -118,14 +115,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	})
 
 	httpMux := http.NewServeMux()
-	var checks []healthz.HealthChecker
-	var leaderHealthCheck *leaderelection.HealthzAdaptor
-	if cfg.LeaderElection.Enabled {
-		leaderHealthCheck = leaderelection.NewLeaderHealthzAdaptor(time.Minute * 2)
-		checks = append(checks, leaderHealthCheck)
-	}
-
-	healthz.InstallHandler(httpMux, checks...)
+	healthz.InstallHandler(httpMux)
 	installPprofHandlers(httpMux)
 
 	// Start http server for pprof and health checks handlers.
@@ -182,7 +172,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			imagescan.NewImageScanner(clientset, cfg),
 			k8sVersion.MinorInt(),
 		))
-		blobsCache := imagescan.NewBlobsCacheServer(log, imagescan.BlobsCacheServerConfig{ServePort: cfg.BlobsCachePort})
+		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.Features.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)
 	}
 
@@ -212,72 +202,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}
 	}
 
-	if cfg.LeaderElection.Enabled {
-		// Run actions service with leader election. Blocks.
-		return runWithLeaderElection(featuresCtx, log, cfg.LeaderElection, clientset, leaderHealthCheck, work)
-	}
-
 	// Does the work. Blocks.
 	work(featuresCtx)
-	return nil
-}
-
-func runWithLeaderElection(
-	ctx context.Context,
-	log logrus.FieldLogger,
-	cfg config.LeaderElection,
-	clientset kubernetes.Interface,
-	watchDog *leaderelection.HealthzAdaptor,
-	runFunc func(ctx context.Context),
-) error {
-	id, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("failed to determine hostname used in leader ID: %w", err)
-	}
-	id = id + "_" + uuid.New().String()
-
-	// Start the leader election code loop
-	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
-		Lock: &resourcelock.LeaseLock{
-			LeaseMeta: metav1.ObjectMeta{
-				Name:      cfg.LockName,
-				Namespace: cfg.Namespace,
-			},
-			Client: clientset.CoordinationV1(),
-			LockConfig: resourcelock.ResourceLockConfig{
-				Identity: id,
-			},
-		},
-		// IMPORTANT: you MUST ensure that any code you have that
-		// is protected by the lease must terminate **before**
-		// you call cancel. Otherwise, you could have a background
-		// loop still running and another process could
-		// get elected before your background loop finished, violating
-		// the stated goal of the lease.
-		ReleaseOnCancel: true,
-		LeaseDuration:   60 * time.Second,
-		RenewDeadline:   15 * time.Second,
-		RetryPeriod:     5 * time.Second,
-		WatchDog:        watchDog,
-		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				log.Infof("started leader: %s", id)
-				runFunc(ctx)
-			},
-			OnStoppedLeading: func() {
-				log.Infof("leader lost: %s", id)
-				os.Exit(0)
-			},
-			OnNewLeader: func(identity string) {
-				// We're notified when new leader elected.
-				if identity == id {
-					// I just got the lock.
-					return
-				}
-				log.Infof("new leader elected: %s", identity)
-			},
-		},
-	})
 	return nil
 }
 

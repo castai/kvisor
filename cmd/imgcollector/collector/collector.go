@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
 
+	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
@@ -44,7 +45,8 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
-	artifact, err := image.NewArtifact(img, c.log, nil, image.ArtifactOption{
+	blobsCache := blobscache.NewRemoteBlobsCache(c.cfg.BlobsCacheURL)
+	artifact, err := image.NewArtifact(img, c.log, blobsCache, image.ArtifactOption{
 		Offline: true,
 	})
 	if err != nil {

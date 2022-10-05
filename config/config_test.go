@@ -16,9 +16,6 @@ func TestConfig(t *testing.T) {
 	r.NoError(os.Setenv("API_KEY", "api-key"))
 	r.NoError(os.Setenv("CLUSTER_ID", "c1"))
 	r.NoError(os.Setenv("KUBECONFIG", "~/.kube/config"))
-	r.NoError(os.Setenv("LEADER_ELECTION_ENABLED", "true"))
-	r.NoError(os.Setenv("LEADER_ELECTION_NAMESPACE", "castai-sec-agent"))
-	r.NoError(os.Setenv("LEADER_ELECTION_LOCK_NAME", "castai-sec-agent"))
 	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_ENABLED", "true"))
 	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_INTERVAL", "15s"))
 	r.NoError(os.Setenv("FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS", "5"))
@@ -32,9 +29,6 @@ func TestConfig(t *testing.T) {
 	r.Equal("https://api.cast.ai", cfg.API.URL)
 	r.Equal("api-key", cfg.API.Key)
 	r.Equal("c1", cfg.ClusterID)
-	r.Equal(true, cfg.LeaderElection.Enabled)
-	r.Equal("castai-sec-agent", cfg.LeaderElection.Namespace)
-	r.Equal("castai-sec-agent", cfg.LeaderElection.LockName)
 	r.Equal(25, cfg.KubeClient.QPS)
 	r.Equal(150, cfg.KubeClient.Burst)
 	r.Equal(ImageScan{
@@ -44,6 +38,7 @@ func TestConfig(t *testing.T) {
 		CollectorImage:           "img",
 		CollectorImagePullPolicy: "IfNotPresent",
 		DockerOptionsPath:        "/etc/docker/config.json",
+		BlobsCachePort:           8080,
 	}, cfg.Features.ImageScan)
 	r.Equal(KubeBench{Enabled: true}, cfg.Features.KubeBench)
 	r.Equal(KubeLinter{Enabled: true}, cfg.Features.KubeLinter)

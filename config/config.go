@@ -9,12 +9,12 @@ import (
 )
 
 type Config struct {
+	PodIP             string
 	KubeClient        KubeClient
 	Kubeconfig        string
 	Log               Log
 	API               API
 	PprofPort         int
-	BlobsCachePort    int
 	ClusterID         string
 	Provider          string
 	DeltaSyncInterval time.Duration
@@ -35,6 +35,7 @@ type ImageScan struct {
 	CollectorImagePullPolicy string
 	Mode                     string
 	DockerOptionsPath        string
+	BlobsCachePort           int
 }
 
 type KubeLinter struct {
@@ -70,6 +71,7 @@ func Get() Config {
 		return *cfg
 	}
 
+	_ = viper.BindEnv("podip", "POD_IP")
 	_ = viper.BindEnv("api.key", "API_KEY")
 	_ = viper.BindEnv("api.url", "API_URL")
 	_ = viper.BindEnv("clusterid", "CLUSTER_ID")
@@ -81,7 +83,6 @@ func Get() Config {
 	_ = viper.BindEnv("leaderelection.namespace", "LEADER_ELECTION_NAMESPACE")
 	_ = viper.BindEnv("leaderelection.lockname", "LEADER_ELECTION_LOCK_NAME")
 	_ = viper.BindEnv("pprofport", "PPROF_PORT")
-	_ = viper.BindEnv("blobscacheport", "BLOBS_CACHE_PORT")
 	_ = viper.BindEnv("provider", "PROVIDER")
 	_ = viper.BindEnv("features.imagescan.enabled", "FEATURES_IMAGE_SCAN_ENABLED")
 	_ = viper.BindEnv("features.imagescan.scaninterval", "FEATURES_IMAGE_SCAN_INTERVAL")
@@ -89,6 +90,7 @@ func Get() Config {
 	_ = viper.BindEnv("features.imagescan.collectorimage", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
 	_ = viper.BindEnv("features.imagescan.collectorimagepullpolicy", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE_PULL_POLICY")
 	_ = viper.BindEnv("features.imagescan.dockeroptionspath", "FEATURES_IMAGE_SCAN_DOCKER_OPTIONS_PATH")
+	_ = viper.BindEnv("features.imagescan.blobscacheport", "FEATURES_IMAGE_SCAN_BLOBS_CACHE_PORT")
 	_ = viper.BindEnv("features.imagescan.mode", "FEATURES_IMAGE_SCAN_MODE")
 	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
 	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
@@ -127,13 +129,13 @@ func Get() Config {
 		if cfg.Features.ImageScan.DockerOptionsPath == "" {
 			cfg.Features.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
 		}
+		if cfg.Features.ImageScan.BlobsCachePort == 0 {
+			cfg.Features.ImageScan.BlobsCachePort = 8080
+		}
 	}
 
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6060
-	}
-	if cfg.BlobsCachePort == 0 {
-		cfg.BlobsCachePort = 8080
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = "on-premise"

@@ -83,6 +83,12 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
 	}
+	if s.cfg.PodIP == "" {
+		return errors.New("agent pod ip is required")
+	}
+	if s.cfg.Features.ImageScan.BlobsCachePort == 0 {
+		return errors.New("blobs cache port is required")
+	}
 
 	jobName := genJobName(params.ImageName)
 	vols := volumesAndMounts{}
@@ -155,6 +161,10 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		{
 			Name:  "COLLECTOR_RESOURCE_IDS",
 			Value: strings.Join(params.ResourceIDs, ","),
+		},
+		{
+			Name:  "COLLECTOR_BLOBS_CACHE_URL",
+			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.Features.ImageScan.BlobsCachePort),
 		},
 		{
 			Name: "API_URL",

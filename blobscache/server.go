@@ -1,9 +1,10 @@
-package imagescan
+package blobscache
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -12,34 +13,35 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type BlobsCacheServerConfig struct {
+type ServerConfig struct {
 	ServePort int
 }
 
-func NewBlobsCacheServer(log logrus.FieldLogger, cfg BlobsCacheServerConfig) *BlobsCacheServer {
-	return &BlobsCacheServer{
+func NewBlobsCacheServer(log logrus.FieldLogger, cfg ServerConfig) *Server {
+	return &Server{
 		log:        log,
 		cfg:        cfg,
-		blobsStore: newMemoryBlobsStore(log),
+		blobsCache: newMemoryBlobsCacheStore(log),
 	}
 }
 
-type BlobsCacheServer struct {
+type Server struct {
 	log        logrus.FieldLogger
-	cfg        BlobsCacheServerConfig
-	blobsStore blobsStore
+	cfg        ServerConfig
+	blobsCache blobsCacheStore
+	listener   net.Listener
 }
 
-func (s *BlobsCacheServer) Start(ctx context.Context) {
+func (s *Server) Start(ctx context.Context) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/PutBlob", s.putBlob)
 	mux.HandleFunc("/GetBlob", s.getBlob)
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.cfg.ServePort),
 		Handler:      mux,
 		WriteTimeout: 5 * time.Second,
 		ReadTimeout:  5 * time.Second,
-		IdleTimeout:  5 * time.Second,
 	}
 
 	go func() {
@@ -51,87 +53,83 @@ func (s *BlobsCacheServer) Start(ctx context.Context) {
 		}
 	}()
 
-	if err := srv.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
-		s.log.Errorf("blobs cache server listen: %v", err)
+	if s.listener == nil {
+		var err error
+		s.listener, err = net.Listen("tcp", srv.Addr)
+		if err != nil {
+			s.log.Errorf("creating blobs cache server listener: %v", err)
+			return
+		}
+	}
+
+	if err := srv.Serve(s.listener); err != nil && errors.Is(err, http.ErrServerClosed) {
+		s.log.Errorf("serving blobs cache server: %v", err)
 	}
 }
 
-type pubBlobRequest struct {
-	ID   string          `json:"id"`
-	Blob json.RawMessage `json:"blob"`
-}
-
-type getBlobRequest struct {
-	ID string `json:"id"`
-}
-
-type getBlobResponse struct {
-	Blob json.RawMessage `json:"blob"`
-}
-
-func (s *BlobsCacheServer) putBlob(w http.ResponseWriter, r *http.Request) {
-	var req pubBlobRequest
+func (s *Server) putBlob(w http.ResponseWriter, r *http.Request) {
+	var req PubBlobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.log.Errorf("decoding pub blob request: %v", err)
+		s.log.Errorf("decoding put blob request: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	s.blobsStore.putBlob(req.ID, req.Blob)
+	s.blobsCache.putBlob(req.Key, req.Blob)
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *BlobsCacheServer) getBlob(w http.ResponseWriter, r *http.Request) {
-	var req getBlobRequest
+func (s *Server) getBlob(w http.ResponseWriter, r *http.Request) {
+	var req GetBlobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.log.Errorf("decoding get blob request: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	blob, found := s.blobsStore.getBlob(req.ID)
+	blob, found := s.blobsCache.getBlob(req.Key)
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	resp := getBlobResponse{Blob: blob}
+	resp := GetBlobResponse{Blob: blob}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.log.Errorf("encoding get blob response: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
-type blobsStore interface {
+type blobsCacheStore interface {
 	putBlob(key string, blob []byte)
 	getBlob(key string) ([]byte, bool)
 }
 
-func newMemoryBlobsStore(log logrus.FieldLogger) blobsStore {
+func newMemoryBlobsCacheStore(log logrus.FieldLogger) blobsCacheStore {
 	// One large blob json size is around 16KB, so we should use max 32MB of extra memory.
 	cache, _ := lru.New(2000)
-	return &memoryBlobsStore{
+	return &memoryBlobsCacheStore{
 		log:   log,
 		cache: cache,
 	}
 }
 
-type memoryBlobsStore struct {
+type memoryBlobsCacheStore struct {
 	log   logrus.FieldLogger
 	cache *lru.Cache
 }
 
-func (s *memoryBlobsStore) putBlob(key string, blob []byte) {
-	s.log.Debugf("adding image blob to cache, current cache size=%d", s.cache.Len())
-	evicted := s.cache.Add(key, blob)
+func (c *memoryBlobsCacheStore) putBlob(key string, blob []byte) {
+	c.log.Debugf("adding image blob to cache, current cache size=%d", c.cache.Len())
+	evicted := c.cache.Add(key, blob)
 	if evicted {
-		s.log.Info("evicted old image blob cache entry")
+		c.log.Info("evicted old image blob cache entry")
 	}
 }
 
-func (s *memoryBlobsStore) getBlob(key string) ([]byte, bool) {
-	val, ok := s.cache.Get(key)
+func (c *memoryBlobsCacheStore) getBlob(key string) ([]byte, bool) {
+	val, ok := c.cache.Get(key)
 	if !ok {
 		return nil, false
 	}
