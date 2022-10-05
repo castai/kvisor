@@ -9,9 +9,9 @@ import (
 )
 
 type Config struct {
+	PodIP             string
 	KubeClient        KubeClient
 	Kubeconfig        string
-	LeaderElection    LeaderElection
 	Log               Log
 	API               API
 	PprofPort         int
@@ -35,6 +35,7 @@ type ImageScan struct {
 	CollectorImagePullPolicy string
 	Mode                     string
 	DockerOptionsPath        string
+	BlobsCachePort           int
 }
 
 type KubeLinter struct {
@@ -54,12 +55,6 @@ type KubeClient struct {
 	Burst int
 }
 
-type LeaderElection struct {
-	Enabled   bool
-	Namespace string
-	LockName  string
-}
-
 type Log struct {
 	Level int
 }
@@ -76,6 +71,7 @@ func Get() Config {
 		return *cfg
 	}
 
+	_ = viper.BindEnv("podip", "POD_IP")
 	_ = viper.BindEnv("api.key", "API_KEY")
 	_ = viper.BindEnv("api.url", "API_URL")
 	_ = viper.BindEnv("clusterid", "CLUSTER_ID")
@@ -94,6 +90,7 @@ func Get() Config {
 	_ = viper.BindEnv("features.imagescan.collectorimage", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
 	_ = viper.BindEnv("features.imagescan.collectorimagepullpolicy", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE_PULL_POLICY")
 	_ = viper.BindEnv("features.imagescan.dockeroptionspath", "FEATURES_IMAGE_SCAN_DOCKER_OPTIONS_PATH")
+	_ = viper.BindEnv("features.imagescan.blobscacheport", "FEATURES_IMAGE_SCAN_BLOBS_CACHE_PORT")
 	_ = viper.BindEnv("features.imagescan.mode", "FEATURES_IMAGE_SCAN_MODE")
 	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
 	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
@@ -122,14 +119,6 @@ func Get() Config {
 	if cfg.Log.Level == 0 {
 		cfg.Log.Level = int(logrus.DebugLevel)
 	}
-	if cfg.LeaderElection.Enabled {
-		if cfg.LeaderElection.Namespace == "" {
-			required("LEADER_ELECTION_NAMESPACE")
-		}
-		if cfg.LeaderElection.LockName == "" {
-			required("LEADER_ELECTION_LOCK_NAME")
-		}
-	}
 	if cfg.Features.ImageScan.Enabled {
 		if cfg.Features.ImageScan.CollectorImage == "" {
 			required("FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
@@ -139,6 +128,9 @@ func Get() Config {
 		}
 		if cfg.Features.ImageScan.DockerOptionsPath == "" {
 			cfg.Features.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
+		}
+		if cfg.Features.ImageScan.BlobsCachePort == 0 {
+			cfg.Features.ImageScan.BlobsCachePort = 8080
 		}
 	}
 

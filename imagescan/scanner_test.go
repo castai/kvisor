@@ -29,12 +29,14 @@ func TestScanner(t *testing.T) {
 
 		client := fake.NewSimpleClientset()
 		scanner := NewImageScanner(client, config.Config{
-			API: config.API{URL: "https://api.cast.ai"},
+			API:   config.API{URL: "https://api.cast.ai"},
+			PodIP: "10.10.5.77",
 			Features: config.Features{
 				ImageScan: config.ImageScan{
 					Enabled:           true,
 					CollectorImage:    "imgcollector:1.0.0",
 					DockerOptionsPath: "/etc/docker/config.json",
+					BlobsCachePort:    8080,
 				},
 			},
 		})
@@ -117,6 +119,10 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "COLLECTOR_RESOURCE_IDS",
 										Value: "p1,p2",
+									},
+									{
+										Name:  "COLLECTOR_BLOBS_CACHE_URL",
+										Value: "http://10.10.5.77:8080",
 									},
 									{
 										Name: "API_URL",
@@ -209,7 +215,10 @@ func TestScanner(t *testing.T) {
 			},
 		}
 		client := fake.NewSimpleClientset(job)
-		scanner := NewImageScanner(client, config.Config{})
+		scanner := NewImageScanner(client, config.Config{
+			PodIP:    "ip",
+			Features: config.Features{ImageScan: config.ImageScan{BlobsCachePort: 8080}},
+		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{

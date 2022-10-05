@@ -10,6 +10,7 @@ package image
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,14 +20,16 @@ import (
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
-	"github.com/aquasecurity/trivy/pkg/fanal/cache"
 	"github.com/aquasecurity/trivy/pkg/fanal/handler"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/fanal/walker"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/castai/sec-agent/blobscache"
 )
 
 const (
@@ -34,9 +37,9 @@ const (
 )
 
 type Artifact struct {
-	log   logrus.FieldLogger
-	image types.Image
-	//cache          cache.ArtifactCache
+	log            logrus.FieldLogger
+	image          types.Image
+	cache          blobscache.Client
 	walker         walker.LayerTar
 	analyzer       analyzer.AnalyzerGroup
 	handlerManager handler.Manager
@@ -46,11 +49,11 @@ type Artifact struct {
 
 type ArtifactOption = artifact.Option
 
-func NewArtifact(img types.Image, log logrus.FieldLogger, c cache.ArtifactCache, opt artifact.Option) (*Artifact, error) {
+func NewArtifact(img types.Image, log logrus.FieldLogger, c blobscache.Client, opt artifact.Option) (*Artifact, error) {
 	return &Artifact{
-		log:   log,
-		image: img,
-		//cache:          c, // TODO: Implement caching for layers. Current interface ArtifactCache is not suitable as it doesn't allow to fetch layer metadata.
+		log:            log,
+		image:          img,
+		cache:          c,
 		walker:         walker.NewLayerTar(opt.SkipFiles, opt.SkipDirs),
 		analyzer:       analyzer.NewAnalyzerGroup(opt.AnalyzerGroup, opt.DisabledAnalyzers),
 		artifactOption: opt,
@@ -79,7 +82,6 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 		return nil, fmt.Errorf("unable to get the image's config file: %w", err)
 	}
 
-	// Debug
 	a.log.Debugf("image ID: %s", imageID)
 	a.log.Debugf("diff IDs: %v", diffIDs)
 
@@ -88,61 +90,91 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	a.log.Debugf("base layers: %v", baseDiffIDs)
 
 	// Convert image ID and layer IDs to cache keys
-	imageKey, layerKeys, layerKeyMap, err := a.calcCacheKeys(imageID, diffIDs)
+	imageKey, layerKeys, layerKeyMap := a.calcCacheKeys(imageID, diffIDs)
+
+	// Check if image os info already cached.
+	osInfo, err := a.getCachedOsInfo(ctx, imageKey)
+	if err != nil && !errors.Is(err, blobscache.ErrCacheNotFound) {
+		return nil, err
+	}
+	var missingImageKey string
+	if osInfo == nil {
+		missingImageKey = imageKey
+		a.log.Debugf("missing image ID in cache: %s", imageID)
+	}
+
+	// Find cached layers
+	cachedLayers, err := a.getCachedLayers(ctx, layerKeys)
 	if err != nil {
 		return nil, err
 	}
+	missingLayersKeys := lo.Filter(layerKeys, func(v string, _ int) bool {
+		_, ok := cachedLayers[v]
+		return !ok
+	})
 
-	// TODO: Add caching.
-	//missingImage, missingLayers, err := a.cache.MissingBlobs(imageKey, layerKeys)
-	//if err != nil {
-	//	return types.ArtifactReference{}, fmt.Errorf("unable to get missing layers: %w", err)
-	//}
-
-	missingLayers := layerKeys
-
-	missingImageKey := imageKey
-	a.log.Debugf("missing image ID in cache: %s", imageID)
-
-	// TODO: Here we want to inspect layers which are not in cache and also fetch cached layers since we need to have full final view.
-	blobsInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayers, baseDiffIDs, layerKeyMap)
+	// Inspect all not cached layers.
+	blobsInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayersKeys, baseDiffIDs, layerKeyMap)
 	if err != nil {
 		return nil, fmt.Errorf("analyze error: %w", err)
 	}
 
 	return &ArtifactReference{
-		BlobsInfo:  blobsInfo,
+		BlobsInfo:  append(blobsInfo, lo.Values(cachedLayers)...),
 		ConfigFile: configFile,
 		OsInfo:     osInfo,
 	}, nil
+}
+
+func (a Artifact) getCachedOsInfo(ctx context.Context, key string) (*types.ArtifactInfo, error) {
+	blobBytes, err := a.cache.GetBlob(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	var res types.ArtifactInfo
+	if err := json.Unmarshal(blobBytes, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (a Artifact) getCachedLayers(ctx context.Context, ids []string) (map[string]types.BlobInfo, error) {
+	blobs := map[string]types.BlobInfo{}
+	for _, id := range ids {
+		blobBytes, err := a.cache.GetBlob(ctx, id)
+		if err != nil && !errors.Is(err, blobscache.ErrCacheNotFound) {
+			return nil, err
+		}
+		if len(blobBytes) > 0 {
+			var blob types.BlobInfo
+			if err := json.Unmarshal(blobBytes, &blob); err != nil {
+				return nil, err
+			}
+			blobs[id] = blob
+		}
+	}
+	return blobs, nil
 }
 
 func (Artifact) Clean(_ types.ArtifactReference) error {
 	return nil
 }
 
-func (a Artifact) calcCacheKeys(imageID string, diffIDs []string) (string, []string, map[string]string, error) {
-	// Pass an empty config scanner option so that the cache key can be the same, even when policies are updated.
-	imageKey, err := cache.CalcKey(imageID, a.analyzer.ImageConfigAnalyzerVersions(), nil, artifact.Option{})
-	if err != nil {
-		return "", nil, nil, err
-	}
-
+func (a Artifact) calcCacheKeys(imageID string, diffIDs []string) (string, []string, map[string]string) {
+	// Currently cache keys are mapped 1 to 1 with image id and blobs id.
+	// If needed this logic can be extended to have custom cache keys.
+	imageKey := imageID
 	layerKeyMap := map[string]string{}
-	hookVersions := a.handlerManager.Versions()
 	var layerKeys []string
 	for _, diffID := range diffIDs {
-		blobKey, err := cache.CalcKey(diffID, a.analyzer.AnalyzerVersions(), hookVersions, a.artifactOption)
-		if err != nil {
-			return "", nil, nil, err
-		}
-		layerKeys = append(layerKeys, blobKey)
+		blobKey := diffID
+		layerKeys = append(layerKeys, diffID)
 		layerKeyMap[blobKey] = diffID
 	}
-	return imageKey, layerKeys, layerKeyMap, nil
+	return imageKey, layerKeys, layerKeyMap
 }
 
-func (a Artifact) inspect(ctx context.Context, missingImage string, layerKeys, baseDiffIDs []string, layerKeyMap map[string]string) ([]types.BlobInfo, *types.ArtifactInfo, error) {
+func (a Artifact) inspect(ctx context.Context, missingImageKey string, layerKeys, baseDiffIDs []string, layerKeyMap map[string]string) ([]types.BlobInfo, *types.ArtifactInfo, error) {
 	blobInfo := make(chan types.BlobInfo)
 	errCh := make(chan error)
 
@@ -162,11 +194,17 @@ func (a Artifact) inspect(ctx context.Context, missingImage string, layerKeys, b
 				errCh <- fmt.Errorf("failed to analyze layer: %s : %w", diffID, err)
 				return
 			}
-			// TODO: Add caching.
-			//if err = a.cache.PutBlob(layerKey, layerInfo); err != nil {
-			//	errCh <- fmt.Errorf("failed to store layer: %s in cache: %w", layerKey, err)
-			//	return
-			//}
+
+			layerBytes, err := json.Marshal(layerInfo)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if err := a.cache.PutBlob(ctx, layerKey, layerBytes); err != nil {
+				errCh <- err
+				return
+			}
+
 			if layerInfo.OS != nil {
 				osFound = *layerInfo.OS
 			}
@@ -188,9 +226,9 @@ func (a Artifact) inspect(ctx context.Context, missingImage string, layerKeys, b
 	}
 
 	var osInfo *types.ArtifactInfo
-	if missingImage != "" {
+	if missingImageKey != "" {
 		var err error
-		osInfo, err = a.inspectConfig(missingImage, osFound)
+		osInfo, err = a.inspectConfig(ctx, missingImageKey, osFound)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to analyze config: %w", err)
 		}
@@ -290,7 +328,7 @@ func (a Artifact) isCompressed(l v1.Layer) bool {
 	return !uncompressed
 }
 
-func (a Artifact) inspectConfig(imageID string, osFound types.OS) (*types.ArtifactInfo, error) {
+func (a Artifact) inspectConfig(ctx context.Context, imageID string, osFound types.OS) (*types.ArtifactInfo, error) {
 	configBlob, err := a.image.RawConfigFile()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get config blob: %w", err)
@@ -312,9 +350,14 @@ func (a Artifact) inspectConfig(imageID string, osFound types.OS) (*types.Artifa
 		HistoryPackages: pkgs,
 	}
 
-	//if err = a.cache.PutArtifact(imageID, info); err != nil {
-	//	return fmt.Errorf("failed to put image info into the cache: %w", err)
-	//}
+	// Cache info.
+	infoBytes, err := json.Marshal(info)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.cache.PutBlob(ctx, imageID, infoBytes); err != nil {
+		return nil, err
+	}
 
 	return &info, nil
 }
