@@ -74,10 +74,10 @@ k8s_yaml(helm(
         'castai.apiURL='+api_url,
         'image.repository=agent',
         'structuredConfig.linter.enabled=true',
-        'structuredConfig.image_scan.enabled='+image_scan_enabled,
-        'structuredConfig.image_scan.scanInterval=2s',
-        'structuredConfig.image_scan.image.name=localhost:5000/sec-agent-imgcollector:latest',
-        'structuredConfig.image_scan.image.pullPolicy=Always',
+        'structuredConfig.imagescan.enabled='+image_scan_enabled,
+        'structuredConfig.imagescan.scanInterval=2s',
+        'structuredConfig.imagescan.image.name=localhost:5000/sec-agent-imgcollector:latest',
+        'structuredConfig.imagescan.image.pullPolicy=Always',
         'agentContainerSecurityContext=null'
     ]
 ))

@@ -207,14 +207,17 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
-	kubeconfig, err := kubeConfigFromEnv(kubepath)
-	if err != nil {
-		return nil, err
-	}
-
-	if kubeconfig != nil {
+	if kubepath != "" {
+		data, err := os.ReadFile(kubepath)
+		if err != nil {
+			return nil, fmt.Errorf("reading kubeconfig at %s: %w", kubepath, err)
+		}
+		restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+		if err != nil {
+			return nil, fmt.Errorf("building rest config from kubeconfig at %s: %w", kubepath, err)
+		}
 		log.Debug("using kubeconfig from env variables")
-		return kubeconfig, nil
+		return restConfig, nil
 	}
 
 	inClusterConfig, err := rest.InClusterConfig()
@@ -230,25 +233,7 @@ func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, 
 		}
 	})
 	log.Debug("using in cluster kubeconfig")
-
 	return inClusterConfig, nil
-}
-
-func kubeConfigFromEnv(kubepath string) (*rest.Config, error) {
-	if kubepath == "" {
-		return nil, nil
-	}
-	data, err := os.ReadFile(kubepath)
-	if err != nil {
-		return nil, fmt.Errorf("reading kubeconfig at %s: %w", kubepath, err)
-	}
-
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
-	if err != nil {
-		return nil, fmt.Errorf("building rest config from kubeconfig at %s: %w", kubepath, err)
-	}
-
-	return restConfig, nil
 }
 
 func installPprofHandlers(mux *http.ServeMux) {
