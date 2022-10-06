@@ -23,21 +23,23 @@ func TestScanner(t *testing.T) {
 	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
+	ns := "castai-sec"
 
 	t.Run("create scan job", func(t *testing.T) {
 		r := require.New(t)
 
 		client := fake.NewSimpleClientset()
 		scanner := NewImageScanner(client, config.Config{
-			API:   config.API{URL: "https://api.cast.ai"},
-			PodIP: "10.10.5.77",
-			Features: config.Features{
-				ImageScan: config.ImageScan{
-					Enabled:           true,
-					CollectorImage:    "imgcollector:1.0.0",
-					DockerOptionsPath: "/etc/docker/config.json",
-					BlobsCachePort:    8080,
+			API:          config.API{URL: "https://api.cast.ai", ClusterID: "c1"},
+			PodIP:        "10.10.5.77",
+			PodNamespace: ns,
+			ImageScan: config.ImageScan{
+				Enabled: true,
+				Image: config.ImageScanImage{
+					Name: "imgcollector:1.0.0",
 				},
+				DockerOptionsPath: "/etc/docker/config.json",
+				BlobsCachePort:    8080,
 			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -125,15 +127,8 @@ func TestScanner(t *testing.T) {
 										Value: "http://10.10.5.77:8080",
 									},
 									{
-										Name: "API_URL",
-										ValueFrom: &corev1.EnvVarSource{
-											ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-sec-agent",
-												},
-												Key: "API_URL",
-											},
-										},
+										Name:  "API_URL",
+										Value: "https://api.cast.ai",
 									},
 									{
 										Name: "API_KEY",
@@ -147,15 +142,8 @@ func TestScanner(t *testing.T) {
 										},
 									},
 									{
-										Name: "CLUSTER_ID",
-										ValueFrom: &corev1.EnvVarSource{
-											ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-sec-agent",
-												},
-												Key: "CLUSTER_ID",
-											},
-										},
+										Name:  "CLUSTER_ID",
+										Value: "c1",
 									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
@@ -216,8 +204,11 @@ func TestScanner(t *testing.T) {
 		}
 		client := fake.NewSimpleClientset(job)
 		scanner := NewImageScanner(client, config.Config{
-			PodIP:    "ip",
-			Features: config.Features{ImageScan: config.ImageScan{BlobsCachePort: 8080}},
+			PodIP:        "ip",
+			PodNamespace: ns,
+			ImageScan: config.ImageScan{
+				BlobsCachePort: 8080,
+			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 

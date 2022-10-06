@@ -33,25 +33,27 @@ func TestSubscriber(t *testing.T) {
 
 		logProvider := newMockLogProvider(readReport())
 
+		castaiNamespace := "castai-sec"
 		subscriber := &Subscriber{
-			log:          log,
-			client:       clientset,
-			delta:        newDeltaState(),
-			provider:     "gke",
-			logsProvider: logProvider,
-			castClient:   mockCast,
+			log:             log,
+			client:          clientset,
+			delta:           newDeltaState(),
+			provider:        "gke",
+			logsProvider:    logProvider,
+			castClient:      mockCast,
+			castaiNamespace: castaiNamespace,
 		}
 
 		jobName := "kube-bench-node-test_node"
 
 		// fake clientset doesn't create pod for job
-		_, err := clientset.CoreV1().Pods(castAINamespace).Create(ctx,
+		_, err := clientset.CoreV1().Pods(castaiNamespace).Create(ctx,
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						labelJobName: jobName,
 					},
-					Namespace: castAINamespace,
+					Namespace: castaiNamespace,
 				},
 				Status: corev1.PodStatus{
 					Phase: corev1.PodSucceeded,
@@ -75,7 +77,7 @@ func TestSubscriber(t *testing.T) {
 		r.NoError(err)
 
 		// job should be deleted
-		_, err = clientset.BatchV1().Jobs(castAINamespace).Get(ctx, jobName, metav1.GetOptions{})
+		_, err = clientset.BatchV1().Jobs(castaiNamespace).Get(ctx, jobName, metav1.GetOptions{})
 		r.Error(err)
 	})
 

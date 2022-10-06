@@ -45,7 +45,13 @@ var (
 )
 
 func main() {
-	cfg := config.Get()
+	logger := logrus.New()
+	cfg, err := config.Load("/etc/castai/config/config.yaml")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	lvl, _ := logrus.ParseLevel(cfg.Log.Level)
+	logger.SetLevel(lvl)
 
 	binVersion := config.SecurityAgentVersion{
 		GitCommit: GitCommit,
@@ -53,13 +59,10 @@ func main() {
 		Version:   Version,
 	}
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.Level(cfg.Log.Level))
-
 	client := castai.NewClient(
 		cfg.API.URL, cfg.API.Key,
 		logger,
-		cfg.ClusterID,
+		cfg.API.ClusterID,
 		"castai-sec-agent",
 		binVersion,
 	)
@@ -92,7 +95,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}
 	}()
 
-	restconfig, err := retrieveKubeConfig(logger)
+	restconfig, err := retrieveKubeConfig(logger, cfg.KubeClient.KubeConfigPath)
 	if err != nil {
 		return err
 	}
@@ -150,29 +153,25 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		cfg = telemetry.ModifyConfig(cfg, telemetryResponse)
 	}
 
-	if cfg.Features.KubeLinter.Enabled {
-		log.Info("kubelinter enabled")
+	if cfg.Linter.Enabled {
+		log.Info("linter enabled")
 		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, castaiClient))
 	}
-	if cfg.Features.KubeBench.Enabled {
+	if cfg.KubeBench.Enabled {
 		log.Info("kubebench enabled")
 		podLogReader := agentlog.NewPodLogReader(clientset)
-		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.Provider, castaiClient, podLogReader))
+		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.PodNamespace, cfg.Provider, castaiClient, podLogReader))
 	}
-	if cfg.Features.ImageScan.Enabled {
+	if cfg.ImageScan.Enabled {
 		log.Info("imagescan enabled")
-		imgScanCfg := imagescan.Config{
-			ScanInterval:       cfg.Features.ImageScan.ScanInterval,
-			MaxConcurrentScans: cfg.Features.ImageScan.MaxConcurrentScans,
-		}
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
-			imgScanCfg,
+			cfg.ImageScan,
 			castaiClient,
 			imagescan.NewImageScanner(clientset, cfg),
 			k8sVersion.MinorInt(),
 		))
-		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.Features.ImageScan.BlobsCachePort})
+		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)
 	}
 
@@ -207,8 +206,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	return nil
 }
 
-func retrieveKubeConfig(log logrus.FieldLogger) (*rest.Config, error) {
-	kubeconfig, err := kubeConfigFromEnv()
+func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
+	kubeconfig, err := kubeConfigFromEnv(kubepath)
 	if err != nil {
 		return nil, err
 	}
@@ -235,12 +234,10 @@ func retrieveKubeConfig(log logrus.FieldLogger) (*rest.Config, error) {
 	return inClusterConfig, nil
 }
 
-func kubeConfigFromEnv() (*rest.Config, error) {
-	kubepath := config.Get().Kubeconfig
+func kubeConfigFromEnv(kubepath string) (*rest.Config, error) {
 	if kubepath == "" {
 		return nil, nil
 	}
-
 	data, err := os.ReadFile(kubepath)
 	if err != nil {
 		return nil, fmt.Errorf("reading kubeconfig at %s: %w", kubepath, err)

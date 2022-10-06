@@ -27,10 +27,6 @@ import (
 	"github.com/castai/sec-agent/log"
 )
 
-const (
-	ns = "castai-sec"
-)
-
 type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
@@ -86,13 +82,13 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if s.cfg.PodIP == "" {
 		return errors.New("agent pod ip is required")
 	}
-	if s.cfg.Features.ImageScan.BlobsCachePort == 0 {
+	if s.cfg.ImageScan.BlobsCachePort == 0 {
 		return errors.New("blobs cache port is required")
 	}
 
 	jobName := genJobName(params.ImageName)
 	vols := volumesAndMounts{}
-	mode := imgcollectorconfig.Mode(s.cfg.Features.ImageScan.Mode)
+	mode := imgcollectorconfig.Mode(s.cfg.ImageScan.Mode)
 	containerRuntime, ok := getContainerRuntime(params.ContainerID)
 	if !ok {
 		return fmt.Errorf("failed to find container runtime, container_id=%s", params.ContainerID)
@@ -156,7 +152,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		},
 		{
 			Name:  "COLLECTOR_DOCKER_OPTION_PATH",
-			Value: s.cfg.Features.ImageScan.DockerOptionsPath,
+			Value: s.cfg.ImageScan.DockerOptionsPath,
 		},
 		{
 			Name:  "COLLECTOR_RESOURCE_IDS",
@@ -164,18 +160,11 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		},
 		{
 			Name:  "COLLECTOR_BLOBS_CACHE_URL",
-			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.Features.ImageScan.BlobsCachePort),
+			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.ImageScan.BlobsCachePort),
 		},
 		{
-			Name: "API_URL",
-			ValueFrom: &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "castai-sec-agent",
-					},
-					Key: "API_URL",
-				},
-			},
+			Name:  "API_URL",
+			Value: s.cfg.API.URL,
 		},
 		{
 			Name: "API_KEY",
@@ -189,28 +178,22 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			},
 		},
 		{
-			Name: "CLUSTER_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "castai-sec-agent",
-					},
-					Key: "CLUSTER_ID",
-				},
-			},
+			Name:  "CLUSTER_ID",
+			Value: s.cfg.API.ClusterID,
 		},
 	}
 
 	jobSpec := scanJobSpec(
-		s.cfg.Features.ImageScan.CollectorImage,
-		s.cfg.Features.ImageScan.CollectorImagePullPolicy,
+		s.cfg.PodNamespace,
+		s.cfg.ImageScan.Image.Name,
+		s.cfg.ImageScan.Image.PullPolicy,
 		params.NodeName,
 		jobName,
 		envVars,
 		vols,
 		params.Tolerations,
 	)
-	jobs := s.client.BatchV1().Jobs(ns)
+	jobs := s.client.BatchV1().Jobs(s.cfg.PodNamespace)
 
 	if params.DeleteFinishedJob {
 		defer func() {
@@ -259,7 +242,7 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 			return v.Status == corev1.ConditionTrue && v.Type == batchv1.JobFailed
 		})
 		if failed {
-			jobPods, err := s.client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{"job-name": jobName}.String()})
+			jobPods, err := s.client.CoreV1().Pods(s.cfg.PodNamespace).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{"job-name": jobName}.String()})
 			if err != nil {
 				return true, err
 			}
@@ -267,7 +250,7 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 				return true, errors.New("job pod not found")
 			}
 			jobPod := jobPods.Items[0]
-			logsStream, err := s.podLogProvider.GetLogReader(ctx, ns, jobPod.Name)
+			logsStream, err := s.podLogProvider.GetLogReader(ctx, s.cfg.PodNamespace, jobPod.Name)
 			if err != nil {
 				return true, fmt.Errorf("creating logs stream: %w", err)
 			}
@@ -295,7 +278,7 @@ func genJobName(imageName string) string {
 }
 
 func scanJobSpec(
-	collectorImage, collectorImagePullPolicy, nodeName, jobName string,
+	ns, collectorImage, collectorImagePullPolicy, nodeName, jobName string,
 	envVars []corev1.EnvVar,
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,

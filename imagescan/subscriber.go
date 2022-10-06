@@ -15,34 +15,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/castai/sec-agent/castai"
+	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
 )
 
-type Config struct {
-	ScanInterval       time.Duration
-	MaxConcurrentScans int64
-	ImageScanTimeout   time.Duration
-}
-
 func NewSubscriber(
 	log logrus.FieldLogger,
-	cfg Config,
+	cfg config.ImageScan,
 	client castai.Client,
 	imageScanner imageScanner,
 	k8sVersionMinor int,
 ) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
-
-	if cfg.ScanInterval == 0 {
-		cfg.ScanInterval = 15 * time.Second
-	}
-	if cfg.MaxConcurrentScans == 0 {
-		cfg.MaxConcurrentScans = 2
-	}
-	if cfg.ImageScanTimeout == 0 {
-		cfg.ImageScanTimeout = 10 * time.Minute
-	}
-
 	scannedImagesCache, _ := lru.New(10000)
 
 	return &Subscriber{
@@ -66,7 +50,7 @@ type Subscriber struct {
 	imageScanner       imageScanner
 	scannedImagesCache *lru.Cache
 	log                logrus.FieldLogger
-	cfg                Config
+	cfg                config.ImageScan
 	k8sVersionMinor    int
 }
 
@@ -161,7 +145,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 		go func(imageName string, info *imageInfo) {
 			defer sem.Release(1)
 
-			ctx, cancel := context.WithTimeout(ctx, s.cfg.ImageScanTimeout)
+			ctx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
 			defer cancel()
 
 			log := s.log.WithField("image", imageName)

@@ -43,7 +43,7 @@ func Master(nodeName, jobName string) *batchv1.Job {
 							Name:  "kube-bench",
 							Image: "docker.io/aquasec/kube-bench:v0.6.9",
 							Command: []string{
-								"kube-bench", "run", "--targets", "master",
+								"kube-bench", "run", "--targets", "master", "--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
