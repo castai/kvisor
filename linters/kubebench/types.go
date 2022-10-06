@@ -13,28 +13,28 @@ import (
 
 func newDeltaState() *nodeDeltaState {
 	return &nodeDeltaState{
-		objectMap: make(map[string]*NodeJob),
+		objectMap: make(map[string]*nodeJob),
 		mu:        sync.Mutex{},
 	}
 }
 
-type NodeJob struct {
+type nodeJob struct {
 	node *corev1.Node
 
 	backoff wait.Backoff
 	next    time.Time
 }
 
-func (n *NodeJob) ready() bool {
+func (n *nodeJob) ready() bool {
 	return n.next.Before(time.Now())
 }
 
-func (n *NodeJob) failed() {
+func (n *nodeJob) setFailed() {
 	n.next = time.Now().Add(n.backoff.Step())
 }
 
 type nodeDeltaState struct {
-	objectMap map[string]*NodeJob
+	objectMap map[string]*nodeJob
 	mu        sync.Mutex
 }
 
@@ -42,19 +42,21 @@ func (d *nodeDeltaState) upsert(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	nodeBackoff := wait.Backoff{
-		Duration: time.Second * 15,
-		Factor:   2,
-		Steps:    3,
+	key := controller.ObjectKey(o)
+	if _, ok := d.objectMap[key]; ok {
+		return
 	}
 
-	w := &NodeJob{
+	nodeBackoff := wait.Backoff{
+		Duration: time.Second * 15,
+		Factor:   3,
+		Steps:    8,
+	}
+	w := &nodeJob{
 		backoff: nodeBackoff,
 		node:    o,
 		next:    time.Now(),
 	}
-
-	key := controller.ObjectKey(o)
 	d.objectMap[key] = w
 }
 
@@ -65,7 +67,7 @@ func (d *nodeDeltaState) delete(o *corev1.Node) {
 	delete(d.objectMap, controller.ObjectKey(o))
 }
 
-func (d *nodeDeltaState) peek() []*NodeJob {
+func (d *nodeDeltaState) peek() []*nodeJob {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

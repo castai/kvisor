@@ -84,16 +84,18 @@ func (s *Subscriber) Run(ctx context.Context) error {
 
 func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 	nodes := s.delta.peek()
-	s.log.Infof("linting %d nodes", len(nodes))
+	ready := 0
+
 	sem := semaphore.NewWeighted(maxConcurrentJobs)
 	for _, n := range nodes {
 		if !n.ready() {
 			continue
 		}
+		ready++
 		node := n.node
 		err := sem.Acquire(ctx, 1)
 		if err != nil {
-			return fmt.Errorf("kube-bench semaphore: %v", err)
+			return fmt.Errorf("kube-bench semaphore: %w", err)
 		}
 		go func() {
 			defer sem.Release(1)
@@ -101,13 +103,14 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 			defer cancel()
 			err = s.lintNode(ctx, node)
 			if err != nil {
-				s.log.Errorf("kube-bench: %v", err)
-				n.failed()
+				s.log.Errorf("kube-bench: %w", err)
+				n.setFailed()
 				return
 			}
 			s.delta.delete(node)
 		}()
 	}
+	s.log.Infof("linting %d nodes", ready)
 	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
 		return err
 	}
