@@ -23,11 +23,11 @@ func ModifyConfig(cfg config.Config, response *castai.TelemetryResponse) config.
 	for _, disabledFeature := range response.DisabledFeatures {
 		switch feature(disabledFeature) {
 		case linter:
-			cfg.Features.KubeLinter.Enabled = false
+			cfg.Linter.Enabled = false
 		case kubeBench:
-			cfg.Features.KubeBench.Enabled = false
+			cfg.KubeBench.Enabled = false
 		case imageScan:
-			cfg.Features.ImageScan.Enabled = false
+			cfg.ImageScan.Enabled = false
 		}
 	}
 
@@ -51,15 +51,15 @@ func featuresHaveChanged(cfg *config.Config, response *castai.TelemetryResponse)
 	for _, disabledFeature := range response.DisabledFeatures {
 		switch feature(disabledFeature) {
 		case linter:
-			if cfg.Features.KubeLinter.Enabled {
+			if cfg.Linter.Enabled {
 				return true
 			}
 		case kubeBench:
-			if cfg.Features.KubeBench.Enabled {
+			if cfg.KubeBench.Enabled {
 				return true
 			}
 		case imageScan:
-			if cfg.Features.ImageScan.Enabled {
+			if cfg.ImageScan.Enabled {
 				return true
 			}
 		}

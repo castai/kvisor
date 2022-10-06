@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	mock_castai "github.com/castai/sec-agent/castai/mock"
+	"github.com/castai/sec-agent/config"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -145,7 +146,7 @@ func TestSubscriber(t *testing.T) {
 		argoPod1 := createArgoPod("argo1")
 		argoPod2 := createArgoPod("argo2")
 
-		cfg := Config{ScanInterval: 1 * time.Millisecond}
+		cfg := config.ImageScan{ScanInterval: 1 * time.Millisecond, ScanTimeout: time.Minute, MaxConcurrentScans: 5}
 
 		scanner := &mockImageScanner{}
 		sub := NewSubscriber(log, cfg, client, scanner, 21)

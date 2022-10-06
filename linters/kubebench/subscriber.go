@@ -30,22 +30,37 @@ import (
 const (
 	scanInterval      = 15 * time.Second
 	nodeScanTimeout   = 5 * time.Minute
-	castAINamespace   = "castai-sec"
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 5
 )
 
-func NewSubscriber(log logrus.FieldLogger, client kubernetes.Interface, provider string, castClient castai.Client, logsReader log.PodLogProvider) controller.ObjectSubscriber {
-	return &Subscriber{log: log, client: client, delta: newDeltaState(), provider: provider, castClient: castClient, logsProvider: logsReader}
+func NewSubscriber(
+	log logrus.FieldLogger,
+	client kubernetes.Interface,
+	castaiNamespace string,
+	provider string,
+	castClient castai.Client,
+	logsReader log.PodLogProvider,
+) controller.ObjectSubscriber {
+	return &Subscriber{
+		log:             log,
+		client:          client,
+		castaiNamespace: castaiNamespace,
+		delta:           newDeltaState(),
+		provider:        provider,
+		castClient:      castClient,
+		logsProvider:    logsReader,
+	}
 }
 
 type Subscriber struct {
-	log          logrus.FieldLogger
-	client       kubernetes.Interface
-	castClient   castai.Client
-	delta        *nodeDeltaState
-	provider     string
-	logsProvider log.PodLogProvider
+	log             logrus.FieldLogger
+	client          kubernetes.Interface
+	castaiNamespace string
+	castClient      castai.Client
+	delta           *nodeDeltaState
+	provider        string
+	logsProvider    log.PodLogProvider
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
@@ -124,9 +139,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 
 func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 	jobName := "kube-bench-node-" + node.GetName()
-	err := s.client.BatchV1().Jobs(castAINamespace).Delete(ctx, jobName, metav1.DeleteOptions{
-		PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
-	})
+	err := s.deleteJob(ctx, jobName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
 		return err
@@ -160,7 +173,7 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	specFn := resolveSpec(s.provider, node)
 
 	job, err := s.client.BatchV1().
-		Jobs(castAINamespace).
+		Jobs(s.castaiNamespace).
 		Create(ctx, specFn(node.GetName(), jobName), metav1.CreateOptions{})
 	if err != nil {
 		s.log.WithError(err).Error("can not create kube-bench scan job")
@@ -174,7 +187,7 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 
 	err = backoff.Retry(
 		func() error {
-			pods, err := s.client.CoreV1().Pods(castAINamespace).List(ctx, metav1.ListOptions{
+			pods, err := s.client.CoreV1().Pods(s.castaiNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: selector.String(),
 			})
 			if err != nil {
@@ -206,11 +219,13 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 }
 
 func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
-	return s.client.BatchV1().Jobs(castAINamespace).Delete(ctx, jobName, metav1.DeleteOptions{})
+	return s.client.BatchV1().Jobs(s.castaiNamespace).Delete(ctx, jobName, metav1.DeleteOptions{
+		PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
+	})
 }
 
 func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.CustomReport, error) {
-	logReader, err := s.logsProvider.GetLogReader(ctx, castAINamespace, kubeBenchPodName)
+	logReader, err := s.logsProvider.GetLogReader(ctx, s.castaiNamespace, kubeBenchPodName)
 	if err != nil {
 		return nil, err
 	}

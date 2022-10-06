@@ -72,7 +72,10 @@ func (g *GC) cleanupJobs(ctx context.Context) error {
 
 	for _, job := range jobs.Items {
 		if job.CreationTimestamp.Time.UTC().Before(cleanupOlderThan) {
-			if err := g.clientset.BatchV1().Jobs(ns).Delete(ctx, job.Name, metav1.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))}); err != nil {
+			if err := g.clientset.BatchV1().Jobs(ns).Delete(ctx, job.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: lo.ToPtr(int64(0)),
+				PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
+			}); err != nil {
 				return fmt.Errorf("deleting old job: %w", err)
 			}
 			g.log.Infof("deleted old job %q", job.Name)

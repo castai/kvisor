@@ -2,48 +2,50 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	PodIP             string
-	KubeClient        KubeClient
-	Kubeconfig        string
-	Log               Log
-	API               API
-	PprofPort         int
-	ClusterID         string
-	Provider          string
-	DeltaSyncInterval time.Duration
-	Features          Features
-}
-
-type Features struct {
-	ImageScan  ImageScan
-	KubeLinter KubeLinter
-	KubeBench  KubeBench
+	PodIP             string        `envconfig:"POD_IP" yaml:"podIP"`
+	PodNamespace      string        `envconfig:"POD_NAMESPACE" yaml:"podNamespace"`
+	KubeClient        KubeClient    `envconfig:"KUBE_CLIENT" yaml:"kubeClient"`
+	Log               Log           `envconfig:"LOG" yaml:"log"`
+	API               API           `envconfig:"API" yaml:"api"`
+	PprofPort         int           `envconfig:"PPROF_PORT" yaml:"pprofPort"`
+	Provider          string        `envconfig:"PROVIDER" yaml:"provider"`
+	DeltaSyncInterval time.Duration `envconfig:"DELTA_SYNC_INTERVAL" yaml:"deltaSyncInterval"`
+	ImageScan         ImageScan     `envconfig:"IMAGE_SCAN" yaml:"imagescan"`
+	Linter            Linter        `envconfig:"LINTER" yaml:"linter"`
+	KubeBench         KubeBench     `envconfig:"KUBE_BENCH" yaml:"kubebench"`
 }
 
 type ImageScan struct {
-	Enabled                  bool
-	ScanInterval             time.Duration
-	MaxConcurrentScans       int64
-	CollectorImage           string
-	CollectorImagePullPolicy string
-	Mode                     string
-	DockerOptionsPath        string
-	BlobsCachePort           int
+	Enabled            bool           `envconfig:"ENABLED" yaml:"enabled"`
+	ScanInterval       time.Duration  `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
+	ScanTimeout        time.Duration  `envconfig:"SCAN_TIMEOUT" yaml:"scanTimeout"`
+	MaxConcurrentScans int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
+	Image              ImageScanImage `envconfig:"IMAGE" yaml:"image"`
+	Mode               string         `envconfig:"MODE" yaml:"mode"`
+	DockerOptionsPath  string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
+	BlobsCachePort     int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
 }
 
-type KubeLinter struct {
-	Enabled bool
+type ImageScanImage struct {
+	Name       string `envconfig:"NAME" yaml:"name"`
+	PullPolicy string `envconfig:"PULL_POLICY" yaml:"pullPolicy"`
+}
+
+type Linter struct {
+	Enabled bool `envconfig:"ENABLED" yaml:"enabled"`
 }
 
 type KubeBench struct {
-	Enabled bool
+	Enabled bool `envconfig:"ENABLED" yaml:"enabled"`
 }
 
 type KubeClient struct {
@@ -51,64 +53,48 @@ type KubeClient struct {
 	// smoothed qps rate of 'qps'.
 	// The bucket is initially filled with 'burst' tokens, and refills at a rate of 'qps'.
 	// The maximum number of tokens in the bucket is capped at 'burst'.
-	QPS   int
-	Burst int
+	QPS   int `envconfig:"QPS" yaml:"qps"`
+	Burst int `envconfig:"BURST" yaml:"burst"`
+	// Custom kubeconfig path.
+	KubeConfigPath string `envconfig:"KUBECONFIG" yaml:"kubeconfig"`
 }
 
 type Log struct {
-	Level int
+	Level string `envconfig:"LEVEL" yaml:"level"`
 }
 
 type API struct {
-	Key string
-	URL string
+	Key       string `envconfig:"KEY" yaml:"key"`
+	URL       string `envconfig:"URL" yaml:"url"`
+	ClusterID string `envconfig:"CLUSTER_ID" yaml:"clusterID"`
 }
 
-var cfg *Config
-
-func Get() Config {
-	if cfg != nil {
-		return *cfg
+func Load(configPath string) (Config, error) {
+	var cfg Config
+	// Load config from yaml file if specified.
+	if configPath != "" {
+		configBytes, err := os.ReadFile(configPath)
+		if err != nil {
+			return Config{}, err
+		}
+		if err := yaml.Unmarshal(configBytes, &cfg); err != nil {
+			return Config{}, err
+		}
+	}
+	// Override with evn variables (if any).
+	if err := envconfig.Process("", &cfg); err != nil {
+		return Config{}, err
 	}
 
-	_ = viper.BindEnv("podip", "POD_IP")
-	_ = viper.BindEnv("api.key", "API_KEY")
-	_ = viper.BindEnv("api.url", "API_URL")
-	_ = viper.BindEnv("clusterid", "CLUSTER_ID")
-	_ = viper.BindEnv("kubeclient.qps", "KUBECLIENT_QPS")
-	_ = viper.BindEnv("kubeclient.burst", "KUBECLIENT_BURST")
-	_ = viper.BindEnv("kubeconfig")
-	_ = viper.BindEnv("log.level", "LOG_LEVEL")
-	_ = viper.BindEnv("leaderelection.enabled", "LEADER_ELECTION_ENABLED")
-	_ = viper.BindEnv("leaderelection.namespace", "LEADER_ELECTION_NAMESPACE")
-	_ = viper.BindEnv("leaderelection.lockname", "LEADER_ELECTION_LOCK_NAME")
-	_ = viper.BindEnv("pprofport", "PPROF_PORT")
-	_ = viper.BindEnv("provider", "PROVIDER")
-	_ = viper.BindEnv("features.imagescan.enabled", "FEATURES_IMAGE_SCAN_ENABLED")
-	_ = viper.BindEnv("features.imagescan.scaninterval", "FEATURES_IMAGE_SCAN_INTERVAL")
-	_ = viper.BindEnv("features.imagescan.maxconcurrentscans", "FEATURES_IMAGE_SCAN_MAX_CONCURRENT_SCANS")
-	_ = viper.BindEnv("features.imagescan.collectorimage", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
-	_ = viper.BindEnv("features.imagescan.collectorimagepullpolicy", "FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE_PULL_POLICY")
-	_ = viper.BindEnv("features.imagescan.dockeroptionspath", "FEATURES_IMAGE_SCAN_DOCKER_OPTIONS_PATH")
-	_ = viper.BindEnv("features.imagescan.blobscacheport", "FEATURES_IMAGE_SCAN_BLOBS_CACHE_PORT")
-	_ = viper.BindEnv("features.imagescan.mode", "FEATURES_IMAGE_SCAN_MODE")
-	_ = viper.BindEnv("features.kubebench.enabled", "FEATURES_KUBEBENCH_ENABLED")
-	_ = viper.BindEnv("features.kubelinter.enabled", "FEATURES_KUBELINTER_ENABLED")
-	_ = viper.BindEnv("deltasynciterval", "DELTA_SYNC_INTERVAL")
-
-	cfg = &Config{}
-	if err := viper.Unmarshal(&cfg); err != nil {
-		panic(fmt.Errorf("parsing configuration: %v", err))
-	}
-
+	// Validate and set defaults.
 	if cfg.API.URL == "" {
-		required("API_URL")
+		return cfg, required("API_URL")
 	}
 	if cfg.API.Key == "" {
-		required("API_KEY")
+		return cfg, required("API_KEY")
 	}
-	if cfg.ClusterID == "" {
-		required("CLUSTER_ID")
+	if cfg.API.ClusterID == "" {
+		return cfg, required("CLUSTER_ID")
 	}
 	if cfg.KubeClient.QPS == 0 {
 		cfg.KubeClient.QPS = 25
@@ -116,21 +102,34 @@ func Get() Config {
 	if cfg.KubeClient.Burst == 0 {
 		cfg.KubeClient.Burst = 150
 	}
-	if cfg.Log.Level == 0 {
-		cfg.Log.Level = int(logrus.DebugLevel)
+	if cfg.Log.Level == "" {
+		cfg.Log.Level = logrus.DebugLevel.String()
+	} else {
+		if _, err := logrus.ParseLevel(cfg.Log.Level); err != nil {
+			return Config{}, err
+		}
 	}
-	if cfg.Features.ImageScan.Enabled {
-		if cfg.Features.ImageScan.CollectorImage == "" {
-			required("FEATURES_IMAGE_SCAN_COLLECTOR_IMAGE")
+	if cfg.ImageScan.Enabled {
+		if cfg.ImageScan.Image.Name == "" {
+			return cfg, required("IMAGE_SCAN_IMAGE_NAME")
 		}
-		if cfg.Features.ImageScan.CollectorImagePullPolicy == "" {
-			cfg.Features.ImageScan.CollectorImagePullPolicy = "IfNotPresent"
+		if cfg.ImageScan.Image.PullPolicy == "" {
+			cfg.ImageScan.Image.PullPolicy = "IfNotPresent"
 		}
-		if cfg.Features.ImageScan.DockerOptionsPath == "" {
-			cfg.Features.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
+		if cfg.ImageScan.DockerOptionsPath == "" {
+			cfg.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
 		}
-		if cfg.Features.ImageScan.BlobsCachePort == 0 {
-			cfg.Features.ImageScan.BlobsCachePort = 8080
+		if cfg.ImageScan.MaxConcurrentScans == 0 {
+			cfg.ImageScan.MaxConcurrentScans = 3
+		}
+		if cfg.ImageScan.BlobsCachePort == 0 {
+			cfg.ImageScan.BlobsCachePort = 8080
+		}
+		if cfg.ImageScan.ScanInterval == 0 {
+			cfg.ImageScan.ScanInterval = 15 * time.Second
+		}
+		if cfg.ImageScan.ScanTimeout == 0 {
+			cfg.ImageScan.ScanTimeout = 10 * time.Minute
 		}
 	}
 
@@ -144,9 +143,9 @@ func Get() Config {
 		cfg.DeltaSyncInterval = 15 * time.Second
 	}
 
-	return *cfg
+	return cfg, nil
 }
 
-func required(variable string) {
-	panic(fmt.Errorf("env variable %s is required", variable))
+func required(variable string) error {
+	return fmt.Errorf("env variable %s is required", variable)
 }

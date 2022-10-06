@@ -15,16 +15,14 @@ func TestModifyConfig(t *testing.T) {
 	r := require.New(t)
 
 	oldCfg := config.Config{
-		Features: config.Features{
-			ImageScan: config.ImageScan{
-				Enabled: true,
-			},
-			KubeLinter: config.KubeLinter{
-				Enabled: true,
-			},
-			KubeBench: config.KubeBench{
-				Enabled: true,
-			},
+		ImageScan: config.ImageScan{
+			Enabled: true,
+		},
+		Linter: config.Linter{
+			Enabled: true,
+		},
+		KubeBench: config.KubeBench{
+			Enabled: true,
 		},
 	}
 
@@ -34,16 +32,14 @@ func TestModifyConfig(t *testing.T) {
 	})
 
 	r.Equal(config.Config{
-		Features: config.Features{
-			ImageScan: config.ImageScan{
-				Enabled: false,
-			},
-			KubeLinter: config.KubeLinter{
-				Enabled: false,
-			},
-			KubeBench: config.KubeBench{
-				Enabled: false,
-			},
+		ImageScan: config.ImageScan{
+			Enabled: false,
+		},
+		Linter: config.Linter{
+			Enabled: false,
+		},
+		KubeBench: config.KubeBench{
+			Enabled: false,
 		},
 	}, newCfg)
 }
@@ -54,16 +50,14 @@ func TestObserveDisabledFeatures(t *testing.T) {
 	log.SetLevel(logrus.DebugLevel)
 
 	cfg := config.Config{
-		Features: config.Features{
-			ImageScan: config.ImageScan{
-				Enabled: true,
-			},
-			KubeLinter: config.KubeLinter{
-				Enabled: true,
-			},
-			KubeBench: config.KubeBench{
-				Enabled: true,
-			},
+		ImageScan: config.ImageScan{
+			Enabled: true,
+		},
+		Linter: config.Linter{
+			Enabled: true,
+		},
+		KubeBench: config.KubeBench{
+			Enabled: true,
 		},
 	}
 
