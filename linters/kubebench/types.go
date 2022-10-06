@@ -43,7 +43,8 @@ func (d *nodeDeltaState) upsert(o *corev1.Node) {
 	defer d.mu.Unlock()
 
 	key := controller.ObjectKey(o)
-	if _, ok := d.objectMap[key]; ok {
+	if job, ok := d.objectMap[key]; ok {
+		job.node = o
 		return
 	}
 
