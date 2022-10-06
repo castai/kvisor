@@ -119,6 +119,9 @@ func Load(configPath string) (Config, error) {
 		if cfg.ImageScan.DockerOptionsPath == "" {
 			cfg.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
 		}
+		if cfg.ImageScan.MaxConcurrentScans == 0 {
+			cfg.ImageScan.MaxConcurrentScans = 3
+		}
 		if cfg.ImageScan.BlobsCachePort == 0 {
 			cfg.ImageScan.BlobsCachePort = 8080
 		}

@@ -50,10 +50,10 @@ func newTestConfig() Config {
 	return Config{
 		PodIP: "10.10.1.123",
 		KubeClient: KubeClient{
-			QPS:   1,
-			Burst: 5,
+			QPS:            1,
+			Burst:          5,
+			KubeConfigPath: kubeconfig,
 		},
-		Kubeconfig:        kubeconfig,
 		Log:               Log{Level: "info"},
 		API:               API{URL: "https://api-test.cast.ai", Key: "key", ClusterID: "c1"},
 		PprofPort:         6090,
