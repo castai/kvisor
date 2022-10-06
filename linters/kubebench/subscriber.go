@@ -92,7 +92,7 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 			continue
 		}
 		ready++
-		node := n.node
+		job := n
 		err := sem.Acquire(ctx, 1)
 		if err != nil {
 			return fmt.Errorf("kube-bench semaphore: %w", err)
@@ -101,13 +101,13 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 			defer sem.Release(1)
 			ctx, cancel := context.WithTimeout(ctx, nodeScanTimeout)
 			defer cancel()
-			err = s.lintNode(ctx, node)
+			err = s.lintNode(ctx, job.node)
 			if err != nil {
 				s.log.Errorf("kube-bench: %w", err)
-				n.setFailed()
+				job.setFailed()
 				return
 			}
-			s.delta.delete(node)
+			s.delta.delete(job.node)
 		}()
 	}
 	s.log.Infof("linting %d nodes", ready)
