@@ -1,4 +1,4 @@
-package customchecks
+package automount
 
 import (
 	"fmt"

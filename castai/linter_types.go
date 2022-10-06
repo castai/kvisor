@@ -40,6 +40,8 @@ const (
 	WildcardInRules
 	AccessToCreatePods
 	TokenAutomount
+	ReadSecretFromEnvVar
+	HasSecurityContext
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -78,6 +80,8 @@ var LinterRuleMap = map[string]LinterRule{
 	"access-to-create-pods":      AccessToCreatePods,
 	"default-service-account":    DefaultServiceAccount,
 	"sa-token-automount":         TokenAutomount,
+	"read-secret-from-env-var":   ReadSecretFromEnvVar,
+	"has-security-context":       HasSecurityContext,
 }
 
 type LinterCheck struct {

@@ -62,7 +62,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	casttypes "github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/linters/kubelinter/customchecks"
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks/automount"
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks/securitycontext"
 )
 
 func New(checks []string) *Linter {
@@ -73,6 +74,17 @@ type Linter struct {
 	checks []string
 }
 
+func registerCustomChecks(registry checkregistry.CheckRegistry) error {
+	if err := registry.Register(automount.Check()); err != nil {
+		return err
+	}
+
+	if err := registry.Register(securitycontext.Check()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, error) {
 	registry := checkregistry.New()
 
@@ -80,8 +92,8 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 		return nil, fmt.Errorf("load info from registry: %w", err)
 	}
 
-	if err := registry.Register(customchecks.Check()); err != nil {
-		return nil, fmt.Errorf("load custom CAST check: %w", err)
+	if err := registerCustomChecks(registry); err != nil {
+		return nil, fmt.Errorf("loading custom CAST check: %w", err)
 	}
 
 	cfg := kubelinterconfig.Config{
