@@ -11,33 +11,33 @@ import (
 )
 
 type Config struct {
-	PodIP             string        `envconfig:"POD_IP" yaml:"pod_ip"`
-	PodNamespace      string        `envconfig:"POD_NAMESPACE" yaml:"pod_namespace"`
-	KubeClient        KubeClient    `envconfig:"KUBE_CLIENT" yaml:"kube_client"`
+	PodIP             string        `envconfig:"POD_IP" yaml:"podIP"`
+	PodNamespace      string        `envconfig:"POD_NAMESPACE" yaml:"podNamespace"`
+	KubeClient        KubeClient    `envconfig:"KUBE_CLIENT" yaml:"kubeClient"`
 	Log               Log           `envconfig:"LOG" yaml:"log"`
 	API               API           `envconfig:"API" yaml:"api"`
-	PprofPort         int           `envconfig:"PPROF_PORT" yaml:"pprof_port"`
+	PprofPort         int           `envconfig:"PPROF_PORT" yaml:"pprofPort"`
 	Provider          string        `envconfig:"PROVIDER" yaml:"provider"`
-	DeltaSyncInterval time.Duration `envconfig:"DELTA_SYNC_INTERVAL" yaml:"delta_sync_interval"`
-	ImageScan         ImageScan     `envconfig:"IMAGE_SCAN" yaml:"image_scan"`
+	DeltaSyncInterval time.Duration `envconfig:"DELTA_SYNC_INTERVAL" yaml:"deltaSyncInterval"`
+	ImageScan         ImageScan     `envconfig:"IMAGE_SCAN" yaml:"imagescan"`
 	Linter            Linter        `envconfig:"LINTER" yaml:"linter"`
-	KubeBench         KubeBench     `envconfig:"KUBE_BENCH" yaml:"kube_bench"`
+	KubeBench         KubeBench     `envconfig:"KUBE_BENCH" yaml:"kubebench"`
 }
 
 type ImageScan struct {
 	Enabled            bool           `envconfig:"ENABLED" yaml:"enabled"`
-	ScanInterval       time.Duration  `envconfig:"SCAN_INTERVAL" yaml:"scan_interval"`
-	ScanTimeout        time.Duration  `envconfig:"SCAN_TIMEOUT" yaml:"scan_timeout"`
-	MaxConcurrentScans int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"max_concurrent_scans"`
+	ScanInterval       time.Duration  `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
+	ScanTimeout        time.Duration  `envconfig:"SCAN_TIMEOUT" yaml:"scanTimeout"`
+	MaxConcurrentScans int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
 	Image              ImageScanImage `envconfig:"IMAGE" yaml:"image"`
 	Mode               string         `envconfig:"MODE" yaml:"mode"`
-	DockerOptionsPath  string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"docker_options_path"`
-	BlobsCachePort     int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobs_cache_port"`
+	DockerOptionsPath  string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
+	BlobsCachePort     int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
 }
 
 type ImageScanImage struct {
 	Name       string `envconfig:"NAME" yaml:"name"`
-	PullPolicy string `envconfig:"PULL_POLICY" yaml:"pull_policy"`
+	PullPolicy string `envconfig:"PULL_POLICY" yaml:"pullPolicy"`
 }
 
 type Linter struct {
@@ -66,7 +66,7 @@ type Log struct {
 type API struct {
 	Key       string `envconfig:"KEY" yaml:"key"`
 	URL       string `envconfig:"URL" yaml:"url"`
-	ClusterID string `envconfig:"CLUSTER_ID" yaml:"cluster_id"`
+	ClusterID string `envconfig:"CLUSTER_ID" yaml:"clusterID"`
 }
 
 func Load(configPath string) (Config, error) {
