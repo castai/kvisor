@@ -22,6 +22,12 @@ type Config struct {
 	ImageScan         ImageScan     `envconfig:"IMAGE_SCAN" yaml:"imagescan"`
 	Linter            Linter        `envconfig:"LINTER" yaml:"linter"`
 	KubeBench         KubeBench     `envconfig:"KUBE_BENCH" yaml:"kubebench"`
+	CloudScan         CloudScan     `envconfig:"CLOUD_SCAN" yaml:"cloudScan"`
+}
+
+type CloudScan struct {
+	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
+	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
 }
 
 type ImageScan struct {

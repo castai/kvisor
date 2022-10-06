@@ -14,6 +14,7 @@ import (
 	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/castai/telemetry"
+	"github.com/castai/sec-agent/cloudscan/gke"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/delta"
@@ -174,9 +175,19 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)
 	}
-
 	if len(objectSubscribers) == 0 {
-		log.Fatal("no subscribers enabled")
+		return errors.New("no subscribers enabled")
+	}
+
+	if cfg.CloudScan.Enabled {
+		switch cfg.Provider {
+		case "gke":
+			gkeCloudScanner, err := gke.NewScanner(log)
+			if err != nil {
+				return err
+			}
+			go gkeCloudScanner.Start(ctx)
+		}
 	}
 
 	gc := jobsgc.NewGC(log, clientset, jobsgc.Config{
