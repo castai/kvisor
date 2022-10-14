@@ -36,7 +36,7 @@ type Client interface {
 	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
 	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
-
+	SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error
 	PostTelemetry(ctx context.Context) (*TelemetryResponse, error)
 }
 
@@ -148,6 +148,10 @@ func (c *client) SendLinterChecks(ctx context.Context, checks []LinterCheck) err
 
 func (c *client) SendImageMetadata(ctx context.Context, meta *ImageMetadata) error {
 	return c.sendReport(ctx, meta, "image-metadata")
+}
+
+func (c *client) SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error {
+	return c.sendReport(ctx, report, "cloud-scan")
 }
 
 func (c *client) sendReport(ctx context.Context, report any, reportType string) error {

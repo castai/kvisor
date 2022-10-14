@@ -50,6 +50,20 @@ func (mr *MockClientMockRecorder) PostTelemetry(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostTelemetry", reflect.TypeOf((*MockClient)(nil).PostTelemetry), ctx)
 }
 
+// SendCISCloudScanReport mocks base method.
+func (m *MockClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCISCloudScanReport", ctx, report)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCISCloudScanReport indicates an expected call of SendCISCloudScanReport.
+func (mr *MockClientMockRecorder) SendCISCloudScanReport(ctx, report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCISCloudScanReport", reflect.TypeOf((*MockClient)(nil).SendCISCloudScanReport), ctx, report)
+}
+
 // SendCISReport mocks base method.
 func (m *MockClient) SendCISReport(ctx context.Context, report *castai.CustomReport) error {
 	m.ctrl.T.Helper()

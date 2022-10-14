@@ -28,6 +28,12 @@ type Config struct {
 type CloudScan struct {
 	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
 	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
+	GKE          *CloudScanGKE `envconfig:"GKE" yaml:"gke"`
+}
+
+type CloudScanGKE struct {
+	ClusterName     string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
+	CredentialsFile string `envconfig:"CREDENTIALS_FILE" yaml:"credentialsFile"`
 }
 
 type ImageScan struct {
