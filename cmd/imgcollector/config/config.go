@@ -15,6 +15,10 @@ const (
 	ModeContainerdHostFS Mode = "containerd_hostfs"
 )
 
+const (
+	ContainerdContentDir = "/var/lib/containerd/io.containerd.content.v1.content"
+)
+
 type Config struct {
 	ApiKey           string        `envconfig:"API_KEY" required:"true"`
 	ApiURL           string        `envconfig:"API_URL" default:"https://api.cast.ai"`

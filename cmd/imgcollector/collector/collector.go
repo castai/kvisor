@@ -13,26 +13,29 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
+	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
 
 	"gopkg.in/yaml.v3"
 
 	_ "github.com/aquasecurity/trivy/pkg/scanner" // Import all registered analyzers.
 )
 
-func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client) *Collector {
+func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
 	return &Collector{
-		log:    log,
-		cfg:    cfg,
-		client: client,
-		cache:  cache,
+		log:          log,
+		cfg:          cfg,
+		client:       client,
+		cache:        cache,
+		hostFsConfig: hostfsConfig,
 	}
 }
 
 type Collector struct {
-	log    logrus.FieldLogger
-	cfg    config.Config
-	client castai.Client
-	cache  blobscache.Client
+	log          logrus.FieldLogger
+	cfg          config.Config
+	client       castai.Client
+	cache        blobscache.Client
+	hostFsConfig *hostfs.ContainerdHostFSConfig
 }
 
 type ImageInfo struct {
@@ -83,7 +86,7 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	case config.ModeDockerDaemon:
 		return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
 	case config.ModeContainerdHostFS:
-		return image.NewFromContainerdHostFS(c.cfg.ImageID)
+		return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
 	case config.ModeRemote:
 		opts := image.DockerOption{}
 		if c.cfg.DockerOptionPath != "" {

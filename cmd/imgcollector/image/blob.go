@@ -2,34 +2,36 @@ package image
 
 import (
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
-
 	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
 )
 
-func NewFromContainerdHostFS(imageID string) (types.Image, func(), error) {
-	img, cleanup, err := hostfs.ContainerdImage(imageID)
+func NewFromContainerdHostFS(imageID string, config *hostfs.ContainerdHostFSConfig) (types.Image, func(), error) {
+	hostFsReader := hostfs.HostFSReader{
+		Config: *config,
+	}
+	img, cleanup, err := hostFsReader.ContainerdImage(imageID)
 	if err != nil {
 		return nil, nil, err
 	}
-	return blobImage{
+	return extendedBlobImage{
 		Image: img,
 		name:  imageID,
 	}, cleanup, nil
 }
 
-type blobImage struct {
+type extendedBlobImage struct {
 	hostfs.Image
 	name string
 }
 
-func (b blobImage) Name() string {
+func (b extendedBlobImage) Name() string {
 	return b.name
 }
 
-func (b blobImage) ID() (string, error) {
+func (b extendedBlobImage) ID() (string, error) {
 	return ID(b)
 }
 
-func (b blobImage) LayerIDs() ([]string, error) {
+func (b extendedBlobImage) LayerIDs() ([]string, error) {
 	return LayerIDs(b)
 }

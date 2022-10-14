@@ -13,11 +13,19 @@ import (
 )
 
 const (
-	contentDir = "/var/lib/containerd/io.containerd.content.v1.content"
 	// TODO: OCI also supports sha512
 	alg   = "sha256"
 	blobs = "blobs"
 )
+
+type HostFSReader struct {
+	Config ContainerdHostFSConfig
+}
+
+type ContainerdHostFSConfig struct {
+	Platform   v1.Platform
+	ContentDir string
+}
 
 type Image interface {
 	v1.Image
@@ -30,11 +38,8 @@ type blobImage struct {
 	config      *v1.ConfigFile
 	configBytes []byte
 	imageID     string
-}
 
-type ContainerdFSReader struct {
-	Platform    v1.Platform
-	ContentPath string
+	contentDir string
 }
 
 func (b blobImage) Layers() ([]v1.Layer, error) {
@@ -74,7 +79,7 @@ func (b blobImage) Digest() (v1.Hash, error) {
 }
 
 func (b blobImage) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
-	path := path.Join(contentDir, blobs, alg, hash.Hex)
+	path := path.Join(b.contentDir, blobs, alg, hash.Hex)
 	return tarball.LayerFromFile(path)
 }
 
@@ -91,13 +96,13 @@ func (b blobImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
 	return b.LayerByDigest(l.Digest)
 }
 
-func ContainerdImage(imageID string) (Image, func(), error) {
-	manifest, err := resolveManifest(imageID)
+func (h HostFSReader) ContainerdImage(imageID string) (Image, func(), error) {
+	manifest, err := h.resolveManifest(imageID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	config, bytes, err := readConfig(manifest.Config.Digest.String())
+	config, bytes, err := h.readConfig(manifest.Config.Digest.String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -106,17 +111,18 @@ func ContainerdImage(imageID string) (Image, func(), error) {
 		manifest:    manifest,
 		config:      config,
 		configBytes: bytes,
+		contentDir:  h.Config.ContentDir,
 	}
 
 	return i, cleanup, nil
 }
 
-func readConfig(configID string) (*v1.ConfigFile, []byte, error) {
+func (h HostFSReader) readConfig(configID string) (*v1.ConfigFile, []byte, error) {
 	p := strings.Split(configID, ":")
 	if len(p) < 2 {
 		return nil, nil, fmt.Errorf("invalid configID: %s", configID)
 	}
-	path := path.Join(contentDir, blobs, p[0], p[1])
+	path := path.Join(h.Config.ContentDir, blobs, p[0], p[1])
 
 	configBytes, err := os.ReadFile(path)
 	if err != nil {

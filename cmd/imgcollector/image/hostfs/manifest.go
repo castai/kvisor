@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"runtime"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -15,8 +14,8 @@ type manifestHeader struct {
 	MediaType types.MediaType `json:"mediaType"`
 }
 
-func resolveManifest(imageID string) (*v1.Manifest, error) {
-	path := path.Join(contentDir, blobs, alg, imageID)
+func (h HostFSReader) resolveManifest(imageID string) (*v1.Manifest, error) {
+	path := path.Join(h.Config.ContentDir, blobs, alg, imageID)
 
 	fileBytes, err := os.ReadFile(path)
 	if err != nil {
@@ -39,14 +38,6 @@ func resolveManifest(imageID string) (*v1.Manifest, error) {
 	}
 
 	if header.MediaType.IsIndex() {
-		platform := v1.Platform{
-			// TODO: allow mocking
-			Architecture: runtime.GOARCH,
-			//Architecture: "amd64",
-			OS: runtime.GOOS,
-			//OS: "linux",
-		}
-
 		var list v1.IndexManifest
 		err = json.Unmarshal(fileBytes, &list)
 		if err != nil {
@@ -55,19 +46,19 @@ func resolveManifest(imageID string) (*v1.Manifest, error) {
 
 		for _, m := range list.Manifests {
 			// TODO: might be too simple for non amd64/linux
-			if matchingPlatform(platform, *m.Platform) {
-				return readManifest(m.Digest.Hex)
+			if matchingPlatform(h.Config.Platform, *m.Platform) {
+				return h.readManifest(m.Digest.Hex)
 			}
 		}
 
-		return nil, fmt.Errorf("manifest not found for platform: %s %s", platform.Architecture, platform.OS)
+		return nil, fmt.Errorf("manifest not found for platform: %s %s", h.Config.Platform.Architecture, h.Config.Platform.OS)
 	}
 
 	return nil, fmt.Errorf("unrecognised manifest mediatype")
 }
 
-func readManifest(imageID string) (*v1.Manifest, error) {
-	path := path.Join(contentDir, blobs, alg, imageID)
+func (h HostFSReader) readManifest(imageID string) (*v1.Manifest, error) {
+	path := path.Join(h.Config.ContentDir, blobs, alg, imageID)
 	manifestBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
