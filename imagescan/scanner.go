@@ -137,7 +137,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		}
 	}
 
-	if mode == imgcollectorconfig.ModeContainerdBlob {
+	if mode == imgcollectorconfig.ModeContainerdHostFS {
 		switch containerRuntime {
 		case "docker":
 			return fmt.Errorf("unsupported container runtime: %s for mode %s", containerRuntime, mode)
