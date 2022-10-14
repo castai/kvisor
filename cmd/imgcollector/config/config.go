@@ -12,7 +12,7 @@ const (
 	ModeRemote           Mode = "remote"
 	ModeDockerDaemon     Mode = "docker_daemon"
 	ModeContainerdDaemon Mode = "containerd_daemon"
-	// TODO: Implement 'host_mount` mode to inspect mounted layers.
+	ModeContainerdBlob   Mode = "containerd_blob"
 )
 
 type Config struct {

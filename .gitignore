@@ -1,3 +1,6 @@
 .idea
 bin
 .env
+
+cmd/imgcollector/image/blob/testdata/**
+cmd/imgcollector/image/blob/oldtestdata/**

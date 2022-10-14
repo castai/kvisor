@@ -1,0 +1,173 @@
+package simple
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path"
+	"strings"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+)
+
+const (
+	//contentDir = "/var/lib/containerd/io.containerd.content.v1.content"
+	contentDir = "/Users/matas/Cast/sec-agent/cmd/imgcollector/image/blob/testdata/io.containerd.content.v1.content"
+	alg        = "sha256"
+	blobs      = "blobs"
+)
+
+type Image interface {
+	v1.Image
+	RepoTags() []string
+	RepoDigests() []string
+}
+
+type blobImage struct {
+	manifest    *v1.Manifest
+	config      *v1.ConfigFile
+	configBytes []byte
+	imageID     string
+}
+
+func (b blobImage) Layers() ([]v1.Layer, error) {
+	l := make([]v1.Layer, len(b.manifest.Layers))
+	for _, lay := range b.manifest.Layers {
+		lajer, err := b.LayerByDigest(lay.Digest)
+		if err != nil {
+			return nil, err
+		}
+		l = append(l, lajer)
+	}
+
+	return l, nil
+}
+
+func (b blobImage) ConfigName() (v1.Hash, error) {
+	return b.manifest.Config.Digest, nil
+}
+
+func (b blobImage) ConfigFile() (*v1.ConfigFile, error) {
+	return b.config, nil
+}
+
+func (b blobImage) Manifest() (*v1.Manifest, error) {
+	return b.manifest, nil
+}
+
+func (b blobImage) RawConfigFile() ([]byte, error) {
+	return b.configBytes, nil
+}
+
+func (b blobImage) Digest() (v1.Hash, error) {
+	return v1.Hash{
+		Algorithm: alg,
+		Hex:       b.imageID,
+	}, nil
+}
+
+func (b blobImage) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
+	path := path.Join(contentDir, blobs, alg, hash.Hex)
+	return tarball.LayerFromFile(path)
+}
+
+func (b blobImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
+	// find index in rootfs.layer and get same item from manifest
+	var idx int
+	for i, diff := range b.config.RootFS.DiffIDs {
+		if diff.Hex == hash.Hex {
+			idx = i
+			break
+		}
+	}
+
+	l := b.manifest.Layers[idx]
+	return b.LayerByDigest(l.Digest)
+}
+
+func ContainerdImage(ctx context.Context, imageID string) (Image, func(), error) {
+	manifest, err := readManifest(imageID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	config, bytes, err := readConfig(manifest.Config.Digest.String())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	i := blobImage{
+		manifest:    manifest,
+		config:      config,
+		configBytes: bytes,
+	}
+
+	return i, cleanup, nil
+}
+
+func readManifest(imageID string) (*v1.Manifest, error) {
+	path := path.Join(contentDir, blobs, alg, imageID)
+
+	manifestBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var manifest v1.Manifest
+	err = json.Unmarshal(manifestBytes, &manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	return &manifest, nil
+}
+
+func readConfig(configID string) (*v1.ConfigFile, []byte, error) {
+	p := strings.Split(configID, ":")
+
+	path := path.Join(contentDir, blobs, p[0], p[1])
+
+	configBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var cfg v1.ConfigFile
+	err = json.Unmarshal(configBytes, &cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &cfg, configBytes, nil
+}
+
+func cleanup() {
+	// noop
+}
+
+func (b blobImage) MediaType() (types.MediaType, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (b blobImage) Size() (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (b blobImage) RawManifest() ([]byte, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (b blobImage) RepoTags() []string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (b blobImage) RepoDigests() []string {
+	//TODO implement me
+	panic("implement me")
+}

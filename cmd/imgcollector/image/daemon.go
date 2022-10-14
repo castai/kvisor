@@ -6,6 +6,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/google/go-containerregistry/pkg/name"
 
+	"github.com/castai/sec-agent/cmd/imgcollector/image/blob/simple"
 	"github.com/castai/sec-agent/cmd/imgcollector/image/daemon"
 )
 
@@ -33,6 +34,17 @@ func NewFromDockerDaemon(imageName string, ref name.Reference) (types.Image, fun
 	}, cleanup, nil
 }
 
+func NewFromContainerdBlob(ctx context.Context, imageName string) (types.Image, func(), error) {
+	img, cleanup, err := simple.ContainerdImage(ctx, imageName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return blobImage{
+		Image: img,
+		name:  imageName,
+	}, cleanup, nil
+}
+
 type daemonImage struct {
 	daemon.Image
 	name string
@@ -48,4 +60,21 @@ func (d daemonImage) ID() (string, error) {
 
 func (d daemonImage) LayerIDs() ([]string, error) {
 	return LayerIDs(d)
+}
+
+type blobImage struct {
+	simple.Image
+	name string
+}
+
+func (b blobImage) Name() string {
+	return b.name
+}
+
+func (b blobImage) ID() (string, error) {
+	return ID(b)
+}
+
+func (b blobImage) LayerIDs() ([]string, error) {
+	return LayerIDs(b)
 }

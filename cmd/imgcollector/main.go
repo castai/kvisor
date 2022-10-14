@@ -5,6 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/collector"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
@@ -39,7 +40,8 @@ func main() {
 		},
 	)
 
-	c := collector.New(log, cfg, client)
+	blobsCache := blobscache.NewRemoteBlobsCache(cfg.BlobsCacheURL)
+	c := collector.New(log, cfg, client, blobsCache)
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()

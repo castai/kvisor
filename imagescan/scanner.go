@@ -27,6 +27,10 @@ import (
 	"github.com/castai/sec-agent/log"
 )
 
+const (
+	containerdContentDir = "/var/lib/containerd/io.containerd.content.v1.content"
+)
+
 type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
@@ -130,6 +134,28 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			mode = imgcollectorconfig.ModeContainerdDaemon
 		default:
 			return fmt.Errorf("unsupported container runtime: %s", containerRuntime)
+		}
+	}
+
+	if mode == imgcollectorconfig.ModeContainerdBlob {
+		switch containerRuntime {
+		case "docker":
+			return fmt.Errorf("unsupported container runtime: %s for mode %s", containerRuntime, mode)
+		case "containerd":
+			vols.volumes = append(vols.volumes, corev1.Volume{
+				Name: "containerd-content",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: containerdContentDir,
+						Type: lo.ToPtr(corev1.HostPathSocket),
+					},
+				},
+			})
+			vols.mounts = append(vols.mounts, corev1.VolumeMount{
+				Name:      "containerd-content",
+				ReadOnly:  true,
+				MountPath: containerdContentDir,
+			})
 		}
 	}
 
