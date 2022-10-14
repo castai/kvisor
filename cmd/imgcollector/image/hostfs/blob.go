@@ -2,6 +2,7 @@ package hostfs
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -112,7 +113,9 @@ func ContainerdImage(imageID string) (Image, func(), error) {
 
 func readConfig(configID string) (*v1.ConfigFile, []byte, error) {
 	p := strings.Split(configID, ":")
-
+	if len(p) < 2 {
+		return nil, nil, fmt.Errorf("invalid configID: %s", configID)
+	}
 	path := path.Join(contentDir, blobs, p[0], p[1])
 
 	configBytes, err := os.ReadFile(path)
