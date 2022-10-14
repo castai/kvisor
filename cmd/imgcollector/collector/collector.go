@@ -83,7 +83,7 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	case config.ModeDockerDaemon:
 		return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
 	case config.ModeContainerdBlob:
-		return image.NewFromContainerdBlob(ctx, c.cfg.ImageName)
+		return image.NewFromContainerdBlob(ctx, c.cfg.ImageID)
 	case config.ModeRemote:
 		opts := image.DockerOption{}
 		if c.cfg.DockerOptionPath != "" {

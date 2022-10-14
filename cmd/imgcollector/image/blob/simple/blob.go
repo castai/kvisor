@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	//contentDir = "/var/lib/containerd/io.containerd.content.v1.content"
-	contentDir = "/Users/matas/Cast/sec-agent/cmd/imgcollector/image/blob/testdata/io.containerd.content.v1.content"
-	alg        = "sha256"
-	blobs      = "blobs"
+	contentDir = "/var/lib/containerd/io.containerd.content.v1.content"
+	//contentDir = "/Users/matas/Cast/sec-agent/cmd/imgcollector/image/blob/testdata/io.containerd.content.v1.content"
+	// TODO: OCI also supports sha512
+	alg   = "sha256"
+	blobs = "blobs"
 )
 
 type Image interface {
@@ -74,7 +75,6 @@ func (b blobImage) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
 }
 
 func (b blobImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
-	// find index in rootfs.layer and get same item from manifest
 	var idx int
 	for i, diff := range b.config.RootFS.DiffIDs {
 		if diff.Hex == hash.Hex {
@@ -87,8 +87,8 @@ func (b blobImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
 	return b.LayerByDigest(l.Digest)
 }
 
-func ContainerdImage(ctx context.Context, imageID string) (Image, func(), error) {
-	manifest, err := readManifest(imageID)
+func ContainerdImage(_ context.Context, imageID string) (Image, func(), error) {
+	manifest, err := resolveManifest(imageID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,23 +105,6 @@ func ContainerdImage(ctx context.Context, imageID string) (Image, func(), error)
 	}
 
 	return i, cleanup, nil
-}
-
-func readManifest(imageID string) (*v1.Manifest, error) {
-	path := path.Join(contentDir, blobs, alg, imageID)
-
-	manifestBytes, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var manifest v1.Manifest
-	err = json.Unmarshal(manifestBytes, &manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	return &manifest, nil
 }
 
 func readConfig(configID string) (*v1.ConfigFile, []byte, error) {
@@ -146,6 +129,8 @@ func readConfig(configID string) (*v1.ConfigFile, []byte, error) {
 func cleanup() {
 	// noop
 }
+
+// currently unused
 
 func (b blobImage) MediaType() (types.MediaType, error) {
 	//TODO implement me

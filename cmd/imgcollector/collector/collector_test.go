@@ -17,8 +17,13 @@ import (
 )
 
 func TestCollector(t *testing.T) {
-	img := os.Getenv("IMG")
-	if img == "" {
+	imgName := os.Getenv("IMG_NAME")
+	if imgName == "" {
+		t.Skip()
+	}
+
+	imgID := os.Getenv("IMG_ID")
+	if imgID == "" {
 		t.Skip()
 	}
 
@@ -32,8 +37,8 @@ func TestCollector(t *testing.T) {
 	mockCache := mock_blobcache.NewMockClient(ctrl)
 
 	c := New(log, config.Config{
-		ImageID:   "todo",
-		ImageName: img,
+		ImageID:   imgID,
+		ImageName: imgName,
 		Timeout:   5 * time.Minute,
 		Mode:      config.ModeContainerdBlob,
 	}, mockClient, mockCache)
@@ -44,5 +49,3 @@ func TestCollector(t *testing.T) {
 	err := c.Collect(ctx)
 	r.NoError(err)
 }
-
-type notfound struct{}

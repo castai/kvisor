@@ -34,14 +34,14 @@ func NewFromDockerDaemon(imageName string, ref name.Reference) (types.Image, fun
 	}, cleanup, nil
 }
 
-func NewFromContainerdBlob(ctx context.Context, imageName string) (types.Image, func(), error) {
-	img, cleanup, err := simple.ContainerdImage(ctx, imageName)
+func NewFromContainerdBlob(ctx context.Context, imageID string) (types.Image, func(), error) {
+	img, cleanup, err := simple.ContainerdImage(ctx, imageID)
 	if err != nil {
 		return nil, nil, err
 	}
 	return blobImage{
 		Image: img,
-		name:  imageName,
+		name:  imageID,
 	}, cleanup, nil
 }
 
