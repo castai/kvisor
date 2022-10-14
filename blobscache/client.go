@@ -1,5 +1,3 @@
-//go:generate mockgen -source $GOFILE -destination ./mock/client.go . Client
-
 package blobscache
 
 import (
