@@ -13,24 +13,29 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
+	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
 
 	"gopkg.in/yaml.v3"
 
 	_ "github.com/aquasecurity/trivy/pkg/scanner" // Import all registered analyzers.
 )
 
-func New(log logrus.FieldLogger, cfg config.Config, client castai.Client) *Collector {
+func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
 	return &Collector{
-		log:    log,
-		cfg:    cfg,
-		client: client,
+		log:          log,
+		cfg:          cfg,
+		client:       client,
+		cache:        cache,
+		hostFsConfig: hostfsConfig,
 	}
 }
 
 type Collector struct {
-	log    logrus.FieldLogger
-	cfg    config.Config
-	client castai.Client
+	log          logrus.FieldLogger
+	cfg          config.Config
+	client       castai.Client
+	cache        blobscache.Client
+	hostFsConfig *hostfs.ContainerdHostFSConfig
 }
 
 type ImageInfo struct {
@@ -45,8 +50,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
-	blobsCache := blobscache.NewRemoteBlobsCache(c.cfg.BlobsCacheURL)
-	artifact, err := image.NewArtifact(img, c.log, blobsCache, image.ArtifactOption{
+	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
 		Offline: true,
 	})
 	if err != nil {
@@ -81,6 +85,8 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 		return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
 	case config.ModeDockerDaemon:
 		return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
+	case config.ModeContainerdHostFS:
+		return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
 	case config.ModeRemote:
 		opts := image.DockerOption{}
 		if c.cfg.DockerOptionPath != "" {

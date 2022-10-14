@@ -12,7 +12,11 @@ const (
 	ModeRemote           Mode = "remote"
 	ModeDockerDaemon     Mode = "docker_daemon"
 	ModeContainerdDaemon Mode = "containerd_daemon"
-	// TODO: Implement 'host_mount` mode to inspect mounted layers.
+	ModeContainerdHostFS Mode = "containerd_hostfs"
+)
+
+const (
+	ContainerdContentDir = "/var/lib/containerd/io.containerd.content.v1.content"
 )
 
 type Config struct {

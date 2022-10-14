@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"runtime"
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/collector"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
@@ -39,7 +43,19 @@ func main() {
 		},
 	)
 
-	c := collector.New(log, cfg, client)
+	blobsCache := blobscache.NewRemoteBlobsCache(cfg.BlobsCacheURL)
+
+	var h *hostfs.ContainerdHostFSConfig
+	if cfg.Mode == config.ModeContainerdHostFS {
+		h = &hostfs.ContainerdHostFSConfig{
+			Platform: v1.Platform{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+			},
+			ContentDir: config.ContainerdContentDir,
+		}
+	}
+	c := collector.New(log, cfg, client, blobsCache, h)
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
