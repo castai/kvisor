@@ -32,8 +32,9 @@ type CloudScan struct {
 }
 
 type CloudScanGKE struct {
-	ClusterName     string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
-	CredentialsFile string `envconfig:"CREDENTIALS_FILE" yaml:"credentialsFile"`
+	ClusterName        string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
+	CredentialsFile    string `envconfig:"CREDENTIALS_FILE" yaml:"credentialsFile"`
+	ServiceAccountName string `envconfig:"SERVICE_ACCOUNT_NAME" yaml:"serviceAccountName"`
 }
 
 type ImageScan struct {

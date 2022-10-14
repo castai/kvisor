@@ -32,9 +32,13 @@ type castaiClient interface {
 
 func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, client castaiClient) (*Scanner, error) {
 	ctx := context.Background()
+
 	var opts []option.ClientOption
 	if cfg.GKE.CredentialsFile != "" {
 		opts = append(opts, option.WithCredentialsFile(cfg.GKE.CredentialsFile))
+	}
+	if cfg.GKE.ServiceAccountName != "" {
+		opts = append(opts, option.WithTokenSource(newMetadataTokenSource()))
 	}
 	clusterClient, err := containerv1.NewClusterManagerClient(ctx, opts...)
 	if err != nil {
