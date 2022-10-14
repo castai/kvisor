@@ -78,5 +78,13 @@ func newTestConfig() Config {
 		KubeBench: KubeBench{
 			Enabled: true,
 		},
+		CloudScan: CloudScan{
+			Enabled:      true,
+			ScanInterval: 1 * time.Hour,
+			GKE: &CloudScanGKE{
+				ClusterName:     "",
+				CredentialsFile: "",
+			},
+		},
 	}
 }
