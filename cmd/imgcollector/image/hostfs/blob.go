@@ -1,7 +1,6 @@
-package simple
+package hostfs
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"path"
@@ -14,7 +13,6 @@ import (
 
 const (
 	contentDir = "/var/lib/containerd/io.containerd.content.v1.content"
-	//contentDir = "/Users/matas/Cast/sec-agent/cmd/imgcollector/image/blob/testdata/io.containerd.content.v1.content"
 	// TODO: OCI also supports sha512
 	alg   = "sha256"
 	blobs = "blobs"
@@ -31,6 +29,11 @@ type blobImage struct {
 	config      *v1.ConfigFile
 	configBytes []byte
 	imageID     string
+}
+
+type ContainerdFSReader struct {
+	Platform    v1.Platform
+	ContentPath string
 }
 
 func (b blobImage) Layers() ([]v1.Layer, error) {
@@ -87,7 +90,7 @@ func (b blobImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
 	return b.LayerByDigest(l.Digest)
 }
 
-func ContainerdImage(_ context.Context, imageID string) (Image, func(), error) {
+func ContainerdImage(imageID string) (Image, func(), error) {
 	manifest, err := resolveManifest(imageID)
 	if err != nil {
 		return nil, nil, err

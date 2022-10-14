@@ -12,7 +12,7 @@ const (
 	ModeRemote           Mode = "remote"
 	ModeDockerDaemon     Mode = "docker_daemon"
 	ModeContainerdDaemon Mode = "containerd_daemon"
-	ModeContainerdBlob   Mode = "containerd_blob"
+	ModeContainerdHostFS Mode = "containerd_hostfs"
 )
 
 type Config struct {

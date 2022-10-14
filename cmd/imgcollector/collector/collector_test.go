@@ -16,6 +16,7 @@ import (
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 )
 
+// contentDir = "/Users/matas/Cast/sec-agent/cmd/imgcollector/image/blob/testdata/io.containerd.content.v1.content"
 func TestCollector(t *testing.T) {
 	imgName := os.Getenv("IMG_NAME")
 	if imgName == "" {
@@ -40,7 +41,7 @@ func TestCollector(t *testing.T) {
 		ImageID:   imgID,
 		ImageName: imgName,
 		Timeout:   5 * time.Minute,
-		Mode:      config.ModeContainerdBlob,
+		Mode:      config.ModeContainerdHostFS,
 	}, mockClient, mockCache)
 
 	mockCache.EXPECT().GetBlob(gomock.Any(), gomock.Any()).Return(nil, blobscache.ErrCacheNotFound).AnyTimes()

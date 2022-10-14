@@ -1,4 +1,4 @@
-package simple
+package hostfs
 
 import (
 	"encoding/json"
