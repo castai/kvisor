@@ -4,15 +4,13 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/iam"
 	"github.com/googleapis/gax-go/v2"
+	json "github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 
 	containerv1 "cloud.google.com/go/container/apiv1"
-	iamv1 "cloud.google.com/go/iam/admin/apiv1"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
-	iampb "google.golang.org/genproto/googleapis/iam/v1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -20,10 +18,6 @@ import (
 
 type clusterClient interface {
 	GetCluster(ctx context.Context, req *containerpb.GetClusterRequest, opts ...gax.CallOption) (*containerpb.Cluster, error)
-}
-
-type iamClient interface {
-	GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iam.Policy, error)
 }
 
 type castaiClient interface {
@@ -44,15 +38,10 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, client castaiClien
 	if err != nil {
 		return nil, err
 	}
-	iamClient, err := iamv1.NewIamClient(ctx, opts...)
-	if err != nil {
-		return nil, err
-	}
 	return &Scanner{
 		log:           log,
 		cfg:           cfg,
 		clusterClient: clusterClient,
-		iamClient:     iamClient,
 		castaiClient:  client,
 	}, nil
 }
@@ -61,16 +50,15 @@ type check struct {
 	id          string
 	description string
 	manual      bool
-
-	failed   bool
-	validate func() error
+	context     any
+	failed      bool
+	validate    func(c *check)
 }
 
 type Scanner struct {
 	log           logrus.FieldLogger
 	cfg           config.CloudScan
 	clusterClient clusterClient
-	iamClient     iamClient
 	castaiClient  castaiClient
 }
 
@@ -88,49 +76,50 @@ func (s *Scanner) Start(ctx context.Context) {
 }
 
 func (s *Scanner) scan(ctx context.Context) error {
-	_, err := s.clusterClient.GetCluster(ctx, &containerpb.GetClusterRequest{
+	cl, err := s.clusterClient.GetCluster(ctx, &containerpb.GetClusterRequest{
 		Name: s.cfg.GKE.ClusterName,
 	})
 	if err != nil {
 		return err
 	}
 
-	checks := []check{check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(),
+	checks := []check{
+		check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(),
 		check512MinimizeuseraccesstoGCR(),
 		check513MinimizeclusteraccesstoreadonlyforGCR(),
 		check514MinimizeContainerRegistriestoonlythoseapproved(),
 		check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceaccount(),
 		check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity(),
 		check531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS(),
-		check541EnsurelegacyComputeEngineinstancemetadataAPIsareDisabled(),
-		check542EnsuretheGKEMetadataServerisEnabled(),
-		check1551EnsureContainerOptimizedOSCOSisusedforGKEnodeimages(),
-		check552EnsureNodeAutoRepairisenabledforGKEnodes(),
-		check553EnsureNodeAutoUpgradeisenabledforGKEnodes(),
+		check541EnsurelegacyComputeEngineinstancemetadataAPIsareDisabled(cl),
+		check542EnsuretheGKEMetadataServerisEnabled(cl),
+		check551EnsureContainerOptimizedOSCOSisusedforGKEnodeimages(cl),
+		check552EnsureNodeAutoRepairisenabledforGKEnodes(cl),
+		check553EnsureNodeAutoUpgradeisenabledforGKEnodes(cl),
 		check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChannels(),
 		check555EnsureShieldedGKENodesareEnabled(),
-		check556EnsureIntegrityMonitoringforShieldedGKENodesisEnabled(),
-		check557EnsureSecureBootforShieldedGKENodesisEnabled(),
-		check561EnableVPCFlowLogsandIntranodeVisibility(),
-		check562EnsureuseofVPCnativeclusters(),
+		check556EnsureIntegrityMonitoringforShieldedGKENodesisEnabled(cl),
+		check557EnsureSecureBootforShieldedGKENodesisEnabled(cl),
+		check561EnableVPCFlowLogsandIntranodeVisibility(cl),
+		check562EnsureuseofVPCnativeclusters(cl),
 		check563EnsureMasterAuthorizedNetworksisEnabled(),
 		check564EnsureclustersarecreatedwithPrivateEndpointEnabledandPublicAccessDisabled(),
 		check565EnsureclustersarecreatedwithPrivateNodes(),
 		check566ConsiderfirewallingGKEworkernodes(),
 		check567EnsureNetworkPolicyisEnabledandsetasappropriate(),
 		check568EnsureuseofGooglemanagedSSLCertificates(),
-		check571EnsureStackdriverKubernetesLoggingandMonitoringisEnabled(),
+		check571EnsureStackdriverKubernetesLoggingandMonitoringisEnabled(cl),
 		check572EnableLinuxauditdlogging(),
-		check581EnsureBasicAuthenticationusingstaticpasswordsisDisabled(),
-		check582EnsureauthenticationusingClientCertificatesisDisabled(),
+		check581EnsureBasicAuthenticationusingstaticpasswordsisDisabled(cl),
+		check582EnsureauthenticationusingClientCertificatesisDisabled(cl),
 		check583ManageKubernetesRBACuserswithGoogleGroupsforGKE(),
-		check584EnsureLegacyAuthorizationABACisDisabled(),
+		check584EnsureLegacyAuthorizationABACisDisabled(cl),
 		check591EnableCustomerManagedEncryptionKeysCMEKforGKEPersistentDisksPD(),
-		check5101EnsureKubernetesWebUIisDisabled(),
-		check5102EnsurethatAlphaclustersarenotusedforproductionworkloads(),
+		check5101EnsureKubernetesWebUIisDisabled(cl),
+		check5102EnsurethatAlphaclustersarenotusedforproductionworkloads(cl),
 		check5103EnsurePodSecurityPolicyisEnabledandsetasappropriate(),
 		check5104ConsiderGKESandboxforrunninguntrustedworkloads(),
-		check5105EnsureuseofBinaryAuthorization(),
+		check5105EnsureuseofBinaryAuthorization(cl),
 		check5106EnableCloudSecurityCommandCenterCloudSCC(),
 	}
 
@@ -139,14 +128,20 @@ func (s *Scanner) scan(ctx context.Context) error {
 	}
 	for _, c := range checks {
 		if !c.manual {
-			if err := c.validate(); err != nil {
+			c.validate(&c)
+		}
+		var contextBytes json.RawMessage
+		if c.context != nil {
+			contextBytes, err = json.Marshal(c.context)
+			if err != nil {
 				return err
 			}
 		}
 		report.Checks = append(report.Checks, castai.CloudScanCheck{
-			ID:     c.id,
-			Manual: c.manual,
-			Failed: c.failed,
+			ID:      c.id,
+			Manual:  c.manual,
+			Failed:  c.failed,
+			Context: contextBytes,
 		})
 	}
 

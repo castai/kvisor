@@ -6,12 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/iam"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
-	iampb "google.golang.org/genproto/googleapis/iam/v1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -27,10 +25,68 @@ func TestScanner(t *testing.T) {
 
 	clusterClient := &mockClusterClient{
 		clusters: map[string]*containerpb.Cluster{
-			clusterName: &containerpb.Cluster{},
+			clusterName: {
+				Name:                           "test-cluster",
+				MasterAuth:                     nil,
+				LoggingService:                 "",
+				MonitoringService:              "",
+				Network:                        "",
+				ClusterIpv4Cidr:                "",
+				AddonsConfig:                   nil,
+				Subnetwork:                     "",
+				NodePools:                      nil,
+				Locations:                      nil,
+				EnableKubernetesAlpha:          false,
+				ResourceLabels:                 nil,
+				LabelFingerprint:               "",
+				LegacyAbac:                     nil,
+				NetworkPolicy:                  nil,
+				IpAllocationPolicy:             nil,
+				MasterAuthorizedNetworksConfig: nil,
+				MaintenancePolicy:              nil,
+				BinaryAuthorization:            nil,
+				Autoscaling:                    nil,
+				NetworkConfig:                  nil,
+				DefaultMaxPodsConstraint:       nil,
+				ResourceUsageExportConfig:      nil,
+				AuthenticatorGroupsConfig:      nil,
+				PrivateClusterConfig:           nil,
+				DatabaseEncryption:             nil,
+				VerticalPodAutoscaling:         nil,
+				ShieldedNodes:                  nil,
+				ReleaseChannel:                 nil,
+				WorkloadIdentityConfig:         nil,
+				MeshCertificates:               nil,
+				NotificationConfig:             nil,
+				ConfidentialNodes:              nil,
+				IdentityServiceConfig:          nil,
+				SelfLink:                       "",
+				Zone:                           "",
+				Endpoint:                       "",
+				InitialClusterVersion:          "",
+				CurrentMasterVersion:           "",
+				CurrentNodeVersion:             "",
+				CreateTime:                     "",
+				Status:                         0,
+				StatusMessage:                  "",
+				NodeIpv4CidrSize:               0,
+				ServicesIpv4Cidr:               "",
+				InstanceGroupUrls:              nil,
+				CurrentNodeCount:               0,
+				ExpireTime:                     "",
+				Location:                       "",
+				EnableTpu:                      false,
+				TpuIpv4CidrBlock:               "",
+				Conditions:                     nil,
+				Autopilot:                      nil,
+				Id:                             "",
+				NodePoolDefaults:               nil,
+				LoggingConfig:                  nil,
+				MonitoringConfig:               nil,
+				NodePoolAutoConfig:             nil,
+			},
 		},
 	}
-	iamClient := &mockIAMClient{}
 	castaiClient := &mockCastaiClient{}
 
 	s := Scanner{
@@ -43,7 +99,6 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		clusterClient: clusterClient,
-		iamClient:     iamClient,
 		castaiClient:  castaiClient,
 	}
 
@@ -70,13 +125,6 @@ func (m *mockClusterClient) GetCluster(ctx context.Context, req *containerpb.Get
 		return nil, errors.New("cluster not found")
 	}
 	return v, nil
-}
-
-type mockIAMClient struct {
-}
-
-func (m *mockIAMClient) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iam.Policy, error) {
-	return nil, nil
 }
 
 type mockCastaiClient struct {
