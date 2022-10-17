@@ -143,7 +143,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
 						Path: imgcollectorconfig.ContainerdContentDir,
-						Type: lo.ToPtr(corev1.HostPathSocket),
+						Type: lo.ToPtr(corev1.HostPathDirectory),
 					},
 				},
 			})
