@@ -20,7 +20,7 @@ import (
 
 func TestCollector(t *testing.T) {
 	imgName := "notused"
-	imgID := "1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07"
+	imgID := "gke.gcr.io/phpmyadmin@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07"
 
 	r := require.New(t)
 	ctx := context.Background()
