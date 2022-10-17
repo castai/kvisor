@@ -13,7 +13,6 @@ func NewFromContainerdHostFS(imageID string, config *hostfs.ContainerdHostFSConf
 	}
 
 	digest := getDigestFromImageID(imageID)
-
 	img, cleanup, err := hostFsReader.ContainerdImage(digest)
 	if err != nil {
 		return nil, nil, err
