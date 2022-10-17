@@ -33,7 +33,7 @@ type castaiClient interface {
 	SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error
 }
 
-func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, client castaiClient) (*Scanner, error) {
+func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, imgScanEnabled bool, client castaiClient) (*Scanner, error) {
 	project, location := parseInfoFromClusterName(cfg.GKE.ClusterName)
 	if project == "" || location == "" {
 		return nil, fmt.Errorf("could not parse project and location from cluster name, expected format is `projects/*/locations/*/clusters/*`, actual %q", cfg.GKE.ClusterName)
@@ -62,6 +62,7 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, client castaiClien
 		cfg:                cfg,
 		project:            project,
 		location:           location,
+		imgScanEnabled:     imgScanEnabled,
 		castaiClient:       client,
 		clusterClient:      clusterClient,
 		serviceUsageClient: serviceUsageClient,
@@ -82,6 +83,7 @@ type Scanner struct {
 	cfg                config.CloudScan
 	project            string
 	location           string
+	imgScanEnabled     bool
 	castaiClient       castaiClient
 	clusterClient      clusterClient
 	serviceUsageClient serviceUsageClient
@@ -115,44 +117,42 @@ func (s *Scanner) scan(ctx context.Context) error {
 		return fmt.Errorf("getting service usage: %w", err)
 	}
 
-	fmt.Println("state", containerUsageService.State)
-
 	checks := []check{
-		check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(),
+		check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(containerUsageService, s.imgScanEnabled),
 		check512MinimizeuseraccesstoGCR(),
 		check513MinimizeclusteraccesstoreadonlyforGCR(),
 		check514MinimizeContainerRegistriestoonlythoseapproved(),
 		check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceaccount(),
-		check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity(),
-		check531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS(),
+		check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity(cl),
+		check531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS(cl),
 		check541EnsurelegacyComputeEngineinstancemetadataAPIsareDisabled(cl),
 		check542EnsuretheGKEMetadataServerisEnabled(cl),
 		check551EnsureContainerOptimizedOSCOSisusedforGKEnodeimages(cl),
 		check552EnsureNodeAutoRepairisenabledforGKEnodes(cl),
 		check553EnsureNodeAutoUpgradeisenabledforGKEnodes(cl),
-		check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChannels(),
-		check555EnsureShieldedGKENodesareEnabled(),
+		check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChannels(cl),
+		check555EnsureShieldedGKENodesareEnabled(cl),
 		check556EnsureIntegrityMonitoringforShieldedGKENodesisEnabled(cl),
 		check557EnsureSecureBootforShieldedGKENodesisEnabled(cl),
 		check561EnableVPCFlowLogsandIntranodeVisibility(cl),
 		check562EnsureuseofVPCnativeclusters(cl),
-		check563EnsureMasterAuthorizedNetworksisEnabled(),
-		check564EnsureclustersarecreatedwithPrivateEndpointEnabledandPublicAccessDisabled(),
-		check565EnsureclustersarecreatedwithPrivateNodes(),
+		check563EnsureMasterAuthorizedNetworksisEnabled(cl),
+		check564EnsureclustersarecreatedwithPrivateEndpointEnabledandPublicAccessDisabled(cl),
+		check565EnsureclustersarecreatedwithPrivateNodes(cl),
 		check566ConsiderfirewallingGKEworkernodes(),
-		check567EnsureNetworkPolicyisEnabledandsetasappropriate(),
+		check567EnsureNetworkPolicyisEnabledandsetasappropriate(cl),
 		check568EnsureuseofGooglemanagedSSLCertificates(),
 		check571EnsureStackdriverKubernetesLoggingandMonitoringisEnabled(cl),
 		check572EnableLinuxauditdlogging(),
 		check581EnsureBasicAuthenticationusingstaticpasswordsisDisabled(cl),
 		check582EnsureauthenticationusingClientCertificatesisDisabled(cl),
-		check583ManageKubernetesRBACuserswithGoogleGroupsforGKE(),
+		check583ManageKubernetesRBACuserswithGoogleGroupsforGKE(cl),
 		check584EnsureLegacyAuthorizationABACisDisabled(cl),
 		check591EnableCustomerManagedEncryptionKeysCMEKforGKEPersistentDisksPD(),
 		check5101EnsureKubernetesWebUIisDisabled(cl),
 		check5102EnsurethatAlphaclustersarenotusedforproductionworkloads(cl),
 		check5103EnsurePodSecurityPolicyisEnabledandsetasappropriate(),
-		check5104ConsiderGKESandboxforrunninguntrustedworkloads(),
+		check5104ConsiderGKESandboxforrunninguntrustedworkloads(cl),
 		check5105EnsureuseofBinaryAuthorization(cl),
 		check5106EnableCloudSecurityCommandCenterCloudSCC(),
 	}

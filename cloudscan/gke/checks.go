@@ -1,6 +1,11 @@
 package gke
 
-import containerpb "google.golang.org/genproto/googleapis/container/v1"
+import (
+	"strings"
+
+	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
+	containerpb "google.golang.org/genproto/googleapis/container/v1"
+)
 
 /*
 // Checks are generated using js script.
@@ -32,11 +37,14 @@ var checksSlice = 'checks := []check{'+items.map(x => {
 console.log(funcs+'\n'+checksSlice)
 */
 
-func check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider() check {
+func check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(gcrContainerScanService *serviceusagepb.Service, castaiImageScanEnabled bool) check {
 	return check{
 		id:          "511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider",
 		description: "5.1.1 - Ensure Image Vulnerability Scanning using GCR Container Analysis or a third party provider",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = gcrContainerScanService.State == serviceusagepb.State_DISABLED && !castaiImageScanEnabled
+		},
 	}
 }
 func check512MinimizeuseraccesstoGCR() check {
@@ -67,18 +75,24 @@ func check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceac
 		manual:      true,
 	}
 }
-func check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity() check {
+func check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity(cl *containerpb.Cluster) check {
 	return check{
 		id:          "522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity",
 		description: "5.2.2 - Prefer using dedicated GCP Service Accounts and Workload Identity",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.WorkloadIdentityConfig == nil || cl.WorkloadIdentityConfig.WorkloadPool == "" || !strings.HasSuffix(cl.WorkloadIdentityConfig.WorkloadPool, "svc.id.goog")
+		},
 	}
 }
-func check531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS() check {
+func check531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS(cl *containerpb.Cluster) check {
 	return check{
 		id:          "531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS",
 		description: "5.3.1 - Ensure Kubernetes Secrets are encrypted using keys managed in Cloud KMS",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.DatabaseEncryption == nil || cl.DatabaseEncryption.State != containerpb.DatabaseEncryption_ENCRYPTED
+		},
 	}
 }
 func check541EnsurelegacyComputeEngineinstancemetadataAPIsareDisabled(cl *containerpb.Cluster) check {
@@ -126,7 +140,7 @@ func check551EnsureContainerOptimizedOSCOSisusedforGKEnodeimages(cl *containerpb
 		validate: func(c *check) {
 			var failedPools []string
 			for _, pool := range cl.NodePools {
-				if pool.Config.ImageType != "COS" {
+				if pool.Config.ImageType != "COS" && pool.Config.ImageType != "COS_CONTAINERD" {
 					failedPools = append(failedPools, pool.Name)
 				}
 			}
@@ -173,18 +187,30 @@ func check553EnsureNodeAutoUpgradeisenabledforGKEnodes(cl *containerpb.Cluster) 
 		},
 	}
 }
-func check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChannels() check {
+func check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChannels(cl *containerpb.Cluster) check {
 	return check{
 		id:          "554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChannels",
 		description: "5.5.4 - When creating New Clusters - Automate GKE version management using Release Channels",
 		manual:      true,
+		validate: func(c *check) {
+			type checkContext struct {
+				ReleaseChannel string `json:"releaseChannel"`
+			}
+			if cl.ReleaseChannel == nil || (cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_REGULAR && cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_STABLE) {
+				c.failed = true
+				c.context = checkContext{ReleaseChannel: cl.ReleaseChannel.Channel.String()}
+			}
+		},
 	}
 }
-func check555EnsureShieldedGKENodesareEnabled() check {
+func check555EnsureShieldedGKENodesareEnabled(cl *containerpb.Cluster) check {
 	return check{
 		id:          "555EnsureShieldedGKENodesareEnabled",
 		description: "5.5.5 - Ensure Shielded GKE Nodes are Enabled",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.ShieldedNodes == nil || !cl.ShieldedNodes.Enabled
+		},
 	}
 }
 func check556EnsureIntegrityMonitoringforShieldedGKENodesisEnabled(cl *containerpb.Cluster) check {
@@ -228,9 +254,7 @@ func check561EnableVPCFlowLogsandIntranodeVisibility(cl *containerpb.Cluster) ch
 		id:          "561EnableVPCFlowLogsandIntranodeVisibility",
 		description: "5.6.1 - Enable VPC Flow Logs and Intranode Visibility",
 		validate: func(c *check) {
-			if cl.NetworkConfig == nil || !cl.NetworkConfig.EnableIntraNodeVisibility {
-				c.failed = true
-			}
+			c.failed = cl.NetworkConfig == nil || !cl.NetworkConfig.EnableIntraNodeVisibility
 		},
 	}
 }
@@ -239,31 +263,38 @@ func check562EnsureuseofVPCnativeclusters(cl *containerpb.Cluster) check {
 		id:          "562EnsureuseofVPCnativeclusters",
 		description: "5.6.2 - Ensure use of VPC-native clusters",
 		validate: func(c *check) {
-			if cl.IpAllocationPolicy == nil || !cl.IpAllocationPolicy.UseIpAliases {
-				c.failed = true
-			}
+			c.failed = cl.IpAllocationPolicy == nil || !cl.IpAllocationPolicy.UseIpAliases
 		},
 	}
 }
-func check563EnsureMasterAuthorizedNetworksisEnabled() check {
+func check563EnsureMasterAuthorizedNetworksisEnabled(cl *containerpb.Cluster) check {
 	return check{
 		id:          "563EnsureMasterAuthorizedNetworksisEnabled",
 		description: "5.6.3 - Ensure Master Authorized Networks is Enabled",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.MasterAuthorizedNetworksConfig == nil || !cl.MasterAuthorizedNetworksConfig.Enabled
+		},
 	}
 }
-func check564EnsureclustersarecreatedwithPrivateEndpointEnabledandPublicAccessDisabled() check {
+func check564EnsureclustersarecreatedwithPrivateEndpointEnabledandPublicAccessDisabled(cl *containerpb.Cluster) check {
 	return check{
 		id:          "564EnsureclustersarecreatedwithPrivateEndpointEnabledandPublicAccessDisabled",
 		description: "5.6.4 - Ensure clusters are created with Private Endpoint Enabled and Public Access Disabled",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.PrivateClusterConfig == nil || !cl.PrivateClusterConfig.EnablePrivateEndpoint
+		},
 	}
 }
-func check565EnsureclustersarecreatedwithPrivateNodes() check {
+func check565EnsureclustersarecreatedwithPrivateNodes(cl *containerpb.Cluster) check {
 	return check{
 		id:          "565EnsureclustersarecreatedwithPrivateNodes",
 		description: "5.6.5 - Ensure clusters are created with Private Nodes",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.PrivateClusterConfig == nil || !cl.PrivateClusterConfig.EnablePrivateNodes
+		},
 	}
 }
 func check566ConsiderfirewallingGKEworkernodes() check {
@@ -273,11 +304,14 @@ func check566ConsiderfirewallingGKEworkernodes() check {
 		manual:      true,
 	}
 }
-func check567EnsureNetworkPolicyisEnabledandsetasappropriate() check {
+func check567EnsureNetworkPolicyisEnabledandsetasappropriate(cl *containerpb.Cluster) check {
 	return check{
 		id:          "567EnsureNetworkPolicyisEnabledandsetasappropriate",
 		description: "5.6.7 - Ensure Network Policy is Enabled and set as appropriate",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.NetworkPolicy == nil || !cl.NetworkPolicy.Enabled
+		},
 	}
 }
 func check568EnsureuseofGooglemanagedSSLCertificates() check {
@@ -292,9 +326,7 @@ func check571EnsureStackdriverKubernetesLoggingandMonitoringisEnabled(cl *contai
 		id:          "571EnsureStackdriverKubernetesLoggingandMonitoringisEnabled",
 		description: "5.7.1 - Ensure Stackdriver Kubernetes Logging and Monitoring is Enabled",
 		validate: func(c *check) {
-			if cl.LoggingService == "none" || cl.MonitoringService == "none" {
-				c.failed = true
-			}
+			c.failed = cl.LoggingService == "none" || cl.MonitoringService == "none"
 		},
 	}
 }
@@ -310,9 +342,7 @@ func check581EnsureBasicAuthenticationusingstaticpasswordsisDisabled(cl *contain
 		id:          "581EnsureBasicAuthenticationusingstaticpasswordsisDisabled",
 		description: "5.8.1 - Ensure Basic Authentication using static passwords is Disabled",
 		validate: func(c *check) {
-			if cl.MasterAuth != nil && (cl.MasterAuth.Username != "" || cl.MasterAuth.Password != "") { //nolint:staticcheck
-				c.failed = true
-			}
+			c.failed = cl.MasterAuth != nil && (cl.MasterAuth.Username != "" || cl.MasterAuth.Password != "") //nolint:staticcheck
 		},
 	}
 }
@@ -321,17 +351,18 @@ func check582EnsureauthenticationusingClientCertificatesisDisabled(cl *container
 		id:          "582EnsureauthenticationusingClientCertificatesisDisabled",
 		description: "5.8.2 - Ensure authentication using Client Certificates is Disabled",
 		validate: func(c *check) {
-			if cl.MasterAuth.ClientKey != "" {
-				c.failed = true
-			}
+			c.failed = cl.MasterAuth != nil && cl.MasterAuth.ClientKey != ""
 		},
 	}
 }
-func check583ManageKubernetesRBACuserswithGoogleGroupsforGKE() check {
+func check583ManageKubernetesRBACuserswithGoogleGroupsforGKE(cl *containerpb.Cluster) check {
 	return check{
 		id:          "583ManageKubernetesRBACuserswithGoogleGroupsforGKE",
 		description: "5.8.3 - Manage Kubernetes RBAC users with Google Groups for GKE",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.AuthenticatorGroupsConfig == nil || !cl.AuthenticatorGroupsConfig.Enabled || !strings.HasPrefix(cl.AuthenticatorGroupsConfig.SecurityGroup, "gke-security-groups")
+		},
 	}
 }
 func check584EnsureLegacyAuthorizationABACisDisabled(cl *containerpb.Cluster) check {
@@ -339,9 +370,7 @@ func check584EnsureLegacyAuthorizationABACisDisabled(cl *containerpb.Cluster) ch
 		id:          "584EnsureLegacyAuthorizationABACisDisabled",
 		description: "5.8.4 - Ensure Legacy Authorization (ABAC) is Disabled",
 		validate: func(c *check) {
-			if cl.LegacyAbac != nil && cl.LegacyAbac.Enabled {
-				c.failed = true
-			}
+			c.failed = cl.LegacyAbac != nil && cl.LegacyAbac.Enabled
 		},
 	}
 }
@@ -357,9 +386,7 @@ func check5101EnsureKubernetesWebUIisDisabled(cl *containerpb.Cluster) check {
 		id:          "5101EnsureKubernetesWebUIisDisabled",
 		description: "5.10.1 - Ensure Kubernetes Web UI is Disabled",
 		validate: func(c *check) {
-			if cl.AddonsConfig != nil && cl.AddonsConfig.KubernetesDashboard != nil && !cl.AddonsConfig.KubernetesDashboard.Disabled { //nolint:staticcheck
-				c.failed = true
-			}
+			c.failed = cl.AddonsConfig != nil && cl.AddonsConfig.KubernetesDashboard != nil && !cl.AddonsConfig.KubernetesDashboard.Disabled //nolint:staticcheck
 		},
 	}
 }
@@ -368,24 +395,35 @@ func check5102EnsurethatAlphaclustersarenotusedforproductionworkloads(cl *contai
 		id:          "5102EnsurethatAlphaclustersarenotusedforproductionworkloads",
 		description: "5.10.2 - Ensure that Alpha clusters are not used for production workloads",
 		validate: func(c *check) {
-			if cl.EnableKubernetesAlpha {
-				c.failed = true
-			}
+			c.failed = cl.EnableKubernetesAlpha
 		},
 	}
 }
 func check5103EnsurePodSecurityPolicyisEnabledandsetasappropriate() check {
+	// Pod security policies are now deprecated. CIS is outdated.
 	return check{
 		id:          "5103EnsurePodSecurityPolicyisEnabledandsetasappropriate",
 		description: "5.10.3 - Ensure Pod Security Policy is Enabled and set as appropriate",
 		manual:      true,
 	}
 }
-func check5104ConsiderGKESandboxforrunninguntrustedworkloads() check {
+func check5104ConsiderGKESandboxforrunninguntrustedworkloads(cl *containerpb.Cluster) check {
 	return check{
 		id:          "5104ConsiderGKESandboxforrunninguntrustedworkloads",
 		description: "5.10.4 - Consider GKE Sandbox for running untrusted workloads",
 		manual:      true,
+		validate: func(c *check) {
+			var failedPools []string
+			for _, pool := range cl.NodePools {
+				if pool.Config.SandboxConfig == nil {
+					failedPools = append(failedPools, pool.Name)
+				}
+			}
+			if len(failedPools) > 0 {
+				c.context = failedPools
+				c.failed = true
+			}
+		},
 	}
 }
 func check5105EnsureuseofBinaryAuthorization(cl *containerpb.Cluster) check {
@@ -393,9 +431,7 @@ func check5105EnsureuseofBinaryAuthorization(cl *containerpb.Cluster) check {
 		id:          "5105EnsureuseofBinaryAuthorization",
 		description: "5.10.5 - Ensure use of Binary Authorization",
 		validate: func(c *check) {
-			if cl.BinaryAuthorization == nil || !cl.BinaryAuthorization.Enabled { //nolint:staticcheck
-				c.failed = true
-			}
+			c.failed = cl.BinaryAuthorization == nil || !cl.BinaryAuthorization.Enabled //nolint:staticcheck
 		},
 	}
 }

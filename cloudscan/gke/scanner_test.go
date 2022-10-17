@@ -7,10 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 
 	"github.com/castai/sec-agent/castai"
@@ -65,6 +67,7 @@ func TestScanner(t *testing.T) {
 			},
 		},
 	}
+	serviceUsageClient := &mockServiceUsageClient{}
 	castaiClient := &mockCastaiClient{}
 
 	s := Scanner{
@@ -76,8 +79,9 @@ func TestScanner(t *testing.T) {
 				ClusterName: clusterName,
 			},
 		},
-		clusterClient: clusterClient,
-		castaiClient:  castaiClient,
+		clusterClient:      clusterClient,
+		castaiClient:       castaiClient,
+		serviceUsageClient: serviceUsageClient,
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Millisecond)
@@ -126,10 +130,12 @@ func TestScannerLocal(t *testing.T) {
 			ClusterName:     clusterName,
 			CredentialsFile: credentialsFile,
 		},
-	}, castaiClient)
+	}, false, castaiClient)
 	r.NoError(err)
 
 	r.NoError(s.scan(ctx))
+
+	spew.Dump(castaiClient.sentReport.Checks)
 }
 
 type mockClusterClient struct {
@@ -151,4 +157,11 @@ type mockCastaiClient struct {
 func (m *mockCastaiClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error {
 	m.sentReport = report
 	return nil
+}
+
+type mockServiceUsageClient struct {
+}
+
+func (m *mockServiceUsageClient) GetService(ctx context.Context, req *serviceusagepb.GetServiceRequest, opts ...gax.CallOption) (*serviceusagepb.Service, error) {
+	return &serviceusagepb.Service{}, nil
 }
