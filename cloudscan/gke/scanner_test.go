@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/googleapis/gax-go/v2"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
@@ -26,64 +27,40 @@ func TestScanner(t *testing.T) {
 	clusterClient := &mockClusterClient{
 		clusters: map[string]*containerpb.Cluster{
 			clusterName: {
-				Name:                           "test-cluster",
-				MasterAuth:                     nil,
-				LoggingService:                 "",
-				MonitoringService:              "",
-				Network:                        "",
-				ClusterIpv4Cidr:                "",
-				AddonsConfig:                   nil,
-				Subnetwork:                     "",
-				NodePools:                      nil,
-				Locations:                      nil,
-				EnableKubernetesAlpha:          false,
-				ResourceLabels:                 nil,
-				LabelFingerprint:               "",
-				LegacyAbac:                     nil,
-				NetworkPolicy:                  nil,
-				IpAllocationPolicy:             nil,
-				MasterAuthorizedNetworksConfig: nil,
-				MaintenancePolicy:              nil,
-				BinaryAuthorization:            nil,
-				Autoscaling:                    nil,
-				NetworkConfig:                  nil,
-				DefaultMaxPodsConstraint:       nil,
-				ResourceUsageExportConfig:      nil,
-				AuthenticatorGroupsConfig:      nil,
-				PrivateClusterConfig:           nil,
-				DatabaseEncryption:             nil,
-				VerticalPodAutoscaling:         nil,
-				ShieldedNodes:                  nil,
-				ReleaseChannel:                 nil,
-				WorkloadIdentityConfig:         nil,
-				MeshCertificates:               nil,
-				NotificationConfig:             nil,
-				ConfidentialNodes:              nil,
-				IdentityServiceConfig:          nil,
-				SelfLink:                       "",
-				Zone:                           "",
-				Endpoint:                       "",
-				InitialClusterVersion:          "",
-				CurrentMasterVersion:           "",
-				CurrentNodeVersion:             "",
-				CreateTime:                     "",
-				Status:                         0,
-				StatusMessage:                  "",
-				NodeIpv4CidrSize:               0,
-				ServicesIpv4Cidr:               "",
-				InstanceGroupUrls:              nil,
-				CurrentNodeCount:               0,
-				ExpireTime:                     "",
-				Location:                       "",
-				EnableTpu:                      false,
-				TpuIpv4CidrBlock:               "",
-				Conditions:                     nil,
-				Autopilot:                      nil,
-				Id:                             "",
-				NodePoolDefaults:               nil,
-				LoggingConfig:                  nil,
-				MonitoringConfig:               nil,
-				NodePoolAutoConfig:             nil,
+				Name: "test-cluster",
+				MasterAuth: &containerpb.MasterAuth{
+					Username:  "user", //nolint:staticcheck
+					Password:  "pass", //nolint:staticcheck
+					ClientKey: "key",
+				},
+				LoggingService:    "none",
+				MonitoringService: "none",
+				AddonsConfig: &containerpb.AddonsConfig{
+					KubernetesDashboard: &containerpb.KubernetesDashboard{}, //nolint:staticcheck
+				},
+				NodePools: []*containerpb.NodePool{
+					{
+						Name: "pool-1",
+						Config: &containerpb.NodeConfig{
+							Metadata: map[string]string{
+								"disable-legacy-endpoints": "false",
+							},
+							ImageType:              "FAKE",
+							WorkloadMetadataConfig: nil,
+							ShieldedInstanceConfig: &containerpb.ShieldedInstanceConfig{
+								EnableSecureBoot:          false,
+								EnableIntegrityMonitoring: false,
+							},
+						},
+						Management: &containerpb.NodeManagement{
+							AutoUpgrade: false,
+							AutoRepair:  false,
+						},
+					},
+				},
+				EnableKubernetesAlpha: true,
+				LegacyAbac:            &containerpb.LegacyAbac{Enabled: true},
+				NetworkConfig:         &containerpb.NetworkConfig{EnableIntraNodeVisibility: false},
 			},
 		},
 	}
@@ -107,6 +84,9 @@ func TestScanner(t *testing.T) {
 	s.Start(ctx)
 
 	r.NotNil(castaiClient.sentReport)
+
+	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Failed })
+	r.Equal(16, failedCount)
 	check := castaiClient.sentReport.Checks[0]
 	r.Equal(castai.CloudScanCheck{
 		ID:     "511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider",

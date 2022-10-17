@@ -144,7 +144,7 @@ func check552EnsureNodeAutoRepairisenabledforGKEnodes(cl *containerpb.Cluster) c
 		validate: func(c *check) {
 			var failedPools []string
 			for _, pool := range cl.NodePools {
-				if !pool.Management.AutoRepair {
+				if pool.Management == nil || !pool.Management.AutoRepair {
 					failedPools = append(failedPools, pool.Name)
 				}
 			}
@@ -162,7 +162,7 @@ func check553EnsureNodeAutoUpgradeisenabledforGKEnodes(cl *containerpb.Cluster) 
 		validate: func(c *check) {
 			var failedPools []string
 			for _, pool := range cl.NodePools {
-				if !pool.Management.AutoUpgrade {
+				if pool.Management == nil || !pool.Management.AutoUpgrade {
 					failedPools = append(failedPools, pool.Name)
 				}
 			}
@@ -310,7 +310,7 @@ func check581EnsureBasicAuthenticationusingstaticpasswordsisDisabled(cl *contain
 		id:          "581EnsureBasicAuthenticationusingstaticpasswordsisDisabled",
 		description: "5.8.1 - Ensure Basic Authentication using static passwords is Disabled",
 		validate: func(c *check) {
-			if cl.MasterAuth.Username != "" || cl.MasterAuth.Password != "" { //nolint:staticcheck
+			if cl.MasterAuth != nil && (cl.MasterAuth.Username != "" || cl.MasterAuth.Password != "") { //nolint:staticcheck
 				c.failed = true
 			}
 		},
