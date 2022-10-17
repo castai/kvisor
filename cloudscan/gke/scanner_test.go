@@ -3,6 +3,7 @@ package gke
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -93,6 +94,42 @@ func TestScanner(t *testing.T) {
 		Manual: true,
 		Failed: false,
 	}, check)
+}
+
+func TestParseInfoFromCluster(t *testing.T) {
+	r := require.New(t)
+
+	project, loc := parseInfoFromClusterName("projects/my-project/locations/eu-central-1/clusters/test-cluster")
+
+	r.Equal("my-project", project)
+	r.Equal("eu-central-1", loc)
+}
+
+func TestScannerLocal(t *testing.T) {
+	credentialsFile := os.Getenv("GCP_CREDENTIALS_FILE")
+	if credentialsFile == "" {
+		t.Skip()
+	}
+	clusterName := os.Getenv("CLUSTER_NAME")
+	if clusterName == "" {
+		t.Skip()
+	}
+
+	r := require.New(t)
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	castaiClient := &mockCastaiClient{}
+	s, err := NewScanner(log, config.CloudScan{
+		GKE: &config.CloudScanGKE{
+			ClusterName:     clusterName,
+			CredentialsFile: credentialsFile,
+		},
+	}, castaiClient)
+	r.NoError(err)
+
+	r.NoError(s.scan(ctx))
 }
 
 type mockClusterClient struct {

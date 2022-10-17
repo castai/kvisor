@@ -2,6 +2,8 @@ package gke
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/googleapis/gax-go/v2"
@@ -10,7 +12,10 @@ import (
 	"google.golang.org/api/option"
 
 	containerv1 "cloud.google.com/go/container/apiv1"
+	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
+
+	serviceusagev1 "cloud.google.com/go/serviceusage/apiv1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -20,13 +25,21 @@ type clusterClient interface {
 	GetCluster(ctx context.Context, req *containerpb.GetClusterRequest, opts ...gax.CallOption) (*containerpb.Cluster, error)
 }
 
+type serviceUsageClient interface {
+	GetService(ctx context.Context, req *serviceusagepb.GetServiceRequest, opts ...gax.CallOption) (*serviceusagepb.Service, error)
+}
+
 type castaiClient interface {
 	SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error
 }
 
 func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, client castaiClient) (*Scanner, error) {
-	ctx := context.Background()
+	project, location := parseInfoFromClusterName(cfg.GKE.ClusterName)
+	if project == "" || location == "" {
+		return nil, fmt.Errorf("could not parse project and location from cluster name, expected format is `projects/*/locations/*/clusters/*`, actual %q", cfg.GKE.ClusterName)
+	}
 
+	ctx := context.Background()
 	var opts []option.ClientOption
 	if cfg.GKE.CredentialsFile != "" {
 		opts = append(opts, option.WithCredentialsFile(cfg.GKE.CredentialsFile))
@@ -38,11 +51,20 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, client castaiClien
 	if err != nil {
 		return nil, err
 	}
+
+	serviceUsageClient, err := serviceusagev1.NewClient(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Scanner{
-		log:           log,
-		cfg:           cfg,
-		clusterClient: clusterClient,
-		castaiClient:  client,
+		log:                log,
+		cfg:                cfg,
+		project:            project,
+		location:           location,
+		castaiClient:       client,
+		clusterClient:      clusterClient,
+		serviceUsageClient: serviceUsageClient,
 	}, nil
 }
 
@@ -56,10 +78,13 @@ type check struct {
 }
 
 type Scanner struct {
-	log           logrus.FieldLogger
-	cfg           config.CloudScan
-	clusterClient clusterClient
-	castaiClient  castaiClient
+	log                logrus.FieldLogger
+	cfg                config.CloudScan
+	project            string
+	location           string
+	castaiClient       castaiClient
+	clusterClient      clusterClient
+	serviceUsageClient serviceUsageClient
 }
 
 func (s *Scanner) Start(ctx context.Context) {
@@ -80,8 +105,17 @@ func (s *Scanner) scan(ctx context.Context) error {
 		Name: s.cfg.GKE.ClusterName,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("getting cluster: %w", err)
 	}
+
+	containerUsageService, err := s.serviceUsageClient.GetService(ctx, &serviceusagepb.GetServiceRequest{
+		Name: fmt.Sprintf("projects/%s/services/containerscanning.googleapis.com", s.project),
+	})
+	if err != nil {
+		return fmt.Errorf("getting service usage: %w", err)
+	}
+
+	fmt.Println("state", containerUsageService.State)
 
 	checks := []check{
 		check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(),
@@ -150,4 +184,12 @@ func (s *Scanner) scan(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func parseInfoFromClusterName(clusterName string) (project, location string) {
+	parts := strings.Split(clusterName, "/")
+	if len(parts) != 6 {
+		return "", ""
+	}
+	return parts[1], parts[3]
 }
