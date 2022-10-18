@@ -3,15 +3,17 @@ package gke
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
-	"cloud.google.com/go/iam"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/googleapis/gax-go/v2"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
-	iampb "google.golang.org/genproto/googleapis/iam/v1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -27,10 +29,45 @@ func TestScanner(t *testing.T) {
 
 	clusterClient := &mockClusterClient{
 		clusters: map[string]*containerpb.Cluster{
-			clusterName: &containerpb.Cluster{},
+			clusterName: {
+				Name: "test-cluster",
+				MasterAuth: &containerpb.MasterAuth{
+					Username:  "user", //nolint:staticcheck
+					Password:  "pass", //nolint:staticcheck
+					ClientKey: "key",
+				},
+				LoggingService:    "none",
+				MonitoringService: "none",
+				AddonsConfig: &containerpb.AddonsConfig{
+					KubernetesDashboard: &containerpb.KubernetesDashboard{}, //nolint:staticcheck
+				},
+				NodePools: []*containerpb.NodePool{
+					{
+						Name: "pool-1",
+						Config: &containerpb.NodeConfig{
+							Metadata: map[string]string{
+								"disable-legacy-endpoints": "false",
+							},
+							ImageType:              "FAKE",
+							WorkloadMetadataConfig: nil,
+							ShieldedInstanceConfig: &containerpb.ShieldedInstanceConfig{
+								EnableSecureBoot:          false,
+								EnableIntegrityMonitoring: false,
+							},
+						},
+						Management: &containerpb.NodeManagement{
+							AutoUpgrade: false,
+							AutoRepair:  false,
+						},
+					},
+				},
+				EnableKubernetesAlpha: true,
+				LegacyAbac:            &containerpb.LegacyAbac{Enabled: true},
+				NetworkConfig:         &containerpb.NetworkConfig{EnableIntraNodeVisibility: false},
+			},
 		},
 	}
-	iamClient := &mockIAMClient{}
+	serviceUsageClient := &mockServiceUsageClient{}
 	castaiClient := &mockCastaiClient{}
 
 	s := Scanner{
@@ -42,9 +79,9 @@ func TestScanner(t *testing.T) {
 				ClusterName: clusterName,
 			},
 		},
-		clusterClient: clusterClient,
-		iamClient:     iamClient,
-		castaiClient:  castaiClient,
+		clusterClient:      clusterClient,
+		castaiClient:       castaiClient,
+		serviceUsageClient: serviceUsageClient,
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Millisecond)
@@ -52,12 +89,53 @@ func TestScanner(t *testing.T) {
 	s.Start(ctx)
 
 	r.NotNil(castaiClient.sentReport)
+
+	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Failed })
+	r.Equal(16, failedCount)
 	check := castaiClient.sentReport.Checks[0]
 	r.Equal(castai.CloudScanCheck{
 		ID:     "511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider",
 		Manual: true,
 		Failed: false,
 	}, check)
+}
+
+func TestParseInfoFromCluster(t *testing.T) {
+	r := require.New(t)
+
+	project, loc := parseInfoFromClusterName("projects/my-project/locations/eu-central-1/clusters/test-cluster")
+
+	r.Equal("my-project", project)
+	r.Equal("eu-central-1", loc)
+}
+
+func TestScannerLocal(t *testing.T) {
+	credentialsFile := os.Getenv("GCP_CREDENTIALS_FILE")
+	if credentialsFile == "" {
+		t.Skip()
+	}
+	clusterName := os.Getenv("CLUSTER_NAME")
+	if clusterName == "" {
+		t.Skip()
+	}
+
+	r := require.New(t)
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	castaiClient := &mockCastaiClient{}
+	s, err := NewScanner(log, config.CloudScan{
+		GKE: &config.CloudScanGKE{
+			ClusterName:     clusterName,
+			CredentialsFile: credentialsFile,
+		},
+	}, false, castaiClient)
+	r.NoError(err)
+
+	r.NoError(s.scan(ctx))
+
+	spew.Dump(castaiClient.sentReport.Checks)
 }
 
 type mockClusterClient struct {
@@ -72,13 +150,6 @@ func (m *mockClusterClient) GetCluster(ctx context.Context, req *containerpb.Get
 	return v, nil
 }
 
-type mockIAMClient struct {
-}
-
-func (m *mockIAMClient) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iam.Policy, error) {
-	return nil, nil
-}
-
 type mockCastaiClient struct {
 	sentReport *castai.CloudScanReport
 }
@@ -86,4 +157,11 @@ type mockCastaiClient struct {
 func (m *mockCastaiClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error {
 	m.sentReport = report
 	return nil
+}
+
+type mockServiceUsageClient struct {
+}
+
+func (m *mockServiceUsageClient) GetService(ctx context.Context, req *serviceusagepb.GetServiceRequest, opts ...gax.CallOption) (*serviceusagepb.Service, error) {
+	return &serviceusagepb.Service{}, nil
 }

@@ -182,7 +182,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	if cfg.CloudScan.Enabled {
 		switch cfg.Provider {
 		case "gke":
-			gkeCloudScanner, err := gke.NewScanner(log, cfg.CloudScan, castaiClient)
+			gkeCloudScanner, err := gke.NewScanner(log, cfg.CloudScan, cfg.ImageScan.Enabled, castaiClient)
 			if err != nil {
 				return err
 			}
