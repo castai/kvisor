@@ -161,7 +161,7 @@ func (s *Scanner) scan(ctx context.Context) error {
 		Checks: make([]castai.CloudScanCheck, 0, len(checks)),
 	}
 	for _, c := range checks {
-		if !c.manual {
+		if c.validate != nil {
 			c.validate(&c)
 		}
 		var contextBytes json.RawMessage

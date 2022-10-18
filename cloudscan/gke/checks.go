@@ -196,7 +196,7 @@ func check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChan
 			type checkContext struct {
 				ReleaseChannel string `json:"releaseChannel"`
 			}
-			if cl.ReleaseChannel == nil || (cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_REGULAR && cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_STABLE) {
+			if cl.ReleaseChannel != nil && (cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_REGULAR && cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_STABLE) {
 				c.failed = true
 				c.context = checkContext{ReleaseChannel: cl.ReleaseChannel.Channel.String()}
 			}

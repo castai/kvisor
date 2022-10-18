@@ -91,7 +91,7 @@ func TestScanner(t *testing.T) {
 	r.NotNil(castaiClient.sentReport)
 
 	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Failed })
-	r.Equal(16, failedCount)
+	r.Equal(25, failedCount)
 	check := castaiClient.sentReport.Checks[0]
 	r.Equal(castai.CloudScanCheck{
 		ID:     "511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider",
@@ -134,7 +134,6 @@ func TestScannerLocal(t *testing.T) {
 	r.NoError(err)
 
 	r.NoError(s.scan(ctx))
-
 	spew.Dump(castaiClient.sentReport.Checks)
 }
 
