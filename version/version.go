@@ -1,4 +1,3 @@
-//go:generate mockgen -destination ./mock/version.go . Interface
 package version
 
 import (
@@ -6,16 +5,10 @@ import (
 	"regexp"
 	"strconv"
 
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
 
-type Interface interface {
-	Full() string
-	MinorInt() int
-}
-
-func Get(clientset kubernetes.Interface) (Interface, error) {
+func Get(clientset kubernetes.Interface) (*Version, error) {
 	cs, ok := clientset.(*kubernetes.Clientset)
 	if !ok {
 		return nil, fmt.Errorf("expected clientset to be of type *kubernetes.Clientset but was %T", clientset)
@@ -31,18 +24,13 @@ func Get(clientset kubernetes.Interface) (Interface, error) {
 		return nil, fmt.Errorf("parsing minor version: %w", err)
 	}
 
-	return &Version{v: sv, m: m}, nil
+	return &Version{
+		Full:     sv.Major + "." + sv.Minor,
+		MinorInt: m,
+	}, nil
 }
 
 type Version struct {
-	v *version.Info
-	m int
-}
-
-func (v *Version) Full() string {
-	return v.v.Major + "." + v.v.Minor
-}
-
-func (v *Version) MinorInt() int {
-	return v.m
+	Full     string
+	MinorInt int
 }

@@ -2,10 +2,15 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 
+	jsoniter "github.com/json-iterator/go"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,7 +28,7 @@ func New(
 	log logrus.FieldLogger,
 	f informers.SharedInformerFactory,
 	subscribers []ObjectSubscriber,
-	k8sVersion version.Interface,
+	k8sVersion version.Version,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
 		reflect.TypeOf(&corev1.Node{}):        f.Core().V1().Nodes().Informer(),
@@ -42,7 +47,7 @@ func New(
 		reflect.TypeOf(&rbacv1.Role{}):               f.Rbac().V1().Roles().Informer(),
 	}
 
-	if k8sVersion.MinorInt() >= 21 {
+	if k8sVersion.MinorInt >= 21 {
 		typeInformerMap[reflect.TypeOf(&batchv1.CronJob{})] = f.Batch().V1().CronJobs().Informer()
 	} else {
 		typeInformerMap[reflect.TypeOf(&batchv1beta1.CronJob{})] = f.Batch().V1beta1().CronJobs().Informer()
@@ -50,32 +55,34 @@ func New(
 
 	c := &Controller{
 		log:             log,
+		k8sVersion:      k8sVersion,
 		informerFactory: f,
 		informers:       typeInformerMap,
 		subscribers:     subscribers,
+		objectHashes:    map[string]struct{}{},
 	}
-
-	for typ, informer := range c.informers {
-		for _, subscriber := range c.subscribers {
-			for _, supportedType := range subscriber.RequiredInformers() {
-				if supportedType == typ {
-					informer.AddEventHandler(c.wrapHandler(subscriber))
-				}
-			}
-		}
-	}
-
 	return c
 }
 
 type Controller struct {
 	log             logrus.FieldLogger
+	k8sVersion      version.Version
 	informerFactory informers.SharedInformerFactory
 	informers       map[reflect.Type]cache.SharedInformer
 	subscribers     []ObjectSubscriber
+
+	// Due to bug in k8s we need to track if obect actually changed. See https://github.com/kubernetes/kubernetes/pull/106388
+	objectHashMu sync.Mutex
+	objectHashes map[string]struct{}
 }
 
 func (c *Controller) Run(ctx context.Context) error {
+	for typ, informer := range c.informers {
+		if err := informer.SetTransform(c.transformFunc); err != nil {
+			return nil
+		}
+		informer.AddEventHandler(c.eventsHandler(ctx, typ))
+	}
 	c.informerFactory.Start(ctx.Done())
 
 	errGroup, ctx := errgroup.WithContext(ctx)
@@ -86,7 +93,6 @@ func (c *Controller) Run(ctx context.Context) error {
 				if errors.Is(err, context.Canceled) {
 					return nil
 				}
-
 				return err
 			})
 		}(ctx, subscriber)
@@ -114,40 +120,160 @@ func (c *Controller) runSubscriber(ctx context.Context, subscriber ObjectSubscri
 	return subscriber.Run(ctx)
 }
 
-func (c *Controller) wrapHandler(handler ResourceEventHandler) cache.ResourceEventHandler {
+func (c *Controller) transformFunc(i any) (any, error) {
+	obj := i.(Object)
+	// Add missing metadata which is removed by k8s.
+	addObjectMeta(obj)
+	// Remove manged fields since we don't need them. This should decrease memory usage.
+	obj.SetManagedFields(nil)
+	return obj, nil
+}
+
+func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.ResourceEventHandler {
+	subscribers := lo.Filter(c.subscribers, func(v ObjectSubscriber, _ int) bool {
+		for _, subType := range v.RequiredInformers() {
+			if subType == typ {
+				return true
+			}
+		}
+		return false
+	})
+	subs := lo.Map(subscribers, func(sub ObjectSubscriber, i int) subChannel {
+		return subChannel{
+			handler: sub,
+			events:  make(chan event, 10),
+		}
+	})
+
+	// Create go routine for each subscription since we don't want to block event handlers.
+	for _, sub := range subs {
+		sub := sub
+		go func() {
+			for {
+				select {
+				case ev := <-sub.events:
+					switch ev.eventType {
+					case eventTypeAdd:
+						sub.handler.OnAdd(ev.obj)
+					case eventTypeUpdate:
+						sub.handler.OnUpdate(ev.obj)
+					case eventTypeDelete:
+						sub.handler.OnDelete(ev.obj)
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			deletedUnknownHandler(obj, handler.OnDelete, handler.OnAdd)
+		AddFunc: func(obj any) {
+			c.notifySubscribers(obj, eventTypeAdd, subs)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			deletedUnknownHandler(newObj, handler.OnDelete, handler.OnUpdate)
+		UpdateFunc: func(oldObj, newObj any) {
+			c.notifySubscribers(newObj, eventTypeUpdate, subs)
 		},
-		DeleteFunc: func(obj interface{}) {
-			deletedUnknownHandler(obj, handler.OnDelete, handler.OnDelete)
+		DeleteFunc: func(obj any) {
+			c.notifySubscribers(obj, eventTypeDelete, subs)
 		},
 	}
 }
 
-type handlerFunc func(obj Object)
+type eventType string
 
-// deletedUnknownHandler is used to handle cache.DeletedFinalStateUnknown where an Object was deleted but the watch
-// deletion Event was missed while disconnected from the api-server.
-func deletedUnknownHandler(obj interface{}, deletedHandler, nextHandler handlerFunc) {
+const (
+	eventTypeAdd    eventType = "add"
+	eventTypeUpdate eventType = "update"
+	eventTypeDelete eventType = "delete"
+)
+
+type event struct {
+	eventType eventType
+	obj       Object
+}
+
+type subChannel struct {
+	handler ResourceEventHandler
+	events  chan event
+}
+
+func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subChannel) {
+	var actualObj Object
 	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 		obj, ok := deleted.Obj.(Object)
 		if !ok {
 			return
 		}
-		addObjectMeta(obj)
-		deletedHandler(obj)
+		actualObj = obj
+		eventType = eventTypeDelete
 	} else {
 		obj, ok := obj.(Object)
 		if !ok {
 			return
 		}
-		addObjectMeta(obj)
-		nextHandler(obj)
+		actualObj = obj
 	}
+
+	objectHash, err := c.calcObjectHash(actualObj)
+	if err != nil {
+		c.log.Error(err)
+		return
+	}
+
+	if c.shouldSkipNotify(objectHash, eventType) {
+		return
+	}
+
+	// Notify all subscribers.
+	for _, sub := range subs {
+		sub.events <- event{
+			eventType: eventType,
+			obj:       actualObj,
+		}
+	}
+
+	// Store object hash which is used to skip notifying subscribers if object haven't changed.
+	if objectHash != "" {
+		c.saveObjectHash(objectHash, eventType)
+	}
+}
+
+func (c *Controller) shouldSkipNotify(objectHash string, eventType eventType) bool {
+	if eventType != eventTypeUpdate {
+		return false
+	}
+	c.objectHashMu.Lock()
+	defer c.objectHashMu.Unlock()
+
+	_, alreadyNotified := c.objectHashes[objectHash]
+	return alreadyNotified
+}
+
+func (c *Controller) saveObjectHash(objectHash string, eventType eventType) {
+	c.objectHashMu.Lock()
+	defer c.objectHashMu.Unlock()
+
+	if eventType == eventTypeDelete {
+		delete(c.objectHashes, objectHash)
+	} else {
+		c.objectHashes[objectHash] = struct{}{}
+	}
+}
+
+func (c *Controller) calcObjectHash(obj Object) (string, error) {
+	if c.k8sVersion.MinorInt >= 25 || obj.GetObjectKind().GroupVersionKind().Kind != "DaemonSet" {
+		return "", nil
+	}
+
+	objBytes, err := jsoniter.Marshal(obj)
+	if err != nil {
+		return "", fmt.Errorf("marshal DaemonSet for diff: %w", err)
+	}
+
+	h := sha256.New()
+	h.Write(objBytes)
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // addObjectMeta adds missing metadata since kubernetes client removes object kind and api version information.
