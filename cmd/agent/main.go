@@ -205,16 +205,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	go telemetryManager.Observe(resyncObserver, featureObserver)
 
-	work := func(ctx context.Context) {
-		if err := ctrl.Run(ctx); err != nil {
-			log.Errorf("running controller: %v", err)
-			return
-		}
-	}
-
 	// Does the work. Blocks.
-	work(featuresCtx)
-	return nil
+	return ctrl.Run(featuresCtx)
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
