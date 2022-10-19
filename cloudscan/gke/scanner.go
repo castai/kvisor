@@ -91,8 +91,11 @@ type Scanner struct {
 
 func (s *Scanner) Start(ctx context.Context) {
 	for {
+		s.log.Info("scanning cloud")
 		if err := s.scan(ctx); err != nil {
 			s.log.Errorf("gke cloud scan failed: %v", err)
+		} else {
+			s.log.Info("cloud scan finished")
 		}
 
 		select {
