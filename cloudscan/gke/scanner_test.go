@@ -94,7 +94,7 @@ func TestScanner(t *testing.T) {
 	r.Equal(25, failedCount)
 	check := castaiClient.sentReport.Checks[0]
 	r.Equal(castai.CloudScanCheck{
-		ID:     "511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider",
+		ID:     "5.1.1",
 		Manual: true,
 		Failed: false,
 	}, check)
