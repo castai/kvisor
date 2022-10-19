@@ -91,13 +91,14 @@ type Scanner struct {
 
 func (s *Scanner) Start(ctx context.Context) {
 	for {
+		if err := s.scan(ctx); err != nil {
+			s.log.Errorf("gke cloud scan failed: %v", err)
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(s.cfg.ScanInterval):
-			if err := s.scan(ctx); err != nil {
-				s.log.Errorf("gke cloud scan failed: %v", err)
-			}
 		}
 	}
 }
