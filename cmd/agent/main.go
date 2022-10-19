@@ -9,11 +9,14 @@ import (
 	"os"
 	"time"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
 	"k8s.io/client-go/informers"
 
 	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/castai/telemetry"
+	"github.com/castai/sec-agent/cloudscan/eks"
 	"github.com/castai/sec-agent/cloudscan/gke"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
@@ -187,6 +190,13 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 				return err
 			}
 			go gkeCloudScanner.Start(ctx)
+		case "eks":
+			awscfg, err := awsconfig.LoadDefaultConfig(ctx)
+			if err != nil {
+				return err
+			}
+
+			go eks.NewScanner(log, cfg.CloudScan, awseks.NewFromConfig(awscfg), castaiClient).Start(ctx)
 		}
 	}
 
