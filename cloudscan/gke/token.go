@@ -25,6 +25,7 @@ func (m *metadataTokenSource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Add("Metadata-Flavor", "Google")
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
 		return nil, err
