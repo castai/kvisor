@@ -314,5 +314,14 @@ func addObjectMeta(o Object) {
 	case *rbacv1.Role:
 		o.Kind = "Role"
 		o.APIVersion = "rbac.authorization.k8s.io/v1"
+	case *batchv1.Job:
+		o.Kind = "Job"
+		o.APIVersion = "batch/v1"
+	case *batchv1.CronJob:
+		o.Kind = "CronJob"
+		o.APIVersion = "batch/v1"
+	case *batchv1beta1.CronJob:
+		o.Kind = "CronJob"
+		o.APIVersion = "batch/v1beta1"
 	}
 }

@@ -73,6 +73,7 @@ func TestController(t *testing.T) {
 				t.Fatal(err)
 			case <-time.After(1 * time.Millisecond):
 				sub.assertNoManagedFields(r)
+				sub.assertObjectMeta(r)
 			}
 		}
 	})
@@ -146,12 +147,20 @@ func (t *testSubscriber) assertNoManagedFields(r *require.Assertions) {
 		t.mu.Lock()
 		defer t.mu.Unlock()
 
-		if len(t.addedObjs) == 0 {
+		if len(t.addedObjs) != 2 {
 			return false
 		}
 		obj := t.addedObjs["kube-system"]
 		return len(obj.GetManagedFields()) == 0
 	}, 3*time.Second, 1*time.Millisecond)
+}
+
+func (t *testSubscriber) assertObjectMeta(r *require.Assertions) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	obj := t.addedObjs["kube-proxy"]
+	r.Equal("DaemonSet", obj.(*appsv1.DaemonSet).Kind)
 }
 
 func (t *testSubscriber) assertNoUpdates(r *require.Assertions) {
