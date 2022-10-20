@@ -16,7 +16,7 @@ type check struct {
 
 func check511EnsureImageVulnerabilityScanningUsingAmazonECRImageScanningOrThirdPartyProvider() check {
 	return check{
-		id:          "511EnsureImageVulnerabilityScanningUsingAmazonECRImageScanningOrThirdPartyProvider",
+		id:          "5.1.1",
 		description: "5.1.1 - Ensure Image Vulnerability Scanning using Amazon ECR image scanning or a third party provider",
 		manual:      true,
 	}
@@ -24,7 +24,7 @@ func check511EnsureImageVulnerabilityScanningUsingAmazonECRImageScanningOrThirdP
 
 func check512MinimizeUserAccessToAmazonECR() check {
 	return check{
-		id:          "512MinimizeUserAccessToAmazonECR",
+		id:          "5.1.2",
 		description: "5.1.2 - Minimize user access to Amazon ECR",
 		manual:      true,
 	}
@@ -32,7 +32,7 @@ func check512MinimizeUserAccessToAmazonECR() check {
 
 func check513MinimizeClusterAccessToReadOnlyForAmazonECR() check {
 	return check{
-		id:          "513MinimizeClusterAccessToReadOnlyForAmazonECR",
+		id:          "5.1.3",
 		description: "5.1.3 - Minimize cluster access to read-only for Amazon ECR",
 		manual:      true,
 	}
@@ -40,7 +40,7 @@ func check513MinimizeClusterAccessToReadOnlyForAmazonECR() check {
 
 func check514MinimizeContainerRegistriesToOnlyThoseApproved() check {
 	return check{
-		id:          "514MinimizeContainerRegistriesToOnlyThoseApproved",
+		id:          "5.1.4",
 		description: "5.1.4 - Minimize Container Registries to only those approved",
 		manual:      true,
 	}
@@ -48,7 +48,7 @@ func check514MinimizeContainerRegistriesToOnlyThoseApproved() check {
 
 func check521PreferUsingManagedIdentitiesForWorkloads() check {
 	return check{
-		id:          "521PreferUsingManagedIdentitiesForWorkloads",
+		id:          "5.2.1",
 		description: "5.2.1 - Prefer using managed identities for workloads",
 		manual:      true,
 	}
@@ -56,7 +56,7 @@ func check521PreferUsingManagedIdentitiesForWorkloads() check {
 
 func check531EnsureKubernetesSecretsAreEncryptedUsingCustomerMasterKeysCMKsManagedInAWSKMS(cluster *eks.DescribeClusterOutput) check {
 	return check{
-		id:          "531EnsureKubernetesSecretsAreEncryptedUsingCustomerMasterKeysCMKsManagedInAWSKMS",
+		id:          "5.3.1",
 		description: "5.3.1 - Ensure Kubernetes Secrets are encrypted using Customer Master Keys (CMKs) managed in AWS KMS",
 		validate: func(c *check) {
 			c.failed = true
@@ -72,7 +72,7 @@ func check531EnsureKubernetesSecretsAreEncryptedUsingCustomerMasterKeysCMKsManag
 
 func check541RestrictAccessToTheControlPlaneEndpoint() check {
 	return check{
-		id:          "541RestrictAccessToTheControlPlaneEndpoint",
+		id:          "5.4.1",
 		description: "5.4.1 - Restrict Access to the Control Plane Endpoint",
 		manual:      true,
 	}
@@ -80,7 +80,7 @@ func check541RestrictAccessToTheControlPlaneEndpoint() check {
 
 func check542EnsureClustersAreCreatedWithPrivateEndpointEnabledAndPublicAccessDisabled(cluster *eks.DescribeClusterOutput) check {
 	return check{
-		id:          "542EnsureClustersAreCreatedWithPrivateEndpointEnabledAndPublicAccessDisabled",
+		id:          "5.4.2",
 		description: "5.4.2 - Ensure clusters are created with Private Endpoint Enabled and Public Access Disabled",
 		validate: func(c *check) {
 			if cluster.Cluster.ResourcesVpcConfig == nil {
@@ -99,14 +99,14 @@ func check542EnsureClustersAreCreatedWithPrivateEndpointEnabledAndPublicAccessDi
 
 func check543EnsureClustersAreCreatedWithPrivateNodes() check {
 	return check{
-		id:          "543EnsureClustersAreCreatedWithPrivateNodes",
+		id:          "5.4.3",
 		description: "5.4.3 - Ensure clusters are created with Private Nodes",
 		manual:      true,
 	}
 }
 func check544EnsureNetworkPolicyIsEnabledAndSetAsAppropriate() check {
 	return check{
-		id:          "544EnsureNetworkPolicyIsEnabledAndSetAsAppropriate",
+		id:          "5.4.4",
 		description: "5.4.4 - Ensure Network Policy is Enabled and set as appropriate",
 		manual:      true,
 	}
@@ -114,7 +114,7 @@ func check544EnsureNetworkPolicyIsEnabledAndSetAsAppropriate() check {
 
 func check545EncryptTrafficToHTTPSLoadBalancersWithTLSCertificates() check {
 	return check{
-		id:          "545EncryptTrafficToHTTPSLoadBalancersWithTLSCertificates",
+		id:          "5.4.5",
 		description: "5.4.5 - Encrypt traffic to HTTPS load balancers with TLS certificates",
 		manual:      true,
 	}
@@ -122,7 +122,7 @@ func check545EncryptTrafficToHTTPSLoadBalancersWithTLSCertificates() check {
 
 func check551ManageKubernetesRBACUsersWithAWSIAMAuthenticatorForKubernetes() check {
 	return check{
-		id:          "551ManageKubernetesRBACUsersWithAWSIAMAuthenticatorForKubernetes",
+		id:          "5.5.1",
 		description: "5.5.1 - Manage Kubernetes RBAC users with AWS IAM Authenticator for Kubernetes",
 		manual:      true,
 	}
@@ -130,7 +130,7 @@ func check551ManageKubernetesRBACUsersWithAWSIAMAuthenticatorForKubernetes() che
 
 func check561ConsiderFargateForRunningUntrustedWorkloads() check {
 	return check{
-		id:          "561ConsiderFargateForRunningUntrustedWorkloads",
+		id:          "5.6.1",
 		description: "5.6.1 - Consider Fargate for running untrusted workloads",
 		manual:      true,
 	}
