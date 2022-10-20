@@ -78,6 +78,6 @@ type mockCloudClient struct {
 	response *eks.DescribeClusterOutput
 }
 
-func (m *mockCloudClient) DescribeCluster(context.Context, *eks.DescribeClusterInput) (*eks.DescribeClusterOutput, error) {
+func (m *mockCloudClient) DescribeCluster(context.Context, *eks.DescribeClusterInput, ...func(*eks.Options)) (*eks.DescribeClusterOutput, error) {
 	return m.response, nil
 }

@@ -22,7 +22,7 @@ type Scanner struct {
 }
 
 type eksClient interface {
-	DescribeCluster(context.Context, *eks.DescribeClusterInput) (*eks.DescribeClusterOutput, error)
+	DescribeCluster(context.Context, *eks.DescribeClusterInput, ...func(*eks.Options)) (*eks.DescribeClusterOutput, error)
 }
 
 type castaiClient interface {
