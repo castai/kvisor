@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func Test(t *testing.T) {
+func TestVersion(t *testing.T) {
 	v := version.Info{
 		Major:     "1",
 		Minor:     "21+",
@@ -38,6 +38,6 @@ func Test(t *testing.T) {
 	}
 
 	require.NoError(t, err)
-	require.Equal(t, "1.21+", got.Full())
-	require.Equal(t, 21, got.MinorInt())
+	require.Equal(t, "1.21+", got.Full)
+	require.Equal(t, 21, got.MinorInt)
 }

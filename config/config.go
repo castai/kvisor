@@ -150,6 +150,11 @@ func Load(configPath string) (Config, error) {
 			cfg.ImageScan.ScanTimeout = 10 * time.Minute
 		}
 	}
+	if cfg.CloudScan.Enabled {
+		if cfg.CloudScan.ScanInterval == 0 {
+			cfg.CloudScan.ScanInterval = 1 * time.Hour
+		}
+	}
 
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6060

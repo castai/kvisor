@@ -118,7 +118,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	log := logger.WithFields(logrus.Fields{
 		"version":     binVersion.Version,
-		"k8s_version": k8sVersion.Full(),
+		"k8s_version": k8sVersion.Full,
 	})
 
 	httpMux := http.NewServeMux()
@@ -146,7 +146,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
 			castaiClient,
 			snapshotProvider,
-			k8sVersion.MinorInt(),
+			k8sVersion.MinorInt,
 		),
 	}
 
@@ -173,7 +173,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			cfg.ImageScan,
 			castaiClient,
 			imagescan.NewImageScanner(clientset, cfg),
-			k8sVersion.MinorInt(),
+			k8sVersion.MinorInt,
 		))
 		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)
@@ -215,16 +215,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	go telemetryManager.Observe(resyncObserver, featureObserver)
 
-	work := func(ctx context.Context) {
-		if err := ctrl.Run(ctx); err != nil {
-			log.Errorf("running controller: %v", err)
-			return
-		}
-	}
-
 	// Does the work. Blocks.
-	work(featuresCtx)
-	return nil
+	return ctrl.Run(featuresCtx)
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
