@@ -17,15 +17,19 @@ import (
 type Scanner struct {
 	cfg          *config.CloudScan
 	log          logrus.FieldLogger
-	eksClient    *eks.Client
+	eksClient    eksClient
 	castaiClient castaiClient
+}
+
+type eksClient interface {
+	DescribeCluster(context.Context, *eks.DescribeClusterInput) (*eks.DescribeClusterOutput, error)
 }
 
 type castaiClient interface {
 	SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error
 }
 
-func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, eksClient *eks.Client, client castaiClient) *Scanner {
+func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, eksClient eksClient, client castaiClient) *Scanner {
 	return &Scanner{
 		cfg:          &cfg,
 		log:          log,
@@ -38,9 +42,9 @@ func (s *Scanner) Start(ctx context.Context) {
 	for {
 		s.log.Info("scanning cloud")
 		if err := s.scan(ctx); err != nil {
-			s.log.Errorf("gke cloud scan failed: %v", err)
+			s.log.Errorf("aws cloud scan failed: %v", err)
 		} else {
-			s.log.Info("cloud scan finished")
+			s.log.Info("aws cloud scan finished")
 		}
 
 		select {

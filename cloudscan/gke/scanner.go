@@ -96,7 +96,7 @@ func (s *Scanner) Start(ctx context.Context) {
 			return
 		case <-time.After(s.cfg.ScanInterval):
 			if err := s.scan(ctx); err != nil {
-				s.log.Errorf("gke cloud scan failed: %v", err)
+				s.log.Errorf("gcp cloud scan failed: %v", err)
 			}
 		}
 	}
