@@ -85,6 +85,9 @@ func newTestConfig() Config {
 				ClusterName:     "",
 				CredentialsFile: "",
 			},
+			EKS: &CloudScanEKS{
+				ClusterName: "",
+			},
 		},
 	}
 }

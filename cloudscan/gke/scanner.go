@@ -93,9 +93,9 @@ func (s *Scanner) Start(ctx context.Context) {
 	for {
 		s.log.Info("scanning cloud")
 		if err := s.scan(ctx); err != nil {
-			s.log.Errorf("gke cloud scan failed: %v", err)
+			s.log.Errorf("gcp cloud scan failed: %v", err)
 		} else {
-			s.log.Info("cloud scan finished")
+			s.log.Info("gcp cloud scan finished")
 		}
 
 		select {

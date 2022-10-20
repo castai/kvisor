@@ -29,12 +29,17 @@ type CloudScan struct {
 	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
 	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
 	GKE          *CloudScanGKE `envconfig:"GKE" yaml:"gke"`
+	EKS          *CloudScanEKS `envconfig:"EKS" yaml:"eks"`
 }
 
 type CloudScanGKE struct {
 	ClusterName        string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
 	CredentialsFile    string `envconfig:"CREDENTIALS_FILE" yaml:"credentialsFile"`
 	ServiceAccountName string `envconfig:"SERVICE_ACCOUNT_NAME" yaml:"serviceAccountName"`
+}
+
+type CloudScanEKS struct {
+	ClusterName string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
 }
 
 type ImageScan struct {
