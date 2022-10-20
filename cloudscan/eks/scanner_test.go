@@ -22,7 +22,7 @@ func TestScanner(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	clusterName := "projects/my-project/locations/eu-central-1/clusters/test-cluster"
+	clusterName := "test-cluster"
 
 	eksClient := &mockCloudClient{
 		response: &eks.DescribeClusterOutput{
