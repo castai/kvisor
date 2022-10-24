@@ -27,6 +27,14 @@ import (
 	"github.com/castai/sec-agent/log"
 )
 
+const (
+	scanLimitCPU    = "500m"
+	scanLimitMemory = "2Gi"
+
+	scanRequestCPU    = "100m"
+	scanRequestMemory = "100Mi"
+)
+
 type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
@@ -352,12 +360,12 @@ func scanJobSpec(
 							VolumeMounts:    vol.mounts,
 							Resources: corev1.ResourceRequirements{
 								Limits: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse("500m"),
-									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse(scanLimitCPU),
+									corev1.ResourceMemory: resource.MustParse(scanLimitMemory),
 								},
 								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
+									corev1.ResourceCPU:    resource.MustParse(scanRequestCPU),
+									corev1.ResourceMemory: resource.MustParse(scanRequestMemory),
 								},
 							},
 						},

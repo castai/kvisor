@@ -20,6 +20,7 @@ import (
 	"github.com/castai/sec-agent/cloudscan/gke"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/controller/resource"
 	"github.com/castai/sec-agent/delta"
 	"github.com/castai/sec-agent/imagescan"
 	"github.com/castai/sec-agent/jobsgc"
@@ -168,12 +169,15 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 	if cfg.ImageScan.Enabled {
 		log.Info("imagescan enabled")
+		resourceSubscriber := resource.NewSubscriber()
+		objectSubscribers = append(objectSubscribers, resourceSubscriber)
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
 			castaiClient,
 			imagescan.NewImageScanner(clientset, cfg),
 			k8sVersion.MinorInt,
+			resourceSubscriber.FindBestNode,
 		))
 		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)

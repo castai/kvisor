@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,7 +150,9 @@ func TestSubscriber(t *testing.T) {
 		cfg := config.ImageScan{ScanInterval: 1 * time.Millisecond, ScanTimeout: time.Minute, MaxConcurrentScans: 5}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, func(strings []string, dec *inf.Dec) (string, error) {
+			return strings[0], nil
+		})
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
