@@ -7,36 +7,16 @@ import (
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 )
 
-/*
-// Checks are generated using js script.
-var txt = `Copy menu items from workbench`
-
-var items = txt.split('\n').map(x => x.trim()).filter(x => {
-    if (!x) return false;
-    console.log(x.split('.'))
-    return x.split('.').length > 2
-}).map(x => {
-    return {
-        id: x.replace(/\s/g, '').replaceAll('(','').replaceAll(')','').replaceAll('.',''). replaceAll('-', ''),
-        desc: x,
-    }
-})
-var funcs = items.map(x => {
-    return `func check${x.id}() check {
+func check431EnsureCNISupportsNetworkPolicies(cl *containerpb.Cluster) check {
 	return check{
-		id:          "${x.id}",
-		description: "${x.desc}",
+		id:          "4.3.1",
+		description: "4.3.1 - Ensure that the CNI in use supports Network Policies",
 		manual:      true,
+		validate: func(c *check) {
+			c.failed = cl.NetworkPolicy == nil || !cl.NetworkPolicy.Enabled
+		},
 	}
-}`
-}).join('\n')
-var checksSlice = 'checks := []check{'+items.map(x => {
-    return `check${x.id}(),`
-}).join('\n')+'}'
-
-console.log(funcs+'\n'+checksSlice)
-*/
-
+}
 func check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(gcrContainerScanService *serviceusagepb.Service, castaiImageScanEnabled bool) check {
 	return check{
 		id:          "5.1.1",

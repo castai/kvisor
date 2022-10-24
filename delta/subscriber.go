@@ -13,6 +13,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -28,6 +29,7 @@ var builder = runtime.SchemeBuilder{
 	rbacv1.AddToScheme,
 	batchv1.AddToScheme,
 	autoscalingv1.AddToScheme,
+	networkingv1.AddToScheme,
 }
 
 func init() {
@@ -87,6 +89,8 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&rbacv1.ClusterRole{}),
 		reflect.TypeOf(&rbacv1.Role{}),
 		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&networkingv1.Ingress{}),
+		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
 	}
 	if s.k8sVersionMinor >= 21 {
 		types = append(types, reflect.TypeOf(&batchv1.CronJob{}))

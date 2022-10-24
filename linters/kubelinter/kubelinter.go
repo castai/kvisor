@@ -6,6 +6,7 @@ import (
 	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/builtinchecks"
 	"golang.stackrox.io/kube-linter/pkg/checkregistry"
+	"golang.stackrox.io/kube-linter/pkg/config"
 	kubelinterconfig "golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/configresolver"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
@@ -19,11 +20,13 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/containercapabilities"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/cpurequirements"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/danglinghpa"
+	_ "golang.stackrox.io/kube-linter/pkg/templates/danglingingress"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/danglingnetworkpolicy"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/danglingnetworkpolicypeer"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/danglingservice"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/deprecatedserviceaccount"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/disallowedgvk"
+	_ "golang.stackrox.io/kube-linter/pkg/templates/dnsconfigoptions"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/envvar"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/forbiddenannotation"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/hostipc"
@@ -63,34 +66,19 @@ import (
 
 	casttypes "github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/automount"
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks/networkpolicypernamespace"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/securitycontext"
+	"github.com/castai/sec-agent/linters/kubelinter/customobjectkinds"
 )
 
-func New(checks []string) *Linter {
-	return &Linter{checks: checks}
-}
-
-type Linter struct {
-	checks []string
-}
-
-func registerCustomChecks(registry checkregistry.CheckRegistry) error {
-	if err := registry.Register(automount.Check()); err != nil {
-		return err
-	}
-
-	if err := registry.Register(securitycontext.Check()); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, error) {
+func New(checks []string) (*Linter, error) {
 	registry := checkregistry.New()
 
 	if err := builtinchecks.LoadInto(registry); err != nil {
 		return nil, fmt.Errorf("load info from registry: %w", err)
 	}
+
+	registerCustomObjectKinds()
 
 	if err := registerCustomChecks(registry); err != nil {
 		return nil, fmt.Errorf("loading custom CAST check: %w", err)
@@ -105,11 +93,50 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 		return nil, fmt.Errorf("loading custom checks info: %w", err)
 	}
 
+	instantiatedChecks := make([]*instantiatedcheck.InstantiatedCheck, 0, len(checks))
+	for _, checkName := range checks {
+		instantiatedCheck := registry.Load(checkName)
+		if instantiatedCheck == nil {
+			return nil, fmt.Errorf("check %q not found", checkName)
+		}
+		instantiatedChecks = append(instantiatedChecks, instantiatedCheck)
+	}
+
+	return &Linter{
+		registry:           registry,
+		instantiatedChecks: instantiatedChecks,
+	}, nil
+}
+
+func registerCustomChecks(registry checkregistry.CheckRegistry) error {
+	checks := []*config.Check{
+		automount.Check(),
+		securitycontext.Check(),
+		networkpolicypernamespace.Check(),
+	}
+	for _, check := range checks {
+		if err := registry.Register(check); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func registerCustomObjectKinds() {
+	customobjectkinds.RegisterNamespaceKind()
+}
+
+type Linter struct {
+	registry           checkregistry.CheckRegistry
+	instantiatedChecks []*instantiatedcheck.InstantiatedCheck
+}
+
+func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, error) {
 	lintctx := &lintContext{
 		objects: objects,
 	}
 
-	res, err := runKubeLinter([]lintcontext.LintContext{lintctx}, registry, l.checks)
+	res, err := l.runKubeLinter([]lintcontext.LintContext{lintctx}, l.registry)
 	if err != nil {
 		return nil, err
 	}
@@ -137,22 +164,16 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 	return lo.Values(resources), nil
 }
 
-func runKubeLinter(lintCtxs []lintcontext.LintContext, registry checkregistry.CheckRegistry, checks []string) (run.Result, error) {
+func (l *Linter) runKubeLinter(lintCtxs []lintcontext.LintContext, registry checkregistry.CheckRegistry) (run.Result, error) {
 	var result run.Result
 
-	instantiatedChecks := make([]*instantiatedcheck.InstantiatedCheck, 0, len(checks))
-	for _, checkName := range checks {
-		instantiatedCheck := registry.Load(checkName)
-		if instantiatedCheck == nil {
-			return run.Result{}, fmt.Errorf("check %q not found", checkName)
-		}
-		instantiatedChecks = append(instantiatedChecks, instantiatedCheck)
+	for _, instantiatedCheck := range l.instantiatedChecks {
 		result.Checks = append(result.Checks, instantiatedCheck.Spec)
 	}
 
 	for _, lintCtx := range lintCtxs {
 		for _, obj := range lintCtx.Objects() {
-			for _, check := range instantiatedChecks {
+			for _, check := range l.instantiatedChecks {
 				if !check.Matcher.Matches(obj.K8sObject.GetObjectKind().GroupVersionKind()) {
 					continue
 				}

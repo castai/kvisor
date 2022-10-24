@@ -14,6 +14,14 @@ type check struct {
 	validate    func(c *check)
 }
 
+func check431EnsureCNISupportsNetworkPolicies() check {
+	return check{
+		id:          "4.3.1",
+		description: "4.3.1 - Ensure that the CNI in use supports Network Policies",
+		manual:      true,
+	}
+}
+
 func check511EnsureImageVulnerabilityScanningUsingAmazonECRImageScanningOrThirdPartyProvider() check {
 	return check{
 		id:          "5.1.1",

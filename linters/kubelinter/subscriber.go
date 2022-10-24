@@ -13,31 +13,19 @@ import (
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
 )
 
-var supportedTypes = []reflect.Type{
-	reflect.TypeOf(&corev1.Pod{}),
-	reflect.TypeOf(&corev1.Namespace{}),
-	reflect.TypeOf(&corev1.Service{}),
-	reflect.TypeOf(&appsv1.Deployment{}),
-	reflect.TypeOf(&appsv1.DaemonSet{}),
-	reflect.TypeOf(&appsv1.StatefulSet{}),
-	// rbac
-	reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
-	reflect.TypeOf(&rbacv1.RoleBinding{}),
-	reflect.TypeOf(&rbacv1.ClusterRole{}),
-	reflect.TypeOf(&rbacv1.Role{}),
-}
-
-func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.ObjectSubscriber {
+func NewSubscriber(log logrus.FieldLogger, client castai.Client) (controller.ObjectSubscriber, error) {
+	linter, err := New(lo.Keys(castai.LinterRuleMap))
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-
-	linter := New(lo.Keys(castai.LinterRuleMap))
-
 	return &Subscriber{
 		ctx:    ctx,
 		cancel: cancel,
@@ -45,7 +33,7 @@ func NewSubscriber(log logrus.FieldLogger, client castai.Client) controller.Obje
 		linter: linter,
 		delta:  newDeltaState(),
 		log:    log,
-	}
+	}, nil
 }
 
 type Subscriber struct {
@@ -58,7 +46,20 @@ type Subscriber struct {
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
-	return supportedTypes
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&corev1.Namespace{}),
+		reflect.TypeOf(&corev1.Service{}),
+		reflect.TypeOf(&appsv1.Deployment{}),
+		reflect.TypeOf(&appsv1.DaemonSet{}),
+		reflect.TypeOf(&appsv1.StatefulSet{}),
+		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
+		reflect.TypeOf(&rbacv1.RoleBinding{}),
+		reflect.TypeOf(&rbacv1.ClusterRole{}),
+		reflect.TypeOf(&rbacv1.Role{}),
+		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
+		reflect.TypeOf(&networkingv1.Ingress{}),
+	}
 }
 
 func (s *Subscriber) Run(ctx context.Context) error {
@@ -100,7 +101,6 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 			return
 		}
 	}
-	// TODO: Add jobs, cronjobs and other resources for kubelinter.
 
 	switch event {
 	case controller.EventAdd:

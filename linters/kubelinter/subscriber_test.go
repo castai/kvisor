@@ -27,7 +27,8 @@ func TestSubscriber(t *testing.T) {
 		defer ctrl.Finish()
 		castaiClient := mock_castai.NewMockClient(ctrl)
 
-		linter := New(lo.Keys(casttypes.LinterRuleMap))
+		linter, err := New(lo.Keys(casttypes.LinterRuleMap))
+		r.NoError(err)
 
 		subscriber := &Subscriber{
 			ctx:    ctx,
@@ -39,7 +40,8 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		castaiClient.EXPECT().SendLinterChecks(gomock.Any(), gomock.Any())
-		r.NoError(subscriber.lintObjects([]controller.Object{
+
+		objects := []controller.Object{
 			&corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
@@ -49,6 +51,7 @@ func TestSubscriber(t *testing.T) {
 					Name: "test_pod",
 				},
 			},
-		}))
+		}
+		r.NoError(subscriber.lintObjects(objects))
 	})
 }
