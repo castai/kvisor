@@ -122,6 +122,7 @@ func (s *Scanner) scan(ctx context.Context) error {
 	}
 
 	checks := []check{
+		check431EnsureCNISupportsNetworkPolicies(cl),
 		check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(containerUsageService, s.imgScanEnabled),
 		check512MinimizeuseraccesstoGCR(),
 		check513MinimizeclusteraccesstoreadonlyforGCR(),
