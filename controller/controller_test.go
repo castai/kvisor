@@ -109,6 +109,7 @@ func TestController(t *testing.T) {
 		}()
 
 		time.Sleep(100 * time.Millisecond)
+		testDs.SetResourceVersion("new")
 		_, err := clientset.AppsV1().DaemonSets(testDs.Namespace).Update(ctx, testDs, metav1.UpdateOptions{})
 		r.NoError(err)
 		time.Sleep(100 * time.Millisecond)
