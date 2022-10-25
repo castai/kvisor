@@ -2,6 +2,7 @@ package imagescan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/controller/alloc"
 )
 
 func NewSubscriber(
@@ -156,6 +158,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 			log := s.log.WithField("image", imageName)
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, log, info); err != nil {
+				if errors.Is(err, alloc.ErrNoCandidates) {
+					// TODO: no nodes with resources, schedule job for later
+					log.Debugf("no resources to scan image %q", info.imageName)
+				}
 				log.Errorf("image scan failed: %v", err)
 				return
 			}
@@ -201,10 +207,10 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 
 		if len(nodeNames) > 1 {
 			// resolve best node
-			memQty := resource.MustParse(scanRequestMemory)
+			memQty := resource.MustParse(s.cfg.MemoryRequest)
 			resolvedNode, err := s.bestNodeResolver(nodeNames, memQty.AsDec())
 			if err != nil {
-				s.log.Warnf("can not resolve node: %v", err)
+				return err
 			} else {
 				nodeName = resolvedNode
 			}

@@ -51,6 +51,10 @@ type ImageScan struct {
 	Mode               string         `envconfig:"MODE" yaml:"mode"`
 	DockerOptionsPath  string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
 	BlobsCachePort     int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
+	CPURequest         string         `envconfig:"CPU_REQUEST" yaml:"cpuRequest"`
+	CPULimit           string         `envconfig:"CPU_LIMIT" yaml:"cpuLimit"`
+	MemoryRequest      string         `envconfig:"MEMORY_REQUEST" yaml:"memoryRequest"`
+	MemoryLimit        string         `envconfig:"MEMORY_LIMIT" yaml:"memoryLimit"`
 }
 
 type ImageScanImage struct {
@@ -148,6 +152,18 @@ func Load(configPath string) (Config, error) {
 		}
 		if cfg.ImageScan.ScanTimeout == 0 {
 			cfg.ImageScan.ScanTimeout = 10 * time.Minute
+		}
+		if cfg.ImageScan.CPURequest == "" {
+			cfg.ImageScan.CPURequest = "100m"
+		}
+		if cfg.ImageScan.CPULimit == "" {
+			cfg.ImageScan.CPULimit = "2"
+		}
+		if cfg.ImageScan.MemoryRequest == "" {
+			cfg.ImageScan.MemoryRequest = "100Mi"
+		}
+		if cfg.ImageScan.MemoryLimit == "" {
+			cfg.ImageScan.MemoryLimit = "2Gi"
 		}
 	}
 	if cfg.CloudScan.Enabled {

@@ -147,7 +147,15 @@ func TestSubscriber(t *testing.T) {
 		argoPod1 := createArgoPod("argo1")
 		argoPod2 := createArgoPod("argo2")
 
-		cfg := config.ImageScan{ScanInterval: 1 * time.Millisecond, ScanTimeout: time.Minute, MaxConcurrentScans: 5}
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+		}
 
 		scanner := &mockImageScanner{}
 		sub := NewSubscriber(log, cfg, client, scanner, 21, func(strings []string, dec *inf.Dec) (string, error) {
