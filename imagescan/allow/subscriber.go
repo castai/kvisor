@@ -1,4 +1,4 @@
-package alloc
+package allow
 
 import (
 	"context"
@@ -36,37 +36,52 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 
 	switch v := obj.(type) {
 	case *corev1.Node:
-		if _, ok := s.tree[v.GetName()]; !ok {
+		n, ok := s.tree[v.GetName()]
+		if !ok {
 			s.tree[v.GetName()] = &node{
 				name:           v.GetName(),
 				allocatableMem: &inf.Dec{},
 				allocatableCPU: &inf.Dec{},
 				pods:           make(map[types.UID]*pod),
 			}
+
+			n = s.tree[v.GetName()]
 		}
 
-		s.tree[v.GetName()].allocatableMem = v.Status.Allocatable.Memory().AsDec()
-		s.tree[v.GetName()].allocatableCPU = v.Status.Allocatable.Cpu().AsDec()
+		n.allocatableMem = v.Status.Allocatable.Memory().AsDec()
+		n.allocatableCPU = v.Status.Allocatable.Cpu().AsDec()
 	case *corev1.Pod:
-		if _, ok := s.tree[v.Spec.NodeName]; !ok {
+		n, ok := s.tree[v.Spec.NodeName]
+		if !ok {
 			s.tree[v.Spec.NodeName] = &node{
 				name:           v.Spec.NodeName,
 				allocatableMem: &inf.Dec{},
 				allocatableCPU: &inf.Dec{},
 				pods:           make(map[types.UID]*pod),
 			}
+
+			n = s.tree[v.Spec.NodeName]
 		}
 
-		if _, ok := s.tree[v.Spec.NodeName].pods[v.GetUID()]; !ok {
-			s.tree[v.Spec.NodeName].pods[v.GetUID()] = &pod{
+		p, ok := n.pods[v.GetUID()]
+		if !ok {
+			n.pods[v.GetUID()] = &pod{
 				id:            v.GetUID(),
 				requestCPU:    &inf.Dec{},
 				requestMemory: &inf.Dec{},
 			}
+
+			p = n.pods[v.GetUID()]
 		}
 
-		s.tree[v.Spec.NodeName].pods[v.GetUID()].requestMemory = sumPodRequestMemory(&v.Spec)
-		s.tree[v.Spec.NodeName].pods[v.GetUID()].requestCPU = sumPodRequestCPU(&v.Spec)
+		switch v.Status.Phase {
+		case corev1.PodRunning, corev1.PodPending:
+			p.requestMemory = sumPodRequestMemory(&v.Spec)
+			p.requestCPU = sumPodRequestCPU(&v.Spec)
+		default:
+			p.requestMemory = &inf.Dec{}
+			p.requestCPU = &inf.Dec{}
+		}
 	}
 }
 
@@ -82,8 +97,9 @@ func (s *Subscriber) OnDelete(obj controller.Object) {
 	case *corev1.Node:
 		delete(s.tree, v.GetName())
 	case *corev1.Pod:
-		if _, ok := s.tree[v.Spec.NodeName]; ok {
-			delete(s.tree[v.Spec.NodeName].pods, obj.GetUID())
+		n, ok := s.tree[v.Spec.NodeName]
+		if ok {
+			delete(n.pods, obj.GetUID())
 		}
 	}
 }
@@ -137,7 +153,7 @@ func (s *Subscriber) FindBestNode(nodeNames []string, requiredMemory *inf.Dec) (
 func sumPodRequestMemory(spec *corev1.PodSpec) *inf.Dec {
 	var result inf.Dec
 	for _, container := range spec.Containers {
-		result = *result.Add(&result, container.Resources.Requests.Memory().AsDec())
+		result.Add(&result, container.Resources.Requests.Memory().AsDec())
 	}
 
 	return &result
@@ -146,7 +162,7 @@ func sumPodRequestMemory(spec *corev1.PodSpec) *inf.Dec {
 func sumPodRequestCPU(spec *corev1.PodSpec) *inf.Dec {
 	var result inf.Dec
 	for _, container := range spec.Containers {
-		result = *result.Add(&result, container.Resources.Requests.Cpu().AsDec())
+		result.Add(&result, container.Resources.Requests.Cpu().AsDec())
 	}
 
 	return &result

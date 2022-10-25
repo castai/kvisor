@@ -1,4 +1,4 @@
-package alloc
+package allow
 
 import (
 	"gopkg.in/inf.v0"
