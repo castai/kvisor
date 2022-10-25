@@ -128,6 +128,8 @@ func (c *Controller) transformFunc(i any) (any, error) {
 	addObjectMeta(obj)
 	// Remove manged fields since we don't need them. This should decrease memory usage.
 	obj.SetManagedFields(nil)
+	// Remove resource version have custom diff in order to fix https://github.com/kubernetes/kubernetes/pull/106388
+	obj.SetResourceVersion("")
 	return obj, nil
 }
 
