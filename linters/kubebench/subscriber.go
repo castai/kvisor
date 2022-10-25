@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	scanInterval      = 15 * time.Second
 	nodeScanTimeout   = 5 * time.Minute
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 5
@@ -50,6 +49,7 @@ func NewSubscriber(
 		provider:        provider,
 		castClient:      castClient,
 		logsProvider:    logsReader,
+		scanInterval:    15 * time.Second,
 	}
 }
 
@@ -61,6 +61,7 @@ type Subscriber struct {
 	delta           *nodeDeltaState
 	provider        string
 	logsProvider    log.PodLogProvider
+	scanInterval    time.Duration
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
@@ -70,8 +71,8 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	}
 }
 
-func (s *Subscriber) OnUpdate(_ controller.Object) {
-	// do not run on updates
+func (s *Subscriber) OnUpdate(obj controller.Object) {
+	s.OnAdd(obj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
@@ -82,12 +83,12 @@ func (s *Subscriber) OnDelete(obj controller.Object) {
 }
 
 func (s *Subscriber) Run(ctx context.Context) error {
-	ticker := time.NewTicker(scanInterval)
+	ticker := time.NewTicker(s.scanInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-ticker.C:
 			err := s.processCachedNodes(ctx)
 			if err != nil && !errors.Is(err, context.Canceled) {
@@ -118,14 +119,15 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 			defer cancel()
 			err = s.lintNode(ctx, job.node)
 			if err != nil {
-				s.log.Errorf("kube-bench: %w", err)
+				s.log.WithField("node", job.node).Errorf("kube-bench: %v", err)
 				job.setFailed()
 				return
 			}
 			s.delta.delete(job.node)
 		}()
 	}
-	s.log.Infof("linting %d nodes", ready)
+	s.log.Infof("linting kube-bench, nodes=%d", ready)
+	defer s.log.Info("linting kube-bench done")
 	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
 		return err
 	}

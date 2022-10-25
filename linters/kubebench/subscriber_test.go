@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -42,9 +43,12 @@ func TestSubscriber(t *testing.T) {
 			logsProvider:    logProvider,
 			castClient:      mockCast,
 			castaiNamespace: castaiNamespace,
+			scanInterval:    5 * time.Millisecond,
 		}
 
 		jobName := "kube-bench-node-test_node"
+
+		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).AnyTimes()
 
 		// fake clientset doesn't create pod for job
 		_, err := clientset.CoreV1().Pods(castaiNamespace).Create(ctx,
@@ -70,11 +74,14 @@ func TestSubscriber(t *testing.T) {
 				Name: "test_node",
 				UID:  types.UID(uuid.NewString()),
 			},
+			Status: corev1.NodeStatus{Phase: corev1.NodeRunning},
 		}
-		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any())
+		subscriber.OnAdd(node)
 
-		err = subscriber.lintNode(ctx, node)
-		r.NoError(err)
+		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+		err = subscriber.Run(ctx)
+		r.ErrorIs(err, context.DeadlineExceeded)
 
 		// job should be deleted
 		_, err = clientset.BatchV1().Jobs(castaiNamespace).Get(ctx, jobName, metav1.GetOptions{})

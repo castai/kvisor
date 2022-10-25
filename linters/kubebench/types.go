@@ -39,6 +39,10 @@ type nodeDeltaState struct {
 }
 
 func (d *nodeDeltaState) upsert(o *corev1.Node) {
+	if o.Status.Phase != corev1.NodeRunning {
+		return
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
