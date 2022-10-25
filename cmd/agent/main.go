@@ -160,7 +160,11 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
-		objectSubscribers = append(objectSubscribers, kubelinter.NewSubscriber(log, castaiClient))
+		linterSub, err := kubelinter.NewSubscriber(log, castaiClient)
+		if err != nil {
+			return err
+		}
+		objectSubscribers = append(objectSubscribers, linterSub)
 	}
 	if cfg.KubeBench.Enabled {
 		log.Info("kubebench enabled")

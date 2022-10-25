@@ -62,6 +62,7 @@ func (s *Scanner) scan(ctx context.Context) error {
 	}
 
 	checks := []check{
+		check431EnsureCNISupportsNetworkPolicies(),
 		check511EnsureImageVulnerabilityScanningUsingAmazonECRImageScanningOrThirdPartyProvider(),
 		check512MinimizeUserAccessToAmazonECR(),
 		check513MinimizeClusterAccessToReadOnlyForAmazonECR(),

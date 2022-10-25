@@ -17,6 +17,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -31,20 +32,21 @@ func New(
 	k8sVersion version.Version,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
-		reflect.TypeOf(&corev1.Node{}):        f.Core().V1().Nodes().Informer(),
-		reflect.TypeOf(&corev1.Pod{}):         f.Core().V1().Pods().Informer(),
-		reflect.TypeOf(&corev1.Namespace{}):   f.Core().V1().Namespaces().Informer(),
-		reflect.TypeOf(&corev1.Service{}):     f.Core().V1().Services().Informer(),
-		reflect.TypeOf(&appsv1.Deployment{}):  f.Apps().V1().Deployments().Informer(),
-		reflect.TypeOf(&appsv1.DaemonSet{}):   f.Apps().V1().DaemonSets().Informer(),
-		reflect.TypeOf(&appsv1.ReplicaSet{}):  f.Apps().V1().ReplicaSets().Informer(),
-		reflect.TypeOf(&appsv1.StatefulSet{}): f.Apps().V1().StatefulSets().Informer(),
-		reflect.TypeOf(&batchv1.Job{}):        f.Batch().V1().Jobs().Informer(),
-		// RBAC
-		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}): f.Rbac().V1().ClusterRoleBindings().Informer(),
-		reflect.TypeOf(&rbacv1.RoleBinding{}):        f.Rbac().V1().RoleBindings().Informer(),
-		reflect.TypeOf(&rbacv1.ClusterRole{}):        f.Rbac().V1().ClusterRoles().Informer(),
-		reflect.TypeOf(&rbacv1.Role{}):               f.Rbac().V1().Roles().Informer(),
+		reflect.TypeOf(&corev1.Node{}):                f.Core().V1().Nodes().Informer(),
+		reflect.TypeOf(&corev1.Pod{}):                 f.Core().V1().Pods().Informer(),
+		reflect.TypeOf(&corev1.Namespace{}):           f.Core().V1().Namespaces().Informer(),
+		reflect.TypeOf(&corev1.Service{}):             f.Core().V1().Services().Informer(),
+		reflect.TypeOf(&appsv1.Deployment{}):          f.Apps().V1().Deployments().Informer(),
+		reflect.TypeOf(&appsv1.DaemonSet{}):           f.Apps().V1().DaemonSets().Informer(),
+		reflect.TypeOf(&appsv1.ReplicaSet{}):          f.Apps().V1().ReplicaSets().Informer(),
+		reflect.TypeOf(&appsv1.StatefulSet{}):         f.Apps().V1().StatefulSets().Informer(),
+		reflect.TypeOf(&batchv1.Job{}):                f.Batch().V1().Jobs().Informer(),
+		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}):  f.Rbac().V1().ClusterRoleBindings().Informer(),
+		reflect.TypeOf(&rbacv1.RoleBinding{}):         f.Rbac().V1().RoleBindings().Informer(),
+		reflect.TypeOf(&rbacv1.ClusterRole{}):         f.Rbac().V1().ClusterRoles().Informer(),
+		reflect.TypeOf(&rbacv1.Role{}):                f.Rbac().V1().Roles().Informer(),
+		reflect.TypeOf(&networkingv1.NetworkPolicy{}): f.Networking().V1().NetworkPolicies().Informer(),
+		reflect.TypeOf(&networkingv1.Ingress{}):       f.Networking().V1().Ingresses().Informer(),
 	}
 
 	if k8sVersion.MinorInt >= 21 {
@@ -323,5 +325,11 @@ func addObjectMeta(o Object) {
 	case *batchv1beta1.CronJob:
 		o.Kind = "CronJob"
 		o.APIVersion = "batch/v1beta1"
+	case *networkingv1.Ingress:
+		o.Kind = "Ingress"
+		o.APIVersion = "networking/v1"
+	case *networkingv1.NetworkPolicy:
+		o.Kind = "NetworkPolicy"
+		o.APIVersion = "networking/v1"
 	}
 }

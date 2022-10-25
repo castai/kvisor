@@ -42,6 +42,10 @@ const (
 	TokenAutomount
 	ReadSecretFromEnvVar
 	HasSecurityContext
+	DanglingNetworkPolicy
+	DanglingHPA
+	DanglingIngress
+	NetworkPolicyPerNamespace
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -73,15 +77,18 @@ var LinterRuleMap = map[string]LinterRule{
 	"unset-memory-requirements":        UnsetMempryRequirements,
 	"use-namespace":                    UseNamespace,
 	"writable-host-mount":              WritableHostMount,
-	// CIS 4.1
-	"cluster-admin-role-binding": ClusterAdminRoleBinding,
-	"access-to-secrets":          AccessToSecrets,
-	"wildcard-in-rules":          WildcardInRules,
-	"access-to-create-pods":      AccessToCreatePods,
-	"default-service-account":    DefaultServiceAccount,
-	"sa-token-automount":         TokenAutomount,
-	"read-secret-from-env-var":   ReadSecretFromEnvVar,
-	"has-security-context":       HasSecurityContext,
+	"cluster-admin-role-binding":       ClusterAdminRoleBinding,
+	"access-to-secrets":                AccessToSecrets,
+	"wildcard-in-rules":                WildcardInRules,
+	"access-to-create-pods":            AccessToCreatePods,
+	"default-service-account":          DefaultServiceAccount,
+	"sa-token-automount":               TokenAutomount,
+	"read-secret-from-env-var":         ReadSecretFromEnvVar,
+	"has-security-context":             HasSecurityContext,
+	"dangling-networkpolicy":           DanglingNetworkPolicy,
+	"dangling-horizontalpodautoscaler": DanglingHPA,
+	"dangling-ingress":                 DanglingIngress,
+	"network-policy-per-namespace":     NetworkPolicyPerNamespace,
 }
 
 type LinterCheck struct {

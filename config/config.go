@@ -19,9 +19,9 @@ type Config struct {
 	PprofPort         int           `envconfig:"PPROF_PORT" yaml:"pprofPort"`
 	Provider          string        `envconfig:"PROVIDER" yaml:"provider"`
 	DeltaSyncInterval time.Duration `envconfig:"DELTA_SYNC_INTERVAL" yaml:"deltaSyncInterval"`
-	ImageScan         ImageScan     `envconfig:"IMAGE_SCAN" yaml:"imagescan"`
+	ImageScan         ImageScan     `envconfig:"IMAGE_SCAN" yaml:"imageScan"`
 	Linter            Linter        `envconfig:"LINTER" yaml:"linter"`
-	KubeBench         KubeBench     `envconfig:"KUBE_BENCH" yaml:"kubebench"`
+	KubeBench         KubeBench     `envconfig:"KUBE_BENCH" yaml:"kubeBench"`
 	CloudScan         CloudScan     `envconfig:"CLOUD_SCAN" yaml:"cloudScan"`
 }
 
