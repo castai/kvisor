@@ -74,6 +74,8 @@ k8s_yaml(helm(
         'castai.apiURL='+api_url,
         'image.repository=agent',
         'structuredConfig.linter.enabled=true',
+        'structuredConfig.kubeBench.enabled=true',
+        'structuredConfig.kubeBench.scanInterval=2s',
         'structuredConfig.imageScan.enabled='+image_scan_enabled,
         'structuredConfig.imageScan.scanInterval=2s',
         'structuredConfig.imageScan.image.name=localhost:5000/sec-agent-imgcollector:latest',

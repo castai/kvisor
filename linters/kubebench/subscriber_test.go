@@ -48,7 +48,7 @@ func TestSubscriber(t *testing.T) {
 
 		jobName := "kube-bench-node-test_node"
 
-		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).AnyTimes()
+		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).MinTimes(1)
 
 		// fake clientset doesn't create pod for job
 		_, err := clientset.CoreV1().Pods(castaiNamespace).Create(ctx,
@@ -74,11 +74,18 @@ func TestSubscriber(t *testing.T) {
 				Name: "test_node",
 				UID:  types.UID(uuid.NewString()),
 			},
-			Status: corev1.NodeStatus{Phase: corev1.NodeRunning},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{
+						Type:   corev1.NodeReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
 		}
 		subscriber.OnAdd(node)
 
-		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 		defer cancel()
 		err = subscriber.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
@@ -104,6 +111,14 @@ func TestSubscriber(t *testing.T) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test_node",
+			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{
+						Type:   corev1.NodeReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
 			},
 		}
 

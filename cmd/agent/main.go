@@ -168,7 +168,15 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	if cfg.KubeBench.Enabled {
 		log.Info("kubebench enabled")
 		podLogReader := agentlog.NewPodLogReader(clientset)
-		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(log, clientset, cfg.PodNamespace, cfg.Provider, castaiClient, podLogReader))
+		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(
+			log,
+			clientset,
+			cfg.PodNamespace,
+			cfg.Provider,
+			cfg.KubeBench.ScanInterval,
+			castaiClient,
+			podLogReader,
+		))
 	}
 	if cfg.ImageScan.Enabled {
 		log.Info("imagescan enabled")

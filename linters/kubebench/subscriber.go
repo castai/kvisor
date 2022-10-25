@@ -38,6 +38,7 @@ func NewSubscriber(
 	client kubernetes.Interface,
 	castaiNamespace string,
 	provider string,
+	scanInterval time.Duration,
 	castClient castai.Client,
 	logsReader log.PodLogProvider,
 ) controller.ObjectSubscriber {
@@ -49,7 +50,7 @@ func NewSubscriber(
 		provider:        provider,
 		castClient:      castClient,
 		logsProvider:    logsReader,
-		scanInterval:    15 * time.Second,
+		scanInterval:    scanInterval,
 	}
 }
 
@@ -101,6 +102,10 @@ func (s *Subscriber) Run(ctx context.Context) error {
 func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 	nodes := s.delta.peek()
 	ready := 0
+
+	if len(nodes) == 0 {
+		return nil
+	}
 
 	sem := semaphore.NewWeighted(maxConcurrentJobs)
 	for _, n := range nodes {
