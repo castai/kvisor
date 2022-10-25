@@ -38,49 +38,49 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	case *corev1.Node:
 		n, ok := s.tree[v.GetName()]
 		if !ok {
-			s.tree[v.GetName()] = &node{
+			n = &node{
 				name:           v.GetName(),
 				allocatableMem: &inf.Dec{},
 				allocatableCPU: &inf.Dec{},
 				pods:           make(map[types.UID]*pod),
 			}
-
-			n = s.tree[v.GetName()]
+			s.tree[v.GetName()] = n
 		}
 
 		n.allocatableMem = v.Status.Allocatable.Memory().AsDec()
 		n.allocatableCPU = v.Status.Allocatable.Cpu().AsDec()
 	case *corev1.Pod:
-		n, ok := s.tree[v.Spec.NodeName]
-		if !ok {
-			s.tree[v.Spec.NodeName] = &node{
-				name:           v.Spec.NodeName,
-				allocatableMem: &inf.Dec{},
-				allocatableCPU: &inf.Dec{},
-				pods:           make(map[types.UID]*pod),
-			}
-
-			n = s.tree[v.Spec.NodeName]
-		}
-
-		p, ok := n.pods[v.GetUID()]
-		if !ok {
-			n.pods[v.GetUID()] = &pod{
-				id:            v.GetUID(),
-				requestCPU:    &inf.Dec{},
-				requestMemory: &inf.Dec{},
-			}
-
-			p = n.pods[v.GetUID()]
-		}
-
 		switch v.Status.Phase {
 		case corev1.PodRunning, corev1.PodPending:
+			n, ok := s.tree[v.Spec.NodeName]
+			if !ok {
+				n = &node{
+					name:           v.Spec.NodeName,
+					allocatableMem: &inf.Dec{},
+					allocatableCPU: &inf.Dec{},
+					pods:           make(map[types.UID]*pod),
+				}
+				s.tree[v.Spec.NodeName] = n
+			}
+
+			p, ok := n.pods[v.GetUID()]
+			if !ok {
+				p = &pod{
+					id:            v.GetUID(),
+					requestCPU:    &inf.Dec{},
+					requestMemory: &inf.Dec{},
+				}
+				n.pods[v.GetUID()] = p
+			}
+
 			p.requestMemory = sumPodRequestMemory(&v.Spec)
 			p.requestCPU = sumPodRequestCPU(&v.Spec)
 		default:
-			p.requestMemory = &inf.Dec{}
-			p.requestCPU = &inf.Dec{}
+			// remove pod from tree
+			n, ok := s.tree[v.Spec.NodeName]
+			if ok {
+				delete(n.pods, obj.GetUID())
+			}
 		}
 	}
 }
