@@ -37,7 +37,7 @@ type Client interface {
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
 	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
 	SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error
-	PostTelemetry(ctx context.Context) (*TelemetryResponse, error)
+	PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error)
 }
 
 func NewClient(
@@ -99,10 +99,13 @@ type client struct {
 	binVersion config.SecurityAgentVersion
 }
 
-func (c *client) PostTelemetry(ctx context.Context) (*TelemetryResponse, error) {
-	resp, err := c.restClient.R().
-		SetContext(ctx).
-		Post(fmt.Sprintf("/v1/security/insights/%s/telemetry", c.clusterID))
+func (c *client) PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error) {
+	req := c.restClient.R().SetContext(ctx)
+	if initial {
+		req.SetBody(map[string]interface{}{"initial": true})
+	}
+
+	resp, err := req.Post(fmt.Sprintf("/v1/security/insights/%s/telemetry", c.clusterID))
 	if err != nil {
 		return nil, fmt.Errorf("sending telemetry: %w", err)
 	}

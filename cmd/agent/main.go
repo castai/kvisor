@@ -152,7 +152,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 
 	var scannedNodes, scannedImages []string
-	telemetryResponse, err := castaiClient.PostTelemetry(ctx)
+	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)
 	if err != nil {
 		log.Warnf("initial telemetry: %v", err)
 	} else {
