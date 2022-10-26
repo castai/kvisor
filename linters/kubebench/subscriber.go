@@ -110,6 +110,12 @@ func (s *Subscriber) Run(ctx context.Context) error {
 
 func (s *Subscriber) process(ctx context.Context) error {
 	nodes := s.findNodesForScan()
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	s.log.Infof("processing kube-bench")
+	defer s.log.Info("processing kube-bench done")
 	sem := semaphore.NewWeighted(maxConcurrentJobs)
 	for _, n := range nodes {
 		job := n
@@ -130,8 +136,7 @@ func (s *Subscriber) process(ctx context.Context) error {
 			s.delta.delete(job.node)
 		}()
 	}
-	s.log.Infof("linting kube-bench, nodes=%d", len(nodes))
-	defer s.log.Info("linting kube-bench done")
+
 	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
 		return err
 	}
@@ -155,6 +160,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 }
 
 func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
+	s.log.Debugf("starting kube-bench lint for node=%s", node.Name)
 	jobName := "kube-bench-node-" + node.GetName()
 	err := s.deleteJob(ctx, jobName)
 	if err != nil && !k8serrors.IsNotFound(err) {
