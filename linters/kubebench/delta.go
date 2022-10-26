@@ -39,11 +39,6 @@ type nodeDeltaState struct {
 }
 
 func (d *nodeDeltaState) upsert(o *corev1.Node) {
-	// Make sure that node is ready.
-	if !isNodeReady(o) {
-		return
-	}
-
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -78,12 +73,4 @@ func (d *nodeDeltaState) peek() []*nodeJob {
 	defer d.mu.Unlock()
 
 	return lo.Values(d.objectMap)
-}
-
-func isNodeReady(n *corev1.Node) bool {
-	if len(n.Status.Conditions) == 0 {
-		return false
-	}
-	lastCondition := n.Status.Conditions[len(n.Status.Conditions)-1]
-	return lastCondition.Type == corev1.NodeReady && lastCondition.Status == corev1.ConditionTrue
 }

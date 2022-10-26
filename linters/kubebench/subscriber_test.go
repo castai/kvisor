@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -93,6 +94,7 @@ func TestSubscriber(t *testing.T) {
 		// Job should be deleted.
 		_, err = clientset.BatchV1().Jobs(castaiNamespace).Get(ctx, jobName, metav1.GetOptions{})
 		r.Error(err)
+		r.Equal([]reflect.Type{reflect.TypeOf(&corev1.Node{})}, subscriber.RequiredInformers())
 	})
 
 	t.Run("skip already scanned node", func(t *testing.T) {
@@ -147,52 +149,6 @@ func TestSubscriber(t *testing.T) {
 		err := subscriber.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
 		r.NotContainsf(logOutput.String(), "error", "logs containers error")
-	})
-
-	t.Run("works only with nodes", func(t *testing.T) {
-		r := require.New(t)
-		log := logrus.New()
-		log.SetLevel(logrus.DebugLevel)
-
-		subscriber := &Subscriber{
-			log:      log,
-			client:   nil,
-			delta:    newDeltaState(),
-			provider: "gke",
-		}
-
-		node := &corev1.Node{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Node",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test_node",
-			},
-			Status: corev1.NodeStatus{
-				Conditions: []corev1.NodeCondition{
-					{
-						Type:   corev1.NodeReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-		}
-
-		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Pod",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test_pod",
-			},
-		}
-
-		subscriber.OnAdd(node)
-		subscriber.OnAdd(pod)
-
-		r.Len(subscriber.delta.objectMap, 1)
 	})
 }
 

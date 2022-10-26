@@ -73,7 +73,10 @@ type Subscriber struct {
 func (s *Subscriber) OnAdd(obj controller.Object) {
 	node, ok := obj.(*corev1.Node)
 	if ok {
-		s.delta.upsert(node)
+		_, scanned := s.scannedNodes.Get(string(node.GetUID()))
+		if isNodeReady(node) && !scanned {
+			s.delta.upsert(node)
+		}
 	}
 }
 
@@ -140,7 +143,7 @@ func (s *Subscriber) findNodesForScan() []*nodeJob {
 	nodes := s.delta.peek()
 	var res []*nodeJob
 	for _, nodeJob := range nodes {
-		if _, scanned := s.scannedNodes.Get(string(nodeJob.node.GetUID())); !scanned && nodeJob.ready() {
+		if nodeJob.ready() {
 			res = append(res, nodeJob)
 		}
 	}
@@ -292,4 +295,12 @@ func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname stri
 
 		return spec.Node
 	}
+}
+
+func isNodeReady(n *corev1.Node) bool {
+	if len(n.Status.Conditions) == 0 {
+		return false
+	}
+	lastCondition := n.Status.Conditions[len(n.Status.Conditions)-1]
+	return lastCondition.Type == corev1.NodeReady && lastCondition.Status == corev1.ConditionTrue
 }
