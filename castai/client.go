@@ -102,7 +102,7 @@ type client struct {
 func (c *client) PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error) {
 	req := c.restClient.R().SetContext(ctx)
 	if initial {
-		req.SetBody(map[string]interface{}{"initial": true})
+		req.SetBody(map[string]interface{}{"initialSync": true})
 	}
 
 	resp, err := req.Post(fmt.Sprintf("/v1/security/insights/%s/telemetry", c.clusterID))
