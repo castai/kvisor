@@ -71,6 +71,10 @@ func newTestConfig() Config {
 			Mode:              "mode",
 			DockerOptionsPath: "/etc/config/docker-config.json",
 			BlobsCachePort:    8080,
+			CPURequest:        "100m",
+			CPULimit:          "2",
+			MemoryRequest:     "100Mi",
+			MemoryLimit:       "2Gi",
 		},
 		Linter: Linter{
 			Enabled: true,

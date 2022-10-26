@@ -214,6 +214,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		envVars,
 		vols,
 		params.Tolerations,
+		s.cfg.ImageScan,
 	)
 	jobs := s.client.BatchV1().Jobs(s.cfg.PodNamespace)
 
@@ -304,6 +305,7 @@ func scanJobSpec(
 	envVars []corev1.EnvVar,
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,
+	cfg config.ImageScan,
 ) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -352,12 +354,12 @@ func scanJobSpec(
 							VolumeMounts:    vol.mounts,
 							Resources: corev1.ResourceRequirements{
 								Limits: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse("500m"),
-									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse(cfg.CPULimit),
+									corev1.ResourceMemory: resource.MustParse(cfg.MemoryLimit),
 								},
 								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
+									corev1.ResourceCPU:    resource.MustParse(cfg.CPURequest),
+									corev1.ResourceMemory: resource.MustParse(cfg.MemoryRequest),
 								},
 							},
 						},

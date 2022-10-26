@@ -40,6 +40,10 @@ func TestScanner(t *testing.T) {
 				},
 				DockerOptionsPath: "/etc/docker/config.json",
 				BlobsCachePort:    8080,
+				CPURequest:        "500m",
+				CPULimit:          "2",
+				MemoryRequest:     "100Mi",
+				MemoryLimit:       "2Gi",
 			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -155,11 +159,11 @@ func TestScanner(t *testing.T) {
 								},
 								Resources: corev1.ResourceRequirements{
 									Limits: map[corev1.ResourceName]resource.Quantity{
-										corev1.ResourceCPU:    resource.MustParse("500m"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
 										corev1.ResourceMemory: resource.MustParse("2Gi"),
 									},
 									Requests: map[corev1.ResourceName]resource.Quantity{
-										corev1.ResourceCPU:    resource.MustParse("100m"),
+										corev1.ResourceCPU:    resource.MustParse("500m"),
 										corev1.ResourceMemory: resource.MustParse("100Mi"),
 									},
 								},
@@ -208,6 +212,10 @@ func TestScanner(t *testing.T) {
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
 				BlobsCachePort: 8080,
+				CPURequest:     "500m",
+				CPULimit:       "2",
+				MemoryRequest:  "100Mi",
+				MemoryLimit:    "2Gi",
 			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond

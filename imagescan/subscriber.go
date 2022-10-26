@@ -2,6 +2,7 @@ package imagescan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -10,13 +11,16 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
+	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/imagescan/allow"
 )
 
 func NewSubscriber(
@@ -25,6 +29,7 @@ func NewSubscriber(
 	client castai.Client,
 	imageScanner imageScanner,
 	k8sVersionMinor int,
+	nodeResolver func([]string, *inf.Dec) (string, error),
 ) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	scannedImagesCache, _ := lru.New(10000)
@@ -39,6 +44,7 @@ func NewSubscriber(
 		cfg:                cfg,
 		k8sVersionMinor:    k8sVersionMinor,
 		scannedImagesCache: scannedImagesCache,
+		bestNodeResolver:   nodeResolver,
 	}
 }
 
@@ -52,6 +58,7 @@ type Subscriber struct {
 	log                logrus.FieldLogger
 	cfg                config.ImageScan
 	k8sVersionMinor    int
+	bestNodeResolver   func([]string, *inf.Dec) (string, error)
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -151,6 +158,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 			log := s.log.WithField("image", imageName)
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, log, info); err != nil {
+				if errors.Is(err, allow.ErrNoCandidates) {
+					// TODO: no nodes with resources, schedule job for later
+					log.Debugf("no resources to scan image %q", info.imageName)
+				}
 				log.Errorf("image scan failed: %v", err)
 				return
 			}
@@ -192,7 +203,18 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 	nodeNames := lo.Keys(info.nodeNames)
 	var nodeName string
 	if len(nodeNames) > 0 {
-		nodeName = nodeNames[0] // TODO: Find most suitable node for run the job. We should prefer nodes with free resources.
+		nodeName = nodeNames[0]
+
+		if len(nodeNames) > 1 {
+			// resolve best node
+			memQty := resource.MustParse(s.cfg.MemoryRequest)
+			resolvedNode, err := s.bestNodeResolver(nodeNames, memQty.AsDec())
+			if err != nil {
+				return err
+			} else {
+				nodeName = resolvedNode
+			}
+		}
 	}
 
 	err := s.imageScanner.ScanImage(ctx, ScanImageParams{
