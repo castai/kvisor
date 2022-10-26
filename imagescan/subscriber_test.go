@@ -160,7 +160,7 @@ func TestSubscriber(t *testing.T) {
 		scanner := &mockImageScanner{}
 		sub := NewSubscriber(log, cfg, client, scanner, 21, func(strings []string, dec *inf.Dec) (string, error) {
 			return strings[0], nil
-		})
+		}, nil)
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
