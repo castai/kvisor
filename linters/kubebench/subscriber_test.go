@@ -5,7 +5,9 @@ import (
 	"context"
 	"io"
 	"os"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -17,13 +19,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	mock_castai "github.com/castai/sec-agent/castai/mock"
-	"github.com/castai/sec-agent/log"
+	agentlog "github.com/castai/sec-agent/log"
 )
 
 func TestSubscriber(t *testing.T) {
-	log := logrus.New()
-	log.SetLevel(logrus.DebugLevel)
-
 	t.Run("creates job and sends report from log reader", func(t *testing.T) {
 		mockctrl := gomock.NewController(t)
 		r := require.New(t)
@@ -31,20 +30,26 @@ func TestSubscriber(t *testing.T) {
 		clientset := fake.NewSimpleClientset()
 		mockCast := mock_castai.NewMockClient(mockctrl)
 
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+		var logOutput bytes.Buffer
+		log.SetOutput(&logOutput)
 		logProvider := newMockLogProvider(readReport())
 
 		castaiNamespace := "castai-sec"
-		subscriber := &Subscriber{
-			log:             log,
-			client:          clientset,
-			delta:           newDeltaState(),
-			provider:        "gke",
-			logsProvider:    logProvider,
-			castClient:      mockCast,
-			castaiNamespace: castaiNamespace,
-		}
+		subscriber := NewSubscriber(
+			log,
+			clientset,
+			castaiNamespace,
+			"gke",
+			5*time.Millisecond,
+			mockCast,
+			logProvider,
+		)
 
 		jobName := "kube-bench-node-test_node"
+
+		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).MinTimes(1)
 
 		// fake clientset doesn't create pod for job
 		_, err := clientset.CoreV1().Pods(castaiNamespace).Create(ctx,
@@ -70,25 +75,53 @@ func TestSubscriber(t *testing.T) {
 				Name: "test_node",
 				UID:  types.UID(uuid.NewString()),
 			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{
+						Type:   corev1.NodeReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
 		}
-		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any())
+		subscriber.OnAdd(node)
 
-		err = subscriber.lintNode(ctx, node)
-		r.NoError(err)
-
-		// job should be deleted
+		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
+		defer cancel()
+		err = subscriber.Run(ctx)
+		r.ErrorIs(err, context.DeadlineExceeded)
+		r.NotContainsf(logOutput.String(), "error", "logs containers error")
+		// Job should be deleted.
 		_, err = clientset.BatchV1().Jobs(castaiNamespace).Get(ctx, jobName, metav1.GetOptions{})
 		r.Error(err)
+		r.Equal([]reflect.Type{reflect.TypeOf(&corev1.Node{})}, subscriber.RequiredInformers())
 	})
 
-	t.Run("works only with nodes", func(t *testing.T) {
+	t.Run("skip already scanned node", func(t *testing.T) {
+		mockctrl := gomock.NewController(t)
 		r := require.New(t)
-		subscriber := &Subscriber{
-			log:      log,
-			client:   nil,
-			delta:    newDeltaState(),
-			provider: "gke",
-		}
+		ctx := context.Background()
+		clientset := fake.NewSimpleClientset()
+		mockCast := mock_castai.NewMockClient(mockctrl)
+
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+		var logOutput bytes.Buffer
+		log.SetOutput(&logOutput)
+		logProvider := newMockLogProvider(readReport())
+
+		castaiNamespace := "castai-sec"
+		subscriber := NewSubscriber(
+			log,
+			clientset,
+			castaiNamespace,
+			"gke",
+			5*time.Millisecond,
+			mockCast,
+			logProvider,
+		)
+		nodeID := types.UID(uuid.NewString())
+		subscriber.(*Subscriber).scannedNodes.Add(string(nodeID), struct{}{})
 
 		node := &corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -97,23 +130,25 @@ func TestSubscriber(t *testing.T) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test_node",
+				UID:  nodeID,
+			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{
+						Type:   corev1.NodeReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
 			},
 		}
-
-		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Pod",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test_pod",
-			},
-		}
-
 		subscriber.OnAdd(node)
-		subscriber.OnAdd(pod)
+		subscriber.OnUpdate(node)
 
-		r.Len(subscriber.delta.objectMap, 1)
+		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
+		defer cancel()
+		err := subscriber.Run(ctx)
+		r.ErrorIs(err, context.DeadlineExceeded)
+		r.NotContainsf(logOutput.String(), "error", "logs containers error")
 	})
 }
 
@@ -121,7 +156,7 @@ type mockProvider struct {
 	logs []byte
 }
 
-func newMockLogProvider(b []byte) log.PodLogProvider {
+func newMockLogProvider(b []byte) agentlog.PodLogProvider {
 	return &mockProvider{logs: b}
 }
 

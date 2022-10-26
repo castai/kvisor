@@ -80,7 +80,8 @@ func newTestConfig() Config {
 			Enabled: true,
 		},
 		KubeBench: KubeBench{
-			Enabled: true,
+			Enabled:      true,
+			ScanInterval: 15 * time.Second,
 		},
 		CloudScan: CloudScan{
 			Enabled:      true,

@@ -67,7 +67,8 @@ type Linter struct {
 }
 
 type KubeBench struct {
-	Enabled bool `envconfig:"ENABLED" yaml:"enabled"`
+	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
+	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
 }
 
 type KubeClient struct {
@@ -169,6 +170,11 @@ func Load(configPath string) (Config, error) {
 	if cfg.CloudScan.Enabled {
 		if cfg.CloudScan.ScanInterval == 0 {
 			cfg.CloudScan.ScanInterval = 1 * time.Hour
+		}
+	}
+	if cfg.KubeBench.Enabled {
+		if cfg.KubeBench.ScanInterval == 0 {
+			cfg.KubeBench.ScanInterval = 15 * time.Second
 		}
 	}
 

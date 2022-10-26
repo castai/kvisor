@@ -10,6 +10,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
+	lru "github.com/hashicorp/golang-lru"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -28,7 +29,6 @@ import (
 )
 
 const (
-	scanInterval      = 15 * time.Second
 	nodeScanTimeout   = 5 * time.Minute
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 5
@@ -39,9 +39,12 @@ func NewSubscriber(
 	client kubernetes.Interface,
 	castaiNamespace string,
 	provider string,
+	scanInterval time.Duration,
 	castClient castai.Client,
 	logsReader log.PodLogProvider,
 ) controller.ObjectSubscriber {
+	scannedNodes, _ := lru.New(1000)
+
 	return &Subscriber{
 		log:             log,
 		client:          client,
@@ -50,6 +53,8 @@ func NewSubscriber(
 		provider:        provider,
 		castClient:      castClient,
 		logsProvider:    logsReader,
+		scanInterval:    scanInterval,
+		scannedNodes:    scannedNodes,
 	}
 }
 
@@ -61,35 +66,41 @@ type Subscriber struct {
 	delta           *nodeDeltaState
 	provider        string
 	logsProvider    log.PodLogProvider
+	scanInterval    time.Duration
+	scannedNodes    *lru.Cache
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
 	node, ok := obj.(*corev1.Node)
 	if ok {
-		s.delta.upsert(node)
+		_, scanned := s.scannedNodes.Get(string(node.GetUID()))
+		if isNodeReady(node) && !scanned {
+			s.delta.upsert(node)
+		}
 	}
 }
 
-func (s *Subscriber) OnUpdate(_ controller.Object) {
-	// do not run on updates
+func (s *Subscriber) OnUpdate(obj controller.Object) {
+	s.OnAdd(obj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
 	node, ok := obj.(*corev1.Node)
 	if ok {
 		s.delta.delete(node)
+		s.scannedNodes.Remove(string(obj.GetUID()))
 	}
 }
 
 func (s *Subscriber) Run(ctx context.Context) error {
-	ticker := time.NewTicker(scanInterval)
+	ticker := time.NewTicker(s.scanInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-ticker.C:
-			err := s.processCachedNodes(ctx)
+			err := s.process(ctx)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				s.log.Errorf("error linting nodes: %v", err)
 			}
@@ -97,16 +108,10 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) processCachedNodes(ctx context.Context) error {
-	nodes := s.delta.peek()
-	ready := 0
-
+func (s *Subscriber) process(ctx context.Context) error {
+	nodes := s.findNodesForScan()
 	sem := semaphore.NewWeighted(maxConcurrentJobs)
 	for _, n := range nodes {
-		if !n.ready() {
-			continue
-		}
-		ready++
 		job := n
 		err := sem.Acquire(ctx, 1)
 		if err != nil {
@@ -118,19 +123,31 @@ func (s *Subscriber) processCachedNodes(ctx context.Context) error {
 			defer cancel()
 			err = s.lintNode(ctx, job.node)
 			if err != nil {
-				s.log.Errorf("kube-bench: %w", err)
+				s.log.WithField("node", job.node.Name).Errorf("kube-bench: %v", err)
 				job.setFailed()
 				return
 			}
 			s.delta.delete(job.node)
 		}()
 	}
-	s.log.Infof("linting %d nodes", ready)
+	s.log.Infof("linting kube-bench, nodes=%d", len(nodes))
+	defer s.log.Info("linting kube-bench done")
 	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (s *Subscriber) findNodesForScan() []*nodeJob {
+	nodes := s.delta.peek()
+	var res []*nodeJob
+	for _, nodeJob := range nodes {
+		if nodeJob.ready() {
+			res = append(res, nodeJob)
+		}
+	}
+	return res
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -159,6 +176,8 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
 	if err != nil {
 		return err
 	}
+
+	s.scannedNodes.Add(string(node.UID), struct{}{})
 
 	err = s.deleteJob(ctx, jobName)
 	if err != nil {
@@ -276,4 +295,12 @@ func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname stri
 
 		return spec.Node
 	}
+}
+
+func isNodeReady(n *corev1.Node) bool {
+	if len(n.Status.Conditions) == 0 {
+		return false
+	}
+	lastCondition := n.Status.Conditions[len(n.Status.Conditions)-1]
+	return lastCondition.Type == corev1.NodeReady && lastCondition.Status == corev1.ConditionTrue
 }
