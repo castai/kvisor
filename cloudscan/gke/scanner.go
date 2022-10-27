@@ -108,8 +108,10 @@ func (s *Scanner) Start(ctx context.Context) {
 }
 
 func (s *Scanner) scan(ctx context.Context) (rerr error) {
+	start := time.Now()
 	defer func() {
-		metrics.ScansTotal.WithLabelValues(metrics.ScanTypeCloud, metrics.ScanStatus(rerr))
+		metrics.IncScansTotal(metrics.ScanTypeCloud, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeCloud, start)
 	}()
 
 	cl, err := s.clusterClient.GetCluster(ctx, &containerpb.GetClusterRequest{

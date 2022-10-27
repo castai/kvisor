@@ -11,6 +11,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/informers"
 
 	"github.com/castai/sec-agent/blobscache"
@@ -125,8 +126,9 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	httpMux := http.NewServeMux()
 	healthz.InstallHandler(httpMux)
 	installPprofHandlers(httpMux)
+	httpMux.Handle("/metrics", promhttp.Handler())
 
-	// Start http server for pprof and health checks handlers.
+	// Start http server for metrics, pprof and health checks handlers.
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.PprofPort)
 		log.Infof("starting pprof server on %s", addr)

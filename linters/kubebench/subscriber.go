@@ -26,6 +26,7 @@ import (
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/linters/kubebench/spec"
 	"github.com/castai/sec-agent/log"
+	"github.com/castai/sec-agent/metrics"
 )
 
 const (
@@ -108,11 +109,17 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) process(ctx context.Context) error {
+func (s *Subscriber) process(ctx context.Context) (rerr error) {
 	nodes := s.findNodesForScan()
 	if len(nodes) == 0 {
 		return nil
 	}
+
+	start := time.Now()
+	defer func() {
+		metrics.IncScansTotal(metrics.ScanTypeKubeBench, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeKubeBench, start)
+	}()
 
 	s.log.Infof("processing kube-bench")
 	defer s.log.Info("processing kube-bench done")

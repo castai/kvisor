@@ -132,8 +132,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 	// TODO: Pods cleanup is too simple here.
 	// TODO: Need to keep track of containers scan state and only remove pods with all completed containers.
+	start := time.Now()
 	defer func() {
-		metrics.ScansTotal.WithLabelValues(metrics.ScanTypeImage, metrics.ScanStatus(rerr))
+		metrics.IncScansTotal(metrics.ScanTypeImage, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 		if rerr == nil {
 			s.delta.deletePods(podsMap)
 		}
