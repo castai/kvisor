@@ -119,12 +119,6 @@ func (s *Subscriber) process(ctx context.Context) (rerr error) {
 		return nil
 	}
 
-	start := time.Now()
-	defer func() {
-		metrics.IncScansTotal(metrics.ScanTypeKubeBench, rerr)
-		metrics.ObserveScanDuration(metrics.ScanTypeKubeBench, start)
-	}()
-
 	s.log.Infof("processing kube-bench")
 	defer s.log.Info("processing kube-bench done")
 	sem := semaphore.NewWeighted(maxConcurrentJobs)
@@ -170,7 +164,13 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	return []reflect.Type{reflect.TypeOf(&corev1.Node{})}
 }
 
-func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) error {
+func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr error) {
+	start := time.Now()
+	defer func() {
+		metrics.IncScansTotal(metrics.ScanTypeKubeBench, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeKubeBench, start)
+	}()
+
 	s.log.Debugf("starting kube-bench lint for node=%s", node.Name)
 	jobName := "kube-bench-node-" + node.GetName()
 	err := s.deleteJob(ctx, jobName)
