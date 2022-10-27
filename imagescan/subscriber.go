@@ -136,10 +136,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 	// TODO: Pods cleanup is too simple here.
 	// TODO: Need to keep track of containers scan state and only remove pods with all completed containers.
-	start := time.Now()
 	defer func() {
-		metrics.IncScansTotal(metrics.ScanTypeImage, rerr)
-		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 		if rerr == nil {
 			s.delta.deletePods(podsMap)
 		}
@@ -186,7 +183,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info *imageInfo) error {
+func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info *imageInfo) (rerr error) {
 	// If image is already scanned, sync and update resource ids.
 	uniqueResourceIDs := lo.Uniq(info.resourcesIDs)
 	if cacheResourceIDs, ok := s.scannedImagesCache.Get(info.imageID); ok {
@@ -228,6 +225,14 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 			}
 		}
 	}
+
+	defer func() {
+		start := time.Now()
+		defer func() {
+			metrics.IncScansTotal(metrics.ScanTypeImage, rerr)
+			metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
+		}()
+	}()
 
 	err := s.imageScanner.ScanImage(ctx, ScanImageParams{
 		ImageName:         info.imageName,
