@@ -45,6 +45,7 @@ func TestSubscriber(t *testing.T) {
 			5*time.Millisecond,
 			mockCast,
 			logProvider,
+			nil,
 		)
 
 		jobName := "kube-bench-node-test_node"
@@ -119,6 +120,7 @@ func TestSubscriber(t *testing.T) {
 			5*time.Millisecond,
 			mockCast,
 			logProvider,
+			nil,
 		)
 		nodeID := types.UID(uuid.NewString())
 		subscriber.(*Subscriber).scannedNodes.Add(string(nodeID), struct{}{})

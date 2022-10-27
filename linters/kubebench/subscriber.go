@@ -42,8 +42,12 @@ func NewSubscriber(
 	scanInterval time.Duration,
 	castClient castai.Client,
 	logsReader log.PodLogProvider,
+	scannedNodes []string,
 ) controller.ObjectSubscriber {
-	scannedNodes, _ := lru.New(1000)
+	nodeCache, _ := lru.New(1000)
+	for _, node := range scannedNodes {
+		nodeCache.Add(node, struct{}{})
+	}
 
 	return &Subscriber{
 		log:             log,
@@ -54,7 +58,7 @@ func NewSubscriber(
 		castClient:      castClient,
 		logsProvider:    logsReader,
 		scanInterval:    scanInterval,
-		scannedNodes:    scannedNodes,
+		scannedNodes:    nodeCache,
 	}
 }
 

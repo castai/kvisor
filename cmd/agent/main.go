@@ -151,11 +151,14 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		),
 	}
 
-	telemetryResponse, err := castaiClient.PostTelemetry(ctx)
+	var scannedNodes, scannedImages []string
+	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)
 	if err != nil {
 		log.Warnf("initial telemetry: %v", err)
 	} else {
 		cfg = telemetry.ModifyConfig(cfg, telemetryResponse)
+		scannedNodes = telemetryResponse.NodeIDs
+		scannedImages = telemetryResponse.ImageIDs
 	}
 
 	if cfg.Linter.Enabled {
@@ -177,6 +180,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			cfg.KubeBench.ScanInterval,
 			castaiClient,
 			podLogReader,
+			scannedNodes,
 		))
 	}
 	if cfg.ImageScan.Enabled {
@@ -190,6 +194,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			imagescan.NewImageScanner(clientset, cfg),
 			k8sVersion.MinorInt,
 			allowSubscriber.FindBestNode,
+			scannedImages,
 		))
 		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)

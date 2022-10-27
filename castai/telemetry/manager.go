@@ -49,5 +49,5 @@ func (s *Manager) Observe(observers ...Observer) {
 }
 
 func (s *Manager) postTelemetry() (*castai.TelemetryResponse, error) {
-	return s.client.PostTelemetry(s.ctx)
+	return s.client.PostTelemetry(s.ctx, false)
 }

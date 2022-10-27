@@ -30,9 +30,13 @@ func NewSubscriber(
 	imageScanner imageScanner,
 	k8sVersionMinor int,
 	nodeResolver func([]string, *inf.Dec) (string, error),
+	scannedImages []string,
 ) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	scannedImagesCache, _ := lru.New(10000)
+	for _, imageID := range scannedImages {
+		scannedImagesCache.Add(imageID, []string{})
+	}
 
 	return &Subscriber{
 		ctx:                ctx,
@@ -179,7 +183,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 }
 
 func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info *imageInfo) error {
-	// If image is already scanned, sync update resource ids.
+	// If image is already scanned, sync and update resource ids.
 	uniqueResourceIDs := lo.Uniq(info.resourcesIDs)
 	if cacheResourceIDs, ok := s.scannedImagesCache.Get(info.imageID); ok {
 		diff, _ := lo.Difference(cacheResourceIDs.([]string), uniqueResourceIDs)
@@ -194,6 +198,10 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 		}); err != nil {
 			return fmt.Errorf("sending image metadata resources update: %w", err)
 		}
+
+		// Update resource IDs in cache.
+		s.scannedImagesCache.Add(info.imageID, info.resourcesIDs)
+
 		return nil
 	}
 
