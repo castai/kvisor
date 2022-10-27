@@ -18,6 +18,7 @@ import (
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/metrics"
 )
 
 func NewSubscriber(log logrus.FieldLogger, client castai.Client) (controller.ObjectSubscriber, error) {
@@ -112,7 +113,13 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 	}
 }
 
-func (s *Subscriber) lintObjects(objects []controller.Object) error {
+func (s *Subscriber) lintObjects(objects []controller.Object) (rerr error) {
+	start := time.Now()
+	defer func() {
+		metrics.IncScansTotal(metrics.ScanTypeLinter, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeLinter, start)
+	}()
+
 	checks, err := s.linter.Run(lo.Map(objects, func(o controller.Object, i int) lintcontext.Object {
 		return lintcontext.Object{K8sObject: o}
 	}))

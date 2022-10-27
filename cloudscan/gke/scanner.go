@@ -19,6 +19,7 @@ import (
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
+	"github.com/castai/sec-agent/metrics"
 )
 
 type clusterClient interface {
@@ -106,7 +107,13 @@ func (s *Scanner) Start(ctx context.Context) {
 	}
 }
 
-func (s *Scanner) scan(ctx context.Context) error {
+func (s *Scanner) scan(ctx context.Context) (rerr error) {
+	start := time.Now()
+	defer func() {
+		metrics.IncScansTotal(metrics.ScanTypeCloud, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeCloud, start)
+	}()
+
 	cl, err := s.clusterClient.GetCluster(ctx, &containerpb.GetClusterRequest{
 		Name: s.cfg.GKE.ClusterName,
 	})

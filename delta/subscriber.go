@@ -20,6 +20,7 @@ import (
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
+	"github.com/castai/sec-agent/metrics"
 )
 
 var scheme = runtime.NewScheme()
@@ -148,6 +149,7 @@ func (s *Subscriber) sendDelta(ctx context.Context) error {
 	if err := s.client.SendDeltaReport(ctx, deltaReq); err != nil {
 		return err
 	}
+	metrics.IncDeltasSentTotal()
 	s.log.WithField("full_snapshot", "todo").Infof("delta with items[%d] sent", len(deltaReq.Items))
 	s.delta.clear()
 	return nil

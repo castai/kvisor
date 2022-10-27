@@ -21,6 +21,7 @@ import (
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/imagescan/allow"
+	"github.com/castai/sec-agent/metrics"
 )
 
 func NewSubscriber(
@@ -135,7 +136,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 	// TODO: Pods cleanup is too simple here.
 	// TODO: Need to keep track of containers scan state and only remove pods with all completed containers.
+	start := time.Now()
 	defer func() {
+		metrics.IncScansTotal(metrics.ScanTypeImage, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 		if rerr == nil {
 			s.delta.deletePods(podsMap)
 		}
