@@ -164,7 +164,6 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, log, info); err != nil {
 				if errors.Is(err, allow.ErrNoCandidates) {
-					// TODO: no nodes with resources, schedule job for later
 					log.Debugf("no resources to scan image %q", info.imageName)
 				}
 				log.Errorf("image scan failed: %v", err)
