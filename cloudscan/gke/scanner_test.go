@@ -19,7 +19,7 @@ import (
 	"github.com/castai/sec-agent/config"
 )
 
-func TestScanner(t *testing.T) {
+func TestScannerFailAutomatedChecks(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
 	log := logrus.New()
@@ -99,6 +99,114 @@ func TestScanner(t *testing.T) {
 		Manual: true,
 		Failed: true,
 	}, check)
+
+	failedAutomatedChecks := lo.Map(lo.Filter(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck, _ int) bool {
+		return v.Failed && !v.Manual
+	}), func(v castai.CloudScanCheck, _ int) string {
+		return v.ID
+	})
+	r.Equal([]string{
+		"5.2.1",
+		"5.4.1",
+		"5.4.2",
+		"5.5.1",
+		"5.5.2",
+		"5.5.3",
+		"5.5.6",
+		"5.5.7",
+		"5.6.1",
+		"5.6.2",
+		"5.7.1",
+		"5.8.1",
+		"5.8.2",
+		"5.8.4",
+		"5.10.1",
+		"5.10.2",
+		"5.10.5",
+	}, failedAutomatedChecks)
+}
+
+func TestScannerPassAutomatedChecks(t *testing.T) {
+	r := require.New(t)
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	clusterName := "projects/my-project/locations/eu-central-1/clusters/test-cluster"
+
+	clusterClient := &mockClusterClient{
+		clusters: map[string]*containerpb.Cluster{
+			clusterName: {
+				Name:              "test-cluster",
+				MasterAuth:        &containerpb.MasterAuth{},
+				LoggingService:    "enabled",
+				MonitoringService: "enabled",
+				AddonsConfig:      &containerpb.AddonsConfig{},
+				IpAllocationPolicy: &containerpb.IPAllocationPolicy{
+					UseIpAliases: true,
+				},
+				BinaryAuthorization: &containerpb.BinaryAuthorization{
+					Enabled:        true, //golint:nolint
+					EvaluationMode: 0,
+				},
+				NodePools: []*containerpb.NodePool{
+					{
+						Name: "pool-1",
+						Config: &containerpb.NodeConfig{
+							Metadata: map[string]string{
+								"disable-legacy-endpoints": "true",
+							},
+							ImageType: "COS",
+							WorkloadMetadataConfig: &containerpb.WorkloadMetadataConfig{
+								Mode: containerpb.WorkloadMetadataConfig_GKE_METADATA,
+							},
+							ShieldedInstanceConfig: &containerpb.ShieldedInstanceConfig{
+								EnableSecureBoot:          true,
+								EnableIntegrityMonitoring: true,
+							},
+							ServiceAccount: "custom",
+						},
+						Management: &containerpb.NodeManagement{
+							AutoUpgrade: true,
+							AutoRepair:  true,
+						},
+					},
+				},
+				EnableKubernetesAlpha: false,
+				LegacyAbac:            &containerpb.LegacyAbac{Enabled: false},
+				NetworkConfig:         &containerpb.NetworkConfig{EnableIntraNodeVisibility: true},
+			},
+		},
+	}
+	serviceUsageClient := &mockServiceUsageClient{}
+	castaiClient := &mockCastaiClient{}
+
+	s := Scanner{
+		log: log,
+		cfg: config.CloudScan{
+			Enabled:      true,
+			ScanInterval: 1 * time.Millisecond,
+			GKE: &config.CloudScanGKE{
+				ClusterName: clusterName,
+			},
+		},
+		clusterClient:      clusterClient,
+		castaiClient:       castaiClient,
+		serviceUsageClient: serviceUsageClient,
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Millisecond)
+	defer cancel()
+	s.Start(ctx)
+
+	r.NotNil(castaiClient.sentReport)
+
+	failedAutomatedChecks := lo.Map(lo.Filter(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck, _ int) bool {
+		return v.Failed && !v.Manual
+	}), func(v castai.CloudScanCheck, _ int) string {
+		return v.ID
+	})
+	r.Empty(failedAutomatedChecks)
 }
 
 func TestParseInfoFromCluster(t *testing.T) {
