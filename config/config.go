@@ -158,10 +158,10 @@ func Load(configPath string) (Config, error) {
 			cfg.ImageScan.CPURequest = "100m"
 		}
 		if cfg.ImageScan.CPULimit == "" {
-			cfg.ImageScan.CPULimit = "2"
+			cfg.ImageScan.CPULimit = "4"
 		}
 		if cfg.ImageScan.MemoryRequest == "" {
-			cfg.ImageScan.MemoryRequest = "100Mi"
+			cfg.ImageScan.MemoryRequest = "200Mi"
 		}
 		if cfg.ImageScan.MemoryLimit == "" {
 			cfg.ImageScan.MemoryLimit = "2Gi"
