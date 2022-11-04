@@ -57,6 +57,8 @@ castai_security_agent_scans_duration_bucket{scan_type="linter",le="2.5"} 1
 castai_security_agent_scans_duration_bucket{scan_type="linter",le="5"} 1
 castai_security_agent_scans_duration_bucket{scan_type="linter",le="10"} 1
 castai_security_agent_scans_duration_bucket{scan_type="linter",le="15"} 1
+castai_security_agent_scans_duration_bucket{scan_type="linter",le="20"} 1
+castai_security_agent_scans_duration_bucket{scan_type="linter",le="30"} 1
 castai_security_agent_scans_duration_bucket{scan_type="linter",le="+Inf"} 1
 castai_security_agent_scans_duration_sum{scan_type="linter"} 1e-09
 castai_security_agent_scans_duration_count{scan_type="linter"} 1

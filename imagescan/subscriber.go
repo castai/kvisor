@@ -225,12 +225,10 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 		}
 	}
 
+	start := time.Now()
 	defer func() {
-		start := time.Now()
-		defer func() {
-			metrics.IncScansTotal(metrics.ScanTypeImage, rerr)
-			metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
-		}()
+		metrics.IncScansTotal(metrics.ScanTypeImage, rerr)
+		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 	}()
 
 	err := s.imageScanner.ScanImage(ctx, ScanImageParams{
