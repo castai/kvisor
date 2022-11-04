@@ -40,7 +40,7 @@ var (
 	scansDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "castai_security_agent_scans_duration",
 		Help:    "Histogram tracking scan durations in seconds",
-		Buckets: []float64{.05, .1, .25, .5, 1, 2.5, 5, 10, 15},
+		Buckets: []float64{.05, .1, .25, .5, 1, 2.5, 5, 10, 15, 20, 30},
 	}, []string{"scan_type"})
 
 	deltasSentTotal = prometheus.NewCounter(prometheus.CounterOpts{
