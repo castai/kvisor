@@ -417,12 +417,20 @@ func check5104ConsiderGKESandboxforrunninguntrustedworkloads(cl *containerpb.Clu
 		},
 	}
 }
-func check5105EnsureuseofBinaryAuthorization(cl *containerpb.Cluster) check {
+func check5105EnsureuseofBinaryAuthorization(cl *containerpb.Cluster, gcrContainerScanService *serviceusagepb.Service) check {
 	return check{
 		id:          "5.10.5",
 		description: "5.10.5 - Ensure use of Binary Authorization",
 		validate: func(c *check) {
-			c.failed = cl.BinaryAuthorization == nil || !cl.BinaryAuthorization.Enabled //nolint:staticcheck
+			if gcrContainerScanService.State == serviceusagepb.State_DISABLED {
+				c.failed = true
+				return
+			}
+			if cl.BinaryAuthorization == nil || cl.BinaryAuthorization.EvaluationMode != containerpb.BinaryAuthorization_PROJECT_SINGLETON_POLICY_ENFORCE {
+				c.failed = true
+				return
+			}
+			// TODO: Fetch policy
 		},
 	}
 }

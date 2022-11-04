@@ -12,10 +12,10 @@ import (
 	"google.golang.org/api/option"
 
 	containerv1 "cloud.google.com/go/container/apiv1"
+	serviceusagev1 "cloud.google.com/go/serviceusage/apiv1"
 	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
-
-	serviceusagev1 "cloud.google.com/go/serviceusage/apiv1"
+	binaryauthorizationv1 "cloud.google.com/go/binaryauthorization/apiv1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -57,6 +57,7 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, imgScanEnabled boo
 	if err != nil {
 		return nil, err
 	}
+	binaryauthorizationv1.
 
 	return &Scanner{
 		log:                log,
@@ -125,7 +126,14 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		Name: fmt.Sprintf("projects/%s/services/containerscanning.googleapis.com", s.project),
 	})
 	if err != nil {
-		return fmt.Errorf("getting service usage: %w", err)
+		return fmt.Errorf("getting container scan service usage: %w", err)
+	}
+
+	binaryAuthService, err := s.serviceUsageClient.GetService(ctx, &serviceusagepb.GetServiceRequest{
+		Name: fmt.Sprintf("projects/%s/services/binaryauthorization.googleapis.com", s.project),
+	})
+	if err != nil {
+		return fmt.Errorf("getting binary auth service usage: %w", err)
 	}
 
 	checks := []check{
@@ -165,7 +173,7 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		check5102EnsurethatAlphaclustersarenotusedforproductionworkloads(cl),
 		check5103EnsurePodSecurityPolicyisEnabledandsetasappropriate(),
 		check5104ConsiderGKESandboxforrunninguntrustedworkloads(cl),
-		check5105EnsureuseofBinaryAuthorization(cl),
+		check5105EnsureuseofBinaryAuthorization(cl, binaryAuthService),
 		check5106EnableCloudSecurityCommandCenterCloudSCC(),
 	}
 
