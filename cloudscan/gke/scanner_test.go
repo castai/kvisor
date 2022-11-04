@@ -54,6 +54,7 @@ func TestScanner(t *testing.T) {
 								EnableSecureBoot:          false,
 								EnableIntegrityMonitoring: false,
 							},
+							ServiceAccount: "default",
 						},
 						Management: &containerpb.NodeManagement{
 							AutoUpgrade: false,
@@ -91,7 +92,7 @@ func TestScanner(t *testing.T) {
 	r.NotNil(castaiClient.sentReport)
 
 	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Failed })
-	r.Equal(26, failedCount)
+	r.Equal(27, failedCount)
 	check := castaiClient.sentReport.Checks[0]
 	r.Equal(castai.CloudScanCheck{
 		ID:     "4.3.1",

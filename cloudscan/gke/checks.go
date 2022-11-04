@@ -48,11 +48,22 @@ func check514MinimizeContainerRegistriestoonlythoseapproved() check {
 		manual:      true,
 	}
 }
-func check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceaccount() check {
+func check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceaccount(cl *containerpb.Cluster) check {
 	return check{
 		id:          "5.2.1",
 		description: "5.2.1 - Ensure GKE clusters are not running using the Compute Engine default service account",
-		manual:      true,
+		validate: func(c *check) {
+			var failedPools []string
+			for _, pool := range cl.NodePools {
+				if pool.Config.ServiceAccount == "default" {
+					failedPools = append(failedPools, pool.Name)
+				}
+			}
+			if len(failedPools) > 0 {
+				c.context = failedPools
+				c.failed = true
+			}
+		},
 	}
 }
 func check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity(cl *containerpb.Cluster) check {

@@ -134,7 +134,7 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		check512MinimizeuseraccesstoGCR(),
 		check513MinimizeclusteraccesstoreadonlyforGCR(),
 		check514MinimizeContainerRegistriestoonlythoseapproved(),
-		check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceaccount(),
+		check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceaccount(cl),
 		check522PreferusingdedicatedGCPServiceAccountsandWorkloadIdentity(cl),
 		check531EnsureKubernetesSecretsareencryptedusingkeysmanagedinCloudKMS(cl),
 		check541EnsurelegacyComputeEngineinstancemetadataAPIsareDisabled(cl),
