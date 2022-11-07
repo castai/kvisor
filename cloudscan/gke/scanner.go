@@ -147,11 +147,14 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		return fmt.Errorf("getting binary auth service usage: %w", err)
 	}
 
-	binaryauthPolicy, err := s.binauthzClient.GetPolicy(ctx, &binaryauthorizationpb.GetPolicyRequest{
-		Name: fmt.Sprintf("projects/%s/policy", s.project),
-	})
-	if err != nil && !IsNotFound(err) {
-		return fmt.Errorf("getting binary auth policy: %w", err)
+	var binaryauthPolicy *binaryauthorizationpb.Policy
+	if binaryAuthService.State == serviceusagepb.State_ENABLED {
+		binaryauthPolicy, err = s.binauthzClient.GetPolicy(ctx, &binaryauthorizationpb.GetPolicyRequest{
+			Name: fmt.Sprintf("projects/%s/policy", s.project),
+		})
+		if err != nil && !IsNotFound(err) {
+			s.log.Warnf("getting binary auth policy: %w", err)
+		}
 	}
 
 	checks := []check{
