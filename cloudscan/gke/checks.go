@@ -3,8 +3,10 @@ package gke
 import (
 	"strings"
 
-	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
-	containerpb "google.golang.org/genproto/googleapis/container/v1"
+	"cloud.google.com/go/binaryauthorization/apiv1/binaryauthorizationpb"
+	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
+
+	"cloud.google.com/go/container/apiv1/containerpb"
 )
 
 func check431EnsureCNISupportsNetworkPolicies(cl *containerpb.Cluster) check {
@@ -60,7 +62,7 @@ func check521EnsureGKEclustersarenotrunningusingtheComputeEnginedefaultserviceac
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -98,7 +100,7 @@ func check541EnsurelegacyComputeEngineinstancemetadataAPIsareDisabled(cl *contai
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -118,7 +120,7 @@ func check542EnsuretheGKEMetadataServerisEnabled(cl *containerpb.Cluster) check 
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -136,7 +138,7 @@ func check551EnsureContainerOptimizedOSCOSisusedforGKEnodeimages(cl *containerpb
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -154,7 +156,7 @@ func check552EnsureNodeAutoRepairisenabledforGKEnodes(cl *containerpb.Cluster) c
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -172,7 +174,7 @@ func check553EnsureNodeAutoUpgradeisenabledforGKEnodes(cl *containerpb.Cluster) 
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -184,9 +186,6 @@ func check554WhencreatingNewClustersAutomateGKEversionmanagementusingReleaseChan
 		description: "5.5.4 - When creating New Clusters - Automate GKE version management using Release Channels",
 		manual:      true,
 		validate: func(c *check) {
-			type checkContext struct {
-				ReleaseChannel string `json:"releaseChannel"`
-			}
 			if cl.ReleaseChannel != nil && cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_REGULAR && cl.ReleaseChannel.Channel != containerpb.ReleaseChannel_STABLE {
 				c.failed = true
 				c.context = checkContext{ReleaseChannel: cl.ReleaseChannel.Channel.String()}
@@ -216,7 +215,7 @@ func check556EnsureIntegrityMonitoringforShieldedGKENodesisEnabled(cl *container
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -234,7 +233,7 @@ func check557EnsureSecureBootforShieldedGKENodesisEnabled(cl *containerpb.Cluste
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
@@ -411,26 +410,31 @@ func check5104ConsiderGKESandboxforrunninguntrustedworkloads(cl *containerpb.Clu
 				}
 			}
 			if len(failedPools) > 0 {
-				c.context = failedPools
+				c.context = checkContext{NodePools: failedPools}
 				c.failed = true
 			}
 		},
 	}
 }
-func check5105EnsureuseofBinaryAuthorization(cl *containerpb.Cluster, gcrContainerScanService *serviceusagepb.Service) check {
+func check5105EnsureuseofBinaryAuthorization(cl *containerpb.Cluster, binaryAuthService *serviceusagepb.Service, policy *binaryauthorizationpb.Policy) check {
 	return check{
 		id:          "5.10.5",
 		description: "5.10.5 - Ensure use of Binary Authorization",
 		validate: func(c *check) {
-			if gcrContainerScanService.State == serviceusagepb.State_DISABLED {
+			if binaryAuthService.State == serviceusagepb.State_DISABLED {
 				c.failed = true
+				c.context = checkContext{Reason: "binary_auth_service_disabled"}
 				return
 			}
 			if cl.BinaryAuthorization == nil || cl.BinaryAuthorization.EvaluationMode != containerpb.BinaryAuthorization_PROJECT_SINGLETON_POLICY_ENFORCE {
 				c.failed = true
+				c.context = checkContext{Reason: "cluster_binary_auth_evaluation_mode_not_set"}
 				return
 			}
-			// TODO: Fetch policy
+			if policy == nil || (policy.DefaultAdmissionRule != nil && policy.DefaultAdmissionRule.EvaluationMode == binaryauthorizationpb.AdmissionRule_ALWAYS_ALLOW) {
+				c.context = checkContext{Reason: "default_policy_allows_all_images"}
+				c.failed = true
+			}
 		},
 	}
 }
@@ -440,4 +444,10 @@ func check5106EnableCloudSecurityCommandCenterCloudSCC() check {
 		description: "5.10.6 - Enable Cloud Security Command Center (Cloud SCC)",
 		manual:      true,
 	}
+}
+
+type checkContext struct {
+	ReleaseChannel string   `json:"releaseChannel,omitempty"`
+	NodePools      []string `json:"nodePools,omitempty"`
+	Reason         string   `json:"reason,omitempty"`
 }

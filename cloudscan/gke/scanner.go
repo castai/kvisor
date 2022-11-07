@@ -11,11 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 
-	containerv1 "cloud.google.com/go/container/apiv1"
-	serviceusagev1 "cloud.google.com/go/serviceusage/apiv1"
-	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
-	containerpb "google.golang.org/genproto/googleapis/container/v1"
 	binaryauthorizationv1 "cloud.google.com/go/binaryauthorization/apiv1"
+	"cloud.google.com/go/binaryauthorization/apiv1/binaryauthorizationpb"
+
+	containerv1 "cloud.google.com/go/container/apiv1"
+	"cloud.google.com/go/container/apiv1/containerpb"
+	serviceusagev1 "cloud.google.com/go/serviceusage/apiv1"
+	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -28,6 +30,10 @@ type clusterClient interface {
 
 type serviceUsageClient interface {
 	GetService(ctx context.Context, req *serviceusagepb.GetServiceRequest, opts ...gax.CallOption) (*serviceusagepb.Service, error)
+}
+
+type binauthzClient interface {
+	GetPolicy(ctx context.Context, req *binaryauthorizationpb.GetPolicyRequest, opts ...gax.CallOption) (*binaryauthorizationpb.Policy, error)
 }
 
 type castaiClient interface {
@@ -57,7 +63,10 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, imgScanEnabled boo
 	if err != nil {
 		return nil, err
 	}
-	binaryauthorizationv1.
+	binauthzClient, err := binaryauthorizationv1.NewBinauthzManagementClient(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Scanner{
 		log:                log,
@@ -68,6 +77,7 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, imgScanEnabled boo
 		castaiClient:       client,
 		clusterClient:      clusterClient,
 		serviceUsageClient: serviceUsageClient,
+		binauthzClient:     binauthzClient,
 	}, nil
 }
 
@@ -89,6 +99,7 @@ type Scanner struct {
 	castaiClient       castaiClient
 	clusterClient      clusterClient
 	serviceUsageClient serviceUsageClient
+	binauthzClient     binauthzClient
 }
 
 func (s *Scanner) Start(ctx context.Context) {
@@ -136,6 +147,13 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		return fmt.Errorf("getting binary auth service usage: %w", err)
 	}
 
+	binaryauthPolicy, err := s.binauthzClient.GetPolicy(ctx, &binaryauthorizationpb.GetPolicyRequest{
+		Name: fmt.Sprintf("projects/%s/policy", s.project),
+	})
+	if err != nil && !IsNotFound(err) {
+		return fmt.Errorf("getting binary auth policy: %w", err)
+	}
+
 	checks := []check{
 		check431EnsureCNISupportsNetworkPolicies(cl),
 		check511EnsureImageVulnerabilityScanningusingGCRContainerAnalysisorathirdpartyprovider(containerUsageService, s.imgScanEnabled),
@@ -173,7 +191,7 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		check5102EnsurethatAlphaclustersarenotusedforproductionworkloads(cl),
 		check5103EnsurePodSecurityPolicyisEnabledandsetasappropriate(),
 		check5104ConsiderGKESandboxforrunninguntrustedworkloads(cl),
-		check5105EnsureuseofBinaryAuthorization(cl, binaryAuthService),
+		check5105EnsureuseofBinaryAuthorization(cl, binaryAuthService, binaryauthPolicy),
 		check5106EnableCloudSecurityCommandCenterCloudSCC(),
 	}
 

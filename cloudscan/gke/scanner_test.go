@@ -3,17 +3,19 @@ package gke
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"cloud.google.com/go/binaryauthorization/apiv1/binaryauthorizationpb"
+	"cloud.google.com/go/container/apiv1/containerpb"
+	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	serviceusagepb "google.golang.org/genproto/googleapis/api/serviceusage/v1"
-	containerpb "google.golang.org/genproto/googleapis/container/v1"
 
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
@@ -68,7 +70,17 @@ func TestScannerFailAutomatedChecks(t *testing.T) {
 			},
 		},
 	}
-	serviceUsageClient := &mockServiceUsageClient{}
+	serviceUsageClient := &mockServiceUsageClient{
+		services: map[string]*serviceusagepb.Service{
+			"projects/test/services/containerscanning.googleapis.com":   {},
+			"projects/test/services/binaryauthorization.googleapis.com": {},
+		},
+	}
+	binauthClient := &mockBinauthClient{
+		policy: map[string]*binaryauthorizationpb.Policy{
+			"projects/test/policy": {},
+		},
+	}
 	castaiClient := &mockCastaiClient{}
 
 	s := Scanner{
@@ -80,9 +92,11 @@ func TestScannerFailAutomatedChecks(t *testing.T) {
 				ClusterName: clusterName,
 			},
 		},
+		project:            "test",
 		clusterClient:      clusterClient,
 		castaiClient:       castaiClient,
 		serviceUsageClient: serviceUsageClient,
+		binauthzClient:     binauthClient,
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Millisecond)
@@ -146,8 +160,7 @@ func TestScannerPassAutomatedChecks(t *testing.T) {
 					UseIpAliases: true,
 				},
 				BinaryAuthorization: &containerpb.BinaryAuthorization{
-					Enabled:        true, //golint:nolint
-					EvaluationMode: 0,
+					EvaluationMode: containerpb.BinaryAuthorization_PROJECT_SINGLETON_POLICY_ENFORCE,
 				},
 				NodePools: []*containerpb.NodePool{
 					{
@@ -178,7 +191,21 @@ func TestScannerPassAutomatedChecks(t *testing.T) {
 			},
 		},
 	}
-	serviceUsageClient := &mockServiceUsageClient{}
+	serviceUsageClient := &mockServiceUsageClient{
+		services: map[string]*serviceusagepb.Service{
+			"projects/test/services/containerscanning.googleapis.com": {
+				State: serviceusagepb.State_ENABLED,
+			},
+			"projects/test/services/binaryauthorization.googleapis.com": {
+				State: serviceusagepb.State_ENABLED,
+			},
+		},
+	}
+	binauthClient := &mockBinauthClient{
+		policy: map[string]*binaryauthorizationpb.Policy{
+			"projects/test/policy": {},
+		},
+	}
 	castaiClient := &mockCastaiClient{}
 
 	s := Scanner{
@@ -190,9 +217,11 @@ func TestScannerPassAutomatedChecks(t *testing.T) {
 				ClusterName: clusterName,
 			},
 		},
+		project:            "test",
 		clusterClient:      clusterClient,
 		castaiClient:       castaiClient,
 		serviceUsageClient: serviceUsageClient,
+		binauthzClient:     binauthClient,
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Millisecond)
@@ -268,8 +297,25 @@ func (m *mockCastaiClient) SendCISCloudScanReport(ctx context.Context, report *c
 }
 
 type mockServiceUsageClient struct {
+	services map[string]*serviceusagepb.Service
 }
 
 func (m *mockServiceUsageClient) GetService(ctx context.Context, req *serviceusagepb.GetServiceRequest, opts ...gax.CallOption) (*serviceusagepb.Service, error) {
-	return &serviceusagepb.Service{}, nil
+	v, ok := m.services[req.Name]
+	if ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("service %q not found", req.Name)
+}
+
+type mockBinauthClient struct {
+	policy map[string]*binaryauthorizationpb.Policy
+}
+
+func (m *mockBinauthClient) GetPolicy(ctx context.Context, req *binaryauthorizationpb.GetPolicyRequest, opts ...gax.CallOption) (*binaryauthorizationpb.Policy, error) {
+	v, ok := m.policy[req.Name]
+	if ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("policy %q not found", req.Name)
 }
