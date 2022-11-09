@@ -2,12 +2,11 @@ package imagescan
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
@@ -20,50 +19,46 @@ import (
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/config"
 	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/imagescan/allow"
 	"github.com/castai/sec-agent/metrics"
 )
+
+type castaiClient interface {
+	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
+}
 
 func NewSubscriber(
 	log logrus.FieldLogger,
 	cfg config.ImageScan,
-	client castai.Client,
+	client castaiClient,
 	imageScanner imageScanner,
 	k8sVersionMinor int,
 	nodeResolver func([]string, *inf.Dec) (string, error),
 	scannedImages []string,
 ) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
-	scannedImagesCache, _ := lru.New(10000)
-	for _, imageID := range scannedImages {
-		scannedImagesCache.Add(imageID, []string{})
-	}
-
 	return &Subscriber{
-		ctx:                ctx,
-		cancel:             cancel,
-		client:             client,
-		imageScanner:       imageScanner,
-		delta:              newDeltaState(),
-		log:                log,
-		cfg:                cfg,
-		k8sVersionMinor:    k8sVersionMinor,
-		scannedImagesCache: scannedImagesCache,
-		bestNodeResolver:   nodeResolver,
+		ctx:              ctx,
+		cancel:           cancel,
+		client:           client,
+		imageScanner:     imageScanner,
+		delta:            newDeltaState(scannedImages),
+		log:              log,
+		cfg:              cfg,
+		k8sVersionMinor:  k8sVersionMinor,
+		bestNodeResolver: nodeResolver,
 	}
 }
 
 type Subscriber struct {
-	ctx                context.Context
-	cancel             context.CancelFunc
-	client             castai.Client
-	delta              *deltaState
-	imageScanner       imageScanner
-	scannedImagesCache *lru.Cache
-	log                logrus.FieldLogger
-	cfg                config.ImageScan
-	k8sVersionMinor    int
-	bestNodeResolver   func([]string, *inf.Dec) (string, error)
+	ctx              context.Context
+	cancel           context.CancelFunc
+	client           castaiClient
+	delta            *deltaState
+	imageScanner     imageScanner
+	log              logrus.FieldLogger
+	cfg              config.ImageScan
+	k8sVersionMinor  int
+	bestNodeResolver func([]string, *inf.Dec) (string, error)
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -74,6 +69,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	}
 	return rt
 }
+
 func (s *Subscriber) Run(ctx context.Context) error {
 	for {
 		select {
@@ -88,17 +84,17 @@ func (s *Subscriber) Run(ctx context.Context) error {
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
-	s.modifyDelta(controller.EventAdd, obj)
+	s.handleDelta(controller.EventAdd, obj)
 }
 
 func (s *Subscriber) OnUpdate(obj controller.Object) {
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
-	s.modifyDelta(controller.EventDelete, obj)
+	s.handleDelta(controller.EventDelete, obj)
 }
 
-func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
+func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 	switch event {
 	case controller.EventAdd:
 		s.delta.upsert(o)
@@ -109,106 +105,80 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 	}
 }
 
-type imageInfo struct {
-	imageName      string
-	imageID        string
-	containerID    string
-	resourcesIDs   []string
-	nodeNames      map[string]struct{}
-	podTolerations []corev1.Toleration
-}
-
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	podsMap := s.delta.getPods()
-	if len(podsMap) == 0 {
-		return nil
-	}
-	pods := lo.Filter(lo.Values(podsMap), func(v *corev1.Pod, _ int) bool {
-		return v.Status.Phase == corev1.PodRunning || v.Status.Phase == corev1.PodSucceeded
+	images := lo.Values(s.delta.getImages())
+	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
+		return !v.scanned
 	})
-	if len(pods) == 0 {
-		s.log.Debug("no running or succeeded pods found, skipping images scan")
-		return nil
-	}
+	sort.Slice(pendingImages, func(i, j int) bool {
+		return pendingImages[i].failures < pendingImages[j].failures
+	})
+	if l := len(pendingImages); l > 0 {
+		s.log.Infof("scheduling %d images scans", l)
+		sem := semaphore.NewWeighted(s.cfg.MaxConcurrentScans)
+		for _, img := range images {
+			if err := sem.Acquire(ctx, 1); err != nil {
+				return err
+			}
+			go func(img *image) {
+				defer sem.Release(1)
 
-	rsMap := s.delta.getReplicaSets()
-	jobsMap := s.delta.getJobs()
+				if ctx.Err() != nil {
+					return
+				}
 
-	// TODO: Pods cleanup is too simple here.
-	// TODO: Need to keep track of containers scan state and only remove pods with all completed containers.
-	defer func() {
-		if rerr == nil {
-			s.delta.deletePods(podsMap)
+				ctx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
+				defer cancel()
+
+				log := s.log.WithField("image", img.name)
+				log.Info("scanning image")
+				if err := s.scanImage(ctx, img); err != nil {
+					log.Errorf("image scan failed: %v", err)
+					// Increase image failures on error.
+					img.failures++
+					s.delta.updateImage(img)
+					return
+				}
+				log.Info("image scan finished")
+				img.scanned = true
+				img.resourcesChanged = false
+				s.delta.updateImage(img)
+			}(img)
 		}
-	}()
 
-	imgs, err := collectImages(pods, rsMap, jobsMap)
-	if err != nil {
-		return fmt.Errorf("collecting images: %v", err)
-	}
-
-	s.log.Infof("scheduling %d images scan for %d pods", len(imgs), len(pods))
-
-	sem := semaphore.NewWeighted(s.cfg.MaxConcurrentScans)
-	for imageName, info := range imgs {
-		if err := sem.Acquire(ctx, 1); err != nil {
+		if err := sem.Acquire(ctx, s.cfg.MaxConcurrentScans); err != nil {
 			return err
 		}
-		go func(imageName string, info *imageInfo) {
-			defer sem.Release(1)
 
-			ctx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
-			defer cancel()
+		s.log.Info("images scan finished")
+	}
 
-			log := s.log.WithField("image", imageName)
-			log.Info("scanning image")
-			if err := s.scanImage(ctx, log, info); err != nil {
-				if errors.Is(err, allow.ErrNoCandidates) {
-					log.Debugf("no resources to scan image %q", info.imageName)
-				}
-				log.Errorf("image scan failed: %v", err)
-				return
+	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
+		return v.scanned && v.resourcesChanged
+	})
+	if l := len(imagesWithChangedResources); l > 0 {
+		s.log.Infof("updating %d images resources", l)
+		for _, img := range imagesWithChangedResources {
+			if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
+				ImageName:   img.name,
+				ImageID:     img.id,
+				ResourceIDs: lo.Keys(img.resourcesIDs),
+			}); err != nil {
+				return fmt.Errorf("sending image metadata resources update: %w", err)
 			}
-			log.Info("image scan finished")
-		}(imageName, info)
+			img.resourcesChanged = false
+			s.delta.updateImage(img)
+		}
 	}
-
-	if err := sem.Acquire(ctx, s.cfg.MaxConcurrentScans); err != nil {
-		return err
-	}
-
-	s.log.Info("images scan finished")
 
 	return nil
 }
 
-func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info *imageInfo) (rerr error) {
-	// If image is already scanned, sync and update resource ids.
-	uniqueResourceIDs := lo.Uniq(info.resourcesIDs)
-	if cacheResourceIDs, ok := s.scannedImagesCache.Get(info.imageID); ok {
-		diff, _ := lo.Difference(cacheResourceIDs.([]string), uniqueResourceIDs)
-		if len(diff) == 0 {
-			log.Debug("skipping scan, image already scanned and synced")
-			return nil
-		}
-		if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
-			ImageName:   info.imageName,
-			ImageID:     info.imageID,
-			ResourceIDs: diff,
-		}); err != nil {
-			return fmt.Errorf("sending image metadata resources update: %w", err)
-		}
-
-		// Update resource IDs in cache.
-		s.scannedImagesCache.Add(info.imageID, info.resourcesIDs)
-
-		return nil
-	}
-
+func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	nodeNames := lo.Keys(info.nodeNames)
+	nodeNames := lo.Keys(img.nodeNames)
 	var nodeName string
 	if len(nodeNames) > 0 {
 		nodeName = nodeNames[0]
@@ -231,92 +201,14 @@ func (s *Subscriber) scanImage(ctx context.Context, log logrus.FieldLogger, info
 		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 	}()
 
-	err := s.imageScanner.ScanImage(ctx, ScanImageParams{
-		ImageName:         info.imageName,
-		ImageID:           info.imageID,
-		ContainerID:       info.containerID,
-		ResourceIDs:       uniqueResourceIDs,
+	return s.imageScanner.ScanImage(ctx, ScanImageParams{
+		ImageName:         img.name,
+		ImageID:           img.id,
+		ContainerRuntime:  img.containerRuntime,
+		ResourceIDs:       lo.Keys(img.resourcesIDs),
 		NodeName:          nodeName,
-		Tolerations:       info.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
+		Tolerations:       img.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
 		DeleteFinishedJob: true,
 		WaitForCompletion: true,
 	})
-	if err != nil {
-		return err
-	}
-
-	// Add image to scanned images cache.
-	s.scannedImagesCache.Add(info.imageID, info.resourcesIDs)
-
-	return nil
-}
-
-func collectImages(pods []*corev1.Pod, rsMap map[string]*appsv1.ReplicaSet, jobsMap map[string]*batchv1.Job) (map[string]*imageInfo, error) {
-	imgs := map[string]*imageInfo{}
-	for _, pod := range pods {
-		containers := pod.Spec.Containers
-		containers = append(containers, pod.Spec.InitContainers...)
-
-		containerStatuses := pod.Status.ContainerStatuses
-		containerStatuses = append(containerStatuses, pod.Status.InitContainerStatuses...)
-
-		for _, cont := range containers {
-			nodeName := pod.Spec.NodeName
-			resourceID := getPodOwnerID(pod, rsMap, jobsMap)
-			v, ok := imgs[cont.Image]
-			if ok {
-				v.nodeNames[nodeName] = struct{}{}
-				v.resourcesIDs = append(v.resourcesIDs, resourceID)
-			} else {
-				cs, found := lo.Find(containerStatuses, func(v corev1.ContainerStatus) bool {
-					return v.Name == cont.Name
-				})
-				if !found {
-					return nil, fmt.Errorf("container %s status not found for pod %s", cont.Name, pod.Name)
-				}
-				imgs[cont.Image] = &imageInfo{
-					imageName:      cont.Image,
-					imageID:        cs.ImageID,
-					containerID:    cs.ContainerID,
-					resourcesIDs:   []string{resourceID},
-					podTolerations: pod.Spec.Tolerations,
-					nodeNames: map[string]struct{}{
-						nodeName: {},
-					},
-				}
-			}
-		}
-	}
-	return imgs, nil
-}
-
-func getPodOwnerID(pod *corev1.Pod, rsMap map[string]*appsv1.ReplicaSet, jobsMap map[string]*batchv1.Job) string {
-	if len(pod.OwnerReferences) == 0 {
-		return string(pod.UID)
-	}
-
-	ref := pod.OwnerReferences[0]
-
-	switch ref.Kind {
-	case "ReplicaSet":
-		for _, val := range rsMap {
-			if val.UID == ref.UID {
-				if len(val.OwnerReferences) > 0 {
-					return string(val.OwnerReferences[0].UID)
-				}
-				return string(ref.UID)
-			}
-		}
-	case "Job":
-		for _, val := range jobsMap {
-			if val.UID == ref.UID {
-				if len(val.OwnerReferences) > 0 {
-					return string(val.OwnerReferences[0].UID)
-				}
-				return string(ref.UID)
-			}
-		}
-	}
-
-	return string(ref.UID)
 }

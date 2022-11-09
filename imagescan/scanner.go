@@ -50,20 +50,12 @@ type Scanner struct {
 type ScanImageParams struct {
 	ImageName         string
 	ImageID           string
-	ContainerID       string
+	ContainerRuntime  string
 	NodeName          string
 	ResourceIDs       []string
 	Tolerations       []corev1.Toleration
 	DeleteFinishedJob bool
 	WaitForCompletion bool
-}
-
-func getContainerRuntime(containerID string) (string, bool) {
-	parts := strings.Split(containerID, "://")
-	if len(parts) != 2 {
-		return "", false
-	}
-	return parts[0], true
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr error) {
@@ -73,8 +65,8 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if params.ImageName == "" {
 		return errors.New("image name is required")
 	}
-	if params.ContainerID == "" {
-		return errors.New("container ID is required")
+	if params.ContainerRuntime == "" {
+		return errors.New("container runtime is required")
 	}
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
@@ -89,10 +81,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	jobName := genJobName(params.ImageName)
 	vols := volumesAndMounts{}
 	mode := imgcollectorconfig.Mode(s.cfg.ImageScan.Mode)
-	containerRuntime, ok := getContainerRuntime(params.ContainerID)
-	if !ok {
-		return fmt.Errorf("failed to find container runtime, container_id=%s", params.ContainerID)
-	}
+	containerRuntime := params.ContainerRuntime
 
 	if mode == "" || mode == imgcollectorconfig.ModeDockerDaemon || mode == imgcollectorconfig.ModeContainerdDaemon {
 		switch containerRuntime {
@@ -275,12 +264,12 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 			jobPod := jobPods.Items[0]
 			logsStream, err := s.podLogProvider.GetLogReader(ctx, s.cfg.PodNamespace, jobPod.Name)
 			if err != nil {
-				return true, fmt.Errorf("creating logs stream: %w", err)
+				return true, fmt.Errorf("creating logs stream for failed job: %w", err)
 			}
 			defer logsStream.Close()
 			logs, err := io.ReadAll(logsStream)
 			if err != nil {
-				return true, fmt.Errorf("reading logs")
+				return true, fmt.Errorf("reading failed job logs: %w", err)
 			}
 			return true, fmt.Errorf("scan job failed: %s", string(logs))
 		}
