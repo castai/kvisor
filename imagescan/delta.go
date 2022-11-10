@@ -20,12 +20,14 @@ var (
 	errNoCandidates = errors.New("no candidates")
 )
 
-func newDeltaState(scannedImageIDs []string) *deltaState {
+func NewDeltaState(scannedImageIDs []string) *deltaState {
 	images := map[string]*image{}
 	for _, imgID := range scannedImageIDs {
 		images[imgID] = &image{
-			id:      imgID,
-			scanned: true,
+			id:           imgID,
+			resourcesIDs: map[string]struct{}{},
+			nodes:        map[string]*imageNode{},
+			scanned:      true,
 		}
 	}
 	return &deltaState{
@@ -223,6 +225,14 @@ func (d *deltaState) getImages() map[string]*image {
 	defer d.mu.RUnlock()
 
 	return d.images
+}
+
+func (d *deltaState) getNode(name string) (*node, bool) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	v, found := d.nodes[name]
+	return v, found
 }
 
 func (d *deltaState) updateImage(img *image) {

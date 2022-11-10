@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/pprof"
@@ -49,9 +50,15 @@ var (
 	Version   = "local"
 )
 
+var (
+	configPath = flag.String("config", "/etc/castai/config/config.yaml", "Config file path")
+)
+
 func main() {
+	flag.Parse()
+
 	logger := logrus.New()
-	cfg, err := config.Load("/etc/castai/config/config.yaml")
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -186,13 +193,17 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 	if cfg.ImageScan.Enabled {
 		log.Info("imagescan enabled")
+		if cfg.ImageScan.Force {
+			scannedImages = []string{}
+		}
+		deltaState := imagescan.NewDeltaState(scannedImages)
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
 			castaiClient,
-			imagescan.NewImageScanner(clientset, cfg),
+			imagescan.NewImageScanner(clientset, cfg, deltaState),
 			k8sVersion.MinorInt,
-			scannedImages,
+			deltaState,
 		))
 		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
 		go blobsCache.Start(ctx)

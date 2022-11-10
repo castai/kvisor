@@ -32,7 +32,7 @@ func NewSubscriber(
 	client castaiClient,
 	imageScanner imageScanner,
 	k8sVersionMinor int,
-	scannedImages []string,
+	delta *deltaState,
 ) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
@@ -40,7 +40,7 @@ func NewSubscriber(
 		cancel:          cancel,
 		client:          client,
 		imageScanner:    imageScanner,
-		delta:           newDeltaState(scannedImages),
+		delta:           delta,
 		log:             log,
 		cfg:             cfg,
 		k8sVersionMinor: k8sVersionMinor,
@@ -111,10 +111,22 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	sort.Slice(pendingImages, func(i, j int) bool {
 		return pendingImages[i].failures < pendingImages[j].failures
 	})
-	if l := len(pendingImages); l > 0 {
+	s.log.Debugf("found %d images, pending images %d", len(images), len(pendingImages))
+
+	// During each scan schedule we scan only configured amount of images.
+	imagesForScan := pendingImages
+	if len(imagesForScan) > int(s.cfg.MaxConcurrentScans) {
+		imagesForScan = imagesForScan[:s.cfg.MaxConcurrentScans]
+	}
+
+	if l := len(imagesForScan); l > 0 {
 		s.log.Infof("scheduling %d images scans", l)
 		sem := semaphore.NewWeighted(s.cfg.MaxConcurrentScans)
-		for _, img := range images {
+		for _, img := range imagesForScan {
+			if img.name == "" {
+				return fmt.Errorf("no image name set: %+v", img)
+			}
+
 			if err := sem.Acquire(ctx, 1); err != nil {
 				return err
 			}
@@ -149,6 +161,8 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 		}
 
 		s.log.Info("images scan finished")
+	} else {
+		s.log.Debug("skipping images scan, no pending images")
 	}
 
 	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {

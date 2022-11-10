@@ -180,7 +180,8 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
+		delta := NewDeltaState([]string{})
+		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
@@ -290,6 +291,29 @@ func TestSubscriber(t *testing.T) {
 		r.Len(scanner.imgs, 0)
 		r.Len(client.sentMeta, 1)
 		r.Equal([]string{"r1"}, client.sentMeta[0].ResourceIDs)
+	})
+
+	t.Run("skip scanned images", func(t *testing.T) {
+		r := require.New(t)
+		client := &mockCastaiClient{}
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+		}
+
+		scanner := &mockImageScanner{}
+		delta := NewDeltaState([]string{"img1"})
+		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		err := sub.Run(ctx)
+		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.Len(scanner.imgs, 0)
+		r.Len(client.sentMeta, 0)
 	})
 
 	t.Run("add and delete delta objects", func(t *testing.T) {

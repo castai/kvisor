@@ -55,6 +55,7 @@ type ImageScan struct {
 	CPULimit           string         `envconfig:"CPU_LIMIT" yaml:"cpuLimit"`
 	MemoryRequest      string         `envconfig:"MEMORY_REQUEST" yaml:"memoryRequest"`
 	MemoryLimit        string         `envconfig:"MEMORY_LIMIT" yaml:"memoryLimit"`
+	Force              bool           `envconfig:"FORCE" yaml:"force"`
 }
 
 type ImageScanImage struct {

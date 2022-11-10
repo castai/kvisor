@@ -12,6 +12,7 @@ import (
 )
 
 func TestDelta(t *testing.T) {
+
 	t.Run("upsert images state on delta changes", func(t *testing.T) {
 		r := require.New(t)
 
@@ -46,7 +47,7 @@ func TestDelta(t *testing.T) {
 			}
 		}
 
-		delta := newDeltaState([]string{})
+		delta := NewDeltaState([]string{})
 
 		pod1 := createPod("nginx1", "img1", "node1")
 		pod2 := createPod("nginx2", "img2", "node1")
@@ -61,6 +62,7 @@ func TestDelta(t *testing.T) {
 		r.Len(img1.nodes, 2)
 		r.Equal("nginx1", img1.name)
 		r.Equal("img1", img1.id)
+		r.Len(img1.resourcesIDs, 2)
 		r.Len(img1.nodes["node1"].podIDs, 1)
 		r.Len(delta.images["img2"].nodes, 1)
 
@@ -87,7 +89,7 @@ func TestDelta(t *testing.T) {
 	t.Run("find best node for image scan", func(t *testing.T) {
 		r := require.New(t)
 
-		delta := newDeltaState([]string{})
+		delta := NewDeltaState([]string{})
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -190,7 +192,7 @@ func TestDelta(t *testing.T) {
 
 	t.Run("returns error when no best node find", func(t *testing.T) {
 		r := require.New(t)
-		delta := newDeltaState([]string{})
+		delta := NewDeltaState([]string{})
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{

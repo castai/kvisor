@@ -86,3 +86,18 @@ func (c *remoteBlobsCache) GetBlob(ctx context.Context, key string) ([]byte, err
 	}
 	return res.Blob, nil
 }
+
+func NewMockBlobsCacheClient() Client {
+	return &mockBlobsCacheClient{}
+}
+
+type mockBlobsCacheClient struct {
+}
+
+func (m mockBlobsCacheClient) PutBlob(ctx context.Context, key string, blob []byte) error {
+	return nil
+}
+
+func (m mockBlobsCacheClient) GetBlob(ctx context.Context, key string) ([]byte, error) {
+	return nil, ErrCacheNotFound
+}

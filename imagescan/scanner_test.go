@@ -45,7 +45,7 @@ func TestScanner(t *testing.T) {
 				MemoryRequest:     "100Mi",
 				MemoryLimit:       "2Gi",
 			},
-		})
+		}, nil)
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{
@@ -217,7 +217,7 @@ func TestScanner(t *testing.T) {
 				MemoryRequest:  "100Mi",
 				MemoryLimit:    "2Gi",
 			},
-		})
+		}, nil)
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{

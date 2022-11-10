@@ -31,12 +31,13 @@ type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
 
-func NewImageScanner(client kubernetes.Interface, cfg config.Config) *Scanner {
+func NewImageScanner(client kubernetes.Interface, cfg config.Config, deltaState *deltaState) *Scanner {
 	return &Scanner{
 		podLogProvider:   log.NewPodLogReader(client),
 		client:           client,
 		jobCheckInterval: 5 * time.Second,
 		cfg:              cfg,
+		deltaState:       deltaState,
 	}
 }
 
@@ -45,6 +46,7 @@ type Scanner struct {
 	client           kubernetes.Interface
 	cfg              config.Config
 	jobCheckInterval time.Duration
+	deltaState       *deltaState
 }
 
 type ScanImageParams struct {
@@ -71,11 +73,11 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
 	}
-	if s.cfg.PodIP == "" {
-		return errors.New("agent pod ip is required")
-	}
 	if s.cfg.ImageScan.BlobsCachePort == 0 {
 		return errors.New("blobs cache port is required")
+	}
+	if s.cfg.PodNamespace == "" {
+		return errors.New("pod namespace is required")
 	}
 
 	jobName := genJobName(params.ImageName)
@@ -170,10 +172,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Value: strings.Join(params.ResourceIDs, ","),
 		},
 		{
-			Name:  "COLLECTOR_BLOBS_CACHE_URL",
-			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.ImageScan.BlobsCachePort),
-		},
-		{
 			Name:  "API_URL",
 			Value: s.cfg.API.URL,
 		},
@@ -192,6 +190,13 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Name:  "CLUSTER_ID",
 			Value: s.cfg.API.ClusterID,
 		},
+	}
+
+	if s.cfg.PodIP != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "COLLECTOR_BLOBS_CACHE_URL",
+			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.ImageScan.BlobsCachePort),
+		})
 	}
 
 	jobSpec := scanJobSpec(
@@ -244,6 +249,13 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 			}
 			return false, nil
 		}
+
+		// If node is removed we should stop.
+		jobNodeName := job.Spec.Template.Spec.NodeName
+		if _, found := s.deltaState.getNode(jobNodeName); !found {
+			return true, fmt.Errorf("node %s not found for scan job", jobNodeName)
+		}
+
 		done = lo.ContainsBy(job.Status.Conditions, func(v batchv1.JobCondition) bool {
 			return v.Status == corev1.ConditionTrue && v.Type == batchv1.JobComplete
 		})
@@ -314,7 +326,7 @@ func scanJobSpec(
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					NodeName:      nodeName,
-					RestartPolicy: "Never",
+					RestartPolicy: corev1.RestartPolicyNever,
 					Priority:      lo.ToPtr(int32(0)),
 					Affinity: &corev1.Affinity{
 						NodeAffinity: &corev1.NodeAffinity{
