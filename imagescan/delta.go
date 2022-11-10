@@ -354,11 +354,9 @@ type image struct {
 	id               string
 	name             string
 	containerRuntime string
-	//podIDs           map[string]struct{}
-	resourcesIDs map[string]struct{}
-	//nodeNames        map[string]struct{}
-	nodes          map[string]*imageNode
-	podTolerations []corev1.Toleration
+	resourcesIDs     map[string]struct{}
+	nodes            map[string]*imageNode
+	podTolerations   []corev1.Toleration
 
 	scanned          bool
 	resourcesChanged bool
