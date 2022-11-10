@@ -2,6 +2,7 @@ package imagescan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -10,7 +11,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
-	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,33 +32,30 @@ func NewSubscriber(
 	client castaiClient,
 	imageScanner imageScanner,
 	k8sVersionMinor int,
-	nodeResolver func([]string, *inf.Dec) (string, error),
 	scannedImages []string,
 ) controller.ObjectSubscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
-		ctx:              ctx,
-		cancel:           cancel,
-		client:           client,
-		imageScanner:     imageScanner,
-		delta:            newDeltaState(scannedImages),
-		log:              log,
-		cfg:              cfg,
-		k8sVersionMinor:  k8sVersionMinor,
-		bestNodeResolver: nodeResolver,
+		ctx:             ctx,
+		cancel:          cancel,
+		client:          client,
+		imageScanner:    imageScanner,
+		delta:           newDeltaState(scannedImages),
+		log:             log,
+		cfg:             cfg,
+		k8sVersionMinor: k8sVersionMinor,
 	}
 }
 
 type Subscriber struct {
-	ctx              context.Context
-	cancel           context.CancelFunc
-	client           castaiClient
-	delta            *deltaState
-	imageScanner     imageScanner
-	log              logrus.FieldLogger
-	cfg              config.ImageScan
-	k8sVersionMinor  int
-	bestNodeResolver func([]string, *inf.Dec) (string, error)
+	ctx             context.Context
+	cancel          context.CancelFunc
+	client          castaiClient
+	delta           *deltaState
+	imageScanner    imageScanner
+	log             logrus.FieldLogger
+	cfg             config.ImageScan
+	k8sVersionMinor int
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -66,6 +63,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&appsv1.ReplicaSet{}),
 		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&corev1.Node{}),
 	}
 	return rt
 }
@@ -178,20 +176,21 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	nodeNames := lo.Keys(img.nodeNames)
+	nodeNames := lo.Keys(img.nodes)
 	var nodeName string
-	if len(nodeNames) > 0 {
-		nodeName = nodeNames[0]
+	if len(nodeNames) == 0 {
+		return errors.New("image with empty nodes")
+	}
 
-		if len(nodeNames) > 1 {
-			// resolve best node
-			memQty := resource.MustParse(s.cfg.MemoryRequest)
-			resolvedNode, err := s.bestNodeResolver(nodeNames, memQty.AsDec())
-			if err != nil {
-				return err
-			} else {
-				nodeName = resolvedNode
-			}
+	nodeName = nodeNames[0]
+	if len(nodeNames) > 1 {
+		// Resolve best node.
+		memQty := resource.MustParse(s.cfg.MemoryRequest)
+		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec())
+		if err != nil {
+			return err
+		} else {
+			nodeName = resolvedNode
 		}
 	}
 

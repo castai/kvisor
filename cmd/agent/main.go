@@ -23,7 +23,6 @@ import (
 	"github.com/castai/sec-agent/controller"
 	"github.com/castai/sec-agent/delta"
 	"github.com/castai/sec-agent/imagescan"
-	"github.com/castai/sec-agent/imagescan/allow"
 	"github.com/castai/sec-agent/jobsgc"
 	"github.com/castai/sec-agent/linters/kubebench"
 	"github.com/castai/sec-agent/linters/kubelinter"
@@ -187,15 +186,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 	if cfg.ImageScan.Enabled {
 		log.Info("imagescan enabled")
-		allowSubscriber := allow.NewSubscriber()
-		objectSubscribers = append(objectSubscribers, allowSubscriber)
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
 			castaiClient,
 			imagescan.NewImageScanner(clientset, cfg),
 			k8sVersion.MinorInt,
-			allowSubscriber.FindBestNode,
 			scannedImages,
 		))
 		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})

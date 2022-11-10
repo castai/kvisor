@@ -12,9 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -29,10 +29,31 @@ func TestSubscriber(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
+	createNode := func(name string) *corev1.Node {
+		return &corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("2"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+			},
+		}
+	}
+
 	t.Run("schedule and finish scan", func(t *testing.T) {
 		r := require.New(t)
 		ctrl := gomock.NewController(t)
 		client := mock_castai.NewMockClient(ctrl)
+
+		node1 := createNode("n1")
+		node2 := createNode("n2")
 
 		nginxPod1 := &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
@@ -42,7 +63,7 @@ func TestSubscriber(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: corev1.PodSpec{
-				NodeName: "n1",
+				NodeName: node1.Name,
 				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
@@ -66,7 +87,7 @@ func TestSubscriber(t *testing.T) {
 				Namespace: "kube-system",
 			},
 			Spec: corev1.PodSpec{
-				NodeName: "n2",
+				NodeName: node2.Name,
 				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
@@ -119,7 +140,7 @@ func TestSubscriber(t *testing.T) {
 					},
 				},
 				Spec: corev1.PodSpec{
-					NodeName: "n2",
+					NodeName: node2.Name,
 					Containers: []corev1.Container{
 						{
 							Name:  "argocd",
@@ -159,7 +180,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, mockNodeResolver(), nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
@@ -168,6 +189,8 @@ func TestSubscriber(t *testing.T) {
 		sub.OnAdd(argoPod2)
 		sub.OnAdd(nginxPod1)
 		sub.OnAdd(nginxPod2)
+		sub.OnAdd(node1)
+		sub.OnAdd(node2)
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 
@@ -214,11 +237,14 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, mockNodeResolver(), nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
 		delta := sub.(*Subscriber).delta
 		delta.images = map[string]*image{
 			"img1": {
 				failures: 3,
+				nodes: map[string]*imageNode{
+					"node1": {},
+				},
 			},
 		}
 
@@ -246,7 +272,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, mockNodeResolver(), nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
 		delta := sub.(*Subscriber).delta
 		delta.images = map[string]*image{
 			"img1": {
@@ -273,7 +299,7 @@ func TestSubscriber(t *testing.T) {
 		cfg := config.ImageScan{}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, mockNodeResolver(), nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
 		delta := sub.(*Subscriber).delta
 
 		createPod := func() *corev1.Pod {
@@ -330,12 +356,6 @@ func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)
 	return nil
-}
-
-func mockNodeResolver() func(strings []string, dec *inf.Dec) (string, error) {
-	return func(strings []string, dec *inf.Dec) (string, error) {
-		return strings[0], nil
-	}
 }
 
 type mockCastaiClient struct {
