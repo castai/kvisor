@@ -8,7 +8,7 @@ type LinterRuleSet LinterRule
 const (
 	DanglingService LinterRule = 1 << iota
 	DeprecatedServiceAccountField
-	DokerSock
+	DockerSock
 	DropNetRawCapability
 	EnvVarSecret
 	ExposedService
@@ -46,12 +46,13 @@ const (
 	DanglingHPA
 	DanglingIngress
 	NetworkPolicyPerNamespace
+	ContainerdSock
 )
 
 var LinterRuleMap = map[string]LinterRule{
 	"dangling-service":                 DanglingService,
 	"deprecated-service-account-field": DeprecatedServiceAccountField,
-	"docker-sock":                      DokerSock,
+	"docker-sock":                      DockerSock,
 	"drop-net-raw-capability":          DropNetRawCapability,
 	"env-var-secret":                   EnvVarSecret,
 	"exposed-services":                 ExposedService,
@@ -89,6 +90,7 @@ var LinterRuleMap = map[string]LinterRule{
 	"dangling-horizontalpodautoscaler": DanglingHPA,
 	"dangling-ingress":                 DanglingIngress,
 	"network-policy-per-namespace":     NetworkPolicyPerNamespace,
+	"containerd-sock":                  ContainerdSock,
 }
 
 type LinterCheck struct {
