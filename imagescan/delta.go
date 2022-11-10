@@ -29,7 +29,7 @@ func newDeltaState(scannedImageIDs []string) *deltaState {
 		}
 	}
 	return &deltaState{
-		images: map[string]*image{},
+		images: images,
 		rs:     make(map[string]*appsv1.ReplicaSet),
 		jobs:   make(map[string]*batchv1.Job),
 		nodes:  map[string]*node{},
