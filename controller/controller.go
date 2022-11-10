@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"sync"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -128,8 +127,11 @@ func (c *Controller) transformFunc(i any) (any, error) {
 	addObjectMeta(obj)
 	// Remove manged fields since we don't need them. This should decrease memory usage.
 	obj.SetManagedFields(nil)
-	// Remove resource version have custom diff in order to fix https://github.com/kubernetes/kubernetes/pull/106388
-	obj.SetResourceVersion("")
+	if _, ok := obj.(*appsv1.DaemonSet); ok {
+		// Remove this fields for ds to fix https://github.com/kubernetes/kubernetes/pull/106388 by custom hashing.
+		obj.SetResourceVersion("")
+	}
+
 	return obj, nil
 }
 
@@ -244,9 +246,11 @@ func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subC
 }
 
 func (c *Controller) shouldSkipNotify(objectHash string, eventType eventType) bool {
-	if eventType != eventTypeUpdate {
+	// Do not skip notify for add and update.
+	if eventType == eventTypeAdd || eventType == eventTypeDelete {
 		return false
 	}
+
 	c.objectHashMu.Lock()
 	defer c.objectHashMu.Unlock()
 
@@ -270,14 +274,11 @@ func (c *Controller) calcObjectHash(obj Object) (string, error) {
 		return "", nil
 	}
 
-	objBytes, err := jsoniter.Marshal(obj)
-	if err != nil {
-		return "", fmt.Errorf("marshal DaemonSet for diff: %w", err)
-	}
-
 	h := sha256.New()
-	h.Write(objBytes)
-	return hex.EncodeToString(h.Sum(nil)), nil
+	// TODO: Even this approach is not working. There are some pointers. JSON doesn't work because there are maps...
+	h.Write([]byte(obj.(*appsv1.DaemonSet).String()))
+	hash := hex.EncodeToString(h.Sum(nil))
+	return hash, nil
 }
 
 // addObjectMeta adds missing metadata since kubernetes client removes object kind and api version information.
