@@ -66,6 +66,7 @@ import (
 
 	casttypes "github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/automount"
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks/containerdsock"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/networkpolicypernamespace"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/securitycontext"
 	"github.com/castai/sec-agent/linters/kubelinter/customobjectkinds"
@@ -111,6 +112,7 @@ func New(checks []string) (*Linter, error) {
 func registerCustomChecks(registry checkregistry.CheckRegistry) error {
 	checks := []*config.Check{
 		automount.Check(),
+		containerdsock.Check(),
 		securitycontext.Check(),
 		networkpolicypernamespace.Check(),
 	}
