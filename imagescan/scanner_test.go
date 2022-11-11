@@ -45,15 +45,15 @@ func TestScanner(t *testing.T) {
 				MemoryRequest:     "100Mi",
 				MemoryLimit:       "2Gi",
 			},
-		})
+		}, nil)
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{
-			ImageName:   "test-image",
-			ImageID:     "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
-			ContainerID: "containerd://6282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
-			NodeName:    "n1",
-			ResourceIDs: []string{"p1", "p2"},
+			ImageName:        "test-image",
+			ImageID:          "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerRuntime: "containerd",
+			NodeName:         "n1",
+			ResourceIDs:      []string{"p1", "p2"},
 		})
 		r.NoError(err)
 
@@ -127,10 +127,6 @@ func TestScanner(t *testing.T) {
 										Value: "p1,p2",
 									},
 									{
-										Name:  "COLLECTOR_BLOBS_CACHE_URL",
-										Value: "http://10.10.5.77:8080",
-									},
-									{
 										Name:  "API_URL",
 										Value: "https://api.cast.ai",
 									},
@@ -148,6 +144,10 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "CLUSTER_ID",
 										Value: "c1",
+									},
+									{
+										Name:  "COLLECTOR_BLOBS_CACHE_URL",
+										Value: "http://10.10.5.77:8080",
 									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
@@ -207,6 +207,10 @@ func TestScanner(t *testing.T) {
 			},
 		}
 		client := fake.NewSimpleClientset(job)
+		delta := NewDeltaState([]string{})
+		delta.nodes = map[string]*node{
+			"n1": {},
+		}
 		scanner := NewImageScanner(client, config.Config{
 			PodIP:        "ip",
 			PodNamespace: ns,
@@ -217,13 +221,13 @@ func TestScanner(t *testing.T) {
 				MemoryRequest:  "100Mi",
 				MemoryLimit:    "2Gi",
 			},
-		})
+		}, delta)
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{
 			ImageName:         "test-image",
 			ImageID:           "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
-			ContainerID:       "containerd://6282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerRuntime:  "containerd",
 			NodeName:          "n1",
 			ResourceIDs:       []string{"p1", "p2"},
 			DeleteFinishedJob: true,

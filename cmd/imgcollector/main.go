@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"runtime"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+
+	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
 
 	"github.com/sirupsen/logrus"
 
@@ -43,7 +45,13 @@ func main() {
 		},
 	)
 
-	blobsCache := blobscache.NewRemoteBlobsCache(cfg.BlobsCacheURL)
+	var blobsCache blobscache.Client
+	if cfg.BlobsCacheURL != "" {
+		blobsCache = blobscache.NewRemoteBlobsCache(cfg.BlobsCacheURL)
+	} else {
+		blobsCache = blobscache.NewMockBlobsCacheClient()
+		log.Warn("blobs cache is not enabled")
+	}
 
 	var h *hostfs.ContainerdHostFSConfig
 	if cfg.Mode == config.ModeContainerdHostFS {

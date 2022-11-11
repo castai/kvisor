@@ -31,12 +31,13 @@ type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
 
-func NewImageScanner(client kubernetes.Interface, cfg config.Config) *Scanner {
+func NewImageScanner(client kubernetes.Interface, cfg config.Config, deltaState *deltaState) *Scanner {
 	return &Scanner{
 		podLogProvider:   log.NewPodLogReader(client),
 		client:           client,
 		jobCheckInterval: 5 * time.Second,
 		cfg:              cfg,
+		deltaState:       deltaState,
 	}
 }
 
@@ -45,25 +46,18 @@ type Scanner struct {
 	client           kubernetes.Interface
 	cfg              config.Config
 	jobCheckInterval time.Duration
+	deltaState       *deltaState
 }
 
 type ScanImageParams struct {
 	ImageName         string
 	ImageID           string
-	ContainerID       string
+	ContainerRuntime  string
 	NodeName          string
 	ResourceIDs       []string
 	Tolerations       []corev1.Toleration
 	DeleteFinishedJob bool
 	WaitForCompletion bool
-}
-
-func getContainerRuntime(containerID string) (string, bool) {
-	parts := strings.Split(containerID, "://")
-	if len(parts) != 2 {
-		return "", false
-	}
-	return parts[0], true
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr error) {
@@ -73,26 +67,26 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if params.ImageName == "" {
 		return errors.New("image name is required")
 	}
-	if params.ContainerID == "" {
-		return errors.New("container ID is required")
+	if params.ContainerRuntime == "" {
+		return errors.New("container runtime is required")
 	}
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
 	}
-	if s.cfg.PodIP == "" {
-		return errors.New("agent pod ip is required")
+	if params.NodeName == "" {
+		return errors.New("node name is required")
 	}
 	if s.cfg.ImageScan.BlobsCachePort == 0 {
 		return errors.New("blobs cache port is required")
+	}
+	if s.cfg.PodNamespace == "" {
+		return errors.New("pod namespace is required")
 	}
 
 	jobName := genJobName(params.ImageName)
 	vols := volumesAndMounts{}
 	mode := imgcollectorconfig.Mode(s.cfg.ImageScan.Mode)
-	containerRuntime, ok := getContainerRuntime(params.ContainerID)
-	if !ok {
-		return fmt.Errorf("failed to find container runtime, container_id=%s", params.ContainerID)
-	}
+	containerRuntime := params.ContainerRuntime
 
 	if mode == "" || mode == imgcollectorconfig.ModeDockerDaemon || mode == imgcollectorconfig.ModeContainerdDaemon {
 		switch containerRuntime {
@@ -181,10 +175,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Value: strings.Join(params.ResourceIDs, ","),
 		},
 		{
-			Name:  "COLLECTOR_BLOBS_CACHE_URL",
-			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.ImageScan.BlobsCachePort),
-		},
-		{
 			Name:  "API_URL",
 			Value: s.cfg.API.URL,
 		},
@@ -203,6 +193,13 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Name:  "CLUSTER_ID",
 			Value: s.cfg.API.ClusterID,
 		},
+	}
+
+	if s.cfg.PodIP != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "COLLECTOR_BLOBS_CACHE_URL",
+			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.ImageScan.BlobsCachePort),
+		})
 	}
 
 	jobSpec := scanJobSpec(
@@ -231,7 +228,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	// If job already exist wait for completion and exit.
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
 	if err == nil {
-		return s.waitForCompletion(ctx, jobs, jobName)
+		return s.waitForCompletion(ctx, jobs, jobName, params.NodeName)
 	}
 
 	// Create new job and wait for completion.
@@ -241,12 +238,12 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	}
 
 	if params.WaitForCompletion {
-		return s.waitForCompletion(ctx, jobs, jobName)
+		return s.waitForCompletion(ctx, jobs, jobName, params.NodeName)
 	}
 	return nil
 }
 
-func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {
+func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName, nodeName string) error {
 	return wait.PollUntilWithContext(ctx, s.jobCheckInterval, func(ctx context.Context) (done bool, err error) {
 		job, err := jobs.Get(ctx, jobName, metav1.GetOptions{})
 		if err != nil {
@@ -255,6 +252,12 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 			}
 			return false, nil
 		}
+
+		// If node is removed we should stop.
+		if _, found := s.deltaState.getNode(nodeName); !found {
+			return true, fmt.Errorf("node %s not found for scan job", nodeName)
+		}
+
 		done = lo.ContainsBy(job.Status.Conditions, func(v batchv1.JobCondition) bool {
 			return v.Status == corev1.ConditionTrue && v.Type == batchv1.JobComplete
 		})
@@ -275,12 +278,12 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 			jobPod := jobPods.Items[0]
 			logsStream, err := s.podLogProvider.GetLogReader(ctx, s.cfg.PodNamespace, jobPod.Name)
 			if err != nil {
-				return true, fmt.Errorf("creating logs stream: %w", err)
+				return true, fmt.Errorf("creating logs stream for failed job: %w", err)
 			}
 			defer logsStream.Close()
 			logs, err := io.ReadAll(logsStream)
 			if err != nil {
-				return true, fmt.Errorf("reading logs")
+				return true, fmt.Errorf("reading failed job logs: %w", err)
 			}
 			return true, fmt.Errorf("scan job failed: %s", string(logs))
 		}
@@ -325,7 +328,7 @@ func scanJobSpec(
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					NodeName:      nodeName,
-					RestartPolicy: "Never",
+					RestartPolicy: corev1.RestartPolicyNever,
 					Priority:      lo.ToPtr(int32(0)),
 					Affinity: &corev1.Affinity{
 						NodeAffinity: &corev1.NodeAffinity{

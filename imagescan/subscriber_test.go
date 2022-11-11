@@ -12,12 +12,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/castai/sec-agent/castai"
 	mock_castai "github.com/castai/sec-agent/castai/mock"
 	"github.com/castai/sec-agent/config"
 )
@@ -28,10 +29,31 @@ func TestSubscriber(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
+	createNode := func(name string) *corev1.Node {
+		return &corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("2"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+			},
+		}
+	}
+
 	t.Run("schedule and finish scan", func(t *testing.T) {
 		r := require.New(t)
 		ctrl := gomock.NewController(t)
 		client := mock_castai.NewMockClient(ctrl)
+
+		node1 := createNode("n1")
+		node2 := createNode("n2")
 
 		nginxPod1 := &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
@@ -41,7 +63,7 @@ func TestSubscriber(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: corev1.PodSpec{
-				NodeName: "n1",
+				NodeName: node1.Name,
 				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
@@ -65,7 +87,7 @@ func TestSubscriber(t *testing.T) {
 				Namespace: "kube-system",
 			},
 			Spec: corev1.PodSpec{
-				NodeName: "n2",
+				NodeName: node2.Name,
 				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
@@ -118,7 +140,7 @@ func TestSubscriber(t *testing.T) {
 					},
 				},
 				Spec: corev1.PodSpec{
-					NodeName: "n2",
+					NodeName: node2.Name,
 					Containers: []corev1.Container{
 						{
 							Name:  "argocd",
@@ -133,7 +155,7 @@ func TestSubscriber(t *testing.T) {
 					},
 				},
 				Status: corev1.PodStatus{
-					Phase: corev1.PodSucceeded,
+					Phase: corev1.PodRunning,
 					ContainerStatuses: []corev1.ContainerStatus{
 						{Name: "argocd", ImageID: "argocd:1.23@sha256", ContainerID: "containerd://sha256"},
 					},
@@ -158,18 +180,18 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, func(strings []string, dec *inf.Dec) (string, error) {
-			return strings[0], nil
-		}, nil)
+		delta := NewDeltaState([]string{})
+		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
-		sub.OnAdd(nginxPod1)
-		sub.OnAdd(nginxPod2)
+		sub.OnAdd(argoReplicaSet)
 		sub.OnAdd(argoPod1)
 		sub.OnAdd(argoPod2)
-		sub.OnAdd(argoReplicaSet)
-		sub.OnAdd(argoDeployment)
+		sub.OnAdd(nginxPod1)
+		sub.OnAdd(nginxPod2)
+		sub.OnAdd(node1)
+		sub.OnAdd(node2)
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 
@@ -192,7 +214,7 @@ func TestSubscriber(t *testing.T) {
 		r.Equal(ScanImageParams{
 			ImageName:         "nginx:1.23",
 			ImageID:           "nginx:1.23@sha256",
-			ContainerID:       "containerd://sha256",
+			ContainerRuntime:  "containerd",
 			NodeName:          ngnxImage.NodeName,
 			ResourceIDs:       ngnxImage.ResourceIDs,
 			DeleteFinishedJob: true,
@@ -200,6 +222,157 @@ func TestSubscriber(t *testing.T) {
 		}, ngnxImage)
 	})
 
+	t.Run("retry failed images", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := gomock.NewController(t)
+		client := mock_castai.NewMockClient(ctrl)
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+		}
+
+		scanner := &mockImageScanner{}
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
+		delta := sub.(*Subscriber).delta
+		delta.images["img1"] = &image{
+			failures: 3,
+			name:     "img",
+			id:       "img1",
+			nodes: map[string]*imageNode{
+				"node1": {},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		err := sub.Run(ctx)
+		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.Len(scanner.imgs, 1)
+		r.True(delta.images["img1"].scanned)
+	})
+
+	// TODO: Fix this logic and enabled test.
+	//t.Run("send changed resources ids only", func(t *testing.T) {
+	//	r := require.New(t)
+	//	client := &mockCastaiClient{}
+	//
+	//	cfg := config.ImageScan{
+	//		ScanInterval:       1 * time.Millisecond,
+	//		ScanTimeout:        time.Minute,
+	//		MaxConcurrentScans: 5,
+	//		CPURequest:         "500m",
+	//		CPULimit:           "2",
+	//		MemoryRequest:      "100Mi",
+	//		MemoryLimit:        "2Gi",
+	//	}
+	//
+	//	scanner := &mockImageScanner{}
+	//	sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
+	//	delta := sub.(*Subscriber).delta
+	//	delta.images = map[string]*image{
+	//		"img1": {
+	//			id:               "img1",
+	//			name:             "img",
+	//			scanned:          true,
+	//			resourcesChanged: true,
+	//			owners: map[string]*imageOwner{
+	//				"r1": {},
+	//			},
+	//		},
+	//	}
+	//
+	//	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	//	defer cancel()
+	//
+	//	err := sub.Run(ctx)
+	//	r.True(errors.Is(err, context.DeadlineExceeded))
+	//	r.Len(scanner.imgs, 0)
+	//	r.Len(client.sentMeta, 1)
+	//	r.Equal([]string{"r1"}, client.sentMeta[0].ResourceIDs)
+	//})
+
+	t.Run("skip scanned images", func(t *testing.T) {
+		r := require.New(t)
+		client := &mockCastaiClient{}
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+		}
+
+		scanner := &mockImageScanner{}
+		delta := NewDeltaState([]string{"img1"})
+		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		err := sub.Run(ctx)
+		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.Len(scanner.imgs, 0)
+		r.Len(client.sentMeta, 0)
+	})
+
+	t.Run("add and delete delta objects", func(t *testing.T) {
+		r := require.New(t)
+		client := &mockCastaiClient{}
+
+		cfg := config.ImageScan{}
+
+		scanner := &mockImageScanner{}
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
+		delta := sub.(*Subscriber).delta
+
+		createPod := func() *corev1.Pod {
+			return &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					UID:       types.UID(uuid.New().String()),
+					Name:      "nginx-1",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "n1",
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:1.23",
+						},
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{
+						{Name: "nginx", ImageID: "nginx:1.23@sha256", ContainerID: "containerd://sha256"},
+					},
+				},
+			}
+		}
+		pod1 := createPod()
+		pod2 := createPod()
+
+		sub.OnAdd(pod1)
+		r.Len(delta.images, 1)
+		r.Len(delta.images[pod1.Status.ContainerStatuses[0].ImageID].owners, 1)
+
+		sub.OnAdd(pod2)
+		r.Len(delta.images, 1)
+		r.Len(delta.images[pod1.Status.ContainerStatuses[0].ImageID].owners, 2)
+
+		sub.OnDelete(pod1)
+		r.Len(delta.images, 1)
+
+		sub.OnDelete(pod2)
+		r.Len(delta.images, 0)
+	})
 }
 
 type mockImageScanner struct {
@@ -211,5 +384,14 @@ func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)
+	return nil
+}
+
+type mockCastaiClient struct {
+	sentMeta []*castai.ImageMetadata
+}
+
+func (m *mockCastaiClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {
+	m.sentMeta = append(m.sentMeta, meta)
 	return nil
 }

@@ -150,7 +150,7 @@ func (s *Subscriber) sendDelta(ctx context.Context) error {
 		return err
 	}
 	metrics.IncDeltasSentTotal()
-	s.log.WithField("full_snapshot", "todo").Infof("delta with items[%d] sent", len(deltaReq.Items))
+	s.log.Infof("delta with items[%d] sent", len(deltaReq.Items))
 	s.delta.clear()
 	return nil
 }
