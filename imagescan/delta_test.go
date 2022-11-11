@@ -62,7 +62,7 @@ func TestDelta(t *testing.T) {
 		r.Len(img1.nodes, 2)
 		r.Equal("nginx1", img1.name)
 		r.Equal("img1", img1.id)
-		r.Len(img1.resourcesIDs, 2)
+		r.Len(img1.owners, 2)
 		r.Len(img1.nodes["node1"].podIDs, 1)
 		r.Len(delta.images["img2"].nodes, 1)
 

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/semaphore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -86,6 +86,7 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 }
 
 func (s *Subscriber) OnUpdate(obj controller.Object) {
+	s.handleDelta(controller.EventUpdate, obj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
@@ -121,71 +122,92 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 	if l := len(imagesForScan); l > 0 {
 		s.log.Infof("scheduling %d images scans", l)
-		sem := semaphore.NewWeighted(s.cfg.MaxConcurrentScans)
-		for _, img := range imagesForScan {
-			if img.name == "" {
-				return fmt.Errorf("no image name set: %+v", img)
-			}
-
-			if err := sem.Acquire(ctx, 1); err != nil {
-				return err
-			}
-			go func(img *image) {
-				defer sem.Release(1)
-
-				if ctx.Err() != nil {
-					return
-				}
-
-				ctx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
-				defer cancel()
-
-				log := s.log.WithField("image", img.name)
-				log.Info("scanning image")
-				if err := s.scanImage(ctx, img); err != nil {
-					log.Errorf("image scan failed: %v", err)
-					// Increase image failures on error.
-					s.delta.updateImage(img.id, func(img *image) {
-						img.failures++
-					})
-					return
-				}
-				log.Info("image scan finished")
-				s.delta.updateImage(img.id, func(img *image) {
-					img.scanned = true
-					img.resourcesChanged = false
-				})
-			}(img)
-		}
-
-		if err := sem.Acquire(ctx, s.cfg.MaxConcurrentScans); err != nil {
+		if err := s.scanImages(ctx, imagesForScan); err != nil {
 			return err
 		}
-
 		s.log.Info("images scan finished")
 	} else {
 		s.log.Debug("skipping images scan, no pending images")
 	}
 
-	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
-		return v.scanned && v.resourcesChanged && v.name != ""
-	})
-	if l := len(imagesWithChangedResources); l > 0 {
-		s.log.Infof("updating %d images resources", l)
-		for _, img := range imagesWithChangedResources {
-			if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
-				ImageName:   img.name,
-				ImageID:     img.id,
-				ResourceIDs: lo.Keys(img.resourcesIDs),
-			}); err != nil {
-				return fmt.Errorf("sending image metadata resources update: %w", err)
+	// TODO: On initial agent load we don't know if resource id is already synced. Need to get synced resource ids for each image.
+	//imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
+	//	return v.scanned && v.resourcesChanged && v.name != ""
+	//})
+	//if l := len(imagesWithChangedResources); l > 0 {
+	//	s.log.Infof("updating %d images resources", l)
+	//	if err := s.sentImageOwnerChange(ctx, imagesWithChangedResources); err != nil {
+	//		return err
+	//	}
+	//}
+
+	return nil
+}
+
+func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
+	var wg sync.WaitGroup
+	for _, img := range images {
+		if img.name == "" {
+			return fmt.Errorf("no image name set: %+v", img)
+		}
+
+		wg.Add(1)
+		go func(img *image) {
+			defer wg.Done()
+
+			if ctx.Err() != nil {
+				return
 			}
+
+			ctx, cancel := context.WithTimeout(ctx, s.cfg.ScanTimeout)
+			defer cancel()
+
+			log := s.log.WithField("image", img.name)
+			log.Info("scanning image")
+			if err := s.scanImage(ctx, img); err != nil {
+				log.Errorf("image scan failed: %v", err)
+				// Increase image failures on error.
+				s.delta.updateImage(img.id, func(img *image) {
+					img.failures++
+				})
+				return
+			}
+			log.Info("image scan finished")
 			s.delta.updateImage(img.id, func(img *image) {
+				img.scanned = true
 				img.resourcesChanged = false
 			})
-		}
+		}(img)
 	}
 
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+//nolint:unused
+func (s *Subscriber) sentImageOwnerChange(ctx context.Context, images []*image) error {
+	for _, img := range images {
+		if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
+			ImageName:   img.name,
+			ImageID:     img.id,
+			ResourceIDs: lo.Keys(img.owners),
+		}); err != nil {
+			return fmt.Errorf("sending image metadata resources update: %w", err)
+		}
+		s.delta.updateImage(img.id, func(img *image) {
+			img.resourcesChanged = false
+		})
+	}
 	return nil
 }
 
@@ -221,7 +243,7 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		ImageName:         img.name,
 		ImageID:           img.id,
 		ContainerRuntime:  img.containerRuntime,
-		ResourceIDs:       lo.Keys(img.resourcesIDs),
+		ResourceIDs:       lo.Keys(img.owners),
 		NodeName:          nodeName,
 		Tolerations:       img.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
 		DeleteFinishedJob: true,

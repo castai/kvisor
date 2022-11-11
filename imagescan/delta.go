@@ -24,26 +24,28 @@ func NewDeltaState(scannedImageIDs []string) *deltaState {
 	images := map[string]*image{}
 	for _, imgID := range scannedImageIDs {
 		images[imgID] = &image{
-			id:           imgID,
-			resourcesIDs: map[string]struct{}{},
-			nodes:        map[string]*imageNode{},
-			scanned:      true,
+			id:      imgID,
+			owners:  map[string]*imageOwner{},
+			nodes:   map[string]*imageNode{},
+			scanned: true,
 		}
 	}
 	return &deltaState{
-		images: images,
-		rs:     make(map[string]*appsv1.ReplicaSet),
-		jobs:   make(map[string]*batchv1.Job),
-		nodes:  map[string]*node{},
+		scannedImageIDs: scannedImageIDs,
+		images:          images,
+		rs:              make(map[string]*appsv1.ReplicaSet),
+		jobs:            make(map[string]*batchv1.Job),
+		nodes:           map[string]*node{},
 	}
 }
 
 type deltaState struct {
-	mu     sync.RWMutex
-	images map[string]*image
-	rs     map[string]*appsv1.ReplicaSet
-	jobs   map[string]*batchv1.Job
-	nodes  map[string]*node
+	scannedImageIDs []string
+	mu              sync.RWMutex
+	images          map[string]*image
+	rs              map[string]*appsv1.ReplicaSet
+	jobs            map[string]*batchv1.Job
+	nodes           map[string]*node
 }
 
 func (d *deltaState) upsert(o controller.Object) {
@@ -141,11 +143,10 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 
 	containers := pod.Spec.Containers
 	containers = append(containers, pod.Spec.InitContainers...)
-
 	containerStatuses := pod.Status.ContainerStatuses
 	containerStatuses = append(containerStatuses, pod.Status.InitContainerStatuses...)
-
 	podID := string(pod.UID)
+	ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
 
 	for _, cont := range containers {
 		cs, found := lo.Find(containerStatuses, func(v corev1.ContainerStatus) bool {
@@ -157,23 +158,29 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 
 		key := cs.ImageID
 		nodeName := pod.Spec.NodeName
-		resourceID := getPodOwnerID(pod, d.rs, d.jobs)
 		img, found := d.images[key]
 		if !found {
 			img = &image{
-				id:           key,
-				resourcesIDs: map[string]struct{}{},
-				nodes:        map[string]*imageNode{},
+				id:     key,
+				owners: map[string]*imageOwner{},
+				nodes:  map[string]*imageNode{},
 			}
 		}
 		img.id = key
 		img.name = cont.Image
 		img.containerRuntime = getContainerRuntime(cs.ContainerID)
 		img.podTolerations = pod.Spec.Tolerations
-		if _, found := img.resourcesIDs[resourceID]; !found {
-			img.resourcesChanged = true
-			img.resourcesIDs[resourceID] = struct{}{}
+
+		if owner, found := img.owners[ownerResourceID]; found {
+			owner.podIDs[podID] = struct{}{}
+		} else {
+			img.owners[ownerResourceID] = &imageOwner{
+				podIDs: map[string]struct{}{
+					podID: {},
+				},
+			}
 		}
+
 		if n, found := img.nodes[nodeName]; found {
 			n.podIDs[podID] = struct{}{}
 		} else {
@@ -183,6 +190,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 				},
 			}
 		}
+
 		d.images[key] = img
 	}
 }
@@ -190,13 +198,19 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 	for key, img := range d.images {
 		podID := string(pod.UID)
-
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
 		}
-
 		if img.allPodsRemoved() {
 			delete(d.images, key)
+			continue
+		}
+		ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
+		if owner, found := img.owners[ownerResourceID]; found {
+			delete(owner.podIDs, podID)
+			if len(owner.podIDs) == 0 {
+				delete(img.owners, ownerResourceID)
+			}
 		}
 	}
 }
@@ -232,7 +246,10 @@ func (d *deltaState) updateImage(imageID string, change func(img *image)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	change(d.images[imageID])
+	img := d.images[imageID]
+	if img != nil {
+		change(img)
+	}
 }
 
 func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec) (string, error) {
@@ -353,13 +370,18 @@ type imageNode struct {
 	podIDs map[string]struct{}
 }
 
+type imageOwner struct {
+	podIDs map[string]struct{}
+}
+
 type image struct {
 	id               string
 	name             string
 	containerRuntime string
-	resourcesIDs     map[string]struct{}
-	nodes            map[string]*imageNode
-	podTolerations   []corev1.Toleration
+	//resourcesIDs     map[string]struct{}
+	owners         map[string]*imageOwner
+	nodes          map[string]*imageNode
+	podTolerations []corev1.Toleration
 
 	scanned          bool
 	resourcesChanged bool

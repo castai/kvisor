@@ -192,7 +192,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		))
 	}
 	if cfg.ImageScan.Enabled {
-		log.Info("imagescan enabled")
+		log.Infof("imagescan enabled, already scanned %d images", len(scannedImages))
 		if cfg.ImageScan.Force {
 			scannedImages = []string{}
 		}
