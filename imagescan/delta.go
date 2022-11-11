@@ -159,38 +159,31 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		nodeName := pod.Spec.NodeName
 		resourceID := getPodOwnerID(pod, d.rs, d.jobs)
 		img, found := d.images[key]
-		if found {
-			if _, found := img.resourcesIDs[resourceID]; !found {
-				img.resourcesChanged = true
-				img.resourcesIDs[resourceID] = struct{}{}
-			}
-			if n, found := img.nodes[nodeName]; found {
-				n.podIDs[podID] = struct{}{}
-			} else {
-				img.nodes[nodeName] = &imageNode{
-					podIDs: map[string]struct{}{
-						podID: {},
-					},
-				}
-			}
-		} else {
-			d.images[key] = &image{
-				name:             cont.Image,
-				id:               cs.ImageID,
-				containerRuntime: getContainerRuntime(cs.ContainerID),
-				resourcesIDs: map[string]struct{}{
-					resourceID: {},
-				},
-				nodes: map[string]*imageNode{
-					nodeName: {
-						podIDs: map[string]struct{}{
-							podID: {},
-						},
-					},
-				},
-				podTolerations: pod.Spec.Tolerations,
+		if !found {
+			img = &image{
+				id:           key,
+				resourcesIDs: map[string]struct{}{},
+				nodes:        map[string]*imageNode{},
 			}
 		}
+		img.id = key
+		img.name = cont.Image
+		img.containerRuntime = getContainerRuntime(cs.ContainerID)
+		img.podTolerations = pod.Spec.Tolerations
+		if _, found := img.resourcesIDs[resourceID]; !found {
+			img.resourcesChanged = true
+			img.resourcesIDs[resourceID] = struct{}{}
+		}
+		if n, found := img.nodes[nodeName]; found {
+			n.podIDs[podID] = struct{}{}
+		} else {
+			img.nodes[nodeName] = &imageNode{
+				podIDs: map[string]struct{}{
+					podID: {},
+				},
+			}
+		}
+		d.images[key] = img
 	}
 }
 

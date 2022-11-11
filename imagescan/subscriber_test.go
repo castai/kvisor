@@ -278,6 +278,7 @@ func TestSubscriber(t *testing.T) {
 		delta.images = map[string]*image{
 			"img1": {
 				id:               "img1",
+				name:             "img",
 				scanned:          true,
 				resourcesChanged: true,
 				resourcesIDs:     map[string]struct{}{"r1": {}},

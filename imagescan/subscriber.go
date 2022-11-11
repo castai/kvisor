@@ -106,7 +106,7 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	images := lo.Values(s.delta.getImages())
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
-		return !v.scanned
+		return !v.scanned && v.name != ""
 	})
 	sort.Slice(pendingImages, func(i, j int) bool {
 		return pendingImages[i].failures < pendingImages[j].failures
@@ -168,7 +168,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	}
 
 	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
-		return v.scanned && v.resourcesChanged
+		return v.scanned && v.resourcesChanged && v.name != ""
 	})
 	if l := len(imagesWithChangedResources); l > 0 {
 		s.log.Infof("updating %d images resources", l)
