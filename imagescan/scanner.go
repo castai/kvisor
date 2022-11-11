@@ -73,6 +73,9 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
 	}
+	if params.NodeName == "" {
+		return errors.New("node name is required")
+	}
 	if s.cfg.ImageScan.BlobsCachePort == 0 {
 		return errors.New("blobs cache port is required")
 	}
@@ -225,7 +228,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	// If job already exist wait for completion and exit.
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
 	if err == nil {
-		return s.waitForCompletion(ctx, jobs, jobName)
+		return s.waitForCompletion(ctx, jobs, jobName, params.NodeName)
 	}
 
 	// Create new job and wait for completion.
@@ -235,12 +238,12 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	}
 
 	if params.WaitForCompletion {
-		return s.waitForCompletion(ctx, jobs, jobName)
+		return s.waitForCompletion(ctx, jobs, jobName, params.NodeName)
 	}
 	return nil
 }
 
-func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {
+func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName, nodeName string) error {
 	return wait.PollUntilWithContext(ctx, s.jobCheckInterval, func(ctx context.Context) (done bool, err error) {
 		job, err := jobs.Get(ctx, jobName, metav1.GetOptions{})
 		if err != nil {
@@ -251,9 +254,8 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 		}
 
 		// If node is removed we should stop.
-		jobNodeName := job.Spec.Template.Spec.NodeName
-		if _, found := s.deltaState.getNode(jobNodeName); !found {
-			return true, fmt.Errorf("node %s not found for scan job", jobNodeName)
+		if _, found := s.deltaState.getNode(nodeName); !found {
+			return true, fmt.Errorf("node %s not found for scan job", nodeName)
 		}
 
 		done = lo.ContainsBy(job.Status.Conditions, func(v batchv1.JobCondition) bool {

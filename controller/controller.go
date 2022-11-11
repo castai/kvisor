@@ -2,8 +2,6 @@ package controller
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -221,10 +219,14 @@ func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subC
 		actualObj = obj
 	}
 
-	objectHash, err := c.calcObjectHash(actualObj)
-	if err != nil {
-		c.log.Error(err)
-		return
+	var objectHash string
+	if c.k8sVersion.MinorInt < 25 && actualObj.GetObjectKind().GroupVersionKind().Kind == "DaemonSet" {
+		var err error
+		objectHash, err = ObjectHash(actualObj)
+		if err != nil {
+			c.log.Error(err)
+			return
+		}
 	}
 
 	if c.shouldSkipNotify(objectHash, eventType) {
@@ -267,18 +269,6 @@ func (c *Controller) saveObjectHash(objectHash string, eventType eventType) {
 	} else {
 		c.objectHashes[objectHash] = struct{}{}
 	}
-}
-
-func (c *Controller) calcObjectHash(obj Object) (string, error) {
-	if c.k8sVersion.MinorInt >= 25 || obj.GetObjectKind().GroupVersionKind().Kind != "DaemonSet" {
-		return "", nil
-	}
-
-	h := sha256.New()
-	// TODO: Even this approach is not working. There are some pointers. JSON doesn't work because there are maps...
-	h.Write([]byte(obj.(*appsv1.DaemonSet).String()))
-	hash := hex.EncodeToString(h.Sum(nil))
-	return hash, nil
 }
 
 // addObjectMeta adds missing metadata since kubernetes client removes object kind and api version information.

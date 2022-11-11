@@ -127,10 +127,6 @@ func TestScanner(t *testing.T) {
 										Value: "p1,p2",
 									},
 									{
-										Name:  "COLLECTOR_BLOBS_CACHE_URL",
-										Value: "http://10.10.5.77:8080",
-									},
-									{
 										Name:  "API_URL",
 										Value: "https://api.cast.ai",
 									},
@@ -148,6 +144,10 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "CLUSTER_ID",
 										Value: "c1",
+									},
+									{
+										Name:  "COLLECTOR_BLOBS_CACHE_URL",
+										Value: "http://10.10.5.77:8080",
 									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
@@ -207,6 +207,10 @@ func TestScanner(t *testing.T) {
 			},
 		}
 		client := fake.NewSimpleClientset(job)
+		delta := NewDeltaState([]string{})
+		delta.nodes = map[string]*node{
+			"n1": {},
+		}
 		scanner := NewImageScanner(client, config.Config{
 			PodIP:        "ip",
 			PodNamespace: ns,
@@ -217,7 +221,7 @@ func TestScanner(t *testing.T) {
 				MemoryRequest:  "100Mi",
 				MemoryLimit:    "2Gi",
 			},
-		}, nil)
+		}, delta)
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{

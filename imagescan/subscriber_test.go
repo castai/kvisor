@@ -238,14 +238,13 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
 		delta := sub.(*Subscriber).delta
-		delta.images = map[string]*image{
-			"img1": {
-				failures: 3,
-				nodes: map[string]*imageNode{
-					"node1": {},
-				},
+		delta.images["img1"] = &image{
+			failures: 3,
+			name:     "img",
+			nodes: map[string]*imageNode{
+				"node1": {},
 			},
 		}
 
@@ -273,7 +272,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
 		delta := sub.(*Subscriber).delta
 		delta.images = map[string]*image{
 			"img1": {
@@ -323,7 +322,7 @@ func TestSubscriber(t *testing.T) {
 		cfg := config.ImageScan{}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, nil)
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
 		delta := sub.(*Subscriber).delta
 
 		createPod := func() *corev1.Pod {

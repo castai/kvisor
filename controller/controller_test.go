@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	json "github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -124,6 +125,101 @@ func TestController(t *testing.T) {
 			sub.assertNoUpdates(r)
 		}
 	})
+}
+
+func TestObjectHash(t *testing.T) {
+	r := require.New(t)
+	js := `{
+    "apiVersion": "apps/v1",
+    "kind": "DaemonSet",
+    "metadata": {
+        "annotations": {
+            "components.gke.io/layer": "addon",
+            "deprecated.daemonset.template.generation": "5"
+        },
+        "creationTimestamp": "2022-04-19T16:20:05Z",
+        "generation": 5,
+        "labels": {
+            "addonmanager.kubernetes.io/mode": "Reconcile",
+            "k8s-app": "cilium"
+        },
+        "name": "anetd",
+        "namespace": "kube-system",
+        "resourceVersion": "148483317",
+        "uid": "c0ed439e-8063-42ad-b523-427e7af5c927"
+    },
+    "spec": {
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "k8s-app": "cilium"
+            }
+        },
+        "template": {
+            "metadata": {
+                "annotations": {
+                    "components.gke.io/component-name": "advanceddatapath",
+                    "components.gke.io/component-version": "2.5.21",
+                    "prometheus.io/port": "9990",
+                    "prometheus.io/scrape": "true"
+                },
+                "creationTimestamp": null,
+                "labels": {
+                    "k8s-app": "cilium"
+                }
+            },
+            "spec": {
+                "nodeSelector": {
+                    "kubernetes.io/os": "linux"
+                },
+                "priorityClassName": "system-node-critical",
+                "restartPolicy": "Always2",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "serviceAccount": "cilium",
+                "serviceAccountName": "cilium",
+                "terminationGracePeriodSeconds": 1,
+                "tolerations": [
+                    {
+                        "operator": "Exists"
+                    },
+                    {
+                        "key": "components.gke.io/gke-managed-components",
+                        "operator": "Exists"
+                    }
+                ]
+            }
+        },
+        "updateStrategy": {
+            "rollingUpdate": {
+                "maxSurge": 0,
+                "maxUnavailable": 2
+            },
+            "type": "RollingUpdate"
+        }
+    },
+    "status": {
+        "currentNumberScheduled": 6,
+        "desiredNumberScheduled": 6,
+        "numberAvailable": 6,
+        "numberMisscheduled": 0,
+        "numberReady": 6,
+        "observedGeneration": 5,
+        "updatedNumberScheduled": 6
+    }
+}
+`
+	var ds1 appsv1.DaemonSet
+	r.NoError(json.Unmarshal([]byte(js), &ds1))
+	var ds2 appsv1.DaemonSet
+	r.NoError(json.Unmarshal([]byte(js), &ds2))
+
+	h1, err := ObjectHash(&ds1)
+	r.NoError(err)
+	h2, err := ObjectHash(&ds2)
+	r.NoError(err)
+	r.NotEmpty(h1)
+	r.Equal(h1, h2)
 }
 
 func newTestSubscriber(log logrus.FieldLogger) *testSubscriber {

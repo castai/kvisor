@@ -2,8 +2,11 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"reflect"
 
+	json "github.com/json-iterator/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -35,4 +38,16 @@ type Object interface {
 
 func ObjectKey(obj Object) string {
 	return string(obj.GetUID())
+}
+
+func ObjectHash(obj Object) (string, error) {
+	h := sha256.New()
+	// Use std compatible json config since we need sorted map keys.
+	b, err := json.ConfigCompatibleWithStandardLibrary.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	h.Write(b)
+	hash := hex.EncodeToString(h.Sum(nil))
+	return hash, nil
 }
