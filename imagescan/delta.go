@@ -235,11 +235,11 @@ func (d *deltaState) getNode(name string) (*node, bool) {
 	return v, found
 }
 
-func (d *deltaState) updateImage(img *image) {
+func (d *deltaState) updateImage(imageID string, change func(img *image)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.images[img.id] = img
+	change(d.images[imageID])
 }
 
 func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec) (string, error) {

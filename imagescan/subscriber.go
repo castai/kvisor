@@ -145,14 +145,16 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 				if err := s.scanImage(ctx, img); err != nil {
 					log.Errorf("image scan failed: %v", err)
 					// Increase image failures on error.
-					img.failures++
-					s.delta.updateImage(img)
+					s.delta.updateImage(img.id, func(img *image) {
+						img.failures++
+					})
 					return
 				}
 				log.Info("image scan finished")
-				img.scanned = true
-				img.resourcesChanged = false
-				s.delta.updateImage(img)
+				s.delta.updateImage(img.id, func(img *image) {
+					img.scanned = true
+					img.resourcesChanged = false
+				})
 			}(img)
 		}
 
@@ -178,8 +180,9 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 			}); err != nil {
 				return fmt.Errorf("sending image metadata resources update: %w", err)
 			}
-			img.resourcesChanged = false
-			s.delta.updateImage(img)
+			s.delta.updateImage(img.id, func(img *image) {
+				img.resourcesChanged = false
+			})
 		}
 	}
 
