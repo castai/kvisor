@@ -243,6 +243,7 @@ func TestSubscriber(t *testing.T) {
 		delta.images["img1"] = &image{
 			failures: 3,
 			name:     "img",
+			id:       "img1",
 			nodes: map[string]*imageNode{
 				"node1": {},
 			},
@@ -276,6 +277,7 @@ func TestSubscriber(t *testing.T) {
 		delta := sub.(*Subscriber).delta
 		delta.images = map[string]*image{
 			"img1": {
+				id:               "img1",
 				scanned:          true,
 				resourcesChanged: true,
 				resourcesIDs:     map[string]struct{}{"r1": {}},
