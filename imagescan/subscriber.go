@@ -130,16 +130,15 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 		s.log.Debug("skipping images scan, no pending images")
 	}
 
-	// TODO: On initial agent load we don't know if resource id is already synced. Need to get synced resource ids for each image.
-	//imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
-	//	return v.scanned && v.resourcesChanged && v.name != ""
-	//})
-	//if l := len(imagesWithChangedResources); l > 0 {
-	//	s.log.Infof("updating %d images resources", l)
-	//	if err := s.sentImageOwnerChange(ctx, imagesWithChangedResources); err != nil {
-	//		return err
-	//	}
-	//}
+	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
+		return v.scanned && v.resourcesChanged && v.name != ""
+	})
+	if l := len(imagesWithChangedResources); l > 0 {
+		s.log.Infof("updating %d images resources", l)
+		if err := s.sentImageOwnerChange(ctx, imagesWithChangedResources); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
