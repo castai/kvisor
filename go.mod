@@ -36,7 +36,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 	golang.stackrox.io/kube-linter v0.4.1-0.20221021125313-bd11843210d1
 	google.golang.org/api v0.102.0
-	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.25.3
@@ -123,7 +122,6 @@ require (
 	github.com/containerd/ttrpc v1.1.1-0.20220420014843-944ef4a40df3 // indirect
 	github.com/containerd/typeurl v1.0.3-0.20220422153119-7f6e6d160d67 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
-	github.com/dgryski/go-minhash v0.0.0-20170608043002-7fe510aff544 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
@@ -133,7 +131,6 @@ require (
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/ekzhu/minhash-lsh v0.0.0-20171225071031-5c06ee8586a1 // indirect
 	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
@@ -177,13 +174,11 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.13.0 // indirect
-	github.com/hhatto/gorst v0.0.0-20181029133204-ca9f730cac5b // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/in-toto/in-toto-golang v0.3.4-0.20220709202702-fa494aaa0add // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
-	github.com/jdkato/prose v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -227,7 +222,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
-	github.com/montanaflynn/stats v0.0.0-20151014174947-eeaced052adb // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
@@ -253,12 +247,10 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rubenv/sql-migrate v1.1.2 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/saracen/walker v0.0.0-20191201085201-324a081bae7e // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.4.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
-	github.com/shogo82148/go-shuffle v0.0.0-20170808115208-59829097ff3b // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/spdx/tools-golang v0.3.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
@@ -297,13 +289,12 @@ require (
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	golang.org/x/tools v0.1.12 // indirect
-	gonum.org/v1/gonum v0.7.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c // indirect
 	google.golang.org/grpc v1.50.1 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/neurosnap/sentences.v1 v1.0.6 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	helm.sh/helm/v3 v3.10.1 // indirect
@@ -342,3 +333,5 @@ replace oras.land/oras-go => oras.land/oras-go v1.1.1
 replace github.com/chzyer/logex v1.1.10 => github.com/chzyer/logex v1.2.0
 
 replace github.com/containerd/containerd => github.com/containerd/containerd v1.6.1-0.20220706215228-681aaf68b7dc
+
+replace github.com/go-enry/go-license-detector/v4 v4.3.0 => ./cmd/imgcollector/stub/licensing
