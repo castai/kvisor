@@ -17,6 +17,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	_ "github.com/aquasecurity/trivy/pkg/scanner" // Import all registered analyzers.
 )
 
@@ -52,6 +53,10 @@ func (c *Collector) Collect(ctx context.Context) error {
 
 	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
 		Offline: true,
+		DisabledAnalyzers: []analyzer.Type{
+			analyzer.TypeLicenseFile,
+			analyzer.TypeDpkgLicense,
+		},
 	})
 	if err != nil {
 		return err
