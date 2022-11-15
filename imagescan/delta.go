@@ -195,7 +195,6 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 				},
 			}
 		}
-
 		d.images[key] = img
 	}
 }

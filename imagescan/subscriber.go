@@ -112,7 +112,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	sort.Slice(pendingImages, func(i, j int) bool {
 		return pendingImages[i].failures < pendingImages[j].failures
 	})
-	s.log.Debugf("found %d images, pending images %d", len(images), len(pendingImages))
+	s.log.Infof("found %d images, pending images %d", len(images), len(pendingImages))
 
 	// During each scan schedule we scan only configured amount of images.
 	imagesForScan := pendingImages
