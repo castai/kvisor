@@ -135,7 +135,7 @@ func TestScanner(t *testing.T) {
 										ValueFrom: &corev1.EnvVarSource{
 											SecretKeyRef: &corev1.SecretKeySelector{
 												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-sec-agent",
+													Name: "castai-cluster-controller",
 												},
 												Key: "API_KEY",
 											},

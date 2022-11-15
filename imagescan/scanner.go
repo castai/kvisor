@@ -183,7 +183,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "castai-sec-agent",
+						Name: "castai-cluster-controller",
 					},
 					Key: "API_KEY",
 				},
