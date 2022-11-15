@@ -47,6 +47,16 @@ var (
 		Name: "castai_security_agent_deltas_total",
 		Help: "Counter tracking deltas sent",
 	})
+
+	imagesTotalCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "castai_security_agent_images",
+		Help: "Gauge for tracking container images count",
+	})
+
+	imagesPendingCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "castai_security_agent_pending_images",
+		Help: "Gauge for tracking pending container images count",
+	})
 )
 
 func init() {
@@ -66,6 +76,14 @@ func scanStatus(err error) ScanStatus {
 
 func IncScansTotal(scanType ScanType, err error) {
 	scansTotal.WithLabelValues(string(scanType), string(scanStatus(err))).Inc()
+}
+
+func SetTotalImagesCount(v int) {
+	imagesTotalCount.Set(float64(v))
+}
+
+func SetPendingImagesCount(v int) {
+	imagesPendingCount.Set(float64(v))
 }
 
 func ObserveScanDuration(scanType ScanType, start time.Time) {

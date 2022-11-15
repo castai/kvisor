@@ -107,12 +107,14 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	images := lo.Values(s.delta.getImages())
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
-		return !v.scanned && v.name != ""
+		return !v.scanned && v.name != "" && len(v.owners) > 0
 	})
 	sort.Slice(pendingImages, func(i, j int) bool {
 		return pendingImages[i].failures < pendingImages[j].failures
 	})
 	s.log.Infof("found %d images, pending images %d", len(images), len(pendingImages))
+	metrics.SetTotalImagesCount(len(images))
+	metrics.SetPendingImagesCount(len(pendingImages))
 
 	// During each scan schedule we scan only configured amount of images.
 	imagesForScan := pendingImages
@@ -131,7 +133,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	}
 
 	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
-		return v.scanned && v.resourcesChanged && v.name != ""
+		return v.scanned && v.name != "" && v.resourcesChanged
 	})
 	if l := len(imagesWithChangedResources); l > 0 {
 		s.log.Infof("updating %d images resources", l)
@@ -193,7 +195,6 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 	}
 }
 
-//nolint:unused
 func (s *Subscriber) sentImageOwnerChange(ctx context.Context, images []*image) error {
 	for _, img := range images {
 		if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
@@ -203,6 +204,7 @@ func (s *Subscriber) sentImageOwnerChange(ctx context.Context, images []*image) 
 		}); err != nil {
 			return fmt.Errorf("sending image metadata resources update: %w", err)
 		}
+
 		s.delta.updateImage(img.id, func(img *image) {
 			img.resourcesChanged = false
 		})
@@ -239,13 +241,14 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	}()
 
 	return s.imageScanner.ScanImage(ctx, ScanImageParams{
-		ImageName:         img.name,
-		ImageID:           img.id,
-		ContainerRuntime:  img.containerRuntime,
-		ResourceIDs:       lo.Keys(img.owners),
-		NodeName:          nodeName,
-		Tolerations:       img.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
-		DeleteFinishedJob: true,
-		WaitForCompletion: true,
+		ImageName:                   img.name,
+		ImageID:                     img.id,
+		ContainerRuntime:            img.containerRuntime,
+		ResourceIDs:                 lo.Keys(img.owners),
+		NodeName:                    nodeName,
+		Tolerations:                 img.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
+		DeleteFinishedJob:           true,
+		WaitForCompletion:           true,
+		WaitDurationAfterCompletion: 30 * time.Second,
 	})
 }

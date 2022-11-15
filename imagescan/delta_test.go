@@ -76,14 +76,6 @@ func TestDelta(t *testing.T) {
 		delta.delete(pod3)
 		r.Len(delta.images, 1)
 		r.Len(delta.images["img2"].nodes, 1)
-
-		// Delete node. No images should be left.
-		delta.delete(&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node1",
-			},
-		})
-		r.Len(delta.images, 0)
 	})
 
 	t.Run("find best node for image scan", func(t *testing.T) {

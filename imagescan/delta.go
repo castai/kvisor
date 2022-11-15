@@ -205,10 +205,7 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
 		}
-		if img.allPodsRemoved() {
-			delete(d.images, key)
-			continue
-		}
+
 		ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
 		if owner, found := img.owners[ownerResourceID]; found {
 			delete(owner.podIDs, podID)
@@ -216,18 +213,18 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 				delete(img.owners, ownerResourceID)
 			}
 		}
+
+		if len(img.owners) == 0 {
+			delete(d.images, key)
+		}
 	}
 }
 
 func (d *deltaState) handleNodeDelete(node *corev1.Node) {
 	delete(d.nodes, node.GetName())
 
-	for key, img := range d.images {
+	for _, img := range d.images {
 		delete(img.nodes, node.Name)
-
-		if img.allPodsRemoved() {
-			delete(d.images, key)
-		}
 	}
 }
 
@@ -389,13 +386,4 @@ type image struct {
 	scanned          bool
 	resourcesChanged bool
 	failures         int
-}
-
-func (img *image) allPodsRemoved() bool {
-	for _, n := range img.nodes {
-		if len(n.podIDs) > 0 {
-			return false
-		}
-	}
-	return true
 }

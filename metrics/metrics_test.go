@@ -82,3 +82,27 @@ castai_security_agent_deltas_total 2
 `
 	r.NoError(testutil.CollectAndCompare(deltasSentTotal, strings.NewReader(expected)))
 }
+
+func TestImagesCount(t *testing.T) {
+	r := require.New(t)
+
+	SetTotalImagesCount(5)
+	problems, err := testutil.CollectAndLint(imagesTotalCount)
+	r.NoError(err)
+	r.Empty(problems)
+	expected := `# HELP castai_security_agent_images Gauge for tracking container images count
+# TYPE castai_security_agent_images gauge
+castai_security_agent_images 5
+`
+	r.NoError(testutil.CollectAndCompare(imagesTotalCount, strings.NewReader(expected)))
+
+	SetPendingImagesCount(3)
+	problems, err = testutil.CollectAndLint(imagesPendingCount)
+	r.NoError(err)
+	r.Empty(problems)
+	expected = `# HELP castai_security_agent_pending_images Gauge for tracking pending container images count
+# TYPE castai_security_agent_pending_images gauge
+castai_security_agent_pending_images 3
+`
+	r.NoError(testutil.CollectAndCompare(imagesPendingCount, strings.NewReader(expected)))
+}

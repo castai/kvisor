@@ -212,13 +212,14 @@ func TestSubscriber(t *testing.T) {
 		r.Equal(ngnxImage.ResourceIDs, actualNginxPodResourceIDs)
 		r.NotEmpty(ngnxImage.NodeName)
 		r.Equal(ScanImageParams{
-			ImageName:         "nginx:1.23",
-			ImageID:           "nginx:1.23@sha256",
-			ContainerRuntime:  "containerd",
-			NodeName:          ngnxImage.NodeName,
-			ResourceIDs:       ngnxImage.ResourceIDs,
-			DeleteFinishedJob: true,
-			WaitForCompletion: true,
+			ImageName:                   "nginx:1.23",
+			ImageID:                     "nginx:1.23@sha256",
+			ContainerRuntime:            "containerd",
+			NodeName:                    ngnxImage.NodeName,
+			ResourceIDs:                 ngnxImage.ResourceIDs,
+			DeleteFinishedJob:           true,
+			WaitForCompletion:           true,
+			WaitDurationAfterCompletion: 30 * time.Second,
 		}, ngnxImage)
 	})
 
@@ -246,6 +247,9 @@ func TestSubscriber(t *testing.T) {
 			id:       "img1",
 			nodes: map[string]*imageNode{
 				"node1": {},
+			},
+			owners: map[string]*imageOwner{
+				"r1": {},
 			},
 		}
 
