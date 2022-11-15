@@ -145,7 +145,7 @@ func (a Artifact) getCachedLayers(ctx context.Context, ids []string) (map[string
 		blobBytes, err := a.cache.GetBlob(ctx, id)
 		if err != nil {
 			a.log.Warnf("getting blob cache: %v", err)
-			return nil, blobscache.ErrCacheNotFound
+			continue
 		}
 		if len(blobBytes) > 0 {
 			var blob types.BlobInfo
