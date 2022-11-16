@@ -47,7 +47,7 @@ func TestDelta(t *testing.T) {
 			}
 		}
 
-		delta := NewDeltaState([]string{})
+		delta := NewDeltaState(nil)
 
 		pod1 := createPod("nginx1", "img1", "node1")
 		pod2 := createPod("nginx2", "img2", "node1")
@@ -76,20 +76,12 @@ func TestDelta(t *testing.T) {
 		delta.delete(pod3)
 		r.Len(delta.images, 1)
 		r.Len(delta.images["img2"].nodes, 1)
-
-		// Delete node. No images should be left.
-		delta.delete(&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node1",
-			},
-		})
-		r.Len(delta.images, 0)
 	})
 
 	t.Run("find best node for image scan", func(t *testing.T) {
 		r := require.New(t)
 
-		delta := NewDeltaState([]string{})
+		delta := NewDeltaState(nil)
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -192,7 +184,7 @@ func TestDelta(t *testing.T) {
 
 	t.Run("returns error when no best node find", func(t *testing.T) {
 		r := require.New(t)
-		delta := NewDeltaState([]string{})
+		delta := NewDeltaState(nil)
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{

@@ -159,14 +159,15 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		),
 	}
 
-	var scannedNodes, scannedImages []string
+	var scannedNodes []string
+	var scannedImages []castai.ScannedImage
 	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)
 	if err != nil {
 		log.Warnf("initial telemetry: %v", err)
 	} else {
 		cfg = telemetry.ModifyConfig(cfg, telemetryResponse)
 		scannedNodes = telemetryResponse.NodeIDs
-		scannedImages = telemetryResponse.ImageIDs
+		scannedImages = telemetryResponse.ScannedImages
 	}
 
 	if cfg.Linter.Enabled {
@@ -194,7 +195,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	if cfg.ImageScan.Enabled {
 		log.Infof("imagescan enabled, already scanned %d images", len(scannedImages))
 		if cfg.ImageScan.Force {
-			scannedImages = []string{}
+			scannedImages = []castai.ScannedImage{}
 		}
 		deltaState := imagescan.NewDeltaState(scannedImages)
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(

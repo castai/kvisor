@@ -207,7 +207,7 @@ func TestScanner(t *testing.T) {
 			},
 		}
 		client := fake.NewSimpleClientset(job)
-		delta := NewDeltaState([]string{})
+		delta := NewDeltaState(nil)
 		delta.nodes = map[string]*node{
 			"n1": {},
 		}

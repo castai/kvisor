@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/controller"
 )
 
@@ -20,32 +21,36 @@ var (
 	errNoCandidates = errors.New("no candidates")
 )
 
-func NewDeltaState(scannedImageIDs []string) *deltaState {
+func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
 	images := map[string]*image{}
-	for _, imgID := range scannedImageIDs {
-		images[imgID] = &image{
-			id:      imgID,
-			owners:  map[string]*imageOwner{},
+	for _, img := range scannedImages {
+		owners := make(map[string]*imageOwner, len(img.ResourceIDs))
+		for _, id := range img.ResourceIDs {
+			owners[id] = &imageOwner{
+				podIDs: map[string]struct{}{},
+			}
+		}
+		images[img.ID] = &image{
+			id:      img.ID,
+			owners:  owners,
 			nodes:   map[string]*imageNode{},
 			scanned: true,
 		}
 	}
 	return &deltaState{
-		scannedImageIDs: scannedImageIDs,
-		images:          images,
-		rs:              make(map[string]*appsv1.ReplicaSet),
-		jobs:            make(map[string]*batchv1.Job),
-		nodes:           map[string]*node{},
+		images: images,
+		rs:     make(map[string]*appsv1.ReplicaSet),
+		jobs:   make(map[string]*batchv1.Job),
+		nodes:  map[string]*node{},
 	}
 }
 
 type deltaState struct {
-	scannedImageIDs []string
-	mu              sync.RWMutex
-	images          map[string]*image
-	rs              map[string]*appsv1.ReplicaSet
-	jobs            map[string]*batchv1.Job
-	nodes           map[string]*node
+	mu     sync.RWMutex
+	images map[string]*image
+	rs     map[string]*appsv1.ReplicaSet
+	jobs   map[string]*batchv1.Job
+	nodes  map[string]*node
 }
 
 func (d *deltaState) upsert(o controller.Object) {
@@ -190,7 +195,6 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 				},
 			}
 		}
-
 		d.images[key] = img
 	}
 }
@@ -201,10 +205,7 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
 		}
-		if img.allPodsRemoved() {
-			delete(d.images, key)
-			continue
-		}
+
 		ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
 		if owner, found := img.owners[ownerResourceID]; found {
 			delete(owner.podIDs, podID)
@@ -212,18 +213,18 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 				delete(img.owners, ownerResourceID)
 			}
 		}
+
+		if len(img.owners) == 0 {
+			delete(d.images, key)
+		}
 	}
 }
 
 func (d *deltaState) handleNodeDelete(node *corev1.Node) {
 	delete(d.nodes, node.GetName())
 
-	for key, img := range d.images {
+	for _, img := range d.images {
 		delete(img.nodes, node.Name)
-
-		if img.allPodsRemoved() {
-			delete(d.images, key)
-		}
 	}
 }
 
@@ -378,21 +379,11 @@ type image struct {
 	id               string
 	name             string
 	containerRuntime string
-	//resourcesIDs     map[string]struct{}
-	owners         map[string]*imageOwner
-	nodes          map[string]*imageNode
-	podTolerations []corev1.Toleration
+	owners           map[string]*imageOwner
+	nodes            map[string]*imageNode
+	podTolerations   []corev1.Toleration
 
 	scanned          bool
 	resourcesChanged bool
 	failures         int
-}
-
-func (img *image) allPodsRemoved() bool {
-	for _, n := range img.nodes {
-		if len(n.podIDs) > 0 {
-			return false
-		}
-	}
-	return true
 }

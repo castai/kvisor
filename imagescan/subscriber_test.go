@@ -180,7 +180,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		delta := NewDeltaState([]string{})
+		delta := NewDeltaState(nil)
 		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
@@ -212,13 +212,14 @@ func TestSubscriber(t *testing.T) {
 		r.Equal(ngnxImage.ResourceIDs, actualNginxPodResourceIDs)
 		r.NotEmpty(ngnxImage.NodeName)
 		r.Equal(ScanImageParams{
-			ImageName:         "nginx:1.23",
-			ImageID:           "nginx:1.23@sha256",
-			ContainerRuntime:  "containerd",
-			NodeName:          ngnxImage.NodeName,
-			ResourceIDs:       ngnxImage.ResourceIDs,
-			DeleteFinishedJob: true,
-			WaitForCompletion: true,
+			ImageName:                   "nginx:1.23",
+			ImageID:                     "nginx:1.23@sha256",
+			ContainerRuntime:            "containerd",
+			NodeName:                    ngnxImage.NodeName,
+			ResourceIDs:                 ngnxImage.ResourceIDs,
+			DeleteFinishedJob:           true,
+			WaitForCompletion:           true,
+			WaitDurationAfterCompletion: 30 * time.Second,
 		}, ngnxImage)
 	})
 
@@ -238,7 +239,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState(nil))
 		delta := sub.(*Subscriber).delta
 		delta.images["img1"] = &image{
 			failures: 3,
@@ -246,6 +247,9 @@ func TestSubscriber(t *testing.T) {
 			id:       "img1",
 			nodes: map[string]*imageNode{
 				"node1": {},
+			},
+			owners: map[string]*imageOwner{
+				"r1": {},
 			},
 		}
 
@@ -258,47 +262,7 @@ func TestSubscriber(t *testing.T) {
 		r.True(delta.images["img1"].scanned)
 	})
 
-	// TODO: Fix this logic and enabled test.
-	//t.Run("send changed resources ids only", func(t *testing.T) {
-	//	r := require.New(t)
-	//	client := &mockCastaiClient{}
-	//
-	//	cfg := config.ImageScan{
-	//		ScanInterval:       1 * time.Millisecond,
-	//		ScanTimeout:        time.Minute,
-	//		MaxConcurrentScans: 5,
-	//		CPURequest:         "500m",
-	//		CPULimit:           "2",
-	//		MemoryRequest:      "100Mi",
-	//		MemoryLimit:        "2Gi",
-	//	}
-	//
-	//	scanner := &mockImageScanner{}
-	//	sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
-	//	delta := sub.(*Subscriber).delta
-	//	delta.images = map[string]*image{
-	//		"img1": {
-	//			id:               "img1",
-	//			name:             "img",
-	//			scanned:          true,
-	//			resourcesChanged: true,
-	//			owners: map[string]*imageOwner{
-	//				"r1": {},
-	//			},
-	//		},
-	//	}
-	//
-	//	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
-	//	defer cancel()
-	//
-	//	err := sub.Run(ctx)
-	//	r.True(errors.Is(err, context.DeadlineExceeded))
-	//	r.Len(scanner.imgs, 0)
-	//	r.Len(client.sentMeta, 1)
-	//	r.Equal([]string{"r1"}, client.sentMeta[0].ResourceIDs)
-	//})
-
-	t.Run("skip scanned images", func(t *testing.T) {
+	t.Run("send changed resources ids only", func(t *testing.T) {
 		r := require.New(t)
 		client := &mockCastaiClient{}
 
@@ -306,11 +270,23 @@ func TestSubscriber(t *testing.T) {
 			ScanInterval:       1 * time.Millisecond,
 			ScanTimeout:        time.Minute,
 			MaxConcurrentScans: 5,
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
 		}
 
 		scanner := &mockImageScanner{}
-		delta := NewDeltaState([]string{"img1"})
-		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
+		scannedImages := []castai.ScannedImage{
+			{
+				ID:          "img1",
+				ResourceIDs: []string{"r1"},
+			},
+		}
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState(scannedImages))
+		delta := sub.(*Subscriber).delta
+		delta.images["img1"].resourcesChanged = true
+		delta.images["img1"].name = "img"
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
@@ -318,7 +294,8 @@ func TestSubscriber(t *testing.T) {
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 		r.Len(scanner.imgs, 0)
-		r.Len(client.sentMeta, 0)
+		r.Len(client.sentMeta, 1)
+		r.Equal([]string{"r1"}, client.sentMeta[0].ResourceIDs)
 	})
 
 	t.Run("add and delete delta objects", func(t *testing.T) {
@@ -328,7 +305,7 @@ func TestSubscriber(t *testing.T) {
 		cfg := config.ImageScan{}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState([]string{}))
+		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState(nil))
 		delta := sub.(*Subscriber).delta
 
 		createPod := func() *corev1.Pod {

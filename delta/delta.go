@@ -19,7 +19,7 @@ func newDelta(log logrus.FieldLogger, logLevel logrus.Level, provider SnapshotPr
 		snapshot: provider,
 		cache:    map[string]castai.DeltaItem{},
 		skippers: []skipper{
-			nonStaticPodsSkipper(),
+			nonStaticOrStandalonePodsSkipper(),
 			cronJobOwnerJobsSkipper(),
 		},
 	}
@@ -35,10 +35,10 @@ const (
 // skipper allows to skip adding item to delta cache.
 type skipper func(obj object) bool
 
-// nonStaticPodsSkipper skips non static pods.
-func nonStaticPodsSkipper() skipper {
+// nonStaticPodsSkipper skips non static and not standalone pods.
+func nonStaticOrStandalonePodsSkipper() skipper {
 	return func(obj object) bool {
-		return getObjectKind(obj) == kindPod && !isStaticPod(obj)
+		return getObjectKind(obj) == kindPod && !isStaticOrStandalonePod(obj)
 	}
 }
 
@@ -113,9 +113,9 @@ func toCASTAIEvent(e controller.Event) castai.EventType {
 	return ""
 }
 
-func isStaticPod(p metav1.Object) bool {
+func isStaticOrStandalonePod(p metav1.Object) bool {
 	ctrl := metav1.GetControllerOf(p)
-	return ctrl != nil && ctrl.Kind == kindNode
+	return ctrl == nil || ctrl.Kind == kindNode
 }
 
 func isCronJobOwnedJob(p metav1.Object) bool {
