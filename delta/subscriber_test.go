@@ -64,8 +64,8 @@ func TestSubscriber(t *testing.T) {
 					ObjectAPIVersion: "v1",
 					ObjectContainers: []castai.Container{
 						{
-							Name:  "nginx",
-							Image: "nginx:1.23",
+							Name:      "nginx",
+							ImageName: "nginx:1.23",
 						},
 					},
 				},

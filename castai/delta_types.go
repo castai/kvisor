@@ -31,6 +31,6 @@ type DeltaItem struct {
 }
 
 type Container struct {
-	Name  string `json:"name"`
-	Image string `json:"image,omitempty"`
+	Name      string `json:"name"`
+	ImageName string `json:"image_name,omitempty"`
 }

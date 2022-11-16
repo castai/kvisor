@@ -160,8 +160,8 @@ func getContainers(obj controller.Object) ([]castai.Container, bool) {
 	res := make([]castai.Container, len(containers))
 	for i, cont := range containers {
 		res[i] = castai.Container{
-			Name:  cont.Name,
-			Image: cont.Image,
+			Name:      cont.Name,
+			ImageName: cont.Image,
 		}
 	}
 	return res, true
