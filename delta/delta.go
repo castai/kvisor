@@ -35,7 +35,7 @@ const (
 // skipper allows to skip adding item to delta cache.
 type skipper func(obj object) bool
 
-// nonStaticPodsSkipper skips non static and not standalone pods pods.
+// nonStaticPodsSkipper skips non static and not standalone pods.
 func nonStaticOrStandalonePodsSkipper() skipper {
 	return func(obj object) bool {
 		return getObjectKind(obj) == kindPod && !isStaticOrStandalonePod(obj)

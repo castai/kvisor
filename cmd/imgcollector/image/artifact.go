@@ -129,7 +129,7 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 func (a Artifact) getCachedOsInfo(ctx context.Context, key string) (*types.ArtifactInfo, error) {
 	blobBytes, err := a.cache.GetBlob(ctx, key)
 	if err != nil {
-		a.log.Warnf("getting blob cache: %v", err)
+		a.log.Warnf("getting os info blob cache: %v", err)
 		return nil, blobscache.ErrCacheNotFound
 	}
 	var res types.ArtifactInfo
@@ -144,7 +144,7 @@ func (a Artifact) getCachedLayers(ctx context.Context, ids []string) (map[string
 	for _, id := range ids {
 		blobBytes, err := a.cache.GetBlob(ctx, id)
 		if err != nil {
-			a.log.Warnf("getting blob cache: %v", err)
+			a.log.Warnf("getting layers blob cache: %v", err)
 			continue
 		}
 		if len(blobBytes) > 0 {
@@ -357,7 +357,7 @@ func (a Artifact) inspectConfig(ctx context.Context, imageID string, osFound typ
 		return nil, err
 	}
 	if err := a.cache.PutBlob(ctx, imageID, infoBytes); err != nil {
-		a.log.Warnf("putting cache blob: %v", err)
+		a.log.Warnf("putting config cache blob: %v", err)
 	}
 
 	return &info, nil
