@@ -64,6 +64,8 @@ func init() {
 		scansTotal,
 		scansDuration,
 		deltasSentTotal,
+		imagesTotalCount,
+		imagesPendingCount,
 	)
 }
 
