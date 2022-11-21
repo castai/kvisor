@@ -44,6 +44,8 @@ func TestScanner(t *testing.T) {
 				CPULimit:          "2",
 				MemoryRequest:     "100Mi",
 				MemoryLimit:       "2Gi",
+				ProfileEnabled:    true,
+				PhlareEnabled:     true,
 			},
 		}, nil)
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -76,6 +78,12 @@ func TestScanner(t *testing.T) {
 				TTLSecondsAfterFinished: lo.ToPtr(int32(100)),
 				BackoffLimit:            lo.ToPtr(int32(0)),
 				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"phlare.grafana.com/port":   "6060",
+							"phlare.grafana.com/scrape": "true",
+						},
+					},
 					Spec: corev1.PodSpec{
 						NodeName:      "n1",
 						RestartPolicy: "Never",
@@ -148,6 +156,10 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "COLLECTOR_BLOBS_CACHE_URL",
 										Value: "http://10.10.5.77:8080",
+									},
+									{
+										Name:  "COLLECTOR_PPROF_ADDR",
+										Value: ":6060",
 									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
