@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/pprof"
 	"runtime"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -68,6 +70,16 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
+	if cfg.PprofAddr != "" {
+		mux := http.NewServeMux()
+		addPprofHandlers(mux)
+		go func() {
+			if err := http.ListenAndServe(cfg.PprofAddr, mux); err != nil {
+				log.Warnf("pprof http sever failed: %v", err)
+			}
+		}()
+	}
+
 	log.Infof("collecting artifacts for image '%s(%s)', mode=%s", cfg.ImageName, cfg.ImageID, cfg.Mode)
 	err = c.Collect(ctx)
 	if err != nil {
@@ -75,4 +87,12 @@ func main() {
 		return
 	}
 	log.Info("image artifacts collection finished")
+}
+
+func addPprofHandlers(mux *http.ServeMux) {
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }

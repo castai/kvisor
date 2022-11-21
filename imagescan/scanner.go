@@ -203,13 +203,24 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		})
 	}
 
+	podAnnotations := map[string]string{}
+	if s.cfg.ImageScan.ProfileEnabled {
+		if s.cfg.ImageScan.PhlareEnabled {
+			podAnnotations["phlare.grafana.com/scrape"] = "true"
+			podAnnotations["phlare.grafana.com/port"] = "6060"
+		}
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "COLLECTOR_PPROF_ADDR",
+			Value: ":6060",
+		})
+	}
+
 	jobSpec := scanJobSpec(
 		s.cfg.PodNamespace,
-		s.cfg.ImageScan.Image.Name,
-		s.cfg.ImageScan.Image.PullPolicy,
 		params.NodeName,
 		jobName,
 		envVars,
+		podAnnotations,
 		vols,
 		params.Tolerations,
 		s.cfg.ImageScan,
@@ -314,8 +325,9 @@ func genJobName(imageName string) string {
 }
 
 func scanJobSpec(
-	ns, collectorImage, collectorImagePullPolicy, nodeName, jobName string,
+	ns, nodeName, jobName string,
 	envVars []corev1.EnvVar,
+	annotations map[string]string,
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,
 	cfg config.ImageScan,
@@ -336,6 +348,9 @@ func scanJobSpec(
 			TTLSecondsAfterFinished: lo.ToPtr(int32(100)),
 			BackoffLimit:            lo.ToPtr(int32(0)),
 			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: annotations,
+				},
 				Spec: corev1.PodSpec{
 					NodeName:      nodeName,
 					RestartPolicy: corev1.RestartPolicyNever,
@@ -361,8 +376,8 @@ func scanJobSpec(
 					Containers: []corev1.Container{
 						{
 							Name:            "collector",
-							Image:           collectorImage,
-							ImagePullPolicy: corev1.PullPolicy(collectorImagePullPolicy),
+							Image:           cfg.Image.Name,
+							ImagePullPolicy: corev1.PullPolicy(cfg.Image.PullPolicy),
 							Env:             envVars,
 							VolumeMounts:    vol.mounts,
 							Resources: corev1.ResourceRequirements{
