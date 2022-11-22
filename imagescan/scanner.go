@@ -50,14 +50,15 @@ type Scanner struct {
 }
 
 type ScanImageParams struct {
-	ImageName         string
-	ImageID           string
-	ContainerRuntime  string
-	NodeName          string
-	ResourceIDs       []string
-	Tolerations       []corev1.Toleration
-	DeleteFinishedJob bool
-	WaitForCompletion bool
+	ImageName                   string
+	ImageID                     string
+	ContainerRuntime            string
+	NodeName                    string
+	ResourceIDs                 []string
+	Tolerations                 []corev1.Toleration
+	DeleteFinishedJob           bool
+	WaitForCompletion           bool
+	WaitDurationAfterCompletion time.Duration
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr error) {
@@ -183,7 +184,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "castai-cluster-controller",
+						Name: "castai-sec-agent",
 					},
 					Key: "API_KEY",
 				},
@@ -217,6 +218,15 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 
 	if params.DeleteFinishedJob {
 		defer func() {
+			// Useful to keep job for a while to troubleshoot issues.
+			if params.WaitDurationAfterCompletion != 0 {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(params.WaitDurationAfterCompletion):
+				}
+			}
+
 			if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
 				PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
 			}); err != nil && !apierrors.IsNotFound(err) {

@@ -3,6 +3,9 @@ package delta
 import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -19,7 +22,7 @@ func newDelta(log logrus.FieldLogger, logLevel logrus.Level, provider SnapshotPr
 		snapshot: provider,
 		cache:    map[string]castai.DeltaItem{},
 		skippers: []skipper{
-			nonStaticPodsSkipper(),
+			nonStaticOrStandalonePodsSkipper(),
 			cronJobOwnerJobsSkipper(),
 		},
 	}
@@ -35,10 +38,10 @@ const (
 // skipper allows to skip adding item to delta cache.
 type skipper func(obj object) bool
 
-// nonStaticPodsSkipper skips non static pods.
-func nonStaticPodsSkipper() skipper {
+// nonStaticPodsSkipper skips non static and not standalone pods.
+func nonStaticOrStandalonePodsSkipper() skipper {
 	return func(obj object) bool {
-		return getObjectKind(obj) == kindPod && !isStaticPod(obj)
+		return getObjectKind(obj) == kindPod && !isStaticOrStandalonePod(obj)
 	}
 }
 
@@ -71,7 +74,7 @@ func (d *delta) add(event controller.Event, obj object) {
 	gvr := obj.GetObjectKind().GroupVersionKind()
 	d.log.Debugf("add delta, event=%s, gvr=%s, ns=%s, name=%s", event, gvr.String(), obj.GetNamespace(), obj.GetName())
 
-	d.cache[key] = castai.DeltaItem{
+	deltaItem := castai.DeltaItem{
 		Event:            toCASTAIEvent(event),
 		ObjectUID:        string(obj.GetUID()),
 		ObjectName:       obj.GetName(),
@@ -80,8 +83,12 @@ func (d *delta) add(event controller.Event, obj object) {
 		ObjectAPIVersion: gvr.GroupVersion().String(),
 		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
 	}
+	if containers, ok := getContainers(obj); ok {
+		deltaItem.ObjectContainers = containers
+	}
 
-	d.snapshot.append(d.cache[key])
+	d.cache[key] = deltaItem
+	d.snapshot.append(deltaItem)
 }
 
 // clear resets the delta cache. Should be called after toCASTAIRequest is successfully delivered.
@@ -113,9 +120,9 @@ func toCASTAIEvent(e controller.Event) castai.EventType {
 	return ""
 }
 
-func isStaticPod(p metav1.Object) bool {
+func isStaticOrStandalonePod(p metav1.Object) bool {
 	ctrl := metav1.GetControllerOf(p)
-	return ctrl != nil && ctrl.Kind == kindNode
+	return ctrl == nil || ctrl.Kind == kindNode
 }
 
 func isCronJobOwnedJob(p metav1.Object) bool {
@@ -125,4 +132,37 @@ func isCronJobOwnedJob(p metav1.Object) bool {
 
 func getObjectKind(obj object) string {
 	return obj.GetObjectKind().GroupVersionKind().Kind
+}
+
+func getContainers(obj controller.Object) ([]castai.Container, bool) {
+	var containers []corev1.Container
+	appendContainers := func(podSpec corev1.PodSpec) {
+		containers = append(containers, podSpec.Containers...)
+		containers = append(containers, podSpec.InitContainers...)
+	}
+	switch v := obj.(type) {
+	case *batchv1.Job:
+		appendContainers(v.Spec.Template.Spec)
+	case *batchv1.CronJob:
+		appendContainers(v.Spec.JobTemplate.Spec.Template.Spec)
+	case *corev1.Pod:
+		appendContainers(v.Spec)
+	case *appsv1.Deployment:
+		appendContainers(v.Spec.Template.Spec)
+	case *appsv1.StatefulSet:
+		appendContainers(v.Spec.Template.Spec)
+	case *appsv1.DaemonSet:
+		appendContainers(v.Spec.Template.Spec)
+	default:
+		return nil, false
+	}
+
+	res := make([]castai.Container, len(containers))
+	for i, cont := range containers {
+		res[i] = castai.Container{
+			Name:      cont.Name,
+			ImageName: cont.Image,
+		}
+	}
+	return res, true
 }

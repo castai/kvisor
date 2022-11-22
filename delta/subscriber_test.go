@@ -62,6 +62,12 @@ func TestSubscriber(t *testing.T) {
 					ObjectNamespace:  "default",
 					ObjectKind:       "Pod",
 					ObjectAPIVersion: "v1",
+					ObjectContainers: []castai.Container{
+						{
+							Name:      "nginx",
+							ImageName: "nginx:1.23",
+						},
+					},
 				},
 			},
 		}, delta)

@@ -135,7 +135,7 @@ func TestScanner(t *testing.T) {
 										ValueFrom: &corev1.EnvVarSource{
 											SecretKeyRef: &corev1.SecretKeySelector{
 												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-cluster-controller",
+													Name: "castai-sec-agent",
 												},
 												Key: "API_KEY",
 											},
@@ -207,7 +207,7 @@ func TestScanner(t *testing.T) {
 			},
 		}
 		client := fake.NewSimpleClientset(job)
-		delta := NewDeltaState([]string{})
+		delta := NewDeltaState(nil)
 		delta.nodes = map[string]*node{
 			"n1": {},
 		}
