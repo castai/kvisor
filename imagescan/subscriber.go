@@ -226,7 +226,8 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	if len(nodeNames) > 1 {
 		// Resolve best node.
 		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec())
+		cpuQty := resource.MustParse(s.cfg.CPURequest)
+		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 		if err != nil {
 			return err
 		} else {

@@ -253,13 +253,13 @@ func (d *deltaState) updateImage(imageID string, change func(img *image)) {
 	}
 }
 
-func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec) (string, error) {
+func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, requiredCPU *inf.Dec) (string, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	var candidates []*node
 	for _, nodeName := range nodeNames {
-		if n, found := d.nodes[nodeName]; found && n.availableMemory().Cmp(requiredMemory) >= 0 {
+		if n, found := d.nodes[nodeName]; found && n.availableMemory().Cmp(requiredMemory) >= 0 && n.availableCPU().Cmp(requiredCPU) >= 0 {
 			candidates = append(candidates, d.nodes[nodeName])
 		}
 	}
