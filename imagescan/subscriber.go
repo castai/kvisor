@@ -131,15 +131,15 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	}
 
 	// TODO: On initial agent load we don't know if resource id is already synced. Need to get synced resource ids for each image.
-	//imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
+	// imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
 	//	return v.scanned && v.resourcesChanged && v.name != ""
-	//})
-	//if l := len(imagesWithChangedResources); l > 0 {
+	// })
+	// if l := len(imagesWithChangedResources); l > 0 {
 	//	s.log.Infof("updating %d images resources", l)
 	//	if err := s.sentImageOwnerChange(ctx, imagesWithChangedResources); err != nil {
 	//		return err
 	//	}
-	//}
+	// }
 
 	return nil
 }
@@ -225,7 +225,8 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	if len(nodeNames) > 1 {
 		// Resolve best node.
 		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec())
+		cpuQty := resource.MustParse(s.cfg.CPURequest)
+		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 		if err != nil {
 			return err
 		} else {

@@ -122,13 +122,14 @@ func TestDelta(t *testing.T) {
 			},
 		})
 
-		qty := resource.MustParse("1Gi")
-		nodeName, err := delta.findBestNode([]string{"node2", "node1"}, qty.AsDec())
+		cpuQty := resource.MustParse("100m")
+		memQty := resource.MustParse("1Gi")
+		nodeName, err := delta.findBestNode([]string{"node2", "node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.NoError(err)
 		r.Equal("node1", nodeName)
 
-		qty = resource.MustParse("500Mi")
-		nodeName, err = delta.findBestNode([]string{"node2", "node1"}, qty.AsDec())
+		memQty = resource.MustParse("500Mi")
+		nodeName, err = delta.findBestNode([]string{"node2", "node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.NoError(err)
 		r.Equal("node2", nodeName)
 
@@ -148,8 +149,8 @@ func TestDelta(t *testing.T) {
 			},
 		})
 
-		qty = resource.MustParse("500Mi")
-		nodeName, err = delta.findBestNode([]string{"node3", "node2", "node1"}, qty.AsDec())
+		memQty = resource.MustParse("500Mi")
+		nodeName, err = delta.findBestNode([]string{"node3", "node2", "node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.NoError(err)
 		r.Equal("node3", nodeName)
 
@@ -185,7 +186,7 @@ func TestDelta(t *testing.T) {
 			},
 		})
 
-		nodeName, err = delta.findBestNode([]string{"node3", "node2", "node1"}, qty.AsDec())
+		nodeName, err = delta.findBestNode([]string{"node3", "node2", "node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.NoError(err)
 		r.Equal("node2", nodeName)
 	})
@@ -238,13 +239,19 @@ func TestDelta(t *testing.T) {
 			},
 		})
 
-		qty := resource.MustParse("4Gi")
-		_, err := delta.findBestNode([]string{"node1"}, qty.AsDec())
+		cpuQty := resource.MustParse("1")
+		memQty := resource.MustParse("4Gi")
+		_, err := delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.ErrorIs(err, errNoCandidates)
 
-		qty = resource.MustParse("100Mi")
-		node, err := delta.findBestNode([]string{"node1"}, qty.AsDec())
+		memQty = resource.MustParse("100Mi")
+		node, err := delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.NoError(err)
 		r.Equal("node1", node)
+
+		cpuQty = resource.MustParse("2")
+		memQty = resource.MustParse("100Mi")
+		_, err = delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
+		r.ErrorIs(err, errNoCandidates)
 	})
 }
