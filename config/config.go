@@ -56,6 +56,8 @@ type ImageScan struct {
 	MemoryRequest      string         `envconfig:"MEMORY_REQUEST" yaml:"memoryRequest"`
 	MemoryLimit        string         `envconfig:"MEMORY_LIMIT" yaml:"memoryLimit"`
 	Force              bool           `envconfig:"FORCE" yaml:"force"`
+	ProfileEnabled     bool           `envconfig:"PROFILE_ENABLED" yaml:"profileEnabled"`
+	PhlareEnabled      bool           `envconfig:"PHLARE_ENABLED" yaml:"phlareEnabled"`
 }
 
 type ImageScanImage struct {

@@ -30,6 +30,7 @@ type Config struct {
 	ResourceIDs      string        `envconfig:"COLLECTOR_RESOURCE_IDS" required:"true"`
 	DockerOptionPath string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
 	BlobsCacheURL    string        `envconfig:"COLLECTOR_BLOBS_CACHE_URL" default:""`
+	PprofAddr        string        `envconfig:"COLLECTOR_PPROF_ADDR" default:""`
 }
 
 func FromEnv() (Config, error) {
