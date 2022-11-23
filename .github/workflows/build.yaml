@@ -80,6 +80,14 @@ jobs:
           username: _json_key
           password: ${{ secrets.ARTIFACT_BUILDER_JSON_KEY }}
 
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push pr (agent)
         if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@v2
@@ -87,7 +95,7 @@ jobs:
           context: .
           file: ./Dockerfile.agent
           push: ${{ github.event_name == 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/sec-agent-ci:${{ github.sha }}
+          tags: ghcr.io/castai/sec-agent:${{ github.sha }}
 
       - name: Build and push pr (imgcollector)
         if: ${{ github.event_name == 'pull_request' }}
@@ -96,7 +104,7 @@ jobs:
           context: .
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name == 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector-ci:${{ github.sha }}
+          tags: ghcr.io/castai/sec-agent-imgcollector:${{ github.sha }}
 
       - name: Build and push main (agent)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
