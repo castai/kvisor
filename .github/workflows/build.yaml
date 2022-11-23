@@ -95,7 +95,7 @@ jobs:
           context: .
           file: ./Dockerfile.agent
           push: ${{ github.event_name == 'pull_request' }}
-          tags: ghcr.io/castai/sec-agent:${{ github.sha }}
+          tags: ghcr.io/castai/sec-agent/agent:${{ github.sha }}
 
       - name: Build and push pr (imgcollector)
         if: ${{ github.event_name == 'pull_request' }}
@@ -104,7 +104,7 @@ jobs:
           context: .
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name == 'pull_request' }}
-          tags: ghcr.io/castai/sec-agent-imgcollector:${{ github.sha }}
+          tags: ghcr.io/castai/sec-agent/imgcollector:${{ github.sha }}
 
       - name: Build and push main (agent)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
