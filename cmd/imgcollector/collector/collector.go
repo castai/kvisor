@@ -71,7 +71,10 @@ func (c *Collector) Collect(ctx context.Context) error {
 		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
 		BlobsInfo:   arRef.BlobsInfo,
 		ConfigFile:  arRef.ConfigFile,
-		OsInfo:      arRef.OsInfo,
+		OsInfo: &castai.OsInfo{
+			ArtifactInfo: arRef.ArtifactInfo,
+			OS:           arRef.OsInfo,
+		},
 	}
 	if err := c.client.SendImageMetadata(ctx, res); err != nil {
 		return err
