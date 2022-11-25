@@ -61,9 +61,10 @@ func NewArtifact(img types.Image, log logrus.FieldLogger, c blobscache.Client, o
 }
 
 type ArtifactReference struct {
-	BlobsInfo  []types.BlobInfo
-	ConfigFile *v1.ConfigFile
-	OsInfo     *types.ArtifactInfo
+	BlobsInfo    []types.BlobInfo
+	ConfigFile   *v1.ConfigFile
+	ArtifactInfo *types.ArtifactInfo
+	OsInfo       *types.OS
 }
 
 func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
@@ -93,12 +94,12 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	imageKey, layerKeys, layerKeyMap := a.calcCacheKeys(imageID, diffIDs)
 
 	// Check if image os info already cached.
-	osInfo, err := a.getCachedOsInfo(ctx, imageKey)
+	cachedOSInfo, err := a.getCachedOsInfo(ctx, imageKey)
 	if err != nil && !errors.Is(err, blobscache.ErrCacheNotFound) {
 		return nil, err
 	}
 	var missingImageKey string
-	if osInfo == nil {
+	if cachedOSInfo == nil {
 		missingImageKey = imageKey
 		a.log.Debugf("missing image ID in cache: %s", imageID)
 	}
@@ -114,15 +115,16 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	})
 
 	// Inspect all not cached layers.
-	blobsInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayersKeys, baseDiffIDs, layerKeyMap)
+	blobsInfo, artifactInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayersKeys, baseDiffIDs, layerKeyMap)
 	if err != nil {
 		return nil, fmt.Errorf("analyze error: %w", err)
 	}
 
 	return &ArtifactReference{
-		BlobsInfo:  append(blobsInfo, lo.Values(cachedLayers)...),
-		ConfigFile: configFile,
-		OsInfo:     osInfo,
+		BlobsInfo:    append(blobsInfo, lo.Values(cachedLayers)...),
+		ConfigFile:   configFile,
+		ArtifactInfo: artifactInfo,
+		OsInfo:       osInfo,
 	}, nil
 }
 
@@ -176,7 +178,7 @@ func (a Artifact) calcCacheKeys(imageID string, diffIDs []string) (string, []str
 	return imageKey, layerKeys, layerKeyMap
 }
 
-func (a Artifact) inspect(ctx context.Context, missingImageKey string, layerKeys, baseDiffIDs []string, layerKeyMap map[string]string) ([]types.BlobInfo, *types.ArtifactInfo, error) {
+func (a Artifact) inspect(ctx context.Context, missingImageKey string, layerKeys, baseDiffIDs []string, layerKeyMap map[string]string) ([]types.BlobInfo, *types.ArtifactInfo, *types.OS, error) {
 	blobInfo := make(chan types.BlobInfo)
 	errCh := make(chan error)
 
@@ -220,22 +222,22 @@ func (a Artifact) inspect(ctx context.Context, missingImageKey string, layerKeys
 		case blob := <-blobInfo:
 			blobsInfo = append(blobsInfo, blob)
 		case err := <-errCh:
-			return nil, nil, err
+			return nil, nil, nil, err
 		case <-ctx.Done():
-			return nil, nil, fmt.Errorf("timeout: %w", ctx.Err())
+			return nil, nil, nil, fmt.Errorf("timeout: %w", ctx.Err())
 		}
 	}
 
-	var osInfo *types.ArtifactInfo
+	var artifactInfo *types.ArtifactInfo
 	if missingImageKey != "" {
 		var err error
-		osInfo, err = a.inspectConfig(ctx, missingImageKey, osFound)
+		artifactInfo, err = a.inspectConfig(ctx, missingImageKey, osFound)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to analyze config: %w", err)
+			return nil, nil, nil, fmt.Errorf("unable to analyze config: %w", err)
 		}
 	}
 
-	return blobsInfo, osInfo, nil
+	return blobsInfo, artifactInfo, &osFound, nil
 }
 
 func (a Artifact) inspectLayer(ctx context.Context, diffID string, disabled []analyzer.Type) (types.BlobInfo, error) {
