@@ -50,12 +50,20 @@ type Artifact struct {
 type ArtifactOption = artifact.Option
 
 func NewArtifact(img types.Image, log logrus.FieldLogger, c blobscache.Client, opt artifact.Option) (*Artifact, error) {
+	a, err := analyzer.NewAnalyzerGroup(analyzer.AnalyzerOptions{
+		Group:             opt.AnalyzerGroup,
+		DisabledAnalyzers: opt.DisabledAnalyzers,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create analyzer group: %w", err)
+	}
+
 	return &Artifact{
 		log:            log,
 		image:          img,
 		cache:          c,
-		walker:         walker.NewLayerTar(opt.SkipFiles, opt.SkipDirs),
-		analyzer:       analyzer.NewAnalyzerGroup(opt.AnalyzerGroup, opt.DisabledAnalyzers),
+		walker:         walker.NewLayerTar(opt.SkipFiles, opt.SkipDirs, true),
+		analyzer:       a,
 		artifactOption: opt,
 	}, nil
 }
