@@ -50,10 +50,10 @@ func TestSubscriber(t *testing.T) {
 		},
 	}
 
-	assertDelta := func(t *testing.T, delta *castai.Delta, event castai.EventType) {
+	assertDelta := func(t *testing.T, delta *castai.Delta, event castai.EventType, initial bool) {
 		r := require.New(t)
 		r.Equal(&castai.Delta{
-			FullSnapshot: false,
+			FullSnapshot: initial,
 			Items: []castai.DeltaItem{
 				{
 					Event:            event,
@@ -83,7 +83,7 @@ func TestSubscriber(t *testing.T) {
 		r.True(errors.Is(err, context.DeadlineExceeded))
 		delta := castaiClient.delta
 		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventAdd)
+		assertDelta(t, delta, castai.EventAdd, true)
 	})
 
 	t.Run("send update event", func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestSubscriber(t *testing.T) {
 		r.True(errors.Is(err, context.DeadlineExceeded))
 		delta := castaiClient.delta
 		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventUpdate)
+		assertDelta(t, delta, castai.EventUpdate, true)
 	})
 
 	t.Run("send delete event", func(t *testing.T) {
@@ -112,7 +112,25 @@ func TestSubscriber(t *testing.T) {
 		r.True(errors.Is(err, context.DeadlineExceeded))
 		delta := castaiClient.delta
 		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventDelete)
+		assertDelta(t, delta, castai.EventDelete, true)
+	})
+
+	t.Run("second event does not set full snapshot flag", func(t *testing.T) {
+		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		sub.OnAdd(pod1)
+
+		go func() {
+			time.Sleep(time.Millisecond * 10)
+			sub.OnAdd(pod1)
+		}()
+
+		ctx, cancel := context.WithTimeout(ctx, time.Millisecond*30)
+		defer cancel()
+		err := sub.Run(ctx)
+		r.True(errors.Is(err, context.DeadlineExceeded))
+		delta := castaiClient.delta
+		r.NotNil(delta)
+		assertDelta(t, delta, castai.EventAdd, false)
 	})
 }
 

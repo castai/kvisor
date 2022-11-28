@@ -74,6 +74,7 @@ type Subscriber struct {
 	client          castaiClient
 	delta           *delta
 	mu              sync.RWMutex
+	initialized     bool
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -135,9 +136,14 @@ func (s *Subscriber) OnDelete(obj controller.Object) {
 	s.delta.add(controller.EventDelete, obj)
 }
 
-func (s *Subscriber) sendDelta(ctx context.Context) error {
+func (s *Subscriber) sendDelta(ctx context.Context) (rerr error) {
 	s.mu.RLock()
 	deltaReq := s.delta.toCASTAIRequest()
+	if !s.initialized {
+		// subscriber always waits for state to be synced
+		deltaReq.FullSnapshot = true
+		s.initialized = true
+	}
 	s.mu.RUnlock()
 
 	if len(deltaReq.Items) == 0 {
