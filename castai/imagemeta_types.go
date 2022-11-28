@@ -6,12 +6,13 @@ import (
 )
 
 type ImageMetadata struct {
-	ImageName   string           `json:"imageName,omitempty"`
-	ImageID     string           `json:"imageID,omitempty"`
-	ResourceIDs []string         `json:"resourceIDs,omitempty"`
-	BlobsInfo   []types.BlobInfo `json:"blobsInfo,omitempty"`
-	ConfigFile  *v1.ConfigFile   `json:"configFile,omitempty"`
-	OsInfo      *OsInfo          `json:"osInfo,omitempty"`
+	ImageName      string              `json:"imageName,omitempty"`
+	ImageID        string              `json:"imageID,omitempty"`
+	ResourceIDs    []string            `json:"resourceIDs,omitempty"`
+	BlobsInfo      []types.BlobInfo    `json:"blobsInfo,omitempty"`
+	ConfigFile     *v1.ConfigFile      `json:"configFile,omitempty"`
+	OsInfo         *OsInfo             `json:"osInfo,omitempty"`
+	InstalledFiles map[string][]string `json:"installedFiles,omitempty"`
 }
 
 type OsInfo struct {
