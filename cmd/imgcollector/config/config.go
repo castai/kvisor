@@ -31,8 +31,7 @@ type Config struct {
 	DockerOptionPath string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
 	BlobsCacheURL    string        `envconfig:"COLLECTOR_BLOBS_CACHE_URL" default:""`
 	PprofAddr        string        `envconfig:"COLLECTOR_PPROF_ADDR" default:""`
-
-	SlowMode bool `envconfig:"SLOW_MODE" default:"true""`
+	SlowMode         bool          `envconfig:"SLOW_MODE" default:"true""`
 }
 
 func FromEnv() (Config, error) {
