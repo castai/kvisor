@@ -53,6 +53,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 
 	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
 		Offline: true,
+		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
 		DisabledAnalyzers: []analyzer.Type{
 			analyzer.TypeLicenseFile,
 			analyzer.TypeDpkgLicense,
