@@ -84,27 +84,6 @@ type ImageInfo struct {
 	Name string
 }
 
-func (c *Collector) inspect(ctx context.Context) (*image.ArtifactReference, error) {
-	img, cleanup, err := c.getImage(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
-
-	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
-		Offline: true,
-		DisabledAnalyzers: []analyzer.Type{
-			analyzer.TypeLicenseFile,
-			analyzer.TypeDpkgLicense,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return artifact.Inspect(ctx)
-}
-
 func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map[string][]string {
 	installedFiles := make(map[string][]string)
 	for i := range arRef.BlobsInfo {
@@ -121,7 +100,24 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 }
 
 func (c *Collector) Collect(ctx context.Context) error {
-	arRef, err := c.inspect(ctx)
+	img, cleanup, err := c.getImage(ctx)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
+		Offline: true,
+		DisabledAnalyzers: []analyzer.Type{
+			analyzer.TypeLicenseFile,
+			analyzer.TypeDpkgLicense,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
 		return err
 	}
