@@ -46,15 +46,21 @@ func TestSplit(t *testing.T) {
 			output2:   "",
 		},
 		{
-			input:     "var/lib/dpkg/info/",
-			separator: ':',
-			output1:   "var/lib/dpkg/info/",
-			output2:   "",
-		},
-		{
 			input:     "lib",
 			separator: ':',
 			output1:   "lib",
+			output2:   "",
+		},
+		{
+			input:     ":lib",
+			separator: ':',
+			output1:   "",
+			output2:   "lib",
+		},
+		{
+			input:     "var/lib/dpkg/info/",
+			separator: ':',
+			output1:   "var/lib/dpkg/info/",
 			output2:   "",
 		},
 	}

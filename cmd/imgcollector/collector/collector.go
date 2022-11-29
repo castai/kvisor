@@ -136,7 +136,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,
 		},
-		InstalledFiles: c.collectInstalledBinaries(arRef),
+		InstalledBinaries: c.collectInstalledBinaries(arRef),
 	}); err != nil {
 		return err
 	}
