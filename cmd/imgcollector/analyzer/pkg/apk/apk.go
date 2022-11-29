@@ -40,11 +40,7 @@ func (a alpinePkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInp
 	var systemInstalledFiles = make([]string, 0)
 	for pkgName, files := range installedFiles {
 		systemInstalledFiles = append(systemInstalledFiles, files...)
-
-		binaries := lo.Filter(files, func(v string, i int) bool {
-			return strings.Contains(v, "bin/")
-		})
-
+		binaries := lo.Filter(files, an.BinariesPathFilter)
 		if len(binaries) > 0 {
 			binariesMap[pkgName] = binaries
 		}

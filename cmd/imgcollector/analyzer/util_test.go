@@ -71,3 +71,57 @@ func TestSplit(t *testing.T) {
 		r.Equal(testCases[i].output2, output2)
 	}
 }
+
+func TestBinariesPathFilter(t *testing.T) {
+	testCases := []struct {
+		input  string
+		result bool
+	}{
+		{
+			input:  "",
+			result: false,
+		},
+		{
+			input:  "/bin/test",
+			result: true,
+		},
+		{
+			input:  "/sbin/test",
+			result: true,
+		},
+		{
+			input:  "/usr/bin/test",
+			result: true,
+		},
+		{
+			input:  "/home/user/.local/bin/test",
+			result: true,
+		},
+		{
+			input:  "/home/user/.local/config/y.yaml",
+			result: false,
+		},
+		{
+			input:  "/usr/sbin/adduser",
+			result: true,
+		},
+		{
+			input:  "/usr/share/doc/libpam-modules-bin/changelog.gz",
+			result: false,
+		},
+		{
+			input:  "/bin",
+			result: false,
+		},
+		{
+			input:  "/bin/",
+			result: false,
+		},
+	}
+
+	for i := range testCases {
+		if testCases[i].result != BinariesPathFilter(testCases[i].input, 0) {
+			t.Errorf("expected result to be %v for %q input", testCases[i].result, testCases[i].input)
+		}
+	}
+}

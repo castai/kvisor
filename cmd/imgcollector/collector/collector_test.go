@@ -157,13 +157,10 @@ func TestInstalledFiles(t *testing.T) {
 		"libc-bin": {
 			"/sbin/ldconfig", "/usr/bin/catchsegv", "/usr/bin/getconf", "/usr/bin/getent", "/usr/bin/iconv",
 			"/usr/bin/ldd", "/usr/bin/locale", "/usr/bin/localedef", "/usr/bin/pldd", "/usr/bin/tzselect",
-			"/usr/bin/zdump", "/usr/sbin/iconvconfig", "/usr/sbin/zic", "/usr/share/doc/libc-bin/changelog.Debian.gz",
-			"/usr/share/doc/libc-bin/changelog.gz", "/usr/share/doc/libc-bin/copyright", "/usr/share/libc-bin/nsswitch.conf",
+			"/usr/bin/zdump", "/usr/sbin/iconvconfig", "/usr/sbin/zic",
 		},
 		"libpam-modules-bin": {
 			"/sbin/mkhomedir_helper", "/sbin/unix_chkpwd", "/sbin/unix_update", "/usr/sbin/faillock", "/usr/sbin/pam_timestamp_check",
-			"/usr/share/doc/libpam-modules-bin/NEWS.Debian.gz", "/usr/share/doc/libpam-modules-bin/changelog.Debian.gz",
-			"/usr/share/doc/libpam-modules-bin/changelog.gz", "/usr/share/doc/libpam-modules-bin/copyright",
 		},
 		"libpam-runtime": {"/usr/sbin/pam-auth-update", "/usr/sbin/pam_getenv"},
 		"login":          {"/bin/login", "/usr/bin/faillog", "/usr/bin/lastlog", "/usr/bin/newgrp", "/usr/sbin/nologin", "/usr/bin/sg"},
@@ -186,9 +183,7 @@ func TestInstalledFiles(t *testing.T) {
 		"sasl2-bin": {
 			"/usr/bin/gen-auth", "/usr/bin/sasl-sample-client", "/usr/bin/saslfinger", "/usr/sbin/sasl-sample-server",
 			"/usr/sbin/saslauthd", "/usr/sbin/sasldbconverter2", "/usr/sbin/sasldblistusers2", "/usr/sbin/saslpasswd2",
-			"/usr/sbin/saslpluginviewer", "/usr/sbin/testsaslauthd", "/usr/share/doc/sasl2-bin/NEWS.Debian.gz",
-			"/usr/share/doc/sasl2-bin/README.Debian.gz", "/usr/share/doc/sasl2-bin/TODO.Debian",
-			"/usr/share/doc/sasl2-bin/changelog.Debian.gz", "/usr/share/doc/sasl2-bin/changelog.gz", "/usr/share/doc/sasl2-bin/copyright",
+			"/usr/sbin/saslpluginviewer", "/usr/sbin/testsaslauthd",
 		},
 		"sed":            {"/bin/sed"},
 		"startpar":       {"/bin/startpar"},

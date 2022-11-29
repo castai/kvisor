@@ -53,10 +53,7 @@ func (a dpkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInput) (
 			SystemInstalledFiles: installedFiles,
 		}
 
-		binaries := lo.Filter(installedFiles, func(v string, i int) bool {
-			return strings.Contains(v, "bin/")
-		})
-
+		binaries := lo.Filter(installedFiles, an.BinariesPathFilter)
 		if len(binaries) > 0 {
 			name, _ := an.Split(filename, '.')
 			pkgName, _ := an.Split(name, ':')
