@@ -11,6 +11,7 @@ import (
 
 	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
+	an "github.com/castai/sec-agent/cmd/imgcollector/analyzer"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
 	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
@@ -18,7 +19,46 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
-	_ "github.com/aquasecurity/trivy/pkg/scanner" // Import all registered analyzers.
+
+	// Import all registered analyzers.
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/buildinfo"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/command/apk"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/config/all"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/executable"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/c/conan"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/dotnet/deps"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/dotnet/nuget"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/golang/binary"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/golang/mod"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/java/gradle"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/java/jar"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/java/pom"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/npm"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/pkg"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/pnpm"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/yarn"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/php/composer"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/packaging"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/pip"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/pipenv"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/poetry"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/ruby/bundler"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/ruby/gemspec"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/rust/binary"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/rust/cargo"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/licensing"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/alpine"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/amazonlinux"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/debian"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/mariner"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/redhatbase"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/release"
+	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/ubuntu"
+
+	// Import modified pkg analyzers.
+	_ "github.com/castai/sec-agent/cmd/imgcollector/analyzer/pkg/apk"
+	_ "github.com/castai/sec-agent/cmd/imgcollector/analyzer/pkg/dpkg"
+	_ "github.com/castai/sec-agent/cmd/imgcollector/analyzer/pkg/rpm"
 )
 
 func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
@@ -44,6 +84,21 @@ type ImageInfo struct {
 	Name string
 }
 
+func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map[string][]string {
+	installedFiles := make(map[string][]string)
+	for i := range arRef.BlobsInfo {
+		for _, customResource := range arRef.BlobsInfo[i].CustomResources {
+			if customResource.Type == an.TypeInstalledBinaries {
+				for pkg, files := range customResource.Data.(map[string][]string) {
+					installedFiles[pkg] = files
+				}
+			}
+		}
+	}
+
+	return installedFiles
+}
+
 func (c *Collector) Collect(ctx context.Context) error {
 	img, cleanup, err := c.getImage(ctx)
 	if err != nil {
@@ -61,11 +116,13 @@ func (c *Collector) Collect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
 		return err
 	}
-	res := &castai.ImageMetadata{
+
+	if err := c.client.SendImageMetadata(ctx, &castai.ImageMetadata{
 		ImageName:   c.cfg.ImageName,
 		ImageID:     c.cfg.ImageID,
 		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
@@ -75,10 +132,11 @@ func (c *Collector) Collect(ctx context.Context) error {
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,
 		},
-	}
-	if err := c.client.SendImageMetadata(ctx, res); err != nil {
+		InstalledBinaries: c.collectInstalledBinaries(arRef),
+	}); err != nil {
 		return err
 	}
+
 	return nil
 }
 
