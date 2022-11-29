@@ -332,7 +332,7 @@ func scanJobSpec(
 	tolerations []corev1.Toleration,
 	cfg config.ImageScan,
 ) *batchv1.Job {
-	return &batchv1.Job{
+	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
 			APIVersion: "batch/v1",
@@ -380,16 +380,7 @@ func scanJobSpec(
 							ImagePullPolicy: corev1.PullPolicy(cfg.Image.PullPolicy),
 							Env:             envVars,
 							VolumeMounts:    vol.mounts,
-							Resources: corev1.ResourceRequirements{
-								Limits: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse(cfg.CPULimit),
-									corev1.ResourceMemory: resource.MustParse(cfg.MemoryLimit),
-								},
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceCPU:    resource.MustParse(cfg.CPURequest),
-									corev1.ResourceMemory: resource.MustParse(cfg.MemoryRequest),
-								},
-							},
+							Resources:       corev1.ResourceRequirements{},
 						},
 					},
 					Volumes: vol.volumes,
@@ -397,4 +388,21 @@ func scanJobSpec(
 			},
 		},
 	}
+
+	if cfg.CPURequest != "" {
+		cpuRequest := resource.MustParse(cfg.CPURequest)
+		if job.Spec.Template.Spec.Containers[0].Resources.Requests == nil {
+			job.Spec.Template.Spec.Containers[0].Resources.Requests = map[corev1.ResourceName]resource.Quantity{}
+		}
+		job.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = cpuRequest
+	}
+
+	if cfg.MemoryRequest != "" {
+		memRequest := resource.MustParse(cfg.MemoryRequest)
+		if job.Spec.Template.Spec.Containers[0].Resources.Requests == nil {
+			job.Spec.Template.Spec.Containers[0].Resources.Requests = map[corev1.ResourceName]resource.Quantity{}
+		}
+		job.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = memRequest
+	}
+	return job
 }
