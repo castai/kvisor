@@ -389,6 +389,14 @@ func scanJobSpec(
 		},
 	}
 
+	if cfg.CPULimit != "" {
+		cpuLimit := resource.MustParse(cfg.CPULimit)
+		if job.Spec.Template.Spec.Containers[0].Resources.Limits == nil {
+			job.Spec.Template.Spec.Containers[0].Resources.Limits = map[corev1.ResourceName]resource.Quantity{}
+		}
+		job.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceCPU] = cpuLimit
+	}
+
 	if cfg.CPURequest != "" {
 		cpuRequest := resource.MustParse(cfg.CPURequest)
 		if job.Spec.Template.Spec.Containers[0].Resources.Requests == nil {
@@ -403,6 +411,14 @@ func scanJobSpec(
 			job.Spec.Template.Spec.Containers[0].Resources.Requests = map[corev1.ResourceName]resource.Quantity{}
 		}
 		job.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = memRequest
+	}
+
+	if cfg.MemoryLimit != "" {
+		memLimit := resource.MustParse(cfg.MemoryLimit)
+		if job.Spec.Template.Spec.Containers[0].Resources.Limits == nil {
+			job.Spec.Template.Spec.Containers[0].Resources.Limits = map[corev1.ResourceName]resource.Quantity{}
+		}
+		job.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceMemory] = memLimit
 	}
 	return job
 }
