@@ -18,11 +18,12 @@ func TestJobsGC(t *testing.T) {
 	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
+	ns := "castai-agent"
 
 	oldJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "old-job",
-			Namespace: "castai-agent",
+			Namespace: ns,
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "castai",
 			},
@@ -33,7 +34,7 @@ func TestJobsGC(t *testing.T) {
 	newJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "new-job",
-			Namespace: "castai-agent",
+			Namespace: ns,
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "castai",
 			},
@@ -46,11 +47,12 @@ func TestJobsGC(t *testing.T) {
 	gc := NewGC(log, clientset, Config{
 		CleanupInterval: 1 * time.Millisecond,
 		CleanupJobAge:   10 * time.Minute,
+		Namespace:       ns,
 	})
 	go gc.Start(ctx)
 
 	r.Eventually(func() bool {
-		jobs, err := clientset.BatchV1().Jobs("castai-agent").List(ctx, metav1.ListOptions{})
+		jobs, err := clientset.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
 		r.NoError(err)
 		return len(jobs.Items) == 1 && jobs.Items[0].Name == newJob.Name
 	}, 3*time.Second, 1*time.Millisecond)
