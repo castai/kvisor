@@ -13,13 +13,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	ns = "castai-sec"
-)
-
 type Config struct {
 	CleanupInterval time.Duration
 	CleanupJobAge   time.Duration
+	Namespace       string
 }
 
 func NewGC(log logrus.FieldLogger, clientset kubernetes.Interface, cfg Config) *GC {
@@ -61,7 +58,7 @@ func (g *GC) Start(ctx context.Context) {
 
 func (g *GC) cleanupJobs(ctx context.Context) error {
 	selector := labels.Set{"app.kubernetes.io/managed-by": "castai"}.String()
-	jobs, err := g.clientset.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{
+	jobs, err := g.clientset.BatchV1().Jobs(g.cfg.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: selector,
 	})
 	if err != nil {
@@ -72,7 +69,7 @@ func (g *GC) cleanupJobs(ctx context.Context) error {
 
 	for _, job := range jobs.Items {
 		if job.CreationTimestamp.Time.UTC().Before(cleanupOlderThan) {
-			if err := g.clientset.BatchV1().Jobs(ns).Delete(ctx, job.Name, metav1.DeleteOptions{
+			if err := g.clientset.BatchV1().Jobs(g.cfg.Namespace).Delete(ctx, job.Name, metav1.DeleteOptions{
 				GracePeriodSeconds: lo.ToPtr(int64(0)),
 				PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
 			}); err != nil {

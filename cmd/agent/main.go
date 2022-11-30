@@ -234,6 +234,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	gc := jobsgc.NewGC(log, clientset, jobsgc.Config{
 		CleanupInterval: 10 * time.Minute,
 		CleanupJobAge:   10 * time.Minute,
+		Namespace:       cfg.PodNamespace,
 	})
 	go gc.Start(ctx)
 
