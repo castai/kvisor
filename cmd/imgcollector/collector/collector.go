@@ -89,8 +89,10 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 	for i := range arRef.BlobsInfo {
 		for _, customResource := range arRef.BlobsInfo[i].CustomResources {
 			if customResource.Type == an.TypeInstalledBinaries {
-				for pkg, files := range customResource.Data.(map[string][]string) {
-					installedFiles[pkg] = files
+				if data, ok := customResource.Data.(map[string][]string); ok {
+					for pkg, files := range data {
+						installedFiles[pkg] = files
+					}
 				}
 			}
 		}
