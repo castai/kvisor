@@ -19,7 +19,6 @@ func ResyncObserver(
 ) telemetry.Observer {
 	return func(response *castai.TelemetryResponse) {
 		if response.FullResync {
-			snaphotProvider.snapshot()
 			if err := client.SendDeltaReport(ctx, &castai.Delta{
 				FullSnapshot: true,
 				Items:        snaphotProvider.snapshot(),
