@@ -93,6 +93,8 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 					for pkg, files := range data {
 						installedFiles[pkg] = files
 					}
+				} else {
+					c.log.Errorf("could not convert: %T to map[string][]string", customResource.Data)
 				}
 			}
 		}

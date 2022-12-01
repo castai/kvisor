@@ -20,11 +20,12 @@ type Exporter interface {
 	Wait()
 }
 
-func NewExporter(logger *logrus.Logger, client castai.Client) Exporter {
+func NewExporter(logger *logrus.Logger, client castai.Client, levels []logrus.Level) Exporter {
 	return &exporter{
 		logger: logger,
 		client: client,
 		wg:     sync.WaitGroup{},
+		levels: levels,
 	}
 }
 
@@ -32,16 +33,11 @@ type exporter struct {
 	logger *logrus.Logger
 	client castai.Client
 	wg     sync.WaitGroup
+	levels []logrus.Level
 }
 
 func (e *exporter) Levels() []logrus.Level {
-	return []logrus.Level{
-		logrus.ErrorLevel,
-		logrus.FatalLevel,
-		logrus.PanicLevel,
-		logrus.InfoLevel,
-		logrus.WarnLevel,
-	}
+	return e.levels
 }
 
 func (ex *exporter) Fire(entry *logrus.Entry) error {

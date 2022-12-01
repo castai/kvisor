@@ -80,7 +80,14 @@ func main() {
 	)
 
 	log := logrus.WithFields(logrus.Fields{})
-	e := agentlog.NewExporter(logger, client)
+	e := agentlog.NewExporter(logger, client, []logrus.Level{
+		logrus.ErrorLevel,
+		logrus.FatalLevel,
+		logrus.PanicLevel,
+		logrus.InfoLevel,
+		logrus.WarnLevel,
+	})
+
 	logger.AddHook(e)
 	logrus.RegisterExitHandler(e.Wait)
 

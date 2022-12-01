@@ -8,15 +8,15 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
-	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
 	"github.com/castai/sec-agent/cmd/imgcollector/collector"
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
+	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
 	globalconfig "github.com/castai/sec-agent/config"
+	agentlog "github.com/castai/sec-agent/log"
 )
 
 // These should be set via `go build` during a release.
@@ -46,6 +46,14 @@ func main() {
 			Version:   Version,
 		},
 	)
+
+	e := agentlog.NewExporter(log, client, []logrus.Level{
+		logrus.ErrorLevel,
+		logrus.FatalLevel,
+		logrus.PanicLevel,
+	})
+
+	log.AddHook(e)
 
 	var blobsCache blobscache.Client
 	if cfg.BlobsCacheURL != "" {
