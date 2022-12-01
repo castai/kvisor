@@ -90,13 +90,12 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 	for i := range arRef.BlobsInfo {
 		for _, customResource := range arRef.BlobsInfo[i].CustomResources {
 			if customResource.Type == an.TypeInstalledBinaries {
-				// [string][]string
 				data, ok := customResource.Data.(map[string][]string)
 				if !ok {
 					// after pulling from cache it's map[string]interface{}
 					err := mapstructure.Decode(customResource.Data, &data)
 					if err != nil {
-						c.log.Errorf("failed decoding custom resources %T to map[string][]string: %v", err)
+						c.log.Errorf("failed decoding custom resources %T to map[string][]string: %v", customResource.Data, err)
 						continue
 					}
 				}
