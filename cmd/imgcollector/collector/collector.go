@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 
 	"github.com/castai/sec-agent/blobscache"
@@ -92,18 +93,11 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 				// [string][]string
 				data, ok := customResource.Data.(map[string][]string)
 				if !ok {
-					// after getting from cache, type is [string]interface[]
-					dataInterface, ok := customResource.Data.(map[string]interface{})
-					if !ok {
-						c.log.Errorf("could not map %T to map[string]interface{}", dataInterface)
-					}
-
-					for pkg, pkgList := range dataInterface {
-						pkgListInterface := pkgList.([]interface{})
-						for _, pkgName := range pkgListInterface {
-							v := pkgName.(string)
-							installedFiles[pkg] = append(installedFiles[pkg], v)
-						}
+					// after pulling from cache it's map[string]interface{}
+					err := mapstructure.Decode(customResource.Data, &data)
+					if err != nil {
+						c.log.Errorf("failed decoding custom resources %T to map[string][]string: %v", err)
+						continue
 					}
 				}
 
