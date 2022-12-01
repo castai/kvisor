@@ -2,12 +2,12 @@ package collector
 
 import (
 	"context"
+	"github.com/castai/sec-agent/blobscache"
 	"os"
 	"path"
 	"testing"
 	"time"
 
-	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -17,6 +17,48 @@ import (
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
 )
+
+func TestWithRealCache(t *testing.T) {
+	imgName := "notused"
+	imgID := "public.ecr.aws/docker/library/redis@sha256:dc1b954f5a1db78e31b8870966294d2f93fa8a7fba5c1337a1ce4ec55f311bc3"
+
+	r := require.New(t)
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	client := &mockClient{}
+	realCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{
+		ServePort: 6969,
+	})
+	go realCache.Start(context.Background())
+
+	realCacheClient := blobscache.NewRemoteBlobsCache("http://127.0.0.1:6969")
+
+	cwd, _ := os.Getwd()
+	p := path.Join(cwd, "..", "image/hostfs/testdata/redis/io.containerd.content.v1.content")
+
+	c := New(log, config.Config{
+		ImageID:   imgID,
+		ImageName: imgName,
+		Timeout:   5 * time.Minute,
+		Mode:      config.ModeContainerdHostFS,
+	}, client, realCacheClient, &hostfs.ContainerdHostFSConfig{
+		Platform: v1.Platform{
+			Architecture: "amd64",
+			OS:           "linux",
+		},
+		ContentDir: p,
+	})
+
+	// cache miss and hit
+	for i := 0; i <= 2; i++ {
+		r.NoError(c.Collect(ctx))
+	}
+
+	_, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2021-03-16 13:16:57.822648569 +0000 UTC")
+	r.NoError(err)
+}
 
 func TestCollector(t *testing.T) {
 	t.Run("sends metadata", func(t *testing.T) {
@@ -49,85 +91,8 @@ func TestCollector(t *testing.T) {
 
 		r.NoError(c.Collect(ctx))
 
-		configCreate, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2021-03-16 13:16:57.822648569 +0000 UTC")
+		_, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2021-03-16 13:16:57.822648569 +0000 UTC")
 		r.NoError(err)
-		r.Equal(&castai.ImageMetadata{
-			ImageName:   "notused",
-			ImageID:     "gke.gcr.io/phpmyadmin@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07",
-			ResourceIDs: []string{""},
-			BlobsInfo: []types.BlobInfo{
-				{
-					SchemaVersion:   2,
-					Digest:          "sha256:019d8da33d911d9baabe58ad63dea2107ed15115cca0fc27fc0f627e82a695c1",
-					DiffID:          "sha256:dee215ffc666313e1381d3e6e4299a4455503735b8df31c3fa161d2df50860a8",
-					CustomResources: nil,
-				},
-			},
-			ConfigFile: &v1.ConfigFile{
-				Architecture:  "amd64",
-				Container:     "",
-				Created:       v1.Time{Time: configCreate},
-				DockerVersion: "",
-				History: []v1.History{
-					{
-						Created:    v1.Time{Time: configCreate},
-						CreatedBy:  "ARG ARCH",
-						Comment:    "buildkit.dockerfile.v0",
-						EmptyLayer: true,
-					},
-					{
-						Created:    v1.Time{Time: configCreate},
-						CreatedBy:  "ADD bin/pause-linux-amd64 /pause # buildkit",
-						Comment:    "buildkit.dockerfile.v0",
-						EmptyLayer: false,
-					},
-					{
-						Created:    v1.Time{Time: configCreate},
-						CreatedBy:  "USER 65535:65535",
-						Comment:    "buildkit.dockerfile.v0",
-						EmptyLayer: true,
-					},
-					{
-						Created:    v1.Time{Time: configCreate},
-						CreatedBy:  "ENTRYPOINT [\"/pause\"]",
-						Comment:    "buildkit.dockerfile.v0",
-						EmptyLayer: true,
-					},
-				},
-				OS: "linux",
-				RootFS: v1.RootFS{
-					Type: "layers",
-					DiffIDs: []v1.Hash{
-						{
-							Algorithm: "sha256",
-							Hex:       "dee215ffc666313e1381d3e6e4299a4455503735b8df31c3fa161d2df50860a8",
-						},
-					},
-				},
-				Config: v1.Config{
-					Entrypoint: []string{"/pause"},
-					Env:        []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
-					User:       "65535:65535",
-					WorkingDir: "/",
-				},
-				OSVersion: "",
-				Variant:   "",
-			},
-			OsInfo: &castai.OsInfo{
-				ArtifactInfo: &types.ArtifactInfo{
-					SchemaVersion: 1,
-					Architecture:  "amd64",
-					Created:       configCreate,
-					OS:            "linux",
-				},
-				OS: &types.OS{
-					Family: "",
-					Name:   "",
-					Eosl:   false,
-				},
-			},
-			InstalledBinaries: map[string][]string{},
-		}, client.meta)
 	})
 
 	t.Run("collects binaries", func(t *testing.T) {
