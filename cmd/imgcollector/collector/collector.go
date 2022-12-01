@@ -89,10 +89,26 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 	for i := range arRef.BlobsInfo {
 		for _, customResource := range arRef.BlobsInfo[i].CustomResources {
 			if customResource.Type == an.TypeInstalledBinaries {
-				if data, ok := customResource.Data.(map[string][]string); ok {
-					for pkg, files := range data {
-						installedFiles[pkg] = files
+				// [string][]string
+				data, ok := customResource.Data.(map[string][]string)
+				if !ok {
+					// after getting from cache, type is [string]interface[]
+					dataInterface, ok := customResource.Data.(map[string]interface{})
+					if !ok {
+						c.log.Errorf("could not map %T to map[string]interface{}", dataInterface)
 					}
+
+					for pkg, pkgList := range dataInterface {
+						pkgListInterface := pkgList.([]interface{})
+						for _, pkgName := range pkgListInterface {
+							v := pkgName.(string)
+							installedFiles[pkg] = append(installedFiles[pkg], v)
+						}
+					}
+				}
+
+				for pkg, files := range data {
+					installedFiles[pkg] = files
 				}
 			}
 		}
