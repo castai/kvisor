@@ -98,8 +98,6 @@ func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map
 						c.log.Errorf("failed decoding custom resources %T to map[string][]string: %v", customResource.Data, err)
 						continue
 					}
-				} else {
-					c.log.Errorf("could not convert: %T to map[string][]string", customResource.Data)
 				}
 
 				for pkg, files := range data {
