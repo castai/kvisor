@@ -28,7 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/semaphore"
-	"golang.org/x/xerrors"
 
 	"github.com/castai/sec-agent/blobscache"
 )
@@ -202,7 +201,7 @@ func (a Artifact) inspect(ctx context.Context, missingImageKey string, layerKeys
 	go func() {
 		for _, k := range layerKeys {
 			if err := limit.Acquire(ctx, 1); err != nil {
-				errCh <- xerrors.Errorf("semaphore acquire: %w", err)
+				errCh <- fmt.Errorf("semaphore acquire: %w", err)
 				return
 			}
 
