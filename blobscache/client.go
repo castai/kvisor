@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrCacheNotFound = errors.New("cache not found")
+	ErrCacheNotFound = errors.New("blob not found in cache")
 )
 
 type Client interface {

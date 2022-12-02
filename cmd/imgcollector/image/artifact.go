@@ -62,7 +62,7 @@ func NewArtifact(img types.Image, log logrus.FieldLogger, c blobscache.Client, o
 		log:            log,
 		image:          img,
 		cache:          c,
-		walker:         walker.NewLayerTar(opt.SkipFiles, opt.SkipDirs, true),
+		walker:         walker.NewLayerTar(opt.SkipFiles, opt.SkipDirs, opt.Slow),
 		analyzer:       a,
 		artifactOption: opt,
 	}, nil
@@ -188,40 +188,58 @@ func (a Artifact) calcCacheKeys(imageID string, diffIDs []string) (string, []str
 
 func (a Artifact) inspect(ctx context.Context, missingImageKey string, layerKeys, baseDiffIDs []string, layerKeyMap map[string]string) ([]types.BlobInfo, *types.ArtifactInfo, *types.OS, error) {
 	blobInfo := make(chan types.BlobInfo)
+
 	errCh := make(chan error)
+	limit := semaphore.NewWeighted(parallel)
+	if a.artifactOption.Slow {
+		// Inspect layers in series
+		limit = semaphore.NewWeighted(1)
+	}
 
 	var osFound types.OS
-	for _, k := range layerKeys {
-		go func(ctx context.Context, layerKey string) {
-			diffID := layerKeyMap[layerKey]
 
-			// If it is a base layer, secret scanning should not be performed.
-			var disabledAnalyzers []analyzer.Type
-			if slices.Contains(baseDiffIDs, diffID) {
-				disabledAnalyzers = append(disabledAnalyzers, analyzer.TypeSecret)
-			}
-
-			layerInfo, err := a.inspectLayer(ctx, diffID, disabledAnalyzers)
-			if err != nil {
-				errCh <- fmt.Errorf("failed to analyze layer: %s : %w", diffID, err)
+	go func() {
+		for _, k := range layerKeys {
+			if err := limit.Acquire(ctx, 1); err != nil {
+				errCh <- fmt.Errorf("semaphore acquire: %w", err)
 				return
 			}
 
-			layerBytes, err := json.Marshal(layerInfo)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			if err := a.cache.PutBlob(ctx, layerKey, layerBytes); err != nil {
-				a.log.Warnf("putting blob to cache: %v", err)
-			}
+			go func(ctx context.Context, layerKey string) {
+				defer func() {
+					limit.Release(1)
+				}()
 
-			if layerInfo.OS != nil {
-				osFound = *layerInfo.OS
-			}
-			blobInfo <- layerInfo
-		}(ctx, k)
-	}
+				diffID := layerKeyMap[layerKey]
+
+				// If it is a base layer, secret scanning should not be performed.
+				var disabledAnalyzers []analyzer.Type
+				if slices.Contains(baseDiffIDs, diffID) {
+					disabledAnalyzers = append(disabledAnalyzers, analyzer.TypeSecret)
+				}
+
+				layerInfo, err := a.inspectLayer(ctx, diffID, disabledAnalyzers)
+				if err != nil {
+					errCh <- fmt.Errorf("failed to analyze layer: %s : %w", diffID, err)
+					return
+				}
+
+				layerBytes, err := json.Marshal(layerInfo)
+				if err != nil {
+					errCh <- err
+					return
+				}
+				if err := a.cache.PutBlob(ctx, layerKey, layerBytes); err != nil {
+					a.log.Warnf("putting blob to cache: %v", err)
+				}
+
+				if layerInfo.OS != nil {
+					osFound = *layerInfo.OS
+				}
+				blobInfo <- layerInfo
+			}(ctx, k)
+		}
+	}()
 
 	blobsInfo := make([]types.BlobInfo, 0, len(layerKeys))
 
@@ -261,6 +279,10 @@ func (a Artifact) inspectLayer(ctx context.Context, diffID string, disabled []an
 	opts := analyzer.AnalysisOptions{Offline: a.artifactOption.Offline}
 	result := analyzer.NewAnalysisResult()
 	limit := semaphore.NewWeighted(parallel)
+	if a.artifactOption.Slow {
+		// Inspect layers in series
+		limit = semaphore.NewWeighted(1)
+	}
 
 	// Walk a tar layer
 	opqDirs, whFiles, err := a.walker.Walk(r, func(filePath string, info os.FileInfo, opener analyzer.Opener) error {

@@ -21,7 +21,7 @@ func TestSetupLogExporter(t *testing.T) {
 	mockClusterID := uuid.New().String()
 	ctrl := gomock.NewController(t)
 	mockapi := mock_castai.NewMockClient(ctrl)
-	e := NewExporter(logger, mockapi)
+	e := NewExporter(logger, mockapi, logrus.AllLevels)
 	logger.AddHook(e)
 
 	t.Run("sends the log msg", func(t *testing.T) {

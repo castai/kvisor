@@ -18,6 +18,7 @@ func TestJobsGC(t *testing.T) {
 	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
+	ns := "castai-agent"
 
 	oldJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -46,6 +47,7 @@ func TestJobsGC(t *testing.T) {
 	gc := NewGC(log, clientset, Config{
 		CleanupInterval: 1 * time.Millisecond,
 		CleanupJobAge:   10 * time.Minute,
+		Namespace:       ns,
 	})
 	go gc.Start(ctx)
 

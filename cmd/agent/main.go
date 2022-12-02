@@ -80,7 +80,14 @@ func main() {
 	)
 
 	log := logrus.WithFields(logrus.Fields{})
-	e := agentlog.NewExporter(logger, client)
+	e := agentlog.NewExporter(logger, client, []logrus.Level{
+		logrus.ErrorLevel,
+		logrus.FatalLevel,
+		logrus.PanicLevel,
+		logrus.InfoLevel,
+		logrus.WarnLevel,
+	})
+
 	logger.AddHook(e)
 	logrus.RegisterExitHandler(e.Wait)
 
@@ -234,6 +241,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	gc := jobsgc.NewGC(log, clientset, jobsgc.Config{
 		CleanupInterval: 10 * time.Minute,
 		CleanupJobAge:   10 * time.Minute,
+		Namespace:       cfg.PodNamespace,
 	})
 	go gc.Start(ctx)
 
