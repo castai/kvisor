@@ -108,7 +108,7 @@ func (d *deltaState) updateNodeUsage(v *corev1.Node) {
 }
 
 func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
-	switch v.Status.Phase {
+	switch v.Status.Phase { //nolint:exhaustive
 	case corev1.PodRunning, corev1.PodPending:
 		n, found := d.nodes[v.Spec.NodeName]
 		if !found {

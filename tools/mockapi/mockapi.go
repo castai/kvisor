@@ -54,7 +54,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	if err := http.ListenAndServe(":8090", router); err != nil {
+	if err := http.ListenAndServe(":8090", router); err != nil { //nolint:gosec
 		log.Fatal(err)
 	}
 }

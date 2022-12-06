@@ -22,12 +22,11 @@ import (
 )
 
 const (
-	headerAPIKey            = "X-API-Key"
-	headerUserAgent         = "User-Agent"
-	headerContentType       = "Content-Type"
-	headerContentEncoding   = "Content-Encoding"
-	headerKubernetesVersion = "X-K8s-Version"
-	totalSendDeltaTimeout   = 2 * time.Minute
+	headerAPIKey          = "X-API-Key" //nolint:gosec
+	headerUserAgent       = "User-Agent"
+	headerContentType     = "Content-Type"
+	headerContentEncoding = "Content-Encoding"
+	totalSendDeltaTimeout = 2 * time.Minute
 )
 
 type Client interface {
@@ -206,7 +205,7 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 		Steps:    3,
 	}
 	err = wait.ExponentialBackoffWithContext(ctx, backoff, func() (done bool, err error) {
-		resp, err = c.httpClient.Do(req)
+		resp, err = c.httpClient.Do(req) //nolint:bodyclose
 		if err != nil {
 			c.log.Warnf("failed sending request for report %s: %v", reportType, err)
 			return false, fmt.Errorf("sending request %s: %w", reportType, err)

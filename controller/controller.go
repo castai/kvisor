@@ -78,7 +78,7 @@ type Controller struct {
 func (c *Controller) Run(ctx context.Context) error {
 	for typ, informer := range c.informers {
 		if err := informer.SetTransform(c.transformFunc); err != nil {
-			return nil
+			return err
 		}
 		informer.AddEventHandler(c.eventsHandler(ctx, typ))
 	}

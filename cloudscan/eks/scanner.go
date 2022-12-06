@@ -83,6 +83,7 @@ func (s *Scanner) scan(ctx context.Context) error {
 	}
 
 	for _, c := range checks {
+		c := c
 		if c.validate != nil {
 			c.validate(&c)
 		}

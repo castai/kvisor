@@ -44,12 +44,12 @@ type blobImage struct {
 
 func (b blobImage) Layers() ([]v1.Layer, error) {
 	l := make([]v1.Layer, len(b.manifest.Layers))
-	for _, lay := range b.manifest.Layers {
-		lajer, err := b.LayerByDigest(lay.Digest)
+	for i, lay := range b.manifest.Layers {
+		layer, err := b.LayerByDigest(lay.Digest)
 		if err != nil {
 			return nil, err
 		}
-		l = append(l, lajer)
+		l[i] = layer
 	}
 
 	return l, nil
