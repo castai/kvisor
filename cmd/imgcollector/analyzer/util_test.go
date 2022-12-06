@@ -117,11 +117,58 @@ func TestBinariesPathFilter(t *testing.T) {
 			input:  "/bin/",
 			result: false,
 		},
+		{
+			input:  "bin/ls",
+			result: true,
+		},
 	}
 
 	for i := range testCases {
 		if testCases[i].result != BinariesPathFilter(testCases[i].input, 0) {
 			t.Errorf("expected result to be %v for %q input", testCases[i].result, testCases[i].input)
+		}
+	}
+}
+
+func TestNormalizePath(t *testing.T) {
+	testCases := []struct {
+		input  string
+		result string
+	}{
+		{
+			input:  "",
+			result: "",
+		},
+		{
+			input:  "bin/ls",
+			result: "/bin/ls",
+		},
+		{
+			input:  "/bin/ls",
+			result: "/bin/ls",
+		},
+		{
+			input:  "usr/bin/man",
+			result: "/usr/bin/man",
+		},
+		{
+			input:  "../../bin/sudo",
+			result: "/bin/sudo",
+		},
+		{
+			input:  "/../../bin/sudo",
+			result: "/bin/sudo",
+		},
+		{
+			input:  "bin/sudo",
+			result: "/bin/sudo",
+		},
+	}
+
+	for i := range testCases {
+		result := CleanPath(testCases[i].input)
+		if testCases[i].result != result {
+			t.Errorf("expected result to be %v for %q input, but got %q", testCases[i].result, testCases[i].input, result)
 		}
 	}
 }

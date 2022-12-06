@@ -74,7 +74,9 @@ func (a rpmPkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInput)
 
 	for pkgName, files := range installedFiles {
 		systemInstalledFiles = append(systemInstalledFiles, files...)
-		binaries := lo.Filter(files, an.BinariesPathFilter)
+		binaries := lo.Filter(lo.Map(files, func(item string, index int) string {
+			return an.CleanPath(item)
+		}), an.BinariesPathFilter)
 		if len(binaries) > 0 {
 			binaryMap[pkgName] = binaries
 		}
