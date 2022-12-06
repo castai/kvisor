@@ -18,3 +18,15 @@ func BinariesPathFilter(input string, _ int) bool {
 	dir := filepath.Base(filepath.Dir(filepath.Clean(input)))
 	return dir == "bin" || dir == "sbin"
 }
+
+func CleanPath(path string) string {
+	if len(path) == 0 {
+		return path
+	}
+
+	if path[0] == '/' {
+		return filepath.Clean(path)
+	}
+
+	return filepath.Clean("/" + path)
+}
