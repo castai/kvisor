@@ -285,7 +285,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 
 	nodeID, err := uuid.Parse(string(node.UID))
 	if err != nil {
-		return nil, fmt.Errorf("can't parse node UID: %v", err)
+		return nil, fmt.Errorf("can't parse node UID: %w", err)
 	}
 
 	customReport.Node = castai.Node{

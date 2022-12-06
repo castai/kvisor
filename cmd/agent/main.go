@@ -12,6 +12,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/informers"
 
@@ -30,7 +31,6 @@ import (
 	agentlog "github.com/castai/sec-agent/log"
 	"github.com/castai/sec-agent/version"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -146,7 +146,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		addr := fmt.Sprintf(":%d", cfg.PprofPort)
 		log.Infof("starting pprof server on %s", addr)
 
-		if err := http.ListenAndServe(addr, httpMux); err != nil {
+		if err := http.ListenAndServe(addr, httpMux); err != nil { //nolint:gosec
 			log.Errorf("failed to start pprof http server: %v", err)
 		}
 	}()
@@ -307,7 +307,7 @@ func (rt *kubeRetryTransport) RoundTrip(req *http.Request) (*http.Response, erro
 	var resp *http.Response
 	err := backoff.RetryNotify(func() error {
 		var err error
-		resp, err = rt.next.RoundTrip(req)
+		resp, err = rt.next.RoundTrip(req) //nolint:bodyclose
 		if err != nil {
 			// Previously client-go contained logic to retry connection refused errors. See https://github.com/kubernetes/kubernetes/pull/88267/files
 			if net.IsConnectionRefused(err) {

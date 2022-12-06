@@ -1,6 +1,7 @@
 package gke
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,7 +22,9 @@ type metadataTokenSource struct {
 }
 
 func (m *metadataTokenSource) Token() (*oauth2.Token, error) {
-	req, err := http.NewRequest("GET", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token", nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token", nil)
 	if err != nil {
 		return nil, err
 	}

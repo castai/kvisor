@@ -202,6 +202,7 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 		Checks: make([]castai.CloudScanCheck, 0, len(checks)),
 	}
 	for _, c := range checks {
+		c := c
 		if c.validate != nil {
 			c.validate(&c)
 		}

@@ -138,10 +138,7 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 		objects: objects,
 	}
 
-	res, err := l.runKubeLinter([]lintcontext.LintContext{lintctx}, l.registry)
-	if err != nil {
-		return nil, err
-	}
+	res := l.runKubeLinter([]lintcontext.LintContext{lintctx})
 
 	resources := make(map[types.UID]casttypes.LinterCheck)
 	for _, check := range res.Reports {
@@ -166,7 +163,7 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 	return lo.Values(resources), nil
 }
 
-func (l *Linter) runKubeLinter(lintCtxs []lintcontext.LintContext, registry checkregistry.CheckRegistry) (run.Result, error) {
+func (l *Linter) runKubeLinter(lintCtxs []lintcontext.LintContext) run.Result {
 	var result run.Result
 
 	for _, instantiatedCheck := range l.instantiatedChecks {
@@ -202,7 +199,7 @@ func (l *Linter) runKubeLinter(lintCtxs []lintcontext.LintContext, registry chec
 		}
 	}
 
-	return result, nil
+	return result
 }
 
 type lintContext struct {

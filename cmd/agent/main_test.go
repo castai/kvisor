@@ -28,7 +28,7 @@ func TestKubeRetryTransport(t *testing.T) {
 			maxRetries:    3,
 			retryInterval: 100 * time.Millisecond,
 		}
-		_, err := rt.RoundTrip(nil)
+		_, err := rt.RoundTrip(nil) //nolint:bodyclose
 		r.EqualError(err, "connection refused")
 		r.Equal(int32(4), next.calls)
 	})
@@ -45,7 +45,7 @@ func TestKubeRetryTransport(t *testing.T) {
 			maxRetries:    3,
 			retryInterval: 100 * time.Millisecond,
 		}
-		_, err := rt.RoundTrip(nil)
+		_, err := rt.RoundTrip(nil) //nolint:bodyclose
 		r.EqualError(err, "ups")
 		r.Equal(int32(1), next.calls)
 	})

@@ -27,7 +27,7 @@ func (r clientsetPodLogsReader) GetLogReader(ctx context.Context, podNs, podName
 	req := r.client.CoreV1().Pods(podNs).GetLogs(podName, &corev1.PodLogOptions{})
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error in opening stream: %v", err)
+		return nil, fmt.Errorf("error in opening stream: %w", err)
 	}
 	return podLogs, nil
 }

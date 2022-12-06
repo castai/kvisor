@@ -37,15 +37,12 @@ type dpkgLicenseAnalyzer struct {
 
 // Analyze parses /usr/share/doc/*/copyright files
 func (a *dpkgLicenseAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInput) (*analyzer.AnalysisResult, error) {
-	findings, err := a.parseCopyright(input.Content)
-	if err != nil {
-		return nil, xerrors.Errorf("parse copyright %s: %w", input.FilePath, err)
-	}
+	findings := a.parseCopyright(input.Content)
 
 	// If licenses are not found, fallback to the classifier
 	if len(findings) == 0 && a.licenseFull {
 		// Rewind the reader to the beginning of the stream after saving
-		if _, err = input.Content.Seek(0, io.SeekStart); err != nil {
+		if _, err := input.Content.Seek(0, io.SeekStart); err != nil {
 			return nil, xerrors.Errorf("seek error: %w", err)
 		}
 
@@ -76,7 +73,7 @@ func (a *dpkgLicenseAnalyzer) Analyze(_ context.Context, input analyzer.Analysis
 }
 
 // parseCopyright parses /usr/share/doc/*/copyright files
-func (a *dpkgLicenseAnalyzer) parseCopyright(r dio.ReadSeekerAt) ([]types.LicenseFinding, error) {
+func (a *dpkgLicenseAnalyzer) parseCopyright(r dio.ReadSeekerAt) []types.LicenseFinding {
 	scanner := bufio.NewScanner(r)
 	var licenses []string
 	for scanner.Scan() {
@@ -116,8 +113,7 @@ func (a *dpkgLicenseAnalyzer) parseCopyright(r dio.ReadSeekerAt) ([]types.Licens
 
 	return lo.Map(licenses, func(license string, _ int) types.LicenseFinding {
 		return types.LicenseFinding{Name: license}
-	}), nil
-
+	})
 }
 
 func (a *dpkgLicenseAnalyzer) Init(opt analyzer.AnalyzerOptions) error {
