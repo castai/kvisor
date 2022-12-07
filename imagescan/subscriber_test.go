@@ -173,9 +173,7 @@ func TestSubscriber(t *testing.T) {
 			ScanInterval:       1 * time.Millisecond,
 			ScanTimeout:        time.Minute,
 			MaxConcurrentScans: 5,
-			CPURequest:         "500m",
 			CPULimit:           "2",
-			MemoryRequest:      "100Mi",
 			MemoryLimit:        "2Gi",
 		}
 

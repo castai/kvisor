@@ -22,6 +22,11 @@ import (
 	"github.com/castai/sec-agent/metrics"
 )
 
+const (
+	CollectorCPUDefault    = "100m"
+	CollectorMemoryDefault = "200Mi"
+)
+
 type castaiClient interface {
 	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
 }
@@ -225,8 +230,7 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	nodeName = nodeNames[0]
 	if len(nodeNames) > 1 {
 		// Resolve best node.
-		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		cpuQty := resource.MustParse(s.cfg.CPURequest)
+		memQty, cpuQty := s.getCollectorResources()
 		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 		if err != nil {
 			return err
@@ -252,4 +256,18 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
 	})
+}
+
+func (s *Subscriber) getCollectorResources() (resource.Quantity, resource.Quantity) {
+	memQty, err := resource.ParseQuantity(s.cfg.MemoryRequest)
+	if err != nil {
+		memQty = resource.MustParse(CollectorMemoryDefault)
+	}
+
+	cpuQty, err := resource.ParseQuantity(s.cfg.CPURequest)
+	if err != nil {
+		cpuQty = resource.MustParse(CollectorCPUDefault)
+	}
+
+	return memQty, cpuQty
 }
