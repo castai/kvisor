@@ -19,6 +19,7 @@ import (
 
 var (
 	errNoCandidates = errors.New("no candidates")
+	errNoNodesFound = errors.New("no nodes available")
 )
 
 func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
@@ -251,6 +252,35 @@ func (d *deltaState) updateImage(imageID string, change func(img *image)) {
 	if img != nil {
 		change(img)
 	}
+}
+
+func (d *deltaState) findMaxMemoryNode(nodeNames []string) (string, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	var maxMemNode *node
+	for _, nodeName := range nodeNames {
+		if n, found := d.nodes[nodeName]; found {
+			if maxMemNode == nil {
+				maxMemNode = n
+				continue
+			}
+
+			if n.availableMemory().Cmp(maxMemNode.availableMemory()) > 0 {
+				maxMemNode = n
+			}
+
+			if n.availableMemory().Cmp(maxMemNode.availableMemory()) == 0 && n.availableCPU().Cmp(maxMemNode.availableCPU()) > 0 {
+				maxMemNode = n
+			}
+		}
+	}
+
+	if maxMemNode == nil {
+		return "", errNoNodesFound
+	}
+
+	return maxMemNode.name, nil
 }
 
 func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, requiredCPU *inf.Dec) (string, error) {

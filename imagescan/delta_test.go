@@ -245,5 +245,63 @@ func TestDelta(t *testing.T) {
 		memQty = resource.MustParse("100Mi")
 		_, err = delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.ErrorIs(err, errNoCandidates)
+
+		_, err = delta.findMaxMemoryNode([]string{"node99"})
+		r.ErrorIs(err, errNoNodesFound)
+	})
+
+	t.Run("returns max mem node when no requests set", func(t *testing.T) {
+		r := require.New(t)
+		delta := NewDeltaState(nil)
+
+		delta.upsert(&corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node1",
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+			},
+		})
+		delta.upsert(&corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node2",
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("2"),
+					corev1.ResourceMemory: resource.MustParse("2Gi"),
+				},
+			},
+		})
+		delta.upsert(&corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node3",
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("3"),
+					corev1.ResourceMemory: resource.MustParse("2Gi"),
+				},
+			},
+		})
+
+		name, err := delta.findMaxMemoryNode([]string{"node1", "node2", "node3"})
+		r.NoError(err)
+		r.Equal("node3", name)
 	})
 }

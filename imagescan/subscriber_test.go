@@ -174,7 +174,9 @@ func TestSubscriber(t *testing.T) {
 			ScanTimeout:        time.Minute,
 			MaxConcurrentScans: 5,
 			CPULimit:           "2",
+			CPURequest:         "500m",
 			MemoryLimit:        "2Gi",
+			MemoryRequest:      "100Mi",
 		}
 
 		scanner := &mockImageScanner{}
