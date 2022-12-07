@@ -187,6 +187,9 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 	if cfg.KubeBench.Enabled {
 		log.Info("kubebench enabled")
+		if cfg.KubeBench.Force {
+			scannedNodes = []string{}
+		}
 		podLogReader := agentlog.NewPodLogReader(clientset)
 		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(
 			log,
