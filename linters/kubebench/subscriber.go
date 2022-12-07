@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"reflect"
 	"time"
@@ -172,7 +173,7 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 	}()
 
 	s.log.Debugf("starting kube-bench lint for node=%s", node.Name)
-	jobName := "kube-bench-node-" + node.GetName()
+	jobName := generateName(node.GetName())
 	err := s.deleteJob(ctx, jobName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
@@ -294,6 +295,12 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 	}
 
 	return &customReport, nil
+}
+
+func generateName(nodeName string) string {
+	h := fnv.New32a()
+	h.Write([]byte(nodeName))
+	return fmt.Sprintf("kube-bench-%d", h.Sum32())
 }
 
 func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname string) *batchv1.Job {

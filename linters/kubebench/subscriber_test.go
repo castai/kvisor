@@ -48,7 +48,7 @@ func TestSubscriber(t *testing.T) {
 			nil,
 		)
 
-		jobName := "kube-bench-node-test_node"
+		jobName := generateName("test_node")
 
 		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).MinTimes(1)
 
