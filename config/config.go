@@ -71,6 +71,7 @@ type Linter struct {
 
 type KubeBench struct {
 	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
+	Force        bool          `envconfig:"FORCE" yaml:"force"`
 	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
 }
 
