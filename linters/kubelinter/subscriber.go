@@ -98,7 +98,7 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 	switch o := o.(type) {
 	case *corev1.Pod:
 		// Do not process not static pods.
-		if !isStaticPod(o) {
+		if !isStandalonePod(o) {
 			return
 		}
 	}
@@ -138,9 +138,16 @@ func (s *Subscriber) lintObjects(objects []controller.Object) (rerr error) {
 	return nil
 }
 
-func isStaticPod(pod *corev1.Pod) bool {
+func isStandalonePod(pod *corev1.Pod) bool {
 	if pod.Spec.NodeName == "" {
 		return false
 	}
+
+	// pod created without parent
+	if len(pod.OwnerReferences) == 0 {
+		return true
+	}
+
+	// static pod
 	return strings.HasSuffix(pod.ObjectMeta.Name, pod.Spec.NodeName)
 }
