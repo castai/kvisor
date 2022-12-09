@@ -2,6 +2,8 @@ package securitycontext
 
 import (
 	"fmt"
+	"strings"
+
 	"golang.stackrox.io/kube-linter/pkg/check"
 	"golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
@@ -10,7 +12,7 @@ import (
 	"golang.stackrox.io/kube-linter/pkg/objectkinds"
 	"golang.stackrox.io/kube-linter/pkg/templates"
 	"golang.stackrox.io/kube-linter/pkg/templates/util"
-	"strings"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func Check() *config.Check {
@@ -37,13 +39,24 @@ func init() {
 				if !found {
 					return nil
 				}
-				if podSpec.SecurityContext != nil {
+				if isSecurityContextSet(podSpec.SecurityContext) {
 					return nil
 				}
 				return []diagnostic.Diagnostic{{Message: "Resource does not have security context attached"}}
 			}, nil
 		}),
 	})
+}
+
+func isSecurityContextSet(ctx *corev1.PodSecurityContext) bool {
+	if ctx == nil {
+		return false
+	}
+	return ctx.SELinuxOptions != nil || ctx.WindowsOptions != nil ||
+		ctx.RunAsUser != nil || ctx.RunAsGroup != nil ||
+		ctx.RunAsNonRoot != nil || ctx.SupplementalGroups != nil ||
+		ctx.FSGroup != nil || ctx.Sysctls != nil ||
+		ctx.FSGroupChangePolicy != nil || ctx.SeccompProfile != nil
 }
 
 type Params struct {
