@@ -47,6 +47,7 @@ const (
 	DanglingIngress
 	NetworkPolicyPerNamespace
 	ContainerdSock
+	AdditionalCapabilities
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -91,6 +92,7 @@ var LinterRuleMap = map[string]LinterRule{
 	"dangling-ingress":                 DanglingIngress,
 	"network-policy-per-namespace":     NetworkPolicyPerNamespace,
 	"containerd-sock":                  ContainerdSock,
+	"additional-capabilities":          AdditionalCapabilities,
 }
 
 type LinterCheck struct {

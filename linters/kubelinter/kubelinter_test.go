@@ -57,4 +57,40 @@ func TestLinter(t *testing.T) {
 		r.NoError(err)
 		r.Contains(checks[0].Failed.Rules(), "containerd-sock")
 	})
+
+	t.Run("checks for additional capabilities", func(t *testing.T) {
+		r := require.New(t)
+
+		linter, err := New(lo.Keys(casttypes.LinterRuleMap))
+		r.NoError(err)
+
+		checks, err := linter.Run([]lintcontext.Object{{
+			K8sObject: &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Pod",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test_pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "test",
+							Image: "test-image",
+							SecurityContext: &corev1.SecurityContext{
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{
+										"NET_ADMIN",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}})
+		r.NoError(err)
+		r.Contains(checks[0].Failed.Rules(), "additional-capabilities")
+	})
 }
