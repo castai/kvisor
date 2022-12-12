@@ -65,6 +65,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	casttypes "github.com/castai/sec-agent/castai"
+	"github.com/castai/sec-agent/linters/kubelinter/customchecks/additionalcapabilities"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/automount"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/containerdsock"
 	"github.com/castai/sec-agent/linters/kubelinter/customchecks/networkpolicypernamespace"
@@ -115,6 +116,7 @@ func registerCustomChecks(registry checkregistry.CheckRegistry) error {
 		containerdsock.Check(),
 		securitycontext.Check(),
 		networkpolicypernamespace.Check(),
+		additionalcapabilities.Check(),
 	}
 	for _, check := range checks {
 		if err := registry.Register(check); err != nil {
