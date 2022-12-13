@@ -151,6 +151,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	containerStatuses := pod.Status.ContainerStatuses
 	containerStatuses = append(containerStatuses, pod.Status.InitContainerStatuses...)
 	podID := string(pod.UID)
+	// get the resource id of Deployment, ReplicaSet, StatefulSet, Job, CronJob
 	ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
 
 	for _, cont := range containers {
@@ -177,8 +178,11 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		img.podTolerations = pod.Spec.Tolerations
 
 		if owner, found := img.owners[ownerResourceID]; found {
+			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
 			owner.podIDs[podID] = struct{}{}
 		} else {
+			// resources are changed because we are updating list of resources that reference this image.
+			img.resourcesChanged = true
 			img.owners[ownerResourceID] = &imageOwner{
 				podIDs: map[string]struct{}{
 					podID: {},
@@ -187,8 +191,10 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		}
 
 		if n, found := img.nodes[nodeName]; found {
+			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
 			n.podIDs[podID] = struct{}{}
 		} else {
+			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
 			img.nodes[nodeName] = &imageNode{
 				podIDs: map[string]struct{}{
 					podID: {},
@@ -210,11 +216,13 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 		if owner, found := img.owners[ownerResourceID]; found {
 			delete(owner.podIDs, podID)
 			if len(owner.podIDs) == 0 {
+				// resource did not change because backend should already know about image, there will be no new scan.
 				delete(img.owners, ownerResourceID)
 			}
 		}
 
 		if len(img.owners) == 0 {
+			// image is deleted, so next time it appears there will be scan.
 			delete(d.images, key)
 		}
 	}
