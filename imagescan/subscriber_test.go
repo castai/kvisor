@@ -192,6 +192,7 @@ func TestSubscriber(t *testing.T) {
 		sub.OnAdd(nginxPod2)
 		sub.OnAdd(node1)
 		sub.OnAdd(node2)
+		client.EXPECT().SendImageMetadata(gomock.Any(), gomock.Any()).Times(3)
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 

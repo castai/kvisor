@@ -176,7 +176,6 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 			log.Info("image scan finished")
 			s.delta.updateImage(img.id, func(img *image) {
 				img.scanned = true
-				img.resourcesChanged = false
 			})
 		}(img)
 	}
