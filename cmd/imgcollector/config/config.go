@@ -32,7 +32,7 @@ type Config struct {
 	ImageID          string        `envconfig:"COLLECTOR_IMAGE_ID" required:"true"`
 	ImageName        string        `envconfig:"COLLECTOR_IMAGE_NAME" required:"true"`
 	Timeout          time.Duration `envconfig:"COLLECTOR_TIMEOUT" default:"5m"`
-	Mode             Mode          `envconfig:"COLLECTOR_MODE" default:"daemon"`
+	Mode             Mode          `envconfig:"COLLECTOR_MODE"`
 	Runtime          Runtime       `envconfig:"COLLECTOR_RUNTIME" required:"true"`
 	ResourceIDs      string        `envconfig:"COLLECTOR_RESOURCE_IDS" required:"true"`
 	DockerOptionPath string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
