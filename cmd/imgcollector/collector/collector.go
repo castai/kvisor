@@ -158,26 +158,33 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	switch c.cfg.Mode {
-	case config.ModeContainerdDaemon:
-		return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
-	case config.ModeDockerDaemon:
-		return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
-	case config.ModeContainerdHostFS:
-		return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
-	case config.ModeRemote:
-		opts := image.DockerOption{}
-		if c.cfg.DockerOptionPath != "" {
-			bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
-			if err != nil {
-				return nil, nil, fmt.Errorf("reading docker options file: %w", err)
-			}
-			if err := yaml.Unmarshal(bytes, &opts); err != nil {
-				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
-			}
+	if c.cfg.Runtime == config.RuntimeContainerd {
+		if c.cfg.Mode == config.ModeDaemon {
+			return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
 		}
-		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
-		return img, func() {}, err
+		if c.cfg.Mode == config.ModeHostFS {
+			return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
+		}
+	}
+
+	if c.cfg.Runtime == config.RuntimeDocker {
+		if c.cfg.Mode == config.ModeDaemon {
+			return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
+		}
+		if c.cfg.Mode == config.ModeRemote {
+			opts := image.DockerOption{}
+			if c.cfg.DockerOptionPath != "" {
+				bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
+				if err != nil {
+					return nil, nil, fmt.Errorf("reading docker options file: %w", err)
+				}
+				if err := yaml.Unmarshal(bytes, &opts); err != nil {
+					return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
+				}
+			}
+			img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
+			return img, func() {}, err
+		}
 	}
 
 	return nil, nil, fmt.Errorf("unknown mode %q", c.cfg.Mode)

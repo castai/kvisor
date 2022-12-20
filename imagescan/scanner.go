@@ -89,9 +89,9 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	mode := imgcollectorconfig.Mode(s.cfg.ImageScan.Mode)
 	containerRuntime := params.ContainerRuntime
 
-	if mode == "" || mode == imgcollectorconfig.ModeDockerDaemon || mode == imgcollectorconfig.ModeContainerdDaemon {
-		switch containerRuntime {
-		case "docker":
+	switch containerRuntime {
+	case "docker":
+		if mode == "" || mode == imgcollectorconfig.ModeDaemon {
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "docker-sock",
 				VolumeSource: corev1.VolumeSource{
@@ -106,33 +106,9 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				ReadOnly:  true,
 				MountPath: "/var/run/docker.sock",
 			})
-			mode = imgcollectorconfig.ModeDockerDaemon
-		case "containerd":
-			vols.volumes = append(vols.volumes, corev1.Volume{
-				Name: "containerd-sock",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{
-						Path: "/run/containerd/containerd.sock",
-						Type: lo.ToPtr(corev1.HostPathSocket),
-					},
-				},
-			})
-			vols.mounts = append(vols.mounts, corev1.VolumeMount{
-				Name:      "containerd-sock",
-				ReadOnly:  true,
-				MountPath: "/run/containerd/containerd.sock",
-			})
-			mode = imgcollectorconfig.ModeContainerdDaemon
-		default:
-			return fmt.Errorf("unsupported container runtime: %s", containerRuntime)
 		}
-	}
-
-	if mode == imgcollectorconfig.ModeContainerdHostFS {
-		switch containerRuntime {
-		case "docker":
-			return fmt.Errorf("unsupported container runtime: %s for mode %s", containerRuntime, mode)
-		case "containerd":
+	case "containerd":
+		if mode == "" || mode == imgcollectorconfig.ModeHostFS {
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "containerd-content",
 				VolumeSource: corev1.VolumeSource{
@@ -146,6 +122,22 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				Name:      "containerd-content",
 				ReadOnly:  true,
 				MountPath: imgcollectorconfig.ContainerdContentDir,
+			})
+		}
+		if mode == imgcollectorconfig.ModeDaemon {
+			vols.volumes = append(vols.volumes, corev1.Volume{
+				Name: "containerd-sock",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/run/containerd/containerd.sock",
+						Type: lo.ToPtr(corev1.HostPathSocket),
+					},
+				},
+			})
+			vols.mounts = append(vols.mounts, corev1.VolumeMount{
+				Name:      "containerd-sock",
+				ReadOnly:  true,
+				MountPath: "/run/containerd/containerd.sock",
 			})
 		}
 	}
@@ -166,6 +158,10 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		{
 			Name:  "COLLECTOR_MODE",
 			Value: string(mode),
+		},
+		{
+			Name:  "COLLECTOR_RUNTIME",
+			Value: containerRuntime,
 		},
 		{
 			Name:  "COLLECTOR_DOCKER_OPTION_PATH",

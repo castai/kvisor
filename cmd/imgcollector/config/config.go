@@ -9,10 +9,16 @@ import (
 type Mode string
 
 const (
-	ModeRemote           Mode = "remote"
-	ModeDockerDaemon     Mode = "docker_daemon"
-	ModeContainerdDaemon Mode = "containerd_daemon"
-	ModeContainerdHostFS Mode = "containerd_hostfs"
+	ModeRemote Mode = "remote"
+	ModeDaemon Mode = "daemon"
+	ModeHostFS Mode = "hostfs"
+)
+
+type Runtime string
+
+const (
+	RuntimeDocker     = "docker"
+	RuntimeContainerd = "containerd"
 )
 
 const (
@@ -26,7 +32,8 @@ type Config struct {
 	ImageID          string        `envconfig:"COLLECTOR_IMAGE_ID" required:"true"`
 	ImageName        string        `envconfig:"COLLECTOR_IMAGE_NAME" required:"true"`
 	Timeout          time.Duration `envconfig:"COLLECTOR_TIMEOUT" default:"5m"`
-	Mode             Mode          `envconfig:"COLLECTOR_MODE" default:"docker_daemon"`
+	Mode             Mode          `envconfig:"COLLECTOR_MODE" default:"daemon"`
+	Runtime          Runtime       `envconfig:"COLLECTOR_RUNTIME" required:"true"`
 	ResourceIDs      string        `envconfig:"COLLECTOR_RESOURCE_IDS" required:"true"`
 	DockerOptionPath string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
 	BlobsCacheURL    string        `envconfig:"COLLECTOR_BLOBS_CACHE_URL" default:""`

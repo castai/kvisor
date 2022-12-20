@@ -64,7 +64,7 @@ func main() {
 	}
 
 	var h *hostfs.ContainerdHostFSConfig
-	if cfg.Mode == config.ModeContainerdHostFS {
+	if cfg.Runtime == config.RuntimeContainerd && cfg.Mode == config.ModeHostFS {
 		h = &hostfs.ContainerdHostFSConfig{
 			Platform: v1.Platform{
 				Architecture: runtime.GOARCH,
