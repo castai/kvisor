@@ -46,6 +46,7 @@ func TestScanner(t *testing.T) {
 				MemoryLimit:       "2Gi",
 				ProfileEnabled:    true,
 				PhlareEnabled:     true,
+				Mode:              "daemon",
 			},
 		}, nil)
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -124,7 +125,11 @@ func TestScanner(t *testing.T) {
 									},
 									{
 										Name:  "COLLECTOR_MODE",
-										Value: "containerd_daemon",
+										Value: "daemon",
+									},
+									{
+										Name:  "COLLECTOR_RUNTIME",
+										Value: "containerd",
 									},
 									{
 										Name:  "COLLECTOR_DOCKER_OPTION_PATH",

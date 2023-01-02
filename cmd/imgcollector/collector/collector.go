@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 
 	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
@@ -16,8 +17,6 @@ import (
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
 	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 
@@ -157,15 +156,7 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
-	switch c.cfg.Mode {
-	case config.ModeContainerdDaemon:
-		return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
-	case config.ModeDockerDaemon:
-		return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
-	case config.ModeContainerdHostFS:
-		return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
-	case config.ModeRemote:
+	if c.cfg.Mode == config.ModeRemote {
 		opts := image.DockerOption{}
 		if c.cfg.DockerOptionPath != "" {
 			bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
@@ -178,6 +169,21 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 		}
 		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
 		return img, func() {}, err
+	}
+
+	if c.cfg.Runtime == config.RuntimeContainerd {
+		if c.cfg.Mode == config.ModeDaemon {
+			return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
+		}
+		if c.cfg.Mode == config.ModeHostFS {
+			return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
+		}
+	}
+
+	if c.cfg.Runtime == config.RuntimeDocker {
+		if c.cfg.Mode == config.ModeDaemon {
+			return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
+		}
 	}
 
 	return nil, nil, fmt.Errorf("unknown mode %q", c.cfg.Mode)

@@ -32,7 +32,9 @@ spec:
             - name: COLLECTOR_TIMEOUT
               value: 5m
             - name: COLLECTOR_MODE
-              value: containerd_daemon
+              value: daemon
+            - name: COLLECTOR_RUNTIME
+              value: containerd
             - name: COLLECTOR_DOCKER_OPTION_PATH
               value: /etc/docker/config.json
             - name: COLLECTOR_RESOURCE_IDS

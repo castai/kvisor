@@ -42,7 +42,8 @@ func TestWithRealCache(t *testing.T) {
 		ImageID:   imgID,
 		ImageName: imgName,
 		Timeout:   5 * time.Minute,
-		Mode:      config.ModeContainerdHostFS,
+		Mode:      config.ModeHostFS,
+		Runtime:   config.RuntimeContainerd,
 	}, client, realCacheClient, &hostfs.ContainerdHostFSConfig{
 		Platform: v1.Platform{
 			Architecture: "amd64",
@@ -80,7 +81,8 @@ func TestCollector(t *testing.T) {
 			ImageID:   imgID,
 			ImageName: imgName,
 			Timeout:   5 * time.Minute,
-			Mode:      config.ModeContainerdHostFS,
+			Mode:      config.ModeHostFS,
+			Runtime:   config.RuntimeContainerd,
 		}, client, mockCache, &hostfs.ContainerdHostFSConfig{
 			Platform: v1.Platform{
 				Architecture: "amd64",
@@ -114,7 +116,8 @@ func TestCollector(t *testing.T) {
 			ImageID:   imgID,
 			ImageName: imgName,
 			Timeout:   5 * time.Minute,
-			Mode:      config.ModeContainerdHostFS,
+			Mode:      config.ModeHostFS,
+			Runtime:   config.RuntimeContainerd,
 		}, client, mockCache, &hostfs.ContainerdHostFSConfig{
 			Platform: v1.Platform{
 				Architecture: "amd64",
