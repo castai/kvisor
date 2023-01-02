@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 
 	"github.com/castai/sec-agent/blobscache"
 	"github.com/castai/sec-agent/castai"
@@ -16,8 +17,6 @@ import (
 	"github.com/castai/sec-agent/cmd/imgcollector/config"
 	"github.com/castai/sec-agent/cmd/imgcollector/image"
 	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 
@@ -157,6 +156,20 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	if c.cfg.Mode == config.ModeRemote {
+		opts := image.DockerOption{}
+		if c.cfg.DockerOptionPath != "" {
+			bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
+			if err != nil {
+				return nil, nil, fmt.Errorf("reading docker options file: %w", err)
+			}
+			if err := yaml.Unmarshal(bytes, &opts); err != nil {
+				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
+			}
+		}
+		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
+		return img, func() {}, err
+	}
 
 	if c.cfg.Runtime == config.RuntimeContainerd {
 		if c.cfg.Mode == config.ModeDaemon {
@@ -170,20 +183,6 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	if c.cfg.Runtime == config.RuntimeDocker {
 		if c.cfg.Mode == config.ModeDaemon {
 			return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
-		}
-		if c.cfg.Mode == config.ModeRemote {
-			opts := image.DockerOption{}
-			if c.cfg.DockerOptionPath != "" {
-				bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
-				if err != nil {
-					return nil, nil, fmt.Errorf("reading docker options file: %w", err)
-				}
-				if err := yaml.Unmarshal(bytes, &opts); err != nil {
-					return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
-				}
-			}
-			img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
-			return img, func() {}, err
 		}
 	}
 
