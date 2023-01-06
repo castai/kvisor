@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
-	"github.com/castai/sec-agent/linters/kubelinter/customobjectkinds"
+	"github.com/castai/kvisor/linters/kubelinter/customobjectkinds"
 )
 
 func Check() *config.Check {

@@ -11,12 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/castai/sec-agent/blobscache"
-	"github.com/castai/sec-agent/castai"
-	an "github.com/castai/sec-agent/cmd/imgcollector/analyzer"
-	"github.com/castai/sec-agent/cmd/imgcollector/config"
-	"github.com/castai/sec-agent/cmd/imgcollector/image"
-	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
+	"github.com/castai/kvisor/blobscache"
+	"github.com/castai/kvisor/castai"
+	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
+	"github.com/castai/kvisor/cmd/imgcollector/config"
+	"github.com/castai/kvisor/cmd/imgcollector/image"
+	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 
@@ -56,9 +56,9 @@ import (
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/ubuntu"
 
 	// Import modified pkg analyzers.
-	_ "github.com/castai/sec-agent/cmd/imgcollector/analyzer/pkg/apk"
-	_ "github.com/castai/sec-agent/cmd/imgcollector/analyzer/pkg/dpkg"
-	_ "github.com/castai/sec-agent/cmd/imgcollector/analyzer/pkg/rpm"
+	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/apk"
+	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/dpkg"
+	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
 )
 
 func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {

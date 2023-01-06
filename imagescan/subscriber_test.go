@@ -18,9 +18,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/sec-agent/castai"
-	mock_castai "github.com/castai/sec-agent/castai/mock"
-	"github.com/castai/sec-agent/config"
+	"github.com/castai/kvisor/castai"
+	mock_castai "github.com/castai/kvisor/castai/mock"
+	"github.com/castai/kvisor/config"
 )
 
 func TestSubscriber(t *testing.T) {

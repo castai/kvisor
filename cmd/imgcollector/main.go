@@ -10,13 +10,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/castai/sec-agent/blobscache"
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/cmd/imgcollector/collector"
-	"github.com/castai/sec-agent/cmd/imgcollector/config"
-	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
-	globalconfig "github.com/castai/sec-agent/config"
-	agentlog "github.com/castai/sec-agent/log"
+	"github.com/castai/kvisor/blobscache"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/cmd/imgcollector/collector"
+	"github.com/castai/kvisor/cmd/imgcollector/config"
+	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
+	globalconfig "github.com/castai/kvisor/config"
+	agentlog "github.com/castai/kvisor/log"
 )
 
 // These should be set via `go build` during a release.

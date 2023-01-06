@@ -16,20 +16,20 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/informers"
 
-	"github.com/castai/sec-agent/blobscache"
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/castai/telemetry"
-	"github.com/castai/sec-agent/cloudscan/eks"
-	"github.com/castai/sec-agent/cloudscan/gke"
-	"github.com/castai/sec-agent/config"
-	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/delta"
-	"github.com/castai/sec-agent/imagescan"
-	"github.com/castai/sec-agent/jobsgc"
-	"github.com/castai/sec-agent/linters/kubebench"
-	"github.com/castai/sec-agent/linters/kubelinter"
-	agentlog "github.com/castai/sec-agent/log"
-	"github.com/castai/sec-agent/version"
+	"github.com/castai/kvisor/blobscache"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/castai/telemetry"
+	"github.com/castai/kvisor/cloudscan/eks"
+	"github.com/castai/kvisor/cloudscan/gke"
+	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/delta"
+	"github.com/castai/kvisor/imagescan"
+	"github.com/castai/kvisor/jobsgc"
+	"github.com/castai/kvisor/linters/kubebench"
+	"github.com/castai/kvisor/linters/kubelinter"
+	agentlog "github.com/castai/kvisor/log"
+	"github.com/castai/kvisor/version"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/net"
@@ -75,7 +75,7 @@ func main() {
 		cfg.API.URL, cfg.API.Key,
 		logger,
 		cfg.API.ClusterID,
-		"castai-sec-agent",
+		"castai-kvisor",
 		binVersion,
 	)
 
@@ -97,7 +97,7 @@ func main() {
 		if errors.As(err, &logErr) {
 			log = logger.WithFields(logErr.fields)
 		}
-		log.Fatalf("castai-sec-agent failed: %v", err)
+		log.Fatalf("castai-kvisor failed: %v", err)
 	}
 }
 
@@ -151,7 +151,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}
 	}()
 
-	log.Infof("running castai-sec-agent version %v", binVersion)
+	log.Infof("running castai-kvisor version %v", binVersion)
 
 	snapshotProvider := delta.NewSnapshotProvider()
 

@@ -2,7 +2,7 @@ package collector
 
 import (
 	"context"
-	"github.com/castai/sec-agent/blobscache"
+	"github.com/castai/kvisor/blobscache"
 	"os"
 	"path"
 	"testing"
@@ -12,10 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	mock_blobcache "github.com/castai/sec-agent/blobscache/mock"
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/cmd/imgcollector/config"
-	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
+	mock_blobcache "github.com/castai/kvisor/blobscache/mock"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/cmd/imgcollector/config"
+	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 )
 
 func TestWithRealCache(t *testing.T) {

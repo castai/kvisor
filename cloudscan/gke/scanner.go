@@ -19,9 +19,9 @@ import (
 	serviceusagev1 "cloud.google.com/go/serviceusage/apiv1"
 	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/config"
-	"github.com/castai/sec-agent/metrics"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/metrics"
 )
 
 type clusterClient interface {

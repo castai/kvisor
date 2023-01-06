@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
-	"github.com/castai/sec-agent/cmd/imgcollector/image/hostfs"
+	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 )
 
 func NewFromContainerdHostFS(imageID string, config *hostfs.ContainerdHostFSConfig) (types.Image, func(), error) {

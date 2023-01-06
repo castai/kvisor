@@ -22,7 +22,7 @@ namespace_create(namespace)
 
 local_resource(
     'agent-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-sec-agent ./cmd/agent',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-kvisor ./cmd/agent',
     deps=[
         './'
     ],
@@ -44,7 +44,7 @@ local_resource(
 
 local_resource(
     'imgcollector-docker-build',
-    'docker build -t localhost:5000/sec-agent-imgcollector . -f Dockerfile.imgcollector && docker push localhost:5000/sec-agent-imgcollector',
+    'docker build -t localhost:5000/kvisor-imgcollector . -f Dockerfile.imgcollector && docker push localhost:5000/kvisor-imgcollector',
     deps=[
         './bin/castai-imgcollector'
     ],
@@ -53,20 +53,20 @@ local_resource(
 docker_build_with_restart(
     'agent',
     '.',
-    entrypoint=['/usr/local/bin/castai-sec-agent'],
+    entrypoint=['/usr/local/bin/castai-kvisor'],
     dockerfile='Dockerfile.agent',
     only=[
-        './bin/castai-sec-agent',
+        './bin/castai-kvisor',
     ],
     live_update=[
-        sync('./bin/castai-sec-agent', '/usr/local/bin/castai-sec-agent'),
+        sync('./bin/castai-kvisor', '/usr/local/bin/castai-kvisor'),
     ],
 )
 
-chart_path = '../gh-helm-charts/charts/castai-sec-agent'
+chart_path = '../gh-helm-charts/charts/castai-kvisor'
 k8s_yaml(helm(
     chart_path,
-    name='castai-sec-agent',
+    name='castai-kvisor',
     namespace=namespace,
     set=[
         'castai.clusterID='+cluster_id,
@@ -78,7 +78,7 @@ k8s_yaml(helm(
         'structuredConfig.kubeBench.scanInterval=2s',
         'structuredConfig.imageScan.enabled='+image_scan_enabled,
         'structuredConfig.imageScan.scanInterval=2s',
-        'structuredConfig.imageScan.image.name=localhost:5000/sec-agent-imgcollector:latest',
+        'structuredConfig.imageScan.image.name=localhost:5000/kvisor-imgcollector:latest',
         'structuredConfig.imageScan.image.pullPolicy=Always',
         'agentContainerSecurityContext=null'
     ]

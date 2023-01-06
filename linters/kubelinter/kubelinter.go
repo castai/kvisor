@@ -64,13 +64,13 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
 	"k8s.io/apimachinery/pkg/types"
 
-	casttypes "github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/linters/kubelinter/customchecks/additionalcapabilities"
-	"github.com/castai/sec-agent/linters/kubelinter/customchecks/automount"
-	"github.com/castai/sec-agent/linters/kubelinter/customchecks/containerdsock"
-	"github.com/castai/sec-agent/linters/kubelinter/customchecks/networkpolicypernamespace"
-	"github.com/castai/sec-agent/linters/kubelinter/customchecks/securitycontext"
-	"github.com/castai/sec-agent/linters/kubelinter/customobjectkinds"
+	casttypes "github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/linters/kubelinter/customchecks/additionalcapabilities"
+	"github.com/castai/kvisor/linters/kubelinter/customchecks/automount"
+	"github.com/castai/kvisor/linters/kubelinter/customchecks/containerdsock"
+	"github.com/castai/kvisor/linters/kubelinter/customchecks/networkpolicypernamespace"
+	"github.com/castai/kvisor/linters/kubelinter/customchecks/securitycontext"
+	"github.com/castai/kvisor/linters/kubelinter/customobjectkinds"
 )
 
 func New(checks []string) (*Linter, error) {
