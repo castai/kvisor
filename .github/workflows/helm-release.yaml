@@ -1,0 +1,161 @@
+name: Release a chart
+
+env:
+  CR_CONFIGFILE: "cr.yaml"
+  CT_CONFIGFILE: "${{ github.workspace }}/source/${{ inputs.ct_configfile }}"
+  CR_INDEX_PATH: "${{ github.workspace }}/.cr-index"
+  CR_KEYRING: "${{ github.workspace }}/.cr-gpg/secring.gpg"
+  CR_PACKAGE_PATH: "${{ github.workspace }}/.cr-release-packages"
+  CR_TOOL_PATH: "${{ github.workspace }}/.cr-tool"
+  HELM_TAG_PREFIX: "${{ inputs.helm_tag_prefix }}"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.list-changed.outputs.changed }}
+      chartpath: ${{ steps.list-changed.outputs.chartpath }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          path: source
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.1.0
+
+      - name: List changed charts
+        id: list-changed
+        run: |
+          cd source
+
+          latest_tag=$( if ! git describe --tags --abbrev=0 2> /dev/null ; then git rev-list --max-parents=0 --first-parent HEAD ; fi )
+
+          echo "Running: ct list-changed --config ${CT_CONFIGFILE} --since ${latest_tag} --target-branch ${{ github.ref_name }}"
+          changed=$(ct list-changed --config "${CT_CONFIGFILE}" --since "${latest_tag}" --target-branch "${{ github.ref_name }}")
+          echo "${changed}"
+          num_changed=$(wc -l <<< ${changed})
+          if [[ "${num_changed}" -gt "1" ]] ; then
+            echo "More than one chart changed, exiting"
+            exit 1
+          fi
+          if [[ -n "${changed}" ]]; then
+            name=$(yq ".name" < ${changed}/Chart.yaml)
+            version=$(yq ".version" < ${changed}/Chart.yaml)
+
+            if [ $(git tag -l "${name}-${version}") ]; then
+              echo "Tag ${tagname} already exists, skipping release"
+              echo "::set-output name=changed::false"
+            else
+              echo "Releasing ${changed}"
+              echo "::set-output name=changed::true"
+              echo "::set-output name=chartpath::${changed}"
+            fi
+          else
+            echo "No charts have changed, skipping release"
+            echo "::set-output name=changed::false"
+          fi
+
+  release:
+    needs: [ setup ]
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          path: source
+
+      - name: Configure Git
+        run: |
+          cd source
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Checkout helm-charts
+        # The cr tool only works if the target repository is already checked out
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          repository: castai/helm-charts-tmp
+          path: helm-charts
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git for helm-charts
+        run: |
+          cd helm-charts
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.5.2
+
+      - name: Parse Chart.yaml
+        id: parse-chart
+        run: |
+          cd source
+          changed="${{ needs.setup.outputs.chartpath }}"
+          description=$(yq ".description" < ${changed}/Chart.yaml)
+          name=$(yq ".name" < ${changed}/Chart.yaml)
+          version=$(yq ".version" < ${changed}/Chart.yaml)
+          echo "::set-output name=chartpath::${changed}"
+          echo "::set-output name=desc::${description}"
+          if [[ -n "${HELM_TAG_PREFIX}" ]]; then
+            echo "::set-output name=tagname::${HELM_TAG_PREFIX}-${name}-${version}"
+          else
+            echo "::set-output name=tagname::${name}-${version}"
+          fi
+          echo "::set-output name=packagename::${name}-${version}"
+
+      - name: Install CR tool
+        run: |
+          mkdir "${CR_TOOL_PATH}"
+          mkdir "${CR_PACKAGE_PATH}"
+          mkdir "${CR_INDEX_PATH}"
+          curl -sSLo cr.tar.gz "https://github.com/helm/chart-releaser/releases/download/v1.4.0/chart-releaser_1.4.0_linux_amd64.tar.gz"
+          tar -xzf cr.tar.gz -C "${CR_TOOL_PATH}"
+          rm -f cr.tar.gz
+
+      - name: Create helm package
+        run: |
+          cd source
+          "${CR_TOOL_PATH}/cr" package "${{ steps.parse-chart.outputs.chartpath }}" --config "${CR_CONFIGFILE}" --package-path "${CR_PACKAGE_PATH}"
+          echo "Result of chart package:"
+          ls -l "${CR_PACKAGE_PATH}"
+
+      - name: Create tag and check if exists on origin
+        run: |
+          cd source
+          echo "Making tag ${{ steps.parse-chart.outputs.tagname }}"
+          git tag "${{ steps.parse-chart.outputs.tagname }}"
+
+      - name: Make github release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: |
+            ${{ steps.parse-chart.outputs.desc }}
+
+            Source commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+
+            Tag on source: https://github.com/${{ github.repository }}/releases/tag/${{ steps.parse-chart.outputs.tagname }}
+          files: |
+            ${{ env.CR_PACKAGE_PATH }}/${{ steps.parse-chart.outputs.packagename }}.tgz
+            ${{ env.CR_PACKAGE_PATH }}/${{ steps.parse-chart.outputs.packagename }}.tgz.prov
+          repository: castai/helm-charts-tmp
+          tag_name: ${{ steps.parse-chart.outputs.tagname }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push release tag on origin
+        run: |
+          cd source
+          echo "Pushing tag ${{ steps.parse-chart.outputs.tagname }}"
+          git push origin "${{ steps.parse-chart.outputs.tagname }}"
+
+      - name: Update helm repo index.yaml
+        run: |
+          cd helm-charts
+          "${CR_TOOL_PATH}/cr" index --config "${CR_CONFIGFILE}" --token "${{ secrets.helm_repo_token }}" --index-path "${CR_INDEX_PATH}" --package-path "${CR_PACKAGE_PATH}" --push
