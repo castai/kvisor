@@ -7,7 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/castai/sec-agent/castai"
+	"github.com/castai/kvisor/castai"
 )
 
 const telemetryInterval = time.Minute

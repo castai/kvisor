@@ -22,9 +22,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
 
-	imgcollectorconfig "github.com/castai/sec-agent/cmd/imgcollector/config"
-	"github.com/castai/sec-agent/config"
-	"github.com/castai/sec-agent/log"
+	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
+	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/log"
 )
 
 type imageScanner interface {
@@ -180,7 +180,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "castai-sec-agent",
+						Name: "castai-kvisor",
 					},
 					Key: "API_KEY",
 				},

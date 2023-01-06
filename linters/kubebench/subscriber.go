@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/linters/kubebench/spec"
-	"github.com/castai/sec-agent/log"
-	"github.com/castai/sec-agent/metrics"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/linters/kubebench/spec"
+	"github.com/castai/kvisor/log"
+	"github.com/castai/kvisor/metrics"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/controller"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/controller"
 )
 
 // newDelta initializes the delta struct which is used to collect cluster deltas, debounce them and map to CAST AI

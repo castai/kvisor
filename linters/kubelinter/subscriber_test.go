@@ -11,9 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	casttypes "github.com/castai/sec-agent/castai"
-	mock_castai "github.com/castai/sec-agent/castai/mock"
-	"github.com/castai/sec-agent/controller"
+	casttypes "github.com/castai/kvisor/castai"
+	mock_castai "github.com/castai/kvisor/castai/mock"
+	"github.com/castai/kvisor/controller"
 )
 
 func TestSubscriber(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/sec-agent/castai"
+	"github.com/castai/kvisor/castai"
 )
 
 func TestSubscriber(t *testing.T) {

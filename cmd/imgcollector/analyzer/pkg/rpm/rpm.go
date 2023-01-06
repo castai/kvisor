@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
-	an "github.com/castai/sec-agent/cmd/imgcollector/analyzer"
+	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/log"

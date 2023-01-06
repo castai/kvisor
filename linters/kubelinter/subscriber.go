@@ -16,9 +16,9 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/metrics"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/metrics"
 )
 
 func NewSubscriber(log logrus.FieldLogger, client castai.Client) (controller.ObjectSubscriber, error) {

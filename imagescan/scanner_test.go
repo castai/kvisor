@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/castai/sec-agent/config"
+	"github.com/castai/kvisor/config"
 )
 
 func TestScanner(t *testing.T) {
@@ -148,7 +148,7 @@ func TestScanner(t *testing.T) {
 										ValueFrom: &corev1.EnvVarSource{
 											SecretKeyRef: &corev1.SecretKeySelector{
 												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-sec-agent",
+													Name: "castai-kvisor",
 												},
 												Key: "API_KEY",
 											},

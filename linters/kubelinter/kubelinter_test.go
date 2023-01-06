@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	casttypes "github.com/castai/sec-agent/castai"
+	casttypes "github.com/castai/kvisor/castai"
 )
 
 func TestLinter(t *testing.T) {

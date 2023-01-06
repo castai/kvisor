@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/castai/sec-agent/controller"
+	"github.com/castai/kvisor/controller"
 )
 
 func newDeltaState() *nodeDeltaState {

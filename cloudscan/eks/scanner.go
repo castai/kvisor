@@ -10,8 +10,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/config"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/config"
 )
 
 type Scanner struct {

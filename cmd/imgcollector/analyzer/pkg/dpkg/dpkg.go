@@ -18,7 +18,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/log"
 
-	an "github.com/castai/sec-agent/cmd/imgcollector/analyzer"
+	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
 )
 
 func init() {

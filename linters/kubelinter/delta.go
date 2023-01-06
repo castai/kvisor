@@ -6,7 +6,7 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/sec-agent/controller"
+	"github.com/castai/kvisor/controller"
 )
 
 func newDeltaState() *deltaState {

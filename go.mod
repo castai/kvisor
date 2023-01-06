@@ -1,4 +1,4 @@
-module github.com/castai/sec-agent
+module github.com/castai/kvisor
 
 go 1.18
 

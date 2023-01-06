@@ -2,12 +2,12 @@
 
 set -e
 
-local_charts_path="../gh-helm-charts/charts/castai-sec-agent"
+local_charts_path="../gh-helm-charts/charts/castai-kvisor"
 
 default_api_url="https://api.cast.ai"
 api_url="${API_URL:-$default_api_url}"
 
-default_image_repo="ghcr.io/castai/sec-agent"
+default_image_repo="ghcr.io/castai/kvisor"
 image_repo="${IMAGE_REPO:-$default_image_repo}"
 
 default_image_tag="alpha1"
@@ -23,7 +23,7 @@ if [ "$CLUSTER_ID" == "" ]; then
   exit 1
 fi
 
-helm upgrade --install --create-namespace castai-sec-agent $local_charts_path --devel \
+helm upgrade --install --create-namespace castai-kvisor $local_charts_path --devel \
 	--namespace castai-sec \
 	--set castai.apiURL=${api_url} \
 	--set castai.apiKey=${API_KEY} \

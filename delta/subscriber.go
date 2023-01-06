@@ -18,9 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/castai/sec-agent/castai"
-	"github.com/castai/sec-agent/controller"
-	"github.com/castai/sec-agent/metrics"
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/metrics"
 )
 
 var scheme = runtime.NewScheme()

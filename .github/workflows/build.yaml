@@ -37,7 +37,7 @@ jobs:
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Build agent go binary
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-sec-agent ./cmd/agent
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor ./cmd/agent
         env:
           GOOS: linux
           GOARCH: amd64
@@ -95,7 +95,7 @@ jobs:
           context: .
           file: ./Dockerfile.agent
           push: ${{ github.event_name == 'pull_request' }}
-          tags: ghcr.io/castai/sec-agent/agent:${{ github.sha }}
+          tags: ghcr.io/castai/kvisor/kvisor:${{ github.sha }}
 
       - name: Build and push pr (imgcollector)
         if: ${{ github.event_name == 'pull_request' }}
@@ -104,7 +104,7 @@ jobs:
           context: .
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name == 'pull_request' }}
-          tags: ghcr.io/castai/sec-agent/imgcollector:${{ github.sha }}
+          tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
 
       - name: Build and push main (agent)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
@@ -113,7 +113,7 @@ jobs:
           context: .
           file: ./Dockerfile.agent
           push: ${{ github.event_name != 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/sec-agent:${{ github.sha }}
+          tags: us-docker.pkg.dev/castai-hub/library/kvisor:${{ github.sha }}
 
       - name: Build and push main (imgcollector)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
@@ -122,7 +122,7 @@ jobs:
           context: .
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name != 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:${{ github.sha }}
+          tags: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ github.sha }}
 
       - name: Build and push release (agent)
         if: github.event_name == 'release'
@@ -132,8 +132,8 @@ jobs:
           push: true
           file: ./Dockerfile.agent
           tags: |
-            us-docker.pkg.dev/castai-hub/library/sec-agent:${{ env.RELEASE_TAG }}
-            us-docker.pkg.dev/castai-hub/library/sec-agent:latest
+            us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
+            us-docker.pkg.dev/castai-hub/library/kvisor:latest
 
       - name: Build and push release (imgcollector)
         if: github.event_name == 'release'
@@ -143,19 +143,19 @@ jobs:
           push: true
           file: ./Dockerfile.imgcollector
           tags: |
-            us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:${{ env.RELEASE_TAG }}
-            us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:latest
+            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
+            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:latest
 
       - name: FOSSA scan docker image (agent)
         if: github.event_name == 'release'
         uses: fossas/fossa-action@v1
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
-          container: us-docker.pkg.dev/castai-hub/library/sec-agent:${{ env.RELEASE_TAG }}
+          container: us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
 
       - name: FOSSA scan docker image (imgcollector)
         if: github.event_name == 'release'
         uses: fossas/fossa-action@v1
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
-          container: us-docker.pkg.dev/castai-hub/library/sec-agent-imgcollector:${{ env.RELEASE_TAG }}
+          container: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}

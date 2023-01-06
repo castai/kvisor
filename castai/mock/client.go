@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	castai "github.com/castai/sec-agent/castai"
+	castai "github.com/castai/kvisor/castai"
 	gomock "github.com/golang/mock/gomock"
 )
 

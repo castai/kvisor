@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 
-	mock_castai "github.com/castai/sec-agent/castai/mock"
-	agentlog "github.com/castai/sec-agent/log"
+	mock_castai "github.com/castai/kvisor/castai/mock"
+	agentlog "github.com/castai/kvisor/log"
 )
 
 func TestSubscriber(t *testing.T) {

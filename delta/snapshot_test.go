@@ -10,8 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/castai/sec-agent/castai"
-	mock_castai "github.com/castai/sec-agent/castai/mock"
+	"github.com/castai/kvisor/castai"
+	mock_castai "github.com/castai/kvisor/castai/mock"
 )
 
 func TestSnapshotProvider(t *testing.T) {

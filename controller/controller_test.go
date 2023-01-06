@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/castai/sec-agent/version"
+	"github.com/castai/kvisor/version"
 )
 
 func TestController(t *testing.T) {

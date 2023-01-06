@@ -8,7 +8,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/sirupsen/logrus"
 
-	"github.com/castai/sec-agent/castai"
+	"github.com/castai/kvisor/castai"
 )
 
 const (

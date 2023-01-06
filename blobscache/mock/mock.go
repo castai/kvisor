@@ -3,7 +3,7 @@ package mock
 import (
 	"context"
 
-	"github.com/castai/sec-agent/blobscache"
+	"github.com/castai/kvisor/blobscache"
 )
 
 type MockClient struct{}

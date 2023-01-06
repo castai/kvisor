@@ -29,7 +29,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/semaphore"
 
-	"github.com/castai/sec-agent/blobscache"
+	"github.com/castai/kvisor/blobscache"
 )
 
 const (

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/castai/sec-agent/config"
+	"github.com/castai/kvisor/config"
 )
 
 func TestClient_SendCISReport(t *testing.T) {
@@ -23,7 +23,7 @@ func TestClient_SendCISReport(t *testing.T) {
 		t.Skip("no api key provided")
 	}
 
-	cl := NewClient(apiURL, apiKey, nil, clusterID, "castai-sec-agent", config.SecurityAgentVersion{
+	cl := NewClient(apiURL, apiKey, nil, clusterID, "castai-kvisor", config.SecurityAgentVersion{
 		Version: "69",
 	})
 

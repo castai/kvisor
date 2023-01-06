@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/castai/sec-agent/config"
+	"github.com/castai/kvisor/config"
 )
 
 const (
@@ -194,7 +194,7 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 	req.Header.Set(headerContentType, "application/json")
 	req.Header.Set(headerContentEncoding, "gzip")
 	req.Header.Set(headerAPIKey, c.apiKey)
-	req.Header.Set(headerUserAgent, "castai-sec-agent/"+c.binVersion.Version)
+	req.Header.Set(headerUserAgent, "castai-kvisor/"+c.binVersion.Version)
 
 	var resp *http.Response
 
