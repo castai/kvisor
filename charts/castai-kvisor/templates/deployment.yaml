@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: castai-kvisor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "castai.labels" . | nindent 4 }}
+spec:
+  strategy:
+    {{- .Values.updateStrategy | toYaml | nindent 4 }}
+  {{- if .Values.leaderElectionEnabled }}
+  replicas: {{ .Values.replicas }}
+  {{- else}}
+  replicas: 1
+  {{- end}}
+  selector:
+    matchLabels:
+      {{- include "castai.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "castai.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{.Values.metrics.scrapePort}}"
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+      {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: kvisor
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: API_URL
+              value: {{ .Values.castai.apiURL | quote }}
+            - name: CLUSTER_ID
+              value: {{ .Values.castai.clusterID | quote }}
+          {{- range $k, $v := .Values.additionalEnv }}
+            - name: {{ $k }}
+              value: "{{ $v }}"
+          {{- end }}
+          envFrom:
+            - secretRef:
+                {{- if .Values.apiKeySecretRef }}
+                name: {{ .Values.apiKeySecretRef }}
+                {{- else }}
+                name: castai-kvisor
+                {{- end }}
+                optional: false
+            - configMapRef:
+                name: castai-kvisor
+          volumeMounts:
+            - name: config
+              mountPath: /etc/castai/config
+          {{- with .Values.resources }}
+          resources:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.agentContainerSecurityContext }}
+          securityContext:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: 6060
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /healthz
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /healthz
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: config
+          {{- if .Values.existingSecretForConfig }}
+          secret:
+            secretName: {{ .Values.existingSecretForConfig }}
+          {{- else }}
+          configMap:
+            name: castai-kvisor
+          {{- end }}
+

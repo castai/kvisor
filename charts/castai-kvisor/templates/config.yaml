@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: castai-kvisor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "castai.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- tpl (mergeOverwrite (tpl .Values.config . | fromYaml) .Values.structuredConfig | toYaml) . | nindent 4 }}
+
