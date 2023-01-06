@@ -1,174 +1,173 @@
-#name: Build
-#
-#on:
-#  push:
-#    branches:
-#      - main
-#  release:
-#    types:
-#      - published
-#  pull_request:
-#    branches:
-#      - main
-#
-#jobs:
-#  build:
-#    name: Build
-#    runs-on: ubuntu-20.04
-#    steps:
-#
-#      - name: Checkout
-#        uses: actions/checkout@v2
-#
-#      - name: Setup Go 1.19
-#        uses: actions/setup-go@v2
-#        with:
-#          go-version: 1.19
-#
-#      - name: Cache Go modules
-#        uses: actions/cache@v2
-#        with:
-#          path: ~/go/pkg/mod
-#          key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
-#          restore-keys: ${{ runner.os }}-build-
-#
-#      - name: Get release tag
-#        if: github.event_name == 'release'
-#        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-#
-#      - name: Build agent go binary
-#        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor ./cmd/agent
-#        env:
-#          GOOS: linux
-#          GOARCH: amd64
-#          CGO_ENABLED: 0
-#
-#      - name: Build imgcollector go binary
-#        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector ./cmd/imgcollector
-#        env:
-#          GOOS: linux
-#          GOARCH: amd64
-#          CGO_ENABLED: 0
-#
-#      - name: Run golangci-lint
-#        # You may pin to the exact commit or the version.
-#        # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
-#        if: ${{ github.event_name == 'pull_request' }}
-#        uses: golangci/golangci-lint-action@v3.2.0
-#        with:
-#          args: --timeout=5m
-#          skip-pkg-cache: true
-#          skip-build-cache: true
-#
-#      - name: Test
-#        if: ${{ github.event_name == 'pull_request' }}
-#        run: go test -race ./...
-#
-#      - name: Set up QEMU
-#        if: ${{ github.event_name != 'pull_request' }}
-#        uses: docker/setup-qemu-action@v1
-#
-#      - name: Set up Docker Buildx
-#        if: ${{ github.event_name != 'pull_request' }}
-#        uses: docker/setup-buildx-action@v1
-#
-#      - name: Login to Google Artifact Registry
-#        uses: docker/login-action@v1
-#        if: ${{ github.event_name != 'pull_request' }}
-#        with:
-#          registry: us-docker.pkg.dev
-#          username: _json_key
-#          password: ${{ secrets.ARTIFACT_BUILDER_JSON_KEY }}
-#
-#      - name: Login to GitHub Container Registry
-#        if: ${{ github.event_name == 'pull_request' }}
-#        uses: docker/login-action@v1
-#        with:
-#          registry: ghcr.io
-#          username: ${{ github.actor }}
-#          password: ${{ secrets.GITHUB_TOKEN }}
-#
-#      - name: Build and push pr (agent)
-#        if: ${{ github.event_name == 'pull_request' }}
-#        uses: docker/build-push-action@v2
-#        with:
-#          context: .
-#          file: ./Dockerfile.agent
-#          push: ${{ github.event_name == 'pull_request' }}
-#          tags: ghcr.io/castai/kvisor/kvisor:${{ github.sha }}
-#
-#      - name: Build and push pr (imgcollector)
-#        if: ${{ github.event_name == 'pull_request' }}
-#        uses: docker/build-push-action@v2
-#        with:
-#          context: .
-#          file: ./Dockerfile.imgcollector
-#          push: ${{ github.event_name == 'pull_request' }}
-#          tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
-#
-#      - name: Set up chart-testing
-#        if: ${{ github.event_name == 'pull_request' }}
-#        uses: helm/chart-testing-action@v2.3.1
-#
-#      - name: Create kind cluster
-#        if: ${{ github.event_name == 'pull_request' }}
-#        uses: helm/kind-action@v1.4.0
-#
-#      - name: Run e2e
-#        if: ${{ github.event_name == 'pull_request' }}
-#        run: |
-#          IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
-#
-#      - name: Build and push main (agent)
-#        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
-#        uses: docker/build-push-action@v2
-#        with:
-#          context: .
-#          file: ./Dockerfile.agent
-#          push: ${{ github.event_name != 'pull_request' }}
-#          tags: us-docker.pkg.dev/castai-hub/library/kvisor:${{ github.sha }}
-#
-#      - name: Build and push main (imgcollector)
-#        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
-#        uses: docker/build-push-action@v2
-#        with:
-#          context: .
-#          file: ./Dockerfile.imgcollector
-#          push: ${{ github.event_name != 'pull_request' }}
-#          tags: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ github.sha }}
-#
-#      - name: Build and push release (agent)
-#        if: github.event_name == 'release'
-#        uses: docker/build-push-action@v2
-#        with:
-#          context: .
-#          push: true
-#          file: ./Dockerfile.agent
-#          tags: |
-#            us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
-#            us-docker.pkg.dev/castai-hub/library/kvisor:latest
-#
-#      - name: Build and push release (imgcollector)
-#        if: github.event_name == 'release'
-#        uses: docker/build-push-action@v2
-#        with:
-#          context: .
-#          push: true
-#          file: ./Dockerfile.imgcollector
-#          tags: |
-#            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
-#            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:latest
-#
-#      - name: FOSSA scan docker image (agent)
-#        if: github.event_name == 'release'
-#        uses: fossas/fossa-action@v1
-#        with:
-#          api-key: ${{ secrets.FOSSA_API_KEY }}
-#          container: us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
-#
-#      - name: FOSSA scan docker image (imgcollector)
-#        if: github.event_name == 'release'
-#        uses: fossas/fossa-action@v1
-#        with:
-#          api-key: ${{ secrets.FOSSA_API_KEY }}
-#          container: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go 1.19
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+
+      - name: Cache Go modules
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-build-
+
+      - name: Get release tag
+        if: github.event_name == 'release'
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Build agent go binary
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor ./cmd/agent
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+
+      - name: Build imgcollector go binary
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector ./cmd/imgcollector
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+
+      - name: Run golangci-lint
+        # You may pin to the exact commit or the version.
+        # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: golangci/golangci-lint-action@v3.2.0
+        with:
+          args: --timeout=5m
+          skip-pkg-cache: true
+          skip-build-cache: true
+
+      - name: Test
+        if: ${{ github.event_name == 'pull_request' }}
+        run: go test -race ./...
+
+      - name: Set up QEMU
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Google Artifact Registry
+        uses: docker/login-action@v1
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_BUILDER_JSON_KEY }}
+
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push pr (agent)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile.agent
+          push: ${{ github.event_name == 'pull_request' }}
+          tags: ghcr.io/castai/kvisor/kvisor:${{ github.sha }}
+
+      - name: Build and push pr (imgcollector)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile.imgcollector
+          push: ${{ github.event_name == 'pull_request' }}
+          tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
+
+      - name: Set up chart-testing
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: helm/chart-testing-action@v2.3.1
+
+      - name: Create kind cluster
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: helm/kind-action@v1.4.0
+
+      - name: Run e2e
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
+
+      - name: Build and push main (agent)
+        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile.agent
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: us-docker.pkg.dev/castai-hub/library/kvisor:${{ github.sha }}
+
+      - name: Build and push main (imgcollector)
+        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile.imgcollector
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ github.sha }}
+
+      - name: Build and push release (agent)
+        if: github.event_name == 'release'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          file: ./Dockerfile.agent
+          tags: |
+            us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
+            us-docker.pkg.dev/castai-hub/library/kvisor:latest
+
+      - name: Build and push release (imgcollector)
+        if: github.event_name == 'release'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          file: ./Dockerfile.imgcollector
+          tags: |
+            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
+            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:latest
+
+      - name: FOSSA scan docker image (agent)
+        if: github.event_name == 'release'
+        uses: fossas/fossa-action@v1
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}
+          container: us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
+
+      - name: FOSSA scan docker image (imgcollector)
+        if: github.event_name == 'release'
+        uses: fossas/fossa-action@v1
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}
+          container: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
