@@ -1,38 +1,15 @@
-### Running locally
+# CAST AI Kubernetes Security
 
-To run agent locally you only need to have correct kubernetes contex and KUBECONFIG variable pointing to kubeconfig.
-```
-go run ./cmd/agent
-```
+Real time Kubernetes issues detection and vulnerabilities scanning.
 
-### Running locally on tilt
+## Getting started
 
-Start tilt on local kind cluster with mockapi backend which is located in ./tools/mockapi.
-```
-API_URL=http://mockapi tilt up
-```
+Visit the [docs](https://docs.cast.ai/getting-started/overview/) to connect your cluster.
 
-### Build and run on k8s cluster
+## Helm chart
 
-Build and push docker image to github registry.
-```
-IMAGE_TAG=test1 make push-github-docker
-```
+The helm chart for the CAST AI Kvisor is published in the [castai/helm-charts](https://github.com/castai/helm-charts) repo.
 
-Install agent from helm chart
-```
-IMAGE_TAG=test1 CLUSTER_ID=<my-cluster-id> API_KEY=<my-api-token> API_URL=<my-api-url> ./hack/install_agent.sh
-```
+## Licence
 
-### Custom image and profiling
-
-Test docker images are pushed to ghcr.io/castai/kvisor/kvisor on each pull request.
-
-```yaml
-helm upgrade castai-kvisor castai-helm/castai-kvisor -n castai-agent --reuse-values \ 
---set image.repository=ghcr.io/castai/kvisor/kvisor \
---set image.tag=24c2fe8662f7fc63bb1ad1b0dbd43d611a3d1670 \
---set-string structuredConfig.imageScan.image.name=ghcr.io/castai/kvisor/kvisor-imgcollector:24c2fe8662f7fc63bb1ad1b0dbd43d611a3d1670 \
---set structuredConfig.imageScan.profileEnabled=true \
---set structuredConfig.imageScan.phlareEnabled=true
-```
+[Apache 2.0 License](LICENSE) See [NOTICE.md](NOTICE.md) for complete details, including software and third-party licenses and permissions.
