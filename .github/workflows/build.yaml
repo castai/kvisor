@@ -106,9 +106,13 @@ jobs:
           push: ${{ github.event_name == 'pull_request' }}
           tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
 
-      - name: Create kind cluster
-        uses: helm/kind-action@v1.4.0
+      - name: Set up chart-testing
         if: ${{ github.event_name == 'pull_request' }}
+        uses: helm/chart-testing-action@v2.3.1
+
+      - name: Create kind cluster
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: helm/kind-action@v1.4.0
 
       - name: Run e2e
         if: ${{ github.event_name == 'pull_request' }}
