@@ -3,7 +3,6 @@ name: Helm chart release
 on:
   workflow_run:
     workflows: [ "Release" ]
-    branches: [ main ]
     types:
       - completed
 
