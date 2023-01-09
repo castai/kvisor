@@ -16,7 +16,6 @@ jobs:
     name: Build
     runs-on: ubuntu-20.04
     steps:
-
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -105,6 +104,19 @@ jobs:
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name == 'pull_request' }}
           tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
+
+      - name: Set up chart-testing
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: helm/chart-testing-action@v2.3.1
+
+      - name: Create kind cluster
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: helm/kind-action@v1.4.0
+
+      - name: Run e2e
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
 
       - name: Build and push main (agent)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}

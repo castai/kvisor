@@ -1,0 +1,123 @@
+# Default values for castai-kvisor.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicas: 1
+
+nameOverride: ""
+fullnameOverride: castai-kvisor
+
+# By default namespace is expected to be created by castai-agent.
+createNamespace: false
+
+image:
+  repository: us-docker.pkg.dev/castai-hub/library/kvisor
+  # Tag is set using Chart.yaml appVersion field.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: {}
+
+# Controls `deployment.spec.strategy` field
+updateStrategy:
+  type: Recreate
+
+# CAST AI API configuration.
+castai:
+  # Token to be used for authorizing agent access to the CASTAI API
+  apiKey: ""
+
+  # Name of secret with Token to be used for authorizing agent access to the API
+  # apiKey and apiKeySecretRef are mutually exclusive
+  # The referenced secret must provide the token in .data["API_KEY"]
+  apiKeySecretRef: ""
+
+  # CASTAI public api url.
+  apiURL: "https://api.cast.ai"
+
+  # CASTAI Cluster unique identifier.
+  clusterID: ""
+
+# Agent global configuration in yaml format. All values could be overridden with environment values.
+config: |
+  api:
+    url: {{ .Values.castai.apiURL }}
+    clusterID: {{ .Values.castai.clusterID }}
+  # Settings for configuring k8s client used in castai-kvisor.
+  kubeClient:
+    # Client uses token based rate limiting. By default, client has 150 api request burst limit set.
+    # Buffer is refilled with 25 tokens every second. During sustained load client will be capped at 25 requests / sec.
+    rateLimit:
+      burst: 150
+      qps: 25
+  log:
+    level: "debug"
+  linter:
+    enabled: true
+  kubeBench:
+    enabled: true
+  imageScan:
+    enabled: true
+    scanInterval: "15s"
+    maxConcurrentScans: 3
+    mode: containerd_hostfs
+    image:
+      name: "us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"
+      pullPolicy: IfNotPresent
+
+# Agent global configuration for convenient overrides without changing the whole config yaml file. Final config is merged from both config and structuredConfig.
+structuredConfig: {}
+
+# Mount existing secret as config instead of config map if set`
+existingSecretForConfig: ""
+
+podAnnotations: {}
+podLabels: {}
+
+additionalEnv: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+  limits:
+    memory: 1Gi
+
+# Pod toleration rules.
+# Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+tolerations: {}
+
+# Pod node selector rules.
+# Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+nodeSelector: {}
+
+# Pod affinity rules.
+# Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/os
+              operator: NotIn
+              values:
+                - windows
+
+# Pod security context.
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+securityContext: {}
+
+agentContainerSecurityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1004
+
+serviceAccount:
+  create: true
+  # Annotations to add to the service account.
+  annotations: {}
+  name: "castai-kvisor"
+
+metrics:
+  enabled: true
+  scrapePort: "6060"

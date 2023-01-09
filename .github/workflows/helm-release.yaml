@@ -1,0 +1,129 @@
+name: Release a chart
+
+on:
+  workflow_run:
+    workflows: [ "Build" ]
+    branches: [ main ]
+    types:
+      - completed
+
+env:
+  CR_CONFIGFILE: "${{ github.workspace }}/source/cr.yaml"
+  CT_CONFIGFILE: "${{ github.workspace }}/source/ct.yaml"
+  CR_INDEX_PATH: "${{ github.workspace }}/.cr-index"
+  CR_KEYRING: "${{ github.workspace }}/.cr-gpg/secring.gpg"
+  CR_PACKAGE_PATH: "${{ github.workspace }}/.cr-release-packages"
+  CR_TOOL_PATH: "${{ github.workspace }}/.cr-tool"
+  CHART_PATH: "${{ github.workspace }}/source/charts/castai-kvisor"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.head_commit.message != '[Release] Update Chart.yaml' && github.event_name == 'release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          path: source
+
+      - name: Configure Git
+        run: |
+          cd source
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Checkout helm-charts
+        # The cr tool only works if the target repository is already checked out
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          repository: castai/helm-charts-tmp
+          path: helm-charts
+          token: ${{ secrets.HELM_CHARTS_REPO_TOKEN }}
+
+      - name: Configure Git for helm-charts
+        run: |
+          cd helm-charts
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.5.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install CR tool
+        run: |
+          mkdir "${CR_TOOL_PATH}"
+          mkdir "${CR_PACKAGE_PATH}"
+          mkdir "${CR_INDEX_PATH}"
+          curl -sSLo cr.tar.gz "https://github.com/helm/chart-releaser/releases/download/v1.4.0/chart-releaser_1.4.0_linux_amd64.tar.gz"
+          tar -xzf cr.tar.gz -C "${CR_TOOL_PATH}"
+          rm -f cr.tar.gz
+
+      - name: Get release tag
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Bump chart version
+        run: |
+          cd source
+          python ./.github/workflows/bump_chart.py ${CHART_PATH}/Chart.yaml ${{env.RELEASE_TAG}}
+
+      - name: Parse Chart.yaml
+        id: parse-chart
+        run: |
+          cd source
+          description=$(yq ".description" < ${CHART_PATH}/Chart.yaml)
+          name=$(yq ".name" < ${CHART_PATH}/Chart.yaml)
+          version=$(yq ".version" < ${CHART_PATH}/Chart.yaml)
+          echo "::set-output name=chartpath::${CHART_PATH}"
+          echo "::set-output name=desc::${description}"
+          if [[ -n "${HELM_TAG_PREFIX}" ]]; then
+            echo "::set-output name=tagname::${name}-${version}"
+          else
+            echo "::set-output name=tagname::${name}-${version}"
+          fi
+          echo "::set-output name=packagename::${name}-${version}"
+
+      - name: Create helm package
+        run: |
+          cd source
+          "${CR_TOOL_PATH}/cr" package "${{ steps.parse-chart.outputs.chartpath }}" --config "${CR_CONFIGFILE}" --package-path "${CR_PACKAGE_PATH}"
+          echo "Result of chart package:"
+          ls -l "${CR_PACKAGE_PATH}"
+          git status
+
+      - name: Make github release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: |
+            ${{ steps.parse-chart.outputs.desc }}
+
+            Source commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+          files: |
+            ${{ env.CR_PACKAGE_PATH }}/${{ steps.parse-chart.outputs.packagename }}.tgz
+            ${{ env.CR_PACKAGE_PATH }}/${{ steps.parse-chart.outputs.packagename }}.tgz.prov
+          repository: castai/helm-charts-tmp
+          tag_name: ${{ steps.parse-chart.outputs.tagname }}
+          token: ${{ secrets.HELM_CHARTS_REPO_TOKEN }}
+
+      - name: Update helm repo index.yaml
+        run: |
+          cd helm-charts
+          "${CR_TOOL_PATH}/cr" index --config "${CR_CONFIGFILE}" --token "${{ secrets.HELM_CHARTS_REPO_TOKEN }}" --index-path "${CR_INDEX_PATH}" --package-path "${CR_PACKAGE_PATH}" --push
+
+      - name: Commit Chart.yaml changes
+        run: |
+          cd source
+          git status
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git add .
+          git commit -m "[Release] Update Chart.yaml"
+          git push

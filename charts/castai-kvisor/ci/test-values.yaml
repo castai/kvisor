@@ -1,0 +1,33 @@
+test:
+  apiKey: k
+namespace: default
+clusterVPA:
+  enabled: false
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 1000m
+    memory: 256Mi
+
+podLabels:
+  team: security
+  provider: alibaba
+
+castai:
+  clusterID: "c1"
+  apiKey: "key1"
+  apiURL: "https://api.test"
+
+tolerations:
+  - key: scheduling.cast.ai/spot
+    operator: Exists
+
+structuredConfig:
+  linter:
+    enabled: true
+  kubeBench:
+    enabled: false
+  imageScan:
+    enabled: false
