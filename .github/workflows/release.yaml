@@ -14,8 +14,8 @@ env:
   CHART_PATH: "${{ github.workspace }}/charts/castai-kvisor"
 
 jobs:
-  build:
-    name: Build
+  release_docker:
+    name: Release Docker
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
@@ -89,6 +89,19 @@ jobs:
           api-key: ${{ secrets.FOSSA_API_KEY }}
           container: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
 
+  release_chart:
+    name: Release Helm Chart
+    runs-on: ubuntu-20.04
+    needs: release_docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: '0'
+
+      - name: Get release tag
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
       - name: Checkout helm-charts
         # The cr tool only works if the target repository is already checked out
         uses: actions/checkout@v2
@@ -144,7 +157,7 @@ jobs:
           ls -l "${CR_PACKAGE_PATH}"
           git status
 
-      - name: Make github release
+      - name: Make helm charts github release
         uses: softprops/action-gh-release@v1
         with:
           body: |
@@ -168,6 +181,7 @@ jobs:
           git status
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-          git add .
+          git checkout main
+          git add ${CHART_PATH}/Chart.yaml
           git commit -m "[Release] Update Chart.yaml"
           git push
