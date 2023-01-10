@@ -91,7 +91,10 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 
 	switch containerRuntime {
 	case "docker":
-		if mode == "" || mode == imgcollectorconfig.ModeDaemon {
+		if mode == "" {
+			mode = imgcollectorconfig.ModeDaemon
+		}
+		if mode == imgcollectorconfig.ModeDaemon {
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "docker-sock",
 				VolumeSource: corev1.VolumeSource{
@@ -108,7 +111,10 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			})
 		}
 	case "containerd":
-		if mode == "" || mode == imgcollectorconfig.ModeHostFS {
+		if mode == "" {
+			mode = imgcollectorconfig.ModeHostFS
+		}
+		if mode == imgcollectorconfig.ModeHostFS {
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "containerd-content",
 				VolumeSource: corev1.VolumeSource{
@@ -123,8 +129,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				ReadOnly:  true,
 				MountPath: imgcollectorconfig.ContainerdContentDir,
 			})
-		}
-		if mode == imgcollectorconfig.ModeDaemon {
+		} else if mode == imgcollectorconfig.ModeDaemon {
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "containerd-sock",
 				VolumeSource: corev1.VolumeSource{
