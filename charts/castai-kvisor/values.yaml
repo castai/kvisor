@@ -60,7 +60,6 @@ config: |
     enabled: true
     scanInterval: "15s"
     maxConcurrentScans: 3
-    mode: containerd_hostfs
     image:
       name: "us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"
       pullPolicy: IfNotPresent
