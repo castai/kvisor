@@ -52,10 +52,12 @@ config: |
       qps: 25
   log:
     level: "debug"
+  deltaSyncInterval: "15s"
   linter:
     enabled: true
   kubeBench:
     enabled: true
+    scanInterval: "15s"
   imageScan:
     enabled: true
     scanInterval: "15s"
@@ -63,6 +65,9 @@ config: |
     image:
       name: "us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"
       pullPolicy: IfNotPresent
+  cloudScan:
+    enabled: false
+    scanInterval: "1h"
 
 # Agent global configuration for convenient overrides without changing the whole config yaml file. Final config is merged from both config and structuredConfig.
 structuredConfig: {}

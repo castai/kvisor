@@ -1,33 +1,22 @@
-test:
-  apiKey: k
-namespace: default
-clusterVPA:
-  enabled: false
 resources:
   requests:
-    cpu: 100m
+    cpu: 10m
     memory: 64Mi
   limits:
     cpu: 1000m
     memory: 256Mi
 
-podLabels:
-  team: security
-  provider: alibaba
-
 castai:
-  clusterID: "c1"
+  clusterID: "00000000-0000-0000-0000-000000000001"
   apiKey: "key1"
-  apiURL: "https://api.test"
+  apiURL: "http://mockapi"
 
-tolerations:
-  - key: scheduling.cast.ai/spot
-    operator: Exists
+image:
+  repository: ghcr.io/castai/kvisor/kvisor
 
 structuredConfig:
-  linter:
-    enabled: true
+  deltaSyncInterval: "3s"
   kubeBench:
-    enabled: false
+    scanInterval: "3s"
   imageScan:
-    enabled: false
+    scanInterval: "3s"

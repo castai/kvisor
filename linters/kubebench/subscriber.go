@@ -52,28 +52,30 @@ func NewSubscriber(
 	}
 
 	return &Subscriber{
-		log:             log,
-		client:          client,
-		castaiNamespace: castaiNamespace,
-		delta:           newDeltaState(),
-		provider:        provider,
-		castClient:      castClient,
-		logsProvider:    logsReader,
-		scanInterval:    scanInterval,
-		scannedNodes:    nodeCache,
+		log:                           log,
+		client:                        client,
+		castaiNamespace:               castaiNamespace,
+		delta:                         newDeltaState(),
+		provider:                      provider,
+		castClient:                    castClient,
+		logsProvider:                  logsReader,
+		scanInterval:                  scanInterval,
+		scannedNodes:                  nodeCache,
+		finishedJobDeleteWaitDuration: 60 * time.Second,
 	}
 }
 
 type Subscriber struct {
-	log             logrus.FieldLogger
-	client          kubernetes.Interface
-	castaiNamespace string
-	castClient      castai.Client
-	delta           *nodeDeltaState
-	provider        string
-	logsProvider    log.PodLogProvider
-	scanInterval    time.Duration
-	scannedNodes    *lru.Cache
+	log                           logrus.FieldLogger
+	client                        kubernetes.Interface
+	castaiNamespace               string
+	castClient                    castai.Client
+	delta                         *nodeDeltaState
+	provider                      string
+	logsProvider                  log.PodLogProvider
+	scanInterval                  time.Duration
+	finishedJobDeleteWaitDuration time.Duration
+	scannedNodes                  *lru.Cache
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
@@ -197,10 +199,18 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 
 	s.scannedNodes.Add(string(node.UID), struct{}{})
 
-	err = s.deleteJob(ctx, jobName)
-	if err != nil {
-		s.log.Errorf("failed deleting job %s: %v", jobName, err)
-	}
+	go func() {
+		// Wait some time before deleting job. This is useful for observability and e2e tests.
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(s.finishedJobDeleteWaitDuration):
+		}
+		err = s.deleteJob(ctx, jobName)
+		if err != nil {
+			s.log.Errorf("failed deleting job %s: %v", jobName, err)
+		}
+	}()
 
 	return nil
 }
