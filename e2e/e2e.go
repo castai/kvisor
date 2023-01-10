@@ -25,7 +25,7 @@ import (
 
 var (
 	kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig. If not set in cluster config will be used.")
-	imageTag   = flag.String("image-tag", "f5f4a52e83d40296bd336450b52163deab1b8672", "Kvisor docker image tag")
+	imageTag   = flag.String("image-tag", "", "Kvisor docker image tag")
 	timeout    = flag.Duration("timeout", 2*time.Minute, "Test timeout")
 )
 
@@ -35,7 +35,6 @@ const (
 
 func main() {
 	flag.Parse()
-
 	log := logrus.New()
 	if err := run(log); err != nil {
 		log.Fatal(err)
@@ -45,6 +44,10 @@ func main() {
 func run(log logrus.FieldLogger) error {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
+
+	if *imageTag == "" {
+		return errors.New("image-tag flag is not set")
+	}
 
 	api := &mockAPI{log: log}
 	go api.start()
@@ -66,6 +69,7 @@ func run(log logrus.FieldLogger) error {
 	if err := assertJobsCompleted(ctx, client); err != nil {
 		return err
 	}
+	// TODO: Assert collected api requests.
 	return nil
 }
 
@@ -121,12 +125,15 @@ func assertJobsCompleted(ctx context.Context, client kubernetes.Interface) error
 }
 
 func installChart(ns, imageTag string) ([]byte, error) {
+	podIP := os.Getenv("POD_IP")
+	apiURL := fmt.Sprintf("http://%s:8090", podIP)
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(`helm upgrade --install castai-kvisor ./charts/castai-kvisor \
   -n %s --create-namespace \
   -f ./charts/castai-kvisor/ci/test-values.yaml \
   --set image.repository=ghcr.io/castai/kvisor/kvisor,image.tag=%s \
   --set-string structuredConfig.imageScan.image.name=ghcr.io/castai/kvisor/kvisor-imgcollector:%s \
-  --wait --timeout=1m`, ns, imageTag, imageTag))
+  --set castai.apiURL=%s \
+  --wait --timeout=1m`, ns, imageTag, imageTag, apiURL))
 	return cmd.CombinedOutput()
 }
 
@@ -157,7 +164,7 @@ func (m *mockAPI) start() {
 			return
 		}
 
-		fmt.Printf("received event=%s, cluster_id=%s, body=\n%s\n", event, clusterID, string(rawBody))
+		fmt.Printf("received event=%s, cluster_id=%s, body=\n%d\n", event, clusterID, len(rawBody))
 
 		w.WriteHeader(http.StatusAccepted)
 	})
@@ -173,7 +180,7 @@ func (m *mockAPI) start() {
 			return
 		}
 
-		fmt.Printf("received log, cluster_id=%s, body=%s\n", clusterID, string(body))
+		fmt.Printf("received log, cluster_id=%s, body=%d\n", clusterID, len(body))
 		w.WriteHeader(http.StatusOK)
 	})
 
