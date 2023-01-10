@@ -46,7 +46,7 @@ func TestScanner(t *testing.T) {
 				MemoryLimit:       "2Gi",
 				ProfileEnabled:    true,
 				PhlareEnabled:     true,
-				Mode:              "daemon",
+				Mode:              "",
 			},
 		}, nil)
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -125,7 +125,7 @@ func TestScanner(t *testing.T) {
 									},
 									{
 										Name:  "COLLECTOR_MODE",
-										Value: "daemon",
+										Value: "hostfs",
 									},
 									{
 										Name:  "COLLECTOR_RUNTIME",
@@ -169,9 +169,9 @@ func TestScanner(t *testing.T) {
 								},
 								VolumeMounts: []corev1.VolumeMount{
 									{
-										Name:      "containerd-sock",
+										Name:      "containerd-content",
 										ReadOnly:  true,
-										MountPath: "/run/containerd/containerd.sock",
+										MountPath: "/var/lib/containerd/io.containerd.content.v1.content",
 									},
 								},
 								Resources: corev1.ResourceRequirements{
@@ -188,11 +188,11 @@ func TestScanner(t *testing.T) {
 						},
 						Volumes: []corev1.Volume{
 							{
-								Name: "containerd-sock",
+								Name: "containerd-content",
 								VolumeSource: corev1.VolumeSource{
 									HostPath: &corev1.HostPathVolumeSource{
-										Path: "/run/containerd/containerd.sock",
-										Type: lo.ToPtr(corev1.HostPathSocket),
+										Path: "/var/lib/containerd/io.containerd.content.v1.content",
+										Type: lo.ToPtr(corev1.HostPathDirectory),
 									},
 								},
 							},
