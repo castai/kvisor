@@ -21,10 +21,7 @@ func newDelta(log logrus.FieldLogger, logLevel logrus.Level, provider SnapshotPr
 		logLevel: logLevel,
 		snapshot: provider,
 		cache:    map[string]castai.DeltaItem{},
-		skippers: []skipper{
-			nonStaticOrStandalonePodsSkipper(),
-			cronJobOwnerJobsSkipper(),
-		},
+		skippers: []skipper{},
 	}
 }
 
@@ -37,20 +34,6 @@ const (
 
 // skipper allows to skip adding item to delta cache.
 type skipper func(obj object) bool
-
-// nonStaticPodsSkipper skips non static and not standalone pods.
-func nonStaticOrStandalonePodsSkipper() skipper {
-	return func(obj object) bool {
-		return getObjectKind(obj) == kindPod && !isStaticOrStandalonePod(obj)
-	}
-}
-
-// cronJobOwnerJobsSkipper skips jobs which are created by cron jobs.
-func cronJobOwnerJobsSkipper() skipper {
-	return func(obj object) bool {
-		return getObjectKind(obj) == kindJob && isCronJobOwnedJob(obj)
-	}
-}
 
 // delta is used to collect cluster deltas, debounce them and map to CAST AI requests. It holds a cache of queue items
 // which is referenced any time a new item is added to debounce the items.
@@ -82,9 +65,11 @@ func (d *delta) add(event controller.Event, obj object) {
 		ObjectKind:       gvr.Kind,
 		ObjectAPIVersion: gvr.GroupVersion().String(),
 		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
+		ObjectOwnerUID:   getOwnerUID(obj),
 	}
-	if containers, ok := getContainers(obj); ok {
+	if containers, status, ok := getContainersAndStatus(obj); ok {
 		deltaItem.ObjectContainers = containers
+		deltaItem.ObjectStatus = status
 	}
 
 	d.cache[key] = deltaItem
@@ -120,41 +105,34 @@ func toCASTAIEvent(e controller.Event) castai.EventType {
 	return ""
 }
 
-func isStaticOrStandalonePod(p metav1.Object) bool {
-	ctrl := metav1.GetControllerOf(p)
-	return ctrl == nil || ctrl.Kind == kindNode
-}
-
-func isCronJobOwnedJob(p metav1.Object) bool {
-	ctrl := metav1.GetControllerOf(p)
-	return ctrl != nil && ctrl.Kind == kindCronJob
-}
-
-func getObjectKind(obj object) string {
-	return obj.GetObjectKind().GroupVersionKind().Kind
-}
-
-func getContainers(obj controller.Object) ([]castai.Container, bool) {
+func getContainersAndStatus(obj controller.Object) ([]castai.Container, interface{}, bool) {
 	var containers []corev1.Container
 	appendContainers := func(podSpec corev1.PodSpec) {
 		containers = append(containers, podSpec.Containers...)
 		containers = append(containers, podSpec.InitContainers...)
 	}
+	var st interface{}
 	switch v := obj.(type) {
 	case *batchv1.Job:
+		st = v.Status
 		appendContainers(v.Spec.Template.Spec)
 	case *batchv1.CronJob:
+		st = v.Status
 		appendContainers(v.Spec.JobTemplate.Spec.Template.Spec)
 	case *corev1.Pod:
+		st = v.Status
 		appendContainers(v.Spec)
 	case *appsv1.Deployment:
+		st = v.Status
 		appendContainers(v.Spec.Template.Spec)
 	case *appsv1.StatefulSet:
+		st = v.Status
 		appendContainers(v.Spec.Template.Spec)
 	case *appsv1.DaemonSet:
+		st = v.Status
 		appendContainers(v.Spec.Template.Spec)
 	default:
-		return nil, false
+		return nil, nil, false
 	}
 
 	res := make([]castai.Container, len(containers))
@@ -164,5 +142,12 @@ func getContainers(obj controller.Object) ([]castai.Container, bool) {
 			ImageName: cont.Image,
 		}
 	}
-	return res, true
+	return res, st, true
+}
+
+func getOwnerUID(obj controller.Object) string {
+	if len(obj.GetOwnerReferences()) == 0 {
+		return ""
+	}
+	return string(obj.GetOwnerReferences()[0].UID)
 }

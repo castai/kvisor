@@ -84,6 +84,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&corev1.Service{}),
 		reflect.TypeOf(&corev1.Node{}),
 		reflect.TypeOf(&appsv1.Deployment{}),
+		reflect.TypeOf(&appsv1.ReplicaSet{}),
 		reflect.TypeOf(&appsv1.DaemonSet{}),
 		reflect.TypeOf(&appsv1.StatefulSet{}),
 		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),

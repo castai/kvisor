@@ -25,9 +25,11 @@ type DeltaItem struct {
 	ObjectKind       string    `json:"object_kind,omitempty"`
 	ObjectAPIVersion string    `json:"object_api_version,omitempty"`
 	ObjectCreatedAt  time.Time `json:"object_created_at,omitempty"`
+	ObjectOwnerUID   string    `json:"object_owner_uid,omitempty"`
 
-	// ObjectContainers are set only for objects which could contain containers.
+	// ObjectContainers and ObjectStatus are set only for objects which could contain containers.
 	ObjectContainers []Container `json:"object_containers,omitempty"`
+	ObjectStatus     interface{} `json:"object_status,omitempty"`
 }
 
 type Container struct {
