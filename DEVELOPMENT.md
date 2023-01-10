@@ -29,10 +29,10 @@ IMAGE_TAG=test1 CLUSTER_ID=<my-cluster-id> API_KEY=<my-api-token> API_URL=<my-ap
 Test docker images are pushed to ghcr.io/castai/kvisor/kvisor on each pull request.
 
 ```yaml
-helm upgrade castai-kvisor castai-helm/castai-kvisor -n castai-agent --reuse-values \ 
+helm upgrade castai-kvisor castai-helm/castai-kvisor -n castai-agent --reuse-values \
 --set image.repository=ghcr.io/castai/kvisor/kvisor \
---set image.tag=24c2fe8662f7fc63bb1ad1b0dbd43d611a3d1670 \
---set-string structuredConfig.imageScan.image.name=ghcr.io/castai/kvisor/kvisor-imgcollector:24c2fe8662f7fc63bb1ad1b0dbd43d611a3d1670 \
+--set image.tag=153bacb3b8bdb19831a0b46d6f7762155e5a7612 \
+--set-string structuredConfig.imageScan.image.name=ghcr.io/castai/kvisor/kvisor-imgcollector:153bacb3b8bdb19831a0b46d6f7762155e5a7612 \
 --set structuredConfig.imageScan.profileEnabled=true \
 --set structuredConfig.imageScan.phlareEnabled=true
 ```

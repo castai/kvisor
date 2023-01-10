@@ -48,6 +48,9 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
 	}
 
 	assertDelta := func(t *testing.T, delta *castai.Delta, event castai.EventType, initial bool) {
@@ -68,6 +71,7 @@ func TestSubscriber(t *testing.T) {
 							ImageName: "nginx:1.23",
 						},
 					},
+					ObjectStatus: corev1.PodStatus{Phase: corev1.PodRunning},
 				},
 			},
 		}, delta)
