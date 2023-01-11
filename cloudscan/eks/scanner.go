@@ -100,9 +100,6 @@ func (s *Scanner) scan(ctx context.Context) error {
 			Automated: c.automated,
 			Passed:    c.passed,
 			Context:   contextBytes,
-
-			Manual: !c.automated,
-			Failed: !c.passed,
 		})
 	}
 
