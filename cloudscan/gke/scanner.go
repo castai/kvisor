@@ -84,9 +84,9 @@ func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, imgScanEnabled boo
 type check struct {
 	id          string
 	description string
-	manual      bool
+	automated   bool
 	context     any
-	failed      bool
+	passed      bool
 	validate    func(c *check)
 }
 
@@ -214,10 +214,13 @@ func (s *Scanner) scan(ctx context.Context) (rerr error) {
 			}
 		}
 		report.Checks = append(report.Checks, castai.CloudScanCheck{
-			ID:      c.id,
-			Manual:  c.manual,
-			Failed:  c.failed,
-			Context: contextBytes,
+			ID:        c.id,
+			Automated: c.automated,
+			Passed:    c.passed,
+			Context:   contextBytes,
+
+			Manual: !c.automated,
+			Failed: !c.passed,
 		})
 	}
 

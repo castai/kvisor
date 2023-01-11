@@ -105,8 +105,9 @@ func TestScannerFailAutomatedChecks(t *testing.T) {
 
 	r.NotNil(castaiClient.sentReport)
 
-	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Failed })
-	r.Equal(27, failedCount)
+	r.Len(castaiClient.sentReport.Checks, 38)
+	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return !v.Passed })
+	r.Equal(36, failedCount)
 	check := castaiClient.sentReport.Checks[0]
 	r.Equal(castai.CloudScanCheck{
 		ID:     "4.3.1",
@@ -115,7 +116,7 @@ func TestScannerFailAutomatedChecks(t *testing.T) {
 	}, check)
 
 	failedAutomatedChecks := lo.Map(lo.Filter(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck, _ int) bool {
-		return v.Failed && !v.Manual
+		return !v.Passed && v.Automated
 	}), func(v castai.CloudScanCheck, _ int) string {
 		return v.ID
 	})
@@ -231,7 +232,7 @@ func TestScannerPassAutomatedChecks(t *testing.T) {
 	r.NotNil(castaiClient.sentReport)
 
 	failedAutomatedChecks := lo.Map(lo.Filter(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck, _ int) bool {
-		return v.Failed && !v.Manual
+		return !v.Passed && v.Automated
 	}), func(v castai.CloudScanCheck, _ int) string {
 		return v.ID
 	})

@@ -7,8 +7,12 @@ type CloudScanReport struct {
 }
 
 type CloudScanCheck struct {
-	ID      string          `json:"id"`
-	Manual  bool            `json:"manual,omitempty"`
-	Failed  bool            `json:"failed,omitempty"`
-	Context json.RawMessage `json:"context,omitempty"`
+	ID        string          `json:"id"`
+	Automated bool            `json:"automated,omitempty"`
+	Passed    bool            `json:"passed,omitempty"`
+	Context   json.RawMessage `json:"context,omitempty"`
+
+	// TODO: deprecated, remove
+	Manual bool `json:"manual,omitempty"`
+	Failed bool `json:"failed,omitempty"`
 }
