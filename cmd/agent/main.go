@@ -211,7 +211,6 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
-			castaiClient,
 			imagescan.NewImageScanner(clientset, cfg, deltaState),
 			k8sVersion.MinorInt,
 			deltaState,

@@ -16,20 +16,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/controller"
 	"github.com/castai/kvisor/metrics"
 )
 
-type castaiClient interface {
-	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
-}
-
 func NewSubscriber(
 	log logrus.FieldLogger,
 	cfg config.ImageScan,
-	client castaiClient,
 	imageScanner imageScanner,
 	k8sVersionMinor int,
 	delta *deltaState,
@@ -38,7 +32,6 @@ func NewSubscriber(
 	return &Subscriber{
 		ctx:             ctx,
 		cancel:          cancel,
-		client:          client,
 		imageScanner:    imageScanner,
 		delta:           delta,
 		log:             log,
@@ -50,7 +43,6 @@ func NewSubscriber(
 type Subscriber struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
-	client          castaiClient
 	delta           *deltaState
 	imageScanner    imageScanner
 	log             logrus.FieldLogger
@@ -132,16 +124,6 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 		s.log.Debug("skipping images scan, no pending images")
 	}
 
-	imagesWithChangedResources := lo.Filter(images, func(v *image, _ int) bool {
-		return v.scanned && v.name != "" && v.resourcesChanged
-	})
-	if l := len(imagesWithChangedResources); l > 0 {
-		s.log.Infof("updating %d images resources", l)
-		if err := s.sentImageOwnerChange(ctx, imagesWithChangedResources); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -192,23 +174,6 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func (s *Subscriber) sentImageOwnerChange(ctx context.Context, images []*image) error {
-	for _, img := range images {
-		if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
-			ImageName:   img.name,
-			ImageID:     img.id,
-			ResourceIDs: lo.Keys(img.owners),
-		}); err != nil {
-			return fmt.Errorf("sending image metadata resources update: %w", err)
-		}
-
-		s.delta.updateImage(img.id, func(img *image) {
-			img.resourcesChanged = false
-		})
-	}
-	return nil
 }
 
 func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {

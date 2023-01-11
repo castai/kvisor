@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -18,8 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/kvisor/castai"
-	mock_castai "github.com/castai/kvisor/castai/mock"
 	"github.com/castai/kvisor/config"
 )
 
@@ -49,8 +46,6 @@ func TestSubscriber(t *testing.T) {
 
 	t.Run("schedule and finish scan", func(t *testing.T) {
 		r := require.New(t)
-		ctrl := gomock.NewController(t)
-		client := mock_castai.NewMockClient(ctrl)
 
 		node1 := createNode("n1")
 		node2 := createNode("n2")
@@ -181,7 +176,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		delta := NewDeltaState(nil)
-		sub := NewSubscriber(log, cfg, client, scanner, 21, delta)
+		sub := NewSubscriber(log, cfg, scanner, 21, delta)
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
@@ -192,7 +187,6 @@ func TestSubscriber(t *testing.T) {
 		sub.OnAdd(nginxPod2)
 		sub.OnAdd(node1)
 		sub.OnAdd(node2)
-		client.EXPECT().SendImageMetadata(gomock.Any(), gomock.Any()).Times(3)
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 
@@ -226,8 +220,6 @@ func TestSubscriber(t *testing.T) {
 
 	t.Run("retry failed images", func(t *testing.T) {
 		r := require.New(t)
-		ctrl := gomock.NewController(t)
-		client := mock_castai.NewMockClient(ctrl)
 
 		cfg := config.ImageScan{
 			ScanInterval:       1 * time.Millisecond,
@@ -240,7 +232,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState(nil))
+		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil))
 		delta := sub.(*Subscriber).delta
 		delta.images["img1"] = &image{
 			failures: 3,
@@ -263,50 +255,13 @@ func TestSubscriber(t *testing.T) {
 		r.True(delta.images["img1"].scanned)
 	})
 
-	t.Run("send changed resources ids only", func(t *testing.T) {
-		r := require.New(t)
-		client := &mockCastaiClient{}
-
-		cfg := config.ImageScan{
-			ScanInterval:       1 * time.Millisecond,
-			ScanTimeout:        time.Minute,
-			MaxConcurrentScans: 5,
-			CPURequest:         "500m",
-			CPULimit:           "2",
-			MemoryRequest:      "100Mi",
-			MemoryLimit:        "2Gi",
-		}
-
-		scanner := &mockImageScanner{}
-		scannedImages := []castai.ScannedImage{
-			{
-				ID:          "img1",
-				ResourceIDs: []string{"r1"},
-			},
-		}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState(scannedImages))
-		delta := sub.(*Subscriber).delta
-		delta.images["img1"].resourcesChanged = true
-		delta.images["img1"].name = "img"
-
-		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
-		defer cancel()
-
-		err := sub.Run(ctx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
-		r.Len(scanner.imgs, 0)
-		r.Len(client.sentMeta, 1)
-		r.Equal([]string{"r1"}, client.sentMeta[0].ResourceIDs)
-	})
-
 	t.Run("add and delete delta objects", func(t *testing.T) {
 		r := require.New(t)
-		client := &mockCastaiClient{}
 
 		cfg := config.ImageScan{}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, client, scanner, 21, NewDeltaState(nil))
+		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil))
 		delta := sub.(*Subscriber).delta
 
 		createPod := func() *corev1.Pod {
@@ -362,14 +317,5 @@ func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)
-	return nil
-}
-
-type mockCastaiClient struct {
-	sentMeta []*castai.ImageMetadata
-}
-
-func (m *mockCastaiClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {
-	m.sentMeta = append(m.sentMeta, meta)
 	return nil
 }
