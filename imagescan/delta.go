@@ -181,8 +181,6 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
 			owner.podIDs[podID] = struct{}{}
 		} else {
-			// resources are changed because we are updating list of resources that reference this image.
-			img.resourcesChanged = true
 			img.owners[ownerResourceID] = &imageOwner{
 				podIDs: map[string]struct{}{
 					podID: {},
@@ -391,7 +389,6 @@ type image struct {
 	nodes            map[string]*imageNode
 	podTolerations   []corev1.Toleration
 
-	scanned          bool
-	resourcesChanged bool
-	failures         int
+	scanned  bool
+	failures int
 }
