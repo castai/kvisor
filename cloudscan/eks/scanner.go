@@ -96,10 +96,10 @@ func (s *Scanner) scan(ctx context.Context) error {
 			}
 		}
 		report.Checks = append(report.Checks, castai.CloudScanCheck{
-			ID:      c.id,
-			Manual:  c.manual,
-			Failed:  c.failed,
-			Context: contextBytes,
+			ID:        c.id,
+			Automated: c.automated,
+			Passed:    c.passed,
+			Context:   contextBytes,
 		})
 	}
 

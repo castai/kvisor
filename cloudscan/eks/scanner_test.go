@@ -53,16 +53,12 @@ func TestScanner(t *testing.T) {
 
 	r.NotNil(castaiClient.sentReport)
 
-	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Failed })
-	r.Equal(2, failedCount)
-	manualCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return v.Manual })
+	failedCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return !v.Passed })
+	r.Equal(14, failedCount)
+	manualCount := lo.CountBy(castaiClient.sentReport.Checks, func(v castai.CloudScanCheck) bool { return !v.Automated })
 	r.Equal(12, manualCount)
 	check := castaiClient.sentReport.Checks[0]
-	r.Equal(castai.CloudScanCheck{
-		ID:     "4.3.1",
-		Manual: true,
-		Failed: false,
-	}, check)
+	r.Equal(castai.CloudScanCheck{ID: "4.3.1"}, check)
 }
 
 type mockCastaiClient struct {
