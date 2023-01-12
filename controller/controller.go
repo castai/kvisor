@@ -279,6 +279,9 @@ func addObjectMeta(o Object) {
 	case *appsv1.Deployment:
 		o.Kind = "Deployment"
 		o.APIVersion = appsV1
+	case *appsv1.ReplicaSet:
+		o.Kind = "ReplicaSet"
+		o.APIVersion = appsV1
 	case *appsv1.StatefulSet:
 		o.Kind = "StatefulSet"
 		o.APIVersion = appsV1
