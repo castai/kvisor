@@ -11,9 +11,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/castai/kvisor/castai"
 	"github.com/gorilla/mux"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,12 +53,12 @@ func run(log logrus.FieldLogger) error {
 		return errors.New("image-tag flag is not set")
 	}
 
-	api := &mockAPI{log: log}
+	api := &mockAPI{log: log, receivedEvents: map[string][][]byte{}}
 	go api.start()
 
 	out, err := installChart(ns, *imageTag)
 	if err != nil {
-		return fmt.Errorf("installing chart: %v: %s", err, string(out))
+		return fmt.Errorf("installing chart: %w: %s", err, string(out))
 	}
 	fmt.Printf("installed chart:\n%s\n", out)
 
@@ -66,14 +70,20 @@ func run(log logrus.FieldLogger) error {
 	if err != nil {
 		return err
 	}
-	if err := assertJobsCompleted(ctx, client); err != nil {
+	if err := assertJobsCompleted(ctx, client, "imgscan"); err != nil {
+		return fmt.Errorf("image scan jobs assert: %w", err)
+	}
+	if err := assertJobsCompleted(ctx, client, "kube-bench"); err != nil {
+		return fmt.Errorf("kube bench jobs assert: %w", err)
+	}
+	if err := api.assertChecksReceived(castai.ReportTypeLinter); err != nil {
 		return err
 	}
 	// TODO: Assert collected api requests.
 	return nil
 }
 
-func assertJobsCompleted(ctx context.Context, client kubernetes.Interface) error {
+func assertJobsCompleted(ctx context.Context, client kubernetes.Interface, jobPrefix string) error {
 	errWaitingCompletion := errors.New("jobs not completed yet")
 	assert := func() error {
 		selector := labels.Set{"app.kubernetes.io/managed-by": "castai"}.String()
@@ -84,8 +94,8 @@ func assertJobsCompleted(ctx context.Context, client kubernetes.Interface) error
 			return err
 		}
 
-		var imgScanFinished, kubeBenchFinished bool
-		fmt.Printf("found %d jobs\n", len(jobs.Items))
+		var finished bool
+		fmt.Printf("found %d jobs for prefix %q\n", len(jobs.Items), jobPrefix)
 		for _, job := range jobs.Items {
 			fmt.Printf("name=%s, succeeded=%d, active=%d, failed=%d\n", job.Name, job.Status.Succeeded, job.Status.Active, job.Status.Failed)
 			if job.Status.Failed > 0 {
@@ -95,13 +105,11 @@ func assertJobsCompleted(ctx context.Context, client kubernetes.Interface) error
 				}
 				return fmt.Errorf("job %s failed, logs=%s", job.Name, string(logs))
 			}
-			if strings.HasPrefix(job.Name, "imgscan-") && job.Status.Succeeded > 0 {
-				imgScanFinished = true
-			} else if strings.HasPrefix(job.Name, "kube-bench-") && job.Status.Succeeded > 0 {
-				kubeBenchFinished = true
+			if strings.HasPrefix(job.Name, jobPrefix) && job.Status.Succeeded > 0 {
+				finished = true
 			}
 		}
-		if imgScanFinished && kubeBenchFinished {
+		if finished {
 			return nil
 		}
 
@@ -127,6 +135,7 @@ func assertJobsCompleted(ctx context.Context, client kubernetes.Interface) error
 func installChart(ns, imageTag string) ([]byte, error) {
 	podIP := os.Getenv("POD_IP")
 	apiURL := fmt.Sprintf("http://%s:8090", podIP)
+	//nolint:gosec
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(`helm upgrade --install castai-kvisor ./charts/castai-kvisor \
   -n %s --create-namespace \
   -f ./charts/castai-kvisor/ci/test-values.yaml \
@@ -139,6 +148,10 @@ func installChart(ns, imageTag string) ([]byte, error) {
 
 type mockAPI struct {
 	log logrus.FieldLogger
+
+	mu             sync.Mutex
+	receivedLogs   []string
+	receivedEvents map[string][][]byte
 }
 
 func (m *mockAPI) start() {
@@ -148,7 +161,6 @@ func (m *mockAPI) start() {
 		vars := mux.Vars(r)
 		clusterID := vars["cluster_id"]
 		event := vars["event"]
-
 		gz, err := gzip.NewReader(r.Body)
 		if err != nil {
 			m.log.Errorf("gzip reader: %v", err)
@@ -165,14 +177,15 @@ func (m *mockAPI) start() {
 		}
 
 		fmt.Printf("received event=%s, cluster_id=%s, body=\n%d\n", event, clusterID, len(rawBody))
-
+		m.mu.Lock()
+		m.receivedEvents[event] = append(m.receivedEvents[event], rawBody)
+		m.mu.Unlock()
 		w.WriteHeader(http.StatusAccepted)
 	})
 
 	router.HandleFunc("/v1/security/insights/{cluster_id}/log", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		clusterID := vars["cluster_id"]
-
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			m.log.Errorf("read body: %v", err)
@@ -180,6 +193,9 @@ func (m *mockAPI) start() {
 			return
 		}
 
+		m.mu.Lock()
+		m.receivedLogs = append(m.receivedLogs, string(body))
+		m.mu.Unlock()
 		fmt.Printf("received log, cluster_id=%s, body=%d\n", clusterID, len(body))
 		w.WriteHeader(http.StatusOK)
 	})
@@ -187,6 +203,37 @@ func (m *mockAPI) start() {
 	if err := http.ListenAndServe(":8090", router); err != nil { //nolint:gosec
 		m.log.Fatal(err)
 	}
+}
+
+func (m *mockAPI) assertChecksReceived(reportType string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	payloads, ok := m.receivedEvents[reportType]
+	if !ok {
+		return fmt.Errorf("no received events for %q type", reportType)
+	}
+	payload := payloads[0]
+
+	switch reportType {
+	case castai.ReportTypeLinter:
+		var checks []castai.LinterCheck
+		if err := jsoniter.Unmarshal(payload, &checks); err != nil {
+			return err
+		}
+		if !lo.EveryBy(checks, func(v castai.LinterCheck) bool { return v.ResourceID != "" }) {
+			return errors.New("not all checks contains resource id")
+		}
+		if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Failed.Rules()) > 0 }) {
+			return errors.New("no failed checks found")
+		}
+		if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Passed.Rules()) > 0 }) {
+			return errors.New("no passed checks found")
+		}
+	default:
+		return fmt.Errorf("not asserted report type %q", reportType)
+	}
+	return nil
 }
 
 func getKubeConfig(kubepath string) (*rest.Config, error) {
