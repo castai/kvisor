@@ -199,18 +199,25 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 
 	s.scannedNodes.Add(string(node.UID), struct{}{})
 
-	go func() {
-		// Wait some time before deleting job. This is useful for observability and e2e tests.
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(s.finishedJobDeleteWaitDuration):
-		}
+	if s.finishedJobDeleteWaitDuration != 0 {
+		go func() {
+			// Wait some time before deleting job. This is useful for observability and e2e tests.
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(s.finishedJobDeleteWaitDuration):
+			}
+			err = s.deleteJob(ctx, jobName)
+			if err != nil {
+				s.log.Errorf("failed deleting job %s: %v", jobName, err)
+			}
+		}()
+	} else {
 		err = s.deleteJob(ctx, jobName)
 		if err != nil {
 			s.log.Errorf("failed deleting job %s: %v", jobName, err)
 		}
-	}()
+	}
 
 	return nil
 }
