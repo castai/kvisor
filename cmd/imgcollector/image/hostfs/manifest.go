@@ -54,7 +54,7 @@ func (h HostFSReader) resolveManifest(imageID string) (*v1.Manifest, error) {
 		return nil, fmt.Errorf("manifest not found for platform: %s %s", h.Config.Platform.Architecture, h.Config.Platform.OS)
 	}
 
-	return nil, fmt.Errorf("unrecognised manifest mediatype")
+	return nil, fmt.Errorf("unrecognised manifest mediatype %q", string(header.MediaType))
 }
 
 func (h HostFSReader) readManifest(imageID string) (*v1.Manifest, error) {
