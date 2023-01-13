@@ -24,6 +24,7 @@ function printJobLogs() {
 }
 trap printJobLogs EXIT
 
+kubectl delete ns castai-kvisor-e2e --force || true
 kubectl create ns castai-kvisor-e2e || true
 kubectl apply -f ./e2e/e2e.yaml -n castai-kvisor-e2e
 echo "Waiting for job to finish"
