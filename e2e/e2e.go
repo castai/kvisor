@@ -237,6 +237,15 @@ func (m *mockAPI) assertChecksReceived(reportType string) error {
 			return errors.New("no passed checks found")
 		}
 		return nil
+	case castai.ReportTypeDelta:
+		var res castai.Delta
+		if err := jsoniter.Unmarshal(payload, &res); err != nil {
+			return err
+		}
+		if len(res.Items) == 0 {
+			return errors.New("not delta items")
+		}
+		return nil
 	default:
 		return fmt.Errorf("not asserted report type %q", reportType)
 	}
