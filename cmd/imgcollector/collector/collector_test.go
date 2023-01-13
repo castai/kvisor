@@ -2,11 +2,12 @@ package collector
 
 import (
 	"context"
-	"github.com/castai/kvisor/blobscache"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/castai/kvisor/blobscache"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
@@ -56,9 +57,6 @@ func TestWithRealCache(t *testing.T) {
 	for i := 0; i <= 2; i++ {
 		r.NoError(c.Collect(ctx))
 	}
-
-	_, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2021-03-16 13:16:57.822648569 +0000 UTC")
-	r.NoError(err)
 }
 
 func TestCollector(t *testing.T) {
@@ -92,9 +90,38 @@ func TestCollector(t *testing.T) {
 		})
 
 		r.NoError(c.Collect(ctx))
+	})
 
-		_, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2021-03-16 13:16:57.822648569 +0000 UTC")
-		r.NoError(err)
+	t.Run("find image manifest from config digest", func(t *testing.T) {
+		imgName := "notused"
+		imgID := "public.ecr.aws/docker/library/redis@sha256:9192ed4e495547641a71f90d7738578d4e9d05212e7d55d02cfc7f0e1198a61e"
+
+		r := require.New(t)
+		ctx := context.Background()
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+
+		client := &mockClient{}
+		mockCache := mock_blobcache.MockClient{}
+
+		cwd, _ := os.Getwd()
+		p := path.Join(cwd, "..", "image/hostfs/testdata/redis/io.containerd.content.v1.content")
+
+		c := New(log, config.Config{
+			ImageID:   imgID,
+			ImageName: imgName,
+			Timeout:   5 * time.Minute,
+			Mode:      config.ModeHostFS,
+			Runtime:   config.RuntimeContainerd,
+		}, client, mockCache, &hostfs.ContainerdHostFSConfig{
+			Platform: v1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			},
+			ContentDir: p,
+		})
+
+		r.NoError(c.Collect(ctx))
 	})
 
 	t.Run("collects binaries", func(t *testing.T) {

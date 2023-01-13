@@ -79,8 +79,8 @@ func (b blobImage) Digest() (v1.Hash, error) {
 }
 
 func (b blobImage) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
-	path := path.Join(b.contentDir, blobs, alg, hash.Hex)
-	return tarball.LayerFromFile(path)
+	layerPath := path.Join(b.contentDir, blobs, alg, hash.Hex)
+	return tarball.LayerFromFile(layerPath)
 }
 
 func (b blobImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
@@ -122,9 +122,9 @@ func (h HostFSReader) readConfig(configID string) (*v1.ConfigFile, []byte, error
 	if len(p) < 2 {
 		return nil, nil, fmt.Errorf("invalid configID: %s", configID)
 	}
-	path := path.Join(h.Config.ContentDir, blobs, p[0], p[1])
+	configPath := path.Join(h.Config.ContentDir, blobs, p[0], p[1])
 
-	configBytes, err := os.ReadFile(path)
+	configBytes, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, nil, err
 	}
