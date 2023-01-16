@@ -59,7 +59,7 @@ while true; do
   sleep $sleep_seconds
   echo "Job logs:"
   kubectl logs -l job-name=e2e --since=5s
-  ((i++))
+  i=$((i+1))
 done
 
 if [[ $job_result -eq 1 ]]; then
