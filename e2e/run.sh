@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 KIND_CONTEXT="${KIND_CONTEXT:-kind}"
 
