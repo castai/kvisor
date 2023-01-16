@@ -42,7 +42,9 @@ func main() {
 	flag.Parse()
 	log := logrus.New()
 	if err := run(log); err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		time.Sleep(5 * time.Second)
+		os.Exit(-1)
 	}
 }
 

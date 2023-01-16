@@ -16,6 +16,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get merge request latest commit
+        id: parse-commit
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          msg=$(git show -s --format=%s)
+          echo "::set-output name=message::${msg}"
 
       - name: Setup Go 1.19
         uses: actions/setup-go@v2
@@ -46,7 +55,7 @@ jobs:
       - name: Run golangci-lint
         # You may pin to the exact commit or the version.
         # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
-        if: ${{ github.event_name == 'pull_request' && !contains(github.event.head_commit.message, '#skip-lint') }}
+        if: ${{ github.event_name == 'pull_request' && !contains(steps.parse-commit.message, '#skip-lint') }}
         uses: golangci/golangci-lint-action@v3.2.0
         with:
           args: --timeout=5m
@@ -54,7 +63,7 @@ jobs:
           skip-build-cache: true
 
       - name: Test
-        if: ${{ github.event_name == 'pull_request' && !contains(github.event.head_commit.message, '#skip-test') }}
+        if: ${{ github.event_name == 'pull_request' && !contains(steps.parse-commit.message, '#skip-test') }}
         run: go test -race ./...
 
       - name: Login to Google Artifact Registry
@@ -111,7 +120,7 @@ jobs:
   e2e:
     name: E2E
     runs-on: ubuntu-20.04
-    if: ${{ github.event_name == 'pull_request' && !contains(github.event.head_commit.message, '#skip-e2e') }}
+    if: ${{ github.event_name == 'pull_request' }}
     needs: build
     steps:
       - name: Checkout

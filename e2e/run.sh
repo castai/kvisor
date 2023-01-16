@@ -20,12 +20,12 @@ kind load docker-image kvisor-e2e:local --name $KIND_CONTEXT
 
 # Deploy e2e resources.
 function printJobLogs() {
-  echo "Jobs:":
+  echo "Jobs:"
   kubectl get jobs -owide
-  echo "Pods:":
+  echo "Pods:"
   kubectl get pods -owide
   echo "E2E Job logs:"
-  kubectl logs -l job-name=e2e
+  kubectl logs -l job-name=e2e --tail=-1
 }
 trap printJobLogs EXIT
 
