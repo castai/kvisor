@@ -15,6 +15,7 @@ GOOS=linux GOARCH=amd64 go build -o bin/kvisor-e2e ./e2e
 docker build . -t kvisor-e2e:local --build-arg image_tag=$IMAGE_TAG -f Dockerfile.e2e
 
 # Load local image into kind.
+echo "Loading docker image to kind"
 kind load docker-image kvisor-e2e:local --name $KIND_CONTEXT
 
 # Deploy e2e resources.

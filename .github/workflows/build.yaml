@@ -140,4 +140,4 @@ jobs:
       - name: Run e2e
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
+          KIND_CONTEXT=chart-testing IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
