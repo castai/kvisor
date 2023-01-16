@@ -47,6 +47,7 @@ func TestSubscriber(t *testing.T) {
 			logProvider,
 			nil,
 		)
+		subscriber.(*Subscriber).finishedJobDeleteWaitDuration = 0
 
 		jobName := generateName("test_node")
 

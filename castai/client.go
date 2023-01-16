@@ -27,6 +27,12 @@ const (
 	headerContentType     = "Content-Type"
 	headerContentEncoding = "Content-Encoding"
 	totalSendDeltaTimeout = 2 * time.Minute
+
+	ReportTypeDelta     = "delta"
+	ReportTypeCis       = "cis-report"
+	ReportTypeLinter    = "linter-checks"
+	ReportTypeImageMeta = "image-metadata"
+	ReportTypeCloudScan = "cloud-scan"
 )
 
 type Client interface {
@@ -137,23 +143,23 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 }
 
 func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {
-	return c.sendReport(ctx, report, "delta")
+	return c.sendReport(ctx, report, ReportTypeDelta)
 }
 
 func (c *client) SendCISReport(ctx context.Context, report *CustomReport) error {
-	return c.sendReport(ctx, report, "cis-report")
+	return c.sendReport(ctx, report, ReportTypeCis)
 }
 
 func (c *client) SendLinterChecks(ctx context.Context, checks []LinterCheck) error {
-	return c.sendReport(ctx, checks, "linter-checks")
+	return c.sendReport(ctx, checks, ReportTypeLinter)
 }
 
 func (c *client) SendImageMetadata(ctx context.Context, meta *ImageMetadata) error {
-	return c.sendReport(ctx, meta, "image-metadata")
+	return c.sendReport(ctx, meta, ReportTypeImageMeta)
 }
 
 func (c *client) SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error {
-	return c.sendReport(ctx, report, "cloud-scan")
+	return c.sendReport(ctx, report, ReportTypeCloudScan)
 }
 
 func (c *client) sendReport(ctx context.Context, report any, reportType string) error {
