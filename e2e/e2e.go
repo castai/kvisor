@@ -162,13 +162,13 @@ func installChart(ns, imageTag string) ([]byte, error) {
 	fmt.Printf("installing kvisor chart with image tag %q", imageTag)
 	podIP := os.Getenv("POD_IP")
 	apiURL := fmt.Sprintf("http://%s:8090", podIP)
-	//nolint:gosec
 	collectorImage := fmt.Sprintf("ghcr.io/castai/kvisor/kvisor-imgcollector:%s", imageTag)
 	agentRepo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
 		collectorImage = "kvisor-imgcollector:local"
 		agentRepo = "kvisor"
 	}
+	//nolint:gosec
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(`helm upgrade --install castai-kvisor ./charts/castai-kvisor \
   -n %s --create-namespace \
   -f ./charts/castai-kvisor/ci/test-values.yaml \
