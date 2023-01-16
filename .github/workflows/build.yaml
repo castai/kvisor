@@ -24,7 +24,10 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           msg=$(git show -s --format=%s)
-          echo "::set-output name=message::${msg}"
+          echo "head_commit_message=${msg}" >> $GITHUB_OUTPUT
+          echo "Latest commit: ${msg}"
+          echo "Env commit ${{env.head_commit_message}}"
+          echo "Contains msg ${{ contains(env.head_commit_message, '#skip-lint') }}"
 
       - name: Setup Go 1.19
         uses: actions/setup-go@v2
@@ -55,7 +58,7 @@ jobs:
       - name: Run golangci-lint
         # You may pin to the exact commit or the version.
         # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
-        if: ${{ github.event_name == 'pull_request' && !contains(steps.parse-commit.message, '#skip-lint') }}
+        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
         uses: golangci/golangci-lint-action@v3.2.0
         with:
           args: --timeout=5m
@@ -63,7 +66,7 @@ jobs:
           skip-build-cache: true
 
       - name: Test
-        if: ${{ github.event_name == 'pull_request' && !contains(steps.parse-commit.message, '#skip-test') }}
+        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
         run: go test -race ./...
 
       - name: Login to Google Artifact Registry
