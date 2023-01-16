@@ -54,7 +54,7 @@ jobs:
           skip-build-cache: true
 
       - name: Test
-        if: ${{ github.event_name == 'pull_request' !contains(github.event.head_commit.message, '#skip-test') }}
+        if: ${{ github.event_name == 'pull_request' && !contains(github.event.head_commit.message, '#skip-test') }}
         run: go test -race ./...
 
       - name: Login to Google Artifact Registry
