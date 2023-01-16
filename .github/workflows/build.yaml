@@ -24,7 +24,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           msg=$(git show -s --format=%s)
-          echo "head_commit_message=${msg}" >> $GITHUB_OUTPUT
+          echo "head_commit_message=${msg}" >> $GITHUB_ENV
           echo "Latest commit: ${msg}"
           echo "Env commit ${{env.head_commit_message}}"
           echo "Contains msg ${{ contains(env.head_commit_message, '#skip-lint') }}"
