@@ -12,6 +12,14 @@ Start tilt on local kind cluster with mockapi backend which is located in ./tool
 API_URL=http://mockapi tilt up
 ```
 
+### Run E2E tests locally
+
+You can run tests on your local kind cluster.
+
+```
+KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh
+```
+
 ### Build and run on k8s cluster
 
 Build and push docker image to github registry.

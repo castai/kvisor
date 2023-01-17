@@ -10,9 +10,6 @@ castai:
   clusterID: "00000000-0000-0000-0000-000000000001"
   apiKey: "key1"
 
-image:
-  repository: ghcr.io/castai/kvisor/kvisor
-
 structuredConfig:
   deltaSyncInterval: "3s"
   kubeBench:
