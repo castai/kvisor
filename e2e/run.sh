@@ -3,6 +3,7 @@
 set -ex
 
 KIND_CONTEXT="${KIND_CONTEXT:-kind}"
+GOARCH="${GOARCH:-amd64}"
 
 if [ "$IMAGE_TAG" == "" ]
 then
@@ -11,7 +12,7 @@ then
 fi
 
 # Build e2e docker image.
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/kvisor-e2e ./e2e
+GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/kvisor-e2e ./e2e
 docker build . -t kvisor-e2e:local --build-arg image_tag=$IMAGE_TAG -f Dockerfile.e2e
 
 # Load local image into kind.
@@ -19,11 +20,11 @@ kind load docker-image kvisor-e2e:local --name $KIND_CONTEXT
 
 if [ "$IMAGE_TAG" == "local" ]
 then
-  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/castai-kvisor ./cmd/agent
+  GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/castai-kvisor ./cmd/agent
   docker build . -t kvisor:local -f Dockerfile.agent
   kind load docker-image kvisor:local --name $KIND_CONTEXT
 
-  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/castai-imgcollector ./cmd/imgcollector
+  GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/castai-imgcollector ./cmd/imgcollector
   docker build . -t kvisor-imgcollector:local -f Dockerfile.imgcollector
   kind load docker-image kvisor-imgcollector:local --name $KIND_CONTEXT
 fi
