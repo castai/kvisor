@@ -204,7 +204,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 }
 
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
-	for key, img := range d.images {
+	for _, img := range d.images {
 		podID := string(pod.UID)
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
@@ -217,11 +217,6 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 				// resource did not change because backend should already know about image, there will be no new scan.
 				delete(img.owners, ownerResourceID)
 			}
-		}
-
-		if len(img.owners) == 0 {
-			// image is deleted, so next time it appears there will be scan.
-			delete(d.images, key)
 		}
 	}
 }

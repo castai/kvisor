@@ -304,7 +304,7 @@ func TestSubscriber(t *testing.T) {
 		r.Len(delta.images, 1)
 
 		sub.OnDelete(pod2)
-		r.Len(delta.images, 0)
+		r.Len(delta.images, 1)
 	})
 }
 

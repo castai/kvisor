@@ -74,7 +74,7 @@ func TestDelta(t *testing.T) {
 
 		// Delete one more pod for the same image. Image should be removed.
 		delta.delete(pod3)
-		r.Len(delta.images, 1)
+		r.Len(delta.images, 2)
 		r.Len(delta.images["img2"].nodes, 1)
 	})
 
