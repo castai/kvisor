@@ -150,4 +150,8 @@ jobs:
       - name: Run e2e
         shell: bash
         run: |
+          curl -LO https://github.com/kvaps/kubectl-node-shell/raw/master/kubectl-node_shell
+          chmod +x ./kubectl-node_shell
+          mv ./kubectl-node_shell /usr/local/bin/kubectl-node_shell
+          kubectl node-shell kvisor-e2e-control-plane -- cat /etc/containerd/config.toml
           KIND_CONTEXT=kvisor-e2e IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
