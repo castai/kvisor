@@ -143,8 +143,11 @@ jobs:
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.4.0
+        with:
+          config: ./e2e/kind-config.yaml
+          cluster_name: kvisor-e2e
 
       - name: Run e2e
         shell: bash
         run: |
-          KIND_CONTEXT=chart-testing IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
+          KIND_CONTEXT=kvisor-e2e IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
