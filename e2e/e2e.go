@@ -81,9 +81,6 @@ func run(log logrus.FieldLogger) error {
 		}
 	}
 
-	// Sleep some time for api requests to finish.
-	time.Sleep(5 * time.Second)
-
 	// Assert api requests.
 	reportTypes := []string{
 		castai.ReportTypeDelta,
@@ -92,7 +89,7 @@ func run(log logrus.FieldLogger) error {
 		castai.ReportTypeImageMeta,
 	}
 	for _, reportType := range reportTypes {
-		if err := api.assertChecksReceived(reportType); err != nil {
+		if err := api.assertChecksReceived(ctx, reportType); err != nil {
 			return fmt.Errorf("asserting report type %q: %w", reportType, err)
 		}
 	}
@@ -264,73 +261,88 @@ func (m *mockAPI) start() {
 	}
 }
 
-func (m *mockAPI) assertChecksReceived(reportType string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (m *mockAPI) assertChecksReceived(ctx context.Context, reportType string) error {
+	assert := func() error {
+		m.mu.Lock()
+		defer m.mu.Unlock()
 
-	payloads, ok := m.receivedEvents[reportType]
-	if !ok {
-		return fmt.Errorf("no received events for %q type", reportType)
+		payloads, ok := m.receivedEvents[reportType]
+		if !ok {
+			return fmt.Errorf("no received events for %q type", reportType)
+		}
+		payload := payloads[0]
+
+		switch reportType {
+		case castai.ReportTypeLinter:
+			var checks []castai.LinterCheck
+			if err := jsoniter.Unmarshal(payload, &checks); err != nil {
+				return err
+			}
+			if !lo.EveryBy(checks, func(v castai.LinterCheck) bool { return v.ResourceID != "" }) {
+				return errors.New("not all checks contains resource id")
+			}
+			if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Failed.Rules()) > 0 }) {
+				return errors.New("no failed checks found")
+			}
+			if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Passed.Rules()) > 0 }) {
+				return errors.New("no passed checks found")
+			}
+			return nil
+		case castai.ReportTypeDelta:
+			var res castai.Delta
+			if err := jsoniter.Unmarshal(payload, &res); err != nil {
+				return err
+			}
+			if len(res.Items) == 0 {
+				return errors.New("not delta items")
+			}
+			return nil
+		case castai.ReportTypeCis:
+			var res castai.CustomReport
+			if err := jsoniter.Unmarshal(payload, &res); err != nil {
+				return err
+			}
+			if len(res.Controls) == 0 {
+				return errors.New("not kube-bench controls")
+			}
+			return nil
+		case castai.ReportTypeImageMeta:
+			var res castai.ImageMetadata
+			if err := jsoniter.Unmarshal(payload, &res); err != nil {
+				return err
+			}
+			if res.ImageID == "" {
+				return errors.New("missing image id")
+			}
+			if len(res.ResourceIDs) == 0 {
+				return errors.New("missing resource ids")
+			}
+			if len(res.BlobsInfo) == 0 {
+				return errors.New("missing blobs info")
+			}
+			if res.OsInfo == nil {
+				return errors.New("missing os config")
+			}
+			if res.ConfigFile == nil {
+				return errors.New("missing config file")
+			}
+			return nil
+		default:
+			return fmt.Errorf("not asserted report type %q", reportType)
+		}
 	}
-	payload := payloads[0]
 
-	switch reportType {
-	case castai.ReportTypeLinter:
-		var checks []castai.LinterCheck
-		if err := jsoniter.Unmarshal(payload, &checks); err != nil {
-			return err
+	var assertErr error
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for assert: %v", assertErr)
+		case <-time.After(1 * time.Second):
+			assertErr = assert()
+			if assertErr == nil {
+				return nil
+			}
 		}
-		if !lo.EveryBy(checks, func(v castai.LinterCheck) bool { return v.ResourceID != "" }) {
-			return errors.New("not all checks contains resource id")
-		}
-		if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Failed.Rules()) > 0 }) {
-			return errors.New("no failed checks found")
-		}
-		if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Passed.Rules()) > 0 }) {
-			return errors.New("no passed checks found")
-		}
-		return nil
-	case castai.ReportTypeDelta:
-		var res castai.Delta
-		if err := jsoniter.Unmarshal(payload, &res); err != nil {
-			return err
-		}
-		if len(res.Items) == 0 {
-			return errors.New("not delta items")
-		}
-		return nil
-	case castai.ReportTypeCis:
-		var res castai.CustomReport
-		if err := jsoniter.Unmarshal(payload, &res); err != nil {
-			return err
-		}
-		if len(res.Controls) == 0 {
-			return errors.New("not kube-bench controls")
-		}
-		return nil
-	case castai.ReportTypeImageMeta:
-		var res castai.ImageMetadata
-		if err := jsoniter.Unmarshal(payload, &res); err != nil {
-			return err
-		}
-		if res.ImageID == "" {
-			return errors.New("missing image id")
-		}
-		if len(res.ResourceIDs) == 0 {
-			return errors.New("missing resource ids")
-		}
-		if len(res.BlobsInfo) == 0 {
-			return errors.New("missing blobs info")
-		}
-		if res.OsInfo == nil {
-			return errors.New("missing os config")
-		}
-		if res.ConfigFile == nil {
-			return errors.New("missing config file")
-		}
-		return nil
-	default:
-		return fmt.Errorf("not asserted report type %q", reportType)
 	}
 }
 
