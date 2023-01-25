@@ -81,6 +81,9 @@ func run(log logrus.FieldLogger) error {
 		}
 	}
 
+	// Sleep some time for api requests to finish.
+	time.Sleep(5 * time.Second)
+
 	// Assert api requests.
 	reportTypes := []string{
 		castai.ReportTypeDelta,
