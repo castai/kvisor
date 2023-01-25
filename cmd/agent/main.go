@@ -166,6 +166,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		),
 	}
 
+	var telemetryObservers []telemetry.Observer
 	var scannedNodes []string
 	var scannedImages []castai.ScannedImage
 	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)
@@ -208,6 +209,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			scannedImages = []castai.ScannedImage{}
 		}
 		deltaState := imagescan.NewDeltaState(scannedImages)
+		telemetryObservers = append(telemetryObservers, deltaState.Observe)
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
@@ -254,7 +256,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
 	featureObserver, featuresCtx := telemetry.ObserveDisabledFeatures(ctx, cfg, log)
 
-	go telemetryManager.Observe(resyncObserver, featureObserver)
+	go telemetryManager.Observe(append(telemetryObservers, resyncObserver, featureObserver)...)
 
 	// Does the work. Blocks.
 	return ctrl.Run(featuresCtx)
