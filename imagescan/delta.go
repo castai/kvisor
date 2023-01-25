@@ -37,6 +37,7 @@ func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
 			scanned: true,
 		}
 	}
+
 	return &deltaState{
 		images: images,
 		rs:     make(map[string]*appsv1.ReplicaSet),
