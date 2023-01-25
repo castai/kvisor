@@ -150,4 +150,5 @@ jobs:
       - name: Run e2e
         shell: bash
         run: |
+          cat /etc/containerd/config.toml
           KIND_CONTEXT=kvisor-e2e IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
