@@ -21,7 +21,7 @@ var (
 	errNoCandidates = errors.New("no candidates")
 )
 
-func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
+func buildImageMap(scannedImages []castai.ScannedImage) map[string]*image {
 	images := map[string]*image{}
 	for _, img := range scannedImages {
 		owners := make(map[string]*imageOwner, len(img.ResourceIDs))
@@ -37,8 +37,13 @@ func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
 			scanned: true,
 		}
 	}
+
+	return images
+}
+
+func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
 	return &deltaState{
-		images: images,
+		images: buildImageMap(scannedImages),
 		rs:     make(map[string]*appsv1.ReplicaSet),
 		jobs:   make(map[string]*batchv1.Job),
 		nodes:  map[string]*node{},
@@ -51,6 +56,18 @@ type deltaState struct {
 	rs     map[string]*appsv1.ReplicaSet
 	jobs   map[string]*batchv1.Job
 	nodes  map[string]*node
+}
+
+func (d *deltaState) Observe(response *castai.TelemetryResponse) {
+	if response.FullResync && len(response.ScannedImages) > 0 {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		// sync with servers state
+		d.images = buildImageMap(response.ScannedImages)
+		d.rs = make(map[string]*appsv1.ReplicaSet)
+		d.jobs = make(map[string]*batchv1.Job)
+		d.nodes = map[string]*node{}
+	}
 }
 
 func (d *deltaState) upsert(o controller.Object) {
@@ -204,7 +221,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 }
 
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
-	for key, img := range d.images {
+	for _, img := range d.images {
 		podID := string(pod.UID)
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
@@ -217,11 +234,6 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 				// resource did not change because backend should already know about image, there will be no new scan.
 				delete(img.owners, ownerResourceID)
 			}
-		}
-
-		if len(img.owners) == 0 {
-			// image is deleted, so next time it appears there will be scan.
-			delete(d.images, key)
 		}
 	}
 }
