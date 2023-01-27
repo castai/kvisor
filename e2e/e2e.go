@@ -175,6 +175,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set image.repository=%s \
   --set image.tag=%s \
   --set-string structuredConfig.imageScan.image.name=%s \
+  --set-string structuredConfig.kubeBench.enabled=true \
   --set castai.apiURL=%s \
   --wait --timeout=1m`, ns, agentRepo, imageTag, collectorImage, apiURL))
 	return cmd.CombinedOutput()
