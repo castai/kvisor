@@ -56,7 +56,7 @@ config: |
   linter:
     enabled: true
   kubeBench:
-    enabled: true
+    enabled: false
     scanInterval: "15s"
   imageScan:
     enabled: true
