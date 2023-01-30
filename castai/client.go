@@ -37,7 +37,7 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	SendCISReport(ctx context.Context, report *CustomReport) error
+	SendCISReport(ctx context.Context, report *KubeBenchReport) error
 	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
 	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
@@ -146,7 +146,7 @@ func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {
 	return c.sendReport(ctx, report, ReportTypeDelta)
 }
 
-func (c *client) SendCISReport(ctx context.Context, report *CustomReport) error {
+func (c *client) SendCISReport(ctx context.Context, report *KubeBenchReport) error {
 	return c.sendReport(ctx, report, ReportTypeCis)
 }
 

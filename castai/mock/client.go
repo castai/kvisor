@@ -65,7 +65,7 @@ func (mr *MockClientMockRecorder) SendCISCloudScanReport(ctx, report interface{}
 }
 
 // SendCISReport mocks base method.
-func (m *MockClient) SendCISReport(ctx context.Context, report *castai.CustomReport) error {
+func (m *MockClient) SendCISReport(ctx context.Context, report *castai.KubeBenchReport) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendCISReport", ctx, report)
 	ret0, _ := ret[0].(error)

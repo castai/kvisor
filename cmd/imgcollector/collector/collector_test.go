@@ -287,7 +287,7 @@ func (m *mockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
 	return nil
 }
 
-func (m *mockClient) SendCISReport(ctx context.Context, report *castai.CustomReport) error {
+func (m *mockClient) SendCISReport(ctx context.Context, report *castai.KubeBenchReport) error {
 	return nil
 }
 

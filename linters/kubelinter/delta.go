@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/castai/kvisor/controller"
@@ -36,6 +37,12 @@ func (d *deltaState) insert(objs ...controller.Object) {
 func (d *deltaState) upsert(o controller.Object) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	// Skip linting pod updates.
+	switch o.(type) {
+	case *v1.Pod:
+		return
+	}
 
 	key := o.GetUID()
 	d.objectMap[key] = o

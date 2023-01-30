@@ -9,7 +9,7 @@ type Node struct {
 	ResourceID uuid.UUID `json:"resource_id"`
 }
 
-type CustomReport struct {
+type KubeBenchReport struct {
 	OverallControls
 	Node
 }

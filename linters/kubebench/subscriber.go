@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"hash/maphash"
 	"io"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -15,7 +17,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/semaphore"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +34,7 @@ import (
 const (
 	nodeScanTimeout   = 5 * time.Minute
 	labelJobName      = "job-name"
-	maxConcurrentJobs = 5
+	maxConcurrentJobs = 3
 )
 
 func NewSubscriber(
@@ -61,7 +62,8 @@ func NewSubscriber(
 		logsProvider:                  logsReader,
 		scanInterval:                  scanInterval,
 		scannedNodes:                  nodeCache,
-		finishedJobDeleteWaitDuration: 60 * time.Second,
+		finishedJobDeleteWaitDuration: 10 * time.Second,
+		kubeBenchReportsCache:         map[uint64]*castai.KubeBenchReport{},
 	}
 }
 
@@ -76,6 +78,10 @@ type Subscriber struct {
 	scanInterval                  time.Duration
 	finishedJobDeleteWaitDuration time.Duration
 	scannedNodes                  *lru.Cache
+	// After job finishes with store report in memory grouped by similar nodes.
+	// This allows to reduce number of jobs since we near identical reports.
+	kubeBenchReportsCache   map[uint64]*castai.KubeBenchReport
+	kubeBenchReportsCacheMu sync.Mutex
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
@@ -124,18 +130,15 @@ func (s *Subscriber) process(ctx context.Context) (rerr error) {
 
 	s.log.Infof("processing kube-bench")
 	defer s.log.Info("processing kube-bench done")
-	sem := semaphore.NewWeighted(maxConcurrentJobs)
+	var wg sync.WaitGroup
 	for _, n := range nodes {
 		job := n
-		err := sem.Acquire(ctx, 1)
-		if err != nil {
-			return fmt.Errorf("kube-bench semaphore: %w", err)
-		}
+		wg.Add(1)
 		go func() {
-			defer sem.Release(1)
+			defer wg.Done()
 			ctx, cancel := context.WithTimeout(ctx, nodeScanTimeout)
 			defer cancel()
-			err = s.lintNode(ctx, job.node)
+			err := s.lintNode(ctx, job.node)
 			if err != nil {
 				s.log.WithField("node", job.node.Name).Errorf("kube-bench: %v", err)
 				job.setFailed()
@@ -145,10 +148,7 @@ func (s *Subscriber) process(ctx context.Context) (rerr error) {
 		}()
 	}
 
-	if err := sem.Acquire(ctx, maxConcurrentJobs); err != nil {
-		return err
-	}
-
+	wg.Wait()
 	return nil
 }
 
@@ -158,6 +158,9 @@ func (s *Subscriber) findNodesForScan() []*nodeJob {
 	for _, nodeJob := range nodes {
 		if nodeJob.ready() {
 			res = append(res, nodeJob)
+			if len(res) == maxConcurrentJobs {
+				break
+			}
 		}
 	}
 	return res
@@ -169,6 +172,28 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 
 func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr error) {
 	start := time.Now()
+
+	// Check if node is in node group for already scanned jobs.
+	// In found we can skip job scheduling.
+	if cachedReport, found := s.findScannedReport(node); found {
+		defer func() {
+			metrics.IncScansTotal(metrics.ScanTypeKubeBenchCached, rerr)
+			metrics.ObserveScanDuration(metrics.ScanTypeKubeBenchCached, start)
+		}()
+		report := &castai.KubeBenchReport{
+			OverallControls: cachedReport.OverallControls,
+			Node: castai.Node{
+				NodeName:   node.Name,
+				ResourceID: uuid.MustParse(string(node.UID)),
+			},
+		}
+		err := s.castClient.SendCISReport(ctx, report)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	defer func() {
 		metrics.IncScansTotal(metrics.ScanTypeKubeBench, rerr)
 		metrics.ObserveScanDuration(metrics.ScanTypeKubeBench, start)
@@ -181,24 +206,21 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
 		return err
 	}
-
 	kubeBenchPod, err := s.createKubebenchJob(ctx, node, jobName)
 	if err != nil {
 		return err
 	}
-
 	report, err := s.getReportFromLogs(ctx, node, kubeBenchPod.Name)
 	if err != nil {
 		return err
 	}
-
+	s.addReportToCache(node, report)
 	err = s.castClient.SendCISReport(ctx, report)
 	if err != nil {
 		return err
 	}
 
 	s.scannedNodes.Add(string(node.UID), struct{}{})
-
 	if s.finishedJobDeleteWaitDuration != 0 {
 		go func() {
 			// Wait some time before deleting job. This is useful for observability and e2e tests.
@@ -220,6 +242,23 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 	}
 
 	return nil
+}
+
+func (s *Subscriber) findScannedReport(n *corev1.Node) (*castai.KubeBenchReport, bool) {
+	s.kubeBenchReportsCacheMu.Lock()
+	defer s.kubeBenchReportsCacheMu.Unlock()
+
+	key := getNodeGroupKey(n)
+	report, found := s.kubeBenchReportsCache[key]
+	return report, found
+}
+
+func (s *Subscriber) addReportToCache(n *corev1.Node, report *castai.KubeBenchReport) {
+	s.kubeBenchReportsCacheMu.Lock()
+	defer s.kubeBenchReportsCacheMu.Unlock()
+
+	key := getNodeGroupKey(n)
+	s.kubeBenchReportsCache[key] = report
 }
 
 // We are interested in kube-bench pod succeeding and not the Job
@@ -278,7 +317,7 @@ func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 	})
 }
 
-func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.CustomReport, error) {
+func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.KubeBenchReport, error) {
 	logReader, err := s.logsProvider.GetLogReader(ctx, s.castaiNamespace, kubeBenchPodName)
 	if err != nil {
 		return nil, err
@@ -290,7 +329,7 @@ func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, k
 		return nil, err
 	}
 
-	var customReport castai.CustomReport
+	var customReport castai.KubeBenchReport
 	err = jsoniter.Unmarshal(report, &customReport)
 	if err != nil {
 		return nil, err
@@ -344,4 +383,28 @@ func isNodeReady(n *corev1.Node) bool {
 	}
 	lastCondition := n.Status.Conditions[len(n.Status.Conditions)-1]
 	return lastCondition.Type == corev1.NodeReady && lastCondition.Status == corev1.ConditionTrue
+}
+
+var nodeGroupsHashSeed maphash.Seed
+
+func init() {
+	nodeGroupsHashSeed = maphash.MakeSeed()
+}
+
+// getNodeGroupKey creates hash for nodes group.
+// Thread safe.
+func getNodeGroupKey(n *corev1.Node) uint64 {
+	var hash maphash.Hash
+	hash.SetSeed(nodeGroupsHashSeed)
+	if v, found := n.Labels["provisioner.cast.ai/node-configuration-name"]; found {
+		_, _ = hash.WriteString(v)
+	}
+	if v, found := n.Labels["provisioner.cast.ai/node-configuration-version"]; found {
+		_, _ = hash.WriteString(v)
+	}
+	_, _ = hash.WriteString(n.Status.NodeInfo.Architecture)
+	_, _ = hash.WriteString(n.Status.NodeInfo.ContainerRuntimeVersion)
+	_, _ = hash.WriteString(n.Status.NodeInfo.KubeletVersion)
+	_, _ = hash.WriteString(n.Status.NodeInfo.OSImage)
+	return hash.Sum64()
 }

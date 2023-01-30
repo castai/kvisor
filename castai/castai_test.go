@@ -34,7 +34,7 @@ func TestClient_SendCISReport(t *testing.T) {
 	r.NoError(err)
 }
 
-func readReport() (*CustomReport, error) {
+func readReport() (*KubeBenchReport, error) {
 	file, err := os.OpenFile("./kube-bench-gke.json", os.O_RDONLY, 0666)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func readReport() (*CustomReport, error) {
 		return nil, err
 	}
 
-	var report CustomReport
+	var report KubeBenchReport
 	if err := json.Unmarshal(reportBytes, &report); err != nil {
 		return nil, err
 	}

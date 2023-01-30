@@ -299,7 +299,7 @@ func (m *mockAPI) assertChecksReceived(ctx context.Context, reportType string) e
 			}
 			return nil
 		case castai.ReportTypeCis:
-			var res castai.CustomReport
+			var res castai.KubeBenchReport
 			if err := jsoniter.Unmarshal(payload, &res); err != nil {
 				return err
 			}
@@ -337,7 +337,7 @@ func (m *mockAPI) assertChecksReceived(ctx context.Context, reportType string) e
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for assert: %v", assertErr)
+			return fmt.Errorf("timeout waiting for assert: %w", assertErr)
 		case <-time.After(1 * time.Second):
 			assertErr = assert()
 			if assertErr == nil {
