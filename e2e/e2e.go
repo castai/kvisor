@@ -174,8 +174,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   -f ./charts/castai-kvisor/ci/test-values.yaml \
   --set image.repository=%s \
   --set image.tag=%s \
-  --set-string structuredConfig.imageScan.image.name=%s \
-  --set-string structuredConfig.kubeBench.enabled=true \
+  --set structuredConfig.imageScan.image.name=%s \
+  --set structuredConfig.kubeBench.enabled=true \
   --set castai.apiURL=%s \
   --wait --timeout=1m`, ns, agentRepo, imageTag, collectorImage, apiURL))
 	return cmd.CombinedOutput()
