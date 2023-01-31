@@ -77,18 +77,6 @@ jobs:
             us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
             us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:latest
 
-      - name: FOSSA scan docker image (agent)
-        uses: fossas/fossa-action@v1
-        with:
-          api-key: ${{ secrets.FOSSA_API_KEY }}
-          container: us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
-
-      - name: FOSSA scan docker image (imgcollector)
-        uses: fossas/fossa-action@v1
-        with:
-          api-key: ${{ secrets.FOSSA_API_KEY }}
-          container: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
-
   release_chart:
     name: Release Helm Chart
     runs-on: ubuntu-20.04
