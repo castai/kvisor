@@ -34,7 +34,7 @@ import (
 const (
 	nodeScanTimeout   = 5 * time.Minute
 	labelJobName      = "job-name"
-	maxConcurrentJobs = 3
+	maxConcurrentJobs = 1
 )
 
 func NewSubscriber(
