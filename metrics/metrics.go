@@ -11,10 +11,11 @@ import (
 type ScanType string
 
 const (
-	ScanTypeImage     ScanType = "image"
-	ScanTypeKubeBench ScanType = "kube-bench"
-	ScanTypeLinter    ScanType = "linter"
-	ScanTypeCloud     ScanType = "cloud"
+	ScanTypeImage           ScanType = "image"
+	ScanTypeKubeBench       ScanType = "kube-bench"
+	ScanTypeKubeBenchCached ScanType = "kube-bench-cached"
+	ScanTypeLinter          ScanType = "linter"
+	ScanTypeCloud           ScanType = "cloud"
 )
 
 type ScanStatus string

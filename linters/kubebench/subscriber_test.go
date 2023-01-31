@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/kvisor/castai"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -153,6 +154,102 @@ func TestSubscriber(t *testing.T) {
 		r.ErrorIs(err, context.DeadlineExceeded)
 		r.NotContainsf(logOutput.String(), "error", "logs containers error")
 	})
+
+	t.Run("use cached report", func(t *testing.T) {
+		mockctrl := gomock.NewController(t)
+		r := require.New(t)
+		ctx := context.Background()
+		clientset := fake.NewSimpleClientset()
+		mockCast := mock_castai.NewMockClient(mockctrl)
+
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+		var logOutput bytes.Buffer
+		log.SetOutput(&logOutput)
+		logProvider := newMockLogProvider(readReport())
+
+		castaiNamespace := "castai-sec"
+		subscriber := NewSubscriber(
+			log,
+			clientset,
+			castaiNamespace,
+			"gke",
+			5*time.Millisecond,
+			mockCast,
+			logProvider,
+			nil,
+		)
+		nodeID := types.UID(uuid.NewString())
+		node := &corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test_node",
+				UID:  nodeID,
+			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{
+						Type:   corev1.NodeReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
+		}
+		nodeGroupKey := getNodeGroupKey(node)
+		subscriber.(*Subscriber).kubeBenchReportsCache = map[uint64]*castai.KubeBenchReport{
+			nodeGroupKey: {},
+		}
+		subscriber.OnAdd(node)
+		subscriber.OnUpdate(node)
+
+		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).MinTimes(1)
+
+		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
+		defer cancel()
+		err := subscriber.Run(ctx)
+		r.ErrorIs(err, context.DeadlineExceeded)
+		r.NotContainsf(logOutput.String(), "error", "logs containers error")
+	})
+}
+
+func TestNodeGroupKey(t *testing.T) {
+	r := require.New(t)
+	n1 := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"provisioner.cast.ai/node-configuration-name":    "default",
+				"provisioner.cast.ai/node-configuration-version": "v1",
+			},
+		},
+		Status: corev1.NodeStatus{
+			NodeInfo: corev1.NodeSystemInfo{
+				KernelVersion:           "k1",
+				OSImage:                 "os1",
+				ContainerRuntimeVersion: "containerd",
+				KubeletVersion:          "kubelet 1.1.1",
+				Architecture:            "amd64",
+			},
+		},
+	}
+	n2 := &corev1.Node{
+		Status: corev1.NodeStatus{
+			NodeInfo: corev1.NodeSystemInfo{
+				KernelVersion:           "k2",
+				OSImage:                 "os2",
+				ContainerRuntimeVersion: "containerd",
+				KubeletVersion:          "kubelet 2.2.2",
+				Architecture:            "amd64",
+			},
+		},
+	}
+
+	key1 := getNodeGroupKey(n1)
+	r.Equal(key1, getNodeGroupKey(n1))
+	key2 := getNodeGroupKey(n2)
+	r.NotEqual(key1, key2)
 }
 
 type mockProvider struct {
