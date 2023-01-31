@@ -337,7 +337,7 @@ func (m *mockAPI) assertChecksReceived(ctx context.Context, reportType string) e
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for assert: %v", assertErr)
+			return fmt.Errorf("timeout waiting for assert: %w", assertErr)
 		case <-time.After(1 * time.Second):
 			assertErr = assert()
 			if assertErr == nil {
