@@ -112,6 +112,10 @@ func TestScanner(t *testing.T) {
 								Image: "imgcollector:1.0.0",
 								Env: []corev1.EnvVar{
 									{
+										Name:  "GOMEMLIMIT",
+										Value: "1800MiB",
+									},
+									{
 										Name:  "COLLECTOR_IMAGE_ID",
 										Value: "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
 									},

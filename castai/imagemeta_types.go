@@ -15,7 +15,8 @@ type ImageMetadata struct {
 	InstalledBinaries map[string][]string `json:"installedBinaries,omitempty"`
 }
 
+// nolint:musttag
 type OsInfo struct {
-	*types.ArtifactInfo
-	*types.OS
+	*types.ArtifactInfo `json:",inline"`
+	*types.OS           `json:",inline"`
 }

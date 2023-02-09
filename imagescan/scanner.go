@@ -149,6 +149,10 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 
 	envVars := []corev1.EnvVar{
 		{
+			Name:  "GOMEMLIMIT",
+			Value: "1800MiB",
+		},
+		{
 			Name:  "COLLECTOR_IMAGE_ID",
 			Value: params.ImageID,
 		},

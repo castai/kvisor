@@ -33,6 +33,17 @@ func NewFromDockerDaemon(imageName string, ref name.Reference) (types.Image, fun
 	}, cleanup, nil
 }
 
+func NewFromDockerDaemonTarFile(imageName, localTarPath string, ref name.Reference) (types.Image, func(), error) {
+	img, cleanup, err := daemon.DockerTarImage(ref, localTarPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	return daemonImage{
+		Image: img,
+		name:  imageName,
+	}, cleanup, nil
+}
+
 type daemonImage struct {
 	daemon.Image
 	name string

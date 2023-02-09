@@ -12,6 +12,9 @@ const (
 	ModeRemote Mode = "remote"
 	ModeDaemon Mode = "daemon"
 	ModeHostFS Mode = "hostfs"
+	// ModeTarArchive is currently used only to test local tar archive images.
+	// Loading image from docker daemon on macOS is super slow.
+	ModeTarArchive Mode = "tar"
 )
 
 type Runtime string
@@ -39,6 +42,8 @@ type Config struct {
 	BlobsCacheURL    string        `envconfig:"COLLECTOR_BLOBS_CACHE_URL" default:""`
 	PprofAddr        string        `envconfig:"COLLECTOR_PPROF_ADDR" default:""`
 	SlowMode         bool          `envconfig:"SLOW_MODE" default:"true"`
+	// ImageLocalTarPath is used only with ModeTarArchive for local dev.
+	ImageLocalTarPath string
 }
 
 func FromEnv() (Config, error) {
