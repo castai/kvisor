@@ -97,6 +97,11 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
+	if s.isEnabled() {
+		s.log.Debug("skipping image scan, not enough resources")
+		return nil
+	}
+
 	images := lo.Values(s.delta.getImages())
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
 		return !v.scanned && v.name != "" && len(v.owners) > 0
@@ -108,10 +113,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	metrics.SetTotalImagesCount(len(images))
 	metrics.SetPendingImagesCount(len(pendingImages))
 
-	// During each scan schedule we scan only configured amount of images.
+	concurrentScans := s.concurrentScansNumber()
 	imagesForScan := pendingImages
-	if len(imagesForScan) > int(s.cfg.MaxConcurrentScans) {
-		imagesForScan = imagesForScan[:s.cfg.MaxConcurrentScans]
+	if len(imagesForScan) > int(concurrentScans) {
+		imagesForScan = imagesForScan[:concurrentScans]
 	}
 
 	if l := len(imagesForScan); l > 0 {
@@ -216,4 +221,23 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
 	})
+}
+
+func (s *Subscriber) isEnabled() bool {
+	if s.delta.nodeNum() == 1 {
+		memQty := resource.MustParse(s.cfg.MemoryRequest)
+		cpuQty := resource.MustParse(s.cfg.CPURequest)
+
+		return s.delta.nodeHasEnoughResources(s.delta.randomNodeName(), memQty.AsDec(), cpuQty.AsDec())
+	}
+
+	return s.delta.nodeNum() > 0 && s.cfg.Enabled
+}
+
+func (s *Subscriber) concurrentScansNumber() int {
+	if s.delta.nodeNum() == 1 {
+		return 1
+	}
+
+	return int(s.cfg.MaxConcurrentScans)
 }
