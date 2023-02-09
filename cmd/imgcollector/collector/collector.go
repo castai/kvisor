@@ -19,11 +19,9 @@ import (
 	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
-
 	// Import all registered analyzers.
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/buildinfo"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/command/apk"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/config/all"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/executable"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/c/conan"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/dotnet/deps"
@@ -54,8 +52,6 @@ import (
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/redhatbase"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/release"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/ubuntu"
-
-	// Import modified pkg analyzers.
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/apk"
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/dpkg"
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
@@ -122,6 +118,8 @@ func (c *Collector) Collect(ctx context.Context) error {
 		DisabledAnalyzers: []analyzer.Type{
 			analyzer.TypeLicenseFile,
 			analyzer.TypeDpkgLicense,
+			analyzer.TypeJSON,
+			analyzer.TypeHelm,
 		},
 	})
 	if err != nil {
@@ -181,6 +179,9 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	if c.cfg.Runtime == config.RuntimeDocker {
+		if c.cfg.Mode == config.ModeTarArchive {
+			return image.NewFromDockerDaemonTarFile(c.cfg.ImageName, c.cfg.ImageLocalTarPath, imgRef)
+		}
 		if c.cfg.Mode == config.ModeDaemon {
 			return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
 		}

@@ -2,13 +2,16 @@ package collector
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path"
+	"runtime"
+	"runtime/pprof"
 	"testing"
 	"time"
 
 	"github.com/castai/kvisor/blobscache"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -279,6 +282,50 @@ func TestCollector(t *testing.T) {
 	})
 }
 
+func TestCollectorLargeImageDocker(t *testing.T) {
+	// Skip this test by default. Uncomment to run locally.
+	if os.Getenv("LOCAL_IMAGE") == "" {
+		t.Skip()
+	}
+
+	// You will spend a lot of time on macOS to fetch image into temp file from daemon.
+	// Instead, export image once to local tar file.
+	// docker save ghcr.io/castai/egressd:am1 -o egressd.tar
+	imgName := "ghcr.io/castai/egressd:am1"
+	imgID := imgName
+
+	r := require.New(t)
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+	//debug.SetGCPercent(-1)
+	client := &mockClient{}
+	mockCache := mock_blobcache.MockClient{}
+
+	c := New(log, config.Config{
+		ImageID:           imgID,
+		ImageName:         imgName,
+		Timeout:           5 * time.Minute,
+		Mode:              config.ModeTarArchive,
+		Runtime:           config.RuntimeDocker,
+		SlowMode:          true,
+		ImageLocalTarPath: "egressd.tar",
+	}, client, mockCache, nil)
+
+	go func() {
+		for {
+			printMemStats()
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+
+	r.NoError(c.Collect(ctx))
+	writeMemProfile("heap.prof")
+	md, err := json.Marshal(client.meta)
+	r.NoError(err)
+	r.NoError(os.WriteFile("metadata.json", md, 0600))
+}
+
 type mockClient struct {
 	meta *castai.ImageMetadata
 }
@@ -310,4 +357,22 @@ func (m *mockClient) SendCISCloudScanReport(ctx context.Context, report *castai.
 
 func (m *mockClient) PostTelemetry(ctx context.Context, initial bool) (*castai.TelemetryResponse, error) {
 	return nil, nil
+}
+
+func printMemStats() {
+	runtime.GC() // Get up-to-date statistics.
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	fmt.Printf("allocs=%d MB, total_allocs=%d MB, sys=%d MB\n", stats.Alloc/1024/1024, stats.TotalAlloc/1024/1024, stats.Sys/1024/1024)
+}
+
+func writeMemProfile(name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		logrus.Fatalf("could not create memory profile: %v", err)
+	}
+	defer f.Close() // error handling omitted for example
+	if err := pprof.WriteHeapProfile(f); err != nil {
+		logrus.Fatalf("could not write memory profile: %v", err)
+	}
 }
