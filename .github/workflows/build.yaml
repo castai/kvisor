@@ -61,7 +61,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
         uses: golangci/golangci-lint-action@v3.4.0
         with:
-          args: --timeout=5m
+          args: -v --timeout=5m
           skip-pkg-cache: true
           skip-build-cache: true
 
