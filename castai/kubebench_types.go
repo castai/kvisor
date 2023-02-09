@@ -10,8 +10,8 @@ type Node struct {
 }
 
 type KubeBenchReport struct {
-	OverallControls
-	Node
+	OverallControls `json:",inline"`
+	Node            `json:",inline"`
 }
 
 type OverallControls struct {

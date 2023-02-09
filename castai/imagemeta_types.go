@@ -16,6 +16,6 @@ type ImageMetadata struct {
 }
 
 type OsInfo struct {
-	*types.ArtifactInfo
-	*types.OS
+	*types.ArtifactInfo `json:",inline"`
+	*types.OS           `json:",inline"`
 }
