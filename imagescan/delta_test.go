@@ -246,4 +246,25 @@ func TestDelta(t *testing.T) {
 		_, err = delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.ErrorIs(err, errNoCandidates)
 	})
+
+	t.Run("checks free resources", func(t *testing.T) {
+		r := require.New(t)
+		delta := NewDeltaState(nil)
+		twoGigs := resource.MustParse("2Gi")
+		twoCpu := resource.MustParse("2")
+		delta.nodes["test_node"] = &node{
+			name:           "test_node",
+			allocatableMem: twoGigs.AsDec(),
+			allocatableCPU: twoCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
+		oneGig := resource.MustParse("1Gi")
+		oneCpu := resource.MustParse("1")
+		r.True(delta.nodeHasEnoughResources("test_node", oneGig.AsDec(), oneCpu.AsDec()))
+		threeGig := resource.MustParse("3Gi")
+		threeCpu := resource.MustParse("3")
+		r.False(delta.nodeHasEnoughResources("test_node", threeGig.AsDec(), threeCpu.AsDec()))
+		r.False(delta.nodeHasEnoughResources("test_node", oneGig.AsDec(), threeCpu.AsDec()))
+		r.False(delta.nodeHasEnoughResources("test_node", threeGig.AsDec(), oneCpu.AsDec()))
+	})
 }
