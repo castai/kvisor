@@ -186,7 +186,6 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		return errors.New("image with empty nodes")
 	}
 
-	nodeName = nodeNames[0]
 	// Resolve best node.
 	memQty := resource.MustParse(s.cfg.MemoryRequest)
 	cpuQty := resource.MustParse(s.cfg.CPURequest)
