@@ -165,7 +165,6 @@ func TestSubscriber(t *testing.T) {
 		argoPod2 := createArgoPod("argo2")
 
 		cfg := config.ImageScan{
-			Enabled:            true,
 			ScanInterval:       1 * time.Millisecond,
 			ScanTimeout:        time.Minute,
 			MaxConcurrentScans: 5,
@@ -223,7 +222,6 @@ func TestSubscriber(t *testing.T) {
 		r := require.New(t)
 
 		cfg := config.ImageScan{
-			Enabled:            true,
 			ScanInterval:       1 * time.Millisecond,
 			ScanTimeout:        time.Minute,
 			MaxConcurrentScans: 5,
@@ -247,8 +245,14 @@ func TestSubscriber(t *testing.T) {
 				"r1": {},
 			},
 		}
-		delta.nodes["test_a"] = &node{}
-		delta.nodes["test_b"] = &node{}
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
@@ -263,7 +267,6 @@ func TestSubscriber(t *testing.T) {
 		r := require.New(t)
 
 		cfg := config.ImageScan{
-			Enabled:            true,
 			ScanInterval:       1 * time.Millisecond,
 			ScanTimeout:        time.Minute,
 			MaxConcurrentScans: 5,
@@ -295,9 +298,16 @@ func TestSubscriber(t *testing.T) {
 		// without nodes in delta it should not schedule scan.
 		r.Len(scanner.imgs, 0)
 
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
 		// with two nodes it should scan without resource check.
 		delta.nodes["test_a"] = &node{}
-		delta.nodes["test_b"] = &node{}
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
 		delta.images["img1"] = &image{
 			name: "img",
 			id:   "img1",

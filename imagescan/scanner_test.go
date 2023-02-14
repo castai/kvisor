@@ -34,7 +34,6 @@ func TestScanner(t *testing.T) {
 			PodIP:        "10.10.5.77",
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
-				Enabled: true,
 				Image: config.ImageScanImage{
 					Name: "imgcollector:1.0.0",
 				},

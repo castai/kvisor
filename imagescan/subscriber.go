@@ -97,25 +97,6 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	if !s.cfg.Enabled {
-		s.log.Debug("skipping image scan; not enabled")
-		return nil
-	}
-
-	switch s.delta.nodeNum() {
-	case 0:
-		s.log.Debug("skipping image scan; no nodes")
-		return nil
-	case 1:
-		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		cpuQty := resource.MustParse(s.cfg.CPURequest)
-
-		if !s.delta.nodeHasEnoughResources(s.delta.randomNodeName(), memQty.AsDec(), cpuQty.AsDec()) {
-			s.log.Debug("skipping image scan; single node cluster without resources")
-			return nil
-		}
-	}
-
 	images := lo.Values(s.delta.getImages())
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
 		return !v.scanned && v.name != "" && len(v.owners) > 0
@@ -206,16 +187,14 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	}
 
 	nodeName = nodeNames[0]
-	if len(nodeNames) > 1 {
-		// Resolve best node.
-		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		cpuQty := resource.MustParse(s.cfg.CPURequest)
-		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
-		if err != nil {
-			return err
-		} else {
-			nodeName = resolvedNode
-		}
+	// Resolve best node.
+	memQty := resource.MustParse(s.cfg.MemoryRequest)
+	cpuQty := resource.MustParse(s.cfg.CPURequest)
+	resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
+	if err != nil {
+		return err
+	} else {
+		nodeName = resolvedNode
 	}
 
 	start := time.Now()
@@ -238,7 +217,7 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 }
 
 func (s *Subscriber) concurrentScansNumber() int {
-	if s.delta.nodeNum() == 1 {
+	if s.delta.nodeCount() == 1 {
 		return 1
 	}
 
