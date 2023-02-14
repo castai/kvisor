@@ -97,9 +97,23 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	if s.isEnabled() {
-		s.log.Debug("skipping image scan, not enough resources")
+	if !s.cfg.Enabled {
+		s.log.Debug("skipping image scan; not enabled")
 		return nil
+	}
+
+	switch s.delta.nodeNum() {
+	case 0:
+		s.log.Debug("skipping image scan; no nodes")
+		return nil
+	case 1:
+		memQty := resource.MustParse(s.cfg.MemoryRequest)
+		cpuQty := resource.MustParse(s.cfg.CPURequest)
+
+		if !s.delta.nodeHasEnoughResources(s.delta.randomNodeName(), memQty.AsDec(), cpuQty.AsDec()) {
+			s.log.Debug("skipping image scan; single node cluster without resources")
+			return nil
+		}
 	}
 
 	images := lo.Values(s.delta.getImages())
@@ -221,17 +235,6 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
 	})
-}
-
-func (s *Subscriber) isEnabled() bool {
-	if s.delta.nodeNum() == 1 {
-		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		cpuQty := resource.MustParse(s.cfg.CPURequest)
-
-		return s.delta.nodeHasEnoughResources(s.delta.randomNodeName(), memQty.AsDec(), cpuQty.AsDec())
-	}
-
-	return s.delta.nodeNum() > 0 && s.cfg.Enabled
 }
 
 func (s *Subscriber) concurrentScansNumber() int {
