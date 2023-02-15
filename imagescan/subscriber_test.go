@@ -245,11 +245,84 @@ func TestSubscriber(t *testing.T) {
 				"r1": {},
 			},
 		}
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
 		err := sub.Run(ctx)
+		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.Len(scanner.imgs, 1)
+		r.True(delta.images["img1"].scanned)
+	})
+
+	t.Run("respect node count", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+		}
+
+		scanner := &mockImageScanner{}
+		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil))
+		delta := sub.(*Subscriber).delta
+		delta.images["img1"] = &image{
+			name: "img",
+			id:   "img1",
+			nodes: map[string]*imageNode{
+				"node1": {},
+			},
+			owners: map[string]*imageOwner{
+				"r1": {},
+			},
+		}
+
+		firstCtx, firstCancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer firstCancel()
+
+		err := sub.Run(firstCtx)
+		r.True(errors.Is(err, context.DeadlineExceeded))
+		// without nodes in delta it should not schedule scan.
+		r.Len(scanner.imgs, 0)
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+		// with two nodes it should scan without resource check.
+		delta.nodes["test_a"] = &node{}
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
+		delta.images["img1"] = &image{
+			name: "img",
+			id:   "img1",
+			nodes: map[string]*imageNode{
+				"node1": {},
+			},
+			owners: map[string]*imageOwner{
+				"r1": {},
+			},
+		}
+
+		secondCtx, secondCancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer secondCancel()
+
+		err = sub.Run(secondCtx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 		r.Len(scanner.imgs, 1)
 		r.True(delta.images["img1"].scanned)

@@ -108,10 +108,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	metrics.SetTotalImagesCount(len(images))
 	metrics.SetPendingImagesCount(len(pendingImages))
 
-	// During each scan schedule we scan only configured amount of images.
+	concurrentScans := s.concurrentScansNumber()
 	imagesForScan := pendingImages
-	if len(imagesForScan) > int(s.cfg.MaxConcurrentScans) {
-		imagesForScan = imagesForScan[:s.cfg.MaxConcurrentScans]
+	if len(imagesForScan) > int(concurrentScans) {
+		imagesForScan = imagesForScan[:concurrentScans]
 	}
 
 	if l := len(imagesForScan); l > 0 {
@@ -186,17 +186,14 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		return errors.New("image with empty nodes")
 	}
 
-	nodeName = nodeNames[0]
-	if len(nodeNames) > 1 {
-		// Resolve best node.
-		memQty := resource.MustParse(s.cfg.MemoryRequest)
-		cpuQty := resource.MustParse(s.cfg.CPURequest)
-		resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
-		if err != nil {
-			return err
-		} else {
-			nodeName = resolvedNode
-		}
+	// Resolve best node.
+	memQty := resource.MustParse(s.cfg.MemoryRequest)
+	cpuQty := resource.MustParse(s.cfg.CPURequest)
+	resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
+	if err != nil {
+		return err
+	} else {
+		nodeName = resolvedNode
 	}
 
 	start := time.Now()
@@ -216,4 +213,12 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
 	})
+}
+
+func (s *Subscriber) concurrentScansNumber() int {
+	if s.delta.nodeCount() == 1 {
+		return 1
+	}
+
+	return int(s.cfg.MaxConcurrentScans)
 }

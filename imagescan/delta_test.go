@@ -12,7 +12,6 @@ import (
 )
 
 func TestDelta(t *testing.T) {
-
 	t.Run("upsert images state on delta changes", func(t *testing.T) {
 		r := require.New(t)
 

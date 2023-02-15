@@ -275,6 +275,10 @@ func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, r
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	if len(d.nodes) == 0 {
+		return "", errNoCandidates
+	}
+
 	var candidates []*node
 	for _, nodeName := range nodeNames {
 		if n, found := d.nodes[nodeName]; found && n.availableMemory().Cmp(requiredMemory) >= 0 && n.availableCPU().Cmp(requiredCPU) >= 0 {
@@ -291,6 +295,13 @@ func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, r
 	})
 
 	return candidates[0].name, nil
+}
+
+func (d *deltaState) nodeCount() int {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return len(d.nodes)
 }
 
 func getContainerRuntime(containerID string) string {
