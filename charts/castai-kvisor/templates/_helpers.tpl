@@ -58,3 +58,26 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+
+{{- define "kvisor.runtime.name" -}}
+{{- include "castai.name" . }}-runtime
+{{- end }}
+
+{{/*
+Common runtime ds labels
+*/}}
+{{- define "kvisor.runtime.labels" -}}
+{{ include "kvisor.runtime.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Runtime ds elector labels
+*/}}
+{{- define "kvisor.runtime.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kvisor.runtime.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

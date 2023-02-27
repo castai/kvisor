@@ -125,3 +125,21 @@ serviceAccount:
 metrics:
   enabled: true
   scrapePort: "6060"
+
+runtime:
+  enabled: false
+  nodeSelector: {}
+  affinity: {}
+  tolerations: {}
+  securityContext: {}
+  image:
+    repository: us-docker.pkg.dev/castai-hub/library/kvisor-runtime
+    # Tag is set using Chart.yaml appVersion field.
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      memory: 1Gi

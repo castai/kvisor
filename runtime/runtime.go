@@ -1,0 +1,5 @@
+package runtime
+
+func Collect() {
+
+}

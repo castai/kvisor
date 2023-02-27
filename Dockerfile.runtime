@@ -1,0 +1,3 @@
+FROM gcr.io/distroless/static-debian11
+COPY ./bin/castai-kvisor-runtime /usr/local/bin/castai-kvisor-runtime
+CMD ["/usr/local/bin/castai-kvisor-runtime"]

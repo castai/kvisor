@@ -55,6 +55,13 @@ jobs:
           GOARCH: amd64
           CGO_ENABLED: 0
 
+      - name: Build runtime go binary
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-runtime ./cmd/runtime
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+
       - name: Run golangci-lint
         # You may pin to the exact commit or the version.
         # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
@@ -102,6 +109,15 @@ jobs:
           file: ./Dockerfile.imgcollector
           push: ${{ github.event_name == 'pull_request' }}
           tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
+
+      - name: Build and push pr (runtime)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile.runtime
+          push: ${{ github.event_name == 'pull_request' }}
+          tags: ghcr.io/castai/kvisor/kvisor-runtime:${{ github.sha }}
 
       - name: Build and push main (agent)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
