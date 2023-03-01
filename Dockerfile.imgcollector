@@ -1,6 +1,3 @@
-FROM quay.io/skopeo/stable as skopeo
-
 FROM gcr.io/distroless/static-debian11
-COPY --from=skopeo /usr/bin/skopeo /usr/local/bin/skopeo
 COPY ./bin/castai-imgcollector /usr/local/bin/castai-imgcollector
 CMD ["/usr/local/bin/castai-imgcollector"]
