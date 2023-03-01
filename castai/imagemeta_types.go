@@ -13,6 +13,7 @@ type ImageMetadata struct {
 	ConfigFile        *v1.ConfigFile      `json:"configFile,omitempty"`
 	OsInfo            *OsInfo             `json:"osInfo,omitempty"`
 	InstalledBinaries map[string][]string `json:"installedBinaries,omitempty"`
+	RemoteLayers      []string            `json:"remoteLayers,omitempty"`
 }
 
 // nolint:musttag

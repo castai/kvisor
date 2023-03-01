@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 
 	"github.com/castai/kvisor/blobscache"
@@ -56,6 +58,9 @@ import (
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/dpkg"
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
 )
+
+// used for skipping remote layer fetch in tests, we do not want abuse dockerhub servers.
+type skipRemoteLayerFetchKey struct{}
 
 func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
 	return &Collector{
@@ -112,22 +117,42 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
-	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
-		Offline: true,
-		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
-		DisabledAnalyzers: []analyzer.Type{
-			analyzer.TypeLicenseFile,
-			analyzer.TypeDpkgLicense,
-			analyzer.TypeJSON,
-			analyzer.TypeHelm,
-		},
+	var arRef *image.ArtifactReference
+	var remoteLayerDigests []string
+
+	grp, ctx := errgroup.WithContext(ctx)
+	grp.Go(func() error {
+		artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
+			Offline: true,
+			Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
+			DisabledAnalyzers: []analyzer.Type{
+				analyzer.TypeLicenseFile,
+				analyzer.TypeDpkgLicense,
+				analyzer.TypeJSON,
+				analyzer.TypeHelm,
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		arRef, err = artifact.Inspect(ctx)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
-	if err != nil {
-		return err
+
+	if _, ok := ctx.Value(skipRemoteLayerFetchKey{}).(struct{}); !ok {
+		grp.Go(func() error {
+			var err error
+			remoteLayerDigests, err = c.collectRemoteLayerDigests(c.cfg.ImageName)
+			return err
+		})
 	}
 
-	arRef, err := artifact.Inspect(ctx)
-	if err != nil {
+	if err := grp.Wait(); err != nil {
 		return err
 	}
 
@@ -142,11 +167,41 @@ func (c *Collector) Collect(ctx context.Context) error {
 			OS:           arRef.OsInfo,
 		},
 		InstalledBinaries: c.collectInstalledBinaries(arRef),
+		RemoteLayers:      remoteLayerDigests,
 	}); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (c *Collector) collectRemoteLayerDigests(imageName string) ([]string, error) {
+	ref, err := name.ParseReference(imageName)
+	if err != nil {
+		return nil, fmt.Errorf("parse image reference: %w", err)
+	}
+
+	img, err := remote.Image(ref)
+	if err != nil {
+		return nil, fmt.Errorf("create remote image reference: %w", err)
+	}
+
+	layers, err := img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("acquire remote layers: %w", err)
+	}
+
+	result := make([]string, len(layers))
+	for i := range layers {
+		digest, err := layers[i].Digest()
+		if err != nil {
+			return nil, fmt.Errorf("get digest for %d layer: %w", i, err)
+		}
+
+		result[i] = digest.String()
+	}
+
+	return result, nil
 }
 
 func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {

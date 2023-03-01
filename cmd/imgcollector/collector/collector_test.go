@@ -27,7 +27,7 @@ func TestWithRealCache(t *testing.T) {
 	imgID := "public.ecr.aws/docker/library/redis@sha256:dc1b954f5a1db78e31b8870966294d2f93fa8a7fba5c1337a1ce4ec55f311bc3"
 
 	r := require.New(t)
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), skipRemoteLayerFetchKey{}, struct{}{})
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
@@ -68,7 +68,7 @@ func TestCollector(t *testing.T) {
 		imgID := "gke.gcr.io/phpmyadmin@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07"
 
 		r := require.New(t)
-		ctx := context.Background()
+		ctx := context.WithValue(context.Background(), skipRemoteLayerFetchKey{}, struct{}{})
 		log := logrus.New()
 		log.SetLevel(logrus.DebugLevel)
 
@@ -100,7 +100,7 @@ func TestCollector(t *testing.T) {
 		imgID := "public.ecr.aws/docker/library/redis@sha256:9192ed4e495547641a71f90d7738578d4e9d05212e7d55d02cfc7f0e1198a61e"
 
 		r := require.New(t)
-		ctx := context.Background()
+		ctx := context.WithValue(context.Background(), skipRemoteLayerFetchKey{}, struct{}{})
 		log := logrus.New()
 		log.SetLevel(logrus.DebugLevel)
 
@@ -127,8 +127,11 @@ func TestCollector(t *testing.T) {
 		r.NoError(c.Collect(ctx))
 	})
 
-	t.Run("collects binaries", func(t *testing.T) {
-		imgName := "notused"
+	t.Run("collects binaries and remote digests", func(t *testing.T) {
+		// At the moment this is 1year old and will probably be available for another year or so.
+		// In case this test fails because remote layers do not match,
+		// update imgName to some image that is still availale in docker hub.
+		imgName := "phpmyadmin:5.1.1"
 		imgID := "gke.gcr.io/phpmyadmin@sha256:b0d9c54760b35edd1854e5710c1a62a28ad2d2b070c801da3e30a3e59c19e7e3"
 
 		r := require.New(t)
@@ -279,6 +282,27 @@ func TestCollector(t *testing.T) {
 				"/sbin/getty", "/usr/bin/i386", "/usr/bin/lastb", "/usr/bin/linux32", "/usr/bin/linux64", "/usr/bin/x86_64",
 			},
 		}, client.meta.InstalledBinaries)
+
+		r.Equal([]string{
+			"sha256:5eb5b503b37671af16371272f9c5313a3e82f1d0756e14506704489ad9900803",
+			"sha256:8b1ad84cf10194e2130f05599fcf95721234f2e72aeb9b2c7341719a0a736e41",
+			"sha256:38c937dadeb7e3e4f156ed8bf156bc07d09c18d255475f602ae6e7c94ad0efc5",
+			"sha256:6a2f1dc96e597c811b3e8c3d0332b71dd64989ff1f972ffbc477edbc479062f7",
+			"sha256:f8c3f82c39d441d1987e11925e9cda5f1f9aba52ad1d3c341e9c4e7f1efe42c0",
+			"sha256:90fc6462bd8e4fa3a65fff11c70bd270c8f59545a093c6d3124a426036e3880a",
+			"sha256:c670d99116c951149bb76403284f5a63b99c3788e7088cf4278364322ba777ac",
+			"sha256:12c48eb41a93283cef1275b4cf96d80d49edecc8d7578e109e4eb70276e5b9cd",
+			"sha256:0c537b2632b261c73440916e2c5da7242a96ca1179a703d42ff72a028f4172ad",
+			"sha256:21a949b7ce7dfc13337c820c0e4541dd2b8e3612a9bdacf5e7b0034ba9892912",
+			"sha256:6e7c487904268c073e24e1225a65238ab7a23ea2d2d4b26a47185eb2aa8c6646",
+			"sha256:e1b625ec6dbf93bbc3f37812dbc54e5508fff13a0d20598d0ce4e53b7b3d056a",
+			"sha256:345e72046e34961a75bb636f1669945f42c9c691ffda477bcff9bf080a1b2c3e",
+			"sha256:fe1f13e1098e7742c38b304d39f3002d57e1f5d1762bb87e87691c0e4bf8acaf",
+			"sha256:e52518400d127beb446b6caefc3a9e0026971500e4f87f73fcc859f5b907ce08",
+			"sha256:8bc94ee83c2b3f85b56c2f1a25a4cc8161f37116822f54073346fa9dd96caa40",
+			"sha256:f9712993d0b2cb2186a3763dddf5282480f3fccb6551e24e886384008ff1ed14",
+			"sha256:0dc16e3654c65f81d7477ce8596b379f22064a3545f146eff2395229a0cd08a6",
+		}, client.meta.RemoteLayers)
 	})
 }
 
