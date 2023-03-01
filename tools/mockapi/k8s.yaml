@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mockapi
-  namespace: castai-sec
+  namespace: kvisor
   labels:
     app.kubernetes.io/name: mockapi
 spec:
@@ -29,7 +29,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mockapi
-  namespace: castai-sec
+  namespace: kvisor
   labels:
     app.kubernetes.io/name: mockapi
 spec:
