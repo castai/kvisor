@@ -62,16 +62,38 @@ type ContainerdHostFSConfig struct {
 	ContentDir string
 }
 
+type manifestOrIndex struct {
+	SchemaVersion int64             `json:"schemaVersion"`
+	MediaType     types.MediaType   `json:"mediaType,omitempty"`
+	Config        v1.Descriptor     `json:"config"`
+	Annotations   map[string]string `json:"annotations,omitempty"`
+
+	// Layers contained in manifest.
+	Layers []v1.Descriptor `json:"layers"`
+	// Manifests contained in index manifest.
+	Manifests []v1.Descriptor `json:"manifests"`
+}
+
+func (mi *manifestOrIndex) manifest() *v1.Manifest {
+	return &v1.Manifest{
+		SchemaVersion: mi.SchemaVersion,
+		MediaType:     mi.MediaType,
+		Config:        mi.Config,
+		Layers:        mi.Layers,
+		Annotations:   mi.Annotations,
+	}
+}
+
 func (h *containerdManifestReader) resolveManifest() (*v1.Manifest, error) {
 	// Try to find manifest file. In most cases image id digest will point to manifest or index.
-	var manifest v1.Manifest
+	var mi manifestOrIndex
 	readManifest := func(manifestPath string) error {
 		var err error
 		fileBytes, err := os.ReadFile(manifestPath)
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(fileBytes, &manifest)
+		err = json.Unmarshal(fileBytes, &mi)
 		if err != nil {
 			return err
 		}
@@ -84,7 +106,7 @@ func (h *containerdManifestReader) resolveManifest() (*v1.Manifest, error) {
 	// This case indicates that image id digest points to config file.
 	// In such case we need to find manifest by iterating all files and searching for
 	// config file digest hash inside files content.
-	if len(manifest.Layers) == 0 {
+	if len(mi.Layers) == 0 && len(mi.Manifests) == 0 {
 		manifestPath, err := h.searchManifestPath()
 		if err != nil {
 			return nil, fmt.Errorf("searching manifest path: %w", err)
@@ -94,11 +116,27 @@ func (h *containerdManifestReader) resolveManifest() (*v1.Manifest, error) {
 		}
 	}
 
-	if len(manifest.Layers) > 0 {
-		return &manifest, nil
+	if len(mi.Layers) > 0 {
+		return mi.manifest(), nil
 	}
 
-	return nil, fmt.Errorf("unrecognised manifest mediatype %q", string(manifest.MediaType))
+	// Search manifest from index manifest.
+	if len(mi.Manifests) > 0 {
+		for _, m := range mi.Manifests {
+			if matchingPlatform(h.cfg.Platform, *m.Platform) {
+				if err := readManifest(path.Join(h.cfg.ContentDir, blobs, m.Digest.Algorithm, m.Digest.Hex)); err != nil {
+					return nil, err
+				}
+				if len(mi.Layers) == 0 {
+					return nil, errors.New("invalid manifest, no layers")
+				}
+				return mi.manifest(), nil
+			}
+		}
+		return nil, fmt.Errorf("manifest not found for platform: %s %s", h.cfg.Platform.Architecture, h.cfg.Platform.OS)
+	}
+
+	return nil, fmt.Errorf("unrecognised manifest mediatype %q", string(mi.MediaType))
 }
 
 func (h *containerdManifestReader) readConfig(configID string) (*v1.ConfigFile, []byte, error) {
@@ -144,6 +182,9 @@ func (h *containerdManifestReader) searchManifestPath() (string, error) {
 		return nil
 	}); err != nil && !errors.Is(err, io.EOF) {
 		return "", err
+	}
+	if manifestPath == "" {
+		return "", errors.New("manifest not find by searching in blobs content")
 	}
 	return manifestPath, nil
 }
@@ -233,4 +274,8 @@ func (b *containerdBlobImage) RepoTags() []string {
 func (b *containerdBlobImage) RepoDigests() []string {
 	//TODO implement me
 	panic("implement me")
+}
+
+func matchingPlatform(first, second v1.Platform) bool {
+	return first.OS == second.OS && first.Architecture == second.Architecture
 }

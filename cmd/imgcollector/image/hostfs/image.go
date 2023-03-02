@@ -31,7 +31,7 @@ func NewImageHash(fqnImageID string) (v1.Hash, error) {
 		return v1.Hash{}, fmt.Errorf("parsing algorithm for image %q", fqnImageID)
 	}
 	hex := fqnImageID[hexStart:]
-	if alg == "" {
+	if hex == "" {
 		return v1.Hash{}, fmt.Errorf("parsing hex for image %q", fqnImageID)
 	}
 	return v1.Hash{

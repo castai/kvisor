@@ -8,49 +8,54 @@ import (
 )
 
 func TestContainerdImage(t *testing.T) {
-	// This is expected case. Kubernetes pod imageID points to manifest file.
-	t.Run("build image by manifest digest", func(t *testing.T) {
-		r := require.New(t)
-		hash := v1.Hash{
-			Algorithm: "sha256",
-			Hex:       "424f307cf3a1d20b3a512ae036bd2f0c66f395e20b62f583b7878773df4dc7fc",
-		}
-		img, err := NewContainerdImage(hash, ContainerdHostFSConfig{
-			Platform:   v1.Platform{},
-			ContentDir: "./testdata/containerd_content",
-		})
-		r.NoError(err)
-		layers, err := img.Layers()
-		r.NoError(err)
-		r.Len(layers, 2)
-		manifest, err := img.Manifest()
-		r.NoError(err)
-		r.Len(manifest.Layers, 2)
-		config, err := img.ConfigFile()
-		r.NoError(err)
-		r.Len(config.RootFS.DiffIDs, 2)
-	})
+	tests := []struct {
+		name string
+		hash v1.Hash
+	}{
+		{
+			name: "find by manifest index",
+			hash: v1.Hash{
+				Algorithm: "sha256",
+				Hex:       "211a3be9e15e1e4ccd75220aa776d92e06235552351464db2daf043bd30a0ac0",
+			},
+		},
+		{
+			name: "find by manifest",
+			hash: v1.Hash{
+				Algorithm: "sha256",
+				Hex:       "c3c447d49bb140a121311afd8d922eef160bfd63872fdb809ae89fdcf27bee50",
+			},
+		},
+		{
+			name: "find by config file",
+			hash: v1.Hash{
+				Algorithm: "sha256",
+				Hex:       "412c5a9fed875c1ce63f2dba535353162c9760c07379def9ac87cb0201b532de",
+			},
+		},
+	}
 
-	// For old images kubernetes pod imageID could point to config file.
-	t.Run("build image by config digest", func(t *testing.T) {
-		r := require.New(t)
-		hash := v1.Hash{
-			Algorithm: "sha256",
-			Hex:       "bf654875f3d9c5c34078387621f1978b97a01ca0fda74e0308b9bed664c9bbd7",
-		}
-		img, err := NewContainerdImage(hash, ContainerdHostFSConfig{
-			Platform:   v1.Platform{},
-			ContentDir: "./testdata/containerd_content",
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+			img, err := NewContainerdImage(tt.hash, ContainerdHostFSConfig{
+				Platform: v1.Platform{
+					Architecture: "amd64",
+					OS:           "linux",
+				},
+				ContentDir: "./testdata/containerd_content",
+			})
+			r.NoError(err)
+			layers, err := img.Layers()
+			r.NoError(err)
+			r.Len(layers, 2)
+			manifest, err := img.Manifest()
+			r.NoError(err)
+			r.Len(manifest.Layers, 2)
+			config, err := img.ConfigFile()
+			r.NoError(err)
+			r.Len(config.RootFS.DiffIDs, 2)
 		})
-		r.NoError(err)
-		layers, err := img.Layers()
-		r.NoError(err)
-		r.Len(layers, 2)
-		manifest, err := img.Manifest()
-		r.NoError(err)
-		r.Len(manifest.Layers, 2)
-		config, err := img.ConfigFile()
-		r.NoError(err)
-		r.Len(config.RootFS.DiffIDs, 2)
-	})
+	}
 }
