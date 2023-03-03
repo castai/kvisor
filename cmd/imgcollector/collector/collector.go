@@ -7,13 +7,11 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/castai"
-	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/cmd/imgcollector/image"
 	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
@@ -80,35 +78,10 @@ type ImageInfo struct {
 	Name string
 }
 
-func (c *Collector) collectInstalledBinaries(arRef *image.ArtifactReference) map[string][]string {
-	installedFiles := make(map[string][]string)
-	for i := range arRef.BlobsInfo {
-		for _, customResource := range arRef.BlobsInfo[i].CustomResources {
-			if customResource.Type == an.TypeInstalledBinaries {
-				data, ok := customResource.Data.(map[string][]string)
-				if !ok {
-					// after pulling from cache it's map[string]interface{}
-					err := mapstructure.Decode(customResource.Data, &data)
-					if err != nil {
-						c.log.Errorf("failed decoding custom resources %T to map[string][]string: %v", customResource.Data, err)
-						continue
-					}
-				}
-
-				for pkg, files := range data {
-					installedFiles[pkg] = files
-				}
-			}
-		}
-	}
-
-	return installedFiles
-}
-
 func (c *Collector) Collect(ctx context.Context) error {
 	img, cleanup, err := c.getImage(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting image: %w", err)
 	}
 	defer cleanup()
 
@@ -141,7 +114,6 @@ func (c *Collector) Collect(ctx context.Context) error {
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,
 		},
-		InstalledBinaries: c.collectInstalledBinaries(arRef),
 	}); err != nil {
 		return err
 	}
@@ -174,7 +146,7 @@ func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
 			return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
 		}
 		if c.cfg.Mode == config.ModeHostFS {
-			return image.NewFromContainerdHostFS(c.cfg.ImageID, c.hostFsConfig)
+			return image.NewFromContainerdHostFS(c.cfg.ImageID, *c.hostFsConfig)
 		}
 	}
 

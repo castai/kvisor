@@ -11,9 +11,9 @@ if read_file ('.env' , default = '' ):
 update_settings(max_parallel_updates=16)
 secret_settings ( disable_scrub = True)
 allow_k8s_contexts(['tilt', 'kind-tilt', 'docker-desktop', 'minikube'])
-namespace = 'castai-sec'
+namespace = 'kvisor'
 user = os.environ.get('USER', 'unknown-user')
-api_url = os.environ.get('API_URL', 'https://api-{}.localenv.cast.ai'.format(user))
+api_url = os.environ.get('API_URL', 'http://mockapi')
 api_key = os.environ.get('API_KEY', 'not-set')
 cluster_id = os.environ.get('CLUSTER_ID', 'not-set')
 image_scan_enabled = os.environ.get('IMAGE_SCAN_ENABLED', 'false')
@@ -63,7 +63,7 @@ docker_build_with_restart(
     ],
 )
 
-chart_path = '../gh-helm-charts/charts/castai-kvisor'
+chart_path = './charts/castai-kvisor'
 k8s_yaml(helm(
     chart_path,
     name='castai-kvisor',

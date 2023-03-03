@@ -232,8 +232,8 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil))
-		delta := sub.(*Subscriber).delta
+		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
+		delta := sub.delta
 		delta.images["img1"] = &image{
 			failures: 3,
 			name:     "img",
@@ -257,8 +257,8 @@ func TestSubscriber(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
-		err := sub.Run(ctx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		err := sub.scheduleScans(ctx)
+		r.NoError(err)
 		r.Len(scanner.imgs, 1)
 		r.True(delta.images["img1"].scanned)
 	})
@@ -277,8 +277,8 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil))
-		delta := sub.(*Subscriber).delta
+		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
+		delta := sub.delta
 		delta.images["img1"] = &image{
 			name: "img",
 			id:   "img1",
@@ -293,8 +293,8 @@ func TestSubscriber(t *testing.T) {
 		firstCtx, firstCancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer firstCancel()
 
-		err := sub.Run(firstCtx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		err := sub.scheduleScans(firstCtx)
+		r.NoError(err)
 		// without nodes in delta it should not schedule scan.
 		r.Len(scanner.imgs, 0)
 
@@ -322,8 +322,8 @@ func TestSubscriber(t *testing.T) {
 		secondCtx, secondCancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer secondCancel()
 
-		err = sub.Run(secondCtx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		err = sub.scheduleScans(secondCtx)
+		r.NoError(err)
 		r.Len(scanner.imgs, 1)
 		r.True(delta.images["img1"].scanned)
 	})

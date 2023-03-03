@@ -1,34 +1,23 @@
 package image
 
 import (
-	"strings"
-
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 )
 
-func NewFromContainerdHostFS(imageID string, config *hostfs.ContainerdHostFSConfig) (types.Image, func(), error) {
-	hostFsReader := hostfs.HostFSReader{
-		Config: *config,
+func NewFromContainerdHostFS(imageID string, config hostfs.ContainerdHostFSConfig) (types.Image, func(), error) {
+	hash, err := hostfs.NewImageHash(imageID)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	digest := getDigestFromImageID(imageID)
-	img, cleanup, err := hostFsReader.ContainerdImage(digest)
+	img, err := hostfs.NewContainerdImage(hash, config)
 	if err != nil {
 		return nil, nil, err
 	}
 	return extendedBlobImage{
 		Image: img,
-		name:  digest,
-	}, cleanup, nil
-}
-
-func getDigestFromImageID(imageID string) string {
-	s := strings.Split(imageID, ":")
-	if len(s) == 1 {
-		return s[0]
-	}
-	return s[len(s)-1]
+		name:  hash.Hex,
+	}, func() {}, nil
 }
 
 type extendedBlobImage struct {
