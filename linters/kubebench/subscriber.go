@@ -315,7 +315,8 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 
 func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 	return s.client.BatchV1().Jobs(s.castaiNamespace).Delete(ctx, jobName, metav1.DeleteOptions{
-		PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
+		GracePeriodSeconds: lo.ToPtr(int64(0)),
+		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
 	})
 }
 
