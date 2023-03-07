@@ -214,7 +214,7 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 	}
 	report, err := s.getReportFromLogs(ctx, node, kubeBenchPod.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading kube-bench report from pod logs: %w", err)
 	}
 	s.addReportToCache(node, report)
 	err = s.castClient.SendCISReport(ctx, report)
