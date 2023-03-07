@@ -208,6 +208,11 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
 		return err
 	}
+	err = s.waitJobDeleted(ctx, jobName)
+	if err != nil {
+		return err
+	}
+
 	kubeBenchPod, err := s.createKubebenchJob(ctx, node, jobName)
 	if err != nil {
 		return err
@@ -318,6 +323,24 @@ func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
 	})
+}
+
+func (s *Subscriber) waitJobDeleted(ctx context.Context, jobName string) error {
+	deleteCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+	backoff.Retry(
+		func() error {
+			_, err := s.client.BatchV1().Jobs(s.castaiNamespace).Get(deleteCtx, jobName, metav1.GetOptions{})
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					return nil
+				}
+
+				return backoff.Permanent(err)
+			}
+
+			return fmt.Errorf("job not yet deleted")
+		}, backoff.WithContext(backoff.NewConstantBackOff(10*time.Second), deleteCtx))
 }
 
 func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.KubeBenchReport, error) {
