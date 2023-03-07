@@ -328,7 +328,7 @@ func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 func (s *Subscriber) waitJobDeleted(ctx context.Context, jobName string) error {
 	deleteCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
-	backoff.Retry(
+	return backoff.Retry(
 		func() error {
 			_, err := s.client.BatchV1().Jobs(s.castaiNamespace).Get(deleteCtx, jobName, metav1.GetOptions{})
 			if err != nil {
