@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,7 @@ func Node(nodeName, jobName string) *batchv1.Job {
 			},
 		},
 		Spec: batchv1.JobSpec{
+			BackoffLimit: lo.ToPtr(int32(0)),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					HostPID:       true,

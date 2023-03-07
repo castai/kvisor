@@ -156,7 +156,7 @@ func (s *Subscriber) findNodesForScan() []*nodeJob {
 	nodes := s.delta.peek()
 	var res []*nodeJob
 	for _, nodeJob := range nodes {
-		if nodeJob.ready() {
+		if nodeJob.ready() && len(nodeJob.node.Spec.Taints) == 0 {
 			res = append(res, nodeJob)
 			if len(res) == maxConcurrentJobs {
 				break
@@ -191,6 +191,8 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		if err != nil {
 			return err
 		}
+
+		s.scannedNodes.Add(string(node.UID), struct{}{})
 		return nil
 	}
 
