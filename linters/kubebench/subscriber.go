@@ -156,7 +156,7 @@ func (s *Subscriber) findNodesForScan() []*nodeJob {
 	nodes := s.delta.peek()
 	var res []*nodeJob
 	for _, nodeJob := range nodes {
-		if nodeJob.ready() {
+		if nodeJob.ready() && len(nodeJob.node.Spec.Taints) == 0 {
 			res = append(res, nodeJob)
 			if len(res) == maxConcurrentJobs {
 				break
@@ -191,6 +191,8 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		if err != nil {
 			return err
 		}
+
+		s.scannedNodes.Add(string(node.UID), struct{}{})
 		return nil
 	}
 
@@ -206,13 +208,21 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
 		return err
 	}
+
+	if err == nil {
+		err = s.waitJobDeleted(ctx, jobName)
+		if err != nil {
+			return err
+		}
+	}
+
 	kubeBenchPod, err := s.createKubebenchJob(ctx, node, jobName)
 	if err != nil {
 		return err
 	}
 	report, err := s.getReportFromLogs(ctx, node, kubeBenchPod.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading kube-bench report from pod logs: %w", err)
 	}
 	s.addReportToCache(node, report)
 	err = s.castClient.SendCISReport(ctx, report)
@@ -313,8 +323,27 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 
 func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
 	return s.client.BatchV1().Jobs(s.castaiNamespace).Delete(ctx, jobName, metav1.DeleteOptions{
-		PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
+		GracePeriodSeconds: lo.ToPtr(int64(0)),
+		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
 	})
+}
+
+func (s *Subscriber) waitJobDeleted(ctx context.Context, jobName string) error {
+	deleteCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+	return backoff.Retry(
+		func() error {
+			_, err := s.client.BatchV1().Jobs(s.castaiNamespace).Get(deleteCtx, jobName, metav1.GetOptions{})
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					return nil
+				}
+
+				return backoff.Permanent(err)
+			}
+
+			return fmt.Errorf("job not yet deleted")
+		}, backoff.WithContext(backoff.NewConstantBackOff(10*time.Second), deleteCtx))
 }
 
 func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.KubeBenchReport, error) {
