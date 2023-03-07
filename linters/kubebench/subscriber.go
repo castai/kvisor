@@ -208,9 +208,12 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		s.log.WithError(err).Errorf("can not delete job %q", jobName)
 		return err
 	}
-	err = s.waitJobDeleted(ctx, jobName)
-	if err != nil {
-		return err
+
+	if err == nil {
+		err = s.waitJobDeleted(ctx, jobName)
+		if err != nil {
+			return err
+		}
 	}
 
 	kubeBenchPod, err := s.createKubebenchJob(ctx, node, jobName)
