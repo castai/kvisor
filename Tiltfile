@@ -54,7 +54,7 @@ docker_build_with_restart(
     'agent',
     '.',
     entrypoint=['/usr/local/bin/castai-kvisor'],
-    dockerfile='Dockerfile.agent',
+    dockerfile='Dockerfile.tilt',
     only=[
         './bin/castai-kvisor',
     ],
