@@ -1,3 +1,4 @@
 FROM gcr.io/distroless/static-debian11
-COPY ./bin/castai-kvisor /usr/local/bin/castai-kvisor
+ARG TARGETARCH=amd64
+COPY ./bin/castai-kvisor-$TARGETARCH /usr/local/bin/castai-kvisor
 CMD ["/usr/local/bin/castai-kvisor"]

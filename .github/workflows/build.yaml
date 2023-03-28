@@ -41,18 +41,32 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-build-
 
-      - name: Build agent go binary
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-kvisor ./cmd/agent
+      - name: Build agent go binary amd64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-kvisor-amd64 ./cmd/agent
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
-      - name: Build imgcollector go binary
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-imgcollector ./cmd/imgcollector
+      - name: Build imgcollector go binary amd64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-imgcollector-amd64 ./cmd/imgcollector
         env:
           GOOS: linux
           GOARCH: amd64
+          CGO_ENABLED: 0
+
+      - name: Build agent go binary arm64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-kvisor-arm64 ./cmd/agent
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: 0
+
+      - name: Build imgcollector go binary arm64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-imgcollector-arm64 ./cmd/imgcollector
+        env:
+          GOOS: linux
+          GOARCH: arm64
           CGO_ENABLED: 0
 
       - name: Run golangci-lint
@@ -68,6 +82,12 @@ jobs:
       - name: Test
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
         run: go test -race ./...
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v1
@@ -91,6 +111,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.agent
+          platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name == 'pull_request' }}
           tags: ghcr.io/castai/kvisor/kvisor:${{ github.sha }}
 
@@ -100,6 +121,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.imgcollector
+          platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name == 'pull_request' }}
           tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
 
@@ -109,6 +131,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.agent
+          platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: us-docker.pkg.dev/castai-hub/library/kvisor:${{ github.sha }}
 
@@ -118,6 +141,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.imgcollector
+          platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ github.sha }}
   e2e:
