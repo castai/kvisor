@@ -1,3 +1,4 @@
 FROM gcr.io/distroless/static-debian11
-COPY ./bin/castai-imgcollector /usr/local/bin/castai-imgcollector
+ARG TARGETARCH=amd64
+COPY ./bin/castai-imgcollector-$TARGETARCH /usr/local/bin/castai-imgcollector
 CMD ["/usr/local/bin/castai-imgcollector"]
