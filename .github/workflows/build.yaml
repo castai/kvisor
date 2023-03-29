@@ -42,28 +42,28 @@ jobs:
           restore-keys: ${{ runner.os }}-build-
 
       - name: Build agent go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-kvisor-amd64 ./cmd/agent
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/agent
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
       - name: Build imgcollector go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-imgcollector-amd64 ./cmd/imgcollector
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector-amd64 ./cmd/imgcollector
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
       - name: Build agent go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-kvisor-arm64 ./cmd/agent
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/agent
         env:
           GOOS: linux
           GOARCH: arm64
           CGO_ENABLED: 0
 
       - name: Build imgcollector go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=$GITHUB_SHA" -o bin/castai-imgcollector-arm64 ./cmd/imgcollector
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector-arm64 ./cmd/imgcollector
         env:
           GOOS: linux
           GOARCH: arm64
