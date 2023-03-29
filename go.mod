@@ -28,7 +28,6 @@ require (
 	github.com/knqyf263/go-apk-version v0.0.0-20200609155635-041fdbb8563f
 	github.com/knqyf263/go-deb-version v0.0.0-20190517075300-09fca494f03d
 	github.com/knqyf263/go-rpmdb v0.0.0-20221030142135-919c8a52f04f
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
 	github.com/prometheus/client_golang v1.13.0
@@ -155,6 +154,7 @@ require (
 	github.com/microsoft/go-rustaudit v0.0.0-20220808201409-204dfee52032 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/buildkit v0.10.4 // indirect
 	github.com/moby/locker v1.0.1 // indirect
@@ -166,7 +166,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/opencontainers/runc v1.1.4 // indirect
+	github.com/opencontainers/runc v1.1.5 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20220311020903-6969a0a09ab1 // indirect
 	github.com/opencontainers/runtime-tools v0.0.0-20190417131837-cd1349b7c47e // indirect
 	github.com/opencontainers/selinux v1.10.2 // indirect
@@ -256,4 +256,3 @@ replace github.com/chzyer/logex v1.1.10 => github.com/chzyer/logex v1.2.0
 replace github.com/containerd/containerd => github.com/containerd/containerd v1.6.1-0.20220706215228-681aaf68b7dc
 
 replace github.com/go-enry/go-license-detector/v4 v4.3.0 => ./cmd/imgcollector/stub/licensing
-
