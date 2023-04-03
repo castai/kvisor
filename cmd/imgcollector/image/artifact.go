@@ -109,7 +109,6 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	var missingImageKey string
 	if cachedOSInfo == nil {
 		missingImageKey = imageKey
-		a.log.Debugf("missing image ID in cache: %s", imageID)
 	}
 
 	// Find cached layers
@@ -121,6 +120,7 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 		_, ok := cachedLayers[v]
 		return !ok
 	})
+	a.log.Debugf("found %d cached layers, %d layers will be inspected", len(cachedLayers), len(missingLayersKeys))
 
 	// Inspect all not cached layers.
 	blobsInfo, artifactInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayersKeys, baseDiffIDs, layerKeyMap)
@@ -139,7 +139,6 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 func (a Artifact) getCachedOsInfo(ctx context.Context, key string) (*types.ArtifactInfo, error) {
 	blobBytes, err := a.cache.GetBlob(ctx, key)
 	if err != nil {
-		a.log.Warnf("getting os info blob cache: %v", err)
 		return nil, blobscache.ErrCacheNotFound
 	}
 	var res types.ArtifactInfo
@@ -153,8 +152,7 @@ func (a Artifact) getCachedLayers(ctx context.Context, ids []string) (map[string
 	blobs := map[string]types.BlobInfo{}
 	for _, id := range ids {
 		blobBytes, err := a.cache.GetBlob(ctx, id)
-		if err != nil {
-			a.log.Warnf("getting layers blob cache: %v", err)
+		if err != nil && !errors.Is(err, blobscache.ErrCacheNotFound) {
 			continue
 		}
 		if len(blobBytes) > 0 {

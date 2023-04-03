@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/controller"
 	"github.com/castai/kvisor/metrics"
@@ -37,6 +38,13 @@ func NewSubscriber(
 		log:             log,
 		cfg:             cfg,
 		k8sVersionMinor: k8sVersionMinor,
+		timeGetter:      timeGetter(),
+	}
+}
+
+func timeGetter() func() time.Time {
+	return func() time.Time {
+		return time.Now().UTC()
 	}
 }
 
@@ -48,6 +56,7 @@ type Subscriber struct {
 	log             logrus.FieldLogger
 	cfg             config.ImageScan
 	k8sVersionMinor int
+	timeGetter      func() time.Time
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -98,8 +107,11 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	images := lo.Values(s.delta.getImages())
+	now := s.timeGetter()
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
-		return !v.scanned && v.name != "" && len(v.owners) > 0
+		return !v.scanned &&
+			len(v.owners) > 0 &&
+			(v.nextScan.IsZero() || v.nextScan.Before(now))
 	})
 	sort.Slice(pendingImages, func(i, j int) bool {
 		return pendingImages[i].failures < pendingImages[j].failures
@@ -131,7 +143,7 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 	var wg sync.WaitGroup
 	for _, img := range images {
 		if img.name == "" {
-			return fmt.Errorf("no image name set: %+v", img)
+			return fmt.Errorf("no image name set, image_id=%s", img.id)
 		}
 
 		wg.Add(1)
@@ -149,10 +161,7 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, img); err != nil {
 				log.Errorf("image scan failed: %v", err)
-				// Increase image failures on error.
-				s.delta.updateImage(img.id, func(img *image) {
-					img.failures++
-				})
+				s.delta.setImageScanError(img.id, err)
 				return
 			}
 			log.Info("image scan finished")
@@ -202,10 +211,20 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 	}()
 
+	// If image scan fails in containerd hostfs mode due missing layers
+	// try to scan via mounted containerd socket.
+	mode := s.cfg.Mode
+	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) &&
+		img.containerRuntime == imgcollectorconfig.RuntimeContainerd &&
+		s.cfg.HostfsSocketFallbackEnabled {
+		mode = string(imgcollectorconfig.ModeDaemon)
+	}
+
 	return s.imageScanner.ScanImage(ctx, ScanImageParams{
 		ImageName:                   img.name,
 		ImageID:                     img.id,
-		ContainerRuntime:            img.containerRuntime,
+		ContainerRuntime:            string(img.containerRuntime),
+		Mode:                        mode,
 		ResourceIDs:                 lo.Keys(img.owners),
 		NodeName:                    nodeName,
 		Tolerations:                 img.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.

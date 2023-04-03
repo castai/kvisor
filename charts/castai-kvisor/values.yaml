@@ -55,15 +55,17 @@ config: |
   deltaSyncInterval: "15s"
   linter:
     enabled: true
+    scanInterval: "30s"
   kubeBench:
     enabled: true
-    scanInterval: "15s"
+    scanInterval: "30s"
   imageScan:
     enabled: true
     scanInterval: "15s"
     maxConcurrentScans: 3
+    hostfsSocketFallbackEnabled: true
     image:
-      name: "us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"
+      name: "{{ .Values.image.repository }}-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"
       pullPolicy: IfNotPresent
   cloudScan:
     enabled: false
