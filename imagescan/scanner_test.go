@@ -85,7 +85,9 @@ func TestScanner(t *testing.T) {
 						},
 					},
 					Spec: corev1.PodSpec{
-						NodeName:      "n1",
+						NodeSelector: map[string]string{
+							"kubernetes.io/hostname": "n1",
+						},
 						RestartPolicy: "Never",
 						Priority:      lo.ToPtr(int32(0)),
 						Affinity: &corev1.Affinity{

@@ -357,7 +357,9 @@ func scanJobSpec(
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					NodeName:      nodeName,
+					NodeSelector: map[string]string{
+						"kubernetes.io/hostname": nodeName,
+					},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Priority:      lo.ToPtr(int32(0)),
 					Affinity: &corev1.Affinity{
