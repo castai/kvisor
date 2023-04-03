@@ -72,9 +72,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if params.ContainerRuntime == "" {
 		return errors.New("container runtime is required")
 	}
-	if params.Mode == "" {
-		return errors.New("mode is required")
-	}
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
 	}
