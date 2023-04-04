@@ -53,6 +53,7 @@ type ScanImageParams struct {
 	ImageName                   string
 	ImageID                     string
 	ContainerRuntime            string
+	Mode                        string
 	NodeName                    string
 	ResourceIDs                 []string
 	Tolerations                 []corev1.Toleration
@@ -86,7 +87,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 
 	jobName := genJobName(params.ImageName)
 	vols := volumesAndMounts{}
-	mode := imgcollectorconfig.Mode(s.cfg.ImageScan.Mode)
+	mode := imgcollectorconfig.Mode(params.Mode)
 	containerRuntime := params.ContainerRuntime
 
 	switch containerRuntime {

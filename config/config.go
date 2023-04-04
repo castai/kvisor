@@ -43,21 +43,22 @@ type CloudScanEKS struct {
 }
 
 type ImageScan struct {
-	Enabled            bool           `envconfig:"ENABLED" yaml:"enabled"`
-	ScanInterval       time.Duration  `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
-	ScanTimeout        time.Duration  `envconfig:"SCAN_TIMEOUT" yaml:"scanTimeout"`
-	MaxConcurrentScans int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
-	Image              ImageScanImage `envconfig:"IMAGE" yaml:"image"`
-	Mode               string         `envconfig:"MODE" yaml:"mode"`
-	DockerOptionsPath  string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
-	BlobsCachePort     int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
-	CPURequest         string         `envconfig:"CPU_REQUEST" yaml:"cpuRequest"`
-	CPULimit           string         `envconfig:"CPU_LIMIT" yaml:"cpuLimit"`
-	MemoryRequest      string         `envconfig:"MEMORY_REQUEST" yaml:"memoryRequest"`
-	MemoryLimit        string         `envconfig:"MEMORY_LIMIT" yaml:"memoryLimit"`
-	Force              bool           `envconfig:"FORCE" yaml:"force"`
-	ProfileEnabled     bool           `envconfig:"PROFILE_ENABLED" yaml:"profileEnabled"`
-	PhlareEnabled      bool           `envconfig:"PHLARE_ENABLED" yaml:"phlareEnabled"`
+	Enabled                     bool           `envconfig:"ENABLED" yaml:"enabled"`
+	ScanInterval                time.Duration  `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
+	ScanTimeout                 time.Duration  `envconfig:"SCAN_TIMEOUT" yaml:"scanTimeout"`
+	MaxConcurrentScans          int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
+	Image                       ImageScanImage `envconfig:"IMAGE" yaml:"image"`
+	Mode                        string         `envconfig:"MODE" yaml:"mode"`
+	HostfsSocketFallbackEnabled bool           `envconfig:"HOSTFS_SOCKET_FALLBACK_ENABLED" yaml:"hostfsSocketFallbackEnabled"`
+	DockerOptionsPath           string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
+	BlobsCachePort              int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
+	CPURequest                  string         `envconfig:"CPU_REQUEST" yaml:"cpuRequest"`
+	CPULimit                    string         `envconfig:"CPU_LIMIT" yaml:"cpuLimit"`
+	MemoryRequest               string         `envconfig:"MEMORY_REQUEST" yaml:"memoryRequest"`
+	MemoryLimit                 string         `envconfig:"MEMORY_LIMIT" yaml:"memoryLimit"`
+	Force                       bool           `envconfig:"FORCE" yaml:"force"`
+	ProfileEnabled              bool           `envconfig:"PROFILE_ENABLED" yaml:"profileEnabled"`
+	PhlareEnabled               bool           `envconfig:"PHLARE_ENABLED" yaml:"phlareEnabled"`
 }
 
 type ImageScanImage struct {

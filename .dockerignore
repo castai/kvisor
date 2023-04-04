@@ -1,2 +1,4 @@
 testdata
 cmd
+node_modules
+dist

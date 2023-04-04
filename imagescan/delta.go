@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/samber/lo"
 	"gopkg.in/inf.v0"
@@ -12,8 +13,10 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/castai/kvisor/castai"
+	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/controller"
 )
 
@@ -23,22 +26,35 @@ var (
 
 func buildImageMap(scannedImages []castai.ScannedImage) map[string]*image {
 	images := map[string]*image{}
-	for _, img := range scannedImages {
-		owners := make(map[string]*imageOwner, len(img.ResourceIDs))
-		for _, id := range img.ResourceIDs {
+	for _, scannedImage := range scannedImages {
+		owners := make(map[string]*imageOwner, len(scannedImage.ResourceIDs))
+		for _, id := range scannedImage.ResourceIDs {
 			owners[id] = &imageOwner{
 				podIDs: map[string]struct{}{},
 			}
 		}
-		images[img.ID] = &image{
-			id:      img.ID,
-			owners:  owners,
-			nodes:   map[string]*imageNode{},
-			scanned: true,
-		}
+
+		img := newImage(scannedImage.ID)
+		img.scanned = true
+		img.owners = owners
+		images[scannedImage.ID] = img
 	}
 
 	return images
+}
+
+func newImage(imageID string) *image {
+	return &image{
+		id:      imageID,
+		owners:  map[string]*imageOwner{},
+		nodes:   map[string]*imageNode{},
+		scanned: false,
+		retryBackoff: wait.Backoff{
+			Duration: time.Second * 60,
+			Factor:   3,
+			Steps:    8,
+		},
+	}
 }
 
 func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
@@ -178,16 +194,18 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		if !found {
 			continue
 		}
+		if cs.ImageID == "" {
+			continue
+		}
+		if cont.Image == "" {
+			continue
+		}
 
 		key := cs.ImageID
 		nodeName := pod.Spec.NodeName
 		img, found := d.images[key]
 		if !found {
-			img = &image{
-				id:     key,
-				owners: map[string]*imageOwner{},
-				nodes:  map[string]*imageNode{},
-			}
+			img = newImage(key)
 		}
 		img.id = key
 		img.name = cont.Image
@@ -221,7 +239,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 }
 
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
-	for _, img := range d.images {
+	for imgKey, img := range d.images {
 		podID := string(pod.UID)
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
@@ -235,14 +253,22 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 				delete(img.owners, ownerResourceID)
 			}
 		}
+
+		if img.isUnused() {
+			delete(d.images, imgKey)
+		}
 	}
 }
 
 func (d *deltaState) handleNodeDelete(node *corev1.Node) {
 	delete(d.nodes, node.GetName())
 
-	for _, img := range d.images {
+	for imgKey, img := range d.images {
 		delete(img.nodes, node.Name)
+
+		if img.isUnused() {
+			delete(d.images, imgKey)
+		}
 	}
 }
 
@@ -269,6 +295,24 @@ func (d *deltaState) updateImage(imageID string, change func(img *image)) {
 	if img != nil {
 		change(img)
 	}
+}
+
+func (d *deltaState) setImageScanError(imageID string, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	img := d.images[imageID]
+	if img == nil {
+		return
+	}
+
+	img.failures++
+	img.lastScanErr = err
+	if strings.Contains(err.Error(), "no such file or directory") {
+		img.lastScanErr = errImageScanLayerNotFound
+	}
+
+	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
 }
 
 func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, requiredCPU *inf.Dec) (string, error) {
@@ -304,12 +348,19 @@ func (d *deltaState) nodeCount() int {
 	return len(d.nodes)
 }
 
-func getContainerRuntime(containerID string) string {
+func getContainerRuntime(containerID string) imgcollectorconfig.Runtime {
 	parts := strings.Split(containerID, "://")
 	if len(parts) != 2 {
 		return ""
 	}
-	return parts[0]
+	cr := parts[0]
+	switch cr {
+	case "docker":
+		return imgcollectorconfig.RuntimeDocker
+	case "containerd":
+		return imgcollectorconfig.RuntimeContainerd
+	}
+	return ""
 }
 
 func getPodOwnerID(pod *corev1.Pod, rsMap map[string]*appsv1.ReplicaSet, jobsMap map[string]*batchv1.Job) string {
@@ -404,14 +455,23 @@ type imageOwner struct {
 	podIDs map[string]struct{}
 }
 
+var errImageScanLayerNotFound = errors.New("image layer not found")
+
 type image struct {
 	id               string
 	name             string
-	containerRuntime string
+	containerRuntime imgcollectorconfig.Runtime
 	owners           map[string]*imageOwner
 	nodes            map[string]*imageNode
 	podTolerations   []corev1.Toleration
 
-	scanned  bool
-	failures int
+	scanned      bool
+	lastScanErr  error
+	failures     int          // Used for sorting. We want to scan non-failed images first.
+	retryBackoff wait.Backoff // Retry state for failed images.
+	nextScan     time.Time    // Set based on retry backoff.
+}
+
+func (img *image) isUnused() bool {
+	return len(img.nodes) == 0 && len(img.owners) == 0
 }

@@ -54,6 +54,7 @@ func TestScanner(t *testing.T) {
 			ImageName:        "test-image",
 			ImageID:          "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
 			ContainerRuntime: "containerd",
+			Mode:             "hostfs",
 			NodeName:         "n1",
 			ResourceIDs:      []string{"p1", "p2"},
 		})
@@ -250,6 +251,7 @@ func TestScanner(t *testing.T) {
 			ImageName:         "test-image",
 			ImageID:           "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
 			ContainerRuntime:  "containerd",
+			Mode:              "hostfs",
 			NodeName:          "n1",
 			ResourceIDs:       []string{"p1", "p2"},
 			DeleteFinishedJob: true,

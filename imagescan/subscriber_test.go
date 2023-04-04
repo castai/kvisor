@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 )
 
@@ -167,6 +168,7 @@ func TestSubscriber(t *testing.T) {
 		cfg := config.ImageScan{
 			ScanInterval:       1 * time.Millisecond,
 			ScanTimeout:        time.Minute,
+			Mode:               "hostfs",
 			MaxConcurrentScans: 5,
 			CPURequest:         "500m",
 			CPULimit:           "2",
@@ -210,6 +212,7 @@ func TestSubscriber(t *testing.T) {
 			ImageName:                   "nginx:1.23",
 			ImageID:                     "nginx:1.23@sha256",
 			ContainerRuntime:            "containerd",
+			Mode:                        "hostfs",
 			NodeName:                    ngnxImage.NodeName,
 			ResourceIDs:                 ngnxImage.ResourceIDs,
 			DeleteFinishedJob:           true,
@@ -233,18 +236,22 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
-		delta := sub.delta
-		delta.images["img1"] = &image{
-			failures: 3,
-			name:     "img",
-			id:       "img1",
-			nodes: map[string]*imageNode{
-				"node1": {},
-			},
-			owners: map[string]*imageOwner{
-				"r1": {},
-			},
+		sub.timeGetter = func() time.Time {
+			return time.Now().UTC().Add(time.Hour)
 		}
+		delta := sub.delta
+		img := newImage("img1")
+		img.name = "img"
+		img.nodes = map[string]*imageNode{
+			"node1": {},
+		}
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
+		delta.images["img1"] = img
+		delta.setImageScanError(img.id, errors.New("failed"))
+		delta.setImageScanError(img.id, errors.New("failed again"))
+
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
 		delta.nodes["node1"] = &node{
@@ -260,7 +267,60 @@ func TestSubscriber(t *testing.T) {
 		err := sub.scheduleScans(ctx)
 		r.NoError(err)
 		r.Len(scanner.imgs, 1)
-		r.True(delta.images["img1"].scanned)
+		img = delta.images["img1"]
+		r.False(img.nextScan.IsZero())
+		r.True(img.scanned)
+	})
+
+	t.Run("scan image with containerd sock fallback", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval:                1 * time.Millisecond,
+			ScanTimeout:                 time.Minute,
+			MaxConcurrentScans:          5,
+			Mode:                        string(imgcollectorconfig.ModeHostFS),
+			HostfsSocketFallbackEnabled: true,
+			CPURequest:                  "500m",
+			CPULimit:                    "2",
+			MemoryRequest:               "100Mi",
+			MemoryLimit:                 "2Gi",
+		}
+
+		scanner := &mockImageScanner{}
+		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
+		sub.timeGetter = func() time.Time {
+			return time.Now().UTC().Add(time.Hour)
+		}
+		delta := sub.delta
+		img := newImage("img1")
+		img.name = "img"
+		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
+		img.nodes = map[string]*imageNode{
+			"node1": {},
+		}
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
+		delta.images["img1"] = img
+		delta.setImageScanError(img.id, errImageScanLayerNotFound)
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		err := sub.scheduleScans(ctx)
+		r.NoError(err)
+		r.Len(scanner.imgs, 1)
+		r.Equal(string(imgcollectorconfig.ModeDaemon), scanner.imgs[0].Mode)
 	})
 
 	t.Run("respect node count", func(t *testing.T) {
