@@ -245,4 +245,136 @@ func TestDelta(t *testing.T) {
 		_, err = delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
 		r.ErrorIs(err, errNoCandidates)
 	})
+
+	t.Run("frees up resources", func(t *testing.T) {
+		r := require.New(t)
+		delta := NewDeltaState(nil)
+
+		delta.upsert(&corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node1",
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("2"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+			},
+		})
+
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				UID: "123",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "test",
+						Image: "test",
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("1"),
+								corev1.ResourceMemory: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				NodeName: "node1",
+			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+			},
+		}
+
+		delta.upsert(pod)
+		cpuQty := resource.MustParse("2")
+		memQty := resource.MustParse("4Gi")
+		_, err := delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
+		r.ErrorIs(err, errNoCandidates)
+
+		delta.delete(pod)
+		_, err = delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
+		r.NoError(err, errNoCandidates)
+	})
+
+	t.Run("cleans up image references", func(t *testing.T) {
+		r := require.New(t)
+		delta := NewDeltaState(nil)
+
+		node := &corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Node",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node1",
+			},
+			Status: corev1.NodeStatus{
+				Allocatable: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("2"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+			},
+		}
+		delta.upsert(node)
+
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				UID: "123",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "test",
+						Image: "test",
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("1"),
+								corev1.ResourceMemory: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				NodeName: "node1",
+			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name:    "test",
+						ImageID: "testid",
+					},
+				},
+			},
+		}
+
+		delta.upsert(pod)
+		img, found := delta.images["testid"]
+		r.True(found)
+		r.Len(img.owners, 1)
+		r.Len(img.nodes, 1)
+
+		delta.delete(pod)
+
+		img, found = delta.images["testid"]
+		r.True(found)
+		r.Len(img.owners, 0)
+
+		delta.delete(node)
+
+		_, found = delta.nodes["node1"]
+		r.False(found)
+	})
 }

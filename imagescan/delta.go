@@ -254,9 +254,14 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 			}
 		}
 
-		if img.isUnused() {
+		if len(img.nodes) == 0 && len(img.owners) == 0 {
 			delete(d.images, imgKey)
 		}
+	}
+
+	n, ok := d.nodes[pod.Spec.NodeName]
+	if ok {
+		delete(n.pods, pod.UID)
 	}
 }
 
