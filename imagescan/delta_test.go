@@ -302,7 +302,7 @@ func TestDelta(t *testing.T) {
 
 		delta.delete(pod)
 		_, err = delta.findBestNode([]string{"node1"}, memQty.AsDec(), cpuQty.AsDec())
-		r.NoError(err, errNoCandidates)
+		r.NoError(err)
 	})
 
 	t.Run("cleans up image references", func(t *testing.T) {
