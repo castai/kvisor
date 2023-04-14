@@ -50,6 +50,7 @@ import (
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/redhatbase"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/release"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/ubuntu"
+
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/apk"
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/dpkg"
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
@@ -85,6 +86,11 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
+	manifest, err := img.Manifest()
+	if err != nil {
+		return fmt.Errorf("extract manifest: %w", err)
+	}
+
 	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
 		Offline: true,
 		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
@@ -110,6 +116,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
 		BlobsInfo:   arRef.BlobsInfo,
 		ConfigFile:  arRef.ConfigFile,
+		Manifest:    manifest,
 		OsInfo: &castai.OsInfo{
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,

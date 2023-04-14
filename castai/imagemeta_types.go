@@ -11,6 +11,7 @@ type ImageMetadata struct {
 	ResourceIDs []string         `json:"resourceIDs,omitempty"`
 	BlobsInfo   []types.BlobInfo `json:"blobsInfo,omitempty"`
 	ConfigFile  *v1.ConfigFile   `json:"configFile,omitempty"`
+	Manifest    *v1.Manifest     `json:"manifest,omitempty"`
 	OsInfo      *OsInfo          `json:"osInfo,omitempty"`
 }
 
