@@ -92,6 +92,13 @@ func (img *image) ConfigName() (v1.Hash, error) {
 	return v1.NewHash(img.inspect.ID)
 }
 
+func (img *image) Manifest() (*v1.Manifest, error) {
+	if err := img.populateImage(); err != nil {
+		return nil, fmt.Errorf("unable to populate: %w", err)
+	}
+	return img.Image.Manifest()
+}
+
 func (img *image) ConfigFile() (*v1.ConfigFile, error) {
 	if len(img.inspect.RootFS.Layers) == 0 {
 		// Podman doesn't return RootFS...
