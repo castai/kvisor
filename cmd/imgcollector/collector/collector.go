@@ -86,11 +86,6 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
-	manifest, err := img.Manifest()
-	if err != nil {
-		return fmt.Errorf("extract manifest: %w", err)
-	}
-
 	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
 		Offline: true,
 		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
@@ -108,6 +103,11 @@ func (c *Collector) Collect(ctx context.Context) error {
 	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
 		return err
+	}
+	
+	manifest, err := img.Manifest()
+	if err != nil {
+		return fmt.Errorf("extract manifest: %w", err)
 	}
 
 	if err := c.client.SendImageMetadata(ctx, &castai.ImageMetadata{

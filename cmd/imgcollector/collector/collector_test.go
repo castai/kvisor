@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+
 	mock_blobcache "github.com/castai/kvisor/blobscache/mock"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCollector(t *testing.T) {
@@ -78,7 +79,7 @@ func TestCollectorLargeImageDocker(t *testing.T) {
 	// You will spend a lot of time on macOS to fetch image into temp file from daemon.
 	// Instead, export image once to local tar file.
 	// docker save ghcr.io/castai/egressd:am1 -o egressd.tar
-	imgName := "ghcr.io/castai/egressd:am1"
+	imgName := "kvisor:local"
 	imgID := imgName
 
 	r := require.New(t)
