@@ -38,8 +38,8 @@ Common labels
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
-{{ with .Values.commonLabels }}
-{{- toYaml . }}
+{{- with .Values.commonLabels }}
+{{ toYaml . }}
 {{- end }}
 {{- end }}
 
