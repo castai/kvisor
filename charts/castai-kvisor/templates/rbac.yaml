@@ -6,9 +6,14 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "castai.labels" . | nindent 4 }}
-  {{- with .Values.serviceAccount.annotations }}
+  {{- if or .Values.serviceAccount.annotations .Values.commonAnnotations }}
   annotations:
+    {{- with .Values.serviceAccount.annotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4}}
+    {{- end }}
   {{- end }}
 
 ---
@@ -18,6 +23,10 @@ metadata:
   name: castai-kvisor
   labels:
     {{- include "castai.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 rules:
   # Readonly access for resources which are tracked by castai-kvisor.
   - apiGroups:
@@ -79,6 +88,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "castai.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 rules:
   # Access to manage jobs in castai-sec namespace.
   - apiGroups:
@@ -105,6 +118,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
       {{- include "castai.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -120,6 +137,10 @@ metadata:
   name: castai-kvisor
   labels:
     {{- include "castai.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
