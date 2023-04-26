@@ -5,6 +5,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "castai.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+      {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   strategy:
     {{- .Values.updateStrategy | toYaml | nindent 4 }}
@@ -23,6 +27,9 @@ spec:
         {{- with .Values.podLabels }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- with .Values.commonLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
@@ -31,6 +38,9 @@ spec:
         prometheus.io/port: "{{.Values.metrics.scrapePort}}"
         {{- end }}
       {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.commonAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:

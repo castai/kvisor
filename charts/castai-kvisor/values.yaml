@@ -10,6 +10,12 @@ fullnameOverride: castai-kvisor
 # By default namespace is expected to be created by castai-agent.
 createNamespace: false
 
+# Labels to add to all resources.
+commonLabels: {}
+
+# Annotations to add to all resources.
+commonAnnotations: {}
+
 image:
   repository: us-docker.pkg.dev/castai-hub/library/kvisor
   # Tag is set using Chart.yaml appVersion field.

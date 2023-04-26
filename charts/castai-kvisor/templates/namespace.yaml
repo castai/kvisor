@@ -5,4 +5,8 @@ metadata:
   name: {{ .Release.Namespace }}
   labels:
   {{- include "castai.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+      {{- toYaml . | nindent 4 }}
+  {{- end }}
 {{- end }}
