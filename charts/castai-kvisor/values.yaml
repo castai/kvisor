@@ -114,6 +114,11 @@ affinity:
               operator: NotIn
               values:
                 - windows
+            - key: kubernetes.io/arch
+              operator: In
+              values:
+                - amd64
+                - arm64
 
 # Pod security context.
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
