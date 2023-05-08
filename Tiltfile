@@ -1,5 +1,5 @@
 if config.tilt_subcommand == "down":
-    fail("consider using `kubectl delete ns castai-sec")
+    fail("consider using `kubectl delete ns kvisor")
 
 load('ext://restart_process', 'docker_build_with_restart')
 load('ext://namespace', 'namespace_create')
@@ -44,7 +44,7 @@ local_resource(
 
 local_resource(
     'imgcollector-docker-build',
-    'docker build -t localhost:5000/kvisor-imgcollector . -f Dockerfile.imgcollector && docker push localhost:5000/kvisor-imgcollector',
+    'docker build -t localhost:5000/kvisor-imgcollector . -f Dockerfile.imgcollector.tilt && docker push localhost:5000/kvisor-imgcollector',
     deps=[
         './bin/castai-imgcollector'
     ],

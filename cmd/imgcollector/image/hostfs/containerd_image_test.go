@@ -59,3 +59,23 @@ func TestContainerdImage(t *testing.T) {
 		})
 	}
 }
+
+func TestContainerdImageWithIndex(t *testing.T) {
+	r := require.New(t)
+	img, err := NewContainerdImage(v1.Hash{
+		Algorithm: "sha256",
+		Hex:       "211a3be9e15e1e4ccd75220aa776d92e06235552351464db2daf043bd30a0ac0",
+	},
+		ContainerdHostFSConfig{
+			Platform: v1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			},
+			ContentDir: "./testdata/containerd_content",
+		},
+	)
+	r.NoError(err)
+	index, err := img.Index()
+	r.NoError(err)
+	r.Len(index.Manifests, 2)
+}

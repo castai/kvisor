@@ -9,9 +9,7 @@ import (
 	"github.com/castai/kvisor/cmd/imgcollector/image/daemon"
 )
 
-type Image = types.Image
-
-func NewFromContainerdDaemon(ctx context.Context, imageName string) (types.Image, func(), error) {
+func NewFromContainerdDaemon(ctx context.Context, imageName string) (ImageWithIndex, func(), error) {
 	img, cleanup, err := daemon.ContainerdImage(ctx, imageName)
 	if err != nil {
 		return nil, nil, err
@@ -22,7 +20,7 @@ func NewFromContainerdDaemon(ctx context.Context, imageName string) (types.Image
 	}, cleanup, nil
 }
 
-func NewFromDockerDaemon(imageName string, ref name.Reference) (types.Image, func(), error) {
+func NewFromDockerDaemon(imageName string, ref name.Reference) (ImageWithIndex, func(), error) {
 	img, cleanup, err := daemon.DockerImage(ref)
 	if err != nil {
 		return nil, nil, err
@@ -33,7 +31,7 @@ func NewFromDockerDaemon(imageName string, ref name.Reference) (types.Image, fun
 	}, cleanup, nil
 }
 
-func NewFromDockerDaemonTarFile(imageName, localTarPath string, ref name.Reference) (types.Image, func(), error) {
+func NewFromDockerDaemonTarFile(imageName, localTarPath string, ref name.Reference) (ImageWithIndex, func(), error) {
 	img, cleanup, err := daemon.DockerTarImage(ref, localTarPath)
 	if err != nil {
 		return nil, nil, err

@@ -104,7 +104,12 @@ func (c *Collector) Collect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	
+
+	index, err := img.Index()
+	if err != nil {
+		return fmt.Errorf("extract index: %w", err)
+	}
+
 	manifest, err := img.Manifest()
 	if err != nil {
 		return fmt.Errorf("extract manifest: %w", err)
@@ -117,6 +122,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 		BlobsInfo:   arRef.BlobsInfo,
 		ConfigFile:  arRef.ConfigFile,
 		Manifest:    manifest,
+		Index:       index,
 		OsInfo: &castai.OsInfo{
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,
@@ -128,7 +134,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
+func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
 		return nil, nil, err

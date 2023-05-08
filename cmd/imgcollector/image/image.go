@@ -3,8 +3,16 @@ package image
 import (
 	"fmt"
 
+	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
+
+type Image = types.Image
+
+type ImageWithIndex interface {
+	Image
+	Index() (*v1.IndexManifest, error)
+}
 
 func ID(img v1.Image) (string, error) {
 	h, err := img.ConfigName()

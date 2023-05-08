@@ -11,8 +11,11 @@ type ImageMetadata struct {
 	ResourceIDs []string         `json:"resourceIDs,omitempty"`
 	BlobsInfo   []types.BlobInfo `json:"blobsInfo,omitempty"`
 	ConfigFile  *v1.ConfigFile   `json:"configFile,omitempty"`
-	Manifest    *v1.Manifest     `json:"manifest,omitempty"`
-	OsInfo      *OsInfo          `json:"osInfo,omitempty"`
+	// Manifest specification can be found here: https://github.com/opencontainers/image-spec/blob/main/manifest.md
+	Manifest *v1.Manifest `json:"manifest,omitempty"`
+	// Index specification can be found here: https://github.com/opencontainers/image-spec/blob/main/image-index.md
+	Index  *v1.IndexManifest `json:"index,omitempty"`
+	OsInfo *OsInfo           `json:"osInfo,omitempty"`
 }
 
 // nolint:musttag

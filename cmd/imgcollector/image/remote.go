@@ -37,7 +37,7 @@ type DockerOption struct {
 	NonSSL                bool `yaml:"non_ssl"`
 }
 
-func NewFromRemote(ctx context.Context, imageName string, option DockerOption) (types.Image, error) {
+func NewFromRemote(ctx context.Context, imageName string, option DockerOption) (ImageWithIndex, error) {
 	var nameOpts []name.Option
 	if option.NonSSL {
 		nameOpts = append(nameOpts, name.Insecure)
