@@ -43,7 +43,12 @@ func NewContainerdImage(hash v1.Hash, cfg ContainerdHostFSConfig) (Image, error)
 		contentDir:  cfg.ContentDir,
 	}
 
-	index, err := manifestReader.resolveIndex()
+	mi, err := manifestReader.resolveDigest()
+	if err != nil {
+		return nil, fmt.Errorf("resolving digest: %w", err)
+	}
+
+	index, err := manifestReader.resolveIndex(mi)
 	if err == nil {
 		img.index = index
 	}
@@ -117,17 +122,12 @@ func (h *containerdManifestReader) resolveDigest() (*manifestOrIndex, error) {
 	return &mi, nil
 }
 
-func (h *containerdManifestReader) resolveIndex() (*v1.IndexManifest, error) {
-	mi, err := h.resolveDigest()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(mi.Manifests) == 0 {
+func (h *containerdManifestReader) resolveIndex(from *manifestOrIndex) (*v1.IndexManifest, error) {
+	if len(from.Manifests) == 0 {
 		return nil, fmt.Errorf("not an index manifest")
 	}
 
-	return mi.index(), nil
+	return from.index(), nil
 }
 
 func (h *containerdManifestReader) resolveManifest() (*v1.Manifest, error) {
