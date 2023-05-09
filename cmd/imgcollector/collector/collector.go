@@ -105,29 +105,31 @@ func (c *Collector) Collect(ctx context.Context) error {
 		return err
 	}
 
-	index, err := img.Index()
-	if err != nil {
-		return fmt.Errorf("extract index: %w", err)
-	}
-
 	manifest, err := img.Manifest()
 	if err != nil {
 		return fmt.Errorf("extract manifest: %w", err)
 	}
 
-	if err := c.client.SendImageMetadata(ctx, &castai.ImageMetadata{
+	metadata := &castai.ImageMetadata{
 		ImageName:   c.cfg.ImageName,
 		ImageID:     c.cfg.ImageID,
 		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
 		BlobsInfo:   arRef.BlobsInfo,
 		ConfigFile:  arRef.ConfigFile,
 		Manifest:    manifest,
-		Index:       index,
 		OsInfo: &castai.OsInfo{
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,
 		},
-	}); err != nil {
+	}
+
+	if index, err := img.Index(); err != nil {
+		c.log.Debugf("extract index: %s", err)
+	} else {
+		metadata.Index = index
+	}
+
+	if err := c.client.SendImageMetadata(ctx, metadata); err != nil {
 		return err
 	}
 

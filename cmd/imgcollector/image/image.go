@@ -1,6 +1,7 @@
 package image
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -13,6 +14,8 @@ type ImageWithIndex interface {
 	Image
 	Index() (*v1.IndexManifest, error)
 }
+
+var ErrNotImplemented = errors.New("not implemented")
 
 func ID(img v1.Image) (string, error) {
 	h, err := img.ConfigName()
