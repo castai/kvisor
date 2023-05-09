@@ -8,6 +8,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -21,6 +22,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
+
+var errNotImplemented = errors.New("not implemented")
 
 type Image interface {
 	v1.Image
@@ -98,6 +101,10 @@ func (img *image) Manifest() (*v1.Manifest, error) {
 		return nil, fmt.Errorf("unable to populate: %w", err)
 	}
 	return img.Image.Manifest()
+}
+
+func (img *image) Index() (*v1.IndexManifest, error) {
+	return nil, errNotImplemented
 }
 
 func (img *image) ConfigFile() (*v1.ConfigFile, error) {

@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
+
+var errNotImplemented = errors.New("not implemented")
 
 type DockerOption struct {
 	// Auth
@@ -65,7 +68,7 @@ func NewFromRemote(ctx context.Context, imageName string, option DockerOption) (
 	return img, nil
 }
 
-func tryRemote(ctx context.Context, imageName string, ref name.Reference, option types.DockerOption) (types.Image, error) {
+func tryRemote(ctx context.Context, imageName string, ref name.Reference, option types.DockerOption) (ImageWithIndex, error) {
 	var remoteOpts []remote.Option
 	if option.InsecureSkipTLSVerify {
 		t := &http.Transport{
@@ -136,6 +139,10 @@ func (img remoteImage) RepoTags() []string {
 func (img remoteImage) RepoDigests() []string {
 	repoDigest := fmt.Sprintf("%s@%s", img.ref.RepositoryName(), img.descriptor.Digest.String())
 	return []string{repoDigest}
+}
+
+func (img remoteImage) Index() (*v1.IndexManifest, error) {
+	return nil, errNotImplemented
 }
 
 type implicitReference struct {
