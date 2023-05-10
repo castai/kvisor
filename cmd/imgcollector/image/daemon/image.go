@@ -8,7 +8,6 @@ package daemon
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,13 +22,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-var errNotImplemented = errors.New("not implemented")
-
 type Image interface {
 	v1.Image
 	RepoTags() []string
 	RepoDigests() []string
-	Index() (*v1.IndexManifest, error)
+	Index() *v1.IndexManifest
 }
 
 var mu sync.Mutex
@@ -103,8 +100,8 @@ func (img *image) Manifest() (*v1.Manifest, error) {
 	return img.Image.Manifest()
 }
 
-func (img *image) Index() (*v1.IndexManifest, error) {
-	return nil, errNotImplemented
+func (img *image) Index() *v1.IndexManifest {
+	return nil
 }
 
 func (img *image) ConfigFile() (*v1.ConfigFile, error) {

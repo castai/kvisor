@@ -123,9 +123,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 		},
 	}
 
-	if index, err := img.Index(); err != nil {
-		c.log.Debugf("extract index: %s", err)
-	} else {
+	if index := img.Index(); index != nil {
 		metadata.Index = index
 	}
 

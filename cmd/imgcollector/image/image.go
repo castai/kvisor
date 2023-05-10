@@ -12,7 +12,7 @@ type Image = types.Image
 
 type ImageWithIndex interface {
 	Image
-	Index() (*v1.IndexManifest, error)
+	Index() *v1.IndexManifest
 }
 
 var ErrNotImplemented = errors.New("not implemented")

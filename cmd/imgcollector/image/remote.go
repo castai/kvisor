@@ -3,7 +3,6 @@ package image
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -15,8 +14,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
-
-var errNotImplemented = errors.New("not implemented")
 
 type DockerOption struct {
 	// Auth
@@ -141,8 +138,8 @@ func (img remoteImage) RepoDigests() []string {
 	return []string{repoDigest}
 }
 
-func (img remoteImage) Index() (*v1.IndexManifest, error) {
-	return nil, errNotImplemented
+func (img remoteImage) Index() *v1.IndexManifest {
+	return nil
 }
 
 type implicitReference struct {

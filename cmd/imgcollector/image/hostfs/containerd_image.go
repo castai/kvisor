@@ -48,8 +48,7 @@ func NewContainerdImage(hash v1.Hash, cfg ContainerdHostFSConfig) (Image, error)
 		return nil, fmt.Errorf("resolving digest: %w", err)
 	}
 
-	index, err := manifestReader.resolveIndex(mi)
-	if err == nil {
+	if index := manifestReader.resolveIndex(mi); index != nil {
 		img.index = index
 	}
 	return img, nil
@@ -122,12 +121,12 @@ func (h *containerdManifestReader) resolveDigest() (*manifestOrIndex, error) {
 	return &mi, nil
 }
 
-func (h *containerdManifestReader) resolveIndex(from *manifestOrIndex) (*v1.IndexManifest, error) {
+func (h *containerdManifestReader) resolveIndex(from *manifestOrIndex) *v1.IndexManifest {
 	if len(from.Manifests) == 0 {
-		return nil, fmt.Errorf("not an index manifest")
+		return nil
 	}
 
-	return from.index(), nil
+	return from.index()
 }
 
 func (h *containerdManifestReader) resolveManifest() (*v1.Manifest, error) {
@@ -257,8 +256,8 @@ func (b *containerdBlobImage) Manifest() (*v1.Manifest, error) {
 	return b.manifest, nil
 }
 
-func (b *containerdBlobImage) Index() (*v1.IndexManifest, error) {
-	return b.index, nil
+func (b *containerdBlobImage) Index() *v1.IndexManifest {
+	return b.index
 }
 
 func (b *containerdBlobImage) RawConfigFile() ([]byte, error) {
