@@ -25,43 +25,36 @@ const (
 )
 
 func NewContainerdImage(hash v1.Hash, cfg ContainerdHostFSConfig) (Image, error) {
-	manifestReader := newContainerdManifestReader(hash, cfg)
-	manifest, err := manifestReader.resolveManifest()
+	metadataReader := newContainerdMetadataReader(hash, cfg)
+	metadata, err := metadataReader.readMetadata()
 	if err != nil {
 		return nil, fmt.Errorf("resolving manifest: %w", err)
 	}
 
-	config, configBytes, err := manifestReader.readConfig(manifest.Config.Digest.String())
+	config, configBytes, err := metadataReader.readConfig(metadata.Manifest.Config.Digest.String())
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
 	}
 
-	img := &containerdBlobImage{
-		manifest:    manifest,
+	return &containerdBlobImage{
+		manifest:    metadata.Manifest,
+		index:       metadata.Index,
 		config:      config,
 		configBytes: configBytes,
 		contentDir:  cfg.ContentDir,
-	}
-
-	mi, err := manifestReader.resolveDigest()
-	if err != nil {
-		return nil, fmt.Errorf("resolving digest: %w", err)
-	}
-
-	if index := manifestReader.resolveIndex(mi); index != nil {
-		img.index = index
-	}
-	return img, nil
+	}, nil
 }
 
-func newContainerdManifestReader(hash v1.Hash, cfg ContainerdHostFSConfig) *containerdManifestReader {
-	return &containerdManifestReader{
+func newContainerdMetadataReader(hash v1.Hash, cfg ContainerdHostFSConfig) *containerdMetadataReader {
+	return &containerdMetadataReader{
 		imgHash: hash,
 		cfg:     cfg,
 	}
 }
 
-type containerdManifestReader struct {
+// containerdMetadataReader is used to follow image references as described here:
+// https://github.com/google/go-containerregistry/blob/main/images/ociimage.jpeg
+type containerdMetadataReader struct {
 	cfg     ContainerdHostFSConfig
 	imgHash v1.Hash
 }
@@ -69,6 +62,11 @@ type containerdManifestReader struct {
 type ContainerdHostFSConfig struct {
 	Platform   v1.Platform
 	ContentDir string
+}
+
+type containerdMetadata struct {
+	Index    *v1.IndexManifest
+	Manifest *v1.Manifest
 }
 
 type manifestOrIndex struct {
@@ -113,65 +111,59 @@ func (mi *manifestOrIndex) index() *v1.IndexManifest {
 	}
 }
 
-func (h *containerdManifestReader) resolveDigest() (*manifestOrIndex, error) {
-	var mi manifestOrIndex
-	if err := readManifest(path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm, h.imgHash.Hex), &mi); err != nil {
-		return nil, err
-	}
-	return &mi, nil
-}
-
-func (h *containerdManifestReader) resolveIndex(from *manifestOrIndex) *v1.IndexManifest {
-	if len(from.Manifests) == 0 {
-		return nil
-	}
-
-	return from.index()
-}
-
-func (h *containerdManifestReader) resolveManifest() (*v1.Manifest, error) {
-	mi, err := h.resolveDigest()
-	if err != nil {
+func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
+	var (
+		metadata containerdMetadata
+		manOrIdx manifestOrIndex
+	)
+	if err := readManifest(
+		path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm, h.imgHash.Hex), &manOrIdx,
+	); err != nil {
 		return nil, err
 	}
 
 	// This case indicates that image id digest points to config file.
 	// In such case we need to find manifest by iterating all files and searching for
 	// config file digest hash inside files content.
-	if len(mi.Layers) == 0 && len(mi.Manifests) == 0 {
+	if len(manOrIdx.Layers) == 0 && len(manOrIdx.Manifests) == 0 {
 		manifestPath, err := h.searchManifestPath()
 		if err != nil {
 			return nil, fmt.Errorf("searching manifest path: %w", err)
 		}
-		if err := readManifest(manifestPath, mi); err != nil {
+		if err := readManifest(manifestPath, &manOrIdx); err != nil {
 			return nil, err
 		}
 	}
 
-	if len(mi.Layers) > 0 {
-		return mi.manifest(), nil
+	if len(manOrIdx.Layers) > 0 {
+		metadata.Manifest = manOrIdx.manifest()
+		return &metadata, nil
 	}
 
 	// Search manifest from index manifest.
-	if len(mi.Manifests) > 0 {
-		for _, m := range mi.Manifests {
-			if matchingPlatform(h.cfg.Platform, *m.Platform) {
-				if err := readManifest(path.Join(h.cfg.ContentDir, blobs, m.Digest.Algorithm, m.Digest.Hex), mi); err != nil {
+	if len(manOrIdx.Manifests) > 0 {
+		metadata.Index = manOrIdx.index()
+		for _, manifest := range manOrIdx.Manifests {
+			if matchingPlatform(h.cfg.Platform, *manifest.Platform) {
+				if err := readManifest(
+					path.Join(h.cfg.ContentDir, blobs, manifest.Digest.Algorithm, manifest.Digest.Hex), &manOrIdx,
+				); err != nil {
 					return nil, err
 				}
-				if len(mi.Layers) == 0 {
+				if len(manOrIdx.Layers) == 0 {
 					return nil, errors.New("invalid manifest, no layers")
 				}
-				return mi.manifest(), nil
+				metadata.Manifest = manOrIdx.manifest()
+				return &metadata, nil
 			}
 		}
 		return nil, fmt.Errorf("manifest not found for platform: %s %s", h.cfg.Platform.Architecture, h.cfg.Platform.OS)
 	}
 
-	return nil, fmt.Errorf("unrecognised manifest mediatype %q", string(mi.MediaType))
+	return nil, fmt.Errorf("unrecognised manifest mediatype %q", string(manOrIdx.MediaType))
 }
 
-func (h *containerdManifestReader) readConfig(configID string) (*v1.ConfigFile, []byte, error) {
+func (h *containerdMetadataReader) readConfig(configID string) (*v1.ConfigFile, []byte, error) {
 	p := strings.Split(configID, ":")
 	if len(p) < 2 {
 		return nil, nil, fmt.Errorf("invalid configID: %s", configID)
@@ -192,7 +184,7 @@ func (h *containerdManifestReader) readConfig(configID string) (*v1.ConfigFile, 
 	return &cfg, configBytes, nil
 }
 
-func (h *containerdManifestReader) searchManifestPath() (string, error) {
+func (h *containerdMetadataReader) searchManifestPath() (string, error) {
 	root := path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm)
 	var manifestPath string
 	digestBytes := []byte(h.imgHash.Hex)
