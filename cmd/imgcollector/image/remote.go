@@ -37,7 +37,7 @@ type DockerOption struct {
 	NonSSL                bool `yaml:"non_ssl"`
 }
 
-func NewFromRemote(ctx context.Context, imageName string, option DockerOption) (types.Image, error) {
+func NewFromRemote(ctx context.Context, imageName string, option DockerOption) (ImageWithIndex, error) {
 	var nameOpts []name.Option
 	if option.NonSSL {
 		nameOpts = append(nameOpts, name.Insecure)
@@ -65,7 +65,7 @@ func NewFromRemote(ctx context.Context, imageName string, option DockerOption) (
 	return img, nil
 }
 
-func tryRemote(ctx context.Context, imageName string, ref name.Reference, option types.DockerOption) (types.Image, error) {
+func tryRemote(ctx context.Context, imageName string, ref name.Reference, option types.DockerOption) (ImageWithIndex, error) {
 	var remoteOpts []remote.Option
 	if option.InsecureSkipTLSVerify {
 		t := &http.Transport{
@@ -136,6 +136,10 @@ func (img remoteImage) RepoTags() []string {
 func (img remoteImage) RepoDigests() []string {
 	repoDigest := fmt.Sprintf("%s@%s", img.ref.RepositoryName(), img.descriptor.Digest.String())
 	return []string{repoDigest}
+}
+
+func (img remoteImage) Index() *v1.IndexManifest {
+	return nil
 }
 
 type implicitReference struct {

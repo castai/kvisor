@@ -10,6 +10,7 @@ type Image interface {
 	v1.Image
 	RepoTags() []string
 	RepoDigests() []string
+	Index() *v1.IndexManifest
 }
 
 // NewImageHash returns image hash from string in format:

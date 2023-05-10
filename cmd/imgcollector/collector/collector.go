@@ -104,13 +104,13 @@ func (c *Collector) Collect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	
+
 	manifest, err := img.Manifest()
 	if err != nil {
 		return fmt.Errorf("extract manifest: %w", err)
 	}
 
-	if err := c.client.SendImageMetadata(ctx, &castai.ImageMetadata{
+	metadata := &castai.ImageMetadata{
 		ImageName:   c.cfg.ImageName,
 		ImageID:     c.cfg.ImageID,
 		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
@@ -121,14 +121,20 @@ func (c *Collector) Collect(ctx context.Context) error {
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,
 		},
-	}); err != nil {
+	}
+
+	if index := img.Index(); index != nil {
+		metadata.Index = index
+	}
+
+	if err := c.client.SendImageMetadata(ctx, metadata); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Collector) getImage(ctx context.Context) (image.Image, func(), error) {
+func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
 		return nil, nil, err

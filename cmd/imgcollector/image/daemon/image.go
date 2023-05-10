@@ -26,6 +26,7 @@ type Image interface {
 	v1.Image
 	RepoTags() []string
 	RepoDigests() []string
+	Index() *v1.IndexManifest
 }
 
 var mu sync.Mutex
@@ -97,6 +98,10 @@ func (img *image) Manifest() (*v1.Manifest, error) {
 		return nil, fmt.Errorf("unable to populate: %w", err)
 	}
 	return img.Image.Manifest()
+}
+
+func (img *image) Index() *v1.IndexManifest {
+	return nil
 }
 
 func (img *image) ConfigFile() (*v1.ConfigFile, error) {

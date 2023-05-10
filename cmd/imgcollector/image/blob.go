@@ -1,11 +1,10 @@
 package image
 
 import (
-	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 )
 
-func NewFromContainerdHostFS(imageID string, config hostfs.ContainerdHostFSConfig) (types.Image, func(), error) {
+func NewFromContainerdHostFS(imageID string, config hostfs.ContainerdHostFSConfig) (ImageWithIndex, func(), error) {
 	hash, err := hostfs.NewImageHash(imageID)
 	if err != nil {
 		return nil, nil, err
