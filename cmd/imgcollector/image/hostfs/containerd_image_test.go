@@ -75,7 +75,13 @@ func TestContainerdImageWithIndex(t *testing.T) {
 		},
 	)
 	r.NoError(err)
-	index, err := img.Index()
-	r.NoError(err)
+
+	index := img.Index()
+	r.NotNil(index)
 	r.Len(index.Manifests, 2)
+
+	manifest, err := img.Manifest()
+	r.NoError(err)
+	r.NotNil(manifest)
+	r.Len(manifest.Layers, 2)
 }
