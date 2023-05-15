@@ -101,6 +101,9 @@ func New(checks []string) (*Linter, error) {
 		if instantiatedCheck == nil {
 			return nil, fmt.Errorf("check %q not found", checkName)
 		}
+		if checkName == "namespace" {
+			hideKubernetesDefaultService(instantiatedCheck)
+		}
 		instantiatedChecks = append(instantiatedChecks, instantiatedCheck)
 	}
 
@@ -217,4 +220,15 @@ func (l *lintContext) Objects() []lintcontext.Object {
 // InvalidObjects returns any objects that we attempted to load, but which were invalid.
 func (l *lintContext) InvalidObjects() []lintcontext.InvalidObject {
 	return l.invalidObjects
+}
+
+func hideKubernetesDefaultService(check *instantiatedcheck.InstantiatedCheck) {
+	check.Func = func(lintCtx lintcontext.LintContext, object lintcontext.Object) []diagnostic.Diagnostic {
+		if object.K8sObject.GetNamespace() == "default" &&
+			object.K8sObject.GetObjectKind().GroupVersionKind().Kind == "Service" &&
+			object.K8sObject.GetName() == "kubernetes" {
+			return []diagnostic.Diagnostic{}
+		}
+		return check.Func(lintCtx, object)
+	}
 }
