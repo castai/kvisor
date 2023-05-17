@@ -271,7 +271,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 }
 
 func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName, nodeName string) error {
-	return wait.PollUntilWithContext(ctx, s.jobCheckInterval, func(ctx context.Context) (done bool, err error) {
+	return wait.PollUntilContextCancel(ctx, s.jobCheckInterval, false, func(ctx context.Context) (done bool, err error) {
 		job, err := jobs.Get(ctx, jobName, metav1.GetOptions{})
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
