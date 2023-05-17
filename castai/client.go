@@ -210,7 +210,7 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 		Jitter:   0.2,
 		Steps:    3,
 	}
-	err = wait.ExponentialBackoffWithContext(ctx, backoff, func() (done bool, err error) {
+	err = wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (done bool, err error) {
 		resp, err = c.httpClient.Do(req) //nolint:bodyclose
 		if err != nil {
 			c.log.Warnf("failed sending request for report %s: %v", reportType, err)
