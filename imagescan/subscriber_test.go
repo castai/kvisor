@@ -182,13 +182,13 @@ func TestSubscriber(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
+		sub.OnAdd(node1)
+		sub.OnAdd(node2)
 		sub.OnAdd(argoReplicaSet)
 		sub.OnAdd(argoPod1)
 		sub.OnAdd(argoPod2)
 		sub.OnAdd(nginxPod1)
 		sub.OnAdd(nginxPod2)
-		sub.OnAdd(node1)
-		sub.OnAdd(node2)
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
 
@@ -240,7 +240,7 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1")
+		img := newImage("img1", "amd64")
 		img.name = "img"
 		img.nodes = map[string]*imageNode{
 			"node1": {},
@@ -248,9 +248,9 @@ func TestSubscriber(t *testing.T) {
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		delta.images["img1"] = img
-		delta.setImageScanError(img.id, errors.New("failed"))
-		delta.setImageScanError(img.id, errors.New("failed again"))
+		delta.images["img1amd64"] = img
+		delta.setImageScanError(img, errors.New("failed"))
+		delta.setImageScanError(img, errors.New("failed again"))
 
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
@@ -267,7 +267,7 @@ func TestSubscriber(t *testing.T) {
 		err := sub.scheduleScans(ctx)
 		r.NoError(err)
 		r.Len(scanner.imgs, 1)
-		img = delta.images["img1"]
+		img = delta.images["img1amd64"]
 		r.False(img.nextScan.IsZero())
 		r.True(img.scanned)
 	})
@@ -293,7 +293,7 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1")
+		img := newImage("img1", "amd64")
 		img.name = "img"
 		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
 		img.nodes = map[string]*imageNode{
@@ -302,8 +302,8 @@ func TestSubscriber(t *testing.T) {
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		delta.images["img1"] = img
-		delta.setImageScanError(img.id, errImageScanLayerNotFound)
+		delta.images["img1amd64"] = img
+		delta.setImageScanError(img, errImageScanLayerNotFound)
 
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")

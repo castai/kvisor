@@ -8,6 +8,7 @@ type TelemetryResponse struct {
 }
 
 type ScannedImage struct {
-	ID          string   `json:"id"`
-	ResourceIDs []string `json:"resourceIds"`
+	ID           string   `json:"id"`
+	Architecture string   `json:"architecture"`
+	ResourceIDs  []string `json:"resourceIds"`
 }
