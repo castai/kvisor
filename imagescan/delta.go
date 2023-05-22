@@ -38,7 +38,7 @@ func buildImageMap(scannedImages []castai.ScannedImage) map[string]*image {
 		img.scanned = true
 		img.owners = owners
 		img.architecture = scannedImage.Architecture
-		images[scannedImage.ID+scannedImage.Architecture] = img
+		images[scannedImage.CacheKey()] = img
 	}
 
 	return images
@@ -176,7 +176,6 @@ func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
 	}
 }
 
-// TODO: when adding image to scan, resolve architecture from pod's node
 func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	// Skip pods which are not running. If pod is running this means that container image should be already downloaded.
 	if pod.Status.Phase != corev1.PodRunning {
@@ -205,15 +204,14 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 			continue
 		}
 
-		key := cs.ImageID
-		nodeName := pod.Spec.NodeName
 		arch := "amd64"
+		nodeName := pod.Spec.NodeName
 		n, ok := d.nodes[nodeName]
 		if ok {
 			arch = n.architecture
-			key += arch
 		}
 
+		key := cs.ImageID + arch
 		img, found := d.images[key]
 		if !found {
 			img = newImage(cs.ImageID, arch)
@@ -307,7 +305,7 @@ func (d *deltaState) updateImage(i *image, change func(img *image)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	img := d.images[i.id+i.architecture]
+	img := d.images[i.cacheKey()]
 	if img != nil {
 		change(img)
 	}
@@ -317,7 +315,7 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	img := d.images[i.id+i.architecture]
+	img := d.images[i.cacheKey()]
 	if img == nil {
 		return
 	}
@@ -488,6 +486,10 @@ type image struct {
 	failures     int          // Used for sorting. We want to scan non-failed images first.
 	retryBackoff wait.Backoff // Retry state for failed images.
 	nextScan     time.Time    // Set based on retry backoff.
+}
+
+func (img *image) cacheKey() string {
+	return img.id + img.architecture
 }
 
 func (img *image) isUnused() bool {

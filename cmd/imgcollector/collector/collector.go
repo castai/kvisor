@@ -110,9 +110,15 @@ func (c *Collector) Collect(ctx context.Context) error {
 		return fmt.Errorf("extract manifest: %w", err)
 	}
 
+	digest, err := img.Digest()
+	if err != nil {
+		return fmt.Errorf("extract manifest digest: %w", err)
+	}
+
 	metadata := &castai.ImageMetadata{
 		ImageName:   c.cfg.ImageName,
 		ImageID:     c.cfg.ImageID,
+		ImageDigest: digest.String(),
 		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
 		BlobsInfo:   arRef.BlobsInfo,
 		ConfigFile:  arRef.ConfigFile,

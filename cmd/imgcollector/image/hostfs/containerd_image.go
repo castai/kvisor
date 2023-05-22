@@ -42,6 +42,7 @@ func NewContainerdImage(hash v1.Hash, cfg ContainerdHostFSConfig) (Image, error)
 		config:      config,
 		configBytes: configBytes,
 		contentDir:  cfg.ContentDir,
+		digest:      metadata.Digest,
 	}, nil
 }
 
@@ -67,6 +68,7 @@ type ContainerdHostFSConfig struct {
 type containerdMetadata struct {
 	Index    *v1.IndexManifest
 	Manifest *v1.Manifest
+	Digest   v1.Hash
 }
 
 type manifestOrIndex struct {
@@ -81,13 +83,13 @@ type manifestOrIndex struct {
 	Manifests []v1.Descriptor `json:"manifests"`
 }
 
-func readManifest(atPath string, into *manifestOrIndex) error {
+func readManifest(atPath string, into *manifestOrIndex) ([]byte, error) {
 	fileBytes, err := os.ReadFile(atPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return json.Unmarshal(fileBytes, into)
+	return fileBytes, json.Unmarshal(fileBytes, into)
 }
 
 // manifest part of the sum type
@@ -116,9 +118,11 @@ func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
 		metadata containerdMetadata
 		manOrIdx manifestOrIndex
 	)
-	if err := readManifest(
-		path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm, h.imgHash.Hex), &manOrIdx,
-	); err != nil {
+	fileBytes, err := os.ReadFile(path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm, h.imgHash.Hex))
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(fileBytes, &manOrIdx); err != nil {
 		return nil, err
 	}
 
@@ -130,13 +134,21 @@ func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
 		if err != nil {
 			return nil, fmt.Errorf("searching manifest path: %w", err)
 		}
-		if err := readManifest(manifestPath, &manOrIdx); err != nil {
+		fileBytes, err = os.ReadFile(manifestPath)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(fileBytes, &manOrIdx); err != nil {
 			return nil, err
 		}
 	}
 
 	if len(manOrIdx.Layers) > 0 {
 		metadata.Manifest = manOrIdx.manifest()
+		metadata.Digest, _, err = v1.SHA256(bytes.NewReader(fileBytes))
+		if err != nil {
+			return nil, fmt.Errorf("compute digest: %w", err)
+		}
 		return &metadata, nil
 	}
 
@@ -145,15 +157,21 @@ func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
 		metadata.Index = manOrIdx.index()
 		for _, manifest := range manOrIdx.Manifests {
 			if matchingPlatform(h.cfg.Platform, *manifest.Platform) {
-				if err := readManifest(
-					path.Join(h.cfg.ContentDir, blobs, manifest.Digest.Algorithm, manifest.Digest.Hex), &manOrIdx,
-				); err != nil {
+				fileBytes, err = os.ReadFile(path.Join(h.cfg.ContentDir, blobs, manifest.Digest.Algorithm, manifest.Digest.Hex))
+				if err != nil {
+					return nil, err
+				}
+				if err := json.Unmarshal(fileBytes, &manOrIdx); err != nil {
 					return nil, err
 				}
 				if len(manOrIdx.Layers) == 0 {
 					return nil, errors.New("invalid manifest, no layers")
 				}
 				metadata.Manifest = manOrIdx.manifest()
+				metadata.Digest, _, err = v1.SHA256(bytes.NewReader(fileBytes))
+				if err != nil {
+					return nil, fmt.Errorf("compute digest: %w", err)
+				}
 				return &metadata, nil
 			}
 		}
@@ -218,7 +236,7 @@ type containerdBlobImage struct {
 	index       *v1.IndexManifest
 	config      *v1.ConfigFile
 	configBytes []byte
-	imgHash     v1.Hash
+	digest      v1.Hash
 
 	contentDir string
 }
@@ -257,7 +275,7 @@ func (b *containerdBlobImage) RawConfigFile() ([]byte, error) {
 }
 
 func (b *containerdBlobImage) Digest() (v1.Hash, error) {
-	return b.imgHash, nil
+	return b.digest, nil
 }
 
 func (b *containerdBlobImage) LayerByDigest(hash v1.Hash) (v1.Layer, error) {

@@ -12,3 +12,7 @@ type ScannedImage struct {
 	Architecture string   `json:"architecture"`
 	ResourceIDs  []string `json:"resourceIds"`
 }
+
+func (s ScannedImage) CacheKey() string {
+	return s.ID + s.Architecture
+}

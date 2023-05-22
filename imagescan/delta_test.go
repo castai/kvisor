@@ -15,6 +15,27 @@ func TestDelta(t *testing.T) {
 	t.Run("upsert images state on delta changes", func(t *testing.T) {
 		r := require.New(t)
 
+		createNode := func(name string) *corev1.Node {
+			return &corev1.Node{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Node",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: name,
+				},
+				Status: corev1.NodeStatus{
+					NodeInfo: corev1.NodeSystemInfo{
+						Architecture: "amd64",
+					},
+					Allocatable: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+				},
+			}
+		}
+
 		createPod := func(imageName, imageID, nodeName string) *corev1.Pod {
 			return &corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
@@ -52,18 +73,21 @@ func TestDelta(t *testing.T) {
 		pod2 := createPod("nginx2", "img2", "node1")
 		pod3 := createPod("nginx1", "img1", "node2")
 
+		// Insert nodes.
+		delta.upsert(createNode("node1"))
+		delta.upsert(createNode("node2"))
 		// Insert new pods.
 		delta.upsert(pod1)
 		delta.upsert(pod2)
 		delta.upsert(pod3)
 		r.Len(delta.images, 2)
-		img1 := delta.images["img1"]
+		img1 := delta.images["img1amd64"]
 		r.Len(img1.nodes, 2)
 		r.Equal("nginx1", img1.name)
 		r.Equal("img1", img1.id)
 		r.Len(img1.owners, 2)
 		r.Len(img1.nodes["node1"].podIDs, 1)
-		r.Len(delta.images["img2"].nodes, 1)
+		r.Len(delta.images["img2amd64"].nodes, 1)
 
 		// Delete single pod. It should be removed only from image nodes list.
 		delta.delete(pod1)
@@ -74,7 +98,7 @@ func TestDelta(t *testing.T) {
 		// Delete one more pod for the same image. Image should be removed.
 		delta.delete(pod3)
 		r.Len(delta.images, 2)
-		r.Len(delta.images["img2"].nodes, 1)
+		r.Len(delta.images["img2amd64"].nodes, 1)
 	})
 
 	t.Run("find best node for image scan", func(t *testing.T) {
