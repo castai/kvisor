@@ -34,21 +34,23 @@ func buildImageMap(scannedImages []castai.ScannedImage) map[string]*image {
 			}
 		}
 
-		img := newImage(scannedImage.ID)
+		img := newImage(scannedImage.ID, scannedImage.Architecture)
 		img.scanned = true
 		img.owners = owners
-		images[scannedImage.ID] = img
+		img.architecture = scannedImage.Architecture
+		images[scannedImage.CacheKey()] = img
 	}
 
 	return images
 }
 
-func newImage(imageID string) *image {
+func newImage(imageID, architecture string) *image {
 	return &image{
-		id:      imageID,
-		owners:  map[string]*imageOwner{},
-		nodes:   map[string]*imageNode{},
-		scanned: false,
+		id:           imageID,
+		architecture: architecture,
+		owners:       map[string]*imageOwner{},
+		nodes:        map[string]*imageNode{},
+		scanned:      false,
 		retryBackoff: wait.Backoff{
 			Duration: time.Second * 60,
 			Factor:   3,
@@ -130,6 +132,7 @@ func (d *deltaState) updateNodeUsage(v *corev1.Node) {
 	if !ok {
 		n = &node{
 			name:           v.GetName(),
+			architecture:   v.Status.NodeInfo.Architecture,
 			allocatableMem: &inf.Dec{},
 			allocatableCPU: &inf.Dec{},
 			pods:           make(map[types.UID]*pod),
@@ -201,13 +204,19 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 			continue
 		}
 
-		key := cs.ImageID
+		arch := "amd64"
 		nodeName := pod.Spec.NodeName
+		n, ok := d.nodes[nodeName]
+		if ok {
+			arch = n.architecture
+		}
+
+		key := cs.ImageID + arch
 		img, found := d.images[key]
 		if !found {
-			img = newImage(key)
+			img = newImage(cs.ImageID, arch)
 		}
-		img.id = key
+		img.id = cs.ImageID
 		img.name = cont.Image
 		img.containerRuntime = getContainerRuntime(cs.ContainerID)
 		img.podTolerations = pod.Spec.Tolerations
@@ -292,21 +301,21 @@ func (d *deltaState) getNode(name string) (*node, bool) {
 	return v, found
 }
 
-func (d *deltaState) updateImage(imageID string, change func(img *image)) {
+func (d *deltaState) updateImage(i *image, change func(img *image)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	img := d.images[imageID]
+	img := d.images[i.cacheKey()]
 	if img != nil {
 		change(img)
 	}
 }
 
-func (d *deltaState) setImageScanError(imageID string, err error) {
+func (d *deltaState) setImageScanError(i *image, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	img := d.images[imageID]
+	img := d.images[i.cacheKey()]
 	if img == nil {
 		return
 	}
@@ -407,6 +416,7 @@ type pod struct {
 
 type node struct {
 	name           string
+	architecture   string
 	allocatableMem *inf.Dec
 	allocatableCPU *inf.Dec
 	pods           map[types.UID]*pod
@@ -464,6 +474,7 @@ var errImageScanLayerNotFound = errors.New("image layer not found")
 
 type image struct {
 	id               string
+	architecture     string
 	name             string
 	containerRuntime imgcollectorconfig.Runtime
 	owners           map[string]*imageOwner
@@ -475,6 +486,10 @@ type image struct {
 	failures     int          // Used for sorting. We want to scan non-failed images first.
 	retryBackoff wait.Backoff // Retry state for failed images.
 	nextScan     time.Time    // Set based on retry backoff.
+}
+
+func (img *image) cacheKey() string {
+	return img.id + img.architecture
 }
 
 func (img *image) isUnused() bool {

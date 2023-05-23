@@ -42,6 +42,7 @@ func NewContainerdImage(hash v1.Hash, cfg ContainerdHostFSConfig) (Image, error)
 		config:      config,
 		configBytes: configBytes,
 		contentDir:  cfg.ContentDir,
+		imgHash:     metadata.Digest,
 	}, nil
 }
 
@@ -67,6 +68,7 @@ type ContainerdHostFSConfig struct {
 type containerdMetadata struct {
 	Index    *v1.IndexManifest
 	Manifest *v1.Manifest
+	Digest   v1.Hash
 }
 
 type manifestOrIndex struct {
@@ -116,6 +118,8 @@ func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
 		metadata containerdMetadata
 		manOrIdx manifestOrIndex
 	)
+
+	metadata.Digest = h.imgHash
 	if err := readManifest(
 		path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm, h.imgHash.Hex), &manOrIdx,
 	); err != nil {
@@ -126,12 +130,17 @@ func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
 	// In such case we need to find manifest by iterating all files and searching for
 	// config file digest hash inside files content.
 	if len(manOrIdx.Layers) == 0 && len(manOrIdx.Manifests) == 0 {
-		manifestPath, err := h.searchManifestPath()
+		manifestPath, filename, err := h.searchManifestPath()
 		if err != nil {
 			return nil, fmt.Errorf("searching manifest path: %w", err)
 		}
 		if err := readManifest(manifestPath, &manOrIdx); err != nil {
 			return nil, err
+		}
+
+		metadata.Digest = v1.Hash{
+			Algorithm: "sha256",
+			Hex:       filename,
 		}
 	}
 
@@ -154,6 +163,7 @@ func (h *containerdMetadataReader) readMetadata() (*containerdMetadata, error) {
 					return nil, errors.New("invalid manifest, no layers")
 				}
 				metadata.Manifest = manOrIdx.manifest()
+				metadata.Digest = manifest.Digest
 				return &metadata, nil
 			}
 		}
@@ -184,9 +194,9 @@ func (h *containerdMetadataReader) readConfig(configID string) (*v1.ConfigFile, 
 	return &cfg, configBytes, nil
 }
 
-func (h *containerdMetadataReader) searchManifestPath() (string, error) {
+func (h *containerdMetadataReader) searchManifestPath() (string, string, error) {
 	root := path.Join(h.cfg.ContentDir, blobs, h.imgHash.Algorithm)
-	var manifestPath string
+	var manifestPath, filename string
 	digestBytes := []byte(h.imgHash.Hex)
 	if err := filepath.Walk(root, func(path string, info fs.FileInfo, rerr error) error {
 		if info.IsDir() {
@@ -201,16 +211,17 @@ func (h *containerdMetadataReader) searchManifestPath() (string, error) {
 		}
 		if bytes.Contains(content, digestBytes) {
 			manifestPath = path
+			filename = info.Name()
 			return io.EOF
 		}
 		return nil
 	}); err != nil && !errors.Is(err, io.EOF) {
-		return "", err
+		return "", "", err
 	}
 	if manifestPath == "" {
-		return "", errors.New("manifest not found by searching in blobs content")
+		return "", "", errors.New("manifest not found by searching in blobs content")
 	}
-	return manifestPath, nil
+	return manifestPath, filename, nil
 }
 
 type containerdBlobImage struct {

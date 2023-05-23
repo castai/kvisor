@@ -122,7 +122,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 
 	concurrentScans := s.concurrentScansNumber()
 	imagesForScan := pendingImages
-	if len(imagesForScan) > int(concurrentScans) {
+	if len(imagesForScan) > concurrentScans {
 		imagesForScan = imagesForScan[:concurrentScans]
 	}
 
@@ -161,11 +161,11 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, img); err != nil {
 				log.Errorf("image scan failed: %v", err)
-				s.delta.setImageScanError(img.id, err)
+				s.delta.setImageScanError(img, err)
 				return
 			}
 			log.Info("image scan finished")
-			s.delta.updateImage(img.id, func(img *image) {
+			s.delta.updateImage(img, func(img *image) {
 				img.scanned = true
 			})
 		}(img)

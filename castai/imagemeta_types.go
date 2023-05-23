@@ -8,6 +8,7 @@ import (
 type ImageMetadata struct {
 	ImageName   string           `json:"imageName,omitempty"`
 	ImageID     string           `json:"imageID,omitempty"`
+	ImageDigest string           `json:"imageDigest,omitempty"`
 	ResourceIDs []string         `json:"resourceIDs,omitempty"`
 	BlobsInfo   []types.BlobInfo `json:"blobsInfo,omitempty"`
 	ConfigFile  *v1.ConfigFile   `json:"configFile,omitempty"`
