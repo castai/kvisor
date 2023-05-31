@@ -84,10 +84,12 @@ spec:
               value: {{ .Values.castai.certsDir | quote }}
             - name: CERTS_SECRET
               value: {{ .Values.castai.certsSecret | quote }}
-            - name: WEBHOOK_NAME
-              value: {{ .Values.castai.webhookName | quote }}
             - name: LEADER_ELECTION
               value: {{ .Values.leaderElectionEnabled | quote }}
+            - name: POLICY_ENFORCEMENT_ENABLED
+              value: {{ .Values.policyEnforcement.enabled | quote }}
+            - name: POLICY_ENFORCEMENT_WEBHOOK_NAME
+              value: {{ .Values.policyEnforcement.webhookName | quote }}
             - name: API_URL
               value: {{ .Values.castai.apiURL | quote }}
             - name: CLUSTER_ID

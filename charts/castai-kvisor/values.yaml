@@ -29,6 +29,10 @@ imagePullSecrets: {}
 updateStrategy:
   type: Recreate
 
+policyEnforcement:
+  enabled: false
+  webhookName: "kvisor.cast.ai"
+
 # CAST AI API configuration.
 castai:
   # Token to be used for authorizing agent access to the CASTAI API
@@ -47,7 +51,6 @@ castai:
   servicePort: 7070
   certsDir: "/certs"
   certsSecret: "kvisor-certs"
-  webhookName: "kvisor.cast.ai"
 
   # CASTAI Cluster unique identifier.
   clusterID: ""

@@ -299,34 +299,36 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		return fmt.Errorf("setting up manager: %w", err)
 	}
 
-	rotatorReady := make(chan struct{})
-	err = rotator.AddRotator(mngr, &rotator.CertRotator{
-		SecretKey: types.NamespacedName{
-			Name:      cfg.CertsSecret,
-			Namespace: cfg.PodNamespace,
-		},
-		CertDir:        cfg.CertsDir,
-		CAName:         "kvisor",
-		CAOrganization: "cast.ai",
-		DNSName:        fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.PodNamespace),
-		IsReady:        rotatorReady,
-		Webhooks: []rotator.WebhookInfo{
-			{
-				Name: cfg.WebhookName,
-				Type: rotator.Validating,
+	if cfg.PolicyEnforcement.Enabled {
+		rotatorReady := make(chan struct{})
+		err = rotator.AddRotator(mngr, &rotator.CertRotator{
+			SecretKey: types.NamespacedName{
+				Name:      cfg.CertsSecret,
+				Namespace: cfg.PodNamespace,
 			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("setting up cert rotation: %w", err)
-	}
-
-	go func() {
-		<-rotatorReady
-		mngr.GetWebhookServer().Register("/validate", &admission.Webhook{
-			Handler: policy.NewEnforcer(linter),
+			CertDir:        cfg.CertsDir,
+			CAName:         "kvisor",
+			CAOrganization: "cast.ai",
+			DNSName:        fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.PodNamespace),
+			IsReady:        rotatorReady,
+			Webhooks: []rotator.WebhookInfo{
+				{
+					Name: cfg.PolicyEnforcement.WebhookName,
+					Type: rotator.Validating,
+				},
+			},
 		})
-	}()
+		if err != nil {
+			return fmt.Errorf("setting up cert rotation: %w", err)
+		}
+
+		go func() {
+			<-rotatorReady
+			mngr.GetWebhookServer().Register("/validate", &admission.Webhook{
+				Handler: policy.NewEnforcer(linter),
+			})
+		}()
+	}
 
 	// Does the work. Blocks.
 	return ctrl.Run(featuresCtx, mngr)

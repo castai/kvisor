@@ -1,3 +1,4 @@
+{{- if .Values.policyEnforcement.enabled }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -35,3 +36,4 @@ webhooks:
     admissionReviewVersions: ["v1"]
     sideEffects: None
     timeoutSeconds: 5
+{{- end }}
