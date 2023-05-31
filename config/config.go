@@ -13,6 +13,12 @@ import (
 type Config struct {
 	PodIP             string        `envconfig:"POD_IP" yaml:"podIP"`
 	PodNamespace      string        `envconfig:"POD_NAMESPACE" yaml:"podNamespace"`
+	ServiceName       string        `envconfig:"SERVICE_NAME" yaml:"serviceName"`
+	ServicePort       int           `envconfig:"SERVICE_PORT" yaml:"servicePort"`
+	CertsDir          string        `envconfig:"CERTS_DIR" yaml:"certsDir"`
+	CertsSecret       string        `envconfig:"CERTS_SECRET" yaml:"certsSecret"`
+	WebhookName       string        `envconfig:"WEBHOOK_NAME" yaml:"webhookName"`
+	LeaderElection    bool          `envconfig:"LEADER_ELECTION" yaml:"leaderElection"`
 	KubeClient        KubeClient    `envconfig:"KUBE_CLIENT" yaml:"kubeClient"`
 	Log               Log           `envconfig:"LOG" yaml:"log"`
 	API               API           `envconfig:"API" yaml:"api"`

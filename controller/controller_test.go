@@ -2,7 +2,19 @@ package controller
 
 import (
 	"context"
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	"net/http"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sync"
 	"testing"
 	"time"
@@ -62,7 +74,7 @@ func TestController(t *testing.T) {
 		defer cancel()
 		errc := make(chan error)
 		go func() {
-			if err := ctrl.Run(ctx); err != nil {
+			if err := ctrl.Run(ctx, mockManager{}); err != nil {
 				errc <- err
 			}
 		}()
@@ -104,7 +116,7 @@ func TestController(t *testing.T) {
 		defer cancel()
 		errc := make(chan error)
 		go func() {
-			if err := ctrl.Run(ctx); err != nil {
+			if err := ctrl.Run(ctx, mockManager{}); err != nil {
 				errc <- err
 			}
 		}()
@@ -309,4 +321,35 @@ func (t *testSubscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&corev1.Namespace{}),
 		reflect.TypeOf(&appsv1.DaemonSet{}),
 	}
+}
+
+type mockManager struct{}
+
+func (m mockManager) SetFields(i interface{}) error                                  { return nil }
+func (m mockManager) GetConfig() *rest.Config                                        { return nil }
+func (m mockManager) GetScheme() *runtime.Scheme                                     { return nil }
+func (m mockManager) GetClient() client.Client                                       { return nil }
+func (m mockManager) GetFieldIndexer() client.FieldIndexer                           { return nil }
+func (m mockManager) GetCache() cache.Cache                                          { return nil }
+func (m mockManager) GetEventRecorderFor(name string) record.EventRecorder           { return nil }
+func (m mockManager) GetRESTMapper() meta.RESTMapper                                 { return nil }
+func (m mockManager) GetAPIReader() client.Reader                                    { return nil }
+func (m mockManager) Start(ctx context.Context) error                                { return nil }
+func (m mockManager) Add(runnable manager.Runnable) error                            { return nil }
+func (m mockManager) AddMetricsExtraHandler(path string, handler http.Handler) error { return nil }
+func (m mockManager) AddHealthzCheck(name string, check healthz.Checker) error       { return nil }
+func (m mockManager) AddReadyzCheck(name string, check healthz.Checker) error        { return nil }
+func (m mockManager) GetWebhookServer() *webhook.Server                              { return &webhook.Server{} }
+func (m mockManager) GetLogger() logr.Logger                                         { return logr.Logger{} }
+
+func (m mockManager) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
+	return v1alpha1.ControllerConfigurationSpec{}
+}
+
+func (m mockManager) Elected() <-chan struct{} {
+	c := make(chan struct{})
+	go func() {
+		close(c)
+	}()
+	return c
 }

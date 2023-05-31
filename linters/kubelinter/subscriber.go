@@ -21,11 +21,7 @@ import (
 	"github.com/castai/kvisor/metrics"
 )
 
-func NewSubscriber(log logrus.FieldLogger, client castai.Client) (controller.ObjectSubscriber, error) {
-	linter, err := New(lo.Keys(castai.LinterRuleMap))
-	if err != nil {
-		return nil, err
-	}
+func NewSubscriber(log logrus.FieldLogger, client castai.Client, linter *Linter) (controller.ObjectSubscriber, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		ctx:    ctx,

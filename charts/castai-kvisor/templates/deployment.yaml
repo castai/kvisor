@@ -76,6 +76,18 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: {{ .Values.castai.serviceName | quote }}
+            - name: SERVICE_PORT
+              value: {{ .Values.castai.servicePort | quote }}
+            - name: CERTS_DIR
+              value: {{ .Values.castai.certsDir | quote }}
+            - name: CERTS_SECRET
+              value: {{ .Values.castai.certsSecret | quote }}
+            - name: WEBHOOK_NAME
+              value: {{ .Values.castai.webhookName | quote }}
+            - name: LEADER_ELECTION
+              value: {{ .Values.leaderElectionEnabled | quote }}
             - name: API_URL
               value: {{ .Values.castai.apiURL | quote }}
             - name: CLUSTER_ID
@@ -97,6 +109,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/castai/config
+            - mountPath: /certs
+              name: certs
           {{- with .Values.resources }}
           resources:
           {{- toYaml . | nindent 12 }}
@@ -108,6 +122,9 @@ spec:
           ports:
             - containerPort: 6060
               name: http
+              protocol: TCP
+            - containerPort: {{ .Values.castai.servicePort }}
+              name: webhook
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -130,4 +147,7 @@ spec:
           configMap:
             name: castai-kvisor
           {{- end }}
+        - name: certs
+          secret:
+            secretName: {{ .Values.castai.certsSecret | quote }}
 

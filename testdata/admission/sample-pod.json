@@ -1,0 +1,562 @@
+{
+  "uid": "9d7167cd-c0bf-4f93-be46-4eab6f12a1a3",
+  "kind": {
+    "group": "",
+    "version": "v1",
+    "kind": "Pod"
+  },
+  "resource": {
+    "group": "",
+    "version": "v1",
+    "resource": "pods"
+  },
+  "requestKind": {
+    "group": "",
+    "version": "v1",
+    "kind": "Pod"
+  },
+  "requestResource": {
+    "group": "",
+    "version": "v1",
+    "resource": "pods"
+  },
+  "name": "kube-bench-2728638862-xbgwm",
+  "namespace": "kvisor",
+  "operation": "CREATE",
+  "userInfo": {
+    "username": "system:serviceaccount:kube-system:job-controller",
+    "uid": "d0e4efd4-fdf3-4316-93d1-d523db9b06a8",
+    "groups": [
+      "system:serviceaccounts",
+      "system:serviceaccounts:kube-system",
+      "system:authenticated"
+    ]
+  },
+  "object": {
+    "kind": "Pod",
+    "apiVersion": "v1",
+    "metadata": {
+      "name": "kube-bench-2728638862-xbgwm",
+      "generateName": "kube-bench-2728638862-",
+      "namespace": "kvisor",
+      "uid": "1ef8230e-66cd-40ba-921d-57c1e99d29db",
+      "creationTimestamp": "2023-05-31T08:17:49Z",
+      "labels": {
+        "controller-uid": "5ddd9b6d-dd37-4faa-94e7-63d3ab50f81f",
+        "job-name": "kube-bench-2728638862"
+      },
+      "ownerReferences": [],
+      "finalizers": [
+        "batch.kubernetes.io/job-tracking"
+      ],
+      "managedFields": [
+        {
+          "manager": "kube-controller-manager",
+          "operation": "Update",
+          "apiVersion": "v1",
+          "time": "2023-05-31T08:17:49Z",
+          "fieldsType": "FieldsV1",
+          "fieldsV1": {
+            "f:metadata": {
+              "f:finalizers": {
+                ".": {},
+                "v:\"batch.kubernetes.io/job-tracking\"": {}
+              },
+              "f:generateName": {},
+              "f:labels": {
+                ".": {},
+                "f:controller-uid": {},
+                "f:job-name": {}
+              },
+              "f:ownerReferences": {
+                ".": {}
+              }
+            },
+            "f:spec": {
+              "f:containers": {
+                "k:{\"name\":\"kube-bench\"}": {
+                  ".": {},
+                  "f:command": {},
+                  "f:image": {},
+                  "f:imagePullPolicy": {},
+                  "f:name": {},
+                  "f:resources": {},
+                  "f:terminationMessagePath": {},
+                  "f:terminationMessagePolicy": {},
+                  "f:volumeMounts": {
+                    ".": {},
+                    "k:{\"mountPath\":\"/etc/cni/net.d/\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/etc/group\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/etc/kubernetes\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/etc/passwd\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/etc/systemd\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/lib/systemd/\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/opt/cni/bin/\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/srv/kubernetes/\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/usr/local/mount-from-host/bin\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/var/lib/etcd\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/var/lib/kube-controller-manager\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/var/lib/kube-scheduler\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    },
+                    "k:{\"mountPath\":\"/var/lib/kubelet\"}": {
+                      ".": {},
+                      "f:mountPath": {},
+                      "f:name": {},
+                      "f:readOnly": {}
+                    }
+                  }
+                }
+              },
+              "f:dnsPolicy": {},
+              "f:enableServiceLinks": {},
+              "f:hostPID": {},
+              "f:nodeName": {},
+              "f:restartPolicy": {},
+              "f:schedulerName": {},
+              "f:securityContext": {},
+              "f:terminationGracePeriodSeconds": {},
+              "f:tolerations": {},
+              "f:volumes": {
+                ".": {},
+                "k:{\"name\":\"etc-cni-netd\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"etc-group\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"etc-kubernetes\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"etc-passwd\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"etc-systemd\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"lib-systemd\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"opt-cni-bin\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"srv-kubernetes\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"usr-bin\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"var-lib-etcd\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"var-lib-kube-controller-manager\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"var-lib-kube-scheduler\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                },
+                "k:{\"name\":\"var-lib-kubelet\"}": {
+                  ".": {},
+                  "f:hostPath": {
+                    ".": {},
+                    "f:path": {},
+                    "f:type": {}
+                  },
+                  "f:name": {}
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "spec": {
+      "volumes": [
+        {
+          "name": "var-lib-etcd",
+          "hostPath": {
+            "path": "/var/lib/etcd",
+            "type": ""
+          }
+        },
+        {
+          "name": "var-lib-kubelet",
+          "hostPath": {
+            "path": "/var/lib/kubelet",
+            "type": ""
+          }
+        },
+        {
+          "name": "var-lib-kube-scheduler",
+          "hostPath": {
+            "path": "/var/lib/kube-scheduler",
+            "type": ""
+          }
+        },
+        {
+          "name": "var-lib-kube-controller-manager",
+          "hostPath": {
+            "path": "/var/lib/kube-controller-manager",
+            "type": ""
+          }
+        },
+        {
+          "name": "etc-systemd",
+          "hostPath": {
+            "path": "/etc/systemd",
+            "type": ""
+          }
+        },
+        {
+          "name": "lib-systemd",
+          "hostPath": {
+            "path": "/lib/systemd",
+            "type": ""
+          }
+        },
+        {
+          "name": "srv-kubernetes",
+          "hostPath": {
+            "path": "/srv/kubernetes",
+            "type": ""
+          }
+        },
+        {
+          "name": "etc-kubernetes",
+          "hostPath": {
+            "path": "/etc/kubernetes",
+            "type": ""
+          }
+        },
+        {
+          "name": "usr-bin",
+          "hostPath": {
+            "path": "/usr/bin",
+            "type": ""
+          }
+        },
+        {
+          "name": "etc-cni-netd",
+          "hostPath": {
+            "path": "/etc/cni/net.d/",
+            "type": ""
+          }
+        },
+        {
+          "name": "opt-cni-bin",
+          "hostPath": {
+            "path": "/opt/cni/bin/",
+            "type": ""
+          }
+        },
+        {
+          "name": "etc-passwd",
+          "hostPath": {
+            "path": "/etc/passwd",
+            "type": ""
+          }
+        },
+        {
+          "name": "etc-group",
+          "hostPath": {
+            "path": "/etc/group",
+            "type": ""
+          }
+        },
+        {
+          "name": "kube-api-access-6gjqp",
+          "projected": {
+            "sources": [
+              {
+                "serviceAccountToken": {
+                  "expirationSeconds": 3607,
+                  "path": "token"
+                }
+              },
+              {
+                "configMap": {
+                  "name": "kube-root-ca.crt",
+                  "items": [
+                    {
+                      "key": "ca.crt",
+                      "path": "ca.crt"
+                    }
+                  ]
+                }
+              },
+              {
+                "downwardAPI": {
+                  "items": [
+                    {
+                      "path": "namespace",
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "defaultMode": 420
+          }
+        }
+      ],
+      "containers": [
+        {
+          "name": "kube-bench",
+          "image": "docker.io/aquasec/kube-bench:v0.6.9",
+          "command": [
+            "kube-bench",
+            "run",
+            "--targets",
+            "master",
+            "--json"
+          ],
+          "resources": {},
+          "volumeMounts": [
+            {
+              "name": "var-lib-etcd",
+              "readOnly": true,
+              "mountPath": "/var/lib/etcd"
+            },
+            {
+              "name": "var-lib-kubelet",
+              "readOnly": true,
+              "mountPath": "/var/lib/kubelet"
+            },
+            {
+              "name": "var-lib-kube-scheduler",
+              "readOnly": true,
+              "mountPath": "/var/lib/kube-scheduler"
+            },
+            {
+              "name": "var-lib-kube-controller-manager",
+              "readOnly": true,
+              "mountPath": "/var/lib/kube-controller-manager"
+            },
+            {
+              "name": "etc-systemd",
+              "readOnly": true,
+              "mountPath": "/etc/systemd"
+            },
+            {
+              "name": "lib-systemd",
+              "readOnly": true,
+              "mountPath": "/lib/systemd/"
+            },
+            {
+              "name": "srv-kubernetes",
+              "readOnly": true,
+              "mountPath": "/srv/kubernetes/"
+            },
+            {
+              "name": "etc-kubernetes",
+              "readOnly": true,
+              "mountPath": "/etc/kubernetes"
+            },
+            {
+              "name": "usr-bin",
+              "readOnly": true,
+              "mountPath": "/usr/local/mount-from-host/bin"
+            },
+            {
+              "name": "etc-cni-netd",
+              "readOnly": true,
+              "mountPath": "/etc/cni/net.d/"
+            },
+            {
+              "name": "opt-cni-bin",
+              "readOnly": true,
+              "mountPath": "/opt/cni/bin/"
+            },
+            {
+              "name": "etc-passwd",
+              "readOnly": true,
+              "mountPath": "/etc/passwd"
+            },
+            {
+              "name": "etc-group",
+              "readOnly": true,
+              "mountPath": "/etc/group"
+            },
+            {
+              "name": "kube-api-access-6gjqp",
+              "readOnly": true,
+              "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+            }
+          ],
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File",
+          "imagePullPolicy": "IfNotPresent"
+        }
+      ],
+      "restartPolicy": "Never",
+      "terminationGracePeriodSeconds": 30,
+      "dnsPolicy": "ClusterFirst",
+      "serviceAccountName": "default",
+      "serviceAccount": "default",
+      "nodeName": "opa-control-plane",
+      "hostPID": true,
+      "securityContext": {},
+      "schedulerName": "default-scheduler",
+      "tolerations": [
+        {
+          "operator": "Exists",
+          "effect": "NoSchedule"
+        },
+        {
+          "key": "CriticalAddonsOnly",
+          "operator": "Exists"
+        },
+        {
+          "operator": "Exists",
+          "effect": "NoExecute"
+        }
+      ],
+      "priority": 0,
+      "enableServiceLinks": true,
+      "preemptionPolicy": "PreemptLowerPriority"
+    },
+    "status": {
+      "phase": "Pending",
+      "qosClass": "BestEffort"
+    }
+  },
+  "oldObject": null,
+  "dryRun": false,
+  "options": {
+    "kind": "CreateOptions",
+    "apiVersion": "meta.k8s.io/v1"
+  }
+}

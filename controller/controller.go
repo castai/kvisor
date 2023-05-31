@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sync"
 
 	"github.com/samber/lo"
@@ -75,16 +76,29 @@ type Controller struct {
 	objectHashes map[string]struct{}
 }
 
-func (c *Controller) Run(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context, m manager.Manager) error {
+	// Start manager.
+	errGroup, ctx := errgroup.WithContext(ctx)
+	errGroup.Go(func() error { return m.Start(ctx) })
+
+	select {
+	case <-m.Elected():
+		// get elected and run subscribers.
+	case <-ctx.Done():
+		// exit without running subscribers.
+		return nil
+	}
+
 	for typ, informer := range c.informers {
 		if err := informer.SetTransform(c.transformFunc); err != nil {
 			return err
 		}
-		informer.AddEventHandler(c.eventsHandler(ctx, typ))
+		if _, err := informer.AddEventHandler(c.eventsHandler(ctx, typ)); err != nil {
+			return err
+		}
 	}
 	c.informerFactory.Start(ctx.Done())
 
-	errGroup, ctx := errgroup.WithContext(ctx)
 	for _, subscriber := range c.subscribers {
 		func(ctx context.Context, subscriber ObjectSubscriber) {
 			errGroup.Go(func() error {
