@@ -91,7 +91,7 @@ rules:
   - apiGroups:
       - "admissionregistration.k8s.io"
     resourceNames:
-      - {{ .Values.castai.webhookName }}
+      - {{ .Values.policyEnforcement.webhookName }}
     resources:
       - "validatingwebhookconfigurations"
     verbs:
@@ -129,31 +129,27 @@ rules:
       - pods/log
     verbs:
       - get
+  {{- if .Values.leaderElectionEnabled }}
   - apiGroups:
       - "coordination.k8s.io"
     resources:
       - leases
     resourceNames:
-      - {{ .Values.castai.serviceName }}
-    verbs:
-      - get
-      - create
-  - apiGroups:
-      - "coordination.k8s.io"
-    resources:
-      - leases
-    resourceNames:
-      - {{ .Values.castai.serviceName }}
+      - {{ .Values.kvisor.serviceName }}
     verbs:
       - get
       - create
       - update
+      - list
+      - watch
+      - delete
   - apiGroups:
       - ""
     resources:
       - events
     verbs:
       - create
+  {{- end }}
 {{- if .Values.policyEnforcement.enabled }}
   - apiGroups:
       - ""
@@ -167,7 +163,7 @@ rules:
     resources:
       - secrets
     resourceNames:
-      - {{ .Values.castai.certsSecret }}
+      - {{ .Values.kvisor.certsSecret }}
     verbs:
       - get
       - update

@@ -2,9 +2,9 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: {{ .Values.castai.webhookName }}
+  name: {{ .Values.policyEnforcement.webhookName }}
 webhooks:
-  - name: {{ .Values.castai.webhookName }}
+  - name: {{ .Values.policyEnforcement.webhookName }}
     matchPolicy: Exact
     namespaceSelector:
       matchExpressions:
@@ -27,12 +27,32 @@ webhooks:
         operations: [ "CREATE" ]
         resources: [ "jobs", "cronjobs" ]
         scope: "Namespaced"
+      - apiGroups: [ "rbac.authorization.k8s.io" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "rolebindings", "roles" ]
+        scope: "Namespaced"
+      - apiGroups: [ "networking.k8s.io" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "networkpolicies", "ingresses" ]
+        scope: "Namespaced"
+      - apiGroups: [ "" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "namespaces", "services" ]
+        scope: "Cluster"
+      - apiGroups: [ "rbac.authorization.k8s.io" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "clusterrolebindings", "clusterroles" ]
+        scope: "Cluster"
     clientConfig:
       service:
         namespace: {{ .Release.Namespace }}
-        name: {{ .Values.castai.serviceName }}
+        name: {{ .Values.kvisor.serviceName }}
         path: /validate
-        port: {{ .Values.castai.servicePort }}
+        port: {{ .Values.kvisor.servicePort }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
     timeoutSeconds: 5

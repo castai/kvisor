@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	batchv1 "k8s.io/api/batch/v1"
 	"reflect"
 	"strings"
 	"time"
@@ -56,6 +57,8 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&rbacv1.Role{}),
 		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
 		reflect.TypeOf(&networkingv1.Ingress{}),
+		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&batchv1.CronJob{}),
 	}
 }
 

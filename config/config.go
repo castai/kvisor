@@ -23,6 +23,7 @@ type Config struct {
 	Log               Log               `envconfig:"LOG" yaml:"log"`
 	API               API               `envconfig:"API" yaml:"api"`
 	PprofPort         int               `envconfig:"PPROF_PORT" yaml:"pprofPort"`
+	StatusPort        int               `envconfig:"STATUS_PORT" yaml:"statusPort"`
 	Provider          string            `envconfig:"PROVIDER" yaml:"provider"`
 	DeltaSyncInterval time.Duration     `envconfig:"DELTA_SYNC_INTERVAL" yaml:"deltaSyncInterval"`
 	ImageScan         ImageScan         `envconfig:"IMAGE_SCAN" yaml:"imageScan"`
@@ -202,6 +203,9 @@ func Load(configPath string) (Config, error) {
 	}
 	if cfg.DeltaSyncInterval == 0 {
 		cfg.DeltaSyncInterval = 15 * time.Second
+	}
+	if cfg.StatusPort == 0 {
+		cfg.StatusPort = 7071
 	}
 
 	return cfg, nil

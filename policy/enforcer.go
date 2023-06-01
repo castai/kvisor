@@ -5,18 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sort"
 
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-
-	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/linters/kubelinter"
 	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/k8sutil"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	v1 "k8s.io/apiserver/pkg/apis/example/v1"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/linters/kubelinter"
 )
 
 type Enforcer interface {
@@ -79,6 +82,54 @@ func (e *enforcer) Handle(ctx context.Context, request admission.Request) admiss
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 		object = job
+	case "Role":
+		var role *rbacv1.Role
+		if err := json.Unmarshal(request.Object.Raw, &role); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = role
+	case "ClusterRole":
+		var clusterRole *rbacv1.ClusterRole
+		if err := json.Unmarshal(request.Object.Raw, &clusterRole); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = clusterRole
+	case "RoleBinding":
+		var roleBinding *rbacv1.RoleBinding
+		if err := json.Unmarshal(request.Object.Raw, &roleBinding); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = roleBinding
+	case "ClusterRoleBinding":
+		var clusterRoleBinding *rbacv1.ClusterRoleBinding
+		if err := json.Unmarshal(request.Object.Raw, &clusterRoleBinding); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = clusterRoleBinding
+	case "NetworkPolicy":
+		var networkPolicy *networkingv1.NetworkPolicy
+		if err := json.Unmarshal(request.Object.Raw, &networkPolicy); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = networkPolicy
+	case "Ingress":
+		var ingress *networkingv1.Ingress
+		if err := json.Unmarshal(request.Object.Raw, &ingress); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = ingress
+	case "Namespace":
+		var namespace *corev1.Namespace
+		if err := json.Unmarshal(request.Object.Raw, &namespace); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = namespace
+	case "Service":
+		var service *corev1.Service
+		if err := json.Unmarshal(request.Object.Raw, &service); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		object = service
 	}
 
 	if object == nil {

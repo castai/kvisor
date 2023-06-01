@@ -30,8 +30,16 @@ updateStrategy:
   type: Recreate
 
 policyEnforcement:
-  enabled: false
+  enabled: true
   webhookName: "kvisor.cast.ai"
+
+# Kvisor service configuration.
+kvisor:
+  serviceName: "kvisor"
+  servicePort: 7070
+  statusPort: 7071
+  certsDir: "/certs"
+  certsSecret: "kvisor-certs"
 
 # CAST AI API configuration.
 castai:
@@ -45,12 +53,6 @@ castai:
 
   # CASTAI public api url.
   apiURL: "https://api.cast.ai"
-
-  # kvisor admission service configuration.
-  serviceName: "kvisor"
-  servicePort: 7070
-  certsDir: "/certs"
-  certsSecret: "kvisor-certs"
 
   # CASTAI Cluster unique identifier.
   clusterID: ""

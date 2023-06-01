@@ -1,12 +1,14 @@
+{{- if .Values.policyEnforcement.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.castai.serviceName }}
+  name: {{ .Values.kvisor.serviceName }}
 spec:
   selector:
     app.kubernetes.io/name: castai-kvisor
   ports:
     - name: webhook
       protocol: TCP
-      port: {{ .Values.castai.servicePort }}
+      port: {{ .Values.kvisor.servicePort }}
       targetPort: webhook
+{{- end}}

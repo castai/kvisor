@@ -5,11 +5,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/containerd/containerd/pkg/atomic"
+
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+
+	"k8s.io/klog/v2"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
@@ -23,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -149,11 +154,10 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	})
 
 	httpMux := http.NewServeMux()
-	healthz.InstallHandler(httpMux)
 	installPprofHandlers(httpMux)
 	httpMux.Handle("/metrics", promhttp.Handler())
 
-	// Start http server for metrics, pprof and health checks handlers.
+	// Start http server for metrics and pprof handlers.
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.PprofPort)
 		log.Infof("starting pprof server on %s", addr)
@@ -288,6 +292,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		NewCache:                cache.New,
 		Scheme:                  scheme,
 		MetricsBindAddress:      "0",
+		HealthProbeBindAddress:  ":" + strconv.Itoa(cfg.StatusPort),
 		LeaderElection:          cfg.LeaderElection,
 		LeaderElectionID:        cfg.ServiceName,
 		LeaderElectionNamespace: cfg.PodNamespace,
@@ -297,6 +302,14 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	})
 	if err != nil {
 		return fmt.Errorf("setting up manager: %w", err)
+	}
+
+	if err := mngr.AddHealthzCheck("default", healthz.Ping); err != nil {
+		return fmt.Errorf("add healthz check: %w", err)
+	}
+
+	if err := mngr.AddReadyzCheck("default", healthz.Ping); err != nil {
+		return fmt.Errorf("add readyz check: %w", err)
 	}
 
 	if cfg.PolicyEnforcement.Enabled {
@@ -322,11 +335,22 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			return fmt.Errorf("setting up cert rotation: %w", err)
 		}
 
+		ready := atomic.NewBool(false)
+		if err := mngr.AddReadyzCheck("webhook", func(req *http.Request) error {
+			if !ready.IsSet() {
+				return errors.New("webhook is not ready yet")
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("add readiness check: %w", err)
+		}
+
 		go func() {
 			<-rotatorReady
 			mngr.GetWebhookServer().Register("/validate", &admission.Webhook{
 				Handler: policy.NewEnforcer(linter),
 			})
+			ready.Set()
 		}()
 	}
 
