@@ -3,6 +3,7 @@
 # Declare variables to be passed into your templates.
 
 replicas: 1
+leaderElectionEnabled: false
 
 nameOverride: ""
 fullnameOverride: castai-kvisor
@@ -27,6 +28,18 @@ imagePullSecrets: {}
 # Controls `deployment.spec.strategy` field
 updateStrategy:
   type: Recreate
+
+policyEnforcement:
+  enabled: true
+  webhookName: "kvisor.cast.ai"
+
+# Kvisor service configuration.
+kvisor:
+  serviceName: "kvisor"
+  servicePort: 7070
+  statusPort: 7071
+  certsDir: "/certs"
+  certsSecret: "kvisor-certs"
 
 # CAST AI API configuration.
 castai:

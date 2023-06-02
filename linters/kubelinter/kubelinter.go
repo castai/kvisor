@@ -95,8 +95,10 @@ func New(checks []string) (*Linter, error) {
 		return nil, fmt.Errorf("loading custom checks info: %w", err)
 	}
 
+	rules := make(map[string]struct{})
 	instantiatedChecks := make([]*instantiatedcheck.InstantiatedCheck, 0, len(checks))
 	for _, checkName := range checks {
+		rules[checkName] = struct{}{}
 		instantiatedCheck := registry.Load(checkName)
 		if instantiatedCheck == nil {
 			return nil, fmt.Errorf("check %q not found", checkName)
@@ -108,6 +110,7 @@ func New(checks []string) (*Linter, error) {
 	}
 
 	return &Linter{
+		rules:              rules,
 		registry:           registry,
 		instantiatedChecks: instantiatedChecks,
 	}, nil
@@ -134,16 +137,27 @@ func registerCustomObjectKinds() {
 }
 
 type Linter struct {
+	rules              map[string]struct{}
 	registry           checkregistry.CheckRegistry
 	instantiatedChecks []*instantiatedcheck.InstantiatedCheck
 }
 
+func (l *Linter) RunWithRules(objects []lintcontext.Object, rules []string) ([]casttypes.LinterCheck, error) {
+	return l.run(objects, lo.SliceToMap(rules, func(item string) (string, struct{}) {
+		return item, struct{}{}
+	}))
+}
+
 func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, error) {
+	return l.run(objects, l.rules)
+}
+
+func (l *Linter) run(objects []lintcontext.Object, rules map[string]struct{}) ([]casttypes.LinterCheck, error) {
 	lintctx := &lintContext{
 		objects: objects,
 	}
 
-	res := l.runKubeLinter([]lintcontext.LintContext{lintctx})
+	res := l.runKubeLinter([]lintcontext.LintContext{lintctx}, rules)
 
 	resources := make(map[types.UID]casttypes.LinterCheck)
 	for _, check := range res.Reports {
@@ -168,16 +182,21 @@ func (l *Linter) Run(objects []lintcontext.Object) ([]casttypes.LinterCheck, err
 	return lo.Values(resources), nil
 }
 
-func (l *Linter) runKubeLinter(lintCtxs []lintcontext.LintContext) run.Result {
+func (l *Linter) runKubeLinter(lintCtxs []lintcontext.LintContext, rules map[string]struct{}) run.Result {
 	var result run.Result
 
 	for _, instantiatedCheck := range l.instantiatedChecks {
-		result.Checks = append(result.Checks, instantiatedCheck.Spec)
+		if _, ok := rules[instantiatedCheck.Spec.Name]; ok {
+			result.Checks = append(result.Checks, instantiatedCheck.Spec)
+		}
 	}
 
 	for _, lintCtx := range lintCtxs {
 		for _, obj := range lintCtx.Objects() {
 			for _, check := range l.instantiatedChecks {
+				if _, ok := rules[check.Spec.Name]; !ok {
+					continue
+				}
 				if !check.Matcher.Matches(obj.K8sObject.GetObjectKind().GroupVersionKind()) {
 					continue
 				}

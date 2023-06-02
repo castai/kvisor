@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	batchv1 "k8s.io/api/batch/v1"
 	"reflect"
 	"strings"
 	"time"
@@ -21,11 +22,7 @@ import (
 	"github.com/castai/kvisor/metrics"
 )
 
-func NewSubscriber(log logrus.FieldLogger, client castai.Client) (controller.ObjectSubscriber, error) {
-	linter, err := New(lo.Keys(castai.LinterRuleMap))
-	if err != nil {
-		return nil, err
-	}
+func NewSubscriber(log logrus.FieldLogger, client castai.Client, linter *Linter) (controller.ObjectSubscriber, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		ctx:    ctx,
@@ -60,6 +57,8 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&rbacv1.Role{}),
 		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
 		reflect.TypeOf(&networkingv1.Ingress{}),
+		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&batchv1.CronJob{}),
 	}
 }
 

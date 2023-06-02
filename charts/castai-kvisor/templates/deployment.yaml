@@ -76,6 +76,22 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: {{ .Values.kvisor.serviceName | quote }}
+            - name: SERVICE_PORT
+              value: {{ .Values.kvisor.servicePort | quote }}
+            - name: CERTS_DIR
+              value: {{ .Values.kvisor.certsDir | quote }}
+            - name: CERTS_SECRET
+              value: {{ .Values.kvisor.certsSecret | quote }}
+            - name: LEADER_ELECTION
+              value: {{ .Values.leaderElectionEnabled | quote }}
+            - name: POLICY_ENFORCEMENT_ENABLED
+              value: {{ .Values.policyEnforcement.enabled | quote }}
+            - name: POLICY_ENFORCEMENT_WEBHOOK_NAME
+              value: {{ .Values.policyEnforcement.webhookName | quote }}
+            - name: STATUS_PORT
+              value: {{ .Values.kvisor.statusPort | quote }}
             - name: API_URL
               value: {{ .Values.castai.apiURL | quote }}
             - name: CLUSTER_ID
@@ -97,6 +113,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/castai/config
+            - mountPath: /certs
+              name: certs
           {{- with .Values.resources }}
           resources:
           {{- toYaml . | nindent 12 }}
@@ -109,16 +127,22 @@ spec:
             - containerPort: 6060
               name: http
               protocol: TCP
+            - containerPort: {{ .Values.kvisor.servicePort }}
+              name: webhook
+              protocol: TCP
+            - containerPort: {{ .Values.kvisor.statusPort }}
+              name: status
+              protocol: TCP
           livenessProbe:
             httpGet:
-              port: http
+              port: status
               path: /healthz
             initialDelaySeconds: 5
             periodSeconds: 5
           readinessProbe:
             httpGet:
-              port: http
-              path: /healthz
+              port: status
+              path: /readyz
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:
@@ -130,4 +154,7 @@ spec:
           configMap:
             name: castai-kvisor
           {{- end }}
+        - name: certs
+          secret:
+            secretName: {{ .Values.kvisor.certsSecret | quote }}
 

@@ -8,13 +8,38 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/containerd/containerd/pkg/atomic"
+
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+
+	"k8s.io/klog/v2"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/bombsimon/logrusr/v4"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/open-policy-agent/cert-controller/pkg/rotator"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/flowcontrol"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/castai"
@@ -29,16 +54,8 @@ import (
 	"github.com/castai/kvisor/linters/kubebench"
 	"github.com/castai/kvisor/linters/kubelinter"
 	agentlog "github.com/castai/kvisor/log"
+	"github.com/castai/kvisor/policy"
 	"github.com/castai/kvisor/version"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/apiserver/pkg/server/healthz"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/flowcontrol"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
@@ -137,11 +154,10 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	})
 
 	httpMux := http.NewServeMux()
-	healthz.InstallHandler(httpMux)
 	installPprofHandlers(httpMux)
 	httpMux.Handle("/metrics", promhttp.Handler())
 
-	// Start http server for metrics, pprof and health checks handlers.
+	// Start http server for metrics and pprof handlers.
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.PprofPort)
 		log.Infof("starting pprof server on %s", addr)
@@ -178,9 +194,14 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		scannedImages = telemetryResponse.ScannedImages
 	}
 
+	linter, err := kubelinter.New(lo.Keys(castai.LinterRuleMap))
+	if err != nil {
+		return fmt.Errorf("setting up linter: %w", err)
+	}
+
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
-		linterSub, err := kubelinter.NewSubscriber(log, castaiClient)
+		linterSub, err := kubelinter.NewSubscriber(log, castaiClient, linter)
 		if err != nil {
 			return err
 		}
@@ -258,8 +279,83 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	go telemetryManager.Observe(append(telemetryObservers, resyncObserver, featureObserver)...)
 
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+
+	logr := logrusr.New(logger)
+	klog.SetLogger(logr)
+
+	mngr, err := manager.New(restconfig, manager.Options{
+		Logger:                  logr.WithName("manager"),
+		Port:                    cfg.ServicePort,
+		CertDir:                 cfg.CertsDir,
+		NewCache:                cache.New,
+		Scheme:                  scheme,
+		MetricsBindAddress:      "0",
+		HealthProbeBindAddress:  ":" + strconv.Itoa(cfg.StatusPort),
+		LeaderElection:          cfg.LeaderElection,
+		LeaderElectionID:        cfg.ServiceName,
+		LeaderElectionNamespace: cfg.PodNamespace,
+		MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+			return apiutil.NewDynamicRESTMapper(c)
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("setting up manager: %w", err)
+	}
+
+	if err := mngr.AddHealthzCheck("default", healthz.Ping); err != nil {
+		return fmt.Errorf("add healthz check: %w", err)
+	}
+
+	if err := mngr.AddReadyzCheck("default", healthz.Ping); err != nil {
+		return fmt.Errorf("add readyz check: %w", err)
+	}
+
+	if cfg.PolicyEnforcement.Enabled {
+		rotatorReady := make(chan struct{})
+		err = rotator.AddRotator(mngr, &rotator.CertRotator{
+			SecretKey: types.NamespacedName{
+				Name:      cfg.CertsSecret,
+				Namespace: cfg.PodNamespace,
+			},
+			CertDir:        cfg.CertsDir,
+			CAName:         "kvisor",
+			CAOrganization: "cast.ai",
+			DNSName:        fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.PodNamespace),
+			IsReady:        rotatorReady,
+			Webhooks: []rotator.WebhookInfo{
+				{
+					Name: cfg.PolicyEnforcement.WebhookName,
+					Type: rotator.Validating,
+				},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("setting up cert rotation: %w", err)
+		}
+
+		ready := atomic.NewBool(false)
+		if err := mngr.AddReadyzCheck("webhook", func(req *http.Request) error {
+			if !ready.IsSet() {
+				return errors.New("webhook is not ready yet")
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("add readiness check: %w", err)
+		}
+
+		go func() {
+			<-rotatorReady
+			mngr.GetWebhookServer().Register("/validate", &admission.Webhook{
+				Handler: policy.NewEnforcer(linter),
+			})
+			ready.Set()
+		}()
+	}
+
 	// Does the work. Blocks.
-	return ctrl.Run(featuresCtx)
+	return ctrl.Run(featuresCtx, mngr)
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
