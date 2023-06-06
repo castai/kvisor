@@ -351,7 +351,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		go func() {
 			<-rotatorReady
 			mngr.GetWebhookServer().Register("/validate", &admission.Webhook{
-				Handler: policy.NewEnforcer(linter),
+				Handler: policyEnforcer,
 			})
 			ready.Set()
 		}()
