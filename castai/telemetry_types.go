@@ -5,6 +5,7 @@ type TelemetryResponse struct {
 	FullResync       bool           `json:"fullResync"`
 	ScannedImages    []ScannedImage `json:"scannedImages"`
 	NodeIDs          []string       `json:"nodeIds"`
+	EnforcedRules    []string       `json:"enforcedRules"`
 }
 
 type ScannedImage struct {
