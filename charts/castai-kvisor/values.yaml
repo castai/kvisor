@@ -30,7 +30,7 @@ updateStrategy:
   type: Recreate
 
 policyEnforcement:
-  enabled: true
+  enabled: false
   webhookName: "kvisor.cast.ai"
 
 # Kvisor service configuration.
