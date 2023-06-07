@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"sync"
 
-	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/k8sutil"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,16 +19,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/castai/telemetry"
 	"github.com/castai/kvisor/linters/kubelinter"
 )
 
 type Enforcer interface {
+	TelemetryObserver() telemetry.Observer
 	admission.Handler
 }
 
 type enforcer struct {
 	objectFilters []objectFilter
 	linter        *kubelinter.Linter
+	enforcedRules []string
+	mutex         sync.RWMutex
 }
 
 func NewEnforcer(linter *kubelinter.Linter) Enforcer {
@@ -40,7 +44,21 @@ func NewEnforcer(linter *kubelinter.Linter) Enforcer {
 	}
 }
 
+func (e *enforcer) TelemetryObserver() telemetry.Observer {
+	return func(r *castai.TelemetryResponse) {
+		e.mutex.Lock()
+		defer e.mutex.Unlock()
+		e.enforcedRules = make([]string, 0, len(r.EnforcedRules))
+		e.enforcedRules = append(e.enforcedRules, r.EnforcedRules...)
+	}
+}
+
 func (e *enforcer) Handle(ctx context.Context, request admission.Request) admission.Response {
+	enforcedRules := e.rules()
+	if len(enforcedRules) == 0 {
+		return admission.Allowed("no enforced rules")
+	}
+
 	// Unmarshal object.
 	var object k8sutil.Object
 	kind := request.Kind.Kind
@@ -152,7 +170,7 @@ func (e *enforcer) Handle(ctx context.Context, request admission.Request) admiss
 				K8sObject: object,
 			},
 		},
-		e.rules(),
+		enforcedRules,
 	)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
@@ -172,6 +190,7 @@ func (e *enforcer) Handle(ctx context.Context, request admission.Request) admiss
 }
 
 func (e *enforcer) rules() []string {
-	// TODO: this should be dynamic.
-	return lo.Keys(castai.LinterRuleMap)
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.enforcedRules
 }

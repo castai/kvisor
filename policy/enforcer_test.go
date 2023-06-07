@@ -3,16 +3,17 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"os"
+	"testing"
+
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/linters/kubelinter"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"testing"
 )
 
 func TestEnforcer(t *testing.T) {
@@ -24,6 +25,10 @@ func TestEnforcer(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
 		e := NewEnforcer(linter)
+		obs := e.TelemetryObserver()
+		obs(&castai.TelemetryResponse{
+			EnforcedRules: lo.Keys(castai.LinterRuleMap),
+		})
 		var req admission.Request
 		b, err := os.ReadFile("../testdata/admission/sample-deployment.json")
 		r.NoError(err)
@@ -40,10 +45,34 @@ func TestEnforcer(t *testing.T) {
 		}, response)
 	})
 
+	t.Run("request with no rules enforced", func(t *testing.T) {
+		r := require.New(t)
+		ctx := context.Background()
+		e := NewEnforcer(linter)
+		var req admission.Request
+		b, err := os.ReadFile("../testdata/admission/sample-deployment.json")
+		r.NoError(err)
+		r.NoError(json.Unmarshal(b, &req))
+		response := e.Handle(ctx, req)
+		r.Equal(admission.Response{
+			AdmissionResponse: v1.AdmissionResponse{
+				Allowed: true,
+				Result: &metav1.Status{
+					Reason: "no enforced rules",
+					Code:   http.StatusOK,
+				},
+			},
+		}, response)
+	})
+
 	t.Run("allows pod", func(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
 		e := NewEnforcer(linter)
+		obs := e.TelemetryObserver()
+		obs(&castai.TelemetryResponse{
+			EnforcedRules: lo.Keys(castai.LinterRuleMap),
+		})
 		var req admission.Request
 		b, err := os.ReadFile("../testdata/admission/sample-pod.json")
 		r.NoError(err)
@@ -64,6 +93,10 @@ func TestEnforcer(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
 		e := NewEnforcer(linter)
+		obs := e.TelemetryObserver()
+		obs(&castai.TelemetryResponse{
+			EnforcedRules: lo.Keys(castai.LinterRuleMap),
+		})
 		var req admission.Request
 		b, err := os.ReadFile("../testdata/admission/sample-pod-with-owners.json")
 		r.NoError(err)
