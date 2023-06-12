@@ -15,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	v1 "k8s.io/apiserver/pkg/apis/example/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/castai/kvisor/castai"
@@ -65,10 +64,11 @@ func (e *enforcer) Handle(ctx context.Context, request admission.Request) admiss
 
 	switch kind {
 	case "Pod":
-		var pod *v1.Pod
+		var pod *corev1.Pod
 		if err := json.Unmarshal(request.Object.Raw, &pod); err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
+
 		object = pod
 	case "Deployment":
 		var deployment *appsv1.Deployment
