@@ -7,8 +7,15 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	json "github.com/json-iterator/go"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+
+	"github.com/castai/kvisor/castai"
 )
+
+// enforcedRules contains list of rules for policy enforcement.
+var enforcedRules = lo.Keys(castai.LinterRuleMap)
 
 func main() {
 	router := mux.NewRouter()
@@ -52,6 +59,29 @@ func main() {
 
 		fmt.Printf("received log, cluster_id=%s, body=%s\n", clusterID, string(body))
 		w.WriteHeader(http.StatusOK)
+	})
+
+	router.HandleFunc("/v1/security/insights/{cluster_id}/telemetry", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		clusterID := vars["cluster_id"]
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Errorf("read body: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Printf("received telemetry, cluster_id=%s, body=%s\n", clusterID, string(body))
+
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(&castai.TelemetryResponse{
+			EnforcedRules: enforcedRules,
+		}); err != nil {
+			log.Errorf("write telemetry response: %v", err)
+			return
+		}
 	})
 
 	if err := http.ListenAndServe(":8090", router); err != nil { //nolint:gosec
