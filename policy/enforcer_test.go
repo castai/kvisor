@@ -7,13 +7,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/linters/kubelinter"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/linters/kubelinter"
 )
 
 func TestEnforcer(t *testing.T) {
@@ -71,7 +72,7 @@ func TestEnforcer(t *testing.T) {
 		e := NewEnforcer(linter)
 		obs := e.TelemetryObserver()
 		obs(&castai.TelemetryResponse{
-			EnforcedRules: lo.Keys(castai.LinterRuleMap),
+			EnforcedRules: []string{"latest-tag"},
 		})
 		var req admission.Request
 		b, err := os.ReadFile("../testdata/admission/sample-pod.json")
