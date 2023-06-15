@@ -106,7 +106,7 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	images := lo.Values(s.delta.getImages())
+	images := s.delta.getImages()
 	now := s.timeGetter()
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
 		return !v.scanned &&

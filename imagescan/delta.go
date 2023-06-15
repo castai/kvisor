@@ -286,11 +286,11 @@ func (d *deltaState) handleNodeDelete(node *corev1.Node) {
 	}
 }
 
-func (d *deltaState) getImages() map[string]*image {
+func (d *deltaState) getImages() []*image {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	return d.images
+	return lo.Values(d.images)
 }
 
 func (d *deltaState) getNode(name string) (*node, bool) {
