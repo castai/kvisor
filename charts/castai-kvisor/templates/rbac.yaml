@@ -80,7 +80,7 @@ rules:
       - get
       - list
       - watch
-{{- if .Values.policyEnforcement.enabled }}
+{{- if (.Values.policyEnforcement | default dict).enabled }}
   - apiGroups:
       - "admissionregistration.k8s.io"
     resources:
@@ -150,7 +150,7 @@ rules:
     verbs:
       - create
   {{- end }}
-{{- if .Values.policyEnforcement.enabled }}
+{{- if (.Values.policyEnforcement | default dict).enabled }}
   - apiGroups:
       - ""
     resources:

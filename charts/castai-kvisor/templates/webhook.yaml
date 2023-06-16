@@ -1,4 +1,4 @@
-{{- if .Values.policyEnforcement.enabled }}
+{{- if (.Values.policyEnforcement | default dict).enabled }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
