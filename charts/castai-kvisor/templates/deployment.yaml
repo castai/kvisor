@@ -87,9 +87,9 @@ spec:
             - name: LEADER_ELECTION
               value: {{ .Values.leaderElectionEnabled | quote }}
             - name: POLICY_ENFORCEMENT_ENABLED
-              value: {{ .Values.policyEnforcement.enabled | quote }}
+              value: {{ (.Values.policyEnforcement | default dict).enabled | quote }}
             - name: POLICY_ENFORCEMENT_WEBHOOK_NAME
-              value: {{ .Values.policyEnforcement.webhookName | quote }}
+              value: {{ (.Values.policyEnforcement | default dict).webhookName | quote }}
             - name: STATUS_PORT
               value: {{ .Values.kvisor.statusPort | quote }}
             - name: API_URL
@@ -157,4 +157,3 @@ spec:
         - name: certs
           secret:
             secretName: {{ .Values.kvisor.certsSecret | quote }}
-
