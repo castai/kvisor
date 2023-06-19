@@ -50,9 +50,9 @@ webhooks:
     clientConfig:
       service:
         namespace: {{ .Release.Namespace }}
-        name: {{ .Values.kvisor.serviceName }}
+        name: {{ ((.Values.kvisor | default dict).serviceName | default "kvisor") }}
         path: /validate
-        port: {{ .Values.kvisor.servicePort }}
+        port: {{ ((.Values.kvisor | default dict).servicePort | default 7070) }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
     timeoutSeconds: 5
