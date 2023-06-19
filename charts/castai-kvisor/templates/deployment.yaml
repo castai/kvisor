@@ -85,11 +85,11 @@ spec:
             - name: CERTS_SECRET
               value: {{ ((.Values.kvisor | default dict).certsSecret | default "kvisor-certs") | quote }}
             - name: LEADER_ELECTION
-              value: {{ .Values.leaderElectionEnabled | quote }}
+              value: {{ (.Values.leaderElectionEnabled | default false) | quote }}
             - name: POLICY_ENFORCEMENT_ENABLED
-              value: {{ (.Values.policyEnforcement | default dict).enabled | quote }}
+              value: {{ ((.Values.policyEnforcement | default dict).enabled | default false) | quote }}
             - name: POLICY_ENFORCEMENT_WEBHOOK_NAME
-              value: {{ (.Values.policyEnforcement | default dict).webhookName | quote }}
+              value: {{ ((.Values.policyEnforcement | default dict).webhookName | default "kvisor.cast.ai") | quote }}
             - name: STATUS_PORT
               value: {{ ((.Values.kvisor | default dict).statusPort | default 7071) | quote }}
             - name: API_URL
