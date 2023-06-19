@@ -135,7 +135,7 @@ rules:
     resources:
       - leases
     resourceNames:
-      - {{ .Values.kvisor.serviceName }}
+      - {{ ((.Values.kvisor | default dict).serviceName | default "kvisor") }}
     verbs:
       - get
       - create
@@ -163,7 +163,7 @@ rules:
     resources:
       - secrets
     resourceNames:
-      - {{ .Values.kvisor.certsSecret }}
+      - {{ ((.Values.kvisor | default dict).certsSecret | default "kvisor-certs") }}
     verbs:
       - get
       - update
