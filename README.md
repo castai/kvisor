@@ -4,7 +4,7 @@ Real time Kubernetes issues detection and vulnerabilities scanning.
 
 ## Getting started
 
-Visit the [docs](https://docs.cast.ai/getting-started/overview/) to connect your cluster.
+Visit the [docs](https://docs.cast.ai/docs/getting-started) to connect your cluster.
 
 ## Helm chart
 
