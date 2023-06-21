@@ -18,14 +18,15 @@ type Delta struct {
 }
 
 type DeltaItem struct {
-	Event            EventType `json:"event"`
-	ObjectUID        string    `json:"object_uid"`
-	ObjectName       string    `json:"object_name,omitempty"`
-	ObjectNamespace  string    `json:"object_namespace,omitempty"`
-	ObjectKind       string    `json:"object_kind,omitempty"`
-	ObjectAPIVersion string    `json:"object_api_version,omitempty"`
-	ObjectCreatedAt  time.Time `json:"object_created_at,omitempty"`
-	ObjectOwnerUID   string    `json:"object_owner_uid,omitempty"`
+	Event            EventType         `json:"event"`
+	ObjectUID        string            `json:"object_uid"`
+	ObjectName       string            `json:"object_name,omitempty"`
+	ObjectNamespace  string            `json:"object_namespace,omitempty"`
+	ObjectKind       string            `json:"object_kind,omitempty"`
+	ObjectAPIVersion string            `json:"object_api_version,omitempty"`
+	ObjectCreatedAt  time.Time         `json:"object_created_at,omitempty"`
+	ObjectOwnerUID   string            `json:"object_owner_uid,omitempty"`
+	ObjectLabels     map[string]string `json:"object_labels,omitempty"`
 
 	// ObjectContainers and ObjectStatus are set only for objects which could contain containers.
 	ObjectContainers []Container `json:"object_containers,omitempty"`

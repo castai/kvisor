@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sync"
+
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -71,7 +72,7 @@ type Controller struct {
 	informers       map[reflect.Type]cache.SharedInformer
 	subscribers     []ObjectSubscriber
 
-	// Due to bug in k8s we need to track if obect actually changed. See https://github.com/kubernetes/kubernetes/pull/106388
+	// Due to bug in k8s we need to track if object actually changed. See https://github.com/kubernetes/kubernetes/pull/106388
 	objectHashMu sync.Mutex
 	objectHashes map[string]struct{}
 }
