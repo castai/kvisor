@@ -83,7 +83,7 @@ func main() {
 		addPprofHandlers(mux)
 		go func() {
 			if err := http.ListenAndServe(cfg.PprofAddr, mux); err != nil { //nolint:gosec
-				log.Warnf("pprof http sever failed: %v", err)
+				log.Warnf("pprof http server failed: %v", err)
 			}
 		}()
 	}

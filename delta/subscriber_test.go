@@ -38,6 +38,7 @@ func TestSubscriber(t *testing.T) {
 					Name:       "node1",
 				},
 			},
+			Labels: map[string]string{"subscriber": "test"},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: "n1",
@@ -65,6 +66,7 @@ func TestSubscriber(t *testing.T) {
 					ObjectNamespace:  "default",
 					ObjectKind:       "Pod",
 					ObjectAPIVersion: "v1",
+					ObjectLabels:     map[string]string{"subscriber": "test"},
 					ObjectContainers: []castai.Container{
 						{
 							Name:      "nginx",

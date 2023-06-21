@@ -66,6 +66,7 @@ func (d *delta) add(event controller.Event, obj object) {
 		ObjectAPIVersion: gvr.GroupVersion().String(),
 		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
 		ObjectOwnerUID:   getOwnerUID(obj),
+		ObjectLabels:     obj.GetLabels(),
 	}
 	if containers, status, ok := getContainersAndStatus(obj); ok {
 		deltaItem.ObjectContainers = containers
