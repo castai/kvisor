@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/k8sutil"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/castai/telemetry"
+	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/linters/kubelinter"
 )
 
@@ -31,15 +33,41 @@ type enforcer struct {
 	objectFilters []objectFilter
 	linter        *kubelinter.Linter
 	enforcedRules []string
+	bundleRules   []string
 	mutex         sync.RWMutex
+	cfg           *config.PolicyEnforcement
 }
 
-func NewEnforcer(linter *kubelinter.Linter) Enforcer {
+func NewEnforcer(linter *kubelinter.Linter, cfg config.PolicyEnforcement) Enforcer {
+	rules := map[string]struct{}{}
+	for _, bundle := range cfg.Bundles {
+		var ruleMap map[string]castai.LinterRule
+		switch bundle {
+		case "host-isolation":
+			ruleMap = castai.HostIsolationBundle
+		case "good-practices":
+			ruleMap = castai.GoodPracticesBundle
+		case "ports-and-network":
+			ruleMap = castai.PortsAndNetworkBundle
+		case "mount-points":
+			ruleMap = castai.MountPointsBundle
+		case "dangling-resources":
+			ruleMap = castai.DanglingResourcesBundle
+		case "rbac":
+			ruleMap = castai.RBACBundle
+		}
+		for key := range ruleMap {
+			rules[key] = struct{}{}
+		}
+	}
+
 	return &enforcer{
 		objectFilters: []objectFilter{
 			skipObjectsWithOwners,
 		},
-		linter: linter,
+		linter:      linter,
+		bundleRules: lo.Keys(rules),
+		cfg:         &cfg,
 	}
 }
 
@@ -176,6 +204,10 @@ func (e *enforcer) Handle(ctx context.Context, request admission.Request) admiss
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
+	if len(checks) == 0 {
+		return admission.Allowed("no rules enforced on object")
+	}
+
 	if len(checks) != 1 {
 		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("unexpected checks len %d", len(checks)))
 	}
@@ -192,5 +224,5 @@ func (e *enforcer) Handle(ctx context.Context, request admission.Request) admiss
 func (e *enforcer) rules() []string {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
-	return e.enforcedRules
+	return lo.Uniq(append(e.enforcedRules, e.bundleRules...))
 }

@@ -32,6 +32,7 @@ updateStrategy:
 policyEnforcement:
   enabled: false
   webhookName: "kvisor.cast.ai"
+  bundles: ["host-isolation", "good-practices", "ports-and-network", "mount-points", "dangling-resources", "rbac"]
 
 # Kvisor service configuration.
 kvisor:

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -33,8 +34,17 @@ type Config struct {
 }
 
 type PolicyEnforcement struct {
-	Enabled     bool   `envconfig:"ENABLED" yaml:"enabled"`
-	WebhookName string `envconfig:"WEBHOOK_NAME" yaml:"webhookName"`
+	Enabled     bool    `envconfig:"ENABLED" yaml:"enabled"`
+	WebhookName string  `envconfig:"WEBHOOK_NAME" yaml:"webhookName"`
+	Bundles     Bundles `envconfig:"BUNDLES" yaml:"bundles"`
+}
+
+type Bundles []string
+
+func (b *Bundles) Decode(input string) error {
+	result := strings.Split(input, ",")
+	*b = result
+	return nil
 }
 
 type CloudScan struct {

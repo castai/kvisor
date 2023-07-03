@@ -90,6 +90,8 @@ spec:
               value: {{ ((.Values.policyEnforcement | default dict).enabled | default false) | quote }}
             - name: POLICY_ENFORCEMENT_WEBHOOK_NAME
               value: {{ ((.Values.policyEnforcement | default dict).webhookName | default "kvisor.cast.ai") | quote }}
+            - name: POLICY_ENFORCEMENT_BUNDLES
+              value: {{ (join "," (.Values.policyEnforcement | default dict).bundles | default "") | quote }}
             - name: STATUS_PORT
               value: {{ ((.Values.kvisor | default dict).statusPort | default 7071) | quote }}
             - name: API_URL
