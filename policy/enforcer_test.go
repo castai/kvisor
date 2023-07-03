@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/linters/kubelinter"
 )
 
@@ -25,7 +26,7 @@ func TestEnforcer(t *testing.T) {
 	t.Run("denies deployment", func(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
-		e := NewEnforcer(linter)
+		e := NewEnforcer(linter, config.PolicyEnforcement{})
 		obs := e.TelemetryObserver()
 		obs(&castai.TelemetryResponse{
 			EnforcedRules: lo.Keys(castai.LinterRuleMap),
@@ -49,7 +50,7 @@ func TestEnforcer(t *testing.T) {
 	t.Run("request with no rules enforced", func(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
-		e := NewEnforcer(linter)
+		e := NewEnforcer(linter, config.PolicyEnforcement{})
 		var req admission.Request
 		b, err := os.ReadFile("../testdata/admission/sample-deployment.json")
 		r.NoError(err)
@@ -69,7 +70,7 @@ func TestEnforcer(t *testing.T) {
 	t.Run("allows pod", func(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
-		e := NewEnforcer(linter)
+		e := NewEnforcer(linter, config.PolicyEnforcement{})
 		obs := e.TelemetryObserver()
 		obs(&castai.TelemetryResponse{
 			EnforcedRules: []string{"latest-tag"},
@@ -93,7 +94,7 @@ func TestEnforcer(t *testing.T) {
 	t.Run("denies pod with owners", func(t *testing.T) {
 		r := require.New(t)
 		ctx := context.Background()
-		e := NewEnforcer(linter)
+		e := NewEnforcer(linter, config.PolicyEnforcement{})
 		obs := e.TelemetryObserver()
 		obs(&castai.TelemetryResponse{
 			EnforcedRules: lo.Keys(castai.LinterRuleMap),
