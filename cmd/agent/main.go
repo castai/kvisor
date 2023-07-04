@@ -199,7 +199,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		return fmt.Errorf("setting up linter: %w", err)
 	}
 
-	policyEnforcer := policy.NewEnforcer(linter)
+	policyEnforcer := policy.NewEnforcer(linter, cfg.PolicyEnforcement)
 	telemetryObservers = append(telemetryObservers, policyEnforcer.TelemetryObserver())
 
 	if cfg.Linter.Enabled {

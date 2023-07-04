@@ -95,6 +95,66 @@ var LinterRuleMap = map[string]LinterRule{
 	"additional-capabilities":          AdditionalCapabilities,
 }
 
+var HostIsolationBundle = map[string]LinterRule{
+	"drop-net-raw-capability":        DropNetRawCapability,
+	"host-ipc":                       HostIPC,
+	"host-network":                   HostNetwork,
+	"host-pid":                       HostPID,
+	"privilege-escalation-container": PrivilegeEsxalationContainer,
+	"privileged-container":           PrivilegedContainer,
+	"run-as-non-root":                RunAsNonRoot,
+	"unsafe-sysctls":                 UnsafeSysctls,
+	"additional-capabilities":        AdditionalCapabilities,
+	"no-read-only-root-fs":           NoReadOnlyRootFS,
+	"privileged-ports":               PrivilegedProts,
+}
+
+var GoodPracticesBundle = map[string]LinterRule{
+	"sa-token-automount":               TokenAutomount,
+	"exposed-services":                 ExposedService,
+	"deprecated-service-account-field": DeprecatedServiceAccountField,
+	"latest-tag":                       LatestTag,
+	"mismatching-selector":             MismatchingSelector,
+	"no-anti-affinity":                 NoAntiAffinity,
+	"no-liveness-probe":                NoLivenessProbe,
+	"no-readiness-probe":               NoReadinessProe,
+	"no-rolling-update-strategy":       NoRollingUpdateStrategy,
+	"unset-memory-requirements":        UnsetMempryRequirements,
+	"use-namespace":                    UseNamespace,
+	"default-service-account":          DefaultServiceAccount,
+	"has-security-context":             HasSecurityContext,
+	"read-secret-from-env-var":         ReadSecretFromEnvVar,
+	"env-var-secret":                   EnvVarSecret,
+	"network-policy-per-namespace":     NetworkPolicyPerNamespace,
+}
+
+var PortsBundle = map[string]LinterRule{
+	"invalid-target-ports": InvalidTargetPorta,
+	"ssh-port":             SSHPort,
+}
+
+var MountPointsBundle = map[string]LinterRule{
+	"docker-sock":           DockerSock,
+	"containerd-sock":       ContainerdSock,
+	"writable-host-mount":   WritableHostMount,
+	"unsafe-proc-mount":     UnsafeProcMount,
+	"sensitive-host-mounts": SensitiveHostMounts,
+}
+
+var DanglingResourcesBundle = map[string]LinterRule{
+	"dangling-service":                 DanglingService,
+	"dangling-networkpolicy":           DanglingNetworkPolicy,
+	"dangling-horizontalpodautoscaler": DanglingHPA,
+	"dangling-ingress":                 DanglingIngress,
+}
+
+var RBACBundle = map[string]LinterRule{
+	"cluster-admin-role-binding": ClusterAdminRoleBinding,
+	"access-to-secrets":          AccessToSecrets,
+	"wildcard-in-rules":          WildcardInRules,
+	"access-to-create-pods":      AccessToCreatePods,
+}
+
 type LinterCheck struct {
 	ResourceID string         `json:"resourceID"`
 	Passed     *LinterRuleSet `json:"passed"`

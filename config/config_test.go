@@ -60,6 +60,9 @@ func newTestConfig() Config {
 		StatusPort:        7071,
 		Provider:          "gke",
 		DeltaSyncInterval: 15 * time.Second,
+		PolicyEnforcement: PolicyEnforcement{
+			Bundles: Bundles{},
+		},
 		ImageScan: ImageScan{
 			Enabled:            true,
 			ScanInterval:       20 * time.Second,
