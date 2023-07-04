@@ -47,8 +47,8 @@ func NewEnforcer(linter *kubelinter.Linter, cfg config.PolicyEnforcement) Enforc
 			ruleMap = castai.HostIsolationBundle
 		case "good-practices":
 			ruleMap = castai.GoodPracticesBundle
-		case "ports-and-network":
-			ruleMap = castai.PortsAndNetworkBundle
+		case "ports":
+			ruleMap = castai.PortsBundle
 		case "mount-points":
 			ruleMap = castai.MountPointsBundle
 		case "dangling-resources":

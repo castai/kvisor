@@ -106,6 +106,7 @@ var HostIsolationBundle = map[string]LinterRule{
 	"unsafe-sysctls":                 UnsafeSysctls,
 	"additional-capabilities":        AdditionalCapabilities,
 	"no-read-only-root-fs":           NoReadOnlyRootFS,
+	"privileged-ports":               PrivilegedProts,
 }
 
 var GoodPracticesBundle = map[string]LinterRule{
@@ -124,13 +125,12 @@ var GoodPracticesBundle = map[string]LinterRule{
 	"has-security-context":             HasSecurityContext,
 	"read-secret-from-env-var":         ReadSecretFromEnvVar,
 	"env-var-secret":                   EnvVarSecret,
+	"network-policy-per-namespace":     NetworkPolicyPerNamespace,
 }
 
-var PortsAndNetworkBundle = map[string]LinterRule{
-	"network-policy-per-namespace": NetworkPolicyPerNamespace,
-	"invalid-target-ports":         InvalidTargetPorta,
-	"ssh-port":                     SSHPort,
-	"privileged-ports":             PrivilegedProts,
+var PortsBundle = map[string]LinterRule{
+	"invalid-target-ports": InvalidTargetPorta,
+	"ssh-port":             SSHPort,
 }
 
 var MountPointsBundle = map[string]LinterRule{
