@@ -227,7 +227,6 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		Mode:                        mode,
 		ResourceIDs:                 lo.Keys(img.owners),
 		NodeName:                    nodeName,
-		Tolerations:                 img.podTolerations, // Assign the same tolerations as on pod. That will ensure that scan job can run on selected node.
 		DeleteFinishedJob:           true,
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,

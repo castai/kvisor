@@ -219,7 +219,6 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		img.id = cs.ImageID
 		img.name = cont.Image
 		img.containerRuntime = getContainerRuntime(cs.ContainerID)
-		img.podTolerations = pod.Spec.Tolerations
 
 		if owner, found := img.owners[ownerResourceID]; found {
 			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
@@ -479,7 +478,6 @@ type image struct {
 	containerRuntime imgcollectorconfig.Runtime
 	owners           map[string]*imageOwner
 	nodes            map[string]*imageNode
-	podTolerations   []corev1.Toleration
 
 	scanned      bool
 	lastScanErr  error

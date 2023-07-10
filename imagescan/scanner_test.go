@@ -108,6 +108,11 @@ func TestScanner(t *testing.T) {
 								},
 							},
 						},
+						Tolerations: []corev1.Toleration{
+							{
+								Effect: corev1.TaintEffectNoSchedule,
+							},
+						},
 						Containers: []corev1.Container{
 							{
 								Name:  "collector",

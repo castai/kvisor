@@ -56,7 +56,6 @@ type ScanImageParams struct {
 	Mode                        string
 	NodeName                    string
 	ResourceIDs                 []string
-	Tolerations                 []corev1.Toleration
 	DeleteFinishedJob           bool
 	WaitForCompletion           bool
 	WaitDurationAfterCompletion time.Duration
@@ -221,6 +220,12 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		})
 	}
 
+	tolerations := []corev1.Toleration{
+		{
+			Effect: corev1.TaintEffectNoSchedule,
+		},
+	}
+
 	jobSpec := scanJobSpec(
 		s.cfg.PodNamespace,
 		params.NodeName,
@@ -228,7 +233,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		envVars,
 		podAnnotations,
 		vols,
-		params.Tolerations,
+		tolerations,
 		s.cfg.ImageScan,
 	)
 	jobs := s.client.BatchV1().Jobs(s.cfg.PodNamespace)
