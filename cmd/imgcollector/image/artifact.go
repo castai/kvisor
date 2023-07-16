@@ -109,7 +109,7 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	var missingImageKey string
 	if cachedOSInfo == nil {
 		missingImageKey = imageKey
-	}
+	} // otherwise we will use cachedOSInfo in reference.
 
 	// Find cached layers
 	cachedLayers, err := a.getCachedLayers(ctx, layerKeys)
@@ -126,6 +126,11 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	blobsInfo, artifactInfo, osInfo, err := a.inspect(ctx, missingImageKey, missingLayersKeys, baseDiffIDs, layerKeyMap)
 	if err != nil {
 		return nil, fmt.Errorf("analyze error: %w", err)
+	}
+
+	if cachedOSInfo != nil {
+		// we use cached artifactInfo, because a.inpsect did not craete artifact info.
+		artifactInfo = cachedOSInfo
 	}
 
 	return &ArtifactReference{
