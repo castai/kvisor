@@ -101,15 +101,15 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	// Convert image ID and layer IDs to cache keys
 	imageKey, layerKeys, layerKeyMap := a.calcCacheKeys(imageID, diffIDs)
 
-	// Check if image os info already cached.
-	cachedOSInfo, err := a.getCachedOsInfo(ctx, imageKey)
+	// Check if image artifact info already cached.
+	cachedArtifactInfo, err := a.getCachedArtifactInfo(ctx, imageKey)
 	if err != nil && !errors.Is(err, blobscache.ErrCacheNotFound) {
 		return nil, err
 	}
 	var missingImageKey string
-	if cachedOSInfo == nil {
+	if cachedArtifactInfo == nil {
 		missingImageKey = imageKey
-	} // otherwise we will use cachedOSInfo in reference.
+	} // otherwise we will use cachedArtifactInfo in reference.
 
 	// Find cached layers
 	cachedLayers, err := a.getCachedLayers(ctx, layerKeys)
@@ -128,9 +128,9 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 		return nil, fmt.Errorf("analyze error: %w", err)
 	}
 
-	if cachedOSInfo != nil {
-		// we use cached artifactInfo, because a.inpsect did not craete artifact info.
-		artifactInfo = cachedOSInfo
+	if cachedArtifactInfo != nil {
+		// We use cached artifactInfo, because a.inspect did not create artifact info.
+		artifactInfo = cachedArtifactInfo
 	}
 
 	return &ArtifactReference{
@@ -141,7 +141,7 @@ func (a Artifact) Inspect(ctx context.Context) (*ArtifactReference, error) {
 	}, nil
 }
 
-func (a Artifact) getCachedOsInfo(ctx context.Context, key string) (*types.ArtifactInfo, error) {
+func (a Artifact) getCachedArtifactInfo(ctx context.Context, key string) (*types.ArtifactInfo, error) {
 	blobBytes, err := a.cache.GetBlob(ctx, key)
 	if err != nil {
 		return nil, blobscache.ErrCacheNotFound
