@@ -181,23 +181,8 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Value: strings.Join(params.ResourceIDs, ","),
 		},
 		{
-			Name:  "API_URL",
-			Value: s.cfg.API.URL,
-		},
-		{
-			Name: "API_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "castai-kvisor",
-					},
-					Key: "API_KEY",
-				},
-			},
-		},
-		{
-			Name:  "CLUSTER_ID",
-			Value: s.cfg.API.ClusterID,
+			Name:  "KVISOR_SERVER_API_URL",
+			Value: s.cfg.ImageScan.APIUrl,
 		},
 	}
 

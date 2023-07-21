@@ -29,9 +29,7 @@ const (
 )
 
 type Config struct {
-	ApiKey           string        `envconfig:"API_KEY" required:"true"`
-	ApiURL           string        `envconfig:"API_URL" default:"https://api.cast.ai"`
-	ClusterID        string        `envconfig:"CLUSTER_ID" required:"true"`
+	ApiURL           string        `envconfig:"KVISOR_SERVER_API_URL" required:"true"`
 	ImageID          string        `envconfig:"COLLECTOR_IMAGE_ID" required:"true"`
 	ImageName        string        `envconfig:"COLLECTOR_IMAGE_NAME" required:"true"`
 	Timeout          time.Duration `envconfig:"COLLECTOR_TIMEOUT" default:"5m"`

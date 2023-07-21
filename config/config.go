@@ -23,7 +23,7 @@ type Config struct {
 	KubeClient        KubeClient        `envconfig:"KUBE_CLIENT" yaml:"kubeClient"`
 	Log               Log               `envconfig:"LOG" yaml:"log"`
 	API               API               `envconfig:"API" yaml:"api"`
-	PprofPort         int               `envconfig:"PPROF_PORT" yaml:"pprofPort"`
+	HTTPPort          int               `envconfig:"HTTP_PORT" yaml:"httpPort"`
 	StatusPort        int               `envconfig:"STATUS_PORT" yaml:"statusPort"`
 	Provider          string            `envconfig:"PROVIDER" yaml:"provider"`
 	DeltaSyncInterval time.Duration     `envconfig:"DELTA_SYNC_INTERVAL" yaml:"deltaSyncInterval"`
@@ -71,6 +71,7 @@ type ImageScan struct {
 	MaxConcurrentScans          int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
 	Image                       ImageScanImage `envconfig:"IMAGE" yaml:"image"`
 	Mode                        string         `envconfig:"MODE" yaml:"mode"`
+	APIUrl                      string         `envconfig:"API_URL" yaml:"apiUrl"`
 	HostfsSocketFallbackEnabled bool           `envconfig:"HOSTFS_SOCKET_FALLBACK_ENABLED" yaml:"hostfsSocketFallbackEnabled"`
 	DockerOptionsPath           string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
 	BlobsCachePort              int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
@@ -193,6 +194,9 @@ func Load(configPath string) (Config, error) {
 		if cfg.ImageScan.MemoryRequest == "" {
 			cfg.ImageScan.MemoryRequest = "1Mi"
 		}
+		if cfg.ImageScan.APIUrl == "" {
+			cfg.ImageScan.APIUrl = "http://kvisor.castai-agent.svc.cluster.local.:6060"
+		}
 	}
 	if cfg.CloudScan.Enabled {
 		if cfg.CloudScan.ScanInterval == 0 {
@@ -205,8 +209,8 @@ func Load(configPath string) (Config, error) {
 		}
 	}
 
-	if cfg.PprofPort == 0 {
-		cfg.PprofPort = 6060
+	if cfg.HTTPPort == 0 {
+		cfg.HTTPPort = 6060
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = "on-premise"

@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"runtime"
@@ -31,19 +34,27 @@ func TestCollector(t *testing.T) {
 		log := logrus.New()
 		log.SetLevel(logrus.DebugLevel)
 
-		client := &mockClient{}
+		var receivedMetaBytes []byte
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			data, err := io.ReadAll(req.Body)
+			r.NoError(err)
+			receivedMetaBytes = data
+		}))
+		defer srv.Close()
+
 		mockCache := mock_blobcache.MockClient{}
 
 		cwd, _ := os.Getwd()
 		p := path.Join(cwd, "..", "image/hostfs/testdata/amd64-linux/io.containerd.content.v1.content")
 
 		c := New(log, config.Config{
+			ApiURL:    srv.URL,
 			ImageID:   imgID,
 			ImageName: imgName,
 			Timeout:   5 * time.Minute,
 			Mode:      config.ModeHostFS,
 			Runtime:   config.RuntimeContainerd,
-		}, client, mockCache, &hostfs.ContainerdHostFSConfig{
+		}, mockCache, &hostfs.ContainerdHostFSConfig{
 			Platform: v1.Platform{
 				Architecture: "amd64",
 				OS:           "linux",
@@ -59,14 +70,9 @@ func TestCollector(t *testing.T) {
 		r.NoError(err)
 		r.NoError(json.Unmarshal(b, &expected))
 
-		// Convert actual metadata to json and back to have identical types.
-		// Some fields are dynamic of type interface{}
-		actualB, err := json.Marshal(client.meta)
-		r.NoError(err)
-		var actual castai.ImageMetadata
-		r.NoError(json.Unmarshal(actualB, &actual))
-
-		r.Equal(expected, actual)
+		var receivedMeta castai.ImageMetadata
+		r.NoError(json.Unmarshal(receivedMetaBytes, &receivedMeta))
+		r.Equal(expected, receivedMeta)
 	})
 }
 
@@ -87,10 +93,18 @@ func TestCollectorLargeImageDocker(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 	//debug.SetGCPercent(-1)
-	client := &mockClient{}
 	mockCache := mock_blobcache.MockClient{}
 
+	var receivedMetaBytes []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		data, err := io.ReadAll(req.Body)
+		r.NoError(err)
+		receivedMetaBytes = data
+	}))
+	defer srv.Close()
+
 	c := New(log, config.Config{
+		ApiURL:            srv.URL,
 		ImageID:           imgID,
 		ImageName:         imgName,
 		Timeout:           5 * time.Minute,
@@ -98,7 +112,7 @@ func TestCollectorLargeImageDocker(t *testing.T) {
 		Runtime:           config.RuntimeDocker,
 		SlowMode:          true,
 		ImageLocalTarPath: "egressd.tar",
-	}, client, mockCache, nil)
+	}, mockCache, nil)
 
 	go func() {
 		for {
@@ -109,42 +123,7 @@ func TestCollectorLargeImageDocker(t *testing.T) {
 
 	r.NoError(c.Collect(ctx))
 	writeMemProfile("heap.prof")
-	md, err := json.Marshal(client.meta)
-	r.NoError(err)
-	r.NoError(os.WriteFile("metadata.json", md, 0600))
-}
-
-type mockClient struct {
-	meta *castai.ImageMetadata
-}
-
-func (m *mockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
-	return nil
-}
-
-func (m *mockClient) SendCISReport(ctx context.Context, report *castai.KubeBenchReport) error {
-	return nil
-}
-
-func (m *mockClient) SendDeltaReport(ctx context.Context, report *castai.Delta) error {
-	return nil
-}
-
-func (m *mockClient) SendLinterChecks(ctx context.Context, checks []castai.LinterCheck) error {
-	return nil
-}
-
-func (m *mockClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {
-	m.meta = meta
-	return nil
-}
-
-func (m *mockClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error {
-	return nil
-}
-
-func (m *mockClient) PostTelemetry(ctx context.Context, initial bool) (*castai.TelemetryResponse, error) {
-	return nil, nil
+	r.NoError(os.WriteFile("metadata.json", receivedMetaBytes, 0600))
 }
 
 func printMemStats() {

@@ -56,7 +56,7 @@ func newTestConfig() Config {
 		},
 		Log:               Log{Level: "info"},
 		API:               API{URL: "https://api-test.cast.ai", Key: "key", ClusterID: "c1"},
-		PprofPort:         6090,
+		HTTPPort:          6090,
 		StatusPort:        7071,
 		Provider:          "gke",
 		DeltaSyncInterval: 15 * time.Second,
@@ -80,6 +80,7 @@ func newTestConfig() Config {
 			CPULimit:                    "2",
 			MemoryRequest:               "100Mi",
 			MemoryLimit:                 "2Gi",
+			APIUrl:                      "http://kvisor.castai-agent.svc.cluster.local.:6060",
 		},
 		Linter: Linter{
 			Enabled: true,

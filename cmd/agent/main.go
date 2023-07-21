@@ -153,16 +153,19 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		"k8s_version": k8sVersion.Full,
 	})
 
+	scanHandler := imagescan.NewScanHttpHandler(log, castaiClient)
+
 	httpMux := http.NewServeMux()
 	installPprofHandlers(httpMux)
 	httpMux.Handle("/metrics", promhttp.Handler())
+	httpMux.HandleFunc("/v1/image-scan/report", scanHandler.Handle)
 
 	// Start http server for metrics and pprof handlers.
 	go func() {
-		addr := fmt.Sprintf(":%d", cfg.PprofPort)
-		log.Infof("starting pprof server on %s", addr)
+		httpAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
+		log.Infof("starting http server on %s", httpAddr)
 
-		if err := http.ListenAndServe(addr, httpMux); err != nil { //nolint:gosec
+		if err := http.ListenAndServe(httpAddr, httpMux); err != nil { //nolint:gosec
 			log.Errorf("failed to start pprof http server: %v", err)
 		}
 	}()

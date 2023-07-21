@@ -37,6 +37,7 @@ func TestScanner(t *testing.T) {
 				Image: config.ImageScanImage{
 					Name: "imgcollector:1.0.0",
 				},
+				APIUrl:            "http://kvisor:6060",
 				DockerOptionsPath: "/etc/docker/config.json",
 				BlobsCachePort:    8080,
 				CPURequest:        "500m",
@@ -152,23 +153,8 @@ func TestScanner(t *testing.T) {
 										Value: "p1,p2",
 									},
 									{
-										Name:  "API_URL",
-										Value: "https://api.cast.ai",
-									},
-									{
-										Name: "API_KEY",
-										ValueFrom: &corev1.EnvVarSource{
-											SecretKeyRef: &corev1.SecretKeySelector{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-kvisor",
-												},
-												Key: "API_KEY",
-											},
-										},
-									},
-									{
-										Name:  "CLUSTER_ID",
-										Value: "c1",
+										Name:  "KVISOR_SERVER_API_URL",
+										Value: "http://kvisor:6060",
 									},
 									{
 										Name:  "COLLECTOR_BLOBS_CACHE_URL",
