@@ -37,7 +37,6 @@ type Config struct {
 	Runtime          Runtime       `envconfig:"COLLECTOR_RUNTIME" required:"true"`
 	ResourceIDs      string        `envconfig:"COLLECTOR_RESOURCE_IDS" required:"true"`
 	DockerOptionPath string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
-	BlobsCacheURL    string        `envconfig:"COLLECTOR_BLOBS_CACHE_URL" default:""`
 	PprofAddr        string        `envconfig:"COLLECTOR_PPROF_ADDR" default:""`
 	SlowMode         bool          `envconfig:"SLOW_MODE" default:"true"`
 	// ImageLocalTarPath is used only with ModeTarArchive for local dev.

@@ -39,7 +39,6 @@ func TestScanner(t *testing.T) {
 				},
 				APIUrl:            "http://kvisor:6060",
 				DockerOptionsPath: "/etc/docker/config.json",
-				BlobsCachePort:    8080,
 				CPURequest:        "500m",
 				CPULimit:          "2",
 				MemoryRequest:     "100Mi",
@@ -157,10 +156,6 @@ func TestScanner(t *testing.T) {
 										Value: "http://kvisor:6060",
 									},
 									{
-										Name:  "COLLECTOR_BLOBS_CACHE_URL",
-										Value: "http://10.10.5.77:8080",
-									},
-									{
 										Name:  "COLLECTOR_PPROF_ADDR",
 										Value: ":6060",
 									},
@@ -230,11 +225,10 @@ func TestScanner(t *testing.T) {
 			PodIP:        "ip",
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
-				BlobsCachePort: 8080,
-				CPURequest:     "500m",
-				CPULimit:       "2",
-				MemoryRequest:  "100Mi",
-				MemoryLimit:    "2Gi",
+				CPURequest:    "500m",
+				CPULimit:      "2",
+				MemoryRequest: "100Mi",
+				MemoryLimit:   "2Gi",
 			},
 		}, delta)
 		scanner.jobCheckInterval = 1 * time.Microsecond

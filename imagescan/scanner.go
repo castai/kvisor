@@ -77,9 +77,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if params.NodeName == "" {
 		return errors.New("node name is required")
 	}
-	if s.cfg.ImageScan.BlobsCachePort == 0 {
-		return errors.New("blobs cache port is required")
-	}
 	if s.cfg.PodNamespace == "" {
 		return errors.New("pod namespace is required")
 	}
@@ -184,13 +181,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Name:  "KVISOR_SERVER_API_URL",
 			Value: s.cfg.ImageScan.APIUrl,
 		},
-	}
-
-	if s.cfg.PodIP != "" {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "COLLECTOR_BLOBS_CACHE_URL",
-			Value: fmt.Sprintf("http://%s:%d", s.cfg.PodIP, s.cfg.ImageScan.BlobsCachePort),
-		})
 	}
 
 	podAnnotations := map[string]string{}

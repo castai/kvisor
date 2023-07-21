@@ -33,13 +33,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var blobsCache blobscache.Client
-	if cfg.BlobsCacheURL != "" {
-		blobsCache = blobscache.NewRemoteBlobsCache(cfg.BlobsCacheURL)
-	} else {
-		blobsCache = blobscache.NewMockBlobsCacheClient()
-		log.Warn("blobs cache is not enabled")
-	}
+	blobsCache := blobscache.NewRemoteBlobsCacheClient(cfg.ApiURL)
 
 	var h *hostfs.ContainerdHostFSConfig
 	if cfg.Runtime == config.RuntimeContainerd && cfg.Mode == config.ModeHostFS {

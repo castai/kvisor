@@ -208,7 +208,7 @@ func (c *Collector) sendResult(ctx context.Context, report *castai.ImageMetadata
 	defer resp.Body.Close()
 	if st := resp.StatusCode; st != http.StatusOK {
 		errMsg, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("expected status %d, got %d: %v", http.StatusOK, st, string(errMsg))
+		return fmt.Errorf("expected status %d, got %d, url=%s: %v", http.StatusOK, st, req.URL.String(), string(errMsg))
 	}
 	return nil
 }

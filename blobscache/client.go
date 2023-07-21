@@ -20,9 +20,9 @@ type Client interface {
 	GetBlob(ctx context.Context, key string) ([]byte, error)
 }
 
-func NewRemoteBlobsCache(url string) Client {
+func NewRemoteBlobsCacheClient(serverURL string) Client {
 	return &remoteBlobsCache{
-		url: url,
+		url: serverURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -42,7 +42,7 @@ func (c *remoteBlobsCache) PutBlob(ctx context.Context, key string, blob []byte)
 	}); err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/PutBlob", c.url), &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/v1/blobscache/PutBlob", c.url), &buf)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (c *remoteBlobsCache) GetBlob(ctx context.Context, key string) ([]byte, err
 	}); err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/GetBlob", c.url), &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/v1/blobscache/GetBlob", c.url), &buf)
 	if err != nil {
 		return nil, err
 	}

@@ -96,7 +96,7 @@ spec:
               value: {{ ((.Values.kvisor | default dict).statusPort | default 7071) | quote }}
             - name: API_URL
               value: {{ .Values.castai.apiURL | quote }}
-            - name: CLUSTER_ID
+            - name: API_CLUSTER_ID
               value: {{ .Values.castai.clusterID | quote }}
           {{- range $k, $v := .Values.additionalEnv }}
             - name: {{ $k }}
