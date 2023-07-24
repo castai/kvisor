@@ -23,7 +23,7 @@ type Config struct {
 	KubeClient        KubeClient        `envconfig:"KUBE_CLIENT" yaml:"kubeClient"`
 	Log               Log               `envconfig:"LOG" yaml:"log"`
 	API               API               `envconfig:"API" yaml:"api"`
-	PprofPort         int               `envconfig:"PPROF_PORT" yaml:"pprofPort"`
+	HTTPPort          int               `envconfig:"HTTP_PORT" yaml:"httpPort"`
 	StatusPort        int               `envconfig:"STATUS_PORT" yaml:"statusPort"`
 	Provider          string            `envconfig:"PROVIDER" yaml:"provider"`
 	DeltaSyncInterval time.Duration     `envconfig:"DELTA_SYNC_INTERVAL" yaml:"deltaSyncInterval"`
@@ -34,9 +34,9 @@ type Config struct {
 }
 
 type PolicyEnforcement struct {
-	Enabled     bool    `envconfig:"ENABLED" yaml:"enabled"`
-	WebhookName string  `envconfig:"WEBHOOK_NAME" yaml:"webhookName"`
-	Bundles     Bundles `envconfig:"BUNDLES" yaml:"bundles"`
+	Enabled     bool    `envconfig:"POLICY_ENFORCEMENT_ENABLED" yaml:"enabled"`
+	WebhookName string  `envconfig:"POLICY_ENFORCEMENT_WEBHOOK_NAME" yaml:"webhookName"`
+	Bundles     Bundles `envconfig:"POLICY_ENFORCEMENT_BUNDLES" yaml:"bundles"`
 }
 
 type Bundles []string
@@ -48,54 +48,54 @@ func (b *Bundles) Decode(input string) error {
 }
 
 type CloudScan struct {
-	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
-	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
-	GKE          *CloudScanGKE `envconfig:"GKE" yaml:"gke"`
-	EKS          *CloudScanEKS `envconfig:"EKS" yaml:"eks"`
+	Enabled      bool          `envconfig:"CLOUD_SCAN_ENABLED" yaml:"enabled"`
+	ScanInterval time.Duration `envconfig:"CLOUD_SCAN_SCAN_INTERVAL" yaml:"scanInterval"`
+	GKE          *CloudScanGKE `envconfig:"CLOUD_SCAN_GKE" yaml:"gke"`
+	EKS          *CloudScanEKS `envconfig:"CLOUD_SCAN_EKS" yaml:"eks"`
 }
 
 type CloudScanGKE struct {
-	ClusterName        string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
-	CredentialsFile    string `envconfig:"CREDENTIALS_FILE" yaml:"credentialsFile"`
-	ServiceAccountName string `envconfig:"SERVICE_ACCOUNT_NAME" yaml:"serviceAccountName"`
+	ClusterName        string `envconfig:"CLOUD_SCAN_GKE_CLUSTER_NAME" yaml:"clusterName"`
+	CredentialsFile    string `envconfig:"CLOUD_SCAN_GKE_CREDENTIALS_FILE" yaml:"credentialsFile"`
+	ServiceAccountName string `envconfig:"CLOUD_SCAN_GKE_SERVICE_ACCOUNT_NAME" yaml:"serviceAccountName"`
 }
 
 type CloudScanEKS struct {
-	ClusterName string `envconfig:"CLUSTER_NAME" yaml:"clusterName"`
+	ClusterName string `envconfig:"CLOUD_SCAN_EKS_CLUSTER_NAME" yaml:"clusterName"`
 }
 
 type ImageScan struct {
-	Enabled                     bool           `envconfig:"ENABLED" yaml:"enabled"`
-	ScanInterval                time.Duration  `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
-	ScanTimeout                 time.Duration  `envconfig:"SCAN_TIMEOUT" yaml:"scanTimeout"`
-	MaxConcurrentScans          int64          `envconfig:"MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
-	Image                       ImageScanImage `envconfig:"IMAGE" yaml:"image"`
-	Mode                        string         `envconfig:"MODE" yaml:"mode"`
-	HostfsSocketFallbackEnabled bool           `envconfig:"HOSTFS_SOCKET_FALLBACK_ENABLED" yaml:"hostfsSocketFallbackEnabled"`
-	DockerOptionsPath           string         `envconfig:"DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
-	BlobsCachePort              int            `envconfig:"BLOBS_CACHE_PORT" yaml:"blobsCachePort"`
-	CPURequest                  string         `envconfig:"CPU_REQUEST" yaml:"cpuRequest"`
-	CPULimit                    string         `envconfig:"CPU_LIMIT" yaml:"cpuLimit"`
-	MemoryRequest               string         `envconfig:"MEMORY_REQUEST" yaml:"memoryRequest"`
-	MemoryLimit                 string         `envconfig:"MEMORY_LIMIT" yaml:"memoryLimit"`
-	Force                       bool           `envconfig:"FORCE" yaml:"force"`
-	ProfileEnabled              bool           `envconfig:"PROFILE_ENABLED" yaml:"profileEnabled"`
-	PhlareEnabled               bool           `envconfig:"PHLARE_ENABLED" yaml:"phlareEnabled"`
+	Enabled                     bool           `envconfig:"IMAGE_SCAN_ENABLED" yaml:"enabled"`
+	ScanInterval                time.Duration  `envconfig:"IMAGE_SCAN_SCAN_INTERVAL" yaml:"scanInterval"`
+	ScanTimeout                 time.Duration  `envconfig:"IMAGE_SCAN_SCAN_TIMEOUT" yaml:"scanTimeout"`
+	MaxConcurrentScans          int64          `envconfig:"IMAGE_SCAN_MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
+	Image                       ImageScanImage `envconfig:"IMAGE_SCAN_IMAGE" yaml:"image"`
+	Mode                        string         `envconfig:"IMAGE_SCAN_MODE" yaml:"mode"`
+	APIUrl                      string         `envconfig:"IMAGE_SCAN_API_URL" yaml:"apiUrl"`
+	HostfsSocketFallbackEnabled bool           `envconfig:"IMAGE_SCAN_HOSTFS_SOCKET_FALLBACK_ENABLED" yaml:"hostfsSocketFallbackEnabled"`
+	DockerOptionsPath           string         `envconfig:"IMAGE_SCAN_DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
+	CPURequest                  string         `envconfig:"IMAGE_SCAN_CPU_REQUEST" yaml:"cpuRequest"`
+	CPULimit                    string         `envconfig:"IMAGE_SCAN_CPU_LIMIT" yaml:"cpuLimit"`
+	MemoryRequest               string         `envconfig:"IMAGE_SCAN_MEMORY_REQUEST" yaml:"memoryRequest"`
+	MemoryLimit                 string         `envconfig:"IMAGE_SCAN_MEMORY_LIMIT" yaml:"memoryLimit"`
+	Force                       bool           `envconfig:"IMAGE_SCAN_FORCE" yaml:"force"`
+	ProfileEnabled              bool           `envconfig:"IMAGE_SCAN_PROFILE_ENABLED" yaml:"profileEnabled"`
+	PhlareEnabled               bool           `envconfig:"IMAGE_SCAN_PHLARE_ENABLED" yaml:"phlareEnabled"`
 }
 
 type ImageScanImage struct {
-	Name       string `envconfig:"NAME" yaml:"name"`
-	PullPolicy string `envconfig:"PULL_POLICY" yaml:"pullPolicy"`
+	Name       string `envconfig:"IMAGE_SCAN_IMAGE_NAME" yaml:"name"`
+	PullPolicy string `envconfig:"IMAGE_SCAN_IMAGE_PULL_POLICY" yaml:"pullPolicy"`
 }
 
 type Linter struct {
-	Enabled bool `envconfig:"ENABLED" yaml:"enabled"`
+	Enabled bool `envconfig:"LINTER_ENABLED" yaml:"enabled"`
 }
 
 type KubeBench struct {
-	Enabled      bool          `envconfig:"ENABLED" yaml:"enabled"`
-	Force        bool          `envconfig:"FORCE" yaml:"force"`
-	ScanInterval time.Duration `envconfig:"SCAN_INTERVAL" yaml:"scanInterval"`
+	Enabled      bool          `envconfig:"KUBE_BENCH_ENABLED" yaml:"enabled"`
+	Force        bool          `envconfig:"KUBE_BENCH_FORCE" yaml:"force"`
+	ScanInterval time.Duration `envconfig:"KUBE_BENCH_SCAN_INTERVAL" yaml:"scanInterval"`
 }
 
 type KubeClient struct {
@@ -103,20 +103,20 @@ type KubeClient struct {
 	// smoothed qps rate of 'qps'.
 	// The bucket is initially filled with 'burst' tokens, and refills at a rate of 'qps'.
 	// The maximum number of tokens in the bucket is capped at 'burst'.
-	QPS   int `envconfig:"QPS" yaml:"qps"`
-	Burst int `envconfig:"BURST" yaml:"burst"`
+	QPS   int `envconfig:"KUBE_CLIENT_QPS" yaml:"qps"`
+	Burst int `envconfig:"KUBE_CLIENT_BURST" yaml:"burst"`
 	// Custom kubeconfig path.
-	KubeConfigPath string `envconfig:"KUBECONFIG" yaml:"kubeconfig"`
+	KubeConfigPath string `envconfig:"KUBE_CLIENT_KUBECONFIG" yaml:"kubeconfig"`
 }
 
 type Log struct {
-	Level string `envconfig:"LEVEL" yaml:"level"`
+	Level string `envconfig:"LOG_LEVEL" yaml:"level"`
 }
 
 type API struct {
-	Key       string `envconfig:"KEY" yaml:"key"`
-	URL       string `envconfig:"URL" yaml:"url"`
-	ClusterID string `envconfig:"CLUSTER_ID" yaml:"clusterID"`
+	Key       string `envconfig:"API_KEY" yaml:"key"`
+	URL       string `envconfig:"API_URL" yaml:"url"`
+	ClusterID string `envconfig:"API_CLUSTER_ID" yaml:"clusterID"`
 }
 
 func Load(configPath string) (Config, error) {
@@ -172,9 +172,6 @@ func Load(configPath string) (Config, error) {
 		if cfg.ImageScan.MaxConcurrentScans == 0 {
 			cfg.ImageScan.MaxConcurrentScans = 3
 		}
-		if cfg.ImageScan.BlobsCachePort == 0 {
-			cfg.ImageScan.BlobsCachePort = 8080
-		}
 		if cfg.ImageScan.ScanInterval == 0 {
 			cfg.ImageScan.ScanInterval = 15 * time.Second
 		}
@@ -193,6 +190,9 @@ func Load(configPath string) (Config, error) {
 		if cfg.ImageScan.MemoryRequest == "" {
 			cfg.ImageScan.MemoryRequest = "1Mi"
 		}
+		if cfg.ImageScan.APIUrl == "" {
+			cfg.ImageScan.APIUrl = "http://kvisor.castai-agent.svc.cluster.local.:6060"
+		}
 	}
 	if cfg.CloudScan.Enabled {
 		if cfg.CloudScan.ScanInterval == 0 {
@@ -205,8 +205,8 @@ func Load(configPath string) (Config, error) {
 		}
 	}
 
-	if cfg.PprofPort == 0 {
-		cfg.PprofPort = 6060
+	if cfg.HTTPPort == 0 {
+		cfg.HTTPPort = 6060
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = "on-premise"

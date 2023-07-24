@@ -1,11 +1,17 @@
 package collector
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -56,11 +62,10 @@ import (
 	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
 )
 
-func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
+func New(log logrus.FieldLogger, cfg config.Config, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
 	return &Collector{
 		log:          log,
 		cfg:          cfg,
-		client:       client,
 		cache:        cache,
 		hostFsConfig: hostfsConfig,
 	}
@@ -69,7 +74,6 @@ func New(log logrus.FieldLogger, cfg config.Config, client castai.Client, cache 
 type Collector struct {
 	log          logrus.FieldLogger
 	cfg          config.Config
-	client       castai.Client
 	cache        blobscache.Client
 	hostFsConfig *hostfs.ContainerdHostFSConfig
 }
@@ -133,7 +137,13 @@ func (c *Collector) Collect(ctx context.Context) error {
 		metadata.Index = index
 	}
 
-	if err := c.client.SendImageMetadata(ctx, metadata); err != nil {
+	if err := backoff.RetryNotify(func() error {
+		return c.sendResult(ctx, metadata)
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 3), func(err error, duration time.Duration) {
+		if err != nil {
+			c.log.Errorf("sending result: %v", err)
+		}
+	}); err != nil {
 		return err
 	}
 
@@ -179,4 +189,26 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 	}
 
 	return nil, nil, fmt.Errorf("unknown mode %q", c.cfg.Mode)
+}
+
+func (c *Collector) sendResult(ctx context.Context, report *castai.ImageMetadata) error {
+	client := http.Client{Timeout: 10 * time.Second}
+	reportBytes, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.ApiURL+"/v1/image-scan/report", bytes.NewBuffer(reportBytes))
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if st := resp.StatusCode; st != http.StatusOK {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("expected status %d, got %d, url=%s: %v", http.StatusOK, st, req.URL.String(), string(errMsg))
+	}
+	return nil
 }

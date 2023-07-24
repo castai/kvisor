@@ -11,12 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/castai/kvisor/blobscache"
-	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/cmd/imgcollector/collector"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
-	globalconfig "github.com/castai/kvisor/config"
-	agentlog "github.com/castai/kvisor/log"
 )
 
 // These should be set via `go build` during a release.
@@ -29,39 +26,14 @@ var (
 func main() {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
+	log.Infof("running image scan job, version=%s, commit=%s", Version, GitCommit)
 
 	cfg, err := config.FromEnv()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	client := castai.NewClient(
-		cfg.ApiURL, cfg.ApiKey,
-		log,
-		cfg.ClusterID,
-		"castai-imgcollector",
-		globalconfig.SecurityAgentVersion{
-			GitCommit: GitCommit,
-			GitRef:    GitRef,
-			Version:   Version,
-		},
-	)
-
-	e := agentlog.NewExporter(log, client, []logrus.Level{
-		logrus.ErrorLevel,
-		logrus.FatalLevel,
-		logrus.PanicLevel,
-	})
-
-	log.AddHook(e)
-
-	var blobsCache blobscache.Client
-	if cfg.BlobsCacheURL != "" {
-		blobsCache = blobscache.NewRemoteBlobsCache(cfg.BlobsCacheURL)
-	} else {
-		blobsCache = blobscache.NewMockBlobsCacheClient()
-		log.Warn("blobs cache is not enabled")
-	}
+	blobsCache := blobscache.NewRemoteBlobsCacheClient(cfg.ApiURL)
 
 	var h *hostfs.ContainerdHostFSConfig
 	if cfg.Runtime == config.RuntimeContainerd && cfg.Mode == config.ModeHostFS {
@@ -73,7 +45,7 @@ func main() {
 			ContentDir: config.ContainerdContentDir,
 		}
 	}
-	c := collector.New(log, cfg, client, blobsCache, h)
+	c := collector.New(log, cfg, blobsCache, h)
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()

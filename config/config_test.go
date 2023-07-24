@@ -29,7 +29,11 @@ func TestConfig(t *testing.T) {
 		r := require.New(t)
 		expectedCfg := newTestConfig()
 		expectedCfg.API.Key = "api-key-from-env"
+		expectedCfg.API.URL = "https://api-test.cast.ai"
+		expectedCfg.ImageScan.APIUrl = "http://server"
 		r.NoError(os.Setenv("API_KEY", expectedCfg.API.Key))
+		r.NoError(os.Setenv("API_URL", expectedCfg.API.URL))
+		r.NoError(os.Setenv("IMAGE_SCAN_API_URL", expectedCfg.ImageScan.APIUrl))
 
 		cfgBytes, err := yaml.Marshal(expectedCfg)
 		r.NoError(err)
@@ -56,7 +60,7 @@ func newTestConfig() Config {
 		},
 		Log:               Log{Level: "info"},
 		API:               API{URL: "https://api-test.cast.ai", Key: "key", ClusterID: "c1"},
-		PprofPort:         6090,
+		HTTPPort:          6090,
 		StatusPort:        7071,
 		Provider:          "gke",
 		DeltaSyncInterval: 15 * time.Second,
@@ -75,11 +79,11 @@ func newTestConfig() Config {
 			Mode:                        "mode",
 			HostfsSocketFallbackEnabled: true,
 			DockerOptionsPath:           "/etc/config/docker-config.json",
-			BlobsCachePort:              8080,
 			CPURequest:                  "100m",
 			CPULimit:                    "2",
 			MemoryRequest:               "100Mi",
 			MemoryLimit:                 "2Gi",
+			APIUrl:                      "http://kvisor.castai-agent.svc.cluster.local.:6060",
 		},
 		Linter: Linter{
 			Enabled: true,

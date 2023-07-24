@@ -3,8 +3,8 @@ package blobscache
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -20,29 +20,25 @@ func TestBlobsCacheServer(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	srv := NewBlobsCacheServer(log, ServerConfig{})
-	listener, err := newLocalListener()
-	r.NoError(err)
-	srv.listener = listener
-	go srv.Start(ctx)
+	srv := NewServer(log, ServerConfig{})
+	mux := http.NewServeMux()
+	srv.RegisterHandlers(mux)
+	httpSrv := httptest.NewServer(mux)
+	defer httpSrv.Close()
 
-	client := NewRemoteBlobsCache(fmt.Sprintf("http://%s", listener.Addr().String()))
+	client := NewRemoteBlobsCacheClient(httpSrv.URL)
 
-	// Wait unti server is ready
+	// Wait unti server is ready.
 	r.Eventually(func() bool {
 		_, err := client.GetBlob(ctx, "noop")
 		return errors.Is(err, ErrCacheNotFound)
 	}, 3*time.Second, 10*time.Millisecond)
 
 	blob := []byte(`{"some": "json"}`)
-	err = client.PutBlob(ctx, "b1", blob)
+	err := client.PutBlob(ctx, "b1", blob)
 	r.NoError(err)
 
 	addedBlob, err := client.GetBlob(ctx, "b1")
 	r.NoError(err)
 	r.Equal(blob, addedBlob)
-}
-
-func newLocalListener() (net.Listener, error) {
-	return net.Listen("tcp", "127.0.0.1:0")
 }

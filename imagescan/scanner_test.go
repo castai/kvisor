@@ -37,8 +37,8 @@ func TestScanner(t *testing.T) {
 				Image: config.ImageScanImage{
 					Name: "imgcollector:1.0.0",
 				},
+				APIUrl:            "http://kvisor:6060",
 				DockerOptionsPath: "/etc/docker/config.json",
-				BlobsCachePort:    8080,
 				CPURequest:        "500m",
 				CPULimit:          "2",
 				MemoryRequest:     "100Mi",
@@ -152,27 +152,8 @@ func TestScanner(t *testing.T) {
 										Value: "p1,p2",
 									},
 									{
-										Name:  "API_URL",
-										Value: "https://api.cast.ai",
-									},
-									{
-										Name: "API_KEY",
-										ValueFrom: &corev1.EnvVarSource{
-											SecretKeyRef: &corev1.SecretKeySelector{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "castai-kvisor",
-												},
-												Key: "API_KEY",
-											},
-										},
-									},
-									{
-										Name:  "CLUSTER_ID",
-										Value: "c1",
-									},
-									{
-										Name:  "COLLECTOR_BLOBS_CACHE_URL",
-										Value: "http://10.10.5.77:8080",
+										Name:  "KVISOR_SERVER_API_URL",
+										Value: "http://kvisor:6060",
 									},
 									{
 										Name:  "COLLECTOR_PPROF_ADDR",
@@ -244,11 +225,10 @@ func TestScanner(t *testing.T) {
 			PodIP:        "ip",
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
-				BlobsCachePort: 8080,
-				CPURequest:     "500m",
-				CPULimit:       "2",
-				MemoryRequest:  "100Mi",
-				MemoryLimit:    "2Gi",
+				CPURequest:    "500m",
+				CPULimit:      "2",
+				MemoryRequest: "100Mi",
+				MemoryLimit:   "2Gi",
 			},
 		}, delta)
 		scanner.jobCheckInterval = 1 * time.Microsecond

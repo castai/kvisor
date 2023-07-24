@@ -153,17 +153,30 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		"k8s_version": k8sVersion.Full,
 	})
 
+	scanHandler := imagescan.NewScanHttpHandler(log, castaiClient)
+
 	httpMux := http.NewServeMux()
 	installPprofHandlers(httpMux)
 	httpMux.Handle("/metrics", promhttp.Handler())
+	httpMux.HandleFunc("/v1/image-scan/report", scanHandler.Handle)
+	if cfg.ImageScan.Enabled {
+		blobsCache := blobscache.NewServer(log, blobscache.ServerConfig{})
+		blobsCache.RegisterHandlers(httpMux)
+	}
 
-	// Start http server for metrics and pprof handlers.
+	// Start http server for scan job, metrics and pprof handlers.
 	go func() {
-		addr := fmt.Sprintf(":%d", cfg.PprofPort)
-		log.Infof("starting pprof server on %s", addr)
+		httpAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
+		log.Infof("starting http server on %s", httpAddr)
 
-		if err := http.ListenAndServe(addr, httpMux); err != nil { //nolint:gosec
-			log.Errorf("failed to start pprof http server: %v", err)
+		srv := &http.Server{
+			Addr:         httpAddr,
+			Handler:      httpMux,
+			WriteTimeout: 5 * time.Second,
+			ReadTimeout:  5 * time.Second,
+		}
+		if err := srv.ListenAndServe(); err != nil {
+			log.Errorf("failed to start http server: %v", err)
 		}
 	}()
 
@@ -241,8 +254,6 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			k8sVersion.MinorInt,
 			deltaState,
 		))
-		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{ServePort: cfg.ImageScan.BlobsCachePort})
-		go blobsCache.Start(ctx)
 	}
 	if len(objectSubscribers) == 0 {
 		return errors.New("no subscribers enabled")

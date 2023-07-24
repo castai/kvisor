@@ -1,12 +1,7 @@
 package blobscache
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"net"
 	"net/http"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	json "github.com/json-iterator/go"
@@ -14,10 +9,9 @@ import (
 )
 
 type ServerConfig struct {
-	ServePort int
 }
 
-func NewBlobsCacheServer(log logrus.FieldLogger, cfg ServerConfig) *Server {
+func NewServer(log logrus.FieldLogger, cfg ServerConfig) *Server {
 	return &Server{
 		log:        log,
 		cfg:        cfg,
@@ -29,42 +23,11 @@ type Server struct {
 	log        logrus.FieldLogger
 	cfg        ServerConfig
 	blobsCache blobsCacheStore
-	listener   net.Listener
 }
 
-func (s *Server) Start(ctx context.Context) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/PutBlob", s.putBlob)
-	mux.HandleFunc("/GetBlob", s.getBlob)
-
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.cfg.ServePort),
-		Handler:      mux,
-		WriteTimeout: 5 * time.Second,
-		ReadTimeout:  5 * time.Second,
-	}
-
-	go func() {
-		<-ctx.Done()
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
-			s.log.Errorf("blobs cache server shutdown: %v", err)
-		}
-	}()
-
-	if s.listener == nil {
-		var err error
-		s.listener, err = net.Listen("tcp", srv.Addr)
-		if err != nil {
-			s.log.Errorf("creating blobs cache server listener: %v", err)
-			return
-		}
-	}
-
-	if err := srv.Serve(s.listener); err != nil && errors.Is(err, http.ErrServerClosed) {
-		s.log.Errorf("serving blobs cache server: %v", err)
-	}
+func (s *Server) RegisterHandlers(mux *http.ServeMux) {
+	mux.HandleFunc("/v1/blobscache/PutBlob", s.putBlob)
+	mux.HandleFunc("/v1/blobscache/GetBlob", s.getBlob)
 }
 
 func (s *Server) putBlob(w http.ResponseWriter, r *http.Request) {
