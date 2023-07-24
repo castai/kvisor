@@ -20,7 +20,7 @@ func TestBlobsCacheServer(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	srv := NewBlobsCacheServer(log, ServerConfig{})
+	srv := NewServer(log, ServerConfig{})
 	mux := http.NewServeMux()
 	srv.RegisterHandlers(mux)
 	httpSrv := httptest.NewServer(mux)

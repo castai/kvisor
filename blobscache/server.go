@@ -11,7 +11,7 @@ import (
 type ServerConfig struct {
 }
 
-func NewBlobsCacheServer(log logrus.FieldLogger, cfg ServerConfig) *Server {
+func NewServer(log logrus.FieldLogger, cfg ServerConfig) *Server {
 	return &Server{
 		log:        log,
 		cfg:        cfg,

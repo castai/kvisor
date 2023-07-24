@@ -160,7 +160,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	httpMux.Handle("/metrics", promhttp.Handler())
 	httpMux.HandleFunc("/v1/image-scan/report", scanHandler.Handle)
 	if cfg.ImageScan.Enabled {
-		blobsCache := blobscache.NewBlobsCacheServer(log, blobscache.ServerConfig{})
+		blobsCache := blobscache.NewServer(log, blobscache.ServerConfig{})
 		blobsCache.RegisterHandlers(httpMux)
 	}
 
