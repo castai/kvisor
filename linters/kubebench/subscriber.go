@@ -94,8 +94,8 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	}
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
-	s.OnAdd(obj)
+func (s *Subscriber) OnUpdate(newObj, oldObj controller.Object) {
+	s.OnAdd(newObj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {

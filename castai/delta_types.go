@@ -31,6 +31,8 @@ type DeltaItem struct {
 	// ObjectContainers and ObjectStatus are set only for objects which could contain containers.
 	ObjectContainers []Container `json:"object_containers,omitempty"`
 	ObjectStatus     interface{} `json:"object_status,omitempty"`
+	// ObjectImagesChanged is set to true when previous container status contained different image set.
+	ObjectImagesChanged bool `json:"object_images_changed,omitempty"`
 }
 
 type Container struct {

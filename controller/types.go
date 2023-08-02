@@ -13,7 +13,7 @@ import (
 
 type ResourceEventHandler interface {
 	OnAdd(obj Object)
-	OnUpdate(obj Object)
+	OnUpdate(newObj, oldObj Object)
 	OnDelete(obj Object)
 }
 

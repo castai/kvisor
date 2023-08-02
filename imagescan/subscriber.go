@@ -86,8 +86,8 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	s.handleDelta(controller.EventAdd, obj)
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
-	s.handleDelta(controller.EventUpdate, obj)
+func (s *Subscriber) OnUpdate(newObj, oldObj controller.Object) {
+	s.handleDelta(controller.EventUpdate, newObj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {

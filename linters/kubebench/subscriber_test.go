@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/castai"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -18,6 +17,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/castai/kvisor/castai"
 
 	mock_castai "github.com/castai/kvisor/castai/mock"
 	agentlog "github.com/castai/kvisor/log"
@@ -146,7 +147,7 @@ func TestSubscriber(t *testing.T) {
 			},
 		}
 		subscriber.OnAdd(node)
-		subscriber.OnUpdate(node)
+		subscriber.OnUpdate(node, nil)
 
 		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 		defer cancel()
@@ -203,7 +204,7 @@ func TestSubscriber(t *testing.T) {
 			nodeGroupKey: {},
 		}
 		subscriber.OnAdd(node)
-		subscriber.OnUpdate(node)
+		subscriber.OnUpdate(node, nil)
 
 		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).MinTimes(1)
 

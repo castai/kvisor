@@ -55,6 +55,11 @@ func (s *snapshotProvider) append(item castai.DeltaItem) {
 	case castai.EventAdd, castai.EventUpdate:
 		// This is used for resync, always save with EventAdd.
 		item.Event = castai.EventAdd
+
+		if v, ok := s.state[item.ObjectUID]; ok && v.ObjectImagesChanged {
+			item.ObjectImagesChanged = v.ObjectImagesChanged
+		}
+
 		s.state[item.ObjectUID] = item
 	case castai.EventDelete:
 		delete(s.state, item.ObjectUID)

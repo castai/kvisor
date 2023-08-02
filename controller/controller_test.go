@@ -2,22 +2,23 @@ package controller
 
 import (
 	"context"
+	"net/http"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
-	"net/http"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sync"
-	"testing"
-	"time"
 
 	json "github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
@@ -289,11 +290,11 @@ func (t *testSubscriber) OnAdd(obj Object) {
 	t.addedObjs[obj.GetName()] = obj
 }
 
-func (t *testSubscriber) OnUpdate(obj Object) {
+func (t *testSubscriber) OnUpdate(newObj, oldObj Object) {
 	t.log.Debug("update")
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.updatedObjs[obj.GetName()] = obj
+	t.updatedObjs[newObj.GetName()] = newObj
 }
 
 func (t *testSubscriber) OnDelete(obj Object) {

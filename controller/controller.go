@@ -173,11 +173,11 @@ func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.
 				case ev := <-sub.events:
 					switch ev.eventType {
 					case eventTypeAdd:
-						sub.handler.OnAdd(ev.obj)
+						sub.handler.OnAdd(ev.newObj)
 					case eventTypeUpdate:
-						sub.handler.OnUpdate(ev.obj)
+						sub.handler.OnUpdate(ev.newObj, ev.oldObj)
 					case eventTypeDelete:
-						sub.handler.OnDelete(ev.obj)
+						sub.handler.OnDelete(ev.newObj)
 					}
 				case <-ctx.Done():
 					return
@@ -188,13 +188,13 @@ func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.
 
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
-			c.notifySubscribers(obj, eventTypeAdd, subs)
+			c.notifySubscribers(obj, nil, eventTypeAdd, subs)
 		},
 		UpdateFunc: func(oldObj, newObj any) {
-			c.notifySubscribers(newObj, eventTypeUpdate, subs)
+			c.notifySubscribers(newObj, oldObj, eventTypeUpdate, subs)
 		},
 		DeleteFunc: func(obj any) {
-			c.notifySubscribers(obj, eventTypeDelete, subs)
+			c.notifySubscribers(obj, nil, eventTypeDelete, subs)
 		},
 	}
 }
@@ -209,7 +209,8 @@ const (
 
 type event struct {
 	eventType eventType
-	obj       Object
+	newObj    Object
+	oldObj    Object
 }
 
 type subChannel struct {
@@ -217,9 +218,9 @@ type subChannel struct {
 	events  chan event
 }
 
-func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subChannel) {
-	var actualObj Object
-	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+func (c *Controller) notifySubscribers(newObj, oldObj any, eventType eventType, subs []subChannel) {
+	var actualObj, actualOldObj Object
+	if deleted, ok := newObj.(cache.DeletedFinalStateUnknown); ok {
 		obj, ok := deleted.Obj.(Object)
 		if !ok {
 			return
@@ -227,9 +228,16 @@ func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subC
 		actualObj = obj
 		eventType = eventTypeDelete
 	} else {
-		obj, ok := obj.(Object)
+		obj, ok := newObj.(Object)
 		if !ok {
 			return
+		}
+		if oldObj != nil {
+			oldObj, ok := oldObj.(Object)
+			if !ok {
+				return
+			}
+			actualOldObj = oldObj
 		}
 		actualObj = obj
 	}
@@ -252,7 +260,8 @@ func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subC
 	for _, sub := range subs {
 		sub.events <- event{
 			eventType: eventType,
-			obj:       actualObj,
+			newObj:    actualObj,
+			oldObj:    actualOldObj,
 		}
 	}
 

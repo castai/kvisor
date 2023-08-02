@@ -120,21 +120,21 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.delta.add(controller.EventAdd, obj)
+	s.delta.add(controller.EventAdd, obj, nil)
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
+func (s *Subscriber) OnUpdate(newObj, oldObj controller.Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.delta.add(controller.EventUpdate, obj)
+	s.delta.add(controller.EventUpdate, newObj, oldObj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.delta.add(controller.EventDelete, obj)
+	s.delta.add(controller.EventDelete, obj, nil)
 }
 
 func (s *Subscriber) sendDelta(ctx context.Context) (rerr error) {

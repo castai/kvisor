@@ -46,31 +46,32 @@ type delta struct {
 }
 
 // add will add an item to the delta cache. It will debounce the objects.
-func (d *delta) add(event controller.Event, obj object) {
+func (d *delta) add(event controller.Event, newObj, oldObj object) {
 	for _, skipper := range d.skippers {
-		if skipper(obj) {
+		if skipper(newObj) {
 			return
 		}
 	}
 
-	key := string(obj.GetUID())
-	gvr := obj.GetObjectKind().GroupVersionKind()
-	d.log.Debugf("add delta, event=%s, gvr=%s, ns=%s, name=%s", event, gvr.String(), obj.GetNamespace(), obj.GetName())
+	key := string(newObj.GetUID())
+	gvr := newObj.GetObjectKind().GroupVersionKind()
+	d.log.Debugf("add delta, event=%s, gvr=%s, ns=%s, name=%s", event, gvr.String(), newObj.GetNamespace(), newObj.GetName())
 
 	deltaItem := castai.DeltaItem{
 		Event:            toCASTAIEvent(event),
-		ObjectUID:        string(obj.GetUID()),
-		ObjectName:       obj.GetName(),
-		ObjectNamespace:  obj.GetNamespace(),
+		ObjectUID:        string(newObj.GetUID()),
+		ObjectName:       newObj.GetName(),
+		ObjectNamespace:  newObj.GetNamespace(),
 		ObjectKind:       gvr.Kind,
 		ObjectAPIVersion: gvr.GroupVersion().String(),
-		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
-		ObjectOwnerUID:   getOwnerUID(obj),
-		ObjectLabels:     obj.GetLabels(),
+		ObjectCreatedAt:  newObj.GetCreationTimestamp().UTC(),
+		ObjectOwnerUID:   getOwnerUID(newObj),
+		ObjectLabels:     newObj.GetLabels(),
 	}
-	if containers, status, ok := getContainersAndStatus(obj); ok {
+	if containers, status, changed, ok := getContainersAndStatus(newObj, oldObj); ok {
 		deltaItem.ObjectContainers = containers
 		deltaItem.ObjectStatus = status
+		deltaItem.ObjectImagesChanged = changed
 	}
 
 	d.cache[key] = deltaItem
@@ -106,7 +107,39 @@ func toCASTAIEvent(e controller.Event) castai.EventType {
 	return ""
 }
 
-func getContainersAndStatus(obj controller.Object) ([]castai.Container, interface{}, bool) {
+func getContainersAndStatus(newObj, oldObj controller.Object) ([]castai.Container, interface{}, bool, bool) {
+	newContainers, status, ok := extractContainers(newObj)
+	if !ok {
+		return nil, nil, false, false
+	}
+
+	lookup := make(map[string]string)
+	res := make([]castai.Container, len(newContainers))
+	for i, cont := range newContainers {
+		lookup[cont.Name] = cont.Image
+		res[i] = castai.Container{
+			Name:      cont.Name,
+			ImageName: cont.Image,
+		}
+	}
+
+	if oldObj != nil {
+		oldContainers, _, ok := extractContainers(oldObj)
+		if !ok {
+			return nil, nil, false, false
+		}
+
+		for _, cont := range oldContainers {
+			if v, ok := lookup[cont.Name]; !ok || v != cont.Image {
+				return res, status, true, true
+			}
+		}
+	}
+
+	return res, status, false, true
+}
+
+func extractContainers(obj controller.Object) ([]corev1.Container, interface{}, bool) {
 	var containers []corev1.Container
 	appendContainers := func(podSpec corev1.PodSpec) {
 		containers = append(containers, podSpec.Containers...)
@@ -136,14 +169,7 @@ func getContainersAndStatus(obj controller.Object) ([]castai.Container, interfac
 		return nil, nil, false
 	}
 
-	res := make([]castai.Container, len(containers))
-	for i, cont := range containers {
-		res[i] = castai.Container{
-			Name:      cont.Name,
-			ImageName: cont.Image,
-		}
-	}
-	return res, st, true
+	return containers, st, true
 }
 
 func getOwnerUID(obj controller.Object) string {

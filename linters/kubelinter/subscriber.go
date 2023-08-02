@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	batchv1 "k8s.io/api/batch/v1"
 	"reflect"
 	"strings"
 	"time"
+
+	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -85,8 +86,8 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	s.modifyDelta(controller.EventAdd, obj)
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
-	s.modifyDelta(controller.EventUpdate, obj)
+func (s *Subscriber) OnUpdate(newObj, oldObj controller.Object) {
+	s.modifyDelta(controller.EventUpdate, newObj)
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
