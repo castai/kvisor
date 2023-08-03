@@ -149,14 +149,14 @@ func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.I
 	var history []v1.History
 	for _, h := range imgConfig.History {
 		hist := v1.History{
-			Author: h.Author,
+			Author:     h.Author,
 			CreatedBy:  h.CreatedBy,
 			Comment:    h.Comment,
 			EmptyLayer: h.EmptyLayer,
-		})
+		}
 
 		if h.Created != nil {
-			hist.Created = v1.Time{ Time: *h.Created}
+			hist.Created = v1.Time{Time: *h.Created}
 		}
 
 		history = append(history, hist)
