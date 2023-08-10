@@ -19,7 +19,8 @@ type OverallControls struct {
 }
 
 type Controls struct {
-	Groups []*Group `json:"tests"`
+	Version string   `json:"version"`
+	Groups  []*Group `json:"tests"`
 }
 
 // Group is a collection of similar checks.
