@@ -27,7 +27,7 @@ import (
 func TestCollector(t *testing.T) {
 	t.Run("collect and sends metadata", func(t *testing.T) {
 		imgName := "notused"
-		imgID := "gke.gcr.io/phpmyadmin@sha256:b0d9c54760b35edd1854e5710c1a62a28ad2d2b070c801da3e30a3e59c19e7e3"
+		imgID := "gke.gcr.io/phpmyadmin@sha256:b0d9c54760b35edd1854e5710c1a62a28ad2d2b070c801da3e30a3e59c19e7e3" //nolint:gosec
 
 		r := require.New(t)
 		ctx := context.Background()

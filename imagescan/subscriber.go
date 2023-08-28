@@ -35,7 +35,7 @@ func NewSubscriber(
 		cancel:          cancel,
 		imageScanner:    imageScanner,
 		delta:           delta,
-		log:             log,
+		log:             log.WithField("component", "imagescan"),
 		cfg:             cfg,
 		k8sVersionMinor: k8sVersionMinor,
 		timeGetter:      timeGetter(),
