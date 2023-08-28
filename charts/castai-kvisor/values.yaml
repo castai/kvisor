@@ -83,7 +83,6 @@ config: |
     enabled: true
     scanInterval: "15s"
     maxConcurrentScans: 3
-    hostfsSocketFallbackEnabled: true
     apiUrl: "http://kvisor.{{ .Release.Namespace }}.svc.cluster.local.:6060"
     image:
       name: "{{ .Values.image.repository }}-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"

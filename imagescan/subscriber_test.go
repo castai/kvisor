@@ -275,19 +275,18 @@ func TestSubscriber(t *testing.T) {
 		r.True(img.scanned)
 	})
 
-	t.Run("scan image with containerd sock fallback", func(t *testing.T) {
+	t.Run("scan image with remove mode fallback", func(t *testing.T) {
 		r := require.New(t)
 
 		cfg := config.ImageScan{
-			ScanInterval:                1 * time.Millisecond,
-			ScanTimeout:                 time.Minute,
-			MaxConcurrentScans:          5,
-			Mode:                        string(imgcollectorconfig.ModeHostFS),
-			HostfsSocketFallbackEnabled: true,
-			CPURequest:                  "500m",
-			CPULimit:                    "2",
-			MemoryRequest:               "100Mi",
-			MemoryLimit:                 "2Gi",
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			Mode:               string(imgcollectorconfig.ModeHostFS),
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
 		}
 
 		scanner := &mockImageScanner{}
@@ -323,7 +322,7 @@ func TestSubscriber(t *testing.T) {
 		err := sub.scheduleScans(ctx)
 		r.NoError(err)
 		r.Len(scanner.imgs, 1)
-		r.Equal(string(imgcollectorconfig.ModeDaemon), scanner.imgs[0].Mode)
+		r.Equal(string(imgcollectorconfig.ModeRemote), scanner.imgs[0].Mode)
 	})
 
 	t.Run("respect node count", func(t *testing.T) {

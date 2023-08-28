@@ -74,6 +74,8 @@ type deltaState struct {
 	rs     map[string]*appsv1.ReplicaSet
 	jobs   map[string]*batchv1.Job
 	nodes  map[string]*node
+
+	hostFSDisabled bool
 }
 
 func (d *deltaState) Observe(response *castai.TelemetryResponse) {
@@ -321,8 +323,11 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 
 	img.failures++
 	img.lastScanErr = err
-	if strings.Contains(err.Error(), "no such file or directory") {
+	if strings.Contains(err.Error(), "no such file or directory") || strings.Contains(err.Error(), "failed to get the layer") {
 		img.lastScanErr = errImageScanLayerNotFound
+		d.hostFSDisabled = true
+	} else if strings.Contains(err.Error(), "UNAUTHORIZED") || strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
+		img.lastScanErr = errPrivateImage
 	}
 
 	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
@@ -359,6 +364,13 @@ func (d *deltaState) nodeCount() int {
 	defer d.mu.RUnlock()
 
 	return len(d.nodes)
+}
+
+func (d *deltaState) isHostFsDisabled() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return d.hostFSDisabled
 }
 
 func getContainerRuntime(containerID string) imgcollectorconfig.Runtime {
@@ -469,7 +481,10 @@ type imageOwner struct {
 	podIDs map[string]struct{}
 }
 
-var errImageScanLayerNotFound = errors.New("image layer not found")
+var (
+	errImageScanLayerNotFound = errors.New("image layer not found")
+	errPrivateImage           = errors.New("private image")
+)
 
 type image struct {
 	id               string

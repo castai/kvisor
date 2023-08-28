@@ -108,9 +108,15 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	images := s.delta.getImages()
 	now := s.timeGetter()
+	var privateImagesCount int
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
+		isPrivateImage := errors.Is(v.lastScanErr, errPrivateImage)
+		if isPrivateImage {
+			privateImagesCount++
+		}
 		return !v.scanned &&
 			len(v.owners) > 0 &&
+			!isPrivateImage &&
 			(v.nextScan.IsZero() || v.nextScan.Before(now))
 	})
 	sort.Slice(pendingImages, func(i, j int) bool {
@@ -119,6 +125,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	s.log.Infof("found %d images, pending images %d", len(images), len(pendingImages))
 	metrics.SetTotalImagesCount(len(images))
 	metrics.SetPendingImagesCount(len(pendingImages))
+
+	if privateImagesCount > 0 {
+		s.log.Warnf("skipping %d private images", privateImagesCount)
+	}
 
 	concurrentScans := s.concurrentScansNumber()
 	imagesForScan := pendingImages
@@ -211,14 +221,7 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 	}()
 
-	// If image scan fails in containerd hostfs mode due missing layers
-	// try to scan via mounted containerd socket.
-	mode := s.cfg.Mode
-	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) &&
-		img.containerRuntime == imgcollectorconfig.RuntimeContainerd &&
-		s.cfg.HostfsSocketFallbackEnabled {
-		mode = string(imgcollectorconfig.ModeDaemon)
-	}
+	mode := s.getScanMode(img)
 
 	return s.imageScanner.ScanImage(ctx, ScanImageParams{
 		ImageName:                   img.name,
@@ -239,4 +242,17 @@ func (s *Subscriber) concurrentScansNumber() int {
 	}
 
 	return int(s.cfg.MaxConcurrentScans)
+}
+
+// getScanMode returns configured image scan mode if set.
+// If mode is empty it will be determined automatically based on container runtime inside scanner.go
+//
+// Special case:
+// If hostfs mode is used and image scan fails due to missing layers remote image scan will be used as fallback.
+func (s *Subscriber) getScanMode(img *image) string {
+	mode := s.cfg.Mode
+	if s.delta.isHostFsDisabled() || (img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound)) {
+		mode = string(imgcollectorconfig.ModeRemote)
+	}
+	return mode
 }
