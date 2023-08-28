@@ -326,7 +326,8 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 	if strings.Contains(err.Error(), "no such file or directory") || strings.Contains(err.Error(), "failed to get the layer") {
 		img.lastScanErr = errImageScanLayerNotFound
 		d.hostFSDisabled = true
-	} else if strings.Contains(err.Error(), "UNAUTHORIZED") || strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
+	} else if strings.Contains(err.Error(), "UNAUTHORIZED") || strings.Contains(err.Error(), "MANIFEST_UNKNOWN") || strings.Contains(err.Error(), "DENIED") {
+		// Error codes from https://github.com/google/go-containerregistry/blob/190ad0e4d556f199a07951d55124f8a394ebccd9/pkg/v1/remote/transport/error.go#L115
 		img.lastScanErr = errPrivateImage
 	}
 
