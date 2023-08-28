@@ -59,7 +59,7 @@ func NewSubscriber(
 		cancel:          cancel,
 		cfg:             cfg,
 		k8sVersionMinor: k8sVersionMinor,
-		log:             log,
+		log:             log.WithField("component", "delta"),
 		client:          client,
 		delta:           newDelta(log, logLevel, stateProvider),
 	}

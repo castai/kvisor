@@ -65,22 +65,21 @@ type CloudScanEKS struct {
 }
 
 type ImageScan struct {
-	Enabled                     bool           `envconfig:"IMAGE_SCAN_ENABLED" yaml:"enabled"`
-	ScanInterval                time.Duration  `envconfig:"IMAGE_SCAN_SCAN_INTERVAL" yaml:"scanInterval"`
-	ScanTimeout                 time.Duration  `envconfig:"IMAGE_SCAN_SCAN_TIMEOUT" yaml:"scanTimeout"`
-	MaxConcurrentScans          int64          `envconfig:"IMAGE_SCAN_MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
-	Image                       ImageScanImage `envconfig:"IMAGE_SCAN_IMAGE" yaml:"image"`
-	Mode                        string         `envconfig:"IMAGE_SCAN_MODE" yaml:"mode"`
-	APIUrl                      string         `envconfig:"IMAGE_SCAN_API_URL" yaml:"apiUrl"`
-	HostfsSocketFallbackEnabled bool           `envconfig:"IMAGE_SCAN_HOSTFS_SOCKET_FALLBACK_ENABLED" yaml:"hostfsSocketFallbackEnabled"`
-	DockerOptionsPath           string         `envconfig:"IMAGE_SCAN_DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
-	CPURequest                  string         `envconfig:"IMAGE_SCAN_CPU_REQUEST" yaml:"cpuRequest"`
-	CPULimit                    string         `envconfig:"IMAGE_SCAN_CPU_LIMIT" yaml:"cpuLimit"`
-	MemoryRequest               string         `envconfig:"IMAGE_SCAN_MEMORY_REQUEST" yaml:"memoryRequest"`
-	MemoryLimit                 string         `envconfig:"IMAGE_SCAN_MEMORY_LIMIT" yaml:"memoryLimit"`
-	Force                       bool           `envconfig:"IMAGE_SCAN_FORCE" yaml:"force"`
-	ProfileEnabled              bool           `envconfig:"IMAGE_SCAN_PROFILE_ENABLED" yaml:"profileEnabled"`
-	PhlareEnabled               bool           `envconfig:"IMAGE_SCAN_PHLARE_ENABLED" yaml:"phlareEnabled"`
+	Enabled            bool           `envconfig:"IMAGE_SCAN_ENABLED" yaml:"enabled"`
+	ScanInterval       time.Duration  `envconfig:"IMAGE_SCAN_SCAN_INTERVAL" yaml:"scanInterval"`
+	ScanTimeout        time.Duration  `envconfig:"IMAGE_SCAN_SCAN_TIMEOUT" yaml:"scanTimeout"`
+	MaxConcurrentScans int64          `envconfig:"IMAGE_SCAN_MAX_CONCURRENT_SCANS" yaml:"maxConcurrentScans"`
+	Image              ImageScanImage `envconfig:"IMAGE_SCAN_IMAGE" yaml:"image"`
+	Mode               string         `envconfig:"IMAGE_SCAN_MODE" yaml:"mode"`
+	APIUrl             string         `envconfig:"IMAGE_SCAN_API_URL" yaml:"apiUrl"`
+	DockerOptionsPath  string         `envconfig:"IMAGE_SCAN_DOCKER_OPTIONS_PATH" yaml:"dockerOptionsPath"`
+	CPURequest         string         `envconfig:"IMAGE_SCAN_CPU_REQUEST" yaml:"cpuRequest"`
+	CPULimit           string         `envconfig:"IMAGE_SCAN_CPU_LIMIT" yaml:"cpuLimit"`
+	MemoryRequest      string         `envconfig:"IMAGE_SCAN_MEMORY_REQUEST" yaml:"memoryRequest"`
+	MemoryLimit        string         `envconfig:"IMAGE_SCAN_MEMORY_LIMIT" yaml:"memoryLimit"`
+	Force              bool           `envconfig:"IMAGE_SCAN_FORCE" yaml:"force"`
+	ProfileEnabled     bool           `envconfig:"IMAGE_SCAN_PROFILE_ENABLED" yaml:"profileEnabled"`
+	PhlareEnabled      bool           `envconfig:"IMAGE_SCAN_PHLARE_ENABLED" yaml:"phlareEnabled"`
 }
 
 type ImageScanImage struct {
@@ -165,9 +164,6 @@ func Load(configPath string) (Config, error) {
 		}
 		if cfg.ImageScan.Image.PullPolicy == "" {
 			cfg.ImageScan.Image.PullPolicy = "IfNotPresent"
-		}
-		if cfg.ImageScan.DockerOptionsPath == "" {
-			cfg.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
 		}
 		if cfg.ImageScan.MaxConcurrentScans == 0 {
 			cfg.ImageScan.MaxConcurrentScans = 3

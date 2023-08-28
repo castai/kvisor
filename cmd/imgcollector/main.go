@@ -24,8 +24,9 @@ var (
 )
 
 func main() {
-	log := logrus.New()
-	log.SetLevel(logrus.DebugLevel)
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	log := logger.WithField("component", "imagescan_job")
 	log.Infof("running image scan job, version=%s, commit=%s", Version, GitCommit)
 
 	cfg, err := config.FromEnv()

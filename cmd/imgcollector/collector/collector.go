@@ -158,11 +158,11 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 	if c.cfg.Mode == config.ModeRemote {
 		opts := image.DockerOption{}
 		if c.cfg.DockerOptionPath != "" {
-			bytes, err := os.ReadFile(c.cfg.DockerOptionPath)
+			optsData, err := os.ReadFile(c.cfg.DockerOptionPath)
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading docker options file: %w", err)
 			}
-			if err := yaml.Unmarshal(bytes, &opts); err != nil {
+			if err := yaml.Unmarshal(optsData, &opts); err != nil {
 				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
 			}
 		}

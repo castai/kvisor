@@ -9,7 +9,7 @@ go run ./cmd/agent
 
 Start tilt on local kind cluster with mockapi backend which is located in ./tools/mockapi.
 ```
-API_URL=http://mockapi tilt up
+API_URL=http://mockapi IMAGE_SCAN_ENABLED=true tilt up
 ```
 
 ### Run E2E tests locally
