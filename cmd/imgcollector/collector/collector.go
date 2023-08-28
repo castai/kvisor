@@ -157,7 +157,31 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 	}
 	if c.cfg.Mode == config.ModeRemote {
 		opts := image.DockerOption{}
-		if c.cfg.DockerOptionPath != "" {
+		if c.cfg.ImagePullSecret != "" {
+			configData, err := config.ReadImagePullSecret(os.DirFS(config.SecretMountPath))
+			if err != nil {
+				return nil, nil, fmt.Errorf("reading image pull secret: %w", err)
+			}
+			cfg := image.DockerConfig{}
+			if err := json.Unmarshal(configData, &cfg); err != nil {
+				return nil, nil, fmt.Errorf("parsing image pull secret: %w", err)
+			}
+			if auth, ok := cfg.Auths[imgRef.Context().Registry.Name()]; ok {
+				opts.UserName = auth.Username
+				opts.Password = auth.Password
+				opts.RegistryToken = auth.Token
+			}
+			if auth, ok := cfg.Auths[image.NamespacedRegistry(imgRef)]; ok {
+				opts.UserName = auth.Username
+				opts.Password = auth.Password
+				opts.RegistryToken = auth.Token
+			}
+			if auth, ok := cfg.Auths[fmt.Sprintf("%s/%s", imgRef.Context().RegistryStr(), imgRef.Context().RepositoryStr())]; ok {
+				opts.UserName = auth.Username
+				opts.Password = auth.Password
+				opts.RegistryToken = auth.Token
+			}
+		} else if c.cfg.DockerOptionPath != "" {
 			optsData, err := os.ReadFile(c.cfg.DockerOptionPath)
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading docker options file: %w", err)

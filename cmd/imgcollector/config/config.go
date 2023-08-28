@@ -1,6 +1,7 @@
 package config
 
 import (
+	"io/fs"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -26,12 +27,14 @@ const (
 
 const (
 	ContainerdContentDir = "/var/lib/containerd/io.containerd.content.v1.content"
+	SecretMountPath      = "/secret"
 )
 
 type Config struct {
 	ApiURL           string        `envconfig:"KVISOR_SERVER_API_URL" required:"true"`
 	ImageID          string        `envconfig:"COLLECTOR_IMAGE_ID" required:"true"`
 	ImageName        string        `envconfig:"COLLECTOR_IMAGE_NAME" required:"true"`
+	ImagePullSecret  string        `envconfig:"COLLECTOR_PULL_SECRET" default:""`
 	Timeout          time.Duration `envconfig:"COLLECTOR_TIMEOUT" default:"5m"`
 	Mode             Mode          `envconfig:"COLLECTOR_MODE"`
 	Runtime          Runtime       `envconfig:"COLLECTOR_RUNTIME" required:"true"`
@@ -49,4 +52,17 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+// ReadImagePullSecret explicitly mounted at mountPath.
+func ReadImagePullSecret(mount fs.FS) ([]byte, error) {
+	/*
+		apiVersion: v1
+		kind: Secret
+		type: kubernetes.io/dockerconfigjson
+		data:
+			.dockerconfigjson: "<base64 encoded ~/.docker/config.json>"
+	*/
+	// When mounted, data keys become plain text files in the filesystem.
+	return fs.ReadFile(mount, ".dockerconfigjson")
 }

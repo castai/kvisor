@@ -80,6 +80,7 @@ type ImageScan struct {
 	Force              bool           `envconfig:"IMAGE_SCAN_FORCE" yaml:"force"`
 	ProfileEnabled     bool           `envconfig:"IMAGE_SCAN_PROFILE_ENABLED" yaml:"profileEnabled"`
 	PhlareEnabled      bool           `envconfig:"IMAGE_SCAN_PHLARE_ENABLED" yaml:"phlareEnabled"`
+	PullSecret         string         `envconfig:"IMAGE_SCAN_PULL_SECRET" yaml:"pullSecret"`
 }
 
 type ImageScanImage struct {
