@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	batchv1 "k8s.io/api/batch/v1"
 	"reflect"
 	"strings"
 	"time"
+
+	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"

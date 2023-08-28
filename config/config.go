@@ -165,9 +165,6 @@ func Load(configPath string) (Config, error) {
 		if cfg.ImageScan.Image.PullPolicy == "" {
 			cfg.ImageScan.Image.PullPolicy = "IfNotPresent"
 		}
-		if cfg.ImageScan.DockerOptionsPath == "" {
-			cfg.ImageScan.DockerOptionsPath = "/etc/docker/config.json"
-		}
 		if cfg.ImageScan.MaxConcurrentScans == 0 {
 			cfg.ImageScan.MaxConcurrentScans = 3
 		}

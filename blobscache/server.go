@@ -13,7 +13,7 @@ type ServerConfig struct {
 
 func NewServer(log logrus.FieldLogger, cfg ServerConfig) *Server {
 	return &Server{
-		log:        log,
+		log:        log.WithField("component", "blobscache"),
 		cfg:        cfg,
 		blobsCache: newMemoryBlobsCacheStore(log),
 	}
