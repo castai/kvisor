@@ -50,8 +50,8 @@ type Scanner struct {
 }
 
 type ScanImageParams struct {
-	ImageName                   string
-	ImageID                     string
+	ImageName                   string // Example: ghcr.io/castai/kvisor/kvisor:8889dc92d6c69420a811de4fc67e619a30c028e9
+	ImageID                     string // Example: ghcr.io/castai/kvisor/kvisor@sha256:2db087348c66274941013a3163036b1ca09da03ea64e9f9cdd79b8f647e4fe44
 	ContainerRuntime            string
 	Mode                        string
 	NodeName                    string
@@ -142,6 +142,21 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				MountPath: "/run/containerd/containerd.sock",
 			})
 		}
+		if s.cfg.ImageScan.PullSecret != "" {
+			vols.volumes = append(vols.volumes, corev1.Volume{
+				Name: "pull-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: s.cfg.ImageScan.PullSecret,
+					},
+				},
+			})
+			vols.mounts = append(vols.mounts, corev1.VolumeMount{
+				Name:      "pull-secret",
+				ReadOnly:  true,
+				MountPath: imgcollectorconfig.SecretMountPath,
+			})
+		}
 	}
 
 	envVars := []corev1.EnvVar{
@@ -181,6 +196,13 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Name:  "KVISOR_SERVER_API_URL",
 			Value: s.cfg.ImageScan.APIUrl,
 		},
+	}
+
+	if s.cfg.ImageScan.PullSecret != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "COLLECTOR_PULL_SECRET",
+			Value: s.cfg.ImageScan.PullSecret,
+		})
 	}
 
 	podAnnotations := map[string]string{}

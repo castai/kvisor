@@ -5,6 +5,23 @@ To run agent locally you only need to have correct kubernetes contex and KUBECON
 go run ./cmd/agent
 ```
 
+### Creating image pull secrets
+
+To create secrets for specifying in kvisor config's `pullSecret` attribute there are two options:
+- From credential file:
+```shell
+kubectl -n [namespace] create secret docker-registry [secret-name] \
+  --from-file=.dockerconfigjson=/absolute/path/to/.docker/config.json
+```
+- From credential helper:
+```shell
+kubectl -n [namespace] create secret docker-registry [secret-name] \
+  --docker-server=[registry-server] \
+  --docker-username=[registry-username] \
+  --docker-password=[registry-password]
+```
+Read [more](https://docs.docker.com/engine/reference/commandline/login/#credential-helper-protocol).
+
 ### Running locally on tilt
 
 Start tilt on local kind cluster with mockapi backend which is located in ./tools/mockapi.

@@ -138,7 +138,7 @@ func (c *Controller) transformFunc(i any) (any, error) {
 	obj := i.(Object)
 	// Add missing metadata which is removed by k8s.
 	addObjectMeta(obj)
-	// Remove manged fields since we don't need them. This should decrease memory usage.
+	// Remove managed fields since we don't need them. This should decrease memory usage.
 	obj.SetManagedFields(nil)
 	if _, ok := obj.(*appsv1.DaemonSet); ok {
 		// Remove this fields for ds to fix https://github.com/kubernetes/kubernetes/pull/106388 by custom hashing.

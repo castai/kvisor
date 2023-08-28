@@ -131,19 +131,19 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}
 	}()
 
-	restconfig, err := retrieveKubeConfig(logger, cfg.KubeClient.KubeConfigPath)
+	kubeConfig, err := retrieveKubeConfig(logger, cfg.KubeClient.KubeConfigPath)
 	if err != nil {
 		return err
 	}
 
-	restconfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(cfg.KubeClient.QPS), cfg.KubeClient.Burst)
+	kubeConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(cfg.KubeClient.QPS), cfg.KubeClient.Burst)
 
-	clientset, err := kubernetes.NewForConfig(restconfig)
+	clientSet, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		return err
 	}
 
-	k8sVersion, err := version.Get(clientset)
+	k8sVersion, err := version.Get(clientSet)
 	if err != nil {
 		return fmt.Errorf("getting kubernetes version: %w", err)
 	}
@@ -228,10 +228,10 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		if cfg.KubeBench.Force {
 			scannedNodes = []string{}
 		}
-		podLogReader := agentlog.NewPodLogReader(clientset)
+		podLogReader := agentlog.NewPodLogReader(clientSet)
 		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(
 			log,
-			clientset,
+			clientSet,
 			cfg.PodNamespace,
 			cfg.Provider,
 			cfg.KubeBench.ScanInterval,
@@ -250,7 +250,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
-			imagescan.NewImageScanner(clientset, cfg, deltaState),
+			imagescan.NewImageScanner(clientSet, cfg, deltaState),
 			k8sVersion.MinorInt,
 			deltaState,
 		))
@@ -277,14 +277,14 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}
 	}
 
-	gc := jobsgc.NewGC(log, clientset, jobsgc.Config{
+	gc := jobsgc.NewGC(log, clientSet, jobsgc.Config{
 		CleanupInterval: 10 * time.Minute,
 		CleanupJobAge:   10 * time.Minute,
 		Namespace:       cfg.PodNamespace,
 	})
 	go gc.Start(ctx)
 
-	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
+	informersFactory := informers.NewSharedInformerFactory(clientSet, 0)
 	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)
 
 	telemetryManager := telemetry.NewManager(ctx, log, castaiClient)
@@ -299,7 +299,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	logr := logrusr.New(logger)
 	klog.SetLogger(logr)
 
-	mngr, err := manager.New(restconfig, manager.Options{
+	mngr, err := manager.New(kubeConfig, manager.Options{
 		Logger:                  logr.WithName("manager"),
 		Port:                    cfg.ServicePort,
 		CertDir:                 cfg.CertsDir,

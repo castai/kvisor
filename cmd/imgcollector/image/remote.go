@@ -15,6 +15,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
+type DockerConfig struct {
+	Auths map[string]RegistryAuth `json:"auths"`
+}
+
+type RegistryAuth struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Token    string `json:"auth"`
+}
+
 type DockerOption struct {
 	// Auth
 	UserName string `yaml:"user_name"`
