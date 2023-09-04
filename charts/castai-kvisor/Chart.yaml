@@ -2,5 +2,5 @@ apiVersion: v2
 name: castai-kvisor
 description: CAST AI security agent deployment chart.
 type: application
-version: 0.16.44
-appVersion: "v0.36.0"
+version: 0.16.45
+appVersion: "v0.37.0"
