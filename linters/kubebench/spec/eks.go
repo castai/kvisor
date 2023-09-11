@@ -28,7 +28,7 @@ func EKS(nodeName, jobName string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: "ghcr.io/castai/kvisor/kube-bench:latest",
+							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
 							Command: []string{
 								"kube-bench",
 								"run",
