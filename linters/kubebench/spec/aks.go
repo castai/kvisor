@@ -30,7 +30,7 @@ func AKS(nodeName, jobName string) *batchv1.Job {
 							Name:  "kube-bench",
 							Image: "ghcr.io/castai/kvisor/kube-bench:latest",
 							Command: []string{
-								"kube-bench", "run", "--targets", "node", "--benchmark", "aks-1.0", "--json",
+								"kube-bench", "run", "--targets", "node", "--benchmark", "aks-1.3", "--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{

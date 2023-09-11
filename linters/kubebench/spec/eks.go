@@ -35,7 +35,7 @@ func EKS(nodeName, jobName string) *batchv1.Job {
 								"--targets",
 								"node",
 								"--benchmark",
-								"eks-1.0.1",
+								"eks-1.3.0",
 								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
