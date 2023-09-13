@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -61,39 +60,46 @@ func newImage(imageID, architecture string) *image {
 
 func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
 	return &deltaState{
-		images: buildImageMap(scannedImages),
-		rs:     make(map[string]*appsv1.ReplicaSet),
-		jobs:   make(map[string]*batchv1.Job),
-		nodes:  map[string]*node{},
+		queue:              make(chan deltaQueueItem, 1000),
+		remoteImagesUpdate: make(chan []castai.ScannedImage, 3),
+		images:             buildImageMap(scannedImages),
+		rs:                 make(map[string]*appsv1.ReplicaSet),
+		jobs:               make(map[string]*batchv1.Job),
+		nodes:              map[string]*node{},
 	}
 }
 
-type deltaState struct {
-	mu     sync.RWMutex
-	images map[string]*image
-	rs     map[string]*appsv1.ReplicaSet
-	jobs   map[string]*batchv1.Job
-	nodes  map[string]*node
+type deltaQueueItem struct {
+	event controller.Event
+	obj   controller.Object
+}
 
+type deltaState struct {
+	// queue is informers received k8s objects but not yet applied to delta.
+	// This allows to have lock free access to delta state during image scan.
+	queue chan deltaQueueItem
+
+	// remoteImagesUpdate is signal to update delta images from telemetry.
+	remoteImagesUpdate chan []castai.ScannedImage
+
+	// images holds current cluster images state. image struct contains associated nodes and owners.
+	images map[string]*image
+
+	rs    map[string]*appsv1.ReplicaSet
+	jobs  map[string]*batchv1.Job
+	nodes map[string]*node
+
+	// If we fail to scan in hostfs mode it will be disabled for all feature image scans.
 	hostFSDisabled bool
 }
 
 func (d *deltaState) Observe(response *castai.TelemetryResponse) {
 	if response.FullResync && len(response.ScannedImages) > 0 {
-		d.mu.Lock()
-		defer d.mu.Unlock()
-		// sync with servers state
-		d.images = buildImageMap(response.ScannedImages)
-		d.rs = make(map[string]*appsv1.ReplicaSet)
-		d.jobs = make(map[string]*batchv1.Job)
-		d.nodes = map[string]*node{}
+		d.remoteImagesUpdate <- response.ScannedImages
 	}
 }
 
 func (d *deltaState) upsert(o controller.Object) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	key := controller.ObjectKey(o)
 	switch v := o.(type) {
 	case *corev1.Pod:
@@ -108,9 +114,6 @@ func (d *deltaState) upsert(o controller.Object) {
 }
 
 func (d *deltaState) delete(o controller.Object) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	key := controller.ObjectKey(o)
 	switch v := o.(type) {
 	case *corev1.Pod:
@@ -122,6 +125,10 @@ func (d *deltaState) delete(o controller.Object) {
 	case *appsv1.ReplicaSet:
 		delete(d.rs, key)
 	}
+}
+
+func (d *deltaState) updateImagesFromRemote(images []castai.ScannedImage) {
+	d.images = buildImageMap(images)
 }
 
 func (d *deltaState) handlePodUpdate(v *corev1.Pod) {
@@ -189,7 +196,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	containerStatuses := pod.Status.ContainerStatuses
 	containerStatuses = append(containerStatuses, pod.Status.InitContainerStatuses...)
 	podID := string(pod.UID)
-	// get the resource id of Deployment, ReplicaSet, StatefulSet, Job, CronJob
+	// Get the resource id of Deployment, ReplicaSet, StatefulSet, Job, CronJob.
 	ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
 
 	for _, cont := range containers {
@@ -288,24 +295,15 @@ func (d *deltaState) handleNodeDelete(node *corev1.Node) {
 }
 
 func (d *deltaState) getImages() []*image {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	return lo.Values(d.images)
 }
 
 func (d *deltaState) getNode(name string) (*node, bool) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	v, found := d.nodes[name]
 	return v, found
 }
 
 func (d *deltaState) updateImage(i *image, change func(img *image)) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	img := d.images[i.cacheKey()]
 	if img != nil {
 		change(img)
@@ -313,9 +311,6 @@ func (d *deltaState) updateImage(i *image, change func(img *image)) {
 }
 
 func (d *deltaState) setImageScanError(i *image, err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	img := d.images[i.cacheKey()]
 	if img == nil {
 		return
@@ -335,9 +330,6 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 }
 
 func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, requiredCPU *inf.Dec) (string, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	if len(d.nodes) == 0 {
 		return "", errNoCandidates
 	}
@@ -361,16 +353,10 @@ func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, r
 }
 
 func (d *deltaState) nodeCount() int {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	return len(d.nodes)
 }
 
 func (d *deltaState) isHostFsDisabled() bool {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	return d.hostFSDisabled
 }
 
@@ -488,12 +474,29 @@ var (
 )
 
 type image struct {
-	id               string
+	// id is ImageID from container status. It includes image name and digest.
+	//
+	// Note: ImageID's digest part could confuse you with actual image digest.
+	// Kubernetes calculates digest based on one of these cases:
+	// 1. Index manifest (if exists).
+	// 2. Manifest file.
+	// 3. Config file. Mostly legacy for old images without manifest.
+	id string
+
+	// name is image name from container spec.
+	//
+	// Note: We select image name from container spec (not from container status).
+	// In container status you will see fully qualified image name, eg. docker.io/grafana/grafana:latest
+	// while on container spec you will see user defined image name which may not be fully qualified, eg: grafana/grafana:latest
+	name string
+
 	architecture     string
-	name             string
 	containerRuntime imgcollectorconfig.Runtime
-	owners           map[string]*imageOwner
-	nodes            map[string]*imageNode
+
+	// owners map key points to higher level k8s resource for that image. (Image Affected resource in CAST AI console).
+	// Example: In most cases Pod will be managed by deployment, so owner id will point to Deployment's uuid.
+	owners map[string]*imageOwner
+	nodes  map[string]*imageNode
 
 	scanned      bool
 	lastScanErr  error

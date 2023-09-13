@@ -70,11 +70,18 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 }
 
 func (s *Subscriber) Run(ctx context.Context) error {
+	scanTicker := time.NewTicker(s.cfg.ScanInterval)
+	defer scanTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(s.cfg.ScanInterval):
+		case deltaItem := <-s.delta.queue:
+			s.handleDelta(deltaItem.event, deltaItem.obj)
+		case scannedImages := <-s.delta.remoteImagesUpdate:
+			s.delta.updateImagesFromRemote(scannedImages)
+		case <-scanTicker.C:
 			if err := s.scheduleScans(ctx); err != nil {
 				s.log.Errorf("images scan failed: %v", err)
 			}
@@ -83,22 +90,29 @@ func (s *Subscriber) Run(ctx context.Context) error {
 }
 
 func (s *Subscriber) OnAdd(obj controller.Object) {
-	s.handleDelta(controller.EventAdd, obj)
+	s.delta.queue <- deltaQueueItem{
+		event: controller.EventAdd,
+		obj:   obj,
+	}
 }
 
 func (s *Subscriber) OnUpdate(obj controller.Object) {
-	s.handleDelta(controller.EventUpdate, obj)
+	s.delta.queue <- deltaQueueItem{
+		event: controller.EventUpdate,
+		obj:   obj,
+	}
 }
 
 func (s *Subscriber) OnDelete(obj controller.Object) {
-	s.handleDelta(controller.EventDelete, obj)
+	s.delta.queue <- deltaQueueItem{
+		event: controller.EventDelete,
+		obj:   obj,
+	}
 }
 
 func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 	switch event {
-	case controller.EventAdd:
-		s.delta.upsert(o)
-	case controller.EventUpdate:
+	case controller.EventAdd, controller.EventUpdate:
 		s.delta.upsert(o)
 	case controller.EventDelete:
 		s.delta.delete(o)
