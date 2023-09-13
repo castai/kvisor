@@ -222,17 +222,18 @@ func TestSubscriber(t *testing.T) {
 		}()
 
 		assertLoop(errc, func() bool {
-			if len(scanner.imgs) == 0 {
+			imgs := scanner.getScanImageParams()
+			if len(imgs) == 0 {
 				return false
 			}
 
-			sort.Slice(scanner.imgs, func(i, j int) bool {
-				return scanner.imgs[i].ImageName < scanner.imgs[j].ImageName
+			sort.Slice(imgs, func(i, j int) bool {
+				return imgs[i].ImageName < imgs[j].ImageName
 			})
-			r.Len(scanner.imgs, 3)
-			argoImg := scanner.imgs[0]
-			argoInitImg := scanner.imgs[1]
-			ngnxImage := scanner.imgs[2]
+			r.Len(imgs, 3)
+			argoImg := imgs[0]
+			argoInitImg := imgs[1]
+			ngnxImage := imgs[2]
 			r.Equal("argocd:0.0.1", argoImg.ImageName)
 			r.Equal("init-argo:0.0.1", argoInitImg.ImageName)
 			r.Equal([]string{string(argoDeployment.UID)}, argoImg.ResourceIDs)
@@ -308,11 +309,12 @@ func TestSubscriber(t *testing.T) {
 		}()
 
 		assertLoop(errc, func() bool {
-			if len(scanner.imgs) == 0 {
+			imgs := scanner.getScanImageParams()
+			if len(imgs) == 0 {
 				return false
 			}
 
-			r.Len(scanner.imgs, 1)
+			r.Len(imgs, 1)
 			img = delta.images[img.cacheKey()]
 			r.False(img.nextScan.IsZero())
 			r.True(img.scanned)
@@ -370,15 +372,15 @@ func TestSubscriber(t *testing.T) {
 		}()
 
 		assertLoop(errc, func() bool {
-			if len(scanner.imgs) == 0 {
+			imgs := scanner.getScanImageParams()
+			if len(imgs) == 0 {
 				return false
 			}
 
-			r.Len(scanner.imgs, 1)
-			r.Equal(string(imgcollectorconfig.ModeRemote), scanner.imgs[0].Mode)
+			r.Len(imgs, 1)
+			r.Equal(string(imgcollectorconfig.ModeRemote), imgs[0].Mode)
 			return true
 		})
-
 	})
 
 	t.Run("respect node count", func(t *testing.T) {
@@ -457,4 +459,10 @@ func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)
 	return nil
+}
+
+func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.imgs
 }
