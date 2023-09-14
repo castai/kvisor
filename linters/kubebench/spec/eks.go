@@ -28,14 +28,14 @@ func EKS(nodeName, jobName string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: "docker.io/aquasec/kube-bench:v0.6.9",
+							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
 							Command: []string{
 								"kube-bench",
 								"run",
 								"--targets",
 								"node",
 								"--benchmark",
-								"eks-1.0.1",
+								"eks-1.3.0",
 								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{

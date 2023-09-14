@@ -28,9 +28,9 @@ func AKS(nodeName, jobName string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: "docker.io/aquasec/kube-bench:v0.6.9",
+							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
 							Command: []string{
-								"kube-bench", "run", "--targets", "node", "--benchmark", "aks-1.0", "--json",
+								"kube-bench", "run", "--targets", "node", "--benchmark", "aks-1.3", "--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
