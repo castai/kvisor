@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,10 +23,15 @@ import (
 	"github.com/castai/kvisor/metrics"
 )
 
+type castaiClient interface {
+	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
+}
+
 func NewSubscriber(
 	log logrus.FieldLogger,
 	cfg config.ImageScan,
 	imageScanner imageScanner,
+	client castaiClient,
 	k8sVersionMinor int,
 	delta *deltaState,
 ) controller.ObjectSubscriber {
@@ -34,6 +40,7 @@ func NewSubscriber(
 		ctx:             ctx,
 		cancel:          cancel,
 		imageScanner:    imageScanner,
+		client:          client,
 		delta:           delta,
 		log:             log.WithField("component", "imagescan"),
 		cfg:             cfg,
@@ -53,6 +60,7 @@ type Subscriber struct {
 	cancel          context.CancelFunc
 	delta           *deltaState
 	imageScanner    imageScanner
+	client          castaiClient
 	log             logrus.FieldLogger
 	cfg             config.ImageScan
 	k8sVersionMinor int
@@ -121,7 +129,32 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	images := s.delta.getImages()
+
+	s.sendImageOwnerChanges(images)
+
+	pendingImages := s.findPendingImages(images)
+	// Scan few pending images in small batches.
+	concurrentScans := s.concurrentScansNumber()
+	imagesForScan := pendingImages
+	if len(imagesForScan) > concurrentScans {
+		imagesForScan = imagesForScan[:concurrentScans]
+	}
+	if l := len(imagesForScan); l > 0 {
+		s.log.Infof("scheduling %d images scans", l)
+		if err := s.scanImages(ctx, imagesForScan); err != nil {
+			return err
+		}
+		s.log.Info("images scan finished")
+	} else {
+		s.log.Debug("skipping images scan, no pending images")
+	}
+
+	return nil
+}
+
+func (s *Subscriber) findPendingImages(images []*image) []*image {
 	now := s.timeGetter()
+
 	var privateImagesCount int
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
 		isPrivateImage := errors.Is(v.lastScanErr, errPrivateImage)
@@ -139,28 +172,10 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	s.log.Infof("found %d images, pending images %d", len(images), len(pendingImages))
 	metrics.SetTotalImagesCount(len(images))
 	metrics.SetPendingImagesCount(len(pendingImages))
-
 	if privateImagesCount > 0 {
 		s.log.Warnf("skipping %d private images", privateImagesCount)
 	}
-
-	concurrentScans := s.concurrentScansNumber()
-	imagesForScan := pendingImages
-	if len(imagesForScan) > concurrentScans {
-		imagesForScan = imagesForScan[:concurrentScans]
-	}
-
-	if l := len(imagesForScan); l > 0 {
-		s.log.Infof("scheduling %d images scans", l)
-		if err := s.scanImages(ctx, imagesForScan); err != nil {
-			return err
-		}
-		s.log.Info("images scan finished")
-	} else {
-		s.log.Debug("skipping images scan, no pending images")
-	}
-
-	return nil
+	return pendingImages
 }
 
 func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
@@ -269,4 +284,29 @@ func (s *Subscriber) getScanMode(img *image) string {
 		mode = string(imgcollectorconfig.ModeRemote)
 	}
 	return mode
+}
+
+func (s *Subscriber) sendImageOwnerChanges(images []*image) {
+	for _, img := range images {
+		if img.ownerChanges.empty() {
+			continue
+		}
+
+		func(img *image) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
+				ImageName:          img.name,
+				ImageID:            img.id,
+				Architecture:       img.architecture,
+				ResourceIDs:        img.ownerChanges.addedIDS,
+				RemovedResourceIDs: img.ownerChanges.removedIDs,
+			}); err != nil {
+				s.log.Errorf("sending image metadata with owners change only: %v", err)
+				return
+			}
+			// Reset owner changes state.
+			img.ownerChanges.clear()
+		}(img)
+	}
 }
