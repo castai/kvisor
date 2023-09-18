@@ -12,6 +12,7 @@ import (
 	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -130,7 +131,7 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	images := s.delta.getImages()
 
-	s.sendImageOwnerChanges(images)
+	s.sendImageOwnerChanges(ctx, images)
 
 	pendingImages := s.findPendingImages(images)
 	// Scan few pending images in small batches.
@@ -228,10 +229,17 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	nodeNames := lo.Keys(img.nodes)
-	var nodeName string
-	if len(nodeNames) == 0 {
-		return errors.New("image with empty nodes")
+	mode := s.getScanMode(img)
+
+	var nodeNames []string
+	if imgcollectorconfig.Mode(mode) == imgcollectorconfig.ModeHostFS {
+		// In HostFS we need to choose only from nodes which contains this image.
+		nodeNames = lo.Keys(img.nodes)
+		if len(nodeNames) == 0 {
+			return errors.New("image with empty nodes")
+		}
+	} else {
+		nodeNames = lo.Keys(s.delta.nodes)
 	}
 
 	// Resolve best node.
@@ -240,8 +248,6 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 	if err != nil {
 		return err
-	} else {
-		nodeName = resolvedNode
 	}
 
 	start := time.Now()
@@ -250,15 +256,13 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 	}()
 
-	mode := s.getScanMode(img)
-
 	return s.imageScanner.ScanImage(ctx, ScanImageParams{
 		ImageName:                   img.name,
 		ImageID:                     img.id,
 		ContainerRuntime:            string(img.containerRuntime),
 		Mode:                        mode,
 		ResourceIDs:                 lo.Keys(img.owners),
-		NodeName:                    nodeName,
+		NodeName:                    resolvedNode,
 		DeleteFinishedJob:           true,
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
@@ -286,14 +290,24 @@ func (s *Subscriber) getScanMode(img *image) string {
 	return mode
 }
 
-func (s *Subscriber) sendImageOwnerChanges(images []*image) {
+func (s *Subscriber) sendImageOwnerChanges(ctx context.Context, images []*image) {
+	var errg errgroup.Group
+	errg.SetLimit(10)
+
 	for _, img := range images {
+		img := img
 		if img.ownerChanges.empty() {
 			continue
 		}
 
-		func(img *image) {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		errg.Go(func() error {
+			ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 			if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
 				ImageName:          img.name,
@@ -302,11 +316,15 @@ func (s *Subscriber) sendImageOwnerChanges(images []*image) {
 				ResourceIDs:        img.ownerChanges.addedIDS,
 				RemovedResourceIDs: img.ownerChanges.removedIDs,
 			}); err != nil {
-				s.log.Errorf("sending image metadata with owners change only: %v", err)
-				return
+				return err
 			}
 			// Reset owner changes state.
 			img.ownerChanges.clear()
-		}(img)
+			return nil
+		})
+	}
+
+	if err := errg.Wait(); err != nil {
+		s.log.Errorf("sending image metadata with owners change only: %v", err)
 	}
 }

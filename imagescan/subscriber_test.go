@@ -387,6 +387,64 @@ func TestSubscriber(t *testing.T) {
 		})
 	})
 
+	t.Run("select any node with remote scan mode", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			Mode:               string(imgcollectorconfig.ModeRemote),
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+		}
+
+		scanner := &mockImageScanner{}
+		client := &mockCastaiClient{}
+		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub.timeGetter = func() time.Time {
+			return time.Now().UTC().Add(time.Hour)
+		}
+		delta := sub.delta
+		img := newImage("img1", "amd64")
+		img.name = "img"
+		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
+		delta.images[img.cacheKey()] = img
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- sub.Run(ctx)
+		}()
+
+		assertLoop(errc, func() bool {
+			imgs := scanner.getScanImageParams()
+			if len(imgs) == 0 {
+				return false
+			}
+
+			r.Len(imgs, 1)
+			r.Equal(string(imgcollectorconfig.ModeRemote), imgs[0].Mode)
+			return true
+		})
+	})
+
 	t.Run("respect node count", func(t *testing.T) {
 		r := require.New(t)
 
