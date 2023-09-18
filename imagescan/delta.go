@@ -50,6 +50,7 @@ func newImage(imageID, architecture string) *image {
 		owners:       map[string]*imageOwner{},
 		nodes:        map[string]*imageNode{},
 		scanned:      false,
+		ownerChanges: ownerChanges{},
 		retryBackoff: wait.Backoff{
 			Duration: time.Second * 60,
 			Factor:   3,
@@ -229,8 +230,8 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		img.name = cont.Image
 		img.containerRuntime = getContainerRuntime(cs.ContainerID)
 
+		// Upsert image owners.
 		if owner, found := img.owners[ownerResourceID]; found {
-			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
 			owner.podIDs[podID] = struct{}{}
 		} else {
 			img.owners[ownerResourceID] = &imageOwner{
@@ -238,13 +239,16 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 					podID: {},
 				},
 			}
+			// Add changed owner.
+			if img.scanned {
+				img.ownerChanges.addedIDS = append(img.ownerChanges.addedIDS, ownerResourceID)
+			}
 		}
 
-		if n, found := img.nodes[nodeName]; found {
-			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
-			n.podIDs[podID] = struct{}{}
+		// Upsert image nodes.
+		if imgNode, found := img.nodes[nodeName]; found {
+			imgNode.podIDs[podID] = struct{}{}
 		} else {
-			// resources not changed because Resources we send are actually keys of img.owners and nothing changed there.
 			img.nodes[nodeName] = &imageNode{
 				podIDs: map[string]struct{}{
 					podID: {},
@@ -266,8 +270,11 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 		if owner, found := img.owners[ownerResourceID]; found {
 			delete(owner.podIDs, podID)
 			if len(owner.podIDs) == 0 {
-				// resource did not change because backend should already know about image, there will be no new scan.
 				delete(img.owners, ownerResourceID)
+				// Add changed owner.
+				if img.scanned {
+					img.ownerChanges.removedIDs = append(img.ownerChanges.removedIDs, ownerResourceID)
+				}
 			}
 		}
 
@@ -337,7 +344,7 @@ func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, r
 	var candidates []*node
 	for _, nodeName := range nodeNames {
 		if n, found := d.nodes[nodeName]; found && n.availableMemory().Cmp(requiredMemory) >= 0 && n.availableCPU().Cmp(requiredCPU) >= 0 {
-			candidates = append(candidates, d.nodes[nodeName])
+			candidates = append(candidates, n)
 		}
 	}
 
@@ -498,6 +505,9 @@ type image struct {
 	owners map[string]*imageOwner
 	nodes  map[string]*imageNode
 
+	// ownerChanges holds temp state for tracking changed image owners. We use this state to notify CAST AI about changed resources.
+	ownerChanges ownerChanges
+
 	scanned      bool
 	lastScanErr  error
 	failures     int          // Used for sorting. We want to scan non-failed images first.
@@ -511,4 +521,18 @@ func (img *image) cacheKey() string {
 
 func (img *image) isUnused() bool {
 	return len(img.nodes) == 0 && len(img.owners) == 0
+}
+
+type ownerChanges struct {
+	addedIDS   []string
+	removedIDs []string
+}
+
+func (c *ownerChanges) empty() bool {
+	return len(c.addedIDS) == 0 && len(c.removedIDs) == 0
+}
+
+func (c *ownerChanges) clear() {
+	c.addedIDS = []string{}
+	c.removedIDs = []string{}
 }

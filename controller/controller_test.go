@@ -2,22 +2,23 @@ package controller
 
 import (
 	"context"
+	"net/http"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
-	"net/http"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sync"
-	"testing"
-	"time"
 
 	json "github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
@@ -62,13 +63,26 @@ func TestController(t *testing.T) {
 				},
 			},
 		}
-		clientset := fake.NewSimpleClientset(testNs, testDs)
+		testRs := &appsv1.ReplicaSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "nginx-rs",
+				Namespace: "test",
+			},
+		}
+		testPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "nginx-rs-123",
+				Namespace: "test",
+			},
+		}
+		clientset := fake.NewSimpleClientset(testNs, testDs, testPod, testRs)
 		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 		testSubs := []ObjectSubscriber{
 			newTestSubscriber(log.WithField("sub", "sub1")),
 			newTestSubscriber(log.WithField("sub", "sub2")),
 		}
 		ctrl := New(log, informersFactory, testSubs, version.Version{MinorInt: 22})
+		ctrl.podsBuffSyncInterval = 1 * time.Millisecond
 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -84,8 +98,7 @@ func TestController(t *testing.T) {
 			select {
 			case err := <-errc:
 				t.Fatal(err)
-			case <-time.After(1 * time.Millisecond):
-				sub.assertNoManagedFields(r)
+			case <-time.After(100 * time.Millisecond):
 				sub.assertObjectMeta(r)
 			}
 		}
@@ -251,25 +264,23 @@ type testSubscriber struct {
 	deletedObjs map[string]Object
 }
 
-func (t *testSubscriber) assertNoManagedFields(r *require.Assertions) {
-	r.Eventually(func() bool {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-
-		if len(t.addedObjs) != 2 {
-			return false
-		}
-		obj := t.addedObjs["kube-system"]
-		return len(obj.GetManagedFields()) == 0
-	}, 3*time.Second, 1*time.Millisecond)
-}
-
 func (t *testSubscriber) assertObjectMeta(r *require.Assertions) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	obj := t.addedObjs["kube-proxy"]
-	r.Equal("DaemonSet", obj.(*appsv1.DaemonSet).Kind)
+	r.Len(t.addedObjs, 4)
+
+	ns := t.addedObjs["kube-system"]
+	r.Len(ns.GetManagedFields(), 0)
+
+	ds := t.addedObjs["kube-proxy"]
+	r.Equal("DaemonSet", ds.(*appsv1.DaemonSet).Kind)
+
+	rs := t.addedObjs["nginx-rs"]
+	r.Equal("ReplicaSet", rs.(*appsv1.ReplicaSet).Kind)
+
+	pod := t.addedObjs["nginx-rs-123"]
+	r.Equal("Pod", pod.(*corev1.Pod).Kind)
 }
 
 func (t *testSubscriber) assertNoUpdates(r *require.Assertions) {
@@ -283,21 +294,21 @@ func (t *testSubscriber) assertNoUpdates(r *require.Assertions) {
 }
 
 func (t *testSubscriber) OnAdd(obj Object) {
-	t.log.Debug("add")
+	t.log.Debugf("add %s", obj.GetName())
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.addedObjs[obj.GetName()] = obj
 }
 
 func (t *testSubscriber) OnUpdate(obj Object) {
-	t.log.Debug("update")
+	t.log.Debugf("update %s", obj.GetName())
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.updatedObjs[obj.GetName()] = obj
 }
 
 func (t *testSubscriber) OnDelete(obj Object) {
-	t.log.Debug("delete")
+	t.log.Debugf("delete %s", obj.GetName())
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.deletedObjs[obj.GetName()] = obj
@@ -320,6 +331,8 @@ func (t *testSubscriber) RequiredInformers() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(&corev1.Namespace{}),
 		reflect.TypeOf(&appsv1.DaemonSet{}),
+		reflect.TypeOf(&appsv1.ReplicaSet{}),
+		reflect.TypeOf(&corev1.Pod{}),
 	}
 }
 

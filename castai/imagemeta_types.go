@@ -6,12 +6,14 @@ import (
 )
 
 type ImageMetadata struct {
-	ImageName   string           `json:"imageName,omitempty"`
-	ImageID     string           `json:"imageID,omitempty"`
-	ImageDigest string           `json:"imageDigest,omitempty"`
-	ResourceIDs []string         `json:"resourceIDs,omitempty"`
-	BlobsInfo   []types.BlobInfo `json:"blobsInfo,omitempty"`
-	ConfigFile  *v1.ConfigFile   `json:"configFile,omitempty"`
+	ImageName          string           `json:"imageName,omitempty"`
+	ImageID            string           `json:"imageID,omitempty"`
+	ImageDigest        string           `json:"imageDigest,omitempty"`
+	ResourceIDs        []string         `json:"resourceIDs,omitempty"`
+	RemovedResourceIDs []string         `json:"removedResourceIDs,omitempty"`
+	Architecture       string           `json:"architecture,omitempty"`
+	BlobsInfo          []types.BlobInfo `json:"blobsInfo,omitempty"`
+	ConfigFile         *v1.ConfigFile   `json:"configFile,omitempty"`
 	// Manifest specification can be found here: https://github.com/opencontainers/image-spec/blob/main/manifest.md
 	Manifest *v1.Manifest `json:"manifest,omitempty"`
 	// Index specification can be found here: https://github.com/opencontainers/image-spec/blob/main/image-index.md

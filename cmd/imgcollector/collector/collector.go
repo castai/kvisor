@@ -120,13 +120,14 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 
 	metadata := &castai.ImageMetadata{
-		ImageName:   c.cfg.ImageName,
-		ImageID:     c.cfg.ImageID,
-		ImageDigest: digest.String(),
-		ResourceIDs: strings.Split(c.cfg.ResourceIDs, ","),
-		BlobsInfo:   arRef.BlobsInfo,
-		ConfigFile:  arRef.ConfigFile,
-		Manifest:    manifest,
+		ImageName:    c.cfg.ImageName,
+		ImageID:      c.cfg.ImageID,
+		Architecture: arRef.ArtifactInfo.Architecture,
+		ImageDigest:  digest.String(),
+		ResourceIDs:  strings.Split(c.cfg.ResourceIDs, ","),
+		BlobsInfo:    arRef.BlobsInfo,
+		ConfigFile:   arRef.ConfigFile,
+		Manifest:     manifest,
 		OsInfo: &castai.OsInfo{
 			ArtifactInfo: arRef.ArtifactInfo,
 			OS:           arRef.OsInfo,

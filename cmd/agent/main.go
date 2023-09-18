@@ -195,7 +195,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		),
 	}
 
-	var telemetryObservers []telemetry.Observer
+	telemetryManager := telemetry.NewManager(log, castaiClient)
+
 	var scannedNodes []string
 	var scannedImages []castai.ScannedImage
 	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)
@@ -213,7 +214,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 
 	policyEnforcer := policy.NewEnforcer(linter, cfg.PolicyEnforcement)
-	telemetryObservers = append(telemetryObservers, policyEnforcer.TelemetryObserver())
+	telemetryManager.AddObservers(policyEnforcer.TelemetryObserver())
 
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
@@ -246,11 +247,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			scannedImages = []castai.ScannedImage{}
 		}
 		deltaState := imagescan.NewDeltaState(scannedImages)
-		telemetryObservers = append(telemetryObservers, deltaState.Observe)
+		telemetryManager.AddObservers(deltaState.Observe)
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
 			imagescan.NewImageScanner(clientSet, cfg, deltaState),
+			castaiClient,
 			k8sVersion.MinorInt,
 			deltaState,
 		))
@@ -287,11 +289,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	informersFactory := informers.NewSharedInformerFactory(clientSet, 0)
 	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)
 
-	telemetryManager := telemetry.NewManager(ctx, log, castaiClient)
 	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
+	telemetryManager.AddObservers(resyncObserver)
 	featureObserver, featuresCtx := telemetry.ObserveDisabledFeatures(ctx, cfg, log)
+	telemetryManager.AddObservers(featureObserver)
 
-	go telemetryManager.Observe(append(telemetryObservers, resyncObserver, featureObserver)...)
+	go telemetryManager.Run(ctx)
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)

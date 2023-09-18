@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/kvisor/castai"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -197,8 +198,9 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
+		client := &mockCastaiClient{}
 		delta := NewDeltaState(nil)
-		sub := NewSubscriber(log, cfg, scanner, 21, delta)
+		sub := NewSubscriber(log, cfg, scanner, client, 21, delta)
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
@@ -274,7 +276,8 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
+		client := &mockCastaiClient{}
+		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -322,7 +325,7 @@ func TestSubscriber(t *testing.T) {
 		})
 	})
 
-	t.Run("scan image with remove mode fallback", func(t *testing.T) {
+	t.Run("scan image with remote mode fallback", func(t *testing.T) {
 		r := require.New(t)
 
 		cfg := config.ImageScan{
@@ -337,7 +340,8 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
+		client := &mockCastaiClient{}
+		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -383,6 +387,64 @@ func TestSubscriber(t *testing.T) {
 		})
 	})
 
+	t.Run("select any node with remote scan mode", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			Mode:               string(imgcollectorconfig.ModeRemote),
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+		}
+
+		scanner := &mockImageScanner{}
+		client := &mockCastaiClient{}
+		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub.timeGetter = func() time.Time {
+			return time.Now().UTC().Add(time.Hour)
+		}
+		delta := sub.delta
+		img := newImage("img1", "amd64")
+		img.name = "img"
+		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
+		delta.images[img.cacheKey()] = img
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+		delta.nodes["node1"] = &node{
+			name:           "node1",
+			allocatableMem: resMem.AsDec(),
+			allocatableCPU: resCpu.AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- sub.Run(ctx)
+		}()
+
+		assertLoop(errc, func() bool {
+			imgs := scanner.getScanImageParams()
+			if len(imgs) == 0 {
+				return false
+			}
+
+			r.Len(imgs, 1)
+			r.Equal(string(imgcollectorconfig.ModeRemote), imgs[0].Mode)
+			return true
+		})
+	})
+
 	t.Run("respect node count", func(t *testing.T) {
 		r := require.New(t)
 
@@ -394,10 +456,12 @@ func TestSubscriber(t *testing.T) {
 			CPULimit:           "2",
 			MemoryRequest:      "100Mi",
 			MemoryLimit:        "2Gi",
+			Mode:               string(imgcollectorconfig.ModeHostFS),
 		}
 
+		client := &mockCastaiClient{}
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, 21, NewDeltaState(nil)).(*Subscriber)
+		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
 		delta := sub.delta
 		delta.images["img1"] = &image{
 			name: "img",
@@ -447,6 +511,60 @@ func TestSubscriber(t *testing.T) {
 		r.Len(scanner.imgs, 1)
 		r.True(delta.images["img1"].scanned)
 	})
+
+	t.Run("sent changed resource owners", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			Mode:               string(imgcollectorconfig.ModeHostFS),
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+		}
+
+		scanner := &mockImageScanner{}
+		client := &mockCastaiClient{}
+		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub.timeGetter = func() time.Time {
+			return time.Now().UTC().Add(time.Hour)
+		}
+		delta := sub.delta
+		img := newImage("img1", "amd64")
+		img.name = "img"
+		img.ownerChanges = ownerChanges{
+			addedIDS:   []string{"r1"},
+			removedIDs: []string{"r2"},
+		}
+		delta.images[img.cacheKey()] = img
+
+		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- sub.Run(ctx)
+		}()
+
+		assertLoop(errc, func() bool {
+			metas := client.getSentMetas()
+			if len(metas) == 0 {
+				return false
+			}
+
+			r.Len(metas, 1)
+			meta := metas[0]
+			r.Equal("img1", meta.ImageID)
+			r.Equal("amd64", meta.Architecture)
+			r.Equal([]string{"r1"}, meta.ResourceIDs)
+			r.Equal([]string{"r2"}, meta.RemovedResourceIDs)
+			r.True(img.ownerChanges.empty())
+			return true
+		})
+	})
 }
 
 type mockImageScanner struct {
@@ -465,4 +583,22 @@ func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.imgs
+}
+
+type mockCastaiClient struct {
+	mu    sync.Mutex
+	metas []*castai.ImageMetadata
+}
+
+func (m *mockCastaiClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.metas = append(m.metas, meta)
+	return nil
+}
+
+func (m *mockCastaiClient) getSentMetas() []*castai.ImageMetadata {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.metas
 }
