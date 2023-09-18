@@ -456,6 +456,7 @@ func TestSubscriber(t *testing.T) {
 			CPULimit:           "2",
 			MemoryRequest:      "100Mi",
 			MemoryLimit:        "2Gi",
+			Mode:               string(imgcollectorconfig.ModeHostFS),
 		}
 
 		client := &mockCastaiClient{}
