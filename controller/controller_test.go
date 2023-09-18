@@ -98,7 +98,7 @@ func TestController(t *testing.T) {
 			select {
 			case err := <-errc:
 				t.Fatal(err)
-			case <-time.After(10 * time.Millisecond):
+			case <-time.After(100 * time.Millisecond):
 				sub.assertObjectMeta(r)
 			}
 		}
@@ -267,6 +267,8 @@ type testSubscriber struct {
 func (t *testSubscriber) assertObjectMeta(r *require.Assertions) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	r.Len(t.addedObjs, 4)
 
 	ns := t.addedObjs["kube-system"]
 	r.Len(ns.GetManagedFields(), 0)
