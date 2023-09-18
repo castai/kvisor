@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -32,20 +33,20 @@ func New(
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
 		reflect.TypeOf(&corev1.Node{}):                f.Core().V1().Nodes().Informer(),
-		reflect.TypeOf(&corev1.Pod{}):                 f.Core().V1().Pods().Informer(),
+		reflect.TypeOf(&appsv1.ReplicaSet{}):          f.Apps().V1().ReplicaSets().Informer(),
+		reflect.TypeOf(&batchv1.Job{}):                f.Batch().V1().Jobs().Informer(),
 		reflect.TypeOf(&corev1.Namespace{}):           f.Core().V1().Namespaces().Informer(),
 		reflect.TypeOf(&corev1.Service{}):             f.Core().V1().Services().Informer(),
 		reflect.TypeOf(&appsv1.Deployment{}):          f.Apps().V1().Deployments().Informer(),
 		reflect.TypeOf(&appsv1.DaemonSet{}):           f.Apps().V1().DaemonSets().Informer(),
-		reflect.TypeOf(&appsv1.ReplicaSet{}):          f.Apps().V1().ReplicaSets().Informer(),
 		reflect.TypeOf(&appsv1.StatefulSet{}):         f.Apps().V1().StatefulSets().Informer(),
-		reflect.TypeOf(&batchv1.Job{}):                f.Batch().V1().Jobs().Informer(),
 		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}):  f.Rbac().V1().ClusterRoleBindings().Informer(),
 		reflect.TypeOf(&rbacv1.RoleBinding{}):         f.Rbac().V1().RoleBindings().Informer(),
 		reflect.TypeOf(&rbacv1.ClusterRole{}):         f.Rbac().V1().ClusterRoles().Informer(),
 		reflect.TypeOf(&rbacv1.Role{}):                f.Rbac().V1().Roles().Informer(),
 		reflect.TypeOf(&networkingv1.NetworkPolicy{}): f.Networking().V1().NetworkPolicies().Informer(),
 		reflect.TypeOf(&networkingv1.Ingress{}):       f.Networking().V1().Ingresses().Informer(),
+		reflect.TypeOf(&corev1.Pod{}):                 f.Core().V1().Pods().Informer(),
 	}
 
 	if k8sVersion.MinorInt >= 21 {
@@ -55,12 +56,13 @@ func New(
 	}
 
 	c := &Controller{
-		log:             log,
-		k8sVersion:      k8sVersion,
-		informerFactory: f,
-		informers:       typeInformerMap,
-		subscribers:     subscribers,
-		objectHashes:    map[string]struct{}{},
+		log:                  log,
+		k8sVersion:           k8sVersion,
+		informerFactory:      f,
+		informers:            typeInformerMap,
+		subscribers:          subscribers,
+		objectHashes:         map[string]struct{}{},
+		podsBuffSyncInterval: 5 * time.Second,
 	}
 	return c
 }
@@ -75,6 +77,8 @@ type Controller struct {
 	// Due to bug in k8s we need to track if object actually changed. See https://github.com/kubernetes/kubernetes/pull/106388
 	objectHashMu sync.Mutex
 	objectHashes map[string]struct{}
+
+	podsBuffSyncInterval time.Duration
 }
 
 func (c *Controller) Run(ctx context.Context, m manager.Manager) error {
@@ -168,17 +172,25 @@ func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.
 	for _, sub := range subs {
 		sub := sub
 		go func() {
+			// podsEventsBuff is used to delay pods events. In some places like image scan we need to find
+			// pod owners. With buffer we give time for replica sets and jobs objects to sync.
+			var podsEventsBuff []event
+			podsBuffSyncTicker := time.NewTicker(c.podsBuffSyncInterval)
+			defer podsBuffSyncTicker.Stop()
+
 			for {
 				select {
 				case ev := <-sub.events:
-					switch ev.eventType {
-					case eventTypeAdd:
-						sub.handler.OnAdd(ev.obj)
-					case eventTypeUpdate:
-						sub.handler.OnUpdate(ev.obj)
-					case eventTypeDelete:
-						sub.handler.OnDelete(ev.obj)
+					if ev.obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
+						podsEventsBuff = append(podsEventsBuff, ev)
+						continue
 					}
+					sub.handleEvent(ev)
+				case <-podsBuffSyncTicker.C:
+					for _, ev := range podsEventsBuff {
+						sub.handleEvent(ev)
+					}
+					podsEventsBuff = []event{}
 				case <-ctx.Done():
 					return
 				}
@@ -217,6 +229,17 @@ type subChannel struct {
 	events  chan event
 }
 
+func (c *subChannel) handleEvent(ev event) {
+	switch ev.eventType {
+	case eventTypeAdd:
+		c.handler.OnAdd(ev.obj)
+	case eventTypeUpdate:
+		c.handler.OnUpdate(ev.obj)
+	case eventTypeDelete:
+		c.handler.OnDelete(ev.obj)
+	}
+}
+
 func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subChannel) {
 	var actualObj Object
 	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
@@ -244,7 +267,7 @@ func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subC
 		}
 	}
 
-	if c.shouldSkipNotify(objectHash, eventType) {
+	if objectHash != "" && c.shouldSkipNotify(objectHash, eventType) {
 		return
 	}
 
