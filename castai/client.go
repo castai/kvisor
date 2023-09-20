@@ -237,3 +237,8 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 
 	return nil
 }
+
+func (c *client) GetSyncState(ctx context.Context, filter *SyncStateFilter) (*SyncStateResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}

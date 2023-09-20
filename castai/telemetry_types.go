@@ -7,13 +7,3 @@ type TelemetryResponse struct {
 	NodeIDs          []string       `json:"nodeIds"`
 	EnforcedRules    []string       `json:"enforcedRules"`
 }
-
-type ScannedImage struct {
-	ID           string   `json:"id"`
-	Architecture string   `json:"architecture"`
-	ResourceIDs  []string `json:"resourceIds"`
-}
-
-func (s ScannedImage) CacheKey() string {
-	return s.ID + s.Architecture
-}

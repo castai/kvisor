@@ -246,8 +246,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		if cfg.ImageScan.Force {
 			scannedImages = []castai.ScannedImage{}
 		}
-		deltaState := imagescan.NewDeltaState(scannedImages)
-		telemetryManager.AddObservers(deltaState.Observe)
+		deltaState := imagescan.NewDeltaState()
 		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,

@@ -26,6 +26,7 @@ import (
 
 type castaiClient interface {
 	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
+	GetSyncState(ctx context.Context, filter *castai.SyncStateFilter) (*castai.SyncStateResponse, error)
 }
 
 func NewSubscriber(
@@ -88,8 +89,6 @@ func (s *Subscriber) Run(ctx context.Context) error {
 			return ctx.Err()
 		case deltaItem := <-s.delta.queue:
 			s.handleDelta(deltaItem.event, deltaItem.obj)
-		case scannedImages := <-s.delta.remoteImagesUpdate:
-			s.delta.updateImagesFromRemote(scannedImages)
 		case <-scanTicker.C:
 			if err := s.scheduleScans(ctx); err != nil {
 				s.log.Errorf("images scan failed: %v", err)
@@ -129,11 +128,10 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	images := s.delta.getImages()
+	s.syncRemoteState(ctx)
+	s.sendImageOwnerChanges(ctx)
 
-	s.sendImageOwnerChanges(ctx, images)
-
-	pendingImages := s.findPendingImages(images)
+	pendingImages := s.findPendingImages()
 	// Scan few pending images in small batches.
 	concurrentScans := s.concurrentScansNumber()
 	imagesForScan := pendingImages
@@ -153,7 +151,9 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func (s *Subscriber) findPendingImages(images []*image) []*image {
+func (s *Subscriber) findPendingImages() []*image {
+	images := s.delta.getImages()
+
 	now := s.timeGetter()
 
 	var privateImagesCount int
@@ -290,7 +290,9 @@ func (s *Subscriber) getScanMode(img *image) string {
 	return mode
 }
 
-func (s *Subscriber) sendImageOwnerChanges(ctx context.Context, images []*image) {
+func (s *Subscriber) sendImageOwnerChanges(ctx context.Context) {
+	images := s.delta.getImages()
+
 	var errg errgroup.Group
 	errg.SetLimit(10)
 
@@ -326,5 +328,27 @@ func (s *Subscriber) sendImageOwnerChanges(ctx context.Context, images []*image)
 
 	if err := errg.Wait(); err != nil {
 		s.log.Errorf("sending image metadata with owners change only: %v", err)
+	}
+}
+
+func (s *Subscriber) syncRemoteState(ctx context.Context) {
+	images := s.delta.getImages()
+	notScannedImages := lo.Filter(images, func(item *image, index int) bool {
+		return !item.scanned
+	})
+	imagesFilters := lo.Map(notScannedImages, func(item *image, index int) castai.SyncStateFilterImage {
+		return castai.SyncStateFilterImage{
+			ID:           item.id,
+			Name:         item.name,
+			Architecture: item.architecture,
+		}
+	})
+	resp, err := s.client.GetSyncState(ctx, &castai.SyncStateFilter{Images: imagesFilters})
+	if err != nil {
+		s.log.Errorf("getting initial images sync state from remote: %v", err)
+		return
+	}
+	for _, scannedImage := range resp.ScannedImages {
+		s.delta.setImageScanned(scannedImage.CacheKey())
 	}
 }
