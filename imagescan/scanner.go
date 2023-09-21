@@ -31,13 +31,12 @@ type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
 
-func NewImageScanner(client kubernetes.Interface, cfg config.Config, deltaState *deltaState) *Scanner {
+func NewImageScanner(client kubernetes.Interface, cfg config.Config) *Scanner {
 	return &Scanner{
 		podLogProvider:   log.NewPodLogReader(client),
 		client:           client,
 		jobCheckInterval: 5 * time.Second,
 		cfg:              cfg,
-		deltaState:       deltaState,
 	}
 }
 
@@ -46,7 +45,6 @@ type Scanner struct {
 	client           kubernetes.Interface
 	cfg              config.Config
 	jobCheckInterval time.Duration
-	deltaState       *deltaState
 }
 
 type ScanImageParams struct {
@@ -258,7 +256,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	// If job already exist wait for completion and exit.
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
 	if err == nil {
-		return s.waitForCompletion(ctx, jobs, jobName, params.NodeName)
+		return s.waitForCompletion(ctx, jobs, jobName)
 	}
 
 	// Create new job and wait for completion.
@@ -268,24 +266,19 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	}
 
 	if params.WaitForCompletion {
-		return s.waitForCompletion(ctx, jobs, jobName, params.NodeName)
+		return s.waitForCompletion(ctx, jobs, jobName)
 	}
 	return nil
 }
 
-func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName, nodeName string) error {
+func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {
 	return wait.PollUntilContextCancel(ctx, s.jobCheckInterval, false, func(ctx context.Context) (done bool, err error) {
 		job, err := jobs.Get(ctx, jobName, metav1.GetOptions{})
 		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return true, err
+			if apierrors.IsNotFound(err) {
+				return true, nil
 			}
-			return false, nil
-		}
-
-		// If node is removed we should stop.
-		if _, found := s.deltaState.getNode(nodeName); !found {
-			return true, fmt.Errorf("node %s not found for scan job", nodeName)
+			return false, err
 		}
 
 		done = lo.ContainsBy(job.Status.Conditions, func(v batchv1.JobCondition) bool {

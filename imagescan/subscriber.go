@@ -35,15 +35,14 @@ func NewSubscriber(
 	imageScanner imageScanner,
 	client castaiClient,
 	k8sVersionMinor int,
-	delta *deltaState,
-) controller.ObjectSubscriber {
+) *Subscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		ctx:             ctx,
 		cancel:          cancel,
 		imageScanner:    imageScanner,
 		client:          client,
-		delta:           delta,
+		delta:           newDeltaState(),
 		log:             log.WithField("component", "imagescan"),
 		cfg:             cfg,
 		k8sVersionMinor: k8sVersionMinor,
@@ -336,16 +335,12 @@ func (s *Subscriber) syncRemoteState(ctx context.Context) {
 	notScannedImages := lo.Filter(images, func(item *image, index int) bool {
 		return !item.scanned
 	})
-	imagesFilters := lo.Map(notScannedImages, func(item *image, index int) castai.SyncStateFilterImage {
-		return castai.SyncStateFilterImage{
-			ID:           item.id,
-			Name:         item.name,
-			Architecture: item.architecture,
-		}
+	imagesIds := lo.Map(notScannedImages, func(item *image, index int) string {
+		return item.id
 	})
-	resp, err := s.client.GetSyncState(ctx, &castai.SyncStateFilter{Images: imagesFilters})
+	resp, err := s.client.GetSyncState(ctx, &castai.SyncStateFilter{ImagesIds: imagesIds})
 	if err != nil {
-		s.log.Errorf("getting initial images sync state from remote: %v", err)
+		s.log.Errorf("getting images sync state from remote: %v", err)
 		return
 	}
 	for _, scannedImage := range resp.ScannedImages {

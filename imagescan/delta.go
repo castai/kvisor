@@ -38,7 +38,7 @@ func newImage(imageID, architecture string) *image {
 	}
 }
 
-func NewDeltaState() *deltaState {
+func newDeltaState() *deltaState {
 	return &deltaState{
 		queue:  make(chan deltaQueueItem, 1000),
 		images: map[string]*image{},
@@ -268,11 +268,6 @@ func (d *deltaState) handleNodeDelete(node *corev1.Node) {
 
 func (d *deltaState) getImages() []*image {
 	return lo.Values(d.images)
-}
-
-func (d *deltaState) getNode(name string) (*node, bool) {
-	v, found := d.nodes[name]
-	return v, found
 }
 
 func (d *deltaState) updateImage(i *image, change func(img *image)) {

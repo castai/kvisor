@@ -199,8 +199,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		delta := NewDeltaState(nil)
-		sub := NewSubscriber(log, cfg, scanner, client, 21, delta)
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
@@ -277,7 +276,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -341,7 +340,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -403,7 +402,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -461,7 +460,7 @@ func TestSubscriber(t *testing.T) {
 
 		client := &mockCastaiClient{}
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
 		delta := sub.delta
 		delta.images["img1"] = &image{
 			name: "img",
@@ -512,23 +511,16 @@ func TestSubscriber(t *testing.T) {
 		r.True(delta.images["img1"].scanned)
 	})
 
-	t.Run("sent changed resource owners", func(t *testing.T) {
+	t.Run("send changed resource owners", func(t *testing.T) {
 		r := require.New(t)
 
 		cfg := config.ImageScan{
-			ScanInterval:       1 * time.Millisecond,
-			ScanTimeout:        time.Minute,
-			MaxConcurrentScans: 5,
-			Mode:               string(imgcollectorconfig.ModeHostFS),
-			CPURequest:         "500m",
-			CPULimit:           "2",
-			MemoryRequest:      "100Mi",
-			MemoryLimit:        "2Gi",
+			ScanInterval: 1 * time.Millisecond,
 		}
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21, NewDeltaState(nil)).(*Subscriber)
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -565,6 +557,43 @@ func TestSubscriber(t *testing.T) {
 			return true
 		})
 	})
+
+	t.Run("sync scanned images from remote state", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval: 1 * time.Millisecond,
+		}
+
+		scanner := &mockImageScanner{}
+		client := &mockCastaiClient{
+			syncState: &castai.SyncStateResponse{
+				ScannedImages: []castai.ScannedImage{
+					{
+						ID:           "img1",
+						Architecture: "amd64",
+					},
+				},
+			},
+		}
+		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub.timeGetter = func() time.Time {
+			return time.Now().UTC().Add(time.Hour)
+		}
+		delta := sub.delta
+		img1 := newImage("img1", "amd64")
+		delta.images[img1.cacheKey()] = img1
+		img2 := newImage("img2", "amd64")
+		delta.images[img2.cacheKey()] = img2
+
+		r.NoError(sub.scheduleScans(ctx))
+
+		metas := client.getSentMetas()
+		r.Len(metas, 0)
+		images := delta.getImages()
+		r.True(images[0].scanned)
+		r.False(images[1].scanned)
+	})
 }
 
 type mockImageScanner struct {
@@ -588,6 +617,15 @@ func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
 type mockCastaiClient struct {
 	mu    sync.Mutex
 	metas []*castai.ImageMetadata
+
+	syncState *castai.SyncStateResponse
+}
+
+func (m *mockCastaiClient) GetSyncState(ctx context.Context, filter *castai.SyncStateFilter) (*castai.SyncStateResponse, error) {
+	if m.syncState != nil {
+		return m.syncState, nil
+	}
+	return &castai.SyncStateResponse{}, nil
 }
 
 func (m *mockCastaiClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {

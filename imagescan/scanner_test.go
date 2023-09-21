@@ -47,7 +47,7 @@ func TestScanner(t *testing.T) {
 				PhlareEnabled:     true,
 				Mode:              "",
 			},
-		}, nil)
+		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{
@@ -217,10 +217,6 @@ func TestScanner(t *testing.T) {
 			},
 		}
 		client := fake.NewSimpleClientset(job)
-		delta := NewDeltaState(nil)
-		delta.nodes = map[string]*node{
-			"n1": {},
-		}
 		scanner := NewImageScanner(client, config.Config{
 			PodIP:        "ip",
 			PodNamespace: ns,
@@ -230,7 +226,7 @@ func TestScanner(t *testing.T) {
 				MemoryRequest: "100Mi",
 				MemoryLimit:   "2Gi",
 			},
-		}, delta)
+		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{

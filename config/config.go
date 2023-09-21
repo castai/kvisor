@@ -77,7 +77,6 @@ type ImageScan struct {
 	CPULimit           string         `envconfig:"IMAGE_SCAN_CPU_LIMIT" yaml:"cpuLimit"`
 	MemoryRequest      string         `envconfig:"IMAGE_SCAN_MEMORY_REQUEST" yaml:"memoryRequest"`
 	MemoryLimit        string         `envconfig:"IMAGE_SCAN_MEMORY_LIMIT" yaml:"memoryLimit"`
-	Force              bool           `envconfig:"IMAGE_SCAN_FORCE" yaml:"force"`
 	ProfileEnabled     bool           `envconfig:"IMAGE_SCAN_PROFILE_ENABLED" yaml:"profileEnabled"`
 	PhlareEnabled      bool           `envconfig:"IMAGE_SCAN_PHLARE_ENABLED" yaml:"phlareEnabled"`
 	PullSecret         string         `envconfig:"IMAGE_SCAN_PULL_SECRET" yaml:"pullSecret"`

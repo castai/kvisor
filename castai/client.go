@@ -43,6 +43,7 @@ type Client interface {
 	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
 	SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error
 	PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error)
+	GetSyncState(ctx context.Context, filter *SyncStateFilter) (*SyncStateResponse, error)
 }
 
 func NewClient(

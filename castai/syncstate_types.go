@@ -1,13 +1,7 @@
 package castai
 
 type SyncStateFilter struct {
-	Images []SyncStateFilterImage `json:"images"`
-}
-
-type SyncStateFilterImage struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Architecture string `json:"architecture"`
+	ImagesIds []string `json:"imagesIds"`
 }
 
 type SyncStateResponse struct {
