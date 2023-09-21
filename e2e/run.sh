@@ -3,7 +3,7 @@
 set -ex
 
 KIND_CONTEXT="${KIND_CONTEXT:-kind}"
-GOARCH="${GOARCH:-amd64}"
+GOARCH="$(go env GOARCH)"
 
 if [ "$IMAGE_TAG" == "" ]
 then

@@ -240,6 +240,18 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 }
 
 func (c *client) GetSyncState(ctx context.Context, filter *SyncStateFilter) (*SyncStateResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	req := c.restClient.R().SetContext(ctx)
+	req.SetBody(filter)
+	resp, err := req.Post(fmt.Sprintf("/v1/security/insights/%s/sync-state", c.clusterID))
+	if err != nil {
+		return nil, fmt.Errorf("calling sync state: %w", err)
+	}
+	if resp.IsError() {
+		return nil, fmt.Errorf("calling sync state: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+	var response SyncStateResponse
+	if err := json.Unmarshal(resp.Body(), &response); err != nil {
+		return nil, fmt.Errorf("unmarshal sync state: %w", err)
+	}
+	return &response, nil
 }
