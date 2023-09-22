@@ -479,6 +479,8 @@ type image struct {
 	failures     int          // Used for sorting. We want to scan non-failed images first.
 	retryBackoff wait.Backoff // Retry state for failed images.
 	nextScan     time.Time    // Set based on retry backoff.
+
+	lastRemoteSyncAt time.Time // Time then image state was synced from remote.
 }
 
 func (img *image) cacheKey() string {

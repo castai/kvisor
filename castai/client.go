@@ -28,15 +28,17 @@ const (
 	headerContentEncoding = "Content-Encoding"
 	totalSendDeltaTimeout = 2 * time.Minute
 
-	ReportTypeDelta     = "delta"
-	ReportTypeCis       = "cis-report"
-	ReportTypeLinter    = "linter-checks"
-	ReportTypeImageMeta = "image-metadata"
-	ReportTypeCloudScan = "cloud-scan"
+	ReportTypeImagesResourcesChange = "images-resources-change"
+	ReportTypeDelta                 = "delta"
+	ReportTypeCis                   = "cis-report"
+	ReportTypeLinter                = "linter-checks"
+	ReportTypeImageMeta             = "image-metadata"
+	ReportTypeCloudScan             = "cloud-scan"
 )
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
+	SendImagesResourcesChange(ctx context.Context, report *ImagesResourcesChange) error
 	SendCISReport(ctx context.Context, report *KubeBenchReport) error
 	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
@@ -141,6 +143,10 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	}
 
 	return nil
+}
+
+func (c *client) SendImagesResourcesChange(ctx context.Context, report *ImagesResourcesChange) error {
+	return c.sendReport(ctx, report, ReportTypeImagesResourcesChange)
 }
 
 func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {

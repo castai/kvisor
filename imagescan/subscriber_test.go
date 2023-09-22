@@ -527,6 +527,9 @@ func TestSubscriber(t *testing.T) {
 		delta := sub.delta
 		img := newImage("img1", "amd64")
 		img.name = "img"
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
 		img.ownerChanges = ownerChanges{
 			addedIDS:   []string{"r1"},
 			removedIDs: []string{"r2"},
@@ -542,18 +545,28 @@ func TestSubscriber(t *testing.T) {
 		}()
 
 		assertLoop(errc, func() bool {
-			metas := client.getSentMetas()
-			if len(metas) == 0 {
+			changes := client.getImagesResourcesChanges()
+			if len(changes) < 2 {
 				return false
 			}
 
-			r.Len(metas, 1)
-			meta := metas[0]
-			r.Equal("img1", meta.ImageID)
-			r.Equal("amd64", meta.Architecture)
-			r.Equal([]string{"r1"}, meta.ResourceIDs)
-			r.Equal([]string{"r2"}, meta.RemovedResourceIDs)
+			// Should have only 2 calls to api.
+			r.Len(changes, 2)
+
+			// First api call. Initial full resync.
+			change1Img1 := changes[0].Images[0]
+			r.Equal("img1", change1Img1.ID)
+			r.Equal("amd64", change1Img1.Architecture)
+			r.Equal([]string{"r1"}, change1Img1.ResourcesChange.ResourceIDs)
 			r.True(img.ownerChanges.empty())
+
+			// Second api call. Only image owner change.
+			change2Img1 := changes[1].Images[0]
+			r.Equal("img1", change2Img1.ID)
+			r.Equal("amd64", change2Img1.Architecture)
+			r.Equal([]string{"r1"}, change2Img1.ResourcesChange.ResourceIDs)
+			r.Equal([]string{"r2"}, change2Img1.ResourcesChange.RemovedResourceIDs)
+
 			return true
 		})
 	})
@@ -562,7 +575,13 @@ func TestSubscriber(t *testing.T) {
 		r := require.New(t)
 
 		cfg := config.ImageScan{
-			ScanInterval: 1 * time.Millisecond,
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
 		}
 
 		scanner := &mockImageScanner{}
@@ -571,6 +590,10 @@ func TestSubscriber(t *testing.T) {
 				ScannedImages: []castai.ScannedImage{
 					{
 						ID:           "img1",
+						Architecture: "amd64",
+					},
+					{
+						ID:           "img2",
 						Architecture: "amd64",
 					},
 				},
@@ -582,17 +605,38 @@ func TestSubscriber(t *testing.T) {
 		}
 		delta := sub.delta
 		img1 := newImage("img1", "amd64")
+		img1.name = "img1"
+		img1.owners = map[string]*imageOwner{
+			"r1": {},
+		}
 		delta.images[img1.cacheKey()] = img1
+
 		img2 := newImage("img2", "amd64")
+		img2.name = "img2"
+		img2.owners = map[string]*imageOwner{
+			"r2": {},
+		}
 		delta.images[img2.cacheKey()] = img2
 
-		r.NoError(sub.scheduleScans(ctx))
+		errc := make(chan error, 1)
+		go func() {
+			errc <- sub.Run(ctx)
+		}()
 
-		metas := client.getSentMetas()
-		r.Len(metas, 0)
-		images := delta.getImages()
-		r.True(images[0].scanned)
-		r.False(images[1].scanned)
+		assertLoop(errc, func() bool {
+			syncCalls := client.getSyncStateCalls()
+			if syncCalls < 1 {
+				return false
+			}
+
+			// Should have only one api call.
+			r.Equal(1, syncCalls)
+
+			// Should not send any scanned images reports.
+			sentMetas := client.getSentMetas()
+			r.Len(sentMetas, 0)
+			return true
+		})
 	})
 }
 
@@ -618,10 +662,23 @@ type mockCastaiClient struct {
 	mu    sync.Mutex
 	metas []*castai.ImageMetadata
 
-	syncState *castai.SyncStateResponse
+	imagesResourcesChanges []*castai.ImagesResourcesChange
+
+	syncState      *castai.SyncStateResponse
+	syncStateCalls int
+}
+
+func (m *mockCastaiClient) SendImagesResourcesChange(ctx context.Context, report *castai.ImagesResourcesChange) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.imagesResourcesChanges = append(m.imagesResourcesChanges, report)
+	return nil
 }
 
 func (m *mockCastaiClient) GetSyncState(ctx context.Context, filter *castai.SyncStateFilter) (*castai.SyncStateResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.syncStateCalls++
 	if m.syncState != nil {
 		return m.syncState, nil
 	}
@@ -639,4 +696,16 @@ func (m *mockCastaiClient) getSentMetas() []*castai.ImageMetadata {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.metas
+}
+
+func (m *mockCastaiClient) getImagesResourcesChanges() []*castai.ImagesResourcesChange {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.imagesResourcesChanges
+}
+
+func (m *mockCastaiClient) getSyncStateCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.syncStateCalls
 }

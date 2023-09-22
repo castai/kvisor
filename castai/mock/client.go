@@ -121,6 +121,20 @@ func (mr *MockClientMockRecorder) SendImageMetadata(ctx, meta interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImageMetadata", reflect.TypeOf((*MockClient)(nil).SendImageMetadata), ctx, meta)
 }
 
+// SendImagesResourcesChange mocks base method.
+func (m *MockClient) SendImagesResourcesChange(ctx context.Context, report *castai.ImagesResourcesChange) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendImagesResourcesChange", ctx, report)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendImagesResourcesChange indicates an expected call of SendImagesResourcesChange.
+func (mr *MockClientMockRecorder) SendImagesResourcesChange(ctx, report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImagesResourcesChange", reflect.TypeOf((*MockClient)(nil).SendImagesResourcesChange), ctx, report)
+}
+
 // SendLinterChecks mocks base method.
 func (m *MockClient) SendLinterChecks(ctx context.Context, checks []castai.LinterCheck) error {
 	m.ctrl.T.Helper()
