@@ -129,7 +129,7 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	s.syncRemoteState(ctx)
+	s.syncFromRemoteState(ctx)
 
 	if s.fullSnapshotSent {
 		s.sendImagesResourcesChanges(ctx)
@@ -357,7 +357,7 @@ func (s *Subscriber) sendFullSnapshotImageResources(ctx context.Context) error {
 	return s.client.SendImagesResourcesChange(ctx, report)
 }
 
-func (s *Subscriber) syncRemoteState(ctx context.Context) {
+func (s *Subscriber) syncFromRemoteState(ctx context.Context) {
 	images := s.delta.getImages()
 	now := s.timeGetter().UTC()
 	imagesWithNotSyncedState := lo.Filter(images, func(item *image, index int) bool {
@@ -377,13 +377,21 @@ func (s *Subscriber) syncRemoteState(ctx context.Context) {
 		s.log.Errorf("getting images sync state from remote: %v", err)
 		return
 	}
+	if resp.Images == nil {
+		return
+	}
 
 	// Set sync state for all these images to prevent constant api calls.
 	for _, img := range imagesWithNotSyncedState {
 		img.lastRemoteSyncAt = now
 	}
 	// Set images as scanned from remote response.
-	for _, scannedImage := range resp.ScannedImages {
+	for _, scannedImage := range resp.Images.ScannedImages {
 		s.delta.setImageScanned(scannedImage.CacheKey())
+	}
+
+	// If full resources resync is required it will be sent during next scheduled scan.
+	if resp.Images.FullResourcesResyncRequired {
+		s.fullSnapshotSent = false
 	}
 }

@@ -587,14 +587,16 @@ func TestSubscriber(t *testing.T) {
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{
 			syncState: &castai.SyncStateResponse{
-				ScannedImages: []castai.ScannedImage{
-					{
-						ID:           "img1",
-						Architecture: "amd64",
-					},
-					{
-						ID:           "img2",
-						Architecture: "amd64",
+				Images: &castai.ImagesSyncState{
+					ScannedImages: []castai.ScannedImage{
+						{
+							ID:           "img1",
+							Architecture: "amd64",
+						},
+						{
+							ID:           "img2",
+							Architecture: "amd64",
+						},
 					},
 				},
 			},

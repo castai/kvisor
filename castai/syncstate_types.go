@@ -5,7 +5,12 @@ type SyncStateFilter struct {
 }
 
 type SyncStateResponse struct {
-	ScannedImages []ScannedImage `json:"scannedImages"`
+	Images *ImagesSyncState `json:"scannedImages"`
+}
+
+type ImagesSyncState struct {
+	FullResourcesResyncRequired bool           `json:"fullResourcesResyncRequired"`
+	ScannedImages               []ScannedImage `json:"scannedImages"`
 }
 
 type ScannedImage struct {
