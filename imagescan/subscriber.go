@@ -394,4 +394,5 @@ func (s *Subscriber) syncFromRemoteState(ctx context.Context) {
 	if resp.Images.FullResourcesResyncRequired {
 		s.fullSnapshotSent = false
 	}
+	s.log.Infof("images updated from remote state, full_resync=%v, scanned_images=%d", resp.Images.FullResourcesResyncRequired, len(resp.Images.ScannedImages))
 }

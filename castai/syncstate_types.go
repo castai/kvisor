@@ -5,7 +5,7 @@ type SyncStateFilter struct {
 }
 
 type SyncStateResponse struct {
-	Images *ImagesSyncState `json:"scannedImages"`
+	Images *ImagesSyncState `json:"images"`
 }
 
 type ImagesSyncState struct {
