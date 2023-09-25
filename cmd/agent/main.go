@@ -137,6 +137,10 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 
 	kubeConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(cfg.KubeClient.QPS), cfg.KubeClient.Burst)
+	if cfg.KubeClient.UseProtobuf {
+		kubeConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
+		kubeConfig.ContentType = "application/vnd.kubernetes.protobuf"
+	}
 
 	clientSet, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
