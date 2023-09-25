@@ -28,21 +28,24 @@ const (
 	headerContentEncoding = "Content-Encoding"
 	totalSendDeltaTimeout = 2 * time.Minute
 
-	ReportTypeDelta     = "delta"
-	ReportTypeCis       = "cis-report"
-	ReportTypeLinter    = "linter-checks"
-	ReportTypeImageMeta = "image-metadata"
-	ReportTypeCloudScan = "cloud-scan"
+	ReportTypeImagesResourcesChange = "images-resources-change"
+	ReportTypeDelta                 = "delta"
+	ReportTypeCis                   = "cis-report"
+	ReportTypeLinter                = "linter-checks"
+	ReportTypeImageMeta             = "image-metadata"
+	ReportTypeCloudScan             = "cloud-scan"
 )
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
+	SendImagesResourcesChange(ctx context.Context, report *ImagesResourcesChange) error
 	SendCISReport(ctx context.Context, report *KubeBenchReport) error
 	SendDeltaReport(ctx context.Context, report *Delta) error
 	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
 	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
 	SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error
 	PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error)
+	GetSyncState(ctx context.Context, filter *SyncStateFilter) (*SyncStateResponse, error)
 }
 
 func NewClient(
@@ -142,6 +145,10 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
+func (c *client) SendImagesResourcesChange(ctx context.Context, report *ImagesResourcesChange) error {
+	return c.sendReport(ctx, report, ReportTypeImagesResourcesChange)
+}
+
 func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {
 	return c.sendReport(ctx, report, ReportTypeDelta)
 }
@@ -236,4 +243,21 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 	}
 
 	return nil
+}
+
+func (c *client) GetSyncState(ctx context.Context, filter *SyncStateFilter) (*SyncStateResponse, error) {
+	req := c.restClient.R().SetContext(ctx)
+	req.SetBody(filter)
+	resp, err := req.Post(fmt.Sprintf("/v1/security/insights/%s/sync-state", c.clusterID))
+	if err != nil {
+		return nil, fmt.Errorf("calling sync state: %w", err)
+	}
+	if resp.IsError() {
+		return nil, fmt.Errorf("calling sync state: request error status_code=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+	var response SyncStateResponse
+	if err := json.Unmarshal(resp.Body(), &response); err != nil {
+		return nil, fmt.Errorf("unmarshal sync state: %w", err)
+	}
+	return &response, nil
 }

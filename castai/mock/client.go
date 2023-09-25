@@ -35,6 +35,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// GetSyncState mocks base method.
+func (m *MockClient) GetSyncState(ctx context.Context, filter *castai.SyncStateFilter) (*castai.SyncStateResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSyncState", ctx, filter)
+	ret0, _ := ret[0].(*castai.SyncStateResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSyncState indicates an expected call of GetSyncState.
+func (mr *MockClientMockRecorder) GetSyncState(ctx, filter interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyncState", reflect.TypeOf((*MockClient)(nil).GetSyncState), ctx, filter)
+}
+
 // PostTelemetry mocks base method.
 func (m *MockClient) PostTelemetry(ctx context.Context, initial bool) (*castai.TelemetryResponse, error) {
 	m.ctrl.T.Helper()
@@ -104,6 +119,20 @@ func (m *MockClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMe
 func (mr *MockClientMockRecorder) SendImageMetadata(ctx, meta interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImageMetadata", reflect.TypeOf((*MockClient)(nil).SendImageMetadata), ctx, meta)
+}
+
+// SendImagesResourcesChange mocks base method.
+func (m *MockClient) SendImagesResourcesChange(ctx context.Context, report *castai.ImagesResourcesChange) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendImagesResourcesChange", ctx, report)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendImagesResourcesChange indicates an expected call of SendImagesResourcesChange.
+func (mr *MockClientMockRecorder) SendImagesResourcesChange(ctx, report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImagesResourcesChange", reflect.TypeOf((*MockClient)(nil).SendImagesResourcesChange), ctx, report)
 }
 
 // SendLinterChecks mocks base method.

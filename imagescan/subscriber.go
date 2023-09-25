@@ -12,7 +12,6 @@ import (
 	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +25,8 @@ import (
 
 type castaiClient interface {
 	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
+	GetSyncState(ctx context.Context, filter *castai.SyncStateFilter) (*castai.SyncStateResponse, error)
+	SendImagesResourcesChange(ctx context.Context, report *castai.ImagesResourcesChange) error
 }
 
 func NewSubscriber(
@@ -34,15 +35,14 @@ func NewSubscriber(
 	imageScanner imageScanner,
 	client castaiClient,
 	k8sVersionMinor int,
-	delta *deltaState,
-) controller.ObjectSubscriber {
+) *Subscriber {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Subscriber{
 		ctx:             ctx,
 		cancel:          cancel,
 		imageScanner:    imageScanner,
 		client:          client,
-		delta:           delta,
+		delta:           newDeltaState(),
 		log:             log.WithField("component", "imagescan"),
 		cfg:             cfg,
 		k8sVersionMinor: k8sVersionMinor,
@@ -66,6 +66,8 @@ type Subscriber struct {
 	cfg             config.ImageScan
 	k8sVersionMinor int
 	timeGetter      func() time.Time
+
+	fullSnapshotSent bool
 }
 
 func (s *Subscriber) RequiredInformers() []reflect.Type {
@@ -88,8 +90,6 @@ func (s *Subscriber) Run(ctx context.Context) error {
 			return ctx.Err()
 		case deltaItem := <-s.delta.queue:
 			s.handleDelta(deltaItem.event, deltaItem.obj)
-		case scannedImages := <-s.delta.remoteImagesUpdate:
-			s.delta.updateImagesFromRemote(scannedImages)
 		case <-scanTicker.C:
 			if err := s.scheduleScans(ctx); err != nil {
 				s.log.Errorf("images scan failed: %v", err)
@@ -129,12 +129,21 @@ func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
 }
 
 func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
-	images := s.delta.getImages()
+	s.syncFromRemoteState(ctx)
 
-	s.sendImageOwnerChanges(ctx, images)
+	if s.fullSnapshotSent {
+		s.sendImagesResourcesChanges(ctx)
+	} else {
+		// Send initial full images current resources state once.
+		if err := s.sendFullSnapshotImageResources(ctx); err != nil {
+			s.log.Errorf("sending initial full images resources changes: %v", err)
+		} else {
+			s.fullSnapshotSent = true
+		}
+	}
 
-	pendingImages := s.findPendingImages(images)
-	// Scan few pending images in small batches.
+	// Scan pending images.
+	pendingImages := s.findPendingImages()
 	concurrentScans := s.concurrentScansNumber()
 	imagesForScan := pendingImages
 	if len(imagesForScan) > concurrentScans {
@@ -153,7 +162,9 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func (s *Subscriber) findPendingImages(images []*image) []*image {
+func (s *Subscriber) findPendingImages() []*image {
+	images := s.delta.getImages()
+
 	now := s.timeGetter()
 
 	var privateImagesCount int
@@ -290,41 +301,98 @@ func (s *Subscriber) getScanMode(img *image) string {
 	return mode
 }
 
-func (s *Subscriber) sendImageOwnerChanges(ctx context.Context, images []*image) {
-	var errg errgroup.Group
-	errg.SetLimit(10)
-
+func (s *Subscriber) sendImagesResourcesChanges(ctx context.Context) {
+	images := s.delta.getImages()
+	var imagesChanges []castai.Image
 	for _, img := range images {
-		img := img
 		if img.ownerChanges.empty() {
 			continue
 		}
-
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		errg.Go(func() error {
-			ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			defer cancel()
-			if err := s.client.SendImageMetadata(ctx, &castai.ImageMetadata{
-				ImageName:          img.name,
-				ImageID:            img.id,
-				Architecture:       img.architecture,
+		imagesChanges = append(imagesChanges, castai.Image{
+			ID:           img.id,
+			Architecture: img.architecture,
+			ResourcesChange: castai.ResourcesChange{
 				ResourceIDs:        img.ownerChanges.addedIDS,
 				RemovedResourceIDs: img.ownerChanges.removedIDs,
-			}); err != nil {
-				return err
-			}
-			// Reset owner changes state.
-			img.ownerChanges.clear()
-			return nil
+			},
 		})
 	}
-
-	if err := errg.Wait(); err != nil {
-		s.log.Errorf("sending image metadata with owners change only: %v", err)
+	if len(imagesChanges) == 0 {
+		return
 	}
+
+	s.log.Info("sending images resources changes")
+	report := &castai.ImagesResourcesChange{
+		Images: imagesChanges,
+	}
+	if err := s.client.SendImagesResourcesChange(ctx, report); err != nil {
+		s.log.Errorf("sending images resources changes: %v", err)
+		return
+	}
+
+	// Clear changes state.
+	for _, img := range images {
+		if img.ownerChanges.empty() {
+			continue
+		}
+		img.ownerChanges.clear()
+	}
+}
+
+func (s *Subscriber) sendFullSnapshotImageResources(ctx context.Context) error {
+	s.log.Info("sending initial full images resources changes")
+	images := s.delta.getImages()
+	report := &castai.ImagesResourcesChange{
+		FullSnapshot: true,
+	}
+	for _, img := range images {
+		report.Images = append(report.Images, castai.Image{
+			ID:           img.id,
+			Architecture: img.architecture,
+			ResourcesChange: castai.ResourcesChange{
+				ResourceIDs: lo.Keys(img.owners),
+			},
+		})
+	}
+	return s.client.SendImagesResourcesChange(ctx, report)
+}
+
+func (s *Subscriber) syncFromRemoteState(ctx context.Context) {
+	images := s.delta.getImages()
+	now := s.timeGetter().UTC()
+	imagesWithNotSyncedState := lo.Filter(images, func(item *image, index int) bool {
+		return !item.scanned && item.lastRemoteSyncAt.Before(now.Add(-10*time.Minute))
+	})
+
+	if len(imagesWithNotSyncedState) == 0 {
+		return
+	}
+
+	imagesIds := lo.Map(imagesWithNotSyncedState, func(item *image, index int) string {
+		return item.id
+	})
+	s.log.Debugf("sync images state from remote")
+	resp, err := s.client.GetSyncState(ctx, &castai.SyncStateFilter{ImagesIds: imagesIds})
+	if err != nil {
+		s.log.Errorf("getting images sync state from remote: %v", err)
+		return
+	}
+	if resp.Images == nil {
+		return
+	}
+
+	// Set sync state for all these images to prevent constant api calls.
+	for _, img := range imagesWithNotSyncedState {
+		img.lastRemoteSyncAt = now
+	}
+	// Set images as scanned from remote response.
+	for _, scannedImage := range resp.Images.ScannedImages {
+		s.delta.setImageScanned(scannedImage.CacheKey())
+	}
+
+	// If full resources resync is required it will be sent during next scheduled scan.
+	if resp.Images.FullResourcesResyncRequired {
+		s.fullSnapshotSent = false
+	}
+	s.log.Infof("images updated from remote state, full_resync=%v, scanned_images=%d", resp.Images.FullResourcesResyncRequired, len(resp.Images.ScannedImages))
 }

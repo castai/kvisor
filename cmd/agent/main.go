@@ -198,14 +198,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	telemetryManager := telemetry.NewManager(log, castaiClient)
 
 	var scannedNodes []string
-	var scannedImages []castai.ScannedImage
 	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)
 	if err != nil {
 		log.Warnf("initial telemetry: %v", err)
 	} else {
 		cfg = telemetry.ModifyConfig(cfg, telemetryResponse)
 		scannedNodes = telemetryResponse.NodeIDs
-		scannedImages = telemetryResponse.ScannedImages
 	}
 
 	linter, err := kubelinter.New(lo.Keys(castai.LinterRuleMap))
@@ -242,21 +240,17 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		))
 	}
 	if cfg.ImageScan.Enabled {
-		log.Infof("imagescan enabled, already scanned %d images", len(scannedImages))
-		if cfg.ImageScan.Force {
-			scannedImages = []castai.ScannedImage{}
-		}
-		deltaState := imagescan.NewDeltaState(scannedImages)
-		telemetryManager.AddObservers(deltaState.Observe)
-		objectSubscribers = append(objectSubscribers, imagescan.NewSubscriber(
+		log.Info("imagescan enabled")
+		imgScanSubscriber := imagescan.NewSubscriber(
 			log,
 			cfg.ImageScan,
-			imagescan.NewImageScanner(clientSet, cfg, deltaState),
+			imagescan.NewImageScanner(clientSet, cfg),
 			castaiClient,
 			k8sVersion.MinorInt,
-			deltaState,
-		))
+		)
+		objectSubscribers = append(objectSubscribers, imgScanSubscriber)
 	}
+
 	if len(objectSubscribers) == 0 {
 		return errors.New("no subscribers enabled")
 	}

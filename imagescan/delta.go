@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/castai/kvisor/castai"
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/controller"
 )
@@ -22,26 +21,6 @@ import (
 var (
 	errNoCandidates = errors.New("no candidates")
 )
-
-func buildImageMap(scannedImages []castai.ScannedImage) map[string]*image {
-	images := map[string]*image{}
-	for _, scannedImage := range scannedImages {
-		owners := make(map[string]*imageOwner, len(scannedImage.ResourceIDs))
-		for _, id := range scannedImage.ResourceIDs {
-			owners[id] = &imageOwner{
-				podIDs: map[string]struct{}{},
-			}
-		}
-
-		img := newImage(scannedImage.ID, scannedImage.Architecture)
-		img.scanned = true
-		img.owners = owners
-		img.architecture = scannedImage.Architecture
-		images[scannedImage.CacheKey()] = img
-	}
-
-	return images
-}
 
 func newImage(imageID, architecture string) *image {
 	return &image{
@@ -59,14 +38,13 @@ func newImage(imageID, architecture string) *image {
 	}
 }
 
-func NewDeltaState(scannedImages []castai.ScannedImage) *deltaState {
+func newDeltaState() *deltaState {
 	return &deltaState{
-		queue:              make(chan deltaQueueItem, 1000),
-		remoteImagesUpdate: make(chan []castai.ScannedImage, 3),
-		images:             buildImageMap(scannedImages),
-		rs:                 make(map[string]*appsv1.ReplicaSet),
-		jobs:               make(map[string]*batchv1.Job),
-		nodes:              map[string]*node{},
+		queue:  make(chan deltaQueueItem, 1000),
+		images: map[string]*image{},
+		rs:     make(map[string]*appsv1.ReplicaSet),
+		jobs:   make(map[string]*batchv1.Job),
+		nodes:  map[string]*node{},
 	}
 }
 
@@ -80,9 +58,6 @@ type deltaState struct {
 	// This allows to have lock free access to delta state during image scan.
 	queue chan deltaQueueItem
 
-	// remoteImagesUpdate is signal to update delta images from telemetry.
-	remoteImagesUpdate chan []castai.ScannedImage
-
 	// images holds current cluster images state. image struct contains associated nodes and owners.
 	images map[string]*image
 
@@ -92,12 +67,6 @@ type deltaState struct {
 
 	// If we fail to scan in hostfs mode it will be disabled for all feature image scans.
 	hostFSDisabled bool
-}
-
-func (d *deltaState) Observe(response *castai.TelemetryResponse) {
-	if response.FullResync && len(response.ScannedImages) > 0 {
-		d.remoteImagesUpdate <- response.ScannedImages
-	}
 }
 
 func (d *deltaState) upsert(o controller.Object) {
@@ -126,10 +95,6 @@ func (d *deltaState) delete(o controller.Object) {
 	case *appsv1.ReplicaSet:
 		delete(d.rs, key)
 	}
-}
-
-func (d *deltaState) updateImagesFromRemote(images []castai.ScannedImage) {
-	d.images = buildImageMap(images)
 }
 
 func (d *deltaState) handlePodUpdate(v *corev1.Pod) {
@@ -305,11 +270,6 @@ func (d *deltaState) getImages() []*image {
 	return lo.Values(d.images)
 }
 
-func (d *deltaState) getNode(name string) (*node, bool) {
-	v, found := d.nodes[name]
-	return v, found
-}
-
 func (d *deltaState) updateImage(i *image, change func(img *image)) {
 	img := d.images[i.cacheKey()]
 	if img != nil {
@@ -365,6 +325,12 @@ func (d *deltaState) nodeCount() int {
 
 func (d *deltaState) isHostFsDisabled() bool {
 	return d.hostFSDisabled
+}
+
+func (d *deltaState) setImageScanned(key string) {
+	if img, found := d.images[key]; found {
+		img.scanned = true
+	}
 }
 
 func getContainerRuntime(containerID string) imgcollectorconfig.Runtime {
@@ -513,6 +479,8 @@ type image struct {
 	failures     int          // Used for sorting. We want to scan non-failed images first.
 	retryBackoff wait.Backoff // Retry state for failed images.
 	nextScan     time.Time    // Set based on retry backoff.
+
+	lastRemoteSyncAt time.Time // Time then image state was synced from remote.
 }
 
 func (img *image) cacheKey() string {
