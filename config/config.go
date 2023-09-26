@@ -106,6 +106,7 @@ type KubeClient struct {
 	Burst int `envconfig:"KUBE_CLIENT_BURST" yaml:"burst"`
 	// Custom kubeconfig path.
 	KubeConfigPath string `envconfig:"KUBE_CLIENT_KUBECONFIG" yaml:"kubeconfig"`
+	UseProtobuf    bool   `envconfig:"KUBE_CLIENT_USE_PROTOBUF" yaml:"useProtobuf"`
 }
 
 type Log struct {
