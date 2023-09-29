@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 )
 
 // newDelta initializes the delta struct which is used to collect cluster deltas, debounce them and map to CAST AI
@@ -46,7 +46,7 @@ type delta struct {
 }
 
 // add will add an item to the delta cache. It will debounce the objects.
-func (d *delta) add(event controller.Event, obj object) {
+func (d *delta) add(event kube.Event, obj object) {
 	for _, skipper := range d.skippers {
 		if skipper(obj) {
 			return
@@ -94,19 +94,19 @@ type object interface {
 	metav1.Object
 }
 
-func toCASTAIEvent(e controller.Event) castai.EventType {
+func toCASTAIEvent(e kube.Event) castai.EventType {
 	switch e {
-	case controller.EventAdd:
+	case kube.EventAdd:
 		return castai.EventAdd
-	case controller.EventUpdate:
+	case kube.EventUpdate:
 		return castai.EventUpdate
-	case controller.EventDelete:
+	case kube.EventDelete:
 		return castai.EventDelete
 	}
 	return ""
 }
 
-func getContainersAndStatus(obj controller.Object) ([]castai.Container, interface{}, bool) {
+func getContainersAndStatus(obj kube.Object) ([]castai.Container, interface{}, bool) {
 	var containers []corev1.Container
 	appendContainers := func(podSpec corev1.PodSpec) {
 		containers = append(containers, podSpec.Containers...)
@@ -146,7 +146,7 @@ func getContainersAndStatus(obj controller.Object) ([]castai.Container, interfac
 	return res, st, true
 }
 
-func getOwnerUID(obj controller.Object) string {
+func getOwnerUID(obj kube.Object) string {
 	if len(obj.GetOwnerReferences()) == 0 {
 		return ""
 	}

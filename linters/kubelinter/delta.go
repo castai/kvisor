@@ -7,22 +7,22 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 )
 
 func newDeltaState() *deltaState {
 	return &deltaState{
-		objectMap: make(map[types.UID]controller.Object),
+		objectMap: make(map[types.UID]kube.Object),
 		mu:        sync.Mutex{},
 	}
 }
 
 type deltaState struct {
-	objectMap map[types.UID]controller.Object
+	objectMap map[types.UID]kube.Object
 	mu        sync.Mutex
 }
 
-func (d *deltaState) insert(objs ...controller.Object) {
+func (d *deltaState) insert(objs ...kube.Object) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -34,7 +34,7 @@ func (d *deltaState) insert(objs ...controller.Object) {
 	}
 }
 
-func (d *deltaState) upsert(o controller.Object) {
+func (d *deltaState) upsert(o kube.Object) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -48,18 +48,18 @@ func (d *deltaState) upsert(o controller.Object) {
 	d.objectMap[key] = o
 }
 
-func (d *deltaState) delete(o controller.Object) {
+func (d *deltaState) delete(o kube.Object) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	delete(d.objectMap, o.GetUID())
 }
 
-func (d *deltaState) flush() []controller.Object {
+func (d *deltaState) flush() []kube.Object {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	defer func() {
-		d.objectMap = make(map[types.UID]controller.Object)
+		d.objectMap = make(map[types.UID]kube.Object)
 	}()
 
 	return lo.Values(d.objectMap)

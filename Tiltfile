@@ -16,7 +16,7 @@ user = os.environ.get('USER', 'unknown-user')
 api_url = os.environ.get('API_URL', 'http://mockapi')
 api_key = os.environ.get('API_KEY', 'not-set')
 cluster_id = os.environ.get('CLUSTER_ID', 'not-set')
-image_scan_enabled = os.environ.get('IMAGE_SCAN_ENABLED', 'false')
+image_scan_enabled = os.environ.get('IMAGE_SCAN_ENABLED', 'true')
 
 namespace_create(namespace)
 

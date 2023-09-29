@@ -19,7 +19,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/metrics"
 )
 
@@ -45,16 +45,16 @@ type Config struct {
 	DeltaSyncInterval time.Duration
 }
 
-func NewSubscriber(
+func NewController(
 	log logrus.FieldLogger,
 	logLevel logrus.Level,
 	cfg Config, client castaiClient,
 	stateProvider SnapshotProvider,
 	k8sVersionMinor int,
-) controller.ObjectSubscriber {
+) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &Subscriber{
+	return &Controller{
 		ctx:             ctx,
 		cancel:          cancel,
 		cfg:             cfg,
@@ -65,7 +65,7 @@ func NewSubscriber(
 	}
 }
 
-type Subscriber struct {
+type Controller struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	log             logrus.FieldLogger
@@ -77,7 +77,7 @@ type Subscriber struct {
 	initialized     bool
 }
 
-func (s *Subscriber) RequiredInformers() []reflect.Type {
+func (s *Controller) RequiredInformers() []reflect.Type {
 	types := []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&corev1.Namespace{}),
@@ -103,7 +103,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	return types
 }
 
-func (s *Subscriber) Run(ctx context.Context) error {
+func (s *Controller) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -116,28 +116,28 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) OnAdd(obj controller.Object) {
+func (s *Controller) OnAdd(obj kube.Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.delta.add(controller.EventAdd, obj)
+	s.delta.add(kube.EventAdd, obj)
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
+func (s *Controller) OnUpdate(obj kube.Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.delta.add(controller.EventUpdate, obj)
+	s.delta.add(kube.EventUpdate, obj)
 }
 
-func (s *Subscriber) OnDelete(obj controller.Object) {
+func (s *Controller) OnDelete(obj kube.Object) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.delta.add(controller.EventDelete, obj)
+	s.delta.add(kube.EventDelete, obj)
 }
 
-func (s *Subscriber) sendDelta(ctx context.Context) (rerr error) {
+func (s *Controller) sendDelta(ctx context.Context) (rerr error) {
 	s.mu.RLock()
 	deltaReq := s.delta.toCASTAIRequest()
 	if !s.initialized {

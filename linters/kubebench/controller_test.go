@@ -38,7 +38,7 @@ func TestSubscriber(t *testing.T) {
 		logProvider := newMockLogProvider(readReport())
 
 		castaiNamespace := "castai-sec"
-		subscriber := NewSubscriber(
+		ctrl := NewController(
 			log,
 			clientset,
 			castaiNamespace,
@@ -48,7 +48,7 @@ func TestSubscriber(t *testing.T) {
 			logProvider,
 			nil,
 		)
-		subscriber.(*Subscriber).finishedJobDeleteWaitDuration = 0
+		ctrl.finishedJobDeleteWaitDuration = 0
 
 		jobName := generateName("test_node")
 
@@ -87,17 +87,17 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		}
-		subscriber.OnAdd(node)
+		ctrl.OnAdd(node)
 
 		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 		defer cancel()
-		err = subscriber.Run(ctx)
+		err = ctrl.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
 		r.NotContainsf(logOutput.String(), "error", "logs containers error")
 		// Job should be deleted.
 		_, err = clientset.BatchV1().Jobs(castaiNamespace).Get(ctx, jobName, metav1.GetOptions{})
 		r.Error(err)
-		r.Equal([]reflect.Type{reflect.TypeOf(&corev1.Node{})}, subscriber.RequiredInformers())
+		r.Equal([]reflect.Type{reflect.TypeOf(&corev1.Node{})}, ctrl.RequiredInformers())
 	})
 
 	t.Run("skip already scanned node", func(t *testing.T) {
@@ -114,7 +114,7 @@ func TestSubscriber(t *testing.T) {
 		logProvider := newMockLogProvider(readReport())
 
 		castaiNamespace := "castai-sec"
-		subscriber := NewSubscriber(
+		ctrl := NewController(
 			log,
 			clientset,
 			castaiNamespace,
@@ -125,7 +125,7 @@ func TestSubscriber(t *testing.T) {
 			nil,
 		)
 		nodeID := types.UID(uuid.NewString())
-		subscriber.(*Subscriber).scannedNodes.Add(string(nodeID), struct{}{})
+		ctrl.scannedNodes.Add(string(nodeID), struct{}{})
 
 		node := &corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -145,12 +145,12 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		}
-		subscriber.OnAdd(node)
-		subscriber.OnUpdate(node)
+		ctrl.OnAdd(node)
+		ctrl.OnUpdate(node)
 
 		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 		defer cancel()
-		err := subscriber.Run(ctx)
+		err := ctrl.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
 		r.NotContainsf(logOutput.String(), "error", "logs containers error")
 	})
@@ -169,7 +169,7 @@ func TestSubscriber(t *testing.T) {
 		logProvider := newMockLogProvider(readReport())
 
 		castaiNamespace := "castai-sec"
-		subscriber := NewSubscriber(
+		ctrl := NewController(
 			log,
 			clientset,
 			castaiNamespace,
@@ -199,17 +199,17 @@ func TestSubscriber(t *testing.T) {
 			},
 		}
 		nodeGroupKey := getNodeGroupKey(node)
-		subscriber.(*Subscriber).kubeBenchReportsCache = map[uint64]*castai.KubeBenchReport{
+		ctrl.kubeBenchReportsCache = map[uint64]*castai.KubeBenchReport{
 			nodeGroupKey: {},
 		}
-		subscriber.OnAdd(node)
-		subscriber.OnUpdate(node)
+		ctrl.OnAdd(node)
+		ctrl.OnUpdate(node)
 
 		mockCast.EXPECT().SendCISReport(gomock.Any(), gomock.Any()).MinTimes(1)
 
 		ctx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 		defer cancel()
-		err := subscriber.Run(ctx)
+		err := ctrl.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
 		r.NotContainsf(logOutput.String(), "error", "logs containers error")
 	})

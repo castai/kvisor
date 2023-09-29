@@ -1,4 +1,4 @@
-package controller
+package kube
 
 import (
 	"context"
@@ -81,7 +81,7 @@ func TestController(t *testing.T) {
 			newTestSubscriber(log.WithField("sub", "sub1")),
 			newTestSubscriber(log.WithField("sub", "sub2")),
 		}
-		ctrl := New(log, informersFactory, testSubs, version.Version{MinorInt: 22})
+		ctrl := NewController(log, informersFactory, testSubs, version.Version{MinorInt: 22})
 		ctrl.podsBuffSyncInterval = 1 * time.Millisecond
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -123,7 +123,7 @@ func TestController(t *testing.T) {
 		testSubs := []ObjectSubscriber{
 			newTestSubscriber(log.WithField("sub", "sub1")),
 		}
-		ctrl := New(log, informersFactory, testSubs, version.Version{MinorInt: 22})
+		ctrl := NewController(log, informersFactory, testSubs, version.Version{MinorInt: 22})
 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()

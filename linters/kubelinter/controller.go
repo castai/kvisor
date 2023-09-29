@@ -19,13 +19,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/metrics"
 )
 
-func NewSubscriber(log logrus.FieldLogger, client castai.Client, linter *Linter) (controller.ObjectSubscriber, error) {
+func NewController(log logrus.FieldLogger, client castai.Client, linter *Linter) (*Controller, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Subscriber{
+	return &Controller{
 		ctx:    ctx,
 		cancel: cancel,
 		client: client,
@@ -35,7 +35,7 @@ func NewSubscriber(log logrus.FieldLogger, client castai.Client, linter *Linter)
 	}, nil
 }
 
-type Subscriber struct {
+type Controller struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	client castai.Client
@@ -44,7 +44,7 @@ type Subscriber struct {
 	log    logrus.FieldLogger
 }
 
-func (s *Subscriber) RequiredInformers() []reflect.Type {
+func (s *Controller) RequiredInformers() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&corev1.Namespace{}),
@@ -63,7 +63,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	}
 }
 
-func (s *Subscriber) Run(ctx context.Context) error {
+func (s *Controller) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -82,19 +82,19 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) OnAdd(obj controller.Object) {
-	s.modifyDelta(controller.EventAdd, obj)
+func (s *Controller) OnAdd(obj kube.Object) {
+	s.modifyDelta(kube.EventAdd, obj)
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
-	s.modifyDelta(controller.EventUpdate, obj)
+func (s *Controller) OnUpdate(obj kube.Object) {
+	s.modifyDelta(kube.EventUpdate, obj)
 }
 
-func (s *Subscriber) OnDelete(obj controller.Object) {
-	s.modifyDelta(controller.EventDelete, obj)
+func (s *Controller) OnDelete(obj kube.Object) {
+	s.modifyDelta(kube.EventDelete, obj)
 }
 
-func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
+func (s *Controller) modifyDelta(event kube.Event, o kube.Object) {
 	switch o := o.(type) {
 	case *corev1.Pod:
 		// Do not process not static pods.
@@ -104,23 +104,23 @@ func (s *Subscriber) modifyDelta(event controller.Event, o controller.Object) {
 	}
 
 	switch event {
-	case controller.EventAdd:
+	case kube.EventAdd:
 		s.delta.upsert(o)
-	case controller.EventUpdate:
+	case kube.EventUpdate:
 		s.delta.upsert(o)
-	case controller.EventDelete:
+	case kube.EventDelete:
 		s.delta.delete(o)
 	}
 }
 
-func (s *Subscriber) lintObjects(objects []controller.Object) (rerr error) {
+func (s *Controller) lintObjects(objects []kube.Object) (rerr error) {
 	start := time.Now()
 	defer func() {
 		metrics.IncScansTotal(metrics.ScanTypeLinter, rerr)
 		metrics.ObserveScanDuration(metrics.ScanTypeLinter, start)
 	}()
 
-	checks, err := s.linter.Run(lo.Map(objects, func(o controller.Object, i int) lintcontext.Object {
+	checks, err := s.linter.Run(lo.Map(objects, func(o kube.Object, i int) lintcontext.Object {
 		return lintcontext.Object{K8sObject: o}
 	}))
 	if err != nil {
