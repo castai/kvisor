@@ -487,7 +487,7 @@ type image struct {
 }
 
 func (img *image) cacheKey() string {
-	return img.id + img.name + img.architecture
+	return img.id + img.architecture
 }
 
 func (img *image) isUnused() bool {
