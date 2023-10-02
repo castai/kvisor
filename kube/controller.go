@@ -1,4 +1,4 @@
-package controller
+package kube
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"github.com/castai/kvisor/version"
 )
 
-func New(
+func NewController(
 	log logrus.FieldLogger,
 	f informers.SharedInformerFactory,
 	subscribers []ObjectSubscriber,

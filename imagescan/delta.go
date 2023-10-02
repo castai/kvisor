@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 )
 
 var (
@@ -49,8 +50,8 @@ func newDeltaState() *deltaState {
 }
 
 type deltaQueueItem struct {
-	event controller.Event
-	obj   controller.Object
+	event kube.Event
+	obj   kube.Object
 }
 
 type deltaState struct {
@@ -69,8 +70,8 @@ type deltaState struct {
 	hostFSDisabled bool
 }
 
-func (d *deltaState) upsert(o controller.Object) {
-	key := controller.ObjectKey(o)
+func (d *deltaState) upsert(o kube.Object) {
+	key := kube.ObjectKey(o)
 	switch v := o.(type) {
 	case *corev1.Pod:
 		d.handlePodUpdate(v)
@@ -83,8 +84,8 @@ func (d *deltaState) upsert(o controller.Object) {
 	}
 }
 
-func (d *deltaState) delete(o controller.Object) {
-	key := controller.ObjectKey(o)
+func (d *deltaState) delete(o kube.Object) {
+	key := kube.ObjectKey(o)
 	switch v := o.(type) {
 	case *corev1.Pod:
 		d.handlePodDelete(v)
@@ -327,9 +328,11 @@ func (d *deltaState) isHostFsDisabled() bool {
 	return d.hostFSDisabled
 }
 
-func (d *deltaState) setImageScanned(key string) {
-	if img, found := d.images[key]; found {
-		img.scanned = true
+func (d *deltaState) setImageScanned(scannedImg castai.ScannedImage) {
+	for _, img := range d.images {
+		if img.id == scannedImg.ID && img.architecture == scannedImg.Architecture {
+			img.scanned = true
+		}
 	}
 }
 

@@ -19,7 +19,7 @@ import (
 
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/metrics"
 )
 
@@ -29,15 +29,15 @@ type castaiClient interface {
 	SendImagesResourcesChange(ctx context.Context, report *castai.ImagesResourcesChange) error
 }
 
-func NewSubscriber(
+func NewController(
 	log logrus.FieldLogger,
 	cfg config.ImageScan,
 	imageScanner imageScanner,
 	client castaiClient,
 	k8sVersionMinor int,
-) *Subscriber {
+) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Subscriber{
+	return &Controller{
 		ctx:             ctx,
 		cancel:          cancel,
 		imageScanner:    imageScanner,
@@ -56,7 +56,7 @@ func timeGetter() func() time.Time {
 	}
 }
 
-type Subscriber struct {
+type Controller struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	delta           *deltaState
@@ -70,7 +70,7 @@ type Subscriber struct {
 	fullSnapshotSent bool
 }
 
-func (s *Subscriber) RequiredInformers() []reflect.Type {
+func (s *Controller) RequiredInformers() []reflect.Type {
 	rt := []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&appsv1.ReplicaSet{}),
@@ -80,7 +80,7 @@ func (s *Subscriber) RequiredInformers() []reflect.Type {
 	return rt
 }
 
-func (s *Subscriber) Run(ctx context.Context) error {
+func (s *Controller) Run(ctx context.Context) error {
 	scanTicker := time.NewTicker(s.cfg.ScanInterval)
 	defer scanTicker.Stop()
 
@@ -98,37 +98,37 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) OnAdd(obj controller.Object) {
+func (s *Controller) OnAdd(obj kube.Object) {
 	s.delta.queue <- deltaQueueItem{
-		event: controller.EventAdd,
+		event: kube.EventAdd,
 		obj:   obj,
 	}
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
+func (s *Controller) OnUpdate(obj kube.Object) {
 	s.delta.queue <- deltaQueueItem{
-		event: controller.EventUpdate,
+		event: kube.EventUpdate,
 		obj:   obj,
 	}
 }
 
-func (s *Subscriber) OnDelete(obj controller.Object) {
+func (s *Controller) OnDelete(obj kube.Object) {
 	s.delta.queue <- deltaQueueItem{
-		event: controller.EventDelete,
+		event: kube.EventDelete,
 		obj:   obj,
 	}
 }
 
-func (s *Subscriber) handleDelta(event controller.Event, o controller.Object) {
+func (s *Controller) handleDelta(event kube.Event, o kube.Object) {
 	switch event {
-	case controller.EventAdd, controller.EventUpdate:
+	case kube.EventAdd, kube.EventUpdate:
 		s.delta.upsert(o)
-	case controller.EventDelete:
+	case kube.EventDelete:
 		s.delta.delete(o)
 	}
 }
 
-func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
+func (s *Controller) scheduleScans(ctx context.Context) (rerr error) {
 	s.syncFromRemoteState(ctx)
 
 	if s.fullSnapshotSent {
@@ -162,7 +162,7 @@ func (s *Subscriber) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func (s *Subscriber) findPendingImages() []*image {
+func (s *Controller) findPendingImages() []*image {
 	images := s.delta.getImages()
 
 	now := s.timeGetter()
@@ -190,7 +190,7 @@ func (s *Subscriber) findPendingImages() []*image {
 	return pendingImages
 }
 
-func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
+func (s *Controller) scanImages(ctx context.Context, images []*image) error {
 	var wg sync.WaitGroup
 	for _, img := range images {
 		if img.name == "" {
@@ -236,7 +236,7 @@ func (s *Subscriber) scanImages(ctx context.Context, images []*image) error {
 	}
 }
 
-func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
+func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
@@ -280,7 +280,7 @@ func (s *Subscriber) scanImage(ctx context.Context, img *image) (rerr error) {
 	})
 }
 
-func (s *Subscriber) concurrentScansNumber() int {
+func (s *Controller) concurrentScansNumber() int {
 	if s.delta.nodeCount() == 1 {
 		return 1
 	}
@@ -293,7 +293,7 @@ func (s *Subscriber) concurrentScansNumber() int {
 //
 // Special case:
 // If hostfs mode is used and image scan fails due to missing layers remote image scan will be used as fallback.
-func (s *Subscriber) getScanMode(img *image) string {
+func (s *Controller) getScanMode(img *image) string {
 	mode := s.cfg.Mode
 	if s.delta.isHostFsDisabled() || (img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound)) {
 		mode = string(imgcollectorconfig.ModeRemote)
@@ -301,7 +301,7 @@ func (s *Subscriber) getScanMode(img *image) string {
 	return mode
 }
 
-func (s *Subscriber) sendImagesResourcesChanges(ctx context.Context) {
+func (s *Controller) sendImagesResourcesChanges(ctx context.Context) {
 	images := s.delta.getImages()
 	var imagesChanges []castai.Image
 	for _, img := range images {
@@ -339,7 +339,7 @@ func (s *Subscriber) sendImagesResourcesChanges(ctx context.Context) {
 	}
 }
 
-func (s *Subscriber) sendFullSnapshotImageResources(ctx context.Context) error {
+func (s *Controller) sendFullSnapshotImageResources(ctx context.Context) error {
 	s.log.Info("sending initial full images resources changes")
 	images := s.delta.getImages()
 	report := &castai.ImagesResourcesChange{
@@ -357,7 +357,7 @@ func (s *Subscriber) sendFullSnapshotImageResources(ctx context.Context) error {
 	return s.client.SendImagesResourcesChange(ctx, report)
 }
 
-func (s *Subscriber) syncFromRemoteState(ctx context.Context) {
+func (s *Controller) syncFromRemoteState(ctx context.Context) {
 	images := s.delta.getImages()
 	now := s.timeGetter().UTC()
 	imagesWithNotSyncedState := lo.Filter(images, func(item *image, index int) bool {
@@ -387,7 +387,7 @@ func (s *Subscriber) syncFromRemoteState(ctx context.Context) {
 	}
 	// Set images as scanned from remote response.
 	for _, scannedImage := range resp.Images.ScannedImages {
-		s.delta.setImageScanned(scannedImage.CacheKey())
+		s.delta.setImageScanned(scannedImage)
 	}
 
 	// If full resources resync is required it will be sent during next scheduled scan.

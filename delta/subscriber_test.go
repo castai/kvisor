@@ -80,7 +80,7 @@ func TestSubscriber(t *testing.T) {
 	}
 
 	t.Run("send add event", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
@@ -93,7 +93,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("send update event", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 		sub.OnUpdate(pod1)
 
@@ -107,7 +107,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("send delete event", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 		sub.OnUpdate(pod1)
 		sub.OnDelete(pod1)
@@ -122,7 +122,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("second event does not set full snapshot flag", func(t *testing.T) {
-		sub := NewSubscriber(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
 		sub.OnAdd(pod1)
 
 		go func() {

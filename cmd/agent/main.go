@@ -11,7 +11,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/castai/kvisor/blobscache"
 	"github.com/containerd/containerd/pkg/atomic"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
@@ -22,7 +24,6 @@ import (
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -41,16 +42,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/castai/telemetry"
 	"github.com/castai/kvisor/cloudscan/eks"
 	"github.com/castai/kvisor/cloudscan/gke"
 	"github.com/castai/kvisor/config"
-	"github.com/castai/kvisor/controller"
 	"github.com/castai/kvisor/delta"
 	"github.com/castai/kvisor/imagescan"
 	"github.com/castai/kvisor/jobsgc"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/linters/kubebench"
 	"github.com/castai/kvisor/linters/kubelinter"
 	agentlog "github.com/castai/kvisor/log"
@@ -157,39 +157,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		"k8s_version": k8sVersion.Full,
 	})
 
-	scanHandler := imagescan.NewScanHttpHandler(log, castaiClient)
-
-	httpMux := http.NewServeMux()
-	installPprofHandlers(httpMux)
-	httpMux.Handle("/metrics", promhttp.Handler())
-	httpMux.HandleFunc("/v1/image-scan/report", scanHandler.Handle)
-	if cfg.ImageScan.Enabled {
-		blobsCache := blobscache.NewServer(log, blobscache.ServerConfig{})
-		blobsCache.RegisterHandlers(httpMux)
-	}
-
-	// Start http server for scan job, metrics and pprof handlers.
-	go func() {
-		httpAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
-		log.Infof("starting http server on %s", httpAddr)
-
-		srv := &http.Server{
-			Addr:         httpAddr,
-			Handler:      httpMux,
-			WriteTimeout: 5 * time.Second,
-			ReadTimeout:  5 * time.Second,
-		}
-		if err := srv.ListenAndServe(); err != nil {
-			log.Errorf("failed to start http server: %v", err)
-		}
-	}()
-
 	log.Infof("running castai-kvisor version %v", binVersion)
 
 	snapshotProvider := delta.NewSnapshotProvider()
 
-	objectSubscribers := []controller.ObjectSubscriber{
-		delta.NewSubscriber(
+	kubeSubscribers := []kube.ObjectSubscriber{
+		delta.NewController(
 			log,
 			log.Level,
 			delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
@@ -220,11 +193,11 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
-		linterSub, err := kubelinter.NewSubscriber(log, castaiClient, linter)
+		linterSub, err := kubelinter.NewController(log, castaiClient, linter)
 		if err != nil {
 			return err
 		}
-		objectSubscribers = append(objectSubscribers, linterSub)
+		kubeSubscribers = append(kubeSubscribers, linterSub)
 	}
 	if cfg.KubeBench.Enabled {
 		log.Info("kubebench enabled")
@@ -232,7 +205,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			scannedNodes = []string{}
 		}
 		podLogReader := agentlog.NewPodLogReader(clientSet)
-		objectSubscribers = append(objectSubscribers, kubebench.NewSubscriber(
+		kubeSubscribers = append(kubeSubscribers, kubebench.NewController(
 			log,
 			clientSet,
 			cfg.PodNamespace,
@@ -243,19 +216,20 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			scannedNodes,
 		))
 	}
+	var imgScanCtrl *imagescan.Controller
 	if cfg.ImageScan.Enabled {
 		log.Info("imagescan enabled")
-		imgScanSubscriber := imagescan.NewSubscriber(
+		imgScanCtrl = imagescan.NewController(
 			log,
 			cfg.ImageScan,
 			imagescan.NewImageScanner(clientSet, cfg),
 			castaiClient,
 			k8sVersion.MinorInt,
 		)
-		objectSubscribers = append(objectSubscribers, imgScanSubscriber)
+		kubeSubscribers = append(kubeSubscribers, imgScanCtrl)
 	}
 
-	if len(objectSubscribers) == 0 {
+	if len(kubeSubscribers) == 0 {
 		return errors.New("no subscribers enabled")
 	}
 
@@ -285,7 +259,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	go gc.Start(ctx)
 
 	informersFactory := informers.NewSharedInformerFactory(clientSet, 0)
-	ctrl := controller.New(log, informersFactory, objectSubscribers, k8sVersion)
+	kubeCtrl := kube.NewController(log, informersFactory, kubeSubscribers, k8sVersion)
 
 	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
 	telemetryManager.AddObservers(resyncObserver)
@@ -369,8 +343,39 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}()
 	}
 
+	httpMux := http.NewServeMux()
+	httpMux.HandleFunc("/debug/pprof/", pprof.Index)
+	httpMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	httpMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	httpMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	httpMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	httpMux.Handle("/metrics", promhttp.Handler())
+	if cfg.ImageScan.Enabled {
+		scanHandler := imagescan.NewHttpHandlers(log, castaiClient, imgScanCtrl)
+		httpMux.HandleFunc("/v1/image-scan/report", scanHandler.HandleImageMetadata)
+		httpMux.HandleFunc("/debug/images", scanHandler.HandleDebugGetImages)
+		blobsCache := blobscache.NewServer(log, blobscache.ServerConfig{})
+		blobsCache.RegisterHandlers(httpMux)
+	}
+
+	// Start http server for scan job, metrics and pprof handlers.
+	go func() {
+		httpAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
+		log.Infof("starting http server on %s", httpAddr)
+
+		srv := &http.Server{
+			Addr:         httpAddr,
+			Handler:      httpMux,
+			WriteTimeout: 5 * time.Second,
+			ReadTimeout:  5 * time.Second,
+		}
+		if err := srv.ListenAndServe(); err != nil {
+			log.Errorf("failed to start http server: %v", err)
+		}
+	}()
+
 	// Does the work. Blocks.
-	return ctrl.Run(featuresCtx, mngr)
+	return kubeCtrl.Run(featuresCtx, mngr)
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
@@ -401,14 +406,6 @@ func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, 
 	})
 	log.Debug("using in cluster kubeconfig")
 	return inClusterConfig, nil
-}
-
-func installPprofHandlers(mux *http.ServeMux) {
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
 
 type kubeRetryTransport struct {

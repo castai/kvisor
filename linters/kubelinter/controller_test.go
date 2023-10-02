@@ -13,7 +13,7 @@ import (
 
 	casttypes "github.com/castai/kvisor/castai"
 	mock_castai "github.com/castai/kvisor/castai/mock"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -23,14 +23,14 @@ func TestSubscriber(t *testing.T) {
 	t.Run("sends linter checks", func(t *testing.T) {
 		r := require.New(t)
 		ctx, cancel := context.WithCancel(context.Background())
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		castaiClient := mock_castai.NewMockClient(ctrl)
+		mockctrl := gomock.NewController(t)
+		defer mockctrl.Finish()
+		castaiClient := mock_castai.NewMockClient(mockctrl)
 
 		linter, err := New(lo.Keys(casttypes.LinterRuleMap))
 		r.NoError(err)
 
-		subscriber := &Subscriber{
+		ctrl := &Controller{
 			ctx:    ctx,
 			cancel: cancel,
 			client: castaiClient,
@@ -41,7 +41,7 @@ func TestSubscriber(t *testing.T) {
 
 		castaiClient.EXPECT().SendLinterChecks(gomock.Any(), gomock.Any())
 
-		objects := []controller.Object{
+		objects := []kube.Object{
 			&corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
@@ -52,6 +52,6 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		}
-		r.NoError(subscriber.lintObjects(objects))
+		r.NoError(ctrl.lintObjects(objects))
 	})
 }

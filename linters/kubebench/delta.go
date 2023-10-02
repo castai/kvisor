@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 )
 
 func newDeltaState() *nodeDeltaState {
@@ -42,7 +42,7 @@ func (d *nodeDeltaState) upsert(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	key := controller.ObjectKey(o)
+	key := kube.ObjectKey(o)
 	if job, ok := d.objectMap[key]; ok {
 		job.node = o
 		return
@@ -65,7 +65,7 @@ func (d *nodeDeltaState) delete(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	delete(d.objectMap, controller.ObjectKey(o))
+	delete(d.objectMap, kube.ObjectKey(o))
 }
 
 func (d *nodeDeltaState) peek() []*nodeJob {

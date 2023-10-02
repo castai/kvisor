@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/controller"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/linters/kubebench/spec"
 	"github.com/castai/kvisor/log"
 	"github.com/castai/kvisor/metrics"
@@ -37,7 +37,7 @@ const (
 	maxConcurrentJobs = 1
 )
 
-func NewSubscriber(
+func NewController(
 	log logrus.FieldLogger,
 	client kubernetes.Interface,
 	castaiNamespace string,
@@ -46,13 +46,13 @@ func NewSubscriber(
 	castClient castai.Client,
 	logsReader log.PodLogProvider,
 	scannedNodes []string,
-) controller.ObjectSubscriber {
+) *Controller {
 	nodeCache, _ := lru.New(1000)
 	for _, node := range scannedNodes {
 		nodeCache.Add(node, struct{}{})
 	}
 
-	return &Subscriber{
+	return &Controller{
 		log:                           log,
 		client:                        client,
 		castaiNamespace:               castaiNamespace,
@@ -67,7 +67,7 @@ func NewSubscriber(
 	}
 }
 
-type Subscriber struct {
+type Controller struct {
 	log                           logrus.FieldLogger
 	client                        kubernetes.Interface
 	castaiNamespace               string
@@ -84,7 +84,7 @@ type Subscriber struct {
 	kubeBenchReportsCacheMu sync.Mutex
 }
 
-func (s *Subscriber) OnAdd(obj controller.Object) {
+func (s *Controller) OnAdd(obj kube.Object) {
 	node, ok := obj.(*corev1.Node)
 	if ok {
 		_, scanned := s.scannedNodes.Get(string(node.GetUID()))
@@ -94,11 +94,11 @@ func (s *Subscriber) OnAdd(obj controller.Object) {
 	}
 }
 
-func (s *Subscriber) OnUpdate(obj controller.Object) {
+func (s *Controller) OnUpdate(obj kube.Object) {
 	s.OnAdd(obj)
 }
 
-func (s *Subscriber) OnDelete(obj controller.Object) {
+func (s *Controller) OnDelete(obj kube.Object) {
 	node, ok := obj.(*corev1.Node)
 	if ok {
 		s.delta.delete(node)
@@ -106,7 +106,7 @@ func (s *Subscriber) OnDelete(obj controller.Object) {
 	}
 }
 
-func (s *Subscriber) Run(ctx context.Context) error {
+func (s *Controller) Run(ctx context.Context) error {
 	ticker := time.NewTicker(s.scanInterval)
 	defer ticker.Stop()
 	for {
@@ -122,7 +122,7 @@ func (s *Subscriber) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) process(ctx context.Context) (rerr error) {
+func (s *Controller) process(ctx context.Context) (rerr error) {
 	nodes := s.findNodesForScan()
 	if len(nodes) == 0 {
 		return nil
@@ -152,7 +152,7 @@ func (s *Subscriber) process(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func (s *Subscriber) findNodesForScan() []*nodeJob {
+func (s *Controller) findNodesForScan() []*nodeJob {
 	nodes := s.delta.peek()
 	var res []*nodeJob
 	for _, nodeJob := range nodes {
@@ -166,11 +166,11 @@ func (s *Subscriber) findNodesForScan() []*nodeJob {
 	return res
 }
 
-func (s *Subscriber) RequiredInformers() []reflect.Type {
+func (s *Controller) RequiredInformers() []reflect.Type {
 	return []reflect.Type{reflect.TypeOf(&corev1.Node{})}
 }
 
-func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr error) {
+func (s *Controller) lintNode(ctx context.Context, node *corev1.Node) (rerr error) {
 	start := time.Now()
 
 	// Check if node is in node group for already scanned jobs.
@@ -254,7 +254,7 @@ func (s *Subscriber) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 	return nil
 }
 
-func (s *Subscriber) findScannedReport(n *corev1.Node) (*castai.KubeBenchReport, bool) {
+func (s *Controller) findScannedReport(n *corev1.Node) (*castai.KubeBenchReport, bool) {
 	s.kubeBenchReportsCacheMu.Lock()
 	defer s.kubeBenchReportsCacheMu.Unlock()
 
@@ -263,7 +263,7 @@ func (s *Subscriber) findScannedReport(n *corev1.Node) (*castai.KubeBenchReport,
 	return report, found
 }
 
-func (s *Subscriber) addReportToCache(n *corev1.Node, report *castai.KubeBenchReport) {
+func (s *Controller) addReportToCache(n *corev1.Node, report *castai.KubeBenchReport) {
 	s.kubeBenchReportsCacheMu.Lock()
 	defer s.kubeBenchReportsCacheMu.Unlock()
 
@@ -272,7 +272,7 @@ func (s *Subscriber) addReportToCache(n *corev1.Node, report *castai.KubeBenchRe
 }
 
 // We are interested in kube-bench pod succeeding and not the Job
-func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
+func (s *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
 	specFn := resolveSpec(s.provider, node)
 
 	job, err := s.client.BatchV1().
@@ -321,14 +321,14 @@ func (s *Subscriber) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	return kubeBenchPod, nil
 }
 
-func (s *Subscriber) deleteJob(ctx context.Context, jobName string) error {
+func (s *Controller) deleteJob(ctx context.Context, jobName string) error {
 	return s.client.BatchV1().Jobs(s.castaiNamespace).Delete(ctx, jobName, metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
 	})
 }
 
-func (s *Subscriber) waitJobDeleted(ctx context.Context, jobName string) error {
+func (s *Controller) waitJobDeleted(ctx context.Context, jobName string) error {
 	deleteCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	return backoff.Retry(
@@ -346,7 +346,7 @@ func (s *Subscriber) waitJobDeleted(ctx context.Context, jobName string) error {
 		}, backoff.WithContext(backoff.NewConstantBackOff(10*time.Second), deleteCtx))
 }
 
-func (s *Subscriber) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.KubeBenchReport, error) {
+func (s *Controller) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castai.KubeBenchReport, error) {
 	logReader, err := s.logsProvider.GetLogReader(ctx, s.castaiNamespace, kubeBenchPodName)
 	if err != nil {
 		return nil, err

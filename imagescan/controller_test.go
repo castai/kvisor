@@ -199,7 +199,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
@@ -276,7 +276,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -340,7 +340,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -402,7 +402,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -460,7 +460,7 @@ func TestSubscriber(t *testing.T) {
 
 		client := &mockCastaiClient{}
 		scanner := &mockImageScanner{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		delta := sub.delta
 		delta.images["img1"] = &image{
 			name: "img",
@@ -520,7 +520,7 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -601,7 +601,7 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		}
-		sub := NewSubscriber(log, cfg, scanner, client, 21)
+		sub := NewController(log, cfg, scanner, client, 21)
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
