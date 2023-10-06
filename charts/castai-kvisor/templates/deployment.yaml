@@ -37,6 +37,10 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{.Values.metrics.scrapePort}}"
         {{- end }}
+        {{- if .Values.metrics.phlareEnabled }}
+        phlare.grafana.com/scrape: "true"
+        phlare.grafana.com/port: "{{ .Values.metrics.scrapePort }}"
+        {{- end }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}

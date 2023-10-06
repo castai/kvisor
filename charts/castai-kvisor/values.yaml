@@ -154,4 +154,5 @@ serviceAccount:
 
 metrics:
   enabled: true
+  phlareEnabled: false
   scrapePort: "6060"
