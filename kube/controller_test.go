@@ -183,7 +183,21 @@ func TestController(t *testing.T) {
 			},
 		}
 
-		// Pods with well known owners.
+		statefulSet := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:  types.UID(uuid.New().String()),
+				Name: "st1",
+			},
+		}
+
+		ds := &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:  types.UID(uuid.New().String()),
+				Name: "ds",
+			},
+		}
+
+		// Pods with well known 2 level owners.
 		p1 := createTestPod(testPod{ownerRef: nil})
 		p2 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: rsWithDeployment.UID, Kind: "ReplicaSet"}})
 		p3 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: rsWithoutDeployment.UID, Kind: "ReplicaSet"}})
@@ -195,12 +209,17 @@ func TestController(t *testing.T) {
 		p6 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: customCrdObjectID, Kind: "ArgoRollout"}})
 		p7 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: jobManagedByCustomCrd.UID, Kind: "Job"}})
 
+		// Pods with daemon set or statefulset.
+		p8 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: statefulSet.UID, Kind: "StatefulSet"}})
+		p9 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: ds.UID, Kind: "DaemonSet"}})
+
 		clientset := fake.NewSimpleClientset(
 			rsWithDeployment,
 			rsWithoutDeployment,
 			jobManagedByCronjob,
 			jobManagedByCustomCrd,
 			standaloneJob,
+			statefulSet,
 			p1,
 			p2,
 			p3,
@@ -208,6 +227,8 @@ func TestController(t *testing.T) {
 			p5,
 			p6,
 			p7,
+			p8,
+			p9,
 		)
 		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 
@@ -228,7 +249,7 @@ func TestController(t *testing.T) {
 		case err := <-errc:
 			t.Fatal(err)
 		case <-time.After(100 * time.Millisecond):
-			r.Equal(12, testSub.getAddedObjectsCount())
+			r.Equal(15, testSub.getAddedObjectsCount())
 		}
 
 		r.Equal(string(p1.UID), ctrl.GetPodOwnerID(p1))
@@ -237,6 +258,8 @@ func TestController(t *testing.T) {
 		r.Equal(string(jobManagedByCronjob.OwnerReferences[0].UID), ctrl.GetPodOwnerID(p4))
 		r.Equal(string(p6.UID), ctrl.GetPodOwnerID(p6))
 		r.Equal(string(jobManagedByCustomCrd.UID), ctrl.GetPodOwnerID(p7))
+		r.Equal(string(statefulSet.UID), ctrl.GetPodOwnerID(p8))
+		r.Equal(string(ds.UID), ctrl.GetPodOwnerID(p9))
 	})
 }
 
@@ -322,6 +345,7 @@ func (t *testSubscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&corev1.Namespace{}),
 		reflect.TypeOf(&appsv1.DaemonSet{}),
 		reflect.TypeOf(&appsv1.ReplicaSet{}),
+		reflect.TypeOf(&appsv1.StatefulSet{}),
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&corev1.Node{}),
 		reflect.TypeOf(&batchv1.Job{}),
