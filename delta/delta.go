@@ -13,15 +13,20 @@ import (
 	"github.com/castai/kvisor/kube"
 )
 
+type podOwnerGetter interface {
+	GetPodOwnerID(pod *corev1.Pod) string
+}
+
 // newDelta initializes the delta struct which is used to collect cluster deltas, debounce them and map to CAST AI
 // requests.
-func newDelta(log logrus.FieldLogger, logLevel logrus.Level, provider SnapshotProvider) *delta {
+func newDelta(log logrus.FieldLogger, podOwnerGetter podOwnerGetter, logLevel logrus.Level, provider SnapshotProvider) *delta {
 	return &delta{
-		log:      log,
-		logLevel: logLevel,
-		snapshot: provider,
-		cache:    map[string]castai.DeltaItem{},
-		skippers: []skipper{},
+		log:            log,
+		logLevel:       logLevel,
+		snapshot:       provider,
+		cache:          map[string]castai.DeltaItem{},
+		skippers:       []skipper{},
+		podOwnerGetter: podOwnerGetter,
 	}
 }
 
@@ -38,11 +43,12 @@ type skipper func(obj object) bool
 // delta is used to collect cluster deltas, debounce them and map to CAST AI requests. It holds a cache of queue items
 // which is referenced any time a new item is added to debounce the items.
 type delta struct {
-	log      logrus.FieldLogger
-	logLevel logrus.Level
-	snapshot SnapshotProvider
-	cache    map[string]castai.DeltaItem
-	skippers []skipper
+	log            logrus.FieldLogger
+	logLevel       logrus.Level
+	snapshot       SnapshotProvider
+	cache          map[string]castai.DeltaItem
+	skippers       []skipper
+	podOwnerGetter podOwnerGetter
 }
 
 // add will add an item to the delta cache. It will debounce the objects.
@@ -55,7 +61,6 @@ func (d *delta) add(event kube.Event, obj object) {
 
 	key := string(obj.GetUID())
 	gvr := obj.GetObjectKind().GroupVersionKind()
-	d.log.Debugf("add delta, event=%s, gvr=%s, ns=%s, name=%s", event, gvr.String(), obj.GetNamespace(), obj.GetName())
 
 	deltaItem := castai.DeltaItem{
 		Event:            toCASTAIEvent(event),
@@ -65,7 +70,7 @@ func (d *delta) add(event kube.Event, obj object) {
 		ObjectKind:       gvr.Kind,
 		ObjectAPIVersion: gvr.GroupVersion().String(),
 		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
-		ObjectOwnerUID:   getOwnerUID(obj),
+		ObjectOwnerUID:   d.getOwnerUID(obj),
 		ObjectLabels:     obj.GetLabels(),
 	}
 	if containers, status, ok := getContainersAndStatus(obj); ok {
@@ -146,7 +151,12 @@ func getContainersAndStatus(obj kube.Object) ([]castai.Container, interface{}, b
 	return res, st, true
 }
 
-func getOwnerUID(obj kube.Object) string {
+func (d *delta) getOwnerUID(obj kube.Object) string {
+	switch v := obj.(type) {
+	case *corev1.Pod:
+		return d.podOwnerGetter.GetPodOwnerID(v)
+	}
+
 	if len(obj.GetOwnerReferences()) == 0 {
 		return ""
 	}

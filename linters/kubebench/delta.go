@@ -6,14 +6,13 @@ import (
 
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/castai/kvisor/kube"
 )
 
 func newDeltaState() *nodeDeltaState {
 	return &nodeDeltaState{
-		objectMap: make(map[string]*nodeJob),
+		objectMap: make(map[types.UID]*nodeJob),
 		mu:        sync.Mutex{},
 	}
 }
@@ -34,7 +33,7 @@ func (n *nodeJob) setFailed() {
 }
 
 type nodeDeltaState struct {
-	objectMap map[string]*nodeJob
+	objectMap map[types.UID]*nodeJob
 	mu        sync.Mutex
 }
 
@@ -42,7 +41,7 @@ func (d *nodeDeltaState) upsert(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	key := kube.ObjectKey(o)
+	key := o.GetUID()
 	if job, ok := d.objectMap[key]; ok {
 		job.node = o
 		return
@@ -65,7 +64,7 @@ func (d *nodeDeltaState) delete(o *corev1.Node) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	delete(d.objectMap, kube.ObjectKey(o))
+	delete(d.objectMap, o.GetUID())
 }
 
 func (d *nodeDeltaState) peek() []*nodeJob {

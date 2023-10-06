@@ -51,6 +51,7 @@ func NewController(
 	cfg Config, client castaiClient,
 	stateProvider SnapshotProvider,
 	k8sVersionMinor int,
+	podOwnerGetter podOwnerGetter,
 ) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -61,7 +62,8 @@ func NewController(
 		k8sVersionMinor: k8sVersionMinor,
 		log:             log.WithField("component", "delta"),
 		client:          client,
-		delta:           newDelta(log, logLevel, stateProvider),
+		delta:           newDelta(log, podOwnerGetter, logLevel, stateProvider),
+		initialDelay:    60 * time.Second,
 	}
 }
 
@@ -75,6 +77,7 @@ type Controller struct {
 	delta           *delta
 	mu              sync.RWMutex
 	initialized     bool
+	initialDelay    time.Duration
 }
 
 func (s *Controller) RequiredInformers() []reflect.Type {
@@ -104,6 +107,13 @@ func (s *Controller) RequiredInformers() []reflect.Type {
 }
 
 func (s *Controller) Run(ctx context.Context) error {
+	// Wait for initial deltas sync before starting deltas send loop.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(s.initialDelay):
+	}
+
 	for {
 		select {
 		case <-ctx.Done():

@@ -9,8 +9,6 @@ import (
 	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"gopkg.in/inf.v0"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -22,6 +20,10 @@ import (
 var (
 	errNoCandidates = errors.New("no candidates")
 )
+
+type podOwnerGetter interface {
+	GetPodOwnerID(pod *corev1.Pod) string
+}
 
 func newImage(imageID, architecture string) *image {
 	return &image{
@@ -39,13 +41,12 @@ func newImage(imageID, architecture string) *image {
 	}
 }
 
-func newDeltaState() *deltaState {
+func newDeltaState(podOwnerGetter podOwnerGetter) *deltaState {
 	return &deltaState{
-		queue:  make(chan deltaQueueItem, 1000),
-		images: map[string]*image{},
-		rs:     make(map[string]*appsv1.ReplicaSet),
-		jobs:   make(map[string]*batchv1.Job),
-		nodes:  map[string]*node{},
+		podOwnerGetter: podOwnerGetter,
+		queue:          make(chan deltaQueueItem, 1000),
+		images:         map[string]*image{},
+		nodes:          make(map[string]*node),
 	}
 }
 
@@ -55,6 +56,8 @@ type deltaQueueItem struct {
 }
 
 type deltaState struct {
+	podOwnerGetter podOwnerGetter
+
 	// queue is informers received k8s objects but not yet applied to delta.
 	// This allows to have lock free access to delta state during image scan.
 	queue chan deltaQueueItem
@@ -62,8 +65,6 @@ type deltaState struct {
 	// images holds current cluster images state. image struct contains associated nodes and owners.
 	images map[string]*image
 
-	rs    map[string]*appsv1.ReplicaSet
-	jobs  map[string]*batchv1.Job
 	nodes map[string]*node
 
 	// If we fail to scan in hostfs mode it will be disabled for all feature image scans.
@@ -71,30 +72,20 @@ type deltaState struct {
 }
 
 func (d *deltaState) upsert(o kube.Object) {
-	key := kube.ObjectKey(o)
 	switch v := o.(type) {
 	case *corev1.Pod:
 		d.handlePodUpdate(v)
 	case *corev1.Node:
 		d.updateNodeUsage(v)
-	case *batchv1.Job:
-		d.jobs[key] = v
-	case *appsv1.ReplicaSet:
-		d.rs[key] = v
 	}
 }
 
 func (d *deltaState) delete(o kube.Object) {
-	key := kube.ObjectKey(o)
 	switch v := o.(type) {
 	case *corev1.Pod:
 		d.handlePodDelete(v)
 	case *corev1.Node:
 		d.handleNodeDelete(v)
-	case *batchv1.Job:
-		delete(d.jobs, key)
-	case *appsv1.ReplicaSet:
-		delete(d.rs, key)
 	}
 }
 
@@ -164,7 +155,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	containerStatuses = append(containerStatuses, pod.Status.InitContainerStatuses...)
 	podID := string(pod.UID)
 	// Get the resource id of Deployment, ReplicaSet, StatefulSet, Job, CronJob.
-	ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
+	ownerResourceID := d.podOwnerGetter.GetPodOwnerID(pod)
 
 	for _, cont := range containers {
 		cs, found := lo.Find(containerStatuses, func(v corev1.ContainerStatus) bool {
@@ -232,7 +223,7 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 			delete(n.podIDs, podID)
 		}
 
-		ownerResourceID := getPodOwnerID(pod, d.rs, d.jobs)
+		ownerResourceID := d.podOwnerGetter.GetPodOwnerID(pod)
 		if owner, found := img.owners[ownerResourceID]; found {
 			delete(owner.podIDs, podID)
 			if len(owner.podIDs) == 0 {
@@ -349,37 +340,6 @@ func getContainerRuntime(containerID string) imgcollectorconfig.Runtime {
 		return imgcollectorconfig.RuntimeContainerd
 	}
 	return ""
-}
-
-func getPodOwnerID(pod *corev1.Pod, rsMap map[string]*appsv1.ReplicaSet, jobsMap map[string]*batchv1.Job) string {
-	if len(pod.OwnerReferences) == 0 {
-		return string(pod.UID)
-	}
-
-	ref := pod.OwnerReferences[0]
-
-	switch ref.Kind {
-	case "ReplicaSet":
-		for _, val := range rsMap {
-			if val.UID == ref.UID {
-				if len(val.OwnerReferences) > 0 {
-					return string(val.OwnerReferences[0].UID)
-				}
-				return string(ref.UID)
-			}
-		}
-	case "Job":
-		for _, val := range jobsMap {
-			if val.UID == ref.UID {
-				if len(val.OwnerReferences) > 0 {
-					return string(val.OwnerReferences[0].UID)
-				}
-				return string(ref.UID)
-			}
-		}
-	}
-
-	return string(ref.UID)
 }
 
 type pod struct {

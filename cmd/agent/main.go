@@ -109,13 +109,14 @@ func main() {
 	logrus.RegisterExitHandler(e.Wait)
 
 	ctx := signals.SetupSignalHandler()
-	if err := run(ctx, logger, client, cfg, binVersion); err != nil {
+	if err := run(ctx, logger, client, cfg, binVersion); err != nil && !errors.Is(err, context.Canceled) {
 		logErr := &logContextErr{}
 		if errors.As(err, &logErr) {
 			log = logger.WithFields(logErr.fields)
 		}
 		log.Fatalf("castai-kvisor failed: %v", err)
 	}
+	log.Info("castai-kvisor stopped")
 }
 
 func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Client, cfg config.Config, binVersion config.SecurityAgentVersion) (reterr error) {
@@ -161,16 +162,19 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	snapshotProvider := delta.NewSnapshotProvider()
 
-	kubeSubscribers := []kube.ObjectSubscriber{
-		delta.NewController(
-			log,
-			log.Level,
-			delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
-			castaiClient,
-			snapshotProvider,
-			k8sVersion.MinorInt,
-		),
-	}
+	informersFactory := informers.NewSharedInformerFactory(clientSet, 0)
+	kubeCtrl := kube.NewController(log, informersFactory, k8sVersion)
+
+	deltaCtrl := delta.NewController(
+		log,
+		log.Level,
+		delta.Config{DeltaSyncInterval: cfg.DeltaSyncInterval},
+		castaiClient,
+		snapshotProvider,
+		k8sVersion.MinorInt,
+		kubeCtrl,
+	)
+	kubeCtrl.AddSubscribers(deltaCtrl)
 
 	telemetryManager := telemetry.NewManager(log, castaiClient)
 
@@ -193,11 +197,11 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
-		linterSub, err := kubelinter.NewController(log, castaiClient, linter)
+		linterCtrl, err := kubelinter.NewController(log, castaiClient, linter)
 		if err != nil {
 			return err
 		}
-		kubeSubscribers = append(kubeSubscribers, linterSub)
+		kubeCtrl.AddSubscribers(linterCtrl)
 	}
 	if cfg.KubeBench.Enabled {
 		log.Info("kubebench enabled")
@@ -205,7 +209,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			scannedNodes = []string{}
 		}
 		podLogReader := agentlog.NewPodLogReader(clientSet)
-		kubeSubscribers = append(kubeSubscribers, kubebench.NewController(
+		kubeBenchCtrl := kubebench.NewController(
 			log,
 			clientSet,
 			cfg.PodNamespace,
@@ -214,7 +218,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			castaiClient,
 			podLogReader,
 			scannedNodes,
-		))
+		)
+		kubeCtrl.AddSubscribers(kubeBenchCtrl)
 	}
 	var imgScanCtrl *imagescan.Controller
 	if cfg.ImageScan.Enabled {
@@ -225,12 +230,9 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			imagescan.NewImageScanner(clientSet, cfg),
 			castaiClient,
 			k8sVersion.MinorInt,
+			kubeCtrl,
 		)
-		kubeSubscribers = append(kubeSubscribers, imgScanCtrl)
-	}
-
-	if len(kubeSubscribers) == 0 {
-		return errors.New("no subscribers enabled")
+		kubeCtrl.AddSubscribers(imgScanCtrl)
 	}
 
 	if cfg.CloudScan.Enabled {
@@ -257,9 +259,6 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		Namespace:       cfg.PodNamespace,
 	})
 	go gc.Start(ctx)
-
-	informersFactory := informers.NewSharedInformerFactory(clientSet, 0)
-	kubeCtrl := kube.NewController(log, informersFactory, kubeSubscribers, k8sVersion)
 
 	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
 	telemetryManager.AddObservers(resyncObserver)
