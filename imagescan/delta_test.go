@@ -67,7 +67,7 @@ func TestDelta(t *testing.T) {
 			}
 		}
 
-		delta := newDeltaState()
+		delta := newTestDelta()
 
 		pod1 := createPod("nginx1", "img1", "node1")
 		pod2 := createPod("nginx2", "img2", "node1")
@@ -104,7 +104,7 @@ func TestDelta(t *testing.T) {
 	t.Run("find best node for image scan", func(t *testing.T) {
 		r := require.New(t)
 
-		delta := newDeltaState()
+		delta := newTestDelta()
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -208,7 +208,7 @@ func TestDelta(t *testing.T) {
 
 	t.Run("returns error when no best node find", func(t *testing.T) {
 		r := require.New(t)
-		delta := newDeltaState()
+		delta := newTestDelta()
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -272,7 +272,7 @@ func TestDelta(t *testing.T) {
 
 	t.Run("frees up resources", func(t *testing.T) {
 		r := require.New(t)
-		delta := newDeltaState()
+		delta := newTestDelta()
 
 		delta.upsert(&corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -331,7 +331,7 @@ func TestDelta(t *testing.T) {
 
 	t.Run("cleans up image references", func(t *testing.T) {
 		r := require.New(t)
-		delta := newDeltaState()
+		delta := newTestDelta()
 
 		node := &corev1.Node{
 			TypeMeta: metav1.TypeMeta{
@@ -401,4 +401,8 @@ func TestDelta(t *testing.T) {
 		_, found = delta.nodes["node1"]
 		r.False(found)
 	})
+}
+
+func newTestDelta() *deltaState {
+	return newDeltaState(&mockPodOwnerGetter{})
 }

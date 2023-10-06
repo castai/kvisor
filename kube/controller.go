@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/samber/lo"
@@ -28,7 +29,6 @@ import (
 func NewController(
 	log logrus.FieldLogger,
 	f informers.SharedInformerFactory,
-	subscribers []ObjectSubscriber,
 	k8sVersion version.Version,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
@@ -60,9 +60,9 @@ func NewController(
 		k8sVersion:           k8sVersion,
 		informerFactory:      f,
 		informers:            typeInformerMap,
-		subscribers:          subscribers,
-		objectHashes:         map[string]struct{}{},
 		podsBuffSyncInterval: 5 * time.Second,
+		replicaSets:          make(map[types.UID]*appsv1.ReplicaSet),
+		jobs:                 make(map[types.UID]*batchv1.Job),
 	}
 	return c
 }
@@ -74,11 +74,15 @@ type Controller struct {
 	informers       map[reflect.Type]cache.SharedInformer
 	subscribers     []ObjectSubscriber
 
-	// Due to bug in k8s we need to track if object actually changed. See https://github.com/kubernetes/kubernetes/pull/106388
-	objectHashMu sync.Mutex
-	objectHashes map[string]struct{}
-
 	podsBuffSyncInterval time.Duration
+
+	deltasMu    sync.RWMutex
+	replicaSets map[types.UID]*appsv1.ReplicaSet
+	jobs        map[types.UID]*batchv1.Job
+}
+
+func (c *Controller) AddSubscribers(subs ...ObjectSubscriber) {
+	c.subscribers = append(c.subscribers, subs...)
 }
 
 func (c *Controller) Run(ctx context.Context, m manager.Manager) error {
@@ -91,7 +95,7 @@ func (c *Controller) Run(ctx context.Context, m manager.Manager) error {
 		// get elected and run subscribers.
 	case <-ctx.Done():
 		// exit without running subscribers.
-		return nil
+		return ctx.Err()
 	}
 
 	for typ, informer := range c.informers {
@@ -119,6 +123,36 @@ func (c *Controller) Run(ctx context.Context, m manager.Manager) error {
 	return errGroup.Wait()
 }
 
+// GetPodOwnerID returns last pod owner ID.
+// In most cases for pod it will search for Deployment or CronJob uid if exists.
+func (c *Controller) GetPodOwnerID(pod *corev1.Pod) string {
+	if len(pod.OwnerReferences) == 0 {
+		return string(pod.UID)
+	}
+	ref := pod.OwnerReferences[0]
+
+	switch ref.Kind {
+	case "ReplicaSet":
+		c.deltasMu.RLock()
+		defer c.deltasMu.RUnlock()
+
+		rs, found := c.replicaSets[ref.UID]
+		if found {
+			return string(findNextOwnerID(rs, "Deployment"))
+		}
+	case "Job":
+		c.deltasMu.RLock()
+		defer c.deltasMu.RUnlock()
+
+		job, found := c.jobs[ref.UID]
+		if found {
+			return string(findNextOwnerID(job, "CronJob"))
+		}
+	}
+
+	return string(pod.UID)
+}
+
 func (c *Controller) runSubscriber(ctx context.Context, subscriber ObjectSubscriber) error {
 	requiredInformerTypes := subscriber.RequiredInformers()
 	syncs := make([]cache.InformerSynced, 0, len(requiredInformerTypes))
@@ -144,11 +178,6 @@ func (c *Controller) transformFunc(i any) (any, error) {
 	addObjectMeta(obj)
 	// Remove managed fields since we don't need them. This should decrease memory usage.
 	obj.SetManagedFields(nil)
-	if _, ok := obj.(*appsv1.DaemonSet); ok {
-		// Remove this fields for ds to fix https://github.com/kubernetes/kubernetes/pull/106388 by custom hashing.
-		obj.SetResourceVersion("")
-	}
-
 	return obj, nil
 }
 
@@ -200,14 +229,70 @@ func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.
 
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
-			c.notifySubscribers(obj, eventTypeAdd, subs)
+			c.handleEvent(obj, eventTypeAdd, subs)
 		},
 		UpdateFunc: func(oldObj, newObj any) {
-			c.notifySubscribers(newObj, eventTypeUpdate, subs)
+			c.handleEvent(newObj, eventTypeUpdate, subs)
 		},
 		DeleteFunc: func(obj any) {
-			c.notifySubscribers(obj, eventTypeDelete, subs)
+			c.handleEvent(obj, eventTypeDelete, subs)
 		},
+	}
+}
+
+func (c *Controller) handleEvent(obj any, eventType eventType, subs []subChannel) {
+	var actualObj Object
+	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj, ok := deleted.Obj.(Object)
+		if !ok {
+			return
+		}
+		actualObj = obj
+		eventType = eventTypeDelete
+	} else {
+		obj, ok := obj.(Object)
+		if !ok {
+			return
+		}
+		actualObj = obj
+	}
+
+	if eventType == eventTypeDelete {
+		c.handleDeltaDelete(actualObj)
+	} else {
+		c.handleDeltaUpsert(actualObj)
+	}
+
+	// Notify all subscribers.
+	for _, sub := range subs {
+		sub.events <- event{
+			eventType: eventType,
+			obj:       actualObj,
+		}
+	}
+}
+
+func (c *Controller) handleDeltaUpsert(obj Object) {
+	c.deltasMu.Lock()
+	defer c.deltasMu.Unlock()
+
+	switch v := obj.(type) {
+	case *appsv1.ReplicaSet:
+		c.replicaSets[v.UID] = v
+	case *batchv1.Job:
+		c.jobs[v.UID] = v
+	}
+}
+
+func (c *Controller) handleDeltaDelete(obj Object) {
+	c.deltasMu.Lock()
+	defer c.deltasMu.Unlock()
+
+	switch v := obj.(type) {
+	case *appsv1.ReplicaSet:
+		delete(c.replicaSets, v.UID)
+	case *batchv1.Job:
+		delete(c.jobs, v.UID)
 	}
 }
 
@@ -237,75 +322,6 @@ func (c *subChannel) handleEvent(ev event) {
 		c.handler.OnUpdate(ev.obj)
 	case eventTypeDelete:
 		c.handler.OnDelete(ev.obj)
-	}
-}
-
-func (c *Controller) notifySubscribers(obj any, eventType eventType, subs []subChannel) {
-	var actualObj Object
-	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		obj, ok := deleted.Obj.(Object)
-		if !ok {
-			return
-		}
-		actualObj = obj
-		eventType = eventTypeDelete
-	} else {
-		obj, ok := obj.(Object)
-		if !ok {
-			return
-		}
-		actualObj = obj
-	}
-
-	var objectHash string
-	if c.k8sVersion.MinorInt < 25 && actualObj.GetObjectKind().GroupVersionKind().Kind == "DaemonSet" {
-		var err error
-		objectHash, err = ObjectHash(actualObj)
-		if err != nil {
-			c.log.Error(err)
-			return
-		}
-	}
-
-	if objectHash != "" && c.shouldSkipNotify(objectHash, eventType) {
-		return
-	}
-
-	// Notify all subscribers.
-	for _, sub := range subs {
-		sub.events <- event{
-			eventType: eventType,
-			obj:       actualObj,
-		}
-	}
-
-	// Store object hash which is used to skip notifying subscribers if object haven't changed.
-	if objectHash != "" {
-		c.saveObjectHash(objectHash, eventType)
-	}
-}
-
-func (c *Controller) shouldSkipNotify(objectHash string, eventType eventType) bool {
-	// Do not skip notify for add and update.
-	if eventType == eventTypeAdd || eventType == eventTypeDelete {
-		return false
-	}
-
-	c.objectHashMu.Lock()
-	defer c.objectHashMu.Unlock()
-
-	_, alreadyNotified := c.objectHashes[objectHash]
-	return alreadyNotified
-}
-
-func (c *Controller) saveObjectHash(objectHash string, eventType eventType) {
-	c.objectHashMu.Lock()
-	defer c.objectHashMu.Unlock()
-
-	if eventType == eventTypeDelete {
-		delete(c.objectHashes, objectHash)
-	} else {
-		c.objectHashes[objectHash] = struct{}{}
 	}
 }
 
@@ -366,4 +382,19 @@ func addObjectMeta(o Object) {
 		o.Kind = "NetworkPolicy"
 		o.APIVersion = "networking/v1"
 	}
+}
+
+func findNextOwnerID(obj Object, expectedKind string) types.UID {
+	refs := obj.GetOwnerReferences()
+	if len(refs) == 0 {
+		return obj.GetUID()
+	}
+
+	for _, ref := range refs {
+		if ref.Kind == expectedKind {
+			return ref.UID
+		}
+	}
+
+	return obj.GetUID()
 }

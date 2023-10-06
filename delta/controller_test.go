@@ -22,8 +22,6 @@ func TestSubscriber(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	castaiClient := &mockCastaiClient{}
-
 	pod1 := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -56,12 +54,13 @@ func TestSubscriber(t *testing.T) {
 
 	assertDelta := func(t *testing.T, delta *castai.Delta, event castai.EventType, initial bool) {
 		r := require.New(t)
+		podUID := "111b56a9-ab5e-4a35-93af-f092e2f63011"
 		r.Equal(&castai.Delta{
 			FullSnapshot: initial,
 			Items: []castai.DeltaItem{
 				{
 					Event:            event,
-					ObjectUID:        "111b56a9-ab5e-4a35-93af-f092e2f63011",
+					ObjectUID:        podUID,
 					ObjectName:       "nginx-1",
 					ObjectNamespace:  "default",
 					ObjectKind:       "Pod",
@@ -73,27 +72,34 @@ func TestSubscriber(t *testing.T) {
 							ImageName: "nginx:1.23",
 						},
 					},
-					ObjectStatus: corev1.PodStatus{Phase: corev1.PodRunning},
+					ObjectStatus:   corev1.PodStatus{Phase: corev1.PodRunning},
+					ObjectOwnerUID: podUID,
 				},
 			},
 		}, delta)
 	}
 
 	t.Run("send add event", func(t *testing.T) {
-		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		client := &mockCastaiClient{}
+		sub := newTestController(log)
+		sub.initialDelay = 1 * time.Millisecond
+		sub.client = client
 		sub.OnAdd(pod1)
 
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
 		defer cancel()
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
-		delta := castaiClient.delta
+		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventAdd, true)
 	})
 
 	t.Run("send update event", func(t *testing.T) {
-		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		client := &mockCastaiClient{}
+		sub := newTestController(log)
+		sub.initialDelay = 1 * time.Millisecond
+		sub.client = client
 		sub.OnAdd(pod1)
 		sub.OnUpdate(pod1)
 
@@ -101,13 +107,16 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
-		delta := castaiClient.delta
+		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventUpdate, true)
 	})
 
 	t.Run("send delete event", func(t *testing.T) {
-		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		client := &mockCastaiClient{}
+		sub := newTestController(log)
+		sub.initialDelay = 1 * time.Millisecond
+		sub.client = client
 		sub.OnAdd(pod1)
 		sub.OnUpdate(pod1)
 		sub.OnDelete(pod1)
@@ -116,13 +125,16 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
-		delta := castaiClient.delta
+		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventDelete, true)
 	})
 
 	t.Run("second event does not set full snapshot flag", func(t *testing.T) {
-		sub := NewController(log, logrus.DebugLevel, Config{DeltaSyncInterval: 1 * time.Millisecond}, castaiClient, &snapshotProviderMock{}, 21)
+		client := &mockCastaiClient{}
+		sub := newTestController(log)
+		sub.initialDelay = 1 * time.Millisecond
+		sub.client = client
 		sub.OnAdd(pod1)
 
 		go func() {
@@ -134,10 +146,29 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.True(errors.Is(err, context.DeadlineExceeded))
-		delta := castaiClient.delta
+		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventAdd, false)
 	})
+}
+
+func newTestController(log logrus.FieldLogger) *Controller {
+	return NewController(
+		log,
+		logrus.DebugLevel,
+		Config{DeltaSyncInterval: 1 * time.Millisecond},
+		&mockCastaiClient{},
+		&snapshotProviderMock{},
+		21,
+		&mockPodOwnerGetter{},
+	)
+}
+
+type mockPodOwnerGetter struct {
+}
+
+func (m *mockPodOwnerGetter) GetPodOwnerID(pod *corev1.Pod) string {
+	return string(pod.UID)
 }
 
 type mockCastaiClient struct {

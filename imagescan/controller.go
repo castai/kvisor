@@ -35,18 +35,20 @@ func NewController(
 	imageScanner imageScanner,
 	client castaiClient,
 	k8sVersionMinor int,
+	podOwnerGetter podOwnerGetter,
 ) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Controller{
-		ctx:             ctx,
-		cancel:          cancel,
-		imageScanner:    imageScanner,
-		client:          client,
-		delta:           newDeltaState(),
-		log:             log.WithField("component", "imagescan"),
-		cfg:             cfg,
-		k8sVersionMinor: k8sVersionMinor,
-		timeGetter:      timeGetter(),
+		ctx:               ctx,
+		cancel:            cancel,
+		imageScanner:      imageScanner,
+		client:            client,
+		delta:             newDeltaState(podOwnerGetter),
+		log:               log.WithField("component", "imagescan"),
+		cfg:               cfg,
+		k8sVersionMinor:   k8sVersionMinor,
+		timeGetter:        timeGetter(),
+		initialScansDelay: 60 * time.Second,
 	}
 }
 
@@ -67,7 +69,8 @@ type Controller struct {
 	k8sVersionMinor int
 	timeGetter      func() time.Time
 
-	fullSnapshotSent bool
+	initialScansDelay time.Duration
+	fullSnapshotSent  bool
 }
 
 func (s *Controller) RequiredInformers() []reflect.Type {
@@ -81,9 +84,15 @@ func (s *Controller) RequiredInformers() []reflect.Type {
 }
 
 func (s *Controller) Run(ctx context.Context) error {
+	// Before starting normal scans and deltas processing
+	// we need to spend some time processing only deltas to make sure
+	// we have full images view.
+	if err := s.waitInitialDeltaQueueSync(ctx); err != nil {
+		return err
+	}
+
 	scanTicker := time.NewTicker(s.cfg.ScanInterval)
 	defer scanTicker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,6 +103,20 @@ func (s *Controller) Run(ctx context.Context) error {
 			if err := s.scheduleScans(ctx); err != nil {
 				s.log.Errorf("images scan failed: %v", err)
 			}
+		}
+	}
+}
+
+func (s *Controller) waitInitialDeltaQueueSync(ctx context.Context) error {
+	waitTimeout := time.After(s.initialScansDelay)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case deltaItem := <-s.delta.queue:
+			s.handleDelta(deltaItem.event, deltaItem.obj)
+		case <-waitTimeout:
+			return nil
 		}
 	}
 }

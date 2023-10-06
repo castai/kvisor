@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,26 +119,6 @@ func TestSubscriber(t *testing.T) {
 			},
 		}
 
-		argoDeployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				UID: types.UID(uuid.New().String()),
-			},
-		}
-
-		argoReplicaSet := &appsv1.ReplicaSet{
-			ObjectMeta: metav1.ObjectMeta{
-				UID: types.UID(uuid.New().String()),
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						UID:        argoDeployment.UID,
-						APIVersion: "apps/v1",
-						Kind:       "Deployment",
-						Name:       "argocd-a123",
-					},
-				},
-			},
-		}
-
 		createArgoPod := func(podName string) *corev1.Pod {
 			return &corev1.Pod{
 				TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
@@ -147,14 +126,6 @@ func TestSubscriber(t *testing.T) {
 					UID:       types.UID(uuid.New().String()),
 					Name:      podName,
 					Namespace: "argo",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							UID:        argoReplicaSet.UID,
-							APIVersion: "apps/v1",
-							Kind:       "ReplicaSet",
-							Name:       "argocd-a123",
-						},
-					},
 				},
 				Spec: corev1.PodSpec{
 					NodeName: node2.Name,
@@ -198,8 +169,9 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		client := &mockCastaiClient{}
-		sub := NewController(log, cfg, scanner, client, 21)
+		sub := newTestController(log, cfg)
+		sub.imageScanner = scanner
+		sub.initialScansDelay = 1 * time.Millisecond
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
@@ -208,7 +180,6 @@ func TestSubscriber(t *testing.T) {
 			for {
 				sub.OnUpdate(node1)
 				sub.OnUpdate(node2)
-				sub.OnUpdate(argoReplicaSet)
 				sub.OnUpdate(argoPod1)
 				sub.OnUpdate(argoPod2)
 				sub.OnUpdate(nginxPod1)
@@ -234,15 +205,18 @@ func TestSubscriber(t *testing.T) {
 			r.Len(imgs, 3)
 			argoImg := imgs[0]
 			argoInitImg := imgs[1]
-			ngnxImage := imgs[2]
 			r.Equal("argocd:0.0.1", argoImg.ImageName)
 			r.Equal("init-argo:0.0.1", argoInitImg.ImageName)
-			r.Equal([]string{string(argoDeployment.UID)}, argoImg.ResourceIDs)
+			expectedArgoPodResourceIDs := []string{string(argoPod1.UID), string(argoPod2.UID)}
+			sort.Strings(argoImg.ResourceIDs)
+			sort.Strings(expectedArgoPodResourceIDs)
+			r.Equal(expectedArgoPodResourceIDs, argoImg.ResourceIDs)
 
-			actualNginxPodResourceIDs := []string{string(nginxPod1.UID), string(nginxPod2.UID)}
+			ngnxImage := imgs[2]
+			expectedNginxPodResourceIDs := []string{string(nginxPod1.UID), string(nginxPod2.UID)}
 			sort.Strings(ngnxImage.ResourceIDs)
-			sort.Strings(actualNginxPodResourceIDs)
-			r.Equal(ngnxImage.ResourceIDs, actualNginxPodResourceIDs)
+			sort.Strings(expectedNginxPodResourceIDs)
+			r.Equal(expectedNginxPodResourceIDs, ngnxImage.ResourceIDs)
 			r.NotEmpty(ngnxImage.NodeName)
 			r.Equal(ScanImageParams{
 				ImageName:                   "nginx:1.23",
@@ -275,8 +249,9 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		client := &mockCastaiClient{}
-		sub := NewController(log, cfg, scanner, client, 21)
+		sub := newTestController(log, cfg)
+		sub.imageScanner = scanner
+		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -339,8 +314,9 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
-		client := &mockCastaiClient{}
-		sub := NewController(log, cfg, scanner, client, 21)
+		sub := newTestController(log, cfg)
+		sub.imageScanner = scanner
+		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -402,7 +378,9 @@ func TestSubscriber(t *testing.T) {
 
 		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewController(log, cfg, scanner, client, 21)
+		podOwnerGetter := &mockPodOwnerGetter{}
+		sub := NewController(log, cfg, scanner, client, 21, podOwnerGetter)
+		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -458,9 +436,10 @@ func TestSubscriber(t *testing.T) {
 			Mode:               string(imgcollectorconfig.ModeHostFS),
 		}
 
-		client := &mockCastaiClient{}
 		scanner := &mockImageScanner{}
-		sub := NewController(log, cfg, scanner, client, 21)
+		sub := newTestController(log, cfg)
+		sub.imageScanner = scanner
+		sub.initialScansDelay = 1 * time.Millisecond
 		delta := sub.delta
 		delta.images["img1"] = &image{
 			name: "img",
@@ -518,9 +497,10 @@ func TestSubscriber(t *testing.T) {
 			ScanInterval: 1 * time.Millisecond,
 		}
 
-		scanner := &mockImageScanner{}
 		client := &mockCastaiClient{}
-		sub := NewController(log, cfg, scanner, client, 21)
+		sub := newTestController(log, cfg)
+		sub.client = client
+		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -601,7 +581,10 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		}
-		sub := NewController(log, cfg, scanner, client, 21)
+		sub := newTestController(log, cfg)
+		sub.imageScanner = scanner
+		sub.client = client
+		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
 			return time.Now().UTC().Add(time.Hour)
 		}
@@ -642,6 +625,13 @@ func TestSubscriber(t *testing.T) {
 	})
 }
 
+func newTestController(log logrus.FieldLogger, cfg config.ImageScan) *Controller {
+	scanner := &mockImageScanner{}
+	client := &mockCastaiClient{}
+	podOwnerGetter := &mockPodOwnerGetter{}
+	return NewController(log, cfg, scanner, client, 21, podOwnerGetter)
+}
+
 type mockImageScanner struct {
 	mu   sync.Mutex
 	imgs []ScanImageParams
@@ -658,6 +648,13 @@ func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.imgs
+}
+
+type mockPodOwnerGetter struct {
+}
+
+func (m *mockPodOwnerGetter) GetPodOwnerID(pod *corev1.Pod) string {
+	return string(pod.UID)
 }
 
 type mockCastaiClient struct {
