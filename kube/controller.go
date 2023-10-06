@@ -132,6 +132,8 @@ func (c *Controller) GetPodOwnerID(pod *corev1.Pod) string {
 	ref := pod.OwnerReferences[0]
 
 	switch ref.Kind {
+	case "DaemonSet", "StatefulSet":
+		return string(ref.UID)
 	case "ReplicaSet":
 		c.deltasMu.RLock()
 		defer c.deltasMu.RUnlock()
