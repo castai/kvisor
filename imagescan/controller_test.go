@@ -256,7 +256,7 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1", "amd64")
+		img := newImage("img1amd64", "img1", "amd64")
 		img.name = "img"
 		img.nodes = map[string]*imageNode{
 			"node1": {},
@@ -321,7 +321,7 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1", "amd64")
+		img := newImage("img1amd64", "img1", "amd64")
 		img.name = "img"
 		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
 		img.nodes = map[string]*imageNode{
@@ -385,7 +385,7 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1", "amd64")
+		img := newImage("img1amd64", "img1", "amd64")
 		img.name = "img"
 		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
 		img.owners = map[string]*imageOwner{
@@ -505,14 +505,13 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1", "amd64")
+		img := newImage("img1amd64", "img1", "amd64")
 		img.name = "img"
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
 		img.ownerChanges = ownerChanges{
-			addedIDS:   []string{"r1"},
-			removedIDs: []string{"r2"},
+			addedIDS: []string{"r1"},
 		}
 		delta.images[img.cacheKey()] = img
 
@@ -545,7 +544,6 @@ func TestSubscriber(t *testing.T) {
 			r.Equal("img1", change2Img1.ID)
 			r.Equal("amd64", change2Img1.Architecture)
 			r.Equal([]string{"r1"}, change2Img1.ResourcesChange.ResourceIDs)
-			r.Equal([]string{"r2"}, change2Img1.ResourcesChange.RemovedResourceIDs)
 
 			return true
 		})
@@ -589,14 +587,14 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img1 := newImage("img1", "amd64")
+		img1 := newImage("img1amd64", "img1", "amd64")
 		img1.name = "img1"
 		img1.owners = map[string]*imageOwner{
 			"r1": {},
 		}
 		delta.images[img1.cacheKey()] = img1
 
-		img2 := newImage("img2", "amd64")
+		img2 := newImage("img1amd64", "img2", "amd64")
 		img2.name = "img2"
 		img2.owners = map[string]*imageOwner{
 			"r2": {},

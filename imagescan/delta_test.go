@@ -385,19 +385,17 @@ func TestDelta(t *testing.T) {
 		}
 
 		delta.upsert(pod)
-		img, found := delta.images["testid"]
+		img, found := delta.images["testidamd64"]
 		r.True(found)
 		r.Len(img.owners, 1)
 		r.Len(img.nodes, 1)
 
 		delta.delete(pod)
-
-		img, found = delta.images["testid"]
+		img, found = delta.images["testidamd64"]
 		r.True(found)
 		r.Len(img.owners, 0)
 
 		delta.delete(node)
-
 		_, found = delta.nodes["node1"]
 		r.False(found)
 	})

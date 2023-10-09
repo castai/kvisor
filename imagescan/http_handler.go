@@ -54,6 +54,7 @@ func (h *HTTPHandler) HandleImageMetadata(w http.ResponseWriter, r *http.Request
 
 func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Request) {
 	type Image struct {
+		Key     string
 		Name    string
 		Arch    string
 		Owners  int
@@ -64,10 +65,14 @@ func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Reques
 	}
 
 	type Model struct {
-		Images []Image
+		NodesCount  int
+		ImagesCount int
+		Images      []Image
 	}
 
 	model := Model{
+		NodesCount:  len(h.ctrl.delta.nodes),
+		ImagesCount: len(h.ctrl.delta.images),
 		Images: lo.Map(lo.Values(h.ctrl.delta.images), func(item *image, index int) Image {
 			var pods int
 			for _, owner := range item.owners {
@@ -82,6 +87,7 @@ func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Reques
 				errStr = errStr[:maxErrStr] + "..."
 			}
 			return Image{
+				Key:     item.key,
 				Name:    item.name,
 				Arch:    item.architecture,
 				Owners:  len(item.owners),
@@ -98,6 +104,10 @@ func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Reques
 
 	tmpl := template.Must(template.New("html").Parse(`
 	<h1>Images</h1>
+	
+	<div>Nodes: {{.NodesCount}}</div>
+	<div>Images: {{.ImagesCount}}</div>
+	
 	<table>
 	  <thead>
 		<tr>
@@ -113,7 +123,7 @@ func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Reques
 	  <tbody>
 		{{ range .Images}}
 		<tr>
-		  <td>{{.Name}}</th>
+		  <td><a href="/debug/images/details?key={{.Key}}">{{.Name}}</a></th>
 		  <td>{{.Arch}}</th>
 		  <td class="text-right">{{.Owners}}</th>
 		  <td class="text-right">{{.Pods}}</th>
@@ -125,6 +135,15 @@ func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Reques
 	  </tbody>
 	</table>
 	<style>
+		html, body {
+			font-family: Verdana,sans-serif;
+			font-size: 15px;
+			line-height: 1.5;
+		}
+		a {
+			color: #000;
+    		text-decoration: none;
+		}
 		.text-left {
 			text-align: left;
 		}
@@ -137,8 +156,132 @@ func (h *HTTPHandler) HandleDebugGetImages(w http.ResponseWriter, r *http.Reques
 		.scanned-true {
 			color: green;
 		}
-		td, tr {
-			padding: 5px;
+		th, td, tr {
+			padding: 8px;
+		}
+		table, th, td {
+  			border: 1px solid #ccc;
+			border-spacing: inherit;
+		}
+	</style>
+`))
+	if err := tmpl.Execute(w, model); err != nil {
+		h.log.Errorf("debug get images: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func (h *HTTPHandler) HandleDebugGetImage(w http.ResponseWriter, r *http.Request) {
+	type Pod struct {
+		ID string
+	}
+
+	type Node struct {
+		Name string
+	}
+
+	type Owner struct {
+		Pods []Pod
+		ID   string
+	}
+
+	type Model struct {
+		Key    string
+		Owners []Owner
+		Nodes  []Node
+	}
+
+	key := r.URL.Query().Get("key")
+	item, found := h.ctrl.delta.images[key]
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("image not found, key=" + key))
+		return
+	}
+
+	model := Model{
+		Key: key,
+	}
+	for key, imgOwner := range item.owners {
+		owner := Owner{
+			ID: key,
+		}
+		for podID := range imgOwner.podIDs {
+			owner.Pods = append(owner.Pods, Pod{ID: podID})
+		}
+		model.Owners = append(model.Owners, owner)
+	}
+
+	for nodeName := range item.nodes {
+		model.Nodes = append(model.Nodes, Node{Name: nodeName})
+	}
+
+	tmpl := template.Must(template.New("html").Parse(`
+	<h1>Image Details</h1>
+	<div>Key: {{.Key}}</div>
+	
+	<h3>Owners</h3>
+	<table>
+	  <thead>
+		<tr>
+		  <th class="text-left">ID</th>
+		  <th>Pods</th>
+		</tr>
+	  </thead>
+	  <tbody>
+		{{ range .Owners}}
+		<tr>
+		  <td>{{.ID}}</th>
+		  <td>
+			{{ range .Pods }}
+			<div>{{.ID}}</div>
+			{{end}}
+          </th>
+		</tr>
+		{{end}}
+	  </tbody>
+	</table>
+
+	<h3>Nodes</h3>
+	<table>
+	  <thead>
+		<tr>
+		  <th class="text-left">Name</th>
+		</tr>
+	  </thead>
+	  <tbody>
+		{{ range .Nodes}}
+		<tr>
+		  <td>{{.Name}}</th>
+		</tr>
+		{{end}}
+	  </tbody>
+	</table>
+
+	<style>
+		html, body {
+			font-family: Verdana,sans-serif;
+			font-size: 15px;
+			line-height: 1.5;
+		}
+		.text-left {
+			text-align: left;
+		}
+		.text-right {
+			text-align: right;
+		}
+		.scanned-false {
+			color: red;
+		}
+		.scanned-true {
+			color: green;
+		}
+		th, td, tr {
+			padding: 8px;
+		}
+		table, th, td {
+  			border: 1px solid #ccc;
+			border-spacing: inherit;
 		}
 	</style>
 `))

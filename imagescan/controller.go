@@ -38,13 +38,14 @@ func NewController(
 	podOwnerGetter podOwnerGetter,
 ) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
+	log = log.WithField("component", "imagescan")
 	return &Controller{
 		ctx:               ctx,
 		cancel:            cancel,
 		imageScanner:      imageScanner,
 		client:            client,
 		delta:             newDeltaState(podOwnerGetter),
-		log:               log.WithField("component", "imagescan"),
+		log:               log,
 		cfg:               cfg,
 		k8sVersionMinor:   k8sVersionMinor,
 		timeGetter:        timeGetter(),
@@ -335,8 +336,7 @@ func (s *Controller) sendImagesResourcesChanges(ctx context.Context) {
 			ID:           img.id,
 			Architecture: img.architecture,
 			ResourcesChange: castai.ResourcesChange{
-				ResourceIDs:        img.ownerChanges.addedIDS,
-				RemovedResourceIDs: img.ownerChanges.removedIDs,
+				ResourceIDs: lo.Uniq(img.ownerChanges.addedIDS),
 			},
 		})
 	}
