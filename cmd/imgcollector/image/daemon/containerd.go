@@ -142,8 +142,10 @@ func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.I
 	}
 
 	var lastHistory ocispec.History
+	var lastCreated string
 	if len(imgConfig.History) > 0 {
 		lastHistory = imgConfig.History[len(imgConfig.History)-1]
+		lastCreated = lastHistory.Created.Format(time.RFC3339Nano)
 	}
 
 	var history []v1.History
@@ -172,7 +174,7 @@ func inspect(ctx context.Context, img containerd.Image, ref docker.Named) (api.I
 		RepoTags:    []string{fmt.Sprintf("%s:%s", repository, tag)},
 		RepoDigests: []string{fmt.Sprintf("%s@%s", repository, img.Target().Digest)},
 		Comment:     lastHistory.Comment,
-		Created:     lastHistory.Created.Format(time.RFC3339Nano),
+		Created:     lastCreated,
 		Author:      lastHistory.Author,
 		Config: &container.Config{
 			User:         imgConfig.Config.User,
