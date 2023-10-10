@@ -146,7 +146,9 @@ func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
 }
 
 func (d *deltaState) upsertImages(pod *corev1.Pod) {
-	// Skip pods which are not running. If pod is running this means that container image should be already downloaded.
+	if _, found := d.nodes[pod.Spec.NodeName]; !found {
+		return
+	}
 	containers := pod.Spec.Containers
 	containers = append(containers, pod.Spec.InitContainers...)
 	containerStatuses := pod.Status.ContainerStatuses
