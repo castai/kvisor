@@ -93,7 +93,12 @@ func (d *deltaState) delete(o kube.Object) {
 }
 
 func (d *deltaState) handlePodUpdate(v *corev1.Pod) {
-	d.upsertImages(v)
+	if v.Status.Phase == corev1.PodSucceeded {
+		d.handlePodDelete(v)
+	}
+	if v.Status.Phase == corev1.PodRunning {
+		d.upsertImages(v)
+	}
 	d.updateNodesUsageFromPod(v)
 }
 
@@ -142,10 +147,6 @@ func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
 
 func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	// Skip pods which are not running. If pod is running this means that container image should be already downloaded.
-	if pod.Status.Phase != corev1.PodRunning {
-		return
-	}
-
 	containers := pod.Spec.Containers
 	containers = append(containers, pod.Spec.InitContainers...)
 	containerStatuses := pod.Status.ContainerStatuses
