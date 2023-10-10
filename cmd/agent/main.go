@@ -353,6 +353,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		scanHandler := imagescan.NewHttpHandlers(log, castaiClient, imgScanCtrl)
 		httpMux.HandleFunc("/v1/image-scan/report", scanHandler.HandleImageMetadata)
 		httpMux.HandleFunc("/debug/images", scanHandler.HandleDebugGetImages)
+		httpMux.HandleFunc("/debug/images/details", scanHandler.HandleDebugGetImage)
 		blobsCache := blobscache.NewServer(log, blobscache.ServerConfig{})
 		blobsCache.RegisterHandlers(httpMux)
 	}

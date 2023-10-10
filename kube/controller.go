@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -62,6 +64,7 @@ func NewController(
 		informers:            typeInformerMap,
 		podsBuffSyncInterval: 5 * time.Second,
 		replicaSets:          make(map[types.UID]*appsv1.ReplicaSet),
+		deployments:          make(map[types.UID]*appsv1.Deployment),
 		jobs:                 make(map[types.UID]*batchv1.Job),
 	}
 	return c
@@ -78,6 +81,7 @@ type Controller struct {
 
 	deltasMu    sync.RWMutex
 	replicaSets map[types.UID]*appsv1.ReplicaSet
+	deployments map[types.UID]*appsv1.Deployment
 	jobs        map[types.UID]*batchv1.Job
 }
 
@@ -140,7 +144,20 @@ func (c *Controller) GetPodOwnerID(pod *corev1.Pod) string {
 
 		rs, found := c.replicaSets[ref.UID]
 		if found {
-			return string(findNextOwnerID(rs, "Deployment"))
+			// Fast path. Find Deployment from replica set.
+			if owner, found := findNextOwnerID(rs, "Deployment"); found {
+				return string(owner)
+			}
+		}
+
+		// Slow path. Find deployment by matching selectors.
+		// In this Deployment could be managed by some crd like ArgoRollouts.
+		if owner, found := findOwnerFromDeployments(c.deployments, pod); found {
+			return string(owner)
+		}
+
+		if found {
+			return string(rs.UID)
 		}
 	case "Job":
 		c.deltasMu.RLock()
@@ -148,7 +165,10 @@ func (c *Controller) GetPodOwnerID(pod *corev1.Pod) string {
 
 		job, found := c.jobs[ref.UID]
 		if found {
-			return string(findNextOwnerID(job, "CronJob"))
+			if owner, found := findNextOwnerID(job, "CronJob"); found {
+				return string(owner)
+			}
+			return string(job.UID)
 		}
 	}
 
@@ -242,18 +262,20 @@ func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.
 	}
 }
 
-func (c *Controller) handleEvent(obj any, eventType eventType, subs []subChannel) {
+func (c *Controller) handleEvent(eventObject any, eventType eventType, subs []subChannel) {
 	var actualObj Object
-	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+	if deleted, ok := eventObject.(cache.DeletedFinalStateUnknown); ok {
 		obj, ok := deleted.Obj.(Object)
 		if !ok {
+			c.log.Errorf("expected kube.Object, got %T, key=%s", deleted.Obj, deleted.Key)
 			return
 		}
 		actualObj = obj
 		eventType = eventTypeDelete
 	} else {
-		obj, ok := obj.(Object)
+		obj, ok := eventObject.(Object)
 		if !ok {
+			c.log.Errorf("expected kube.Object, got %T", eventObject)
 			return
 		}
 		actualObj = obj
@@ -281,6 +303,8 @@ func (c *Controller) handleDeltaUpsert(obj Object) {
 	switch v := obj.(type) {
 	case *appsv1.ReplicaSet:
 		c.replicaSets[v.UID] = v
+	case *appsv1.Deployment:
+		c.deployments[v.UID] = v
 	case *batchv1.Job:
 		c.jobs[v.UID] = v
 	}
@@ -293,6 +317,8 @@ func (c *Controller) handleDeltaDelete(obj Object) {
 	switch v := obj.(type) {
 	case *appsv1.ReplicaSet:
 		delete(c.replicaSets, v.UID)
+	case *appsv1.Deployment:
+		delete(c.deployments, v.UID)
 	case *batchv1.Job:
 		delete(c.jobs, v.UID)
 	}
@@ -386,17 +412,30 @@ func addObjectMeta(o Object) {
 	}
 }
 
-func findNextOwnerID(obj Object, expectedKind string) types.UID {
+func findNextOwnerID(obj Object, expectedKind string) (types.UID, bool) {
 	refs := obj.GetOwnerReferences()
 	if len(refs) == 0 {
-		return obj.GetUID()
+		return obj.GetUID(), true
 	}
 
 	for _, ref := range refs {
 		if ref.Kind == expectedKind {
-			return ref.UID
+			return ref.UID, true
 		}
 	}
 
-	return obj.GetUID()
+	return "", false
+}
+
+func findOwnerFromDeployments(items map[types.UID]*appsv1.Deployment, pod *corev1.Pod) (types.UID, bool) {
+	for _, deployment := range items {
+		sel, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+		if err != nil {
+			continue
+		}
+		if sel.Matches(labels.Set(pod.Labels)) {
+			return deployment.UID, true
+		}
+	}
+	return "", false
 }

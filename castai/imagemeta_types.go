@@ -38,6 +38,5 @@ type Image struct {
 }
 
 type ResourcesChange struct {
-	ResourceIDs        []string `json:"resourceIDs"`
-	RemovedResourceIDs []string `json:"removedResourceIDs"`
+	ResourceIDs []string `json:"resourceIDs"`
 }

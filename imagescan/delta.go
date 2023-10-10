@@ -21,12 +21,15 @@ var (
 	errNoCandidates = errors.New("no candidates")
 )
 
+const defaultImageArch = "amd64"
+
 type podOwnerGetter interface {
 	GetPodOwnerID(pod *corev1.Pod) string
 }
 
-func newImage(imageID, architecture string) *image {
+func newImage(key, imageID, architecture string) *image {
 	return &image{
+		key:          key,
 		id:           imageID,
 		architecture: architecture,
 		owners:       map[string]*imageOwner{},
@@ -90,7 +93,12 @@ func (d *deltaState) delete(o kube.Object) {
 }
 
 func (d *deltaState) handlePodUpdate(v *corev1.Pod) {
-	d.upsertImages(v)
+	if v.Status.Phase == corev1.PodSucceeded {
+		d.handlePodDelete(v)
+	}
+	if v.Status.Phase == corev1.PodRunning {
+		d.upsertImages(v)
+	}
 	d.updateNodesUsageFromPod(v)
 }
 
@@ -115,13 +123,7 @@ func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
 	case corev1.PodRunning, corev1.PodPending:
 		n, found := d.nodes[v.Spec.NodeName]
 		if !found {
-			n = &node{
-				name:           v.Spec.NodeName,
-				allocatableMem: &inf.Dec{},
-				allocatableCPU: &inf.Dec{},
-				pods:           make(map[types.UID]*pod),
-			}
-			d.nodes[v.Spec.NodeName] = n
+			return
 		}
 
 		p, found := n.pods[v.GetUID()]
@@ -144,11 +146,9 @@ func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
 }
 
 func (d *deltaState) upsertImages(pod *corev1.Pod) {
-	// Skip pods which are not running. If pod is running this means that container image should be already downloaded.
-	if pod.Status.Phase != corev1.PodRunning {
+	if _, found := d.nodes[pod.Spec.NodeName]; !found {
 		return
 	}
-
 	containers := pod.Spec.Containers
 	containers = append(containers, pod.Spec.InitContainers...)
 	containerStatuses := pod.Status.ContainerStatuses
@@ -171,17 +171,12 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 			continue
 		}
 
-		arch := "amd64"
 		nodeName := pod.Spec.NodeName
-		n, ok := d.nodes[nodeName]
-		if ok {
-			arch = n.architecture
-		}
-
-		key := cs.ImageID + arch
+		arch := d.getPodArch(pod)
+		key := d.getImageKey(cs.ImageID, arch)
 		img, found := d.images[key]
 		if !found {
-			img = newImage(cs.ImageID, arch)
+			img = newImage(key, cs.ImageID, arch)
 		}
 		img.id = cs.ImageID
 		img.name = cont.Image
@@ -218,6 +213,10 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 	for imgKey, img := range d.images {
+		if img.architecture != d.getPodArch(pod) {
+			continue
+		}
+
 		podID := string(pod.UID)
 		if n, found := img.nodes[pod.Spec.NodeName]; found {
 			delete(n.podIDs, podID)
@@ -228,10 +227,6 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 			delete(owner.podIDs, podID)
 			if len(owner.podIDs) == 0 {
 				delete(img.owners, ownerResourceID)
-				// Add changed owner.
-				if img.scanned {
-					img.ownerChanges.removedIDs = append(img.ownerChanges.removedIDs, ownerResourceID)
-				}
 			}
 		}
 
@@ -327,6 +322,19 @@ func (d *deltaState) setImageScanned(scannedImg castai.ScannedImage) {
 	}
 }
 
+func (d *deltaState) getImageKey(imageID, arch string) string {
+	key := imageID + arch
+	return key
+}
+
+func (d *deltaState) getPodArch(pod *corev1.Pod) string {
+	n, ok := d.nodes[pod.Spec.NodeName]
+	if ok && n.architecture != "" {
+		return n.architecture
+	}
+	return defaultImageArch
+}
+
 func getContainerRuntime(containerID string) imgcollectorconfig.Runtime {
 	parts := strings.Split(containerID, "://")
 	if len(parts) != 2 {
@@ -410,6 +418,8 @@ var (
 )
 
 type image struct {
+	key string
+
 	// id is ImageID from container status. It includes image name and digest.
 	//
 	// Note: ImageID's digest part could confuse you with actual image digest.
@@ -455,15 +465,13 @@ func (img *image) isUnused() bool {
 }
 
 type ownerChanges struct {
-	addedIDS   []string
-	removedIDs []string
+	addedIDS []string
 }
 
 func (c *ownerChanges) empty() bool {
-	return len(c.addedIDS) == 0 && len(c.removedIDs) == 0
+	return len(c.addedIDS) == 0
 }
 
 func (c *ownerChanges) clear() {
 	c.addedIDS = []string{}
-	c.removedIDs = []string{}
 }

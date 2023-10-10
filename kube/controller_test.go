@@ -112,6 +112,7 @@ func TestController(t *testing.T) {
 
 		type testPod struct {
 			ownerRef *metav1.OwnerReference
+			labels   map[string]string
 		}
 		createTestPod := func(pod testPod) *corev1.Pod {
 			var refs []metav1.OwnerReference
@@ -123,6 +124,7 @@ func TestController(t *testing.T) {
 					UID:             types.UID(uuid.New().String()),
 					Name:            uuid.New().String(),
 					OwnerReferences: refs,
+					Labels:          pod.labels,
 				},
 				Status: corev1.PodStatus{
 					Phase: corev1.PodRunning,
@@ -197,6 +199,20 @@ func TestController(t *testing.T) {
 			},
 		}
 
+		dep := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:  types.UID(uuid.New().String()),
+				Name: "d1",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"lbl-pod": "pod10",
+					},
+				},
+			},
+		}
+
 		// Pods with well known 2 level owners.
 		p1 := createTestPod(testPod{ownerRef: nil})
 		p2 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: rsWithDeployment.UID, Kind: "ReplicaSet"}})
@@ -213,6 +229,15 @@ func TestController(t *testing.T) {
 		p8 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: statefulSet.UID, Kind: "StatefulSet"}})
 		p9 := createTestPod(testPod{ownerRef: &metav1.OwnerReference{UID: ds.UID, Kind: "DaemonSet"}})
 
+		// Pod with custom ReplicaSet managed by custom crd and Deployment selector.
+		p10 := createTestPod(testPod{
+			labels: map[string]string{
+				"lbl-pod":     "pod10",
+				"more-labels": "here",
+			},
+			ownerRef: &metav1.OwnerReference{UID: "random", Kind: "ReplicaSet"}},
+		)
+
 		clientset := fake.NewSimpleClientset(
 			rsWithDeployment,
 			rsWithoutDeployment,
@@ -220,6 +245,7 @@ func TestController(t *testing.T) {
 			jobManagedByCustomCrd,
 			standaloneJob,
 			statefulSet,
+			dep,
 			p1,
 			p2,
 			p3,
@@ -229,6 +255,7 @@ func TestController(t *testing.T) {
 			p7,
 			p8,
 			p9,
+			p10,
 		)
 		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 
@@ -249,7 +276,7 @@ func TestController(t *testing.T) {
 		case err := <-errc:
 			t.Fatal(err)
 		case <-time.After(100 * time.Millisecond):
-			r.Equal(15, testSub.getAddedObjectsCount())
+			r.Equal(17, testSub.getAddedObjectsCount())
 		}
 
 		r.Equal(string(p1.UID), ctrl.GetPodOwnerID(p1))
@@ -260,6 +287,7 @@ func TestController(t *testing.T) {
 		r.Equal(string(jobManagedByCustomCrd.UID), ctrl.GetPodOwnerID(p7))
 		r.Equal(string(statefulSet.UID), ctrl.GetPodOwnerID(p8))
 		r.Equal(string(ds.UID), ctrl.GetPodOwnerID(p9))
+		r.Equal(string(dep.UID), ctrl.GetPodOwnerID(p10))
 	})
 }
 
@@ -346,6 +374,7 @@ func (t *testSubscriber) RequiredInformers() []reflect.Type {
 		reflect.TypeOf(&appsv1.DaemonSet{}),
 		reflect.TypeOf(&appsv1.ReplicaSet{}),
 		reflect.TypeOf(&appsv1.StatefulSet{}),
+		reflect.TypeOf(&appsv1.Deployment{}),
 		reflect.TypeOf(&corev1.Pod{}),
 		reflect.TypeOf(&corev1.Node{}),
 		reflect.TypeOf(&batchv1.Job{}),

@@ -12,8 +12,6 @@ import (
 	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -38,13 +36,14 @@ func NewController(
 	podOwnerGetter podOwnerGetter,
 ) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
+	log = log.WithField("component", "imagescan")
 	return &Controller{
 		ctx:               ctx,
 		cancel:            cancel,
 		imageScanner:      imageScanner,
 		client:            client,
 		delta:             newDeltaState(podOwnerGetter),
-		log:               log.WithField("component", "imagescan"),
+		log:               log,
 		cfg:               cfg,
 		k8sVersionMinor:   k8sVersionMinor,
 		timeGetter:        timeGetter(),
@@ -76,8 +75,6 @@ type Controller struct {
 func (s *Controller) RequiredInformers() []reflect.Type {
 	rt := []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
-		reflect.TypeOf(&appsv1.ReplicaSet{}),
-		reflect.TypeOf(&batchv1.Job{}),
 		reflect.TypeOf(&corev1.Node{}),
 	}
 	return rt
@@ -335,8 +332,7 @@ func (s *Controller) sendImagesResourcesChanges(ctx context.Context) {
 			ID:           img.id,
 			Architecture: img.architecture,
 			ResourcesChange: castai.ResourcesChange{
-				ResourceIDs:        img.ownerChanges.addedIDS,
-				RemovedResourceIDs: img.ownerChanges.removedIDs,
+				ResourceIDs: lo.Uniq(img.ownerChanges.addedIDS),
 			},
 		})
 	}
