@@ -118,13 +118,7 @@ func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
 	case corev1.PodRunning, corev1.PodPending:
 		n, found := d.nodes[v.Spec.NodeName]
 		if !found {
-			n = &node{
-				name:           v.Spec.NodeName,
-				allocatableMem: &inf.Dec{},
-				allocatableCPU: &inf.Dec{},
-				pods:           make(map[types.UID]*pod),
-			}
-			d.nodes[v.Spec.NodeName] = n
+			return
 		}
 
 		p, found := n.pods[v.GetUID()]

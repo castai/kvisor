@@ -12,8 +12,6 @@ import (
 	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -77,8 +75,6 @@ type Controller struct {
 func (s *Controller) RequiredInformers() []reflect.Type {
 	rt := []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
-		reflect.TypeOf(&appsv1.ReplicaSet{}),
-		reflect.TypeOf(&batchv1.Job{}),
 		reflect.TypeOf(&corev1.Node{}),
 	}
 	return rt

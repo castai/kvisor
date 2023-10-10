@@ -262,18 +262,20 @@ func (c *Controller) eventsHandler(ctx context.Context, typ reflect.Type) cache.
 	}
 }
 
-func (c *Controller) handleEvent(obj any, eventType eventType, subs []subChannel) {
+func (c *Controller) handleEvent(eventObject any, eventType eventType, subs []subChannel) {
 	var actualObj Object
-	if deleted, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+	if deleted, ok := eventObject.(cache.DeletedFinalStateUnknown); ok {
 		obj, ok := deleted.Obj.(Object)
 		if !ok {
+			c.log.Errorf("expected kube.Object, got %T, key=%s", deleted.Obj, deleted.Key)
 			return
 		}
 		actualObj = obj
 		eventType = eventTypeDelete
 	} else {
-		obj, ok := obj.(Object)
+		obj, ok := eventObject.(Object)
 		if !ok {
+			c.log.Errorf("expected kube.Object, got %T", eventObject)
 			return
 		}
 		actualObj = obj
