@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/castai/kvisor/castai"
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/kube"
@@ -236,9 +236,7 @@ func (s *Controller) scanImages(ctx context.Context, images []*image) error {
 				return
 			}
 			log.Info("image scan finished")
-			s.delta.updateImage(img, func(img *image) {
-				img.scanned = true
-			})
+			s.delta.updateImage(img, func(i *image) { i.scanned = true })
 		}(img)
 	}
 
