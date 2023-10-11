@@ -81,13 +81,13 @@ func TestDelta(t *testing.T) {
 		delta.upsert(pod2)
 		delta.upsert(pod3)
 		r.Len(delta.images, 2)
-		img1 := delta.images["img1amd64"]
+		img1 := delta.images["img1amd64nginx1"]
 		r.Len(img1.nodes, 2)
 		r.Equal("nginx1", img1.name)
 		r.Equal("img1", img1.id)
 		r.Len(img1.owners, 2)
 		r.Len(img1.nodes["node1"].podIDs, 1)
-		r.Len(delta.images["img2amd64"].nodes, 1)
+		r.Len(delta.images["img2amd64nginx2"].nodes, 1)
 
 		// Delete single pod. It should be removed only from image nodes list.
 		delta.delete(pod1)
@@ -98,7 +98,7 @@ func TestDelta(t *testing.T) {
 		// Delete one more pod for the same image. Image should be removed.
 		delta.delete(pod3)
 		r.Len(delta.images, 2)
-		r.Len(delta.images["img2amd64"].nodes, 1)
+		r.Len(delta.images["img2amd64nginx2"].nodes, 1)
 	})
 
 	t.Run("find best node for image scan", func(t *testing.T) {
@@ -385,13 +385,13 @@ func TestDelta(t *testing.T) {
 		}
 
 		delta.upsert(pod)
-		img, found := delta.images["testidamd64"]
+		img, found := delta.images["testidamd64test"]
 		r.True(found)
 		r.Len(img.owners, 1)
 		r.Len(img.nodes, 1)
 
 		delta.delete(pod)
-		img, found = delta.images["testidamd64"]
+		img, found = delta.images["testidamd64test"]
 		r.True(found)
 		r.Len(img.owners, 0)
 

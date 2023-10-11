@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/castai"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -17,12 +16,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/castai/kvisor/castai"
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 )
 
 func TestSubscriber(t *testing.T) {
-
 	ctx := context.Background()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
@@ -256,15 +255,18 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1amd64", "img1", "amd64")
+		img := newImage()
 		img.name = "img"
+		img.id = "img1"
+		img.key = "img1amd64img"
+		img.architecture = "amd64"
 		img.nodes = map[string]*imageNode{
 			"node1": {},
 		}
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		delta.images[img.cacheKey()] = img
+		delta.images[img.key] = img
 		delta.setImageScanError(img, errors.New("failed"))
 		delta.setImageScanError(img, errors.New("failed again"))
 
@@ -292,9 +294,8 @@ func TestSubscriber(t *testing.T) {
 			}
 
 			r.Len(imgs, 1)
-			img = delta.images[img.cacheKey()]
+			img = delta.images[img.key]
 			r.False(img.nextScan.IsZero())
-			r.True(img.scanned)
 			return true
 		})
 	})
@@ -321,8 +322,11 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1amd64", "img1", "amd64")
+		img := newImage()
 		img.name = "img"
+		img.id = "img1"
+		img.key = "img1amd64img"
+		img.architecture = "amd64"
 		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
 		img.nodes = map[string]*imageNode{
 			"node1": {},
@@ -330,7 +334,7 @@ func TestSubscriber(t *testing.T) {
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		delta.images[img.cacheKey()] = img
+		delta.images[img.key] = img
 		delta.setImageScanError(img, errImageScanLayerNotFound)
 
 		resMem := resource.MustParse("500Mi")
@@ -385,13 +389,16 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1amd64", "img1", "amd64")
+		img := newImage()
 		img.name = "img"
+		img.id = "img1"
+		img.key = "img1amd64img"
+		img.architecture = "amd64"
 		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		delta.images[img.cacheKey()] = img
+		delta.images[img.key] = img
 
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
@@ -441,16 +448,18 @@ func TestSubscriber(t *testing.T) {
 		sub.imageScanner = scanner
 		sub.initialScansDelay = 1 * time.Millisecond
 		delta := sub.delta
-		delta.images["img1"] = &image{
-			name: "img",
-			id:   "img1",
-			nodes: map[string]*imageNode{
-				"node1": {},
-			},
-			owners: map[string]*imageOwner{
-				"r1": {},
-			},
+		img := newImage()
+		img.name = "img"
+		img.id = "img1"
+		img.key = "img1amd64img"
+		img.architecture = "amd64"
+		img.nodes = map[string]*imageNode{
+			"node1": {},
 		}
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
+		delta.images[img.key] = img
 
 		firstCtx, firstCancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer firstCancel()
@@ -470,16 +479,18 @@ func TestSubscriber(t *testing.T) {
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
 		}
-		delta.images["img1"] = &image{
-			name: "img",
-			id:   "img1",
-			nodes: map[string]*imageNode{
-				"node1": {},
-			},
-			owners: map[string]*imageOwner{
-				"r1": {},
-			},
+		img = newImage()
+		img.name = "img"
+		img.id = "img1"
+		img.key = "img1amd64img"
+		img.architecture = "amd64"
+		img.nodes = map[string]*imageNode{
+			"node1": {},
 		}
+		img.owners = map[string]*imageOwner{
+			"r1": {},
+		}
+		delta.images[img.key] = img
 
 		secondCtx, secondCancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer secondCancel()
@@ -487,7 +498,7 @@ func TestSubscriber(t *testing.T) {
 		err = sub.scheduleScans(secondCtx)
 		r.NoError(err)
 		r.Len(scanner.imgs, 1)
-		r.True(delta.images["img1"].scanned)
+		r.True(delta.images[img.key].scanned)
 	})
 
 	t.Run("send changed resource owners", func(t *testing.T) {
@@ -505,15 +516,18 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img := newImage("img1amd64", "img1", "amd64")
+		img := newImage()
 		img.name = "img"
+		img.id = "img1"
+		img.key = "img1amd64img"
+		img.architecture = "amd64"
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
 		img.ownerChanges = ownerChanges{
 			addedIDS: []string{"r1"},
 		}
-		delta.images[img.cacheKey()] = img
+		delta.images[img.key] = img
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
@@ -587,19 +601,25 @@ func TestSubscriber(t *testing.T) {
 			return time.Now().UTC().Add(time.Hour)
 		}
 		delta := sub.delta
-		img1 := newImage("img1amd64", "img1", "amd64")
+		img1 := newImage()
 		img1.name = "img1"
+		img1.id = "img1"
+		img1.key = "img1amd64img1"
+		img1.architecture = "amd64"
 		img1.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		delta.images[img1.cacheKey()] = img1
+		delta.images[img1.key] = img1
 
-		img2 := newImage("img1amd64", "img2", "amd64")
+		img2 := newImage()
 		img2.name = "img2"
+		img2.id = "img2"
+		img2.key = "img2amd64img2"
+		img2.architecture = "amd64"
 		img2.owners = map[string]*imageOwner{
 			"r2": {},
 		}
-		delta.images[img2.cacheKey()] = img2
+		delta.images[img2.key] = img2
 
 		errc := make(chan error, 1)
 		go func() {

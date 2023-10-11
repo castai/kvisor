@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castai/kvisor/castai"
 	"github.com/samber/lo"
 	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/castai/kvisor/castai"
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/kube"
 )
@@ -27,11 +27,8 @@ type podOwnerGetter interface {
 	GetPodOwnerID(pod *corev1.Pod) string
 }
 
-func newImage(key, imageID, architecture string) *image {
+func newImage() *image {
 	return &image{
-		key:          key,
-		id:           imageID,
-		architecture: architecture,
 		owners:       map[string]*imageOwner{},
 		nodes:        map[string]*imageNode{},
 		scanned:      false,
@@ -173,13 +170,15 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 
 		nodeName := pod.Spec.NodeName
 		arch := d.getPodArch(pod)
-		key := d.getImageKey(cs.ImageID, arch)
+		key := cs.ImageID + arch + cont.Image
 		img, found := d.images[key]
 		if !found {
-			img = newImage(key, cs.ImageID, arch)
+			img = newImage()
+			img.name = cont.Image
+			img.key = key
+			img.architecture = arch
 		}
 		img.id = cs.ImageID
-		img.name = cont.Image
 		img.containerRuntime = getContainerRuntime(cs.ContainerID)
 
 		// Upsert image owners.
@@ -257,15 +256,15 @@ func (d *deltaState) getImages() []*image {
 	return lo.Values(d.images)
 }
 
-func (d *deltaState) updateImage(i *image, change func(img *image)) {
-	img := d.images[i.cacheKey()]
+func (d *deltaState) updateImage(i *image, change func(*image)) {
+	img := d.images[i.key]
 	if img != nil {
 		change(img)
 	}
 }
 
 func (d *deltaState) setImageScanError(i *image, err error) {
-	img := d.images[i.cacheKey()]
+	img := d.images[i.key]
 	if img == nil {
 		return
 	}
@@ -320,11 +319,6 @@ func (d *deltaState) setImageScanned(scannedImg castai.ScannedImage) {
 			img.scanned = true
 		}
 	}
-}
-
-func (d *deltaState) getImageKey(imageID, arch string) string {
-	key := imageID + arch
-	return key
 }
 
 func (d *deltaState) getPodArch(pod *corev1.Pod) string {
@@ -418,7 +412,7 @@ var (
 )
 
 type image struct {
-	key string
+	key string // used in map[string]*image
 
 	// id is ImageID from container status. It includes image name and digest.
 	//
@@ -454,10 +448,6 @@ type image struct {
 	nextScan     time.Time    // Set based on retry backoff.
 
 	lastRemoteSyncAt time.Time // Time then image state was synced from remote.
-}
-
-func (img *image) cacheKey() string {
-	return img.id + img.architecture
 }
 
 func (img *image) isUnused() bool {
