@@ -52,10 +52,10 @@ func NewClient(
 	apiURL, apiKey string,
 	log *logrus.Logger,
 	clusterID string,
+	policyEnforcement bool,
 	binName string,
 	binVersion config.SecurityAgentVersion,
 ) Client {
-
 	httpClient := newDefaultDeltaHTTPClient()
 	restClient := resty.NewWithClient(httpClient)
 	restClient.SetBaseURL(apiURL)
@@ -66,13 +66,14 @@ func NewClient(
 	}
 
 	return &client{
-		apiURL:     apiURL,
-		apiKey:     apiKey,
-		log:        log,
-		restClient: restClient,
-		httpClient: httpClient,
-		clusterID:  clusterID,
-		binVersion: binVersion,
+		apiURL:            apiURL,
+		apiKey:            apiKey,
+		log:               log,
+		restClient:        restClient,
+		httpClient:        httpClient,
+		clusterID:         clusterID,
+		policyEnforcement: policyEnforcement,
+		binVersion:        binVersion,
 	}
 }
 
@@ -98,20 +99,28 @@ func newDefaultDeltaHTTPClient() *http.Client {
 }
 
 type client struct {
-	apiURL     string
-	apiKey     string
-	log        *logrus.Logger
-	restClient *resty.Client
-	httpClient *http.Client
-	clusterID  string
-	binVersion config.SecurityAgentVersion
+	apiURL            string
+	apiKey            string
+	log               *logrus.Logger
+	restClient        *resty.Client
+	httpClient        *http.Client
+	clusterID         string
+	policyEnforcement bool
+	binVersion        config.SecurityAgentVersion
 }
 
 func (c *client) PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error) {
 	req := c.restClient.R().SetContext(ctx)
-	if initial {
-		req.SetBody(map[string]interface{}{"initialSync": true})
+
+	type telemetryRequest struct {
+		InitialSync       bool `json:"initialSync,omitempty"`
+		PolicyEnforcement bool `json:"policyEnforcement,omitempty"`
 	}
+	body := telemetryRequest{PolicyEnforcement: c.policyEnforcement}
+	if initial {
+		body.InitialSync = initial
+	}
+	req.SetBody(body)
 
 	resp, err := req.Post(fmt.Sprintf("/v1/security/insights/%s/telemetry", c.clusterID))
 	if err != nil {
