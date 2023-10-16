@@ -11,19 +11,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/castai/kvisor/blobscache"
-	"github.com/containerd/containerd/pkg/atomic"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	"k8s.io/klog/v2"
-
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/containerd/containerd/pkg/atomic"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,15 +27,19 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/castai/telemetry"
 	"github.com/castai/kvisor/cloudscan/eks"
@@ -56,8 +54,6 @@ import (
 	agentlog "github.com/castai/kvisor/log"
 	"github.com/castai/kvisor/policy"
 	"github.com/castai/kvisor/version"
-
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 // These should be set via `go build` during a release.
@@ -92,6 +88,7 @@ func main() {
 		cfg.API.URL, cfg.API.Key,
 		logger,
 		cfg.API.ClusterID,
+		cfg.PolicyEnforcement.Enabled,
 		"castai-kvisor",
 		binVersion,
 	)
