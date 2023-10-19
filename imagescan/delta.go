@@ -274,8 +274,7 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 	if strings.Contains(err.Error(), "no such file or directory") || strings.Contains(err.Error(), "failed to get the layer") {
 		img.lastScanErr = errImageScanLayerNotFound
 		d.hostFSDisabled = true
-	} else if strings.Contains(err.Error(), "UNAUTHORIZED") || strings.Contains(err.Error(), "MANIFEST_UNKNOWN") || strings.Contains(err.Error(), "DENIED") {
-		// Error codes from https://github.com/google/go-containerregistry/blob/190ad0e4d556f199a07951d55124f8a394ebccd9/pkg/v1/remote/transport/error.go#L115
+	} else if isPrivateImageError(err) {
 		img.lastScanErr = errPrivateImage
 	}
 
@@ -406,11 +405,6 @@ type imageOwner struct {
 	podIDs map[string]struct{}
 }
 
-var (
-	errImageScanLayerNotFound = errors.New("image layer not found")
-	errPrivateImage           = errors.New("private image")
-)
-
 type image struct {
 	key string // used in map[string]*image
 
@@ -464,4 +458,22 @@ func (c *ownerChanges) empty() bool {
 
 func (c *ownerChanges) clear() {
 	c.addedIDS = []string{}
+}
+
+var (
+	errImageScanLayerNotFound = errors.New("image layer not found")
+	errPrivateImage           = errors.New("private image")
+)
+
+func isPrivateImageError(rawErr error) bool {
+	errStr := strings.ToLower(rawErr.Error())
+
+	// Error codes from https://github.com/google/go-containerregistry/blob/190ad0e4d556f199a07951d55124f8a394ebccd9/pkg/v1/remote/transport/error.go#L115
+	// Connection refused error can happen for localhost image.
+	for _, errPart := range []string{"unauthorized", "manifest_unknown", "denied", "connection refused"} {
+		if strings.Contains(errStr, errPart) {
+			return true
+		}
+	}
+	return false
 }
