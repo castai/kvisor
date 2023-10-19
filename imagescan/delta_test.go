@@ -1,6 +1,7 @@
 package imagescan
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -399,6 +400,27 @@ func TestDelta(t *testing.T) {
 		_, found = delta.nodes["node1"]
 		r.False(found)
 	})
+}
+
+func TestIsPrivateImageErr(t *testing.T) {
+	tests := []struct {
+		name            string
+		err             error
+		expectedPrivate bool
+	}{
+		{name: "unauthorized upper case", err: errors.New("can't get image: UNAUTHORIZED image"), expectedPrivate: true},
+		{name: "unauthorized pascal case", err: errors.New("can't get image: Unauthorized image"), expectedPrivate: true},
+		{name: "manifest_unknown", err: errors.New("can't get image: MANIFEST_UNKNOWN image"), expectedPrivate: true},
+		{name: "denied", err: errors.New("can't get image: DENIED image"), expectedPrivate: true},
+		{name: "connection refused", err: errors.New("can't get image: connection refused image"), expectedPrivate: true},
+		{name: "context canceled", err: errors.New("can't get image: context canceled"), expectedPrivate: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.expectedPrivate, isPrivateImageError(test.err))
+		})
+	}
 }
 
 func newTestDelta() *deltaState {
