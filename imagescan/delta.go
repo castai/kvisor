@@ -66,9 +66,6 @@ type deltaState struct {
 	images map[string]*image
 
 	nodes map[string]*node
-
-	// If we fail to scan in hostfs mode it will be disabled for all feature image scans.
-	hostFSDisabled bool
 }
 
 func (d *deltaState) upsert(o kube.Object) {
@@ -108,6 +105,7 @@ func (d *deltaState) updateNodeUsage(v *corev1.Node) {
 			allocatableMem: &inf.Dec{},
 			allocatableCPU: &inf.Dec{},
 			pods:           make(map[types.UID]*pod),
+			castaiManaged:  v.Labels["provisioner.cast.ai/managed-by"] == "cast.ai",
 		}
 		d.nodes[v.GetName()] = n
 	}
@@ -271,14 +269,25 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 
 	img.failures++
 	img.lastScanErr = err
-	if strings.Contains(err.Error(), "no such file or directory") || strings.Contains(err.Error(), "failed to get the layer") {
+	if isHostFSError(err) {
 		img.lastScanErr = errImageScanLayerNotFound
-		d.hostFSDisabled = true
 	} else if isPrivateImageError(err) {
 		img.lastScanErr = errPrivateImage
 	}
 
 	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
+}
+
+func (d *deltaState) filterCastAIManagedNodes(nodes []string) []string {
+	var result []string
+	for _, nodeName := range nodes {
+		n, ok := d.nodes[nodeName]
+		if ok && n.castaiManaged {
+			result = append(result, nodeName)
+		}
+	}
+
+	return result
 }
 
 func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, requiredCPU *inf.Dec) (string, error) {
@@ -306,10 +315,6 @@ func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, r
 
 func (d *deltaState) nodeCount() int {
 	return len(d.nodes)
-}
-
-func (d *deltaState) isHostFsDisabled() bool {
-	return d.hostFSDisabled
 }
 
 func (d *deltaState) setImageScanned(scannedImg castai.ScannedImage) {
@@ -355,6 +360,7 @@ type node struct {
 	allocatableMem *inf.Dec
 	allocatableCPU *inf.Dec
 	pods           map[types.UID]*pod
+	castaiManaged  bool // true if managed by CAST AI
 }
 
 func (n *node) availableMemory() *inf.Dec {
@@ -476,4 +482,8 @@ func isPrivateImageError(rawErr error) bool {
 		}
 	}
 	return false
+}
+
+func isHostFSError(rawErr error) bool {
+	return strings.Contains(rawErr.Error(), "no such file or directory") || strings.Contains(rawErr.Error(), "failed to get the layer")
 }

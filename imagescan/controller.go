@@ -258,12 +258,19 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	mode := s.getScanMode(img)
+	// If mode is empty it will be determined automatically based on container runtime inside scanner.go
+	//
+	// Special case:
+	// If hostfs mode is used and image scan fails due to missing layers remote image scan will be used as fallback.
+	mode := s.cfg.Mode
+	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) {
+		mode = string(imgcollectorconfig.ModeRemote)
+	}
 
 	var nodeNames []string
 	if imgcollectorconfig.Mode(mode) == imgcollectorconfig.ModeHostFS {
 		// In HostFS we need to choose only from nodes which contains this image.
-		nodeNames = lo.Keys(img.nodes)
+		nodeNames = s.delta.filterCastAIManagedNodes(lo.Keys(img.nodes))
 		if len(nodeNames) == 0 {
 			return errors.New("image with empty nodes")
 		}
@@ -276,6 +283,16 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	cpuQty := resource.MustParse(s.cfg.CPURequest)
 	resolvedNode, err := s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 	if err != nil {
+		if errors.Is(err, errNoCandidates) && imgcollectorconfig.Mode(mode) == imgcollectorconfig.ModeHostFS {
+			// if mode was host fs fallback to remote scan and try picking node again.
+			mode = string(imgcollectorconfig.ModeRemote)
+			nodeNames = lo.Keys(s.delta.nodes)
+			resolvedNode, err = s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
+			if err != nil {
+				return err
+			}
+		}
+
 		return err
 	}
 
@@ -304,19 +321,6 @@ func (s *Controller) concurrentScansNumber() int {
 	}
 
 	return int(s.cfg.MaxConcurrentScans)
-}
-
-// getScanMode returns configured image scan mode if set.
-// If mode is empty it will be determined automatically based on container runtime inside scanner.go
-//
-// Special case:
-// If hostfs mode is used and image scan fails due to missing layers remote image scan will be used as fallback.
-func (s *Controller) getScanMode(img *image) string {
-	mode := s.cfg.Mode
-	if s.delta.isHostFsDisabled() || (img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound)) {
-		mode = string(imgcollectorconfig.ModeRemote)
-	}
-	return mode
 }
 
 func (s *Controller) sendImagesResourcesChanges(ctx context.Context) {

@@ -34,6 +34,9 @@ func TestSubscriber(t *testing.T) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
+				Labels: map[string]string{
+					"provisioner.cast.ai/managed-by": "cast.ai",
+				},
 			},
 			Status: corev1.NodeStatus{
 				NodeInfo: corev1.NodeSystemInfo{
@@ -478,6 +481,7 @@ func TestSubscriber(t *testing.T) {
 			allocatableMem: resMem.AsDec(),
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
+			castaiManaged:  true,
 		}
 		img = newImage()
 		img.name = "img"
