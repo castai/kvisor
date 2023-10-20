@@ -264,6 +264,7 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	// If hostfs mode is used and image scan fails due to missing layers remote image scan will be used as fallback.
 	mode := s.cfg.Mode
 	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) {
+		// Fallback to remote if previously it failed due to missing layers.
 		mode = string(imgcollectorconfig.ModeRemote)
 	}
 
@@ -291,9 +292,9 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 			if err != nil {
 				return err
 			}
+		} else {
+			return err
 		}
-
-		return err
 	}
 
 	start := time.Now()
