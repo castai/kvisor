@@ -53,7 +53,7 @@ func TestSnapshotProvider(t *testing.T) {
 		ObjectCreatedAt:  now,
 	})
 
-	r.Len(provider.snapshot(), 0)
+	r.Empty(provider.snapshot())
 }
 
 func TestResyncObserver(t *testing.T) {

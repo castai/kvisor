@@ -6,7 +6,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
@@ -1030,7 +1029,8 @@ func Test_dpkgAnalyzer_Analyze(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f, err := os.Open(tt.testFile)
-			require.NoError(t, err)
+			r := require.New(t)
+			r.NoError(err)
 			defer f.Close()
 
 			a := dpkgAnalyzer{}
@@ -1045,8 +1045,8 @@ func Test_dpkgAnalyzer_Analyze(t *testing.T) {
 				got.PackageInfos[i].Packages = sortPkgs(got.PackageInfos[i].Packages)
 			}
 
-			assert.Equal(t, tt.wantErr, err != nil, err)
-			assert.Equal(t, tt.want, got)
+			r.Equal(tt.wantErr, err != nil, err)
+			r.Equal(tt.want, got)
 		})
 	}
 }
@@ -1090,9 +1090,10 @@ func Test_dpkgAnalyzer_Required(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
 			a := dpkgAnalyzer{}
 			got := a.Required(tt.filePath, nil)
-			assert.Equal(t, tt.want, got)
+			r.Equal(tt.want, got)
 		})
 	}
 }

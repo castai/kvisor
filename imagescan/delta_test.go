@@ -94,7 +94,7 @@ func TestDelta(t *testing.T) {
 		delta.delete(pod1)
 		r.Len(delta.images, 2)
 		r.Len(img1.nodes, 2)
-		r.Len(img1.nodes["node1"].podIDs, 0)
+		r.Empty(img1.nodes["node1"].podIDs)
 
 		// Delete one more pod for the same image. Image should be removed.
 		delta.delete(pod3)
@@ -394,7 +394,7 @@ func TestDelta(t *testing.T) {
 		delta.delete(pod)
 		img, found = delta.images["testidamd64test"]
 		r.True(found)
-		r.Len(img.owners, 0)
+		r.Empty(img.owners)
 
 		delta.delete(node)
 		_, found = delta.nodes["node1"]
@@ -418,7 +418,8 @@ func TestIsPrivateImageErr(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.expectedPrivate, isPrivateImageError(test.err))
+			r := require.New(t)
+			r.Equal(test.expectedPrivate, isPrivateImageError(test.err))
 		})
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNamespacedRegistry(t *testing.T) {
@@ -37,8 +37,9 @@ func TestNamespacedRegistry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			r := require.New(t)
 			registry := NamespacedRegistry(test.ref)
-			assert.Equal(t, test.expected, registry)
+			r.Equal(test.expected, registry)
 		})
 	}
 }

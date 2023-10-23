@@ -34,6 +34,9 @@ func TestSubscriber(t *testing.T) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
+				Labels: map[string]string{
+					"provisioner.cast.ai/managed-by": "cast.ai",
+				},
 			},
 			Status: corev1.NodeStatus{
 				NodeInfo: corev1.NodeSystemInfo{
@@ -467,7 +470,7 @@ func TestSubscriber(t *testing.T) {
 		err := sub.scheduleScans(firstCtx)
 		r.NoError(err)
 		// without nodes in delta it should not schedule scan.
-		r.Len(scanner.imgs, 0)
+		r.Empty(scanner.imgs)
 
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
@@ -478,6 +481,7 @@ func TestSubscriber(t *testing.T) {
 			allocatableMem: resMem.AsDec(),
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
+			castaiManaged:  true,
 		}
 		img = newImage()
 		img.name = "img"
@@ -637,9 +641,198 @@ func TestSubscriber(t *testing.T) {
 
 			// Should not send any scanned images reports.
 			sentMetas := client.getSentMetas()
-			r.Len(sentMetas, 0)
+			r.Empty(sentMetas)
 			return true
 		})
+	})
+}
+
+func TestController_findBestNodeAndMode(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	t.Run("fallbacks when img had error", func(t *testing.T) {
+		cfg := config.ImageScan{
+			Mode:          string(imgcollectorconfig.ModeHostFS),
+			CPURequest:    "1",
+			MemoryRequest: "100Mi",
+		}
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+
+		lessResMem := resource.MustParse("400Mi")
+		lessResCpu := resource.MustParse("1")
+
+		controller := newTestController(log, cfg)
+		controller.delta.nodes = map[string]*node{
+			"node1": {
+				name:           "node1",
+				architecture:   "amd64",
+				allocatableMem: resMem.AsDec(),
+				allocatableCPU: resCpu.AsDec(),
+				castaiManaged:  true,
+			},
+			"node2": {
+				name:           "node2",
+				architecture:   "amd64",
+				allocatableMem: lessResMem.AsDec(),
+				allocatableCPU: lessResCpu.AsDec(),
+				castaiManaged:  true,
+			},
+		}
+
+		img := &image{
+			key: "img1amd64img",
+			nodes: map[string]*imageNode{
+				"node1": {},
+				"node2": {},
+			},
+			lastScanErr: errImageScanLayerNotFound,
+		}
+
+		r := require.New(t)
+		node, mode, err := controller.findBestNodeAndMode(img)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
+		r.Equal("node1", node)
+	})
+
+	t.Run("fallbacks when no cast ai managed nodes", func(t *testing.T) {
+		cfg := config.ImageScan{
+			Mode:          string(imgcollectorconfig.ModeHostFS),
+			CPURequest:    "1",
+			MemoryRequest: "100Mi",
+		}
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+
+		lessResMem := resource.MustParse("400Mi")
+		lessResCpu := resource.MustParse("1")
+
+		controller := newTestController(log, cfg)
+		controller.delta.nodes = map[string]*node{
+			"node1": {
+				name:           "node1",
+				architecture:   "amd64",
+				allocatableMem: resMem.AsDec(),
+				allocatableCPU: resCpu.AsDec(),
+				castaiManaged:  false,
+			},
+			"node2": {
+				name:           "node2",
+				architecture:   "amd64",
+				allocatableMem: lessResMem.AsDec(),
+				allocatableCPU: lessResCpu.AsDec(),
+				castaiManaged:  false,
+			},
+		}
+
+		img := &image{
+			key: "img1amd64img",
+			nodes: map[string]*imageNode{
+				"node1": {},
+				"node2": {},
+			},
+		}
+
+		r := require.New(t)
+		node, mode, err := controller.findBestNodeAndMode(img)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
+		r.Equal("node1", node)
+	})
+
+	t.Run("fallbacks when no resources on cast ai managed nodes", func(t *testing.T) {
+		cfg := config.ImageScan{
+			Mode:          string(imgcollectorconfig.ModeHostFS),
+			CPURequest:    "2",
+			MemoryRequest: "400Mi",
+		}
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+
+		lessResMem := resource.MustParse("400Mi")
+		lessResCpu := resource.MustParse("1")
+
+		controller := newTestController(log, cfg)
+		controller.delta.nodes = map[string]*node{
+			"node1": {
+				name:           "node1",
+				architecture:   "amd64",
+				allocatableMem: resMem.AsDec(),
+				allocatableCPU: resCpu.AsDec(),
+				castaiManaged:  false,
+			},
+			"node2": {
+				name:           "node2",
+				architecture:   "amd64",
+				allocatableMem: lessResMem.AsDec(),
+				allocatableCPU: lessResCpu.AsDec(),
+				castaiManaged:  true,
+			},
+		}
+
+		img := &image{
+			key: "img1amd64img",
+			nodes: map[string]*imageNode{
+				"node2": {},
+			},
+		}
+
+		r := require.New(t)
+		node, mode, err := controller.findBestNodeAndMode(img)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
+		r.Equal("node1", node)
+	})
+
+	t.Run("picks correct node", func(t *testing.T) {
+		cfg := config.ImageScan{
+			Mode:          string(imgcollectorconfig.ModeHostFS),
+			CPURequest:    "2",
+			MemoryRequest: "400Mi",
+		}
+
+		resMem := resource.MustParse("500Mi")
+		resCpu := resource.MustParse("2")
+
+		lessResMem := resource.MustParse("400Mi")
+		lessResCpu := resource.MustParse("1")
+
+		controller := newTestController(log, cfg)
+		controller.delta.nodes = map[string]*node{
+			"node1": {
+				name:           "node1",
+				architecture:   "amd64",
+				allocatableMem: resMem.AsDec(),
+				allocatableCPU: resCpu.AsDec(),
+				castaiManaged:  true,
+			},
+			"node2": {
+				name:           "node2",
+				architecture:   "amd64",
+				allocatableMem: lessResMem.AsDec(),
+				allocatableCPU: lessResCpu.AsDec(),
+				castaiManaged:  true,
+			},
+		}
+
+		img := &image{
+			key: "img1amd64img",
+			nodes: map[string]*imageNode{
+				"node1": {},
+				"node2": {},
+			},
+		}
+
+		r := require.New(t)
+		node, mode, err := controller.findBestNodeAndMode(img)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeHostFS), mode)
+		r.Equal("node1", node)
 	})
 }
 

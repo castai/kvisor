@@ -322,7 +322,7 @@ func (t *testSubscriber) assertObjectMeta(r *require.Assertions) {
 	r.Len(t.addedObjs, 4)
 
 	ns := t.addedObjs["kube-system"]
-	r.Len(ns.GetManagedFields(), 0)
+	r.Empty(ns.GetManagedFields())
 
 	ds := t.addedObjs["kube-proxy"]
 	r.Equal("DaemonSet", ds.(*appsv1.DaemonSet).Kind)

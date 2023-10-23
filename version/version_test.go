@@ -13,12 +13,13 @@ import (
 )
 
 func TestVersion(t *testing.T) {
+	r := require.New(t)
 	v := version.Info{
 		Major:     "1",
 		Minor:     "21+",
 		GitCommit: "2812f9fb0003709fc44fc34166701b377020f1c9",
 	}
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		b, err := json.Marshal(v)
 		if err != nil {
 			t.Errorf("unexpected encoding error: %v", err)
@@ -27,7 +28,7 @@ func TestVersion(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write(b)
-		require.NoError(t, err)
+		r.NoError(err)
 	}))
 	defer s.Close()
 	client := kubernetes.NewForConfigOrDie(&rest.Config{Host: s.URL})
@@ -37,7 +38,7 @@ func TestVersion(t *testing.T) {
 		return
 	}
 
-	require.NoError(t, err)
-	require.Equal(t, "1.21+", got.Full)
-	require.Equal(t, 21, got.MinorInt)
+	r.NoError(err)
+	r.Equal("1.21+", got.Full)
+	r.Equal(21, got.MinorInt)
 }

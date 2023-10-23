@@ -32,7 +32,7 @@ func TestSetupLogExporter(t *testing.T) {
 				fields := req.Fields
 				r.Equal(mockClusterID, fields["cluster_id"])
 				r.Equal("eks", fields["provider"])
-				r.Equal(false, fields["sample_boolean_value"])
+				r.False(fields["sample_boolean_value"].(bool))
 				r.Equal(3, fields["int_val"])
 				r.Equal(1.000000004, fields["float_val"])
 				return nil

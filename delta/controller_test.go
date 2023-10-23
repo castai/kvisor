@@ -2,7 +2,6 @@ package delta
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -89,7 +88,7 @@ func TestSubscriber(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
 		defer cancel()
 		err := sub.Run(ctx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.ErrorIs(err, context.DeadlineExceeded)
 		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventAdd, true)
@@ -106,7 +105,7 @@ func TestSubscriber(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
 		defer cancel()
 		err := sub.Run(ctx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.ErrorIs(err, context.DeadlineExceeded)
 		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventUpdate, true)
@@ -124,7 +123,7 @@ func TestSubscriber(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
 		defer cancel()
 		err := sub.Run(ctx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.ErrorIs(err, context.DeadlineExceeded)
 		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventDelete, true)
@@ -145,7 +144,7 @@ func TestSubscriber(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, time.Millisecond*30)
 		defer cancel()
 		err := sub.Run(ctx)
-		r.True(errors.Is(err, context.DeadlineExceeded))
+		r.ErrorIs(err, context.DeadlineExceeded)
 		delta := client.delta
 		r.NotNil(delta)
 		assertDelta(t, delta, castai.EventAdd, false)
