@@ -5,7 +5,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -582,11 +581,12 @@ func TestParseRpmInfo(t *testing.T) {
 	for testname, tc := range tests {
 		t.Run(testname, func(t *testing.T) {
 			f, err := os.Open(tc.path)
-			require.NoError(t, err)
+			r := require.New(t)
+			r.NoError(err)
 			defer f.Close()
 
 			got, _, err := a.parsePkgInfo(f)
-			require.NoError(t, err)
+			r.NoError(err)
 
 			sort.Slice(tc.pkgs, func(i, j int) bool {
 				return tc.pkgs[i].Name < tc.pkgs[j].Name
@@ -600,7 +600,7 @@ func TestParseRpmInfo(t *testing.T) {
 				got[i].DependsOn = nil // TODO: add tests
 			}
 
-			assert.Equal(t, tc.pkgs, got)
+			r.Equal(tc.pkgs, got)
 		})
 	}
 }
@@ -633,15 +633,16 @@ func Test_splitFileName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
 			gotName, gotVer, gotRel, err := splitFileName(tt.filename)
 			if tt.wantErr {
-				assert.Error(t, err)
+				r.Error(err)
 			} else {
-				assert.NoError(t, err)
+				r.NoError(err)
 			}
-			assert.Equal(t, tt.wantName, gotName)
-			assert.Equal(t, tt.wantVer, gotVer)
-			assert.Equal(t, tt.wantRel, gotRel)
+			r.Equal(tt.wantName, gotName)
+			r.Equal(tt.wantVer, gotVer)
+			r.Equal(tt.wantRel, gotRel)
 		})
 	}
 }

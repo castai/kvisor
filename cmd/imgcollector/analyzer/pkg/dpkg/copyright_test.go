@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
@@ -83,8 +82,9 @@ func Test_dpkgLicenseAnalyzer_Analyze(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
 			f, err := os.Open(tt.testFile)
-			require.NoError(t, err)
+			r.NoError(err)
 
 			input := analyzer.AnalysisInput{
 				Content:  f,
@@ -93,8 +93,8 @@ func Test_dpkgLicenseAnalyzer_Analyze(t *testing.T) {
 			a := dpkgLicenseAnalyzer{}
 
 			license, err := a.Analyze(context.Background(), input)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, license)
+			r.NoError(err)
+			r.Equal(tt.want, license)
 		})
 	}
 }
@@ -123,8 +123,9 @@ func Test_dpkgLicenseAnalyzer_Required(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
 			a := dpkgLicenseAnalyzer{}
-			assert.Equal(t, tt.want, a.Required(tt.filePath, nil))
+			r.Equal(tt.want, a.Required(tt.filePath, nil))
 		})
 	}
 }

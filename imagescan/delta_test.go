@@ -418,7 +418,8 @@ func TestIsPrivateImageErr(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.expectedPrivate, isPrivateImageError(test.err))
+			r := require.New(t)
+			r.Equal(test.expectedPrivate, isPrivateImageError(test.err))
 		})
 	}
 }

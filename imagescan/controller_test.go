@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -692,10 +691,11 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			lastScanErr: errImageScanLayerNotFound,
 		}
 
+		r := require.New(t)
 		node, mode, err := controller.findBestNodeAndMode(img)
-		assert.NoError(t, err)
-		assert.Equal(t, string(imgcollectorconfig.ModeRemote), mode)
-		assert.Equal(t, "node1", node)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
+		r.Equal("node1", node)
 	})
 
 	t.Run("fallbacks when no cast ai managed nodes", func(t *testing.T) {
@@ -737,10 +737,11 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			},
 		}
 
+		r := require.New(t)
 		node, mode, err := controller.findBestNodeAndMode(img)
-		assert.NoError(t, err)
-		assert.Equal(t, string(imgcollectorconfig.ModeRemote), mode)
-		assert.Equal(t, "node1", node)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
+		r.Equal("node1", node)
 	})
 
 	t.Run("fallbacks when no resources on cast ai managed nodes", func(t *testing.T) {
@@ -781,10 +782,11 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			},
 		}
 
+		r := require.New(t)
 		node, mode, err := controller.findBestNodeAndMode(img)
-		assert.NoError(t, err)
-		assert.Equal(t, string(imgcollectorconfig.ModeRemote), mode)
-		assert.Equal(t, "node1", node)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
+		r.Equal("node1", node)
 	})
 
 	t.Run("picks correct node", func(t *testing.T) {
@@ -826,10 +828,11 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			},
 		}
 
+		r := require.New(t)
 		node, mode, err := controller.findBestNodeAndMode(img)
-		assert.NoError(t, err)
-		assert.Equal(t, string(imgcollectorconfig.ModeHostFS), mode)
-		assert.Equal(t, "node1", node)
+		r.NoError(err)
+		r.Equal(string(imgcollectorconfig.ModeHostFS), mode)
+		r.Equal("node1", node)
 	})
 }
 

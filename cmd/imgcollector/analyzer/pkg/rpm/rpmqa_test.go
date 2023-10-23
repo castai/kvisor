@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 )
@@ -60,14 +60,15 @@ glibc	2.35-2.cm2	1653816591	1653628955	Microsoft Corporation	(none)	10855265	x86
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			r := require.New(t)
 			a := rpmqaPkgAnalyzer{}
 			result, err := a.parseRpmqaManifest(strings.NewReader(test.content))
 			if test.wantErr != "" {
-				assert.NotNil(t, err)
-				assert.Equal(t, test.wantErr, err.Error())
+				r.NotNil(err)
+				r.Equal(test.wantErr, err.Error())
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, test.wantPkgs, result)
+				r.NoError(err)
+				r.Equal(test.wantPkgs, result)
 			}
 		})
 	}

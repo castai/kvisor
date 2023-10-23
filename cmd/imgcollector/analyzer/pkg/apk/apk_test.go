@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 )
@@ -284,7 +284,9 @@ func TestParseApkInfo(t *testing.T) {
 		}
 		scanner := bufio.NewScanner(read)
 		gotPkgs, gotFiles := a.parseApkInfo(scanner)
-		assert.Equal(t, v.wantPkgs, gotPkgs)
-		assert.Equal(t, v.wantFiles, gotFiles)
+
+		r := require.New(t)
+		r.Equal(v.wantPkgs, gotPkgs)
+		r.Equal(v.wantFiles, gotFiles)
 	}
 }
