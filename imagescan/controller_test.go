@@ -470,7 +470,7 @@ func TestSubscriber(t *testing.T) {
 		err := sub.scheduleScans(firstCtx)
 		r.NoError(err)
 		// without nodes in delta it should not schedule scan.
-		r.Len(scanner.imgs, 0)
+		r.Empty(scanner.imgs)
 
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
@@ -641,7 +641,7 @@ func TestSubscriber(t *testing.T) {
 
 			// Should not send any scanned images reports.
 			sentMetas := client.getSentMetas()
-			r.Len(sentMetas, 0)
+			r.Empty(sentMetas)
 			return true
 		})
 	})

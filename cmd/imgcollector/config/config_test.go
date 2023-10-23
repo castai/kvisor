@@ -5,8 +5,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/castai/kvisor/cmd/imgcollector/image"
 	"github.com/stretchr/testify/require"
+
+	"github.com/castai/kvisor/cmd/imgcollector/image"
 )
 
 func TestReadImagePullSecret(t *testing.T) {
@@ -18,7 +19,8 @@ func TestReadImagePullSecret(t *testing.T) {
 	r.NoError(err)
 
 	var cfg image.DockerConfig
-	r.NoError(err, json.Unmarshal(data, &cfg))
+	err = json.Unmarshal(data, &cfg)
+	r.NoError(err)
 	auth := cfg.Auths["ghcr.io"]
 	r.Equal("username", auth.Username)
 	r.Equal("password", auth.Password)
