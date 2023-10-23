@@ -254,14 +254,7 @@ func (s *Controller) scanImages(ctx context.Context, images []*image) error {
 	}
 }
 
-func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
-
-	// If mode is empty it will be determined automatically based on container runtime inside scanner.go
-	//
-	// Special case:
-	// If hostfs mode is used and image scan fails due to missing layers remote image scan will be used as fallback.
+func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 	mode := s.cfg.Mode
 	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) {
 		// Fallback to remote if previously it failed due to missing layers.
@@ -271,9 +264,16 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	var nodeNames []string
 	if imgcollectorconfig.Mode(mode) == imgcollectorconfig.ModeHostFS {
 		// In HostFS we need to choose only from nodes which contains this image.
-		nodeNames = s.delta.filterCastAIManagedNodes(lo.Keys(img.nodes))
+		nodeNames = lo.Keys(img.nodes)
 		if len(nodeNames) == 0 {
-			return errors.New("image with empty nodes")
+			return "", "", errors.New("image with empty nodes")
+		}
+
+		nodeNames = s.delta.filterCastAIManagedNodes(nodeNames)
+		if len(nodeNames) == 0 {
+			// If image is not running on CAST AI managed nodes fallback to remote scan.
+			mode = string(imgcollectorconfig.ModeRemote)
+			nodeNames = lo.Keys(s.delta.nodes)
 		}
 	} else {
 		nodeNames = lo.Keys(s.delta.nodes)
@@ -290,11 +290,23 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 			nodeNames = lo.Keys(s.delta.nodes)
 			resolvedNode, err = s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 			if err != nil {
-				return err
+				return "", "", err
 			}
 		} else {
-			return err
+			return "", "", err
 		}
+	}
+
+	return resolvedNode, mode, nil
+}
+
+func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	node, mode, err := s.findBestNodeAndMode(img)
+	if err != nil {
+		return err
 	}
 
 	start := time.Now()
@@ -309,7 +321,7 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		ContainerRuntime:            string(img.containerRuntime),
 		Mode:                        mode,
 		ResourceIDs:                 lo.Keys(img.owners),
-		NodeName:                    resolvedNode,
+		NodeName:                    node,
 		DeleteFinishedJob:           true,
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
