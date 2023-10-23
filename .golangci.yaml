@@ -9,6 +9,8 @@ linters:
     - varcheck
     - prealloc
     - contextcheck
+    - testifylint
+    - protogetter
   presets:
     - bugs
     - performance

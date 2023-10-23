@@ -1,4 +1,3 @@
-// nolint:protogetter
 package gke
 
 import (
