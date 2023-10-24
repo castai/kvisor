@@ -38,12 +38,19 @@ func Master(nodeName, jobName string) *batchv1.Job {
 							Operator: "Exists",
 						},
 					},
-					NodeName:      nodeName,
-					RestartPolicy: "Never",
+					NodeName:                     nodeName,
+					RestartPolicy:                "Never",
+					AutomountServiceAccountToken: lo.ToPtr(false),
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
+							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.1",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:                lo.ToPtr(int64(65532)), // nonroot user
+								RunAsNonRoot:             lo.ToPtr(true),
+								ReadOnlyRootFilesystem:   lo.ToPtr(true),
+								AllowPrivilegeEscalation: lo.ToPtr(false),
+							},
 							Command: []string{
 								"kube-bench", "run", "--targets", "master", "--json",
 							},

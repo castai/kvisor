@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/static-debian11
+FROM gcr.io/distroless/static-debian11:nonroot
 ARG TARGETARCH
 COPY ./bin/castai-kvisor-$TARGETARCH /usr/local/bin/castai-kvisor
 CMD ["/usr/local/bin/castai-kvisor"]

@@ -145,7 +145,7 @@ securityContext: {}
 agentContainerSecurityContext:
   readOnlyRootFilesystem: true
   runAsNonRoot: true
-  runAsUser: 1004
+  runAsUser: 65532
 
 serviceAccount:
   create: true

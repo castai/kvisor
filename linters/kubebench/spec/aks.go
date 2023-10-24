@@ -22,13 +22,20 @@ func AKS(nodeName, jobName string) *batchv1.Job {
 			BackoffLimit: lo.ToPtr(int32(0)),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					HostPID:       true,
-					NodeName:      nodeName,
-					RestartPolicy: "Never",
+					HostPID:                      true,
+					NodeName:                     nodeName,
+					RestartPolicy:                "Never",
+					AutomountServiceAccountToken: lo.ToPtr(false),
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
+							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.1",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:                lo.ToPtr(int64(65532)), // nonroot user
+								RunAsNonRoot:             lo.ToPtr(true),
+								ReadOnlyRootFilesystem:   lo.ToPtr(true),
+								AllowPrivilegeEscalation: lo.ToPtr(false),
+							},
 							Command: []string{
 								"kube-bench", "run", "--targets", "node", "--benchmark", "aks-1.3", "--json",
 							},
