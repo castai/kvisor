@@ -5,3 +5,11 @@ containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".containerd]
       discard_unpacked_layers = false
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "provisioner.cast.ai/managed-by=cast.ai"
