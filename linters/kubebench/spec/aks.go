@@ -7,6 +7,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const nonRootUserID = int64(65532)
+
 func AKS(nodeName, jobName string) *batchv1.Job {
 	//https://raw.githubusercontent.com/aquasecurity/kube-bench/v0.6.9/job-aks.yaml
 	return &batchv1.Job{
@@ -31,7 +33,7 @@ func AKS(nodeName, jobName string) *batchv1.Job {
 							Name:  "kube-bench",
 							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.1",
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:                lo.ToPtr(int64(65532)), // nonroot user
+								RunAsUser:                lo.ToPtr(nonRootUserID),
 								RunAsNonRoot:             lo.ToPtr(true),
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
