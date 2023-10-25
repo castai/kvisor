@@ -31,8 +31,6 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 							Name:  "kube-bench",
 							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.1",
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:                lo.ToPtr(nonRootUserID),
-								RunAsNonRoot:             lo.ToPtr(true),
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},

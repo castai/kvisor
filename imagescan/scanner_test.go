@@ -179,7 +179,7 @@ func TestScanner(t *testing.T) {
 									},
 								},
 								SecurityContext: &corev1.SecurityContext{
-									RunAsUser:                lo.ToPtr(int64(65532)),
+									RunAsUser:                lo.ToPtr(nonRootUserID),
 									RunAsNonRoot:             lo.ToPtr(true),
 									AllowPrivilegeEscalation: lo.ToPtr(false),
 								},
