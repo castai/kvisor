@@ -49,7 +49,7 @@ echo "Waiting for job to finish"
 
 i=0
 sleep_seconds=5
-retry_count=20
+retry_count=30
 while true; do
   if [ "$i" == "$retry_count" ];
   then
