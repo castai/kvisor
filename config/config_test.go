@@ -72,6 +72,7 @@ func newTestConfig() Config {
 			ScanInterval:       20 * time.Second,
 			ScanTimeout:        5 * time.Minute,
 			MaxConcurrentScans: 3,
+			InitDelay:          60 * time.Second,
 			Image: ImageScanImage{
 				Name:       "collector-img",
 				PullPolicy: "IfNotPresent",

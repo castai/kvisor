@@ -114,6 +114,7 @@ func TestScanner(t *testing.T) {
 								Operator: corev1.TolerationOpExists,
 							},
 						},
+						AutomountServiceAccountToken: lo.ToPtr(false),
 						Containers: []corev1.Container{
 							{
 								Name:  "collector",
@@ -176,6 +177,11 @@ func TestScanner(t *testing.T) {
 										corev1.ResourceCPU:    resource.MustParse("500m"),
 										corev1.ResourceMemory: resource.MustParse("100Mi"),
 									},
+								},
+								SecurityContext: &corev1.SecurityContext{
+									RunAsUser:                lo.ToPtr(nonRootUserID),
+									RunAsNonRoot:             lo.ToPtr(true),
+									AllowPrivilegeEscalation: lo.ToPtr(false),
 								},
 							},
 						},

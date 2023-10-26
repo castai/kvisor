@@ -22,13 +22,18 @@ func Node(nodeName, jobName string) *batchv1.Job {
 			BackoffLimit: lo.ToPtr(int32(0)),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					HostPID:       true,
-					NodeName:      nodeName,
-					RestartPolicy: "Never",
+					HostPID:                      true,
+					NodeName:                     nodeName,
+					RestartPolicy:                "Never",
+					AutomountServiceAccountToken: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
 							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
+							SecurityContext: &corev1.SecurityContext{
+								ReadOnlyRootFilesystem:   lo.ToPtr(true),
+								AllowPrivilegeEscalation: lo.ToPtr(false),
+							},
 							Command: []string{
 								"kube-bench", "run", "--targets", "node", "--json",
 							},

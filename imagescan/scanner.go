@@ -27,6 +27,10 @@ import (
 	"github.com/castai/kvisor/log"
 )
 
+const (
+	nonRootUserID = int64(65532)
+)
+
 type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
@@ -376,9 +380,15 @@ func scanJobSpec(
 							},
 						},
 					},
-					Tolerations: tolerations,
+					Tolerations:                  tolerations,
+					AutomountServiceAccountToken: lo.ToPtr(false),
 					Containers: []corev1.Container{
 						{
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:                lo.ToPtr(nonRootUserID),
+								RunAsNonRoot:             lo.ToPtr(true),
+								AllowPrivilegeEscalation: lo.ToPtr(false),
+							},
 							Name:            "collector",
 							Image:           cfg.Image.Name,
 							ImagePullPolicy: corev1.PullPolicy(cfg.Image.PullPolicy),
