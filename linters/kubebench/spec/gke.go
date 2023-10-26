@@ -25,7 +25,7 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 					HostPID:                      true,
 					NodeName:                     nodeName,
 					RestartPolicy:                "Never",
-					AutomountServiceAccountToken: lo.ToPtr(false),
+					AutomountServiceAccountToken: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",

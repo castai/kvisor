@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castai/kvisor/castai"
 	"github.com/gorilla/mux"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
@@ -26,12 +25,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/castai/kvisor/castai"
 )
 
 var (
-	kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig. If not set in cluster config will be used.")
-	imageTag   = flag.String("image-tag", "", "Kvisor docker image tag")
-	timeout    = flag.Duration("timeout", 2*time.Minute, "Test timeout")
+	kubeconfig    = flag.String("kubeconfig", "", "Path to kubeconfig. If not set in cluster config will be used.")
+	imageTag      = flag.String("image-tag", "", "Kvisor docker image tag")
+	timeout       = flag.Duration("timeout", 2*time.Minute, "Test timeout")
+	assertTimeout = flag.Duration("assert-timeout", 30*time.Second, "Assertion timeout")
 )
 
 const (
@@ -76,7 +78,9 @@ func run(log logrus.FieldLogger) error {
 	// Assert jobs completion.
 	assertJobs := []string{"imgscan", "kube-bench"}
 	for _, jobPrefix := range assertJobs {
-		if err := assertJobsCompleted(ctx, client, jobPrefix); err != nil {
+		assertCtx, cancel := context.WithTimeout(ctx, *assertTimeout)
+		defer cancel()
+		if err := assertJobsCompleted(assertCtx, client, jobPrefix); err != nil {
 			return fmt.Errorf("image scan jobs %q: %w", jobPrefix, err)
 		}
 	}
@@ -107,7 +111,12 @@ func run(log logrus.FieldLogger) error {
 
 func assertJobsCompleted(ctx context.Context, client kubernetes.Interface, jobPrefix string) error {
 	errWaitingCompletion := errors.New("jobs not completed yet")
-	assert := func() error {
+	assert := func() (rerr error) {
+		defer func() {
+			if rerr != nil {
+				fmt.Printf("assert failed: %v\n", rerr)
+			}
+		}()
 		selector := labels.Set{"app.kubernetes.io/managed-by": "castai"}.String()
 		jobs, err := client.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{
 			LabelSelector: selector,
@@ -175,6 +184,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set image.repository=%s \
   --set image.tag=%s \
   --set structuredConfig.imageScan.image.name=%s \
+  --set structuredConfig.imageScan.mode=hostfs \
+  --set structuredConfig.imageScan.initDelay=10s \
   --set structuredConfig.kubeBench.enabled=true \
   --set structuredConfig.kubeClient.useProtobuf=true \
   --set castai.apiURL=%s \

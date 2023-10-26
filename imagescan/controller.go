@@ -47,7 +47,7 @@ func NewController(
 		cfg:               cfg,
 		k8sVersionMinor:   k8sVersionMinor,
 		timeGetter:        timeGetter(),
-		initialScansDelay: 60 * time.Second,
+		initialScansDelay: cfg.InitDelay,
 	}
 }
 
@@ -258,6 +258,7 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 	mode := s.cfg.Mode
 	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) {
 		// Fallback to remote if previously it failed due to missing layers.
+		s.log.Debugf("selecting remote mode because of lastScanErr")
 		mode = string(imgcollectorconfig.ModeRemote)
 	}
 
@@ -273,6 +274,7 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 		if len(nodeNames) == 0 {
 			// If image is not running on CAST AI managed nodes fallback to remote scan.
 			mode = string(imgcollectorconfig.ModeRemote)
+			s.log.Debugf("selecting remote mode because no CAST AI managed nodes found")
 			nodeNames = lo.Keys(s.delta.nodes)
 		}
 	} else {
@@ -287,6 +289,7 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 		if errors.Is(err, errNoCandidates) && imgcollectorconfig.Mode(mode) == imgcollectorconfig.ModeHostFS {
 			// if mode was host fs fallback to remote scan and try picking node again.
 			mode = string(imgcollectorconfig.ModeRemote)
+			s.log.Debugf("selecting a node in remote mode because of errNoCandidates")
 			nodeNames = lo.Keys(s.delta.nodes)
 			resolvedNode, err = s.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
 			if err != nil {
