@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -214,23 +215,23 @@ func TestSubscriber(t *testing.T) {
 			sort.Strings(expectedArgoPodResourceIDs)
 			r.Equal(expectedArgoPodResourceIDs, argoImg.ResourceIDs)
 
-			ngnxImage := imgs[2]
+			nginxImage := imgs[2]
 			expectedNginxPodResourceIDs := []string{string(nginxPod1.UID), string(nginxPod2.UID)}
-			sort.Strings(ngnxImage.ResourceIDs)
+			sort.Strings(nginxImage.ResourceIDs)
 			sort.Strings(expectedNginxPodResourceIDs)
-			r.Equal(expectedNginxPodResourceIDs, ngnxImage.ResourceIDs)
-			r.NotEmpty(ngnxImage.NodeName)
+			r.Equal(expectedNginxPodResourceIDs, nginxImage.ResourceIDs)
+			r.NotEmpty(nginxImage.NodeName)
 			r.Equal(ScanImageParams{
 				ImageName:                   "nginx:1.23",
 				ImageID:                     "nginx:1.23@sha256",
 				ContainerRuntime:            "containerd",
 				Mode:                        "hostfs",
-				NodeName:                    ngnxImage.NodeName,
-				ResourceIDs:                 ngnxImage.ResourceIDs,
+				NodeName:                    nginxImage.NodeName,
+				ResourceIDs:                 nginxImage.ResourceIDs,
 				DeleteFinishedJob:           true,
 				WaitForCompletion:           true,
 				WaitDurationAfterCompletion: 30 * time.Second,
-			}, ngnxImage)
+			}, nginxImage)
 
 			return true
 		})
@@ -645,6 +646,63 @@ func TestSubscriber(t *testing.T) {
 			return true
 		})
 	})
+
+	t.Run("scanned image is rescanned when not found remotely", func(t *testing.T) {
+		r := require.New(t)
+
+		cfg := config.ImageScan{
+			ScanInterval:       1 * time.Millisecond,
+			ScanTimeout:        time.Minute,
+			MaxConcurrentScans: 5,
+			CPURequest:         "500m",
+			CPULimit:           "2",
+			MemoryRequest:      "100Mi",
+			MemoryLimit:        "2Gi",
+			InitDelay:          time.Millisecond,
+		}
+
+		scanner := &mockImageScanner{}
+		sub := newTestController(log, cfg)
+		sub.imageScanner = scanner
+		sub.client = &mockCastaiClient{
+			syncState: &castai.SyncStateResponse{
+				Images: &castai.ImagesSyncState{
+					FullResourcesResyncRequired: true,
+				},
+			},
+		}
+
+		img := newImage()
+		img.name = "img"
+		img.id = "img"
+		img.key = "imgamd64img"
+		img.architecture = "amd64"
+		img.scanned = true
+		img.owners = map[string]*imageOwner{
+			"pod1": {},
+		}
+		sub.delta.images[img.key] = img
+
+		sub.delta.nodes["node1"] = &node{
+			name:           "node1",
+			architecture:   "amd64",
+			allocatableMem: lo.ToPtr(resource.MustParse("500Mi")).AsDec(),
+			allocatableCPU: lo.ToPtr(resource.MustParse("2")).AsDec(),
+			pods:           map[types.UID]*pod{},
+		}
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- sub.Run(ctx)
+		}()
+
+		assertLoop(errc, func() bool {
+			imgs := scanner.getScanImageParams()
+			r.Len(imgs, 1)
+			r.Equal(img.id, imgs[0].ImageID)
+			return true
+		})
+	})
 }
 
 func TestController_findBestNodeAndMode(t *testing.T) {
@@ -848,7 +906,7 @@ type mockImageScanner struct {
 	imgs []ScanImageParams
 }
 
-func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (err error) {
+func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)

@@ -148,7 +148,7 @@ func (s *Controller) handleDelta(event kube.Event, o kube.Object) {
 	}
 }
 
-func (s *Controller) scheduleScans(ctx context.Context) (rerr error) {
+func (s *Controller) scheduleScans(ctx context.Context) error {
 	s.syncFromRemoteState(ctx)
 
 	if s.fullSnapshotSent {
@@ -394,42 +394,46 @@ func (s *Controller) sendFullSnapshotImageResources(ctx context.Context) error {
 	return s.client.SendImagesResourcesChange(ctx, report)
 }
 
+// syncFromRemoteState avoids scanning the same image twice
 func (s *Controller) syncFromRemoteState(ctx context.Context) {
-	images := s.delta.getImages()
+	imagesWithNotSyncedState := s.delta.getImages()
 	now := s.timeGetter().UTC()
-	imagesWithNotSyncedState := lo.Filter(images, func(item *image, index int) bool {
-		return !item.scanned && item.lastRemoteSyncAt.Before(now.Add(-10*time.Minute))
-	})
+	if s.fullSnapshotSent {
+		imagesWithNotSyncedState = lo.Filter(imagesWithNotSyncedState, func(item *image, index int) bool {
+			return !item.scanned && item.lastRemoteSyncAt.Before(now.Add(-10*time.Minute))
+		})
+	}
 
 	if len(imagesWithNotSyncedState) == 0 {
 		return
 	}
 
-	imagesIds := lo.Map(imagesWithNotSyncedState, func(item *image, index int) string {
-		return item.id
-	})
+	imagesIds := lo.Map(imagesWithNotSyncedState, func(item *image, index int) string { return item.id })
 	s.log.Debugf("sync images state from remote")
 	resp, err := s.client.GetSyncState(ctx, &castai.SyncStateFilter{ImagesIds: imagesIds})
 	if err != nil {
 		s.log.Errorf("getting images sync state from remote: %v", err)
 		return
 	}
+
 	if resp.Images == nil {
 		return
 	}
 
-	// Set sync state for all these images to prevent constant api calls.
-	for _, img := range imagesWithNotSyncedState {
-		img.lastRemoteSyncAt = now
-	}
-	// Set images as scanned from remote response.
-	for _, scannedImage := range resp.Images.ScannedImages {
-		s.delta.setImageScanned(scannedImage)
-	}
-
-	// If full resources resync is required it will be sent during next scheduled scan.
-	if resp.Images.FullResourcesResyncRequired {
+	if s.fullSnapshotSent {
+		// Set sync state for all these imagesWithNotSyncedState to prevent constant api calls.
+		for _, img := range imagesWithNotSyncedState {
+			img.lastRemoteSyncAt = now
+		}
+		// Set imagesWithNotSyncedState as scanned from remote response.
+		for _, scannedImage := range resp.Images.ScannedImages {
+			s.delta.setImageScanned(scannedImage)
+		}
+	} else if resp.Images.FullResourcesResyncRequired { // If full resources resync is required it will be sent during next scheduled scan.
 		s.fullSnapshotSent = false
+		for _, img := range s.delta.images {
+			img.scanned = false
+		}
 	}
 	s.log.Infof("images updated from remote state, full_resync=%v, scanned_images=%d", resp.Images.FullResourcesResyncRequired, len(resp.Images.ScannedImages))
 }
