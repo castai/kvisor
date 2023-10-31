@@ -389,7 +389,7 @@ func (s *Controller) updateImageStatuses(ctx context.Context) error {
 
 func (s *Controller) updateImageStatusAsFailed(ctx context.Context, image *image, scanJobError error) error {
 	if image == nil {
-		return nil
+		return errors.New("image is missing")
 	}
 	var errorMsg string
 	if scanJobError != nil {
@@ -452,9 +452,6 @@ func (s *Controller) syncFromRemoteState(ctx context.Context) {
 }
 
 func isImagePending(v *image, now time.Time) bool {
-	if v == nil {
-		return false
-	}
 	return !v.scanned &&
 		len(v.owners) > 0 &&
 		!isImagePrivate(v) &&
@@ -462,8 +459,5 @@ func isImagePending(v *image, now time.Time) bool {
 }
 
 func isImagePrivate(v *image) bool {
-	if v == nil {
-		return false
-	}
 	return errors.Is(v.lastScanErr, errPrivateImage)
 }
