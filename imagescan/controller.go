@@ -151,18 +151,7 @@ func (s *Controller) handleDelta(event kube.Event, o kube.Object) {
 func (s *Controller) scheduleScans(ctx context.Context) (rerr error) {
 	s.syncFromRemoteState(ctx)
 
-	images := s.delta.getImages()
-	if s.fullSnapshotSent {
-		// Filter only images that have owner changes.
-		images = lo.Filter(images, func(img *image, _ int) bool {
-			return !img.ownerChanges.empty()
-		})
-		s.clearOwnerState()
-	} else {
-		s.fullSnapshotSent = true
-	}
-
-	if err := s.updateImageStatuses(ctx, images, s.fullSnapshotSent); err != nil {
+	if err := s.updateImageStatuses(ctx); err != nil {
 		s.log.Errorf("sending images resources changes: %v", err)
 	}
 
@@ -202,10 +191,10 @@ func (s *Controller) findPendingImages() []*image {
 	now := s.timeGetter()
 
 	privateImagesCount := lo.CountBy(images, func(v *image) bool {
-		return IsImagePrivate(v)
+		return isImagePrivate(v)
 	})
 	pendingImages := lo.Filter(images, func(v *image, _ int) bool {
-		return IsImagePending(v, now)
+		return isImagePending(v, now)
 	})
 	sort.Slice(pendingImages, func(i, j int) bool {
 		return pendingImages[i].failures < pendingImages[j].failures
@@ -351,7 +340,16 @@ func (s *Controller) concurrentScansNumber() int {
 	return int(s.cfg.MaxConcurrentScans)
 }
 
-func (s *Controller) updateImageStatuses(ctx context.Context, images []*image, fullSnapshot bool) error {
+func (s *Controller) updateImageStatuses(ctx context.Context) error {
+	images := s.delta.getImages()
+	if s.fullSnapshotSent {
+		// Filter only images that have owner changes.
+		images = lo.Filter(images, func(img *image, _ int) bool {
+			return !img.ownerChanges.empty()
+		})
+		s.clearOwnerState()
+	}
+
 	if len(images) == 0 {
 		return nil
 	}
@@ -359,11 +357,11 @@ func (s *Controller) updateImageStatuses(ctx context.Context, images []*image, f
 	var imagesChanges []castai.Image
 	for _, img := range images {
 		changedResourceIds := lo.Uniq(img.ownerChanges.addedIDS)
-		if fullSnapshot {
+		if s.fullSnapshotSent {
 			changedResourceIds = lo.Keys(img.owners)
 		}
 		var updatedStatus castai.ImageScanStatus
-		if IsImagePending(img, now) {
+		if isImagePending(img, now) {
 			updatedStatus = castai.ImageScanStatusPending
 		}
 		imagesChanges = append(imagesChanges, castai.Image{
@@ -378,11 +376,15 @@ func (s *Controller) updateImageStatuses(ctx context.Context, images []*image, f
 
 	s.log.Info("sending images resources changes")
 	report := &castai.UpdateImagesStatusRequest{
-		FullSnapshot: fullSnapshot,
+		FullSnapshot: s.fullSnapshotSent,
 		Images:       imagesChanges,
 	}
-
-	return s.client.UpdateImageStatus(ctx, report)
+	err := s.client.UpdateImageStatus(ctx, report)
+	if err != nil {
+		return err
+	}
+	s.fullSnapshotSent = true
+	return nil
 }
 
 func (s *Controller) updateImageStatusAsFailed(ctx context.Context, image *image, scanJobError error) error {
@@ -449,17 +451,17 @@ func (s *Controller) syncFromRemoteState(ctx context.Context) {
 	s.log.Infof("images updated from remote state, full_resync=%v, scanned_images=%d", resp.Images.FullResourcesResyncRequired, len(resp.Images.ScannedImages))
 }
 
-func IsImagePending(v *image, now time.Time) bool {
+func isImagePending(v *image, now time.Time) bool {
 	if v == nil {
 		return false
 	}
 	return !v.scanned &&
 		len(v.owners) > 0 &&
-		!IsImagePrivate(v) &&
+		!isImagePrivate(v) &&
 		(v.nextScan.IsZero() || v.nextScan.Before(now))
 }
 
-func IsImagePrivate(v *image) bool {
+func isImagePrivate(v *image) bool {
 	if v == nil {
 		return false
 	}
