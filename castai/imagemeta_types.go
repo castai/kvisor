@@ -26,7 +26,14 @@ type OsInfo struct {
 	*types.OS           `json:",inline"`
 }
 
-type ImagesResourcesChange struct {
+const (
+	ImageScanStatusPending ImageScanStatus = "pending"
+	ImageScanStatusError   ImageScanStatus = "error"
+)
+
+type ImageScanStatus string
+
+type UpdateImagesStatusRequest struct {
 	FullSnapshot bool    `json:"full_snapshot,omitempty"`
 	Images       []Image `json:"images"`
 }
@@ -35,6 +42,8 @@ type Image struct {
 	ID              string          `json:"id"`
 	Architecture    string          `json:"architecture"`
 	ResourcesChange ResourcesChange `json:"resourcesChange"`
+	Status          ImageScanStatus `json:"status,omitempty"`
+	ErrorMsg        string          `json:"errorMsg,omitempty"`
 }
 
 type ResourcesChange struct {
