@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -170,8 +171,11 @@ func TestSubscriber(t *testing.T) {
 			MemoryLimit:        "2Gi",
 		}
 
+		client := &mockCastaiClient{}
 		scanner := &mockImageScanner{}
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
 		sub := newTestController(log, cfg)
+		sub.client = client
 		sub.imageScanner = scanner
 		sub.initialScansDelay = 1 * time.Millisecond
 		ctx, cancel := context.WithCancel(ctx)
@@ -231,6 +235,11 @@ func TestSubscriber(t *testing.T) {
 				WaitForCompletion:           true,
 				WaitDurationAfterCompletion: 30 * time.Second,
 			}, ngnxImage)
+			r.Len(client.getImagesResourcesChanges(), 1)
+			r.Len(client.getImagesResourcesChanges()[0].Images, 3)
+			r.Equal(castai.ImageScanStatusPending, client.getImagesResourcesChanges()[0].Images[0].Status)
+			r.Equal(castai.ImageScanStatusPending, client.getImagesResourcesChanges()[0].Images[1].Status)
+			r.Equal(castai.ImageScanStatusPending, client.getImagesResourcesChanges()[0].Images[2].Status)
 
 			return true
 		})
@@ -250,8 +259,10 @@ func TestSubscriber(t *testing.T) {
 			MemoryLimit:        "2Gi",
 		}
 
+		client := &mockCastaiClient{}
 		scanner := &mockImageScanner{}
 		sub := newTestController(log, cfg)
+		sub.client = client
 		sub.imageScanner = scanner
 		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
@@ -269,9 +280,8 @@ func TestSubscriber(t *testing.T) {
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
+
 		delta.images[img.key] = img
-		delta.setImageScanError(img, errors.New("failed"))
-		delta.setImageScanError(img, errors.New("failed again"))
 
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
@@ -281,6 +291,10 @@ func TestSubscriber(t *testing.T) {
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
 		}
+
+		expectedErr := errors.New("failed")
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(expectedErr).Once()
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil).Once()
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
@@ -296,9 +310,19 @@ func TestSubscriber(t *testing.T) {
 				return false
 			}
 
-			r.Len(imgs, 1)
+			r.Len(imgs, 2)
 			img = delta.images[img.key]
 			r.False(img.nextScan.IsZero())
+
+			r.Len(client.getImagesResourcesChanges(), 2)
+			// first scan update is pending
+			r.Len(client.getImagesResourcesChanges()[0].Images, 1)
+			r.Equal(castai.ImageScanStatusPending, client.getImagesResourcesChanges()[0].Images[0].Status)
+			r.Empty(client.getImagesResourcesChanges()[0].Images[0].ErrorMsg)
+			// second scan update is error
+			r.Len(client.getImagesResourcesChanges()[1].Images, 1)
+			r.Equal(castai.ImageScanStatusError, client.getImagesResourcesChanges()[1].Images[0].Status)
+			r.Equal(expectedErr.Error(), client.getImagesResourcesChanges()[1].Images[0].ErrorMsg)
 			return true
 		})
 	})
@@ -318,6 +342,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
 		sub := newTestController(log, cfg)
 		sub.imageScanner = scanner
 		sub.initialScansDelay = 1 * time.Millisecond
@@ -384,6 +409,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
 		client := &mockCastaiClient{}
 		podOwnerGetter := &mockPodOwnerGetter{}
 		sub := NewController(log, cfg, scanner, client, 21, podOwnerGetter)
@@ -447,6 +473,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
 		sub := newTestController(log, cfg)
 		sub.imageScanner = scanner
 		sub.initialScansDelay = 1 * time.Millisecond
@@ -581,6 +608,7 @@ func TestSubscriber(t *testing.T) {
 		}
 
 		scanner := &mockImageScanner{}
+		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
 		client := &mockCastaiClient{
 			syncState: &castai.SyncStateResponse{
 				Images: &castai.ImagesSyncState{
@@ -846,13 +874,14 @@ func newTestController(log logrus.FieldLogger, cfg config.ImageScan) *Controller
 type mockImageScanner struct {
 	mu   sync.Mutex
 	imgs []ScanImageParams
+	mock.Mock
 }
 
 func (m *mockImageScanner) ScanImage(ctx context.Context, cfg ScanImageParams) (err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imgs = append(m.imgs, cfg)
-	return nil
+	return m.Called(ctx, cfg).Error(0)
 }
 
 func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
@@ -872,13 +901,13 @@ type mockCastaiClient struct {
 	mu    sync.Mutex
 	metas []*castai.ImageMetadata
 
-	imagesResourcesChanges []*castai.ImagesResourcesChange
+	imagesResourcesChanges []*castai.UpdateImagesStatusRequest
 
 	syncState      *castai.SyncStateResponse
 	syncStateCalls int
 }
 
-func (m *mockCastaiClient) SendImagesResourcesChange(ctx context.Context, report *castai.ImagesResourcesChange) error {
+func (m *mockCastaiClient) UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imagesResourcesChanges = append(m.imagesResourcesChanges, report)
@@ -908,7 +937,7 @@ func (m *mockCastaiClient) getSentMetas() []*castai.ImageMetadata {
 	return m.metas
 }
 
-func (m *mockCastaiClient) getImagesResourcesChanges() []*castai.ImagesResourcesChange {
+func (m *mockCastaiClient) getImagesResourcesChanges() []*castai.UpdateImagesStatusRequest {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.imagesResourcesChanges
