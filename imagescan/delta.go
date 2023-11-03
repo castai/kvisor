@@ -269,11 +269,6 @@ func (d *deltaState) setImageScanError(i *image, err error) {
 
 	img.failures++
 	img.lastScanErr = err
-	if isHostFSError(err) {
-		img.lastScanErr = errImageScanLayerNotFound
-	} else if isPrivateImageError(err) {
-		img.lastScanErr = errPrivateImage
-	}
 
 	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
 }
@@ -464,26 +459,4 @@ func (c *ownerChanges) empty() bool {
 
 func (c *ownerChanges) clear() {
 	c.addedIDS = []string{}
-}
-
-var (
-	errImageScanLayerNotFound = errors.New("image layer not found")
-	errPrivateImage           = errors.New("private image")
-)
-
-func isPrivateImageError(rawErr error) bool {
-	errStr := strings.ToLower(rawErr.Error())
-
-	// Error codes from https://github.com/google/go-containerregistry/blob/190ad0e4d556f199a07951d55124f8a394ebccd9/pkg/v1/remote/transport/error.go#L115
-	// Connection refused error can happen for localhost image.
-	for _, errPart := range []string{"unauthorized", "manifest_unknown", "denied", "connection refused"} {
-		if strings.Contains(errStr, errPart) {
-			return true
-		}
-	}
-	return false
-}
-
-func isHostFSError(rawErr error) bool {
-	return strings.Contains(rawErr.Error(), "no such file or directory") || strings.Contains(rawErr.Error(), "failed to get the layer")
 }
