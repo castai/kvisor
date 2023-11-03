@@ -400,6 +400,7 @@ func (s *Controller) updateImageStatusAsFailed(ctx context.Context, image *image
 
 	updatedImage := castai.Image{
 		ID:           image.id,
+		ImageName:    image.name,
 		Architecture: image.architecture,
 		Status:       castai.ImageScanStatusError,
 		ErrorMsg:     errorMsg,
