@@ -41,6 +41,7 @@ type UpdateImagesStatusRequest struct {
 type Image struct {
 	ID              string          `json:"id"`
 	Architecture    string          `json:"architecture"`
+	ImageName       string          `json:"imageName"`
 	ResourcesChange ResourcesChange `json:"resourcesChange"`
 	Status          ImageScanStatus `json:"status,omitempty"`
 	ErrorMsg        string          `json:"errorMsg,omitempty"`

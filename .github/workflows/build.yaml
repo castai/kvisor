@@ -29,10 +29,10 @@ jobs:
           echo "Env commit ${{env.head_commit_message}}"
           echo "Contains msg ${{ contains(env.head_commit_message, '#skip-lint') }}"
 
-      - name: Setup Go 1.19
+      - name: Setup Go 1.20
         uses: actions/setup-go@v2
         with:
-          go-version: 1.19
+          go-version: '1.20'
 
       - name: Cache Go modules
         uses: actions/cache@v2
@@ -153,10 +153,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup Go 1.19
+      - name: Setup Go 1.20
         uses: actions/setup-go@v2
         with:
-          go-version: 1.19
+          go-version: '1.20'
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1

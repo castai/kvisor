@@ -230,8 +230,9 @@ func (s *Controller) scanImages(ctx context.Context, images []*image) error {
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, img); err != nil {
 				log.Errorf("image scan failed: %v", err)
-				s.delta.setImageScanError(img, err)
-				if err := s.updateImageStatusAsFailed(ctx, img, err); err != nil {
+				parsedErr := ParseErrorFromLog(err)
+				s.delta.setImageScanError(img, parsedErr)
+				if err := s.updateImageStatusAsFailed(ctx, img, parsedErr); err != nil {
 					s.log.Errorf("sending images resources changes: %v", err)
 				}
 				return
@@ -370,7 +371,8 @@ func (s *Controller) updateImageStatuses(ctx context.Context) error {
 			ResourcesChange: castai.ResourcesChange{
 				ResourceIDs: changedResourceIds,
 			},
-			Status: updatedStatus,
+			ImageName: img.name,
+			Status:    updatedStatus,
 		})
 	}
 
@@ -398,6 +400,7 @@ func (s *Controller) updateImageStatusAsFailed(ctx context.Context, image *image
 
 	updatedImage := castai.Image{
 		ID:           image.id,
+		ImageName:    image.name,
 		Architecture: image.architecture,
 		Status:       castai.ImageScanStatusError,
 		ErrorMsg:     errorMsg,
