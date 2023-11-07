@@ -1,11 +1,13 @@
 package delta
 
 import (
+	json "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -77,6 +79,9 @@ func (d *delta) add(event kube.Event, obj object) {
 		deltaItem.ObjectContainers = containers
 		deltaItem.ObjectStatus = status
 	}
+	if spec := getObjectSpec(obj); len(spec) > 0 {
+		deltaItem.ObjectSpec = spec
+	}
 
 	d.cache[key] = deltaItem
 	d.snapshot.append(deltaItem)
@@ -111,31 +116,43 @@ func toCASTAIEvent(e kube.Event) castai.EventType {
 	return ""
 }
 
-func getContainersAndStatus(obj kube.Object) ([]castai.Container, interface{}, bool) {
+func (d *delta) getOwnerUID(obj kube.Object) string {
+	switch v := obj.(type) {
+	case *corev1.Pod:
+		return d.podOwnerGetter.GetPodOwnerID(v)
+	}
+
+	if len(obj.GetOwnerReferences()) == 0 {
+		return ""
+	}
+	return string(obj.GetOwnerReferences()[0].UID)
+}
+
+func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, bool) {
 	var containers []corev1.Container
 	appendContainers := func(podSpec corev1.PodSpec) {
 		containers = append(containers, podSpec.Containers...)
 		containers = append(containers, podSpec.InitContainers...)
 	}
-	var st interface{}
+	var st []byte
 	switch v := obj.(type) {
 	case *batchv1.Job:
-		st = v.Status
+		st, _ = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	case *batchv1.CronJob:
-		st = v.Status
+		st, _ = json.Marshal(v.Status)
 		appendContainers(v.Spec.JobTemplate.Spec.Template.Spec)
 	case *corev1.Pod:
-		st = v.Status
+		st, _ = json.Marshal(v.Status)
 		appendContainers(v.Spec)
 	case *appsv1.Deployment:
-		st = v.Status
+		st, _ = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	case *appsv1.StatefulSet:
-		st = v.Status
+		st, _ = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	case *appsv1.DaemonSet:
-		st = v.Status
+		st, _ = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	default:
 		return nil, nil, false
@@ -151,14 +168,24 @@ func getContainersAndStatus(obj kube.Object) ([]castai.Container, interface{}, b
 	return res, st, true
 }
 
-func (d *delta) getOwnerUID(obj kube.Object) string {
+func getObjectSpec(obj object) []byte {
 	switch v := obj.(type) {
-	case *corev1.Pod:
-		return d.podOwnerGetter.GetPodOwnerID(v)
+	case *networkingv1.Ingress:
+		spec, _ := json.Marshal(v.Spec)
+		return spec
+	case *corev1.Service:
+		spec, _ := json.Marshal(v.Spec)
+		return spec
+	case *appsv1.Deployment:
+		spec, _ := json.Marshal(v.Spec)
+		return spec
+	case *appsv1.StatefulSet:
+		spec, _ := json.Marshal(v.Spec)
+		return spec
+	case *appsv1.DaemonSet:
+		spec, _ := json.Marshal(v.Spec)
+		return spec
+	default:
+		return nil
 	}
-
-	if len(obj.GetOwnerReferences()) == 0 {
-		return ""
-	}
-	return string(obj.GetOwnerReferences()[0].UID)
 }
