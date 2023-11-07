@@ -75,11 +75,23 @@ func (d *delta) add(event kube.Event, obj object) {
 		ObjectOwnerUID:   d.getOwnerUID(obj),
 		ObjectLabels:     obj.GetLabels(),
 	}
-	if containers, status, ok := getContainersAndStatus(obj); ok {
-		deltaItem.ObjectContainers = containers
+
+	containers, status, err := getContainersAndStatus(obj)
+	if err != nil {
+		d.log.Errorf("getting object status json: %v", err)
+	}
+	if len(status) > 0 {
 		deltaItem.ObjectStatus = status
 	}
-	if spec := getObjectSpec(obj); len(spec) > 0 {
+	if len(containers) > 0 {
+		deltaItem.ObjectContainers = containers
+	}
+
+	spec, err := getObjectSpec(obj)
+	if err != nil {
+		d.log.Errorf("getting object spec json: %v", err)
+	}
+	if len(spec) > 0 {
 		deltaItem.ObjectSpec = spec
 	}
 
@@ -128,34 +140,35 @@ func (d *delta) getOwnerUID(obj kube.Object) string {
 	return string(obj.GetOwnerReferences()[0].UID)
 }
 
-func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, bool) {
+func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, error) {
 	var containers []corev1.Container
 	appendContainers := func(podSpec corev1.PodSpec) {
 		containers = append(containers, podSpec.Containers...)
 		containers = append(containers, podSpec.InitContainers...)
 	}
 	var st []byte
+	var err error
 	switch v := obj.(type) {
 	case *batchv1.Job:
-		st, _ = json.Marshal(v.Status)
+		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	case *batchv1.CronJob:
-		st, _ = json.Marshal(v.Status)
+		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec.JobTemplate.Spec.Template.Spec)
 	case *corev1.Pod:
-		st, _ = json.Marshal(v.Status)
+		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec)
 	case *appsv1.Deployment:
-		st, _ = json.Marshal(v.Status)
+		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	case *appsv1.StatefulSet:
-		st, _ = json.Marshal(v.Status)
+		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	case *appsv1.DaemonSet:
-		st, _ = json.Marshal(v.Status)
+		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
 	default:
-		return nil, nil, false
+		return nil, nil, nil
 	}
 
 	res := make([]castai.Container, len(containers))
@@ -165,27 +178,22 @@ func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, bool) 
 			ImageName: cont.Image,
 		}
 	}
-	return res, st, true
+	return res, st, err
 }
 
-func getObjectSpec(obj object) []byte {
+func getObjectSpec(obj object) ([]byte, error) {
 	switch v := obj.(type) {
 	case *networkingv1.Ingress:
-		spec, _ := json.Marshal(v.Spec)
-		return spec
+		return json.Marshal(v.Spec)
 	case *corev1.Service:
-		spec, _ := json.Marshal(v.Spec)
-		return spec
+		return json.Marshal(v.Spec)
 	case *appsv1.Deployment:
-		spec, _ := json.Marshal(v.Spec)
-		return spec
+		return json.Marshal(v.Spec)
 	case *appsv1.StatefulSet:
-		spec, _ := json.Marshal(v.Spec)
-		return spec
+		return json.Marshal(v.Spec)
 	case *appsv1.DaemonSet:
-		spec, _ := json.Marshal(v.Spec)
-		return spec
+		return json.Marshal(v.Spec)
 	default:
-		return nil
+		return nil, nil
 	}
 }
