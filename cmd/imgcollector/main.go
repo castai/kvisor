@@ -11,9 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/castai/kvisor/blobscache"
-	"github.com/castai/kvisor/cmd/imgcollector/collector"
-	"github.com/castai/kvisor/cmd/imgcollector/config"
-	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
+	"github.com/castai/kvisor/imgcollector/collector"
+	"github.com/castai/kvisor/imgcollector/config"
+	"github.com/castai/kvisor/imgcollector/image/hostfs"
 )
 
 // These should be set via `go build` during a release.

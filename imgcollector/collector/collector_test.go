@@ -20,8 +20,8 @@ import (
 
 	mock_blobcache "github.com/castai/kvisor/blobscache/mock"
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/cmd/imgcollector/config"
-	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
+	"github.com/castai/kvisor/imgcollector/config"
+	"github.com/castai/kvisor/imgcollector/image/hostfs"
 )
 
 func TestCollector(t *testing.T) {

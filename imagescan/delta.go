@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/castai/kvisor/castai"
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
+	imgcollectorconfig "github.com/castai/kvisor/imgcollector/config"
 	"github.com/castai/kvisor/kube"
 )
 

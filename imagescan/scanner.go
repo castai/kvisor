@@ -22,8 +22,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
+	imgcollectorconfig "github.com/castai/kvisor/imgcollector/config"
 	"github.com/castai/kvisor/log"
 )
 

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
-	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
+	analyzer2 "github.com/castai/kvisor/imgcollector/analyzer"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/log"
@@ -75,8 +75,8 @@ func (a rpmPkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInput)
 	for pkgName, files := range installedFiles {
 		systemInstalledFiles = append(systemInstalledFiles, files...)
 		binaries := lo.Filter(lo.Map(files, func(item string, index int) string {
-			return an.CleanPath(item)
-		}), an.BinariesPathFilter)
+			return analyzer2.CleanPath(item)
+		}), analyzer2.BinariesPathFilter)
 		if len(binaries) > 0 {
 			binaryMap[pkgName] = binaries
 		}
@@ -92,7 +92,7 @@ func (a rpmPkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInput)
 		SystemInstalledFiles: systemInstalledFiles,
 		CustomResources: []types.CustomResource{
 			{
-				Type:     an.TypeInstalledBinaries,
+				Type:     analyzer2.TypeInstalledBinaries,
 				FilePath: input.FilePath,
 				Data:     binaryMap,
 			},

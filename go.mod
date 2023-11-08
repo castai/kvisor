@@ -257,4 +257,4 @@ replace github.com/chzyer/logex v1.1.10 => github.com/chzyer/logex v1.2.0
 
 replace github.com/containerd/containerd => github.com/containerd/containerd v1.6.1-0.20220706215228-681aaf68b7dc
 
-replace github.com/go-enry/go-license-detector/v4 v4.3.0 => ./cmd/imgcollector/stub/licensing
+replace github.com/go-enry/go-license-detector/v4 v4.3.0 => ./imgcollector/stub/licensing
