@@ -2,6 +2,8 @@ package castai
 
 import (
 	"time"
+
+	json "github.com/json-iterator/go"
 )
 
 type EventType string
@@ -29,8 +31,10 @@ type DeltaItem struct {
 	ObjectLabels     map[string]string `json:"object_labels,omitempty"`
 
 	// ObjectContainers and ObjectStatus are set only for objects which could contain containers.
-	ObjectContainers []Container `json:"object_containers,omitempty"`
-	ObjectStatus     interface{} `json:"object_status,omitempty"`
+	ObjectContainers []Container     `json:"object_containers,omitempty"`
+	ObjectStatus     json.RawMessage `json:"object_status,omitempty"`
+
+	ObjectSpec json.RawMessage `json:"object_spec,omitempty"`
 }
 
 type Container struct {

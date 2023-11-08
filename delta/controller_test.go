@@ -2,12 +2,14 @@ package delta
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,14 +23,15 @@ func TestSubscriber(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	pod1 := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+	pod1 := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "nginx-1",
 			Namespace: "default",
 			UID:       types.UID("111b56a9-ab5e-4a35-93af-f092e2f63011"),
 			OwnerReferences: []metav1.OwnerReference{
 				{
+					UID:        types.UID("owner"),
 					APIVersion: "v1",
 					Kind:       kindNode,
 					Controller: lo.ToPtr(true),
@@ -37,23 +40,29 @@ func TestSubscriber(t *testing.T) {
 			},
 			Labels: map[string]string{"subscriber": "test"},
 		},
-		Spec: corev1.PodSpec{
-			NodeName: "n1",
-			Containers: []corev1.Container{
-				{
-					Name:  "nginx",
-					Image: "nginx:1.23",
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					NodeName: "n1",
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:1.23",
+						},
+					},
 				},
 			},
 		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
+		Status: appsv1.DeploymentStatus{
+			Replicas: 1,
 		},
 	}
 
 	assertDelta := func(t *testing.T, delta *castai.Delta, event castai.EventType, initial bool) {
+		t.Helper()
 		r := require.New(t)
 		podUID := "111b56a9-ab5e-4a35-93af-f092e2f63011"
+		fmt.Println(string(delta.Items[0].ObjectSpec))
 		r.Equal(&castai.Delta{
 			FullSnapshot: initial,
 			Items: []castai.DeltaItem{
@@ -62,7 +71,7 @@ func TestSubscriber(t *testing.T) {
 					ObjectUID:        podUID,
 					ObjectName:       "nginx-1",
 					ObjectNamespace:  "default",
-					ObjectKind:       "Pod",
+					ObjectKind:       "Deployment",
 					ObjectAPIVersion: "v1",
 					ObjectLabels:     map[string]string{"subscriber": "test"},
 					ObjectContainers: []castai.Container{
@@ -71,8 +80,9 @@ func TestSubscriber(t *testing.T) {
 							ImageName: "nginx:1.23",
 						},
 					},
-					ObjectStatus:   corev1.PodStatus{Phase: corev1.PodRunning},
-					ObjectOwnerUID: podUID,
+					ObjectStatus:   []byte(`{"replicas":1}`),
+					ObjectOwnerUID: "owner",
+					ObjectSpec:     []byte(`{"selector":null,"template":{"metadata":{"creationTimestamp":null},"spec":{"containers":[{"name":"nginx","image":"nginx:1.23","resources":{}}],"nodeName":"n1"}},"strategy":{}}`),
 				},
 			},
 		}, delta)

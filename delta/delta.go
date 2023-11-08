@@ -1,11 +1,13 @@
 package delta
 
 import (
+	json "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -73,9 +75,24 @@ func (d *delta) add(event kube.Event, obj object) {
 		ObjectOwnerUID:   d.getOwnerUID(obj),
 		ObjectLabels:     obj.GetLabels(),
 	}
-	if containers, status, ok := getContainersAndStatus(obj); ok {
-		deltaItem.ObjectContainers = containers
+
+	containers, status, err := getContainersAndStatus(obj)
+	if err != nil {
+		d.log.Errorf("getting object status json: %v", err)
+	}
+	if len(status) > 0 {
 		deltaItem.ObjectStatus = status
+	}
+	if len(containers) > 0 {
+		deltaItem.ObjectContainers = containers
+	}
+
+	spec, err := getObjectSpec(obj)
+	if err != nil {
+		d.log.Errorf("getting object spec json: %v", err)
+	}
+	if len(spec) > 0 {
+		deltaItem.ObjectSpec = spec
 	}
 
 	d.cache[key] = deltaItem
@@ -111,46 +128,6 @@ func toCASTAIEvent(e kube.Event) castai.EventType {
 	return ""
 }
 
-func getContainersAndStatus(obj kube.Object) ([]castai.Container, interface{}, bool) {
-	var containers []corev1.Container
-	appendContainers := func(podSpec corev1.PodSpec) {
-		containers = append(containers, podSpec.Containers...)
-		containers = append(containers, podSpec.InitContainers...)
-	}
-	var st interface{}
-	switch v := obj.(type) {
-	case *batchv1.Job:
-		st = v.Status
-		appendContainers(v.Spec.Template.Spec)
-	case *batchv1.CronJob:
-		st = v.Status
-		appendContainers(v.Spec.JobTemplate.Spec.Template.Spec)
-	case *corev1.Pod:
-		st = v.Status
-		appendContainers(v.Spec)
-	case *appsv1.Deployment:
-		st = v.Status
-		appendContainers(v.Spec.Template.Spec)
-	case *appsv1.StatefulSet:
-		st = v.Status
-		appendContainers(v.Spec.Template.Spec)
-	case *appsv1.DaemonSet:
-		st = v.Status
-		appendContainers(v.Spec.Template.Spec)
-	default:
-		return nil, nil, false
-	}
-
-	res := make([]castai.Container, len(containers))
-	for i, cont := range containers {
-		res[i] = castai.Container{
-			Name:      cont.Name,
-			ImageName: cont.Image,
-		}
-	}
-	return res, st, true
-}
-
 func (d *delta) getOwnerUID(obj kube.Object) string {
 	switch v := obj.(type) {
 	case *corev1.Pod:
@@ -161,4 +138,62 @@ func (d *delta) getOwnerUID(obj kube.Object) string {
 		return ""
 	}
 	return string(obj.GetOwnerReferences()[0].UID)
+}
+
+func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, error) {
+	var containers []corev1.Container
+	appendContainers := func(podSpec corev1.PodSpec) {
+		containers = append(containers, podSpec.Containers...)
+		containers = append(containers, podSpec.InitContainers...)
+	}
+	var st []byte
+	var err error
+	switch v := obj.(type) {
+	case *batchv1.Job:
+		st, err = json.Marshal(v.Status)
+		appendContainers(v.Spec.Template.Spec)
+	case *batchv1.CronJob:
+		st, err = json.Marshal(v.Status)
+		appendContainers(v.Spec.JobTemplate.Spec.Template.Spec)
+	case *corev1.Pod:
+		st, err = json.Marshal(v.Status)
+		appendContainers(v.Spec)
+	case *appsv1.Deployment:
+		st, err = json.Marshal(v.Status)
+		appendContainers(v.Spec.Template.Spec)
+	case *appsv1.StatefulSet:
+		st, err = json.Marshal(v.Status)
+		appendContainers(v.Spec.Template.Spec)
+	case *appsv1.DaemonSet:
+		st, err = json.Marshal(v.Status)
+		appendContainers(v.Spec.Template.Spec)
+	default:
+		return nil, nil, nil
+	}
+
+	res := make([]castai.Container, len(containers))
+	for i, cont := range containers {
+		res[i] = castai.Container{
+			Name:      cont.Name,
+			ImageName: cont.Image,
+		}
+	}
+	return res, st, err
+}
+
+func getObjectSpec(obj object) ([]byte, error) {
+	switch v := obj.(type) {
+	case *networkingv1.Ingress:
+		return json.Marshal(v.Spec)
+	case *corev1.Service:
+		return json.Marshal(v.Spec)
+	case *appsv1.Deployment:
+		return json.Marshal(v.Spec)
+	case *appsv1.StatefulSet:
+		return json.Marshal(v.Spec)
+	case *appsv1.DaemonSet:
+		return json.Marshal(v.Spec)
+	default:
+		return nil, nil
+	}
 }
