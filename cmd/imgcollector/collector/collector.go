@@ -18,9 +18,9 @@ import (
 
 	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/pkg/imgcollector/config"
-	image2 "github.com/castai/kvisor/pkg/imgcollector/image"
-	"github.com/castai/kvisor/pkg/imgcollector/image/hostfs"
+	"github.com/castai/kvisor/cmd/imgcollector/config"
+	"github.com/castai/kvisor/cmd/imgcollector/image"
+	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	// Import all registered analyzers.
@@ -57,9 +57,9 @@ import (
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/release"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/ubuntu"
 
-	_ "github.com/castai/kvisor/pkg/imgcollector/analyzer/pkg/apk"
-	_ "github.com/castai/kvisor/pkg/imgcollector/analyzer/pkg/dpkg"
-	_ "github.com/castai/kvisor/pkg/imgcollector/analyzer/pkg/rpm"
+	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/apk"
+	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/dpkg"
+	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
 )
 
 func New(log logrus.FieldLogger, cfg config.Config, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
@@ -90,7 +90,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
-	artifact, err := image2.NewArtifact(img, c.log, c.cache, image2.ArtifactOption{
+	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
 		Offline: true,
 		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
 		DisabledAnalyzers: []analyzer.Type{
@@ -151,19 +151,19 @@ func (c *Collector) Collect(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) getImage(ctx context.Context) (image2.ImageWithIndex, func(), error) {
+func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
 		return nil, nil, err
 	}
 	if c.cfg.Mode == config.ModeRemote {
-		opts := image2.DockerOption{}
+		opts := image.DockerOption{}
 		if c.cfg.ImagePullSecret != "" {
 			configData, err := config.ReadImagePullSecret(os.DirFS(config.SecretMountPath))
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading image pull secret: %w", err)
 			}
-			cfg := image2.DockerConfig{}
+			cfg := image.DockerConfig{}
 			if err := json.Unmarshal(configData, &cfg); err != nil {
 				return nil, nil, fmt.Errorf("parsing image pull secret: %w", err)
 			}
@@ -172,7 +172,7 @@ func (c *Collector) getImage(ctx context.Context) (image2.ImageWithIndex, func()
 				opts.Password = auth.Password
 				opts.RegistryToken = auth.Token
 			}
-			if auth, ok := cfg.Auths[image2.NamespacedRegistry(imgRef)]; ok {
+			if auth, ok := cfg.Auths[image.NamespacedRegistry(imgRef)]; ok {
 				opts.UserName = auth.Username
 				opts.Password = auth.Password
 				opts.RegistryToken = auth.Token
@@ -191,25 +191,25 @@ func (c *Collector) getImage(ctx context.Context) (image2.ImageWithIndex, func()
 				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
 			}
 		}
-		img, err := image2.NewFromRemote(ctx, c.cfg.ImageName, opts)
+		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
 		return img, func() {}, err
 	}
 
 	if c.cfg.Runtime == config.RuntimeContainerd {
 		if c.cfg.Mode == config.ModeDaemon {
-			return image2.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
+			return image.NewFromContainerdDaemon(ctx, c.cfg.ImageName)
 		}
 		if c.cfg.Mode == config.ModeHostFS {
-			return image2.NewFromContainerdHostFS(c.cfg.ImageID, *c.hostFsConfig)
+			return image.NewFromContainerdHostFS(c.cfg.ImageID, *c.hostFsConfig)
 		}
 	}
 
 	if c.cfg.Runtime == config.RuntimeDocker {
 		if c.cfg.Mode == config.ModeTarArchive {
-			return image2.NewFromDockerDaemonTarFile(c.cfg.ImageName, c.cfg.ImageLocalTarPath, imgRef)
+			return image.NewFromDockerDaemonTarFile(c.cfg.ImageName, c.cfg.ImageLocalTarPath, imgRef)
 		}
 		if c.cfg.Mode == config.ModeDaemon {
-			return image2.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
+			return image.NewFromDockerDaemon(c.cfg.ImageName, imgRef)
 		}
 	}
 

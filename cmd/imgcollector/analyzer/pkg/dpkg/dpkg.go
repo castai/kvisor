@@ -18,7 +18,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/log"
 
-	analyzer2 "github.com/castai/kvisor/pkg/imgcollector/analyzer"
+	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
 )
 
 func init() {
@@ -54,15 +54,15 @@ func (a dpkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInput) (
 		}
 
 		binaries := lo.Filter(lo.Map(installedFiles, func(item string, index int) string {
-			return analyzer2.CleanPath(item)
-		}), analyzer2.BinariesPathFilter)
+			return an.CleanPath(item)
+		}), an.BinariesPathFilter)
 		if len(binaries) > 0 {
-			name, _ := analyzer2.Split(filename, '.')
-			pkgName, _ := analyzer2.Split(name, ':')
+			name, _ := an.Split(filename, '.')
+			pkgName, _ := an.Split(name, ':')
 
 			result.CustomResources = []types.CustomResource{
 				{
-					Type:     analyzer2.TypeInstalledBinaries,
+					Type:     an.TypeInstalledBinaries,
 					FilePath: input.FilePath,
 					Data:     map[string][]string{pkgName: binaries},
 				},

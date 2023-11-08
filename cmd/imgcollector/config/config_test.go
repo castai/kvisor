@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/castai/kvisor/pkg/imgcollector/image"
+	"github.com/castai/kvisor/cmd/imgcollector/image"
 )
 
 func TestReadImagePullSecret(t *testing.T) {
