@@ -173,7 +173,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	)
 	kubeCtrl.AddSubscribers(deltaCtrl)
 
-	telemetryManager := telemetry.NewManager(log, castaiClient)
+	telemetryManager := telemetry.NewManager(log, castaiClient, cfg.Telemetry.Interval)
 
 	var scannedNodes []string
 	telemetryResponse, err := castaiClient.PostTelemetry(ctx, true)

@@ -10,19 +10,18 @@ import (
 	"github.com/castai/kvisor/castai"
 )
 
-const telemetryInterval = time.Minute
-
 type Observer func(response *castai.TelemetryResponse)
 
 type Manager struct {
-	log    logrus.FieldLogger
-	client castai.Client
+	log      logrus.FieldLogger
+	client   castai.Client
+	interval time.Duration
 
 	observers []Observer
 }
 
-func NewManager(log logrus.FieldLogger, castaiClient castai.Client) *Manager {
-	return &Manager{log: log, client: castaiClient}
+func NewManager(log logrus.FieldLogger, castaiClient castai.Client, interval time.Duration) *Manager {
+	return &Manager{log: log, client: castaiClient, interval: interval}
 }
 
 func (s *Manager) AddObservers(observers ...Observer) {
@@ -35,7 +34,7 @@ func (s *Manager) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(telemetryInterval):
+		case <-time.After(s.interval):
 			resp, err := s.postTelemetry(ctx)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
