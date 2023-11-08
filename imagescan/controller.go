@@ -15,10 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/castai/kvisor/castai"
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/metrics"
+	imgcollectorconfig "github.com/castai/kvisor/pkg/imgcollector/config"
 )
 
 type castaiClient interface {

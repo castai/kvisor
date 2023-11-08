@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/castai/kvisor/castai"
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
+	imgcollectorconfig "github.com/castai/kvisor/pkg/imgcollector/config"
 )
 
 func TestSubscriber(t *testing.T) {

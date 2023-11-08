@@ -5,11 +5,11 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	"github.com/castai/kvisor/cmd/imgcollector/image/daemon"
+	daemon2 "github.com/castai/kvisor/pkg/imgcollector/image/daemon"
 )
 
 func NewFromContainerdDaemon(ctx context.Context, imageName string) (ImageWithIndex, func(), error) {
-	img, cleanup, err := daemon.ContainerdImage(ctx, imageName)
+	img, cleanup, err := daemon2.ContainerdImage(ctx, imageName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -20,7 +20,7 @@ func NewFromContainerdDaemon(ctx context.Context, imageName string) (ImageWithIn
 }
 
 func NewFromDockerDaemon(imageName string, ref name.Reference) (ImageWithIndex, func(), error) {
-	img, cleanup, err := daemon.DockerImage(ref)
+	img, cleanup, err := daemon2.DockerImage(ref)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -31,7 +31,7 @@ func NewFromDockerDaemon(imageName string, ref name.Reference) (ImageWithIndex, 
 }
 
 func NewFromDockerDaemonTarFile(imageName, localTarPath string, ref name.Reference) (ImageWithIndex, func(), error) {
-	img, cleanup, err := daemon.DockerTarImage(ref, localTarPath)
+	img, cleanup, err := daemon2.DockerTarImage(ref, localTarPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -42,7 +42,7 @@ func NewFromDockerDaemonTarFile(imageName, localTarPath string, ref name.Referen
 }
 
 type daemonImage struct {
-	daemon.Image
+	daemon2.Image
 	name string
 }
 

@@ -18,7 +18,7 @@ import (
 	"github.com/aquasecurity/trivy/pkg/licensing"
 	"github.com/aquasecurity/trivy/pkg/log"
 
-	an "github.com/castai/kvisor/cmd/imgcollector/analyzer"
+	analyzer2 "github.com/castai/kvisor/pkg/imgcollector/analyzer"
 )
 
 func init() {
@@ -41,8 +41,8 @@ func (a alpinePkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInp
 	for pkgName, files := range installedFiles {
 		systemInstalledFiles = append(systemInstalledFiles, files...)
 		binaries := lo.Filter(lo.Map(files, func(item string, index int) string {
-			return an.CleanPath(item)
-		}), an.BinariesPathFilter)
+			return analyzer2.CleanPath(item)
+		}), analyzer2.BinariesPathFilter)
 		if len(binaries) > 0 {
 			binariesMap[pkgName] = binaries
 		}
@@ -58,7 +58,7 @@ func (a alpinePkgAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInp
 		SystemInstalledFiles: systemInstalledFiles,
 		CustomResources: []types.CustomResource{
 			{
-				Type:     an.TypeInstalledBinaries,
+				Type:     analyzer2.TypeInstalledBinaries,
 				FilePath: input.FilePath,
 				Data:     binariesMap,
 			},

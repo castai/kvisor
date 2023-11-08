@@ -1,15 +1,15 @@
 package image
 
 import (
-	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
+	hostfs2 "github.com/castai/kvisor/pkg/imgcollector/image/hostfs"
 )
 
-func NewFromContainerdHostFS(imageID string, config hostfs.ContainerdHostFSConfig) (ImageWithIndex, func(), error) {
-	hash, err := hostfs.NewImageHash(imageID)
+func NewFromContainerdHostFS(imageID string, config hostfs2.ContainerdHostFSConfig) (ImageWithIndex, func(), error) {
+	hash, err := hostfs2.NewImageHash(imageID)
 	if err != nil {
 		return nil, nil, err
 	}
-	img, err := hostfs.NewContainerdImage(hash, config)
+	img, err := hostfs2.NewContainerdImage(hash, config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -20,7 +20,7 @@ func NewFromContainerdHostFS(imageID string, config hostfs.ContainerdHostFSConfi
 }
 
 type extendedBlobImage struct {
-	hostfs.Image
+	hostfs2.Image
 	name string
 }
 

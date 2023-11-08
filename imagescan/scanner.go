@@ -22,9 +22,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/log"
+	imgcollectorconfig "github.com/castai/kvisor/pkg/imgcollector/config"
 )
 
 const (
