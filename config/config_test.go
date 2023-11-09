@@ -103,5 +103,8 @@ func newTestConfig() Config {
 				ClusterName: "",
 			},
 		},
+		Telemetry: Telemetry{
+			Interval: 1 * time.Minute,
+		},
 	}
 }

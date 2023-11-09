@@ -31,6 +31,7 @@ type Config struct {
 	Linter            Linter            `envconfig:"LINTER" yaml:"linter"`
 	KubeBench         KubeBench         `envconfig:"KUBE_BENCH" yaml:"kubeBench"`
 	CloudScan         CloudScan         `envconfig:"CLOUD_SCAN" yaml:"cloudScan"`
+	Telemetry         Telemetry         `envconfig:"TELEMETRY" yaml:"telemetry"`
 }
 
 type PolicyEnforcement struct {
@@ -118,6 +119,10 @@ type API struct {
 	Key       string `envconfig:"API_KEY" yaml:"key"`
 	URL       string `envconfig:"API_URL" yaml:"url"`
 	ClusterID string `envconfig:"API_CLUSTER_ID" yaml:"clusterID"`
+}
+
+type Telemetry struct {
+	Interval time.Duration `envconfig:"TELEMETRY_INTERVAL" yaml:"interval"`
 }
 
 func Load(configPath string) (Config, error) {
@@ -217,6 +222,9 @@ func Load(configPath string) (Config, error) {
 	}
 	if cfg.StatusPort == 0 {
 		cfg.StatusPort = 7071
+	}
+	if cfg.Telemetry.Interval == 0 {
+		cfg.Telemetry.Interval = 1 * time.Minute
 	}
 
 	return cfg, nil
