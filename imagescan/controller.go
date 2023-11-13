@@ -230,7 +230,7 @@ func (s *Controller) scanImages(ctx context.Context, images []*image) error {
 			log.Info("scanning image")
 			if err := s.scanImage(ctx, img); err != nil {
 				log.Errorf("image scan failed: %v", err)
-				parsedErr := ParseErrorFromLog(err)
+				parsedErr := parseErrorFromLog(err)
 				s.delta.setImageScanError(img, parsedErr)
 				if err := s.updateImageStatusAsFailed(ctx, img, parsedErr); err != nil {
 					s.log.Errorf("sending images resources changes: %v", err)

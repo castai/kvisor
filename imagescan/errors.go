@@ -41,12 +41,12 @@ func isHostFSError(rawErr error) bool {
 	return strings.Contains(rawErr.Error(), "no such file or directory") || strings.Contains(rawErr.Error(), "failed to get the layer")
 }
 
-func ParseErrorFromLog(rawErr error) error {
+func parseErrorFromLog(rawErr error) error {
 	if isPrivateImageError(rawErr) {
-		return errImageScanLayerNotFound
+		return errPrivateImage
 	}
 	if isHostFSError(rawErr) {
-		return errPrivateImage
+		return errImageScanLayerNotFound
 	}
 	logs := parseLogrusLog(rawErr.Error())
 	var errs []error
