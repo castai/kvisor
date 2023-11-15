@@ -29,7 +29,7 @@ func Node(nodeName, jobName string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: "ghcr.io/castai/kvisor/kube-bench:v0.7.0",
+							Image: kubeBenchImage,
 							SecurityContext: &corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
