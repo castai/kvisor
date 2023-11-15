@@ -49,7 +49,9 @@ func TestJobsGC(t *testing.T) {
 		CleanupJobAge:   10 * time.Minute,
 		Namespace:       ns,
 	})
-	go gc.Start(ctx)
+	go func() {
+		r.NoError(gc.Start(ctx))
+	}()
 
 	r.Eventually(func() bool {
 		jobs, err := clientset.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
