@@ -14,6 +14,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/bombsimon/logrusr/v4"
+	"github.com/castai/kvisor/jobsgc"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/containerd/containerd/pkg/atomic"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
@@ -47,7 +48,6 @@ import (
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/delta"
 	"github.com/castai/kvisor/imagescan"
-	"github.com/castai/kvisor/jobsgc"
 	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/linters/kubebench"
 	"github.com/castai/kvisor/linters/kubelinter"
@@ -189,9 +189,6 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		return fmt.Errorf("setting up linter: %w", err)
 	}
 
-	policyEnforcer := policy.NewEnforcer(linter, cfg.PolicyEnforcement)
-	telemetryManager.AddObservers(policyEnforcer.TelemetryObserver())
-
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
 		linterCtrl, err := kubelinter.NewController(log, castaiClient, linter)
@@ -250,19 +247,10 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		}
 	}
 
-	gc := jobsgc.NewGC(log, clientSet, jobsgc.Config{
-		CleanupInterval: 10 * time.Minute,
-		CleanupJobAge:   10 * time.Minute,
-		Namespace:       cfg.PodNamespace,
-	})
-	go gc.Start(ctx)
-
 	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
 	telemetryManager.AddObservers(resyncObserver)
 	featureObserver, featuresCtx := telemetry.ObserveDisabledFeatures(ctx, cfg, log)
 	telemetryManager.AddObservers(featureObserver)
-
-	go telemetryManager.Run(ctx)
 
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
@@ -298,6 +286,9 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 
 	if cfg.PolicyEnforcement.Enabled {
+		policyEnforcer := policy.NewEnforcer(linter, cfg.PolicyEnforcement)
+		telemetryManager.AddObservers(policyEnforcer.TelemetryObserver())
+
 		rotatorReady := make(chan struct{})
 		err = rotator.AddRotator(mngr, &rotator.CertRotator{
 			SecretKey: types.NamespacedName{
@@ -355,8 +346,8 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		blobsCache.RegisterHandlers(httpMux)
 	}
 
-	// Start http server for scan job, metrics and pprof handlers.
-	go func() {
+	if err := mngr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		// Start http server for scan job, metrics and pprof handlers.
 		httpAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
 		log.Infof("starting http server on %s", httpAddr)
 
@@ -366,13 +357,30 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			WriteTimeout: 5 * time.Second,
 			ReadTimeout:  5 * time.Second,
 		}
-		if err := srv.ListenAndServe(); err != nil {
-			log.Errorf("failed to start http server: %v", err)
-		}
-	}()
+		return srv.ListenAndServe()
+	})); err != nil {
+		return fmt.Errorf("add http server: %w", err)
+	}
 
-	// Does the work. Blocks.
-	return kubeCtrl.Run(featuresCtx, mngr)
+	if err := mngr.Add(telemetryManager); err != nil {
+		return fmt.Errorf("add telemetry manager: %w", err)
+	}
+
+	gc := jobsgc.NewGC(log, clientSet, jobsgc.Config{
+		CleanupInterval: 10 * time.Minute,
+		CleanupJobAge:   10 * time.Minute,
+		Namespace:       cfg.PodNamespace,
+	})
+
+	if err := mngr.Add(gc); err != nil {
+		return fmt.Errorf("add jobs gc: %w", err)
+	}
+
+	if err := mngr.Add(kubeCtrl); err != nil {
+		return fmt.Errorf("add kube controller: %w", err)
+	}
+
+	return mngr.Start(featuresCtx)
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {

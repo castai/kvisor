@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -89,18 +88,13 @@ func (c *Controller) AddSubscribers(subs ...ObjectSubscriber) {
 	c.subscribers = append(c.subscribers, subs...)
 }
 
-func (c *Controller) Run(ctx context.Context, m manager.Manager) error {
+func (c *Controller) NeedLeaderElection() bool {
+	return true
+}
+
+func (c *Controller) Start(ctx context.Context) error {
 	// Start manager.
 	errGroup, ctx := errgroup.WithContext(ctx)
-	errGroup.Go(func() error { return m.Start(ctx) })
-
-	select {
-	case <-m.Elected():
-		// get elected and run subscribers.
-	case <-ctx.Done():
-		// exit without running subscribers.
-		return ctx.Err()
-	}
 
 	for typ, informer := range c.informers {
 		if err := informer.SetTransform(c.transformFunc); err != nil {

@@ -28,12 +28,16 @@ func (s *Manager) AddObservers(observers ...Observer) {
 	s.observers = append(s.observers, observers...)
 }
 
-// Run periodically gets latest telemetry response (config) and updates observers.
-func (s *Manager) Run(ctx context.Context) {
+func (s *Manager) NeedLeaderElection() bool {
+	return true
+}
+
+// Start periodically gets latest telemetry response (config) and updates observers.
+func (s *Manager) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-time.After(s.interval):
 			resp, err := s.postTelemetry(ctx)
 			if err != nil {

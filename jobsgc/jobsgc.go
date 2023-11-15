@@ -39,11 +39,15 @@ type GC struct {
 	cfg       Config
 }
 
-func (g *GC) Start(ctx context.Context) {
+func (g *GC) NeedLeaderElection() bool {
+	return true
+}
+
+func (g *GC) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-time.After(g.cfg.CleanupInterval):
 			func() {
 				ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)

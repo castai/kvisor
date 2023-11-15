@@ -2,6 +2,7 @@ package jobsgc
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -49,7 +50,12 @@ func TestJobsGC(t *testing.T) {
 		CleanupJobAge:   10 * time.Minute,
 		Namespace:       ns,
 	})
-	go gc.Start(ctx)
+	go func() {
+		err := gc.Start(ctx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			r.Error(err)
+		}
+	}()
 
 	r.Eventually(func() bool {
 		jobs, err := clientset.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
