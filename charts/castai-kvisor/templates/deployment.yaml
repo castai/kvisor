@@ -12,7 +12,7 @@ metadata:
 spec:
   strategy:
     {{- .Values.updateStrategy | toYaml | nindent 4 }}
-  {{- if .Values.leaderElectionEnabled }}
+  {{- if gt .Values.replicas 1 }}
   replicas: {{ .Values.replicas }}
   {{- else}}
   replicas: 1
@@ -89,7 +89,7 @@ spec:
             - name: CERTS_SECRET
               value: {{ ((.Values.kvisor | default dict).certsSecret | default "kvisor-certs") | quote }}
             - name: LEADER_ELECTION
-              value: {{ (.Values.leaderElectionEnabled | default false) | quote }}
+              value: {{ (gt .Values.replicas 1 | default false) | quote }}
             - name: POLICY_ENFORCEMENT_ENABLED
               value: {{ ((.Values.policyEnforcement | default dict).enabled | default false) | quote }}
             - name: POLICY_ENFORCEMENT_WEBHOOK_NAME

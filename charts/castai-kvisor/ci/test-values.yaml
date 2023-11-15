@@ -7,7 +7,6 @@ resources:
     memory: 256Mi
 
 replicas: 1
-leaderElectionEnabled: false
 
 castai:
   clusterID: "00000000-0000-0000-0000-000000000001"
