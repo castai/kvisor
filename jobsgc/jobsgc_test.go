@@ -2,6 +2,7 @@ package jobsgc
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -50,7 +51,10 @@ func TestJobsGC(t *testing.T) {
 		Namespace:       ns,
 	})
 	go func() {
-		r.NoError(gc.Start(ctx))
+		err := gc.Start(ctx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			r.Error(err)
+		}
 	}()
 
 	r.Eventually(func() bool {
