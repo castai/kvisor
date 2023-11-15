@@ -129,7 +129,7 @@ rules:
       - pods/log
     verbs:
       - get
-  {{- if gt .Values.replicas 1 }}
+  {{- if .Values.leaderElectionEnabled }}
   - apiGroups:
       - "coordination.k8s.io"
     resources:

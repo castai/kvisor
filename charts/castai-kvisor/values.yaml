@@ -1,6 +1,7 @@
 # Declare variables to be passed into your templates.
 
 replicas: 1
+leaderElectionEnabled: false
 
 nameOverride: ""
 fullnameOverride: castai-kvisor
