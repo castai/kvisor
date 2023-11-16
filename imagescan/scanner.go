@@ -346,6 +346,9 @@ func scanJobSpec(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: ns,
+			Annotations: map[string]string{
+				"autoscaling.cast.ai/disposable": "true",
+			},
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "castai",
 			},

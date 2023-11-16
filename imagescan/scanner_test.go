@@ -69,6 +69,9 @@ func TestScanner(t *testing.T) {
 				APIVersion: "batch/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"autoscaling.cast.ai/disposable": "true",
+				},
 				Name:      "imgscan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
 				Namespace: ns,
 				Labels: map[string]string{

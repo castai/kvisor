@@ -13,6 +13,9 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobName,
+			Annotations: map[string]string{
+				"autoscaling.cast.ai/disposable": "true",
+			},
 			Labels: map[string]string{
 				"app":                          "kube-bench",
 				"app.kubernetes.io/managed-by": "castai",
