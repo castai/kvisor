@@ -26,7 +26,7 @@ imageScanSecret: ""
 
 # Controls `deployment.spec.strategy` field
 updateStrategy:
-  type: Recreate
+  type: RollingUpdate
 
 policyEnforcement:
   enabled: false
