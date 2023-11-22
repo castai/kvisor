@@ -10,7 +10,7 @@ webhooks:
       matchExpressions:
         - key: "kubernetes.io/metadata.name"
           operator: NotIn
-          values: ["{{ .Release.Namespace }}"]
+          values: ["{{ .Release.Namespace }}", "kube-system"]
     rules:
       - apiGroups: [ "" ]
         apiVersions: [ "v1" ]
