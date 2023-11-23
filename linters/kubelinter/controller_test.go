@@ -22,7 +22,6 @@ func TestSubscriber(t *testing.T) {
 
 	t.Run("sends linter checks", func(t *testing.T) {
 		r := require.New(t)
-		ctx, cancel := context.WithCancel(context.Background())
 		mockctrl := gomock.NewController(t)
 		defer mockctrl.Finish()
 		castaiClient := mock_castai.NewMockClient(mockctrl)
@@ -31,8 +30,6 @@ func TestSubscriber(t *testing.T) {
 		r.NoError(err)
 
 		ctrl := &Controller{
-			ctx:    ctx,
-			cancel: cancel,
 			client: castaiClient,
 			linter: linter,
 			delta:  newDeltaState(),
@@ -52,6 +49,7 @@ func TestSubscriber(t *testing.T) {
 				},
 			},
 		}
-		r.NoError(ctrl.lintObjects(objects))
+		ctx := context.Background()
+		r.NoError(ctrl.lintObjects(ctx, objects))
 	})
 }

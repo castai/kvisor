@@ -186,6 +186,9 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set structuredConfig.imageScan.image.name=%s \
   --set structuredConfig.imageScan.mode=hostfs \
   --set structuredConfig.imageScan.initDelay=10s \
+  --set structuredConfig.linter.scanInterval=5s \
+  --set structuredConfig.deltaSyncInterval=5s \
+  --set structuredConfig.kubeBench.scanInterval=5s \
   --set structuredConfig.kubeBench.enabled=true \
   --set structuredConfig.kubeClient.useProtobuf=true \
   --set castai.apiURL=%s \
