@@ -191,10 +191,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	if cfg.Linter.Enabled {
 		log.Info("linter enabled")
-		linterCtrl, err := kubelinter.NewController(log, castaiClient, linter)
-		if err != nil {
-			return err
-		}
+		linterCtrl := kubelinter.NewController(log, cfg.Linter, castaiClient, linter)
 		kubeCtrl.AddSubscribers(linterCtrl)
 	}
 	if cfg.KubeBench.Enabled {

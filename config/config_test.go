@@ -86,7 +86,8 @@ func newTestConfig() Config {
 			APIUrl:            "http://kvisor.castai-agent.svc.cluster.local.:6060",
 		},
 		Linter: Linter{
-			Enabled: true,
+			Enabled:      true,
+			ScanInterval: 15 * time.Second,
 		},
 		KubeBench: KubeBench{
 			Enabled:      true,

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castai/kvisor/config"
 	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/samber/lo"
@@ -23,25 +24,22 @@ import (
 	"github.com/castai/kvisor/metrics"
 )
 
-func NewController(log logrus.FieldLogger, client castai.Client, linter *Linter) (*Controller, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewController(log logrus.FieldLogger, cfg config.Linter, client castai.Client, linter *Linter) *Controller {
 	return &Controller{
-		ctx:    ctx,
-		cancel: cancel,
+		log:    log,
+		cfg:    cfg,
 		client: client,
 		linter: linter,
 		delta:  newDeltaState(),
-		log:    log,
-	}, nil
+	}
 }
 
 type Controller struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	log    logrus.FieldLogger
+	cfg    config.Linter
 	client castai.Client
 	linter *Linter
 	delta  *deltaState
-	log    logrus.FieldLogger
 }
 
 func (s *Controller) RequiredInformers() []reflect.Type {
@@ -68,10 +66,10 @@ func (s *Controller) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(15 * time.Second):
+		case <-time.After(s.cfg.ScanInterval):
 			objects := s.delta.flush()
 			if len(objects) > 0 {
-				if err := s.lintObjects(objects); err != nil && !errors.Is(err, context.Canceled) {
+				if err := s.lintObjects(ctx, objects); err != nil && !errors.Is(err, context.Canceled) {
 					s.log.Error(err)
 
 					// put unprocessed objects back to delta queue
@@ -101,6 +99,11 @@ func (s *Controller) modifyDelta(event kube.Event, o kube.Object) {
 		if !isStandalonePod(o) {
 			return
 		}
+	case *batchv1.Job:
+		// Skip jobs which belongs to cronjobs etc.
+		if !isStandaloneJob(o) {
+			return
+		}
 	}
 
 	switch event {
@@ -113,7 +116,7 @@ func (s *Controller) modifyDelta(event kube.Event, o kube.Object) {
 	}
 }
 
-func (s *Controller) lintObjects(objects []kube.Object) (rerr error) {
+func (s *Controller) lintObjects(ctx context.Context, objects []kube.Object) (rerr error) {
 	start := time.Now()
 	defer func() {
 		metrics.IncScansTotal(metrics.ScanTypeLinter, rerr)
@@ -127,7 +130,7 @@ func (s *Controller) lintObjects(objects []kube.Object) (rerr error) {
 		return fmt.Errorf("kubelinter failed: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(s.ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	if err := s.client.SendLinterChecks(ctx, checks); err != nil {
@@ -143,11 +146,15 @@ func isStandalonePod(pod *corev1.Pod) bool {
 		return false
 	}
 
-	// pod created without parent
+	// Pod created without parent.
 	if len(pod.OwnerReferences) == 0 {
 		return true
 	}
 
-	// static pod
+	// Static pod.
 	return strings.HasSuffix(pod.ObjectMeta.Name, pod.Spec.NodeName)
+}
+
+func isStandaloneJob(job *batchv1.Job) bool {
+	return len(job.OwnerReferences) == 0
 }

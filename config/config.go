@@ -90,7 +90,8 @@ type ImageScanImage struct {
 }
 
 type Linter struct {
-	Enabled bool `envconfig:"LINTER_ENABLED" yaml:"enabled"`
+	Enabled      bool          `envconfig:"LINTER_ENABLED" yaml:"enabled"`
+	ScanInterval time.Duration `envconfig:"LINTER_SCAN_INTERVAL" yaml:"scanInterval"`
 }
 
 type KubeBench struct {
@@ -207,7 +208,12 @@ func Load(configPath string) (Config, error) {
 	}
 	if cfg.KubeBench.Enabled {
 		if cfg.KubeBench.ScanInterval == 0 {
-			cfg.KubeBench.ScanInterval = 15 * time.Second
+			cfg.KubeBench.ScanInterval = 30 * time.Second
+		}
+	}
+	if cfg.Linter.Enabled {
+		if cfg.Linter.ScanInterval == 0 {
+			cfg.Linter.ScanInterval = 30 * time.Second
 		}
 	}
 
