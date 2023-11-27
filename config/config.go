@@ -202,7 +202,8 @@ func Load(configPath string) (Config, error) {
 			cfg.ImageScan.InitDelay = 60 * time.Second
 		}
 		if cfg.ImageScan.ServiceAccountName == "" {
-			cfg.ImageScan.ServiceAccountName = "castai-kvisor-image-scan"
+			// Do not set default sa for image scan. This can break existing kvisors since we can't add new service accounts.
+			cfg.ImageScan.ServiceAccountName = ""
 		}
 	}
 	if cfg.CloudScan.Enabled {
