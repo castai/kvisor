@@ -83,6 +83,7 @@ config: |
     scanInterval: "15s"
     maxConcurrentScans: 3
     mode: "remote"
+    serviceAccountName: "{{ .Values.imageScanServiceAccount.name }}"
     apiUrl: "http://kvisor.{{ .Release.Namespace }}.svc.cluster.local.:6060"
     image:
       name: "{{ .Values.image.repository }}-imgcollector:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -151,6 +152,12 @@ serviceAccount:
   # Annotations to add to the service account.
   annotations: {}
   name: "castai-kvisor"
+
+imageScanServiceAccount:
+  create: true
+  # Annotations to add to the service account.
+  annotations: { }
+  name: "castai-kvisor-image-scan"
 
 metrics:
   enabled: true

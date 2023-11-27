@@ -82,6 +82,7 @@ type ImageScan struct {
 	PhlareEnabled      bool           `envconfig:"IMAGE_SCAN_PHLARE_ENABLED" yaml:"phlareEnabled"`
 	PullSecret         string         `envconfig:"IMAGE_SCAN_PULL_SECRET" yaml:"pullSecret"`
 	InitDelay          time.Duration  `envconfig:"IMAGE_SCAN_INIT_DELAY" yaml:"initDelay"`
+	ServiceAccountName string         `envconfig:"IMAGE_SCAN_SERVICE_ACCOUNT_NAME" yaml:"serviceAccountName"`
 }
 
 type ImageScanImage struct {
@@ -199,6 +200,9 @@ func Load(configPath string) (Config, error) {
 		}
 		if cfg.ImageScan.InitDelay == 0 {
 			cfg.ImageScan.InitDelay = 60 * time.Second
+		}
+		if cfg.ImageScan.ServiceAccountName == "" {
+			cfg.ImageScan.ServiceAccountName = "castai-kvisor-image-scan"
 		}
 	}
 	if cfg.CloudScan.Enabled {

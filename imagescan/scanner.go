@@ -385,6 +385,7 @@ func scanJobSpec(
 					},
 					Tolerations:                  tolerations,
 					AutomountServiceAccountToken: lo.ToPtr(false),
+					ServiceAccountName:           cfg.ServiceAccountName,
 					Containers: []corev1.Container{
 						{
 							SecurityContext: &corev1.SecurityContext{

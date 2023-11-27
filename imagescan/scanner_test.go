@@ -37,15 +37,16 @@ func TestScanner(t *testing.T) {
 				Image: config.ImageScanImage{
 					Name: "imgcollector:1.0.0",
 				},
-				APIUrl:            "http://kvisor:6060",
-				DockerOptionsPath: "/etc/docker/config.json",
-				CPURequest:        "500m",
-				CPULimit:          "2",
-				MemoryRequest:     "100Mi",
-				MemoryLimit:       "2Gi",
-				ProfileEnabled:    true,
-				PhlareEnabled:     true,
-				Mode:              "",
+				APIUrl:             "http://kvisor:6060",
+				DockerOptionsPath:  "/etc/docker/config.json",
+				CPURequest:         "500m",
+				CPULimit:           "2",
+				MemoryRequest:      "100Mi",
+				MemoryLimit:        "2Gi",
+				ProfileEnabled:     true,
+				PhlareEnabled:      true,
+				Mode:               "",
+				ServiceAccountName: "sa",
 			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -117,6 +118,7 @@ func TestScanner(t *testing.T) {
 								Operator: corev1.TolerationOpExists,
 							},
 						},
+						ServiceAccountName:           "sa",
 						AutomountServiceAccountToken: lo.ToPtr(false),
 						Containers: []corev1.Container{
 							{
