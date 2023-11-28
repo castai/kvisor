@@ -31,6 +31,10 @@ const (
 	nonRootUserID = int64(65532)
 )
 
+var (
+	errJobPodNotFound = errors.New("job pod not found")
+)
+
 type imageScanner interface {
 	ScanImage(ctx context.Context, cfg ScanImageParams) (err error)
 }
@@ -270,9 +274,26 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	}
 
 	if params.WaitForCompletion {
-		return s.waitForCompletion(ctx, jobs, jobName)
+		if err := s.waitForCompletion(ctx, jobs, jobName); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			jobPod, _ := s.getJobPod(ctx, jobName)
+			if jobPod != nil {
+				conds := getPodConditionsString(jobPod.Status.Conditions)
+				return fmt.Errorf("pod_conditions=%s: %w", conds, err)
+			}
+			return err
+		}
 	}
 	return nil
+}
+
+func getPodConditionsString(conditions []corev1.PodCondition) string {
+	var condStrings []string
+	for _, condition := range conditions {
+		condStrings = append(condStrings, fmt.Sprintf("[type=%s, status=%s, message=%s]", condition.Type, condition.Status, condition.Message))
+	}
+	return strings.Join(condStrings, ", ")
 }
 
 func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {
@@ -295,14 +316,10 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 			return v.Status == corev1.ConditionTrue && v.Type == batchv1.JobFailed
 		})
 		if failed {
-			jobPods, err := s.client.CoreV1().Pods(s.cfg.PodNamespace).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{"job-name": jobName}.String()})
+			jobPod, err := s.getJobPod(ctx, jobName)
 			if err != nil {
 				return true, err
 			}
-			if len(jobPods.Items) == 0 {
-				return true, errors.New("job pod not found")
-			}
-			jobPod := jobPods.Items[0]
 			logsStream, err := s.podLogProvider.GetLogReader(ctx, s.cfg.PodNamespace, jobPod.Name)
 			if err != nil {
 				return true, fmt.Errorf("creating logs stream for failed job: %w", err)
@@ -316,6 +333,20 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 		}
 		return false, nil
 	})
+}
+
+func (s *Scanner) getJobPod(ctx context.Context, jobName string) (*corev1.Pod, error) {
+	jobPods, err := s.client.CoreV1().Pods(s.cfg.PodNamespace).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{"job-name": jobName}.String()})
+	if err != nil {
+		return nil, err
+	}
+	if len(jobPods.Items) == 0 {
+		return nil, errJobPodNotFound
+	}
+	if l := len(jobPods.Items); l != 1 {
+		return nil, fmt.Errorf("expected to get one job pod, got %d", l)
+	}
+	return &jobPods.Items[0], nil
 }
 
 type volumesAndMounts struct {

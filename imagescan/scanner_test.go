@@ -254,4 +254,48 @@ func TestScanner(t *testing.T) {
 		_, err = client.BatchV1().Jobs(ns).Get(ctx, job.Name, metav1.GetOptions{})
 		r.True(apierrors.IsNotFound(err))
 	})
+
+	t.Run("get failed job error with detailed reason", func(t *testing.T) {
+		r := require.New(t)
+
+		client := fake.NewSimpleClientset()
+		scanner := NewImageScanner(client, config.Config{
+			API:          config.API{URL: "https://api.cast.ai", ClusterID: "c1"},
+			PodIP:        "10.10.5.77",
+			PodNamespace: ns,
+			ImageScan: config.ImageScan{
+				Image: config.ImageScanImage{
+					Name: "imgcollector:1.0.0",
+				},
+				APIUrl:             "http://kvisor:6060",
+				DockerOptionsPath:  "/etc/docker/config.json",
+				CPURequest:         "500m",
+				CPULimit:           "2",
+				MemoryRequest:      "100Mi",
+				MemoryLimit:        "2Gi",
+				ProfileEnabled:     true,
+				PhlareEnabled:      true,
+				Mode:               "",
+				ServiceAccountName: "sa",
+			},
+		})
+		scanner.jobCheckInterval = 1 * time.Microsecond
+
+		err := scanner.ScanImage(ctx, ScanImageParams{
+			ImageName:        "test-image",
+			ImageID:          "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerRuntime: "containerd",
+			Mode:             "hostfs",
+			NodeName:         "n1",
+			ResourceIDs:      []string{"p1", "p2"},
+		})
+		r.NoError(err)
+
+		jobs, err := client.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
+		r.NoError(err)
+		r.Len(jobs.Items, 1)
+
+		// TODO: Add test to get failed job
+
+	})
 }
