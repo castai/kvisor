@@ -2,7 +2,6 @@ package delta
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -62,7 +61,6 @@ func TestSubscriber(t *testing.T) {
 		t.Helper()
 		r := require.New(t)
 		podUID := "111b56a9-ab5e-4a35-93af-f092e2f63011"
-		fmt.Println(string(delta.Items[0].ObjectSpec))
 		r.Equal(&castai.Delta{
 			FullSnapshot: initial,
 			Items: []castai.DeltaItem{
@@ -99,9 +97,8 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
-		delta := client.delta
-		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventAdd, true)
+		r.Len(client.deltas, 1)
+		assertDelta(t, client.deltas[0], castai.EventAdd, true)
 	})
 
 	t.Run("send update event", func(t *testing.T) {
@@ -116,9 +113,8 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
-		delta := client.delta
-		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventUpdate, true)
+		r.Len(client.deltas, 1)
+		assertDelta(t, client.deltas[0], castai.EventUpdate, true)
 	})
 
 	t.Run("send delete event", func(t *testing.T) {
@@ -134,9 +130,8 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
-		delta := client.delta
-		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventDelete, true)
+		r.Len(client.deltas, 1)
+		assertDelta(t, client.deltas[0], castai.EventDelete, true)
 	})
 
 	t.Run("second event does not set full snapshot flag", func(t *testing.T) {
@@ -147,7 +142,7 @@ func TestSubscriber(t *testing.T) {
 		sub.OnAdd(pod1)
 
 		go func() {
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 20)
 			sub.OnAdd(pod1)
 		}()
 
@@ -155,9 +150,8 @@ func TestSubscriber(t *testing.T) {
 		defer cancel()
 		err := sub.Run(ctx)
 		r.ErrorIs(err, context.DeadlineExceeded)
-		delta := client.delta
-		r.NotNil(delta)
-		assertDelta(t, delta, castai.EventAdd, false)
+		r.Len(client.deltas, 2)
+		assertDelta(t, client.deltas[1], castai.EventAdd, false)
 	})
 }
 
@@ -181,11 +175,11 @@ func (m *mockPodOwnerGetter) GetPodOwnerID(pod *corev1.Pod) string {
 }
 
 type mockCastaiClient struct {
-	delta *castai.Delta
+	deltas []*castai.Delta
 }
 
 func (m *mockCastaiClient) SendDeltaReport(ctx context.Context, report *castai.Delta) error {
-	m.delta = report
+	m.deltas = append(m.deltas, report)
 	return nil
 }
 
