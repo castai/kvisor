@@ -248,6 +248,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			if params.WaitDurationAfterCompletion != 0 {
 				select {
 				case <-ctx.Done():
+					rerr = ctx.Err()
 					return
 				case <-time.After(params.WaitDurationAfterCompletion):
 				}
@@ -256,7 +257,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			if err := jobs.Delete(ctx, jobSpec.Name, metav1.DeleteOptions{
 				PropagationPolicy: lo.ToPtr(metav1.DeletePropagationBackground),
 			}); err != nil && !apierrors.IsNotFound(err) {
-				rerr = err
+				rerr = fmt.Errorf("deleting finished job: %w", err)
 			}
 		}()
 	}
@@ -264,13 +265,16 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	// If job already exist wait for completion and exit.
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
 	if err == nil {
-		return s.waitForCompletion(ctx, jobs, jobName)
+		if err := s.waitForCompletion(ctx, jobs, jobName); err != nil {
+			return fmt.Errorf("job already exist, wait for completion: %w", err)
+		}
+		return nil
 	}
 
 	// Create new job and wait for completion.
 	_, err = jobs.Create(ctx, jobSpec, metav1.CreateOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("creating job: %w", err)
 	}
 
 	if params.WaitForCompletion {
@@ -280,9 +284,9 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			jobPod, _ := s.getJobPod(ctx, jobName)
 			if jobPod != nil {
 				conds := getPodConditionsString(jobPod.Status.Conditions)
-				return fmt.Errorf("pod_conditions=%s: %w", conds, err)
+				return fmt.Errorf("wait for completion, pod_conditions=%s: %w", conds, err)
 			}
-			return err
+			return fmt.Errorf("wait for completion: %w", err)
 		}
 	}
 	return nil
@@ -291,7 +295,11 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 func getPodConditionsString(conditions []corev1.PodCondition) string {
 	var condStrings []string
 	for _, condition := range conditions {
-		condStrings = append(condStrings, fmt.Sprintf("[type=%s, status=%s, message=%s]", condition.Type, condition.Status, condition.Message))
+		reason := condition.Reason
+		if reason == "" {
+			reason = condition.Message
+		}
+		condStrings = append(condStrings, fmt.Sprintf("[type=%s, status=%s, reason=%s]", condition.Type, condition.Status, reason))
 	}
 	return strings.Join(condStrings, ", ")
 }

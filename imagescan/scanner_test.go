@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,13 +20,14 @@ import (
 )
 
 func TestScanner(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 	ns := "castai-sec"
 
 	t.Run("create scan job", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
 		r := require.New(t)
 
 		client := fake.NewSimpleClientset()
@@ -209,6 +211,9 @@ func TestScanner(t *testing.T) {
 	})
 
 	t.Run("delete already completed job", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
 		r := require.New(t)
 
 		job := &batchv1.Job{
@@ -256,46 +261,55 @@ func TestScanner(t *testing.T) {
 	})
 
 	t.Run("get failed job error with detailed reason", func(t *testing.T) {
-		r := require.New(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
 
-		client := fake.NewSimpleClientset()
+		r := assert.New(t)
+
+		jobPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      "img-scan",
+				Labels: map[string]string{
+					"job-name": "imgscan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
+				},
+			},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{
+					{
+						Type:   corev1.PodReady,
+						Status: corev1.ConditionFalse,
+						Reason: "no cpu",
+					},
+					{
+						Type:   corev1.PodScheduled,
+						Status: corev1.ConditionFalse,
+						Reason: "no cpu",
+					},
+				},
+			},
+		}
+
+		client := fake.NewSimpleClientset(jobPod)
 		scanner := NewImageScanner(client, config.Config{
-			API:          config.API{URL: "https://api.cast.ai", ClusterID: "c1"},
-			PodIP:        "10.10.5.77",
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
 				Image: config.ImageScanImage{
 					Name: "imgcollector:1.0.0",
 				},
-				APIUrl:             "http://kvisor:6060",
-				DockerOptionsPath:  "/etc/docker/config.json",
-				CPURequest:         "500m",
-				CPULimit:           "2",
-				MemoryRequest:      "100Mi",
-				MemoryLimit:        "2Gi",
-				ProfileEnabled:     true,
-				PhlareEnabled:      true,
-				Mode:               "",
-				ServiceAccountName: "sa",
 			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
 		err := scanner.ScanImage(ctx, ScanImageParams{
-			ImageName:        "test-image",
-			ImageID:          "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
-			ContainerRuntime: "containerd",
-			Mode:             "hostfs",
-			NodeName:         "n1",
-			ResourceIDs:      []string{"p1", "p2"},
+			ImageName:         "test-image",
+			ImageID:           "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerRuntime:  "containerd",
+			Mode:              "hostfs",
+			NodeName:          "n1",
+			ResourceIDs:       []string{"p1", "p2"},
+			WaitForCompletion: true,
 		})
-		r.NoError(err)
-
-		jobs, err := client.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
-		r.NoError(err)
-		r.Len(jobs.Items, 1)
-
-		// TODO: Add test to get failed job
-
+		r.ErrorContains(err, "[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")
 	})
 }
