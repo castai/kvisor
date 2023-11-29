@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/kvisor/cmd/imgcollector/image"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -141,5 +143,88 @@ func writeMemProfile(name string) {
 	defer f.Close() // error handling omitted for example
 	if err := pprof.WriteHeapProfile(f); err != nil {
 		logrus.Fatalf("could not write memory profile: %v", err)
+	}
+}
+
+func TestFindRegistryAuth(t *testing.T) {
+	registryAuth := image.RegistryAuth{Username: "u", Password: "p", Token: "t"}
+
+	tests := []struct {
+		name     string
+		cfg      image.DockerConfig
+		imageRef name.Reference
+
+		expectedFound bool
+		expectedKey   string
+		expectedAuth  image.RegistryAuth
+	}{
+		{
+			name: "find auth for image",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"a":                               registryAuth,
+					"gitlab.com":                      registryAuth,
+					"us-east4-docker.pkg.dev":         registryAuth,
+					"us-east4-docker.pkg.dev/project": registryAuth,
+					"x":                               {},
+				},
+			},
+			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
+			expectedFound: true,
+			expectedKey:   "us-east4-docker.pkg.dev",
+			expectedAuth:  registryAuth,
+		},
+		{
+			name: "find auth scoped by repository",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"a":                                    registryAuth,
+					"us-east4-docker.pkg.dev/project/repo": registryAuth,
+					"x":                                    {},
+				},
+			},
+			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
+			expectedFound: true,
+			expectedKey:   "us-east4-docker.pkg.dev/project/repo",
+			expectedAuth:  registryAuth,
+		},
+		{
+			name: "find auth for http or https prefixed auths",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"a": registryAuth,
+					"https://us-east4-docker.pkg.dev/project/repo": registryAuth,
+					"x": {},
+				},
+			},
+			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
+			expectedFound: true,
+			expectedKey:   "https://us-east4-docker.pkg.dev/project/repo",
+			expectedAuth:  registryAuth,
+		},
+		{
+			name: "no auth for unmatched auths",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"a": registryAuth,
+					"https://us-east4-docker.pkg.dev/project/repo": registryAuth,
+					"x": {},
+				},
+			},
+			imageRef:      name.MustParseReference("nginx:latest"),
+			expectedFound: false,
+			expectedKey:   "",
+			expectedAuth:  image.RegistryAuth{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := require.New(t)
+			actualKey, actualAuth, found := findRegistryAuth(test.cfg, test.imageRef)
+			r.Equal(test.expectedFound, found)
+			r.Equal(test.expectedKey, actualKey)
+			r.Equal(test.expectedAuth, actualAuth)
+		})
 	}
 }
