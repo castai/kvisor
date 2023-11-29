@@ -7,7 +7,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -264,7 +263,7 @@ func TestScanner(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
-		r := assert.New(t)
+		r := require.New(t)
 
 		jobPod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
