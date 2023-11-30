@@ -19,13 +19,14 @@ import (
 )
 
 func TestScanner(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 	ns := "castai-sec"
 
 	t.Run("create scan job", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
 		r := require.New(t)
 
 		client := fake.NewSimpleClientset()
@@ -209,6 +210,9 @@ func TestScanner(t *testing.T) {
 	})
 
 	t.Run("delete already completed job", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
 		r := require.New(t)
 
 		job := &batchv1.Job{
@@ -253,5 +257,58 @@ func TestScanner(t *testing.T) {
 
 		_, err = client.BatchV1().Jobs(ns).Get(ctx, job.Name, metav1.GetOptions{})
 		r.True(apierrors.IsNotFound(err))
+	})
+
+	t.Run("get failed job error with detailed reason", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		r := require.New(t)
+
+		jobPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      "img-scan",
+				Labels: map[string]string{
+					"job-name": "imgscan-1ba98dcd098ba64e9b2fe4dafc7a5c85",
+				},
+			},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{
+					{
+						Type:   corev1.PodReady,
+						Status: corev1.ConditionFalse,
+						Reason: "no cpu",
+					},
+					{
+						Type:   corev1.PodScheduled,
+						Status: corev1.ConditionFalse,
+						Reason: "no cpu",
+					},
+				},
+			},
+		}
+
+		client := fake.NewSimpleClientset(jobPod)
+		scanner := NewImageScanner(client, config.Config{
+			PodNamespace: ns,
+			ImageScan: config.ImageScan{
+				Image: config.ImageScanImage{
+					Name: "imgcollector:1.0.0",
+				},
+			},
+		})
+		scanner.jobCheckInterval = 1 * time.Microsecond
+
+		err := scanner.ScanImage(ctx, ScanImageParams{
+			ImageName:         "test-image",
+			ImageID:           "test-image@sha2566282b5ec0c18cfd723e40ef8b98649a47b9388a479c520719c615acc3b073504",
+			ContainerRuntime:  "containerd",
+			Mode:              "hostfs",
+			NodeName:          "n1",
+			ResourceIDs:       []string{"p1", "p2"},
+			WaitForCompletion: true,
+		})
+		r.ErrorContains(err, "[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")
 	})
 }

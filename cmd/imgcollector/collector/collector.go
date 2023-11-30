@@ -8,11 +8,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -167,17 +169,9 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 			if err := json.Unmarshal(configData, &cfg); err != nil {
 				return nil, nil, fmt.Errorf("parsing image pull secret: %w", err)
 			}
-			if auth, ok := cfg.Auths[imgRef.Context().Registry.Name()]; ok {
-				opts.UserName = auth.Username
-				opts.Password = auth.Password
-				opts.RegistryToken = auth.Token
-			}
-			if auth, ok := cfg.Auths[image.NamespacedRegistry(imgRef)]; ok {
-				opts.UserName = auth.Username
-				opts.Password = auth.Password
-				opts.RegistryToken = auth.Token
-			}
-			if auth, ok := cfg.Auths[fmt.Sprintf("%s/%s", imgRef.Context().RegistryStr(), imgRef.Context().RepositoryStr())]; ok {
+
+			if authKey, auth, ok := findRegistryAuth(cfg, imgRef); ok {
+				c.log.Infof("using registry auth, key=%s", authKey)
 				opts.UserName = auth.Username
 				opts.Password = auth.Password
 				opts.RegistryToken = auth.Token
@@ -236,4 +230,21 @@ func (c *Collector) sendResult(ctx context.Context, report *castai.ImageMetadata
 		return fmt.Errorf("expected status %d, got %d, url=%s: %v", http.StatusOK, st, req.URL.String(), string(errMsg))
 	}
 	return nil
+}
+
+func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference) (string, image.RegistryAuth, bool) {
+	imageRepo := fmt.Sprintf("%s/%s", imgRef.Context().RegistryStr(), imgRef.Context().RepositoryStr())
+
+	authKeys := lo.Keys(cfg.Auths)
+	sort.Strings(authKeys)
+
+	for _, key := range authKeys {
+		// User can provide registries with protocol which we don't care about while comparing with image name.
+		prefix := strings.TrimPrefix(key, "http://")
+		prefix = strings.TrimPrefix(prefix, "https://")
+		if strings.HasPrefix(imageRepo, prefix) {
+			return key, cfg.Auths[key], true
+		}
+	}
+	return "", image.RegistryAuth{}, false
 }
