@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
-	"github.com/castai/kvisor/cmd/imgcollector/image"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
