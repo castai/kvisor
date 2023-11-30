@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/image-analyzer/image/hostfs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,6 @@ import (
 	mock_blobcache "github.com/castai/kvisor/blobscache/mock"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
-	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 )
 
 func TestCollector(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCollector(t *testing.T) {
 		mockCache := mock_blobcache.MockClient{}
 
 		cwd, _ := os.Getwd()
-		p := path.Join(cwd, "..", "image/hostfs/testdata/amd64-linux/io.containerd.content.v1.content")
+		p := path.Join(cwd, "testdata/amd64-linux/io.containerd.content.v1.content")
 
 		c := New(log, config.Config{
 			ApiURL:    srv.URL,

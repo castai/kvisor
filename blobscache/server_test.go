@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	ia "github.com/castai/image-analyzer"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ func TestBlobsCacheServer(t *testing.T) {
 	// Wait unti server is ready.
 	r.Eventually(func() bool {
 		_, err := client.GetBlob(ctx, "noop")
-		return errors.Is(err, ErrCacheNotFound)
+		return errors.Is(err, ia.ErrCacheNotFound)
 	}, 3*time.Second, 10*time.Millisecond)
 
 	blob := []byte(`{"some": "json"}`)

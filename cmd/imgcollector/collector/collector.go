@@ -11,58 +11,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castai/image-analyzer/image"
+	"github.com/castai/image-analyzer/image/hostfs"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/castai/kvisor/blobscache"
+	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
+	analyzer "github.com/castai/image-analyzer"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
-	"github.com/castai/kvisor/cmd/imgcollector/image"
-	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
-
-	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
-	// Import all registered analyzers.
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/buildinfo"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/command/apk"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/executable"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/c/conan"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/dotnet/deps"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/dotnet/nuget"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/golang/binary"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/golang/mod"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/java/gradle"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/java/jar"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/java/pom"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/npm"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/pkg"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/pnpm"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/nodejs/yarn"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/php/composer"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/packaging"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/pip"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/pipenv"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/python/poetry"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/ruby/bundler"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/ruby/gemspec"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/rust/binary"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/language/rust/cargo"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/licensing"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/alpine"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/amazonlinux"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/debian"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/mariner"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/redhatbase"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/release"
-	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/os/ubuntu"
-
-	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/apk"
-	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/dpkg"
-	_ "github.com/castai/kvisor/cmd/imgcollector/analyzer/pkg/rpm"
 )
 
-func New(log logrus.FieldLogger, cfg config.Config, cache blobscache.Client, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
+func New(log logrus.FieldLogger, cfg config.Config, cache analyzer.CacheClient, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {
 	return &Collector{
 		log:          log,
 		cfg:          cfg,
@@ -74,7 +36,7 @@ func New(log logrus.FieldLogger, cfg config.Config, cache blobscache.Client, hos
 type Collector struct {
 	log          logrus.FieldLogger
 	cfg          config.Config
-	cache        blobscache.Client
+	cache        analyzer.CacheClient
 	hostFsConfig *hostfs.ContainerdHostFSConfig
 }
 
@@ -90,14 +52,14 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
-	artifact, err := image.NewArtifact(img, c.log, c.cache, image.ArtifactOption{
+	artifact, err := analyzer.NewArtifact(img, c.log, c.cache, analyzer.ArtifactOption{
 		Offline: true,
 		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
-		DisabledAnalyzers: []analyzer.Type{
-			analyzer.TypeLicenseFile,
-			analyzer.TypeDpkgLicense,
-			analyzer.TypeJSON,
-			analyzer.TypeHelm,
+		DisabledAnalyzers: []fanalyzer.Type{
+			fanalyzer.TypeLicenseFile,
+			fanalyzer.TypeDpkgLicense,
+			fanalyzer.TypeJSON,
+			fanalyzer.TypeHelm,
 		},
 	})
 	if err != nil {
