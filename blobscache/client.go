@@ -3,24 +3,15 @@ package blobscache
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	ia "github.com/castai/image-analyzer"
 	json "github.com/json-iterator/go"
 )
 
-var (
-	ErrCacheNotFound = errors.New("blob not found in cache")
-)
-
-type Client interface {
-	PutBlob(ctx context.Context, key string, blob []byte) error
-	GetBlob(ctx context.Context, key string) ([]byte, error)
-}
-
-func NewRemoteBlobsCacheClient(serverURL string) Client {
+func NewRemoteBlobsCacheClient(serverURL string) ia.CacheClient {
 	return &remoteBlobsCache{
 		url: serverURL,
 		client: &http.Client{
@@ -75,7 +66,7 @@ func (c *remoteBlobsCache) GetBlob(ctx context.Context, key string) ([]byte, err
 	defer resp.Body.Close()
 	if st := resp.StatusCode; st != http.StatusOK {
 		if st == http.StatusNotFound {
-			return nil, ErrCacheNotFound
+			return nil, ia.ErrCacheNotFound
 		}
 		return nil, fmt.Errorf("put blob failed, response status=%d", st)
 	}
@@ -87,7 +78,7 @@ func (c *remoteBlobsCache) GetBlob(ctx context.Context, key string) ([]byte, err
 	return res.Blob, nil
 }
 
-func NewMockBlobsCacheClient() Client {
+func NewMockBlobsCacheClient() ia.CacheClient {
 	return &mockBlobsCacheClient{}
 }
 
@@ -99,5 +90,5 @@ func (m mockBlobsCacheClient) PutBlob(ctx context.Context, key string, blob []by
 }
 
 func (m mockBlobsCacheClient) GetBlob(ctx context.Context, key string) ([]byte, error) {
-	return nil, ErrCacheNotFound
+	return nil, ia.ErrCacheNotFound
 }

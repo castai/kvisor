@@ -5,9 +5,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/castai/image-analyzer/image"
 	"github.com/stretchr/testify/require"
-
-	"github.com/castai/kvisor/cmd/imgcollector/image"
 )
 
 func TestReadImagePullSecret(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"net/http/pprof"
 	"runtime"
 
+	"github.com/castai/image-analyzer/image/hostfs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/sirupsen/logrus"
@@ -13,7 +14,6 @@ import (
 	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/cmd/imgcollector/collector"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
-	"github.com/castai/kvisor/cmd/imgcollector/image/hostfs"
 )
 
 // These should be set via `go build` during a release.
