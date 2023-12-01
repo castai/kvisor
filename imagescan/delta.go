@@ -29,10 +29,9 @@ type podOwnerGetter interface {
 
 func newImage() *image {
 	return &image{
-		owners:       map[string]*imageOwner{},
-		nodes:        map[string]*imageNode{},
-		scanned:      false,
-		ownerChanges: ownerChanges{},
+		owners:  map[string]*imageOwner{},
+		nodes:   map[string]*imageNode{},
+		scanned: false,
 		retryBackoff: wait.Backoff{
 			Duration: time.Second * 60,
 			Factor:   3,
@@ -144,6 +143,8 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	if _, found := d.nodes[pod.Spec.NodeName]; !found {
 		return
 	}
+	now := time.Now().UTC()
+
 	containers := pod.Spec.Containers
 	containers = append(containers, pod.Spec.InitContainers...)
 	containerStatuses := pod.Status.ContainerStatuses
@@ -188,10 +189,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 					podID: {},
 				},
 			}
-			// Add changed owner.
-			if img.scanned {
-				img.ownerChanges.addedIDS = append(img.ownerChanges.addedIDS, ownerResourceID)
-			}
+			img.ownerChangedAt = now
 		}
 
 		// Upsert image nodes.
@@ -209,6 +207,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 }
 
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
+	now := time.Now().UTC()
 	for imgKey, img := range d.images {
 		if img.architecture != d.getPodArch(pod) {
 			continue
@@ -224,6 +223,7 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 			delete(owner.podIDs, podID)
 			if len(owner.podIDs) == 0 {
 				delete(img.owners, ownerResourceID)
+				img.ownerChangedAt = now
 			}
 		}
 
@@ -433,30 +433,17 @@ type image struct {
 	owners map[string]*imageOwner
 	nodes  map[string]*imageNode
 
-	// ownerChanges holds temp state for tracking changed image owners. We use this state to notify CAST AI about changed resources.
-	ownerChanges ownerChanges
-
 	scanned      bool
 	lastScanErr  error
 	failures     int          // Used for sorting. We want to scan non-failed images first.
 	retryBackoff wait.Backoff // Retry state for failed images.
 	nextScan     time.Time    // Set based on retry backoff.
 
-	lastRemoteSyncAt time.Time // Time then image state was synced from remote.
+	lastRemoteSyncAt   time.Time // Time then image state was synced from remote.
+	ownerChangedAt     time.Time // Time when new image owner was added
+	resourcesUpdatedAt time.Time // Time when image was synced with backend
 }
 
 func (img *image) isUnused() bool {
 	return len(img.nodes) == 0 && len(img.owners) == 0
-}
-
-type ownerChanges struct {
-	addedIDS []string
-}
-
-func (c *ownerChanges) empty() bool {
-	return len(c.addedIDS) == 0
-}
-
-func (c *ownerChanges) clear() {
-	c.addedIDS = []string{}
 }

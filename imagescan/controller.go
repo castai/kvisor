@@ -175,16 +175,6 @@ func (s *Controller) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-// Clear changes state for next scans
-func (s *Controller) clearOwnerState() {
-	for _, img := range s.delta.getImages() {
-		if img.ownerChanges.empty() {
-			continue
-		}
-		img.ownerChanges.clear()
-	}
-}
-
 func (s *Controller) findPendingImages() []*image {
 	images := s.delta.getImages()
 
@@ -344,23 +334,18 @@ func (s *Controller) concurrentScansNumber() int {
 func (s *Controller) updateImageStatuses(ctx context.Context) error {
 	images := s.delta.getImages()
 	if s.fullSnapshotSent {
-		// Filter only images that have owner changes.
-		images = lo.Filter(images, func(img *image, _ int) bool {
-			return !img.ownerChanges.empty()
+		images = lo.Filter(images, func(item *image, index int) bool {
+			return item.ownerChangedAt.After(item.resourcesUpdatedAt)
 		})
-		s.clearOwnerState()
 	}
-
 	if len(images) == 0 {
 		return nil
 	}
 	now := s.timeGetter()
 	var imagesChanges []castai.Image
 	for _, img := range images {
-		changedResourceIds := lo.Uniq(img.ownerChanges.addedIDS)
-		if s.fullSnapshotSent {
-			changedResourceIds = lo.Keys(img.owners)
-		}
+		resourceIds := lo.Keys(img.owners)
+
 		var updatedStatus castai.ImageScanStatus
 		if isImagePending(img, now) {
 			updatedStatus = castai.ImageScanStatusPending
@@ -369,7 +354,7 @@ func (s *Controller) updateImageStatuses(ctx context.Context) error {
 			ID:           img.id,
 			Architecture: img.architecture,
 			ResourcesChange: castai.ResourcesChange{
-				ResourceIDs: changedResourceIds,
+				ResourceIDs: resourceIds,
 			},
 			ImageName: img.name,
 			Status:    updatedStatus,
@@ -384,6 +369,9 @@ func (s *Controller) updateImageStatuses(ctx context.Context) error {
 	err := s.client.UpdateImageStatus(ctx, report)
 	if err != nil {
 		return err
+	}
+	for _, img := range images {
+		img.resourcesUpdatedAt = now
 	}
 	s.fullSnapshotSent = true
 	return nil

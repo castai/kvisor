@@ -555,9 +555,6 @@ func TestSubscriber(t *testing.T) {
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
-		img.ownerChanges = ownerChanges{
-			addedIDS: []string{"r1"},
-		}
 		delta.images[img.key] = img
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
@@ -570,25 +567,15 @@ func TestSubscriber(t *testing.T) {
 
 		assertLoop(errc, func() bool {
 			changes := client.getImagesResourcesChanges()
-			if len(changes) < 2 {
-				return false
-			}
 
-			// Should have only 2 calls to api.
-			r.Len(changes, 2)
+			// Should have only 1 call to api because there are no delta updates
+			r.Len(changes, 1)
 
 			// First api call. Initial full resync.
 			change1Img1 := changes[0].Images[0]
 			r.Equal("img1", change1Img1.ID)
 			r.Equal("amd64", change1Img1.Architecture)
 			r.Equal([]string{"r1"}, change1Img1.ResourcesChange.ResourceIDs)
-			r.True(img.ownerChanges.empty())
-
-			// Second api call. Only image owner change.
-			change2Img1 := changes[1].Images[0]
-			r.Equal("img1", change2Img1.ID)
-			r.Equal("amd64", change2Img1.Architecture)
-			r.Equal([]string{"r1"}, change2Img1.ResourcesChange.ResourceIDs)
 
 			return true
 		})
