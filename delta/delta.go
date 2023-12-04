@@ -65,15 +65,16 @@ func (d *delta) add(event kube.Event, obj object) {
 	gvr := obj.GetObjectKind().GroupVersionKind()
 
 	deltaItem := castai.DeltaItem{
-		Event:            toCASTAIEvent(event),
-		ObjectUID:        string(obj.GetUID()),
-		ObjectName:       obj.GetName(),
-		ObjectNamespace:  obj.GetNamespace(),
-		ObjectKind:       gvr.Kind,
-		ObjectAPIVersion: gvr.GroupVersion().String(),
-		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
-		ObjectOwnerUID:   d.getOwnerUID(obj),
-		ObjectLabels:     obj.GetLabels(),
+		Event:             toCASTAIEvent(event),
+		ObjectUID:         string(obj.GetUID()),
+		ObjectName:        obj.GetName(),
+		ObjectNamespace:   obj.GetNamespace(),
+		ObjectKind:        gvr.Kind,
+		ObjectAPIVersion:  gvr.GroupVersion().String(),
+		ObjectCreatedAt:   obj.GetCreationTimestamp().UTC(),
+		ObjectOwnerUID:    d.getOwnerUID(obj),
+		ObjectLabels:      obj.GetLabels(),
+		ObjectAnnotations: getAnnotations(obj),
 	}
 
 	containers, status, err := getContainersAndStatus(obj)
@@ -97,6 +98,15 @@ func (d *delta) add(event kube.Event, obj object) {
 
 	d.cache[key] = deltaItem
 	d.snapshot.append(deltaItem)
+}
+
+func getAnnotations(obj object) map[string]string {
+	switch v := obj.(type) {
+	case *corev1.Service, *networkingv1.Ingress:
+		return v.GetAnnotations()
+	default:
+		return nil
+	}
 }
 
 // clear resets the delta cache. Should be called after toCASTAIRequest is successfully delivered.
@@ -167,6 +177,8 @@ func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, error)
 	case *appsv1.DaemonSet:
 		st, err = json.Marshal(v.Status)
 		appendContainers(v.Spec.Template.Spec)
+	case *networkingv1.Ingress:
+		st, err = json.Marshal(v.Status)
 	default:
 		return nil, nil, nil
 	}

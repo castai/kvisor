@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -152,6 +153,47 @@ func TestSubscriber(t *testing.T) {
 		r.ErrorIs(err, context.DeadlineExceeded)
 		r.Len(client.deltas, 2)
 		assertDelta(t, client.deltas[1], castai.EventAdd, false)
+	})
+	t.Run("send update ingress event", func(t *testing.T) {
+		ingress1 := &networkingv1.Ingress{
+			TypeMeta: metav1.TypeMeta{Kind: "Ingress", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{"annotation1": "test"},
+			},
+			Status: networkingv1.IngressStatus{
+				LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+					Ingress: []networkingv1.IngressLoadBalancerIngress{
+						{
+							IP: "1.1.1.1",
+						},
+					},
+				},
+			},
+		}
+		client := &mockCastaiClient{}
+		sub := newTestController(log)
+		sub.initialDelay = 1 * time.Millisecond
+		sub.client = client
+		sub.OnAdd(ingress1)
+
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
+		defer cancel()
+		err := sub.Run(ctx)
+		r.ErrorIs(err, context.DeadlineExceeded)
+		r.Len(client.deltas, 1)
+		r.Equal(&castai.Delta{
+			FullSnapshot: true,
+			Items: []castai.DeltaItem{
+				{
+					Event:             castai.EventAdd,
+					ObjectKind:        "Ingress",
+					ObjectAPIVersion:  "v1",
+					ObjectStatus:      []byte(`{"loadBalancer":{"ingress":[{"ip":"1.1.1.1"}]}}`),
+					ObjectSpec:        []byte(`{}`),
+					ObjectAnnotations: map[string]string{"annotation1": "test"},
+				},
+			},
+		}, client.deltas[0])
 	})
 }
 
