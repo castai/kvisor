@@ -65,15 +65,16 @@ func (d *delta) add(event kube.Event, obj object) {
 	gvr := obj.GetObjectKind().GroupVersionKind()
 
 	deltaItem := castai.DeltaItem{
-		Event:            toCASTAIEvent(event),
-		ObjectUID:        string(obj.GetUID()),
-		ObjectName:       obj.GetName(),
-		ObjectNamespace:  obj.GetNamespace(),
-		ObjectKind:       gvr.Kind,
-		ObjectAPIVersion: gvr.GroupVersion().String(),
-		ObjectCreatedAt:  obj.GetCreationTimestamp().UTC(),
-		ObjectOwnerUID:   d.getOwnerUID(obj),
-		ObjectLabels:     obj.GetLabels(),
+		Event:             toCASTAIEvent(event),
+		ObjectUID:         string(obj.GetUID()),
+		ObjectName:        obj.GetName(),
+		ObjectNamespace:   obj.GetNamespace(),
+		ObjectKind:        gvr.Kind,
+		ObjectAPIVersion:  gvr.GroupVersion().String(),
+		ObjectCreatedAt:   obj.GetCreationTimestamp().UTC(),
+		ObjectOwnerUID:    d.getOwnerUID(obj),
+		ObjectLabels:      obj.GetLabels(),
+		ObjectAnnotations: obj.GetAnnotations(),
 	}
 
 	containers, status, err := getContainersAndStatus(obj)

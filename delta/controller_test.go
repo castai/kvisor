@@ -157,6 +157,9 @@ func TestSubscriber(t *testing.T) {
 	t.Run("send update ingress event", func(t *testing.T) {
 		ingress1 := &networkingv1.Ingress{
 			TypeMeta: metav1.TypeMeta{Kind: "Ingress", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{"annotation1": "test"},
+			},
 			Status: networkingv1.IngressStatus{
 				LoadBalancer: networkingv1.IngressLoadBalancerStatus{
 					Ingress: []networkingv1.IngressLoadBalancerIngress{
@@ -182,11 +185,12 @@ func TestSubscriber(t *testing.T) {
 			FullSnapshot: true,
 			Items: []castai.DeltaItem{
 				{
-					Event:            castai.EventAdd,
-					ObjectKind:       "Ingress",
-					ObjectAPIVersion: "v1",
-					ObjectStatus:     []byte(`{"loadBalancer":{"ingress":[{"ip":"1.1.1.1"}]}}`),
-					ObjectSpec:       []byte(`{}`),
+					Event:             castai.EventAdd,
+					ObjectKind:        "Ingress",
+					ObjectAPIVersion:  "v1",
+					ObjectStatus:      []byte(`{"loadBalancer":{"ingress":[{"ip":"1.1.1.1"}]}}`),
+					ObjectSpec:        []byte(`{}`),
+					ObjectAnnotations: map[string]string{"annotation1": "test"},
 				},
 			},
 		}, client.deltas[0])
