@@ -74,7 +74,7 @@ func (d *delta) add(event kube.Event, obj object) {
 		ObjectCreatedAt:   obj.GetCreationTimestamp().UTC(),
 		ObjectOwnerUID:    d.getOwnerUID(obj),
 		ObjectLabels:      obj.GetLabels(),
-		ObjectAnnotations: obj.GetAnnotations(),
+		ObjectAnnotations: getAnnotations(obj),
 	}
 
 	containers, status, err := getContainersAndStatus(obj)
@@ -98,6 +98,15 @@ func (d *delta) add(event kube.Event, obj object) {
 
 	d.cache[key] = deltaItem
 	d.snapshot.append(deltaItem)
+}
+
+func getAnnotations(obj object) map[string]string {
+	switch v := obj.(type) {
+	case *corev1.Service, *networkingv1.Ingress:
+		return v.GetAnnotations()
+	default:
+		return nil
+	}
 }
 
 // clear resets the delta cache. Should be called after toCASTAIRequest is successfully delivered.
