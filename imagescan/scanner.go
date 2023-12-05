@@ -65,6 +65,7 @@ type ScanImageParams struct {
 	WaitForCompletion           bool
 	WaitDurationAfterCompletion time.Duration
 	Architecture                string
+	Os                          string
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr error) {
@@ -205,6 +206,10 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		{
 			Name:  "COLLECTOR_IMAGE_ARCHITECTURE",
 			Value: params.Architecture,
+		},
+		{
+			Name:  "COLLECTOR_IMAGE_OS",
+			Value: params.Os,
 		},
 	}
 

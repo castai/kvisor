@@ -60,6 +60,7 @@ func TestScanner(t *testing.T) {
 			NodeName:         "n1",
 			ResourceIDs:      []string{"p1", "p2"},
 			Architecture:     "amd64",
+			Os:               "linux",
 		})
 		r.NoError(err)
 
@@ -166,6 +167,10 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "COLLECTOR_IMAGE_ARCHITECTURE",
 										Value: "amd64",
+									},
+									{
+										Name:  "COLLECTOR_IMAGE_OS",
+										Value: "linux",
 									},
 									{
 										Name:  "COLLECTOR_PPROF_ADDR",

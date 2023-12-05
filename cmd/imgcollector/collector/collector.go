@@ -147,6 +147,10 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
 			}
 		}
+		if c.cfg.ImageArchitecture != "" && c.cfg.ImageOS != "" {
+			opts.Architecture = c.cfg.ImageArchitecture
+			opts.OS = c.cfg.ImageOS
+		}
 		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
 		return img, func() {}, err
 	}

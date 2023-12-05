@@ -35,6 +35,7 @@ type Config struct {
 	ImageID           string        `envconfig:"COLLECTOR_IMAGE_ID" required:"true"`
 	ImageName         string        `envconfig:"COLLECTOR_IMAGE_NAME" required:"true"`
 	ImageArchitecture string        `envconfig:"COLLECTOR_IMAGE_ARCHITECTURE" required:"true"`
+	ImageOS           string        `envconfig:"COLLECTOR_IMAGE_OS" required:"true"`
 	ImagePullSecret   string        `envconfig:"COLLECTOR_PULL_SECRET" default:""`
 	Timeout           time.Duration `envconfig:"COLLECTOR_TIMEOUT" default:"5m"`
 	Mode              Mode          `envconfig:"COLLECTOR_MODE"`

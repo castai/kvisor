@@ -21,6 +21,7 @@ var (
 	errNoCandidates = errors.New("no candidates")
 )
 
+const defaultImageOs = "linux"
 const defaultImageArch = "amd64"
 
 type podOwnerGetter interface {
@@ -101,6 +102,7 @@ func (d *deltaState) updateNodeUsage(v *corev1.Node) {
 		n = &node{
 			name:           v.GetName(),
 			architecture:   v.Status.NodeInfo.Architecture,
+			os:             v.Status.NodeInfo.OperatingSystem,
 			allocatableMem: &inf.Dec{},
 			allocatableCPU: &inf.Dec{},
 			pods:           make(map[types.UID]*pod),
@@ -168,14 +170,15 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		}
 
 		nodeName := pod.Spec.NodeName
-		arch := d.getPodArch(pod)
-		key := cs.ImageID + arch + cont.Image
+		platform := d.getPodArch(pod)
+		key := cs.ImageID + platform.architecture + cont.Image
 		img, found := d.images[key]
 		if !found {
 			img = newImage()
 			img.name = cont.Image
 			img.key = key
-			img.architecture = arch
+			img.architecture = platform.architecture
+			img.os = platform.os
 		}
 		img.id = cs.ImageID
 		img.containerRuntime = getContainerRuntime(cs.ContainerID)
@@ -209,7 +212,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 	now := time.Now().UTC()
 	for imgKey, img := range d.images {
-		if img.architecture != d.getPodArch(pod) {
+		if img.architecture != d.getPodArch(pod).architecture {
 			continue
 		}
 
@@ -320,12 +323,23 @@ func (d *deltaState) setImageScanned(scannedImg castai.ScannedImage) {
 	}
 }
 
-func (d *deltaState) getPodArch(pod *corev1.Pod) string {
+type platform struct {
+	architecture string
+	os           string
+}
+
+func (d *deltaState) getPodArch(pod *corev1.Pod) platform {
 	n, ok := d.nodes[pod.Spec.NodeName]
-	if ok && n.architecture != "" {
-		return n.architecture
+	if ok && n.architecture != "" && n.os != "" {
+		return platform{
+			architecture: n.architecture,
+			os:           n.os,
+		}
 	}
-	return defaultImageArch
+	return platform{
+		architecture: defaultImageArch,
+		os:           defaultImageOs,
+	}
 }
 
 func getContainerRuntime(containerID string) imgcollectorconfig.Runtime {
@@ -352,6 +366,7 @@ type pod struct {
 type node struct {
 	name           string
 	architecture   string
+	os             string
 	allocatableMem *inf.Dec
 	allocatableCPU *inf.Dec
 	pods           map[types.UID]*pod
@@ -426,6 +441,7 @@ type image struct {
 	name string
 
 	architecture     string
+	os               string
 	containerRuntime imgcollectorconfig.Runtime
 
 	// owners map key points to higher level k8s resource for that image. (Image Affected resource in CAST AI console).

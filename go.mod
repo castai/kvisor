@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eks v1.22.1
 	github.com/aws/smithy-go v1.13.4
 	github.com/bombsimon/logrusr/v4 v4.0.0
-	github.com/castai/image-analyzer v0.1.0
+	github.com/castai/image-analyzer v0.2.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/containerd/containerd v1.7.8
 	github.com/davecgh/go-spew v1.1.1

@@ -321,6 +321,7 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
 		Architecture:                img.architecture,
+		Os:                          img.os,
 	})
 }
 
