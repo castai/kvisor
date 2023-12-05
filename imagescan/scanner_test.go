@@ -59,6 +59,7 @@ func TestScanner(t *testing.T) {
 			Mode:             "hostfs",
 			NodeName:         "n1",
 			ResourceIDs:      []string{"p1", "p2"},
+			Architecture:     "amd64",
 		})
 		r.NoError(err)
 
@@ -161,6 +162,10 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "KVISOR_SERVER_API_URL",
 										Value: "http://kvisor:6060",
+									},
+									{
+										Name:  "COLLECTOR_IMAGE_ARCHITECTURE",
+										Value: "amd64",
 									},
 									{
 										Name:  "COLLECTOR_PPROF_ADDR",
