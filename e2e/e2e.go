@@ -181,6 +181,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   -f ./charts/castai-kvisor/ci/test-values.yaml \
   --set image.repository=%s \
   --set image.tag=%s \
+  --set structuredConfig.provider=gke \
   --set structuredConfig.imageScan.mode=hostfs \
   --set structuredConfig.imageScan.initDelay=10s \
   --set structuredConfig.linter.scanInterval=5s \

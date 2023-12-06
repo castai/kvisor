@@ -68,7 +68,7 @@ jobs:
         with:
           context: .
           push: true
-          file: ./Dockerfile.agent
+          file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
           tags: |
             us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}

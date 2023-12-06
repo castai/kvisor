@@ -69,6 +69,7 @@ config: |
     rateLimit:
       burst: 150
       qps: 25
+  provider: "" # Kubernetes provider (aks, eks, gke)
   log:
     level: "debug"
   deltaSyncInterval: "15s"
