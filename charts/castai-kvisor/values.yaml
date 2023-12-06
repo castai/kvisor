@@ -78,6 +78,9 @@ config: |
   kubeBench:
     enabled: true
     scanInterval: "30s"
+    image:
+      name: "ghcr.io/castai/kvisor/kube-bench:v0.8.0"
+      pullPolicy: IfNotPresent
   imageScan:
     enabled: true
     scanInterval: "15s"

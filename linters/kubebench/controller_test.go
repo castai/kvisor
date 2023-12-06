@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/castai"
+	"github.com/castai/kvisor/config"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -41,6 +42,7 @@ func TestSubscriber(t *testing.T) {
 		ctrl := NewController(
 			log,
 			clientset,
+			config.KubeBench{},
 			castaiNamespace,
 			"gke",
 			5*time.Millisecond,
@@ -117,6 +119,7 @@ func TestSubscriber(t *testing.T) {
 		ctrl := NewController(
 			log,
 			clientset,
+			config.KubeBench{},
 			castaiNamespace,
 			"gke",
 			5*time.Millisecond,
@@ -172,6 +175,7 @@ func TestSubscriber(t *testing.T) {
 		ctrl := NewController(
 			log,
 			clientset,
+			config.KubeBench{},
 			castaiNamespace,
 			"gke",
 			5*time.Millisecond,

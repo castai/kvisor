@@ -96,9 +96,15 @@ type Linter struct {
 }
 
 type KubeBench struct {
-	Enabled      bool          `envconfig:"KUBE_BENCH_ENABLED" yaml:"enabled"`
-	Force        bool          `envconfig:"KUBE_BENCH_FORCE" yaml:"force"`
-	ScanInterval time.Duration `envconfig:"KUBE_BENCH_SCAN_INTERVAL" yaml:"scanInterval"`
+	Enabled      bool           `envconfig:"KUBE_BENCH_ENABLED" yaml:"enabled"`
+	Force        bool           `envconfig:"KUBE_BENCH_FORCE" yaml:"force"`
+	ScanInterval time.Duration  `envconfig:"KUBE_BENCH_SCAN_INTERVAL" yaml:"scanInterval"`
+	Image        KubeBenchImage `envconfig:"KUBE_BENCH_IMAGE" yaml:"image"`
+}
+
+type KubeBenchImage struct {
+	Name       string `envconfig:"KUBE_BENCH_IMAGE_NAME" yaml:"name"`
+	PullPolicy string `envconfig:"KUBE_BENCH_IMAGE_PULL_POLICY" yaml:"pullPolicy"`
 }
 
 type KubeClient struct {
@@ -214,6 +220,10 @@ func Load(configPath string) (Config, error) {
 	if cfg.KubeBench.Enabled {
 		if cfg.KubeBench.ScanInterval == 0 {
 			cfg.KubeBench.ScanInterval = 30 * time.Second
+		}
+		if cfg.KubeBench.Image.Name == "" {
+			cfg.KubeBench.Image.Name = "ghcr.io/castai/kvisor/kube-bench:v0.8.0"
+			cfg.KubeBench.Image.PullPolicy = "IfNotPresent"
 		}
 	}
 	if cfg.Linter.Enabled {

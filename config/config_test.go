@@ -93,6 +93,10 @@ func newTestConfig() Config {
 		KubeBench: KubeBench{
 			Enabled:      true,
 			ScanInterval: 15 * time.Second,
+			Image: KubeBenchImage{
+				Name:       "ghcr.io/castai/kvisor/kube-bench:v0.8.",
+				PullPolicy: "IfNotPresent",
+			},
 		},
 		CloudScan: CloudScan{
 			Enabled:      true,

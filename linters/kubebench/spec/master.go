@@ -47,7 +47,7 @@ func Master(nodeName, jobName string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:  "kube-bench",
-							Image: kubeBenchImage,
+							Image: "<placeholder>",
 							SecurityContext: &corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
