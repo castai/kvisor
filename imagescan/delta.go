@@ -170,7 +170,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 		}
 
 		nodeName := pod.Spec.NodeName
-		platform := d.getPodArch(pod)
+		platform := d.getPodPlatform(pod)
 		key := cs.ImageID + platform.architecture + cont.Image
 		img, found := d.images[key]
 		if !found {
@@ -212,7 +212,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 	now := time.Now().UTC()
 	for imgKey, img := range d.images {
-		if img.architecture != d.getPodArch(pod).architecture {
+		if img.architecture != d.getPodPlatform(pod).architecture {
 			continue
 		}
 
@@ -328,7 +328,7 @@ type platform struct {
 	os           string
 }
 
-func (d *deltaState) getPodArch(pod *corev1.Pod) platform {
+func (d *deltaState) getPodPlatform(pod *corev1.Pod) platform {
 	n, ok := d.nodes[pod.Spec.NodeName]
 	if ok && n.architecture != "" && n.os != "" {
 		return platform{

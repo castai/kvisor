@@ -68,7 +68,7 @@ func TestCollector(t *testing.T) {
 		r.NoError(c.Collect(ctx))
 
 		// Read expect metadata.
-		var expected *castai.ImageMetadata
+		var expected castai.ImageMetadata
 		b, err := os.ReadFile("./testdata/expected_image_scan_meta1.json")
 		r.NoError(err)
 		r.NoError(json.Unmarshal(b, &expected))
@@ -76,7 +76,7 @@ func TestCollector(t *testing.T) {
 
 		var receivedMeta castai.ImageMetadata
 		r.NoError(json.Unmarshal(receivedMetaBytes, &receivedMeta))
-		r.Equal(*expected, receivedMeta)
+		r.Equal(expected, receivedMeta)
 	})
 }
 
