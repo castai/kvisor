@@ -179,6 +179,8 @@ func getContainersAndStatus(obj kube.Object) ([]castai.Container, []byte, error)
 		appendContainers(v.Spec.Template.Spec)
 	case *networkingv1.Ingress:
 		st, err = json.Marshal(v.Status)
+	case *corev1.Node:
+		st, err = json.Marshal(v.Status)
 	default:
 		return nil, nil, nil
 	}
