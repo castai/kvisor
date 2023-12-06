@@ -50,7 +50,7 @@ func (h *HTTPHandler) HandleImageMetadata(w http.ResponseWriter, r *http.Request
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := h.client.SendImageMetadata(ctx, &md, castai.WithHeader(ImageDigestHeader, md.ImageDigest)); err != nil {
-		h.log.Errorf("sendi	ng image report: %v", err)
+		h.log.Errorf("sending image report: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
