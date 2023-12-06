@@ -896,7 +896,7 @@ type mockCastaiClient struct {
 	syncStateCalls int
 }
 
-func (m *mockCastaiClient) UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest) error {
+func (m *mockCastaiClient) UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest, opts ...castai.Option) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.imagesResourcesChanges = append(m.imagesResourcesChanges, report)

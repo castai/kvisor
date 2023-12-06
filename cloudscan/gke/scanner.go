@@ -37,7 +37,7 @@ type binauthzClient interface {
 }
 
 type castaiClient interface {
-	SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error
+	SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport, opts ...castai.Option) error
 }
 
 func NewScanner(log logrus.FieldLogger, cfg config.CloudScan, imgScanEnabled bool, client castaiClient) (*Scanner, error) {

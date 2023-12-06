@@ -220,7 +220,7 @@ type mockCastaiClient struct {
 	deltas []*castai.Delta
 }
 
-func (m *mockCastaiClient) SendDeltaReport(ctx context.Context, report *castai.Delta) error {
+func (m *mockCastaiClient) SendDeltaReport(ctx context.Context, report *castai.Delta, opts ...castai.Option) error {
 	m.deltas = append(m.deltas, report)
 	return nil
 }

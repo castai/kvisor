@@ -16,7 +16,6 @@ import (
 type MockClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientMockRecorder
-	castai.Client
 }
 
 // MockClientMockRecorder is the mock recorder for MockClient.
@@ -67,87 +66,98 @@ func (mr *MockClientMockRecorder) PostTelemetry(ctx, initial interface{}) *gomoc
 }
 
 // SendCISCloudScanReport mocks base method.
-func (m *MockClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error {
+func (m *MockClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport, opts ...castai.Option) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendCISCloudScanReport", ctx, report)
+	varargs := []interface{}{ctx, report}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendCISCloudScanReport", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendCISCloudScanReport indicates an expected call of SendCISCloudScanReport.
-func (mr *MockClientMockRecorder) SendCISCloudScanReport(ctx, report interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) SendCISCloudScanReport(ctx, report interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCISCloudScanReport", reflect.TypeOf((*MockClient)(nil).SendCISCloudScanReport), ctx, report)
+	varargs := append([]interface{}{ctx, report}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCISCloudScanReport", reflect.TypeOf((*MockClient)(nil).SendCISCloudScanReport), varargs...)
 }
 
 // SendCISReport mocks base method.
-func (m *MockClient) SendCISReport(ctx context.Context, report *castai.KubeBenchReport) error {
+func (m *MockClient) SendCISReport(ctx context.Context, report *castai.KubeBenchReport, opts ...castai.Option) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendCISReport", ctx, report)
+	varargs := []interface{}{ctx, report}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendCISReport", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendCISReport indicates an expected call of SendCISReport.
-func (mr *MockClientMockRecorder) SendCISReport(ctx, report interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) SendCISReport(ctx, report interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCISReport", reflect.TypeOf((*MockClient)(nil).SendCISReport), ctx, report)
+	varargs := append([]interface{}{ctx, report}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCISReport", reflect.TypeOf((*MockClient)(nil).SendCISReport), varargs...)
 }
 
 // SendDeltaReport mocks base method.
-func (m *MockClient) SendDeltaReport(ctx context.Context, report *castai.Delta) error {
+func (m *MockClient) SendDeltaReport(ctx context.Context, report *castai.Delta, opts ...castai.Option) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendDeltaReport", ctx, report)
+	varargs := []interface{}{ctx, report}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendDeltaReport", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendDeltaReport indicates an expected call of SendDeltaReport.
-func (mr *MockClientMockRecorder) SendDeltaReport(ctx, report interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) SendDeltaReport(ctx, report interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDeltaReport", reflect.TypeOf((*MockClient)(nil).SendDeltaReport), ctx, report)
+	varargs := append([]interface{}{ctx, report}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDeltaReport", reflect.TypeOf((*MockClient)(nil).SendDeltaReport), varargs...)
 }
 
 // SendImageMetadata mocks base method.
-func (m *MockClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error {
+func (m *MockClient) SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata, opts ...castai.Option) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendImageMetadata", ctx, meta)
+	varargs := []interface{}{ctx, meta}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendImageMetadata", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendImageMetadata indicates an expected call of SendImageMetadata.
-func (mr *MockClientMockRecorder) SendImageMetadata(ctx, meta interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) SendImageMetadata(ctx, meta interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImageMetadata", reflect.TypeOf((*MockClient)(nil).SendImageMetadata), ctx, meta)
-}
-
-// SendImagesResourcesChange mocks base method.
-func (m *MockClient) UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendImagesResourcesChange", ctx, report)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendImagesResourcesChange indicates an expected call of SendImagesResourcesChange.
-func (mr *MockClientMockRecorder) SendImagesResourcesChange(ctx, report interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImagesResourcesChange", reflect.TypeOf((*MockClient)(nil).UpdateImageStatus), ctx, report)
+	varargs := append([]interface{}{ctx, meta}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendImageMetadata", reflect.TypeOf((*MockClient)(nil).SendImageMetadata), varargs...)
 }
 
 // SendLinterChecks mocks base method.
-func (m *MockClient) SendLinterChecks(ctx context.Context, checks []castai.LinterCheck) error {
+func (m *MockClient) SendLinterChecks(ctx context.Context, checks []castai.LinterCheck, opts ...castai.Option) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendLinterChecks", ctx, checks)
+	varargs := []interface{}{ctx, checks}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendLinterChecks", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendLinterChecks indicates an expected call of SendLinterChecks.
-func (mr *MockClientMockRecorder) SendLinterChecks(ctx, checks interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) SendLinterChecks(ctx, checks interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLinterChecks", reflect.TypeOf((*MockClient)(nil).SendLinterChecks), ctx, checks)
+	varargs := append([]interface{}{ctx, checks}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLinterChecks", reflect.TypeOf((*MockClient)(nil).SendLinterChecks), varargs...)
 }
 
 // SendLogs mocks base method.
@@ -162,4 +172,23 @@ func (m *MockClient) SendLogs(ctx context.Context, req *castai.LogEvent) error {
 func (mr *MockClientMockRecorder) SendLogs(ctx, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLogs", reflect.TypeOf((*MockClient)(nil).SendLogs), ctx, req)
+}
+
+// UpdateImageStatus mocks base method.
+func (m *MockClient) UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest, opts ...castai.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, report}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UpdateImageStatus", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateImageStatus indicates an expected call of UpdateImageStatus.
+func (mr *MockClientMockRecorder) UpdateImageStatus(ctx, report interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, report}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateImageStatus", reflect.TypeOf((*MockClient)(nil).UpdateImageStatus), varargs...)
 }

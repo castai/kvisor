@@ -290,7 +290,7 @@ type mockCastaiClient struct {
 	sentReport *castai.CloudScanReport
 }
 
-func (m *mockCastaiClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport) error {
+func (m *mockCastaiClient) SendCISCloudScanReport(ctx context.Context, report *castai.CloudScanReport, opts ...castai.Option) error {
 	m.sentReport = report
 	return nil
 }

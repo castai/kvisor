@@ -22,9 +22,8 @@ import (
 )
 
 type castaiClient interface {
-	SendImageMetadata(ctx context.Context, meta *castai.ImageMetadata) error
 	GetSyncState(ctx context.Context, filter *castai.SyncStateFilter) (*castai.SyncStateResponse, error)
-	UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest) error
+	UpdateImageStatus(ctx context.Context, report *castai.UpdateImagesStatusRequest, opts ...castai.Option) error
 }
 
 func NewController(

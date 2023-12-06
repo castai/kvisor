@@ -38,7 +38,7 @@ func init() {
 }
 
 type castaiClient interface {
-	SendDeltaReport(ctx context.Context, report *castai.Delta) error
+	SendDeltaReport(ctx context.Context, report *castai.Delta, opts ...castai.Option) error
 }
 
 type Config struct {

@@ -38,12 +38,12 @@ const (
 
 type Client interface {
 	SendLogs(ctx context.Context, req *LogEvent) error
-	UpdateImageStatus(ctx context.Context, report *UpdateImagesStatusRequest) error
-	SendCISReport(ctx context.Context, report *KubeBenchReport) error
-	SendDeltaReport(ctx context.Context, report *Delta) error
-	SendLinterChecks(ctx context.Context, checks []LinterCheck) error
-	SendImageMetadata(ctx context.Context, meta *ImageMetadata) error
-	SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error
+	UpdateImageStatus(ctx context.Context, report *UpdateImagesStatusRequest, opts ...Option) error
+	SendCISReport(ctx context.Context, report *KubeBenchReport, opts ...Option) error
+	SendDeltaReport(ctx context.Context, report *Delta, opts ...Option) error
+	SendLinterChecks(ctx context.Context, checks []LinterCheck, opts ...Option) error
+	SendImageMetadata(ctx context.Context, meta *ImageMetadata, opts ...Option) error
+	SendCISCloudScanReport(ctx context.Context, report *CloudScanReport, opts ...Option) error
 	PostTelemetry(ctx context.Context, initial bool) (*TelemetryResponse, error)
 	GetSyncState(ctx context.Context, filter *SyncStateFilter) (*SyncStateResponse, error)
 }
@@ -154,31 +154,36 @@ func (c *client) SendLogs(ctx context.Context, req *LogEvent) error {
 	return nil
 }
 
-func (c *client) UpdateImageStatus(ctx context.Context, report *UpdateImagesStatusRequest) error {
-	return c.sendReport(ctx, report, ReportTypeImagesResourcesChange)
+func (c *client) UpdateImageStatus(ctx context.Context, report *UpdateImagesStatusRequest, opts ...Option) error {
+	return c.sendReport(ctx, report, ReportTypeImagesResourcesChange, opts...)
 }
 
-func (c *client) SendDeltaReport(ctx context.Context, report *Delta) error {
-	return c.sendReport(ctx, report, ReportTypeDelta)
+func (c *client) SendDeltaReport(ctx context.Context, report *Delta, opts ...Option) error {
+	return c.sendReport(ctx, report, ReportTypeDelta, opts...)
 }
 
-func (c *client) SendCISReport(ctx context.Context, report *KubeBenchReport) error {
-	return c.sendReport(ctx, report, ReportTypeCis)
+func (c *client) SendCISReport(ctx context.Context, report *KubeBenchReport, opts ...Option) error {
+	return c.sendReport(ctx, report, ReportTypeCis, opts...)
 }
 
-func (c *client) SendLinterChecks(ctx context.Context, checks []LinterCheck) error {
-	return c.sendReport(ctx, checks, ReportTypeLinter)
+func (c *client) SendLinterChecks(ctx context.Context, checks []LinterCheck, opts ...Option) error {
+	return c.sendReport(ctx, checks, ReportTypeLinter, opts...)
 }
 
-func (c *client) SendImageMetadata(ctx context.Context, meta *ImageMetadata) error {
-	return c.sendReport(ctx, meta, ReportTypeImageMeta)
+func (c *client) SendImageMetadata(ctx context.Context, meta *ImageMetadata, opts ...Option) error {
+	return c.sendReport(ctx, meta, ReportTypeImageMeta, opts...)
 }
 
-func (c *client) SendCISCloudScanReport(ctx context.Context, report *CloudScanReport) error {
-	return c.sendReport(ctx, report, ReportTypeCloudScan)
+func (c *client) SendCISCloudScanReport(ctx context.Context, report *CloudScanReport, opts ...Option) error {
+	return c.sendReport(ctx, report, ReportTypeCloudScan, opts...)
 }
 
-func (c *client) sendReport(ctx context.Context, report any, reportType string) error {
+func (c *client) sendReport(ctx context.Context, report any, reportType string, opts ...Option) error {
+	var settings sendSettings
+	for _, opt := range opts {
+		opt(&settings)
+	}
+
 	uri, err := url.Parse(fmt.Sprintf("%s/v1/security/insights/agent/%s/%s", c.apiURL, c.clusterID, reportType))
 	if err != nil {
 		return fmt.Errorf("invalid url: %w", err)
@@ -217,6 +222,10 @@ func (c *client) sendReport(ctx context.Context, report any, reportType string) 
 	req.Header.Set(headerContentEncoding, "gzip")
 	req.Header.Set(headerAPIKey, c.apiKey)
 	req.Header.Set(headerUserAgent, "castai-kvisor/"+c.binVersion.Version)
+
+	for k, v := range settings.headers {
+		req.Header.Set(k, v)
+	}
 
 	var resp *http.Response
 
@@ -269,4 +278,16 @@ func (c *client) GetSyncState(ctx context.Context, filter *SyncStateFilter) (*Sy
 		return nil, fmt.Errorf("unmarshal sync state: %w", err)
 	}
 	return &response, nil
+}
+
+type sendSettings struct {
+	headers map[string]string
+}
+
+type Option func(*sendSettings)
+
+func WithHeader(key, value string) Option {
+	return func(s *sendSettings) {
+		s.headers[key] = value
+	}
 }

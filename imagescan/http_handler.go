@@ -15,6 +15,10 @@ import (
 	"github.com/castai/kvisor/castai"
 )
 
+const (
+	ImageDigestHeader = "X-Image-Digest"
+)
+
 func NewHttpHandlers(log logrus.FieldLogger, client castai.Client, ctrl *Controller) *HTTPHandler {
 	return &HTTPHandler{
 		log:    log.WithField("component", "scan_http_handler"),
@@ -45,8 +49,8 @@ func (h *HTTPHandler) HandleImageMetadata(w http.ResponseWriter, r *http.Request
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := h.client.SendImageMetadata(ctx, &md); err != nil {
-		h.log.Errorf("sending image report: %v", err)
+	if err := h.client.SendImageMetadata(ctx, &md, castai.WithHeader(ImageDigestHeader, md.ImageDigest)); err != nil {
+		h.log.Errorf("sendi	ng image report: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
