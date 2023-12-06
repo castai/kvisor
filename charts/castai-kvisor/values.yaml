@@ -80,7 +80,6 @@ config: |
     enabled: true
     scanInterval: "30s"
     image:
-      name: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
       pullPolicy: IfNotPresent
   imageScan:
     enabled: true
@@ -90,7 +89,6 @@ config: |
     serviceAccountName: "{{ (.Values.imageScanServiceAccount | default dict).name }}"
     apiUrl: "http://kvisor.{{ .Release.Namespace }}.svc.cluster.local.:6060"
     image:
-      name: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
       pullPolicy: IfNotPresent
     {{ if .Values.imageScanSecret }}
     pullSecret: "{{ .Values.imageScanSecret }}"

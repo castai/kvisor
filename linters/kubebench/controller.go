@@ -39,7 +39,7 @@ const (
 )
 
 type kubeController interface {
-	GetKvisorImagePullSecret() []corev1.LocalObjectReference
+	GetKvisorImageDetails() (kube.KvisorImageDetails, bool)
 }
 
 func NewController(
@@ -287,12 +287,16 @@ func (s *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	specFn := resolveSpec(s.provider, node)
 	jobSpec := specFn(node.GetName(), jobName)
 
-	// Set image from config.
+	// Set image.
+	imageDetails, found := s.kubeController.GetKvisorImageDetails()
+	if !found {
+		return nil, errors.New("kvisor image details not found")
+	}
 	cont := jobSpec.Spec.Template.Spec.Containers[0]
-	cont.Image = s.cfg.Image.Name
+	cont.Image = imageDetails.ImageName
 	cont.ImagePullPolicy = corev1.PullPolicy(s.cfg.Image.PullPolicy)
 	jobSpec.Spec.Template.Spec.Containers[0] = cont
-	jobSpec.Spec.Template.Spec.ImagePullSecrets = s.kubeController.GetKvisorImagePullSecret()
+	jobSpec.Spec.Template.Spec.ImagePullSecrets = imageDetails.ImagePullSecrets
 
 	job, err := s.client.BatchV1().
 		Jobs(s.castaiNamespace).

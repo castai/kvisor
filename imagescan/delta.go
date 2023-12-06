@@ -26,7 +26,7 @@ const defaultImageArch = "amd64"
 
 type kubeController interface {
 	GetPodOwnerID(pod *corev1.Pod) string
-	GetKvisorImagePullSecret() []corev1.LocalObjectReference
+	GetKvisorImageDetails() (kube.KvisorImageDetails, bool)
 }
 
 func newImage() *image {

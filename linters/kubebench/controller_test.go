@@ -11,6 +11,7 @@ import (
 
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/log"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -285,8 +286,11 @@ func readReport() []byte {
 type mockKubeController struct {
 }
 
-func (m *mockKubeController) GetKvisorImagePullSecret() []corev1.LocalObjectReference {
-	return []corev1.LocalObjectReference{}
+func (m *mockKubeController) GetKvisorImageDetails() (kube.KvisorImageDetails, bool) {
+	return kube.KvisorImageDetails{
+		ImageName:        "kvisor",
+		ImagePullSecrets: nil,
+	}, true
 }
 
 func (m *mockKubeController) GetPodOwnerID(pod *corev1.Pod) string {

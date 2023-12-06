@@ -172,13 +172,34 @@ func (c *Controller) GetPodOwnerID(pod *corev1.Pod) string {
 	return string(pod.UID)
 }
 
-func (c *Controller) GetKvisorImagePullSecret() []corev1.LocalObjectReference {
+type KvisorImageDetails struct {
+	ImageName        string
+	ImagePullSecrets []corev1.LocalObjectReference
+}
+
+// GetKvisorImageDetails returns kvisor image details.
+// This is used for image analyzer and kube-bench dynamic jobs to schedule using the same image.
+func (c *Controller) GetKvisorImageDetails() (KvisorImageDetails, bool) {
 	spec, found := c.getKvisorDeploymentSpec()
 	if !found {
 		c.log.Warn("kvisor deployment not found")
-		return nil
+		return KvisorImageDetails{}, false
 	}
-	return spec.Template.Spec.ImagePullSecrets
+	var imageName string
+	for _, container := range spec.Template.Spec.Containers {
+		if container.Name == "kvisor" {
+			imageName = container.Image
+			break
+		}
+	}
+	if imageName == "" {
+		c.log.Warn("kvisor container image not found")
+		return KvisorImageDetails{}, false
+	}
+	return KvisorImageDetails{
+		ImageName:        imageName,
+		ImagePullSecrets: spec.Template.Spec.ImagePullSecrets,
+	}, true
 }
 
 func (c *Controller) getKvisorDeploymentSpec() (appsv1.DeploymentSpec, bool) {

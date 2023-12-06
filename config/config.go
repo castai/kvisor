@@ -86,7 +86,6 @@ type ImageScan struct {
 }
 
 type ImageScanImage struct {
-	Name       string `envconfig:"IMAGE_SCAN_IMAGE_NAME" yaml:"name"`
 	PullPolicy string `envconfig:"IMAGE_SCAN_IMAGE_PULL_POLICY" yaml:"pullPolicy"`
 }
 
@@ -103,7 +102,6 @@ type KubeBench struct {
 }
 
 type KubeBenchImage struct {
-	Name       string `envconfig:"KUBE_BENCH_IMAGE_NAME" yaml:"name"`
 	PullPolicy string `envconfig:"KUBE_BENCH_IMAGE_PULL_POLICY" yaml:"pullPolicy"`
 }
 
@@ -174,9 +172,6 @@ func Load(configPath string) (Config, error) {
 		}
 	}
 	if cfg.ImageScan.Enabled {
-		if cfg.ImageScan.Image.Name == "" {
-			return cfg, required("IMAGE_SCAN_IMAGE_NAME")
-		}
 		if cfg.ImageScan.Image.PullPolicy == "" {
 			cfg.ImageScan.Image.PullPolicy = "IfNotPresent"
 		}
@@ -221,8 +216,7 @@ func Load(configPath string) (Config, error) {
 		if cfg.KubeBench.ScanInterval == 0 {
 			cfg.KubeBench.ScanInterval = 30 * time.Second
 		}
-		if cfg.KubeBench.Image.Name == "" {
-			cfg.KubeBench.Image.Name = "ghcr.io/castai/kvisor/kube-bench:v0.8.0"
+		if cfg.KubeBench.Image.PullPolicy == "" {
 			cfg.KubeBench.Image.PullPolicy = "IfNotPresent"
 		}
 	}

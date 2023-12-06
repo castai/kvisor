@@ -312,6 +312,11 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		metrics.ObserveScanDuration(metrics.ScanTypeImage, start)
 	}()
 
+	collectorImageDetails, found := s.kubeController.GetKvisorImageDetails()
+	if !found {
+		return errors.New("kvisor image details not found")
+	}
+
 	return s.imageScanner.ScanImage(ctx, ScanImageParams{
 		ImageName:                   img.name,
 		ImageID:                     img.id,
@@ -324,7 +329,7 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitDurationAfterCompletion: 30 * time.Second,
 		Architecture:                img.architecture,
 		Os:                          img.os,
-		ImageCollectorPullSecrets:   s.kubeController.GetKvisorImagePullSecret(),
+		CollectorImageDetails:       collectorImageDetails,
 	})
 }
 

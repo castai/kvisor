@@ -11,6 +11,7 @@ import (
 	"time"
 
 	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
+	"github.com/castai/kvisor/kube"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +67,7 @@ type ScanImageParams struct {
 	WaitDurationAfterCompletion time.Duration
 	Architecture                string
 	Os                          string
-	ImageCollectorPullSecrets   []corev1.LocalObjectReference
+	CollectorImageDetails       kube.KvisorImageDetails
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr error) {
@@ -249,7 +250,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		vols,
 		tolerations,
 		s.cfg.ImageScan,
-		params.ImageCollectorPullSecrets,
+		params.CollectorImageDetails,
 	)
 	jobs := s.client.BatchV1().Jobs(s.cfg.PodNamespace)
 
@@ -387,7 +388,7 @@ func scanJobSpec(
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,
 	cfg config.ImageScan,
-	collectorImagePullSecrets []corev1.LocalObjectReference,
+	collectorImageDetails kube.KvisorImageDetails,
 ) *batchv1.Job {
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -437,7 +438,7 @@ func scanJobSpec(
 					Tolerations:                  tolerations,
 					AutomountServiceAccountToken: lo.ToPtr(false),
 					ServiceAccountName:           cfg.ServiceAccountName,
-					ImagePullSecrets:             collectorImagePullSecrets,
+					ImagePullSecrets:             collectorImageDetails.ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
 							SecurityContext: &corev1.SecurityContext{
@@ -446,7 +447,7 @@ func scanJobSpec(
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
 							Name:  "collector",
-							Image: cfg.Image.Name,
+							Image: collectorImageDetails.ImageName,
 							Args: []string{
 								"analyze-image",
 							},

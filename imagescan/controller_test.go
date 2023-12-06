@@ -9,6 +9,7 @@ import (
 	"time"
 
 	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
+	"github.com/castai/kvisor/kube"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
@@ -236,6 +237,10 @@ func TestSubscriber(t *testing.T) {
 				WaitDurationAfterCompletion: 30 * time.Second,
 				Architecture:                defaultImageArch,
 				Os:                          defaultImageOs,
+				CollectorImageDetails: kube.KvisorImageDetails{
+					ImageName:        "kvisor",
+					ImagePullSecrets: nil,
+				},
 			}, ngnxImage)
 			r.Len(client.getImagesResourcesChanges(), 1)
 			r.Len(client.getImagesResourcesChanges()[0].Images, 3)
@@ -882,8 +887,11 @@ func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
 type mockKubeController struct {
 }
 
-func (m *mockKubeController) GetKvisorImagePullSecret() []corev1.LocalObjectReference {
-	return nil
+func (m *mockKubeController) GetKvisorImageDetails() (kube.KvisorImageDetails, bool) {
+	return kube.KvisorImageDetails{
+		ImageName:        "kvisor",
+		ImagePullSecrets: nil,
+	}, true
 }
 
 func (m *mockKubeController) GetPodOwnerID(pod *corev1.Pod) string {
