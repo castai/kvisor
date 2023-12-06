@@ -234,6 +234,8 @@ func TestSubscriber(t *testing.T) {
 				DeleteFinishedJob:           true,
 				WaitForCompletion:           true,
 				WaitDurationAfterCompletion: 30 * time.Second,
+				Architecture:                defaultImageArch,
+				Os:                          defaultImageOs,
 			}, ngnxImage)
 			r.Len(client.getImagesResourcesChanges(), 1)
 			r.Len(client.getImagesResourcesChanges()[0].Images, 3)

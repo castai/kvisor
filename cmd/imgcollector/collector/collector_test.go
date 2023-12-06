@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/image-analyzer/image"
-	"github.com/castai/image-analyzer/image/hostfs"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
+	"github.com/castai/image-analyzer/image"
+	"github.com/castai/image-analyzer/image/hostfs"
 	mock_blobcache "github.com/castai/kvisor/blobscache/mock"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
@@ -50,12 +50,13 @@ func TestCollector(t *testing.T) {
 		p := path.Join(cwd, "testdata/amd64-linux/io.containerd.content.v1.content")
 
 		c := New(log, config.Config{
-			ApiURL:    srv.URL,
-			ImageID:   imgID,
-			ImageName: imgName,
-			Timeout:   5 * time.Minute,
-			Mode:      config.ModeHostFS,
-			Runtime:   config.RuntimeContainerd,
+			ApiURL:            srv.URL,
+			ImageID:           imgID,
+			ImageName:         imgName,
+			Timeout:           5 * time.Minute,
+			Mode:              config.ModeHostFS,
+			Runtime:           config.RuntimeContainerd,
+			ImageArchitecture: "amd64",
 		}, mockCache, &hostfs.ContainerdHostFSConfig{
 			Platform: v1.Platform{
 				Architecture: "amd64",
@@ -71,6 +72,7 @@ func TestCollector(t *testing.T) {
 		b, err := os.ReadFile("./testdata/expected_image_scan_meta1.json")
 		r.NoError(err)
 		r.NoError(json.Unmarshal(b, &expected))
+		expected.Architecture = "amd64"
 
 		var receivedMeta castai.ImageMetadata
 		r.NoError(json.Unmarshal(receivedMetaBytes, &receivedMeta))

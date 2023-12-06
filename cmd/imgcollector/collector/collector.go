@@ -12,16 +12,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castai/image-analyzer/image"
-	"github.com/castai/image-analyzer/image/hostfs"
+	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	analyzer "github.com/castai/image-analyzer"
+	"github.com/castai/image-analyzer/image"
+	"github.com/castai/image-analyzer/image/hostfs"
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/cmd/imgcollector/config"
 )
@@ -86,7 +86,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	metadata := &castai.ImageMetadata{
 		ImageName:    c.cfg.ImageName,
 		ImageID:      c.cfg.ImageID,
-		Architecture: arRef.ArtifactInfo.Architecture,
+		Architecture: c.cfg.ImageArchitecture,
 		ImageDigest:  digest.String(),
 		ResourceIDs:  strings.Split(c.cfg.ResourceIDs, ","),
 		BlobsInfo:    arRef.BlobsInfo,
@@ -146,6 +146,10 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 			if err := yaml.Unmarshal(optsData, &opts); err != nil {
 				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
 			}
+		}
+		if c.cfg.ImageArchitecture != "" && c.cfg.ImageOS != "" {
+			opts.Architecture = c.cfg.ImageArchitecture
+			opts.OS = c.cfg.ImageOS
 		}
 		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
 		return img, func() {}, err

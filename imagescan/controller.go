@@ -320,6 +320,8 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		DeleteFinishedJob:           true,
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
+		Architecture:                img.architecture,
+		Os:                          img.os,
 	})
 }
 
