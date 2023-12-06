@@ -203,6 +203,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		kubeBenchCtrl := kubebench.NewController(
 			log,
 			clientSet,
+			cfg.KubeBench,
 			cfg.PodNamespace,
 			cfg.Provider,
 			cfg.KubeBench.ScanInterval,

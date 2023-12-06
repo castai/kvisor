@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/castai/kvisor/config"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru"
@@ -40,6 +41,7 @@ const (
 func NewController(
 	log logrus.FieldLogger,
 	client kubernetes.Interface,
+	cfg config.KubeBench,
 	castaiNamespace string,
 	provider string,
 	scanInterval time.Duration,
@@ -55,6 +57,7 @@ func NewController(
 	return &Controller{
 		log:                           log,
 		client:                        client,
+		cfg:                           cfg,
 		castaiNamespace:               castaiNamespace,
 		delta:                         newDeltaState(),
 		provider:                      provider,
@@ -70,6 +73,7 @@ func NewController(
 type Controller struct {
 	log                           logrus.FieldLogger
 	client                        kubernetes.Interface
+	cfg                           config.KubeBench
 	castaiNamespace               string
 	castClient                    castai.Client
 	delta                         *nodeDeltaState
@@ -274,10 +278,17 @@ func (s *Controller) addReportToCache(n *corev1.Node, report *castai.KubeBenchRe
 // We are interested in kube-bench pod succeeding and not the Job
 func (s *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
 	specFn := resolveSpec(s.provider, node)
+	jobSpec := specFn(node.GetName(), jobName)
+
+	// Set image from config.
+	cont := jobSpec.Spec.Template.Spec.Containers[0]
+	cont.Image = s.cfg.Image.Name
+	cont.ImagePullPolicy = corev1.PullPolicy(s.cfg.Image.PullPolicy)
+	jobSpec.Spec.Template.Spec.Containers[0] = cont
 
 	job, err := s.client.BatchV1().
 		Jobs(s.castaiNamespace).
-		Create(ctx, specFn(node.GetName(), jobName), metav1.CreateOptions{})
+		Create(ctx, jobSpec, metav1.CreateOptions{})
 	if err != nil {
 		s.log.WithError(err).Error("can not create kube-bench scan job")
 		return nil, err
