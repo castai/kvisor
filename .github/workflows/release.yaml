@@ -36,29 +36,15 @@ jobs:
       - name: Get release tag
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-      - name: Build agent go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/agent
+      - name: Build kvisor go binary amd64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/kvisor
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
-      - name: Build imgcollector go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector-amd64 ./cmd/imgcollector
-        env:
-          GOOS: linux
-          GOARCH: amd64
-          CGO_ENABLED: 0
-
-      - name: Build agent go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/agent
-        env:
-          GOOS: linux
-          GOARCH: arm64
-          CGO_ENABLED: 0
-
-      - name: Build imgcollector go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector-arm64 ./cmd/imgcollector
+      - name: Build kvisor go binary arm64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/kvisor
         env:
           GOOS: linux
           GOARCH: arm64
@@ -77,27 +63,16 @@ jobs:
           username: _json_key
           password: ${{ secrets.ARTIFACT_BUILDER_JSON_KEY }}
 
-      - name: Build and push release (agent)
+      - name: Build and push release (kvisor)
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          file: ./Dockerfile.agent
+          file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
           tags: |
             us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
             us-docker.pkg.dev/castai-hub/library/kvisor:latest
-
-      - name: Build and push release (imgcollector)
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          file: ./Dockerfile.imgcollector
-          platforms: linux/arm64,linux/amd64
-          tags: |
-            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ env.RELEASE_TAG }}
-            us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:latest
 
   release_chart:
     name: Release Helm Chart

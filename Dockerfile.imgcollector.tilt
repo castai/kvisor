@@ -1,5 +1,0 @@
-FROM alpine:3.17
-
-COPY ./bin/castai-imgcollector /usr/local/bin/castai-imgcollector
-
-CMD ["/usr/local/bin/castai-imgcollector"]

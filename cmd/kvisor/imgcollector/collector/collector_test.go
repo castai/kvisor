@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
@@ -23,7 +24,6 @@ import (
 	"github.com/castai/image-analyzer/image/hostfs"
 	mock_blobcache "github.com/castai/kvisor/blobscache/mock"
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/cmd/imgcollector/config"
 )
 
 func TestCollector(t *testing.T) {

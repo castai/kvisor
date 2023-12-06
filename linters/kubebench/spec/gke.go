@@ -37,13 +37,13 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
-							Command: []string{
+							Args: []string{
 								"kube-bench",
+								"--config-dir", "/etc/kubebench-rules/",
 								"run",
 								"--targets",
 								"node,policies,managedservices",
-								"--benchmark",
-								"gke-1.4.0",
+								"--benchmark", "gke-1.4.0",
 								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{

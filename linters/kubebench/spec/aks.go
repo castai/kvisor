@@ -37,8 +37,13 @@ func AKS(nodeName, jobName string) *batchv1.Job {
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
-							Command: []string{
-								"kube-bench", "run", "--targets", "node", "--benchmark", "aks-1.3", "--json",
+							Args: []string{
+								"kube-bench",
+								"--config-dir", "/etc/kubebench-rules/",
+								"run",
+								"--targets", "node",
+								"--benchmark", "aks-1.3",
+								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{

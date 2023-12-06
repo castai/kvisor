@@ -74,7 +74,6 @@ func newTestConfig() Config {
 			MaxConcurrentScans: 3,
 			InitDelay:          60 * time.Second,
 			Image: ImageScanImage{
-				Name:       "collector-img",
 				PullPolicy: "IfNotPresent",
 			},
 			Mode:               "mode",
@@ -94,7 +93,6 @@ func newTestConfig() Config {
 			Enabled:      true,
 			ScanInterval: 15 * time.Second,
 			Image: KubeBenchImage{
-				Name:       "ghcr.io/castai/kvisor/kube-bench:v0.8.",
 				PullPolicy: "IfNotPresent",
 			},
 		},

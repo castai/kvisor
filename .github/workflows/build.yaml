@@ -41,29 +41,15 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-build-
 
-      - name: Build agent go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/agent
-        env:
-          GOOS: linux
-          GOARCH: amd64
-          CGO_ENABLED: 0
-
-      - name: Build imgcollector go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector-amd64 ./cmd/imgcollector
+      - name: Build kvisor go binary amd64
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/kvisor
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
       - name: Build agent go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/agent
-        env:
-          GOOS: linux
-          GOARCH: arm64
-          CGO_ENABLED: 0
-
-      - name: Build imgcollector go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-imgcollector-arm64 ./cmd/imgcollector
+        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/kvisor
         env:
           GOOS: linux
           GOARCH: arm64
@@ -106,45 +92,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push pr (agent)
+      - name: Build and push pr (kvisor)
         if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./Dockerfile.agent
+          file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name == 'pull_request' }}
           tags: ghcr.io/castai/kvisor/kvisor:${{ github.sha }}
 
-      - name: Build and push pr (imgcollector)
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile.imgcollector
-          platforms: linux/arm64,linux/amd64
-          push: ${{ github.event_name == 'pull_request' }}
-          tags: ghcr.io/castai/kvisor/kvisor-imgcollector:${{ github.sha }}
-
-      - name: Build and push main (agent)
+      - name: Build and push main (kvisor)
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./Dockerfile.agent
+          file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: us-docker.pkg.dev/castai-hub/library/kvisor:${{ github.sha }}
 
-      - name: Build and push main (imgcollector)
-        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile.imgcollector
-          platforms: linux/arm64,linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/kvisor-imgcollector:${{ github.sha }}
   e2e:
     name: E2E
     runs-on: ubuntu-20.04

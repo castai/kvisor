@@ -20,13 +20,9 @@ kind load docker-image kvisor-e2e:local --name $KIND_CONTEXT
 
 if [ "$IMAGE_TAG" == "local" ]
 then
-  GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/castai-kvisor-$GOARCH ./cmd/agent
-  docker build . -t kvisor:local -f Dockerfile.agent
+  GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/castai-kvisor-$GOARCH ./cmd/kvisor
+  docker build . -t kvisor:local -f Dockerfile
   kind load docker-image kvisor:local --name $KIND_CONTEXT
-
-  GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/castai-imgcollector-$GOARCH ./cmd/imgcollector
-  docker build . -t kvisor-imgcollector:local -f Dockerfile.imgcollector
-  kind load docker-image kvisor-imgcollector:local --name $KIND_CONTEXT
 fi
 
 # Deploy e2e resources.

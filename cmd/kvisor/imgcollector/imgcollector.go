@@ -1,4 +1,4 @@
-package main
+package imgcollector
 
 import (
 	"context"
@@ -7,27 +7,31 @@ import (
 	"runtime"
 
 	"github.com/castai/image-analyzer/image/hostfs"
+	"github.com/castai/kvisor/cmd/kvisor/imgcollector/collector"
+	"github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/spf13/cobra"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/castai/kvisor/blobscache"
-	"github.com/castai/kvisor/cmd/imgcollector/collector"
-	"github.com/castai/kvisor/cmd/imgcollector/config"
 )
 
-// These should be set via `go build` during a release.
-var (
-	GitCommit = "undefined"
-	GitRef    = "no-ref"
-	Version   = "local"
-)
+func NewCommand(version, gitCommit string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "analyze-image",
+		Short: "Run kvisor image metadata collection",
+		Run: func(cmd *cobra.Command, args []string) {
+			run(cmd.Context(), version, gitCommit)
+		},
+	}
+}
 
-func main() {
+func run(ctx context.Context, version string, commit string) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	log := logger.WithField("component", "imagescan_job")
-	log.Infof("running image scan job, version=%s, commit=%s", Version, GitCommit)
+	log.Infof("running image scan job, version=%s, commit=%s", version, commit)
 
 	cfg, err := config.FromEnv()
 	if err != nil {
@@ -48,7 +52,7 @@ func main() {
 	}
 	c := collector.New(log, cfg, blobsCache, h)
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
 	if cfg.PprofAddr != "" {

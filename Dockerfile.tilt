@@ -11,5 +11,5 @@ RUN /busybox --install
 FROM base-with-shell
 
 COPY ./bin/castai-kvisor /usr/local/bin/castai-kvisor
-CMD ["/usr/local/bin/castai-kvisor"]
+ENTRYPOINT ["/usr/local/bin/castai-kvisor"]
 

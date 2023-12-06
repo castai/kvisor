@@ -402,5 +402,5 @@ func TestDelta(t *testing.T) {
 }
 
 func newTestDelta() *deltaState {
-	return newDeltaState(&mockPodOwnerGetter{})
+	return newDeltaState(&mockKubeController{})
 }

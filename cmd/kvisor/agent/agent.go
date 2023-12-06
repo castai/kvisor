@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,64 +57,63 @@ import (
 	"github.com/castai/kvisor/version"
 )
 
-// These should be set via `go build` during a release.
-var (
-	GitCommit = "undefined"
-	GitRef    = "no-ref"
-	Version   = "local"
-)
+func NewCommand(version, gitCommit, gitRef string) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "agent",
+		Short: "Run kvisor agent server",
+		Run: func(cmd *cobra.Command, args []string) {
+			flag.Parse()
 
-var (
-	configPath = flag.String("config", "/etc/castai/config/config.yaml", "Config file path")
-)
+			logger := logrus.New()
+			cfg, err := config.Load(configPath)
+			if err != nil {
+				logger.Fatal(err)
+			}
+			lvl, _ := logrus.ParseLevel(cfg.Log.Level)
+			logger.SetLevel(lvl)
 
-func main() {
-	flag.Parse()
+			binVersion := config.SecurityAgentVersion{
+				GitCommit: gitCommit,
+				GitRef:    gitRef,
+				Version:   version,
+			}
 
-	logger := logrus.New()
-	cfg, err := config.Load(*configPath)
-	if err != nil {
-		logger.Fatal(err)
+			client := castai.NewClient(
+				cfg.API.URL, cfg.API.Key,
+				logger,
+				cfg.API.ClusterID,
+				cfg.PolicyEnforcement.Enabled,
+				"castai-kvisor",
+				binVersion,
+			)
+
+			log := logrus.WithFields(logrus.Fields{})
+			e := agentlog.NewExporter(logger, client, []logrus.Level{
+				logrus.ErrorLevel,
+				logrus.FatalLevel,
+				logrus.PanicLevel,
+				logrus.InfoLevel,
+				logrus.WarnLevel,
+			})
+
+			logger.AddHook(e)
+			logrus.RegisterExitHandler(e.Wait)
+
+			ctx := signals.SetupSignalHandler()
+			if err := run(ctx, logger, client, cfg, binVersion); err != nil && !errors.Is(err, context.Canceled) {
+				logErr := &logContextErr{}
+				if errors.As(err, &logErr) {
+					log = logger.WithFields(logErr.fields)
+				}
+				log.Fatalf("castai-kvisor failed: %v", err)
+			}
+			log.Info("castai-kvisor stopped")
+		},
 	}
-	lvl, _ := logrus.ParseLevel(cfg.Log.Level)
-	logger.SetLevel(lvl)
+	cmd.PersistentFlags().StringVar(&configPath, "config", "/etc/castai/config/config.yaml", "Config file path")
 
-	binVersion := config.SecurityAgentVersion{
-		GitCommit: GitCommit,
-		GitRef:    GitRef,
-		Version:   Version,
-	}
-
-	client := castai.NewClient(
-		cfg.API.URL, cfg.API.Key,
-		logger,
-		cfg.API.ClusterID,
-		cfg.PolicyEnforcement.Enabled,
-		"castai-kvisor",
-		binVersion,
-	)
-
-	log := logrus.WithFields(logrus.Fields{})
-	e := agentlog.NewExporter(logger, client, []logrus.Level{
-		logrus.ErrorLevel,
-		logrus.FatalLevel,
-		logrus.PanicLevel,
-		logrus.InfoLevel,
-		logrus.WarnLevel,
-	})
-
-	logger.AddHook(e)
-	logrus.RegisterExitHandler(e.Wait)
-
-	ctx := signals.SetupSignalHandler()
-	if err := run(ctx, logger, client, cfg, binVersion); err != nil && !errors.Is(err, context.Canceled) {
-		logErr := &logContextErr{}
-		if errors.As(err, &logErr) {
-			log = logger.WithFields(logErr.fields)
-		}
-		log.Fatalf("castai-kvisor failed: %v", err)
-	}
-	log.Info("castai-kvisor stopped")
+	return cmd
 }
 
 func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Client, cfg config.Config, binVersion config.SecurityAgentVersion) (reterr error) {
@@ -160,7 +160,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	snapshotProvider := delta.NewSnapshotProvider()
 
 	informersFactory := informers.NewSharedInformerFactory(clientSet, 0)
-	kubeCtrl := kube.NewController(log, informersFactory, k8sVersion)
+	kubeCtrl := kube.NewController(log, informersFactory, k8sVersion, cfg.PodNamespace)
 
 	deltaCtrl := delta.NewController(
 		log,
@@ -209,6 +209,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			cfg.KubeBench.ScanInterval,
 			castaiClient,
 			podLogReader,
+			kubeCtrl,
 			scannedNodes,
 		)
 		kubeCtrl.AddSubscribers(kubeBenchCtrl)

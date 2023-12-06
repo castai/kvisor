@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
+	"github.com/castai/kvisor/kube"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/log"
 )
@@ -66,6 +67,7 @@ type ScanImageParams struct {
 	WaitDurationAfterCompletion time.Duration
 	Architecture                string
 	Os                          string
+	CollectorImageDetails       kube.KvisorImageDetails
 }
 
 func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr error) {
@@ -248,6 +250,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		vols,
 		tolerations,
 		s.cfg.ImageScan,
+		params.CollectorImageDetails,
 	)
 	jobs := s.client.BatchV1().Jobs(s.cfg.PodNamespace)
 
@@ -385,6 +388,7 @@ func scanJobSpec(
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,
 	cfg config.ImageScan,
+	collectorImageDetails kube.KvisorImageDetails,
 ) *batchv1.Job {
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -434,6 +438,7 @@ func scanJobSpec(
 					Tolerations:                  tolerations,
 					AutomountServiceAccountToken: lo.ToPtr(false),
 					ServiceAccountName:           cfg.ServiceAccountName,
+					ImagePullSecrets:             collectorImageDetails.ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
 							SecurityContext: &corev1.SecurityContext{
@@ -441,8 +446,11 @@ func scanJobSpec(
 								RunAsNonRoot:             lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
-							Name:            "collector",
-							Image:           cfg.Image.Name,
+							Name:  "collector",
+							Image: collectorImageDetails.ImageName,
+							Args: []string{
+								"analyze-image",
+							},
 							ImagePullPolicy: corev1.PullPolicy(cfg.Image.PullPolicy),
 							Env:             envVars,
 							VolumeMounts:    vol.mounts,

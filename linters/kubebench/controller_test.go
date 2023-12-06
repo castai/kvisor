@@ -11,6 +11,8 @@ import (
 
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/kube"
+	"github.com/castai/kvisor/log"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -21,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	mock_castai "github.com/castai/kvisor/castai/mock"
-	agentlog "github.com/castai/kvisor/log"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -38,6 +39,8 @@ func TestSubscriber(t *testing.T) {
 		log.SetOutput(&logOutput)
 		logProvider := newMockLogProvider(readReport())
 
+		kubeCtrl := &mockKubeController{}
+
 		castaiNamespace := "castai-sec"
 		ctrl := NewController(
 			log,
@@ -48,6 +51,7 @@ func TestSubscriber(t *testing.T) {
 			5*time.Millisecond,
 			mockCast,
 			logProvider,
+			kubeCtrl,
 			nil,
 		)
 		ctrl.finishedJobDeleteWaitDuration = 0
@@ -114,6 +118,7 @@ func TestSubscriber(t *testing.T) {
 		var logOutput bytes.Buffer
 		log.SetOutput(&logOutput)
 		logProvider := newMockLogProvider(readReport())
+		kubeCtrl := &mockKubeController{}
 
 		castaiNamespace := "castai-sec"
 		ctrl := NewController(
@@ -125,6 +130,7 @@ func TestSubscriber(t *testing.T) {
 			5*time.Millisecond,
 			mockCast,
 			logProvider,
+			kubeCtrl,
 			nil,
 		)
 		nodeID := types.UID(uuid.NewString())
@@ -170,6 +176,7 @@ func TestSubscriber(t *testing.T) {
 		var logOutput bytes.Buffer
 		log.SetOutput(&logOutput)
 		logProvider := newMockLogProvider(readReport())
+		kubeCtrl := &mockKubeController{}
 
 		castaiNamespace := "castai-sec"
 		ctrl := NewController(
@@ -181,6 +188,7 @@ func TestSubscriber(t *testing.T) {
 			5*time.Millisecond,
 			mockCast,
 			logProvider,
+			kubeCtrl,
 			nil,
 		)
 		nodeID := types.UID(uuid.NewString())
@@ -256,12 +264,12 @@ func TestNodeGroupKey(t *testing.T) {
 	r.NotEqual(key1, key2)
 }
 
-type mockProvider struct {
-	logs []byte
+func newMockLogProvider(b []byte) log.PodLogProvider {
+	return &mockProvider{logs: b}
 }
 
-func newMockLogProvider(b []byte) agentlog.PodLogProvider {
-	return &mockProvider{logs: b}
+type mockProvider struct {
+	logs []byte
 }
 
 func (m *mockProvider) GetLogReader(_ context.Context, _, _ string) (io.ReadCloser, error) {
@@ -273,4 +281,18 @@ func readReport() []byte {
 	reportBytes, _ := io.ReadAll(file)
 
 	return reportBytes
+}
+
+type mockKubeController struct {
+}
+
+func (m *mockKubeController) GetKvisorImageDetails() (kube.KvisorImageDetails, bool) {
+	return kube.KvisorImageDetails{
+		ImageName:        "kvisor",
+		ImagePullSecrets: nil,
+	}, true
+}
+
+func (m *mockKubeController) GetPodOwnerID(pod *corev1.Pod) string {
+	return string(pod.UID)
 }

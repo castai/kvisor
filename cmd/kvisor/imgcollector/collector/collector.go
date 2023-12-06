@@ -13,6 +13,7 @@ import (
 	"time"
 
 	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
+	"github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/samber/lo"
@@ -23,7 +24,6 @@ import (
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
 	"github.com/castai/kvisor/castai"
-	"github.com/castai/kvisor/cmd/imgcollector/config"
 )
 
 func New(log logrus.FieldLogger, cfg config.Config, cache analyzer.CacheClient, hostfsConfig *hostfs.ContainerdHostFSConfig) *Collector {

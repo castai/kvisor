@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/kvisor/kube"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -35,9 +36,7 @@ func TestScanner(t *testing.T) {
 			PodIP:        "10.10.5.77",
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
-				Image: config.ImageScanImage{
-					Name: "imgcollector:1.0.0",
-				},
+				Image:              config.ImageScanImage{},
 				APIUrl:             "http://kvisor:6060",
 				DockerOptionsPath:  "/etc/docker/config.json",
 				CPURequest:         "500m",
@@ -61,6 +60,9 @@ func TestScanner(t *testing.T) {
 			ResourceIDs:      []string{"p1", "p2"},
 			Architecture:     "amd64",
 			Os:               "linux",
+			CollectorImageDetails: kube.KvisorImageDetails{
+				ImageName: "imgcollector:1.0.0",
+			},
 		})
 		r.NoError(err)
 
@@ -127,6 +129,9 @@ func TestScanner(t *testing.T) {
 							{
 								Name:  "collector",
 								Image: "imgcollector:1.0.0",
+								Args: []string{
+									"analyze-image",
+								},
 								Env: []corev1.EnvVar{
 									{
 										Name:  "GOMEMLIMIT",
@@ -262,6 +267,9 @@ func TestScanner(t *testing.T) {
 			NodeName:          "n1",
 			ResourceIDs:       []string{"p1", "p2"},
 			DeleteFinishedJob: true,
+			CollectorImageDetails: kube.KvisorImageDetails{
+				ImageName: "imgcollector:1.0.0",
+			},
 		})
 		r.NoError(err)
 
@@ -303,9 +311,7 @@ func TestScanner(t *testing.T) {
 		scanner := NewImageScanner(client, config.Config{
 			PodNamespace: ns,
 			ImageScan: config.ImageScan{
-				Image: config.ImageScanImage{
-					Name: "imgcollector:1.0.0",
-				},
+				Image: config.ImageScanImage{},
 			},
 		})
 		scanner.jobCheckInterval = 1 * time.Microsecond
@@ -318,6 +324,9 @@ func TestScanner(t *testing.T) {
 			NodeName:          "n1",
 			ResourceIDs:       []string{"p1", "p2"},
 			WaitForCompletion: true,
+			CollectorImageDetails: kube.KvisorImageDetails{
+				ImageName: "imgcollector:1.0.0",
+			},
 		})
 		r.ErrorContains(err, "[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")
 	})
