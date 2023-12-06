@@ -127,6 +127,9 @@ func TestScanner(t *testing.T) {
 							{
 								Name:  "collector",
 								Image: "imgcollector:1.0.0",
+								Args: []string{
+									"analyze-image",
+								},
 								Env: []corev1.EnvVar{
 									{
 										Name:  "GOMEMLIMIT",

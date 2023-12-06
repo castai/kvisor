@@ -171,10 +171,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
 	fmt.Printf("installing kvisor chart with image tag %q", imageTag)
 	podIP := os.Getenv("POD_IP")
 	apiURL := fmt.Sprintf("http://%s:8090", podIP)
-	collectorImage := fmt.Sprintf("ghcr.io/castai/kvisor/kvisor-imgcollector:%s", imageTag)
 	agentRepo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
-		collectorImage = "kvisor-imgcollector:local"
 		agentRepo = "kvisor"
 	}
 	//nolint:gosec
@@ -183,7 +181,6 @@ func installChart(ns, imageTag string) ([]byte, error) {
   -f ./charts/castai-kvisor/ci/test-values.yaml \
   --set image.repository=%s \
   --set image.tag=%s \
-  --set structuredConfig.imageScan.image.name=%s \
   --set structuredConfig.imageScan.mode=hostfs \
   --set structuredConfig.imageScan.initDelay=10s \
   --set structuredConfig.linter.scanInterval=5s \
@@ -192,7 +189,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set structuredConfig.kubeBench.enabled=true \
   --set structuredConfig.kubeClient.useProtobuf=true \
   --set castai.apiURL=%s \
-  --wait --timeout=1m`, ns, agentRepo, imageTag, collectorImage, apiURL))
+  --wait --timeout=1m`, ns, agentRepo, imageTag, apiURL))
 	return cmd.CombinedOutput()
 }
 

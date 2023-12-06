@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
@@ -18,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/castai/kvisor/castai"
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 )
 
@@ -413,7 +413,7 @@ func TestSubscriber(t *testing.T) {
 		scanner := &mockImageScanner{}
 		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
 		client := &mockCastaiClient{}
-		podOwnerGetter := &mockPodOwnerGetter{}
+		podOwnerGetter := &mockKubeController{}
 		sub := NewController(log, cfg, scanner, client, 21, podOwnerGetter)
 		sub.initialScansDelay = 1 * time.Millisecond
 		sub.timeGetter = func() time.Time {
@@ -856,7 +856,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 func newTestController(log logrus.FieldLogger, cfg config.ImageScan) *Controller {
 	scanner := &mockImageScanner{}
 	client := &mockCastaiClient{}
-	podOwnerGetter := &mockPodOwnerGetter{}
+	podOwnerGetter := &mockKubeController{}
 	return NewController(log, cfg, scanner, client, 21, podOwnerGetter)
 }
 
@@ -879,10 +879,14 @@ func (m *mockImageScanner) getScanImageParams() []ScanImageParams {
 	return m.imgs
 }
 
-type mockPodOwnerGetter struct {
+type mockKubeController struct {
 }
 
-func (m *mockPodOwnerGetter) GetPodOwnerID(pod *corev1.Pod) string {
+func (m *mockKubeController) GetKvisorImagePullSecret() []corev1.LocalObjectReference {
+	return nil
+}
+
+func (m *mockKubeController) GetPodOwnerID(pod *corev1.Pod) string {
 	return string(pod.UID)
 }
 

@@ -38,6 +38,10 @@ const (
 	maxConcurrentJobs = 1
 )
 
+type kubeController interface {
+	GetKvisorImagePullSecret() []corev1.LocalObjectReference
+}
+
 func NewController(
 	log logrus.FieldLogger,
 	client kubernetes.Interface,
@@ -47,6 +51,7 @@ func NewController(
 	scanInterval time.Duration,
 	castClient castai.Client,
 	logsReader log.PodLogProvider,
+	kubeController kubeController,
 	scannedNodes []string,
 ) *Controller {
 	nodeCache, _ := lru.New(1000)
@@ -63,6 +68,7 @@ func NewController(
 		provider:                      provider,
 		castClient:                    castClient,
 		logsProvider:                  logsReader,
+		kubeController:                kubeController,
 		scanInterval:                  scanInterval,
 		scannedNodes:                  nodeCache,
 		finishedJobDeleteWaitDuration: 10 * time.Second,
@@ -79,6 +85,7 @@ type Controller struct {
 	delta                         *nodeDeltaState
 	provider                      string
 	logsProvider                  log.PodLogProvider
+	kubeController                kubeController
 	scanInterval                  time.Duration
 	finishedJobDeleteWaitDuration time.Duration
 	scannedNodes                  *lru.Cache
@@ -285,6 +292,7 @@ func (s *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	cont.Image = s.cfg.Image.Name
 	cont.ImagePullPolicy = corev1.PullPolicy(s.cfg.Image.PullPolicy)
 	jobSpec.Spec.Template.Spec.Containers[0] = cont
+	jobSpec.Spec.Template.Spec.ImagePullSecrets = s.kubeController.GetKvisorImagePullSecret()
 
 	job, err := s.client.BatchV1().
 		Jobs(s.castaiNamespace).

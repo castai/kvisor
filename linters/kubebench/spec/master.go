@@ -52,8 +52,12 @@ func Master(nodeName, jobName string) *batchv1.Job {
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
-							Command: []string{
-								"kube-bench", "run", "--targets", "master", "--json",
+							Args: []string{
+								"kube-bench",
+								"--config-dir", "/etc/kubebench-rules/",
+								"run",
+								"--targets", "master",
+								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{

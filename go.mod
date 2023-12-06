@@ -9,13 +9,15 @@ require (
 	github.com/aquasecurity/trivy v0.35.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.3
 	github.com/aws/aws-sdk-go-v2/service/eks v1.22.1
-	github.com/aws/smithy-go v1.13.4
+	github.com/aws/smithy-go v1.18.1
 	github.com/bombsimon/logrusr/v4 v4.0.0
 	github.com/castai/image-analyzer v0.2.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/containerd/containerd v1.7.8
 	github.com/davecgh/go-spew v1.1.1
+	github.com/fatih/color v1.13.0
 	github.com/go-resty/resty/v2 v2.7.0
+	github.com/golang/glog v1.1.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-containerregistry v0.12.0
 	github.com/google/uuid v1.3.1
@@ -24,16 +26,21 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/magiconair/properties v1.8.6
+	github.com/onsi/ginkgo v1.16.5
 	github.com/open-policy-agent/cert-controller v0.7.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/spf13/cobra v1.6.1
+	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.11.0
 	golang.org/x/sync v0.3.0
 	golang.stackrox.io/kube-linter v0.4.1-0.20221021125313-bd11843210d1
 	google.golang.org/api v0.126.0
 	gopkg.in/inf.v0 v0.9.1
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.11
 	k8s.io/apimachinery v0.27.1
@@ -69,11 +76,11 @@ require (
 	github.com/aquasecurity/go-dep-parser v0.0.0-20221114145626-35ef808901e8 // indirect
 	github.com/aquasecurity/trivy-db v0.0.0-20220627104749-930461748b63 // indirect
 	github.com/aws/aws-sdk-go v1.44.136 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.17.1 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.23.5 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.3 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.19 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.25 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.19 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.26 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.25 // indirect
@@ -145,11 +152,11 @@ require (
 	github.com/liamg/jfather v0.0.7 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
-	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/masahiro331/go-disk v0.0.0-20220919035250-c8da316f91ac // indirect
 	github.com/masahiro331/go-ext4-filesystem v0.0.0-20221016160854-4b40d7ee6193 // indirect
 	github.com/masahiro331/go-xfs-filesystem v0.0.0-20221127135739-051c25f1becd // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/microsoft/go-rustaudit v0.0.0-20220808201409-204dfee52032 // indirect
@@ -189,10 +196,8 @@ require (
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.13.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
@@ -225,7 +230,6 @@ require (
 	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	helm.sh/helm/v3 v3.10.3 // indirect
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
 	k8s.io/cli-runtime v0.25.3 // indirect
@@ -262,4 +266,4 @@ replace github.com/chzyer/logex v1.1.10 => github.com/chzyer/logex v1.2.0
 
 replace github.com/containerd/containerd => github.com/containerd/containerd v1.6.1-0.20220706215228-681aaf68b7dc
 
-replace github.com/go-enry/go-license-detector/v4 v4.3.0 => ./cmd/imgcollector/stub/licensing
+replace github.com/go-enry/go-license-detector/v4 v4.3.0 => ./cmd/kvisor/imgcollector/stub/licensing

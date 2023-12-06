@@ -70,7 +70,7 @@ func TestController(t *testing.T) {
 			newTestSubscriber(log.WithField("sub", "sub1")),
 			newTestSubscriber(log.WithField("sub", "sub2")),
 		}
-		ctrl := NewController(log, informersFactory, version.Version{MinorInt: 22})
+		ctrl := NewController(log, informersFactory, version.Version{MinorInt: 22}, "castai-agent")
 		ctrl.AddSubscribers(testSubs...)
 		ctrl.podsBuffSyncInterval = 1 * time.Millisecond
 
@@ -247,7 +247,7 @@ func TestController(t *testing.T) {
 		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 
 		testSub := newTestSubscriber(log.WithField("sub", "sub1"))
-		ctrl := NewController(log, informersFactory, version.Version{MinorInt: 22})
+		ctrl := NewController(log, informersFactory, version.Version{MinorInt: 22}, "castai-agent")
 		ctrl.podsBuffSyncInterval = 10 * time.Millisecond
 		ctrl.AddSubscribers(testSub)
 

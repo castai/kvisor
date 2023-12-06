@@ -31,6 +31,7 @@ func NewController(
 	log logrus.FieldLogger,
 	f informers.SharedInformerFactory,
 	k8sVersion version.Version,
+	kvisorNamespace string,
 ) *Controller {
 	typeInformerMap := map[reflect.Type]cache.SharedInformer{
 		reflect.TypeOf(&corev1.Node{}):                f.Core().V1().Nodes().Informer(),
@@ -62,6 +63,7 @@ func NewController(
 		informerFactory:      f,
 		informers:            typeInformerMap,
 		podsBuffSyncInterval: 5 * time.Second,
+		kvisorNamespace:      kvisorNamespace,
 		replicaSets:          make(map[types.UID]*appsv1.ReplicaSet),
 		deployments:          make(map[types.UID]*appsv1.Deployment),
 		jobs:                 make(map[types.UID]*batchv1.Job),
@@ -77,6 +79,7 @@ type Controller struct {
 	subscribers     []ObjectSubscriber
 
 	podsBuffSyncInterval time.Duration
+	kvisorNamespace      string
 
 	deltasMu    sync.RWMutex
 	replicaSets map[types.UID]*appsv1.ReplicaSet
@@ -167,6 +170,27 @@ func (c *Controller) GetPodOwnerID(pod *corev1.Pod) string {
 	}
 
 	return string(pod.UID)
+}
+
+func (c *Controller) GetKvisorImagePullSecret() []corev1.LocalObjectReference {
+	spec, found := c.getKvisorDeploymentSpec()
+	if !found {
+		c.log.Warn("kvisor deployment not found")
+		return nil
+	}
+	return spec.Template.Spec.ImagePullSecrets
+}
+
+func (c *Controller) getKvisorDeploymentSpec() (appsv1.DeploymentSpec, bool) {
+	c.deltasMu.RLock()
+	defer c.deltasMu.RUnlock()
+
+	for _, deployment := range c.deployments {
+		if deployment.Namespace == c.kvisorNamespace && deployment.Name == "castai-kvisor" {
+			return deployment.Spec, true
+		}
+	}
+	return appsv1.DeploymentSpec{}, false
 }
 
 func (c *Controller) runSubscriber(ctx context.Context, subscriber ObjectSubscriber) error {

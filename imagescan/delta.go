@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/samber/lo"
 	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/castai/kvisor/castai"
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/kube"
 )
 
@@ -24,8 +24,9 @@ var (
 const defaultImageOs = "linux"
 const defaultImageArch = "amd64"
 
-type podOwnerGetter interface {
+type kubeController interface {
 	GetPodOwnerID(pod *corev1.Pod) string
+	GetKvisorImagePullSecret() []corev1.LocalObjectReference
 }
 
 func newImage() *image {
@@ -41,9 +42,9 @@ func newImage() *image {
 	}
 }
 
-func newDeltaState(podOwnerGetter podOwnerGetter) *deltaState {
+func newDeltaState(kubeController kubeController) *deltaState {
 	return &deltaState{
-		podOwnerGetter: podOwnerGetter,
+		kubeController: kubeController,
 		queue:          make(chan deltaQueueItem, 1000),
 		images:         map[string]*image{},
 		nodes:          make(map[string]*node),
@@ -56,7 +57,7 @@ type deltaQueueItem struct {
 }
 
 type deltaState struct {
-	podOwnerGetter podOwnerGetter
+	kubeController kubeController
 
 	// queue is informers received k8s objects but not yet applied to delta.
 	// This allows to have lock free access to delta state during image scan.
@@ -153,7 +154,7 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 	containerStatuses = append(containerStatuses, pod.Status.InitContainerStatuses...)
 	podID := string(pod.UID)
 	// Get the resource id of Deployment, ReplicaSet, StatefulSet, Job, CronJob.
-	ownerResourceID := d.podOwnerGetter.GetPodOwnerID(pod)
+	ownerResourceID := d.kubeController.GetPodOwnerID(pod)
 
 	for _, cont := range containers {
 		cs, found := lo.Find(containerStatuses, func(v corev1.ContainerStatus) bool {
@@ -221,7 +222,7 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 			delete(n.podIDs, podID)
 		}
 
-		ownerResourceID := d.podOwnerGetter.GetPodOwnerID(pod)
+		ownerResourceID := d.kubeController.GetPodOwnerID(pod)
 		if owner, found := img.owners[ownerResourceID]; found {
 			delete(owner.podIDs, podID)
 			if len(owner.podIDs) == 0 {

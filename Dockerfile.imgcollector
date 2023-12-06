@@ -1,4 +1,0 @@
-FROM gcr.io/distroless/static-debian11:nonroot
-ARG TARGETARCH
-COPY ./bin/castai-imgcollector-$TARGETARCH /usr/local/bin/castai-imgcollector
-CMD ["/usr/local/bin/castai-imgcollector"]

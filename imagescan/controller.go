@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/castai/kvisor/castai"
-	imgcollectorconfig "github.com/castai/kvisor/cmd/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/metrics"
@@ -33,7 +33,7 @@ func NewController(
 	imageScanner imageScanner,
 	client castaiClient,
 	k8sVersionMinor int,
-	podOwnerGetter podOwnerGetter,
+	kubeController kubeController,
 ) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
 	log = log.WithField("component", "imagescan")
@@ -42,7 +42,8 @@ func NewController(
 		cancel:            cancel,
 		imageScanner:      imageScanner,
 		client:            client,
-		delta:             newDeltaState(podOwnerGetter),
+		kubeController:    kubeController,
+		delta:             newDeltaState(kubeController),
 		log:               log,
 		cfg:               cfg,
 		k8sVersionMinor:   k8sVersionMinor,
@@ -63,6 +64,7 @@ type Controller struct {
 	delta           *deltaState
 	imageScanner    imageScanner
 	client          castaiClient
+	kubeController  kubeController
 	log             logrus.FieldLogger
 	cfg             config.ImageScan
 	k8sVersionMinor int
@@ -322,6 +324,7 @@ func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		WaitDurationAfterCompletion: 30 * time.Second,
 		Architecture:                img.architecture,
 		Os:                          img.os,
+		ImageCollectorPullSecrets:   s.kubeController.GetKvisorImagePullSecret(),
 	})
 }
 
