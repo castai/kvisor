@@ -14,7 +14,6 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/bombsimon/logrusr/v4"
-	"github.com/castai/kvisor/jobsgc"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/containerd/containerd/pkg/atomic"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
@@ -49,6 +48,7 @@ import (
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/delta"
 	"github.com/castai/kvisor/imagescan"
+	"github.com/castai/kvisor/jobsgc"
 	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/linters/kubebench"
 	"github.com/castai/kvisor/linters/kubelinter"
@@ -248,7 +248,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 
 	resyncObserver := delta.ResyncObserver(ctx, log, snapshotProvider, castaiClient)
 	telemetryManager.AddObservers(resyncObserver)
-	featureObserver, featuresCtx := telemetry.ObserveDisabledFeatures(ctx, cfg, log)
+	featureObserver, _ := telemetry.ObserveDisabledFeatures(ctx, cfg, log)
 	telemetryManager.AddObservers(featureObserver)
 
 	scheme := runtime.NewScheme()
@@ -378,8 +378,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	if err := mngr.Add(kubeCtrl); err != nil {
 		return fmt.Errorf("add kube controller: %w", err)
 	}
-
-	return mngr.Start(featuresCtx)
+	return mngr.Start(ctx)
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, kubepath string) (*rest.Config, error) {
