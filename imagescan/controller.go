@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/castai/kvisor/castai"
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/castai/kvisor/config"
 	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/metrics"
@@ -275,6 +275,9 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 		nodeNames = lo.Keys(s.delta.nodes)
 	}
 
+	// skipping Windows nodes as they are not supported as for today
+	nodeNames = s.filterWindowsNodes(nodeNames)
+
 	// Resolve best node.
 	memQty := resource.MustParse(s.cfg.MemoryRequest)
 	cpuQty := resource.MustParse(s.cfg.CPURequest)
@@ -295,6 +298,18 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 	}
 
 	return resolvedNode, mode, nil
+}
+
+func (s *Controller) filterWindowsNodes(names []string) []string {
+	var filtered []string
+	for _, name := range names {
+		if s.delta.nodes[name].os == "windows" {
+			s.log.Debugf("skipping windows node %s", name)
+			continue
+		}
+		filtered = append(filtered, name)
+	}
+	return filtered
 }
 
 func (s *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
