@@ -275,7 +275,7 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 		nodeNames = lo.Keys(s.delta.nodes)
 	}
 
-	// skipping Windows nodes as they are not supported as for today
+	// skipping non-linux nodes as they are not supported as for today
 	nodeNames = s.filterWindowsNodes(nodeNames)
 
 	// Resolve best node.
@@ -303,8 +303,8 @@ func (s *Controller) findBestNodeAndMode(img *image) (string, string, error) {
 func (s *Controller) filterWindowsNodes(names []string) []string {
 	var filtered []string
 	for _, name := range names {
-		if s.delta.nodes[name].os == "windows" {
-			s.log.Debugf("skipping windows node %s", name)
+		if s.delta.nodes[name].os != "linux" {
+			s.log.Debugf("skipping non-linux node %s", name)
 			continue
 		}
 		filtered = append(filtered, name)
