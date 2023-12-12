@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
-	"github.com/castai/kvisor/kube"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
@@ -20,7 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/castai/kvisor/castai"
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/kube"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -42,7 +42,8 @@ func TestSubscriber(t *testing.T) {
 			},
 			Status: corev1.NodeStatus{
 				NodeInfo: corev1.NodeSystemInfo{
-					Architecture: "amd64",
+					Architecture:    "amd64",
+					OperatingSystem: "linux",
 				},
 				Allocatable: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("2"),
@@ -297,6 +298,8 @@ func TestSubscriber(t *testing.T) {
 			allocatableMem: resMem.AsDec(),
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
+			architecture:   defaultImageArch,
+			os:             defaultImageOs,
 		}
 
 		expectedErr := errors.New("failed")
@@ -379,6 +382,8 @@ func TestSubscriber(t *testing.T) {
 			allocatableMem: resMem.AsDec(),
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
+			os:             defaultImageOs,
+			architecture:   defaultImageArch,
 		}
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
@@ -443,6 +448,8 @@ func TestSubscriber(t *testing.T) {
 			allocatableMem: resMem.AsDec(),
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
+			os:             defaultImageOs,
+			architecture:   defaultImageArch,
 		}
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
@@ -691,6 +698,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			"node1": {
 				name:           "node1",
 				architecture:   "amd64",
+				os:             "linux",
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  true,
@@ -698,6 +706,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			"node2": {
 				name:           "node2",
 				architecture:   "amd64",
+				os:             "linux",
 				allocatableMem: lessResMem.AsDec(),
 				allocatableCPU: lessResCpu.AsDec(),
 				castaiManaged:  true,
@@ -738,6 +747,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			"node1": {
 				name:           "node1",
 				architecture:   "amd64",
+				os:             "linux",
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  false,
@@ -745,6 +755,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			"node2": {
 				name:           "node2",
 				architecture:   "amd64",
+				os:             "linux",
 				allocatableMem: lessResMem.AsDec(),
 				allocatableCPU: lessResCpu.AsDec(),
 				castaiManaged:  false,
@@ -829,6 +840,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			"node1": {
 				name:           "node1",
 				architecture:   "amd64",
+				os:             "linux",
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  true,
@@ -836,6 +848,7 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 			"node2": {
 				name:           "node2",
 				architecture:   "amd64",
+				os:             "linux",
 				allocatableMem: lessResMem.AsDec(),
 				allocatableCPU: lessResCpu.AsDec(),
 				castaiManaged:  true,
