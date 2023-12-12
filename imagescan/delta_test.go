@@ -26,7 +26,8 @@ func TestDelta(t *testing.T) {
 				},
 				Status: corev1.NodeStatus{
 					NodeInfo: corev1.NodeSystemInfo{
-						Architecture: "amd64",
+						Architecture:    defaultImageArch,
+						OperatingSystem: defaultImageOs,
 					},
 					Allocatable: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("2"),
@@ -115,6 +116,10 @@ func TestDelta(t *testing.T) {
 				Name: "node1",
 			},
 			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					Architecture:    defaultImageArch,
+					OperatingSystem: defaultImageOs,
+				},
 				Allocatable: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("500m"),
 					corev1.ResourceMemory: resource.MustParse("2Gi"),
@@ -130,6 +135,10 @@ func TestDelta(t *testing.T) {
 				Name: "node2",
 			},
 			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					Architecture:    defaultImageArch,
+					OperatingSystem: defaultImageOs,
+				},
 				Allocatable: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("1000m"),
 					corev1.ResourceMemory: resource.MustParse("500Mi"),
@@ -283,6 +292,10 @@ func TestDelta(t *testing.T) {
 				Name: "node1",
 			},
 			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					Architecture:    defaultImageArch,
+					OperatingSystem: defaultImageOs,
+				},
 				Allocatable: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("2"),
 					corev1.ResourceMemory: resource.MustParse("4Gi"),

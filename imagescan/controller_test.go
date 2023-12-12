@@ -516,13 +516,18 @@ func TestSubscriber(t *testing.T) {
 		resMem := resource.MustParse("500Mi")
 		resCpu := resource.MustParse("2")
 		// with two nodes it should scan without resource check.
-		delta.nodes["test_a"] = &node{}
+		delta.nodes["test_a"] = &node{
+			architecture: defaultImageArch,
+			os:           defaultImageOs,
+		}
 		delta.nodes["node1"] = &node{
 			name:           "node1",
 			allocatableMem: resMem.AsDec(),
 			allocatableCPU: resCpu.AsDec(),
 			pods:           map[types.UID]*pod{},
 			castaiManaged:  true,
+			architecture:   defaultImageArch,
+			os:             defaultImageOs,
 		}
 		img = newImage()
 		img.name = "img"
@@ -697,16 +702,16 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 		controller.delta.nodes = map[string]*node{
 			"node1": {
 				name:           "node1",
-				architecture:   "amd64",
-				os:             "linux",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  true,
 			},
 			"node2": {
 				name:           "node2",
-				architecture:   "amd64",
-				os:             "linux",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: lessResMem.AsDec(),
 				allocatableCPU: lessResCpu.AsDec(),
 				castaiManaged:  true,
@@ -746,16 +751,16 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 		controller.delta.nodes = map[string]*node{
 			"node1": {
 				name:           "node1",
-				architecture:   "amd64",
-				os:             "linux",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  false,
 			},
 			"node2": {
 				name:           "node2",
-				architecture:   "amd64",
-				os:             "linux",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: lessResMem.AsDec(),
 				allocatableCPU: lessResCpu.AsDec(),
 				castaiManaged:  false,
@@ -794,14 +799,16 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 		controller.delta.nodes = map[string]*node{
 			"node1": {
 				name:           "node1",
-				architecture:   "amd64",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  false,
 			},
 			"node2": {
 				name:           "node2",
-				architecture:   "amd64",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: lessResMem.AsDec(),
 				allocatableCPU: lessResCpu.AsDec(),
 				castaiManaged:  true,
@@ -839,8 +846,8 @@ func TestController_findBestNodeAndMode(t *testing.T) {
 		controller.delta.nodes = map[string]*node{
 			"node1": {
 				name:           "node1",
-				architecture:   "amd64",
-				os:             "linux",
+				architecture:   defaultImageArch,
+				os:             defaultImageOs,
 				allocatableMem: resMem.AsDec(),
 				allocatableCPU: resCpu.AsDec(),
 				castaiManaged:  true,
