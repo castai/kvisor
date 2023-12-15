@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
-	"github.com/castai/kvisor/kube"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +21,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
 
+	imgcollectorconfig "github.com/castai/kvisor/cmd/kvisor/imgcollector/config"
 	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/kube"
 	"github.com/castai/kvisor/log"
 )
 
@@ -413,9 +413,6 @@ func scanJobSpec(
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					NodeSelector: map[string]string{
-						"kubernetes.io/hostname": nodeName,
-					},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Priority:      lo.ToPtr(int32(0)),
 					Affinity: &corev1.Affinity{
@@ -428,6 +425,19 @@ func scanJobSpec(
 												Key:      "kubernetes.io/os",
 												Operator: corev1.NodeSelectorOpIn,
 												Values:   []string{"linux"},
+											},
+										},
+									},
+								},
+							},
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "kubernetes.io/hostname",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{nodeName},
 											},
 										},
 									},
