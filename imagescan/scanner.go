@@ -432,6 +432,7 @@ func scanJobSpec(
 							},
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
 								{
+									Weight: 1,
 									Preference: corev1.NodeSelectorTerm{
 										MatchExpressions: []corev1.NodeSelectorRequirement{
 											{
