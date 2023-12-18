@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/kube"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/castai/kvisor/config"
+	"github.com/castai/kvisor/kube"
 )
 
 func TestScanner(t *testing.T) {
@@ -95,9 +95,6 @@ func TestScanner(t *testing.T) {
 						},
 					},
 					Spec: corev1.PodSpec{
-						NodeSelector: map[string]string{
-							"kubernetes.io/hostname": "n1",
-						},
 						RestartPolicy: "Never",
 						Priority:      lo.ToPtr(int32(0)),
 						Affinity: &corev1.Affinity{
@@ -110,6 +107,19 @@ func TestScanner(t *testing.T) {
 													Key:      "kubernetes.io/os",
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{"linux"},
+												},
+											},
+										},
+									},
+								},
+								PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+									{
+										Preference: corev1.NodeSelectorTerm{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{"n1"},
 												},
 											},
 										},
