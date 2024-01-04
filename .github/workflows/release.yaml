@@ -170,3 +170,14 @@ jobs:
           git add ${CHART_PATH}/Chart.yaml
           git commit -m "[Release] Update Chart.yaml"
           git push
+
+      - name: Sync chart with helm-charts github
+        run: |
+          cd helm-charts
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git checkout main
+          cp -r ${CHART_PATH} ./charts/castai-kvisor
+          git add charts/castai-kvisor
+          git commit -m "Update kvisor chart to ${{env.RELEASE_TAG}}"
+          git push
