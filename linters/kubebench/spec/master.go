@@ -11,7 +11,7 @@ import (
 const (
 	limitCPU   = "200m"
 	limitMem   = "128Mi"
-	requestCPU = "100m"
+	requestCPU = "10m"
 	requestMem = "64Mi"
 )
 
