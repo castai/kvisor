@@ -4,6 +4,7 @@ import (
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +37,16 @@ func Node(nodeName, jobName string) *batchv1.Job {
 							SecurityContext: &corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(requestCPU),
+									corev1.ResourceMemory: resource.MustParse(requestMem),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(limitCPU),
+									corev1.ResourceMemory: resource.MustParse(limitMem),
+								},
 							},
 							Args: []string{
 								"kube-bench",
