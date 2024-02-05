@@ -1,0 +1,42 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+
+metadata:
+  name: "has-security-context.policies.cast.ai"
+  labels:
+    cast.ai/policy: has-security-context
+
+spec:
+  failurePolicy: Fail
+
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - pods
+        - replicationcontrollers
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - deployments
+        - daemonsets
+        - statefulsets
+        - replicasets
+    - apiGroups:   ["batch"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - jobs
+        - cronjobs
+    - apiGroups:   ["apps.openshift.io"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - deploymentconfigs
+
+  validations:
+    - expression: "has(object.spec.securityContext) && type(object.spec.securityContext) == map && size(object.spec.securityContext) > 0"
+      message: "securityContext must be set and not empty"

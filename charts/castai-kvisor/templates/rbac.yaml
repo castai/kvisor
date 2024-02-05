@@ -97,6 +97,15 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - "admissionregistration.k8s.io"
+    resources:
+      - "validatingadmissionpolicies"
+      - "validatingadmissionpolicybindings"
+    verbs:
+      - list
+      - create
+      - delete
 {{- end }}
 ---
 kind: Role

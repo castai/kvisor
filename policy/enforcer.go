@@ -2,43 +2,44 @@ package policy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"sort"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/samber/lo"
-	"golang.stackrox.io/kube-linter/pkg/k8sutil"
-	"golang.stackrox.io/kube-linter/pkg/lintcontext"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"github.com/sirupsen/logrus"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/castai/kvisor/castai"
 	"github.com/castai/kvisor/castai/telemetry"
 	"github.com/castai/kvisor/config"
-	"github.com/castai/kvisor/linters/kubelinter"
 )
 
 type Enforcer interface {
+	manager.Runnable
 	TelemetryObserver() telemetry.Observer
-	admission.Handler
 }
 
 type enforcer struct {
-	objectFilters []objectFilter
-	linter        *kubelinter.Linter
-	enforcedRules []string
-	bundleRules   []string
-	mutex         sync.RWMutex
-	cfg           *config.PolicyEnforcement
+	serviceName       string
+	objectFilters     []objectFilter
+	kubeclient        kubernetes.Interface
+	supportedPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	enforcedRules     []string
+	bundleRules       []string
+	mutex             sync.RWMutex
+	cfg               *config.PolicyEnforcement
+	logger            logrus.FieldLogger
 }
 
-func NewEnforcer(linter *kubelinter.Linter, cfg config.PolicyEnforcement) Enforcer {
+func NewEnforcer(
+	kubeclient kubernetes.Interface, logger logrus.FieldLogger, serviceName string,
+	cfg config.PolicyEnforcement,
+) Enforcer {
 	rules := map[string]struct{}{}
 	for _, bundle := range cfg.Bundles {
 		var ruleMap map[string]castai.LinterRule
@@ -62,12 +63,44 @@ func NewEnforcer(linter *kubelinter.Linter, cfg config.PolicyEnforcement) Enforc
 	}
 
 	return &enforcer{
+		serviceName: serviceName,
 		objectFilters: []objectFilter{
 			skipObjectsWithOwners,
 		},
-		linter:      linter,
+		kubeclient:  kubeclient,
 		bundleRules: lo.Keys(rules),
 		cfg:         &cfg,
+		logger:      logger,
+	}
+}
+
+func (e *enforcer) Start(ctx context.Context) error {
+	syncTicker := time.NewTicker(5 * time.Second)
+	defer syncTicker.Stop()
+
+	policies, err := loadPolicies()
+	if err != nil {
+		return fmt.Errorf("loading embedded policies: %w", err)
+	}
+	e.supportedPolicies = policies
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-syncTicker.C:
+			e.logger.Infof("syncing admission policies")
+
+			if err := e.syncPolicies(ctx); err != nil {
+				log.Printf("error syncing policies: %v", err)
+			}
+
+			if err := e.syncBindings(ctx); err != nil {
+				log.Printf("error syncing policy bindings: %v", err)
+			}
+
+			e.logger.Infof("syncing done")
+		}
 	}
 }
 
@@ -80,145 +113,96 @@ func (e *enforcer) TelemetryObserver() telemetry.Observer {
 	}
 }
 
-func (e *enforcer) Handle(ctx context.Context, request admission.Request) admission.Response {
-	enforcedRules := e.rules()
-	if len(enforcedRules) == 0 {
-		return admission.Allowed("no enforced rules")
-	}
+func (e *enforcer) syncPolicies(ctx context.Context) error {
+	vaps := e.kubeclient.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies()
 
-	// Unmarshal object.
-	var object k8sutil.Object
-	kind := request.Kind.Kind
+	list, err := vaps.List(ctx, metav1.ListOptions{
+		LabelSelector: "cast.ai/instance=" + e.serviceName,
+	})
 
-	switch kind {
-	case "Pod":
-		var pod *corev1.Pod
-		if err := json.Unmarshal(request.Object.Raw, &pod); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-
-		object = pod
-	case "Deployment":
-		var deployment *appsv1.Deployment
-		if err := json.Unmarshal(request.Object.Raw, &deployment); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = deployment
-	case "ReplicaSet":
-		var replicaSet *appsv1.ReplicaSet
-		if err := json.Unmarshal(request.Object.Raw, &replicaSet); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = replicaSet
-	case "StatefulSet":
-		var statefulSet *appsv1.StatefulSet
-		if err := json.Unmarshal(request.Object.Raw, &statefulSet); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = statefulSet
-	case "CronJob":
-		var cronJob *batchv1.CronJob
-		if err := json.Unmarshal(request.Object.Raw, &cronJob); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = cronJob
-	case "Job":
-		var job *batchv1.Job
-		if err := json.Unmarshal(request.Object.Raw, &job); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = job
-	case "Role":
-		var role *rbacv1.Role
-		if err := json.Unmarshal(request.Object.Raw, &role); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = role
-	case "ClusterRole":
-		var clusterRole *rbacv1.ClusterRole
-		if err := json.Unmarshal(request.Object.Raw, &clusterRole); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = clusterRole
-	case "RoleBinding":
-		var roleBinding *rbacv1.RoleBinding
-		if err := json.Unmarshal(request.Object.Raw, &roleBinding); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = roleBinding
-	case "ClusterRoleBinding":
-		var clusterRoleBinding *rbacv1.ClusterRoleBinding
-		if err := json.Unmarshal(request.Object.Raw, &clusterRoleBinding); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = clusterRoleBinding
-	case "NetworkPolicy":
-		var networkPolicy *networkingv1.NetworkPolicy
-		if err := json.Unmarshal(request.Object.Raw, &networkPolicy); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = networkPolicy
-	case "Ingress":
-		var ingress *networkingv1.Ingress
-		if err := json.Unmarshal(request.Object.Raw, &ingress); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = ingress
-	case "Namespace":
-		var namespace *corev1.Namespace
-		if err := json.Unmarshal(request.Object.Raw, &namespace); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = namespace
-	case "Service":
-		var service *corev1.Service
-		if err := json.Unmarshal(request.Object.Raw, &service); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		object = service
-	}
-
-	if object == nil {
-		return admission.Allowed(fmt.Sprintf("kind %q not linted", kind))
-	}
-
-	for i := range e.objectFilters {
-		if skip, msg := e.objectFilters[i](object); skip {
-			return admission.Allowed(msg)
-		}
-	}
-
-	// Run linter.
-	checks, err := e.linter.RunWithRules(
-		[]lintcontext.Object{
-			{
-				Metadata: lintcontext.ObjectMetadata{
-					FilePath: "none",
-				},
-				K8sObject: object,
-			},
-		},
-		enforcedRules,
-	)
 	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
+		return fmt.Errorf("listing existing polices: %w", err)
 	}
 
-	if len(checks) == 0 {
-		return admission.Allowed("no rules enforced on object")
+	existingPolicies := lo.SliceToMap(list.Items, func(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) (string, admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+		return policy.Name, policy
+	})
+
+	supportedPolicies := lo.SliceToMap(e.supportedPolicies, func(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) (string, admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+		return policy.Name, policy
+	})
+
+	toDelete, toCreate := lo.Difference(lo.Keys(existingPolicies), lo.Keys(supportedPolicies))
+
+	for _, policyToDelete := range toDelete {
+		if err := vaps.Delete(ctx, policyToDelete, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("deleting unused policy %s: %w", policyToDelete, err)
+		}
 	}
 
-	if len(checks) != 1 {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("unexpected checks len %d", len(checks)))
+	for _, policyToCreate := range toCreate {
+		policy := supportedPolicies[policyToCreate]
+		policy.Labels["cast.ai/instance"] = e.serviceName
+
+		_, err := vaps.Create(ctx, &policy, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("creating new policy %s: %w", policyToCreate, err)
+		}
 	}
 
-	rules := checks[0].Failed.Rules()
-	if len(rules) == 0 {
-		return admission.Allowed(fmt.Sprintf("object of kind %q passed all checks", kind))
+	return nil
+}
+
+func (e *enforcer) syncBindings(ctx context.Context) error {
+	vapbs := e.kubeclient.AdmissionregistrationV1beta1().ValidatingAdmissionPolicyBindings()
+
+	list, err := vapbs.List(ctx, metav1.ListOptions{
+		LabelSelector: "cast.ai/instance=" + e.serviceName,
+	})
+
+	if err != nil {
+		return fmt.Errorf("listing existing policy bindings: %w", err)
 	}
 
-	sort.Strings(rules)
-	return admission.Denied(fmt.Sprintf("%s did not pass these checks: %v", kind, rules))
+	existingBindings := lo.Map(list.Items, func(binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, i int) string {
+		return binding.Name
+	})
+
+	needBindings := lo.Map(e.rules(), func(name string, i int) string {
+		return name + ".policies.cast.ai"
+	})
+
+	e.logger.Debugf("enabled admission rules: %v", needBindings)
+
+	toDelete, toCreate := lo.Difference(existingBindings, needBindings)
+
+	for _, bindingToDelete := range toDelete {
+		if err := vapbs.Delete(ctx, bindingToDelete, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("deleting unused policy binding %s: %w", bindingToDelete, err)
+		}
+	}
+
+	for _, bindingToCreate := range toCreate {
+		binding := admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   bindingToCreate,
+				Labels: map[string]string{"cast.ai/instance": e.serviceName},
+			},
+			Spec: admissionregistrationv1beta1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: bindingToCreate,
+				ValidationActions: []admissionregistrationv1beta1.ValidationAction{
+					admissionregistrationv1beta1.Deny, admissionregistrationv1beta1.Audit,
+				},
+			},
+		}
+
+		_, err := vapbs.Create(ctx, &binding, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("creating new policy binding %s: %w", bindingToCreate, err)
+		}
+	}
+
+	return nil
 }
 
 func (e *enforcer) rules() []string {

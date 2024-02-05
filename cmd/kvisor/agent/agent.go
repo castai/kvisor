@@ -15,15 +15,12 @@ import (
 	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/containerd/containerd/pkg/atomic"
-	"github.com/open-policy-agent/cert-controller/pkg/rotator"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -38,7 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/castai/kvisor/blobscache"
 	"github.com/castai/kvisor/castai"
@@ -258,18 +256,20 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	klog.SetLogger(logr)
 
 	mngr, err := manager.New(kubeConfig, manager.Options{
-		Logger:                  logr.WithName("manager"),
-		Port:                    cfg.ServicePort,
-		CertDir:                 cfg.CertsDir,
+		Logger: logr.WithName("manager"),
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    cfg.ServicePort,
+			CertDir: cfg.CertsDir,
+		}),
 		NewCache:                cache.New,
 		Scheme:                  scheme,
-		MetricsBindAddress:      "0",
+		Metrics:                 server.Options{BindAddress: "0"},
 		HealthProbeBindAddress:  ":" + strconv.Itoa(cfg.StatusPort),
 		LeaderElection:          cfg.LeaderElection,
 		LeaderElectionID:        cfg.ServiceName,
 		LeaderElectionNamespace: cfg.PodNamespace,
-		MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
-			return apiutil.NewDynamicRESTMapper(c)
+		MapperProvider: func(cfg *rest.Config, client *http.Client) (meta.RESTMapper, error) {
+			return apiutil.NewDynamicRESTMapper(cfg, client)
 		},
 	})
 	if err != nil {
@@ -285,48 +285,12 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 	}
 
 	if cfg.PolicyEnforcement.Enabled {
-		policyEnforcer := policy.NewEnforcer(linter, cfg.PolicyEnforcement)
+		policyEnforcer := policy.NewEnforcer(clientSet, logger, cfg.ServiceName, cfg.PolicyEnforcement)
 		telemetryManager.AddObservers(policyEnforcer.TelemetryObserver())
 
-		rotatorReady := make(chan struct{})
-		err = rotator.AddRotator(mngr, &rotator.CertRotator{
-			SecretKey: types.NamespacedName{
-				Name:      cfg.CertsSecret,
-				Namespace: cfg.PodNamespace,
-			},
-			CertDir:        cfg.CertsDir,
-			CAName:         "kvisor",
-			CAOrganization: "cast.ai",
-			DNSName:        fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.PodNamespace),
-			IsReady:        rotatorReady,
-			Webhooks: []rotator.WebhookInfo{
-				{
-					Name: cfg.PolicyEnforcement.WebhookName,
-					Type: rotator.Validating,
-				},
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("setting up cert rotation: %w", err)
+		if err := mngr.Add(policyEnforcer); err != nil {
+			return fmt.Errorf("add policy enforcer: %w", err)
 		}
-
-		ready := atomic.NewBool(false)
-		if err := mngr.AddReadyzCheck("webhook", func(req *http.Request) error {
-			if !ready.IsSet() {
-				return errors.New("webhook is not ready yet")
-			}
-			return nil
-		}); err != nil {
-			return fmt.Errorf("add readiness check: %w", err)
-		}
-
-		go func() {
-			<-rotatorReady
-			mngr.GetWebhookServer().Register("/validate", &admission.Webhook{
-				Handler: policyEnforcer,
-			})
-			ready.Set()
-		}()
 	}
 
 	httpMux := http.NewServeMux()

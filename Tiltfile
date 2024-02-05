@@ -22,31 +22,12 @@ namespace_create(namespace)
 
 local_resource(
     'agent-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-kvisor ./cmd/agent',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-kvisor ./cmd/kvisor',
     deps=[
         './'
     ],
     ignore=[
         './bin',
-    ],
-)
-
-local_resource(
-    'imgcollector-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-imgcollector ./cmd/imgcollector',
-    deps=[
-        './cmd/imgcollector'
-    ],
-    ignore=[
-        './bin',
-    ],
-)
-
-local_resource(
-    'imgcollector-docker-build',
-    'docker build -t localhost:5000/kvisor-imgcollector . -f Dockerfile.imgcollector.tilt && docker push localhost:5000/kvisor-imgcollector',
-    deps=[
-        './bin/castai-imgcollector'
     ],
 )
 
@@ -80,7 +61,8 @@ k8s_yaml(helm(
         'structuredConfig.imageScan.scanInterval=2s',
         'structuredConfig.imageScan.image.name=localhost:5000/kvisor-imgcollector:latest',
         'structuredConfig.imageScan.image.pullPolicy=Always',
-        'agentContainerSecurityContext=null'
+        'agentContainerSecurityContext=null',
+        'policyEnforcement.enabled=true'
     ]
 ))
 
