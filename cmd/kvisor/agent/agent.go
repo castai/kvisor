@@ -353,9 +353,18 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 		srv := &http.Server{
 			Addr:         httpAddr,
 			Handler:      httpMux,
-			WriteTimeout: 5 * time.Second,
-			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			ReadTimeout:  10 * time.Second,
 		}
+		go func() {
+			<-ctx.Done()
+			log.Info("stopping http server")
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := srv.Shutdown(ctx); err != nil {
+				log.Warnf("http server shutdown: %v", err)
+			}
+		}()
 		return srv.ListenAndServe()
 	})); err != nil {
 		return fmt.Errorf("add http server: %w", err)
