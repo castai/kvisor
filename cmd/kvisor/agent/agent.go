@@ -361,7 +361,7 @@ func run(ctx context.Context, logger logrus.FieldLogger, castaiClient castai.Cli
 			log.Info("stopping http server")
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			if err := srv.Shutdown(ctx); err != nil {
+			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Warnf("http server shutdown: %v", err)
 			}
 		}()
