@@ -1,0 +1,33 @@
+name: "Build Go binaries"
+runs:
+  using: "composite"
+  steps:
+    - name: Build agent go binary amd64
+      run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
+      env:
+        GOOS: linux
+        GOARCH: amd64
+        CGO_ENABLED: 0
+
+    - name: Build controller go binary amd64
+      run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
+      env:
+        GOOS: linux
+        GOARCH: amd64
+        CGO_ENABLED: 0
+
+    - name: Build agent go binary arm64
+      run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
+      if: ${{ github.event_name != 'pull_request' }}
+      env:
+        GOOS: linux
+        GOARCH: arm64
+        CGO_ENABLED: 0
+
+    - name: Build controller go binary arm64
+      run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
+      if: ${{ github.event_name != 'pull_request' }}
+      env:
+        GOOS: linux
+        GOARCH: arm64
+        CGO_ENABLED: 0
