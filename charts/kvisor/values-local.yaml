@@ -13,6 +13,7 @@ agent:
     log-level: debug
     analyzers-enabled: true
     container-stats-scrape-interval: 10s
+    pyroscope-addr: http://kvisord-pyroscope:4040
 
   containerSecurityContext:
     readOnlyRootFilesystem: false
@@ -28,6 +29,7 @@ controller:
     image-scan-init-delay: 5s
     kube-linter-enabled: true
     kube-linter-scan-interval: 5s
+    pyroscope-addr: http://kvisord-pyroscope:4040
 
   containerSecurityContext:
     readOnlyRootFilesystem: false

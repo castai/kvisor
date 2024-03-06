@@ -70,11 +70,12 @@ func NewClient(
 		kvisorNamespace:          kvisorNamespace,
 		kvisorAgentDaemonSetName: kvisorAgentDaemonSetName,
 		kvisorAgentContainerName: "kvisor",
-		version:                  version,
 		client:                   client,
 		gcInterval:               1 * time.Minute,
 		replicaSets:              map[types.UID]metav1.ObjectMeta{},
 		jobs:                     map[types.UID]metav1.ObjectMeta{},
+		deployments:              map[types.UID]*appsv1.Deployment{},
+		version:                  version,
 	}
 }
 

@@ -40,7 +40,7 @@ helm upgrade --install --repo https://prometheus-community.github.io/helm-charts
 
 # Install pyroscope tracing.
 helm upgrade --install --repo https://pyroscope-io.github.io/helm-chart \
-  kvisord-pyroscope pyroscope -n kvisord \
+  kvisord-pyroscope pyroscope -n kvisor \
   --version 0.2.92
 
 # Install kvisord and kvisord-server.
