@@ -56,6 +56,7 @@ type Config struct {
 	Linter           kubelinter.Config
 	KubeBench        kubebench.Config
 	Delta            delta.Config
+	JobsCleanup      state.JobsCleanupConfig
 }
 
 func New(cfg *Config, clientset kubernetes.Interface) *App {
@@ -112,15 +113,19 @@ func (a *App) Run(ctx context.Context) error {
 	kubeClient := kube.NewClient(log, cfg.AgentDaemonSetName, cfg.PodNamespace, k8sVersion, clientset)
 	kubeClient.RegisterHandlers(informersFactory)
 
-	castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, kubeClient, castaiClient)
-
 	// Run all components.
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return kubeClient.Run(ctx)
 	})
 	errg.Go(func() error {
+		castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, kubeClient, castaiClient)
 		return castaiCtrl.Run(ctx)
+	})
+
+	errg.Go(func() error {
+		jobsCleanupCtrl := state.NewJobsCleanupController(log, clientset, cfg.JobsCleanup)
+		return jobsCleanupCtrl.Run(ctx)
 	})
 
 	if cfg.Delta.Enabled {
