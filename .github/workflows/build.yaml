@@ -41,8 +41,7 @@ jobs:
         with:
           go-version: '1.21'
 
-      - id: Build Go binaries
-        uses: ./.github/workflows/actions/build_go_binaries.yamlg
+      - uses: ./.github/workflows/actions/build_go_binaries.yaml
 
       - name: Run golangci-lint
         # You may pin to the exact commit or the version.
