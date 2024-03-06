@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: omm
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: omm
+    spec:
+      containers:
+        - name: stress
+          image: polinux/stress
+          resources:
+            requests:
+              memory: "50Mi"
+            limits:
+              memory: "100Mi"
+          command: [ "stress" ]
+          args: [ "--vm", "1", "--vm-bytes", "250M", "--vm-hang", "1" ]

@@ -1,0 +1,127 @@
+{
+  "timestamp": 1684151968721107775,
+  "threadStartTime": 1684151968720793346,
+  "processorId": 1,
+  "processId": 26165,
+  "cgroupId": 1,
+  "threadId": 26165,
+  "parentProcessId": 26162,
+  "hostProcessId": 26165,
+  "hostThreadId": 26165,
+  "hostParentProcessId": 26155,
+  "userId": 0,
+  "mountNamespace": 4026531841,
+  "pidNamespace": 4026531836,
+  "processName": "runc",
+  "hostName": "gke-am-test-poo",
+  "container": {},
+  "eventId": "713",
+  "eventName": "sched_process_exec",
+  "matchedPolicies": [
+    ""
+  ],
+  "argsNum": 15,
+  "returnValue": 0,
+  "syscall": "execve",
+  "stackAddresses": null,
+  "contextFlags": {
+    "containerStarted": false,
+    "isCompat": false
+  },
+  "args": [
+    {
+      "name": "cmdpath",
+      "type": "const char*",
+      "value": "/usr/bin/runc"
+    },
+    {
+      "name": "pathname",
+      "type": "const char*",
+      "value": "/usr/bin/runc"
+    },
+    {
+      "name": "dev",
+      "type": "dev_t",
+      "value": 265289728
+    },
+    {
+      "name": "inode",
+      "type": "unsigned long",
+      "value": 81396
+    },
+    {
+      "name": "ctime",
+      "type": "unsigned long",
+      "value": 1678533680917006810
+    },
+    {
+      "name": "inode_mode",
+      "type": "umode_t",
+      "value": 33261
+    },
+    {
+      "name": "interpreter_pathname",
+      "type": "const char*",
+      "value": "/lib64/ld-2.33.so"
+    },
+    {
+      "name": "interpreter_dev",
+      "type": "dev_t",
+      "value": 265289728
+    },
+    {
+      "name": "interpreter_inode",
+      "type": "unsigned long",
+      "value": 111577
+    },
+    {
+      "name": "interpreter_ctime",
+      "type": "unsigned long",
+      "value": 1678533613276075450
+    },
+    {
+      "name": "argv",
+      "type": "const char**",
+      "value": [
+        "runc",
+        "--root",
+        "/run/containerd/runc/k8s.io",
+        "--log",
+        "/run/containerd/io.containerd.runtime.v2.task/k8s.io/fdc9fc81bc7bd1c86c1292b9ca7bb736852c391c028c8361fab4fbb68746216b/log.json",
+        "--log-format",
+        "json",
+        "create",
+        "--bundle",
+        "/run/containerd/io.containerd.runtime.v2.task/k8s.io/fdc9fc81bc7bd1c86c1292b9ca7bb736852c391c028c8361fab4fbb68746216b",
+        "--pid-file",
+        "/run/containerd/io.containerd.runtime.v2.task/k8s.io/fdc9fc81bc7bd1c86c1292b9ca7bb736852c391c028c8361fab4fbb68746216b/init.pid",
+        "fdc9fc81bc7bd1c86c1292b9ca7bb736852c391c028c8361fab4fbb68746216b"
+      ]
+    },
+    {
+      "name": "interp",
+      "type": "const char*",
+      "value": "/usr/bin/runc"
+    },
+    {
+      "name": "stdin_type",
+      "type": "umode_t",
+      "value": 8192
+    },
+    {
+      "name": "stdin_path",
+      "type": "char*",
+      "value": "/dev/null"
+    },
+    {
+      "name": "invoked_from_kernel",
+      "type": "int",
+      "value": 0
+    },
+    {
+      "name": "env",
+      "type": "const char**",
+      "value": null
+    }
+  ]
+}

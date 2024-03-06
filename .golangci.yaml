@@ -1,0 +1,25 @@
+linters:
+  disable:
+    - wrapcheck
+    - goerr113
+    - contextcheck
+    - exhaustive
+    - protogetter
+  presets:
+    - bugs
+    - error
+    - unused
+
+run:
+  tests: false
+  skip-dirs:
+    - .github
+    - charts
+    - examples
+    - ui
+    - tools
+    - dist
+    - bin
+    - api
+    - research
+    - cmd/agent/kubebench # TODO: Fix kubebench issues

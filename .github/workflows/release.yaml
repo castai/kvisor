@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  release:
+    types:
+      - published
+
+env:
+  CR_CONFIGFILE: "${{ github.workspace }}/cr.yaml"
+  CT_CONFIGFILE: "${{ github.workspace }}/ct.yaml"
+  CR_INDEX_PATH: "${{ github.workspace }}/.cr-index"
+  CR_PACKAGE_PATH: "${{ github.workspace }}/.cr-release-packages"
+  CR_TOOL_PATH: "${{ github.workspace }}/.cr-tool"
+  CHART_PATH: "${{ github.workspace }}/charts/castai-kvisord"
+
+jobs:
+  release_docker:
+    name: Release Docker
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Get release tag
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Get release tag
+        run: echo "TODO make finish release"

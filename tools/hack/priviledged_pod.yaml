@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+spec:
+  hostPID: true
+  containers:
+    - name: curl
+      image: curlimages/curl
+      command: ["/bin/sh", "-ec", "while :; do curl google.com; sleep 5 ; done"]
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        privileged: true
+    - name: curl2
+      image: curlimages/curl
+      command: [ "/bin/sh", "-ec", "while2 :; do curl google.com; sleep 5 ; done" ]
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        privileged: true
+  restartPolicy: Always

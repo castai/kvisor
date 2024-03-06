@@ -1,0 +1,55 @@
+fullnameOverride: grafana
+adminPassword: admin
+grafana.ini:
+  server:
+    serve_from_sub_path: false
+    root_url: /
+  analytics:
+    check_for_updates: false
+  grafana_net:
+    url: https://grafana.net
+  log:
+    mode: console
+  auth.anonymous:
+    enabled: true
+    org_name: Main Org.
+    org_role: Admin
+  users:
+    default_theme: light
+
+persistence:
+  type: pvc
+  enabled: true
+  # storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+
+plugins:
+  - grafana-clickhouse-datasource
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: ClickHouse
+        type: grafana-clickhouse-datasource
+        jsonData:
+          defaultDatabase: default
+          port: 9000
+          server: kvisord-storage.kvisord.svc.cluster.local.
+          username: storage
+          tlsSkipVerify: true
+        secureJsonData:
+          password: storage
+      - name: Prometheus
+        type: prometheus
+        url: http://kvisord-prometheus-server.kvisord-trace.svc.cluster.local.
+        access: proxy
+      - name: Loki
+        type: loki
+        url: http://kvisord-loki.kvisord-trace.svc.cluster.local.:3100
+        access: proxy
+        isDefault: true
+
+

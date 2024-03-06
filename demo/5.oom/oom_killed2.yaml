@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    cni.projectcalico.org/containerID: 44ad7969e2176a8fbff3286bfa44c701b663b4c2dfe5cc7b0016e8631e02c620
+    cni.projectcalico.org/podIP: 10.48.1.20/32
+    cni.projectcalico.org/podIPs: 10.48.1.20/32
+  creationTimestamp: "2023-12-26T09:17:09Z"
+  generateName: oom-test-7d9c6ffc77-
+  labels:
+    app: oom-test
+    pod-template-hash: 7d9c6ffc77
+  name: oom-test-7d9c6ffc77-9wz45
+  namespace: demo
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: oom-test-7d9c6ffc77
+    uid: 285f001f-d4ce-416d-badb-23f7d975b086
+  resourceVersion: "92761887"
+  uid: a8ef2b43-294f-4691-98cc-f7c6a37fdc3e
+spec:
+  containers:
+  - args:
+    - -mem-total
+    - 1Gi
+    - -mem-alloc-size
+    - 100Mi
+    image: vish/stress
+    imagePullPolicy: Always
+    name: stress
+    resources:
+      limits:
+        memory: 10Mi
+      requests:
+        memory: 10Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-qzkpm
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: gke-demo-pool-1-96567561-ukhh
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-qzkpm
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:17:09Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:22:57Z"
+    message: 'containers with unready status: [stress]'
+    reason: ContainersNotReady
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:22:57Z"
+    message: 'containers with unready status: [stress]'
+    reason: ContainersNotReady
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:17:09Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://483b0a06606d6f71a51664274febcd07dc84aa5331f4ae40071eca28b69f340b
+    image: docker.io/vish/stress:latest
+    imageID: docker.io/vish/stress@sha256:b6456a3df6db5e063e1783153627947484a3db387be99e49708c70a9a15e7177
+    lastState:
+      terminated:
+        containerID: containerd://483b0a06606d6f71a51664274febcd07dc84aa5331f4ae40071eca28b69f340b
+        exitCode: 137
+        finishedAt: "2023-12-26T09:22:56Z"
+        reason: OOMKilled
+        startedAt: "2023-12-26T09:22:56Z"
+    name: stress
+    ready: false
+    restartCount: 6
+    started: false
+    state:
+      waiting:
+        message: back-off 5m0s restarting failed container=stress pod=oom-test-7d9c6ffc77-9wz45_demo(a8ef2b43-294f-4691-98cc-f7c6a37fdc3e)
+        reason: CrashLoopBackOff
+  hostIP: 10.128.0.6
+  phase: Running
+  podIP: 10.48.1.20
+  podIPs:
+  - ip: 10.48.1.20
+  qosClass: Burstable
+  startTime: "2023-12-26T09:17:09Z"

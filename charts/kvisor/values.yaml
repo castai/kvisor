@@ -1,0 +1,212 @@
+# Default values for egressd.
+# Declare variables to be passed into your templates.
+
+# CAST AI API configuration.
+castai:
+  # Token to be used for authorizing agent access to the CASTAI API
+  apiKey: ""
+
+  # Name of secret with Token to be used for authorizing agent access to the API
+  # apiKey and apiKeySecretRef are mutually exclusive
+  # The referenced secret must provide the token in .data["API_KEY"]
+  apiKeySecretRef: ""
+
+  # CASTAI grpc public api address.
+  grpcAddr: "kvisor.prod-master.cast.ai:443" # TODO: Consider changing port to 8443 so we can use 443 for https endpoints.
+
+  # CASTAI Cluster unique identifier.
+  clusterID: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Labels to add to all resources.
+# TODO: Add for all resources
+commonLabels: {}
+
+# Annotations to add to all resources.
+# TODO: Add for all resources
+commonAnnotations: {}
+
+image:
+  repository: ghcr.io/castai/kvisord/kvisord
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+agent:
+  enabled: false
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # Annotations to add to the service account
+    annotations: { }
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+
+  hostPID: true
+  hostNetwork: false
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10
+
+  podAnnotations: { }
+
+  podSecurityContext: { }
+  # fsGroup: 2000
+
+  containerSecurityContext:
+    privileged: true
+#    capabilities:
+#      drop:
+#        - all
+#      add:
+#        - "NET_ADMIN"
+#        - "SYS_PTRACE"
+#        - "SYS_ADMIN"
+    readOnlyRootFilesystem: false # TODO(Kvisord): Make readonly. Now tmp dir is needed to create cgroups mount.
+
+  resources: { }
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+  nodeSelector: { }
+
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: eks.amazonaws.com/compute-type
+                operator: NotIn
+                values:
+                  - fargate
+
+  dnsPolicy: ClusterFirstWithHostNet
+
+  httpListenPort: 6061
+
+  # Extra args for egressd collector container.
+  extraArgs:
+    log-level: info
+    #pyroscope-addr: http://kvisord-pyroscope:4040
+
+  prometheusScrape:
+    enabled: true
+
+  debug:
+    ebpf: false
+
+  phlare:
+    enabled: false
+
+controller:
+
+  replicas: 1
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # Annotations to add to the service account
+    annotations: { }
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+
+  podAnnotations: {}
+
+  # TODO(Kvisord): Add default strict security context for all components.
+  securityContext:
+    fsGroup: 1001
+#    fsGroup: 10001
+#    runAsGroup: 10001
+#    runAsNonRoot: true
+#    runAsUser: 10001
+#    seccompProfile:
+#      type: RuntimeDefault
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+#    readOnlyRootFilesystem: true
+#    capabilities:
+#      drop: [ ALL ]
+
+  resources: { }
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+  nodeSelector: { }
+
+  tolerations: [ ]
+
+  affinity: { }
+
+  dnsPolicy: ClusterFirst
+
+  httpListenPort: 6060
+
+  # Extra args for server container.
+  extraArgs:
+    log-level: info
+    #pyroscope-addr: http://kvisord-pyroscope.kvisord-trace:4040
+
+  prometheusScrape:
+    enabled: true
+
+  persistentVolumeKv:
+    size: 30Gi
+
+  persistentVolumePostgres:
+    size: 20Gi
+
+  phlare:
+    enabled: false
+
+eventGenerator:
+  enabled: false
+  image:
+    repository: ghcr.io/castai/kvisord/kvisord-event-generator
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  dnsPolicy: ClusterFirst
+
+  extraArgs:
+    log-level: debug
+
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+
+mockServer:
+  enabled: false

@@ -1,0 +1,310 @@
+[
+  {
+    "uid": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+    "name": "nginx-7fb96c846b-mh4v8",
+    "ip": "10.24.0.48",
+    "namespace": "demo",
+    "phase": "Running",
+    "destinations": [
+      {
+        "podName": "client-69ccc6d766-xrkqk",
+        "podUID": "05a1212c-fbd2-4cd6-a79e-994063d75401",
+        "namespace": "demo",
+        "ip": "10.24.0.57",
+        "ports": [
+          42498,
+          42510,
+          41652,
+          37278,
+          50180,
+          50182
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-mh4v8",
+        "podUID": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.0.11",
+        "ports": [
+          8123
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-mh4v8",
+        "podUID": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.0.1",
+        "ports": [
+          44450,
+          59310,
+          59316,
+          44758
+        ]
+      },
+      {
+        "podName": "client-69ccc6d766-4296j",
+        "podUID": "5d276721-24b6-4a0c-acc7-81f6a28f6cbb",
+        "namespace": "demo",
+        "ip": "10.24.1.164",
+        "ports": [
+          37232,
+          49218,
+          60510
+        ]
+      },
+      {
+        "podName": "fluentbit-gke-vmkrt",
+        "podUID": "4b754c45-940d-4a71-b1ba-411502b97f57",
+        "containerName": "fluentbit",
+        "namespace": "kube-system",
+        "ip": "10.128.0.36",
+        "ports": [
+          2020,
+          54370
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-mh4v8",
+        "podUID": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.0.48",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-mh4v8",
+        "podUID": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.28.2.121",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "podName": "konnectivity-agent-77d4b48c44-qjv9n",
+        "podUID": "4fed25ce-5ce3-4062-844d-ede9e90038a4",
+        "containerName": "konnectivity-agent",
+        "namespace": "kube-system",
+        "ip": "10.24.1.3",
+        "ports": [
+          54440
+        ]
+      },
+      {
+        "podName": "kvisord-pyroscope-5b8d954b9d-7sn24",
+        "podUID": "87c9d9aa-b10f-497b-a3f2-fef466c962d2",
+        "namespace": "kvisord-trace",
+        "ip": "10.24.0.9",
+        "ports": [
+          60312
+        ]
+      }
+    ],
+    "containers": [
+      {
+        "name": "nginx",
+        "state": {
+          "running": {
+            "startedAt": "2023-06-05T13:36:57Z"
+          }
+        },
+        "restartCount": 0,
+        "ready": true
+      }
+    ]
+  },
+  {
+    "uid": "5d276721-24b6-4a0c-acc7-81f6a28f6cbb",
+    "name": "client-69ccc6d766-4296j",
+    "ip": "10.24.1.164",
+    "namespace": "demo",
+    "phase": "Running",
+    "destinations": [
+      {
+        "podName": "nginx-7fb96c846b-xvl5p",
+        "podUID": "3bc2a567-4e75-4786-bc93-297838798eb8",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.1.156",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-mh4v8",
+        "podUID": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.0.48",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "ip": "10.28.2.121",
+        "ports": [
+          80
+        ]
+      }
+    ],
+    "containers": [
+      {
+        "name": "curl",
+        "state": {
+          "running": {
+            "startedAt": "2023-06-05T13:39:34Z"
+          }
+        },
+        "restartCount": 0,
+        "ready": true
+      }
+    ]
+  },
+  {
+    "uid": "05a1212c-fbd2-4cd6-a79e-994063d75401",
+    "name": "client-69ccc6d766-xrkqk",
+    "ip": "10.24.0.57",
+    "namespace": "demo",
+    "phase": "Running",
+    "destinations": [
+      {
+        "ip": "10.28.2.121",
+        "ports": [
+          80
+        ]
+      }
+    ],
+    "containers": [
+      {
+        "name": "curl",
+        "state": {
+          "running": {
+            "startedAt": "2023-06-05T13:39:31Z"
+          }
+        },
+        "restartCount": 0,
+        "ready": true
+      }
+    ]
+  },
+  {
+    "uid": "3bc2a567-4e75-4786-bc93-297838798eb8",
+    "name": "nginx-7fb96c846b-xvl5p",
+    "ip": "10.24.1.156",
+    "namespace": "demo",
+    "phase": "Running",
+    "destinations": [
+      {
+        "podName": "fluentbit-gke-5w9gz",
+        "podUID": "53fdce78-9b48-4f09-b4de-fad7f5dfa66d",
+        "containerName": "fluentbit",
+        "namespace": "kube-system",
+        "ip": "10.128.0.40",
+        "ports": [
+          40430,
+          58126,
+          2020,
+          48096
+        ]
+      },
+      {
+        "ip": "10.28.2.121",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "podName": "client-69ccc6d766-xrkqk",
+        "podUID": "05a1212c-fbd2-4cd6-a79e-994063d75401",
+        "namespace": "demo",
+        "ip": "10.24.0.57",
+        "ports": [
+          37286,
+          50180,
+          42510
+        ]
+      },
+      {
+        "podName": "privileged-deployment-78b7d7c8c9-8nvxf",
+        "podUID": "eef390c8-25bc-4a2a-a5f3-bb978a38fcc7",
+        "containerName": "busybox",
+        "namespace": "event-generator",
+        "ip": "10.24.1.12",
+        "ports": [
+          6379
+        ]
+      },
+      {
+        "podName": "konnectivity-agent-77d4b48c44-qjv9n",
+        "podUID": "4fed25ce-5ce3-4062-844d-ede9e90038a4",
+        "containerName": "konnectivity-agent",
+        "namespace": "kube-system",
+        "ip": "10.24.1.3",
+        "ports": [
+          54440
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-mh4v8",
+        "podUID": "b7f5b1aa-7d1d-46fd-a2bc-e32d700eddae",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.0.48",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "podName": "client-69ccc6d766-4296j",
+        "podUID": "5d276721-24b6-4a0c-acc7-81f6a28f6cbb",
+        "namespace": "demo",
+        "ip": "10.24.1.164",
+        "ports": [
+          58120,
+          58122,
+          60504,
+          60510,
+          37236
+        ]
+      },
+      {
+        "podName": "nginx-7fb96c846b-xvl5p",
+        "podUID": "3bc2a567-4e75-4786-bc93-297838798eb8",
+        "containerName": "nginx",
+        "namespace": "demo",
+        "ip": "10.24.1.156",
+        "ports": [
+          80
+        ]
+      },
+      {
+        "podName": "hostnetwork-deployment-76b4d7cc76-vn9zh",
+        "podUID": "df1a696a-eeb2-4f34-b14c-93c17f3b7b70",
+        "containerName": "busybox",
+        "namespace": "event-generator",
+        "ip": "10.24.1.1",
+        "ports": [
+          42982,
+          56252
+        ]
+      }
+    ],
+    "containers": [
+      {
+        "name": "nginx",
+        "state": {
+          "running": {
+            "startedAt": "2023-06-05T13:36:54Z"
+          }
+        },
+        "restartCount": 0,
+        "ready": true
+      }
+    ]
+  }
+]

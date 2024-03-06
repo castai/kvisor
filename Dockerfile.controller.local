@@ -1,0 +1,5 @@
+FROM alpine:3.17
+
+COPY ./bin/kvisor-controller /app/kvisor-controller
+
+ENTRYPOINT ["/app/kvisor-controller"]

@@ -1,0 +1,6 @@
+FROM gcr.io/distroless/static-debian11:latest
+
+ARG TARGETARCH
+COPY ./bin/kvisor-controller-$TARGETARCH /usr/local/bin/kvisor-controller
+
+ENTRYPOINT ["/usr/local/bin/kvisor-controller"]

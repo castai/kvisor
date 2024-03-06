@@ -1,0 +1,1560 @@
+{
+  "Controls": [
+    {
+      "id": "3",
+      "version": "gke-1.2.0",
+      "detected_version": "none",
+      "text": "Worker Node Security Configuration",
+      "node_type": "node",
+      "tests": [
+        {
+          "section": "3.1",
+          "type": "",
+          "pass": 4,
+          "fail": 0,
+          "warn": 0,
+          "info": 0,
+          "desc": "Worker Node Configuration Files",
+          "results": [
+            {
+              "test_number": "3.1.4",
+              "test_desc": "Ensure that the kubelet configuration file ownership is set to root:root (Manual)",
+              "audit": "/bin/sh -c 'if test -e /home/kubernetes/kubelet-config.yaml; then stat -c %U:%G /home/kubernetes/kubelet-config.yaml; fi' ",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "",
+              "remediation": "Run the following command (using the config file location identied in the Audit step)\nchown root:root /etc/kubernetes/kubelet.conf\n",
+              "test_info": [
+                "Run the following command (using the config file location identied in the Audit step)\nchown root:root /etc/kubernetes/kubelet.conf\n"
+              ],
+              "status": "PASS",
+              "actual_value": "root:root",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "'root:root' is present"
+            }
+          ]
+        },
+        {
+          "section": "3.2",
+          "type": "",
+          "pass": 8,
+          "fail": 2,
+          "warn": 2,
+          "info": 0,
+          "desc": "Kubelet",
+          "results": [
+            {
+              "test_number": "3.2.1",
+              "test_desc": "Ensure that the --anonymous-auth argument is set to false (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set authentication: anonymous: enabled to\nfalse.\nIf using executable arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--anonymous-auth=false\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set authentication: anonymous: enabled to\nfalse.\nIf using executable arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--anonymous-auth=false\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.authentication.anonymous.enabled}' is equal to 'false'"
+            },
+            {
+              "test_number": "3.2.2",
+              "test_desc": "Ensure that the --authorization-mode argument is not set to AlwaysAllow (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set authorization: mode to Webhook. If\nusing executable arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_AUTHZ_ARGS variable.\n--authorization-mode=Webhook\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set authorization: mode to Webhook. If\nusing executable arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_AUTHZ_ARGS variable.\n--authorization-mode=Webhook\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.authorization.mode}' does not have 'AlwaysAllow'"
+            },
+            {
+              "test_number": "3.2.3",
+              "test_desc": "Ensure that the --client-ca-file argument is set as appropriate (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set authentication: x509: clientCAFile to\nthe location of the client CA file.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_AUTHZ_ARGS variable.\n--client-ca-file=\u003cpath/to/client-ca-file\u003e\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set authentication: x509: clientCAFile to\nthe location of the client CA file.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_AUTHZ_ARGS variable.\n--client-ca-file=\u003cpath/to/client-ca-file\u003e\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.authentication.x509.clientCAFile}' is present"
+            },
+            {
+              "test_number": "3.2.4",
+              "test_desc": "Ensure that the --read-only-port argument is set to 0 (Manual)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set readOnlyPort to 0.\nIf using command line arguments, edit the kubelet service file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf\non each worker node and set the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--read-only-port=0\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set readOnlyPort to 0.\nIf using command line arguments, edit the kubelet service file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf\non each worker node and set the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--read-only-port=0\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "WARN",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "'{.readOnlyPort}' is equal to '0'"
+            },
+            {
+              "test_number": "3.2.5",
+              "test_desc": "Ensure that the --streaming-connection-idle-timeout argument is not set to 0 (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set streamingConnectionIdleTimeout to a\nvalue other than 0.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--streaming-connection-idle-timeout=5m\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set streamingConnectionIdleTimeout to a\nvalue other than 0.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--streaming-connection-idle-timeout=5m\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.streamingConnectionIdleTimeout}' is present OR '{.streamingConnectionIdleTimeout}' is not present"
+            },
+            {
+              "test_number": "3.2.6",
+              "test_desc": "Ensure that the --protect-kernel-defaults argument is set to true (Manual)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set protectKernelDefaults: true.\nIf using command line arguments, edit the kubelet service file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf\non each worker node and set the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--protect-kernel-defaults=true\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set protectKernelDefaults: true.\nIf using command line arguments, edit the kubelet service file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf\non each worker node and set the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\n--protect-kernel-defaults=true\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "FAIL",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.protectKernelDefaults}' is present"
+            },
+            {
+              "test_number": "3.2.7",
+              "test_desc": "Ensure that the --make-iptables-util-chains argument is set to true (Automated) ",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set makeIPTablesUtilChains: true.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nremove the --make-iptables-util-chains argument from the\nKUBELET_SYSTEM_PODS_ARGS variable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set makeIPTablesUtilChains: true.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nremove the --make-iptables-util-chains argument from the\nKUBELET_SYSTEM_PODS_ARGS variable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.makeIPTablesUtilChains}' is present OR '{.makeIPTablesUtilChains}' is not present"
+            },
+            {
+              "test_number": "3.2.8",
+              "test_desc": "Ensure that the --hostname-override argument is not set (Manual)",
+              "audit": "/bin/ps -fC kubelet ",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "",
+              "remediation": "Edit the kubelet service file /etc/systemd/system/kubelet.service\non each worker node and remove the --hostname-override argument from the\nKUBELET_SYSTEM_PODS_ARGS variable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "Edit the kubelet service file /etc/systemd/system/kubelet.service\non each worker node and remove the --hostname-override argument from the\nKUBELET_SYSTEM_PODS_ARGS variable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "UID          PID    PPID  C STIME TTY          TIME CMD\nroot        1645       1  2 Aug03 ?        02:53:38 /home/kubernetes/bin/kubelet --v=2 --experimental-check-node-capabilities-before-mount=true --cloud-provider=gce --experimental-mounter-path=/home/kubernetes/containerized_mounter/mounter --cert-dir=/var/lib/kubelet/pki/ --kubeconfig=/var/lib/kubelet/kubeconfig --cni-bin-dir=/home/kubernetes/bin --image-pull-progress-deadline=5m --max-pods=110 --non-masquerade-cidr=0.0.0.0/0 --network-plugin=kubenet --volume-plugin-dir=/home/kubernetes/flexvolume --node-status-max-images=25 --container-runtime=remote --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service --registry-qps=10 --registry-burst=20 --config /home/kubernetes/kubelet-config.yaml --pod-sysctls=net.core.somaxconn=1024,net.ipv4.conf.all.accept_redirects=0,net.ipv4.conf.all.forwarding=1,net.ipv4.conf.all.route_localnet=1,net.ipv4.conf.default.forwarding=1,net.ipv4.ip_forward=1,net.ipv4.tcp_fin_timeout=60,net.ipv4.tcp_keepalive_intvl=60,net.ipv4.tcp_keepalive_probes=5,net.ipv4.tcp_keepalive_time=300,net.ipv4.tcp_rmem=4096 87380 6291456,net.ipv4.tcp_syn_retries=6,net.ipv4.tcp_tw_reuse=0,net.ipv4.tcp_wmem=4096 16384 4194304,net.ipv4.udp_rmem_min=4096,net.ipv4.udp_wmem_min=4096,net.ipv6.conf.all.disable_ipv6=1,net.ipv6.conf.default.accept_ra=0,net.ipv6.conf.default.disable_ipv6=1,net.netfilter.nf_conntrack_generic_timeout=600,net.netfilter.nf_conntrack_tcp_be_liberal=1,net.netfilter.nf_conntrack_tcp_timeout_close_wait=3600,net.netfilter.nf_conntrack_tcp_timeout_established=86400",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "'--hostname-override' is not present"
+            },
+            {
+              "test_number": "3.2.9",
+              "test_desc": "Ensure that the --event-qps argument is set to 0 or a level which ensures appropriate event capture (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set eventRecordQPS: to an appropriate level.\nIf using command line arguments, edit the kubelet service file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf\non each worker node and set the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set eventRecordQPS: to an appropriate level.\nIf using command line arguments, edit the kubelet service file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf\non each worker node and set the below parameter in KUBELET_SYSTEM_PODS_ARGS variable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "FAIL",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.eventRecordQPS}' is present"
+            },
+            {
+              "test_number": "3.2.10",
+              "test_desc": "Ensure that the --tls-cert-file and --tls-private-key-file arguments are set as appropriate (Manual)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to set tlsCertFile to the location\nof the certificate file to use to identify this Kubelet, and tlsPrivateKeyFile\nto the location of the corresponding private key file.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameters in KUBELET_CERTIFICATE_ARGS variable.\n--tls-cert-file=\u003cpath/to/tls-certificate-file\u003e\n--tls-private-key-file=\u003cpath/to/tls-key-file\u003e\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to set tlsCertFile to the location\nof the certificate file to use to identify this Kubelet, and tlsPrivateKeyFile\nto the location of the corresponding private key file.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nset the below parameters in KUBELET_CERTIFICATE_ARGS variable.\n--tls-cert-file=\u003cpath/to/tls-certificate-file\u003e\n--tls-private-key-file=\u003cpath/to/tls-key-file\u003e\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "WARN",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "'{.tlsCertFile}' is present AND '{.tlsPrivateKeyFile}' is present"
+            },
+            {
+              "test_number": "3.2.11",
+              "test_desc": "Ensure that the --rotate-certificates argument is not set to false (Manual)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "If using a Kubelet config file, edit the file to add the line rotateCertificates: true or\nremove it altogether to use the default value.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nremove --rotate-certificates=false argument from the KUBELET_CERTIFICATE_ARGS\nvariable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "If using a Kubelet config file, edit the file to add the line rotateCertificates: true or\nremove it altogether to use the default value.\nIf using command line arguments, edit the kubelet service file\n/etc/systemd/system/kubelet.service on each worker node and\nremove --rotate-certificates=false argument from the KUBELET_CERTIFICATE_ARGS\nvariable.\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "'{.rotateCertificates}' is present OR '{.rotateCertificates}' is not present"
+            },
+            {
+              "test_number": "3.2.12",
+              "test_desc": "Ensure that the RotateKubeletServerCertificate argument is set to true (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "AuditEnv": "",
+              "AuditConfig": "/bin/cat /home/kubernetes/kubelet-config.yaml",
+              "type": "",
+              "remediation": "Edit the kubelet service file /etc/systemd/system/kubelet.service\non each worker node and set the below parameter in KUBELET_CERTIFICATE_ARGS variable.\n--feature-gates=RotateKubeletServerCertificate=true\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n",
+              "test_info": [
+                "Edit the kubelet service file /etc/systemd/system/kubelet.service\non each worker node and set the below parameter in KUBELET_CERTIFICATE_ARGS variable.\n--feature-gates=RotateKubeletServerCertificate=true\nBased on your system, restart the kubelet service. For example:\nsystemctl daemon-reload\nsystemctl restart kubelet.service\n"
+              ],
+              "status": "PASS",
+              "actual_value": "apiVersion: kubelet.config.k8s.io/v1beta1\nauthentication:\n  anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n    clientCAFile: /etc/srv/kubernetes/pki/ca-certificates.crt\nauthorization:\n  mode: Webhook\ncgroupRoot: /\nclusterDNS:\n- 10.112.0.10\nclusterDomain: cluster.local\nenableDebuggingHandlers: true\nevictionHard:\n  memory.available: 100Mi\n  nodefs.available: 10%\n  nodefs.inodesFree: 5%\n  pid.available: 10%\nfeatureGates:\n  CSIMigrationGCE: true\n  DynamicKubeletConfig: false\n  ExecProbeTimeout: false\n  InTreePluginAWSUnregister: true\n  InTreePluginAzureDiskUnregister: true\n  InTreePluginOpenStackUnregister: true\n  InTreePluginvSphereUnregister: true\n  RotateKubeletServerCertificate: true\nkernelMemcgNotification: true\nkind: KubeletConfiguration\nkubeReserved:\n  cpu: 1060m\n  ephemeral-storage: 41Gi\n  memory: 1019Mi\nreadOnlyPort: 10255\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "'{.featureGates.RotateKubeletServerCertificate}' is equal to 'true'"
+            }
+          ]
+        }
+      ],
+      "total_pass": 12,
+      "total_fail": 2,
+      "total_warn": 2,
+      "total_info": 0
+    },
+    {
+      "id": "4",
+      "version": "gke-1.2.0",
+      "detected_version": "none",
+      "text": "Kubernetes Policies",
+      "node_type": "policies",
+      "tests": [
+        {
+          "section": "4.1",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 6,
+          "info": 0,
+          "desc": "RBAC and Service Accounts",
+          "results": [
+            {
+              "test_number": "4.1.1",
+              "test_desc": "Ensure that the cluster-admin role is only used where required (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Identify all clusterrolebindings to the cluster-admin role. Check if they are used and\nif they need this role or if they could use a role with fewer privileges.\nWhere possible, first bind users to a lower privileged role and then remove the\nclusterrolebinding to the cluster-admin role :\nkubectl delete clusterrolebinding [name]\n",
+              "test_info": [
+                "Identify all clusterrolebindings to the cluster-admin role. Check if they are used and\nif they need this role or if they could use a role with fewer privileges.\nWhere possible, first bind users to a lower privileged role and then remove the\nclusterrolebinding to the cluster-admin role :\nkubectl delete clusterrolebinding [name]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.1.2",
+              "test_desc": "Minimize access to secrets (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Where possible, remove get, list and watch access to secret objects in the cluster.\n",
+              "test_info": [
+                "Where possible, remove get, list and watch access to secret objects in the cluster.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.1.3",
+              "test_desc": "Minimize wildcard use in Roles and ClusterRoles (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Where possible replace any use of wildcards in clusterroles and roles with specific\nobjects or actions.\n",
+              "test_info": [
+                "Where possible replace any use of wildcards in clusterroles and roles with specific\nobjects or actions.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.1.4",
+              "test_desc": "Minimize access to create pods (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Where possible, remove create access to pod objects in the cluster.\n",
+              "test_info": [
+                "Where possible, remove create access to pod objects in the cluster.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.1.5",
+              "test_desc": "Ensure that default service accounts are not actively used. (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create explicit service accounts wherever a Kubernetes workload requires specific access\nto the Kubernetes API server.\nModify the configuration of each default service account to include this value\nautomountServiceAccountToken: false\n",
+              "test_info": [
+                "Create explicit service accounts wherever a Kubernetes workload requires specific access\nto the Kubernetes API server.\nModify the configuration of each default service account to include this value\nautomountServiceAccountToken: false\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.1.6",
+              "test_desc": "Ensure that Service Account Tokens are only mounted where necessary (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Modify the definition of pods and service accounts which do not need to mount service\naccount tokens to disable it.\n",
+              "test_info": [
+                "Modify the definition of pods and service accounts which do not need to mount service\naccount tokens to disable it.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "4.2",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 9,
+          "info": 0,
+          "desc": "Pod Security Policies",
+          "results": [
+            {
+              "test_number": "4.2.1",
+              "test_desc": "Minimize the admission of privileged containers (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that\nthe .spec.privileged field is omitted or set to false.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that\nthe .spec.privileged field is omitted or set to false.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.2",
+              "test_desc": "Minimize the admission of containers wishing to share the host process ID namespace (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.hostPID field is omitted or set to false.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.hostPID field is omitted or set to false.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.3",
+              "test_desc": "Minimize the admission of containers wishing to share the host IPC namespace (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.hostIPC field is omitted or set to false.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.hostIPC field is omitted or set to false.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.4",
+              "test_desc": "Minimize the admission of containers wishing to share the host network namespace (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.hostNetwork field is omitted or set to false.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.hostNetwork field is omitted or set to false.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.5",
+              "test_desc": "Minimize the admission of containers with allowPrivilegeEscalation (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.allowPrivilegeEscalation field is omitted or set to false.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.allowPrivilegeEscalation field is omitted or set to false.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.6",
+              "test_desc": "Minimize the admission of root containers (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.runAsUser.rule is set to either MustRunAsNonRoot or MustRunAs with the range of\nUIDs not including 0.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.runAsUser.rule is set to either MustRunAsNonRoot or MustRunAs with the range of\nUIDs not including 0.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.7",
+              "test_desc": "Minimize the admission of containers with the NET_RAW capability (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.requiredDropCapabilities is set to include either NET_RAW or ALL.\n",
+              "test_info": [
+                "Create a PSP as described in the Kubernetes documentation, ensuring that the\n.spec.requiredDropCapabilities is set to include either NET_RAW or ALL.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.8",
+              "test_desc": "Minimize the admission of containers with added capabilities (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Ensure that allowedCapabilities is not present in PSPs for the cluster unless\nit is set to an empty array.\n",
+              "test_info": [
+                "Ensure that allowedCapabilities is not present in PSPs for the cluster unless\nit is set to an empty array.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.2.9",
+              "test_desc": "Minimize the admission of containers with capabilities assigned (Manual) ",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Review the use of capabilites in applications running on your cluster. Where a namespace\ncontains applications which do not require any Linux capabities to operate consider adding\na PSP which forbids the admission of containers which do not drop all capabilities.\n",
+              "test_info": [
+                "Review the use of capabilites in applications running on your cluster. Where a namespace\ncontains applications which do not require any Linux capabities to operate consider adding\na PSP which forbids the admission of containers which do not drop all capabilities.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "4.3",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 2,
+          "info": 0,
+          "desc": "Network Policies and CNI",
+          "results": [
+            {
+              "test_number": "4.3.1",
+              "test_desc": "Ensure that the CNI in use supports Network Policies (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "To use a CNI plugin with Network Policy, enable Network Policy in GKE, and the CNI plugin\nwill be updated. See Recommendation 6.6.7.\n",
+              "test_info": [
+                "To use a CNI plugin with Network Policy, enable Network Policy in GKE, and the CNI plugin\nwill be updated. See Recommendation 6.6.7.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.3.2",
+              "test_desc": "Ensure that all Namespaces have Network Policies defined (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Follow the documentation and create NetworkPolicy objects as you need them.\n",
+              "test_info": [
+                "Follow the documentation and create NetworkPolicy objects as you need them.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "4.4",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 2,
+          "info": 0,
+          "desc": "Secrets Management",
+          "results": [
+            {
+              "test_number": "4.4.1",
+              "test_desc": "Prefer using secrets as files over secrets as environment variables (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "if possible, rewrite application code to read secrets from mounted secret files, rather than\nfrom environment variables.\n",
+              "test_info": [
+                "if possible, rewrite application code to read secrets from mounted secret files, rather than\nfrom environment variables.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.4.2",
+              "test_desc": "Consider external secret storage (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Refer to the secrets management options offered by your cloud provider or a third-party\nsecrets management solution.\n",
+              "test_info": [
+                "Refer to the secrets management options offered by your cloud provider or a third-party\nsecrets management solution.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "4.5",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 1,
+          "info": 0,
+          "desc": "Extensible Admission Control",
+          "results": [
+            {
+              "test_number": "4.5.1",
+              "test_desc": "Configure Image Provenance using ImagePolicyWebhook admission controller (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Follow the Kubernetes documentation and setup image provenance.\nSee also Recommendation 6.10.5 for GKE specifically.\n",
+              "test_info": [
+                "Follow the Kubernetes documentation and setup image provenance.\nSee also Recommendation 6.10.5 for GKE specifically.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "4.6",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 4,
+          "info": 0,
+          "desc": "General Policies",
+          "results": [
+            {
+              "test_number": "4.6.1",
+              "test_desc": "Create administrative boundaries between resources using namespaces (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Follow the documentation and create namespaces for objects in your deployment as you need\nthem.\n",
+              "test_info": [
+                "Follow the documentation and create namespaces for objects in your deployment as you need\nthem.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.6.2",
+              "test_desc": "Ensure that the seccomp profile is set to docker/default in your pod definitions (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Seccomp is an alpha feature currently. By default, all alpha features are disabled. So, you\nwould need to enable alpha features in the apiserver by passing \"--feature-\ngates=AllAlpha=true\" argument.\nEdit the /etc/kubernetes/apiserver file on the master node and set the KUBE_API_ARGS\nparameter to \"--feature-gates=AllAlpha=true\"\nKUBE_API_ARGS=\"--feature-gates=AllAlpha=true\"\nBased on your system, restart the kube-apiserver service. For example:\nsystemctl restart kube-apiserver.service\nUse annotations to enable the docker/default seccomp profile in your pod definitions. An\nexample is as below:\napiVersion: v1\nkind: Pod\nmetadata:\n  name: trustworthy-pod\n  annotations:\n    seccomp.security.alpha.kubernetes.io/pod: docker/default\nspec:\n  containers:\n    - name: trustworthy-container\n      image: sotrustworthy:latest\n",
+              "test_info": [
+                "Seccomp is an alpha feature currently. By default, all alpha features are disabled. So, you\nwould need to enable alpha features in the apiserver by passing \"--feature-\ngates=AllAlpha=true\" argument.\nEdit the /etc/kubernetes/apiserver file on the master node and set the KUBE_API_ARGS\nparameter to \"--feature-gates=AllAlpha=true\"\nKUBE_API_ARGS=\"--feature-gates=AllAlpha=true\"\nBased on your system, restart the kube-apiserver service. For example:\nsystemctl restart kube-apiserver.service\nUse annotations to enable the docker/default seccomp profile in your pod definitions. An\nexample is as below:\napiVersion: v1\nkind: Pod\nmetadata:\n  name: trustworthy-pod\n  annotations:\n    seccomp.security.alpha.kubernetes.io/pod: docker/default\nspec:\n  containers:\n    - name: trustworthy-container\n      image: sotrustworthy:latest\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.6.3",
+              "test_desc": "Apply Security Context to Your Pods and Containers (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Follow the Kubernetes documentation and apply security contexts to your pods. For a\nsuggested list of security contexts, you may refer to the CIS Security Benchmark for Docker\nContainers.\n",
+              "test_info": [
+                "Follow the Kubernetes documentation and apply security contexts to your pods. For a\nsuggested list of security contexts, you may refer to the CIS Security Benchmark for Docker\nContainers.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "4.6.4",
+              "test_desc": "The default namespace should not be used (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Ensure that namespaces are created to allow for appropriate segregation of Kubernetes\nresources and that all new resources are created in a specific namespace.\n",
+              "test_info": [
+                "Ensure that namespaces are created to allow for appropriate segregation of Kubernetes\nresources and that all new resources are created in a specific namespace.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        }
+      ],
+      "total_pass": 0,
+      "total_fail": 0,
+      "total_warn": 24,
+      "total_info": 0
+    },
+    {
+      "id": "5",
+      "version": "gke-1.2.0",
+      "detected_version": "none",
+      "text": "Managed Services",
+      "node_type": "managedservices",
+      "tests": [
+        {
+          "section": "5.1",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 4,
+          "info": 0,
+          "desc": "Image Registry and Image Scanning",
+          "results": [
+            {
+              "test_number": "5.1.1",
+              "test_desc": "Ensure Image Vulnerability Scanning using GCR Container Analysis or a third-party provider (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n\n  gcloud services enable containerscanning.googleapis.com\n",
+              "test_info": [
+                "Using Command Line:\n\n  gcloud services enable containerscanning.googleapis.com\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.1.2",
+              "test_desc": "Minimize user access to GCR (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To change roles at the GCR bucket level:\n  Firstly, run the following if read permissions are required:\n\n    gsutil iam ch [TYPE]:[EMAIL-ADDRESS]:objectViewer\n    gs://artifacts.[PROJECT_ID].appspot.com\n\n  Then remove the excessively privileged role (Storage Admin / Storage Object Admin /\n  Storage Object Creator) using:\n\n    gsutil iam ch -d [TYPE]:[EMAIL-ADDRESS]:[ROLE]\n    gs://artifacts.[PROJECT_ID].appspot.com\n\n  where:\n    [TYPE] can be one of the following:\n          o user, if the [EMAIL-ADDRESS] is a Google account\n          o serviceAccount, if [EMAIL-ADDRESS] specifies a Service account\n    [EMAIL-ADDRESS] can be one of the following:\n          o a Google account (for example, someone@example.com)\n          o a Cloud IAM service account\n          To modify roles defined at the project level and subsequently inherited within the GCR\n          bucket, or the Service Account User role, extract the IAM policy file, modify it accordingly\n  and apply it using:\n\n    gcloud projects set-iam-policy [PROJECT_ID] [POLICY_FILE]\n",
+              "test_info": [
+                "Using Command Line:\n  To change roles at the GCR bucket level:\n  Firstly, run the following if read permissions are required:\n\n    gsutil iam ch [TYPE]:[EMAIL-ADDRESS]:objectViewer\n    gs://artifacts.[PROJECT_ID].appspot.com\n\n  Then remove the excessively privileged role (Storage Admin / Storage Object Admin /\n  Storage Object Creator) using:\n\n    gsutil iam ch -d [TYPE]:[EMAIL-ADDRESS]:[ROLE]\n    gs://artifacts.[PROJECT_ID].appspot.com\n\n  where:\n    [TYPE] can be one of the following:\n          o user, if the [EMAIL-ADDRESS] is a Google account\n          o serviceAccount, if [EMAIL-ADDRESS] specifies a Service account\n    [EMAIL-ADDRESS] can be one of the following:\n          o a Google account (for example, someone@example.com)\n          o a Cloud IAM service account\n          To modify roles defined at the project level and subsequently inherited within the GCR\n          bucket, or the Service Account User role, extract the IAM policy file, modify it accordingly\n  and apply it using:\n\n    gcloud projects set-iam-policy [PROJECT_ID] [POLICY_FILE]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.1.3",
+              "test_desc": "Minimize cluster access to read-only for GCR (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  For an account explicitly granted to the bucket. First, add read access to the Kubernetes\n  Service Account\n\n    gsutil iam ch [TYPE]:[EMAIL-ADDRESS]:objectViewer\n    gs://artifacts.[PROJECT_ID].appspot.com\n\n    where:\n    [TYPE] can be one of the following:\n            o user, if the [EMAIL-ADDRESS] is a Google account\n            o serviceAccount, if [EMAIL-ADDRESS] specifies a Service account\n    [EMAIL-ADDRESS] can be one of the following:\n            o a Google account (for example, someone@example.com)\n            o a Cloud IAM service account\n\n    Then remove the excessively privileged role (Storage Admin / Storage Object Admin /\n    Storage Object Creator) using:\n\n      gsutil iam ch -d [TYPE]:[EMAIL-ADDRESS]:[ROLE]\n      gs://artifacts.[PROJECT_ID].appspot.com\n\n    For an account that inherits access to the GCR Bucket through Project level permissions,\n    modify the Projects IAM policy file accordingly, then upload it using:\n\n      gcloud projects set-iam-policy [PROJECT_ID] [POLICY_FILE]\n",
+              "test_info": [
+                "Using Command Line:\n  For an account explicitly granted to the bucket. First, add read access to the Kubernetes\n  Service Account\n\n    gsutil iam ch [TYPE]:[EMAIL-ADDRESS]:objectViewer\n    gs://artifacts.[PROJECT_ID].appspot.com\n\n    where:\n    [TYPE] can be one of the following:\n            o user, if the [EMAIL-ADDRESS] is a Google account\n            o serviceAccount, if [EMAIL-ADDRESS] specifies a Service account\n    [EMAIL-ADDRESS] can be one of the following:\n            o a Google account (for example, someone@example.com)\n            o a Cloud IAM service account\n\n    Then remove the excessively privileged role (Storage Admin / Storage Object Admin /\n    Storage Object Creator) using:\n\n      gsutil iam ch -d [TYPE]:[EMAIL-ADDRESS]:[ROLE]\n      gs://artifacts.[PROJECT_ID].appspot.com\n\n    For an account that inherits access to the GCR Bucket through Project level permissions,\n    modify the Projects IAM policy file accordingly, then upload it using:\n\n      gcloud projects set-iam-policy [PROJECT_ID] [POLICY_FILE]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.1.4",
+              "test_desc": "Minimize Container Registries to only those approved (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  First, update the cluster to enable Binary Authorization:\n\n    gcloud container cluster update [CLUSTER_NAME] \\\n      --enable-binauthz\n\n  Create a Binary Authorization Policy using the Binary Authorization Policy Reference\n  (https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for guidance.\n  Import the policy file into Binary Authorization:\n\n    gcloud container binauthz policy import [YAML_POLICY]\n",
+              "test_info": [
+                "Using Command Line:\n  First, update the cluster to enable Binary Authorization:\n\n    gcloud container cluster update [CLUSTER_NAME] \\\n      --enable-binauthz\n\n  Create a Binary Authorization Policy using the Binary Authorization Policy Reference\n  (https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for guidance.\n  Import the policy file into Binary Authorization:\n\n    gcloud container binauthz policy import [YAML_POLICY]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.2",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 2,
+          "info": 0,
+          "desc": "Identity and Access Management (IAM)",
+          "results": [
+            {
+              "test_number": "5.2.1",
+              "test_desc": "Ensure GKE clusters are not running using the Compute Engine default service account (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Firstly, create a minimally privileged service account:\n\n    gcloud iam service-accounts create [SA_NAME] \\\n      --display-name \"GKE Node Service Account\"\n    export NODE_SA_EMAIL=`gcloud iam service-accounts list \\\n      --format='value(email)' \\\n      --filter='displayName:GKE Node Service Account'`\n\n  Grant the following roles to the service account:\n\n    export PROJECT_ID=`gcloud config get-value project`\n    gcloud projects add-iam-policy-binding $PROJECT_ID \\\n      --member serviceAccount:$NODE_SA_EMAIL \\\n      --role roles/monitoring.metricWriter\n    gcloud projects add-iam-policy-binding $PROJECT_ID \\\n      --member serviceAccount:$NODE_SA_EMAIL \\\n      --role roles/monitoring.viewer\n    gcloud projects add-iam-policy-binding $PROJECT_ID \\\n      --member serviceAccount:$NODE_SA_EMAIL \\\n      --role roles/logging.logWriter\n\n  To create a new Node pool using the Service account, run the following command:\n\n    gcloud container node-pools create [NODE_POOL] \\\n      --service-account=[SA_NAME]@[PROJECT_ID].iam.gserviceaccount.com \\\n      --cluster=[CLUSTER_NAME] --zone [COMPUTE_ZONE]\n\n  You will need to migrate your workloads to the new Node pool, and delete Node pools that\n  use the default service account to complete the remediation.\n",
+              "test_info": [
+                "Using Command Line:\n  Firstly, create a minimally privileged service account:\n\n    gcloud iam service-accounts create [SA_NAME] \\\n      --display-name \"GKE Node Service Account\"\n    export NODE_SA_EMAIL=`gcloud iam service-accounts list \\\n      --format='value(email)' \\\n      --filter='displayName:GKE Node Service Account'`\n\n  Grant the following roles to the service account:\n\n    export PROJECT_ID=`gcloud config get-value project`\n    gcloud projects add-iam-policy-binding $PROJECT_ID \\\n      --member serviceAccount:$NODE_SA_EMAIL \\\n      --role roles/monitoring.metricWriter\n    gcloud projects add-iam-policy-binding $PROJECT_ID \\\n      --member serviceAccount:$NODE_SA_EMAIL \\\n      --role roles/monitoring.viewer\n    gcloud projects add-iam-policy-binding $PROJECT_ID \\\n      --member serviceAccount:$NODE_SA_EMAIL \\\n      --role roles/logging.logWriter\n\n  To create a new Node pool using the Service account, run the following command:\n\n    gcloud container node-pools create [NODE_POOL] \\\n      --service-account=[SA_NAME]@[PROJECT_ID].iam.gserviceaccount.com \\\n      --cluster=[CLUSTER_NAME] --zone [COMPUTE_ZONE]\n\n  You will need to migrate your workloads to the new Node pool, and delete Node pools that\n  use the default service account to complete the remediation.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.2.2",
+              "test_desc": "Prefer using dedicated GCP Service Accounts and Workload Identity (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n\n    gcloud beta container clusters update [CLUSTER_NAME] --zone [CLUSTER_ZONE] \\\n      --identity-namespace=[PROJECT_ID].svc.id.goog\n\n  Note that existing Node pools are unaffected. New Node pools default to --workload-\n  metadata-from-node=GKE_METADATA_SERVER .\n\n  Then, modify existing Node pools to enable GKE_METADATA_SERVER:\n\n    gcloud beta container node-pools update [NODEPOOL_NAME] \\\n      --cluster=[CLUSTER_NAME] --zone [CLUSTER_ZONE] \\\n      --workload-metadata-from-node=GKE_METADATA_SERVER\n\n  You may also need to modify workloads in order for them to use Workload Identity as\n  described within https://cloud.google.com/kubernetes-engine/docs/how-to/workload-\n  identity. Also consider the effects on the availability of your hosted workloads as Node\n  pools are updated, it may be more appropriate to create new Node Pools.\n",
+              "test_info": [
+                "Using Command Line:\n\n    gcloud beta container clusters update [CLUSTER_NAME] --zone [CLUSTER_ZONE] \\\n      --identity-namespace=[PROJECT_ID].svc.id.goog\n\n  Note that existing Node pools are unaffected. New Node pools default to --workload-\n  metadata-from-node=GKE_METADATA_SERVER .\n\n  Then, modify existing Node pools to enable GKE_METADATA_SERVER:\n\n    gcloud beta container node-pools update [NODEPOOL_NAME] \\\n      --cluster=[CLUSTER_NAME] --zone [CLUSTER_ZONE] \\\n      --workload-metadata-from-node=GKE_METADATA_SERVER\n\n  You may also need to modify workloads in order for them to use Workload Identity as\n  described within https://cloud.google.com/kubernetes-engine/docs/how-to/workload-\n  identity. Also consider the effects on the availability of your hosted workloads as Node\n  pools are updated, it may be more appropriate to create new Node Pools.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.3",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 1,
+          "info": 0,
+          "desc": "Cloud Key Management Service (Cloud KMS)",
+          "results": [
+            {
+              "test_number": "5.3.1",
+              "test_desc": "Ensure Kubernetes Secrets are encrypted using keys managed in Cloud KMS (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To create a key\n\n  Create a key ring:\n\n    gcloud kms keyrings create [RING_NAME] \\\n      --location [LOCATION] \\\n      --project [KEY_PROJECT_ID]\n\n  Create a key:\n\n    gcloud kms keys create [KEY_NAME] \\\n      --location [LOCATION] \\\n      --keyring [RING_NAME] \\\n      --purpose encryption \\\n      --project [KEY_PROJECT_ID]\n\n  Grant the Kubernetes Engine Service Agent service account the Cloud KMS CryptoKey\n  Encrypter/Decrypter role:\n\n    gcloud kms keys add-iam-policy-binding [KEY_NAME] \\\n      --location [LOCATION] \\\n      --keyring [RING_NAME] \\\n      --member serviceAccount:[SERVICE_ACCOUNT_NAME] \\\n      --role roles/cloudkms.cryptoKeyEncrypterDecrypter \\\n      --project [KEY_PROJECT_ID]\n\n  To create a new cluster with Application-layer Secrets Encryption:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --cluster-version=latest \\\n      --zone [ZONE] \\\n      --database-encryption-key projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKey s/[KEY_NAME] \\\n      --project [CLUSTER_PROJECT_ID]\n\n  To enable on an existing cluster:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [ZONE] \\\n      --database-encryption-key projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKey s/[KEY_NAME] \\\n      --project [CLUSTER_PROJECT_ID]\n",
+              "test_info": [
+                "Using Command Line:\n  To create a key\n\n  Create a key ring:\n\n    gcloud kms keyrings create [RING_NAME] \\\n      --location [LOCATION] \\\n      --project [KEY_PROJECT_ID]\n\n  Create a key:\n\n    gcloud kms keys create [KEY_NAME] \\\n      --location [LOCATION] \\\n      --keyring [RING_NAME] \\\n      --purpose encryption \\\n      --project [KEY_PROJECT_ID]\n\n  Grant the Kubernetes Engine Service Agent service account the Cloud KMS CryptoKey\n  Encrypter/Decrypter role:\n\n    gcloud kms keys add-iam-policy-binding [KEY_NAME] \\\n      --location [LOCATION] \\\n      --keyring [RING_NAME] \\\n      --member serviceAccount:[SERVICE_ACCOUNT_NAME] \\\n      --role roles/cloudkms.cryptoKeyEncrypterDecrypter \\\n      --project [KEY_PROJECT_ID]\n\n  To create a new cluster with Application-layer Secrets Encryption:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --cluster-version=latest \\\n      --zone [ZONE] \\\n      --database-encryption-key projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKey s/[KEY_NAME] \\\n      --project [CLUSTER_PROJECT_ID]\n\n  To enable on an existing cluster:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [ZONE] \\\n      --database-encryption-key projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKey s/[KEY_NAME] \\\n      --project [CLUSTER_PROJECT_ID]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.4",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 2,
+          "info": 0,
+          "desc": "Node Metadata",
+          "results": [
+            {
+              "test_number": "5.4.1",
+              "test_desc": "Ensure legacy Compute Engine instance metadata APIs are Disabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To update an existing cluster, create a new Node pool with the legacy GCE metadata\n  endpoint disabled:\n\n    gcloud container node-pools create [POOL_NAME] \\\n      --metadata disable-legacy-endpoints=true \\\n      --cluster [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE]\n\n  You will need to migrate workloads from any existing non-conforming Node pools, to the\n  new Node pool, then delete non-conforming Node pools to complete the remediation.\n",
+              "test_info": [
+                "Using Command Line:\n  To update an existing cluster, create a new Node pool with the legacy GCE metadata\n  endpoint disabled:\n\n    gcloud container node-pools create [POOL_NAME] \\\n      --metadata disable-legacy-endpoints=true \\\n      --cluster [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE]\n\n  You will need to migrate workloads from any existing non-conforming Node pools, to the\n  new Node pool, then delete non-conforming Node pools to complete the remediation.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.4.2",
+              "test_desc": "Ensure the GKE Metadata Server is Enabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n    gcloud beta container clusters update [CLUSTER_NAME] \\\n      --identity-namespace=[PROJECT_ID].svc.id.goog\n  Note that existing Node pools are unaffected. New Node pools default to --workload-\n  metadata-from-node=GKE_METADATA_SERVER .\n\n  To modify an existing Node pool to enable GKE Metadata Server:\n\n    gcloud beta container node-pools update [NODEPOOL_NAME] \\\n      --cluster=[CLUSTER_NAME] \\\n      --workload-metadata-from-node=GKE_METADATA_SERVER\n\n  You may also need to modify workloads in order for them to use Workload Identity as\n  described within https://cloud.google.com/kubernetes-engine/docs/how-to/workload-\n  identity.\n",
+              "test_info": [
+                "Using Command Line:\n    gcloud beta container clusters update [CLUSTER_NAME] \\\n      --identity-namespace=[PROJECT_ID].svc.id.goog\n  Note that existing Node pools are unaffected. New Node pools default to --workload-\n  metadata-from-node=GKE_METADATA_SERVER .\n\n  To modify an existing Node pool to enable GKE Metadata Server:\n\n    gcloud beta container node-pools update [NODEPOOL_NAME] \\\n      --cluster=[CLUSTER_NAME] \\\n      --workload-metadata-from-node=GKE_METADATA_SERVER\n\n  You may also need to modify workloads in order for them to use Workload Identity as\n  described within https://cloud.google.com/kubernetes-engine/docs/how-to/workload-\n  identity.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.5",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 7,
+          "info": 0,
+          "desc": "Node Configuration and Maintenance",
+          "results": [
+            {
+              "test_number": "5.5.1",
+              "test_desc": "Ensure Container-Optimized OS (COS) is used for GKE node images (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To set the node image to cos for an existing cluster's Node pool:\n\n    gcloud container clusters upgrade [CLUSTER_NAME]\\\n      --image-type cos \\\n      --zone [COMPUTE_ZONE] --node-pool [POOL_NAME]\n",
+              "test_info": [
+                "Using Command Line:\n  To set the node image to cos for an existing cluster's Node pool:\n\n    gcloud container clusters upgrade [CLUSTER_NAME]\\\n      --image-type cos \\\n      --zone [COMPUTE_ZONE] --node-pool [POOL_NAME]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.5.2",
+              "test_desc": "Ensure Node Auto-Repair is enabled for GKE nodes (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable node auto-repair for an existing cluster with Node pool, run the following\n  command:\n\n    gcloud container node-pools update [POOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --enable-autorepair\n",
+              "test_info": [
+                "Using Command Line:\n  To enable node auto-repair for an existing cluster with Node pool, run the following\n  command:\n\n    gcloud container node-pools update [POOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --enable-autorepair\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.5.3",
+              "test_desc": "Ensure Node Auto-Upgrade is enabled for GKE nodes (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable node auto-upgrade for an existing cluster's Node pool, run the following\n  command:\n\n    gcloud container node-pools update [NODE_POOL] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --enable-autoupgrade\n",
+              "test_info": [
+                "Using Command Line:\n  To enable node auto-upgrade for an existing cluster's Node pool, run the following\n  command:\n\n    gcloud container node-pools update [NODE_POOL] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --enable-autoupgrade\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.5.4",
+              "test_desc": "Automate GKE version management using Release Channels (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Create a new cluster by running the following command:\n\n    gcloud beta container clusters create [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --release-channel [RELEASE_CHANNEL]\n\n  where [RELEASE_CHANNEL] is stable or regular according to your needs.\n",
+              "test_info": [
+                "Using Command Line:\n  Create a new cluster by running the following command:\n\n    gcloud beta container clusters create [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --release-channel [RELEASE_CHANNEL]\n\n  where [RELEASE_CHANNEL] is stable or regular according to your needs.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.5.5",
+              "test_desc": "Ensure Shielded GKE Nodes are Enabled (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To create a Node pool within the cluster with Integrity Monitoring enabled, run the\n  following command:\n\n    gcloud beta container node-pools create [NODEPOOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --shielded-integrity-monitoring\n\n  You will also need to migrate workloads from existing non-conforming Node pools to the\n  newly created Node pool, then delete the non-conforming pools.\n",
+              "test_info": [
+                "Using Command Line:\n  To create a Node pool within the cluster with Integrity Monitoring enabled, run the\n  following command:\n\n    gcloud beta container node-pools create [NODEPOOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --shielded-integrity-monitoring\n\n  You will also need to migrate workloads from existing non-conforming Node pools to the\n  newly created Node pool, then delete the non-conforming pools.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.5.6",
+              "test_desc": "Ensure Integrity Monitoring for Shielded GKE Nodes is Enabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To create a Node pool within the cluster with Integrity Monitoring enabled, run the\n  following command:\n\n    gcloud beta container node-pools create [NODEPOOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --shielded-integrity-monitoring\n\nYou will also need to migrate workloads from existing non-conforming Node pools to the newly created Node pool,\nthen delete the non-conforming pools.\n",
+              "test_info": [
+                "Using Command Line:\n  To create a Node pool within the cluster with Integrity Monitoring enabled, run the\n  following command:\n\n    gcloud beta container node-pools create [NODEPOOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --shielded-integrity-monitoring\n\nYou will also need to migrate workloads from existing non-conforming Node pools to the newly created Node pool,\nthen delete the non-conforming pools.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.5.7",
+              "test_desc": "Ensure Secure Boot for Shielded GKE Nodes is Enabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To create a Node pool within the cluster with Secure Boot enabled, run the following\n  command:\n\n    gcloud beta container node-pools create [NODEPOOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --shielded-secure-boot\n\n  You will also need to migrate workloads from existing non-conforming Node pools to the\n  newly created Node pool, then delete the non-conforming pools.\n",
+              "test_info": [
+                "Using Command Line:\n  To create a Node pool within the cluster with Secure Boot enabled, run the following\n  command:\n\n    gcloud beta container node-pools create [NODEPOOL_NAME] \\\n      --cluster [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --shielded-secure-boot\n\n  You will also need to migrate workloads from existing non-conforming Node pools to the\n  newly created Node pool, then delete the non-conforming pools.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.6",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 8,
+          "info": 0,
+          "desc": "Cluster Networking",
+          "results": [
+            {
+              "test_number": "5.6.1",
+              "test_desc": "Enable VPC Flow Logs and Intranode Visibility (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable intranode visibility on an existing cluster, run the following command:\n\n    gcloud beta container clusters update [CLUSTER_NAME] \\\n      --enable-intra-node-visibility\n",
+              "test_info": [
+                "Using Command Line:\n  To enable intranode visibility on an existing cluster, run the following command:\n\n    gcloud beta container clusters update [CLUSTER_NAME] \\\n      --enable-intra-node-visibility\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.2",
+              "test_desc": "Ensure use of VPC-native clusters (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable Alias IP on a new cluster, run the following command:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-ip-alias\n",
+              "test_info": [
+                "Using Command Line:\n  To enable Alias IP on a new cluster, run the following command:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-ip-alias\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.3",
+              "test_desc": "Ensure Master Authorized Networks is Enabled (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To check Master Authorized Networks status for an existing cluster, run the following\n  command;\n\n    gcloud container clusters describe [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --format json | jq '.masterAuthorizedNetworksConfig'\n\n  The output should return\n\n    {\n      \"enabled\": true\n    }\n\n  if Master Authorized Networks is enabled.\n\n  If Master Authorized Networks is disabled, the\n  above command will return null ( { } ).\n",
+              "test_info": [
+                "Using Command Line:\n  To check Master Authorized Networks status for an existing cluster, run the following\n  command;\n\n    gcloud container clusters describe [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --format json | jq '.masterAuthorizedNetworksConfig'\n\n  The output should return\n\n    {\n      \"enabled\": true\n    }\n\n  if Master Authorized Networks is enabled.\n\n  If Master Authorized Networks is disabled, the\n  above command will return null ( { } ).\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.4",
+              "test_desc": "Ensure clusters are created with Private Endpoint Enabled and Public Access Disabled (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Create a cluster with a Private Endpoint enabled and Public Access disabled by including\n  the --enable-private-endpoint flag within the cluster create command:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --enable-private-endpoint\n\n  Setting this flag also requires the setting of --enable-private-nodes , --enable-ip-alias\n  and --master-ipv4-cidr=[MASTER_CIDR_RANGE] .\n",
+              "test_info": [
+                "Using Command Line:\n  Create a cluster with a Private Endpoint enabled and Public Access disabled by including\n  the --enable-private-endpoint flag within the cluster create command:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --enable-private-endpoint\n\n  Setting this flag also requires the setting of --enable-private-nodes , --enable-ip-alias\n  and --master-ipv4-cidr=[MASTER_CIDR_RANGE] .\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.5",
+              "test_desc": "Ensure clusters are created with Private Nodes (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To create a cluster with Private Nodes enabled, include the --enable-private-nodes flag\n  within the cluster create command:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --enable-private-nodes\n\n  Setting this flag also requires the setting of --enable-ip-alias and --master-ipv4-\n  cidr=[MASTER_CIDR_RANGE] .\n",
+              "test_info": [
+                "Using Command Line:\n  To create a cluster with Private Nodes enabled, include the --enable-private-nodes flag\n  within the cluster create command:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --enable-private-nodes\n\n  Setting this flag also requires the setting of --enable-ip-alias and --master-ipv4-\n  cidr=[MASTER_CIDR_RANGE] .\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.6",
+              "test_desc": "Consider firewalling GKE worker nodes (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Use the following command to generate firewall rules, setting the variables as appropriate.\n  You may want to use the target [TAG] and [SERVICE_ACCOUNT] previously identified.\n\n    gcloud compute firewall-rules create FIREWALL_RULE_NAME \\\n      --network [NETWORK] \\\n      --priority [PRIORITY] \\\n      --direction [DIRECTION] \\\n      --action [ACTION] \\\n      --target-tags [TAG] \\\n      --target-service-accounts [SERVICE_ACCOUNT] \\\n      --source-ranges [SOURCE_CIDR-RANGE] \\\n      --source-tags [SOURCE_TAGS] \\\n      --source-service-accounts=[SOURCE_SERVICE_ACCOUNT] \\\n      --destination-ranges [DESTINATION_CIDR_RANGE] \\\n      --rules [RULES]\n",
+              "test_info": [
+                "Using Command Line:\n  Use the following command to generate firewall rules, setting the variables as appropriate.\n  You may want to use the target [TAG] and [SERVICE_ACCOUNT] previously identified.\n\n    gcloud compute firewall-rules create FIREWALL_RULE_NAME \\\n      --network [NETWORK] \\\n      --priority [PRIORITY] \\\n      --direction [DIRECTION] \\\n      --action [ACTION] \\\n      --target-tags [TAG] \\\n      --target-service-accounts [SERVICE_ACCOUNT] \\\n      --source-ranges [SOURCE_CIDR-RANGE] \\\n      --source-tags [SOURCE_TAGS] \\\n      --source-service-accounts=[SOURCE_SERVICE_ACCOUNT] \\\n      --destination-ranges [DESTINATION_CIDR_RANGE] \\\n      --rules [RULES]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.7",
+              "test_desc": "Ensure Network Policy is Enabled and set as appropriate (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable Network Policy for an existing cluster, firstly enable the Network Policy add-on:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --update-addons NetworkPolicy=ENABLED\n\n  Then, enable Network Policy:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-network-policy\n",
+              "test_info": [
+                "Using Command Line:\n  To enable Network Policy for an existing cluster, firstly enable the Network Policy add-on:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --update-addons NetworkPolicy=ENABLED\n\n  Then, enable Network Policy:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-network-policy\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.6.8",
+              "test_desc": "Ensure use of Google-managed SSL Certificates (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "If services of type:LoadBalancer are discovered, consider replacing the Service with an\nIngress.\n\nTo configure the Ingress and use Google-managed SSL certificates, follow the instructions\nas listed at https://cloud.google.com/kubernetes-engine/docs/how-to/managed-certs.\n",
+              "test_info": [
+                "If services of type:LoadBalancer are discovered, consider replacing the Service with an\nIngress.\n\nTo configure the Ingress and use Google-managed SSL certificates, follow the instructions\nas listed at https://cloud.google.com/kubernetes-engine/docs/how-to/managed-certs.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.7",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 2,
+          "info": 0,
+          "desc": "Logging",
+          "results": [
+            {
+              "test_number": "5.7.1",
+              "test_desc": "Ensure Stackdriver Kubernetes Logging and Monitoring is Enabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n\n  STACKDRIVER KUBERNETES ENGINE MONITORING SUPPORT (PREFERRED):\n  To enable Stackdriver Kubernetes Engine Monitoring for an existing cluster, run the\n  following command:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-stackdriver-kubernetes\n\n  LEGACY STACKDRIVER SUPPORT:\n  Both Logging and Monitoring support must be enabled.\n  To enable Legacy Stackdriver Logging for an existing cluster, run the following command:\n\n    gcloud container clusters update [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --logging-service logging.googleapis.com\n\n  To enable Legacy Stackdriver Monitoring for an existing cluster, run the following\n  command:\n\n    gcloud container clusters update [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --monitoring-service monitoring.googleapis.com\n",
+              "test_info": [
+                "Using Command Line:\n\n  STACKDRIVER KUBERNETES ENGINE MONITORING SUPPORT (PREFERRED):\n  To enable Stackdriver Kubernetes Engine Monitoring for an existing cluster, run the\n  following command:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-stackdriver-kubernetes\n\n  LEGACY STACKDRIVER SUPPORT:\n  Both Logging and Monitoring support must be enabled.\n  To enable Legacy Stackdriver Logging for an existing cluster, run the following command:\n\n    gcloud container clusters update [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --logging-service logging.googleapis.com\n\n  To enable Legacy Stackdriver Monitoring for an existing cluster, run the following\n  command:\n\n    gcloud container clusters update [CLUSTER_NAME] --zone [COMPUTE_ZONE] \\\n      --monitoring-service monitoring.googleapis.com\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.7.2",
+              "test_desc": "Enable Linux auditd logging (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Download the example manifests:\n\n    curl https://raw.githubusercontent.com/GoogleCloudPlatform/k8s-node-tools/master/os-audit/cos-auditd-logging.yaml \\\n      \u003e cos-auditd-logging.yaml\n\n  Edit the example manifests if needed. Then, deploy them:\n\n    kubectl apply -f cos-auditd-logging.yaml\n\n  Verify that the logging Pods have started. If you defined a different Namespace in your\n  manifests, replace cos-auditd with the name of the namespace you're using:\n\n    kubectl get pods --namespace=cos-auditd\n",
+              "test_info": [
+                "Using Command Line:\n  Download the example manifests:\n\n    curl https://raw.githubusercontent.com/GoogleCloudPlatform/k8s-node-tools/master/os-audit/cos-auditd-logging.yaml \\\n      \u003e cos-auditd-logging.yaml\n\n  Edit the example manifests if needed. Then, deploy them:\n\n    kubectl apply -f cos-auditd-logging.yaml\n\n  Verify that the logging Pods have started. If you defined a different Namespace in your\n  manifests, replace cos-auditd with the name of the namespace you're using:\n\n    kubectl get pods --namespace=cos-auditd\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.8",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 4,
+          "info": 0,
+          "desc": "Authentication and Authorization",
+          "results": [
+            {
+              "test_number": "5.8.1",
+              "test_desc": "Ensure Basic Authentication using static passwords is Disabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To update an existing cluster and disable Basic Authentication by removing the static\n  password:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --no-enable-basic-auth\n",
+              "test_info": [
+                "Using Command Line:\n  To update an existing cluster and disable Basic Authentication by removing the static\n  password:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --no-enable-basic-auth\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.8.2",
+              "test_desc": "Ensure authentication using Client Certificates is Disabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Create a new cluster without a Client Certificate:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --no-issue-client-certificate\n",
+              "test_info": [
+                "Using Command Line:\n  Create a new cluster without a Client Certificate:\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --no-issue-client-certificate\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.8.3",
+              "test_desc": "Manage Kubernetes RBAC users with Google Groups for GKE (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Follow the G Suite Groups instructions at https://cloud.google.com/kubernetes-\n  engine/docs/how-to/role-based-access-control#google-groups-for-gke.\n\n  Then, create a cluster with\n\n    gcloud beta container clusters create my-cluster \\\n      --security-group=\"gke-security-groups@[yourdomain.com]\"\n\n  Finally create Roles, ClusterRoles, RoleBindings, and ClusterRoleBindings that\n  reference your G Suite Groups.\n",
+              "test_info": [
+                "Using Command Line:\n  Follow the G Suite Groups instructions at https://cloud.google.com/kubernetes-\n  engine/docs/how-to/role-based-access-control#google-groups-for-gke.\n\n  Then, create a cluster with\n\n    gcloud beta container clusters create my-cluster \\\n      --security-group=\"gke-security-groups@[yourdomain.com]\"\n\n  Finally create Roles, ClusterRoles, RoleBindings, and ClusterRoleBindings that\n  reference your G Suite Groups.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.8.4",
+              "test_desc": "Ensure Legacy Authorization (ABAC) is Disabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To disable Legacy Authorization for an existing cluster, run the following command:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --no-enable-legacy-authorization\n",
+              "test_info": [
+                "Using Command Line:\n  To disable Legacy Authorization for an existing cluster, run the following command:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --no-enable-legacy-authorization\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.9",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 1,
+          "info": 0,
+          "desc": "Storage",
+          "results": [
+            {
+              "test_number": "5.9.1",
+              "test_desc": "Enable Customer-Managed Encryption Keys (CMEK) for GKE Persistent Disks (PD) (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  FOR NODE BOOT DISKS:\n  Create a new node pool using customer-managed encryption keys for the node boot disk, of\n  [DISK_TYPE] either pd-standard or pd-ssd :\n\n    gcloud beta container node-pools create [CLUSTER_NAME] \\\n      --disk-type [DISK_TYPE] \\\n      --boot-disk-kms-key \\\n      projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]\n\n  Create a cluster using customer-managed encryption keys for the node boot disk, of\n  [DISK_TYPE] either pd-standard or pd-ssd :\n\n    gcloud beta container clusters create [CLUSTER_NAME] \\\n      --disk-type [DISK_TYPE] \\\n      --boot-disk-kms-key \\\n      projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]\n\n  FOR ATTACHED DISKS:\n  Follow the instructions detailed at https://cloud.google.com/kubernetes-\n  engine/docs/how-to/using-cmek.\n",
+              "test_info": [
+                "Using Command Line:\n  FOR NODE BOOT DISKS:\n  Create a new node pool using customer-managed encryption keys for the node boot disk, of\n  [DISK_TYPE] either pd-standard or pd-ssd :\n\n    gcloud beta container node-pools create [CLUSTER_NAME] \\\n      --disk-type [DISK_TYPE] \\\n      --boot-disk-kms-key \\\n      projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]\n\n  Create a cluster using customer-managed encryption keys for the node boot disk, of\n  [DISK_TYPE] either pd-standard or pd-ssd :\n\n    gcloud beta container clusters create [CLUSTER_NAME] \\\n      --disk-type [DISK_TYPE] \\\n      --boot-disk-kms-key \\\n      projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]\n\n  FOR ATTACHED DISKS:\n  Follow the instructions detailed at https://cloud.google.com/kubernetes-\n  engine/docs/how-to/using-cmek.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        },
+        {
+          "section": "5.10",
+          "type": "",
+          "pass": 0,
+          "fail": 0,
+          "warn": 6,
+          "info": 0,
+          "desc": "Other Cluster Configurations",
+          "results": [
+            {
+              "test_number": "5.10.1",
+              "test_desc": "Ensure Kubernetes Web UI is Disabled (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To disable the Kubernetes Dashboard on an existing cluster, run the following command:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [ZONE] \\\n      --update-addons=KubernetesDashboard=DISABLED\n",
+              "test_info": [
+                "Using Command Line:\n  To disable the Kubernetes Dashboard on an existing cluster, run the following command:\n\n    gcloud container clusters update [CLUSTER_NAME] \\\n      --zone [ZONE] \\\n      --update-addons=KubernetesDashboard=DISABLED\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.10.2",
+              "test_desc": "Ensure that Alpha clusters are not used for production workloads (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Upon creating a new cluster\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE]\n\n  Do not use the --enable-kubernetes-alpha argument.\n",
+              "test_info": [
+                "Using Command Line:\n  Upon creating a new cluster\n\n    gcloud container clusters create [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE]\n\n  Do not use the --enable-kubernetes-alpha argument.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.10.3",
+              "test_desc": "Ensure Pod Security Policy is Enabled and set as appropriate (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable Pod Security Policy for an existing cluster, run the following command:\n\n    gcloud beta container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-pod-security-policy\n",
+              "test_info": [
+                "Using Command Line:\n  To enable Pod Security Policy for an existing cluster, run the following command:\n\n    gcloud beta container clusters update [CLUSTER_NAME] \\\n      --zone [COMPUTE_ZONE] \\\n      --enable-pod-security-policy\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.10.4",
+              "test_desc": "Consider GKE Sandbox for running untrusted workloads (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  To enable GKE Sandbox on an existing cluster, a new Node pool must be created.\n\n    gcloud container node-pools create [NODE_POOL_NAME] \\\n      --zone=[COMPUTE-ZONE] \\\n      --cluster=[CLUSTER_NAME] \\\n      --image-type=cos_containerd \\\n      --sandbox type=gvisor\n",
+              "test_info": [
+                "Using Command Line:\n  To enable GKE Sandbox on an existing cluster, a new Node pool must be created.\n\n    gcloud container node-pools create [NODE_POOL_NAME] \\\n      --zone=[COMPUTE-ZONE] \\\n      --cluster=[CLUSTER_NAME] \\\n      --image-type=cos_containerd \\\n      --sandbox type=gvisor\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.10.5",
+              "test_desc": "Ensure use of Binary Authorization (Automated)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Firstly, update the cluster to enable Binary Authorization:\n\n    gcloud container cluster update [CLUSTER_NAME] \\\n      --zone [COMPUTE-ZONE] \\\n      --enable-binauthz\n\n  Create a Binary Authorization Policy using the Binary Authorization Policy Reference\n  (https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for\n  guidance.\n\n  Import the policy file into Binary Authorization:\n\n    gcloud container binauthz policy import [YAML_POLICY]\n",
+              "test_info": [
+                "Using Command Line:\n  Firstly, update the cluster to enable Binary Authorization:\n\n    gcloud container cluster update [CLUSTER_NAME] \\\n      --zone [COMPUTE-ZONE] \\\n      --enable-binauthz\n\n  Create a Binary Authorization Policy using the Binary Authorization Policy Reference\n  (https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for\n  guidance.\n\n  Import the policy file into Binary Authorization:\n\n    gcloud container binauthz policy import [YAML_POLICY]\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            },
+            {
+              "test_number": "5.10.6",
+              "test_desc": "Enable Cloud Security Command Center (Cloud SCC) (Manual)",
+              "audit": "",
+              "AuditEnv": "",
+              "AuditConfig": "",
+              "type": "manual",
+              "remediation": "Using Command Line:\n  Follow the instructions at https://cloud.google.com/security-command-\n  center/docs/quickstart-scc-setup.\n",
+              "test_info": [
+                "Using Command Line:\n  Follow the instructions at https://cloud.google.com/security-command-\n  center/docs/quickstart-scc-setup.\n"
+              ],
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "IsMultiple": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        }
+      ],
+      "total_pass": 0,
+      "total_fail": 0,
+      "total_warn": 37,
+      "total_info": 0
+    }
+  ]
+}

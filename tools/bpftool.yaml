@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bpftool
+  labels:
+    app: bpftool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bpftool
+  template:
+    metadata:
+      labels:
+        app: bpftool
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: gke-prod-master-cast-pool-541d40e0
+      tolerations:
+        - key: scheduling.cast.ai/spot
+          operator: Exists
+      containers:
+        - name: bpftool
+          image: cilium/cilium-bpftool:226b089d88afbd75fe2a1e9e7c2e2bff001913c4
+          securityContext:
+            privileged: true
+          command:
+            - "sleep"
+            - "infinity"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
