@@ -117,7 +117,7 @@ func run(ctx context.Context) error {
 
 func installChart(ns, imageTag string) ([]byte, error) {
 	fmt.Printf("installing kvisord chart with image tag %q", imageTag)
-	repo := "ghcr.io/castai/kvisord/kvisord"
+	repo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
 		repo = "kvisord"
 	}

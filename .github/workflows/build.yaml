@@ -91,7 +91,7 @@ jobs:
           file: ./Dockerfile.controller
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/castai/kvisord/kvisord-controller:${{ env.head_commit_sha }}
+          tags: ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }}
 
       - name: Docker build and push pr (agent)
         if: ${{ github.event_name == 'pull_request' }}
@@ -101,7 +101,7 @@ jobs:
           file: ./Dockerfile.agent
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/castai/kvisord/kvisord-agent:${{ env.head_commit_sha }}
+          tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}
 
       - name: Docker build and push main (controller)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
@@ -111,7 +111,7 @@ jobs:
           file: ./Dockerfile.controller
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/castai/kvisord/kvisord-controller:${{ env.head_commit_sha }},ghcr.io/castai/kvisord/kvisord-controller:latest
+          tags: ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-controller:latest
 
       - name: Docker build and push main (agent)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
@@ -121,17 +121,17 @@ jobs:
           file: ./Dockerfile.agent
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/castai/kvisord/kvisord-agent:${{ env.head_commit_sha }},ghcr.io/castai/kvisord/kvisord-agent:latest
+          tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-agent:latest
 
       - name: Summary
         run: |
           echo "**Pushed docker images:**" >> $GITHUB_STEP_SUMMARY
-          echo "ghcr.io/castai/kvisord/kvisord-controller:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ghcr.io/castai/kvisord/kvisord-agent:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Upgrade with helm:**" >> $GITHUB_STEP_SUMMARY
-          echo "helm upgrade castai-kvisord castai-helm/kvisord -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "helm upgrade castai-kvisor castai-helm/kvisor -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
 
   # TODO: we might want to run the tests both in ubuntu-22.04, as well as ubuntu-20.04 to test
   # if we everything is working with cgroups v1 and v2

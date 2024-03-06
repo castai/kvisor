@@ -30,7 +30,7 @@ commonLabels: {}
 commonAnnotations: {}
 
 image:
-  repository: ghcr.io/castai/kvisord/kvisord
+  repository: ghcr.io/castai/kvisor/kvisor
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
