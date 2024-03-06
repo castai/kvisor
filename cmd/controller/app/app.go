@@ -103,28 +103,21 @@ func (a *App) Run(ctx context.Context) error {
 
 	defer castaiClient.Close()
 
-	ipInventory := kube.NewIPInventory()
-
 	// Setup kubernetes client and watcher.
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
 	k8sVersion, err := kube.GetVersion(clientset)
 	if err != nil {
 		return err
 	}
-	kubeClient := kube.NewClient(log, cfg.AgentDaemonSetName, cfg.PodNamespace, k8sVersion, clientset, ipInventory)
+	kubeClient := kube.NewClient(log, cfg.AgentDaemonSetName, cfg.PodNamespace, k8sVersion, clientset)
 	kubeClient.RegisterHandlers(informersFactory)
 
 	castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, kubeClient, castaiClient)
-
-	ingestorCtrl := state.NewIngestorController(log, kubeClient, ipInventory, castaiCtrl)
 
 	// Run all components.
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return kubeClient.Run(ctx)
-	})
-	errg.Go(func() error {
-		return ingestorCtrl.Run(ctx, kubeClient.GetIssuesChan())
 	})
 	errg.Go(func() error {
 		return castaiCtrl.Run(ctx)
@@ -246,7 +239,7 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 
 func withPyroscope(addr string) {
 	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisord-server",
+		ApplicationName: "kvisor-controller",
 		ServerAddress:   addr,
 		ProfileTypes: []pyroscope.ProfileType{
 			pyroscope.ProfileCPU,

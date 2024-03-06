@@ -317,7 +317,7 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 
 func withPyroscope(addr string) {
 	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisord",
+		ApplicationName: "kvisor-agent",
 		ServerAddress:   addr,
 		Tags: map[string]string{
 			"pod": os.Getenv("POD_NAME"),

@@ -1,9 +1,8 @@
 package imagescan
 
 import (
-	"errors"
-	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
@@ -11,14 +10,8 @@ import (
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/samber/lo"
-	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-)
-
-var (
-	errNoCandidates = errors.New("no candidates")
 )
 
 const defaultImageOs = "linux"
@@ -32,7 +25,6 @@ type kubeClient interface {
 func newImage() *image {
 	return &image{
 		owners:  map[string]*imageOwner{},
-		nodes:   map[string]*imageNode{},
 		scanned: false,
 		retryBackoff: wait.Backoff{
 			Duration: time.Second * 60,
@@ -45,45 +37,119 @@ func newImage() *image {
 func newDeltaState(kubeClient kubeClient) *deltaState {
 	return &deltaState{
 		kubeClient: kubeClient,
-		queue:      make(chan deltaQueueItem, 1000),
 		images:     map[string]*image{},
-		nodes:      make(map[string]*node),
+		nodes:      map[string]*corev1.Node{},
 	}
-}
-
-type deltaQueueItem struct {
-	event kube.EventType
-	obj   kube.Object
 }
 
 type deltaState struct {
 	kubeClient kubeClient
 
-	// queue is informers received k8s objects but not yet applied to delta.
-	// This allows to have lock free access to delta state during image scan.
-	queue chan deltaQueueItem
+	mu sync.Mutex
 
 	// images holds current cluster images state. image struct contains associated nodes and owners.
 	images map[string]*image
-
-	nodes map[string]*node
+	nodes  map[string]*corev1.Node
 }
 
-func (d *deltaState) upsert(o kube.Object) {
+func (d *deltaState) Upsert(o kube.Object) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	switch v := o.(type) {
 	case *corev1.Pod:
 		d.handlePodUpdate(v)
 	case *corev1.Node:
-		d.updateNodeUsage(v)
+		d.nodes[v.Name] = v
 	}
 }
 
-func (d *deltaState) delete(o kube.Object) {
+func (d *deltaState) Delete(o kube.Object) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	switch v := o.(type) {
 	case *corev1.Pod:
 		d.handlePodDelete(v)
 	case *corev1.Node:
-		d.handleNodeDelete(v)
+		delete(d.nodes, v.Name)
+	}
+}
+
+func (d *deltaState) GetImagesCopy() []*image {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	res := make([]*image, 0, len(d.images))
+	for _, img := range d.images {
+		imgCopy := *img
+		res = append(res, &imgCopy)
+	}
+	return res
+}
+
+func (d *deltaState) SetImageScanError(imgKey string, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	img := d.images[imgKey]
+	if img == nil {
+		return
+	}
+
+	img.failures++
+	img.lastScanErr = err
+
+	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
+}
+
+func (d *deltaState) SetResourcesUpdatedAt(images []*image, now time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for _, img := range images {
+		if deltaImg, ok := d.images[img.key]; ok {
+			deltaImg.resourcesUpdatedAt = now
+		}
+	}
+}
+
+func (d *deltaState) SetImageScanned(imgKey string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if img, ok := d.images[imgKey]; ok {
+		img.scanned = true
+	}
+}
+
+func (d *deltaState) UpdateRemoteSyncedAt(images []*image, now time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for _, img := range images {
+		if deltaImg, ok := d.images[img.key]; ok {
+			deltaImg.lastRemoteSyncAt = now
+		}
+	}
+}
+
+func (d *deltaState) SetScannedImages(images []*castaipb.Image) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for _, remoteImage := range images {
+		if remoteImage.ScanStatus == castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_SCANNED {
+			d.setImageScanned(remoteImage)
+		}
+	}
+}
+
+func (d *deltaState) setImageScanned(scannedImg *castaipb.Image) {
+	for _, img := range d.images {
+		if img.id == scannedImg.Id && img.architecture == scannedImg.Architecture {
+			img.scanned = true
+		}
 	}
 }
 
@@ -94,58 +160,9 @@ func (d *deltaState) handlePodUpdate(v *corev1.Pod) {
 	if v.Status.Phase == corev1.PodRunning {
 		d.upsertImages(v)
 	}
-	d.updateNodesUsageFromPod(v)
-}
-
-func (d *deltaState) updateNodeUsage(v *corev1.Node) {
-	n, ok := d.nodes[v.GetName()]
-	if !ok {
-		n = &node{
-			name:           v.GetName(),
-			architecture:   v.Status.NodeInfo.Architecture,
-			os:             v.Status.NodeInfo.OperatingSystem,
-			allocatableMem: &inf.Dec{},
-			allocatableCPU: &inf.Dec{},
-			pods:           make(map[types.UID]*pod),
-			castaiManaged:  v.Labels["provisioner.cast.ai/managed-by"] == "cast.ai",
-		}
-		d.nodes[v.GetName()] = n
-	}
-	n.allocatableMem = v.Status.Allocatable.Memory().AsDec()
-	n.allocatableCPU = v.Status.Allocatable.Cpu().AsDec()
-}
-
-func (d *deltaState) updateNodesUsageFromPod(v *corev1.Pod) {
-	switch v.Status.Phase { //nolint:exhaustive
-	case corev1.PodRunning, corev1.PodPending:
-		n, found := d.nodes[v.Spec.NodeName]
-		if !found {
-			return
-		}
-
-		p, found := n.pods[v.GetUID()]
-		if !found {
-			p = &pod{
-				id:            v.GetUID(),
-				requestCPU:    &inf.Dec{},
-				requestMemory: &inf.Dec{},
-			}
-			n.pods[v.GetUID()] = p
-		}
-
-		p.requestMemory = sumPodRequestMemory(&v.Spec)
-		p.requestCPU = sumPodRequestCPU(&v.Spec)
-	default:
-		if n, found := d.nodes[v.Spec.NodeName]; found {
-			delete(n.pods, v.UID)
-		}
-	}
 }
 
 func (d *deltaState) upsertImages(pod *corev1.Pod) {
-	if _, found := d.nodes[pod.Spec.NodeName]; !found {
-		return
-	}
 	now := time.Now().UTC()
 
 	containers := pod.Spec.Containers
@@ -170,7 +187,6 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 			continue
 		}
 
-		nodeName := pod.Spec.NodeName
 		platform := d.getPodPlatform(pod)
 		key := cs.ImageID + platform.architecture + cont.Image
 		img, found := d.images[key]
@@ -196,16 +212,6 @@ func (d *deltaState) upsertImages(pod *corev1.Pod) {
 			img.ownerChangedAt = now
 		}
 
-		// Upsert image nodes.
-		if imgNode, found := img.nodes[nodeName]; found {
-			imgNode.podIDs[podID] = struct{}{}
-		} else {
-			img.nodes[nodeName] = &imageNode{
-				podIDs: map[string]struct{}{
-					podID: {},
-				},
-			}
-		}
 		d.images[key] = img
 	}
 }
@@ -218,9 +224,6 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 		}
 
 		podID := string(pod.UID)
-		if n, found := img.nodes[pod.Spec.NodeName]; found {
-			delete(n.podIDs, podID)
-		}
 
 		ownerResourceID := d.kubeClient.GetOwnerUID(pod)
 		if owner, found := img.owners[ownerResourceID]; found {
@@ -231,95 +234,8 @@ func (d *deltaState) handlePodDelete(pod *corev1.Pod) {
 			}
 		}
 
-		if len(img.nodes) == 0 && len(img.owners) == 0 {
+		if len(img.owners) == 0 {
 			delete(d.images, imgKey)
-		}
-	}
-
-	n, ok := d.nodes[pod.Spec.NodeName]
-	if ok {
-		delete(n.pods, pod.UID)
-	}
-}
-
-func (d *deltaState) handleNodeDelete(node *corev1.Node) {
-	delete(d.nodes, node.GetName())
-
-	for imgKey, img := range d.images {
-		delete(img.nodes, node.Name)
-
-		if img.isUnused() {
-			delete(d.images, imgKey)
-		}
-	}
-}
-
-func (d *deltaState) getImages() []*image {
-	return lo.Values(d.images)
-}
-
-func (d *deltaState) updateImage(i *image, change func(*image)) {
-	img := d.images[i.key]
-	if img != nil {
-		change(img)
-	}
-}
-
-func (d *deltaState) setImageScanError(i *image, err error) {
-	img := d.images[i.key]
-	if img == nil {
-		return
-	}
-
-	img.failures++
-	img.lastScanErr = err
-
-	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
-}
-
-func (d *deltaState) filterCastAIManagedNodes(nodes []string) []string {
-	var result []string
-	for _, nodeName := range nodes {
-		n, ok := d.nodes[nodeName]
-		if ok && n.castaiManaged {
-			result = append(result, nodeName)
-		}
-	}
-
-	return result
-}
-
-func (d *deltaState) findBestNode(nodeNames []string, requiredMemory *inf.Dec, requiredCPU *inf.Dec) (string, error) {
-	if len(d.nodes) == 0 {
-		return "", errNoCandidates
-	}
-
-	var candidates []*node
-	for _, nodeName := range nodeNames {
-		if n, found := d.nodes[nodeName]; found && n.availableMemory().Cmp(requiredMemory) >= 0 && n.availableCPU().Cmp(requiredCPU) >= 0 {
-			candidates = append(candidates, n)
-		}
-	}
-
-	if len(candidates) == 0 {
-		return "", errNoCandidates
-	}
-
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].availableCPU().Cmp(candidates[j].allocatableCPU) > 0
-	})
-
-	return candidates[0].name, nil
-}
-
-func (d *deltaState) nodeCount() int {
-	return len(d.nodes)
-}
-
-func (d *deltaState) setImageScanned(scannedImg *castaipb.Image) {
-	for _, img := range d.images {
-		if img.id == scannedImg.Id && img.architecture == scannedImg.Architecture {
-			img.scanned = true
 		}
 	}
 }
@@ -331,10 +247,10 @@ type platform struct {
 
 func (d *deltaState) getPodPlatform(pod *corev1.Pod) platform {
 	n, ok := d.nodes[pod.Spec.NodeName]
-	if ok && n.architecture != "" && n.os != "" {
+	if ok && n.Status.NodeInfo.Architecture != "" && n.Status.NodeInfo.OperatingSystem != "" {
 		return platform{
-			architecture: n.architecture,
-			os:           n.os,
+			architecture: n.Status.NodeInfo.Architecture,
+			os:           n.Status.NodeInfo.OperatingSystem,
 		}
 	}
 	return platform{
@@ -356,66 +272,6 @@ func getContainerRuntime(containerID string) imagescanconfig.Runtime {
 		return imagescanconfig.RuntimeContainerd
 	}
 	return ""
-}
-
-type pod struct {
-	id            types.UID
-	requestCPU    *inf.Dec
-	requestMemory *inf.Dec
-}
-
-type node struct {
-	name           string
-	architecture   string
-	os             string
-	allocatableMem *inf.Dec
-	allocatableCPU *inf.Dec
-	pods           map[types.UID]*pod
-	castaiManaged  bool // true if managed by CAST AI
-}
-
-func (n *node) availableMemory() *inf.Dec {
-	var result inf.Dec
-	result.Add(&result, n.allocatableMem)
-
-	for _, p := range n.pods {
-		result.Sub(&result, p.requestMemory)
-	}
-
-	return &result
-}
-
-func (n *node) availableCPU() *inf.Dec {
-	var result inf.Dec
-	result.Add(&result, n.allocatableCPU)
-
-	for _, p := range n.pods {
-		result.Sub(&result, p.requestCPU)
-	}
-
-	return &result
-}
-
-func sumPodRequestMemory(spec *corev1.PodSpec) *inf.Dec {
-	var result inf.Dec
-	for _, container := range spec.Containers {
-		result.Add(&result, container.Resources.Requests.Memory().AsDec())
-	}
-
-	return &result
-}
-
-func sumPodRequestCPU(spec *corev1.PodSpec) *inf.Dec {
-	var result inf.Dec
-	for _, container := range spec.Containers {
-		result.Add(&result, container.Resources.Requests.Cpu().AsDec())
-	}
-
-	return &result
-}
-
-type imageNode struct {
-	podIDs map[string]struct{}
 }
 
 type imageOwner struct {
@@ -448,7 +304,6 @@ type image struct {
 	// owners map key points to higher level k8s resource for that image. (Image Affected resource in CAST AI console).
 	// Example: In most cases Pod will be managed by deployment, so owner id will point to Deployment's uuid.
 	owners map[string]*imageOwner
-	nodes  map[string]*imageNode
 
 	scanned      bool
 	lastScanErr  error
@@ -459,8 +314,4 @@ type image struct {
 	lastRemoteSyncAt   time.Time // Time then image state was synced from remote.
 	ownerChangedAt     time.Time // Time when new image owner was added
 	resourcesUpdatedAt time.Time // Time when image was synced with backend
-}
-
-func (img *image) isUnused() bool {
-	return len(img.nodes) == 0 && len(img.owners) == 0
 }

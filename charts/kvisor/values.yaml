@@ -35,6 +35,9 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
+pyroscope:
+  enabled: false
+
 agent:
   enabled: false
 
@@ -116,9 +119,6 @@ agent:
   debug:
     ebpf: false
 
-  phlare:
-    enabled: false
-
 controller:
 
   replicas: 1
@@ -185,9 +185,6 @@ controller:
 
   persistentVolumePostgres:
     size: 20Gi
-
-  phlare:
-    enabled: false
 
 eventGenerator:
   enabled: false

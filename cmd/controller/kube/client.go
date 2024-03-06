@@ -2,15 +2,10 @@ package kube
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -24,10 +19,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-)
-
-var (
-	ErrNotFound = errors.New("object not found")
 )
 
 type EventType string
@@ -55,18 +46,13 @@ type Client struct {
 	kvisorAgentDaemonSetName string
 	kvisorAgentContainerName string
 	client                   kubernetes.Interface
-	ipInventory              *IPInventory
 
-	issues      chan Issue
-	gcInterval  time.Duration
-	mu          sync.RWMutex
-	replicaSets map[types.UID]metav1.ObjectMeta
-	jobs        map[types.UID]metav1.ObjectMeta
-	pods        map[types.UID]*Pod
-	workloads   map[string]*Workload
-	nodesByName map[string]*corev1.Node
-
-	podByContainerID map[string]*Pod
+	gcInterval        time.Duration
+	mu                sync.RWMutex
+	replicaSets       map[types.UID]metav1.ObjectMeta
+	jobs              map[types.UID]metav1.ObjectMeta
+	deployments       map[types.UID]*appsv1.Deployment
+	kvisorAgentDsSpec *appsv1.DaemonSetSpec
 
 	changeListenersMu sync.RWMutex
 	changeListeners   []KubernetesChangeEventListener
@@ -78,24 +64,18 @@ func NewClient(
 	kvisorAgentDaemonSetName, kvisorNamespace string,
 	version Version,
 	client kubernetes.Interface,
-	ipInventory *IPInventory,
 ) *Client {
 	return &Client{
 		log:                      log.WithField("component", "kube_watcher"),
 		kvisorNamespace:          kvisorNamespace,
 		kvisorAgentDaemonSetName: kvisorAgentDaemonSetName,
 		kvisorAgentContainerName: "kvisor",
-		version:                  version,
 		client:                   client,
-		ipInventory:              ipInventory,
-		issues:                   make(chan Issue, 1000),
 		gcInterval:               1 * time.Minute,
 		replicaSets:              map[types.UID]metav1.ObjectMeta{},
 		jobs:                     map[types.UID]metav1.ObjectMeta{},
-		pods:                     map[types.UID]*Pod{},
-		podByContainerID:         map[string]*Pod{},
-		workloads:                map[string]*Workload{},
-		nodesByName:              map[string]*corev1.Node{},
+		deployments:              map[types.UID]*appsv1.Deployment{},
+		version:                  version,
 	}
 }
 
@@ -143,76 +123,10 @@ func (c *Client) RegisterPodsHandlers(factory informers.SharedInformerFactory) {
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	return c.startGC(ctx)
-}
-
-func (c *Client) GetIssuesChan() <-chan Issue {
-	return c.issues
-}
-
-func (c *Client) GetPodByContainerID(containerID string) (*Pod, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if v, ok := c.podByContainerID[containerID]; ok {
-		return v, nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	return nil, ErrNotFound
-}
-
-func (c *Client) GetPodByUID(uid string) (*Pod, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if v, ok := c.pods[types.UID(uid)]; ok {
-		return v, nil
-	}
-	return nil, ErrNotFound
-}
-
-func (c *Client) ListPods() []*Pod {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return lo.Values(c.pods)
-}
-
-func (c *Client) ListWorkloads() []*Workload {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return lo.Values(c.workloads)
-}
-
-func (c *Client) GetWorkloadPodTemplate(key string) (*corev1.PodTemplateSpec, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	workload, found := c.workloads[key]
-	if !found {
-		return nil, ErrNotFound
-	}
-	switch t := workload.Object.(type) {
-	case *appsv1.Deployment:
-		return t.Spec.Template.DeepCopy(), nil
-	case *appsv1.StatefulSet:
-		return t.Spec.Template.DeepCopy(), nil
-	case *appsv1.DaemonSet:
-		return t.Spec.Template.DeepCopy(), nil
-	case *batchv1.CronJob:
-		return t.Spec.JobTemplate.Spec.Template.DeepCopy(), nil
-	}
-	return nil, ErrNotFound
-}
-
-func (c *Client) GetNodeByName(name string) (*corev1.Node, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if v, ok := c.nodesByName[name]; ok {
-		return v, nil
-	}
-	return nil, ErrNotFound
 }
 
 func (c *Client) ListNamespaces(ctx context.Context) ([]corev1.Namespace, error) {
@@ -230,41 +144,12 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			defer c.mu.Unlock()
 
 			switch t := obj.(type) {
-			case *corev1.Node:
-				c.nodesByName[t.Name] = t
-				c.ipInventory.add(t)
-			case *appsv1.Deployment:
-				workload := newWorkload("Deployment", t.ObjectMeta)
-				workload.Replicas = int(lo.FromPtr(t.Spec.Replicas))
-				workload.Object = t
-				c.workloads[string(t.UID)] = workload
-			case *appsv1.StatefulSet:
-				workload := newWorkload("StatefulSet", t.ObjectMeta)
-				workload.Object = t
-				workload.Replicas = int(lo.FromPtr(t.Spec.Replicas))
-				c.workloads[string(t.UID)] = workload
-			case *appsv1.DaemonSet:
-				workload := newWorkload("DaemonSet", t.ObjectMeta)
-				workload.Object = t
-				workload.Replicas = int(t.Status.DesiredNumberScheduled)
-				c.workloads[string(t.UID)] = workload
-			case *batchv1.CronJob:
-				workload := newWorkload("CronJob", t.ObjectMeta)
-				workload.Object = t
-				c.workloads[string(t.UID)] = workload
 			case *batchv1.Job:
 				c.jobs[t.UID] = t.ObjectMeta
 			case *appsv1.ReplicaSet:
 				c.replicaSets[t.UID] = t.ObjectMeta
-			case *corev1.Service:
-				c.ipInventory.add(t)
-			case *corev1.Endpoints:
-				c.ipInventory.add(t)
-			case *corev1.Pod:
-				pod := c.addPod(t)
-				c.addContainerIndex(pod)
-				c.addWorkloadReference(t, pod)
-				c.ipInventory.add(pod)
+			case *appsv1.Deployment:
+				c.deployments[t.UID] = t
 			}
 
 			if kubeObj, ok := obj.(Object); ok {
@@ -277,42 +162,12 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			defer c.mu.Unlock()
 
 			switch t := newObj.(type) {
-			case *corev1.Node:
-				c.nodesByName[t.Name] = t
-				c.ipInventory.add(t)
-			case *appsv1.Deployment:
-				if workload, found := c.workloads[string(t.UID)]; found {
-					workload.Object = t
-					workload.Replicas = int(lo.FromPtr(t.Spec.Replicas))
-				}
-			case *appsv1.StatefulSet:
-				if workload, found := c.workloads[string(t.UID)]; found {
-					workload.Object = t
-					workload.Replicas = int(lo.FromPtr(t.Spec.Replicas))
-				}
-			case *appsv1.DaemonSet:
-				if workload, found := c.workloads[string(t.UID)]; found {
-					workload.Object = t
-					workload.Replicas = int(t.Status.DesiredNumberScheduled)
-				}
-			case *batchv1.CronJob:
-				if workload, found := c.workloads[string(t.UID)]; found {
-					workload.Object = t
-				}
 			case *batchv1.Job:
 				c.jobs[t.UID] = t.ObjectMeta
-			case *corev1.Service:
-				c.ipInventory.add(t)
-			case *corev1.Endpoints:
-				c.ipInventory.add(t)
-			case *corev1.Pod:
-				if v, ok := c.pods[t.UID]; ok {
-					c.updatePod(v, t)
-					c.addContainerIndex(v)
-					c.ipInventory.add(v)
-					c.addWorkloadReference(t, v)
-					c.detectIssues(v)
-				}
+			case *appsv1.ReplicaSet:
+				c.replicaSets[t.UID] = t.ObjectMeta
+			case *appsv1.Deployment:
+				c.deployments[t.UID] = t
 			}
 
 			if kubeObj, ok := newObj.(Object); ok {
@@ -325,29 +180,12 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			defer c.mu.Unlock()
 
 			switch t := obj.(type) {
-			case *corev1.Node:
-				delete(c.nodesByName, t.Name)
-				c.ipInventory.delete(t)
-			case *appsv1.Deployment:
-				delete(c.workloads, string(t.UID))
-			case *appsv1.StatefulSet:
-				delete(c.workloads, string(t.UID))
-			case *appsv1.DaemonSet:
-				delete(c.workloads, string(t.UID))
-			case *batchv1.CronJob:
-				delete(c.workloads, string(t.UID))
 			case *batchv1.Job:
 				delete(c.jobs, t.UID)
 			case *appsv1.ReplicaSet:
 				delete(c.replicaSets, t.UID)
-			case *corev1.Service:
-				c.ipInventory.delete(t)
-			case *corev1.Endpoints:
-				c.ipInventory.delete(t)
-			case *corev1.Pod:
-				if v, ok := c.pods[t.UID]; ok {
-					v.DeletionTimestamp = lo.ToPtr(time.Now().UTC())
-				}
+			case *appsv1.Deployment:
+				delete(c.deployments, t.UID)
 			}
 
 			if kubeObj, ok := obj.(Object); ok {
@@ -355,174 +193,6 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			}
 		},
 	}
-}
-
-func (c *Client) addWorkloadReference(t *corev1.Pod, pod *Pod) {
-	wkey := c.getPodWorkloadKey(t)
-	wk, found := c.workloads[wkey]
-	if found {
-		pod.Workload = wk
-	}
-}
-
-func (c *Client) addContainerIndex(pod *Pod) {
-	for _, cont := range pod.Pod.Status.InitContainerStatuses {
-		cont := cont
-		if cont.ContainerID == "" {
-			continue
-		}
-		cid := GetContainerID(cont.ContainerID)
-		c.podByContainerID[cid] = pod
-		pod.Containers[cid] = &cont
-	}
-
-	for _, cont := range pod.Pod.Status.ContainerStatuses {
-		cont := cont
-		if cont.ContainerID == "" {
-			continue
-		}
-		cid := GetContainerID(cont.ContainerID)
-		c.podByContainerID[cid] = pod
-		pod.Containers[cid] = &cont
-	}
-}
-
-func (c *Client) startGC(ctx context.Context) error {
-	t := time.NewTicker(c.gcInterval)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-t.C:
-			c.runGC()
-		}
-	}
-}
-
-func (c *Client) runGC() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	deleteBefore := time.Now().UTC().Add(-c.gcInterval)
-	var deletedPods int
-	var deletedContainers int
-
-	for _, v := range c.pods {
-		if dts := v.DeletionTimestamp; dts != nil {
-			ts := dts
-			if ts.Before(deleteBefore) {
-				delete(c.pods, v.Pod.UID)
-				c.ipInventory.delete(v)
-				deletedPods++
-				for contID, pod := range c.podByContainerID {
-					if pod.Pod.UID == v.Pod.UID {
-						delete(c.podByContainerID, GetContainerID(contID))
-						deletedContainers++
-					}
-				}
-			}
-		}
-	}
-
-	c.log.Debugf("kube watcher gc done, deleted_pods=%d, deleted_containers=%d", deletedPods, deletedContainers)
-}
-
-func (c *Client) getPodWorkloadKey(pod *corev1.Pod) string {
-	if len(pod.OwnerReferences) > 0 {
-		ref := pod.OwnerReferences[0]
-		switch ref.Kind {
-		// If replica set points to deployment we need to find deployment's uid.
-		case "ReplicaSet":
-			rs, found := c.replicaSets[ref.UID]
-			if !found {
-				return string(ref.UID)
-			}
-			// Most likely replica set is managed by Deployment.
-			if len(rs.OwnerReferences) > 0 {
-				ref = rs.OwnerReferences[0]
-				return string(ref.UID)
-			}
-		case "Job":
-			cr, found := c.jobs[ref.UID]
-			if !found {
-				return getStandalonePodWorkloadKey(pod.ObjectMeta, pod.Spec.Containers)
-			}
-			// Most likely job is managed by CronJob.
-			if len(cr.OwnerReferences) > 0 {
-				ref = cr.OwnerReferences[0]
-				return string(ref.UID)
-			}
-		default:
-			return string(ref.UID)
-		}
-	}
-	return getStandalonePodWorkloadKey(pod.ObjectMeta, pod.Spec.Containers)
-}
-
-func (c *Client) addPod(t *corev1.Pod) *Pod {
-	pod := &Pod{
-		Pod:        t,
-		Containers: map[string]*corev1.ContainerStatus{},
-	}
-	c.pods[t.UID] = pod
-
-	return pod
-}
-
-func (c *Client) updatePod(v *Pod, t *corev1.Pod) {
-	v.Pod = t
-	if v.Zone == "" {
-		if node, found := c.nodesByName[t.Spec.NodeName]; found {
-			v.Zone = getNodeZone(node)
-		}
-	}
-}
-
-type Pod struct {
-	Pod               *corev1.Pod
-	Zone              string
-	Workload          *Workload
-	Containers        map[string]*corev1.ContainerStatus
-	DeletionTimestamp *time.Time
-}
-
-func GetContainerID(id string) string {
-	_, after, _ := strings.Cut(id, "//")
-	return after
-}
-
-type Workload struct {
-	Key       string
-	Namespace string
-	Kind      string
-	Name      string
-	Replicas  int
-	Object    runtime.Object
-}
-
-func newWorkload(kind string, meta metav1.ObjectMeta) *Workload {
-	return &Workload{
-		Key:       string(meta.UID),
-		Namespace: meta.Namespace,
-		Kind:      kind,
-		Name:      meta.Name,
-	}
-}
-
-// getStandalonePodWorkloadKey for single jobs or standalone pods we can't use uid as it will be random each time.
-// In such case it would generate too many workload profiles.
-func getStandalonePodWorkloadKey(meta metav1.ObjectMeta, containers []corev1.Container) string {
-	contNames := make([]string, len(containers))
-	for i, cont := range containers {
-		contNames[i] = cont.Name
-	}
-	sort.Strings(contNames)
-	return fmt.Sprintf("%s-%s", meta.Namespace, strings.Join(contNames, "-"))
-}
-
-func getNodeZone(node *corev1.Node) string {
-	return node.Labels["topology.kubernetes.io/zone"]
 }
 
 func findNextOwnerID(obj metav1.ObjectMeta, expectedKind string) (types.UID, bool) {
@@ -540,19 +210,15 @@ func findNextOwnerID(obj metav1.ObjectMeta, expectedKind string) (types.UID, boo
 	return "", false
 }
 
-func findOwnerFromDeployments(workloads map[string]*Workload, pod *corev1.Pod) (types.UID, bool) {
+func findOwnerFromDeployments(workloads map[types.UID]*appsv1.Deployment, pod *corev1.Pod) (types.UID, bool) {
 	for _, w := range workloads {
-		deployment, ok := w.Object.(*appsv1.Deployment)
-		if !ok {
-			continue
-		}
 
-		sel, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+		sel, err := metav1.LabelSelectorAsSelector(w.Spec.Selector)
 		if err != nil {
 			continue
 		}
 		if sel.Matches(labels.Set(pod.Labels)) {
-			return deployment.UID, true
+			return w.UID, true
 		}
 	}
 	return "", false
@@ -578,7 +244,7 @@ func (c *Client) getPodOwnerID(pod *corev1.Pod) string {
 
 		// Slow path. Find deployment by matching selectors.
 		// In this Deployment could be managed by some crd like ArgoRollouts.
-		if owner, found := findOwnerFromDeployments(c.workloads, pod); found {
+		if owner, found := findOwnerFromDeployments(c.deployments, pod); found {
 			return string(owner)
 		}
 
@@ -640,20 +306,26 @@ func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, bool) {
 	}, true
 }
 
-func (c *Client) getKvisorAgentDaemonSpec() (appsv1.DaemonSetSpec, bool) {
+func (c *Client) getKvisorAgentDaemonSpec() (*appsv1.DaemonSetSpec, bool) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	for _, w := range c.workloads {
-		ds, ok := w.Object.(*appsv1.DaemonSet)
-		if !ok {
-			continue
-		}
-		if w.Namespace == c.kvisorNamespace && w.Name == c.kvisorAgentDaemonSetName {
-			return ds.Spec, true
-		}
+	spec := c.kvisorAgentDsSpec
+	c.mu.RUnlock()
+	if spec != nil {
+		return spec, true
 	}
-	return appsv1.DaemonSetSpec{}, false
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ds, err := c.client.AppsV1().DaemonSets(c.kvisorNamespace).Get(ctx, c.kvisorAgentDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		return nil, false
+	}
+
+	c.mu.Lock()
+	c.kvisorAgentDsSpec = &ds.Spec
+	c.mu.Unlock()
+
+	return &ds.Spec, true
 }
 
 func (c *Client) RegisterKubernetesChangeListener(l KubernetesChangeEventListener) {

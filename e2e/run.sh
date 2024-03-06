@@ -43,7 +43,7 @@ function printJobLogs() {
   kubectl describe pod -l app.kubernetes.io/component=agent
   echo "===========kvisord agent logs: ==========="
   kubectl logs -l app.kubernetes.io/component=agent
-  echo "=========== kvisord server logs: ==========="
+  echo "=========== kvisor server logs: ==========="
   kubectl logs -l app.kubernetes.io/component=controller
   echo "=========== E2E Job pods: ==========="
   kubectl describe pod -l job-name=e2e
@@ -56,12 +56,12 @@ ns="$name-e2e"
 kubectl delete ns $ns --force || true
 kubectl create ns $ns || true
 kubectl config set-context --current --namespace=$ns
-# Create job pod. It will install kvisord-e2e helm chart inside the k8s.
+# Create job pod. It will install kvisor-e2e helm chart inside the k8s.
 kubectl apply -f ./e2e/e2e.yaml
-# Make sure kvisord is running.
+# Make sure kvisor agent is running.
 for (( i=1; i<=20; i++ ))
 do
-    if eval kubectl get ds kvisord-e2e; then
+    if eval kubectl get ds kvisord-e2e-castai-kvisor-agent; then
         break
     fi
     sleep 1

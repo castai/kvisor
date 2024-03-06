@@ -22,9 +22,15 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{.Values.agent.httpListenPort}}"
       {{- end }}
-      {{- if .Values.agent.phlare.enabled }}
+      {{- if .Values.pyroscope.enabled }}
         phlare.grafana.com/scrape: "true"
         phlare.grafana.com/port: "{{ .Values.agent.httpListenPort }}"
+        profiles.grafana.com/memory.scrape: "true"
+        profiles.grafana.com/memory.port: "{{ .Values.agent.httpListenPort }}"
+        profiles.grafana.com/cpu.scrape: "true"
+        profiles.grafana.com/cpu.port: "{{ .Values.agent.httpListenPort }}"
+        profiles.grafana.com/goroutine.scrape: "true"
+        profiles.grafana.com/goroutine.port: "{{ .Values.agent.httpListenPort }}"
       {{- end }}
       {{- with .Values.agent.podAnnotations }}
         {{- toYaml . | nindent 8 }}

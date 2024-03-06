@@ -227,13 +227,11 @@ func TestSubscriber(t *testing.T) {
 			sort.Strings(ngnxImage.ResourceIDs)
 			sort.Strings(expectedNginxPodResourceIDs)
 			r.Equal(expectedNginxPodResourceIDs, ngnxImage.ResourceIDs)
-			r.NotEmpty(ngnxImage.NodeName)
 			r.Equal(ScanImageParams{
 				ImageName:                   "nginx:1.23",
 				ImageID:                     "nginx:1.23@sha256",
 				ContainerRuntime:            "containerd",
-				Mode:                        "hostfs",
-				NodeName:                    ngnxImage.NodeName,
+				Mode:                        "remote",
 				ResourceIDs:                 ngnxImage.ResourceIDs,
 				DeleteFinishedJob:           true,
 				WaitForCompletion:           true,
@@ -284,25 +282,11 @@ func TestSubscriber(t *testing.T) {
 		img.id = "img1"
 		img.key = "img1amd64img"
 		img.architecture = "amd64"
-		img.nodes = map[string]*imageNode{
-			"node1": {},
-		}
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
 
 		delta.images[img.key] = img
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-		delta.nodes["node1"] = &node{
-			name:           "node1",
-			allocatableMem: resMem.AsDec(),
-			allocatableCPU: resCpu.AsDec(),
-			pods:           map[types.UID]*pod{},
-			architecture:   defaultImageArch,
-			os:             defaultImageOs,
-		}
 
 		expectedErr := errors.New("failed")
 		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(expectedErr).Once()
@@ -368,25 +352,11 @@ func TestSubscriber(t *testing.T) {
 		img.key = "img1amd64img"
 		img.architecture = "amd64"
 		img.containerRuntime = imgcollectorconfig.RuntimeContainerd
-		img.nodes = map[string]*imageNode{
-			"node1": {},
-		}
 		img.owners = map[string]*imageOwner{
 			"r1": {},
 		}
 		delta.images[img.key] = img
-		delta.setImageScanError(img, errImageScanLayerNotFound)
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-		delta.nodes["node1"] = &node{
-			name:           "node1",
-			allocatableMem: resMem.AsDec(),
-			allocatableCPU: resCpu.AsDec(),
-			pods:           map[types.UID]*pod{},
-			os:             defaultImageOs,
-			architecture:   defaultImageArch,
-		}
+		delta.SetImageScanError(img.key, errImageScanLayerNotFound)
 
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
@@ -443,17 +413,6 @@ func TestSubscriber(t *testing.T) {
 		}
 		delta.images[img.key] = img
 
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-		delta.nodes["node1"] = &node{
-			name:           "node1",
-			allocatableMem: resMem.AsDec(),
-			allocatableCPU: resCpu.AsDec(),
-			pods:           map[types.UID]*pod{},
-			os:             defaultImageOs,
-			architecture:   defaultImageArch,
-		}
-
 		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 
@@ -472,85 +431,6 @@ func TestSubscriber(t *testing.T) {
 			r.Equal(string(imgcollectorconfig.ModeRemote), imgs[0].Mode)
 			return true
 		})
-	})
-
-	t.Run("respect node count", func(t *testing.T) {
-		r := require.New(t)
-
-		cfg := Config{
-			ScanInterval:       1 * time.Millisecond,
-			ScanTimeout:        time.Minute,
-			MaxConcurrentScans: 5,
-			CPURequest:         "500m",
-			CPULimit:           "2",
-			MemoryRequest:      "100Mi",
-			MemoryLimit:        "2Gi",
-			Mode:               string(imgcollectorconfig.ModeHostFS),
-		}
-
-		scanner := &mockImageScanner{}
-		scanner.On("ScanImage", mock.Anything, mock.Anything).Return(nil)
-		sub := newTestController(log, cfg)
-		sub.imageScanner = scanner
-		sub.initialScansDelay = 1 * time.Millisecond
-		delta := sub.delta
-		img := newImage()
-		img.name = "img"
-		img.id = "img1"
-		img.key = "img1amd64img"
-		img.architecture = "amd64"
-		img.nodes = map[string]*imageNode{
-			"node1": {},
-		}
-		img.owners = map[string]*imageOwner{
-			"r1": {},
-		}
-		delta.images[img.key] = img
-
-		firstCtx, firstCancel := context.WithTimeout(ctx, 50*time.Millisecond)
-		defer firstCancel()
-
-		err := sub.scheduleScans(firstCtx)
-		r.NoError(err)
-		// without nodes in delta it should not schedule scan.
-		r.Empty(scanner.imgs)
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-		// with two nodes it should scan without resource check.
-		delta.nodes["test_a"] = &node{
-			architecture: defaultImageArch,
-			os:           defaultImageOs,
-		}
-		delta.nodes["node1"] = &node{
-			name:           "node1",
-			allocatableMem: resMem.AsDec(),
-			allocatableCPU: resCpu.AsDec(),
-			pods:           map[types.UID]*pod{},
-			castaiManaged:  true,
-			architecture:   defaultImageArch,
-			os:             defaultImageOs,
-		}
-		img = newImage()
-		img.name = "img"
-		img.id = "img1"
-		img.key = "img1amd64img"
-		img.architecture = "amd64"
-		img.nodes = map[string]*imageNode{
-			"node1": {},
-		}
-		img.owners = map[string]*imageOwner{
-			"r1": {},
-		}
-		delta.images[img.key] = img
-
-		secondCtx, secondCancel := context.WithTimeout(ctx, 50*time.Millisecond)
-		defer secondCancel()
-
-		err = sub.scheduleScans(secondCtx)
-		r.NoError(err)
-		r.Len(scanner.imgs, 1)
-		r.True(delta.images[img.key].scanned)
 	})
 
 	t.Run("send changed resource owners", func(t *testing.T) {
@@ -676,202 +556,6 @@ func TestSubscriber(t *testing.T) {
 			r.Equal(1, syncCalls)
 			return true
 		})
-	})
-}
-
-func TestController_findBestNodeAndMode(t *testing.T) {
-	log := logging.New(&logging.Config{Level: slog.LevelDebug})
-
-	t.Run("fallbacks when img had error", func(t *testing.T) {
-		cfg := Config{
-			Mode:          string(imgcollectorconfig.ModeHostFS),
-			CPURequest:    "1",
-			MemoryRequest: "100Mi",
-		}
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-
-		lessResMem := resource.MustParse("400Mi")
-		lessResCpu := resource.MustParse("1")
-
-		controller := newTestController(log, cfg)
-		controller.delta.nodes = map[string]*node{
-			"node1": {
-				name:           "node1",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: resMem.AsDec(),
-				allocatableCPU: resCpu.AsDec(),
-				castaiManaged:  true,
-			},
-			"node2": {
-				name:           "node2",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: lessResMem.AsDec(),
-				allocatableCPU: lessResCpu.AsDec(),
-				castaiManaged:  true,
-			},
-		}
-
-		img := &image{
-			key: "img1amd64img",
-			nodes: map[string]*imageNode{
-				"node1": {},
-				"node2": {},
-			},
-			lastScanErr: errImageScanLayerNotFound,
-		}
-
-		r := require.New(t)
-		node, mode, err := controller.findBestNodeAndMode(img)
-		r.NoError(err)
-		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
-		r.Equal("node1", node)
-	})
-
-	t.Run("fallbacks when no cast ai managed nodes", func(t *testing.T) {
-		cfg := Config{
-			Mode:          string(imgcollectorconfig.ModeHostFS),
-			CPURequest:    "1",
-			MemoryRequest: "100Mi",
-		}
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-
-		lessResMem := resource.MustParse("400Mi")
-		lessResCpu := resource.MustParse("1")
-
-		controller := newTestController(log, cfg)
-		controller.delta.nodes = map[string]*node{
-			"node1": {
-				name:           "node1",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: resMem.AsDec(),
-				allocatableCPU: resCpu.AsDec(),
-				castaiManaged:  false,
-			},
-			"node2": {
-				name:           "node2",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: lessResMem.AsDec(),
-				allocatableCPU: lessResCpu.AsDec(),
-				castaiManaged:  false,
-			},
-		}
-
-		img := &image{
-			key: "img1amd64img",
-			nodes: map[string]*imageNode{
-				"node1": {},
-				"node2": {},
-			},
-		}
-
-		r := require.New(t)
-		node, mode, err := controller.findBestNodeAndMode(img)
-		r.NoError(err)
-		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
-		r.Equal("node1", node)
-	})
-
-	t.Run("fallbacks when no resources on cast ai managed nodes", func(t *testing.T) {
-		cfg := Config{
-			Mode:          string(imgcollectorconfig.ModeHostFS),
-			CPURequest:    "2",
-			MemoryRequest: "400Mi",
-		}
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-
-		lessResMem := resource.MustParse("400Mi")
-		lessResCpu := resource.MustParse("1")
-
-		controller := newTestController(log, cfg)
-		controller.delta.nodes = map[string]*node{
-			"node1": {
-				name:           "node1",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: resMem.AsDec(),
-				allocatableCPU: resCpu.AsDec(),
-				castaiManaged:  false,
-			},
-			"node2": {
-				name:           "node2",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: lessResMem.AsDec(),
-				allocatableCPU: lessResCpu.AsDec(),
-				castaiManaged:  true,
-			},
-		}
-
-		img := &image{
-			key: "img1amd64img",
-			nodes: map[string]*imageNode{
-				"node2": {},
-			},
-		}
-
-		r := require.New(t)
-		node, mode, err := controller.findBestNodeAndMode(img)
-		r.NoError(err)
-		r.Equal(string(imgcollectorconfig.ModeRemote), mode)
-		r.Equal("node1", node)
-	})
-
-	t.Run("picks correct node", func(t *testing.T) {
-		cfg := Config{
-			Mode:          string(imgcollectorconfig.ModeHostFS),
-			CPURequest:    "2",
-			MemoryRequest: "400Mi",
-		}
-
-		resMem := resource.MustParse("500Mi")
-		resCpu := resource.MustParse("2")
-
-		lessResMem := resource.MustParse("400Mi")
-		lessResCpu := resource.MustParse("1")
-
-		controller := newTestController(log, cfg)
-		controller.delta.nodes = map[string]*node{
-			"node1": {
-				name:           "node1",
-				architecture:   defaultImageArch,
-				os:             defaultImageOs,
-				allocatableMem: resMem.AsDec(),
-				allocatableCPU: resCpu.AsDec(),
-				castaiManaged:  true,
-			},
-			"node2": {
-				name:           "node2",
-				architecture:   "amd64",
-				os:             "linux",
-				allocatableMem: lessResMem.AsDec(),
-				allocatableCPU: lessResCpu.AsDec(),
-				castaiManaged:  true,
-			},
-		}
-
-		img := &image{
-			key: "img1amd64img",
-			nodes: map[string]*imageNode{
-				"node1": {},
-				"node2": {},
-			},
-		}
-
-		r := require.New(t)
-		node, mode, err := controller.findBestNodeAndMode(img)
-		r.NoError(err)
-		r.Equal(string(imgcollectorconfig.ModeHostFS), mode)
-		r.Equal("node1", node)
 	})
 }
 
