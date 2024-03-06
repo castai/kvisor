@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-context-capabilities
+spec:
+  containers:
+    - name: example
+      image: gcr.io/google-samples/node-hello:1.0
+      securityContext:
+        capabilities:
+          drop:
+            - all
+          add:
+            - "CHOWN"  # Allows changing file ownership and group ownership.
+            - "DAC_OVERRIDE"  # Overrides all DAC access, including ACL execute access if [_POSIX_ACL] is defined. Excluding DAC access covered by CAP_LINUX_IMMUTABLE.
+            - "DAC_READ_SEARCH"  # Overrides all DAC restrictions regarding read and search on files and directories, including ACL restrictions if [_POSIX_ACL] is defined.
+            - "FOWNER"  # Overrides all restrictions about allowed operations on files, where file owner ID must be equal to the user ID, except where CAP_FSETID is applicable.
+            - "FSETID"  # Overrides the following restrictions:
+              # The effective user ID shall match the file owner ID when setting the S_ISUID and S_ISGID bits on that file;
+            # The effective group ID (or one of the supplementary group IDs) shall match the file owner ID when setting the S_ISGID bit on that file;
+            # The S_ISUID and S_ISGID bits are cleared on successful return from chown(2) (not implemented).
+            - "KILL"  # Allows killing any process.
+            - "SETGID"  # Allows setgid(2) manipulation and setgroups(2).
+            - "SETUID"  # Allows setuid(2) manipulation.
+            - "SETPCAP"  # Allows transfer and removal of capabilities to any process.
+            - "LINUX_IMMUTABLE"  # Allows modification of S_IMMUTABLE and S_APPEND file attributes.
+            - "NET_BIND_SERVICE"  # Allows binding to TCP/UDP sockets below 1024 and ATM VCIs below 32.
+            - "NET_BROADCAST"  # Allows broadcasting and listening to multicast.
+            - "NET_ADMIN"  # Allows managing network devices and configuring network interfaces.
+            - "NET_RAW"  # Allows use of RAW sockets.
+            - "IPC_LOCK"  # Allows locking of shared memory segments.
+            - "IPC_OWNER"  # Overrides IPC ownership checks.
+            - "SYS_MODULE"  # Allows insertion and removal of kernel modules.
+            - "SYS_RAWIO"  # Allows ioperm/iopl access and sending USB messages to any device via /dev/bus/usb.
+            - "SYS_CHROOT"  # Allows use of chroot().
+            - "SYS_PTRACE"  # Allows ptrace() of any process.
+            - "SYS_PACCT"  # Allows configuration of process accounting.
+            - "SYS_ADMIN"  # Allows a wide range of system administration tasks, such as mounting/unmounting filesystems, setting the domainname and hostname, and configuring process accounting and resource limits.
+            - "SYS_BOOT"  # Allows use of reboot().
+            - "SYS_NICE"  # Allows raising priority and setting priority on other processes, setting the scheduling algorithm for other processes, and setting CPU affinity for other processes.
+            - "SYS_RESOURCE"  # Allows overriding resource limits, quota limits, reserved space on ext2 filesystems, journaling mode on ext3 filesystems, size restrictions on IPC message queues, and more.
+            - "SYS_TIME"  # Allows manipulation of system clock, including setting the real-time clock.
+            - "SYS_TTY_CONFIG"  # Allows configuration of tty devices, including vhangup() of tty.
+            - "MKNOD"  # Allows the privileged aspects of mknod().
+            - "LEASE"  # Allows taking of leases on files.
+            - "AUDIT_WRITE"  # Allows writing the audit log via unicast netlink socket.
+            - "AUDIT_CONTROL"  # Allows configuration of audit via unicast netlink socket.
+            - "SETFCAP"  # Allows setting or removing capabilities on files and mapping uid=0 into a child user namespace.
+            - "MAC_OVERRIDE"  # Allows overriding MAC access.
+            - "MAC_ADMIN"  # Allows configuration or state changes of MAC policy
+            - "SYSLOG"  # Allow configuring the kernel's syslog (printk behaviour)
+            - "WAKE_ALARM" # Allow triggering something that will wake the system
+            - "BLOCK_SUSPEND" # Allow preventing system suspends
+            - "AUDIT_READ" # Allow reading the audit log via multicast netlink socket
+            - "PERFMON" # Allow system performance and observability privileged operations using perf_events, i915_perf and other kernel subsystems
+            - "BPF" # CAP_BPF allows the BPF operations
+            - "CHECKPOINT_RESTORE"  # Allow checkpoint/restore related operations, Allow PID selection during clone3(), Allow writing to ns_last_pid

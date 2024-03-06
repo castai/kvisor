@@ -1,0 +1,57 @@
+{
+  "timestamp": 1684003657980794486,
+  "threadStartTime": 1684003657977805803,
+  "processorId": 1,
+  "processId": 136,
+  "cgroupId": 6304,
+  "threadId": 136,
+  "parentProcessId": 131,
+  "hostProcessId": 3627938,
+  "hostThreadId": 3627938,
+  "hostParentProcessId": 3627887,
+  "userId": 0,
+  "mountNamespace": 4026533191,
+  "pidNamespace": 4026533192,
+  "processName": "httpd",
+  "hostName": "event-generator",
+  "container": {
+    "id": "37a2b8b5515ebcfc3937d7d8c4f52df3f3272a0af1aadeb70005e805cfbbe2bf",
+    "name": "event-generator",
+    "image": "docker.io/falcosecurity/event-generator:latest",
+    "imageDigest": "docker.io/falcosecurity/event-generator:latest"
+  },
+  "kubernetes": {
+    "podName": "event-generator-7ff49f7f8-jw6mt",
+    "podNamespace": "event-generator",
+    "podUID": "13c03b40-349d-4678-b22b-152396df2e81"
+  },
+  "eventId": "6024",
+  "eventName": "illegitimate_shell",
+  "matchedPolicies": [
+    ""
+  ],
+  "argsNum": 0,
+  "returnValue": 0,
+  "syscall": "",
+  "stackAddresses": null,
+  "contextFlags": {
+    "containerStarted": true,
+    "isCompat": false
+  },
+  "args": [],
+  "metadata": {
+    "Version": "1",
+    "Description": "A web-server program on your server spawned a shell program. Shell is the linux command-line program, web servers usually don't run shell programs, so this alert might indicate an adversary is exploiting a web server program to gain command execution on the server.",
+    "Tags": null,
+    "Properties": {
+      "Category": "initial-access",
+      "Kubernetes_Technique": "",
+      "Severity": 2,
+      "Technique": "Exploit Public-Facing Application",
+      "external_id": "T1190",
+      "id": "attack-pattern--3f886f2a-874f-4333-b794-aa6075009b1c",
+      "signatureID": "TRC-1016",
+      "signatureName": "Web server spawned a shell"
+    }
+  }
+}

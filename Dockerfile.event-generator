@@ -1,0 +1,5 @@
+FROM alpine:3.17
+
+COPY ./bin/kvisord-event-generator /app/kvisord-event-generator
+
+ENTRYPOINT ["/app/kvisord-event-generator"]

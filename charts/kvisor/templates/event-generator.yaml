@@ -1,0 +1,115 @@
+{{- if .Values.eventGenerator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kvisor.eventGenerator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.eventGenerator.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kvisor.eventGenerator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: event-generator
+        {{- include "kvisor.eventGenerator.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kvisor.eventGenerator.serviceAccountName" . }}
+      securityContext: {}
+      containers:
+        - name: generator
+          securityContext: {}
+          image: "{{ .Values.eventGenerator.image.repository }}:{{ .Values.eventGenerator.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.eventGenerator.image.pullPolicy }}
+          args:
+            - "--mode=controller"
+        {{- range $key, $value := .Values.eventGenerator.extraArgs }}
+        {{- if $value }}
+            - "--{{ $key }}={{ $value }}"
+        {{- else }}
+            - "--{{ $key }}"
+        {{- end }}
+        {{- end }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: cgroups
+              mountPath: "/cgroups"
+              readOnly: true
+
+      dnsPolicy: {{.Values.eventGenerator.dnsPolicy}}
+      {{- with .Values.eventGenerator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: cgroups
+          hostPath:
+            path: /sys/fs/cgroup
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kvisor.eventGenerator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.eventGenerator.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kvisor.eventGenerator.fullname" . }}
+  labels:
+    {{- include "kvisor.eventGenerator.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "apps"
+    resources:
+      - deployments
+      - replicasets
+      - daemonsets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kvisor.eventGenerator.fullname" . }}
+  labels:
+    {{- include "kvisor.eventGenerator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kvisor.eventGenerator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kvisor.eventGenerator.serviceAccountName" . }}
+    namespace: {{.Release.Namespace}}
+{{- end }}

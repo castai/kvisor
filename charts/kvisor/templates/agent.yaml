@@ -1,0 +1,224 @@
+{{- if .Values.agent.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kvisor.agent.selectorLabels" . | nindent 6 }}
+  {{- with .Values.agent.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- if .Values.agent.prometheusScrape.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{.Values.agent.httpListenPort}}"
+      {{- end }}
+      {{- if .Values.agent.phlare.enabled }}
+        phlare.grafana.com/scrape: "true"
+        phlare.grafana.com/port: "{{ .Values.agent.httpListenPort }}"
+      {{- end }}
+      {{- with .Values.agent.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/component: agent
+        {{- include "kvisor.agent.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
+      hostPID: {{ .Values.agent.hostPID }}
+      hostNetwork: {{ .Values.agent.hostNetwork }}
+      securityContext:
+        {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
+      containers:
+        - name: kvisor
+          securityContext:
+            {{- toYaml .Values.agent.containerSecurityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.agent.resources | nindent 12 }}
+          command:
+            - "/usr/local/bin/kvisor-agent"
+          args:
+            - "daemon"
+            - "--http-listen-port={{.Values.agent.httpListenPort}}"
+          {{- if .Values.castai.apiKey }}
+            - "--send-logs-level=WARN"
+          {{- end }}
+          {{- if eq (hasKey .Values.agent.extraArgs "ingestor-server-addr") false }}
+            - "--ingestor-server-addr={{ include "kvisor.controller.fullname" . }}.{{ .Release.Namespace}}.svc.cluster.local.:6061"
+          {{- end }}
+          {{- if eq .Values.mockServer.enabled true }}
+            - "--castai-server-insecure=true"
+          {{- end }}
+        {{- range $key, $value := .Values.agent.extraArgs }}
+            - "--{{ $key }}={{ $value }}"
+        {{- end }}
+          envFrom:
+          - secretRef:
+              name: {{ include "kvisor.castaiSecretName" . }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          {{- if .Values.agent.debug.ebpf }}
+            - name: KVISORD_EBPF_DEBUG
+              value: "1"
+          {{- end }}
+          ports:
+            - containerPort: {{.Values.agent.httpListenPort}}
+              name: http-server
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              port: http-server
+              path: /healthz
+            periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http-server
+            failureThreshold: 12
+            periodSeconds: 10
+          volumeMounts:
+            - name: host-proc
+              mountPath: "/hostproc"
+              readOnly: true
+            - name: cgroups
+              mountPath: "/cgroups"
+              readOnly: true
+            - name: etc-os-release
+              mountPath: /etc/os-release-host
+              readOnly: true
+            - name: debugfs
+              mountPath: /sys/kernel/debug
+            - name: containerd-k8s-rootfs
+              mountPath: /run/containerd/io.containerd.runtime.v2.task/k8s.io
+              readOnly: true
+            - name: containerd-sock
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+      dnsPolicy: {{.Values.agent.dnsPolicy}}
+      {{- with .Values.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # TODO: Since we run with hostPID these volumes could be removed and accessed via `/proc/1/root` prefix.
+      volumes:
+        - name: etc-os-release
+          hostPath:
+            path: /etc/os-release
+        - name: host-proc
+          hostPath:
+            path: /proc
+            type: Directory
+        - name: debugfs
+          hostPath:
+            path: /sys/kernel/debug
+        - name: cgroups
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: containerd-k8s-rootfs
+          hostPath:
+            path: /run/containerd/io.containerd.runtime.v2.task/k8s.io
+            type: Directory
+        - name: containerd-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+{{- end }}
+---
+{{- if .Values.agent.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kvisor.agent.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+  {{- with .Values.agent.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kvisor.fullname" . }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "apps"
+    resources:
+      - deployments
+      - replicasets
+      - daemonsets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "batch"
+    resources:
+      - jobs
+      - cronjobs
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kvisor.fullname" . }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kvisor.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kvisor.agent.serviceAccountName" . }}
+    namespace: {{.Release.Namespace}}
+{{- end }}

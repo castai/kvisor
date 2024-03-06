@@ -11,41 +11,73 @@ then
   exit 1
 fi
 
-# Build e2e docker image.
-GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/kvisor-e2e ./e2e
-docker build . -t kvisor-e2e:local --build-arg image_tag=$IMAGE_TAG -f Dockerfile.e2e
+name=kvisord
 
-# Load local image into kind.
-kind load docker-image kvisor-e2e:local --name $KIND_CONTEXT
+# Build e2e docker image.
+pushd ./e2e
+GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o ../bin/$name-e2e .
+popd
+docker build . -t $name-e2e:local --build-arg image_tag=$IMAGE_TAG -f Dockerfile.e2e
+
+# Load e2e image into kind.
+kind load docker-image $name-e2e:local --name $KIND_CONTEXT
 
 if [ "$IMAGE_TAG" == "local" ]
 then
-  GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o bin/castai-kvisor-$GOARCH ./cmd/kvisor
-  docker build . -t kvisor:local -f Dockerfile
-  kind load docker-image kvisor:local --name $KIND_CONTEXT
+  GOOS=linux CGO_ENABLED=0 make clean-kvisor-agent kvisor-agent
+  docker build . -t $name-agent:local -f Dockerfile.agent
+  kind load docker-image $name-agent:local --name $KIND_CONTEXT
+
+  GOOS=linux CGO_ENABLED=0 make clean-kvisor-controller kvisor-controller
+  docker build . -t $name-controller:local -f Dockerfile.controller
+  kind load docker-image $name-controller:local --name $KIND_CONTEXT
 fi
 
 # Deploy e2e resources.
 function printJobLogs() {
-  echo "Jobs:"
+  echo "=========== Jobs: ==========="
   kubectl get jobs -owide
-  echo "Pods:"
+  echo "=========== Pods: ==========="
   kubectl get pods -owide
-  echo "E2E Job logs:"
+  echo "=========== kvisord agent pods: ==========="
+  kubectl describe pod -l app.kubernetes.io/component=agent
+  echo "===========kvisord agent logs: ==========="
+  kubectl logs -l app.kubernetes.io/component=agent
+  echo "=========== kvisord server logs: ==========="
+  kubectl logs -l app.kubernetes.io/component=controller
+  echo "=========== E2E Job pods: ==========="
+  kubectl describe pod -l job-name=e2e
+  echo "=========== E2E Job logs: ==========="
   kubectl logs -l job-name=e2e --tail=-1
 }
 trap printJobLogs EXIT
 
-ns="castai-kvisor-e2e"
+ns="$name-e2e"
 kubectl delete ns $ns --force || true
 kubectl create ns $ns || true
 kubectl config set-context --current --namespace=$ns
-kubectl apply -f ./e2e/e2e.yaml -n $ns
+# Create job pod. It will install kvisord-e2e helm chart inside the k8s.
+kubectl apply -f ./e2e/e2e.yaml
+# Make sure kvisord is running.
+for (( i=1; i<=20; i++ ))
+do
+    if eval kubectl get ds kvisord-e2e; then
+        break
+    fi
+    sleep 1
+done
+# Deploy some basic http communication services. Now we should get some conntrack records.
+kubectl apply -f ./e2e/conn-generator.yaml
+
+kubectl apply -f ./e2e/dns-generator.yaml
+kubectl apply -f ./e2e/magic-write-generator.yaml
+kubectl apply -f ./e2e/oom-generator.yaml
+
 echo "Waiting for job to finish"
 
 i=0
 sleep_seconds=5
-retry_count=20
+retry_count=30
 while true; do
   if [ "$i" == "$retry_count" ];
   then

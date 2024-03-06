@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    cni.projectcalico.org/containerID: d4640a8489fa924d2b60689a27f2538f5e9e3c4770668730b9257367649d2803
+    cni.projectcalico.org/podIP: 10.48.1.19/32
+    cni.projectcalico.org/podIPs: 10.48.1.19/32
+  creationTimestamp: "2023-12-26T09:16:08Z"
+  generateName: oom-test-c97bd4849-
+  labels:
+    app: oom-test
+    pod-template-hash: c97bd4849
+  name: oom-test-c97bd4849-h98qg
+  namespace: demo
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: oom-test-c97bd4849
+    uid: 833ca453-3e79-45d3-ac58-b0ecbb65d545
+  resourceVersion: "92758113"
+  uid: a2976219-ff7d-43f4-806c-850f49dc62af
+spec:
+  containers:
+  - args:
+    - -mem-total
+    - 1Gi
+    - -mem-alloc-size
+    - 100Mi
+    image: vishh/stress
+    imagePullPolicy: Always
+    name: stress
+    resources:
+      limits:
+        memory: 10Mi
+      requests:
+        memory: 10Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-sgsv7
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: gke-demo-pool-1-96567561-ukhh
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-sgsv7
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:16:08Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:16:08Z"
+    message: 'containers with unready status: [stress]'
+    reason: ContainersNotReady
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:16:08Z"
+    message: 'containers with unready status: [stress]'
+    reason: ContainersNotReady
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2023-12-26T09:16:08Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - image: vishh/stress
+    imageID: ""
+    lastState: {}
+    name: stress
+    ready: false
+    restartCount: 0
+    started: false
+    state:
+      waiting:
+        message: Back-off pulling image "vishh/stress"
+        reason: ImagePullBackOff
+  hostIP: 10.128.0.6
+  phase: Pending
+  podIP: 10.48.1.19
+  podIPs:
+  - ip: 10.48.1.19
+  qosClass: Burstable
+  startTime: "2023-12-26T09:16:08Z"

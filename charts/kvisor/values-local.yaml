@@ -1,0 +1,45 @@
+castai:
+  grpcAddr: "kvisor-anjmao.localenv.cast.ai:443"
+  apiKey: "a36353be8070b26c1c7c82a0127e48d7bfc0d796eea86cb49f1048775f8a81c7"
+  clusterID: "4b01083d-e781-4e2e-9a97-796727da1b2f"
+
+image:
+  repository: localhost:5000/kvisor
+  tag: latest
+
+agent:
+  enabled: true
+  extraArgs:
+    log-level: debug
+    analyzers-enabled: true
+    container-stats-scrape-interval: 10s
+
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+
+controller:
+  replicas: 1
+  extraArgs:
+    log-level: debug
+    kubernetes-delta-interval: 5s
+    kubernetes-delta-init-delay: 5s
+    image-scan-enabled: true
+    image-scan-interval: 5s
+    image-scan-init-delay: 5s
+    kube-linter-enabled: true
+    kube-linter-scan-interval: 5s
+
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+
+eventGenerator:
+  enabled: false
+  image:
+    repository: localhost:5000/kvisor-event-generator
+    tag: latest
+
+mockServer:
+  enabled: false
+  image:
+    repository: localhost:5000/kvisor-mock-server
+    tag: latest

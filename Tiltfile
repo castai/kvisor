@@ -1,7 +1,5 @@
-if config.tilt_subcommand == "down":
-    fail("consider using `kubectl delete ns kvisor")
-
 load('ext://restart_process', 'docker_build_with_restart')
+load('ext://helm_remote', 'helm_remote')
 load('ext://namespace', 'namespace_create')
 load('ext://dotenv', 'dotenv')
 
@@ -9,99 +7,116 @@ if read_file ('.env' , default = '' ):
     dotenv()
 
 update_settings(max_parallel_updates=16)
-secret_settings ( disable_scrub = True)
-allow_k8s_contexts(['tilt', 'kind-tilt', 'docker-desktop', 'minikube'])
+secret_settings (disable_scrub = True)
+allow_k8s_contexts(['kind-kind'])
 namespace = 'kvisor'
 user = os.environ.get('USER', 'unknown-user')
-api_url = os.environ.get('API_URL', 'http://mockapi')
-api_key = os.environ.get('API_KEY', 'not-set')
-cluster_id = os.environ.get('CLUSTER_ID', 'not-set')
-image_scan_enabled = os.environ.get('IMAGE_SCAN_ENABLED', 'true')
+
+GOARCH = str(local('go env GOARCH')).rstrip('\n')
 
 namespace_create(namespace)
 
 local_resource(
-    'agent-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-kvisor ./cmd/agent',
+    'kvisor-agent-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-agent ./cmd/agent',
     deps=[
-        './'
-    ],
-    ignore=[
-        './bin',
+        './cmd/agent',
+        './api',
+        './pkg/ebpftracer',
+        './pkg/cgroup',
+        './pkg/containers',
     ],
 )
 
 local_resource(
-    'imgcollector-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/castai-imgcollector ./cmd/imgcollector',
+    'kvisor-controller-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-controller ./cmd/controller',
     deps=[
-        './cmd/imgcollector'
-    ],
-    ignore=[
-        './bin',
+        './cmd/server',
+        './api'
     ],
 )
 
 local_resource(
-    'imgcollector-docker-build',
-    'docker build -t localhost:5000/kvisor-imgcollector . -f Dockerfile.imgcollector.tilt && docker push localhost:5000/kvisor-imgcollector',
+    'kvisor-event-generator-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-event-generator ./cmd/event-generator',
     deps=[
-        './bin/castai-imgcollector'
+        './cmd/event-generator',
+    ],
+)
+
+local_resource(
+    'kvisor-castai-mock-server-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-mock-server ./cmd/mock-server',
+    deps=[
+        './cmd/mock-server',
     ],
 )
 
 docker_build_with_restart(
-    'agent',
+    'localhost:5000/kvisor-agent',
     '.',
-    entrypoint=['/usr/local/bin/castai-kvisor'],
-    dockerfile='Dockerfile.tilt',
+    entrypoint=['/usr/local/bin/kvisor-agent'],
+    dockerfile='Dockerfile.agent.local',
     only=[
-        './bin/castai-kvisor',
+        './bin/kvisor-agent',
+        './cmd/agent/kubebench/kubebench-rules/',
     ],
+    build_args={
+        'ARCH': '{}'.format(str(GOARCH))
+    },
     live_update=[
-        sync('./bin/castai-kvisor', '/usr/local/bin/castai-kvisor'),
+        sync('./bin/kvisor-agent', '/usr/local/bin/kvisor-agent'),
+        sync('./cmd/agent/kubebench/kubebench-rules', '/etc/kubebench-rules'),
     ],
 )
 
-chart_path = './charts/castai-kvisor'
+docker_build_with_restart(
+    'localhost:5000/kvisor-controller',
+    '.',
+    entrypoint=['/app/kvisor-controller'],
+    dockerfile='Dockerfile.controller.local',
+    only=[
+        './bin/kvisor-controller',
+    ],
+    live_update=[
+        sync('./bin/kvisor-controller', '/app/kvisor-controller'),
+    ],
+)
+
+docker_build_with_restart(
+    'localhost:5000/kvisor-mock-server',
+    '.',
+    entrypoint=['/app/kvisor-mock-server'],
+    dockerfile='Dockerfile.mock-server',
+    only=[
+        './bin/kvisor-mock-server',
+    ],
+    live_update=[
+        sync('./bin/kvisor-mock-server', '/app/kvisor-mock-server'),
+    ],
+)
+
+chart_path = './charts/kvisor'
+
 k8s_yaml(helm(
     chart_path,
-    name='castai-kvisor',
+    name='kvisor',
     namespace=namespace,
-    set=[
-        'castai.clusterID='+cluster_id,
-        'castai.apiKey='+api_key,
-        'castai.apiURL='+api_url,
-        'image.repository=agent',
-        'structuredConfig.linter.enabled=true',
-        'structuredConfig.kubeBench.enabled=true',
-        'structuredConfig.kubeBench.scanInterval=2s',
-        'structuredConfig.imageScan.enabled='+image_scan_enabled,
-        'structuredConfig.imageScan.scanInterval=2s',
-        'structuredConfig.imageScan.image.name=localhost:5000/kvisor-imgcollector:latest',
-        'structuredConfig.imageScan.image.pullPolicy=Always',
-        'agentContainerSecurityContext=null'
-    ]
+    values=['./charts/kvisor/values-local.yaml']
 ))
 
-if api_url == 'http://mockapi':
-    local_resource(
-        'mockapi-compile',
-        'CGO_ENABLED=0 GOOS=linux go build -o ./bin/mockapi ./tools/mockapi',
-        deps=[
-            './tools/mockapi',
-        ],
-    )
-    docker_build_with_restart(
-        'mockapi',
-        '.',
-        entrypoint=['/usr/local/bin/mockapi'],
-        dockerfile='Dockerfile.mockapi',
-        only=[
-            './bin/mockapi',
-        ],
-        live_update=[
-            sync('./bin/mockapi', '/usr/local/bin/mockapi'),
-        ],
-    )
-    k8s_yaml('./tools/mockapi/k8s.yaml')
+# helm_remote(
+#     'grafana',
+#     repo_url='https://grafana.github.io/helm-charts',
+#     repo_name='grafana',
+#     version='6.50.7',
+#     namespace=namespace,
+#     set=[],
+#     values=['./tools/localenv/grafana-values.yaml']
+# )
+
+#k8s_resource(workload='kvisor-controller', port_forwards=[6060,5432])
+
+#
+# k8s_yaml('./hack/network-test-app.yaml')

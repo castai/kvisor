@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package runtime.v1;
+
+option go_package = "github.com/castai/kvisord/api/runtime/v1";
+
+message Exec {
+  string path = 1;
+  repeated string args = 2;
+  ExecMetadata meta = 3;
+}
+
+message Library {
+  string name = 1;
+  string version = 2;
+}
+
+message ExecMetadata {
+  Language lang = 1;
+  repeated Library libraries = 2;
+}
+
+enum Language {
+  LANG_UNKNOWN = 0;
+  LANG_GOLANG = 1;
+  LANG_C = 2;
+}
+
+message File {
+  string path = 1;
+}
+
+message Tuple {
+  string src_ip = 1;
+  string dst_ip = 2;
+  uint32 src_port = 3;
+  uint32 dst_port = 4;
+}
+
+message DNS {
+  string DNSQuestionDomain = 1;
+  repeated DNSAnswers answers = 2;
+}
+
+message DNSAnswers {
+  uint32 type = 1;
+  uint32 class = 2;
+  uint32 ttl= 3;
+  string name = 4;
+  bytes ip = 5;
+  string cname = 6;
+}
+
+enum StatsGroup {
+  STATS_GROUP_UNKNOWN = 0;
+  STATS_GROUP_SYSCALL = 1;
+  STATS_GROUP_CPU = 2;
+  STATS_GROUP_MEMORY = 3;
+  STATS_GROUP_IO = 4;
+  STATS_GROUP_NET = 5;
+}
+
+message Stats {
+  StatsGroup group = 1;
+  uint32 subgroup = 2;
+  double value = 3;
+}
+
+message LogEvent {
+  int32 level = 1;
+  string msg = 2;
+}
+
+
+message SignatureEvent {
+  SignatureMetadata metadata = 1;
+  SignatureFinding finding = 2;
+}
+
+enum SignatureEventID {
+  SIGNATURE_UNKNOWN = 0;
+  SIGNATURE_STDIO_VIA_SOCKET = 1;
+}
+
+message SignatureMetadata {
+  SignatureEventID id = 1;
+  string version = 2;
+}
+
+message SignatureFinding {
+}

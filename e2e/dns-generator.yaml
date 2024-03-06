@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-generator
+  labels:
+    app: dns-generator
+spec:
+  selector:
+    matchLabels:
+      app: dns-generator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dns-generator
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: dns-generator
+          image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
+          command:
+            - /bin/ash
+            - -c
+            - |-
+              sleep 1
+              curl google.com
+              curl cast.ai
+              sleep 1000000000

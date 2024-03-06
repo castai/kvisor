@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: anomaly
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: anomaly
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: curl-nginx
+          image: curlimages/curl
+          command: ["/bin/sh", "-ec", "while :; do curl http://server; sleep 5 ; done"]
+          securityContext:
+            seccompProfile:
+              #localhostProfile: profiles/anomaly-deployment-client-curl-public.json
+              #type: Localhost
+              type: RuntimeDefault
+#        - name: curl-public
+#          image: curlimages/curl
+#          command: [ "/bin/sh", "-ec", "while :; do curl https://delfi.lt.; sleep 5 ; done" ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: anomaly
+  labels:
+    app: server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  namespace: anomaly
+spec:
+  selector:
+    app: server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
