@@ -39,7 +39,7 @@ var (
 	agentDaemonSetName = pflag.String("agent-daemonset-name", "", "Agent DaemonSet name")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
-	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 5*time.Minute, "CASTAI remote config sync duration")
+	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
 	castaiServerInsecure     = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
 
 	kubernetesDeltaEnabled            = pflag.Bool("kubernetes-delta-enabled", true, "Enable kubernetes delta sync")
