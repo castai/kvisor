@@ -84,9 +84,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	if len(params.ResourceIDs) == 0 {
 		return errors.New("resource ids are required")
 	}
-	if params.NodeName == "" {
-		return errors.New("node name is required")
-	}
 	if s.podNamespace == "" {
 		return errors.New("pod namespace is required")
 	}
@@ -437,20 +434,6 @@ func scanJobSpec(
 									},
 								},
 							},
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-								{
-									Weight: 1,
-									Preference: corev1.NodeSelectorTerm{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key:      "kubernetes.io/hostname",
-												Operator: corev1.NodeSelectorOpIn,
-												Values:   []string{params.NodeName},
-											},
-										},
-									},
-								},
-							},
 						},
 					},
 					Tolerations:                  tolerations,
@@ -490,6 +473,23 @@ func scanJobSpec(
 				},
 			},
 		},
+	}
+
+	if params.NodeName != "" {
+		job.Spec.Template.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = []corev1.PreferredSchedulingTerm{
+			{
+				Weight: 1,
+				Preference: corev1.NodeSelectorTerm{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{
+							Key:      "kubernetes.io/hostname",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{params.NodeName},
+						},
+					},
+				},
+			},
+		}
 	}
 
 	if cfg.CPULimit != "" {

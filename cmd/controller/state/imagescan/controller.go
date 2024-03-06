@@ -16,7 +16,6 @@ import (
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type castaiClient interface {
@@ -104,8 +103,6 @@ func (c *Controller) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case deltaItem := <-c.delta.queue:
-			c.handleDelta(deltaItem.event, deltaItem.obj)
 		case <-scanTicker.C:
 			if err := c.scheduleScans(ctx); err != nil {
 				c.log.Errorf("images scan failed: %v", err)
@@ -120,8 +117,6 @@ func (c *Controller) waitInitialDeltaQueueSync(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case deltaItem := <-c.delta.queue:
-			c.handleDelta(deltaItem.event, deltaItem.obj)
 		case <-waitTimeout:
 			return nil
 		}
@@ -129,49 +124,32 @@ func (c *Controller) waitInitialDeltaQueueSync(ctx context.Context) error {
 }
 
 func (c *Controller) OnAdd(obj kube.Object) {
-	c.delta.queue <- deltaQueueItem{
-		event: kube.EventAdd,
-		obj:   obj,
-	}
+	c.delta.Upsert(obj)
 }
 
 func (c *Controller) OnUpdate(obj kube.Object) {
-	c.delta.queue <- deltaQueueItem{
-		event: kube.EventUpdate,
-		obj:   obj,
-	}
+	c.delta.Upsert(obj)
 }
 
 func (c *Controller) OnDelete(obj kube.Object) {
-	c.delta.queue <- deltaQueueItem{
-		event: kube.EventDelete,
-		obj:   obj,
-	}
-}
-
-func (c *Controller) handleDelta(event kube.EventType, o kube.Object) {
-	switch event {
-	case kube.EventAdd, kube.EventUpdate:
-		c.delta.upsert(o)
-	case kube.EventDelete:
-		c.delta.delete(o)
-	}
+	c.delta.Delete(obj)
 }
 
 func (c *Controller) scheduleScans(ctx context.Context) (rerr error) {
-	c.syncFromRemoteState(ctx)
+	images := c.delta.GetImagesCopy()
 
-	if err := c.updateImageStatuses(ctx); err != nil {
+	c.syncFromRemoteState(ctx, images)
+	if err := c.updateImageStatuses(ctx, images); err != nil {
 		c.log.Errorf("sending images resources changes: %v", err)
 	}
-
 	// Scan pending images.
-	pendingImages := c.findPendingImages()
-	concurrentScans := c.concurrentScansNumber()
+	pendingImages := c.findPendingImages(images)
+	concurrentScans := int(c.cfg.MaxConcurrentScans)
 	imagesForScan := pendingImages
 	if len(imagesForScan) > concurrentScans {
 		imagesForScan = imagesForScan[:concurrentScans]
 	}
+
 	if l := len(imagesForScan); l > 0 {
 		c.log.Infof("scheduling %d images scans", l)
 		if err := c.scanImages(ctx, imagesForScan); err != nil {
@@ -185,9 +163,7 @@ func (c *Controller) scheduleScans(ctx context.Context) (rerr error) {
 	return nil
 }
 
-func (c *Controller) findPendingImages() []*image {
-	images := c.delta.getImages()
-
+func (c *Controller) findPendingImages(images []*image) []*image {
 	now := c.timeGetter()
 
 	privateImagesCount := lo.CountBy(images, func(v *image) bool {
@@ -231,14 +207,14 @@ func (c *Controller) scanImages(ctx context.Context, images []*image) error {
 			if err := c.scanImage(ctx, img); err != nil {
 				log.Errorf("image scan failed: %v", err)
 				parsedErr := parseErrorFromLog(err)
-				c.delta.setImageScanError(img, parsedErr)
+				c.delta.SetImageScanError(img.key, parsedErr)
 				if err := c.updateImageStatusAsFailed(ctx, img, parsedErr); err != nil {
 					c.log.Errorf("sending images resources changes: %v", err)
 				}
 				return
 			}
 			log.Info("image scan finished")
-			c.delta.updateImage(img, func(i *image) { i.scanned = true })
+			c.delta.SetImageScanned(img.key)
 		}(img)
 	}
 
@@ -256,78 +232,9 @@ func (c *Controller) scanImages(ctx context.Context, images []*image) error {
 	}
 }
 
-func (c *Controller) findBestNodeAndMode(img *image) (string, string, error) {
-	mode := c.cfg.Mode
-	if img.lastScanErr != nil && errors.Is(img.lastScanErr, errImageScanLayerNotFound) {
-		// Fallback to remote if previously it failed due to missing layers.
-		c.log.Debugf("selecting remote mode because of lastScanErr")
-		mode = string(imagescanconfig.ModeRemote)
-	}
-
-	var nodeNames []string
-	if imagescanconfig.Mode(mode) == imagescanconfig.ModeHostFS {
-		// In HostFS we need to choose only from nodes which contains this image.
-		nodeNames = lo.Keys(img.nodes)
-		if len(nodeNames) == 0 {
-			return "", "", errors.New("image with empty nodes")
-		}
-
-		nodeNames = c.delta.filterCastAIManagedNodes(nodeNames)
-		if len(nodeNames) == 0 {
-			// If image is not running on CAST AI managed nodes fallback to remote scan.
-			mode = string(imagescanconfig.ModeRemote)
-			c.log.Debugf("selecting remote mode because no CAST AI managed nodes found")
-			nodeNames = lo.Keys(c.delta.nodes)
-		}
-	} else {
-		nodeNames = lo.Keys(c.delta.nodes)
-	}
-
-	// skipping non-linux nodes as they are not supported as for today
-	nodeNames = c.filterWindowsNodes(nodeNames)
-
-	// Resolve best node.
-	memQty := resource.MustParse(c.cfg.MemoryRequest)
-	cpuQty := resource.MustParse(c.cfg.CPURequest)
-	resolvedNode, err := c.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
-	if err != nil {
-		if errors.Is(err, errNoCandidates) && imagescanconfig.Mode(mode) == imagescanconfig.ModeHostFS {
-			// if mode was host fs fallback to remote scan and try picking node again.
-			mode = string(imagescanconfig.ModeRemote)
-			c.log.Debugf("selecting a node in remote mode because of errNoCandidates")
-			nodeNames = lo.Keys(c.delta.nodes)
-			resolvedNode, err = c.delta.findBestNode(nodeNames, memQty.AsDec(), cpuQty.AsDec())
-			if err != nil {
-				return "", "", err
-			}
-		} else {
-			return "", "", err
-		}
-	}
-
-	return resolvedNode, mode, nil
-}
-
-func (c *Controller) filterWindowsNodes(names []string) []string {
-	var filtered []string
-	for _, name := range names {
-		if c.delta.nodes[name].os != "linux" {
-			c.log.Debugf("skipping non-linux node %s", name)
-			continue
-		}
-		filtered = append(filtered, name)
-	}
-	return filtered
-}
-
 func (c *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-
-	node, mode, err := c.findBestNodeAndMode(img)
-	if err != nil {
-		return err
-	}
 
 	agentImageDetails, found := c.kubeController.GetKvisorAgentImageDetails()
 	if !found {
@@ -338,9 +245,8 @@ func (c *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 		ImageName:                   img.name,
 		ImageID:                     img.id,
 		ContainerRuntime:            string(img.containerRuntime),
-		Mode:                        mode,
+		Mode:                        string(imagescanconfig.ModeRemote),
 		ResourceIDs:                 lo.Keys(img.owners),
-		NodeName:                    node,
 		DeleteFinishedJob:           true,
 		WaitForCompletion:           true,
 		WaitDurationAfterCompletion: 30 * time.Second,
@@ -350,16 +256,7 @@ func (c *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	})
 }
 
-func (c *Controller) concurrentScansNumber() int {
-	if c.delta.nodeCount() == 1 {
-		return 1
-	}
-
-	return int(c.cfg.MaxConcurrentScans)
-}
-
-func (c *Controller) updateImageStatuses(ctx context.Context) error {
-	images := c.delta.getImages()
+func (c *Controller) updateImageStatuses(ctx context.Context, images []*image) error {
 	if c.fullSnapshotSent {
 		images = lo.Filter(images, func(item *image, index int) bool {
 			return item.ownerChangedAt.After(item.resourcesUpdatedAt)
@@ -395,9 +292,7 @@ func (c *Controller) updateImageStatuses(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, img := range images {
-		img.resourcesUpdatedAt = now
-	}
+	c.delta.SetResourcesUpdatedAt(images, now)
 	c.fullSnapshotSent = true
 	return nil
 }
@@ -427,8 +322,7 @@ func (c *Controller) updateImageStatusAsFailed(ctx context.Context, image *image
 	return err
 }
 
-func (c *Controller) syncFromRemoteState(ctx context.Context) {
-	images := c.delta.getImages()
+func (c *Controller) syncFromRemoteState(ctx context.Context, images []*image) {
 	now := c.timeGetter().UTC()
 	imagesWithNotSyncedState := lo.Filter(images, func(item *image, index int) bool {
 		return !item.scanned && item.lastRemoteSyncAt.Before(now.Add(-10*time.Minute))
@@ -455,12 +349,10 @@ func (c *Controller) syncFromRemoteState(ctx context.Context) {
 	for _, img := range imagesWithNotSyncedState {
 		img.lastRemoteSyncAt = now
 	}
+	c.delta.UpdateRemoteSyncedAt(imagesWithNotSyncedState, now)
+
 	// Set images as scanned from remote response.
-	for _, remoteImage := range resp.Images.Images {
-		if remoteImage.ScanStatus == castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_SCANNED {
-			c.delta.setImageScanned(remoteImage)
-		}
-	}
+	c.delta.SetScannedImages(resp.Images.Images)
 
 	// If full resources resync is required it will be sent during next scheduled scan.
 	if resp.Images.FullResyncRequired {
