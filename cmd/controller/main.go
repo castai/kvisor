@@ -62,13 +62,16 @@ var (
 	imageScanBlobsCacheURL         = pflag.String("image-scan-blobs-cache-url", "http://castai-kvisor-controller.castai-agent", "Image scan blobs cache server url")
 
 	kubeBenchEnabled            = pflag.Bool("kube-bench-enabled", false, "Kube Bench enabled")
-	kubeBenchScanInterval       = pflag.Duration("kube-bench-scan-interval", 120*time.Second, "Kube bench scan interval")
+	kubeBenchScanInterval       = pflag.Duration("kube-bench-scan-interval", 5*time.Minute, "Kube bench scan interval")
 	kubeBenchForceScan          = pflag.Bool("kube-bench-force", false, "Kube Bench force scan")
 	kubeBenchJobImagePullPolicy = pflag.String("kube-bench-job-pull-policy", "IfNotPresent", "Kube bench job image pull policy")
 	kubeBenchCloudProvider      = pflag.String("kube-bench-cloud-provider", "", "Kube bench cloud provider")
 
 	kubeLinterEnabled      = pflag.Bool("kube-linter-enabled", false, "Kube linter enabled")
 	kubeLinterScanInterval = pflag.Duration("kube-linter-scan-interval", 60*time.Second, "Kube linter scan interval")
+
+	jobsCleanupInterval = pflag.Duration("jobs-cleanup", 10*time.Minute, "Jobs cleanup interval")
+	jobsCleanupJobAge   = pflag.Duration("jobs-cleanup-job-age", 10*time.Minute, "Jobs cleanup job age")
 )
 
 func main() {
@@ -147,6 +150,11 @@ func main() {
 			Enabled:       *kubernetesDeltaEnabled,
 			Interval:      *kubernetesDeltaReportInterval,
 			InitialDeltay: *initialKubernetesDeltaReportDelay,
+		},
+		JobsCleanup: state.JobsCleanupConfig{
+			CleanupInterval: *jobsCleanupInterval,
+			CleanupJobAge:   *jobsCleanupJobAge,
+			Namespace:       podNs,
 		},
 	},
 		clientset,
