@@ -239,7 +239,7 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 
 func withPyroscope(addr string) {
 	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisord-server",
+		ApplicationName: "kvisor-controller",
 		ServerAddress:   addr,
 		ProfileTypes: []pyroscope.ProfileType{
 			pyroscope.ProfileCPU,
