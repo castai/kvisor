@@ -105,8 +105,7 @@ GO_ENV_EBPF =
 GO_ENV_EBPF += GOOS=linux
 GO_ENV_EBPF += CC=$(CMD_CLANG)
 GO_ENV_EBPF += GOARCH=$(GO_ARCH)
-#GO_DEBUG_FLAG = -s -w
-GO_DEBUG_FLAG =
+GO_DEBUG_FLAG = -s -w
 
 # Build kvisor binary and docker image.
 .PHONY: git-config
