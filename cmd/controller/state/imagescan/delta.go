@@ -10,9 +10,7 @@ import (
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/samber/lo"
-	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -276,12 +274,6 @@ func getContainerRuntime(containerID string) imagescanconfig.Runtime {
 	return ""
 }
 
-type pod struct {
-	id            types.UID
-	requestCPU    *inf.Dec
-	requestMemory *inf.Dec
-}
-
 type imageOwner struct {
 	podIDs map[string]struct{}
 }
@@ -322,8 +314,4 @@ type image struct {
 	lastRemoteSyncAt   time.Time // Time then image state was synced from remote.
 	ownerChangedAt     time.Time // Time when new image owner was added
 	resourcesUpdatedAt time.Time // Time when image was synced with backend
-}
-
-func (img *image) isUnused() bool {
-	return len(img.owners) == 0
 }
