@@ -96,13 +96,17 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 		return
 	}
 
+	// Cancel context to close stream after deltas are sent.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	if firstDeltaReport {
 		ctx = metadata.AppendToOutgoingContext(ctx,
 			"x-delta-full-snapshot", "true",
 		)
 	}
 	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, grpc.UseCompressor(gzip.Name))
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		c.log.Warnf("creating delta upload stream: %v", err)
 		return
 	}
