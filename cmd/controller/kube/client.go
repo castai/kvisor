@@ -117,6 +117,9 @@ func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {
 
 func (c *Client) RegisterPodsHandlers(factory informers.SharedInformerFactory) {
 	podsInformer := factory.Core().V1().Pods().Informer()
+	if err := podsInformer.SetTransform(c.transformFunc); err != nil {
+		panic(err)
+	}
 	if _, err := podsInformer.AddEventHandler(c.eventHandler()); err != nil {
 		panic(err)
 	}
@@ -265,6 +268,9 @@ func (c *Client) getPodOwnerID(pod *corev1.Pod) string {
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	switch v := obj.(type) {
 	case *corev1.Pod:
 		return c.getPodOwnerID(v)

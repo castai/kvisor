@@ -136,9 +136,9 @@ func (c *Controller) OnDelete(obj kube.Object) {
 }
 
 func (c *Controller) scheduleScans(ctx context.Context) (rerr error) {
-	images := c.delta.GetImagesCopy()
+	c.syncFromRemoteState(ctx)
 
-	c.syncFromRemoteState(ctx, images)
+	images := c.delta.GetImagesCopy()
 	if err := c.updateImageStatuses(ctx, images); err != nil {
 		c.log.Errorf("sending images resources changes: %v", err)
 	}
@@ -322,7 +322,9 @@ func (c *Controller) updateImageStatusAsFailed(ctx context.Context, image *image
 	return err
 }
 
-func (c *Controller) syncFromRemoteState(ctx context.Context, images []*image) {
+func (c *Controller) syncFromRemoteState(ctx context.Context) {
+	images := c.delta.GetImagesCopy()
+
 	now := c.timeGetter().UTC()
 	imagesWithNotSyncedState := lo.Filter(images, func(item *image, index int) bool {
 		return !item.scanned && item.lastRemoteSyncAt.Before(now.Add(-10*time.Minute))
@@ -346,9 +348,6 @@ func (c *Controller) syncFromRemoteState(ctx context.Context, images []*image) {
 	}
 
 	// Set sync state for all these images to prevent constant api calls.
-	for _, img := range imagesWithNotSyncedState {
-		img.lastRemoteSyncAt = now
-	}
 	c.delta.UpdateRemoteSyncedAt(imagesWithNotSyncedState, now)
 
 	// Set images as scanned from remote response.
