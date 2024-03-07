@@ -95,6 +95,7 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	if len(pendingDeltas) == 0 {
 		return
 	}
+	start := time.Now()
 
 	// Cancel context to close stream after deltas are sent.
 	ctx, cancel := context.WithCancel(ctx)
@@ -122,9 +123,9 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 		}
 	}
 	if sendErr != nil {
-		c.log.Warnf("sending kubernetes delta ingest to castai: %v", err)
+		c.log.Warnf("sending kubernetes delta ingest to castai, duration=%v: %v", err, time.Since(start))
 	} else {
-		c.log.Infof("sent deltas, count=%d", len(pendingDeltas))
+		c.log.Infof("sent deltas, count=%d, duration=%v", len(pendingDeltas), time.Since(start))
 	}
 }
 
