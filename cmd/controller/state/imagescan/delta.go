@@ -139,9 +139,7 @@ func (d *deltaState) SetScannedImages(images []*castaipb.Image) {
 	defer d.mu.Unlock()
 
 	for _, remoteImage := range images {
-		if remoteImage.ScanStatus == castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_SCANNED {
-			d.setImageScanned(remoteImage)
-		}
+		d.setImageScanned(remoteImage)
 	}
 }
 

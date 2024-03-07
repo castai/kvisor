@@ -265,6 +265,9 @@ func (c *Client) getPodOwnerID(pod *corev1.Pod) string {
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	switch v := obj.(type) {
 	case *corev1.Pod:
 		return c.getPodOwnerID(v)
