@@ -117,6 +117,9 @@ func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {
 
 func (c *Client) RegisterPodsHandlers(factory informers.SharedInformerFactory) {
 	podsInformer := factory.Core().V1().Pods().Informer()
+	if err := podsInformer.SetTransform(c.transformFunc); err != nil {
+		panic(err)
+	}
 	if _, err := podsInformer.AddEventHandler(c.eventHandler()); err != nil {
 		panic(err)
 	}
