@@ -17,7 +17,7 @@ service RuntimeSecurityAgentAPI {
   rpc GetSyncState(GetSyncStateRequest) returns (GetSyncStateResponse) {}
   rpc UpdateSyncState(UpdateSyncStateRequest) returns (UpdateSyncStateResponse) {}
 
-  rpc KubernetesDeltaIngest(stream KubernetesDeltaItem) returns (KubernetesDeltaIngestResponse) {}
+  rpc KubernetesDeltaIngest(stream KubernetesDeltaItem) returns (stream KubernetesDeltaIngestResponse) {}
   rpc ImageMetadataIngest(ImageMetadata) returns (ImageMetadataIngestResponse) {}
   rpc KubeBenchReportIngest(KubeBenchReport) returns (KubeBenchReportIngestResponse) {}
   rpc KubeLinterReportIngest(KubeLinterReport) returns (KubeLinterReportIngestResponse) {}

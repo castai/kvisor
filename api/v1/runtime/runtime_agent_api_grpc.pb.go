@@ -178,7 +178,7 @@ func (c *runtimeSecurityAgentAPIClient) KubernetesDeltaIngest(ctx context.Contex
 
 type RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient interface {
 	Send(*KubernetesDeltaItem) error
-	CloseAndRecv() (*KubernetesDeltaIngestResponse, error)
+	Recv() (*KubernetesDeltaIngestResponse, error)
 	grpc.ClientStream
 }
 
@@ -190,10 +190,7 @@ func (x *runtimeSecurityAgentAPIKubernetesDeltaIngestClient) Send(m *KubernetesD
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *runtimeSecurityAgentAPIKubernetesDeltaIngestClient) CloseAndRecv() (*KubernetesDeltaIngestResponse, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+func (x *runtimeSecurityAgentAPIKubernetesDeltaIngestClient) Recv() (*KubernetesDeltaIngestResponse, error) {
 	m := new(KubernetesDeltaIngestResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -427,7 +424,7 @@ func _RuntimeSecurityAgentAPI_KubernetesDeltaIngest_Handler(srv interface{}, str
 }
 
 type RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer interface {
-	SendAndClose(*KubernetesDeltaIngestResponse) error
+	Send(*KubernetesDeltaIngestResponse) error
 	Recv() (*KubernetesDeltaItem, error)
 	grpc.ServerStream
 }
@@ -436,7 +433,7 @@ type runtimeSecurityAgentAPIKubernetesDeltaIngestServer struct {
 	grpc.ServerStream
 }
 
-func (x *runtimeSecurityAgentAPIKubernetesDeltaIngestServer) SendAndClose(m *KubernetesDeltaIngestResponse) error {
+func (x *runtimeSecurityAgentAPIKubernetesDeltaIngestServer) Send(m *KubernetesDeltaIngestResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -553,6 +550,7 @@ var RuntimeSecurityAgentAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "KubernetesDeltaIngest",
 			Handler:       _RuntimeSecurityAgentAPI_KubernetesDeltaIngest_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},
