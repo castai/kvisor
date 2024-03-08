@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"sync"
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
@@ -43,11 +43,12 @@ func NewController(
 	kubeClient kubeClient,
 ) *Controller {
 	return &Controller{
-		log:          log.WithField("component", "delta"),
-		cfg:          cfg,
-		castaiClient: castaiClient,
-		kubeClient:   kubeClient,
-		pendingItems: map[string]deltaItem{},
+		log:                   log.WithField("component", "delta"),
+		cfg:                   cfg,
+		castaiClient:          castaiClient,
+		kubeClient:            kubeClient,
+		pendingItems:          map[string]deltaItem{},
+		deltaStreamCloseDelay: 3 * time.Second,
 	}
 }
 
@@ -57,8 +58,9 @@ type Controller struct {
 	castaiClient castaiClient
 	kubeClient   kubeClient
 
-	pendingItems map[string]deltaItem
-	deltasMu     sync.Mutex
+	pendingItems          map[string]deltaItem
+	deltasMu              sync.Mutex
+	deltaStreamCloseDelay time.Duration
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -99,13 +101,24 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 
 	// Cancel context to close stream after deltas are sent.
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer func() {
+		t := time.NewTimer(c.deltaStreamCloseDelay)
+		select {
+		case <-t.C:
+			cancel()
+		case <-ctx.Done():
+			cancel()
+		}
+	}()
 
-	if firstDeltaReport {
-		ctx = metadata.AppendToOutgoingContext(ctx,
-			"x-delta-full-snapshot", "true",
-		)
+	deltaID := uuid.NewString()
+	meta := []string{
+		"x-delta-id", deltaID,
 	}
+	if firstDeltaReport {
+		meta = append(meta, "x-delta-full-snapshot", "true")
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, meta...)
 	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, grpc.UseCompressor(gzip.Name))
 	if err != nil && !errors.Is(err, context.Canceled) {
 		c.log.Warnf("creating delta upload stream: %v", err)
@@ -115,18 +128,16 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 		_ = deltaStream.CloseSend()
 	}()
 
-	var sendErr error
+	var sentCount int
 	for _, item := range pendingDeltas {
 		pbItem := c.toCastaiDelta(item)
-		if err := deltaStream.Send(pbItem); err != nil && !errors.Is(err, io.EOF) {
-			sendErr = err
+		if err := deltaStream.Send(pbItem); err != nil {
+			c.log.Warnf("sending kubernetes delta ingest to castai, duration=%v: %v", err, time.Since(start))
+		} else {
+			sentCount++
 		}
 	}
-	if sendErr != nil {
-		c.log.Warnf("sending kubernetes delta ingest to castai, duration=%v: %v", err, time.Since(start))
-	} else {
-		c.log.Infof("sent deltas, count=%d, duration=%v", len(pendingDeltas), time.Since(start))
-	}
+	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), sentCount, time.Since(start))
 }
 
 func (c *Controller) recordDeltaEvent(action castaipb.KubernetesDeltaItemEvent, obj kube.Object) {
