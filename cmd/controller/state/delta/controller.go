@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"sync"
 	"time"
 
@@ -48,7 +49,7 @@ func NewController(
 		castaiClient:          castaiClient,
 		kubeClient:            kubeClient,
 		pendingItems:          map[string]deltaItem{},
-		deltaStreamCloseDelay: 3 * time.Second,
+		deltaItemSendMaxTries: 3,
 	}
 }
 
@@ -60,7 +61,7 @@ type Controller struct {
 
 	pendingItems          map[string]deltaItem
 	deltasMu              sync.Mutex
-	deltaStreamCloseDelay time.Duration
+	deltaItemSendMaxTries int
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -101,15 +102,7 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 
 	// Cancel context to close stream after deltas are sent.
 	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		t := time.NewTimer(c.deltaStreamCloseDelay)
-		select {
-		case <-t.C:
-			cancel()
-		case <-ctx.Done():
-			cancel()
-		}
-	}()
+	defer cancel()
 
 	deltaID := uuid.NewString()
 	meta := []string{
@@ -128,16 +121,41 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 		_ = deltaStream.CloseSend()
 	}()
 
-	var sentCount int
+	var lastSentItemIndex int
 	for _, item := range pendingDeltas {
 		pbItem := c.toCastaiDelta(item)
-		if err := deltaStream.Send(pbItem); err != nil {
-			c.log.Warnf("sending kubernetes delta ingest to castai, duration=%v: %v", err, time.Since(start))
-		} else {
-			sentCount++
+		if err := c.sendDeltaItem(deltaStream, pbItem); err != nil {
+			c.log.Warnf("sending delta item: %v", err)
+			// Return any remaining items back to pending list.
+			c.upsertPendingItems(pendingDeltas[lastSentItemIndex:])
+			return
 		}
+		lastSentItemIndex++
 	}
-	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), sentCount, time.Since(start))
+	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), lastSentItemIndex+1, time.Since(start))
+}
+
+func (c *Controller) sendDeltaItem(stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
+	for i := 0; i < c.deltaItemSendMaxTries; i++ {
+		if err := stream.Send(item); err != nil {
+			// Do not retry EOF. Stream is closed by server.
+			if errors.Is(err, io.EOF) {
+				return err
+			}
+			c.log.Warnf("sending delta item: %v", err)
+			continue
+		}
+		if _, err := stream.Recv(); err != nil {
+			// Do not retry EOF. Stream is closed by server.
+			if errors.Is(err, io.EOF) {
+				return err
+			}
+			c.log.Warnf("receiving delta ack: %v", err)
+			continue
+		}
+		return nil
+	}
+	return errors.New("sending delta item failed after max tries")
 }
 
 func (c *Controller) recordDeltaEvent(action castaipb.KubernetesDeltaItemEvent, obj kube.Object) {
@@ -170,6 +188,20 @@ func (c *Controller) popPendingItems() []deltaItem {
 	c.pendingItems = map[string]deltaItem{}
 
 	return values
+}
+
+func (c *Controller) upsertPendingItems(items []deltaItem) {
+	c.deltasMu.Lock()
+	defer c.deltasMu.Unlock()
+
+	for _, item := range items {
+		if v, ok := c.pendingItems[string(item.object.GetUID())]; ok {
+			item.action = v.action
+			c.pendingItems[string(item.object.GetUID())] = item
+		} else {
+			c.pendingItems[string(item.object.GetUID())] = item
+		}
+	}
 }
 
 func (c *Controller) toCastaiDelta(item deltaItem) *castaipb.KubernetesDeltaItem {
