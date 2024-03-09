@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  namespace: demo
+  labels:
+    app: hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+        - name: curl-nginx
+          image: hashicorp/http-echo:1.0
+          args:
+            - "-text=just made some syscalls!"
+          securityContext:
+            allowPrivilegeEscalation: false
+        - name: curl-nginx
+          image: curlimages/curl
+          command: ["/bin/sh", "-ec", "while :; do curl http://server; sleep 5 ; done"]

@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.6.2.18-alpine
+    restart: always
+    environment:
+      - CLICKHOUSE_USER=storage
+      - CLICKHOUSE_PASSWORD=storage
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+    volumes:
+      - clickhouse:/var/lib/clickhouse/
+
+volumes:
+  db:
+    driver: local
+  clickhouse:
+    driver: local

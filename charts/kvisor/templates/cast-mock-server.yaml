@@ -1,0 +1,61 @@
+{{- if .Values.mockServer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kvisor.castaiMockServer.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.castaiMockServer.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kvisor.castaiMockServer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: cast-mock-server
+        {{- include "kvisor.castaiMockServer.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {}
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: generator
+          securityContext: {}
+          image: "{{ .Values.mockServer.image.repository }}:{{ .Values.mockServer.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.mockServer.image.pullPolicy }}
+          args:
+            - "--mode=controller"
+        {{- range $key, $value := .Values.mockServer.extraArgs }}
+        {{- if $value }}
+            - "--{{ $key }}={{ $value }}"
+        {{- else }}
+            - "--{{ $key }}"
+        {{- end }}
+        {{- end }}
+
+      dnsPolicy: {{.Values.mockServer.dnsPolicy}}
+      {{- with .Values.mockServer.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvisor.castaiMockServer.service" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    {{- include "kvisor.castaiMockServer.selectorLabels" . | nindent 4 }}
+  type: ClusterIP
+  ports:
+  - name: server
+    protocol: TCP
+    port: 8443
+    targetPort: 8443
+{{- end }}

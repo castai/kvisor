@@ -1,6 +1,6 @@
 # CAST AI Kubernetes Security
 
-Real time Kubernetes issues detection and vulnerabilities scanning.
+Real time Kubernetes issues detection and vulnerabilities scanning and runtime.
 
 ## Getting started
 

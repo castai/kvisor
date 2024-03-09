@@ -1,418 +1,593 @@
 package main
 
 import (
-	"compress/gzip"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
-	"io"
-	"net/http"
+	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/castai/kvisor/castai"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/spf13/pflag"
+	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
-	kubeconfig    = flag.String("kubeconfig", "", "Path to kubeconfig. If not set in cluster config will be used.")
-	imageTag      = flag.String("image-tag", "", "Kvisor docker image tag")
-	timeout       = flag.Duration("timeout", 2*time.Minute, "Test timeout")
-	assertTimeout = flag.Duration("assert-timeout", 30*time.Second, "Assertion timeout")
+	imageTag = pflag.String("image-tag", "", "Kvisord docker image tag")
+	timeout  = pflag.Duration("timeout", 180*time.Second, "Test timeout")
+	ns       = pflag.String("ns", "kvisord-e2e", "Namespace")
 )
 
 const (
-	ns = "castai-kvisor-e2e"
+	apiKey    = "x-test-api-key" //nolint:gosec
+	clusterID = "x-test-cluster-id"
 )
 
 func main() {
-	flag.Parse()
-	log := logrus.New()
-	if err := run(log); err != nil {
-		log.Error(err)
-		time.Sleep(5 * time.Second)
-		os.Exit(-1)
+	pflag.Parse()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := run(ctx); err != nil {
+		fmt.Printf("💥e2e failed: %v\n", err)
+		os.Exit(1)
 	}
 }
 
-func run(log logrus.FieldLogger) error {
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+func run(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
-
 	if *imageTag == "" {
 		return errors.New("image-tag flag is not set")
 	}
 
-	api := &mockAPI{log: log, receivedEvents: map[string][][]byte{}}
-	go api.start()
+	addr := fmt.Sprintf(":%d", 8443)
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	s := grpc.NewServer()
+	srv := &testCASTAIServer{}
+	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			fmt.Printf("serving grcp failed: %v\n", err)
+		}
+	}()
 
-	out, err := installChart(ns, *imageTag)
+	out, err := installChart(*ns, *imageTag)
 	if err != nil {
 		return fmt.Errorf("installing chart: %w: %s", err, string(out))
 	}
 	fmt.Printf("installed chart:\n%s\n", out)
 
-	restconfig, err := getKubeConfig(*kubeconfig)
-	if err != nil {
-		return err
-	}
-	client, err := kubernetes.NewForConfig(restconfig)
-	if err != nil {
-		return err
-	}
-	// Assert jobs completion.
-	assertJobs := []string{"imgscan", "kube-bench"}
-	for _, jobPrefix := range assertJobs {
-		assertCtx, cancel := context.WithTimeout(ctx, *assertTimeout)
-		defer cancel()
-		if err := assertJobsCompleted(assertCtx, client, jobPrefix); err != nil {
-			return fmt.Errorf("image scan jobs %q: %w", jobPrefix, err)
-		}
+	fmt.Println("🙏waiting for events")
+	if err := srv.assertEvents(ctx); err != nil {
+		return fmt.Errorf("assert events: %w", err)
 	}
 
-	// Assert api requests.
-	reportTypes := []string{
-		castai.ReportTypeDelta,
-		castai.ReportTypeLinter,
-		castai.ReportTypeCis,
-		castai.ReportTypeImageMeta,
-	}
-	for _, reportType := range reportTypes {
-		if err := api.assertChecksReceived(ctx, reportType); err != nil {
-			return fmt.Errorf("asserting report type %q: %w", reportType, err)
-		}
+	fmt.Println("🙏waiting for container stats")
+	if err := srv.assertContainerStats(ctx); err != nil {
+		return fmt.Errorf("assert container stats: %w", err)
 	}
 
-	if err := api.assertTelemetry(); err != nil {
-		return err
+	fmt.Println("🙏waiting for kubernetes deltas")
+	if err := srv.assertKubernetesDeltas(ctx); err != nil {
+		return fmt.Errorf("assert k8s deltas: %w", err)
 	}
 
-	if err := api.assertLogs(); err != nil {
-		return err
+	validateTimeout := 30 * time.Second
+	fmt.Printf("🧐validating events (timeout %s)\n", validateTimeout)
+	if err := srv.validateEvents(ctx, validateTimeout); err != nil {
+		return fmt.Errorf("assert events: %w", err)
 	}
+
+	fmt.Println("🙏waiting for flogs")
+	if err := srv.assertLogs(ctx); err != nil {
+		return fmt.Errorf("assert logs: %w", err)
+	}
+
+	fmt.Println("🙏waiting for kube bench")
+	if err := srv.assertKubeBenchReport(ctx); err != nil {
+		return fmt.Errorf("assert kube bench: %w", err)
+	}
+
+	fmt.Println("🙏waiting for kube linter")
+	if err := srv.assertKubeLinter(ctx); err != nil {
+		return fmt.Errorf("assert kube linter: %w", err)
+	}
+
+	fmt.Println("🙏waiting for image metadata")
+	if err := srv.assertImageMetadata(ctx); err != nil {
+		return fmt.Errorf("assert image metadata: %w", err)
+	}
+
+	fmt.Println("👌e2e finished")
 
 	return nil
 }
 
-func assertJobsCompleted(ctx context.Context, client kubernetes.Interface, jobPrefix string) error {
-	errWaitingCompletion := errors.New("jobs not completed yet")
-	assert := func() (rerr error) {
-		defer func() {
-			if rerr != nil {
-				fmt.Printf("assert failed: %v\n", rerr)
-			}
-		}()
-		selector := labels.Set{"app.kubernetes.io/managed-by": "castai"}.String()
-		jobs, err := client.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{
-			LabelSelector: selector,
-		})
+func installChart(ns, imageTag string) ([]byte, error) {
+	fmt.Printf("installing kvisord chart with image tag %q", imageTag)
+	repo := "ghcr.io/castai/kvisor/kvisor"
+	if imageTag == "local" {
+		repo = "kvisord"
+	}
+
+	grpcAddr := fmt.Sprintf("%s:8443", os.Getenv("POD_IP"))
+	//nolint:gosec
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(
+		`helm upgrade --install kvisord-e2e ./charts/kvisor \
+  -n %s --create-namespace \
+  --set image.repository=%s \
+  --set image.tag=%s \
+  --set agent.enabled=true \
+  --set agent.extraArgs.log-level=debug \
+  --set agent.extraArgs.container-stats-scrape-interval=5s \
+  --set agent.extraArgs.castai-server-insecure=true \
+  --set controller.extraArgs.castai-server-insecure=true \
+  --set controller.extraArgs.log-level=debug \
+  --set controller.extraArgs.kubernetes-delta-interval=5s \
+  --set controller.extraArgs.kubernetes-delta-init-delay=5s \
+  --set controller.extraArgs.image-scan-enabled=true \
+  --set controller.extraArgs.image-scan-interval=5s \
+  --set controller.extraArgs.image-scan-init-delay=5s \
+  --set controller.extraArgs.kube-bench-enabled=true \
+  --set controller.extraArgs.kube-bench-scan-interval=5s \
+  --set controller.extraArgs.kube-bench-cloud-provider=gke \
+  --set controller.extraArgs.kube-linter-enabled=true \
+  --set controller.extraArgs.kube-linter-scan-interval=5s \
+  --set castai.grpcAddr=%s \
+  --set castai.apiKey=%s \
+  --set castai.clusterID=%s \
+  --wait --timeout=5m`,
+		ns,
+		repo,
+		imageTag,
+		grpcAddr,
+		apiKey,
+		clusterID,
+	))
+	return cmd.CombinedOutput()
+}
+
+var _ castaipb.RuntimeSecurityAgentAPIServer = (*testCASTAIServer)(nil)
+
+type testCASTAIServer struct {
+	containerStats    []*castaipb.ContainerStatsBatch
+	events            []*castaipb.Event
+	logs              []*castaipb.LogEvent
+	deltaUpdates      []*castaipb.KubernetesDeltaItem
+	mu                sync.Mutex
+	imageMetadatas    []*castaipb.ImageMetadata
+	kubeBenchReports  []*castaipb.KubeBenchReport
+	kubeLinterReports []*castaipb.KubeLinterReport
+}
+
+func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
+	t.kubeBenchReports = append(t.kubeBenchReports, report)
+	return &castaipb.KubeBenchReportIngestResponse{}, nil
+}
+
+func (t *testCASTAIServer) KubeLinterReportIngest(ctx context.Context, report *castaipb.KubeLinterReport) (*castaipb.KubeLinterReportIngestResponse, error) {
+	t.kubeLinterReports = append(t.kubeLinterReports, report)
+	return &castaipb.KubeLinterReportIngestResponse{}, nil
+}
+
+func (t *testCASTAIServer) ImageMetadataIngest(ctx context.Context, imageMetadata *castaipb.ImageMetadata) (*castaipb.ImageMetadataIngestResponse, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.imageMetadatas = append(t.imageMetadatas, imageMetadata)
+
+	return &castaipb.ImageMetadataIngestResponse{}, nil
+}
+
+func (t *testCASTAIServer) GetSyncState(ctx context.Context, request *castaipb.GetSyncStateRequest) (*castaipb.GetSyncStateResponse, error) {
+	return &castaipb.GetSyncStateResponse{}, nil
+}
+
+func (t *testCASTAIServer) UpdateSyncState(ctx context.Context, request *castaipb.UpdateSyncStateRequest) (*castaipb.UpdateSyncStateResponse, error) {
+	return &castaipb.UpdateSyncStateResponse{}, nil
+}
+
+func (t *testCASTAIServer) ContainerStatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error {
+	for {
+		msg, err := server.Recv()
 		if err != nil {
 			return err
 		}
-
-		filteredJobs := lo.Filter(jobs.Items, func(v batchv1.Job, _ int) bool {
-			return strings.HasPrefix(v.Name, jobPrefix)
-		})
-
-		var finished bool
-		fmt.Printf("found %d jobs for prefix %q\n", len(filteredJobs), jobPrefix)
-		for _, job := range filteredJobs {
-			fmt.Printf("name=%s, succeeded=%d, active=%d, failed=%d\n", job.Name, job.Status.Succeeded, job.Status.Active, job.Status.Failed)
-			if job.Status.Failed > 0 {
-				logs, err := getJobPodLogs(ctx, client, job.Name)
-				if err != nil {
-					return fmt.Errorf("reading failed jobs logs: %w", err)
-				}
-				return fmt.Errorf("job %s failed, logs=%s", job.Name, string(logs))
-			}
-			if job.Status.Succeeded > 0 {
-				finished = true
-			}
-		}
-		if finished {
-			return nil
-		}
-
-		return errWaitingCompletion
+		fmt.Println("received container stats:", len(msg.Items))
+		t.mu.Lock()
+		t.containerStats = append(t.containerStats, msg)
+		t.mu.Unlock()
 	}
+}
+
+func (t *testCASTAIServer) GetConfiguration(ctx context.Context, request *castaipb.GetConfigurationRequest) (*castaipb.GetConfigurationResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, errors.New("no metadata")
+	}
+	token := md["authorization"]
+	if len(token) == 0 {
+		return nil, errors.New("no authorization")
+	}
+	if token[0] != "Token "+apiKey {
+		return nil, fmt.Errorf("invalid token %s", token[0])
+	}
+
+	cluster := md["x-cluster-id"]
+	if len(cluster) == 0 {
+		return nil, errors.New("no x-cluster-id")
+	}
+	if cluster[0] != clusterID {
+		return nil, fmt.Errorf("invalid cluster ID %s", cluster[0])
+	}
+	return &castaipb.GetConfigurationResponse{}, nil
+}
+
+func (t *testCASTAIServer) EventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error {
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if !ok {
+		return errors.New("no metadata")
+	}
+	token := md["authorization"]
+	if len(token) == 0 {
+		return errors.New("no authorization")
+	}
+	if token[0] != "Token "+apiKey {
+		return fmt.Errorf("invalid token %s", token[0])
+	}
+	cluster := md["x-cluster-id"]
+	if len(cluster) == 0 {
+		return errors.New("no x-cluster-id")
+	}
+	if cluster[0] != clusterID {
+		return fmt.Errorf("invalid cluster ID %s", cluster[0])
+	}
+
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		fmt.Println("received event:", event)
+		t.mu.Lock()
+		t.events = append(t.events, event)
+		t.mu.Unlock()
+	}
+}
+
+func (t *testCASTAIServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_LogsWriteStreamServer) error {
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		fmt.Println("received log:", event)
+		t.mu.Lock()
+		t.logs = append(t.logs, event)
+		t.mu.Unlock()
+	}
+}
+
+func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received logs")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			logs := t.logs
+			t.mu.Unlock()
+			if len(logs) > 0 {
+				l1 := logs[0]
+				if l1.Msg == "" {
+					return errors.New("missing log msg")
+				}
+
+				for _, l := range logs {
+					if strings.Contains(l.Msg, "panic") {
+						return fmt.Errorf("received logs contains panic error: %s", l.Msg)
+					}
+				}
+
+				return nil
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Duration) error {
+	expectedTypes := map[castaipb.EventType]struct{}{
+		castaipb.EventType_EVENT_EXEC:        {},
+		castaipb.EventType_EVENT_DNS:         {},
+		castaipb.EventType_EVENT_TCP_CONNECT: {},
+		castaipb.EventType_EVENT_FILE_CHANGE: {},
+		castaipb.EventType_EVENT_MAGIC_WRITE: {},
+		castaipb.EventType_EVENT_PROCESS_OOM: {},
+	}
+
+	currentOffset := 0
+	timeoutTimer := time.After(timeout)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(3 * time.Second):
-			err := assert()
-			if err == nil {
+		case <-time.After(timeout):
+			var errorMsg strings.Builder
+
+			_, _ = errorMsg.WriteString("not all expected event types found within timeout. missing types:")
+			first := true
+
+			for et, _ := range expectedTypes {
+				if !first {
+					_, _ = errorMsg.WriteString(", ")
+				} else {
+					first = false
+				}
+
+				_, _ = errorMsg.WriteString(et.String())
+			}
+
+			return errors.New(errorMsg.String())
+		case <-timeoutTimer:
+			t.mu.Lock()
+			events := t.events
+			t.mu.Unlock()
+
+			if len(events) == 0 {
+				continue
+			}
+
+			for _, event := range events[currentOffset:] {
+				delete(expectedTypes, event.EventType)
+			}
+
+			currentOffset = len(events)
+
+			if len(expectedTypes) == 0 {
 				return nil
 			}
-			if !errors.Is(err, errWaitingCompletion) {
-				return err
-			}
 		}
 	}
 }
 
-func installChart(ns, imageTag string) ([]byte, error) {
-	fmt.Printf("installing kvisor chart with image tag %q", imageTag)
-	podIP := os.Getenv("POD_IP")
-	apiURL := fmt.Sprintf("http://%s:8090", podIP)
-	agentRepo := "ghcr.io/castai/kvisor/kvisor"
-	if imageTag == "local" {
-		agentRepo = "kvisor"
-	}
-	//nolint:gosec
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(`helm upgrade --install castai-kvisor ./charts/castai-kvisor \
-  -n %s --create-namespace \
-  -f ./charts/castai-kvisor/ci/test-values.yaml \
-  --set image.repository=%s \
-  --set image.tag=%s \
-  --set structuredConfig.provider=gke \
-  --set structuredConfig.imageScan.mode=hostfs \
-  --set structuredConfig.imageScan.initDelay=10s \
-  --set structuredConfig.linter.scanInterval=5s \
-  --set structuredConfig.deltaSyncInterval=5s \
-  --set structuredConfig.kubeBench.scanInterval=5s \
-  --set structuredConfig.kubeBench.enabled=true \
-  --set structuredConfig.kubeClient.useProtobuf=true \
-  --set castai.apiURL=%s \
-  --wait --timeout=1m`, ns, agentRepo, imageTag, apiURL))
-	return cmd.CombinedOutput()
-}
-
-type mockAPI struct {
-	log logrus.FieldLogger
-
-	mu                sync.Mutex
-	receivedLogs      [][]byte
-	receivedEvents    map[string][][]byte
-	receivedTelemetry [][]byte
-}
-
-func (m *mockAPI) start() {
-	router := mux.NewRouter()
-
-	router.HandleFunc("/v1/security/insights/agent/{cluster_id}/{event}", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		clusterID := vars["cluster_id"]
-		event := vars["event"]
-		gz, err := gzip.NewReader(r.Body)
-		if err != nil {
-			m.log.Errorf("gzip reader: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		defer gz.Close()
-
-		rawBody, err := io.ReadAll(gz)
-		if err != nil {
-			m.log.Errorf("read body: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		fmt.Printf("received event=%s, cluster_id=%s, body=%d\n", event, clusterID, len(rawBody))
-		m.mu.Lock()
-		m.receivedEvents[event] = append(m.receivedEvents[event], rawBody)
-		m.mu.Unlock()
-
-		w.WriteHeader(http.StatusAccepted)
-	})
-
-	router.HandleFunc("/v1/security/insights/{cluster_id}/log", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		clusterID := vars["cluster_id"]
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			m.log.Errorf("read body: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		m.mu.Lock()
-		m.receivedLogs = append(m.receivedLogs, body)
-		m.mu.Unlock()
-
-		fmt.Printf("received log, cluster_id=%s, body=%d\n", clusterID, len(body))
-		w.WriteHeader(http.StatusOK)
-	})
-
-	router.HandleFunc("/v1/security/insights/{cluster_id}/telemetry", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		clusterID := vars["cluster_id"]
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			m.log.Errorf("read body: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		m.mu.Lock()
-		m.receivedTelemetry = append(m.receivedTelemetry, body)
-		m.mu.Unlock()
-
-		fmt.Printf("received telemetry, cluster_id=%s, body=%d\n", clusterID, len(body))
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("{}"))
-	})
-
-	if err := http.ListenAndServe(":8090", router); err != nil { //nolint:gosec
-		m.log.Fatal(err)
-	}
-}
-
-func (m *mockAPI) assertChecksReceived(ctx context.Context, reportType string) error {
-	assert := func() error {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-
-		payloads, ok := m.receivedEvents[reportType]
-		if !ok {
-			return fmt.Errorf("no received events for %q type", reportType)
-		}
-		payload := payloads[0]
-
-		switch reportType {
-		case castai.ReportTypeLinter:
-			var checks []castai.LinterCheck
-			if err := jsoniter.Unmarshal(payload, &checks); err != nil {
-				return err
-			}
-			if !lo.EveryBy(checks, func(v castai.LinterCheck) bool { return v.ResourceID != "" }) {
-				return errors.New("not all checks contains resource id")
-			}
-			if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Failed.Rules()) > 0 }) {
-				return errors.New("no failed checks found")
-			}
-			if !lo.SomeBy(checks, func(v castai.LinterCheck) bool { return len(v.Passed.Rules()) > 0 }) {
-				return errors.New("no passed checks found")
-			}
-			return nil
-		case castai.ReportTypeDelta:
-			var res castai.Delta
-			if err := jsoniter.Unmarshal(payload, &res); err != nil {
-				return err
-			}
-			if len(res.Items) == 0 {
-				return errors.New("not delta items")
-			}
-			return nil
-		case castai.ReportTypeCis:
-			var res castai.KubeBenchReport
-			if err := jsoniter.Unmarshal(payload, &res); err != nil {
-				return err
-			}
-			if len(res.Controls) == 0 {
-				return errors.New("not kube-bench controls")
-			}
-			return nil
-		case castai.ReportTypeImageMeta:
-			var res castai.ImageMetadata
-			if err := jsoniter.Unmarshal(payload, &res); err != nil {
-				return err
-			}
-			if res.ImageID == "" {
-				return errors.New("missing image id")
-			}
-			if len(res.ResourceIDs) == 0 {
-				return errors.New("missing resource ids")
-			}
-			if len(res.BlobsInfo) == 0 {
-				return errors.New("missing blobs info")
-			}
-			if res.OsInfo == nil {
-				return errors.New("missing os config")
-			}
-			if res.ConfigFile == nil {
-				return errors.New("missing config file")
-			}
-			return nil
-		default:
-			return fmt.Errorf("not asserted report type %q", reportType)
-		}
-	}
-
-	var assertErr error
+func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for assert: %w", assertErr)
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received events")
 		case <-time.After(1 * time.Second):
-			assertErr = assert()
-			if assertErr == nil {
+			t.mu.Lock()
+			events := t.events
+			t.mu.Unlock()
+			for _, e := range events {
+				if e.ProcessName == "pause" {
+					continue
+				}
+				if e.EventType == castaipb.EventType_UNKNOWN {
+					return fmt.Errorf("unknown event type: %v", e)
+				}
+				if e.Namespace == "" {
+					return fmt.Errorf("missing namespace: %v", e)
+				}
+				if e.PodName == "" {
+					return fmt.Errorf("missing pod: %v", e)
+				}
+				if e.ContainerName == "" {
+					return fmt.Errorf("missing container: %v", e)
+				}
+				if e.ProcessName == "" {
+					return fmt.Errorf("missing process name: %v", e)
+				}
 				return nil
 			}
 		}
 	}
 }
 
-func (m *mockAPI) assertTelemetry() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if len(m.receivedTelemetry) == 0 {
-		return errors.New("no telemetry received")
-	}
-	return nil
-}
-
-func (m *mockAPI) assertLogs() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if len(m.receivedLogs) == 0 {
-		return errors.New("no logs received")
-	}
-	return nil
-}
-
-func getKubeConfig(kubepath string) (*rest.Config, error) {
-	if kubepath != "" {
-		data, err := os.ReadFile(kubepath)
-		if err != nil {
-			return nil, fmt.Errorf("reading kubeconfig at %s: %w", kubepath, err)
+func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received container stats")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			stats := t.containerStats
+			t.mu.Unlock()
+			if len(stats) > 0 {
+				sb1 := stats[0]
+				if len(sb1.Items) == 0 {
+					return errors.New("missing stat batch items")
+				}
+				i1 := sb1.Items[0]
+				if i1.Namespace == "" {
+					return errors.New("missing namespace")
+				}
+				if i1.PodName == "" {
+					return errors.New("missing pod")
+				}
+				if i1.ContainerName == "" {
+					return errors.New("missing container")
+				}
+				s1 := i1.Stats
+				if len(s1) == 0 {
+					return errors.New("missing stat items")
+				}
+				stat := s1[0]
+				if stat.Group == castaipb.StatsGroup_STATS_GROUP_UNKNOWN {
+					return errors.New("missing stat group")
+				}
+				if stat.Value == 0 {
+					return errors.New("missing stat value")
+				}
+				return nil
+			}
 		}
-		restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
-		if err != nil {
-			return nil, fmt.Errorf("building rest config from kubeconfig at %s: %w", kubepath, err)
-		}
-		return restConfig, nil
 	}
-
-	return rest.InClusterConfig()
 }
 
-func getJobPodLogs(ctx context.Context, client kubernetes.Interface, jobName string) ([]byte, error) {
-	jobPods, err := client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{"job-name": jobName}.String()})
-	if err != nil {
-		return nil, err
+func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
+	for {
+		delta, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		t.mu.Lock()
+		t.deltaUpdates = append(t.deltaUpdates, delta)
+		t.mu.Unlock()
 	}
-	if len(jobPods.Items) == 0 {
-		return nil, errors.New("job pod not found")
+}
+
+func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received kubernetes deltas")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			deltas := t.deltaUpdates
+			t.mu.Unlock()
+			for _, item := range deltas {
+				if item.ObjectKind != "Deployment" {
+					continue
+				}
+				if item.ObjectName == "" {
+					return errors.New("missing name")
+				}
+				if item.ObjectUid == "" {
+					return errors.New("missing object uid")
+				}
+				if item.ObjectKind == "" {
+					return errors.New("missing object kind")
+				}
+				if item.ObjectNamespace == "" {
+					return errors.New("missing namespace")
+				}
+				if len(item.ObjectLabels) == 0 {
+					return errors.New("missing labels")
+				}
+				if len(item.ObjectStatus) == 0 {
+					return errors.New("missing status")
+				}
+				if len(item.ObjectSpec) == 0 {
+					return errors.New("missing spec")
+				}
+				return nil
+			}
+		}
 	}
-	jobPod := jobPods.Items[0]
-	logsStream, err := client.CoreV1().Pods(ns).GetLogs(jobPod.Name, &corev1.PodLogOptions{}).Stream(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating logs stream: %w", err)
+}
+
+func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
+	timeout := time.After(20 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received image metadata")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			md := t.imageMetadatas
+			t.mu.Unlock()
+			if len(md) > 0 {
+				l1 := md[0]
+				if l1.ImageId == "" {
+					return errors.New("missing image id")
+				}
+				if l1.ImageName == "" {
+					return errors.New("missing image name")
+				}
+				if len(l1.ConfigFile) == 0 {
+					return errors.New("missing config file")
+				}
+				if len(l1.Packages) == 0 {
+					return errors.New("missing packages")
+				}
+				if len(l1.Architecture) == 0 {
+					return errors.New("missing arch")
+				}
+				return nil
+			}
+		}
 	}
-	defer logsStream.Close()
-	logs, err := io.ReadAll(logsStream)
-	if err != nil {
-		return nil, fmt.Errorf("reading logs: %w", err)
+}
+
+func (t *testCASTAIServer) assertKubeBenchReport(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for kube bench")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			items := t.kubeBenchReports
+			t.mu.Unlock()
+			if len(items) > 0 {
+				l1 := items[0]
+				if l1.Node == nil {
+					return errors.New("missing node")
+				}
+				if l1.Node.ResourceUid == "" {
+					return errors.New("missing node id")
+				}
+				if l1.Node.NodeName == "" {
+					return errors.New("missing node node")
+				}
+				if len(l1.Controls) == 0 {
+					return errors.New("missing controls")
+				}
+				return nil
+			}
+		}
 	}
-	return logs, nil
+}
+
+func (t *testCASTAIServer) assertKubeLinter(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting kube linter")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			items := t.kubeLinterReports
+			t.mu.Unlock()
+			if len(items) > 0 {
+				l1 := items[0]
+				if len(l1.Checks) == 0 {
+					return errors.New("missing linter checks")
+				}
+				return nil
+			}
+		}
+	}
 }

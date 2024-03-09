@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: app
+  labels:
+    app: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-apparmor-example-allow-write
+    spec:
+      containers:
+        - name: app
+          image: nginx
+          securityContext:
+            runAsNonRoot: true
+            runAsGroup: 1000
+            runAsUser: 1001
+            seLinuxOptions:
+                level: "s0:c123,c456"
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              localhostProfile: profiles/nginx.json
+              type: Localhost
+            capabilities:
+              drop:
+                - all
+              add:
+                - "..."

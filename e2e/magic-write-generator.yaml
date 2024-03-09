@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: magic-write-generator
+  labels:
+    app: magic-write-generator
+spec:
+  selector:
+    matchLabels:
+      app: magic-write-generator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: magic-write-generator
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: magic-write-generator
+          image: ubuntu:rolling
+          command:
+            - /bin/sh
+            - -c
+            - |-
+              sleep 1
+              apt update -y
+              apt install -y iputils-ping
+              sleep 1000000000

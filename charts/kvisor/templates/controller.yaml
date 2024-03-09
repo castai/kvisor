@@ -1,0 +1,276 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kvisor.controller.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- if .Values.controller.prometheusScrape.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{.Values.controller.httpListenPort}}"
+      {{- end }}
+      {{- if .Values.pyroscope.enabled }}
+        phlare.grafana.com/scrape: "true"
+        phlare.grafana.com/port: "{{ .Values.controller.httpListenPort }}"
+        profiles.grafana.com/memory.scrape: "true"
+        profiles.grafana.com/memory.port: "{{ .Values.controller.httpListenPort }}"
+        profiles.grafana.com/cpu.scrape: "true"
+        profiles.grafana.com/cpu.port: "{{ .Values.controller.httpListenPort }}"
+        profiles.grafana.com/goroutine.scrape: "true"
+        profiles.grafana.com/goroutine.port: "{{ .Values.controller.httpListenPort }}"
+      {{- end }}
+      {{- with .Values.controller.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "kvisor.controller.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kvisor.controller.serviceAccountName" . }}
+      dnsPolicy: {{.Values.controller.dnsPolicy}}
+      securityContext:
+        {{- toYaml .Values.controller.securityContext | nindent 8 }}
+      containers:
+        - name: controller
+          image: "{{ .Values.image.repository }}-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{.Values.image.pullPolicy}}
+          securityContext:
+            {{- toYaml .Values.controller.containerSecurityContext | nindent 12 }}
+          args:
+            - "--http-listen-port={{.Values.controller.httpListenPort}}"
+            - "--castai-secret-ref-name={{ include "kvisor.castaiSecretName" . }}"
+            - "--agent-daemonset-name={{ include "kvisor.agent.fullname" . }}"
+            - "--image-scan-blobs-cache-url=http://{{ include "kvisor.controller.fullname" . }}.{{.Release.Namespace}}"
+          {{- if eq .Values.mockServer.enabled true }}
+            - "--castai-server-insecure=true"
+          {{- end }}
+        {{- range $key, $value := .Values.controller.extraArgs }}
+            - "--{{ $key }}={{ $value }}"
+        {{- end }}
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: {{ include "kvisor.castaiSecretName" . }}
+          ports:
+            - name: http-server
+              containerPort: {{ .Values.controller.httpListenPort }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http-server
+            failureThreshold: 6
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              port: http-server
+              path: /healthz
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              port: http-server
+              path: /healthz
+            periodSeconds: 5
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- if .Values.controller.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kvisor.controller.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+  {{- with .Values.controller.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  # Access to manage jobs in castai-sec namespace.
+  - apiGroups:
+      - "batch"
+    resources:
+      - jobs
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - pods/log
+    verbs:
+      - get
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - create
+      - update
+      - list
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+      {{- include "kvisor.controller.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kvisor.controller.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kvisor.controller.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - pods
+      - events
+      - namespaces
+      - services
+      - endpoints
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "apps"
+    resources:
+      - deployments
+      - replicasets
+      - daemonsets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "batch"
+    resources:
+      - jobs
+      - cronjobs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "networking.k8s.io"
+    resources:
+      - networkpolicies
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "rbac.authorization.k8s.io"
+    resources:
+      - roles
+      - rolebindings
+      - clusterroles
+      - clusterrolebindings
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kvisor.controller.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kvisor.controller.serviceAccountName" . }}
+    namespace: {{.Release.Namespace}}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - port: 80
+      name: http
+      targetPort: http-server
+      protocol: TCP
+  selector:
+    {{- include "kvisor.controller.selectorLabels" . | nindent 6 }}
+  type: ClusterIP

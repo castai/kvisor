@@ -1,0 +1,69 @@
+{
+  "timestamp": 1671041574116624540,
+  "threadStartTime": 342519082935538,
+  "processorId": 20,
+  "processId": 3156273,
+  "cgroupId": 20552,
+  "threadId": 3156273,
+  "parentProcessId": 3101489,
+  "hostProcessId": 3156273,
+  "hostThreadId": 3156273,
+  "hostParentProcessId": 3101489,
+  "userId": 1000,
+  "mountNamespace": 4026531841,
+  "pidNamespace": 4026531836,
+  "processName": "nc",
+  "hostName": "fujitsu",
+  "containerId": "",
+  "containerImage": "",
+  "containerName": "",
+  "podName": "",
+  "podNamespace": "",
+  "podUID": "",
+  "eventId": "2009",
+  "eventName": "net_packet_tcp",
+  "argsNum": 3,
+  "returnValue": 0,
+  "stackAddresses": [
+    0
+  ],
+  "contextFlags": {
+    "containerStarted": false,
+    "isCompat": false
+  },
+  "args": [
+    {
+      "name": "src",
+      "type": "const char*",
+      "value": "10.157.254.1"
+    },
+    {
+      "name": "dst",
+      "type": "const char*",
+      "value": "10.157.254.193"
+    },
+    {
+      "name": "proto_tcp",
+      "type": "trace.ProtoTCP",
+      "value": {
+        "srcPort": 51594,
+        "dstPort": 8090,
+        "seq": 1188220446,
+        "ack": 658038832,
+        "dataOffset": 8,
+        "FIN": 0,
+        "SYN": 0,
+        "RST": 0,
+        "PSH": 1,
+        "ACK": 1,
+        "URG": 0,
+        "ECE": 0,
+        "CWR": 0,
+        "NS": 0,
+        "window": 502,
+        "checksum": 4646,
+        "urgent": 0
+      }
+    }
+  ]
+}

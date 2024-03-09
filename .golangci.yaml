@@ -1,23 +1,25 @@
 linters:
-  enable:
-    - gosimple
   disable:
-    - scopelint
-    - deadcode
-    - maligned
-    - structcheck
-    - varcheck
-    - prealloc
+    - wrapcheck
+    - goerr113
     - contextcheck
+    - exhaustive
     - protogetter
   presets:
     - bugs
-    - performance
+    - error
     - unused
 
 run:
+  tests: false
   skip-dirs:
     - .github
     - charts
     - examples
-    - cmd/kvisor/kubebench # TODO: Fix kubebench issues
+    - ui
+    - tools
+    - dist
+    - bin
+    - api
+    - research
+    - cmd/agent/kubebench # TODO: Fix kubebench issues

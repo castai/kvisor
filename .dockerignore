@@ -1,3 +1,8 @@
-testdata
-node_modules
+.git
+cmd/manomaly/.venv
 dist
+ui/node_modules
+ui/src
+ui/static
+tracee
+.cache

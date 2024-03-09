@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oom-test
+  namespace: demo
+  labels:
+    app: oom-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oom-test
+  template:
+    metadata:
+      labels:
+        app: oom-test
+    spec:
+      containers:
+        - name: stress
+          image: vish/stress
+          args:
+            - "-mem-total"
+            - "1Gi"
+            - "-mem-alloc-size"
+            - "100Mi"
+          resources:
+            limits:
+              memory: "10Mi"

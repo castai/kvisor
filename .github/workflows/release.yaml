@@ -11,40 +11,47 @@ env:
   CR_INDEX_PATH: "${{ github.workspace }}/.cr-index"
   CR_PACKAGE_PATH: "${{ github.workspace }}/.cr-release-packages"
   CR_TOOL_PATH: "${{ github.workspace }}/.cr-tool"
-  CHART_PATH: "${{ github.workspace }}/charts/castai-kvisor"
+  CHART_PATH: "${{ github.workspace }}/charts/kvisor"
 
 jobs:
   release_docker:
     name: Release Docker
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup Go 1.21
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-
-      - name: Cache Go modules
-        uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
-          restore-keys: ${{ runner.os }}-build-
 
       - name: Get release tag
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-      - name: Build kvisor go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/kvisor
+      - name: Build agent go binary amd64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
-      - name: Build kvisor go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/kvisor
+      - name: Build controller go binary amd64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+
+      - name: Build agent go binary arm64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: 0
+
+      - name: Build controller go binary arm64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
         env:
           GOOS: linux
           GOARCH: arm64
@@ -63,7 +70,7 @@ jobs:
           username: _json_key
           password: ${{ secrets.ARTIFACT_BUILDER_JSON_KEY }}
 
-      - name: Build and push release (kvisor)
+      - name: Build and push release (kvisor-agent)
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -71,8 +78,19 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
           tags: |
-            us-docker.pkg.dev/castai-hub/library/kvisor:${{ env.RELEASE_TAG }}
-            us-docker.pkg.dev/castai-hub/library/kvisor:latest
+            ghcr.io/castai/kvisor/kvisor-agent:${{ env.RELEASE_TAG }}
+            ghcr.io/castai/kvisor/kvisor-agent:latest
+
+      - name: Build and push release (kvisor-controller)
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          file: ./Dockerfile
+          platforms: linux/arm64,linux/amd64
+          tags: |
+            ghcr.io/castai/kvisor/kvisor-controller:${{ env.RELEASE_TAG }}
+            ghcr.io/castai/kvisor/kvisor-controller:latest
 
   release_chart:
     name: Release Helm Chart
@@ -147,7 +165,7 @@ jobs:
         with:
           body: |
             ${{ steps.parse-chart.outputs.desc }}
-
+            
             Source commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
           files: |
             ${{ env.CR_PACKAGE_PATH }}/${{ steps.parse-chart.outputs.packagename }}.tgz
@@ -170,3 +188,15 @@ jobs:
           git add ${CHART_PATH}/Chart.yaml
           git commit -m "[Release] Update Chart.yaml"
           git push
+
+# TODO: Enable this step to sync chart content into helm-charts repo
+#      - name: Sync chart with helm-charts github
+#        run: |
+#          cd helm-charts
+#          git config user.name "$GITHUB_ACTOR"
+#          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+#          git checkout main
+#          cp -r ${CHART_PATH}/* ./charts/castai-kvisor
+#          git add charts/castai-kvisor
+#          git commit -m "Update castai-kvisor chart to ${{env.RELEASE_TAG}}"
+#          git push

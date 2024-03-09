@@ -11,13 +11,20 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     if: ${{ github.event.head_commit.message != '[Release] Update Chart.yaml' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get head sha
+        id: parse-commit-sha
+        run: |
+          head=$(git rev-parse HEAD)
+          echo "head_commit_sha=${head}" >> $GITHUB_ENV
+          echo "Head commit sha ${head}"
 
       - name: Get merge request latest commit
         id: parse-commit
@@ -30,26 +37,35 @@ jobs:
           echo "Contains msg ${{ contains(env.head_commit_message, '#skip-lint') }}"
 
       - name: Setup Go 1.21
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
 
-      - name: Cache Go modules
-        uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ hashFiles('**/go.sum') }}
-          restore-keys: ${{ runner.os }}-build-
+      - name: Build agent go binary amd64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
 
-      - name: Build kvisor go binary amd64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-amd64 ./cmd/kvisor
+      - name: Build controller go binary amd64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
 
       - name: Build agent go binary arm64
-        run: go build -ldflags "-s -w -X main.GitCommit=$GITHUB_SHA -X main.GitRef=$GITHUB_REF -X main.Version=${RELEASE_TAG:-commit-$GITHUB_SHA}" -o bin/castai-kvisor-arm64 ./cmd/kvisor
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
+        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: 0
+
+      - name: Build controller go binary arm64
+        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
+        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
         env:
           GOOS: linux
           GOARCH: arm64
@@ -68,73 +84,105 @@ jobs:
 
       - name: Test
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
-        run: go test -race ./...
+        run: go test -race -short ./...
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Login to Google Artifact Registry
-        uses: docker/login-action@v1
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          registry: us-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.ARTIFACT_BUILDER_JSON_KEY }}
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push pr (kvisor)
+      - name: Docker build and push pr (controller)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/arm64,linux/amd64
-          push: ${{ github.event_name == 'pull_request' }}
-          tags: ghcr.io/castai/kvisor/kvisor:${{ github.sha }}
+          file: ./Dockerfile.controller
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }}
 
-      - name: Build and push main (kvisor)
-        if: ${{ github.event_name != 'pull_request' && github.event_name != 'release' }}
-        uses: docker/build-push-action@v2
+      - name: Docker build and push pr (agent)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/arm64,linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: us-docker.pkg.dev/castai-hub/library/kvisor:${{ github.sha }}
+          file: ./Dockerfile.agent
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}
 
+      - name: Docker build and push main (controller)
+        if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.controller
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-controller:latest
+
+      - name: Docker build and push main (agent)
+        if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.agent
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-agent:latest
+
+      - name: Summary
+        run: |
+          echo "**Pushed docker images:**" >> $GITHUB_STEP_SUMMARY
+          echo "ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Upgrade with helm:**" >> $GITHUB_STEP_SUMMARY
+          echo "helm upgrade castai-kvisor castai-helm/kvisor -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # TODO: we might want to run the tests both in ubuntu-22.04, as well as ubuntu-20.04 to test
+  # if we everything is working with cgroups v1 and v2
   e2e:
     name: E2E
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'pull_request' }}
     needs: build
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get head sha
+        id: parse-commit-sha
+        run: |
+          head=$(git rev-parse HEAD)
+          echo "head_commit_sha=${head}" >> $GITHUB_ENV
+          echo "Head commit sha ${head}"
 
       - name: Setup Go 1.21
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.4.0
+        uses: helm/kind-action@v1.8.0
         with:
           config: ./e2e/kind-config.yaml
           cluster_name: kvisor-e2e
@@ -142,4 +190,4 @@ jobs:
       - name: Run e2e
         shell: bash
         run: |
-          KIND_CONTEXT=kvisor-e2e IMAGE_TAG=${{ github.sha }} ./e2e/run.sh
+          KIND_CONTEXT=kvisor-e2e IMAGE_TAG=${{ env.head_commit_sha }} ./e2e/run.sh

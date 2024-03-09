@@ -1,0 +1,2 @@
+kvisord-lw75h kvisord kvisord-server from=10.76.0.3:49650 to=10.72.27.141:9000
+kvisord-lw75h kvisord TCPHandler from=10.76.0.5:9000 to=10.76.0.3:49650

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet
+  namespace: eshop
+  labels:
+    app: wallet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wallet
+  template:
+    metadata:
+      labels:
+        app: wallet
+    spec:
+      containers:
+        - name: wallet
+          image: ghcr.io/castai/kvisord/kvisord-event-generator
+          imagePullPolicy: Always
+          args:
+            - "-mode"
+            - "thief"
+            - "-thief-delay"
+            - "80s"
+            - "-thief-interval"
+            - "5s"

@@ -1,7 +1,6 @@
-.idea
-bin
-.env
-.DS_Store
-node_modules
-.svelte-kit
 dist
+bin
+node_modules
+.idea
+.cache
+.venv

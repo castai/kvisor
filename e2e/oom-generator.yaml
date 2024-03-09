@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oom-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oom-generator
+  template:
+    metadata:
+      labels:
+        app: oom-generator
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: memory-demo-ctr
+          image: colinianking/stress-ng
+          resources:
+            requests:
+              memory: "10Mi"
+            limits:
+              memory: "10Mi"
+          command: ["stress-ng"]
+          args: ["--vm", "1", "--vm-bytes", "150M", "--vm-hang", "1"]
