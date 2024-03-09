@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"sync"
 	"time"
 
@@ -19,8 +20,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 type castaiClient interface {
@@ -91,6 +94,40 @@ func (c *Controller) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (c *Controller) RequiredTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&corev1.Namespace{}),
+		reflect.TypeOf(&corev1.Service{}),
+		reflect.TypeOf(&corev1.Node{}),
+		reflect.TypeOf(&appsv1.Deployment{}),
+		reflect.TypeOf(&appsv1.ReplicaSet{}),
+		reflect.TypeOf(&appsv1.DaemonSet{}),
+		reflect.TypeOf(&appsv1.StatefulSet{}),
+		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
+		reflect.TypeOf(&rbacv1.RoleBinding{}),
+		reflect.TypeOf(&rbacv1.ClusterRole{}),
+		reflect.TypeOf(&rbacv1.Role{}),
+		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&batchv1.CronJob{}),
+		reflect.TypeOf(&batchv1beta1.CronJob{}),
+		reflect.TypeOf(&networkingv1.Ingress{}),
+		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
+	}
+}
+
+func (c *Controller) OnAdd(obj kube.Object) {
+	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_ADD, obj)
+}
+
+func (c *Controller) OnUpdate(obj kube.Object) {
+	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_UPDATE, obj)
+}
+
+func (c *Controller) OnDelete(obj kube.Object) {
+	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_REMOVE, obj)
 }
 
 func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
@@ -168,18 +205,6 @@ func (c *Controller) recordDeltaEvent(action castaipb.KubernetesDeltaItemEvent, 
 	}
 }
 
-func (c *Controller) OnAdd(obj kube.Object) {
-	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_ADD, obj)
-}
-
-func (c *Controller) OnDelete(obj kube.Object) {
-	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_REMOVE, obj)
-}
-
-func (c *Controller) OnUpdate(obj kube.Object) {
-	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_UPDATE, obj)
-}
-
 func (c *Controller) popPendingItems() []deltaItem {
 	c.deltasMu.Lock()
 	defer c.deltasMu.Unlock()
@@ -195,11 +220,12 @@ func (c *Controller) upsertPendingItems(items []deltaItem) {
 	defer c.deltasMu.Unlock()
 
 	for _, item := range items {
-		if v, ok := c.pendingItems[string(item.object.GetUID())]; ok {
+		key := string(item.object.GetUID())
+		if v, ok := c.pendingItems[key]; ok {
 			item.action = v.action
-			c.pendingItems[string(item.object.GetUID())] = item
+			c.pendingItems[key] = item
 		} else {
-			c.pendingItems[string(item.object.GetUID())] = item
+			c.pendingItems[key] = item
 		}
 	}
 }

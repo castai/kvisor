@@ -2,6 +2,8 @@ package kube
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -18,43 +20,63 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	r := require.New(t)
 	ctx := context.Background()
 	log := logging.NewTestLog()
-	dep := newTestDeployment()
-	clientset := fake.NewSimpleClientset(dep)
-	lis := &mockListener{items: map[types.UID]Object{}}
-	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
-	client.RegisterHandlers(informersFactory)
-	client.RegisterKubernetesChangeListener(lis)
-	informersFactory.Start(ctx.Done())
-	informersFactory.WaitForCacheSync(ctx.Done())
 
-	// Assert added deployment.
-	r.Eventually(func() bool {
-		items := lis.getItems()
-		if len(items) == 1 {
-			return true
-		}
-		return false
-	}, 2*time.Second, 10*time.Millisecond)
+	t.Run("call event handlers and listeners", func(t *testing.T) {
+		r := require.New(t)
+		dep1 := newTestDeployment()
+		pod1 := newTestPod()
+		clientset := fake.NewSimpleClientset(dep1, pod1)
+		lis := &mockListener{items: map[types.UID]Object{}}
+		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
+		client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
+		client.RegisterHandlers(informersFactory)
+		client.RegisterPodsHandlers(informersFactory)
+		client.RegisterKubernetesChangeListener(lis)
+		informersFactory.Start(ctx.Done())
+		informersFactory.WaitForCacheSync(ctx.Done())
 
-	r.NoError(clientset.AppsV1().Deployments(dep.Namespace).Delete(ctx, dep.Name, metav1.DeleteOptions{}))
+		// Assert added deployment.
+		r.Eventually(func() bool {
+			items := lis.getItems()
+			if len(items) == 2 {
+				return true
+			}
+			return false
+		}, 2*time.Second, 10*time.Millisecond)
 
-	// Assert deployment is deleted.
-	r.Eventually(func() bool {
-		items := lis.getItems()
-		if len(items) == 0 {
-			return true
-		}
-		return false
-	}, 2*time.Second, 10*time.Millisecond)
+		r.NoError(clientset.AppsV1().Deployments(dep1.Namespace).Delete(ctx, dep1.Name, metav1.DeleteOptions{}))
+
+		// Assert deployment is deleted.
+		r.Eventually(func() bool {
+			items := lis.getItems()
+			if len(items) == 1 {
+				item := items[0]
+				if reflect.TypeOf(item) != reflect.TypeOf(&corev1.Pod{}) {
+					t.Fatal("expected to keep pod after deployment delete")
+				}
+				return true
+			}
+			return false
+		}, 2*time.Second, 10*time.Millisecond)
+	})
+}
+
+func aa(ob Object) {
+	fmt.Println(reflect.TypeOf(ob))
 }
 
 type mockListener struct {
 	items map[types.UID]Object
 	mu    sync.Mutex
+}
+
+func (m *mockListener) RequiredTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&appsv1.Deployment{}),
+	}
 }
 
 func (m *mockListener) getItems() []Object {
@@ -114,6 +136,16 @@ func newTestDeployment() *appsv1.Deployment {
 		},
 		Status: appsv1.DeploymentStatus{
 			Replicas: 1,
+		},
+	}
+}
+
+func newTestPod() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "p1",
+			Namespace: "default",
+			UID:       types.UID("111b56a9-ab5e-4a35-93af-f092e2f63022"),
 		},
 	}
 }

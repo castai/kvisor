@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	imagescanconfig "github.com/castai/kvisor/cmd/agent/imagescan/config"
 	"github.com/castai/kvisor/pkg/metrics"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
@@ -84,6 +86,13 @@ type Controller struct {
 
 	initialScansDelay time.Duration
 	fullSnapshotSent  bool
+}
+
+func (c *Controller) RequiredTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&corev1.Node{}),
+	}
 }
 
 func (c *Controller) Run(ctx context.Context) error {

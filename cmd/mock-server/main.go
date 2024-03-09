@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net"
 	"os/signal"
 	"syscall"
-	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/logging"
-	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
@@ -121,27 +118,17 @@ func (m *MockServer) ContainerStatsWriteStream(server castaipb.RuntimeSecurityAg
 }
 
 func (m *MockServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
-	deltasCount := atomic.NewUint64(0)
-	deltasStats := make(chan map[string]uint64, 1)
-	go func() {
-		deltasByKey := map[string]uint64{}
-		for {
-			event, err := server.Recv()
-			if err != nil {
-				m.log.Warnf("delta recv: %v", err)
-				break
-			}
-			deltasCount.Inc()
-			deltasByKey[fmt.Sprintf("%s/%s", event.ObjectNamespace, event.ObjectKind)]++
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			m.log.Warnf("delta recv: %v", err)
+			break
 		}
-		deltasStats <- deltasByKey
-	}()
-
-	select {
-	case st := <-deltasStats:
-		fmt.Printf("deltas total=%d, stats=%v", deltasCount.Load(), st)
-	case <-time.After(5 * time.Second):
-		fmt.Println("timeout for delta receive")
+		m.log.Debugf("delta_item: %v", event)
+		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
+			m.log.Warnf("delta ack send: %v", err)
+			break
+		}
 	}
-	return server.SendAndClose(&castaipb.KubernetesDeltaIngestResponse{})
+	return nil
 }
