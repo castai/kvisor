@@ -2,22 +2,21 @@ package kube
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/castai/kvisor/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,6 +37,7 @@ type KubernetesChangeEventListener interface {
 	OnAdd(obj Object)
 	OnDelete(obj Object)
 	OnUpdate(newObj Object)
+	RequiredTypes() []reflect.Type
 }
 
 type Client struct {
@@ -47,7 +47,6 @@ type Client struct {
 	kvisorAgentContainerName string
 	client                   kubernetes.Interface
 
-	gcInterval        time.Duration
 	mu                sync.RWMutex
 	replicaSets       map[types.UID]metav1.ObjectMeta
 	jobs              map[types.UID]metav1.ObjectMeta
@@ -55,7 +54,7 @@ type Client struct {
 	kvisorAgentDsSpec *appsv1.DaemonSetSpec
 
 	changeListenersMu sync.RWMutex
-	changeListeners   []KubernetesChangeEventListener
+	changeListeners   []*eventListener
 	version           Version
 }
 
@@ -71,7 +70,6 @@ func NewClient(
 		kvisorAgentDaemonSetName: kvisorAgentDaemonSetName,
 		kvisorAgentContainerName: "kvisor",
 		client:                   client,
-		gcInterval:               1 * time.Minute,
 		replicaSets:              map[types.UID]metav1.ObjectMeta{},
 		jobs:                     map[types.UID]metav1.ObjectMeta{},
 		deployments:              map[types.UID]*appsv1.Deployment{},
@@ -132,14 +130,6 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 }
 
-func (c *Client) ListNamespaces(ctx context.Context) ([]corev1.Namespace, error) {
-	nsList, err := c.client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return nsList.Items, nil
-}
-
 func (c *Client) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
@@ -160,7 +150,6 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj any) {
-			//w.log.Debugf("update %T", newObj)
 			c.mu.Lock()
 			defer c.mu.Unlock()
 
@@ -178,7 +167,6 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			//w.log.Debugf("delete %T", obj)
 			c.mu.Lock()
 			defer c.mu.Unlock()
 
@@ -338,7 +326,15 @@ func (c *Client) RegisterKubernetesChangeListener(l KubernetesChangeEventListene
 	c.changeListenersMu.Lock()
 	defer c.changeListenersMu.Unlock()
 
-	c.changeListeners = append(c.changeListeners, l)
+	requiredTypes := l.RequiredTypes()
+	internalListener := &eventListener{
+		lis:           l,
+		requiredTypes: make(map[reflect.Type]struct{}, len(requiredTypes)),
+	}
+	for _, t := range requiredTypes {
+		internalListener.requiredTypes[t] = struct{}{}
+	}
+	c.changeListeners = append(c.changeListeners, internalListener)
 }
 
 func (c *Client) fireKubernetesAddEvent(obj Object) {
@@ -347,7 +343,9 @@ func (c *Client) fireKubernetesAddEvent(obj Object) {
 	c.changeListenersMu.RUnlock()
 
 	for _, l := range listeners {
-		go l.OnAdd(obj)
+		if l.required(obj) {
+			go l.lis.OnAdd(obj)
+		}
 	}
 }
 
@@ -357,7 +355,9 @@ func (c *Client) fireKubernetesUpdateEvent(obj Object) {
 	c.changeListenersMu.RUnlock()
 
 	for _, l := range listeners {
-		go l.OnUpdate(obj)
+		if l.required(obj) {
+			go l.lis.OnUpdate(obj)
+		}
 	}
 }
 
@@ -367,7 +367,9 @@ func (c *Client) fireKubernetesDeleteEvent(obj Object) {
 	c.changeListenersMu.RUnlock()
 
 	for _, l := range listeners {
-		go l.OnDelete(obj)
+		if l.required(obj) {
+			go l.lis.OnDelete(obj)
+		}
 	}
 }
 
@@ -381,60 +383,20 @@ func (c *Client) transformFunc(i any) (any, error) {
 }
 
 // addObjectMeta adds missing metadata since kubernetes client removes object kind and api version information.
+// See one of many issues related to this https://github.com/kubernetes/kubernetes/issues/80609
 func addObjectMeta(o Object) {
-	appsV1 := "apps/v1"
-	v1 := "v1"
-	switch o := o.(type) {
-	case *appsv1.Deployment:
-		o.Kind = "Deployment"
-		o.APIVersion = appsV1
-	case *appsv1.ReplicaSet:
-		o.Kind = "ReplicaSet"
-		o.APIVersion = appsV1
-	case *appsv1.StatefulSet:
-		o.Kind = "StatefulSet"
-		o.APIVersion = appsV1
-	case *appsv1.DaemonSet:
-		o.Kind = "DaemonSet"
-		o.APIVersion = appsV1
-	case *corev1.Node:
-		o.Kind = "Node"
-		o.APIVersion = v1
-	case *corev1.Namespace:
-		o.Kind = "Namespace"
-		o.APIVersion = v1
-	case *corev1.Service:
-		o.Kind = "Service"
-		o.APIVersion = v1
-	case *corev1.Pod:
-		o.Kind = "Pod"
-		o.APIVersion = v1
-	case *rbacv1.ClusterRoleBinding:
-		o.Kind = "ClusterRoleBinding"
-		o.APIVersion = "rbac.authorization.k8s.io/v1"
-	case *rbacv1.RoleBinding:
-		o.Kind = "RoleBinding"
-		o.APIVersion = "rbac.authorization.k8s.io/v1"
-	case *rbacv1.ClusterRole:
-		o.Kind = "ClusterRole"
-		o.APIVersion = "rbac.authorization.k8s.io/v1"
-	case *rbacv1.Role:
-		o.Kind = "Role"
-		o.APIVersion = "rbac.authorization.k8s.io/v1"
-	case *batchv1.Job:
-		o.Kind = "Job"
-		o.APIVersion = "batch/v1"
-	case *batchv1.CronJob:
-		o.Kind = "CronJob"
-		o.APIVersion = "batch/v1"
-	case *batchv1beta1.CronJob:
-		o.Kind = "CronJob"
-		o.APIVersion = "batch/v1beta1"
-	case *networkingv1.Ingress:
-		o.Kind = "Ingress"
-		o.APIVersion = "networking/v1"
-	case *networkingv1.NetworkPolicy:
-		o.Kind = "NetworkPolicy"
-		o.APIVersion = "networking/v1"
+	gvks, _, _ := scheme.Scheme.ObjectKinds(o)
+	if len(gvks) > 0 {
+		o.GetObjectKind().SetGroupVersionKind(gvks[0])
 	}
+}
+
+type eventListener struct {
+	lis           KubernetesChangeEventListener
+	requiredTypes map[reflect.Type]struct{}
+}
+
+func (e *eventListener) required(obj Object) bool {
+	_, found := e.requiredTypes[reflect.TypeOf(obj)]
+	return found
 }

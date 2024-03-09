@@ -97,6 +97,12 @@ type Controller struct {
 	kubeBenchReportsCacheMu sync.Mutex
 }
 
+func (c *Controller) RequiredTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Node{}),
+	}
+}
+
 func (c *Controller) OnAdd(obj kube.Object) {
 	node, ok := obj.(*corev1.Node)
 	if ok {

@@ -456,6 +456,9 @@ func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurity
 		t.mu.Lock()
 		t.deltaUpdates = append(t.deltaUpdates, delta)
 		t.mu.Unlock()
+		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
+			return err
+		}
 	}
 }
 
