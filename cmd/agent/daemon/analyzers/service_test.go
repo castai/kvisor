@@ -14,14 +14,22 @@ import (
 )
 
 func TestService(t *testing.T) {
-	r := require.New(t)
 	log := logging.New(&logging.Config{
 		Level: slog.LevelDebug,
 	})
 	ctx := context.Background()
 
 	t.Run("find suspicious binary", func(t *testing.T) {
+		r := require.New(t)
 		svc := newTestService(log)
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- svc.Run(ctx)
+		}()
+
+		r.Eventually(svc.Started, 2*time.Second, 10*time.Millisecond)
+
 		svc.Enqueue(&castpb.Event{
 			EventType:   castpb.EventType_EVENT_EXEC,
 			ContainerId: "c1",
@@ -31,11 +39,6 @@ func TestService(t *testing.T) {
 				},
 			},
 		})
-
-		errc := make(chan error, 1)
-		go func() {
-			errc <- svc.Run(ctx)
-		}()
 
 		select {
 		case err := <-errc:
@@ -48,7 +51,16 @@ func TestService(t *testing.T) {
 	})
 
 	t.Run("skip if no binary found", func(t *testing.T) {
+		r := require.New(t)
 		svc := newTestService(log)
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- svc.Run(ctx)
+		}()
+
+		r.Eventually(svc.Started, 2*time.Second, 10*time.Millisecond)
+
 		svc.Enqueue(&castpb.Event{
 			EventType:   castpb.EventType_EVENT_EXEC,
 			ContainerId: "c1",
@@ -58,11 +70,6 @@ func TestService(t *testing.T) {
 				},
 			},
 		})
-
-		errc := make(chan error, 1)
-		go func() {
-			errc <- svc.Run(ctx)
-		}()
 
 		select {
 		case err := <-errc:
@@ -75,9 +82,18 @@ func TestService(t *testing.T) {
 	})
 
 	t.Run("skip already processed paths", func(t *testing.T) {
+		r := require.New(t)
 		svc := newTestService(log)
 		analyzer := &testAnalyzer{}
 		svc.analyzers = []Analyzer{analyzer}
+
+		errc := make(chan error, 1)
+		go func() {
+			errc <- svc.Run(ctx)
+		}()
+
+		r.Eventually(svc.Started, 2*time.Second, 10*time.Millisecond)
+
 		for i := 0; i < 10; i++ {
 			svc.Enqueue(&castpb.Event{
 				EventType:   castpb.EventType_EVENT_EXEC,
@@ -90,11 +106,6 @@ func TestService(t *testing.T) {
 			})
 		}
 
-		errc := make(chan error, 1)
-		go func() {
-			errc <- svc.Run(ctx)
-		}()
-
 		select {
 		case err := <-errc:
 			t.Fatal(err)
@@ -103,6 +114,22 @@ func TestService(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("timeout")
 		}
+	})
+
+	t.Run("do not enqueue events if service is not started", func(t *testing.T) {
+		r := require.New(t)
+		svc := newTestService(log)
+		result := svc.Enqueue(&castpb.Event{
+			EventType:   castpb.EventType_EVENT_EXEC,
+			ContainerId: "c1",
+			Data: &castpb.Event_Exec{
+				Exec: &castpb.Exec{
+					Path: "/xmrig.out",
+				},
+			},
+		})
+
+		r.False(result)
 	})
 }
 

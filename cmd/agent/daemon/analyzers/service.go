@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
@@ -33,6 +34,7 @@ func NewService(log *logging.Logger, cfg Config) *Service {
 		outQueue:             make(chan *castpb.Event, 1000),
 		containerRemoveQueue: make(chan string, 100),
 		cache:                newContainersPathsCache(),
+		started:              &atomic.Bool{},
 	}
 }
 
@@ -44,14 +46,22 @@ type Service struct {
 	containerRemoveQueue chan string
 	cfg                  Config
 
-	cache *containersPathsCache
+	cache   *containersPathsCache
+	started *atomic.Bool
 }
 
-func (s *Service) Enqueue(e *castpb.Event) {
+func (s *Service) Enqueue(e *castpb.Event) bool {
+	// Only enqueue events, if the service is started.
+	if !s.started.Load() {
+		return false
+	}
+
 	select {
 	case s.eventsQueue <- e:
+		return true
 	default:
 		metrics.AgentAnalyzersQueueDroppedEventsTotal.Inc()
+		return false
 	}
 }
 
@@ -59,9 +69,18 @@ func (s *Service) Results() <-chan *castpb.Event {
 	return s.outQueue
 }
 
+func (s *Service) Started() bool {
+  return s.started.Load()
+}
+
 func (s *Service) Run(ctx context.Context) error {
+	s.started.Store(true)
+
 	s.log.Infof("running, workers=%d", s.cfg.WorkerCount)
-	defer s.log.Infof("stopping")
+	defer func() {
+		s.log.Infof("stopping")
+		s.started.Store(false)
+	}()
 
 	// Events processing workers loops.
 	for i := 0; i < s.cfg.WorkerCount; i++ {
