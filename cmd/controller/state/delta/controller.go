@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
@@ -38,6 +40,7 @@ type Config struct {
 	Enabled       bool
 	Interval      time.Duration `validate:"required"`
 	InitialDeltay time.Duration
+	SendTimeout   time.Duration `validate:"required"`
 }
 
 func NewController(
@@ -53,6 +56,7 @@ func NewController(
 		kubeClient:            kubeClient,
 		pendingItems:          map[string]deltaItem{},
 		deltaItemSendMaxTries: 3,
+		deltaRetryWait:        100 * time.Millisecond,
 	}
 }
 
@@ -64,7 +68,8 @@ type Controller struct {
 
 	pendingItems          map[string]deltaItem
 	deltasMu              sync.Mutex
-	deltaItemSendMaxTries int
+	deltaItemSendMaxTries uint64
+	deltaRetryWait        time.Duration
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -138,7 +143,7 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	start := time.Now()
 
 	// Cancel context to close stream after deltas are sent.
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.SendTimeout)
 	defer cancel()
 
 	deltaID := uuid.NewString()
@@ -161,7 +166,7 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	var lastSentItemIndex int
 	for _, item := range pendingDeltas {
 		pbItem := c.toCastaiDelta(item)
-		if err := c.sendDeltaItem(deltaStream, pbItem); err != nil {
+		if err := c.sendDeltaItem(ctx, deltaStream, pbItem); err != nil {
 			c.log.Warnf("sending delta item: %v", err)
 			// Return any remaining items back to pending list.
 			c.upsertPendingItems(pendingDeltas[lastSentItemIndex:])
@@ -172,27 +177,43 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), lastSentItemIndex+1, time.Since(start))
 }
 
-func (c *Controller) sendDeltaItem(stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
-	for i := 0; i < c.deltaItemSendMaxTries; i++ {
+func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
+	return backoff.RetryNotify(func() error {
 		if err := stream.Send(item); err != nil {
-			// Do not retry EOF. Stream is closed by server.
-			if errors.Is(err, io.EOF) {
-				return err
+			if !isRetryableErr(err) {
+				return backoff.Permanent(err)
 			}
-			c.log.Warnf("sending delta item: %v", err)
-			continue
+			return fmt.Errorf("sending delta item: %w", err)
 		}
 		if _, err := stream.Recv(); err != nil {
-			// Do not retry EOF. Stream is closed by server.
-			if errors.Is(err, io.EOF) {
-				return err
+			if !isRetryableErr(err) {
+				return backoff.Permanent(err)
 			}
-			c.log.Warnf("receiving delta ack: %v", err)
-			continue
+			return fmt.Errorf("receiving delta ack: %w", err)
 		}
 		return nil
+	}, backoff.WithContext(
+		backoff.WithMaxRetries(
+			backoff.NewExponentialBackOff(), c.deltaItemSendMaxTries,
+		), ctx,
+	), func(err error, duration time.Duration) {
+		if err != nil {
+			c.log.Warnf("sending delta item: %v", err)
+		}
+	})
+}
+
+func isRetryableErr(err error) bool {
+	if errors.Is(err, io.EOF) {
+		return false
 	}
-	return errors.New("sending delta item failed after max tries")
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	return true
 }
 
 func (c *Controller) recordDeltaEvent(action castaipb.KubernetesDeltaItemEvent, obj kube.Object) {

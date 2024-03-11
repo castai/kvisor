@@ -87,7 +87,6 @@ func TestRemote(t *testing.T) {
 					continue
 				}
 			}
-			//14:50
 			err = logsStream.Send(&castaipb.LogEvent{
 				Level: 0,
 				Msg:   "test msg",

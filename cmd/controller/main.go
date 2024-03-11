@@ -45,6 +45,7 @@ var (
 	kubernetesDeltaEnabled            = pflag.Bool("kubernetes-delta-enabled", true, "Enable kubernetes delta sync")
 	kubernetesDeltaReportInterval     = pflag.Duration("kubernetes-delta-interval", 15*time.Second, "Interval to report kubernetes object changes to cast backend (default `15s`, set to `0s` to disable)")
 	initialKubernetesDeltaReportDelay = pflag.Duration("kubernetes-delta-init-delay", 60*time.Second, "Initial delay to wait before starting reporting first kubernetes object deltas (first send report is full snapshot, this might take some time for large clusters. default: `1m`)")
+	kubernetesDeltaSendTimeout        = pflag.Duration("kubernetes-delta-send-timeout", 10*time.Second, "Kubernetes deltas send timeout")
 
 	imageScanEnabled               = pflag.Bool("image-scan-enabled", false, "Enable image scanning")
 	imageScanInterval              = pflag.Duration("image-scan-interval", 30*time.Second, "Image scan scheduling interval")
@@ -150,6 +151,7 @@ func main() {
 			Enabled:       *kubernetesDeltaEnabled,
 			Interval:      *kubernetesDeltaReportInterval,
 			InitialDeltay: *initialKubernetesDeltaReportDelay,
+			SendTimeout:   *kubernetesDeltaSendTimeout,
 		},
 		JobsCleanup: state.JobsCleanupConfig{
 			CleanupInterval: *jobsCleanupInterval,
