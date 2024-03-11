@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/kube"
 	"github.com/castai/kvisor/pkg/castai"
@@ -36,6 +37,7 @@ func NewController(
 	ct conntrack.Client,
 	tracer *ebpftracer.Tracer,
 	signatureEngine *signature.SignatureEngine,
+	enrichmentService *enrichment.Service,
 	kubeClient *kube.Client,
 ) *Controller {
 	return &Controller{
@@ -47,6 +49,7 @@ func NewController(
 		ct:                          ct,
 		tracer:                      tracer,
 		signatureEngine:             signatureEngine,
+		enrichmentService:           enrichmentService,
 		nodeName:                    os.Getenv("NODE_NAME"),
 		eventsExportQueue:           make(chan *castpb.Event, cfg.EventsSinkQueueSize),
 		resourcesStatsScrapePoints:  map[uint64]*resourcesStatsScrapePoint{},
@@ -59,14 +62,15 @@ func NewController(
 }
 
 type Controller struct {
-	log              *logging.Logger
-	cfg              Config
-	castClient       *castai.Client
-	containersClient *containers.Client
-	netStatsReader   *netstats.Reader
-	ct               conntrack.Client
-	tracer           *ebpftracer.Tracer
-	signatureEngine  *signature.SignatureEngine
+	log               *logging.Logger
+	cfg               Config
+	castClient        *castai.Client
+	containersClient  *containers.Client
+	netStatsReader    *netstats.Reader
+	ct                conntrack.Client
+	tracer            *ebpftracer.Tracer
+	signatureEngine   *signature.SignatureEngine
+	enrichmentService *enrichment.Service
 
 	nodeName string
 
@@ -109,6 +113,8 @@ func (c *Controller) Run(ctx context.Context) error {
 			case e := <-c.tracer.Events():
 				c.handleEvent(e)
 			case e := <-c.signatureEngine.Events():
+				c.handleEvent(e)
+			case e := <-c.enrichmentService.Events():
 				c.handleEvent(e)
 			}
 		}

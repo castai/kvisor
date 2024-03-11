@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/logexport"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
@@ -153,6 +155,11 @@ func (a *App) Run(ctx context.Context) error {
 			OutputChanSize: 0,
 		})
 
+	enrichmentService := enrichment.NewService(log, enrichment.Config{
+		WorkerCount:    runtime.NumCPU(),
+		EventEnrichers: []enrichment.EventEnricher{},
+	})
+
 	tracer := ebpftracer.New(log, ebpftracer.Config{
 		BTFPath:                 a.cfg.BTFPath,
 		EventsPerCPUBuffer:      a.cfg.EBPFEventsPerCPUBuffer,
@@ -160,6 +167,7 @@ func (a *App) Run(ctx context.Context) error {
 		DefaultCgroupsVersion:   cgroupClient.DefaultCgroupVersion().String(),
 		ActualDestinationGetter: ct,
 		ContainerClient:         containersClient,
+		EnrichEvent:             enrichmentService.Enqueue,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -219,6 +227,7 @@ func (a *App) Run(ctx context.Context) error {
 		ct,
 		tracer,
 		signatureEngine,
+		enrichmentService,
 		kubeClient,
 	)
 
@@ -241,6 +250,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	errg.Go(func() error {
 		return kubeClient.Run(ctx)
+	})
+
+	errg.Go(func() error {
+		return enrichmentService.Run(ctx)
 	})
 
 	for _, namespace := range a.cfg.MutedNamespaces {

@@ -369,9 +369,6 @@ func decodeDNSGoPacket(data []byte) (*castpb.DNS, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 
 	var d layers.DNS
 	if err := d.DecodeFromBytes(payload, nil); err != nil {

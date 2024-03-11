@@ -12,6 +12,7 @@ import (
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -36,15 +37,18 @@ type ContainerClient interface {
 }
 
 type Config struct {
-	BTFPath                 string
-	EventsPerCPUBuffer      int
-	EventsOutputChanSize    int
-	GCInterval              time.Duration
-	DefaultCgroupsVersion   string `validate:"required,oneof=V1 V2"`
-	ActualDestinationGetter ActualDestinationGetter
-	DebugEnabled            bool
-	ContainerClient         ContainerClient
+	BTFPath                     string
+	EventsPerCPUBuffer          int
+	EventsOutputChanSize        int
+	GCInterval                  time.Duration
+	DefaultCgroupsVersion       string `validate:"required,oneof=V1 V2"`
+	ActualDestinationGetter     ActualDestinationGetter
+	DebugEnabled                bool
+	ContainerClient             ContainerClient
+	EnrichEvent                 SubmitForEnrichment
 }
+
+type SubmitForEnrichment func(*enrichment.EnrichRequest) bool
 
 type Tracer struct {
 	log *logging.Logger
@@ -177,7 +181,7 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 		metrics.AgentPulledEventsTotal.Inc()
 
 		if err := t.decodeAndExportEvent(ctx, record.RawSample); err != nil {
-			if t.cfg.DebugEnabled {
+			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic){
 				t.log.Errorf("decoding event: %v", err)
 			}
 			metrics.AgentDecodeEventErrorsTotal.Inc()

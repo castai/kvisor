@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
@@ -23,13 +24,16 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Error indicating that the resulting error was caught from a panic
+var ErrPanic = errors.New("encountered panic")
+
 func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr error) {
 	metrics.AgentPulledEventsBytesTotal.Add(float64(len(data)))
 
 	defer func() {
 		if perr := recover(); perr != nil {
 			stack := string(debug.Stack())
-			rerr = fmt.Errorf("decode panic: %v, stack=%s", perr, stack)
+			rerr = fmt.Errorf("decode %w: %v, stack=%s", ErrPanic, perr, stack)
 		}
 	}()
 
@@ -174,6 +178,17 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 
 	if err := t.allowedByPolicy(eventId, eventCtx.CgroupID, &event); err != nil {
 		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventCtx.EventID))}).Inc()
+		return nil
+	}
+
+	if t.cfg.EnrichEvent(&enrichment.EnrichRequest{
+		Event:        &event,
+		EventContext: &eventCtx,
+		Args:         parsedArgs,
+		Container:    container,
+	}) {
+		// If we can get an event into the enrichment path, we are not allowed to put throw it into
+		// the events chan, as otherwise we will report events twice.
 		return nil
 	}
 
