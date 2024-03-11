@@ -11,7 +11,6 @@ agent:
   enabled: true
   extraArgs:
     log-level: debug
-    analyzers-enabled: true
     container-stats-scrape-interval: 10s
     pyroscope-addr: http://kvisord-pyroscope:4040
 
