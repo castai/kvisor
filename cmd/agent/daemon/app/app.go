@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/analyzers"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/logexport"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
@@ -50,7 +49,6 @@ type Config struct {
 	State                             state.Config
 	EBPFEventsPerCPUBuffer            int `validate:"required"`
 	EBPFEventsOutputChanSize          int `validate:"required"`
-	Analyzers                         analyzers.Config
 	MutedNamespaces                   []string
 	SignatureEngineConfig             signature.SignatureEngineConfig
 	CastaiEnv                         castai.Config
@@ -205,8 +203,6 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(a.cfg.HostProcDir)
 
-	analyzersService := analyzers.NewService(log, a.cfg.Analyzers)
-
 	nodeName, found := os.LookupEnv("NODE_NAME")
 	if !found {
 		return errors.New("missing `NODE_NAME` environment variable")
@@ -222,7 +218,6 @@ func (a *App) Run(ctx context.Context) error {
 		netStatsReader,
 		ct,
 		tracer,
-		analyzersService,
 		signatureEngine,
 		kubeClient,
 	)
@@ -235,12 +230,6 @@ func (a *App) Run(ctx context.Context) error {
 	errg.Go(func() error {
 		return tracer.Run(ctx)
 	})
-
-	if a.cfg.State.AnalyzersEnabled {
-		errg.Go(func() error {
-			return analyzersService.Run(ctx)
-		})
-	}
 
 	errg.Go(func() error {
 		return signatureEngine.Run(ctx)

@@ -163,18 +163,18 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 		_ = deltaStream.CloseSend()
 	}()
 
-	var lastSentItemIndex int
+	var sentDeltasCount int
 	for _, item := range pendingDeltas {
 		pbItem := c.toCastaiDelta(item)
 		if err := c.sendDeltaItem(ctx, deltaStream, pbItem); err != nil {
 			c.log.Warnf("sending delta item: %v", err)
 			// Return any remaining items back to pending list.
-			c.upsertPendingItems(pendingDeltas[lastSentItemIndex:])
+			c.upsertPendingItems(pendingDeltas[sentDeltasCount:])
 			return
 		}
-		lastSentItemIndex++
+		sentDeltasCount++
 	}
-	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), lastSentItemIndex+1, time.Since(start))
+	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), sentDeltasCount, time.Since(start))
 }
 
 func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
