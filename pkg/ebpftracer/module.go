@@ -10,14 +10,15 @@ import (
 	"sync/atomic"
 
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
 	"golang.org/x/sys/unix"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -no-global-types -cc clang-14 -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -no-global-types -cc clang-14 -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member
 
 type moduleConfig struct {
 	BTFObjPath string
@@ -45,7 +46,7 @@ type module struct {
 	probesMu       sync.Mutex
 }
 
-func (m *module) load() error {
+func (m *module) load(targetPIDNSID proc.NamespaceID) error {
 	if err := unix.Setrlimit(unix.RLIMIT_NOFILE, &unix.Rlimit{
 		Cur: 4096,
 		Max: 4096,
@@ -70,6 +71,15 @@ func (m *module) load() error {
 			return fmt.Errorf("loading custom btf: %w", err)
 		}
 	}
+
+	if err := spec.RewriteConstants(map[string]interface{}{
+		"global_config": tracerGlobalConfigT{
+			PidNsId: targetPIDNSID,
+		},
+	}); err != nil {
+		return err
+	}
+
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{

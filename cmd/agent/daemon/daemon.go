@@ -45,6 +45,8 @@ var (
 
 	mutedNamespaces = pflag.StringArray("mute-namespace", []string{"kube-system", "calico"}, "List of namespaces to ignore tracing events for. To mute multiple namespaces, provide this flag multiple times.")
 
+	enableFileHashEnricher = pflag.Bool("enable-file-hash-enricher", false, "Enables the file has event enricher for exec events")
+
 	castaiServerInsecure = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
 
 	kubeconfigPath = pflag.String("kubeconfig", "", "Kubeconfig file")
@@ -106,6 +108,9 @@ func NewCommand(version string) *cobra.Command {
 					OutputChanSize: *signatureEngineOutputEventChanSize,
 				},
 				CastaiEnv: castaiClientCfg,
+				EnricherConfig: app.EnricherConfig{
+					EnableFileHashEnricher: *enableFileHashEnricher,
+				},
 			}, clientset).Run(ctx); err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)

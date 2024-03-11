@@ -13,6 +13,7 @@ agent:
     log-level: debug
     container-stats-scrape-interval: 10s
     pyroscope-addr: http://kvisord-pyroscope:4040
+    enable-file-hash-enricher: true
 
   containerSecurityContext:
     readOnlyRootFilesystem: false

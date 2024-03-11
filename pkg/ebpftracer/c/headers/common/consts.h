@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include <vmlinux.h>
+
 #define MAX_PERCPU_BUFSIZE (1 << 15)  // set by the kernel as an upper bound
 #define MAX_STRING_SIZE    4096       // same as PATH_MAX
 #define MAX_BYTES_ARR_SIZE 4096       // max size of bytes array (arbitrarily chosen)
@@ -52,5 +54,12 @@ enum buf_idx_e
 };
 
 // clang-format on
+
+typedef struct global_config {
+    // id of the pid namespace the node host PID will be translated to
+    u64 pid_ns_id;
+} global_config_t;
+
+const volatile global_config_t global_config;
 
 #endif

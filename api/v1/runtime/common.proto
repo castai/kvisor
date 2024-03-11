@@ -18,6 +18,7 @@ message Library {
 message ExecMetadata {
   Language lang = 1;
   repeated Library libraries = 2;
+  bytes hash_sha256 = 3;
 }
 
 enum Language {

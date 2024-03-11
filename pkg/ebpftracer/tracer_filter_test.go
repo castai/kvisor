@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
@@ -131,6 +132,9 @@ func buildTestTracer() *Tracer {
 	tracer := &Tracer{
 		log: log,
 		cfg: Config{
+			EnrichEvent: func(er *enrichment.EnrichRequest) bool {
+				return false
+			},
 			ContainerClient: &MockContainerClient{
 				ContainerGetter: func(ctx context.Context, cg uint64) (*containers.Container, error) {
 					return &containers.Container{

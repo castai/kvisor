@@ -10,12 +10,13 @@
 typedef struct task_context {
     u64 start_time; // thread's start time
     u64 cgroup_id;
-    u32 pid;       // PID as in the userspace term
-    u32 tid;       // TID as in the userspace term
-    u32 ppid;      // Parent PID as in the userspace term
-    u32 host_pid;  // PID in host pid namespace
-    u32 host_tid;  // TID in host pid namespace
-    u32 host_ppid; // Parent PID in host pid namespace
+    u32 pid;           // PID as in the userspace term
+    u32 tid;           // TID as in the userspace term
+    u32 ppid;          // Parent PID as in the userspace term
+    u32 host_pid;      // PID in host pid namespace
+    u32 host_tid;      // TID in host pid namespace
+    u32 host_ppid;     // Parent PID in host pid namespace
+    u32 node_host_pid; // PID in same namespace as kubelet/container runtime is running
     u32 uid;
     u32 mnt_id;
     u32 pid_id;

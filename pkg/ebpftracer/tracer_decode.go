@@ -17,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/net/packet"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -142,6 +143,12 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 			},
 		}
 	case types.SchedProcessExecArgs:
+		if eventCtx.Pid == 1 {
+			t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
+		} else {
+			t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
+		}
+
 		event.EventType = castpb.EventType_EVENT_EXEC
 		event.Data = &castpb.Event_Exec{
 			Exec: &castpb.Exec{
