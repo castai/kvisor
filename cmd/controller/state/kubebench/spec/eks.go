@@ -35,7 +35,7 @@ func EKS(nodeName, jobName string) *batchv1.Job {
 							Name:  "kube-bench",
 							Image: "<placeholder>",
 							SecurityContext: &corev1.SecurityContext{
-								ReadOnlyRootFilesystem:   lo.ToPtr(true),
+								ReadOnlyRootFilesystem:   lo.ToPtr(false),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
 							Resources: corev1.ResourceRequirements{

@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/analyzers"
 	"github.com/castai/kvisor/cmd/agent/daemon/app"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/castai"
@@ -27,7 +26,6 @@ var (
 	logRateBurst    = pflag.Int("log-rate-burst", 100, "Log rate burst")
 
 	sendLogLevel                 = pflag.String("send-logs-level", "", "send logs level")
-	containerdK8sPath            = pflag.String("containerd-k8s-path", "/run/containerd/io.containerd.runtime.v2.task/k8s.io", "Path to containerd k8s containers")
 	containerdSockPath           = pflag.String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
 	ingestorAddr                 = pflag.String("ingestor-server-addr", "kvisord-server.kvisord.svc.cluster.local.:6061", "Ingestor server grpc API address")
 	eventsQueueSize              = pflag.Int("events-queue-size", 65536, "Events batch size")
@@ -41,10 +39,6 @@ var (
 	bpfTCPSampleSeconds      = pflag.Int("bpf-net-sample-seconds", 0, "Output tcp samples each x seconds. Zero value means disabled.")
 	ebpfEventsPerCPUBuffer   = pflag.Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 	ebpfEventsOutputChanSize = pflag.Int("ebpf-events-output-queue-size", 10000, "Ebpf user spaces output channel size")
-
-	analyzersEnabled          = pflag.Bool("analyzers-enabled", false, "Enabled analyzers")
-	analyzersMinFileSizeBytes = pflag.Int64("analyzers-min-file-size-bytes", 4*1024*1024, "Analyzers min file size")
-	analyzersWorkersCount     = pflag.Int("analyzers-workers-count", 2, "Analyzers workers count")
 
 	signatureEngineInputEventChanSize  = pflag.Int("signature-engine-input-queue-size", 1000, "Input queue size for the signature engine.")
 	signatureEngineOutputEventChanSize = pflag.Int("signature-engine-output-queue-size", 1000, "Output queue size for the signature engine.")
@@ -103,16 +97,10 @@ func NewCommand(version string) *cobra.Command {
 				State: state.Config{
 					EventsSinkQueueSize:          *eventsQueueSize,
 					ContainerStatsScrapeInterval: *containerStatsScrapeInterval,
-					AnalyzersEnabled:             *analyzersEnabled,
 				},
 				EBPFEventsPerCPUBuffer:   *ebpfEventsPerCPUBuffer,
 				EBPFEventsOutputChanSize: *ebpfEventsOutputChanSize,
-				Analyzers: analyzers.Config{
-					ContainersBasePath: *containerdK8sPath,
-					MinFileSizeBytes:   *analyzersMinFileSizeBytes,
-					WorkerCount:        *analyzersWorkersCount,
-				},
-				MutedNamespaces: *mutedNamespaces,
+				MutedNamespaces:          *mutedNamespaces,
 				SignatureEngineConfig: signature.SignatureEngineConfig{
 					InputChanSize:  *signatureEngineInputEventChanSize,
 					OutputChanSize: *signatureEngineOutputEventChanSize,

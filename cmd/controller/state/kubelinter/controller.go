@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -12,7 +13,10 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
@@ -44,6 +48,25 @@ type Controller struct {
 	linter *Linter
 	client castaiClient
 	delta  *deltaState
+}
+
+func (c *Controller) RequiredTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&corev1.Namespace{}),
+		reflect.TypeOf(&corev1.Service{}),
+		reflect.TypeOf(&appsv1.Deployment{}),
+		reflect.TypeOf(&appsv1.DaemonSet{}),
+		reflect.TypeOf(&appsv1.StatefulSet{}),
+		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
+		reflect.TypeOf(&rbacv1.RoleBinding{}),
+		reflect.TypeOf(&rbacv1.ClusterRole{}),
+		reflect.TypeOf(&rbacv1.Role{}),
+		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
+		reflect.TypeOf(&networkingv1.Ingress{}),
+		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&batchv1.CronJob{}),
+	}
 }
 
 func (c *Controller) Run(ctx context.Context) error {

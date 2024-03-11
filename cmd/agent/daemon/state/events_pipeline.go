@@ -76,11 +76,6 @@ func (c *Controller) handleEvent(e *castpb.Event) {
 	if c.debugEvent {
 		printEvent(e)
 	}
-
-	if e.EventType == castpb.EventType_EVENT_EXEC {
-		c.analyzersService.Enqueue(e)
-	}
-
 	c.eventsExportQueue <- e
 }
 

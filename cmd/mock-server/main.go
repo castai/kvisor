@@ -121,8 +121,14 @@ func (m *MockServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentA
 	for {
 		event, err := server.Recv()
 		if err != nil {
-			return err
+			m.log.Warnf("delta recv: %v", err)
+			break
 		}
-		m.log.Debugf("delta: %v", event)
+		m.log.Debugf("delta_item: %v", event)
+		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
+			m.log.Warnf("delta ack send: %v", err)
+			break
+		}
 	}
+	return nil
 }
