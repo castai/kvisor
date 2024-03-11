@@ -88,6 +88,10 @@ func (c *Controller) scrapeContainersResourceStats(batch *castpb.ContainerStatsB
 			continue
 		}
 
+		if c.IsMutedNamespace(cont.PodNamespace) {
+			continue
+		}
+
 		now := time.Now().UTC()
 		cpu, err := cont.Cgroup.CpuStat()
 		if err != nil {
@@ -231,6 +235,10 @@ func (c *Controller) scrapeContainersSyscallStats(ctx context.Context, batch *ca
 			if !errors.Is(err, containers.ErrContainerNotFound) {
 				c.log.Errorf("getting container: %v", err)
 			}
+			continue
+		}
+
+		if c.IsMutedNamespace(cont.PodNamespace) {
 			continue
 		}
 

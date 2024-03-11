@@ -118,11 +118,7 @@ func (c *Controller) Run(ctx context.Context) error {
 }
 
 func (c *Controller) onNewContainer(container *containers.Container) {
-	c.mutedNamespacesMu.RLock()
-	_, muted := c.mutedNamespaces[container.PodNamespace]
-	c.mutedNamespacesMu.RUnlock()
-
-	if !muted {
+	if !c.IsMutedNamespace(container.PodNamespace) {
 		return
 	}
 
@@ -201,4 +197,12 @@ func (c *Controller) UnmuteNamespace(namespace string) error {
 	}
 
 	return nil
+}
+
+func (c *Controller) IsMutedNamespace(namespace string) bool {
+	c.mutedNamespacesMu.RLock()
+	defer c.mutedNamespacesMu.RUnlock()
+	_, found := c.mutedNamespaces[namespace]
+
+	return found
 }
