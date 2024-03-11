@@ -177,20 +177,33 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 }
 
 func (c *Client) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*Container, error) {
-	c.mu.RLock()
-	container, found := c.containersByCgroup[cgroup]
-	c.mu.RUnlock()
+	container, found, err := c.LookupContainerForCgroupInCache(cgroup)
+	if err != nil {
+		return nil, err
+	}
 
 	if !found {
 		metrics.AgentLoadContainerByCgroup.Inc()
 		return c.addContainerByCgroupID(ctx, cgroup)
 	}
 
-	if container.Err != nil {
-		return nil, container.Err
+	return container, nil
+}
+
+func (c *Client) LookupContainerForCgroupInCache(cgroup uint64) (*Container, bool, error) {
+	c.mu.RLock()
+	container, found := c.containersByCgroup[cgroup]
+	c.mu.RUnlock()
+
+	if !found {
+		return nil, false, nil
 	}
 
-	return container, nil
+	if container.Err != nil {
+		return nil, true, container.Err
+	}
+
+	return container, true, nil
 }
 
 func (c *Client) CleanupCgroup(cgroup uint64) {

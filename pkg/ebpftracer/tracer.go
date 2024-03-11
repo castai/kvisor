@@ -18,6 +18,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/metrics"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf/perf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
@@ -37,15 +38,18 @@ type ContainerClient interface {
 }
 
 type Config struct {
-	BTFPath                     string
-	EventsPerCPUBuffer          int
-	EventsOutputChanSize        int
-	GCInterval                  time.Duration
-	DefaultCgroupsVersion       string `validate:"required,oneof=V1 V2"`
-	ActualDestinationGetter     ActualDestinationGetter
-	DebugEnabled                bool
-	ContainerClient             ContainerClient
-	EnrichEvent                 SubmitForEnrichment
+	BTFPath                 string
+	EventsPerCPUBuffer      int
+	EventsOutputChanSize    int
+	GCInterval              time.Duration
+	DefaultCgroupsVersion   string `validate:"required,oneof=V1 V2"`
+	ActualDestinationGetter ActualDestinationGetter
+	DebugEnabled            bool
+	ContainerClient         ContainerClient
+	EnrichEvent             SubmitForEnrichment
+	MountNamespacePIDStore  *types.PIDsPerNamespace
+	// All PIPs reported from ebpf will be normalized to this PID namespace
+	HomePIDNS proc.NamespaceID
 }
 
 type SubmitForEnrichment func(*enrichment.EnrichRequest) bool
@@ -117,7 +121,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 }
 
 func (t *Tracer) Load() error {
-	if err := t.module.load(); err != nil {
+	if err := t.module.load(t.cfg.HomePIDNS); err != nil {
 		return fmt.Errorf("loading ebpf module: %w", err)
 	}
 	t.eventsSet = newEventsDefinitionSet(t.module.objects)
@@ -181,7 +185,7 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 		metrics.AgentPulledEventsTotal.Inc()
 
 		if err := t.decodeAndExportEvent(ctx, record.RawSample); err != nil {
-			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic){
+			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
 				t.log.Errorf("decoding event: %v", err)
 			}
 			metrics.AgentDecodeEventErrorsTotal.Inc()

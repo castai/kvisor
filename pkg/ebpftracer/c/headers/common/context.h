@@ -5,6 +5,8 @@
 
 #include <common/task.h>
 #include <common/cgroups.h>
+#include <common/pid_translation.h>
+#include <common/consts.h>
 
 // PROTOTYPES
 
@@ -33,6 +35,7 @@ init_context(void *ctx, event_context_t *context, struct task_struct *task, u32 
     context->task.pid_id = get_task_pid_ns_id(task);
     context->task.uid = bpf_get_current_uid_gid();
     context->task.flags = 0;
+    get_pid_in_ns(global_config.pid_ns_id, &context->task.node_host_pid);
     if (is_compat(task))
         context->task.flags |= IS_COMPAT_FLAG;
     __builtin_memset(context->task.comm, 0, sizeof(context->task.comm));

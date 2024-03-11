@@ -74,7 +74,7 @@ func buildLookupMaps(signatures []Signature) (map[events.ID][]Signature, map[Sig
 func (e *SignatureEngine) TargetEvents() []events.ID {
 	result := make([]events.ID, 0, len(e.eventsSignatureTriggers))
 
-	for event, _ := range e.eventsSignatureTriggers {
+	for event := range e.eventsSignatureTriggers {
 		result = append(result, event)
 	}
 
@@ -94,7 +94,6 @@ func (e *SignatureEngine) QueueEvent(event *types.Event) {
 	case e.inputEvents <- event:
 	default:
 	}
-
 }
 
 func (e *SignatureEngine) Run(ctx context.Context) error {

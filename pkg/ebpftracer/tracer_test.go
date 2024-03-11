@@ -10,12 +10,15 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -35,6 +38,12 @@ func TestTracer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ct.Close()
+
+	procHandle := proc.New()
+	pidNS, err := procHandle.GetCurrentPIDNSID()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
@@ -65,6 +74,11 @@ func TestTracer(t *testing.T) {
 				}, nil
 			},
 		},
+		EnrichEvent: func(er *enrichment.EnrichRequest) bool {
+			return false
+		},
+		MountNamespacePIDStore: getInitializedMountNamespacePIDStore(procHandle),
+		HomePIDNS:              pidNS,
 	})
 	defer tr.Close()
 
@@ -90,9 +104,7 @@ func TestTracer(t *testing.T) {
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.TrackSyscallStats},
-			{
-				ID: events.NetPacketDNS,
-			},
+			{ID: events.NetPacketDNS},
 			//{
 			//	ID: events.FileModification,
 			//	RateLimit: &events.RateLimitPolicy{
@@ -102,7 +114,7 @@ func TestTracer(t *testing.T) {
 			//{ID: events.CgroupMkdir},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.ProcessOomKilled},
-			{ID: events.MagicWrite},
+			// {ID: events.MagicWrite},
 		},
 	}
 
@@ -162,4 +174,22 @@ func printEvent(event *castpb.Event) {
 	}
 
 	fmt.Print("\n")
+}
+
+func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPerNamespace {
+	mountNamespacePIDStore, err := types.NewPIDsPerNamespaceCache(2048, 5)
+	if err != nil {
+		panic(err)
+	}
+
+	processes, err := procHandler.LoadMountNSOldestProcesses()
+	if err != nil {
+		panic(err)
+	}
+
+	for ns, pid := range processes {
+		mountNamespacePIDStore.ForceAddToBucket(ns, pid)
+	}
+
+	return mountNamespacePIDStore
 }

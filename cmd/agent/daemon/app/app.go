@@ -21,7 +21,9 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -54,6 +56,11 @@ type Config struct {
 	MutedNamespaces                   []string
 	SignatureEngineConfig             signature.SignatureEngineConfig
 	CastaiEnv                         castai.Config
+	EnricherConfig                    EnricherConfig
+}
+
+type EnricherConfig struct {
+	EnableFileHashEnricher bool
 }
 
 func New(cfg *Config, clientset kubernetes.Interface) *App {
@@ -149,16 +156,23 @@ func (a *App) Run(ctx context.Context) error {
 
 	activeSignatures := signature.DefaultSignatures(log)
 
-	signatureEngine := signature.NewEngine(activeSignatures, log,
-		signature.SignatureEngineConfig{
-			InputChanSize:  0,
-			OutputChanSize: 0,
-		})
+	signatureEngine := signature.NewEngine(activeSignatures, log, a.cfg.SignatureEngineConfig)
+
+	procHandler := proc.New()
+	mountNamespacePIDStore, err := getInitializedMountNamespaceStore(procHandler)
+	if err != nil {
+		return fmt.Errorf("mount namespace PID store: %w", err)
+	}
 
 	enrichmentService := enrichment.NewService(log, enrichment.Config{
 		WorkerCount:    runtime.NumCPU(),
-		EventEnrichers: []enrichment.EventEnricher{},
+		EventEnrichers: getActiveEnrichers(a.cfg.EnricherConfig, log, mountNamespacePIDStore),
 	})
+
+	pidNSID, err := procHandler.GetCurrentPIDNSID()
+	if err != nil {
+		return fmt.Errorf("proc handler: %w", err)
+	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
 		BTFPath:                 a.cfg.BTFPath,
@@ -168,6 +182,8 @@ func (a *App) Run(ctx context.Context) error {
 		ActualDestinationGetter: ct,
 		ContainerClient:         containersClient,
 		EnrichEvent:             enrichmentService.Enqueue,
+		MountNamespacePIDStore:  mountNamespacePIDStore,
+		HomePIDNS:               pidNSID,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -267,6 +283,34 @@ func (a *App) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
 	}
+}
+
+func getActiveEnrichers(cfg EnricherConfig, log *logging.Logger, mountNamespacePIDStore *types.PIDsPerNamespace) []enrichment.EventEnricher {
+	var result []enrichment.EventEnricher
+
+	if cfg.EnableFileHashEnricher {
+		result = append(result, enrichment.EnrichWithFileHash(log, mountNamespacePIDStore, proc.GetFS()))
+	}
+
+	return result
+}
+
+func getInitializedMountNamespaceStore(procHandler *proc.Proc) (*types.PIDsPerNamespace, error) {
+	mountNamespacePIDStore, err := types.NewPIDsPerNamespaceCache(2048, 5)
+	if err != nil {
+		return nil, err
+	}
+
+	processes, err := procHandler.LoadMountNSOldestProcesses()
+	if err != nil {
+		return nil, err
+	}
+
+	for ns, pid := range processes {
+		mountNamespacePIDStore.ForceAddToBucket(ns, pid)
+	}
+
+	return mountNamespacePIDStore, nil
 }
 
 func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {

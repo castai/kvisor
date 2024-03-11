@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type tracerGlobalConfigT struct{ PidNsId uint64 }
+
 // loadTracer returns the embedded CollectionSpec for tracer.
 func loadTracer() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_TracerBytes)

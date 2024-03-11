@@ -26,21 +26,24 @@ const (
 // NOTE: Integers want to be aligned in memory, so if changing the format of this struct
 // keep the 1-byte 'Argnum' as the final parameter before the padding (if padding is needed).
 type EventContext struct {
-	Ts              uint64
-	StartTime       uint64
-	CgroupID        uint64
-	Pid             uint32
-	Tid             uint32
-	Ppid            uint32
-	HostPid         uint32
-	HostTid         uint32
-	HostPpid        uint32
+	Ts        uint64
+	StartTime uint64
+	CgroupID  uint64
+	Pid       uint32
+	Tid       uint32
+	Ppid      uint32
+	HostPid   uint32
+	HostTid   uint32
+	HostPpid  uint32
+	// PID translated to PIDNS the container runtime is running in
+	NodeHostPid     uint32
 	Uid             uint32
 	MntID           uint32
 	PidID           uint32
 	Comm            [16]byte
 	UtsName         [16]byte
 	Flags           uint32
+	_               [4]byte   // padding
 	EventID         events.ID // int32
 	Syscall         int32
 	MatchedPolicies uint64
@@ -51,7 +54,7 @@ type EventContext struct {
 }
 
 func (EventContext) GetSizeBytes() int {
-	return 128
+	return 136
 }
 
 type ChunkMeta struct {

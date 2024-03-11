@@ -25,6 +25,7 @@ local_resource(
         './pkg/ebpftracer',
         './pkg/cgroup',
         './pkg/containers',
+        './pkg/bucketcache',
     ],
 )
 

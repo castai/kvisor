@@ -87,7 +87,12 @@ func run(ctx context.Context) error {
 	validateTimeout := 30 * time.Second
 	fmt.Printf("🧐validating events (timeout %s)\n", validateTimeout)
 	if err := srv.validateEvents(ctx, validateTimeout); err != nil {
-		return fmt.Errorf("assert events: %w", err)
+		return fmt.Errorf("validate events: %w", err)
+	}
+
+	fmt.Println("🧐validating exec events")
+	if err := srv.validateExecEvents(); err != nil {
+		return fmt.Errorf("validate exec events: %w", err)
 	}
 
 	fmt.Println("🙏waiting for flogs")
@@ -133,6 +138,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.log-level=debug \
   --set agent.extraArgs.container-stats-scrape-interval=5s \
   --set agent.extraArgs.castai-server-insecure=true \
+  --set agent.extraArgs.enable-file-hash-enricher=true \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.kubernetes-delta-interval=5s \
@@ -311,6 +317,23 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 	}
 }
 
+func (t *testCASTAIServer) validateExecEvents() error {
+	var foundExecWithHash bool
+
+	for _, e := range t.events {
+		if e.EventType == castaipb.EventType_EVENT_EXEC && e.GetExec() != nil && e.GetExec().Meta != nil && e.GetExec().Meta.HashSha256 != nil {
+			foundExecWithHash = true
+			break
+		}
+	}
+
+	if !foundExecWithHash {
+		return errors.New("expected at least one exec event with hash set")
+	}
+
+	return nil
+}
+
 func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Duration) error {
 	expectedTypes := map[castaipb.EventType]struct{}{
 		castaipb.EventType_EVENT_EXEC:        {},
@@ -333,7 +356,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 			_, _ = errorMsg.WriteString("not all expected event types found within timeout. missing types:")
 			first := true
 
-			for et, _ := range expectedTypes {
+			for et := range expectedTypes {
 				if !first {
 					_, _ = errorMsg.WriteString(", ")
 				} else {
