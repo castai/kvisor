@@ -417,8 +417,9 @@ func scanJobSpec(
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Priority:      lo.ToPtr(int32(0)),
+					RestartPolicy:      corev1.RestartPolicyNever,
+					Priority:           lo.ToPtr(int32(0)),
+					ServiceAccountName: cfg.ServiceAccount,
 					Affinity: &corev1.Affinity{
 						NodeAffinity: &corev1.NodeAffinity{
 							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{

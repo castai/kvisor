@@ -55,6 +55,7 @@ var (
 	imageScanJobImagePullPolicy    = pflag.String("image-scan-job-pull-policy", "IfNotPresent", "Image scan job image pull policy")
 	imageScanInitDelay             = pflag.Duration("image-scan-init-delay", 60*time.Second, "Image scan init delay")
 	imagePrivateRegistryPullSecret = pflag.String("image-private-registry-pull-secret", "", "Image private registry pull secret")
+	imageScanServiceAccount        = pflag.String("image-scan-service-account", "", "Image scan job kubernetes service account. Useful for IAM based private registry auth.")
 	imageScanCPURequest            = pflag.String("image-scan-cpu-request", "1m", "Image scan cpu request")
 	imageScanCPULimit              = pflag.String("image-scan-cpu-limit", "2", "Image scan cpu limit")
 	imageScanMemoryRequest         = pflag.String("image-scan-memory-request", "1Mi", "Image scan memory request")
@@ -131,6 +132,7 @@ func main() {
 			ProfileEnabled:            *imageScanProfileProfileEnabled,
 			PhlareEnabled:             *imageScanProfileProfileEnabled,
 			PrivateRegistryPullSecret: *imagePrivateRegistryPullSecret,
+			ServiceAccount:            *imageScanServiceAccount,
 			InitDelay:                 *imageScanInitDelay,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
