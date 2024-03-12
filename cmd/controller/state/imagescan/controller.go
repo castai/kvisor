@@ -40,6 +40,7 @@ type Config struct {
 	ProfileEnabled            bool
 	PhlareEnabled             bool
 	PrivateRegistryPullSecret string
+	ServiceAccount            string
 	InitDelay                 time.Duration
 	CastaiGrpcInsecure        bool
 	ImageScanBlobsCacheURL    string
