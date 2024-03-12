@@ -96,8 +96,13 @@ while true; do
   fi
 
   sleep $sleep_seconds
-  echo "Job logs:"
+  echo "======"
+  kubectl get pods -A
+  echo "======"
+  kubectl logs -l app.kubernetes.io/component=agent
+  echo "======"
   kubectl logs -l job-name=e2e --since=5s
+  echo "Job logs:"
   i=$((i+1))
 done
 

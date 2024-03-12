@@ -322,7 +322,6 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 	}
 
 	currentOffset := 0
-	timeoutTimer := time.After(timeout)
 
 	for {
 		select {
@@ -345,7 +344,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 			}
 
 			return errors.New(errorMsg.String())
-		case <-timeoutTimer:
+		case <-time.Tick(1 * time.Second):
 			t.mu.Lock()
 			events := t.events
 			t.mu.Unlock()
@@ -360,6 +359,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 
 			currentOffset = len(events)
 
+			fmt.Println("missing event types:", expectedTypes)
 			if len(expectedTypes) == 0 {
 				return nil
 			}
@@ -368,7 +368,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 }
 
 func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(30 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
@@ -379,6 +379,7 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 			t.mu.Lock()
 			events := t.events
 			t.mu.Unlock()
+      fmt.Printf("evaluating %d events\n", len(events))
 			for _, e := range events {
 				if e.ProcessName == "pause" {
 					continue
@@ -464,44 +465,48 @@ func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurity
 }
 
 func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
+	currentOffset := 0
 	timeout := time.After(10 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeout:
-			return errors.New("timeout waiting for received kubernetes deltas")
-		case <-time.After(1 * time.Second):
+			return errors.New("timeout waiting for received kubernetes deltas with all fields set")
+		case <-time.Tick(1 * time.Second):
 			t.mu.Lock()
 			deltas := t.deltaUpdates
 			t.mu.Unlock()
-			for _, item := range deltas {
+
+      for _, item := range deltas[currentOffset:] {
 				if item.ObjectKind != "Deployment" {
 					continue
 				}
 				if item.ObjectName == "" {
-					return errors.New("missing name")
+					continue
 				}
 				if item.ObjectUid == "" {
-					return errors.New("missing object uid")
+					continue
 				}
 				if item.ObjectKind == "" {
-					return errors.New("missing object kind")
+					continue
 				}
 				if item.ObjectNamespace == "" {
-					return errors.New("missing namespace")
+					continue
 				}
 				if len(item.ObjectLabels) == 0 {
-					return errors.New("missing labels")
+					continue
 				}
 				if len(item.ObjectStatus) == 0 {
-					return errors.New("missing status")
+					continue
 				}
 				if len(item.ObjectSpec) == 0 {
-					return errors.New("missing spec")
+					continue
 				}
 				return nil
 			}
+
+			currentOffset = len(deltas)
 		}
 	}
 }

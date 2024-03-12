@@ -22,7 +22,11 @@ spec:
             - /bin/sh
             - -c
             - |-
-              sleep 1
-              apt update -y
-              apt install -y iputils-ping
-              sleep 1000000000
+              sleep 2
+              for i in $(seq 0 100); do
+                TEMP=$(mktemp)
+                cp /bin/false $TEMP
+                sleep 1
+                echo $i $TEMP
+              done
+              sleep 2
