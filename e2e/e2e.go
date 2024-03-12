@@ -489,6 +489,7 @@ func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 					return errors.New("missing object kind")
 				}
 				if item.ObjectNamespace == "" {
+          println("oh no")
 					return errors.New("missing namespace")
 				}
 				if len(item.ObjectLabels) == 0 {
