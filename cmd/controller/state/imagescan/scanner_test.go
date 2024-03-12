@@ -51,7 +51,7 @@ func TestScanner(t *testing.T) {
 			Architecture:     "amd64",
 			Os:               "linux",
 			ScanImageDetails: kube.ImageDetails{
-				ImageName: "imgcollector:1.0.0",
+				AgentImageName: "imgcollector:1.0.0",
 			},
 		})
 		r.NoError(err)
@@ -268,7 +268,7 @@ func TestScanner(t *testing.T) {
 			ResourceIDs:       []string{"p1", "p2"},
 			DeleteFinishedJob: true,
 			ScanImageDetails: kube.ImageDetails{
-				ImageName: "imgcollector:1.0.0",
+				AgentImageName: "imgcollector:1.0.0",
 			},
 		})
 		r.NoError(err)
@@ -320,7 +320,7 @@ func TestScanner(t *testing.T) {
 			ResourceIDs:       []string{"p1", "p2"},
 			WaitForCompletion: true,
 			ScanImageDetails: kube.ImageDetails{
-				ImageName: "imgcollector:1.0.0",
+				AgentImageName: "imgcollector:1.0.0",
 			},
 		})
 		r.ErrorContains(err, "[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")

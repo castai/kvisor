@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,17 +42,17 @@ type KubernetesChangeEventListener interface {
 }
 
 type Client struct {
-	log                      *logging.Logger
-	kvisorNamespace          string
-	kvisorAgentDaemonSetName string
-	kvisorAgentContainerName string
-	client                   kubernetes.Interface
+	log                           *logging.Logger
+	kvisorNamespace               string
+	podName                       string
+	kvisorControllerContainerName string
+	client                        kubernetes.Interface
 
-	mu                sync.RWMutex
-	replicaSets       map[types.UID]metav1.ObjectMeta
-	jobs              map[types.UID]metav1.ObjectMeta
-	deployments       map[types.UID]*appsv1.Deployment
-	kvisorAgentDsSpec *appsv1.DaemonSetSpec
+	mu                      sync.RWMutex
+	replicaSets             map[types.UID]metav1.ObjectMeta
+	jobs                    map[types.UID]metav1.ObjectMeta
+	deployments             map[types.UID]*appsv1.Deployment
+	kvisorControllerPodSpec *corev1.PodSpec
 
 	changeListenersMu sync.RWMutex
 	changeListeners   []*eventListener
@@ -60,20 +61,20 @@ type Client struct {
 
 func NewClient(
 	log *logging.Logger,
-	kvisorAgentDaemonSetName, kvisorNamespace string,
+	podName, kvisorNamespace string,
 	version Version,
 	client kubernetes.Interface,
 ) *Client {
 	return &Client{
-		log:                      log.WithField("component", "kube_watcher"),
-		kvisorNamespace:          kvisorNamespace,
-		kvisorAgentDaemonSetName: kvisorAgentDaemonSetName,
-		kvisorAgentContainerName: "kvisor",
-		client:                   client,
-		replicaSets:              map[types.UID]metav1.ObjectMeta{},
-		jobs:                     map[types.UID]metav1.ObjectMeta{},
-		deployments:              map[types.UID]*appsv1.Deployment{},
-		version:                  version,
+		log:                           log.WithField("component", "kube_watcher"),
+		kvisorNamespace:               kvisorNamespace,
+		podName:                       podName,
+		kvisorControllerContainerName: "controller",
+		client:                        client,
+		replicaSets:                   map[types.UID]metav1.ObjectMeta{},
+		jobs:                          map[types.UID]metav1.ObjectMeta{},
+		deployments:                   map[types.UID]*appsv1.Deployment{},
+		version:                       version,
 	}
 }
 
@@ -271,21 +272,21 @@ func (c *Client) GetOwnerUID(obj Object) string {
 }
 
 type ImageDetails struct {
-	ImageName        string
+	AgentImageName   string
 	ImagePullSecrets []corev1.LocalObjectReference
 }
 
-// GetKvisorAgentImageDetails returns kvisor image details.
+// GetKvisorAgentImageDetails returns kvisor agent image details.
 // This is used for image analyzer and kube-bench dynamic jobs to schedule using the same image.
 func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, bool) {
-	spec, found := c.getKvisorAgentDaemonSpec()
+	spec, found := c.getKvisorControllerPodSpec()
 	if !found {
-		c.log.Warn("kvisor agent daemon set not found")
+		c.log.Warn("kvisor controller pod spec not found")
 		return ImageDetails{}, false
 	}
 	var imageName string
-	for _, container := range spec.Template.Spec.Containers {
-		if container.Name == c.kvisorAgentContainerName {
+	for _, container := range spec.Containers {
+		if container.Name == c.kvisorControllerContainerName {
 			imageName = container.Image
 			break
 		}
@@ -295,14 +296,14 @@ func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, bool) {
 		return ImageDetails{}, false
 	}
 	return ImageDetails{
-		ImageName:        imageName,
-		ImagePullSecrets: spec.Template.Spec.ImagePullSecrets,
+		AgentImageName:   strings.Replace(imageName, "-controller", "-agent", 1),
+		ImagePullSecrets: spec.ImagePullSecrets,
 	}, true
 }
 
-func (c *Client) getKvisorAgentDaemonSpec() (*appsv1.DaemonSetSpec, bool) {
+func (c *Client) getKvisorControllerPodSpec() (*corev1.PodSpec, bool) {
 	c.mu.RLock()
-	spec := c.kvisorAgentDsSpec
+	spec := c.kvisorControllerPodSpec
 	c.mu.RUnlock()
 	if spec != nil {
 		return spec, true
@@ -310,16 +311,16 @@ func (c *Client) getKvisorAgentDaemonSpec() (*appsv1.DaemonSetSpec, bool) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	ds, err := c.client.AppsV1().DaemonSets(c.kvisorNamespace).Get(ctx, c.kvisorAgentDaemonSetName, metav1.GetOptions{})
+	pod, err := c.client.CoreV1().Pods(c.kvisorNamespace).Get(ctx, c.podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, false
 	}
 
 	c.mu.Lock()
-	c.kvisorAgentDsSpec = &ds.Spec
+	c.kvisorControllerPodSpec = &pod.Spec
 	c.mu.Unlock()
 
-	return &ds.Spec, true
+	return &pod.Spec, true
 }
 
 func (c *Client) RegisterKubernetesChangeListener(l KubernetesChangeEventListener) {

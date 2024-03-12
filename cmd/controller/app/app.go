@@ -41,8 +41,7 @@ type Config struct {
 
 	// Current running pod metadata.
 	PodNamespace string `validate:"required"`
-
-	AgentDaemonSetName string
+	PodName      string `validate:"required"`
 
 	// HTTPListenPort is internal http servers listen port.
 	HTTPListenPort int `validate:"required"`
@@ -110,7 +109,7 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kubeClient := kube.NewClient(log, cfg.AgentDaemonSetName, cfg.PodNamespace, k8sVersion, clientset)
+	kubeClient := kube.NewClient(log, cfg.PodName, cfg.PodNamespace, k8sVersion, clientset)
 	kubeClient.RegisterHandlers(informersFactory)
 
 	// Run all components.

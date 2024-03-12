@@ -239,7 +239,7 @@ func TestSubscriber(t *testing.T) {
 				Architecture:                defaultImageArch,
 				Os:                          defaultImageOs,
 				ScanImageDetails: kube.ImageDetails{
-					ImageName:        "kvisor",
+					AgentImageName:   "kvisor",
 					ImagePullSecrets: nil,
 				},
 			}, ngnxImage)
@@ -594,7 +594,7 @@ func (m *mockKubeController) GetOwnerUID(obj kube.Object) string {
 
 func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, bool) {
 	return kube.ImageDetails{
-		ImageName:        "kvisor",
+		AgentImageName:   "kvisor",
 		ImagePullSecrets: nil,
 	}, true
 }

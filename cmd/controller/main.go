@@ -36,8 +36,6 @@ var (
 
 	pyroscopeAddr = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
 
-	agentDaemonSetName = pflag.String("agent-daemonset-name", "", "Agent DaemonSet name")
-
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
 	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
 	castaiServerInsecure     = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
@@ -106,15 +104,15 @@ func main() {
 
 	podNs := os.Getenv("POD_NAMESPACE")
 	appInstance := app.New(&app.Config{
-		LogLevel:           *logLevel,
-		LogRateInterval:    *logRateInterval,
-		LogRateBurst:       *logRateBurst,
-		PodNamespace:       podNs,
-		AgentDaemonSetName: *agentDaemonSetName,
-		Version:            Version,
-		PyroscopeAddr:      *pyroscopeAddr,
-		HTTPListenPort:     *httpListenPort,
-		CastaiEnv:          castaiClientCfg,
+		LogLevel:        *logLevel,
+		LogRateInterval: *logRateInterval,
+		LogRateBurst:    *logRateBurst,
+		PodName:         os.Getenv("POD_NAME"),
+		PodNamespace:    podNs,
+		Version:         Version,
+		PyroscopeAddr:   *pyroscopeAddr,
+		HTTPListenPort:  *httpListenPort,
+		CastaiEnv:       castaiClientCfg,
 		CastaiController: state.CastaiConfig{
 			RemoteConfigSyncDuration: *castaiConfigSyncDuration,
 		},
