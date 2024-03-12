@@ -184,12 +184,12 @@ func TestController(t *testing.T) {
 
 		ctrl.OnAdd(dep1)
 		r.Len(ctrl.pendingItems, 1)
-		ctrl.sendDeltas(ctx, false)
+		r.NoError(ctrl.sendDeltas(ctx, false))
 		r.Len(ctrl.pendingItems, 0)
 
 		ctrl.OnAdd(dep1)
 		r.Len(ctrl.pendingItems, 1)
-		ctrl.sendDeltas(ctx, false)
+		r.NoError(ctrl.sendDeltas(ctx, false))
 		r.Len(ctrl.pendingItems, 1)
 	})
 }

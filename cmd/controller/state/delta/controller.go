@@ -170,7 +170,7 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) erro
 		pbItem := c.toCastaiDelta(item)
 		if err := c.sendDeltaItem(ctx, deltaStream, pbItem); err != nil {
 			// Return any remaining items back to pending list.
-			c.upsertPendingItem(item)
+			c.upsertPendingItems(pendingDeltas[sentDeltasCount:])
 			return err
 		}
 		sentDeltasCount++
@@ -238,16 +238,18 @@ func (c *Controller) popPendingItems() []deltaItem {
 	return values
 }
 
-func (c *Controller) upsertPendingItem(item deltaItem) {
+func (c *Controller) upsertPendingItems(items []deltaItem) {
 	c.deltasMu.Lock()
 	defer c.deltasMu.Unlock()
 
-	key := string(item.object.GetUID())
-	if v, ok := c.pendingItems[key]; ok {
-		item.action = v.action
-		c.pendingItems[key] = item
-	} else {
-		c.pendingItems[key] = item
+	for _, item := range items {
+		key := string(item.object.GetUID())
+		if v, ok := c.pendingItems[key]; ok {
+			item.action = v.action
+			c.pendingItems[key] = item
+		} else {
+			c.pendingItems[key] = item
+		}
 	}
 }
 
