@@ -42,8 +42,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 	eventId := eventCtx.EventID
 	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
 	if err != nil {
-		t.log.Warnf("cannot parse event type %d: %s", eventId, err)
-		return nil
+		return fmt.Errorf("cannot parse event type %d: %w", eventId, err)
 	}
 
 	// Cleanup cgroup related things on removal.
@@ -52,7 +51,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		t.removeCgroup(eventCtx.CgroupID)
 		err := t.UnmuteEventsFromCgroup(eventCtx.CgroupID)
 		if err != nil {
-			t.log.Warnf("cannot remove cgroup %d from mute map: %v", eventCtx.CgroupID, err)
+			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", eventCtx.CgroupID, err)
 		}
 		return nil
 	}
@@ -63,7 +62,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		if errors.Is(err, containers.ErrContainerNotFound) {
 			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
 			if err != nil {
-				t.log.Warnf("cannot mute events for cgroup %d: %v", eventCtx.CgroupID, err)
+				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
 			}
 			return nil
 		}

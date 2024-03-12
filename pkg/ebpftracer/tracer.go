@@ -164,7 +164,9 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 
 		record, err := eventsReader.Read()
 		if err != nil {
-			t.log.Warnf("reading event: %v", err)
+			if t.cfg.DebugEnabled {
+				t.log.Warnf("reading event: %v", err)
+			}
 			continue
 		}
 		if record.LostSamples > 0 {
@@ -175,7 +177,9 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 		metrics.AgentPulledEventsTotal.Inc()
 
 		if err := t.decodeAndExportEvent(ctx, record.RawSample); err != nil {
-			t.log.Errorf("decoding event: %v", err)
+			if t.cfg.DebugEnabled {
+				t.log.Errorf("decoding event: %v", err)
+			}
 			metrics.AgentDecodeEventErrorsTotal.Inc()
 			continue
 		}
