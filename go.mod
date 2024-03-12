@@ -16,6 +16,7 @@ require (
 	github.com/google/go-containerregistry v0.19.0
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
+	github.com/grafana/pyroscope-go v1.1.1
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/iancoleman/strcase v0.3.0
@@ -25,7 +26,6 @@ require (
 	github.com/magiconair/properties v1.8.7
 	github.com/onsi/ginkgo v1.16.5
 	github.com/prometheus/client_golang v1.18.0
-	github.com/pyroscope-io/client v0.7.2
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/samber/lo v1.39.0
 	github.com/sirupsen/logrus v1.9.3
@@ -140,6 +140,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.6 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -205,7 +206,6 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.46.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	github.com/pyroscope-io/godeltaprof v0.1.2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230126093431-47fa9a501578 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect

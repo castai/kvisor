@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"reflect"
 	"sync"
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
@@ -18,8 +22,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 type castaiClient interface {
@@ -34,6 +40,7 @@ type Config struct {
 	Enabled       bool
 	Interval      time.Duration `validate:"required"`
 	InitialDeltay time.Duration
+	SendTimeout   time.Duration `validate:"required"`
 }
 
 func NewController(
@@ -43,11 +50,13 @@ func NewController(
 	kubeClient kubeClient,
 ) *Controller {
 	return &Controller{
-		log:          log.WithField("component", "delta"),
-		cfg:          cfg,
-		castaiClient: castaiClient,
-		kubeClient:   kubeClient,
-		pendingItems: map[string]deltaItem{},
+		log:                   log.WithField("component", "delta"),
+		cfg:                   cfg,
+		castaiClient:          castaiClient,
+		kubeClient:            kubeClient,
+		pendingItems:          map[string]deltaItem{},
+		deltaItemSendMaxTries: 3,
+		deltaRetryWait:        100 * time.Millisecond,
 	}
 }
 
@@ -57,8 +66,10 @@ type Controller struct {
 	castaiClient castaiClient
 	kubeClient   kubeClient
 
-	pendingItems map[string]deltaItem
-	deltasMu     sync.Mutex
+	pendingItems          map[string]deltaItem
+	deltasMu              sync.Mutex
+	deltaItemSendMaxTries uint64
+	deltaRetryWait        time.Duration
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -90,6 +101,40 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 }
 
+func (c *Controller) RequiredTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&corev1.Namespace{}),
+		reflect.TypeOf(&corev1.Service{}),
+		reflect.TypeOf(&corev1.Node{}),
+		reflect.TypeOf(&appsv1.Deployment{}),
+		reflect.TypeOf(&appsv1.ReplicaSet{}),
+		reflect.TypeOf(&appsv1.DaemonSet{}),
+		reflect.TypeOf(&appsv1.StatefulSet{}),
+		reflect.TypeOf(&rbacv1.ClusterRoleBinding{}),
+		reflect.TypeOf(&rbacv1.RoleBinding{}),
+		reflect.TypeOf(&rbacv1.ClusterRole{}),
+		reflect.TypeOf(&rbacv1.Role{}),
+		reflect.TypeOf(&batchv1.Job{}),
+		reflect.TypeOf(&batchv1.CronJob{}),
+		reflect.TypeOf(&batchv1beta1.CronJob{}),
+		reflect.TypeOf(&networkingv1.Ingress{}),
+		reflect.TypeOf(&networkingv1.NetworkPolicy{}),
+	}
+}
+
+func (c *Controller) OnAdd(obj kube.Object) {
+	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_ADD, obj)
+}
+
+func (c *Controller) OnUpdate(obj kube.Object) {
+	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_UPDATE, obj)
+}
+
+func (c *Controller) OnDelete(obj kube.Object) {
+	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_REMOVE, obj)
+}
+
 func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	pendingDeltas := c.popPendingItems()
 	if len(pendingDeltas) == 0 {
@@ -98,14 +143,17 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	start := time.Now()
 
 	// Cancel context to close stream after deltas are sent.
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.SendTimeout)
 	defer cancel()
 
-	if firstDeltaReport {
-		ctx = metadata.AppendToOutgoingContext(ctx,
-			"x-delta-full-snapshot", "true",
-		)
+	deltaID := uuid.NewString()
+	meta := []string{
+		"x-delta-id", deltaID,
 	}
+	if firstDeltaReport {
+		meta = append(meta, "x-delta-full-snapshot", "true")
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, meta...)
 	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, grpc.UseCompressor(gzip.Name))
 	if err != nil && !errors.Is(err, context.Canceled) {
 		c.log.Warnf("creating delta upload stream: %v", err)
@@ -115,18 +163,57 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 		_ = deltaStream.CloseSend()
 	}()
 
-	var sendErr error
+	var sentDeltasCount int
 	for _, item := range pendingDeltas {
 		pbItem := c.toCastaiDelta(item)
-		if err := deltaStream.Send(pbItem); err != nil && !errors.Is(err, io.EOF) {
-			sendErr = err
+		if err := c.sendDeltaItem(ctx, deltaStream, pbItem); err != nil {
+			c.log.Warnf("sending delta item: %v", err)
+			// Return any remaining items back to pending list.
+			c.upsertPendingItems(pendingDeltas[sentDeltasCount:])
+			return
 		}
+		sentDeltasCount++
 	}
-	if sendErr != nil {
-		c.log.Warnf("sending kubernetes delta ingest to castai, duration=%v: %v", err, time.Since(start))
-	} else {
-		c.log.Infof("sent deltas, count=%d, duration=%v", len(pendingDeltas), time.Since(start))
+	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), sentDeltasCount, time.Since(start))
+}
+
+func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
+	return backoff.RetryNotify(func() error {
+		if err := stream.Send(item); err != nil {
+			if !isRetryableErr(err) {
+				return backoff.Permanent(err)
+			}
+			return fmt.Errorf("sending delta item: %w", err)
+		}
+		if _, err := stream.Recv(); err != nil {
+			if !isRetryableErr(err) {
+				return backoff.Permanent(err)
+			}
+			return fmt.Errorf("receiving delta ack: %w", err)
+		}
+		return nil
+	}, backoff.WithContext(
+		backoff.WithMaxRetries(
+			backoff.NewExponentialBackOff(), c.deltaItemSendMaxTries,
+		), ctx,
+	), func(err error, duration time.Duration) {
+		if err != nil {
+			c.log.Warnf("sending delta item: %v", err)
+		}
+	})
+}
+
+func isRetryableErr(err error) bool {
+	if errors.Is(err, io.EOF) {
+		return false
 	}
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	return true
 }
 
 func (c *Controller) recordDeltaEvent(action castaipb.KubernetesDeltaItemEvent, obj kube.Object) {
@@ -139,18 +226,6 @@ func (c *Controller) recordDeltaEvent(action castaipb.KubernetesDeltaItemEvent, 
 	}
 }
 
-func (c *Controller) OnAdd(obj kube.Object) {
-	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_ADD, obj)
-}
-
-func (c *Controller) OnDelete(obj kube.Object) {
-	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_REMOVE, obj)
-}
-
-func (c *Controller) OnUpdate(obj kube.Object) {
-	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_UPDATE, obj)
-}
-
 func (c *Controller) popPendingItems() []deltaItem {
 	c.deltasMu.Lock()
 	defer c.deltasMu.Unlock()
@@ -159,6 +234,21 @@ func (c *Controller) popPendingItems() []deltaItem {
 	c.pendingItems = map[string]deltaItem{}
 
 	return values
+}
+
+func (c *Controller) upsertPendingItems(items []deltaItem) {
+	c.deltasMu.Lock()
+	defer c.deltasMu.Unlock()
+
+	for _, item := range items {
+		key := string(item.object.GetUID())
+		if v, ok := c.pendingItems[key]; ok {
+			item.action = v.action
+			c.pendingItems[key] = item
+		} else {
+			c.pendingItems[key] = item
+		}
+	}
 }
 
 func (c *Controller) toCastaiDelta(item deltaItem) *castaipb.KubernetesDeltaItem {

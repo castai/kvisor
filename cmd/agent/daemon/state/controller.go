@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/analyzers"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/kube"
@@ -26,7 +25,6 @@ import (
 type Config struct {
 	EventsSinkQueueSize          int           `validate:"required"`
 	ContainerStatsScrapeInterval time.Duration `validate:"required"`
-	AnalyzersEnabled             bool
 }
 
 func NewController(
@@ -37,7 +35,6 @@ func NewController(
 	netStatsReader *netstats.Reader,
 	ct conntrack.Client,
 	tracer *ebpftracer.Tracer,
-	analyzersService *analyzers.Service,
 	signatureEngine *signature.SignatureEngine,
 	kubeClient *kube.Client,
 ) *Controller {
@@ -49,7 +46,6 @@ func NewController(
 		netStatsReader:              netStatsReader,
 		ct:                          ct,
 		tracer:                      tracer,
-		analyzersService:            analyzersService,
 		signatureEngine:             signatureEngine,
 		nodeName:                    os.Getenv("NODE_NAME"),
 		eventsExportQueue:           make(chan *castpb.Event, cfg.EventsSinkQueueSize),
@@ -70,7 +66,6 @@ type Controller struct {
 	netStatsReader   *netstats.Reader
 	ct               conntrack.Client
 	tracer           *ebpftracer.Tracer
-	analyzersService *analyzers.Service
 	signatureEngine  *signature.SignatureEngine
 
 	nodeName string
@@ -106,12 +101,6 @@ func (c *Controller) Run(ctx context.Context) error {
 	errg.Go(func() error {
 		return c.runContainerStatsPipeline(ctx)
 	})
-	if c.cfg.AnalyzersEnabled {
-		errg.Go(func() error {
-			return c.runAnalyzersLoop(ctx)
-		})
-	}
-
 	errg.Go(func() error {
 		for {
 			select {
@@ -155,10 +144,6 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.syscallScrapePointsMu.Lock()
 	delete(c.syscallScrapePoints, container.CgroupID)
 	c.syscallScrapePointsMu.Unlock()
-
-	if c.cfg.AnalyzersEnabled {
-		go c.analyzersService.QueueContainerRemove(container.ID)
-	}
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }
