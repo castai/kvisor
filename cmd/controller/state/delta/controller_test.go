@@ -3,6 +3,7 @@ package delta
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -189,8 +190,47 @@ func TestController(t *testing.T) {
 
 		ctrl.OnAdd(dep1)
 		r.Len(ctrl.pendingItems, 1)
-		r.NoError(ctrl.sendDeltas(ctx, false))
+		r.ErrorIs(ctrl.sendDeltas(ctx, false), context.DeadlineExceeded)
 		r.Len(ctrl.pendingItems, 1)
+	})
+
+	t.Run("send multiple delta items", func(t *testing.T) {
+		dep1 := &appsv1.Deployment{
+			TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dep1",
+				Namespace: "default",
+				UID:       types.UID("111b56a9-ab5e-4a35-93af-f092e2f63011"),
+				Labels:    map[string]string{"l1": "v1"},
+			},
+		}
+		dep2 := &appsv1.Deployment{
+			TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dep2",
+				Namespace: "default",
+				UID:       types.UID("111b56a9-ab5e-4a35-93af-f092e2f63012"),
+				Labels:    map[string]string{"l2": "v2"},
+			},
+		}
+
+		r := require.New(t)
+		client := newMockClient()
+		ctrl := newTestController(log, client)
+		ctrl.castaiClient = client
+		ctrl.OnAdd(dep1)
+		ctrl.OnAdd(dep2)
+
+		err := ctrl.sendDeltas(ctx, false)
+		r.NoError(err)
+		r.Len(client.deltas, 2)
+		sort.Slice(client.deltas, func(i, j int) bool {
+			return client.deltas[i].ObjectName < client.deltas[j].ObjectName
+		})
+		r.Equal(dep1.Labels, client.deltas[0].ObjectLabels)
+		r.Equal(dep1.ObjectMeta.Name, client.deltas[0].ObjectName)
+		r.Equal(dep2.Labels, client.deltas[1].ObjectLabels)
+		r.Equal(dep2.ObjectMeta.Name, client.deltas[1].ObjectName)
 	})
 }
 
@@ -212,7 +252,7 @@ func newMockClient() *mockCastaiClient {
 func newTestController(log *logging.Logger, client *mockCastaiClient) *Controller {
 	return NewController(
 		log,
-		Config{Interval: 1 * time.Millisecond, InitialDeltay: 1 * time.Millisecond},
+		Config{Interval: 1 * time.Millisecond, InitialDeltay: 1 * time.Millisecond, SendTimeout: 10 * time.Millisecond},
 		client,
 		&mockPodOwnerGetter{},
 	)
