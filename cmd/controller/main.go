@@ -45,7 +45,7 @@ var (
 	kubernetesDeltaEnabled            = pflag.Bool("kubernetes-delta-enabled", true, "Enable kubernetes delta sync")
 	kubernetesDeltaReportInterval     = pflag.Duration("kubernetes-delta-interval", 15*time.Second, "Interval to report kubernetes object changes to cast backend (default `15s`, set to `0s` to disable)")
 	initialKubernetesDeltaReportDelay = pflag.Duration("kubernetes-delta-init-delay", 60*time.Second, "Initial delay to wait before starting reporting first kubernetes object deltas (first send report is full snapshot, this might take some time for large clusters. default: `1m`)")
-	kubernetesDeltaSendTimeout        = pflag.Duration("kubernetes-delta-send-timeout", 10*time.Second, "Kubernetes deltas send timeout")
+	kubernetesDeltaSendTimeout        = pflag.Duration("kubernetes-delta-send-timeout", 3*time.Minute, "Kubernetes deltas send timeout")
 
 	imageScanEnabled               = pflag.Bool("image-scan-enabled", false, "Enable image scanning")
 	imageScanInterval              = pflag.Duration("image-scan-interval", 30*time.Second, "Image scan scheduling interval")
@@ -71,6 +71,7 @@ var (
 
 	kubeLinterEnabled      = pflag.Bool("kube-linter-enabled", false, "Kube linter enabled")
 	kubeLinterScanInterval = pflag.Duration("kube-linter-scan-interval", 60*time.Second, "Kube linter scan interval")
+	kubeLinterInitDelay    = pflag.Duration("kube-linter-init-delay", 60*time.Second, "Kube linter init delay")
 
 	jobsCleanupInterval = pflag.Duration("jobs-cleanup", 10*time.Minute, "Jobs cleanup interval")
 	jobsCleanupJobAge   = pflag.Duration("jobs-cleanup-job-age", 10*time.Minute, "Jobs cleanup job age")
@@ -140,6 +141,7 @@ func main() {
 		Linter: kubelinter.Config{
 			Enabled:      *kubeLinterEnabled,
 			ScanInterval: *kubeLinterScanInterval,
+			InitDelay:    *kubeLinterInitDelay,
 		},
 		KubeBench: kubebench.Config{
 			Enabled:            *kubeBenchEnabled,

@@ -30,6 +30,7 @@ type castaiClient interface {
 type Config struct {
 	Enabled      bool
 	ScanInterval time.Duration `validate:"required"`
+	InitDelay    time.Duration
 }
 
 func NewController(log *logging.Logger, cfg Config, linter *Linter, castaiClient castaiClient) *Controller {
@@ -72,6 +73,12 @@ func (c *Controller) RequiredTypes() []reflect.Type {
 func (c *Controller) Run(ctx context.Context) error {
 	c.log.Info("running")
 	defer c.log.Infof("stopping")
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(c.cfg.InitDelay):
+	}
 
 	for {
 		select {
