@@ -293,7 +293,7 @@ func (c *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 		return nil, errors.New("kvisor image details not found")
 	}
 	cont := jobSpec.Spec.Template.Spec.Containers[0]
-	cont.Image = imageDetails.ImageName
+	cont.Image = imageDetails.AgentImageName
 	cont.ImagePullPolicy = corev1.PullPolicy(c.cfg.JobImagePullPolicy)
 	jobSpec.Spec.Template.Spec.Containers[0] = cont
 	jobSpec.Spec.Template.Spec.ImagePullSecrets = imageDetails.ImagePullSecrets

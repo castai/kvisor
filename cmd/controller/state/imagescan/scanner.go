@@ -448,7 +448,7 @@ func scanJobSpec(
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
 							Name:  "collector",
-							Image: params.ScanImageDetails.ImageName,
+							Image: params.ScanImageDetails.AgentImageName,
 							Command: []string{
 								"/usr/local/bin/kvisor-agent",
 							},

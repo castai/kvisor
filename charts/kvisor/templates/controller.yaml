@@ -47,7 +47,6 @@ spec:
           args:
             - "--http-listen-port={{.Values.controller.httpListenPort}}"
             - "--castai-secret-ref-name={{ include "kvisor.castaiSecretName" . }}"
-            - "--agent-daemonset-name={{ include "kvisor.agent.fullname" . }}"
             - "--image-scan-blobs-cache-url=http://{{ include "kvisor.controller.fullname" . }}.{{.Release.Namespace}}"
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
