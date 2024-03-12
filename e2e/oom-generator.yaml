@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: oom-generator
+  labels:
+    app: oom-generator
 spec:
   replicas: 1
   selector:

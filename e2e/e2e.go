@@ -145,6 +145,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set controller.extraArgs.kube-bench-cloud-provider=gke \
   --set controller.extraArgs.kube-linter-enabled=true \
   --set controller.extraArgs.kube-linter-scan-interval=5s \
+  --set controller.extraArgs.kube-linter-init-delay=5s \
   --set castai.grpcAddr=%s \
   --set castai.apiKey=%s \
   --set castai.clusterID=%s \

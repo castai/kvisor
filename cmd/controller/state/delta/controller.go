@@ -86,14 +86,15 @@ func (c *Controller) Run(ctx context.Context) error {
 	t := time.NewTicker(c.cfg.Interval)
 	defer t.Stop()
 
-	firstDeltaReport := true
-
+	firstDeltaReport := false
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-t.C:
-			c.sendDeltas(ctx, firstDeltaReport)
+			if err := c.sendDeltas(ctx, firstDeltaReport); err != nil {
+				c.log.Errorf("sending deltas: %v", err)
+			}
 			if firstDeltaReport {
 				firstDeltaReport = false
 			}
@@ -135,10 +136,10 @@ func (c *Controller) OnDelete(obj kube.Object) {
 	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_REMOVE, obj)
 }
 
-func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
+func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) error {
 	pendingDeltas := c.popPendingItems()
 	if len(pendingDeltas) == 0 {
-		return
+		return nil
 	}
 	start := time.Now()
 
@@ -153,11 +154,11 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 	if firstDeltaReport {
 		meta = append(meta, "x-delta-full-snapshot", "true")
 	}
+
 	ctx = metadata.AppendToOutgoingContext(ctx, meta...)
 	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, grpc.UseCompressor(gzip.Name))
 	if err != nil && !errors.Is(err, context.Canceled) {
-		c.log.Warnf("creating delta upload stream: %v", err)
-		return
+		return err
 	}
 	defer func() {
 		_ = deltaStream.CloseSend()
@@ -165,16 +166,17 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) {
 
 	var sentDeltasCount int
 	for _, item := range pendingDeltas {
+		item := item
 		pbItem := c.toCastaiDelta(item)
 		if err := c.sendDeltaItem(ctx, deltaStream, pbItem); err != nil {
-			c.log.Warnf("sending delta item: %v", err)
 			// Return any remaining items back to pending list.
 			c.upsertPendingItems(pendingDeltas[sentDeltasCount:])
-			return
+			return err
 		}
 		sentDeltasCount++
 	}
 	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), sentDeltasCount, time.Since(start))
+	return nil
 }
 
 func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
@@ -198,7 +200,7 @@ func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeS
 		), ctx,
 	), func(err error, duration time.Duration) {
 		if err != nil {
-			c.log.Warnf("sending delta item: %v", err)
+			c.log.Warnf("sending delta item, duration=%v: %v", duration, err)
 		}
 	})
 }
