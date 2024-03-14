@@ -30,32 +30,16 @@ jobs:
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Build agent go binary amd64
-        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
-        env:
-          GOOS: linux
-          GOARCH: amd64
-          CGO_ENABLED: 0
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
 
       - name: Build controller go binary amd64
-        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
-        env:
-          GOOS: linux
-          GOARCH: amd64
-          CGO_ENABLED: 0
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
 
       - name: Build agent go binary arm64
-        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
-        env:
-          GOOS: linux
-          GOARCH: arm64
-          CGO_ENABLED: 0
+        run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
 
       - name: Build controller go binary arm64
-        run: VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
-        env:
-          GOOS: linux
-          GOARCH: arm64
-          CGO_ENABLED: 0
+        run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
