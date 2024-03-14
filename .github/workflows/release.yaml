@@ -82,7 +82,7 @@ jobs:
     needs: release_docker
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: '0'
 
@@ -91,7 +91,7 @@ jobs:
 
       - name: Checkout helm-charts
         # The cr tool only works if the target repository is already checked out
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           repository: castai/helm-charts
@@ -145,7 +145,7 @@ jobs:
           git status
 
       - name: Make helm charts github release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body: |
             ${{ steps.parse-chart.outputs.desc }}
@@ -166,6 +166,7 @@ jobs:
       - name: Commit Chart.yaml changes
         run: |
           git status
+          git diff
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
           git checkout main
