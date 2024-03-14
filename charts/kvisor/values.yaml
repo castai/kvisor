@@ -12,7 +12,7 @@ castai:
   apiKeySecretRef: ""
 
   # CASTAI grpc public api address.
-  grpcAddr: "kvisor.prod-master.cast.ai:443" # TODO: Consider changing port to 8443 so we can use 443 for https endpoints.
+  grpcAddr: "api-grpc.cast.ai:443"
 
   # CASTAI Cluster unique identifier.
   clusterID: ""
