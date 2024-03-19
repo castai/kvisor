@@ -1,0 +1,47 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+
+metadata:
+  name: "docker-sock-mount.policies.cast.ai"
+  labels:
+    cast.ai/policy: docker-sock-mount
+spec:
+  failurePolicy: Fail
+
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - pods
+        - replicationcontrollers
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - deployments
+        - daemonsets
+        - statefulsets
+        - replicasets
+    - apiGroups:   ["batch"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - jobs
+        - cronjobs
+    - apiGroups:   ["apps.openshift.io"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:
+        - deploymentconfigs
+
+  variables:
+  - name: containers
+    expression: "object.spec.template.spec.containers"
+  - name: containersWithVolumeMounts
+    expression: "variables.containers.filter(c, size(c.volumeMounts) > 0)"
+
+  validations:
+  - expression: "variables.containersWithVolumeMounts.filter(c, c.volumeMounts.filter(vm, vm.mountPath == '/var/run/docker.sock').size() > 0).size() == 0"
+    message: "container has the docker socket mounted"
