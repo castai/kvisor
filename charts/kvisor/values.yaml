@@ -50,7 +50,6 @@ agent:
     # If not set and create is true, a name is generated using the fullname template
     name: ""
 
-  hostPID: true
   hostNetwork: false
 
   updateStrategy:
