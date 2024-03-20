@@ -12,6 +12,9 @@ import (
 	"github.com/samber/lo"
 )
 
+// Path to proc filesystem.
+const Path = "/proc"
+
 func GetFS() ProcFS {
 	// DirFS guarantees to return a fs.StatFS, fs.ReadFileFS and fs.ReadDirFS implementation, hence we can simply cast it here
 	return os.DirFS("/proc").(ProcFS)

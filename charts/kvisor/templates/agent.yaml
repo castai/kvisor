@@ -44,7 +44,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
-      hostPID: {{ .Values.agent.hostPID }}
+      hostPID: true
       hostNetwork: {{ .Values.agent.hostNetwork }}
       securityContext:
         {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
@@ -109,9 +109,6 @@ spec:
             failureThreshold: 12
             periodSeconds: 10
           volumeMounts:
-            - name: host-proc
-              mountPath: "/hostproc"
-              readOnly: true
             - name: cgroups
               mountPath: "/cgroups"
               readOnly: true
@@ -144,10 +141,6 @@ spec:
         - name: etc-os-release
           hostPath:
             path: /etc/os-release
-        - name: host-proc
-          hostPath:
-            path: /proc
-            type: Directory
         - name: debugfs
           hostPath:
             path: /sys/kernel/debug

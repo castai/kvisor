@@ -31,7 +31,6 @@ var (
 	eventsQueueSize              = pflag.Int("events-queue-size", 65536, "Events batch size")
 	httpListenPort               = pflag.Int("http-listen-port", 6061, "server listen port")
 	pyroscopeAddr                = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
-	hostProcDir                  = pflag.String("host-proc-dir", "/hostproc", "Host /proc directory name mounted to container")
 	hostCgroupsDir               = pflag.String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 	containerStatsScrapeInterval = pflag.Duration("container-stats-scrape-interval", 60*time.Second, "Container resources scrape interval")
 
@@ -93,7 +92,6 @@ func NewCommand(version string) *cobra.Command {
 				IngestorAddr:                      *ingestorAddr,
 				ContainerdSockPath:                *containerdSockPath,
 				HostCgroupsDir:                    *hostCgroupsDir,
-				HostProcDir:                       *hostProcDir,
 				TCPSampleOutputMinDurationSeconds: *bpfTCPSampleSeconds,
 				HTTPListenPort:                    *httpListenPort,
 				State: state.Config{

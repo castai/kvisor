@@ -47,7 +47,6 @@ type Config struct {
 	IngestorAddr                      string
 	ContainerdSockPath                string
 	HostCgroupsDir                    string
-	HostProcDir                       string
 	TCPSampleOutputMinDurationSeconds int
 	HTTPListenPort                    int
 	State                             state.Config
@@ -225,7 +224,7 @@ func (a *App) Run(ctx context.Context) error {
 		return fmt.Errorf("apply policy: %w", err)
 	}
 
-	netStatsReader := netstats.NewReader(a.cfg.HostProcDir)
+	netStatsReader := netstats.NewReader(proc.Path)
 
 	nodeName, found := os.LookupEnv("NODE_NAME")
 	if !found {
