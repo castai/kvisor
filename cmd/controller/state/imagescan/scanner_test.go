@@ -86,7 +86,6 @@ func TestScanner(t *testing.T) {
 					},
 					Spec: corev1.PodSpec{
 						RestartPolicy: "Never",
-						Priority:      lo.ToPtr(int32(0)),
 						Affinity: &corev1.Affinity{
 							NodeAffinity: &corev1.NodeAffinity{
 								RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
