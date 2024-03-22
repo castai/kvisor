@@ -6,21 +6,18 @@ import (
 	"sync"
 	"time"
 
+	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/kube"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
+	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/logging"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/containers"
 )
 
 type Config struct {
@@ -159,19 +156,6 @@ type resourcesStatsScrapePoint struct {
 
 type syscallScrapePoint struct {
 	syscalls map[ebpftracer.SyscallID]uint64
-}
-
-func isGRPCError(err error, codes ...codes.Code) bool {
-	st, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	for _, code := range codes {
-		if st.Code() == code {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

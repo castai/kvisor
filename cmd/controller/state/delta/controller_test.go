@@ -13,6 +13,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -25,6 +26,8 @@ import (
 )
 
 func TestController(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	ctx := context.Background()
 	log := logging.NewTestLog()
 

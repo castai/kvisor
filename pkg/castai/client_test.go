@@ -106,6 +106,7 @@ func TestRemote(t *testing.T) {
 }
 
 type testServer struct {
+	eventsWriteStreamHandler func(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error
 }
 
 func (t *testServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -160,6 +161,10 @@ func (t *testServer) GetConfiguration(ctx context.Context, request *castaipb.Get
 }
 
 func (t *testServer) EventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error {
+	if t.eventsWriteStreamHandler != nil {
+		return t.eventsWriteStreamHandler(server)
+	}
+	
 	md, ok := metadata.FromIncomingContext(server.Context())
 	if !ok {
 		return errors.New("no metadata")
