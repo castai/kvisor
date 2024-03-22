@@ -9,12 +9,13 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
+	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/stats"
 	"github.com/samber/lo"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -22,19 +23,17 @@ func (c *Controller) runContainerStatsPipeline(ctx context.Context) error {
 	c.log.Info("running container stats sink loop")
 	defer c.log.Info("container stats sink loop done")
 
-	var writeStream castpb.RuntimeSecurityAgentAPI_ContainerStatsWriteStreamClient
-	var err error
-	defer func() {
-		if writeStream != nil {
-			_ = writeStream.CloseSend()
-		}
-	}()
+	ws := castai.NewWriteStream[*castpb.ContainerStatsBatch, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
+		return c.castClient.GRPC.ContainerStatsWriteStream(ctx)
+	})
+	defer ws.Close()
+	ws.ReopenDelay = c.writeStreamCreateRetryDelay
 
 	send := func(batch *castpb.ContainerStatsBatch) {
 		c.log.Debugf("sending container cgroup stats, items=%d", len(batch.GetItems()))
-		if err := writeStream.Send(batch); err != nil {
+		if err := ws.Send(batch); err != nil {
 			if errors.Is(err, io.EOF) {
-				writeStream = nil
+				return
 			}
 			c.log.Errorf("sending container cgroup stats: %v", err)
 			return
@@ -46,22 +45,6 @@ func (c *Controller) runContainerStatsPipeline(ctx context.Context) error {
 	defer ticker.Stop()
 
 	for {
-		// Create stream.
-		if writeStream == nil {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				writeStream, err = c.castClient.GRPC.ContainerStatsWriteStream(ctx)
-				if err != nil {
-					if !isGRPCError(err, codes.Unavailable, codes.Canceled) {
-						c.log.Warnf("create write stream: %v", err)
-					}
-					time.Sleep(c.writeStreamCreateRetryDelay)
-					continue
-				}
-			}
-		}
 
 		select {
 		case <-ctx.Done():

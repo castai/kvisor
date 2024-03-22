@@ -2,15 +2,13 @@ package state
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -19,43 +17,19 @@ func (c *Controller) runEventsExportLoop(ctx context.Context) error {
 	c.log.Info("running events sink loop")
 	defer c.log.Info("events sink loop done")
 
-	var writeStream castpb.RuntimeSecurityAgentAPI_EventsWriteStreamClient
-	var err error
-
-	defer func() {
-		if writeStream != nil {
-			_ = writeStream.CloseSend()
-		}
-	}()
+	ws := castai.NewWriteStream[*castpb.Event, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
+		return c.castClient.GRPC.EventsWriteStream(ctx)
+	})
+	defer ws.Close()
+	ws.ReopenDelay = c.writeStreamCreateRetryDelay
 
 	for {
-		// Create stream.
-		if writeStream == nil {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				writeStream, err = c.castClient.GRPC.EventsWriteStream(ctx)
-				if err != nil {
-					if !isGRPCError(err, codes.Unavailable, codes.Canceled) {
-						c.log.Warnf("create write stream: %v", err)
-					}
-					time.Sleep(c.writeStreamCreateRetryDelay)
-					continue
-				}
-			}
-		}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.eventsExportQueue:
 			c.enrichEvent(e)
-			if err := writeStream.Send(e); err != nil {
-				if errors.Is(err, io.EOF) {
-					writeStream = nil
-				}
-				c.log.Errorf("sending event: %v", err)
+			if err := ws.Send(e); err != nil {
 				continue
 			}
 			metrics.AgentExportedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: e.GetEventType().String()}).Inc()
