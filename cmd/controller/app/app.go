@@ -224,7 +224,7 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 		Addr:         fmt.Sprintf(":%d", a.cfg.HTTPListenPort),
 		Handler:      e,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 1 * time.Minute,
 	}
 	go func() {
 		<-ctx.Done()
