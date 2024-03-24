@@ -37,6 +37,10 @@ spec:
       resources:
         - deploymentconfigs
 
+  variables:
+  - name: containers
+    expression: "has(object.spec.template) ? object.spec.template.spec.containers : object.spec.containers"
+
   validations:
-  - expression: "has(object.spec.securityContext) && type(object.spec.securityContext) == map && size(object.spec.securityContext) > 0"
+  - expression: "variables.containers.filter(c, has(c.securityContext)).size() > 0"
     message: "securityContext must be set and not empty"

@@ -37,7 +37,7 @@ spec:
 
   variables:
   - name: containers
-    expression: "object.spec.template.spec.containers"
+    expression: "has(object.spec.template) ? object.spec.template.spec.containers : object.spec.containers"
 
   validations:
   - expression: "variables.containers.filter(c, c.securityContext && c.securityContext.readOnlyRootFilesystem == false).size() == 0"

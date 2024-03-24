@@ -1,0 +1,7 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "binding-test.policies.cast.ai"
+spec:
+  policyName: "docker-sock-mount.policies.cast.ai"
+  validationActions: [Audit]

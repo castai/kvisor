@@ -1,0 +1,27 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: kvisor
+featureGates:
+  "ValidatingAdmissionPolicy": true
+runtimeConfig:
+  "admissionregistration.k8s.io/v1beta1": true
+nodes:
+- role: control-plane
+  extraMounts:
+  - hostPath: ./auditconfig
+    containerPath: /etc/kubernetes/auditconfig
+    readOnly: true
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+        # enable auditing flags on the API server
+        extraArgs:
+          audit-policy-file: /etc/kubernetes/auditconfig/policy.yaml
+          audit-webhook-config-file: /etc/kubernetes/auditconfig/webhook.yaml
+        extraVolumes:
+          - name: auditconfig
+            hostPath: /etc/kubernetes/auditconfig
+            mountPath: /etc/kubernetes/auditconfig
+            readOnly: true
+            pathType: "DirectoryOrCreate"

@@ -38,7 +38,7 @@ spec:
 
   variables:
   - name: containers
-    expression: "object.spec.template.spec.containers"
+    expression: "has(object.spec.template) ? object.spec.template.spec.containers : object.spec.containers"
   - name: containersWithVolumeMounts
     expression: "variables.containers.filter(c, size(c.volumeMounts) > 0)"
 
