@@ -21,8 +21,12 @@ type AddrTuple struct {
 
 type PIDsPerNamespace = bucketcache.BucketCache[proc.NamespaceID, proc.PID]
 
-func NewPIDsPerNamespaceCache(size, maxBucketSize int) (*PIDsPerNamespace, error) {
-	result, err := bucketcache.New[proc.NamespaceID, proc.PID](size, maxBucketSize)
+func namespaceHash(ns proc.NamespaceID) uint32 {
+	return uint32(ns)
+}
+
+func NewPIDsPerNamespaceCache(size, maxBucketSize uint32) (*PIDsPerNamespace, error) {
+	result, err := bucketcache.New[proc.NamespaceID, proc.PID](size, maxBucketSize, namespaceHash)
 	if err != nil {
 		return nil, err
 	}

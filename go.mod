@@ -6,9 +6,11 @@ require (
 	github.com/aquasecurity/trivy v0.37.1
 	github.com/castai/image-analyzer v0.3.0
 	github.com/cenkalti/backoff/v4 v4.2.1
+	github.com/cespare/xxhash v1.1.0
 	github.com/cilium/ebpf v0.12.3
 	github.com/containerd/containerd v1.7.13
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+	github.com/elastic/go-freelru v0.13.0
 	github.com/fatih/color v1.16.0
 	github.com/florianl/go-conntrack v0.4.0
 	github.com/go-playground/validator/v10 v10.17.0
@@ -18,7 +20,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/grafana/pyroscope-go v1.1.1
 	github.com/hashicorp/golang-lru v1.0.2
-	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/iancoleman/strcase v0.3.0
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -51,7 +52,10 @@ require (
 	k8s.io/klog/v2 v2.110.1
 )
 
-require github.com/klauspost/cpuid/v2 v2.2.3 // indirect
+require (
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
+)
 
 require (
 	cloud.google.com/go v0.112.0 // indirect

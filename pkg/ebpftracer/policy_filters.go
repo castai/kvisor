@@ -8,7 +8,8 @@ import (
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/cespare/xxhash"
+	"github.com/elastic/go-freelru"
 	"github.com/samber/lo"
 	"golang.org/x/time/rate"
 )
@@ -125,12 +126,24 @@ func FilterEmptyDnsAnswers(l *logging.Logger) EventFilterGenerator {
 	}
 }
 
+// more hash function in https://github.com/elastic/go-freelru/blob/main/bench/hash.go
+func hashStringXXHASH(s string) uint32 {
+	return uint32(xxhash.Sum64String(s))
+}
+
 // DeduplicateDnsEvents creates a filter that will drop any DNS event with questions already seen in `ttl` time
-func DeduplicateDnsEvents(l *logging.Logger, size int, ttl time.Duration) EventFilterGenerator {
+func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) EventFilterGenerator {
 	type cacheValue struct{}
 
 	return func() EventFilter {
-		cache := expirable.NewLRU[string, cacheValue](size, nil, ttl)
+		cache, err := freelru.New[string, cacheValue](size, hashStringXXHASH)
+		// err is only ever returned on configuration issues. There is nothing we can really do here, besides
+		// panicing and surfacing the error to the user.
+		if err != nil {
+			panic(err)
+		}
+
+    cache.SetLifetime(ttl)
 
 		return func(event *castpb.Event) error {
 			if event.GetEventType() != castpb.EventType_EVENT_DNS {
