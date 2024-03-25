@@ -138,7 +138,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.log-level=debug \
   --set agent.extraArgs.container-stats-scrape-interval=5s \
   --set agent.extraArgs.castai-server-insecure=true \
-  --set agent.extraArgs.enable-file-hash-enricher=true \
+  --set agent.extraArgs.file-hash-enricher-enabled=true \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.kubernetes-delta-interval=5s \
@@ -402,7 +402,7 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 			t.mu.Lock()
 			events := t.events
 			t.mu.Unlock()
-      fmt.Printf("evaluating %d events\n", len(events))
+			fmt.Printf("evaluating %d events\n", len(events))
 			for _, e := range events {
 				if e.ProcessName == "pause" {
 					continue
@@ -501,7 +501,7 @@ func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 			deltas := t.deltaUpdates
 			t.mu.Unlock()
 
-      for _, item := range deltas[currentOffset:] {
+			for _, item := range deltas[currentOffset:] {
 				if item.ObjectKind != "Deployment" {
 					continue
 				}
