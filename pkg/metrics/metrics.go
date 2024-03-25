@@ -78,4 +78,9 @@ var (
 		Name: "kvisor_agent_dns_packets_total",
 		Help: "Counter for tracking the total number of DNS events we received to process",
 	})
+
+	AgentFindCgroupFS = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kvisor_find_cgroup_from_filesystem",
+		Help: "Counter for keeping track how often we fall back to finding cgroups via the filesystem",
+	})
 )

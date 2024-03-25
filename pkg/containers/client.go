@@ -83,19 +83,7 @@ func (c *Client) ListContainers() []*Container {
 	})
 }
 
-func (c *Client) AddContainerByID(ctx context.Context, containerID string) (cont *Container, rerrr error) {
-	metrics.AgentLoadContainerByContainerID.Inc()
-
-	container, err := c.containerClient.client.ContainerService().Get(ctx, containerID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return c.addContainer(container)
-}
-
-func (c *Client) addContainerByCgroupID(ctx context.Context, cgroupID uint64) (cont *Container, rerrr error) {
+func (c *Client) addContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *Container, rerrr error) {
 	defer func() {
 		if rerrr != nil {
 			// TODO: This is quick fix to prevent constant search for invalid containers.
@@ -140,7 +128,7 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 
 	// Only containerd is supported right now.
 	// TODO: We also allow docker here, but support only docker shim. If container type docker we assume that it's still uses containerd.
-	if cg.ContainerType != cgroup.ContainerTypeContainerd && cg.ContainerType != cgroup.ContainerTypeDocker {
+	if cg.ContainerRuntime != cgroup.ContainerdRuntime && cg.ContainerRuntime != cgroup.DockerRuntime {
 		return nil, ErrContainerNotFound
 	}
 
@@ -206,7 +194,7 @@ func (c *Client) LookupContainerForCgroupInCache(cgroup uint64) (*Container, boo
 	return container, true, nil
 }
 
-func (c *Client) CleanupCgroup(cgroup uint64) {
+func (c *Client) CleanupCgroup(cgroup cgroup.ID) {
 	c.mu.Lock()
 	container := c.containersByCgroup[cgroup]
 	delete(c.containersByCgroup, cgroup)

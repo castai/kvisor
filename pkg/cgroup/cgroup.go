@@ -11,7 +11,7 @@ import (
 type Cgroup struct {
 	Id            uint64
 	Version       Version
-	ContainerType ContainerType
+	ContainerRuntime ContainerRuntimeID
 	ContainerID   string
 	Path          string
 

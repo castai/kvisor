@@ -13,6 +13,7 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
+	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -22,6 +23,7 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
+	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
@@ -33,8 +35,13 @@ type ActualDestinationGetter interface {
 }
 
 type ContainerClient interface {
-	GetContainerForCgroup(ctx context.Context, cgroup uint64) (*containers.Container, error)
-	CleanupCgroup(cgroup uint64)
+	GetContainerForCgroup(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
+	CleanupCgroup(cgroup cgroup.ID)
+}
+
+type CgroupClient interface {
+	LoadCgroup(id cgroup.ID, path string)
+	CleanupCgroup(cgroup cgroup.ID)
 }
 
 type Config struct {
@@ -46,6 +53,7 @@ type Config struct {
 	ActualDestinationGetter ActualDestinationGetter
 	DebugEnabled            bool
 	ContainerClient         ContainerClient
+	CgroupClient            CgroupClient
 	EnrichEvent             SubmitForEnrichment
 	MountNamespacePIDStore  *types.PIDsPerNamespace
 	// All PIPs reported from ebpf will be normalized to this PID namespace
@@ -53,6 +61,11 @@ type Config struct {
 }
 
 type SubmitForEnrichment func(*enrichment.EnrichRequest) bool
+
+type cgroupCleanupRequest struct {
+	cgroupID     cgroup.ID
+	cleanupAfter time.Time
+}
 
 type Tracer struct {
 	log *logging.Logger
@@ -66,7 +79,7 @@ type Tracer struct {
 	policyMu          sync.Mutex
 	policy            *Policy
 	eventPoliciesMap  map[events.ID]*EventPolicy
-	cgroupEventPolicy map[uint64]map[events.ID]*cgroupEventPolicy
+	cgroupEventPolicy map[cgroup.ID]map[events.ID]*cgroupEventPolicy
 	signatureEventMap map[events.ID]struct{}
 
 	eventsChan chan *castpb.Event
@@ -75,6 +88,12 @@ type Tracer struct {
 	removedCgroups   map[uint64]struct{}
 
 	dnsPacketParser *layers.DNS
+
+	cgroupCleanupMu         sync.Mutex
+	requestedCgroupCleanups []cgroupCleanupRequest
+
+	cleanupTimerTickRate time.Duration
+	cgroupCleanupDelay   time.Duration
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
@@ -105,16 +124,18 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	bootTime := time.Now().UnixNano() - ts.Nano()
 
 	t := &Tracer{
-		log:               log,
-		cfg:               cfg,
-		module:            m,
-		bootTime:          uint64(bootTime),
-		eventsChan:        make(chan *castpb.Event, cfg.EventsOutputChanSize),
-		removedCgroups:    map[uint64]struct{}{},
-		eventPoliciesMap:  map[events.ID]*EventPolicy{},
-		cgroupEventPolicy: map[uint64]map[events.ID]*cgroupEventPolicy{},
-		dnsPacketParser:   &layers.DNS{},
-		signatureEventMap: map[events.ID]struct{}{},
+		log:                  log,
+		cfg:                  cfg,
+		module:               m,
+		bootTime:             uint64(bootTime),
+		eventsChan:           make(chan *castpb.Event, cfg.EventsOutputChanSize),
+		removedCgroups:       map[uint64]struct{}{},
+		eventPoliciesMap:     map[events.ID]*EventPolicy{},
+		cgroupEventPolicy:    map[uint64]map[events.ID]*cgroupEventPolicy{},
+		dnsPacketParser:      &layers.DNS{},
+		signatureEventMap:    map[events.ID]struct{}{},
+		cleanupTimerTickRate: 1 * time.Minute,
+		cgroupCleanupDelay:   1 * time.Minute,
 	}
 
 	return t
@@ -148,12 +169,55 @@ func (t *Tracer) Run(ctx context.Context) error {
 	errg.Go(func() error {
 		return t.eventsReadLoop(ctx)
 	})
+	errg.Go(func() error {
+		return t.signalReadLoop(ctx)
+	})
+	errg.Go(func() error {
+		return t.cgroupCleanupLoop(ctx)
+	})
 
 	return errg.Wait()
 }
 
 func (t *Tracer) Events() <-chan *castpb.Event {
 	return t.eventsChan
+}
+
+func (t *Tracer) signalReadLoop(ctx context.Context) error {
+	eventsReader, err := perf.NewReader(t.module.objects.Signals, t.cfg.EventsPerCPUBuffer)
+	if err != nil {
+		return err
+	}
+	defer eventsReader.Close()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		record, err := eventsReader.Read()
+		if err != nil {
+			if t.cfg.DebugEnabled {
+				t.log.Warnf("reading signals: %v", err)
+			}
+			continue
+		}
+		if record.LostSamples > 0 {
+			t.log.Warnf("lost %d signals", record.LostSamples)
+			metrics.AgentKernelLostEventsTotal.Add(float64(record.LostSamples))
+			continue
+		}
+		metrics.AgentPulledEventsTotal.Inc()
+
+		if err := t.decodeAndHandleSignal(ctx, record.RawSample); err != nil {
+			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
+				t.log.Errorf("decoding signal: %v", err)
+			}
+			metrics.AgentDecodeEventErrorsTotal.Inc()
+			continue
+		}
+	}
 }
 
 func (t *Tracer) eventsReadLoop(ctx context.Context) error {
@@ -545,14 +609,69 @@ func (t *Tracer) getPolicy(eventID events.ID, cgroupID uint64) *cgroupEventPolic
 	return nil
 }
 
-func (t *Tracer) removeCgroup(cgroupID uint64) {
-	t.policyMu.Lock()
-	delete(t.cgroupEventPolicy, cgroupID)
-	t.policyMu.Unlock()
+func (t *Tracer) cgroupCleanupLoop(ctx context.Context) error {
+	cleanupTimer := time.NewTicker(t.cleanupTimerTickRate)
+	defer func() {
+		cleanupTimer.Stop()
+	}()
 
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-cleanupTimer.C:
+		}
+
+		now := time.Now()
+		var toCleanup []cgroupCleanupRequest
+
+		t.cgroupCleanupMu.Lock()
+		toCleanup, t.requestedCgroupCleanups = splitCleanupRequests(now, t.requestedCgroupCleanups)
+		t.cgroupCleanupMu.Unlock()
+
+		cgroupsToCleanup := lo.Map(toCleanup, func(item cgroupCleanupRequest, index int) cgroup.ID {
+			return item.cgroupID
+		})
+		t.removeCgroups(cgroupsToCleanup)
+	}
+}
+
+// splitCleanupRequests will split the given slice by the first index that is after the provided `now`. The provided
+// requests need to be sorted by cleanup date.
+func splitCleanupRequests(now time.Time, requests []cgroupCleanupRequest) ([]cgroupCleanupRequest, []cgroupCleanupRequest) {
+	splitIdx := len(requests)
+	// Requests have to be orderd by cleanup date.
+	for i, r := range requests {
+			if now.Before(r.cleanupAfter) {
+			splitIdx = i
+			break
+		}
+	}
+
+	return requests[:splitIdx], requests[splitIdx:]
+}
+
+func (t *Tracer) queueCgroupForRemoval(cgroupID cgroup.ID) {
+	t.cgroupCleanupMu.Lock()
+	t.requestedCgroupCleanups = append(t.requestedCgroupCleanups, cgroupCleanupRequest{
+		cgroupID:     cgroupID,
+		cleanupAfter: time.Now().Add(t.cgroupCleanupDelay),
+	})
+	t.cgroupCleanupMu.Unlock()
+}
+
+func (t *Tracer) removeCgroups(cgroupIDs []cgroup.ID) {
+	t.policyMu.Lock()
 	t.removedCgroupsMu.Lock()
-	t.removedCgroups[cgroupID] = struct{}{}
+	for _, id := range cgroupIDs {
+		delete(t.cgroupEventPolicy, id)
+		t.removedCgroups[id] = struct{}{}
+	}
+	t.policyMu.Unlock()
 	t.removedCgroupsMu.Unlock()
 
-	t.cfg.ContainerClient.CleanupCgroup(cgroupID)
+	for _, id := range cgroupIDs {
+		t.cfg.ContainerClient.CleanupCgroup(id)
+		t.cfg.CgroupClient.CleanupCgroup(id)
+	}
 }

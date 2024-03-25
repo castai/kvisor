@@ -170,8 +170,8 @@ package parser
 import (
   "errors"
 
-  "github.com/castai/kvisord/pkg/ebpftracer/events"
-  "github.com/castai/kvisord/pkg/ebpftracer/types"
+  "github.com/castai/kvisor/pkg/ebpftracer/events"
+  "github.com/castai/kvisor/pkg/ebpftracer/types"
 )
 
 var (
@@ -317,8 +317,8 @@ package parser
 import (
   "errors"
 
-  "github.com/castai/kvisord/pkg/ebpftracer/events"
-  "github.com/castai/kvisord/pkg/ebpftracer/types"
+  "github.com/castai/kvisor/pkg/ebpftracer/events"
+  "github.com/castai/kvisor/pkg/ebpftracer/types"
 )
 
 var (

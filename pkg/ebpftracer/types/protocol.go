@@ -20,6 +20,15 @@ const (
 )
 
 // PLEASE NOTE, YOU MUST UPDATE THE DECODER IF ANY CHANGE TO THIS STRUCT IS DONE.
+type SignalContext struct {
+	EventID         events.ID // uint32
+}
+
+func (SignalContext) GetSizeBytes() int {
+	return 4
+}
+
+// PLEASE NOTE, YOU MUST UPDATE THE DECODER IF ANY CHANGE TO THIS STRUCT IS DONE.
 
 // EventContext struct contains common metadata that is collected for all types of events
 // it is used to unmarshal binary data and therefore should match (bit by bit) to the `context_t` struct in the ebpf code.
@@ -44,7 +53,7 @@ type EventContext struct {
 	UtsName         [16]byte
 	Flags           uint32
 	_               [4]byte   // padding
-	EventID         events.ID // int32
+	EventID         events.ID // uint32
 	Syscall         int32
 	MatchedPolicies uint64
 	Retval          int64

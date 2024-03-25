@@ -95,8 +95,8 @@ package %s
 import (
   "errors"
 
-  "github.com/castai/kvisord/pkg/ebpftracer/events"
-  "github.com/castai/kvisord/pkg/ebpftracer/types"
+  "github.com/castai/kvisor/pkg/ebpftracer/events"
+  "github.com/castai/kvisor/pkg/ebpftracer/types"
 )
 
 var (

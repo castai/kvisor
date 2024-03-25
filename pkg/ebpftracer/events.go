@@ -5562,9 +5562,9 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 			sets: []string{"lsm_hooks", "proc", "proc_life"},
 			params: []argMeta{
-				{Type: "const char*", Name: "pathname"},
-				{Type: "dev_t", Name: "dev"},
-				{Type: "unsigned long", Name: "inode"},
+				{Type: "u64", Name: "cgroup_id"},
+				{Type: "const char*", Name: "cgroup_path"},
+				{Type: "u32", Name: "hierarchy_id"},
 			},
 		},
 		events.SecurityFileOpen: {
@@ -7275,6 +7275,43 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:     "test_event",
 			internal: true,
 			syscall:  false,
+		},
+		//
+		// Begin of Signal Events (Control Plane)
+		//
+		events.SignalCgroupMkdir: {
+			ID:       events.SignalCgroupMkdir,
+			id32Bit:  events.Sys32Undefined,
+			name:     "signal_cgroup_mkdir",
+			internal: true,
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: SignalCgroupMkdir, required: true},
+				},
+			},
+			sets: []string{"signal"},
+			params: []argMeta{
+				{Type: "u64", Name: "cgroup_id"},
+				{Type: "const char*", Name: "cgroup_path"},
+				{Type: "u32", Name: "hierarchy_id"},
+			},
+		},
+		events.SignalCgroupRmdir: {
+			ID:       events.SignalCgroupRmdir,
+			id32Bit:  events.Sys32Undefined,
+			name:     "signal_cgroup_rmdir",
+			internal: true,
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: SignalCgroupRmdir, required: true},
+				},
+			},
+			sets: []string{"signal"},
+			params: []argMeta{
+				{Type: "u64", Name: "cgroup_id"},
+				{Type: "const char*", Name: "cgroup_path"},
+				{Type: "u32", Name: "hierarchy_id"},
+			},
 		},
 	}
 }

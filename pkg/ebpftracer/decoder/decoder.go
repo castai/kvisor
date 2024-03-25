@@ -50,6 +50,19 @@ func (decoder *Decoder) ReadAmountBytes() int {
 	return decoder.cursor
 }
 
+func (decoder *Decoder) DecodeSignalContext(ctx *types.SignalContext) error {
+	offset := decoder.cursor
+	if len(decoder.buffer[offset:]) < ctx.GetSizeBytes() {
+		return fmt.Errorf("signal context buffer size [%d] smaller than %d", len(decoder.buffer[offset:]), ctx.GetSizeBytes())
+	}
+
+	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset : offset+4]))
+
+	decoder.cursor += ctx.GetSizeBytes()
+
+	return nil
+}
+
 // DecodeContext translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.eventContext struct.
 func (decoder *Decoder) DecodeContext(ctx *types.EventContext) error {
 	offset := decoder.cursor
@@ -77,9 +90,9 @@ func (decoder *Decoder) DecodeContext(ctx *types.EventContext) error {
 	_ = copy(ctx.UtsName[:], decoder.buffer[offset+80:offset+96])
 	ctx.Flags = binary.LittleEndian.Uint32(decoder.buffer[offset+96 : offset+100])
 	// task_context end
-  // 4 bytes padding
+	// 4 bytes padding
 
-	ctx.EventID = events.ID(int32(binary.LittleEndian.Uint32(decoder.buffer[offset+104 : offset+108])))
+	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset+104 : offset+108]))
 	ctx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+108 : offset+112]))
 	ctx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+112 : offset+120])
 	ctx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+120 : offset+128]))

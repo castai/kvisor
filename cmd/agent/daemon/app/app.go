@@ -180,6 +180,7 @@ func (a *App) Run(ctx context.Context) error {
 		DefaultCgroupsVersion:   cgroupClient.DefaultCgroupVersion().String(),
 		ActualDestinationGetter: ct,
 		ContainerClient:         containersClient,
+		CgroupClient:            cgroupClient,
 		EnrichEvent:             enrichmentService.Enqueue,
 		MountNamespacePIDStore:  mountNamespacePIDStore,
 		HomePIDNS:               pidNSID,
@@ -190,7 +191,8 @@ func (a *App) Run(ctx context.Context) error {
 	policy := &ebpftracer.Policy{
 		SignatureEngine: signatureEngine,
 		SystemEvents: []events.ID{
-			events.CgroupRmdir,
+			events.SignalCgroupMkdir,
+			events.SignalCgroupRmdir,
 		},
 		Events: []*ebpftracer.EventPolicy{
 			{ID: events.SchedProcessExec},
