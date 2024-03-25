@@ -11,22 +11,21 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/metrics"
 )
 
 var (
 	baseCgroupPath = ""
 
-	dockerIdRegexp      = regexp.MustCompile(`([a-z0-9]{64})`)
-	crioIdRegexp        = regexp.MustCompile(`crio-([a-z0-9]{64})`)
-	containerdIdRegexp  = regexp.MustCompile(`cri-containerd[-:]([a-z0-9]{64})`)
-	lxcIdRegexp         = regexp.MustCompile(`/lxc/([^/]+)`)
-	systemSliceIdRegexp = regexp.MustCompile(`(/(system|runtime)\.slice/([^/]+))`)
-
-	ErrCgroupNotFound = errors.New("cgroup not found")
+	ErrContainerIDNotFoundInCgroupPath = errors.New("container id not found in cgroup path")
+	ErrCgroupNotFound                  = errors.New("cgroup not found")
 )
+
+type ID = uint64
 
 const (
 	procCgroups             = "/proc/cgroups"
@@ -51,45 +50,56 @@ const (
 	V2
 )
 
-type ContainerType uint8
+// Represents the internal ID of a container runtime
+type ContainerRuntimeID int
 
 const (
-	ContainerTypeUnknown ContainerType = iota
-	ContainerTypeStandaloneProcess
-	ContainerTypeDocker
-	ContainerTypeCrio
-	ContainerTypeContainerd
-	ContainerTypeLxc
-	ContainerTypeSystemdService
-	ContainerTypeSandbox
+	UnknownRuntime ContainerRuntimeID = iota
+	DockerRuntime
+	ContainerdRuntime
+	CrioRuntime
+	PodmanRuntime
+	GardenRuntime
 )
 
-func (t ContainerType) String() string {
-	switch t {
-	case ContainerTypeStandaloneProcess:
-		return "standalone"
-	case ContainerTypeDocker:
-		return "docker"
-	case ContainerTypeCrio:
-		return "crio"
-	case ContainerTypeContainerd:
-		return "cri-containerd"
-	case ContainerTypeLxc:
-		return "lxc"
-	case ContainerTypeSystemdService:
-		return "systemd"
-	case ContainerTypeUnknown:
-		return "unknown"
-	case ContainerTypeSandbox:
-		return "sandbox"
+var runtimeStringMap = map[ContainerRuntimeID]string{
+	UnknownRuntime:    "unknown",
+	DockerRuntime:     "docker",
+	ContainerdRuntime: "containerd",
+	CrioRuntime:       "crio",
+	PodmanRuntime:     "podman",
+	GardenRuntime:     "garden", // there is no enricher (yet ?) for garden
+}
+
+func (runtime ContainerRuntimeID) String() string {
+	return runtimeStringMap[runtime]
+}
+
+func FromString(str string) ContainerRuntimeID {
+	switch str {
+	case "docker":
+		return DockerRuntime
+	case "crio":
+		return CrioRuntime
+	case "cri-o":
+		return CrioRuntime
+	case "podman":
+		return PodmanRuntime
+	case "containerd":
+		return ContainerdRuntime
+	case "garden":
+		return GardenRuntime
+
 	default:
-		return "unknown"
+		return UnknownRuntime
 	}
 }
 
 type Client struct {
-	version Version
-	cgRoot  string
+	version         Version
+	cgRoot          string
+	cgroupCacheByID map[ID]func() *Cgroup
+	cgroupMu        sync.RWMutex
 }
 
 func NewClient(log *logging.Logger, root string) (*Client, error) {
@@ -99,12 +109,29 @@ func NewClient(log *logging.Logger, root string) (*Client, error) {
 	}
 	log.WithField("component", "cgroup").Infof("cgroups detected version=%s, root=%s", version, root)
 	return &Client{
-		version: version,
-		cgRoot:  root,
+		version:         version,
+		cgRoot:          root,
+		cgroupCacheByID: make(map[uint64]func() *Cgroup),
 	}, nil
 }
 
-func (c *Client) GetCgroupForID(cgroupID uint64) (*Cgroup, error) {
+func (c *Client) lookupCgroupForIDInCache(id ID) (*Cgroup, bool) {
+	c.cgroupMu.RLock()
+	defer c.cgroupMu.RUnlock()
+
+	if cgroup, found := c.cgroupCacheByID[id]; found {
+		return cgroup(), true
+	}
+	return nil, false
+}
+
+func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
+	if cg, found := c.lookupCgroupForIDInCache(cgroupID); found {
+		return cg, nil
+	}
+
+	metrics.AgentFindCgroupFS.Inc()
+
 	cgroupPath := c.findCgroupPathForID(cgroupID)
 
 	if cgroupPath == "" {
@@ -115,6 +142,8 @@ func (c *Client) GetCgroupForID(cgroupID uint64) (*Cgroup, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.cacheCgroup(cgroup)
 
 	return cgroup, nil
 }
@@ -130,30 +159,36 @@ func (c *Client) GetCgroupForContainer(containerID string) (*Cgroup, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cgroup.ContainerID == "" {
+		return nil, ErrContainerIDNotFoundInCgroupPath
+	}
 
 	cgroup.ContainerID = containerID
+
+	c.cacheCgroup(cgroup)
 
 	return cgroup, nil
 }
 
 func (c *Client) getCgroupForPath(cgroupPath string) (*Cgroup, error) {
-	containerType, containerID, err := containerByCgroup(cgroupPath)
-	if err != nil {
-		return nil, err
-	}
-
 	cgroupID, err := getCgroupIDForPath(cgroupPath)
 	if err != nil {
 		return nil, err
 	}
 
+	return c.getCgroupForIDAndPath(cgroupID, cgroupPath), nil
+}
+
+func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
+	containerID, containerRuntime := getContainerIdFromCgroup(cgroupPath)
+
 	cg := &Cgroup{
-		Id:            cgroupID,
-		ContainerID:   containerID,
-		ContainerType: containerType,
-		Path:          cgroupPath,
-		cgRoot:        c.cgRoot,
-		subsystems:    map[string]string{},
+		Id:               cgroupID,
+		ContainerID:      containerID,
+		ContainerRuntime: containerRuntime,
+		Path:             cgroupPath,
+		cgRoot:           c.cgRoot,
+		subsystems:       map[string]string{},
 	}
 
 	switch c.version {
@@ -161,7 +196,7 @@ func (c *Client) getCgroupForPath(cgroupPath string) (*Cgroup, error) {
 		after, _ := strings.CutPrefix(cgroupPath, cg.cgRoot)
 		subpath := strings.SplitN(after, "/", 1)
 		if len(subpath) != 2 {
-			return cg, nil
+			return cg
 		}
 		last := subpath[1]
 		cg.Version = V1
@@ -178,7 +213,7 @@ func (c *Client) getCgroupForPath(cgroupPath string) (*Cgroup, error) {
 			"": after,
 		}
 	}
-	return cg, nil
+	return cg
 }
 
 func (c *Client) getCgroupSearchBasePath() string {
@@ -218,7 +253,7 @@ func (c *Client) findCgroupPathForContainerID(containerID string) string {
 	return retPath
 }
 
-func (c *Client) findCgroupPathForID(cgroupId uint64) string {
+func (c *Client) findCgroupPathForID(cgroupId ID) string {
 	found := errors.New("found")
 	retPath := ""
 
@@ -347,8 +382,11 @@ func NewFromProcessCgroupFile(filePath string) (*Cgroup, error) {
 		cg.Version = V2
 	}
 
-	if cg.ContainerType, cg.ContainerID, err = containerByCgroup(cg.Path); err != nil {
-		return nil, err
+	if containerID, runtimeType := getContainerIdFromCgroup(cg.Path); containerID == "" {
+		return nil, ErrContainerIDNotFoundInCgroupPath
+	} else {
+		cg.ContainerID = containerID
+		cg.ContainerRuntime = runtimeType
 	}
 
 	if cg.Id, err = getCgroupIDForPath(cg.Path); err != nil {
@@ -358,59 +396,110 @@ func NewFromProcessCgroupFile(filePath string) (*Cgroup, error) {
 	return cg, nil
 }
 
-func containerByCgroup(path string) (ContainerType, string, error) {
-	parts := strings.Split(strings.TrimLeft(path, "/"), "/")
-	if len(parts) < 2 {
-		return ContainerTypeStandaloneProcess, "", nil
-	}
-	prefix := parts[0]
-	if prefix == "user.slice" || prefix == "init.scope" {
-		return ContainerTypeStandaloneProcess, "", nil
-	}
-	if prefix == "docker" || (prefix == "system.slice" && strings.HasPrefix(parts[1], "docker-")) {
-		matches := dockerIdRegexp.FindStringSubmatch(path)
-		if matches == nil {
-			return ContainerTypeUnknown, "", fmt.Errorf("invalid docker cgroup %s", path)
+var (
+	containerIdFromCgroupRegex       = regexp.MustCompile(`^[A-Fa-f0-9]{64}$`)
+	gardenContainerIdFromCgroupRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){4}$`)
+)
+
+// getContainerIdFromCgroup extracts container id and its runtime from path. It returns
+// the container id and the used runtime.
+func getContainerIdFromCgroup(cgroupPath string) (string, ContainerRuntimeID) {
+	cgroupParts := strings.Split(cgroupPath, "/")
+
+	// search from the end to get the most inner container id
+	for i := len(cgroupParts) - 1; i >= 0; i = i - 1 {
+		pc := cgroupParts[i]
+		if len(pc) < 28 {
+			continue // container id is at least 28 characters long
 		}
-		return ContainerTypeDocker, matches[1], nil
+
+		runtime := UnknownRuntime
+		id := strings.TrimSuffix(pc, ".scope")
+
+		switch {
+		case strings.HasPrefix(id, "docker-"):
+			runtime = DockerRuntime
+			id = strings.TrimPrefix(id, "docker-")
+		case strings.HasPrefix(id, "crio-"):
+			runtime = CrioRuntime
+			id = strings.TrimPrefix(id, "crio-")
+		case strings.HasPrefix(id, "cri-containerd-"):
+			runtime = ContainerdRuntime
+			id = strings.TrimPrefix(id, "cri-containerd-")
+		case strings.Contains(pc, ":cri-containerd:"):
+			runtime = ContainerdRuntime
+			id = pc[strings.LastIndex(pc, ":cri-containerd:")+len(":cri-containerd:"):]
+		case strings.HasPrefix(id, "libpod-"):
+			runtime = PodmanRuntime
+			id = strings.TrimPrefix(id, "libpod-")
+		}
+
+		if matched := containerIdFromCgroupRegex.MatchString(id); matched {
+			if runtime == UnknownRuntime && i > 0 && cgroupParts[i-1] == "docker" {
+				// non-systemd docker with format: .../docker/01adbf...f26db7f/
+				runtime = DockerRuntime
+			}
+			if runtime == UnknownRuntime && i > 0 && cgroupParts[i-1] == "actions_job" {
+				// non-systemd docker with format in GitHub Actions: .../actions_job/01adbf...f26db7f/
+				runtime = DockerRuntime
+			}
+			if runtime == UnknownRuntime && i > 0 {
+				for l := i; l > 0; l-- {
+					if cgroupParts[l] == "kubepods" {
+						runtime = DockerRuntime
+						break
+					}
+				}
+			}
+
+			// Return the first match, closest to the root dir path component, so that the
+			// container id of the outer container is returned. The container root is
+			// determined by being matched on the last path part.
+			return id, runtime
+		}
+
+		if matched := gardenContainerIdFromCgroupRegex.MatchString(id); matched {
+			runtime = GardenRuntime
+			return id, runtime
+		}
 	}
-	if strings.Contains(path, "kubepods") {
-		crioMatches := crioIdRegexp.FindStringSubmatch(path)
-		if crioMatches != nil {
-			return ContainerTypeCrio, crioMatches[1], nil
-		}
-		containerdMatches := containerdIdRegexp.FindStringSubmatch(path)
-		if containerdMatches != nil {
-			return ContainerTypeContainerd, containerdMatches[1], nil
-		}
-		matches := dockerIdRegexp.FindStringSubmatch(path)
-		if matches == nil {
-			return ContainerTypeSandbox, "", nil
-		}
-		return ContainerTypeDocker, matches[1], nil
-	}
-	if prefix == "lxc" {
-		matches := lxcIdRegexp.FindStringSubmatch(path)
-		if matches == nil {
-			return ContainerTypeUnknown, "", fmt.Errorf("invalid lxc cgroup %s", path)
-		}
-		return ContainerTypeLxc, matches[1], nil
-	}
-	if prefix == "system.slice" || prefix == "runtime.slice" {
-		matches := systemSliceIdRegexp.FindStringSubmatch(path)
-		if matches == nil {
-			return ContainerTypeUnknown, "", fmt.Errorf("invalid systemd cgroup %s", path)
-		}
-		return ContainerTypeSystemdService, matches[1], nil
-	}
-	return ContainerTypeUnknown, "", fmt.Errorf("unknown container: %s", path)
+
+	// cgroup dirs unrelated to containers provides empty (containerId, runtime)
+	return "", UnknownRuntime
 }
 
-func getCgroupIDForPath(path string) (uint64, error) {
+func getCgroupIDForPath(path string) (ID, error) {
 	// Lower 32 bits of the cgroup id == inode number of matching cgroupfs entry
 	var stat syscall.Stat_t
 	if err := syscall.Stat(path, &stat); err != nil {
 		return 0, err
 	}
 	return stat.Ino & 0xFFFFFFFF, nil
+}
+
+func (c *Client) LoadCgroup(id ID, path string) {
+	c.cgroupMu.Lock()
+	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
+		cgroup := c.getCgroupForIDAndPath(id, path)
+		return cgroup
+	})
+	c.cgroupMu.Unlock()
+}
+
+func (c *Client) cacheCgroup(cgroup *Cgroup) {
+	c.cgroupMu.Lock()
+	c.cgroupCacheByID[cgroup.Id] = func() *Cgroup { return cgroup }
+	c.cgroupMu.Unlock()
+}
+
+func (c *Client) CleanupCgroup(id ID) {
+	c.cgroupMu.Lock()
+	defer c.cgroupMu.Unlock()
+
+	_, found := c.cgroupCacheByID[id]
+	if !found {
+		return
+	}
+
+	delete(c.cgroupCacheByID, id)
 }

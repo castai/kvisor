@@ -103,6 +103,25 @@ func TestAllowedByPrePolicyShouldBePerCgroup(t *testing.T) {
 	r.Len(callerMap, 2)
 }
 
+var _ CgroupClient = MockCgroupClient{}
+
+type MockCgroupClient struct {
+	CgroupLoader  func(id cgroup.ID, path string)
+	CgroupCleaner func(cgroup cgroup.ID)
+}
+
+func (m MockCgroupClient) CleanupCgroup(cgroup cgroup.ID) {
+	if m.CgroupCleaner != nil {
+		m.CgroupCleaner(cgroup)
+	}
+}
+
+func (m MockCgroupClient) LoadCgroup(id cgroup.ID, path string) {
+	if m.CgroupLoader != nil {
+		m.CgroupLoader(id, path)
+	}
+}
+
 type MockContainerClient struct {
 	ContainerGetter func(ctx context.Context, cgroup uint64) (*containers.Container, error)
 	CgroupCleaner   func(cgroup uint64)
@@ -117,14 +136,16 @@ func (c *MockContainerClient) GetContainerForCgroup(ctx context.Context, cgroup 
 }
 
 func (c *MockContainerClient) CleanupCgroup(cgroup uint64) {
-	if c.ContainerGetter == nil {
+	if c.CgroupCleaner == nil {
 		return
 	}
 
 	c.CgroupCleaner(cgroup)
 }
 
-func buildTestTracer() *Tracer {
+type tracerOption func(*Tracer)
+
+func buildTestTracer(options ...tracerOption) *Tracer {
 	log := logging.New(&logging.Config{
 		Level: slog.LevelDebug,
 	})
@@ -146,13 +167,20 @@ func buildTestTracer() *Tracer {
 					}, nil
 				},
 			},
+			CgroupClient: &MockCgroupClient{},
 		},
 		eventsChan:        make(chan *castpb.Event, 10),
 		eventPoliciesMap:  map[events.ID]*EventPolicy{},
 		cgroupEventPolicy: map[uint64]map[events.ID]*cgroupEventPolicy{},
 		dnsPacketParser:   &layers.DNS{},
 		eventsSet:         newEventsDefinitionSet(&tracerObjects{}),
+		removedCgroups:    make(map[uint64]struct{}),
 	}
+
+	for _, option := range options {
+		option(tracer)
+	}
+
 	return tracer
 }
 

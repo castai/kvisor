@@ -6,7 +6,7 @@ const (
 	Unsupported    ID = 10000
 )
 
-type ID int32
+type ID uint32
 
 // NOTE: Events should match defined values in ebpf code.
 
@@ -140,6 +140,15 @@ const (
 // Special events for stats aggregations and metrics.
 const (
 	TrackSyscallStats ID = iota + 4100
+)
+
+// Signal meta-events
+const (
+	SignalCgroupMkdir ID = iota + 5000
+	SignalCgroupRmdir
+	SignalSchedProcessFork
+	SignalSchedProcessExec
+	SignalSchedProcessExit
 )
 
 // Signature events

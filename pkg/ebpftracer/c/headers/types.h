@@ -125,6 +125,12 @@ enum event_id_e {
     PROCESS_OOM_KILLED,
 };
 
+enum signal_event_id_e
+{
+    SIGNAL_CGROUP_MKDIR = 5000,
+    SIGNAL_CGROUP_RMDIR,
+};
+
 typedef struct args {
     unsigned long args[6];
 } args_t;

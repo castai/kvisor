@@ -52,6 +52,28 @@ func TestDecodeContext(t *testing.T) {
 	assert.Equal(t, int(ctxExpected.GetSizeBytes()), cursorAfter-cursorBefore)
 }
 
+func TestDecodeSignalContext(t *testing.T) {
+	buf := new(bytes.Buffer)
+	ctxExpected := types.SignalContext{
+		EventID: 100,
+	}
+	err := binary.Write(buf, binary.LittleEndian, ctxExpected)
+	assert.Equal(t, nil, err)
+	var ctxObtained types.SignalContext
+	rawData := buf.Bytes()
+	d := NewEventDecoder(log, rawData)
+	cursorBefore := d.cursor
+	err = d.DecodeSignalContext(&ctxObtained)
+	cursorAfter := d.cursor
+
+	// checking no error
+	assert.Equal(t, nil, err)
+	// checking decoding succeeded correctly
+	assert.Equal(t, ctxExpected, ctxObtained)
+	// checking decoder cursor on buffer moved appropriately
+	assert.Equal(t, int(ctxExpected.GetSizeBytes()), cursorAfter-cursorBefore)
+}
+
 func TestDecodeUint8(t *testing.T) {
 	buf := new(bytes.Buffer)
 	var expected uint8 = 42

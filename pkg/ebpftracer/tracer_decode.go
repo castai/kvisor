@@ -12,7 +12,6 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
-	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/metrics"
@@ -27,6 +26,41 @@ import (
 
 // Error indicating that the resulting error was caught from a panic
 var ErrPanic = errors.New("encountered panic")
+
+func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr error) {
+	defer func() {
+		if perr := recover(); perr != nil {
+			stack := string(debug.Stack())
+			rerr = fmt.Errorf("decode %w: %v, stack=%s", ErrPanic, perr, stack)
+		}
+	}()
+
+	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data)
+	var signalCtx types.SignalContext
+	if err := ebpfMsgDecoder.DecodeSignalContext(&signalCtx); err != nil {
+		return err
+	}
+	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, signalCtx.EventID)
+	if err != nil {
+		return fmt.Errorf("cannot parse event type %d: %w", signalCtx.EventID, err)
+	}
+
+	switch args := parsedArgs.(type) {
+	case types.SignalCgroupMkdirArgs:
+		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
+
+	case types.SignalCgroupRmdirArgs:
+		t.queueCgroupForRemoval(args.CgroupId)
+		err := t.UnmuteEventsFromCgroup(args.CgroupId)
+		if err != nil {
+			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
+		}
+	default:
+		t.log.Warnf("unhandled signal: %d", signalCtx.EventID)
+	}
+
+	return nil
+}
 
 func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr error) {
 	metrics.AgentPulledEventsBytesTotal.Add(float64(len(data)))
@@ -45,20 +79,10 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 	}
 
 	eventId := eventCtx.EventID
+
 	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
 	if err != nil {
 		return fmt.Errorf("cannot parse event type %d: %w", eventId, err)
-	}
-
-	// Cleanup cgroup related things on removal.
-	// TODO: Move cgroup rmdir to separate kernel perf buffer to high priority.
-	if eventId == events.CgroupRmdir {
-		t.removeCgroup(eventCtx.CgroupID)
-		err := t.UnmuteEventsFromCgroup(eventCtx.CgroupID)
-		if err != nil {
-			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", eventCtx.CgroupID, err)
-		}
-		return nil
 	}
 
 	container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, eventCtx.CgroupID)

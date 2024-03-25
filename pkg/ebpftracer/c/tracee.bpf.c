@@ -6082,7 +6082,7 @@ int cgroup_mkdir_signal(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&signal->args_buf, &cgroup_id, sizeof(u64), 0);
     save_str_to_buf(&signal->args_buf, path, 1);
     save_to_submit_buf(&signal->args_buf, &hierarchy_id, sizeof(u32), 2);
-    signal_perf_submit(ctx, signal, CGROUP_MKDIR);
+    signal_perf_submit(ctx, signal, SIGNAL_CGROUP_MKDIR);
 
     return 0;
 }
@@ -6115,7 +6115,7 @@ int cgroup_rmdir_signal(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&signal->args_buf, &cgroup_id, sizeof(u64), 0);
     save_str_to_buf(&signal->args_buf, path, 1);
     save_to_submit_buf(&signal->args_buf, &hierarchy_id, sizeof(u32), 2);
-    signal_perf_submit(ctx, signal, CGROUP_RMDIR);
+    signal_perf_submit(ctx, signal, SIGNAL_CGROUP_RMDIR);
 
     return 0;
 }

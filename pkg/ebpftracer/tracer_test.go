@@ -64,16 +64,17 @@ func TestTracer(t *testing.T) {
 					PodUID:       dummyContainerID,
 					PodName:      "dummy-container-" + dummyContainerID,
 					Cgroup: &cgroup.Cgroup{
-						Id:            cgroupID,
-						Version:       cgroup.V2,
-						ContainerType: cgroup.ContainerTypeContainerd,
-						ContainerID:   dummyContainerID,
-						Path:          "",
+						Id:               cgroupID,
+						Version:          cgroup.V2,
+						ContainerRuntime: cgroup.ContainerdRuntime,
+						ContainerID:      dummyContainerID,
+						Path:             "",
 					},
 					PIDs: []uint32{},
 				}, nil
 			},
 		},
+		CgroupClient: &ebpftracer.MockCgroupClient{},
 		EnrichEvent: func(er *enrichment.EnrichRequest) bool {
 			return false
 		},
