@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -20,7 +19,6 @@ func TestValidator(t *testing.T) {
 	r := require.New(t)
 
 	testEnv := &envtest.Environment{
-		Scheme: clientgoscheme.Scheme,
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
 				Args: []string{

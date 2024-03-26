@@ -56,16 +56,16 @@ func main() {
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-WaitForReady:
 	for {
 		select {
 		case <-waitCtx.Done():
 			log.Fatalf("Timed out waiting for validator to become ready")
 		default:
-			if validator.HasSynced() {
-				break WaitForReady
-			}
 		}
+		if validator.HasSynced() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	// List all resources in the cluster
