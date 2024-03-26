@@ -6,6 +6,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func intHash(n int) uint32 {
+	return uint32(n)
+}
+
 func TestBucketCache(t *testing.T) {
 	t.Run("add single value", func(t *testing.T) {
 		r := require.New(t)
@@ -13,7 +17,7 @@ func TestBucketCache(t *testing.T) {
 		key := 10
 		val := 20
 
-		cache, err := New[int, int](10, 5)
+		cache, err := New[int, int](10, 5, intHash)
 		r.NoError(err)
 
 		added := cache.AddToBucket(key, val)
@@ -29,7 +33,7 @@ func TestBucketCache(t *testing.T) {
 		key := 10
 		vals := []int{20, 30, 40}
 
-		cache, err := New[int, int](10, 5)
+		cache, err := New[int, int](10, 5, intHash)
 		r.NoError(err)
 
 		for _, v := range vals {
@@ -50,7 +54,7 @@ func TestBucketCache(t *testing.T) {
 		key2 := 90
 		val2 := 99
 
-		cache, err := New[int, int](10, 5)
+		cache, err := New[int, int](10, 5, intHash)
 		r.NoError(err)
 
 		added := cache.AddToBucket(key1, val1)
@@ -72,7 +76,7 @@ func TestBucketCache(t *testing.T) {
 		key := 10
 		vals := []int{1, 2, 3, 4, 5, 6, 7, 8}
 
-		cache, err := New[int, int](2, 2)
+		cache, err := New[int, int](2, 2, intHash)
 		r.NoError(err)
 
 		for i, val := range vals {
@@ -95,7 +99,7 @@ func TestBucketCache(t *testing.T) {
 		key2 := 12
 		key3 := 13
 
-		cache, err := New[int, int](2, 2)
+		cache, err := New[int, int](2, 2, intHash)
 		r.NoError(err)
 
 		cache.AddToBucket(key1, 1)

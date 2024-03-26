@@ -1,23 +1,23 @@
 package bucketcache
 
 import (
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/elastic/go-freelru"
 )
 
 type BucketCache[K comparable, V any] struct {
-	cache         *lru.Cache[K, []V]
+	cache         freelru.Cache[K, []V]
 	maxBucketSize int
 }
 
-func New[K comparable, V any](cacheSize int, maxBucketSize int) (*BucketCache[K, V], error) {
-	cache, err := lru.New[K, []V](cacheSize)
+func New[K comparable, V any](cacheSize uint32, maxBucketSize uint32, hash freelru.HashKeyCallback[K]) (*BucketCache[K, V], error) {
+	cache, err := freelru.NewSynced[K, []V](cacheSize, hash)
 	if err != nil {
 		return nil, err
 	}
 
 	return &BucketCache[K, V]{
 		cache:         cache,
-		maxBucketSize: maxBucketSize,
+		maxBucketSize: int(maxBucketSize),
 	}, nil
 }
 

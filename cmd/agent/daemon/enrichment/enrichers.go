@@ -15,7 +15,8 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/cespare/xxhash"
+	"github.com/elastic/go-freelru"
 	"github.com/minio/sha256-simd"
 )
 
@@ -23,8 +24,13 @@ type fileHashCacheKey string
 type ContainerForCgroupGetter func(cgroup uint64) (*containers.Container, bool, error)
 type PIDsInNamespaceGetter func(ns uint32) []uint32
 
+// more hash function in https://github.com/elastic/go-freelru/blob/main/bench/hash.go
+func hashStringXXHASH(s fileHashCacheKey) uint32 {
+	return uint32(xxhash.Sum64String(string(s)))
+}
+
 func EnrichWithFileHash(log *logging.Logger, mountNamespacePIDStore *types.PIDsPerNamespace, procFS proc.ProcFS) EventEnricher {
-	cache, err := lru.New[fileHashCacheKey, []byte](1024)
+	cache, err := freelru.NewSynced[fileHashCacheKey, []byte](1024, hashStringXXHASH)
 	if err != nil {
 		// This case can never happen, as err is only thrown if cache size is <0, which it isn't.
 		panic(err)
@@ -42,7 +48,7 @@ type fileHashEnricher struct {
 	log                    *logging.Logger
 	mountNamespacePIDStore *types.PIDsPerNamespace
 	procFS                 fs.StatFS
-	cache                  *lru.Cache[fileHashCacheKey, []byte]
+	cache                  freelru.Cache[fileHashCacheKey, []byte]
 }
 
 func (enricher *fileHashEnricher) EventTypes() []castpb.EventType {
