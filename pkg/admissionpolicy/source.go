@@ -27,14 +27,22 @@ type WebhookSource struct {
 	events chan []ValidationEvent
 }
 
+// WebhookConfig is the configuration for a WebhookSource.
+type WebhookConfig struct {
+	// ListenAddress is the address to listen on.
+	ListenAddress string
+	// EventBuffer is the size of the event buffer.
+	EventBuffer int
+}
+
 // NewWebhookSource returns a new WebhookSource.
-func NewWebhookSource(log *logging.Logger, laddr string) *WebhookSource {
+func NewWebhookSource(log *logging.Logger, cfg WebhookConfig) *WebhookSource {
 	src := &WebhookSource{
-		events: make(chan []ValidationEvent, 100),
+		events: make(chan []ValidationEvent, cfg.EventBuffer),
 		log:    log,
 	}
 	src.srv = &http.Server{
-		Addr:    laddr,
+		Addr:    cfg.ListenAddress,
 		Handler: http.HandlerFunc(src.handle),
 	}
 	return src

@@ -7,10 +7,13 @@ import (
 	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -25,7 +28,7 @@ import (
 // to keep the policy up to date.
 type Validator struct {
 	informers    informers.SharedInformerFactory
-	ctrl         validatingadmissionpolicy.CELPolicyEvaluator
+	plugin       validating.Plugin
 	objectIfaces admission.ObjectInterfaces
 }
 
@@ -54,41 +57,57 @@ func NewValidator(cfg *rest.Config) (*Validator, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating clientset: %w", err)
 	}
-	dynamic, err := dynamic.NewForConfig(cfg)
+	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating dynamic client: %w", err)
 	}
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 	restMapper := restmapper.NewDiscoveryRESTMapper([]*restmapper.APIGroupResources{})
-	controller := validatingadmissionpolicy.NewAdmissionController(
-		informerFactory,
-		client,
-		restMapper,
-		dynamic,
-		&allowAllAuthorizer{},
+	handler := admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
+	// Factories are called during ValidateInitialization
+	plug := generic.NewPlugin(
+		handler,
+		func(f informers.SharedInformerFactory, _ kubernetes.Interface, di dynamic.Interface, rm meta.RESTMapper) generic.Source[validating.PolicyHook] {
+			return generic.NewPolicySource(
+				f.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer(),
+				f.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
+				validating.NewValidatingAdmissionPolicyAccessor,
+				validating.NewValidatingAdmissionPolicyBindingAccessor,
+				compilePolicy,
+				f,
+				di,
+				rm,
+			)
+		},
+		func(a authorizer.Authorizer, m *matching.Matcher) generic.Dispatcher[validating.PolicyHook] {
+			return validating.NewDispatcher(a, generic.NewPolicyMatcher(m))
+		},
 	)
-	err = controller.ValidateInitialization()
-	if err != nil {
-		return nil, fmt.Errorf("validating admission policy controller initialization: %w", err)
-	}
+	plug.SetExternalKubeInformerFactory(informerFactory)
+	plug.SetExternalKubeClientSet(client)
+	plug.SetRESTMapper(restMapper)
+	plug.SetDynamicClient(dynamicClient)
+	plug.SetAuthorizer(&noopAuthorizer{})
+	plug.SetEnabled(true)
 	return &Validator{
 		informers:    informerFactory,
-		ctrl:         controller,
+		plugin:       validating.Plugin{Plugin: plug},
 		objectIfaces: admission.NewObjectInterfacesFromScheme(scheme),
 	}, nil
 }
 
-// Run starts the resource validator and syncs the informer cache. It blocks until
-// the stopCh is closed. Calls to Validate will block until the informer cache
-// is synced.
-func (e *Validator) Run(stopCh <-chan struct{}) {
+// Start starts the resource validator and syncs the informer cache. It does not
+// block.
+func (e *Validator) Start(stopCh <-chan struct{}) error {
 	e.informers.Start(stopCh)
-	e.ctrl.Run(stopCh)
+	e.plugin.SetDrainedNotification(stopCh)
+	return e.plugin.ValidateInitialization()
 }
 
-// HasSynced returns true if the resource evaluator's informer cache has synced.
-func (e *Validator) HasSynced() bool {
-	return e.ctrl.HasSynced()
+// WaitForReady blocks until the informer cache is synced. Unfortunately, timeouts
+// are not configurable currently and uses an internal value of 10 seconds.
+func (e *Validator) WaitForReady() bool {
+	return e.plugin.WaitForReady()
 }
 
 // Validate validates the given object against the policies and bindings in the cluster.
@@ -114,13 +133,13 @@ func (e *Validator) Validate(ctx context.Context, object runtime.Object) error {
 		false,
 		nil,
 	)
-	err := e.ctrl.Validate(ctx, rec, e.objectIfaces)
+	err := e.plugin.Validate(ctx, rec, e.objectIfaces)
 	if err == nil {
 		// Resource passed validation.
 		return nil
 	}
 	var admissionError *kerrors.StatusError
-	if errors.As(err, &admissionError) && admissionError.ErrStatus.Reason == metav1.StatusReasonInvalid {
+	if errors.As(err, &admissionError) && (admissionError.ErrStatus.Reason == metav1.StatusReasonForbidden || admissionError.ErrStatus.Reason == metav1.StatusReasonInvalid) {
 		// Resource failed validation
 		return &ValidationError{
 			Message: admissionError.ErrStatus.Message,
@@ -133,11 +152,8 @@ func (e *Validator) Validate(ctx context.Context, object runtime.Object) error {
 	return fmt.Errorf("validating object: %w", err)
 }
 
-// allowAllAuthorizer is an authorizer that allows all requests. It is used to
-// bypass the authorization checks for the policy evaluator.
-type allowAllAuthorizer struct{}
+type noopAuthorizer struct{}
 
-// Authorize returns no opinion for all requests.
-func (a *allowAllAuthorizer) Authorize(ctx context.Context, attrs authorizer.Attributes) (authorizer.Decision, string, error) {
+func (n *noopAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	return authorizer.DecisionNoOpinion, "", nil
 }

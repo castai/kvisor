@@ -14,7 +14,10 @@ func main() {
 		AddSource: true,
 	})
 
-	eventSource := admissionpolicy.NewWebhookSource(log, "0.0.0.0:8080")
+	eventSource := admissionpolicy.NewWebhookSource(log, admissionpolicy.WebhookConfig{
+		ListenAddress: ":8080",
+		EventBuffer:   100,
+	})
 	eventSink := admissionpolicy.NewEventSink(log)
 
 	go func() {

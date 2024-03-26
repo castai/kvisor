@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -49,11 +48,12 @@ func main() {
 	}
 	stop := make(chan struct{})
 	log.Println("Starting policy evaluator and informer caches")
-	go validator.Run(stop)
-
-	for !validator.HasSynced() {
-		log.Println("Waiting for policy evaluator to sync")
-		time.Sleep(time.Second)
+	err = validator.Start(stop)
+	if err != nil {
+		panic(err)
+	}
+	if !validator.WaitForReady() {
+		panic("Validator did not become ready")
 	}
 
 	// List all resources in the cluster
