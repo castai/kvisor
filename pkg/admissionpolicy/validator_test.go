@@ -140,7 +140,29 @@ func TestValidator(t *testing.T) {
 			},
 		},
 		{
-			name:    "nginx pod",
+			name:    "no security context",
+			allowed: false,
+			object: &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Pod",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nginx",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "nginx with security context",
 			allowed: true,
 			object: &corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
@@ -156,6 +178,11 @@ func TestValidator(t *testing.T) {
 						{
 							Name:  "nginx",
 							Image: "nginx",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:    &[]int64{1000}[0],
+								RunAsGroup:   &[]int64{1000}[0],
+								RunAsNonRoot: &[]bool{true}[0],
+							},
 						},
 					},
 				},
