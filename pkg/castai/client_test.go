@@ -164,7 +164,7 @@ func (t *testServer) EventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_E
 	if t.eventsWriteStreamHandler != nil {
 		return t.eventsWriteStreamHandler(server)
 	}
-	
+
 	md, ok := metadata.FromIncomingContext(server.Context())
 	if !ok {
 		return errors.New("no metadata")
