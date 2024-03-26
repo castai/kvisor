@@ -3,16 +3,20 @@ package admissionpolicy
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 func TestValidator(t *testing.T) {
+	ctx := context.Background()
 	r := require.New(t)
 
 	testEnv := &envtest.Environment{
@@ -34,19 +38,50 @@ func TestValidator(t *testing.T) {
 			t.Fatalf("failed to stop test environment: %v", err)
 		}
 	})
-	err = EnsurePolicies(context.Background(), cfg)
+
+	// Load policies into cluster
+	err = EnsurePolicies(ctx, cfg)
+	r.NoError(err)
+
+	// Bind some of the policies for the test cases
+	cli := kubernetes.NewForConfigOrDie(cfg)
+	_, err = cli.AdmissionregistrationV1beta1().
+		ValidatingAdmissionPolicyBindings().
+		Create(ctx,
+			&v1beta1.ValidatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "docker-socket-mount",
+				},
+				Spec: v1beta1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName:        "docker-sock-mount.policies.cast.ai",
+					ValidationActions: []v1beta1.ValidationAction{v1beta1.Deny},
+				},
+			},
+			metav1.CreateOptions{},
+		)
 	r.NoError(err)
 
 	validator, err := NewValidator(cfg)
 	r.NoError(err)
-	r.True(validator.WaitForReady())
 
 	stop := make(chan struct{})
-	err = validator.Start(stop)
-	r.NoError(err)
-	t.Cleanup(func() {
-		close(stop)
-	})
+	go validator.Run(stop)
+	t.Cleanup(func() { close(stop) })
+
+	timeout := 10 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("timed out waiting for validator to become ready")
+		default:
+		}
+		if validator.HasSynced() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	tt := []struct {
 		name    string

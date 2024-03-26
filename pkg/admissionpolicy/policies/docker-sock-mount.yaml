@@ -40,7 +40,7 @@ spec:
   - name: containers
     expression: "has(object.spec.template) ? object.spec.template.spec.containers : object.spec.containers"
   - name: containersWithVolumeMounts
-    expression: "variables.containers.filter(c, size(c.volumeMounts) > 0)"
+    expression: "variables.containers.filter(c, has(c.volumeMounts))"
 
   validations:
   - expression: "variables.containersWithVolumeMounts.filter(c, c.volumeMounts.filter(vm, vm.mountPath == '/var/run/docker.sock').size() > 0).size() == 0"
