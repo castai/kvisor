@@ -9,11 +9,11 @@ import (
 )
 
 type Cgroup struct {
-	Id            uint64
-	Version       Version
+	Id               uint64
+	Version          Version
 	ContainerRuntime ContainerRuntimeID
-	ContainerID   string
-	Path          string
+	ContainerID      string
+	Path             string
 
 	subsystems map[string]string
 	cgRoot     string

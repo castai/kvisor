@@ -21,7 +21,7 @@ const (
 
 // PLEASE NOTE, YOU MUST UPDATE THE DECODER IF ANY CHANGE TO THIS STRUCT IS DONE.
 type SignalContext struct {
-	EventID         events.ID // uint32
+	EventID events.ID // uint32
 }
 
 func (SignalContext) GetSizeBytes() int {
