@@ -4,4 +4,4 @@ metadata:
   name: "binding-test.policies.cast.ai"
 spec:
   policyName: "docker-sock-mount.policies.cast.ai"
-  validationActions: [Deny]
+  validationActions: [Audit]

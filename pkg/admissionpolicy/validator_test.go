@@ -58,6 +58,21 @@ func TestValidator(t *testing.T) {
 			metav1.CreateOptions{},
 		)
 	r.NoError(err)
+	_, err = cli.AdmissionregistrationV1beta1().
+		ValidatingAdmissionPolicyBindings().
+		Create(ctx,
+			&v1beta1.ValidatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "has-security-context",
+				},
+				Spec: v1beta1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName:        "has-security-context.policies.cast.ai",
+					ValidationActions: []v1beta1.ValidationAction{v1beta1.Deny},
+				},
+			},
+			metav1.CreateOptions{},
+		)
+	r.NoError(err)
 
 	validator, err := NewValidator(cfg)
 	r.NoError(err)
