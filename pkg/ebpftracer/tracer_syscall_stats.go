@@ -94,8 +94,10 @@ func (t *Tracer) cleanupSyscallStatsKernel(obsoleteStatsKeys []rawSyscallStatsKe
 	// The ebpf batch helpers are available since kernel version 5.6.
 	if kernelVersion.Major > 5 || (kernelVersion.Major == 5 && kernelVersion.Minor >= 6) {
 		_, err = t.module.objects.SyscallStatsMap.BatchDelete(obsoleteStatsKeys, &ebpf.BatchOptions{})
-		if !errors.Is(err, ebpf.ErrKeyNotExist) {
-			return fmt.Errorf("got error while trying to delete syscall stats: %w", err)
+		if err != nil {
+			if !errors.Is(err, ebpf.ErrKeyNotExist) {
+				return fmt.Errorf("got error while trying to delete syscall stats: %w", err)
+			}
 		}
 	} else {
 		for _, key := range obsoleteStatsKeys {
