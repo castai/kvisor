@@ -87,6 +87,7 @@ CMD_DOCKER_BUILDER_LOCAL=docker run --rm -it --privileged --cap-add SYS_ADMIN --
 	-v $$(pwd)/.cache/go-build:/home/.cache/go-build \
 	-v $$(pwd)/.cache/go-mod:/home/go/pkg/mod \
 	-v $$(pwd):/app \
+	-v /sys/kernel/debug:/sys/kernel/debug \
 	-w /app ghcr.io/castai/kvisor/kvisor-builder:latest
 
 .PHONY: gen-args-types
