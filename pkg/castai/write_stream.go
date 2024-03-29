@@ -55,7 +55,7 @@ func (w *WriteStream[T, U]) Recv(m T) error {
 
 func (w *WriteStream[T, U]) Close() error {
 	if w.activeStream == nil {
-		return errNoActiveStream
+		return nil
 	}
 	err := w.activeStream.CloseSend()
 	w.close()

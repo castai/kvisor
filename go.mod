@@ -14,7 +14,7 @@ require (
 	github.com/fatih/color v1.16.0
 	github.com/florianl/go-conntrack v0.4.0
 	github.com/go-playground/validator/v10 v10.17.0
-	github.com/golang/glog v1.1.2
+	github.com/golang/glog v1.2.0
 	github.com/google/go-containerregistry v0.19.0
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
@@ -42,7 +42,7 @@ require (
 	golang.org/x/sys v0.16.0
 	golang.org/x/time v0.5.0
 	golang.stackrox.io/kube-linter v0.4.1-0.20221021125313-bd11843210d1
-	google.golang.org/grpc v1.60.1
+	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -257,9 +257,9 @@ require (
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/api v0.156.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto v0.0.0-20240116215550-a9fa1716bcac // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240116215550-a9fa1716bcac // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240116215550-a9fa1716bcac // indirect
+	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
 	gopkg.in/evanphx/json-patch.v5 v5.8.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

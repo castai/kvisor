@@ -48,7 +48,7 @@ type Config struct {
 	ContainerdSockPath                string
 	HostCgroupsDir                    string
 	TCPSampleOutputMinDurationSeconds int
-	HTTPListenPort                    int
+	MetricsHTTPListenPort             int
 	State                             state.Config
 	EBPFEventsPerCPUBuffer            int `validate:"required"`
 	EBPFEventsOutputChanSize          int `validate:"required"`
@@ -329,7 +329,7 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	srv := http.Server{
-		Addr:         fmt.Sprintf(":%d", a.cfg.HTTPListenPort),
+		Addr:         fmt.Sprintf(":%d", a.cfg.MetricsHTTPListenPort),
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 1 * time.Minute,

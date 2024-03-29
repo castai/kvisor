@@ -27,8 +27,9 @@ import (
 var (
 	Version = "local"
 
-	kubeconfigPath = pflag.String("kubeconfig", "", "Kubeconfig file")
-	httpListenPort = pflag.Int("http-listen-port", 6060, "server listen port")
+	kubeconfigPath        = pflag.String("kubeconfig", "", "Kubeconfig file")
+	metricsHTTPListenPort = pflag.Int("metrics-http-listen-port", 6060, "metrics http listen port")
+	serverHTTPListenPort  = pflag.Int("http-listen-port", 8080, "server http listen port")
 
 	logLevel        = pflag.String("log-level", slog.LevelDebug.String(), "Log level")
 	logRateInterval = pflag.Duration("log-rate-iterval", 100*time.Millisecond, "Log rate limit interval")
@@ -104,15 +105,16 @@ func main() {
 
 	podNs := os.Getenv("POD_NAMESPACE")
 	appInstance := app.New(&app.Config{
-		LogLevel:        *logLevel,
-		LogRateInterval: *logRateInterval,
-		LogRateBurst:    *logRateBurst,
-		PodName:         os.Getenv("POD_NAME"),
-		PodNamespace:    podNs,
-		Version:         Version,
-		PyroscopeAddr:   *pyroscopeAddr,
-		HTTPListenPort:  *httpListenPort,
-		CastaiEnv:       castaiClientCfg,
+		LogLevel:              *logLevel,
+		LogRateInterval:       *logRateInterval,
+		LogRateBurst:          *logRateBurst,
+		PodName:               os.Getenv("POD_NAME"),
+		PodNamespace:          podNs,
+		Version:               Version,
+		PyroscopeAddr:         *pyroscopeAddr,
+		MetricsHTTPListenPort: *metricsHTTPListenPort,
+		HTTPListenPort:        *serverHTTPListenPort,
+		CastaiEnv:             castaiClientCfg,
 		CastaiController: state.CastaiConfig{
 			RemoteConfigSyncDuration: *castaiConfigSyncDuration,
 		},
