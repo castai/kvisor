@@ -20,17 +20,17 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       {{- if .Values.agent.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: "{{.Values.agent.httpListenPort}}"
+        prometheus.io/port: "{{.Values.agent.metricsHTTPListenPort}}"
       {{- end }}
       {{- if .Values.pyroscope.enabled }}
         phlare.grafana.com/scrape: "true"
-        phlare.grafana.com/port: "{{ .Values.agent.httpListenPort }}"
+        phlare.grafana.com/port: "{{ .Values.agent.metricsHTTPListenPort }}"
         profiles.grafana.com/memory.scrape: "true"
-        profiles.grafana.com/memory.port: "{{ .Values.agent.httpListenPort }}"
+        profiles.grafana.com/memory.port: "{{ .Values.agent.metricsHTTPListenPort }}"
         profiles.grafana.com/cpu.scrape: "true"
-        profiles.grafana.com/cpu.port: "{{ .Values.agent.httpListenPort }}"
+        profiles.grafana.com/cpu.port: "{{ .Values.agent.metricsHTTPListenPort }}"
         profiles.grafana.com/goroutine.scrape: "true"
-        profiles.grafana.com/goroutine.port: "{{ .Values.agent.httpListenPort }}"
+        profiles.grafana.com/goroutine.port: "{{ .Values.agent.metricsHTTPListenPort }}"
       {{- end }}
       {{- with .Values.agent.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -45,7 +45,6 @@ spec:
       {{- end }}
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
       hostPID: true
-      hostNetwork: {{ .Values.agent.hostNetwork }}
       securityContext:
         {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
       containers:
@@ -60,7 +59,7 @@ spec:
             - "/usr/local/bin/kvisor-agent"
           args:
             - "daemon"
-            - "--http-listen-port={{.Values.agent.httpListenPort}}"
+            - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
           {{- if .Values.castai.apiKey }}
             - "--send-logs-level=WARN"
           {{- end }}
@@ -94,18 +93,18 @@ spec:
               value: "1"
           {{- end }}
           ports:
-            - containerPort: {{.Values.agent.httpListenPort}}
-              name: http-server
+            - containerPort: {{.Values.agent.metricsHTTPListenPort}}
+              name: metrics
               protocol: TCP
           livenessProbe:
             httpGet:
-              port: http-server
+              port: metrics
               path: /healthz
             periodSeconds: 5
           startupProbe:
             httpGet:
+              port: metrics
               path: /healthz
-              port: http-server
             failureThreshold: 12
             periodSeconds: 10
           volumeMounts:

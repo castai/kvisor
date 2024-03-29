@@ -72,6 +72,9 @@ spec:
             - name: http-server
               containerPort: {{ .Values.controller.httpListenPort }}
               protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.controller.metricsHTTPListenPort }}
+              protocol: TCP
           startupProbe:
             httpGet:
               path: /healthz

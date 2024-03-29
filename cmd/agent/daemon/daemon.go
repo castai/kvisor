@@ -29,7 +29,7 @@ var (
 	containerdSockPath           = pflag.String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
 	ingestorAddr                 = pflag.String("ingestor-server-addr", "kvisord-server.kvisord.svc.cluster.local.:6061", "Ingestor server grpc API address")
 	eventsQueueSize              = pflag.Int("events-queue-size", 65536, "Events batch size")
-	httpListenPort               = pflag.Int("http-listen-port", 6061, "server listen port")
+	metricsHTTPListenPort        = pflag.Int("metrics-http-listen-port", 6060, "metrics http listen port")
 	pyroscopeAddr                = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
 	hostCgroupsDir               = pflag.String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 	containerStatsScrapeInterval = pflag.Duration("container-stats-scrape-interval", 60*time.Second, "Container resources scrape interval")
@@ -93,7 +93,7 @@ func NewCommand(version string) *cobra.Command {
 				ContainerdSockPath:                *containerdSockPath,
 				HostCgroupsDir:                    *hostCgroupsDir,
 				TCPSampleOutputMinDurationSeconds: *bpfTCPSampleSeconds,
-				HTTPListenPort:                    *httpListenPort,
+				MetricsHTTPListenPort:             *metricsHTTPListenPort,
 				State: state.Config{
 					EventsSinkQueueSize:          *eventsQueueSize,
 					ContainerStatsScrapeInterval: *containerStatsScrapeInterval,

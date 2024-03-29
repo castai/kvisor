@@ -44,7 +44,8 @@ type Config struct {
 	PodName      string `validate:"required"`
 
 	// HTTPListenPort is internal http servers listen port.
-	HTTPListenPort int `validate:"required"`
+	HTTPListenPort        int `validate:"required"`
+	MetricsHTTPListenPort int
 
 	// PyroscopeAddr is optional pyroscope addr to send traces.
 	PyroscopeAddr string
@@ -172,6 +173,12 @@ func (a *App) Run(ctx context.Context) error {
 		// Setup http server.
 		return a.runHTTPServer(ctx, log)
 	})
+	if cfg.MetricsHTTPListenPort != 0 {
+		errg.Go(func() error {
+			// Setup http server.
+			return a.runMetricsHTTPServer(ctx, log)
+		})
+	}
 
 	// Kubernetes informers should start after update and delete handlers are added.
 	informersFactory.Start(ctx.Done())
@@ -206,16 +213,12 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 	e.Debug = false
 
 	e.Use(middleware.Recover())
-	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/healthz", func(c echo.Context) error {
 		type res struct {
 			Msg string `json:"msg"`
 		}
 		return c.JSON(http.StatusOK, res{Msg: "Ok"})
 	})
-
-	// TODO: This is not secure. Pprof should be served on different port internally only.
-	e.GET("/debug/pprof/*item", echo.WrapHandler(http.DefaultServeMux))
 
 	blobsCacheSrv := blobscache.NewServer(log)
 	blobsCacheSrv.RegisterHandlers(e)
@@ -229,6 +232,35 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 	go func() {
 		<-ctx.Done()
 		log.Info("shutting down http server")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error(err.Error())
+		}
+	}()
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) error {
+	e := echo.New()
+	e.HideBanner = true
+	e.Debug = false
+
+	e.Use(middleware.Recover())
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	e.GET("/debug/pprof/*item", echo.WrapHandler(http.DefaultServeMux))
+	srv := http.Server{
+		Addr:         fmt.Sprintf(":%d", a.cfg.MetricsHTTPListenPort),
+		Handler:      e,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 1 * time.Minute,
+	}
+	go func() {
+		<-ctx.Done()
+		log.Info("shutting metrics down http server")
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
