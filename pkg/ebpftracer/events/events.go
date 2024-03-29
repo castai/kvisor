@@ -96,6 +96,7 @@ const (
 	SockSetState
 	MaxCommonID
 	ProcessOomKilled
+	TtyOpen
 )
 
 // Events originated from user-space

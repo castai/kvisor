@@ -46,7 +46,7 @@ message DNS {
 message DNSAnswers {
   uint32 type = 1;
   uint32 class = 2;
-  uint32 ttl= 3;
+  uint32 ttl = 3;
   string name = 4;
   bytes ip = 5;
   string cname = 6;
@@ -72,7 +72,6 @@ message LogEvent {
   string msg = 2;
 }
 
-
 message SignatureEvent {
   SignatureMetadata metadata = 1;
   SignatureFinding finding = 2;
@@ -81,6 +80,7 @@ message SignatureEvent {
 enum SignatureEventID {
   SIGNATURE_UNKNOWN = 0;
   SIGNATURE_STDIO_VIA_SOCKET = 1;
+  SIGNATURE_TTY_DETECTED = 2;
 }
 
 message SignatureMetadata {
@@ -88,5 +88,4 @@ message SignatureMetadata {
   string version = 2;
 }
 
-message SignatureFinding {
-}
+message SignatureFinding {}

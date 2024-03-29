@@ -14,6 +14,7 @@ agent:
     container-stats-scrape-interval: 10s
     pyroscope-addr: http://kvisord-pyroscope:4040
     file-hash-enricher-enabled: true
+    signature-tty-detection-enabled: true
 
   containerSecurityContext:
     readOnlyRootFilesystem: false
