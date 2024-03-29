@@ -6881,6 +6881,23 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "const char*const*", Name: "environment"},
 			},
 		},
+		events.TtyOpen: {
+			ID:      events.TtyOpen,
+			id32Bit: events.Sys32Undefined,
+			name:    "tty_write",
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeTtyOpen, required: true},
+				},
+			},
+			sets: []string{},
+			params: []argMeta{
+				{Type: "char*", Name: "path"},
+				{Type: "unsigned long", Name: "inode"},
+				{Type: "umode_t", Name: "inode_mode"},
+				{Type: "dev_t", Name: "dev"},
+			},
+		},
 
 		//
 		// Begin of Network Protocol Event Types

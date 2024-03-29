@@ -92,20 +92,24 @@ func TestTracer(t *testing.T) {
 		errc <- tr.Run(ctx)
 	}()
 
-	signatureEngine := signature.NewEngine(signature.DefaultSignatures(log), log, signature.SignatureEngineConfig{
-		InputChanSize:  0,
-		OutputChanSize: 0,
+	signatures := signature.DefaultSignatures(log, signature.DefaultSignatureConfig{
+		TTYDetectedSignatureEnabled: true,
+	})
+
+	signatureEngine := signature.NewEngine(signatures, log, signature.SignatureEngineConfig{
+		InputChanSize:  100,
+		OutputChanSize: 100,
 	})
 
 	policy := &ebpftracer.Policy{
 		SignatureEngine: signatureEngine,
 		Events: []*ebpftracer.EventPolicy{
-			{ID: events.SchedProcessExec},
-			{ID: events.SockSetState},
+			// {ID: events.SchedProcessExec},
+			{ID: events.TtyOpen},
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.TrackSyscallStats},
-			{ID: events.NetPacketDNS},
+			// {ID: events.NetPacketDNS},
 			//{
 			//	ID: events.FileModification,
 			//	RateLimit: &events.RateLimitPolicy{

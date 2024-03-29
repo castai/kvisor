@@ -44,7 +44,8 @@ var (
 
 	mutedNamespaces = pflag.StringArray("mute-namespace", []string{"kube-system", "calico"}, "List of namespaces to ignore tracing events for. To mute multiple namespaces, provide this flag multiple times.")
 
-	fileHashEnrichedEnabled = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
+	fileHashEnrichedEnabled      = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
+	ttyDetectionSignatureEnabled = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
 
 	castaiServerInsecure = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
 
@@ -104,6 +105,9 @@ func NewCommand(version string) *cobra.Command {
 				SignatureEngineConfig: signature.SignatureEngineConfig{
 					InputChanSize:  *signatureEngineInputEventChanSize,
 					OutputChanSize: *signatureEngineOutputEventChanSize,
+					DefaultSignatureConfig: signature.DefaultSignatureConfig{
+						TTYDetectedSignatureEnabled: *ttyDetectionSignatureEnabled,
+					},
 				},
 				CastaiEnv: castaiClientCfg,
 				EnricherConfig: app.EnricherConfig{

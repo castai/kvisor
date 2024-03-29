@@ -627,6 +627,7 @@ struct inode {
     struct timespec64 __i_ctime;
     loff_t i_size;
     struct file_operations *i_fop;
+    dev_t i_rdev;
 };
 
 struct super_block {

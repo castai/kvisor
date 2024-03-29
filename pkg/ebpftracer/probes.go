@@ -240,6 +240,9 @@ const (
 	ProbeLayoutAndAllocate
 	ProbeInetSockSetState
 	ProbeOomMarkVictim
+	ProbeTtyOpen
+
+	// Signal probes
 	SignalCgroupMkdir
 	SignalCgroupRmdir
 )
@@ -352,7 +355,10 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		//ProbeLayoutAndAllocate:           NewTraceProbe(kretProbe, "layout_and_allocate", "trace_ret_layout_and_allocate"),
 		ProbeInetSockSetState: newTraceProbe(rawTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
 		ProbeOomMarkVictim:    newTraceProbe(rawTracepoint, "oom:mark_victim", objs.OomMarkVictim),
-		SignalCgroupMkdir:     newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.CgroupMkdirSignal),
-		SignalCgroupRmdir:     newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.CgroupRmdirSignal),
+		ProbeTtyOpen:         newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
+
+		// Signal probes
+		SignalCgroupMkdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.CgroupMkdirSignal),
+		SignalCgroupRmdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.CgroupRmdirSignal),
 	}
 }

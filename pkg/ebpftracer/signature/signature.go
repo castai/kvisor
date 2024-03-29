@@ -19,8 +19,9 @@ type SignatureMetadata struct {
 }
 
 type SignatureEngineConfig struct {
-	InputChanSize  int `validate:"required"`
-	OutputChanSize int `validate:"required"`
+	InputChanSize          int `validate:"required"`
+	OutputChanSize         int `validate:"required"`
+	DefaultSignatureConfig DefaultSignatureConfig
 }
 
 type Signature interface {

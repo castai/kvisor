@@ -152,7 +152,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer ct.Close()
 
-	activeSignatures := signature.DefaultSignatures(log)
+	activeSignatures := signature.DefaultSignatures(log, a.cfg.SignatureEngineConfig.DefaultSignatureConfig)
 
 	signatureEngine := signature.NewEngine(activeSignatures, log, a.cfg.SignatureEngineConfig)
 

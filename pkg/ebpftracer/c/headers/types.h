@@ -123,6 +123,7 @@ enum event_id_e {
     SOCK_SET_STATE,
     MAX_EVENT_ID,
     PROCESS_OOM_KILLED,
+    TTY_OPEN,
 };
 
 enum signal_event_id_e

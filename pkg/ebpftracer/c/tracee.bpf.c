@@ -40,6 +40,8 @@
 #include <common/debug.h>
 #include <common/stats.h>
 
+#include "bpf/bpf_helpers.h"
+
 char LICENSE[] SEC("license") = "GPL";
 
 extern _Bool LINUX_HAS_SYSCALL_WRAPPER __kconfig;
@@ -4261,64 +4263,64 @@ int BPF_KPROBE(trace_load_elf_phdrs)
     return 0;
 }
 
-//SEC("kprobe/security_file_permission")
-//int BPF_KPROBE(trace_security_file_permission)
+// SEC("kprobe/security_file_permission")
+// int BPF_KPROBE(trace_security_file_permission)
 //{
-//    struct file *file = (struct file *) PT_REGS_PARM1(ctx);
-//    if (file == NULL)
-//        return 0;
-//    struct inode *f_inode = get_inode_from_file(file);
-//    struct super_block *i_sb = get_super_block_from_inode(f_inode);
-//    unsigned long s_magic = get_s_magic_from_super_block(i_sb);
+//     struct file *file = (struct file *) PT_REGS_PARM1(ctx);
+//     if (file == NULL)
+//         return 0;
+//     struct inode *f_inode = get_inode_from_file(file);
+//     struct super_block *i_sb = get_super_block_from_inode(f_inode);
+//     unsigned long s_magic = get_s_magic_from_super_block(i_sb);
 //
-//    // Only check procfs entries
-//    if (s_magic != PROC_SUPER_MAGIC) {
-//        return 0;
-//    }
+//     // Only check procfs entries
+//     if (s_magic != PROC_SUPER_MAGIC) {
+//         return 0;
+//     }
 //
-//    program_data_t p = {};
-//    if (!init_program_data(&p, ctx))
-//        return 0;
+//     program_data_t p = {};
+//     if (!init_program_data(&p, ctx))
+//         return 0;
 //
-//    if (!should_trace(&p))
-//        return 0;
+//     if (!should_trace(&p))
+//         return 0;
 //
-//    if (!should_submit(HOOKED_PROC_FOPS, p.event))
-//        return 0;
+//     if (!should_submit(HOOKED_PROC_FOPS, p.event))
+//         return 0;
 //
-//    struct file_operations *fops = (struct file_operations *) BPF_CORE_READ(f_inode, i_fop);
-//    if (fops == NULL)
-//        return 0;
+//     struct file_operations *fops = (struct file_operations *) BPF_CORE_READ(f_inode, i_fop);
+//     if (fops == NULL)
+//         return 0;
 //
-//    unsigned long iterate_shared_addr = (unsigned long) BPF_CORE_READ(fops, iterate_shared);
-//    unsigned long iterate_addr = (unsigned long) BPF_CORE_READ(fops, iterate);
-//    if (iterate_addr == 0 && iterate_shared_addr == 0)
-//        return 0;
+//     unsigned long iterate_shared_addr = (unsigned long) BPF_CORE_READ(fops, iterate_shared);
+//     unsigned long iterate_addr = (unsigned long) BPF_CORE_READ(fops, iterate);
+//     if (iterate_addr == 0 && iterate_shared_addr == 0)
+//         return 0;
 //
-//    // get text segment bounds
-//    void *stext_addr = get_stext_addr();
-//    if (unlikely(stext_addr == NULL))
-//        return 0;
-//    void *etext_addr = get_etext_addr();
-//    if (unlikely(etext_addr == NULL))
-//        return 0;
+//     // get text segment bounds
+//     void *stext_addr = get_stext_addr();
+//     if (unlikely(stext_addr == NULL))
+//         return 0;
+//     void *etext_addr = get_etext_addr();
+//     if (unlikely(etext_addr == NULL))
+//         return 0;
 //
-//    // mark as 0 if in bounds
-//    if (iterate_shared_addr >= (u64) stext_addr && iterate_shared_addr < (u64) etext_addr)
-//        iterate_shared_addr = 0;
-//    if (iterate_addr >= (u64) stext_addr && iterate_addr < (u64) etext_addr)
-//        iterate_addr = 0;
+//     // mark as 0 if in bounds
+//     if (iterate_shared_addr >= (u64) stext_addr && iterate_shared_addr < (u64) etext_addr)
+//         iterate_shared_addr = 0;
+//     if (iterate_addr >= (u64) stext_addr && iterate_addr < (u64) etext_addr)
+//         iterate_addr = 0;
 //
-//    // now check again, if both are in text bounds, return
-//    if (iterate_addr == 0 && iterate_shared_addr == 0)
-//        return 0;
+//     // now check again, if both are in text bounds, return
+//     if (iterate_addr == 0 && iterate_shared_addr == 0)
+//         return 0;
 //
-//    unsigned long fops_addresses[2] = {iterate_shared_addr, iterate_addr};
+//     unsigned long fops_addresses[2] = {iterate_shared_addr, iterate_addr};
 //
-//    save_u64_arr_to_buf(&p.event->args_buf, (const u64 *) fops_addresses, 2, 0);
-//    events_perf_submit(&p, HOOKED_PROC_FOPS, 0);
-//    return 0;
-//}
+//     save_u64_arr_to_buf(&p.event->args_buf, (const u64 *) fops_addresses, 2, 0);
+//     events_perf_submit(&p, HOOKED_PROC_FOPS, 0);
+//     return 0;
+// }
 
 SEC("raw_tracepoint/task_rename")
 int tracepoint__task__task_rename(struct bpf_raw_tracepoint_args *ctx)
@@ -6198,6 +6200,7 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
 
     return 0;
 }
+// clang-format on
 
 SEC("raw_tracepoint/oom/mark_victim")
 int oom_mark_victim(struct bpf_raw_tracepoint_args *ctx)
@@ -6209,4 +6212,31 @@ int oom_mark_victim(struct bpf_raw_tracepoint_args *ctx)
     return 0;
 }
 
-// clang-format on
+SEC("kprobe/tty_open")
+int BPF_KPROBE(tty_open, struct inode *inode, struct file *filep)
+{
+    program_data_t p = {};
+    if (!init_program_data(&p, ctx)) {
+        return 0;
+    }
+
+    if (!should_trace((&p))) {
+        return 0;
+    }
+
+    if (!should_submit(TTY_OPEN, p.event)) {
+        return 0;
+    }
+
+    void *file_path = get_path_str(__builtin_preserve_access_index(&filep->f_path));
+    unsigned long ino = BPF_CORE_READ(inode, i_ino);
+    dev_t dev = BPF_CORE_READ(inode, i_rdev);
+    umode_t inode_mode = get_inode_mode_from_file(filep);
+
+    save_str_to_buf(&p.event->args_buf, file_path, 0);
+    save_to_submit_buf(&p.event->args_buf, &ino, sizeof(ino), 1);
+    save_to_submit_buf(&p.event->args_buf, &inode_mode, sizeof(inode_mode), 2);
+    save_to_submit_buf(&p.event->args_buf, &dev, sizeof(dev), 3);
+
+    return events_perf_submit(&p, TTY_OPEN, 0);
+}
