@@ -12,7 +12,6 @@ import (
 
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
-	"github.com/castai/kvisor/cmd/agent/daemon/logexport"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/cmd/agent/kube"
@@ -91,7 +90,7 @@ func (a *App) Run(ctx context.Context) error {
         }`
 
 	cfg := a.cfg
-	castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-controller/%s", cfg.Version), cfg.CastaiEnv)
+	castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.CastaiEnv)
 	if err != nil {
 		return fmt.Errorf("setting up castai api client: %w", err)
 	}
@@ -115,11 +114,11 @@ func (a *App) Run(ctx context.Context) error {
 		},
 	}
 	if a.cfg.SendLogsLevel != "" {
-		logsExporter := logexport.New(castaiClient.GRPC)
-		go logsExporter.Run(ctx) //nolint:errcheck
+		castaiLogsExporter := castai.NewLogsExporter(castaiClient)
+		go castaiLogsExporter.Run(ctx) //nolint:errcheck
 
 		logCfg.Export = logging.ExportConfig{
-			ExportFunc: logsExporter.ExportFunc(),
+			ExportFunc: castaiLogsExporter.ExportFunc(),
 			MinLevel:   logging.MustParseLevel(a.cfg.SendLogsLevel),
 		}
 	}
