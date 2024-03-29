@@ -27,7 +27,9 @@ func TestCgroupCleanupLoop(t *testing.T) {
 	tracer.queueCgroupForRemoval(20)
 	tracer.queueCgroupForRemoval(30)
 
+	tracer.cgroupCleanupMu.Lock()
 	r.Len(tracer.requestedCgroupCleanups, 3)
+	tracer.cgroupCleanupMu.Unlock()
 
 	r.Eventually(func() bool {
 		tracer.cgroupCleanupMu.Lock()
