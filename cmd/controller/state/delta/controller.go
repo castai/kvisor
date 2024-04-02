@@ -86,7 +86,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	t := time.NewTicker(c.cfg.Interval)
 	defer t.Stop()
 
-	firstDeltaReport := false
+	firstDeltaReport := true
 	for {
 		select {
 		case <-ctx.Done():
