@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,10 +38,11 @@ type kubeClient interface {
 }
 
 type Config struct {
-	Enabled       bool
-	Interval      time.Duration `validate:"required"`
-	InitialDeltay time.Duration
-	SendTimeout   time.Duration `validate:"required"`
+	Enabled        bool
+	Interval       time.Duration `validate:"required"`
+	InitialDeltay  time.Duration
+	SendTimeout    time.Duration `validate:"required"`
+	UseCompression bool
 }
 
 func NewController(
@@ -55,8 +57,10 @@ func NewController(
 		castaiClient:          castaiClient,
 		kubeClient:            kubeClient,
 		pendingItems:          map[string]deltaItem{},
+		deltaSendMaxTries:     3,
 		deltaItemSendMaxTries: 3,
 		deltaRetryWait:        100 * time.Millisecond,
+		firstDeltaReport:      true,
 	}
 }
 
@@ -68,8 +72,10 @@ type Controller struct {
 
 	pendingItems          map[string]deltaItem
 	deltasMu              sync.Mutex
+	deltaSendMaxTries     uint64
 	deltaItemSendMaxTries uint64
 	deltaRetryWait        time.Duration
+	firstDeltaReport      bool
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -86,17 +92,13 @@ func (c *Controller) Run(ctx context.Context) error {
 	t := time.NewTicker(c.cfg.Interval)
 	defer t.Stop()
 
-	firstDeltaReport := true
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-t.C:
-			if err := c.sendDeltas(ctx, firstDeltaReport); err != nil {
-				c.log.Errorf("sending deltas: %v", err)
-			}
-			if firstDeltaReport {
-				firstDeltaReport = false
+			if err := c.process(ctx); err != nil {
+				return err
 			}
 		}
 	}
@@ -136,8 +138,27 @@ func (c *Controller) OnDelete(obj kube.Object) {
 	c.recordDeltaEvent(castaipb.KubernetesDeltaItemEvent_DELTA_REMOVE, obj)
 }
 
-func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) error {
+func (c *Controller) process(ctx context.Context) error {
 	pendingDeltas := c.popPendingItems()
+
+	if err := withExponentialRetry(ctx, c.log, func() error {
+		return c.sendDeltas(ctx, pendingDeltas)
+	}, c.deltaSendMaxTries); err != nil {
+		if c.firstDeltaReport {
+			// If we fail to send initial delta controller if be terminated and start again.
+			return fmt.Errorf("sending initial deltas: %w", err)
+		}
+		c.log.Errorf("sending deltas: %v", err)
+		return nil
+	}
+
+	if c.firstDeltaReport {
+		c.firstDeltaReport = false
+	}
+	return nil
+}
+
+func (c *Controller) sendDeltas(ctx context.Context, pendingDeltas []deltaItem) error {
 	if len(pendingDeltas) == 0 {
 		return nil
 	}
@@ -150,13 +171,18 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) erro
 	deltaID := uuid.NewString()
 	meta := []string{
 		"x-delta-id", deltaID,
+		"x-delta-count", strconv.Itoa(len(pendingDeltas)),
 	}
-	if firstDeltaReport {
+	if c.firstDeltaReport {
 		meta = append(meta, "x-delta-full-snapshot", "true")
 	}
 
 	ctx = metadata.AppendToOutgoingContext(ctx, meta...)
-	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, grpc.UseCompressor(gzip.Name))
+	var opts []grpc.CallOption
+	if c.cfg.UseCompression {
+		opts = append(opts, grpc.UseCompressor(gzip.Name))
+	}
+	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, opts...)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
@@ -180,7 +206,7 @@ func (c *Controller) sendDeltas(ctx context.Context, firstDeltaReport bool) erro
 }
 
 func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
-	return backoff.RetryNotify(func() error {
+	return withExponentialRetry(ctx, c.log, func() error {
 		if err := stream.Send(item); err != nil {
 			if !isRetryableErr(err) {
 				return backoff.Permanent(err)
@@ -194,13 +220,17 @@ func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeS
 			return fmt.Errorf("receiving delta ack: %w", err)
 		}
 		return nil
-	}, backoff.WithContext(
+	}, c.deltaItemSendMaxTries)
+}
+
+func withExponentialRetry(ctx context.Context, log *logging.Logger, fn func() error, max uint64) error {
+	return backoff.RetryNotify(fn, backoff.WithContext(
 		backoff.WithMaxRetries(
-			backoff.NewExponentialBackOff(), c.deltaItemSendMaxTries,
+			backoff.NewExponentialBackOff(), max,
 		), ctx,
 	), func(err error, duration time.Duration) {
 		if err != nil {
-			c.log.Warnf("sending delta item, duration=%v: %v", duration, err)
+			log.Warnf("action failed, duration=%v: %v", duration, err)
 		}
 	})
 }

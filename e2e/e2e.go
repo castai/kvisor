@@ -14,10 +14,14 @@ import (
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/samber/lo"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -55,7 +59,16 @@ func run(ctx context.Context) error {
 		return err
 	}
 	s := grpc.NewServer()
-	srv := &testCASTAIServer{}
+	inClusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	clientset, err := kubernetes.NewForConfig(inClusterConfig)
+	if err != nil {
+		return err
+	}
+
+	srv := &testCASTAIServer{clientset: clientset}
 	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -169,6 +182,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
 var _ castaipb.RuntimeSecurityAgentAPIServer = (*testCASTAIServer)(nil)
 
 type testCASTAIServer struct {
+	clientset *kubernetes.Clientset
+
 	containerStats    []*castaipb.ContainerStatsBatch
 	events            []*castaipb.Event
 	logs              []*castaipb.LogEvent
@@ -490,6 +505,17 @@ func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurity
 func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 	currentOffset := 0
 	timeout := time.After(10 * time.Second)
+
+	allDeployments, err := t.clientset.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("listing k8s pods: %w", err)
+	}
+
+	allServices, err := t.clientset.CoreV1().Services(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("listing k8s services: %w", err)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -501,6 +527,23 @@ func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 			deltas := t.deltaUpdates
 			t.mu.Unlock()
 
+			// Some validation for received deltas counts.
+			deltaDeploymentsCount := lo.CountBy(deltas, func(item *castaipb.KubernetesDeltaItem) bool {
+				return item.ObjectKind == "Deployment"
+			})
+			if deltaDeploymentsCount < len(allDeployments.Items) {
+				fmt.Printf("expected at least %d deployments, got %d\n", deltaDeploymentsCount, len(allDeployments.Items))
+				continue
+			}
+			deltaServicesCount := lo.CountBy(deltas, func(item *castaipb.KubernetesDeltaItem) bool {
+				return item.ObjectKind == "Service"
+			})
+			if deltaServicesCount < len(allServices.Items) {
+				fmt.Printf("expected at least %d services, got %d\n", deltaServicesCount, len(allServices.Items))
+				continue
+			}
+
+			// Some validation for received delta fields.
 			for _, item := range deltas[currentOffset:] {
 				if item.ObjectKind != "Deployment" {
 					continue

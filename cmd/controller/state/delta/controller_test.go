@@ -188,13 +188,31 @@ func TestController(t *testing.T) {
 
 		ctrl.OnAdd(dep1)
 		r.Len(ctrl.pendingItems, 1)
-		r.NoError(ctrl.sendDeltas(ctx, false))
+		r.NoError(ctrl.process(ctx))
 		r.Len(ctrl.pendingItems, 0)
 
 		ctrl.OnAdd(dep1)
 		r.Len(ctrl.pendingItems, 1)
-		r.ErrorIs(ctrl.sendDeltas(ctx, false), context.DeadlineExceeded)
+		r.NoError(ctrl.process(ctx))
 		r.Len(ctrl.pendingItems, 1)
+	})
+
+	t.Run("fail on initial delta send error", func(t *testing.T) {
+		r := require.New(t)
+		client := newMockClient()
+		client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient {
+			return &mockStream{
+				onSend: func(item *castaipb.KubernetesDeltaItem) error {
+					return errors.New("ups")
+				},
+			}
+		}
+
+		ctrl := newTestController(log, client)
+
+		ctrl.OnAdd(dep1)
+		r.Len(ctrl.pendingItems, 1)
+		r.ErrorIs(ctrl.process(ctx), context.DeadlineExceeded)
 	})
 
 	t.Run("send multiple delta items", func(t *testing.T) {
@@ -224,7 +242,7 @@ func TestController(t *testing.T) {
 		ctrl.OnAdd(dep1)
 		ctrl.OnAdd(dep2)
 
-		err := ctrl.sendDeltas(ctx, false)
+		err := ctrl.process(ctx)
 		r.NoError(err)
 		r.Len(client.deltas, 2)
 		sort.Slice(client.deltas, func(i, j int) bool {
@@ -253,12 +271,15 @@ func newMockClient() *mockCastaiClient {
 }
 
 func newTestController(log *logging.Logger, client *mockCastaiClient) *Controller {
-	return NewController(
+	ctrl := NewController(
 		log,
 		Config{Interval: 1 * time.Millisecond, InitialDeltay: 1 * time.Millisecond, SendTimeout: 10 * time.Millisecond},
 		client,
 		&mockPodOwnerGetter{},
 	)
+	ctrl.deltaSendMaxTries = 2
+	ctrl.deltaItemSendMaxTries = 2
+	return ctrl
 }
 
 type mockPodOwnerGetter struct {
