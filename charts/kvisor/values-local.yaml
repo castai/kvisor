@@ -7,6 +7,9 @@ image:
   repository: localhost:5000/kvisor
   tag: latest
 
+commonLabels:
+  team: sec
+
 agent:
   enabled: true
   extraArgs:
