@@ -47,9 +47,19 @@ func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr err
 
 	switch args := parsedArgs.(type) {
 	case types.SignalCgroupMkdirArgs:
+		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
+		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
+			return nil
+		}
+
 		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
 
 	case types.SignalCgroupRmdirArgs:
+		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
+		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
+			return nil
+		}
+
 		t.queueCgroupForRemoval(args.CgroupId)
 		err := t.UnmuteEventsFromCgroup(args.CgroupId)
 		if err != nil {

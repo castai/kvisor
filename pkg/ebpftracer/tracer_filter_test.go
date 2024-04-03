@@ -106,8 +106,17 @@ func TestAllowedByPrePolicyShouldBePerCgroup(t *testing.T) {
 var _ CgroupClient = MockCgroupClient{}
 
 type MockCgroupClient struct {
-	CgroupLoader  func(id cgroup.ID, path string)
-	CgroupCleaner func(cgroup cgroup.ID)
+	CgroupLoader            func(id cgroup.ID, path string)
+	CgroupCleaner           func(cgroup cgroup.ID)
+	DefaultHierarchyChecker func(hierarchyID uint32) bool
+}
+
+func (m MockCgroupClient) IsDefaultHierarchy(hierarchyID uint32) bool {
+	if m.DefaultHierarchyChecker != nil {
+		return m.DefaultHierarchyChecker(hierarchyID)
+	}
+
+	return true
 }
 
 func (m MockCgroupClient) CleanupCgroup(cgroup cgroup.ID) {
