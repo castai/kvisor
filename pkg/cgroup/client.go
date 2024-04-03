@@ -96,22 +96,24 @@ func FromString(str string) ContainerRuntimeID {
 }
 
 type Client struct {
-	version         Version
-	cgRoot          string
-	cgroupCacheByID map[ID]func() *Cgroup
-	cgroupMu        sync.RWMutex
+	version            Version
+	cgRoot             string
+	cgroupCacheByID    map[ID]func() *Cgroup
+	cgroupMu           sync.RWMutex
+	defaultHierarchyID uint32
 }
 
 func NewClient(log *logging.Logger, root string) (*Client, error) {
-	version, err := getDefaultVersion(log)
+	version, defaultHierarchyID, err := getDefaultVersionAndHierarchy(log)
 	if err != nil {
 		return nil, fmt.Errorf("getting default cgroups version: %w", err)
 	}
 	log.WithField("component", "cgroup").Infof("cgroups detected version=%s, root=%s", version, root)
 	return &Client{
-		version:         version,
-		cgRoot:          root,
-		cgroupCacheByID: make(map[uint64]func() *Cgroup),
+		version:            version,
+		cgRoot:             root,
+		cgroupCacheByID:    make(map[uint64]func() *Cgroup),
+		defaultHierarchyID: defaultHierarchyID,
 	}, nil
 }
 
@@ -285,11 +287,21 @@ func (c *Client) DefaultCgroupVersion() Version {
 	return c.version
 }
 
-func getDefaultVersion(log *logging.Logger) (Version, error) {
+func (c *Client) IsDefaultHierarchy(hierarchyID uint32) bool {
+	// There is no such thing as a default hierarchy in cgroup v2, as this only applies to cgroup v1,
+	// where we need to ensure to always use the same type of cgroup for handling events.
+	if c.DefaultCgroupVersion() == V2 {
+		return true
+	}
+
+	return c.defaultHierarchyID == hierarchyID
+}
+
+func getDefaultVersionAndHierarchy(log *logging.Logger) (Version, uint32, error) {
 	// 1st Method: already mounted cgroupv1 filesystem
 
 	if ok, _ := isCgroupV2MountedAndDefault(); ok {
-		return V2, nil
+		return V2, 0, nil
 	}
 
 	//
@@ -308,10 +320,10 @@ func getDefaultVersion(log *logging.Logger) (Version, error) {
 	//    c) the controller is disabled (see below).
 	// ...
 
-	var value int
+	var value uint64
 	file, err := os.Open(procCgroups)
 	if err != nil {
-		return 0, fmt.Errorf("opening %s: %w", procCgroups, err)
+		return 0, 0, fmt.Errorf("opening %s: %w", procCgroups, err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -325,17 +337,17 @@ func getDefaultVersion(log *logging.Logger) (Version, error) {
 		if line[0] != cgroupDefaultController {
 			continue
 		}
-		value, err = strconv.Atoi(line[1])
+		value, err = strconv.ParseUint(line[1], 10, 32)
 		if err != nil || value < 0 {
-			return 0, fmt.Errorf("parsing %s: %w", procCgroups, err)
+			return 0, 0, fmt.Errorf("parsing %s: %w", procCgroups, err)
 		}
 	}
 
 	if value == 0 { // == (a), (b) or (c)
-		return V2, nil
+		return V2, 0, nil
 	}
 
-	return V1, nil
+	return V1, uint32(value), nil
 }
 
 func isCgroupV2MountedAndDefault() (bool, error) {
@@ -474,11 +486,16 @@ func getCgroupIDForPath(path string) (ID, error) {
 
 func (c *Client) LoadCgroup(id ID, path string) {
 	c.cgroupMu.Lock()
+	defer c.cgroupMu.Unlock()
+
+	if _, found := c.cgroupCacheByID[id]; found {
+		return
+	}
+
 	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
 		cgroup := c.getCgroupForIDAndPath(id, path)
 		return cgroup
 	})
-	c.cgroupMu.Unlock()
 }
 
 func (c *Client) cacheCgroup(cgroup *Cgroup) {
