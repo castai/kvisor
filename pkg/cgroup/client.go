@@ -338,7 +338,7 @@ func getDefaultVersionAndHierarchy(log *logging.Logger) (Version, uint32, error)
 			continue
 		}
 		value, err = strconv.ParseUint(line[1], 10, 32)
-		if err != nil || value < 0 {
+		if err != nil {
 			return 0, 0, fmt.Errorf("parsing %s: %w", procCgroups, err)
 		}
 	}
