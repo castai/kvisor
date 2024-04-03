@@ -54,7 +54,8 @@ statfunc const u64 get_cgroup_id(struct cgroup *cgrp)
         bpf_core_read(&id, sizeof(u64), &kn->id);
     }
 
-    return id;
+    // we only care about the lower 8 bits of the cgroup id, as the uppper 8 appear to be thread id
+    return id & 0xFFFFFFFF;
 }
 
 statfunc const u32 get_cgroup_hierarchy_id(struct cgroup *cgrp)
