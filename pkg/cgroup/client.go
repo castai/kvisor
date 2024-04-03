@@ -132,16 +132,13 @@ func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
 
 	metrics.AgentFindCgroupFS.Inc()
 
-	cgroupPath := c.findCgroupPathForID(cgroupID)
+	cgroupPath, _ := c.findCgroupPathForID(cgroupID)
 
 	if cgroupPath == "" {
 		return nil, ErrCgroupNotFound
 	}
 
-	cgroup, err := c.getCgroupForPath(cgroupPath)
-	if err != nil {
-		return nil, err
-	}
+	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
 
 	c.cacheCgroup(cgroup)
 
@@ -149,16 +146,13 @@ func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
 }
 
 func (c *Client) GetCgroupForContainer(containerID string) (*Cgroup, error) {
-	cgroupPath := c.findCgroupPathForContainerID(containerID)
+	cgroupPath, cgroupID := c.findCgroupPathForContainerID(containerID)
 
 	if cgroupPath == "" {
 		return nil, ErrCgroupNotFound
 	}
 
-	cgroup, err := c.getCgroupForPath(cgroupPath)
-	if err != nil {
-		return nil, err
-	}
+	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
 	if cgroup.ContainerID == "" {
 		return nil, ErrContainerIDNotFoundInCgroupPath
 	}
@@ -168,15 +162,6 @@ func (c *Client) GetCgroupForContainer(containerID string) (*Cgroup, error) {
 	c.cacheCgroup(cgroup)
 
 	return cgroup, nil
-}
-
-func (c *Client) getCgroupForPath(cgroupPath string) (*Cgroup, error) {
-	cgroupID, err := getCgroupIDForPath(cgroupPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.getCgroupForIDAndPath(cgroupID, cgroupPath), nil
 }
 
 func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
@@ -228,11 +213,12 @@ func (c *Client) getCgroupSearchBasePath() string {
 	return rootDir
 }
 
-func (c *Client) findCgroupPathForContainerID(containerID string) string {
+func (c *Client) findCgroupPathForContainerID(containerID string) (string, ID) {
 	found := errors.New("found")
 	retPath := ""
 
 	rootDir := c.getCgroupSearchBasePath()
+	var cgroupID ID
 
 	_ = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
 		// nolint:nilerr
@@ -243,19 +229,27 @@ func (c *Client) findCgroupPathForContainerID(containerID string) string {
 		base := filepath.Base(path)
 
 		if strings.Contains(base, containerID) {
+			stat, ok := info.Sys().(*syscall.Stat_t)
+
+			if !ok {
+				return errors.New("unexpected stat")
+			}
+
 			retPath = path
+			cgroupID = stat.Ino
 			return found
 		}
 
 		return nil
 	})
 
-	return retPath
+	return retPath, cgroupID
 }
 
-func (c *Client) findCgroupPathForID(cgroupId ID) string {
+func (c *Client) findCgroupPathForID(cgroupId ID) (string, ID) {
 	found := errors.New("found")
 	retPath := ""
+	var cgroupID ID
 
 	rootDir := c.getCgroupSearchBasePath()
 
@@ -273,6 +267,7 @@ func (c *Client) findCgroupPathForID(cgroupId ID) string {
 
 		if (stat.Ino & 0xFFFFFFFF) == (cgroupId & 0xFFFFFFFF) {
 			retPath = path
+			cgroupID = stat.Ino
 			return found
 		}
 
@@ -280,10 +275,10 @@ func (c *Client) findCgroupPathForID(cgroupId ID) string {
 	})
 
 	if retPath == rootDir {
-		return ""
+		return "", 0
 	}
 
-	return retPath
+	return retPath, cgroupID
 }
 
 func (c *Client) DefaultCgroupVersion() Version {
@@ -474,7 +469,7 @@ func getCgroupIDForPath(path string) (ID, error) {
 	if err := syscall.Stat(path, &stat); err != nil {
 		return 0, err
 	}
-	return stat.Ino & 0xFFFFFFFF, nil
+	return stat.Ino, nil
 }
 
 func (c *Client) LoadCgroup(id ID, path string) {
