@@ -55,6 +55,7 @@ type Config struct {
 	SignatureEngineConfig             signature.SignatureEngineConfig
 	CastaiEnv                         castai.Config
 	EnricherConfig                    EnricherConfig
+	ContainerPreFetchEnabled          bool
 }
 
 type EnricherConfig struct {
@@ -141,7 +142,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	containersInitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = containersClient.Init(containersInitCtx)
+	err = containersClient.Init(containersInitCtx, a.cfg.ContainerPreFetchEnabled)
 	if err != nil {
 		return fmt.Errorf("containers client init: %w", err)
 	}

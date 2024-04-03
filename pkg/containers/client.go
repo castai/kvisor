@@ -62,7 +62,17 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	}, nil
 }
 
-func (c *Client) Init(ctx context.Context) error {
+func (c *Client) Init(ctx context.Context, preFetchContainers bool) error {
+	if preFetchContainers {
+    if err := c.FetchContainers(ctx); err != nil {
+      return err
+    }
+	}
+
+	return nil
+}
+
+func (c *Client) FetchContainers(ctx context.Context) error {
 	containers, err := c.containerClient.client.ContainerService().List(ctx)
 	if err != nil {
 		return err
