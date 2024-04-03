@@ -42,13 +42,18 @@ Create chart name and version as used by the chart label.
 {{/*
 Common labels
 */}}
+
 {{- define "kvisor.labels" -}}
 helm.sh/chart: {{ include "kvisor.chart" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- range $key, $value := .Values.commonLabels }}
+{{$key}}: {{$value}}
 {{- end }}
+{{- end }}
+
 
 {{/*
 Common helpers for runtime agent.
