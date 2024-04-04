@@ -38,6 +38,7 @@ spec:
       labels:
         app.kubernetes.io/component: agent
         {{- include "kvisor.agent.selectorLabels" . | nindent 8 }}
+        {{- include "kvisor.commonLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -163,8 +164,7 @@ metadata:
   name: {{ include "kvisor.agent.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "kvisor.topLevelLabels" . | nindent 4}}
-    {{- include "kvisor.commonLabels" . | nindent 4 }}
+    {{- include "kvisor.labels" . | nindent 4}}
   {{- with .Values.agent.serviceAccount.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -175,8 +175,7 @@ kind: ClusterRole
 metadata:
   name: {{ include "kvisor.fullname" . }}
   labels:
-    {{- include "kvisor.topLevelLabels" . | nindent 4}}
-    {{- include "kvisor.commonLabels" . | nindent 4 }}
+    {{- include "kvisor.labels" . | nindent 4}}
 rules:
   - apiGroups:
       - ""
@@ -212,8 +211,7 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ include "kvisor.fullname" . }}
   labels:
-    {{- include "kvisor.topLevelLabels" . | nindent 4}}
-    {{- include "kvisor.commonLabels" . | nindent 4 }}
+    {{- include "kvisor.labels" . | nindent 4}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

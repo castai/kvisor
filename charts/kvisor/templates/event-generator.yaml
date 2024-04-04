@@ -16,6 +16,7 @@ spec:
       labels:
         app.kubernetes.io/component: event-generator
         {{- include "kvisor.eventGenerator.selectorLabels" . | nindent 8 }}
+        {{- include "kvisor.commonLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
