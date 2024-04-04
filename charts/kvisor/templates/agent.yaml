@@ -163,7 +163,8 @@ metadata:
   name: {{ include "kvisor.agent.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "kvisor.labels" . | nindent 4 }}
+    {{- include "kvisor.topLevelLabels" . | nindent 4}}
+    {{- include "kvisor.commonLabels" . | nindent 4 }}
   {{- with .Values.agent.serviceAccount.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -174,7 +175,8 @@ kind: ClusterRole
 metadata:
   name: {{ include "kvisor.fullname" . }}
   labels:
-    {{- include "kvisor.labels" . | nindent 4 }}
+    {{- include "kvisor.topLevelLabels" . | nindent 4}}
+    {{- include "kvisor.commonLabels" . | nindent 4 }}
 rules:
   - apiGroups:
       - ""
@@ -210,7 +212,8 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ include "kvisor.fullname" . }}
   labels:
-    {{- include "kvisor.labels" . | nindent 4 }}
+    {{- include "kvisor.topLevelLabels" . | nindent 4}}
+    {{- include "kvisor.commonLabels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
