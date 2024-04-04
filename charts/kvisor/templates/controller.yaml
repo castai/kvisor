@@ -33,6 +33,7 @@ spec:
       {{- end }}
       labels:
         {{- include "kvisor.controller.selectorLabels" . | nindent 8 }}
+        {{- include "kvisor.commonLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "kvisor.controller.serviceAccountName" . }}
       dnsPolicy: {{.Values.controller.dnsPolicy}}

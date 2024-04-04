@@ -43,19 +43,19 @@ Create chart name and version as used by the chart label.
 Common labels
 */}}
 
-{{- define "kvisor.topLevelLabels" -}}
+{{- define "kvisor.commonLabels" -}}
+{{- range $key, $value := .Values.commonLabels }}
+{{$key}}: {{$value}}
+{{- end }}
+{{- end }}
+
+{{- define "kvisor.labels" -}}
 helm.sh/chart: {{ include "kvisor.chart" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end }}
-
-
-{{- define "kvisor.commonLabels" -}}
-{{- range $key, $value := .Values.commonLabels }}
-{{$key}}: {{$value}}
-{{- end }}
+{{ include "kvisor.commonLabels" . }}
 {{- end }}
 
 {{/*
@@ -74,7 +74,7 @@ Common helpers for runtime agent.
 {{- end }}
 
 {{- define "kvisor.agent.labels" -}}
-{{ include "kvisor.topLevelLabels" . }}
+{{ include "kvisor.labels" . }}
 {{ include "kvisor.agent.selectorLabels" . }}
 {{- end }}
 
@@ -82,7 +82,6 @@ Common helpers for runtime agent.
 app.kubernetes.io/name: {{ include "kvisor.agent.fullname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: agent
-{{ include "kvisor.commonLabels" . }}
 {{- end }}
 
 {{/*
@@ -101,7 +100,7 @@ Common helpers for controller.
 {{- end }}
 
 {{- define "kvisor.controller.labels" -}}
-{{ include "kvisor.topLevelLabels" . }}
+{{ include "kvisor.labels" . }}
 {{ include "kvisor.controller.selectorLabels" . }}
 {{- end }}
 
@@ -109,7 +108,6 @@ Common helpers for controller.
 app.kubernetes.io/name: {{ include "kvisor.controller.fullname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: controller
-{{ include "kvisor.commonLabels" . }}
 {{- end }}
 
 
@@ -123,11 +121,10 @@ Common helpers for event generator.
 {{- define "kvisor.eventGenerator.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "kvisor.name" . }}-event-generator
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{ include "kvisor.commonLabels" . }}
 {{- end }}
 
 {{- define "kvisor.eventGenerator.labels" -}}
-{{ include "kvisor.topLevelLabels" . }}
+{{ include "kvisor.labels" . }}
 {{ include "kvisor.eventGenerator.selectorLabels" . }}
 {{- end }}
 
@@ -153,5 +150,5 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "kvisor.castaiMockServer.labels" -}}
-{{ include "kvisor.topLevelLabels" . }}
+{{ include "kvisor.labels" . }}
 {{- end }}
