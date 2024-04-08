@@ -5,15 +5,16 @@
 
 #include <maps.h>
 #include <common/logging.h>
+#include <common/task.h>
 #include <common/common.h>
-#include <common/debug.h>
 
 // PROTOTYPES
 
+statfunc void *get_filter_map(void *, u16);
 statfunc u64 uint_filter_range_matches(u64, void *, u64, u64, u64);
-statfunc u64 binary_filter_matches(u64, proc_info_t *);
+statfunc u64 binary_filter_matches(u64, void *, proc_info_t *);
 statfunc u64 equality_filter_matches(u64, void *, void *);
-statfunc u64 bool_filter_matches(u64, bool val);
+statfunc u64 bool_filter_matches(u64, bool);
 statfunc u64 compute_scopes(program_data_t *);
 statfunc u64 should_trace(program_data_t *);
 statfunc u64 should_submit(u32, event_data_t *);
@@ -51,6 +52,12 @@ statfunc u64 should_submit(u32, event_data_t *);
 
 // FUNCTIONS
 
+// get_filter_map returns the filter map for the given version and outer map
+statfunc void *get_filter_map(void *outer_map, u16 version)
+{
+    return bpf_map_lookup_elem(outer_map, &version);
+}
+
 statfunc u64
 uint_filter_range_matches(u64 filter_out_scopes, void *filter_map, u64 value, u64 max, u64 min)
 {
@@ -58,10 +65,13 @@ uint_filter_range_matches(u64 filter_out_scopes, void *filter_map, u64 value, u6
 
     u64 equal_in_scopes = 0;
     u64 equality_set_in_scopes = 0;
-    eq_t *equality = bpf_map_lookup_elem(filter_map, &value);
-    if (equality != NULL) {
-        equal_in_scopes = equality->equal_in_scopes;
-        equality_set_in_scopes = equality->equality_set_in_scopes;
+
+    if (filter_map) {
+        eq_t *equality = bpf_map_lookup_elem(filter_map, &value);
+        if (equality != NULL) {
+            equal_in_scopes = equality->equal_in_scopes;
+            equality_set_in_scopes = equality->equality_set_in_scopes;
+        }
     }
 
     if ((max != FILTER_MAX_NOT_SET) && (value >= max))
@@ -73,20 +83,23 @@ uint_filter_range_matches(u64 filter_out_scopes, void *filter_map, u64 value, u6
     return equal_in_scopes | (filter_out_scopes & ~equality_set_in_scopes);
 }
 
-statfunc u64 binary_filter_matches(u64 filter_out_scopes, proc_info_t *proc_info)
+statfunc u64 binary_filter_matches(u64 filter_out_scopes, void *filter_map, proc_info_t *proc_info)
 {
     // check equality_filter_matches() for more info
 
     u64 equal_in_scopes = 0;
     u64 equality_set_in_scopes = 0;
-    eq_t *equality = bpf_map_lookup_elem(&binary_filter, proc_info->binary.path);
-    if (equality == NULL) {
-        // lookup by binary path and mount namespace
-        equality = bpf_map_lookup_elem(&binary_filter, &proc_info->binary);
-    }
-    if (equality != NULL) {
-        equal_in_scopes = equality->equal_in_scopes;
-        equality_set_in_scopes = equality->equality_set_in_scopes;
+
+    if (filter_map) {
+        eq_t *equality = bpf_map_lookup_elem(filter_map, proc_info->binary.path);
+        if (equality == NULL) {
+            // lookup by binary path and mount namespace
+            equality = bpf_map_lookup_elem(filter_map, &proc_info->binary);
+        }
+        if (equality != NULL) {
+            equal_in_scopes = equality->equal_in_scopes;
+            equality_set_in_scopes = equality->equality_set_in_scopes;
+        }
     }
 
     return equal_in_scopes | (filter_out_scopes & ~equality_set_in_scopes);
@@ -136,10 +149,13 @@ statfunc u64 equality_filter_matches(u64 filter_out_scopes, void *filter_map, vo
 
     u64 equal_in_scopes = 0;
     u64 equality_set_in_scopes = 0;
-    eq_t *equality = bpf_map_lookup_elem(filter_map, key);
-    if (equality != NULL) {
-        equal_in_scopes = equality->equal_in_scopes;
-        equality_set_in_scopes = equality->equality_set_in_scopes;
+
+    if (filter_map) {
+        eq_t *equality = bpf_map_lookup_elem(filter_map, key);
+        if (equality != NULL) {
+            equal_in_scopes = equality->equal_in_scopes;
+            equality_set_in_scopes = equality->equality_set_in_scopes;
+        }
     }
 
     return equal_in_scopes | (filter_out_scopes & ~equality_set_in_scopes);
@@ -174,141 +190,161 @@ statfunc u64 bool_filter_matches(u64 filter_out_scopes, bool val)
 
 statfunc u64 compute_scopes(program_data_t *p)
 {
-    task_context_t *context = &p->task_info->context;
-    u64 res = ~0ULL;
+    task_context_t *context = &p->event->context.task;
 
     // Don't monitor self
-    if (p->config->tracee_pid == context->host_pid) {
+    if (p->config->tracee_pid == context->host_pid)
         return 0;
-    }
 
-    proc_info_t *proc_info = bpf_map_lookup_elem(&proc_info_map, &context->host_pid);
-    if (proc_info == NULL) {
-        // entry should exist in proc_map (init_program_data should have set it otherwise)
-        // disable logging as a workaround for instruction limit verifier error on kernel 4.19
-        // tracee_log(p->ctx, BPF_LOG_LVL_WARN, BPF_LOG_ID_MAP_LOOKUP_ELEM, 0);
-        // output_debug(p->ctx, "no_proc_info");
-        return 0;
-    }
+    proc_info_t *proc_info = p->proc_info;
+    policies_config_t *policies_cfg = &p->config->policies_config;
+    u64 res = ~0ULL;
 
-    if (p->config->cont_filter_enabled_scopes) {
+    //
+    // boolean filters (not using versioned filter maps)
+    //
+
+    if (policies_cfg->cont_filter_enabled_scopes) {
         bool is_container = false;
         u8 state = p->task_info->container_state;
         if (state == CONTAINER_STARTED || state == CONTAINER_EXISTED)
             is_container = true;
-        u64 filter_out_scopes = p->config->cont_filter_out_scopes;
-        u64 mask = ~p->config->cont_filter_enabled_scopes;
+        u64 filter_out_scopes = policies_cfg->cont_filter_out_scopes;
+        u64 mask = ~policies_cfg->cont_filter_enabled_scopes;
+
         // For scopes which has this filter disabled we want to set the matching bits using 'mask'
         res &= bool_filter_matches(filter_out_scopes, is_container) | mask;
     }
 
-    if (p->config->new_cont_filter_enabled_scopes) {
+    if (policies_cfg->new_cont_filter_enabled_scopes) {
         bool is_new_container = false;
         if (p->task_info->container_state == CONTAINER_STARTED)
             is_new_container = true;
-        u64 filter_out_scopes = p->config->new_cont_filter_out_scopes;
-        u64 mask = ~p->config->new_cont_filter_enabled_scopes;
+        u64 filter_out_scopes = policies_cfg->new_cont_filter_out_scopes;
+        u64 mask = ~policies_cfg->new_cont_filter_enabled_scopes;
+
         res &= bool_filter_matches(filter_out_scopes, is_new_container) | mask;
     }
 
-    if (p->config->pid_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->pid_filter_out_scopes;
-        u64 mask = ~p->config->pid_filter_enabled_scopes;
-        u64 max = p->config->pid_max;
-        u64 min = p->config->pid_min;
-        // the user might have given us a tid - check for it too
-        res &=
-            uint_filter_range_matches(filter_out_scopes, &pid_filter, context->host_pid, max, min) |
-            uint_filter_range_matches(filter_out_scopes, &pid_filter, context->host_tid, max, min) |
-            mask;
-    }
+    if (policies_cfg->new_pid_filter_enabled_scopes) {
+        u64 filter_out_scopes = policies_cfg->new_pid_filter_out_scopes;
+        u64 mask = ~policies_cfg->new_pid_filter_enabled_scopes;
 
-    if (p->config->new_pid_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->new_pid_filter_out_scopes;
-        u64 mask = ~p->config->new_pid_filter_enabled_scopes;
         res &= bool_filter_matches(filter_out_scopes, proc_info->new_proc) | mask;
     }
 
-    if (p->config->uid_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->uid_filter_out_scopes;
-        u64 mask = ~p->config->uid_filter_enabled_scopes;
-        u64 max = p->config->uid_max;
-        u64 min = p->config->uid_min;
-        res &= uint_filter_range_matches(filter_out_scopes, &uid_filter, context->uid, max, min) |
-               mask;
-    }
+    void *filter_map = NULL;
 
-    if (p->config->mnt_ns_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->mnt_ns_filter_out_scopes;
-        u64 mask = ~p->config->mnt_ns_filter_enabled_scopes;
-        u64 mnt_id = context->mnt_id;
-        res &= equality_filter_matches(filter_out_scopes, &mnt_ns_filter, &mnt_id) | mask;
-    }
+    if (policies_cfg->pid_filter_enabled_scopes) {
+        u64 filter_out_scopes = policies_cfg->pid_filter_out_scopes;
+        u64 mask = ~policies_cfg->pid_filter_enabled_scopes;
+        u64 max = policies_cfg->pid_max;
+        u64 min = policies_cfg->pid_min;
 
-    if (p->config->pid_ns_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->pid_ns_filter_out_scopes;
-        u64 mask = ~p->config->pid_ns_filter_enabled_scopes;
-        u64 pid_id = context->pid_id;
-        res &= equality_filter_matches(filter_out_scopes, &pid_ns_filter, &pid_id) | mask;
-    }
-
-    if (p->config->uts_ns_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->uts_ns_filter_out_scopes;
-        u64 mask = ~p->config->uts_ns_filter_enabled_scopes;
+        filter_map = &pid_filter;
+        // the user might have given us a tid - check for it too
         res &=
-            equality_filter_matches(filter_out_scopes, &uts_ns_filter, &context->uts_name) | mask;
+            uint_filter_range_matches(filter_out_scopes, filter_map, context->host_pid, max, min) |
+            uint_filter_range_matches(filter_out_scopes, filter_map, context->host_tid, max, min) |
+            mask;
     }
 
-    if (p->config->comm_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->comm_filter_out_scopes;
-        u64 mask = ~p->config->comm_filter_enabled_scopes;
-        res &= equality_filter_matches(filter_out_scopes, &comm_filter, &context->comm) | mask;
+    if (policies_cfg->uid_filter_enabled_scopes) {
+        context->uid = bpf_get_current_uid_gid();
+        u64 filter_out_scopes = policies_cfg->uid_filter_out_scopes;
+        u64 mask = ~policies_cfg->uid_filter_enabled_scopes;
+        u64 max = policies_cfg->uid_max;
+        u64 min = policies_cfg->uid_min;
+
+        filter_map = &uid_filter;
+        res &=
+            uint_filter_range_matches(filter_out_scopes, filter_map, context->uid, max, min) | mask;
     }
 
-    if (p->config->proc_tree_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->proc_tree_filter_out_scopes;
-        u64 mask = ~p->config->proc_tree_filter_enabled_scopes;
-        res &= equality_filter_matches(filter_out_scopes, &process_tree_map, &context->host_pid) |
-               mask;
+    if (policies_cfg->mnt_ns_filter_enabled_scopes) {
+        context->mnt_id = get_task_mnt_ns_id(p->event->task);
+        u64 filter_out_scopes = policies_cfg->mnt_ns_filter_out_scopes;
+        u64 mask = ~policies_cfg->mnt_ns_filter_enabled_scopes;
+
+        filter_map = &mnt_ns_filter;
+        res &= equality_filter_matches(filter_out_scopes, filter_map, &context->mnt_id) | mask;
     }
 
-    if (p->config->cgroup_id_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->cgroup_id_filter_out_scopes;
-        u64 mask = ~p->config->cgroup_id_filter_enabled_scopes;
-        u64 cgroup_id_lsb = context->cgroup_id;
-        res &= equality_filter_matches(filter_out_scopes, &cgroup_id_filter, &cgroup_id_lsb) | mask;
+    if (policies_cfg->pid_ns_filter_enabled_scopes) {
+        context->pid_id = get_task_pid_ns_id(p->event->task);
+        u64 filter_out_scopes = policies_cfg->pid_ns_filter_out_scopes;
+        u64 mask = ~policies_cfg->pid_ns_filter_enabled_scopes;
+
+        filter_map = &pid_ns_filter;
+        res &= equality_filter_matches(filter_out_scopes, filter_map, &context->pid_id) | mask;
     }
 
-    if (p->config->bin_path_filter_enabled_scopes) {
-        u64 filter_out_scopes = p->config->bin_path_filter_out_scopes;
-        u64 mask = ~p->config->bin_path_filter_enabled_scopes;
-        res &= binary_filter_matches(filter_out_scopes, proc_info) | mask;
+    if (policies_cfg->uts_ns_filter_enabled_scopes) {
+        char *uts_name = get_task_uts_name(p->event->task);
+        if (uts_name)
+            bpf_probe_read_kernel_str(&context->uts_name, TASK_COMM_LEN, uts_name);
+        u64 filter_out_scopes = policies_cfg->uts_ns_filter_out_scopes;
+        u64 mask = ~policies_cfg->uts_ns_filter_enabled_scopes;
+
+        filter_map = &uts_ns_filter;
+        res &= equality_filter_matches(filter_out_scopes, filter_map, &context->uts_name) | mask;
     }
 
-    if (p->config->follow_filter_enabled_scopes) {
+    if (policies_cfg->comm_filter_enabled_scopes) {
+        bpf_get_current_comm(&context->comm, sizeof(context->comm));
+        u64 filter_out_scopes = policies_cfg->comm_filter_out_scopes;
+        u64 mask = ~policies_cfg->comm_filter_enabled_scopes;
+
+        filter_map = &comm_filter;
+        res &= equality_filter_matches(filter_out_scopes, filter_map, &context->comm) | mask;
+    }
+
+    if (policies_cfg->cgroup_id_filter_enabled_scopes) {
+        u32 cgroup_id_lsb = context->cgroup_id;
+        u64 filter_out_scopes = policies_cfg->cgroup_id_filter_out_scopes;
+        u64 mask = ~policies_cfg->cgroup_id_filter_enabled_scopes;
+
+        filter_map = &cgroup_id_filter;
+        res &= equality_filter_matches(filter_out_scopes, filter_map, &cgroup_id_lsb) | mask;
+    }
+
+    if (policies_cfg->proc_tree_filter_enabled_scopes) {
+        u64 filter_out_scopes = policies_cfg->proc_tree_filter_out_scopes;
+        u64 mask = ~policies_cfg->proc_tree_filter_enabled_scopes;
+
+        filter_map = &process_tree_map;
+        res &= equality_filter_matches(filter_out_scopes, filter_map, &context->host_pid) | mask;
+    }
+
+    if (policies_cfg->bin_path_filter_enabled_scopes) {
+        u64 filter_out_scopes = policies_cfg->bin_path_filter_out_scopes;
+        u64 mask = ~policies_cfg->bin_path_filter_enabled_scopes;
+
+        filter_map = &binary_filter;
+        res &= binary_filter_matches(filter_out_scopes, filter_map, proc_info) | mask;
+    }
+
+    //
+    // follow filter
+    //
+
+    if (policies_cfg->follow_filter_enabled_scopes) {
         // trace this proc anyway if follow was set by a scope
-        res |= proc_info->follow_in_scopes & p->config->follow_filter_enabled_scopes;
+        res |= proc_info->follow_in_scopes & policies_cfg->follow_filter_enabled_scopes;
     }
 
     // Make sure only enabled scopes are set in the bitmask (other bits are invalid)
-    return res & p->config->enabled_scopes;
+    return res & policies_cfg->enabled_scopes;
 }
 
 statfunc u64 should_trace(program_data_t *p)
 {
-    if (bpf_map_lookup_elem(&ignored_cgroups_map, &p->task_info->context.cgroup_id)) {
-        return false;
+    if (bpf_map_lookup_elem(&ignored_cgroups_map, &p->task_info->context.cgroup_id) != NULL) {
+        return 0;
     }
 
-    // use cache whenever possible
-    if (p->task_info->recompute_scope) {
-        p->task_info->matched_scopes = compute_scopes(p);
-        p->task_info->recompute_scope = false;
-    }
-
-    p->event->context.matched_policies = p->task_info->matched_scopes;
-
-    return p->task_info->matched_scopes;
+    p->event->context.matched_policies = compute_scopes(p);
+    return p->event->context.matched_policies;
 }
 
 statfunc u64 should_submit(u32 event_id, event_data_t *event)

@@ -157,6 +157,12 @@ const (
 	ProbeSwitchTaskNS
 	ProbeKernelWrite
 	ProbeKernelWriteRet
+	ProbeVfsWriteMagic
+	ProbeVfsWriteMagicRet
+	ProbeVfsWriteVMagic
+	ProbeVfsWriteVMagicRet
+	ProbeKernelWriteMagic
+	ProbeKernelWriteMagicRet
 	ProbeCgroupAttachTask
 	ProbeCgroupMkdir
 	ProbeCgroupRmdir
@@ -245,6 +251,9 @@ const (
 	// Signal probes
 	SignalCgroupMkdir
 	SignalCgroupRmdir
+	SignalSchedProcessFork
+	SignalSchedProcessExec
+	SignalSchedProcessExit
 )
 
 func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
@@ -267,6 +276,12 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		ProbeVfsWriteVRet:           newTraceProbe(kretProbe, "vfs_writev", objs.TraceVfsWritev),
 		ProbeKernelWrite:            newTraceProbe(kProbe, "__kernel_write", objs.TraceKernelWrite),
 		ProbeKernelWriteRet:         newTraceProbe(kretProbe, "__kernel_write", objs.TraceRetKernelWrite),
+		ProbeVfsWriteMagic:          newTraceProbe(kProbe, "vfs_write", objs.VfsWriteMagicEnter),
+		ProbeVfsWriteMagicRet:       newTraceProbe(kretProbe, "vfs_write", objs.VfsWriteMagicReturn),
+		ProbeVfsWriteVMagic:         newTraceProbe(kProbe, "vfs_writev", objs.VfsWritevMagicEnter),
+		ProbeVfsWriteVMagicRet:      newTraceProbe(kretProbe, "vfs_writev", objs.VfsWriteMagicReturn),
+		ProbeKernelWriteMagic:       newTraceProbe(kProbe, "__kernel_write", objs.KernelWriteMagicEnter),
+		ProbeKernelWriteMagicRet:    newTraceProbe(kretProbe, "__kernel_write", objs.KernelWriteMagicReturn),
 		ProbeCgroupAttachTask:       newTraceProbe(rawTracepoint, "cgroup:cgroup_attach_task", objs.TracepointCgroupCgroupAttachTask),
 		ProbeCgroupMkdir:            newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.TracepointCgroupCgroupMkdir),
 		ProbeCgroupRmdir:            newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.TracepointCgroupCgroupRmdir),
@@ -355,7 +370,7 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		//ProbeLayoutAndAllocate:           NewTraceProbe(kretProbe, "layout_and_allocate", "trace_ret_layout_and_allocate"),
 		ProbeInetSockSetState: newTraceProbe(rawTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
 		ProbeOomMarkVictim:    newTraceProbe(rawTracepoint, "oom:mark_victim", objs.OomMarkVictim),
-		ProbeTtyOpen:         newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
+		ProbeTtyOpen:          newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
 
 		// Signal probes
 		SignalCgroupMkdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.CgroupMkdirSignal),

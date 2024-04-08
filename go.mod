@@ -7,7 +7,7 @@ require (
 	github.com/castai/image-analyzer v0.3.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cespare/xxhash v1.1.0
-	github.com/cilium/ebpf v0.12.3
+	github.com/cilium/ebpf v0.14.0
 	github.com/containerd/containerd v1.7.13
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.13.0

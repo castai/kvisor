@@ -105,7 +105,7 @@ func TestTracer(t *testing.T) {
 		SignatureEngine: signatureEngine,
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.SchedProcessExec},
-			{ID: events.TtyOpen},
+			// {ID: events.TtyOpen},
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.TrackSyscallStats},
@@ -116,10 +116,10 @@ func TestTracer(t *testing.T) {
 			//		Interval: 2 * time.Second,
 			//	},
 			//},
-			//{ID: events.CgroupMkdir},
+			// {ID: events.CgroupMkdir},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.ProcessOomKilled},
-			// {ID: events.MagicWrite},
+			{ID: events.MagicWrite},
 		},
 	}
 

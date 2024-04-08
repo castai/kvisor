@@ -52,6 +52,8 @@ type EventContext struct {
 	Comm            [16]byte
 	UtsName         [16]byte
 	Flags           uint32
+	LeaderStartTime uint64
+	ParentStartTime uint64
 	_               [4]byte   // padding
 	EventID         events.ID // uint32
 	Syscall         int32
@@ -63,7 +65,7 @@ type EventContext struct {
 }
 
 func (EventContext) GetSizeBytes() int {
-	return 136
+	return 152
 }
 
 type ChunkMeta struct {

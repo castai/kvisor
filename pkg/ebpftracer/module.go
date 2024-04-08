@@ -17,8 +17,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 
 type moduleConfig struct {
 	BTFObjPath string
@@ -84,7 +84,7 @@ func (m *module) load(targetPIDNSID proc.NamespaceID) error {
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
 			LogLevel:    0,
-			LogSize:     0,
+			LogSize:     200_000_000,
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
 		},

@@ -21,6 +21,8 @@ const (
 	NetPacketDNSBase
 	NetPacketHTTPBase
 	NetPacketCapture
+  NetCaptureBase
+  NetFlowBase
 	MaxNetID // network base events go ABOVE this item
 	SysEnter
 	SysExit
@@ -90,6 +92,7 @@ const (
 	InotifyWatch
 	SecurityBpfProg
 	ProcessExecuteFailed
+  SecurityPathNotify
 	HiddenKernelModuleSeeker
 	ModuleLoad
 	ModuleFree
