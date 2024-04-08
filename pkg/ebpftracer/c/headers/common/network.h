@@ -1,6 +1,7 @@
 #ifndef __COMMON_NETWORK_H__
 #define __COMMON_NETWORK_H__
 
+#include "types.h"
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>
 
@@ -16,6 +17,65 @@ typedef union iphdrs_t {
     struct iphdr iphdr;
     struct ipv6hdr ipv6hdr;
 } iphdrs;
+
+// network flow events
+
+typedef struct netflow {
+    u32 host_pid;
+    u8 proto;
+    union {
+        __u8 u6_addr8[16];
+        __be16 u6_addr16[8];
+        __be32 u6_addr32[4];
+    } src, dst;
+    u16 srcport;
+    u16 dstport;
+} __attribute__((__packed__)) netflow_t;
+
+#define copy_netflow(flow)              \
+    (netflow_t) {                       \
+        .host_pid = flow.host_pid,      \
+        .proto = flow.proto,            \
+        .src = flow.src,                \
+        .dst = flow.dst,                \
+        .srcport = flow.srcport,        \
+        .dstport = flow.dstport,        \
+    }
+
+#define invert_netflow(flow)            \
+    (netflow_t) {                       \
+        .host_pid = flow.host_pid,      \
+        .proto = flow.proto,            \
+        .src = flow.dst,                \
+        .dst = flow.src,                \
+        .srcport = flow.dstport,        \
+        .dstport = flow.srcport,        \
+    }
+
+#define flow_unknown 0
+#define flow_incoming 1
+#define flow_outgoing 2
+
+// TODO: per flow statistics can be added later
+typedef struct netflowvalue {
+    u8 direction;                           // 0 = flow_unknown, 1 = flow_incoming, 2 = flow_outgoing
+    u64 last_update;                        // last time this flow was updated
+    // u64 bytes;                           // total bytes sent/received
+    // u64 packets;                         // total packets sent/received
+    // u64 events;                          // total events sent/received
+    // u64 last_bytes;                      // last bytes sent/received
+    // u64 last_packets;                    // last packets sent/received
+    // u64 last_events;                     // last events sent/received
+} __attribute__((__packed__)) netflowvalue_t;
+
+// netflowmap (keep track of network flows)
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 65535);             // simultaneous network flows being tracked
+    __type(key, netflow_t);                 // the network flow ...
+    __type(value, netflowvalue_t);          // ... linked to flow stats
+} netflowmap SEC(".maps");                  // relate sockets and tasks
 
 // NOTE: proto header structs need full type in vmlinux.h (for correct skb copy)
 
@@ -42,18 +102,19 @@ typedef enum net_packet {
     SUB_NET_PACKET_IP = 1 << 1,
     // Layer 4
     SUB_NET_PACKET_TCP = 1 << 2,
-    SUB_NET_PACKET_UDP = 1<<3,
-    SUB_NET_PACKET_ICMP = 1 <<4,
-    SUB_NET_PACKET_ICMPV6 = 1<<5,
+    SUB_NET_PACKET_UDP = 1 << 3,
+    SUB_NET_PACKET_ICMP = 1 << 4,
+    SUB_NET_PACKET_ICMPV6 = 1 << 5,
     // Layer 7
-    SUB_NET_PACKET_DNS = 1<< 6,
-    SUB_NET_PACKET_HTTP = 1<<7,
+    SUB_NET_PACKET_DNS = 1 << 6,
+    SUB_NET_PACKET_HTTP = 1 << 7,
 } net_packet_t;
 
 typedef struct net_event_contextmd {
-    u8 submit; // keeping this for a TODO (check should_submit_net_event)
+    u8 should_flow;    // Cache result from should_submit_flow_event
     u32 header_size;
-    u8 captured;
+    u8 captured;        // packet has already been captured
+    netflow_t flow;
 } __attribute__((__packed__)) net_event_contextmd_t;
 
 typedef struct net_event_context {
@@ -92,8 +153,10 @@ cgrpctxmap_t cgrpctxmap_eg SEC(".maps");    // saved info SKB caller <=> SKB egr
 typedef struct net_task_context {
     struct task_struct *task;
     task_context_t taskctx;
+    s32 syscall;
+    u16 padding;
+    u16 policies_version;
     u64 matched_policies;
-    int syscall;
 } net_task_context_t;
 
 struct {
@@ -140,23 +203,28 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);                 // simultaneous softirqs running per CPU (?)
     __type(key, u32);                       // per cpu index ... (always zero)
-    __type(value, scratch_t);               // ... linked to a scratch area
-} net_heap_scratch SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, 1);                 // simultaneous softirqs running per CPU (?)
-    __type(key, u32);                       // per cpu index ... (always zero)
     __type(value, event_data_t);            // ... linked to a scratch area
 } net_heap_event SEC(".maps");
 
 // CONSTANTS
 
-// network retval values
-#define family_ipv4     (1 << 0)
-#define family_ipv6     (1 << 1)
-#define proto_http_req  (1 << 2)
-#define proto_http_resp (1 << 3)
+// Network return value (retval) codes
+
+// Layer 3 Protocol (since no Layer 2 is available)
+#define family_ipv4             (1 << 0)
+#define family_ipv6             (1 << 1)
+// HTTP Direction (request/response) Flag
+#define proto_http_req          (1 << 2)
+#define proto_http_resp         (1 << 3)
+// Packet Direction (ingress/egress) Flag
+#define packet_ingress          (1 << 4)
+#define packet_egress           (1 << 5)
+// Flows (begin/end) Flags per Protocol
+#define flow_tcp_begin          (1 << 6)  // syn+ack flag or first flow packet
+#define flow_tcp_end            (1 << 7)  // fin flag or last flow packet
+#define flow_udp_begin          (1 << 8)  // first flow packet
+#define flow_udp_end            (1 << 9)  // last flow packet
+#define flow_src_initiator      (1 << 10) // src is the flow initiator
 
 // payload size: full packets, only headers
 #define FULL    65536       // 1 << 16
@@ -298,7 +366,7 @@ statfunc struct in6_addr get_sock_v6_daddr(struct sock *sock)
 statfunc volatile unsigned char get_sock_state(struct sock *sock)
 {
     volatile unsigned char sk_state_own_impl;
-    bpf_probe_read(
+    bpf_core_read(
         (void *) &sk_state_own_impl, sizeof(sk_state_own_impl), (const void *) &sock->sk_state);
     return sk_state_own_impl;
 }
@@ -306,7 +374,7 @@ statfunc volatile unsigned char get_sock_state(struct sock *sock)
 statfunc struct ipv6_pinfo *get_inet_pinet6(struct inet_sock *inet)
 {
     struct ipv6_pinfo *pinet6_own_impl;
-    bpf_probe_read(&pinet6_own_impl, sizeof(pinet6_own_impl), &inet->pinet6);
+    bpf_core_read(&pinet6_own_impl, sizeof(pinet6_own_impl), &inet->pinet6);
     return pinet6_own_impl;
 }
 

@@ -23,6 +23,8 @@ typedef struct task_context {
     char comm[TASK_COMM_LEN];
     char uts_name[TASK_COMM_LEN];
     u32 flags;
+    u64 leader_start_time;        // task leader's monotonic start time
+    u64 parent_start_time;        // parent process task leader's monotonic start time
 } task_context_t;
 
 typedef struct event_context {
@@ -47,6 +49,8 @@ enum event_id_e {
     NET_PACKET_DNS,
     NET_PACKET_HTTP,
     NET_PACKET_CAP_BASE,
+    NET_CAPTURE_BASE,
+    NET_FLOW_BASE,
     MAX_NET_EVENT_ID,
     // Common event IDs
     RAW_SYS_ENTER,
@@ -117,6 +121,7 @@ enum event_id_e {
     INOTIFY_WATCH,
     SECURITY_BPF_PROG,
     PROCESS_EXECUTION_FAILED,
+    SECURITY_PATH_NOTIFY,
     HIDDEN_KERNEL_MODULE_SEEKER,
     MODULE_LOAD,
     MODULE_FREE,
@@ -130,6 +135,9 @@ enum signal_event_id_e
 {
     SIGNAL_CGROUP_MKDIR = 5000,
     SIGNAL_CGROUP_RMDIR,
+    SIGNAL_SCHED_PROCESS_FORK,
+    SIGNAL_SCHED_PROCESS_EXEC,
+    SIGNAL_SCHED_PROCESS_EXIT,
 };
 
 typedef struct args {
@@ -206,10 +214,8 @@ enum container_state_e {
 typedef struct task_info {
     task_context_t context;
     syscall_data_t syscall_data;
-    bool syscall_traced;  // indicates that syscall_data is valid
-    bool recompute_scope; // recompute matched_scopes (new task/context changed/policy changed)
-    u64 matched_scopes;   // cached bitmap of scopes this task matched
-    u8 container_state;   // the state of the container the task resides in
+    bool syscall_traced; // indicates that syscall_data is valid
+    u8 container_state;  // the state of the container the task resides in
 } task_info_t;
 
 typedef struct file_id {
@@ -272,10 +278,6 @@ typedef struct string_filter {
     char str[MAX_STR_FILTER_SIZE];
 } string_filter_t;
 
-typedef struct binary_filter {
-    char str[MAX_BIN_PATH_SIZE];
-} binary_filter_t;
-
 typedef struct ksym_name {
     char str[MAX_KSYM_NAME_SIZE];
 } ksym_name_t;
@@ -288,11 +290,7 @@ typedef struct equality {
     u64 equality_set_in_scopes;
 } eq_t;
 
-typedef struct config_entry {
-    u32 tracee_pid;
-    u32 options;
-    u32 cgroup_v1_hid;
-    u32 padding; // free for further use
+typedef struct policies_config {
     // enabled scopes bitmask per filter
     u64 uid_filter_enabled_scopes;
     u64 pid_filter_enabled_scopes;
@@ -327,6 +325,14 @@ typedef struct config_entry {
     u64 uid_min;
     u64 pid_max;
     u64 pid_min;
+} policies_config_t;
+
+typedef struct config_entry {
+    u32 tracee_pid;
+    u32 options;
+    u32 cgroup_v1_hid;
+    u16 padding; // free for further use
+    policies_config_t policies_config;
 } config_entry_t;
 
 typedef struct event_config {
@@ -393,6 +399,9 @@ enum bpf_log_id {
     BPF_LOG_ID_GET_CURRENT_COMM,
     BPF_LOG_ID_TAIL_CALL,
     BPF_LOG_ID_MEM_READ,
+
+    // hidden kernel module functions
+    BPF_LOG_ID_HID_KER_MOD,
 };
 
 typedef struct bpf_log {
@@ -424,8 +433,9 @@ typedef union scratch {
 typedef struct program_data {
     config_entry_t *config;
     task_info_t *task_info;
+    proc_info_t *proc_info;
     event_data_t *event;
-    scratch_t *scratch;
+    u32 scratch_idx;
     void *ctx;
 } program_data_t;
 
@@ -532,5 +542,10 @@ typedef struct syscall_stats_key {
     u64 cgroup_id;
     u64 id;
 } syscall_stats_key_t;
+
+#define MAX_STACK_DEPTH 20 // max depth of each stack trace to track
+
+typedef __u64 stack_trace_t[MAX_STACK_DEPTH];
+typedef u32 file_type_t;
 
 #endif

@@ -89,15 +89,17 @@ func (decoder *Decoder) DecodeContext(ctx *types.EventContext) error {
 	_ = copy(ctx.Comm[:], decoder.buffer[offset+64:offset+80])
 	_ = copy(ctx.UtsName[:], decoder.buffer[offset+80:offset+96])
 	ctx.Flags = binary.LittleEndian.Uint32(decoder.buffer[offset+96 : offset+100])
+	ctx.LeaderStartTime = binary.LittleEndian.Uint64(decoder.buffer[offset+100 : offset+108])
+	ctx.ParentStartTime = binary.LittleEndian.Uint64(decoder.buffer[offset+108 : offset+116])
 	// task_context end
 	// 4 bytes padding
 
-	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset+104 : offset+108]))
-	ctx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+108 : offset+112]))
-	ctx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+112 : offset+120])
-	ctx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+120 : offset+128]))
-	ctx.StackID = binary.LittleEndian.Uint32(decoder.buffer[offset+128 : offset+132])
-	ctx.ProcessorId = binary.LittleEndian.Uint16(decoder.buffer[offset+132 : offset+134])
+	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset+120 : offset+124]))
+	ctx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+124 : offset+128]))
+	ctx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+128 : offset+136])
+	ctx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+136 : offset+144]))
+	ctx.StackID = binary.LittleEndian.Uint32(decoder.buffer[offset+144 : offset+148])
+	ctx.ProcessorId = binary.LittleEndian.Uint16(decoder.buffer[offset+148 : offset+150])
 	// 2 byte padding
 	// event_context end
 

@@ -21,7 +21,6 @@
 
 #define MAX_MEM_DUMP_SIZE   127
 
-
 #define MAX_STR_ARR_ELEM      38 // TODO: turn this into global variables set w/ libbpfgo
 #define MAX_ARGS_STR_ARR_ELEM 15
 #define MAX_PATH_PREF_SIZE    64
@@ -41,6 +40,7 @@
 #define OPT_TRANSLATE_FD_FILEPATH (1 << 7)
 #define OPT_CAPTURE_BPF           (1 << 8)
 #define OPT_CAPTURE_FILES_READ    (1 << 9)
+#define OPT_FORK_PROCTREE         (1 << 10)
 
 #define STDIN  0
 #define STDOUT 1
@@ -55,11 +55,11 @@ enum buf_idx_e
 
 // clang-format on
 
-typedef struct global_config {
+typedef struct {
     // id of the pid namespace the node host PID will be translated to
     u64 pid_ns_id;
 } global_config_t;
 
-const volatile global_config_t global_config;
+volatile const global_config_t global_config;
 
 #endif

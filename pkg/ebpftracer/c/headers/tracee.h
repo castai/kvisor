@@ -13,8 +13,9 @@ statfunc bool is_socket_supported(struct socket *);
 statfunc u64 sizeof_net_event_context_t(void);
 statfunc void set_net_task_context(event_data_t *, net_task_context_t *);
 statfunc enum event_id_e net_packet_to_net_event(net_packet_t);
-statfunc int should_submit_net_event(net_event_context_t *, net_packet_t);
-statfunc int should_capture_net_event(net_event_context_t *, net_packet_t);
+statfunc u64 should_submit_net_event(net_event_context_t *, net_packet_t);
+statfunc bool should_submit_flow_event(net_event_context_t *);
+statfunc u64 should_capture_net_event(net_event_context_t *, net_packet_t);
 statfunc u32 cgroup_skb_generic(struct __sk_buff *, void *);
 statfunc int net_l7_is_http(struct __sk_buff *, u32);
 statfunc u32 update_net_inodemap(struct socket *, event_data_t *);
@@ -30,12 +31,12 @@ statfunc int common_file_modification_ret(struct pt_regs *);
 
 // TODO: related to kernel modules
 
-statfunc bool init_shown_modules();
-statfunc bool is_hidden(u64);
-statfunc bool find_modules_from_module_kset_list(program_data_t *);
+statfunc int init_shown_modules();
+statfunc int is_hidden(u64);
+statfunc int find_modules_from_module_kset_list(program_data_t *);
 statfunc struct latch_tree_node *__lt_from_rb(struct rb_node *, int);
-statfunc bool walk_mod_tree(program_data_t *p, struct rb_node *, int);
-statfunc bool find_modules_from_mod_tree(program_data_t *);
+statfunc int walk_mod_tree(program_data_t *p, struct rb_node *, int);
+statfunc int find_modules_from_mod_tree(program_data_t *);
 statfunc int check_is_proc_modules_hooked(program_data_t *);
 
 // TODO: related to bpf tracing
@@ -56,9 +57,9 @@ statfunc int submit_magic_write(program_data_t *, file_info_t *, io_data_t, u32)
 statfunc bool should_submit_io_event(u32, program_data_t *);
 statfunc int do_file_io_operation(struct pt_regs *, u32, u32, bool, bool);
 statfunc void extract_vfs_ret_io_data(struct pt_regs *, args_t *, io_data_t *, bool);
-statfunc bool filter_file_write_capture(program_data_t *, struct file *);
+statfunc bool filter_file_write_capture(program_data_t *, struct file *, io_data_t, off_t);
 statfunc int capture_file_write(struct pt_regs *, u32, bool);
-statfunc bool filter_file_read_capture(program_data_t *, struct file *);
+statfunc bool filter_file_read_capture(program_data_t *, struct file *, io_data_t, off_t);
 statfunc int capture_file_read(struct pt_regs *, u32, bool);
 statfunc struct pipe_buffer *get_last_write_pipe_buffer(struct pipe_inode_info *);
 
