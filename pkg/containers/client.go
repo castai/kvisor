@@ -62,29 +62,6 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	}, nil
 }
 
-func (c *Client) Init(ctx context.Context, preFetchContainers bool) error {
-	if preFetchContainers {
-    if err := c.FetchContainers(ctx); err != nil {
-      return err
-    }
-	}
-
-	return nil
-}
-
-func (c *Client) FetchContainers(ctx context.Context) error {
-	containers, err := c.containerClient.client.ContainerService().List(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, container := range containers {
-		_, _ = c.addContainer(container)
-	}
-
-	return nil
-}
-
 func (c *Client) ListContainers() []*Container {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -116,15 +93,6 @@ func (c *Client) addContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 	container, err := c.containerClient.client.ContainerService().Get(ctx, cg.ContainerID)
 	if err != nil {
 		return nil, err
-	}
-
-	return c.addContainerWithCgroup(container, cg)
-}
-
-func (c *Client) addContainer(container containerdContainers.Container) (cont *Container, rerrr error) {
-	cg, err := c.cgroupClient.GetCgroupForContainer(container.ID)
-	if err != nil {
-		return nil, ErrContainerNotFound
 	}
 
 	return c.addContainerWithCgroup(container, cg)
