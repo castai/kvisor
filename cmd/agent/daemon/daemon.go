@@ -49,7 +49,6 @@ var (
 
 	castaiServerInsecure = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
 
-	containerPreFetchEnabled = pflag.Bool("container-pre-fetch-enabled", false, "Enabled pre fetching containers on startup from containerd to fill caches")
 
 	kubeconfigPath = pflag.String("kubeconfig", "", "Kubeconfig file")
 )
@@ -115,7 +114,6 @@ func NewCommand(version string) *cobra.Command {
 				EnricherConfig: app.EnricherConfig{
 					EnableFileHashEnricher: *fileHashEnrichedEnabled,
 				},
-				ContainerPreFetchEnabled: *containerPreFetchEnabled,
 			}, clientset).Run(ctx); err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)
