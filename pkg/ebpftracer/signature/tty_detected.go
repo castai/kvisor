@@ -26,7 +26,22 @@ func (*TTYDetected) GetMetadata() SignatureMetadata {
 }
 
 func (s *TTYDetected) OnEvent(event *types.Event) *v1.SignatureFinding {
+	var path string
+
+	switch args := event.Args.(type) {
+	case types.TtyOpenArgs:
+		path = args.Path
+	default:
+		return nil
+	}
+
 	// For now each tty open event will be treated as an anomaly. We might want to add
 	// more logic to it later.
-	return &v1.SignatureFinding{}
+	return &v1.SignatureFinding{
+		Data: &v1.SignatureFinding_TtyDetected{
+			TtyDetected: &v1.TtyDetectedFinding{
+				Path: path,
+			},
+		},
+	}
 }

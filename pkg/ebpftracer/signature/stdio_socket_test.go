@@ -4,7 +4,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/castai/kvisor/api/v1/runtime"
+	v1 "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -21,7 +21,7 @@ func TestStdioOverSocketSignature(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			title: "should fire for secuirty socket connect event with stdio over socket",
+			title: "should fire for security socket connect event with stdio over socket",
 			event: types.Event{
 				Context: &types.EventContext{
 					EventID:  events.SecuritySocketConnect,
@@ -42,10 +42,18 @@ func TestStdioOverSocketSignature(t *testing.T) {
 					},
 				},
 			},
-			expectedFinding: &v1.SignatureFinding{},
+			expectedFinding: &v1.SignatureFinding{
+				Data: &v1.SignatureFinding_StdioViaSocket{
+					StdioViaSocket: &v1.StdioViaSocketFinding{
+						Ip:       netip.MustParseAddr("1.2.3.4").AsSlice(),
+						Port:     1190,
+						Socketfd: 0,
+					},
+				},
+			},
 		},
 		{
-			title: "should not fire for secuirty socket connect event with socket not stdio",
+			title: "should not fire for security socket connect event with socket not stdio",
 			event: types.Event{
 				Context: &types.EventContext{
 					EventID:  events.SecuritySocketConnect,
@@ -87,7 +95,15 @@ func TestStdioOverSocketSignature(t *testing.T) {
 					RemoteAddr: types.Ip4SockAddr{Addr: netip.MustParseAddrPort("1.2.3.4:1190")},
 				},
 			},
-			expectedFinding: &v1.SignatureFinding{},
+			expectedFinding: &v1.SignatureFinding{
+				Data: &v1.SignatureFinding_StdioViaSocket{
+					StdioViaSocket: &v1.StdioViaSocketFinding{
+						Ip:       netip.MustParseAddr("1.2.3.4").AsSlice(),
+						Port:     1190,
+						Socketfd: 0,
+					},
+				},
+			},
 		},
 		{
 			title: "should not fire for socket dup event with old fs not being stdio",

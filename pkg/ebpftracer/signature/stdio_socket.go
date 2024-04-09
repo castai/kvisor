@@ -77,5 +77,13 @@ func (s *StdioViaSocket) OnEvent(event *types.Event) *v1.SignatureFinding {
 		return nil
 	}
 
-	return &v1.SignatureFinding{}
+	return &v1.SignatureFinding{
+		Data: &v1.SignatureFinding_StdioViaSocket{
+			StdioViaSocket: &v1.StdioViaSocketFinding{
+				Ip:       netaddr.Addr().AsSlice(),
+				Port:     uint32(netaddr.Port()),
+				Socketfd: socketfd,
+			},
+		},
+	}
 }
