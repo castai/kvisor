@@ -88,4 +88,19 @@ message SignatureMetadata {
   string version = 2;
 }
 
-message SignatureFinding {}
+message SignatureFinding {
+  oneof data {
+    StdioViaSocketFinding stdio_via_socket = 1;
+    TtyDetectedFinding tty_detected = 2;
+  }
+}
+
+message StdioViaSocketFinding {
+  bytes ip = 1;
+  uint32 port = 2;
+  int32 socketfd = 3;
+}
+
+message TtyDetectedFinding {
+  string path = 1;
+}
