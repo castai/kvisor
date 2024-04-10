@@ -19903,6 +19903,34 @@ func ParseNetPacketHTTPResponseArgs(decoder *Decoder) (types.NetPacketHTTPRespon
   return result, nil
 }
 
+func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseArgs, error) {
+  var result types.NetPacketSOCKS5BaseArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.NetPacketSOCKS5BaseArgs{}, err
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.NetPacketSOCKS5BaseArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketSOCKS5Base))
+      if err != nil {
+        return types.NetPacketSOCKS5BaseArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
 func ParseNetPacketCaptureArgs(decoder *Decoder) (types.NetPacketCaptureArgs, error) {
   var result types.NetPacketCaptureArgs
   var err error
@@ -21161,6 +21189,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseNetPacketHTTPRequestArgs(decoder)
   case events.NetPacketHTTPResponse:
     return ParseNetPacketHTTPResponseArgs(decoder)
+  case events.NetPacketSOCKS5Base:
+    return ParseNetPacketSOCKS5BaseArgs(decoder)
   case events.NetPacketCapture:
     return ParseNetPacketCaptureArgs(decoder)
   case events.CaptureNetPacket:

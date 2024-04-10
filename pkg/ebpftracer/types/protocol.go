@@ -64,6 +64,22 @@ type EventContext struct {
 	_               [2]byte // padding
 }
 
+func (ctx *EventContext) ParseFlowDirection() FlowDirection {
+	if ctx.Retval&FlagPacketIngress > 0 && ctx.Retval&FlagPacketEgress > 0 {
+		// something is broken if both ingress and egress flags are set
+		return FlowDirectionUnknown
+	}
+
+	if ctx.Retval&FlagPacketIngress > 0 {
+		return FlowDirectionIngress
+	}
+	if ctx.Retval&FlagPacketEgress > 0 {
+		return FlowDirectionEgress
+	}
+
+	return FlowDirectionUnknown
+}
+
 func (EventContext) GetSizeBytes() int {
 	return 152
 }

@@ -75,9 +75,13 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		EbpfEventsOutputChanSize: int32(c.EBPFEventsOutputChanSize),
 		MutedNamespaces:          c.MutedNamespaces,
 		SignatureEngineConfig: &castaipb.SignatureEngineConfig{
-			InputChanSize:               int32(c.SignatureEngineConfig.InputChanSize),
-			OutputChanSize:              int32(c.SignatureEngineConfig.OutputChanSize),
-			TtyDetectedSignatureEnabled: c.SignatureEngineConfig.DefaultSignatureConfig.TTYDetectedSignatureEnabled,
+			InputChanSize:                  int32(c.SignatureEngineConfig.InputChanSize),
+			OutputChanSize:                 int32(c.SignatureEngineConfig.OutputChanSize),
+			TtyDetectedSignatureEnabled:    c.SignatureEngineConfig.DefaultSignatureConfig.TTYDetectedSignatureEnabled,
+			Socks5DetectedSignatureEnabled: c.SignatureEngineConfig.DefaultSignatureConfig.SOCKS5DetectedSignatureEnabled,
+			Socks5DetectedSignatureConfig: &castaipb.SOCKS5DetectedSignatureConfig{
+				CacheSize: c.SignatureEngineConfig.DefaultSignatureConfig.SOCKS5DetectedSignatureConfig.CacheSize,
+			},
 		},
 		CastaiEnv: &castaipb.CastaiConfig{
 			ClusterId:   c.CastaiEnv.ClusterID,
@@ -158,7 +162,10 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer ct.Close()
 
-	activeSignatures := signature.DefaultSignatures(log, a.cfg.SignatureEngineConfig.DefaultSignatureConfig)
+	activeSignatures, err := signature.DefaultSignatures(log, a.cfg.SignatureEngineConfig.DefaultSignatureConfig)
+	if err != nil {
+		return fmt.Errorf("error while configuring signatures: %w", err)
+	}
 
 	signatureEngine := signature.NewEngine(activeSignatures, log, a.cfg.SignatureEngineConfig)
 

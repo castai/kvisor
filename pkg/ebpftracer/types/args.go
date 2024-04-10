@@ -4234,6 +4234,12 @@ type NetPacketHTTPResponseArgs struct {
   HttpResponse uintptr
 }
 
+type NetPacketSOCKS5BaseArgs struct {
+  internalArgs
+
+  Payload []byte
+}
+
 type NetPacketCaptureArgs struct {
   internalArgs
 

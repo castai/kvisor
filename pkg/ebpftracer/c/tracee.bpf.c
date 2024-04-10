@@ -5231,6 +5231,8 @@ statfunc enum event_id_e net_packet_to_net_event(net_packet_t packet_type)
             return NET_PACKET_DNS;
         case SUB_NET_PACKET_HTTP:
             return NET_PACKET_HTTP;
+        case SUB_NET_PACKET_SOCKS5:
+            return NET_PACKET_SOCKS5;
     };
     return MAX_EVENT_ID;
 }
@@ -5320,10 +5322,12 @@ CGROUP_SKB_HANDLE_FUNCTION(proto);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_http);
+CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 CGROUP_SKB_HANDLE_FUNCTION(proto_icmp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_icmpv6);
+CGROUP_SKB_HANDLE_FUNCTION(proto_socks5);
 
 #define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs);
 
@@ -6267,6 +6271,94 @@ statfunc int net_l7_is_http(struct __sk_buff *skb, u32 l7_off)
     return 0;
 }
 
+// clang-format on
+
+#define SOCKS5_VERSION(buf)     buf[0]
+#define SOCKS5_NUM_METHODS(buf) buf[1]
+#define SOCKS5_CMD(buf)         buf[1]
+#define SOCKS5_RESERVED(buf)    buf[2]
+#define SOCKS5_ADDR_TYPE(buf)   buf[3]
+
+// see https://datatracker.ietf.org/doc/html/rfc1928 for the definition of the socks5 protocol
+statfunc bool net_l7_is_socks5(struct __sk_buff *skb, u32 l7_off)
+{
+    // we treat all messages from the default socks ports as potential sock messages and try to
+    // parse them in userspace.
+    if (skb->remote_port == TCP_PORT_SOCKS5) {
+        return true;
+    }
+
+    if (skb->local_port == TCP_PORT_SOCKS5) {
+        return true;
+    }
+
+    char buf[socks5_min_len];
+    __builtin_memset(&buf, 0, sizeof(buf));
+
+    if (skb->len < l7_off) {
+        return false;
+    }
+
+    u32 payload_len = skb->len - l7_off;
+    u32 read_len = payload_len;
+    // inline bounds check to force compiler to use the register of size
+    asm volatile("if %[size] < %[max_size] goto +1;\n"
+                 "%[size] = %[max_size];\n"
+                 :
+                 : [size] "r"(read_len), [max_size] "i"(socks5_min_len));
+
+    // make the verifier happy to ensure that we read more than a single byte
+    // the test is for 2, since we anyway exect at least 2 bytes to check for socks5
+    asm goto("if %[size] < 2 goto %l[out]" ::[size] "r"(read_len)::out);
+
+    if (read_len < 2) {
+        return false;
+    }
+
+    // load first socks5_min_len bytes from layer 7 in packet.
+    if (bpf_skb_load_bytes(skb, l7_off, buf, read_len) < 0) {
+        return false; // failed loading data into http_min_str - return.
+    }
+
+    if (SOCKS5_VERSION(buf) != 5) {
+        return false; // all socks5 messages begin with the version (which is 5 for socks5)
+    }
+
+    // this might be a bit of a leap of faith here, since the first server response only selects the
+    // method used for auth. This requires more massaging in userspace.
+    if (payload_len == 2) {
+        return true;
+    }
+
+    // the client starts by sending a message containing the number of methods for auth in the
+    // second byte. Each of these methods are then listed in the following bytes, meaning that
+    // if our message is the length of the number of messages + 2 (since starting after the second
+    // byte), we should have ourselfs a client request.
+    if (payload_len == (u32) SOCKS5_NUM_METHODS(buf) + 2) {
+        return true;
+    }
+
+    // we now access fields above the two
+    if (read_len < socks5_min_len) {
+        return false;
+    }
+
+    // both request and response have the 3rd byte reserved and it needs to be set to 0x00
+    if (SOCKS5_RESERVED(buf) != 0x00) {
+        return false;
+    }
+
+    if (SOCKS5_ADDR_TYPE(buf) == 0x01       // IPv4 address
+        || SOCKS5_ADDR_TYPE(buf) == 0x03    // domain name
+        || SOCKS5_ADDR_TYPE(buf) == 0x04) { // IPv6 address
+        return true;
+    }
+
+out:
+    return false;
+}
+// clang-format off
+
 //
 // SUPPORTED L4 NETWORK PROTOCOL (tcp, udp, icmp) HANDLERS
 //
@@ -6313,7 +6405,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     // Fastpath: return if no other L7 network events.
 
     if (!should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS) &&
-        !should_submit_net_event(neteventctx, SUB_NET_PACKET_HTTP))
+        !should_submit_net_event(neteventctx, SUB_NET_PACKET_HTTP) &&
+        !should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5))
         goto capture;
 
     // Guess layer 7 protocols by src/dst ports ...
@@ -6321,6 +6414,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     switch (srcport < dstport ? srcport : dstport) {
         case TCP_PORT_DNS:
             return CGROUP_SKB_HANDLE(proto_tcp_dns);
+        case TCP_PORT_SOCKS5:
+            return CGROUP_SKB_HANDLE(proto_tcp_socks5);
     }
 
     // ... and by analyzing payload.
@@ -6329,6 +6424,11 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     if (http_proto) {
         neteventctx->eventctx.retval |= http_proto;
         return CGROUP_SKB_HANDLE(proto_tcp_http);
+    }
+
+    int socks5_proto = net_l7_is_socks5(ctx, neteventctx->md.header_size);
+    if (socks5_proto) {
+        return CGROUP_SKB_HANDLE(proto_tcp_socks5);
     }
 
     // ... continue with net_l7_is_protocol_xxx
@@ -6467,6 +6567,27 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_http)
     }
 
     return 1; // NOTE: might block HTTP here if needed (return 0)
+}
+
+CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5)
+{
+    u32 payload_len = ctx->len - neteventctx->md.header_size;
+
+    // submit SOCKS5 base event if needed (full packet)
+    // we only care about packets that have a payload though
+    if (should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5) && payload_len > 0) {
+        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_SOCKS5, FULL);
+    }
+
+    // capture SOCKS5-TCP, TCP or IP packets (filtered)
+    if (should_capture_net_event(neteventctx, SUB_NET_PACKET_IP) ||
+        should_capture_net_event(neteventctx, SUB_NET_PACKET_TCP) ||
+        should_capture_net_event(neteventctx, SUB_NET_PACKET_HTTP)) {
+        neteventctx->md.header_size = ctx->len; // full socks5 packet
+        cgroup_skb_capture();
+    }
+
+    return 1; // NOTE: might block SOCKS5 here if needed (return 0)
 }
 
 // clang-format on
