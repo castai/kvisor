@@ -104,7 +104,7 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		SignatureEngine: signatureEngine,
 		Events: []*ebpftracer.EventPolicy{
-			// {ID: events.SchedProcessExec},
+			{ID: events.SchedProcessExec},
 			// {ID: events.TtyOpen},
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.CgroupRmdir},

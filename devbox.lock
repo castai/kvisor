@@ -1,0 +1,107 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "clang_14@latest": {
+      "last_modified": "2024-03-22T11:26:23Z",
+      "resolved": "github:NixOS/nixpkgs/a3ed7406349a9335cb4c2a71369b697cecd9d351#clang_14",
+      "source": "devbox-search",
+      "version": "14.0.6",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/35d0qrfhiyh93q3k1ikpdbmxmj4g4d1w-clang-wrapper-14.0.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/35d0qrfhiyh93q3k1ikpdbmxmj4g4d1w-clang-wrapper-14.0.6"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/wyv2k65z8v89byr44xfgzfr3zl72nqvn-clang-wrapper-14.0.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/wyv2k65z8v89byr44xfgzfr3zl72nqvn-clang-wrapper-14.0.6"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/crhjarlrcgg4gfcfz5zz6w7fcdh0j4a4-clang-wrapper-14.0.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/crhjarlrcgg4gfcfz5zz6w7fcdh0j4a4-clang-wrapper-14.0.6"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5v3jnw2gyss75z2fx11msdn9z3haifyv-clang-wrapper-14.0.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5v3jnw2gyss75z2fx11msdn9z3haifyv-clang-wrapper-14.0.6"
+        }
+      }
+    },
+    "go@1.22": {
+      "last_modified": "2024-03-22T11:26:23Z",
+      "resolved": "github:NixOS/nixpkgs/a3ed7406349a9335cb4c2a71369b697cecd9d351#go",
+      "source": "devbox-search",
+      "version": "1.22.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/n1k6wf8q10q7k0863gb78b1rf0j07r7r-go-1.22.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/n1k6wf8q10q7k0863gb78b1rf0j07r7r-go-1.22.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/fl6cjlp5bvykfz1kxrw687zxzld25pn7-go-1.22.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/fl6cjlp5bvykfz1kxrw687zxzld25pn7-go-1.22.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/xgdp7gnf6vzr2ick2ip1lhq4cww65p7w-go-1.22.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/xgdp7gnf6vzr2ick2ip1lhq4cww65p7w-go-1.22.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/bp39dh48cdqp89hk5mpdi1lxdf0mjl7x-go-1.22.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/bp39dh48cdqp89hk5mpdi1lxdf0mjl7x-go-1.22.1"
+        }
+      }
+    },
+    "llvm_14@latest": {
+      "last_modified": "2023-02-24T09:01:09Z",
+      "resolved": "github:NixOS/nixpkgs/7d0ed7f2e5aea07ab22ccb338d27fbe347ed2f11#llvm_14",
+      "source": "devbox-search",
+      "version": "14.0.6"
+    }
+  }
+}

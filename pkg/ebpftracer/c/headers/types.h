@@ -4,8 +4,9 @@
 #include <vmlinux.h>
 #include <vmlinux_missing.h>
 
-#include <linux/limits.h>
 #include <common/consts.h>
+
+#define PATH_MAX 4096
 
 typedef struct task_context {
     u64 start_time; // thread's start time
