@@ -95,9 +95,13 @@ func TestTracer(t *testing.T) {
 		errc <- tr.Run(ctx)
 	}()
 
-	signatures := signature.DefaultSignatures(log, signature.DefaultSignatureConfig{
-		TTYDetectedSignatureEnabled: true,
+	signatures, err := signature.DefaultSignatures(log, signature.DefaultSignatureConfig{
+		TTYDetectedSignatureEnabled:    true,
+		SOCKS5DetectedSignatureEnabled: true,
 	})
+	if err != nil {
+		t.Fatalf("error while configuring signatures: %v", err)
+	}
 
 	signatureEngine := signature.NewEngine(signatures, log, signature.SignatureEngineConfig{
 		InputChanSize:  100,
@@ -122,7 +126,7 @@ func TestTracer(t *testing.T) {
 			// {ID: events.Dup3},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.TrackSyscallStats},
-			{ID: events.NetPacketDNSBase},
+			// {ID: events.NetPacketDNSBase},
 			//{
 			//	ID: events.FileModification,
 			//	RateLimit: &events.RateLimitPolicy{
@@ -137,6 +141,7 @@ func TestTracer(t *testing.T) {
 			// {ID: events.Execve},
 			//{ID: events.Write},
 			// {ID: events.Connect},
+			{ID: events.NetPacketSOCKS5Base},
 		},
 	}
 

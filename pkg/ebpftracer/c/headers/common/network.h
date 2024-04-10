@@ -108,6 +108,7 @@ typedef enum net_packet {
     // Layer 7
     SUB_NET_PACKET_DNS = 1 << 6,
     SUB_NET_PACKET_HTTP = 1 << 7,
+    SUB_NET_PACKET_SOCKS5 = 1 << 8,
 } net_packet_t;
 
 typedef struct net_event_contextmd {
@@ -225,6 +226,9 @@ struct {
 #define flow_udp_begin          (1 << 8)  // first flow packet
 #define flow_udp_end            (1 << 9)  // last flow packet
 #define flow_src_initiator      (1 << 10) // src is the flow initiator
+// Socks5 Direction (request/response) Flag
+#define proto_socks5_req          (1 << 11)
+#define proto_socks5_resp         (1 << 12)
 
 // payload size: full packets, only headers
 #define FULL    65536       // 1 << 16
@@ -233,9 +237,11 @@ struct {
 // when guessing by src/dst ports, declare at network.h
 #define UDP_PORT_DNS 53
 #define TCP_PORT_DNS 53
+#define TCP_PORT_SOCKS5 1080
 
 // layer 7 parsing related constants
 #define http_min_len 7 // longest http command is "DELETE "
+#define socks5_min_len 4 // we try to match the socks5 request. this should
 
 typedef union  {
 	u32 v4addr;

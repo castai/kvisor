@@ -42,8 +42,10 @@ var (
 
 	mutedNamespaces = pflag.StringArray("mute-namespace", []string{"kube-system", "calico", "calico-system"}, "List of namespaces to ignore tracing events for. To mute multiple namespaces, provide this flag multiple times.")
 
-	fileHashEnrichedEnabled      = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
-	ttyDetectionSignatureEnabled = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
+	fileHashEnrichedEnabled           = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
+	ttyDetectionSignatureEnabled      = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
+	socks5DetectionSignatureEnabled   = pflag.Bool("signature-socks5-detection-enabled", false, "Enables the socks5 detection signature")
+	socks5DetectionSignatureCacheSize = pflag.Uint32("signature-socks5-detection-cache-size", 1024, "Configures the amount of state machine cache entries to detect socks5 information")
 
 	castaiServerInsecure = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
 
@@ -102,7 +104,11 @@ func NewCommand(version string) *cobra.Command {
 					InputChanSize:  *signatureEngineInputEventChanSize,
 					OutputChanSize: *signatureEngineOutputEventChanSize,
 					DefaultSignatureConfig: signature.DefaultSignatureConfig{
-						TTYDetectedSignatureEnabled: *ttyDetectionSignatureEnabled,
+						TTYDetectedSignatureEnabled:    *ttyDetectionSignatureEnabled,
+						SOCKS5DetectedSignatureEnabled: *socks5DetectionSignatureEnabled,
+						SOCKS5DetectedSignatureConfig: signature.SOCKS5DetectionSignatureConfig{
+							CacheSize: *socks5DetectionSignatureCacheSize,
+						},
 					},
 				},
 				CastaiEnv: castaiClientCfg,

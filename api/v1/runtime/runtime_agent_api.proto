@@ -139,10 +139,16 @@ message AgentStateControllerConfig {
   string container_stats_scrape_interval = 2;
 }
 
+message SOCKS5DetectedSignatureConfig {
+  uint32 cache_size = 1;
+}
+
 message SignatureEngineConfig {
   int32 input_chan_size = 1;
   int32 output_chan_size = 2;
   bool tty_detected_signature_enabled = 3;
+  bool socks5_detected_signature_enabled = 4;
+  SOCKS5DetectedSignatureConfig socks5_detected_signature_config = 5;
 }
 
 message CastaiConfig {

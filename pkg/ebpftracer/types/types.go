@@ -38,6 +38,19 @@ type FlowDirection uint8
 
 const (
 	FlowDirectionUnknown FlowDirection = iota
-	FlowDirectionIncoming
-	FlowDirectionOutgoing
+	FlowDirectionIngress
+	FlowDirectionEgress
 )
+
+var flowDirectionNames = map[FlowDirection]string{
+	FlowDirectionIngress: "INGRESS",
+	FlowDirectionEgress:  "EGRESS",
+}
+
+func (f FlowDirection) String() string {
+	if name, found := flowDirectionNames[f]; found {
+		return name
+	}
+
+	return "UNKNOWN"
+}

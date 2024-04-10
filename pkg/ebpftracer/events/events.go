@@ -20,6 +20,7 @@ const (
 	NetPacketICMPv6Base
 	NetPacketDNSBase
 	NetPacketHTTPBase
+	NetPacketSOCKS5Base
 	NetPacketCapture
   NetCaptureBase
   NetFlowBase

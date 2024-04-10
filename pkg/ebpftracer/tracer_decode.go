@@ -149,7 +149,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		event.EventType = castpb.EventType_EVENT_DNS
 
 		dnsEvent, err := decodeDNS(args.Payload, t.dnsPacketParser)
-		dnsEvent.FlowDirection = parseFlowDirection(eventCtx.Retval)
+		dnsEvent.FlowDirection = convertFlowDirection(eventCtx.ParseFlowDirection())
 
 		// If we cannot parse an DNS packet, we abord
 		if err != nil {
@@ -246,7 +246,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		Args:         parsedArgs,
 		Container:    container,
 	}) {
-		// If we can get an event into the enrichment path, we are not allowed to put throw it into
+		// If we can get an event into the enrichment path, we are not allowed to put  it into
 		// the events chan, as otherwise we will report events twice.
 		return nil
 	}
@@ -259,6 +259,17 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 	}
 
 	return nil
+}
+
+func convertFlowDirection(flowDir types.FlowDirection) castpb.FlowDirection {
+	switch flowDir {
+	case types.FlowDirectionIngress:
+		return castpb.FlowDirection_FLOW_INGRESS
+	case types.FlowDirectionEgress:
+		return castpb.FlowDirection_FLOW_EGRESS
+	}
+
+	return castpb.FlowDirection_FLOW_UNKNOWN
 }
 
 func findTCPEventType(state types.SocketState) castpb.EventType {
@@ -365,22 +376,6 @@ func (t *Tracer) IsCgroupMuted(cgroup uint64) bool {
 	err := t.module.objects.IgnoredCgroupsMap.Lookup(cgroup, &value)
 
 	return !errors.Is(err, ebpf.ErrKeyNotExist) && value > 0
-}
-
-func parseFlowDirection(reVal int64) castpb.FlowDirection {
-	if reVal&types.FlagPacketIngress > 0 && reVal&types.FlagPacketEgress > 0 {
-		// something is broken if both ingress and egress flags are set
-		return castpb.FlowDirection_FLOW_UNKNOWN
-	}
-
-	if reVal&types.FlagPacketIngress > 0 {
-		return castpb.FlowDirection_FLOW_INGRESS
-	}
-	if reVal&types.FlagPacketEgress > 0 {
-		return castpb.FlowDirection_FLOW_EGRESS
-	}
-
-	return castpb.FlowDirection_FLOW_UNKNOWN
 }
 
 var errDNSMessageNotComplete = errors.New("received dns packet not complete")

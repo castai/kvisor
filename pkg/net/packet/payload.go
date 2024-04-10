@@ -24,6 +24,19 @@ const (
 	SubProtocolUDP         SubProtocol = 0x11
 )
 
+var subProtocolName = map[SubProtocol]string{
+	SubProtocolTCP: "TCP",
+	SubProtocolUDP: "UDP",
+}
+
+func (s SubProtocol) String() string {
+	if name, found := subProtocolName[s]; found {
+		return name
+	}
+
+	return "UNKNOWN"
+}
+
 var (
 	ErrUnsupportedIPVersion    = errors.New("ip version not supported")
 	ErrUnsupportedSubProtocol  = errors.New("sub protocol not supported")

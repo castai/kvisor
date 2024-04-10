@@ -94,6 +94,7 @@ enum SignatureEventID {
   SIGNATURE_UNKNOWN = 0;
   SIGNATURE_STDIO_VIA_SOCKET = 1;
   SIGNATURE_TTY_DETECTED = 2;
+  SIGNATURE_SOCKS5_DETECTED = 3;
 }
 
 message SignatureMetadata {
@@ -105,6 +106,7 @@ message SignatureFinding {
   oneof data {
     StdioViaSocketFinding stdio_via_socket = 1;
     TtyDetectedFinding tty_detected = 2;
+    SOCKS5DetectedFinding socks5_detected = 3;
   }
 }
 
@@ -116,4 +118,26 @@ message StdioViaSocketFinding {
 
 message TtyDetectedFinding {
   string path = 1;
+}
+
+enum SOCKS5Role {
+  SOCKS5_ROLE_UNKNOWN = 0;
+  SOCKS5_ROLE_CLIENT = 1;
+  SOCKS5_ROLE_SERVER = 2;
+}
+
+enum SOCKS5AddressType {
+  SOCKS5_ADDRESS_TYPE_UNKNOWN = 0;
+  SOCKS5_ADDRESS_TYPE_IPv4 = 1;
+  SOCKS5_ADDRESS_TYPE_DOMAIN_NAME = 3;
+  SOCKS5_ADDRESS_TYPE_IPv6 = 4;
+}
+
+message SOCKS5DetectedFinding {
+  SOCKS5Role role = 1;
+  FlowDirection flow_direction = 2;
+  uint32 cmd_or_reply = 3;
+  SOCKS5AddressType address_type = 4;
+  bytes address = 5;
+  uint32 port = 6;
 }
