@@ -1,21 +1,25 @@
 ## Develop ebpf locally
 
+First setup lima. It uses nix and devbox to manage most of the packages.
 ```sh
-make builder-image-enter
+ln -s ~/c/kvisor /tmp/kvisor
+limactl start ./tools/lima-ebpf.yaml
+limactl shell lima-ebpf
+cd /tmp/kvisor
+devbox install
 ```
 
-Now inside docker container you can run ebpftracer
-
+Now inside vm you can run ebpftracer
 ```sh
-cd ./pkg/ebpftracer
+cd /tmp/kvisor/pkg/ebpftracer
 go generate ./...
 go test -v . -run=TestTracer
 ```
 
-You can also exec into builder container to execute some commands and trigger ebpf events
+Trigger ebpf events
 
 ```sh
-docker exec -it kvisord-builder /bin/bash
+limactl shell lima-ebpf
 curl google.com
 ```
 
@@ -28,9 +32,17 @@ KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh
 ```
 
 ## Colima
+Colima is a wrapper around Lima for macos and can be used as docker desktop for mac replacement.
 
 ```
 colima start  --cpu 2 --memory 4 --disk 100 -t vz --mount-type virtiofs
+```
+
+Lima is lower level VM which allows to create customizable templates. This is recommended if you need to work with ebpf code.
+### Lima
+```
+ln -s ~/c/kvisor /tmp/kvisor
+limactl start ./tools/lima-ebpf.yaml
 ```
 
 ## TILT local development
