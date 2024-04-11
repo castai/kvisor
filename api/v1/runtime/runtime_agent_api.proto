@@ -42,6 +42,8 @@ enum EventType {
   EVENT_PROCESS_OOM = 7;
   EVENT_MAGIC_WRITE = 8;
   EVENT_SIGNATURE = 9;
+
+  EVENT_ANY = 999;
 }
 
 message Event {
@@ -63,6 +65,7 @@ message Event {
     v1.File file = 23;
     v1.Tuple tuple = 24;
     v1.SignatureEvent signature = 25;
+    v1.Any any = 26;
   }
 }
 

@@ -3,6 +3,7 @@ package ebpftracer
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime/debug"
@@ -210,6 +211,20 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 			File: &castpb.File{
 				Path: args.Pathname,
 			},
+		}
+	default:
+		if t.cfg.AllowAnyEvent {
+			event.EventType = castpb.EventType_EVENT_ANY
+			argsData, err := json.Marshal(args)
+			if err != nil {
+				return err
+			}
+			event.Data = &castpb.Event_Any{
+				Any: &castpb.Any{
+					EventId: uint32(eventId),
+					Data:    argsData,
+				},
+			}
 		}
 	}
 

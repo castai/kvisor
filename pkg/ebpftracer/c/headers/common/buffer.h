@@ -449,9 +449,11 @@ statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
     p->event->context.eventid = id;
     p->event->context.retval = ret;
 
-    init_task_context(&p->event->context.task, p->event->task, p->config->options);
-    // keep task_info updated
-    bpf_probe_read_kernel(&p->task_info->context, sizeof(task_context_t), &p->event->context.task);
+    if (p->event->context.task.tid == 0) {
+        init_task_context(&p->event->context.task, p->task, p->config->options);
+        // keep task_info updated
+        bpf_probe_read_kernel(&p->task_info->context, sizeof(task_context_t), &p->event->context.task);
+    }
 
     // Get Stack trace
     if (p->config->options & OPT_CAPTURE_STACK_TRACES) {

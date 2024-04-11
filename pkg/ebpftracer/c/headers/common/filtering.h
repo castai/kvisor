@@ -262,7 +262,7 @@ statfunc u64 compute_scopes(program_data_t *p)
     }
 
     if (policies_cfg->mnt_ns_filter_enabled_scopes) {
-        context->mnt_id = get_task_mnt_ns_id(p->event->task);
+        context->mnt_id = get_task_mnt_ns_id(p->task);
         u64 filter_out_scopes = policies_cfg->mnt_ns_filter_out_scopes;
         u64 mask = ~policies_cfg->mnt_ns_filter_enabled_scopes;
 
@@ -271,7 +271,7 @@ statfunc u64 compute_scopes(program_data_t *p)
     }
 
     if (policies_cfg->pid_ns_filter_enabled_scopes) {
-        context->pid_id = get_task_pid_ns_id(p->event->task);
+        context->pid_id = get_task_pid_ns_id(p->task);
         u64 filter_out_scopes = policies_cfg->pid_ns_filter_out_scopes;
         u64 mask = ~policies_cfg->pid_ns_filter_enabled_scopes;
 
@@ -280,7 +280,7 @@ statfunc u64 compute_scopes(program_data_t *p)
     }
 
     if (policies_cfg->uts_ns_filter_enabled_scopes) {
-        char *uts_name = get_task_uts_name(p->event->task);
+        char *uts_name = get_task_uts_name(p->task);
         if (uts_name)
             bpf_probe_read_kernel_str(&context->uts_name, TASK_COMM_LEN, uts_name);
         u64 filter_out_scopes = policies_cfg->uts_ns_filter_out_scopes;

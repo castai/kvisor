@@ -118,7 +118,7 @@ statfunc int init_program_data(program_data_t *p, void *ctx)
 
     p->event->args_buf.offset = 0;
     p->event->args_buf.argnum = 0;
-    p->event->task = (struct task_struct *) bpf_get_current_task();
+    p->task = (struct task_struct *) bpf_get_current_task();
 
     __builtin_memset(&p->event->context.task, 0, sizeof(p->event->context.task));
 
@@ -129,7 +129,7 @@ statfunc int init_program_data(program_data_t *p, void *ctx)
     p->event->context.task.host_pid = id >> 32;
     p->event->context.ts = bpf_ktime_get_ns();
     p->event->context.processor_id = (u16) bpf_get_smp_processor_id();
-    p->event->context.syscall = get_task_syscall_id(p->event->task);
+    p->event->context.syscall = get_task_syscall_id(p->task);
 
     u32 host_pid = p->event->context.task.host_pid;
     p->proc_info = bpf_map_lookup_elem(&proc_info_map, &host_pid);
@@ -146,11 +146,11 @@ statfunc int init_program_data(program_data_t *p, void *ctx)
         if (unlikely(p->task_info == NULL))
             return 0;
 
-        init_task_context(&p->task_info->context, p->event->task, p->config->options);
+        init_task_context(&p->task_info->context, p->task, p->config->options);
     }
 
     if (p->config->options & OPT_CGROUP_V1) {
-        p->event->context.task.cgroup_id = get_cgroup_v1_subsys0_id(p->event->task);
+        p->event->context.task.cgroup_id = get_cgroup_v1_subsys0_id(p->task);
     } else {
         p->event->context.task.cgroup_id = bpf_get_current_cgroup_id();
     }
