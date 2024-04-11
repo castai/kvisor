@@ -101,6 +101,10 @@ func TestTracer(t *testing.T) {
 		InputChanSize:  100,
 		OutputChanSize: 100,
 	})
+	sigerr := make(chan error, 1)
+	go func() {
+		sigerr <- signatureEngine.Run(ctx)
+	}()
 
 	policy := &ebpftracer.Policy{
 		SignatureEngine: signatureEngine,
@@ -138,8 +142,11 @@ func TestTracer(t *testing.T) {
 		select {
 		case <-ctx.Done():
 			return
+		case err := <-sigerr:
+			t.Fatal(err)
+		case s := <-signatureEngine.Events():
+			printEvent(tr, s)
 		case e := <-tr.Events():
-			_ = e
 			printEvent(tr, e)
 		case err := <-errc:
 			if err != nil {
@@ -163,7 +170,7 @@ func printEvent(tr *ebpftracer.Tracer, event *castpb.Event) {
 		fmt.Print(event.GetFile().GetPath())
 	case castpb.EventType_EVENT_SIGNATURE:
 		signatureEvent := event.GetSignature()
-		fmt.Printf("signature event: %s %s", signatureEvent.Metadata.Id.String(), signatureEvent.Metadata.Version)
+		fmt.Printf("signature event: %s %s", signatureEvent.Metadata.Id.String(), signatureEvent.Finding)
 	case castpb.EventType_EVENT_ANY:
 		fmt.Printf("ebpf_event=%s, data=%s", tr.GetEventName(events.ID(event.GetAny().EventId)), string(event.GetAny().GetData()))
 	}
