@@ -115,6 +115,9 @@ func TestTracer(t *testing.T) {
 			// {ID: events.TtyOpen},
 			{ID: events.SecuritySocketConnect},
 			{ID: events.SocketDup},
+			{ID: events.Dup},
+			{ID: events.Dup2},
+			{ID: events.Dup3},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.TrackSyscallStats},
 			{ID: events.NetPacketDNSBase},
@@ -129,6 +132,9 @@ func TestTracer(t *testing.T) {
 			// {ID: events.ProcessOomKilled},
 			//{ID: events.MagicWrite},
 			{ID: events.SockSetState},
+			{ID: events.Execve},
+			//{ID: events.Write},
+			{ID: events.Connect},
 		},
 	}
 
@@ -172,7 +178,7 @@ func printEvent(tr *ebpftracer.Tracer, event *castpb.Event) {
 		signatureEvent := event.GetSignature()
 		fmt.Printf("signature event: %s %s", signatureEvent.Metadata.Id.String(), signatureEvent.Finding)
 	case castpb.EventType_EVENT_ANY:
-		fmt.Printf("ebpf_event=%s, data=%s", tr.GetEventName(events.ID(event.GetAny().EventId)), string(event.GetAny().GetData()))
+		fmt.Printf("ebpf_event=%s syscall=%d data=%s", tr.GetEventName(events.ID(event.GetAny().EventId)), event.GetAny().Syscall, string(event.GetAny().GetData()))
 	}
 	fmt.Print("\n")
 }

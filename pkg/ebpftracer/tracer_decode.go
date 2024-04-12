@@ -223,6 +223,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 				Any: &castpb.Any{
 					EventId: uint32(eventId),
 					Data:    argsData,
+					Syscall: uint32(eventCtx.Syscall),
 				},
 			}
 		}

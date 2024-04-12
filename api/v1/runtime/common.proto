@@ -6,7 +6,8 @@ option go_package = "github.com/castai/kvisord/api/runtime/v1";
 
 message Any {
   uint32 event_id = 1;
-  bytes data = 2;
+  uint32 syscall = 2;
+  bytes data = 3;
 }
 
 message Exec {
