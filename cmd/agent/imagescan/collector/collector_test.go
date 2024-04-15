@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,9 +14,7 @@ import (
 	"testing"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/imagescan/config"
-	mockblobcache "github.com/castai/kvisor/pkg/blobscache/mock"
+	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
@@ -25,6 +24,9 @@ import (
 
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/imagescan/config"
+	mockblobcache "github.com/castai/kvisor/pkg/blobscache/mock"
 )
 
 func TestCollector(t *testing.T) {
@@ -54,6 +56,7 @@ func TestCollector(t *testing.T) {
 				Runtime:           config.RuntimeContainerd,
 				ImageArchitecture: "amd64",
 				ImageOS:           "linux",
+				Parallel:          1,
 			},
 			ingestClient,
 			mockCache,
@@ -79,7 +82,15 @@ func TestCollector(t *testing.T) {
 		var actual castaipb.ImageMetadata
 		r.NoError(protojson.Unmarshal(receivedMetadataJson, &actual))
 
+		var expectedPackages []types.BlobInfo
+		var actualPackages []types.BlobInfo
+		r.NoError(json.Unmarshal(expected.Packages, &expectedPackages))
+		r.NoError(json.Unmarshal(actual.Packages, &actualPackages))
+		expected.Packages = nil
+		actual.Packages = nil
+
 		r.Equal(&expected, &actual)
+		r.ElementsMatch(expectedPackages, actualPackages)
 	})
 }
 
@@ -119,7 +130,7 @@ func TestCollectorLargeImageDocker(t *testing.T) {
 		Timeout:           5 * time.Minute,
 		Mode:              config.ModeTarArchive,
 		Runtime:           config.RuntimeDocker,
-		SlowMode:          true,
+		Parallel:          1,
 		ImageLocalTarPath: "egressd.tar",
 	}, ingestClient, mockCache, nil)
 

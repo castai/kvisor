@@ -48,7 +48,7 @@ type Config struct {
 	ResourceIDs       string        `envconfig:"COLLECTOR_RESOURCE_IDS" required:"true"`
 	DockerOptionPath  string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
 	PprofAddr         string        `envconfig:"COLLECTOR_PPROF_ADDR" default:""`
-	SlowMode          bool          `envconfig:"SLOW_MODE" default:"true"`
+	Parallel          int           `envconfig:"COLLECTOR_PARALLEL" default:"1"`
 	// ImageLocalTarPath is used only with ModeTarArchive for local dev.
 	ImageLocalTarPath string
 }
