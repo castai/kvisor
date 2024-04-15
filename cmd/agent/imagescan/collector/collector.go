@@ -10,10 +10,10 @@ import (
 	"time"
 
 	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/imagescan/config"
+	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -23,6 +23,8 @@ import (
 	analyzer "github.com/castai/image-analyzer"
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/imagescan/config"
 )
 
 type ingestClient interface {
@@ -66,12 +68,11 @@ func (c *Collector) Collect(ctx context.Context) error {
 	defer cleanup()
 
 	artifact, err := analyzer.NewArtifact(img, c.log, c.cache, analyzer.ArtifactOption{
-		Offline: true,
-		Slow:    c.cfg.SlowMode, // Slow mode limits concurrency and uses tmp files
+		Offline:  true,
+		Parallel: c.cfg.Parallel,
 		DisabledAnalyzers: []fanalyzer.Type{
 			fanalyzer.TypeLicenseFile,
 			fanalyzer.TypeDpkgLicense,
-			fanalyzer.TypeJSON,
 			fanalyzer.TypeHelm,
 		},
 	})
@@ -152,7 +153,7 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 		return nil, nil, err
 	}
 	if c.cfg.Mode == config.ModeRemote {
-		opts := image.DockerOption{}
+		opts := types.ImageOptions{}
 		if c.cfg.ImagePullSecret != "" {
 			configData, err := config.ReadImagePullSecret(os.DirFS(config.SecretMountPath))
 			if err != nil {
@@ -165,9 +166,11 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 
 			if authKey, auth, ok := findRegistryAuth(cfg, imgRef); ok {
 				c.log.Infof("using registry auth, key=%s", authKey)
-				opts.UserName = auth.Username
-				opts.Password = auth.Password
-				opts.RegistryToken = auth.Token
+				opts.RegistryOptions.Credentials = append(opts.RegistryOptions.Credentials, types.Credential{
+					Username: auth.Username,
+					Password: auth.Password,
+				})
+				opts.RegistryOptions.RegistryToken = auth.Token
 			}
 		} else if c.cfg.DockerOptionPath != "" {
 			optsData, err := os.ReadFile(c.cfg.DockerOptionPath)
@@ -179,8 +182,12 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 			}
 		}
 		if c.cfg.ImageArchitecture != "" && c.cfg.ImageOS != "" {
-			opts.Architecture = c.cfg.ImageArchitecture
-			opts.OS = c.cfg.ImageOS
+			opts.RegistryOptions.Platform = types.Platform{
+				Platform: &v1.Platform{
+					Architecture: c.cfg.ImageArchitecture,
+					OS:           c.cfg.ImageOS,
+				},
+			}
 		}
 		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
 		return img, func() {}, err
