@@ -102,10 +102,24 @@ gcloud container clusters get-credentials $CLUSTER_NAME --zone us-central1-c --p
 ## eBPF
 
 ### Mount tracepoint events
+
+Mount tracepoints if they are not mounted yet.
 ```
 mount -t debugfs none /sys/kernel/debug
 ls /sys/kernel/debug/tracing/events
 ```
+
+
+### Print logs in ebpf
+
+```c
+bpf_printk("called");
+```
+
+```
+cat /sys/kernel/debug/tracing/trace_pipe
+```
+
 
 ## Clickhouse
 

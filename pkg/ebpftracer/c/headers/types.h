@@ -359,7 +359,6 @@ typedef struct args_buffer {
 typedef struct event_data {
     event_context_t context;
     args_buffer_t args_buf;
-    struct task_struct *task;
     u64 param_types;
 } event_data_t;
 
@@ -432,6 +431,7 @@ typedef union scratch {
 } scratch_t;
 
 typedef struct program_data {
+    struct task_struct *task;
     config_entry_t *config;
     task_info_t *task_info;
     proc_info_t *proc_info;

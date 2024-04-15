@@ -42,7 +42,7 @@ type ContainerClient interface {
 type CgroupClient interface {
 	LoadCgroup(id cgroup.ID, path string)
 	CleanupCgroup(cgroup cgroup.ID)
-  IsDefaultHierarchy(uint32) bool
+	IsDefaultHierarchy(uint32) bool
 }
 
 type Config struct {
@@ -58,7 +58,8 @@ type Config struct {
 	EnrichEvent             SubmitForEnrichment
 	MountNamespacePIDStore  *types.PIDsPerNamespace
 	// All PIPs reported from ebpf will be normalized to this PID namespace
-	HomePIDNS proc.NamespaceID
+	HomePIDNS     proc.NamespaceID
+	AllowAnyEvent bool
 }
 
 type SubmitForEnrichment func(*enrichment.EnrichRequest) bool
@@ -182,6 +183,13 @@ func (t *Tracer) Run(ctx context.Context) error {
 
 func (t *Tracer) Events() <-chan *castpb.Event {
 	return t.eventsChan
+}
+
+func (t *Tracer) GetEventName(id events.ID) string {
+	if def, found := t.eventsSet[id]; found {
+		return def.name
+	}
+	return ""
 }
 
 func (t *Tracer) signalReadLoop(ctx context.Context) error {
@@ -643,7 +651,7 @@ func splitCleanupRequests(now time.Time, requests []cgroupCleanupRequest) ([]cgr
 	splitIdx := len(requests)
 	// Requests have to be orderd by cleanup date.
 	for i, r := range requests {
-			if now.Before(r.cleanupAfter) {
+		if now.Before(r.cleanupAfter) {
 			splitIdx = i
 			break
 		}

@@ -5948,6 +5948,10 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			id32Bit: events.Sys32Undefined,
 			name:    "socket_dup",
 			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeSyscallEnter__Internal, required: true},
+					{handle: ProbeSyscallExit__Internal, required: true},
+				},
 				tailCalls: []TailCall{
 					{objs.SysEnterInitTail, objs.SysEnterInit, []uint32{uint32(events.Dup), uint32(events.Dup2), uint32(events.Dup3)}},
 					{objs.SysExitInitTail, objs.SysExitInit, []uint32{uint32(events.Dup), uint32(events.Dup2), uint32(events.Dup3)}},

@@ -4,6 +4,12 @@ package runtime.v1;
 
 option go_package = "github.com/castai/kvisord/api/runtime/v1";
 
+message Any {
+  uint32 event_id = 1;
+  uint32 syscall = 2;
+  bytes data = 3;
+}
+
 message Exec {
   string path = 1;
   repeated string args = 2;

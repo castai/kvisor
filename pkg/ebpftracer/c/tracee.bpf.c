@@ -1202,8 +1202,8 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
     // created cgroup and mount ns executed a binary.
 
     if (p.task_info->container_state == CONTAINER_CREATED) {
-        u32 mntns = get_task_mnt_ns_id(p.event->task);
-        struct task_struct *parent = get_parent_task(p.event->task);
+        u32 mntns = get_task_mnt_ns_id(p.task);
+        struct task_struct *parent = get_parent_task(p.task);
         u32 parent_mntns = get_task_mnt_ns_id(parent);
         if (mntns != parent_mntns) {
             u32 cgroup_id_lsb = p.event->context.task.cgroup_id;
@@ -1347,7 +1347,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
     bpf_map_delete_elem(&task_info_map, &p.event->context.task.host_tid);
 
     bool group_dead = false;
-    struct task_struct *task = p.event->task;
+    struct task_struct *task = p.task;
     struct signal_struct *signal = BPF_CORE_READ(task, signal);
     atomic_t live = BPF_CORE_READ(signal, live);
     // This check could be true for multiple thread exits if the thread count was 0 when the hooks
@@ -1367,7 +1367,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
     if (!traced)
         return 0;
 
-    long exit_code = get_task_exit_code(p.event->task);
+    long exit_code = get_task_exit_code(p.task);
 
     if (oom_killed) {
         if (should_submit(PROCESS_OOM_KILLED, p.event) || p.config->options & OPT_PROCESS_INFO) {
@@ -2194,7 +2194,7 @@ int BPF_KPROBE(trace_commit_creds)
         return 0;
 
     struct cred *new_cred = (struct cred *) PT_REGS_PARM1(ctx);
-    struct cred *old_cred = (struct cred *) get_task_real_cred(p.event->task);
+    struct cred *old_cred = (struct cred *) get_task_real_cred(p.task);
 
     slim_cred_t old_slim = {0};
     slim_cred_t new_slim = {0};
@@ -2562,7 +2562,7 @@ int BPF_KPROBE(trace_security_socket_connect)
     void *args_buf = &p.event->args_buf;
     void *to = (void *) &sys->args.args[0];
 
-    if (is_x86_compat(p.event->task)) // only i386 binaries uses socketcall
+    if (is_x86_compat(p.task)) // only i386 binaries uses socketcall
         to = (void *) sys->args.args[1];
 
     // Save the socket fd, depending on the syscall.
@@ -4647,7 +4647,7 @@ int BPF_KPROBE(trace_do_sigaction)
     unsigned long new_sa_mask, old_sa_mask;
 
     // Extract old signal handler values
-    struct task_struct *task = p.event->task;
+    struct task_struct *task = p.task;
     struct sighand_struct *sighand = BPF_CORE_READ(task, sighand);
     struct k_sigaction *sig_actions = &(sighand->action[0]);
     if (sig > 0 && sig < _NSIG) {
@@ -5197,13 +5197,17 @@ statfunc u64 sizeof_net_event_context_t(void)
     return sizeof(net_event_context_t) - sizeof(net_event_contextmd_t);
 }
 
-statfunc void set_net_task_context(event_data_t *event, net_task_context_t *netctx)
+statfunc void set_net_task_context(program_data_t *p, net_task_context_t *netctx)
 {
-    netctx->task = event->task;
-    netctx->matched_policies = event->context.matched_policies;
-    netctx->syscall = event->context.syscall;
+    netctx->task = p->task;
+    netctx->matched_policies = p->event->context.matched_policies;
+    netctx->syscall = p->event->context.syscall;
     __builtin_memset(&netctx->taskctx, 0, sizeof(task_context_t));
-    __builtin_memcpy(&netctx->taskctx, &event->context.task, sizeof(task_context_t));
+    __builtin_memcpy(&netctx->taskctx, &p->event->context.task, sizeof(task_context_t));
+
+    // Normally this will be set filled inside events_perf_submit but for some events like set_socket_state we
+    // want to prefill full network context.
+    init_task_context(&netctx->taskctx, p->task, p->config->options);
 }
 
 statfunc enum event_id_e net_packet_to_net_event(net_packet_t packet_type)
@@ -5571,7 +5575,7 @@ int BPF_KRETPROBE(trace_ret_sock_alloc_file)
 
     // save context to further create an event when no context exists
     net_task_context_t netctx = {0};
-    set_net_task_context(p.event, &netctx);
+    set_net_task_context(&p, &netctx);
 
     // update inodemap correlating inode <=> task
     bpf_map_update_elem(&inodemap, &inode, &netctx, BPF_ANY);
@@ -5648,7 +5652,7 @@ int BPF_KPROBE(trace_security_sk_clone)
 // task context (inside netctx). This is done when a socket is created, and also
 // when a socket is cloned (e.g. when a SYN packet is received and a new socket
 // is created).
-statfunc u32 update_net_inodemap(struct socket *sock, event_data_t *event)
+statfunc u32 update_net_inodemap(struct socket *sock, program_data_t *p)
 {
     struct file *sock_file = BPF_CORE_READ(sock, file);
     if (!sock_file)
@@ -5660,7 +5664,7 @@ statfunc u32 update_net_inodemap(struct socket *sock, event_data_t *event)
 
     // save updated context to the inode map (inode <=> task ctx relation)
     net_task_context_t netctx = {0};
-    set_net_task_context(event, &netctx);
+    set_net_task_context(p, &netctx);
 
     bpf_map_update_elem(&inodemap, &inode, &netctx, BPF_ANY);
 
@@ -5689,7 +5693,7 @@ int BPF_KPROBE(trace_security_socket_recvmsg)
     if (!should_trace(&p))
         return 0;
 
-    return update_net_inodemap(sock, p.event);
+    return update_net_inodemap(sock, &p);
 }
 
 // Called by send system calls (e.g. sendmsg, sendto, send, ...), or when data
@@ -5714,7 +5718,7 @@ int BPF_KPROBE(trace_security_socket_sendmsg)
     if (!should_trace(&p))
         return 0;
 
-    return update_net_inodemap(sock, p.event);
+    return update_net_inodemap(sock, &p);
 }
 
 //
@@ -6836,7 +6840,6 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
         return 0;
     }
 
-    // TODO: This context is picket from bad socket. Sometimes it reports kernel pid.
     bool mightbecloned = false; // cloned sock structs come from accept()
     u64 inode = BPF_CORE_READ(sk, sk_socket, file, f_inode, i_ino);
     if (inode == 0)
@@ -6862,10 +6865,16 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
             return 0; // old inode wasn't being traced as well
     }
 
-    program_data_t p = {};
-    if (!init_program_data(&p, ctx)) {
+    u32 zero = 0;
+    event_data_t *e = bpf_map_lookup_elem(&net_heap_event, &zero);
+    if (unlikely(e == NULL))
         return 0;
-    }
+
+    program_data_t p = {};
+    p.scratch_idx = 1;
+    p.event = e;
+    if (!init_program_data(&p, ctx))
+        return 0;
     __builtin_memcpy(&p.event->context.task, &netctx->taskctx, sizeof(task_context_t));
 
     tuple_t tuple = {};
@@ -6875,9 +6884,6 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, (void *) &new_state, sizeof(u32), 1);
     save_to_submit_buf(&p.event->args_buf, &tuple, sizeof(tuple), 2);
     events_perf_submit(&p, SOCK_SET_STATE, 0);
-
-    // u64 cgroup_id = bpf_get_current_cgroup_id();
-    // output_debug2(ctx, "done_set", cgroup_id, netctx->taskctx.cgroup_id);
 
     return 0;
 }
