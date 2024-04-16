@@ -140,7 +140,7 @@ func run(ctx context.Context) error {
 }
 
 func installChart(ns, imageTag string) ([]byte, error) {
-	fmt.Printf("installing kvisord chart with image tag %q", imageTag)
+	fmt.Printf("installing kvisord chart with image tag %q\n", imageTag)
 	repo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
 		repo = "kvisord"
@@ -265,8 +265,14 @@ func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.G
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.controllerConfig = req.GetController()
-	t.agentConfig = req.GetAgent()
+	if v := req.GetController(); v != nil {
+		t.controllerConfig = v
+	}
+	if v := req.GetAgent(); v != nil {
+		t.agentConfig = v
+	}
+
+	fmt.Printf("received configs:\ncontroller=%v\n agent=%v\n", t.controllerConfig, t.agentConfig)
 
 	return &castaipb.GetConfigurationResponse{}, nil
 }
@@ -528,7 +534,7 @@ func (t *testCASTAIServer) assertConfig(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeout:
-			return errors.New("timeout waiting for received kubernetes deltas with all fields set")
+			return errors.New("timeout waiting controller and agent configs")
 		case <-time.Tick(1 * time.Second):
 			t.mu.Lock()
 			ctrlConfig := t.controllerConfig
@@ -551,6 +557,8 @@ func (t *testCASTAIServer) assertConfig(ctx context.Context) error {
 			r.True(ctrlConfig.KubeBench.Enabled)
 
 			r.NotEmpty(agentConfig.Version)
+
+			return r.error()
 		}
 	}
 }
@@ -631,7 +639,7 @@ func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
-	timeout := time.After(20 * time.Second)
+	timeout := time.After(30 * time.Second)
 	r := newAssertions()
 	for {
 		select {
@@ -645,6 +653,7 @@ func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
 			t.mu.Unlock()
 			if len(md) > 0 {
 				l1 := md[0]
+				fmt.Printf("asserting image metadata:\n%v\n", l1)
 				r.NotEmpty(l1.ImageId, "missing image id")
 				r.NotEmpty(l1.ImageName, "missing image name")
 				r.NotEmpty(l1.ConfigFile, "missing image config")

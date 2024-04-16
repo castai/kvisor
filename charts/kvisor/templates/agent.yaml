@@ -64,9 +64,6 @@ spec:
           {{- if .Values.castai.apiKey }}
             - "--send-logs-level=WARN"
           {{- end }}
-          {{- if eq (hasKey .Values.agent.extraArgs "ingestor-server-addr") false }}
-            - "--ingestor-server-addr={{ include "kvisor.controller.fullname" . }}.{{ .Release.Namespace}}.svc.cluster.local.:6061"
-          {{- end }}
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
