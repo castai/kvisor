@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"runtime"
 	"time"
 
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
@@ -28,33 +30,64 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/castai/kvisor/pkg/containers"
 )
 
 type Config struct {
-	LogLevel                          string
-	LogRateInterval                   time.Duration
-	LogRateBurst                      int
-	SendLogsLevel                     string
-	Version                           string
-	BTFPath                           string
-	PyroscopeAddr                     string
-	IngestorAddr                      string
-	ContainerdSockPath                string
-	HostCgroupsDir                    string
-	TCPSampleOutputMinDurationSeconds int
-	MetricsHTTPListenPort             int
-	State                             state.Config
-	EBPFEventsPerCPUBuffer            int `validate:"required"`
-	EBPFEventsOutputChanSize          int `validate:"required"`
-	MutedNamespaces                   []string
-	SignatureEngineConfig             signature.SignatureEngineConfig
-	CastaiEnv                         castai.Config
-	EnricherConfig                    EnricherConfig
+	LogLevel                 string
+	LogRateInterval          time.Duration
+	LogRateBurst             int
+	SendLogsLevel            string
+	Version                  string
+	BTFPath                  string
+	PyroscopeAddr            string
+	ContainerdSockPath       string
+	HostCgroupsDir           string
+	MetricsHTTPListenPort    int
+	State                    state.Config
+	EBPFEventsPerCPUBuffer   int `validate:"required"`
+	EBPFEventsOutputChanSize int `validate:"required"`
+	MutedNamespaces          []string
+	SignatureEngineConfig    signature.SignatureEngineConfig
+	CastaiEnv                castai.Config
+	EnricherConfig           EnricherConfig
+}
+
+func (c Config) Proto() *castaipb.AgentConfig {
+	return &castaipb.AgentConfig{
+		LogLevel:              c.LogLevel,
+		LogRateInterval:       c.LogRateInterval.String(),
+		LogRateBurst:          int32(c.LogRateBurst),
+		SendLogsLevel:         c.SendLogsLevel,
+		Version:               c.Version,
+		BtfPath:               c.BTFPath,
+		PyroscopeAddr:         c.PyroscopeAddr,
+		ContainerdSockPath:    c.ContainerdSockPath,
+		HostCgroupsDir:        c.HostCgroupsDir,
+		MetricsHttpListenPort: int32(c.MetricsHTTPListenPort),
+		State: &castaipb.AgentStateControllerConfig{
+			EventsSinkQueueSize:          int32(c.State.EventsSinkQueueSize),
+			ContainerStatsScrapeInterval: c.State.ContainerStatsScrapeInterval.String(),
+		},
+		EbpfEventsPerCpuBuffer:   int32(c.EBPFEventsPerCPUBuffer),
+		EbpfEventsOutputChanSize: int32(c.EBPFEventsOutputChanSize),
+		MutedNamespaces:          c.MutedNamespaces,
+		SignatureEngineConfig: &castaipb.SignatureEngineConfig{
+			InputChanSize:               int32(c.SignatureEngineConfig.InputChanSize),
+			OutputChanSize:              int32(c.SignatureEngineConfig.OutputChanSize),
+			TtyDetectedSignatureEnabled: c.SignatureEngineConfig.DefaultSignatureConfig.TTYDetectedSignatureEnabled,
+		},
+		CastaiEnv: &castaipb.CastaiConfig{
+			ClusterId:   c.CastaiEnv.ClusterID,
+			ApiGrpcAddr: c.CastaiEnv.APIGrpcAddr,
+			Insecure:    c.CastaiEnv.Insecure,
+		},
+		EnricherConfig: &castaipb.EnricherConfig{
+			EnableFileHashEnricher: c.EnricherConfig.EnableFileHashEnricher,
+		},
+	}
 }
 
 type EnricherConfig struct {
@@ -75,34 +108,15 @@ type App struct {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	// TODO: Enable compression and test perf impact.
-	ingestorClientRetryPolicy := `{
-            "methodConfig": [{
-                "waitForReady": true,
-                "retryPolicy": {
-                    "MaxAttempts": 4,
-                    "InitialBackoff": ".01s",
-                    "MaxBackoff": ".01s",
-                    "BackoffMultiplier": 1.0,
-                    "RetryableStatusCodes": [ "UNAVAILABLE" ]
-                }
-            }]
-        }`
-
 	cfg := a.cfg
 	castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.CastaiEnv)
 	if err != nil {
 		return fmt.Errorf("setting up castai api client: %w", err)
 	}
-	apiConn, err := grpc.Dial(
-		a.cfg.IngestorAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(ingestorClientRetryPolicy),
-	)
-	if err != nil {
-		return fmt.Errorf("api server dial: %w", err)
+
+	if err := a.syncRemoteConfig(ctx, castaiClient); err != nil {
+		return fmt.Errorf("sync remote config: %w", err)
 	}
-	defer apiConn.Close()
 
 	logCfg := &logging.Config{
 		Level:     logging.MustParseLevel(a.cfg.LogLevel),
@@ -274,6 +288,28 @@ func (a *App) Run(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
+	}
+}
+
+func (a *App) syncRemoteConfig(ctx context.Context, client *castai.Client) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		_, err := client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{
+			CurrentConfig: &castaipb.GetConfigurationRequest_Agent{
+				Agent: a.cfg.Proto(),
+			},
+		})
+		if err != nil {
+			slog.Error(fmt.Sprintf("fetching initial config: %v", err))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		slog.Info("initial config synced")
+		return nil
 	}
 }
 

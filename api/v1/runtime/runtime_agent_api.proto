@@ -23,13 +23,137 @@ service RuntimeSecurityAgentAPI {
   rpc KubeLinterReportIngest(KubeLinterReport) returns (KubeLinterReportIngestResponse) {}
 }
 
-message GetConfigurationRequest {}
+message GetConfigurationRequest {
+  oneof current_config {
+    ControllerConfig controller = 1;
+    AgentConfig agent = 2;
+  }
+}
 
 message GetConfigurationResponse {
   Configuration config = 1;
 }
 
 message Configuration {}
+
+message ControllerConfig {
+  string log_level = 1;
+  string log_rate_interval = 2;
+  int32 log_rate_burst = 3;
+
+  string version = 4;
+  string chart_version = 5;
+
+  string pod_namespace = 6;
+  string pod_name = 7;
+
+  int32 http_listen_port = 8;
+  int32 metrics_http_listen_port = 9;
+
+  string pyroscope_addr = 10;
+
+  CastaiControllerConfig castai_controller = 11;
+  CastaiConfig castai_env = 12;
+  ImageScanConfig image_scan = 13;
+  LinterConfig linter = 14;
+  KubeBenchConfig kube_bench = 15;
+  DeltaConfig delta = 16;
+  JobsCleanupConfig jobs_cleanup = 17;
+}
+
+message CastaiControllerConfig {
+  string remote_config_sync_duration = 1;
+}
+
+message ImageScanConfig {
+  bool enabled = 1;
+  string castai_secret_ref_name = 2;
+  string scan_interval = 3;
+  string scan_timeout = 4;
+  int64 max_concurrent_scans = 5;
+  string scan_job_image_pull_policy = 6;
+  string mode = 7;
+  string cpu_request = 8;
+  string cpu_limit = 9;
+  string memory_request = 10;
+  string memory_limit = 11;
+  bool profile_enabled = 12;
+  bool phlare_enabled = 13;
+  string private_registry_pull_secret = 14;
+  string service_account = 15;
+  string init_delay = 16;
+  string image_scan_blobs_cache_url = 17;
+}
+
+message LinterConfig {
+  bool enabled = 1;
+  string scan_interval = 2;
+  string init_delay = 3;
+}
+
+message KubeBenchConfig {
+  bool enabled = 1;
+  bool force = 2;
+  string scan_interval = 3;
+  string job_image_pull_policy = 4;
+  string cloud_provider = 5;
+  string job_namespace = 6;
+}
+
+message DeltaConfig {
+  bool enabled = 1;
+  string interval = 2;
+  string initial_deltay = 3;
+  string send_timeout = 4;
+  bool use_compression = 5;
+}
+
+message JobsCleanupConfig {
+  string cleanup_interval = 1;
+  string cleanup_job_age = 2;
+  string namespace = 3;
+}
+
+message AgentConfig {
+  string log_level = 1;
+  string log_rate_interval = 2;
+  int32 log_rate_burst = 3;
+  string send_logs_level = 4;
+  string version = 5;
+  string btf_path = 6;
+  string pyroscope_addr = 7;
+  string containerd_sock_path = 9;
+  string host_cgroups_dir = 10;
+  int32 metrics_http_listen_port = 12;
+  AgentStateControllerConfig state = 13;
+  int32 ebpf_events_per_cpu_buffer = 14;
+  int32 ebpf_events_output_chan_size = 15;
+  repeated string muted_namespaces = 16;
+  SignatureEngineConfig signature_engine_config = 17;
+  CastaiConfig castai_env = 18;
+  EnricherConfig enricher_config = 19;
+}
+
+message AgentStateControllerConfig {
+  int32 events_sink_queue_size = 1;
+  string container_stats_scrape_interval = 2;
+}
+
+message SignatureEngineConfig {
+  int32 input_chan_size = 1;
+  int32 output_chan_size = 2;
+  bool tty_detected_signature_enabled = 3;
+}
+
+message CastaiConfig {
+  string cluster_id = 1;
+  string api_grpc_addr = 2;
+  bool insecure = 3;
+}
+
+message EnricherConfig {
+  bool enable_file_hash_enricher = 1;
+}
 
 enum EventType {
   UNKNOWN = 0;

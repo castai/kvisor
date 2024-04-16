@@ -27,7 +27,6 @@ var (
 
 	sendLogLevel                 = pflag.String("send-logs-level", "", "send logs level")
 	containerdSockPath           = pflag.String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
-	ingestorAddr                 = pflag.String("ingestor-server-addr", "kvisord-server.kvisord.svc.cluster.local.:6061", "Ingestor server grpc API address")
 	eventsQueueSize              = pflag.Int("events-queue-size", 65536, "Events batch size")
 	metricsHTTPListenPort        = pflag.Int("metrics-http-listen-port", 6060, "metrics http listen port")
 	pyroscopeAddr                = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
@@ -35,7 +34,6 @@ var (
 	containerStatsScrapeInterval = pflag.Duration("container-stats-scrape-interval", 60*time.Second, "Container resources scrape interval")
 
 	btfPath                  = pflag.String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
-	bpfTCPSampleSeconds      = pflag.Int("bpf-net-sample-seconds", 0, "Output tcp samples each x seconds. Zero value means disabled.")
 	ebpfEventsPerCPUBuffer   = pflag.Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 	ebpfEventsOutputChanSize = pflag.Int("ebpf-events-output-queue-size", 10000, "Ebpf user spaces output channel size")
 
@@ -48,7 +46,6 @@ var (
 	ttyDetectionSignatureEnabled = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
 
 	castaiServerInsecure = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
-
 
 	kubeconfigPath = pflag.String("kubeconfig", "", "Kubeconfig file")
 )
@@ -84,18 +81,16 @@ func NewCommand(version string) *cobra.Command {
 			}
 
 			if err := app.New(&app.Config{
-				LogLevel:                          *logLevel,
-				LogRateInterval:                   *logRateInterval,
-				LogRateBurst:                      *logRateBurst,
-				SendLogsLevel:                     *sendLogLevel,
-				Version:                           version,
-				BTFPath:                           *btfPath,
-				PyroscopeAddr:                     *pyroscopeAddr,
-				IngestorAddr:                      *ingestorAddr,
-				ContainerdSockPath:                *containerdSockPath,
-				HostCgroupsDir:                    *hostCgroupsDir,
-				TCPSampleOutputMinDurationSeconds: *bpfTCPSampleSeconds,
-				MetricsHTTPListenPort:             *metricsHTTPListenPort,
+				LogLevel:              *logLevel,
+				LogRateInterval:       *logRateInterval,
+				LogRateBurst:          *logRateBurst,
+				SendLogsLevel:         *sendLogLevel,
+				Version:               version,
+				BTFPath:               *btfPath,
+				PyroscopeAddr:         *pyroscopeAddr,
+				ContainerdSockPath:    *containerdSockPath,
+				HostCgroupsDir:        *hostCgroupsDir,
+				MetricsHTTPListenPort: *metricsHTTPListenPort,
 				State: state.Config{
 					EventsSinkQueueSize:          *eventsQueueSize,
 					ContainerStatsScrapeInterval: *containerStatsScrapeInterval,

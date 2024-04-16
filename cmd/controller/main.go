@@ -35,6 +35,8 @@ var (
 	logRateInterval = pflag.Duration("log-rate-iterval", 100*time.Millisecond, "Log rate limit interval")
 	logRateBurst    = pflag.Int("log-rate-burst", 100, "Log rate burst")
 
+	chartVersion = pflag.String("chart-version", "", "Helm chart version")
+
 	pyroscopeAddr = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
@@ -105,13 +107,14 @@ func main() {
 	}
 
 	podNs := os.Getenv("POD_NAMESPACE")
-	appInstance := app.New(&app.Config{
+	appInstance := app.New(app.Config{
 		LogLevel:              *logLevel,
 		LogRateInterval:       *logRateInterval,
 		LogRateBurst:          *logRateBurst,
 		PodName:               os.Getenv("POD_NAME"),
 		PodNamespace:          podNs,
 		Version:               Version,
+		ChartVersion:          *chartVersion,
 		PyroscopeAddr:         *pyroscopeAddr,
 		MetricsHTTPListenPort: *metricsHTTPListenPort,
 		HTTPListenPort:        *serverHTTPListenPort,
