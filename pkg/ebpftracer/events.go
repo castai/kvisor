@@ -780,9 +780,9 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 			dependencies: dependencies{
 				tailCalls: []TailCall{
-					{objs.SysEnterTails, objs.SyscallExecve, []uint32{uint32(events.Execve)}},
 					{objs.SysEnterInitTail, objs.SysEnterInit, []uint32{uint32(events.Execve)}},
 					{objs.SysEnterSubmitTail, objs.SysEnterSubmit, []uint32{uint32(events.Execve)}},
+					{objs.SysEnterTails, objs.SyscallExecve, []uint32{uint32(events.Execve)}},
 					{objs.SysExitInitTail, objs.SysExitInit, []uint32{uint32(events.Execve)}},
 					{objs.SysExitSubmitTail, objs.SysExitSubmit, []uint32{uint32(events.Execve)}},
 				},

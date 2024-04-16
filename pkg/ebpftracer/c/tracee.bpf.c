@@ -602,7 +602,7 @@ int tracepoint__sched__sched_process_fork(struct bpf_raw_tracepoint_args *ctx)
 
     // Submit the event
 
-    if (should_submit(SCHED_PROCESS_FORK, p.event) || p.config->options & OPT_PROCESS_INFO) {
+    if (should_submit(SCHED_PROCESS_FORK, p.event)) {
         // Parent information.
         u64 parent_start_time = get_task_start_time(parent);
         int parent_tid = get_task_host_pid(parent);
@@ -1236,8 +1236,7 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
 
     proc_info->follow_in_scopes = p.event->context.matched_policies; // follow task for matched scopes
 
-    if (!should_submit(SCHED_PROCESS_EXEC, p.event) &&
-        (p.config->options & OPT_PROCESS_INFO) != OPT_PROCESS_INFO) {
+    if (!should_submit(SCHED_PROCESS_EXEC, p.event)) {
         return 0;
     }
 
@@ -1370,7 +1369,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
     long exit_code = get_task_exit_code(p.task);
 
     if (oom_killed) {
-        if (should_submit(PROCESS_OOM_KILLED, p.event) || p.config->options & OPT_PROCESS_INFO) {
+        if (should_submit(PROCESS_OOM_KILLED, p.event)) {
             save_to_submit_buf(&p.event->args_buf, (void *) &exit_code, sizeof(long), 0);
             save_to_submit_buf(&p.event->args_buf, (void *) &group_dead, sizeof(bool), 1);
 
@@ -1380,7 +1379,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
         return 0;
     }
 
-    if (should_submit(SCHED_PROCESS_EXIT, p.event) || p.config->options & OPT_PROCESS_INFO) {
+    if (should_submit(SCHED_PROCESS_EXIT, p.event)) {
         save_to_submit_buf(&p.event->args_buf, (void *) &exit_code, sizeof(long), 0);
         save_to_submit_buf(&p.event->args_buf, (void *) &group_dead, sizeof(bool), 1);
 
@@ -2985,20 +2984,19 @@ do_file_io_operation(struct pt_regs *ctx, u32 event_id, u32 tail_call_id, bool i
         // missed entry or not traced
         return 0;
     }
-    del_args(event_id);
+    // We shouldn't call del_args(event_id) here as the arguments are also used by the tail call
 
     program_data_t p = {};
     if (!init_program_data(&p, ctx)) {
-        return 0;
+        goto out;
     }
 
     if (!should_trace(&p)) {
-        return 0;
+        goto out;
     }
 
     if (!should_submit_io_event(event_id, &p)) {
-        bpf_tail_call(ctx, &prog_array, tail_call_id);
-        return 0;
+        goto tail;
     }
 
     loff_t start_pos;
@@ -3033,7 +3031,10 @@ do_file_io_operation(struct pt_regs *ctx, u32 event_id, u32 tail_call_id, bool i
     // Submit io event
     events_perf_submit(&p, event_id, PT_REGS_RC(ctx));
 
+tail:
     bpf_tail_call(ctx, &prog_array, tail_call_id);
+out:
+    del_args(event_id);
 
     return 0;
 }
