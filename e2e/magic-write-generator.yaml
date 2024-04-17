@@ -23,9 +23,9 @@ spec:
             - -c
             - |-
               sleep 2
-              for i in $(seq 0 100); do
+              for i in $(seq 0 10000); do
                 TEMP=$(mktemp)
-                cp /bin/false $TEMP
+                cat /bin/false | head > $TEMP
                 sleep 1
                 echo $i $TEMP
               done
