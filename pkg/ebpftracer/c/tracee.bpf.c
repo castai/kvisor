@@ -2965,7 +2965,7 @@ statfunc int is_elf(io_data_t io_data, u8 header[FILE_MAGIC_HDR_SIZE])
         return false;
     }
 
-    return header[0] == 127 && header[1] == 69 && header[2] == 76 && header[3] == 70;
+    return header[0] == 0x7F && header[1] == 'E' && header[2] == 'L' && header[3] == 'F';
 }
 
 /** do_file_io_operation - generic file IO (read and write) event creator.
