@@ -9,6 +9,7 @@ import (
 	_ "net/http/pprof" //nolint:gosec // TODO: Fix this, should not use default pprof.
 	"time"
 
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/cmd/controller/state"
 	"github.com/castai/kvisor/cmd/controller/state/delta"
@@ -37,7 +38,8 @@ type Config struct {
 	LogRateBurst    int
 
 	// Built binary version.
-	Version string
+	Version      string
+	ChartVersion string
 
 	// Current running pod metadata.
 	PodNamespace string `validate:"required"`
@@ -59,7 +61,74 @@ type Config struct {
 	JobsCleanup      state.JobsCleanupConfig
 }
 
-func New(cfg *Config, clientset kubernetes.Interface) *App {
+func (c Config) Proto() *castaipb.ControllerConfig {
+	return &castaipb.ControllerConfig{
+		LogLevel:              c.LogLevel,
+		LogRateInterval:       c.LogRateInterval.String(),
+		LogRateBurst:          int32(c.LogRateBurst),
+		Version:               c.Version,
+		ChartVersion:          c.ChartVersion,
+		PodNamespace:          c.PodNamespace,
+		PodName:               c.PodName,
+		HttpListenPort:        int32(c.HTTPListenPort),
+		MetricsHttpListenPort: int32(c.MetricsHTTPListenPort),
+		PyroscopeAddr:         c.PyroscopeAddr,
+		CastaiController: &castaipb.CastaiControllerConfig{
+			RemoteConfigSyncDuration: c.CastaiController.RemoteConfigSyncDuration.String(),
+		},
+		CastaiEnv: &castaipb.CastaiConfig{
+			ClusterId:   c.CastaiEnv.ClusterID,
+			ApiGrpcAddr: c.CastaiEnv.APIGrpcAddr,
+			Insecure:    c.CastaiEnv.Insecure,
+		},
+		ImageScan: &castaipb.ImageScanConfig{
+			Enabled:                   c.ImageScan.Enabled,
+			CastaiSecretRefName:       c.ImageScan.CastaiSecretRefName,
+			ScanInterval:              c.ImageScan.ScanInterval.String(),
+			ScanTimeout:               c.ImageScan.ScanTimeout.String(),
+			MaxConcurrentScans:        c.ImageScan.MaxConcurrentScans,
+			ScanJobImagePullPolicy:    c.ImageScan.ScanJobImagePullPolicy,
+			Mode:                      c.ImageScan.Mode,
+			CpuRequest:                c.ImageScan.CPURequest,
+			CpuLimit:                  c.ImageScan.CPULimit,
+			MemoryRequest:             c.ImageScan.MemoryRequest,
+			MemoryLimit:               c.ImageScan.MemoryLimit,
+			ProfileEnabled:            c.ImageScan.ProfileEnabled,
+			PhlareEnabled:             c.ImageScan.PhlareEnabled,
+			PrivateRegistryPullSecret: c.ImageScan.PrivateRegistryPullSecret,
+			ServiceAccount:            c.ImageScan.ServiceAccount,
+			InitDelay:                 c.ImageScan.InitDelay.String(),
+			ImageScanBlobsCacheUrl:    c.ImageScan.ImageScanBlobsCacheURL,
+		},
+		Linter: &castaipb.LinterConfig{
+			Enabled:      c.Linter.Enabled,
+			ScanInterval: c.Linter.ScanInterval.String(),
+			InitDelay:    c.Linter.InitDelay.String(),
+		},
+		KubeBench: &castaipb.KubeBenchConfig{
+			Enabled:            c.KubeBench.Enabled,
+			Force:              c.KubeBench.Force,
+			ScanInterval:       c.KubeBench.ScanInterval.String(),
+			JobImagePullPolicy: c.KubeBench.JobImagePullPolicy,
+			CloudProvider:      c.KubeBench.CloudProvider,
+			JobNamespace:       c.KubeBench.JobNamespace,
+		},
+		Delta: &castaipb.DeltaConfig{
+			Enabled:        c.Delta.Enabled,
+			Interval:       c.Delta.Interval.String(),
+			InitialDeltay:  c.Delta.InitialDeltay.String(),
+			SendTimeout:    c.Delta.SendTimeout.String(),
+			UseCompression: c.Delta.UseCompression,
+		},
+		JobsCleanup: &castaipb.JobsCleanupConfig{
+			CleanupInterval: c.JobsCleanup.CleanupInterval.String(),
+			CleanupJobAge:   c.JobsCleanup.CleanupJobAge.String(),
+			Namespace:       c.JobsCleanup.Namespace,
+		},
+	}
+}
+
+func New(cfg Config, clientset kubernetes.Interface) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
@@ -67,7 +136,7 @@ func New(cfg *Config, clientset kubernetes.Interface) *App {
 }
 
 type App struct {
-	cfg *Config
+	cfg Config
 
 	kubeClient kubernetes.Interface
 }
@@ -119,7 +188,7 @@ func (a *App) Run(ctx context.Context) error {
 		return kubeClient.Run(ctx)
 	})
 	errg.Go(func() error {
-		castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, kubeClient, castaiClient)
+		castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, cfg.Proto(), kubeClient, castaiClient)
 		return castaiCtrl.Run(ctx)
 	})
 

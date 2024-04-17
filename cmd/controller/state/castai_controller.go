@@ -18,12 +18,7 @@ type CastaiConfig struct {
 	RemoteConfigSyncDuration time.Duration `validate:"required"`
 }
 
-func NewCastaiController(
-	log *logging.Logger,
-	cfg CastaiConfig,
-	kubeClient *kube.Client,
-	castaiClient *castai.Client,
-) *CastaiController {
+func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appProtoConfig *castaipb.ControllerConfig, kubeClient *kube.Client, castaiClient *castai.Client) *CastaiController {
 	if cfg.RemoteConfigSyncDuration == 0 {
 		cfg.RemoteConfigSyncDuration = 5 * time.Minute
 	}
@@ -33,6 +28,7 @@ func NewCastaiController(
 		log:                            log.WithField("component", "castai_ctrl"),
 		kubeClient:                     kubeClient,
 		cfg:                            cfg,
+		appProtoConfig:                 appProtoConfig,
 		castaiClient:                   castaiClient,
 		remoteConfigFetchErrors:        &atomic.Int64{},
 		remoteConfigInitialSyncTimeout: 1 * time.Minute,
@@ -43,12 +39,13 @@ func NewCastaiController(
 }
 
 type CastaiController struct {
-	id           string
-	enabled      bool
-	log          *logging.Logger
-	kubeClient   *kube.Client
-	cfg          CastaiConfig
-	castaiClient *castai.Client
+	id             string
+	enabled        bool
+	log            *logging.Logger
+	kubeClient     *kube.Client
+	cfg            CastaiConfig
+	castaiClient   *castai.Client
+	appProtoConfig *castaipb.ControllerConfig
 
 	remoteConfigFetchErrors        *atomic.Int64
 	removeConfigMaxFailures        int64
@@ -67,6 +64,7 @@ func (c *CastaiController) Run(ctx context.Context) error {
 
 	ctxCtx, cancel := context.WithTimeout(ctx, c.remoteConfigInitialSyncTimeout)
 	defer cancel()
+
 	if err := c.fetchInitialRemoteConfig(ctxCtx); err != nil {
 		return fmt.Errorf("fetching initial config: %w", err)
 	}
@@ -79,8 +77,8 @@ func (c *CastaiController) Run(ctx context.Context) error {
 	return errg.Wait()
 }
 
-func (c *CastaiController) fetchConfig(ctx context.Context) (*castaipb.Configuration, error) {
-	resp, err := c.castaiClient.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{})
+func (c *CastaiController) fetchConfig(ctx context.Context, req *castaipb.GetConfigurationRequest) (*castaipb.Configuration, error) {
+	resp, err := c.castaiClient.GRPC.GetConfiguration(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +96,11 @@ func (c *CastaiController) fetchInitialRemoteConfig(ctx context.Context) error {
 		default:
 		}
 
-		cfg, err := c.fetchConfig(ctx)
+		cfg, err := c.fetchConfig(ctx, &castaipb.GetConfigurationRequest{
+			CurrentConfig: &castaipb.GetConfigurationRequest_Controller{
+				Controller: c.appProtoConfig,
+			},
+		})
 		if err != nil {
 			c.log.Errorf("fetching initial config: %v", err)
 			sleep(ctx, c.remoteConfigRetryWaitDuration)
@@ -119,7 +121,7 @@ func (c *CastaiController) runRemoteConfigSyncLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			cfg, err := c.fetchConfig(ctx)
+			cfg, err := c.fetchConfig(ctx, &castaipb.GetConfigurationRequest{})
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return err

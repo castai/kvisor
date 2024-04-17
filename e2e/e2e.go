@@ -16,6 +16,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/samber/lo"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
@@ -82,6 +83,11 @@ func run(ctx context.Context) error {
 	}
 	fmt.Printf("installed chart:\n%s\n", out)
 
+	fmt.Println("🙏waiting for config")
+	if err := srv.assertConfig(ctx); err != nil {
+		return fmt.Errorf("assert config: %w", err)
+	}
+
 	fmt.Println("🙏waiting for events")
 	if err := srv.assertEvents(ctx); err != nil {
 		return fmt.Errorf("assert events: %w", err)
@@ -134,7 +140,7 @@ func run(ctx context.Context) error {
 }
 
 func installChart(ns, imageTag string) ([]byte, error) {
-	fmt.Printf("installing kvisord chart with image tag %q", imageTag)
+	fmt.Printf("installing kvisord chart with image tag %q\n", imageTag)
 	repo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
 		repo = "kvisord"
@@ -192,6 +198,8 @@ type testCASTAIServer struct {
 	imageMetadatas    []*castaipb.ImageMetadata
 	kubeBenchReports  []*castaipb.KubeBenchReport
 	kubeLinterReports []*castaipb.KubeLinterReport
+	controllerConfig  *castaipb.ControllerConfig
+	agentConfig       *castaipb.AgentConfig
 }
 
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -234,7 +242,7 @@ func (t *testCASTAIServer) ContainerStatsWriteStream(server castaipb.RuntimeSecu
 	}
 }
 
-func (t *testCASTAIServer) GetConfiguration(ctx context.Context, request *castaipb.GetConfigurationRequest) (*castaipb.GetConfigurationResponse, error) {
+func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.GetConfigurationRequest) (*castaipb.GetConfigurationResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, errors.New("no metadata")
@@ -254,6 +262,18 @@ func (t *testCASTAIServer) GetConfiguration(ctx context.Context, request *castai
 	if cluster[0] != clusterID {
 		return nil, fmt.Errorf("invalid cluster ID %s", cluster[0])
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if v := req.GetController(); v != nil {
+		t.controllerConfig = v
+	}
+	if v := req.GetAgent(); v != nil {
+		t.agentConfig = v
+	}
+
+	fmt.Printf("received configs:\ncontroller=%v\n agent=%v\n", t.controllerConfig, t.agentConfig)
+
 	return &castaipb.GetConfigurationResponse{}, nil
 }
 
@@ -304,6 +324,9 @@ func (t *testCASTAIServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentA
 
 func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
+
+	r := newAssertions()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -314,11 +337,10 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 			t.mu.Lock()
 			logs := t.logs
 			t.mu.Unlock()
+
 			if len(logs) > 0 {
 				l1 := logs[0]
-				if l1.Msg == "" {
-					return errors.New("missing log msg")
-				}
+				r.NotEmpty(l1.Msg)
 
 				for _, l := range logs {
 					if strings.Contains(l.Msg, "panic") {
@@ -326,7 +348,7 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 					}
 				}
 
-				return nil
+				return r.error()
 			}
 		}
 	}
@@ -502,6 +524,45 @@ func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurity
 	}
 }
 
+func (t *testCASTAIServer) assertConfig(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	r := newAssertions()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting controller and agent configs")
+		case <-time.Tick(1 * time.Second):
+			t.mu.Lock()
+			ctrlConfig := t.controllerConfig
+			agentConfig := t.agentConfig
+			t.mu.Unlock()
+
+			if ctrlConfig == nil {
+				fmt.Println("no controller config yet")
+				continue
+			}
+			if agentConfig == nil {
+				fmt.Println("no agent config yet")
+				continue
+			}
+			r.NotEmpty(ctrlConfig.Version)
+			r.NotEmpty(ctrlConfig.ChartVersion)
+			r.True(ctrlConfig.ImageScan.Enabled)
+			r.True(ctrlConfig.Linter.Enabled)
+			r.True(ctrlConfig.Delta.Enabled)
+			r.True(ctrlConfig.KubeBench.Enabled)
+
+			r.NotEmpty(agentConfig.Version)
+
+			return r.error()
+		}
+	}
+}
+
 func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 	currentOffset := 0
 	timeout := time.After(10 * time.Second)
@@ -578,7 +639,8 @@ func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
-	timeout := time.After(20 * time.Second)
+	timeout := time.After(30 * time.Second)
+	r := newAssertions()
 	for {
 		select {
 		case <-ctx.Done():
@@ -591,22 +653,13 @@ func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
 			t.mu.Unlock()
 			if len(md) > 0 {
 				l1 := md[0]
-				if l1.ImageId == "" {
-					return errors.New("missing image id")
-				}
-				if l1.ImageName == "" {
-					return errors.New("missing image name")
-				}
-				if len(l1.ConfigFile) == 0 {
-					return errors.New("missing config file")
-				}
-				if len(l1.Packages) == 0 {
-					return errors.New("missing packages")
-				}
-				if len(l1.Architecture) == 0 {
-					return errors.New("missing arch")
-				}
-				return nil
+				fmt.Printf("asserting image metadata:\n%v\n", l1)
+				r.NotEmpty(l1.ImageId, "missing image id")
+				r.NotEmpty(l1.ImageName, "missing image name")
+				r.NotEmpty(l1.ConfigFile, "missing image config")
+				r.NotEmpty(l1.Packages, "missing image packages")
+				r.NotEmpty(l1.Architecture, "missing arch")
+				return r.error()
 			}
 		}
 	}
@@ -664,5 +717,39 @@ func (t *testCASTAIServer) assertKubeLinter(ctx context.Context) error {
 				return nil
 			}
 		}
+	}
+}
+
+type testingT struct {
+	failed bool
+	errors []error
+}
+
+func (t *testingT) Errorf(format string, args ...interface{}) {
+	t.errors = append(t.errors, fmt.Errorf(format, args...))
+}
+
+func (t *testingT) FailNow() {
+	t.failed = true
+}
+
+type assertions struct {
+	*assert.Assertions
+	t *testingT
+}
+
+func (a *assertions) error() error {
+	if a.t.failed {
+		return errors.Join(a.t.errors...)
+	}
+	return nil
+}
+
+func newAssertions() *assertions {
+	t := &testingT{}
+	r := assert.New(t)
+	return &assertions{
+		Assertions: r,
+		t:          t,
 	}
 }

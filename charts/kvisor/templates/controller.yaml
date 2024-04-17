@@ -49,6 +49,7 @@ spec:
             - "--http-listen-port={{.Values.controller.httpListenPort}}"
             - "--castai-secret-ref-name={{ include "kvisor.castaiSecretName" . }}"
             - "--image-scan-blobs-cache-url=http://{{ include "kvisor.controller.fullname" . }}.{{.Release.Namespace}}"
+            - "--chart-version={{.Chart.Version}}"
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
