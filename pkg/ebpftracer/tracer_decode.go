@@ -149,6 +149,8 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		event.EventType = castpb.EventType_EVENT_DNS
 
 		dnsEvent, err := decodeDNS(args.Payload, t.dnsPacketParser)
+		dnsEvent.FlowDirection = parseFlowDirection(eventCtx.Retval)
+
 		// If we cannot parse an DNS packet, we abord
 		if err != nil {
 			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: event.GetEventType().String()}).Inc()
@@ -363,6 +365,22 @@ func (t *Tracer) IsCgroupMuted(cgroup uint64) bool {
 	err := t.module.objects.IgnoredCgroupsMap.Lookup(cgroup, &value)
 
 	return !errors.Is(err, ebpf.ErrKeyNotExist) && value > 0
+}
+
+func parseFlowDirection(reVal int64) castpb.FlowDirection {
+	if reVal&types.FlagPacketIngress > 0 && reVal&types.FlagPacketEgress > 0 {
+		// something is broken if both ingress and egress flags are set
+		return castpb.FlowDirection_FLOW_UNKNOWN
+	}
+
+	if reVal&types.FlagPacketIngress > 0 {
+		return castpb.FlowDirection_FLOW_INGRESS
+	}
+	if reVal&types.FlagPacketEgress > 0 {
+		return castpb.FlowDirection_FLOW_EGRESS
+	}
+
+	return castpb.FlowDirection_FLOW_UNKNOWN
 }
 
 var errDNSMessageNotComplete = errors.New("received dns packet not complete")

@@ -44,9 +44,16 @@ message Tuple {
   uint32 dst_port = 4;
 }
 
+enum FlowDirection {
+  FLOW_UNKNOWN = 0;
+  FLOW_INGRESS = 1;
+  FLOW_EGRESS = 2;
+}
+
 message DNS {
   string DNSQuestionDomain = 1;
   repeated DNSAnswers answers = 2;
+  FlowDirection flow_direction = 3;
 }
 
 message DNSAnswers {

@@ -33,3 +33,11 @@ func NewPIDsPerNamespaceCache(size, maxBucketSize uint32) (*PIDsPerNamespace, er
 
 	return (*PIDsPerNamespace)(result), nil
 }
+
+type FlowDirection uint8
+
+const (
+	FlowDirectionUnknown FlowDirection = iota
+	FlowDirectionIncoming
+	FlowDirectionOutgoing
+)
