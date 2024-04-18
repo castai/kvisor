@@ -20,6 +20,8 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/davecgh/go-spew/spew"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func TestTracer(t *testing.T) {
@@ -111,13 +113,13 @@ func TestTracer(t *testing.T) {
 		Events: []*ebpftracer.EventPolicy{
 			//{ID: events.Open},
 			//{ID: events.Write},
-			{ID: events.SchedProcessExec},
+			// {ID: events.SchedProcessExec},
 			// {ID: events.TtyOpen},
-			{ID: events.SecuritySocketConnect},
-			{ID: events.SocketDup},
-			{ID: events.Dup},
-			{ID: events.Dup2},
-			{ID: events.Dup3},
+			// {ID: events.SecuritySocketConnect},
+			// {ID: events.SocketDup},
+			// {ID: events.Dup},
+			// {ID: events.Dup2},
+			// {ID: events.Dup3},
 			//{ID: events.CgroupRmdir},
 			// {ID: events.TrackSyscallStats},
 			{ID: events.NetPacketDNSBase},
@@ -131,10 +133,10 @@ func TestTracer(t *testing.T) {
 			//{ID: events.CgroupRmdir},
 			// {ID: events.ProcessOomKilled},
 			//{ID: events.MagicWrite},
-			{ID: events.SockSetState},
-			{ID: events.Execve},
+			// {ID: events.SockSetState},
+			// {ID: events.Execve},
 			//{ID: events.Write},
-			{ID: events.Connect},
+			// {ID: events.Connect},
 		},
 	}
 
@@ -162,6 +164,16 @@ func TestTracer(t *testing.T) {
 	}
 }
 
+func protoToString(msg protoreflect.ProtoMessage) string {
+	data, err := protojson.Marshal(msg)
+	if err != nil {
+		// fallback to simply print without nice json formatting
+		return fmt.Sprint(msg)
+	}
+
+	return string(data)
+}
+
 func printEvent(tr *ebpftracer.Tracer, event *castpb.Event) {
 	fmt.Printf("cgroup=%d, pid=%d, proc=%s, event=%s, ", event.CgroupId, event.HostPid, event.ProcessName, event.EventType)
 	switch event.EventType {
@@ -171,12 +183,12 @@ func printEvent(tr *ebpftracer.Tracer, event *castpb.Event) {
 	case castpb.EventType_EVENT_FILE_CHANGE:
 		fmt.Print(event.GetFile().GetPath())
 	case castpb.EventType_EVENT_DNS:
-		fmt.Print(event.GetDns())
+		fmt.Print(protoToString(event.GetDns()))
 	case castpb.EventType_EVENT_MAGIC_WRITE:
 		fmt.Print(event.GetFile().GetPath())
 	case castpb.EventType_EVENT_SIGNATURE:
 		signatureEvent := event.GetSignature()
-		fmt.Printf("signature event: %s %s", signatureEvent.Metadata.Id.String(), signatureEvent.Finding)
+		fmt.Printf("signature event: %s %s", signatureEvent.Metadata.Id.String(), protoToString(signatureEvent.Finding))
 	case castpb.EventType_EVENT_ANY:
 		fmt.Printf("ebpf_event=%s syscall=%d data=%s", tr.GetEventName(events.ID(event.GetAny().EventId)), event.GetAny().Syscall, string(event.GetAny().GetData()))
 	}

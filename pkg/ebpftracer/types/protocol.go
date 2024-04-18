@@ -199,3 +199,20 @@ func (e *RawDebugEvent) String() string {
 	//}
 	return fmt.Sprintf(tmpl, args...)
 }
+
+const (
+	FlagFamilyIPv4 int64 = (1 << 0)
+	FlagFamilyIPv6       = (1 << 1)
+	// HTTP Direction (request/response) Flag
+	FlagProtoHTTPReq  = (1 << 2)
+	FlagProtoHTTPResp = (1 << 3)
+	// Packet Direction (ingress/egress) Flag
+	FlagPacketIngress = (1 << 4)
+	FlagPacketEgress  = (1 << 5)
+	// Flows (begin/end) Flags per Protocol
+	FlagFlowTCPBegin     = (1 << 6)  // syn+ack flag or first flow packet
+	FlagFlowTCPEnd       = (1 << 7)  // fin flag or last flow packet
+	FlagFlowUDPBegin     = (1 << 8)  // first flow packet
+	FlagFlowUDPEnd       = (1 << 9)  // last flow packet
+	FlagFlowSrcInitiator = (1 << 10) // src is the flow initiator
+)

@@ -11,6 +11,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func main() {
@@ -91,7 +92,12 @@ func (m *MockServer) EventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_E
 		if err != nil {
 			return err
 		}
-		m.log.Debugf("event: %v", event)
+		json, err := protojson.Marshal(event)
+		if err != nil {
+			m.log.Debugf("cannot parse event: %v\n%v", err, event)
+			continue
+		}
+		m.log.Debugf("event:\n%s", string(json))
 	}
 }
 
