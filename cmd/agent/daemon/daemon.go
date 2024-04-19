@@ -40,7 +40,7 @@ var (
 	signatureEngineInputEventChanSize  = pflag.Int("signature-engine-input-queue-size", 1000, "Input queue size for the signature engine.")
 	signatureEngineOutputEventChanSize = pflag.Int("signature-engine-output-queue-size", 1000, "Output queue size for the signature engine.")
 
-	mutedNamespaces = pflag.StringArray("mute-namespace", []string{"kube-system", "calico"}, "List of namespaces to ignore tracing events for. To mute multiple namespaces, provide this flag multiple times.")
+	mutedNamespaces = pflag.StringArray("mute-namespace", []string{"kube-system", "calico", "calico-system"}, "List of namespaces to ignore tracing events for. To mute multiple namespaces, provide this flag multiple times.")
 
 	fileHashEnrichedEnabled      = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
 	ttyDetectionSignatureEnabled = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
