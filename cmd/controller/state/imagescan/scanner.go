@@ -240,8 +240,8 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 
 	tolerations := []corev1.Toleration{
 		{
-			Effect:   corev1.TaintEffectNoSchedule,
 			Operator: corev1.TolerationOpExists,
+			Key:    "scheduling.cast.ai/spot",
 		},
 	}
 
