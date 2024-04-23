@@ -67,6 +67,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: CASTAI_API_GRPC_ADDR
+              value: {{ if .Values.mockServer.enabled -}}
+                       {{ (printf "%s:8443" (include "kvisor.castaiMockServer.service" .)) | quote }}
+                     {{- else -}}
+                       {{ required "castai.grpcAddr must be provided" .Values.castai.grpcAddr | quote }}
+                     {{- end }}
+            - name: CASTAI_CLUSTER_ID
+              value: {{ required "castai.clusterID must be provided" .Values.castai.clusterID | quote }}
           envFrom:
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}

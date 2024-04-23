@@ -38,6 +38,8 @@ func TestScanner(t *testing.T) {
 			PhlareEnabled:       true,
 			Mode:                "",
 			CastaiSecretRefName: "castai-kvisor",
+			CastaiGRPCAddress:   "api.cast.ai:443",
+			CastaiClusterID:     "abcd",
 		}, ns)
 		scanner.jobCheckInterval = 1 * time.Microsecond
 
@@ -120,7 +122,7 @@ func TestScanner(t *testing.T) {
 						Tolerations: []corev1.Toleration{
 							{
 								Operator: corev1.TolerationOpExists,
-								Key:   "scheduling.cast.ai/spot",
+								Key:      "scheduling.cast.ai/spot",
 							},
 						},
 						AutomountServiceAccountToken: lo.ToPtr(false),
@@ -179,6 +181,14 @@ func TestScanner(t *testing.T) {
 									{
 										Name:  "COLLECTOR_IMAGE_OS",
 										Value: "linux",
+									},
+									{
+										Name:  "CASTAI_API_GRPC_ADDR",
+										Value: "api.cast.ai:443",
+									},
+									{
+										Name:  "CASTAI_CLUSTER_ID",
+										Value: "abcd",
 									},
 									{
 										Name:  "COLLECTOR_PPROF_ADDR",

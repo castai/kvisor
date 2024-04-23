@@ -42,6 +42,8 @@ type Config struct {
 	PrivateRegistryPullSecret string
 	ServiceAccount            string
 	InitDelay                 time.Duration
+	CastaiGRPCAddress         string
+	CastaiClusterID           string
 	CastaiGrpcInsecure        bool
 	ImageScanBlobsCacheURL    string
 }
