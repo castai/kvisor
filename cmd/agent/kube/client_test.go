@@ -57,7 +57,7 @@ func TestFindWorkload(t *testing.T) {
 		title             string
 		kubernetesObjects []kubernetesObject
 		uidToSearch       types.UID
-		expectedWorkload  workload
+		expectedWorkload  Workload
 		expectedError     error
 	}
 
@@ -101,11 +101,11 @@ func TestFindWorkload(t *testing.T) {
 					},
 				},
 			},
-			expectedWorkload: workload{
-				uid:        deploymentUID,
+			expectedWorkload: Workload{
+				UID:        deploymentUID,
 				apiVersion: appsv1.SchemeGroupVersion.String(),
 				kind:       deploymentKind,
-				name:       deploymentName,
+				Name:       deploymentName,
 			},
 		},
 		{
@@ -143,11 +143,11 @@ func TestFindWorkload(t *testing.T) {
 					},
 				},
 			},
-			expectedWorkload: workload{
+			expectedWorkload: Workload{
 				apiVersion: appsv1.SchemeGroupVersion.String(),
 				kind:       statefulsetKind,
-				uid:        statefulsetUID,
-				name:       statefulsetName,
+				UID:        statefulsetUID,
+				Name:       statefulsetName,
 			},
 		},
 		{
@@ -185,11 +185,11 @@ func TestFindWorkload(t *testing.T) {
 					},
 				},
 			},
-			expectedWorkload: workload{
+			expectedWorkload: Workload{
 				apiVersion: appsv1.SchemeGroupVersion.String(),
 				kind:       daemonsetKind,
-				name:       daemonsetName,
-				uid:        daemonsetUID,
+				Name:       daemonsetName,
+				UID:        daemonsetUID,
 			},
 		},
 		{
@@ -248,8 +248,8 @@ func TestFindWorkload(t *testing.T) {
 				r.NoError(err)
 				r.Equal(test.expectedWorkload.apiVersion, w.apiVersion)
 				r.Equal(test.expectedWorkload.kind, w.kind)
-				r.Equal(test.expectedWorkload.uid, w.uid)
-				r.Equal(test.expectedWorkload.name, w.name)
+				r.Equal(test.expectedWorkload.UID, w.UID)
+				r.Equal(test.expectedWorkload.Name, w.Name)
 			}
 		})
 	}
