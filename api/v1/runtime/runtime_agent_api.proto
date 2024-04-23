@@ -188,6 +188,7 @@ message Event {
   string container_id = 9;
   uint64 cgroup_id = 10;
   uint32 host_pid = 11;
+  string workload_uid = 12;
 
   oneof data {
     v1.Exec exec = 21;

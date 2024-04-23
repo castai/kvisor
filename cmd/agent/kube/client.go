@@ -23,11 +23,11 @@ type kubernetesObject interface {
 	metav1.Object
 }
 
-type workload struct {
-	uid        types.UID
+type Workload struct {
+	UID        types.UID
 	apiVersion string
 	kind       string
-	name       string
+	Name       string
 }
 
 type kubernetesObjectWithDelete struct {
@@ -48,7 +48,7 @@ type Client struct {
 	nodeName string
 
 	objects           map[types.UID]kubernetesObjectWithDelete
-	objectWorkloadMap map[types.UID]workload
+	objectWorkloadMap map[types.UID]Workload
 	mu                sync.RWMutex
 
 	gcInterval time.Duration
@@ -60,7 +60,7 @@ func NewClient(log *logging.Logger, client kubernetes.Interface, nodeName string
 		client: client,
 
 		objects:           make(map[types.UID]kubernetesObjectWithDelete),
-		objectWorkloadMap: make(map[types.UID]workload),
+		objectWorkloadMap: make(map[types.UID]Workload),
 
 		gcInterval: 1 * time.Minute,
 
@@ -200,7 +200,7 @@ var (
 	ErrNoWorkloadFound = errors.New("no workload found")
 )
 
-func (c *Client) findWorkload(id types.UID) (*workload, error) {
+func (c *Client) findWorkload(id types.UID) (*Workload, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -220,11 +220,11 @@ func (c *Client) findWorkload(id types.UID) (*workload, error) {
 		gvk := obj.obj.GetObjectKind().GroupVersionKind()
 
 		if isWorkloadType(gvk.Group, gvk.Kind) {
-			return &workload{
-				uid:        obj.obj.GetUID(),
+			return &Workload{
+				UID:        obj.obj.GetUID(),
 				apiVersion: gvk.GroupVersion().String(),
 				kind:       gvk.Kind,
-				name:       obj.obj.GetName(),
+				Name:       obj.obj.GetName(),
 			}, nil
 		}
 
@@ -244,11 +244,11 @@ func (c *Client) findWorkload(id types.UID) (*workload, error) {
 			return nil, ErrNoWorkloadFound
 		}
 
-		return &workload{
-			uid:        lastCheckedObj.GetUID(),
+		return &Workload{
+			UID:        lastCheckedObj.GetUID(),
 			apiVersion: gvk.GroupVersion().String(),
 			kind:       gvk.Kind,
-			name:       lastCheckedObj.GetName(),
+			Name:       lastCheckedObj.GetName(),
 		}, nil
 	}
 
@@ -264,7 +264,7 @@ func isWorkloadType(group, kind string) bool {
 	return false
 }
 
-func getOwnerIDsOrWorkload(obj kubernetesObject) ([]types.UID, *workload) {
+func getOwnerIDsOrWorkload(obj kubernetesObject) ([]types.UID, *Workload) {
 	owners := obj.GetOwnerReferences()
 	var ownerIDs []types.UID
 
@@ -274,11 +274,11 @@ func getOwnerIDsOrWorkload(obj kubernetesObject) ([]types.UID, *workload) {
 			continue
 		}
 		if isWorkloadType(groupVersion.Group, or.Kind) {
-			return nil, &workload{
-				uid:        or.UID,
+			return nil, &Workload{
+				UID:        or.UID,
 				apiVersion: or.APIVersion,
 				kind:       or.Kind,
-				name:       or.Name,
+				Name:       or.Name,
 			}
 		}
 
@@ -288,11 +288,11 @@ func getOwnerIDsOrWorkload(obj kubernetesObject) ([]types.UID, *workload) {
 	return ownerIDs, nil
 }
 
-func (c *Client) GetWorkloadFor(id types.UID) (string, error) {
+func (c *Client) GetWorkloadFor(id types.UID) (Workload, error) {
 	workload, found := c.objectWorkloadMap[id]
 	if found {
-		return workload.name, nil
+		return workload, nil
 	}
 
-	return "", ErrNoWorkloadFound
+	return Workload{}, ErrNoWorkloadFound
 }

@@ -43,7 +43,8 @@ func (c *Controller) enrichEvent(e *castpb.Event) {
 		return
 	}
 
-	e.WorkloadName = workload
+	e.WorkloadName = workload.Name
+	e.WorkloadUid = string(workload.UID)
 }
 
 func (c *Controller) handleEvent(e *castpb.Event) {
