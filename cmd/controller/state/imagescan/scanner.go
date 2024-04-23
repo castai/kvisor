@@ -203,6 +203,14 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Name:  "COLLECTOR_IMAGE_OS",
 			Value: params.Os,
 		},
+		{
+			Name:  "CASTAI_API_GRPC_ADDR",
+			Value: s.cfg.CastaiGRPCAddress,
+		},
+		{
+			Name:  "CASTAI_CLUSTER_ID",
+			Value: s.cfg.CastaiClusterID,
+		},
 	}
 
 	if s.cfg.CastaiGrpcInsecure {
@@ -241,7 +249,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	tolerations := []corev1.Toleration{
 		{
 			Operator: corev1.TolerationOpExists,
-			Key:    "scheduling.cast.ai/spot",
+			Key:      "scheduling.cast.ai/spot",
 		},
 	}
 

@@ -85,10 +85,13 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	castaiGRPCAddress := os.Getenv("CASTAI_API_GRPC_ADDR")
+	castaiClusterID := os.Getenv("CASTAI_CLUSTER_ID")
+
 	castaiClientCfg := castai.Config{
 		APIKey:      os.Getenv("CASTAI_API_KEY"),
-		APIGrpcAddr: os.Getenv("CASTAI_API_GRPC_ADDR"),
-		ClusterID:   os.Getenv("CASTAI_CLUSTER_ID"),
+		APIGrpcAddr: castaiGRPCAddress,
+		ClusterID:   castaiClusterID,
 		Insecure:    *castaiServerInsecure,
 	}
 
@@ -139,6 +142,8 @@ func main() {
 			PrivateRegistryPullSecret: *imagePrivateRegistryPullSecret,
 			ServiceAccount:            *imageScanServiceAccount,
 			InitDelay:                 *imageScanInitDelay,
+			CastaiGRPCAddress:         castaiGRPCAddress,
+			CastaiClusterID:           castaiClusterID,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
 		},
