@@ -34,12 +34,9 @@ type SOCKS5Detected struct {
 }
 
 func NewSOCKS5DetectedSignature(cfg SOCKS5DetectionSignatureConfig) (Signature, error) {
-	var cacheSize uint32
-
-	if cacheSize <= 0 {
+	var cacheSize uint32 = DefaultSOCKS5SignatureCacheSize
+	if cfg.CacheSize > 0 {
 		cacheSize = DefaultSOCKS5SignatureCacheSize
-	} else {
-		cacheSize = cfg.CacheSize
 	}
 
 	cache, err := freelru.NewSynced[proc.PID, SOCKS5DetectionState](cacheSize, func(u uint32) uint32 {

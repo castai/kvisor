@@ -3,7 +3,6 @@ package ebpftracer
 import (
 	"time"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -23,7 +22,7 @@ type PreEventFilter func(ctx *types.EventContext) error
 type PreEventFilterGenerator func() PreEventFilter
 
 // EventFilter allows for filtering of events before they are send to the server
-type EventFilter func(event *castpb.Event) error
+type EventFilter func(event *types.Event) error
 
 // EventFilterGenerator Produces an event filter for each call
 type EventFilterGenerator func() EventFilter
@@ -87,7 +86,7 @@ func (c *cgroupEventPolicy) allowPre(ctx *types.EventContext) error {
 	return nil
 }
 
-func (c *cgroupEventPolicy) allow(event *castpb.Event) error {
+func (c *cgroupEventPolicy) allow(event *types.Event) error {
 	if c.filter != nil {
 		return c.filter(event)
 	}

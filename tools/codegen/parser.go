@@ -277,6 +277,8 @@ func getParamType(paramType string) ArgType {
 		return timespecT
 	case "tuple":
 		return tupleT
+	case "proto.DNS":
+		return protoDNST
 	default:
 		// Default to pointer (printed as hex) for unsupported types
 		return pointerT

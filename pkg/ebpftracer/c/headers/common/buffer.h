@@ -61,6 +61,35 @@ statfunc int save_to_submit_buf(args_buffer_t *buf, void *ptr, u32 size, u8 inde
     return 0;
 }
 
+statfunc int save_to_submit_buf_kernel(args_buffer_t *buf, void *ptr, u32 size, u8 index)
+{
+    // Data saved to submit buf: [index][ ... buffer[size] ... ]
+
+    if (size == 0)
+        return 0;
+
+    barrier();
+    if (buf->offset > ARGS_BUF_SIZE - 1)
+        return 0;
+
+    // Save argument index
+    buf->args[buf->offset] = index;
+
+    // Satisfy verifier
+    if (buf->offset > ARGS_BUF_SIZE - (MAX_ELEMENT_SIZE + 1))
+        return 0;
+
+    // Read into buffer
+    if (bpf_probe_read_kernel(&(buf->args[buf->offset + 1]), size, ptr) == 0) {
+        // We update offset only if all writes were successful
+        buf->offset += size + 1;
+        buf->argnum++;
+        return 1;
+    }
+
+    return 0;
+}
+
 statfunc int save_bytes_to_buf(args_buffer_t *buf, void *ptr, u32 size, u8 index)
 {
     // Data saved to submit buf: [index][size][ ... bytes ... ]
@@ -473,6 +502,34 @@ statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
                  : [size] "r"(size), [max_size] "i"(MAX_EVENT_SIZE));
 
     return bpf_perf_event_output(p->ctx, &events, BPF_F_CURRENT_CPU, p->event, size);
+}
+
+statfunc event_data_t *init_netflows_event_data()
+{
+    int zero = 0;
+    event_data_t *e = bpf_map_lookup_elem(&netflows_data_map, &zero);
+    if (unlikely(e == NULL))
+        return NULL;
+
+    e->args_buf.argnum = 0;
+    e->args_buf.offset = 0;
+    return e;
+}
+
+statfunc int net_events_perf_submit(void *ctx, u32 id, event_data_t *event)
+{
+    event->context.eventid = id;
+
+    u32 size = sizeof(event_context_t) + sizeof(u8) +
+               event->args_buf.offset; // context + argnum + arg buffer size
+
+    // inline bounds check to force compiler to use the register of size
+    asm volatile("if %[size] < %[max_size] goto +1;\n"
+                 "%[size] = %[max_size];\n"
+                 :
+                 : [size] "r"(size), [max_size] "i"(MAX_EVENT_SIZE));
+
+    return bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, size);
 }
 
 statfunc int signal_perf_submit(void *ctx, controlplane_signal_t *sig, u32 id)

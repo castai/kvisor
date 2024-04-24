@@ -108,11 +108,11 @@ func (c *Controller) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			case e := <-c.tracer.Events():
-				c.handleEvent(e)
+				c.handleEbpfEvent(e)
 			case e := <-c.signatureEngine.Events():
-				c.handleEvent(e)
+				c.eventsExportQueue <- e
 			case e := <-c.enrichmentService.Events():
-				c.handleEvent(e)
+				c.eventsExportQueue <- e
 			}
 		}
 	})

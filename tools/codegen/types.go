@@ -34,6 +34,7 @@ const (
 	u8T
 	timespecT
 	tupleT
+	protoDNST
 )
 
 // These types don't match the ones defined in the ebpf code since they are not being used by syscalls arguments.
@@ -67,6 +68,7 @@ var argTypeNames = map[ArgType]string{
 	tupleT:     "tupleT",
 	argsArrT:   "argsArrT",
 	boolT:      "boolT",
+	protoDNST:  "protoDNST",
 }
 
 func (a ArgType) String() string {

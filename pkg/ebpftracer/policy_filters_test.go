@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,13 +12,13 @@ func TestFilterAnd(t *testing.T) {
 	errFilterFail := errors.New("")
 
 	filterPass := GlobalEventFilterGenerator(
-		func(event *castpb.Event) error {
+		func(event *types.Event) error {
 			return FilterPass
 		},
 	)
 
 	filterFail := GlobalEventFilterGenerator(
-		func(event *castpb.Event) error {
+		func(event *types.Event) error {
 			return errFilterFail
 		},
 	)
@@ -56,7 +56,7 @@ func TestFilterAnd(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			combinedFilters := FilterAnd(testCase.filters...)()
 
-			actual := combinedFilters(&castpb.Event{})
+			actual := combinedFilters(&types.Event{})
 
 			require.Equal(t, testCase.expected, actual)
 		})

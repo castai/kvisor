@@ -4177,7 +4177,7 @@ type NetPacketICMPv6Args struct {
 type NetPacketDNSBaseArgs struct {
   internalArgs
 
-  Payload []byte
+  Payload *ProtoDNS
 }
 
 type NetPacketDNSArgs struct {
@@ -4280,4 +4280,13 @@ type SignalCgroupRmdirArgs struct {
   CgroupId uint64
   CgroupPath string
   HierarchyId uint32
+}
+
+type NetFlowBaseArgs struct {
+  internalArgs
+
+  Proto uint8
+  Tuple AddrTuple
+  Bytes uint64
+  Packets uint64
 }

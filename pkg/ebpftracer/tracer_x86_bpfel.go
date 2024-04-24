@@ -12,7 +12,10 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type tracerGlobalConfigT struct{ PidNsId uint64 }
+type tracerGlobalConfigT struct {
+	PidNsId                         uint64
+	FlowSampleSubmitIntervalSeconds uint64
+}
 
 // loadTracer returns the embedded CollectionSpec for tracer.
 func loadTracer() (*ebpf.CollectionSpec, error) {
@@ -237,6 +240,7 @@ type tracerMapSpecs struct {
 	NetHeapEvent            *ebpf.MapSpec `ebpf:"net_heap_event"`
 	NetconfigMap            *ebpf.MapSpec `ebpf:"netconfig_map"`
 	Netflowmap              *ebpf.MapSpec `ebpf:"netflowmap"`
+	NetflowsDataMap         *ebpf.MapSpec `ebpf:"netflows_data_map"`
 	NewModuleMap            *ebpf.MapSpec `ebpf:"new_module_map"`
 	OomInfo                 *ebpf.MapSpec `ebpf:"oom_info"`
 	PidFilter               *ebpf.MapSpec `ebpf:"pid_filter"`
@@ -322,6 +326,7 @@ type tracerMaps struct {
 	NetHeapEvent            *ebpf.Map `ebpf:"net_heap_event"`
 	NetconfigMap            *ebpf.Map `ebpf:"netconfig_map"`
 	Netflowmap              *ebpf.Map `ebpf:"netflowmap"`
+	NetflowsDataMap         *ebpf.Map `ebpf:"netflows_data_map"`
 	NewModuleMap            *ebpf.Map `ebpf:"new_module_map"`
 	OomInfo                 *ebpf.Map `ebpf:"oom_info"`
 	PidFilter               *ebpf.Map `ebpf:"pid_filter"`
@@ -390,6 +395,7 @@ func (m *tracerMaps) Close() error {
 		m.NetHeapEvent,
 		m.NetconfigMap,
 		m.Netflowmap,
+		m.NetflowsDataMap,
 		m.NewModuleMap,
 		m.OomInfo,
 		m.PidFilter,

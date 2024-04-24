@@ -5,17 +5,14 @@ import (
 	"runtime/debug"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/metrics"
 )
 
 type EnrichRequest struct {
-	Event        *castpb.Event
-	EventContext *types.EventContext
-	Args         types.Args
-	Container    *containers.Container
+	Event     *castpb.Event
+	EbpfEvent *types.Event
 }
 
 type EventEnricher interface {

@@ -7118,7 +7118,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 			sets: []string{"network_events"},
 			params: []argMeta{
-				{Type: "bytes", Name: "payload"},
+				{Type: "proto.DNS", Name: "payload"},
 			},
 		},
 		events.NetPacketDNS: {
@@ -7347,6 +7347,24 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "u64", Name: "cgroup_id"},
 				{Type: "const char*", Name: "cgroup_path"},
 				{Type: "u32", Name: "hierarchy_id"},
+			},
+		},
+		events.NetFlowBase: {
+			ID:       events.NetFlowBase,
+			id32Bit:  events.Sys32Undefined,
+			name:     "net_packet_flow_base",
+			internal: true,
+			dependencies: dependencies{
+				ids: []events.ID{
+					events.NetPacketBase,
+				},
+			},
+			sets: []string{"network_events"},
+			params: []argMeta{
+				{Type: "u8", Name: "proto"},
+				{Type: "tuple", Name: "tuple"},
+				{Type: "u64", Name: "bytes"},
+				{Type: "u64", Name: "packets"},
 			},
 		},
 	}

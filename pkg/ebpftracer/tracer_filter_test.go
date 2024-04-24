@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"testing"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
@@ -27,7 +25,7 @@ func TestAllowedByPolicyShouldBePerCgroup(t *testing.T) {
 
 		// we need to capture the value of counter, as otherwise it will be the same for each invocation
 		return func(c int) EventFilter {
-			return func(event *castpb.Event) error {
+			return func(event *types.Event) error {
 				callerMap[c] = struct{}{}
 				return FilterPass
 			}
@@ -44,18 +42,10 @@ func TestAllowedByPolicyShouldBePerCgroup(t *testing.T) {
 		},
 	})
 
-	err := tracer.allowedByPolicy(events.TestEvent, 22, &castpb.Event{
-		EventType:   castpb.EventType_UNKNOWN,
-		Timestamp:   0,
-		ProcessName: "test",
-	})
+	err := tracer.allowedByPolicy(events.TestEvent, 22, &types.Event{})
 	r.NoError(err)
 
-	err = tracer.allowedByPolicy(events.TestEvent, 66, &castpb.Event{
-		EventType:   castpb.EventType_UNKNOWN,
-		Timestamp:   0,
-		ProcessName: "test",
-	})
+	err = tracer.allowedByPolicy(events.TestEvent, 66, &types.Event{})
 
 	r.NoError(err)
 	r.Len(callerMap, 2)
@@ -162,9 +152,6 @@ func buildTestTracer(options ...tracerOption) *Tracer {
 	tracer := &Tracer{
 		log: log,
 		cfg: Config{
-			EnrichEvent: func(er *enrichment.EnrichRequest) bool {
-				return false
-			},
 			ContainerClient: &MockContainerClient{
 				ContainerGetter: func(ctx context.Context, cg uint64) (*containers.Container, error) {
 					return &containers.Container{
@@ -178,7 +165,7 @@ func buildTestTracer(options ...tracerOption) *Tracer {
 			},
 			CgroupClient: &MockCgroupClient{},
 		},
-		eventsChan:        make(chan *castpb.Event, 10),
+		eventsChan:        make(chan *types.Event, 10),
 		eventPoliciesMap:  map[events.ID]*EventPolicy{},
 		cgroupEventPolicy: map[uint64]map[events.ID]*cgroupEventPolicy{},
 		dnsPacketParser:   &layers.DNS{},

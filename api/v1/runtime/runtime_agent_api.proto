@@ -132,6 +132,7 @@ message AgentConfig {
   SignatureEngineConfig signature_engine_config = 17;
   CastaiConfig castai_env = 18;
   EnricherConfig enricher_config = 19;
+  NetflowConfig netflow = 20;
 }
 
 message AgentStateControllerConfig {
@@ -159,6 +160,11 @@ message CastaiConfig {
 
 message EnricherConfig {
   bool enable_file_hash_enricher = 1;
+}
+
+message NetflowConfig {
+  bool enabled = 1;
+  uint64 sample_submit_interval_seconds = 2;
 }
 
 enum EventType {

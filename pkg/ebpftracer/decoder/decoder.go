@@ -11,9 +11,13 @@ import (
 	"net/netip"
 	"strings"
 
+	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/net/packet"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
 type Decoder struct {
@@ -654,6 +658,63 @@ func (decoder *Decoder) ReadAddrTuple() (types.AddrTuple, error) {
 		Src: addrPort(family, srcAddr, srcPort),
 		Dst: addrPort(family, dstAddr, dstPort),
 	}, nil
+}
+
+var errDNSMessageNotComplete = errors.New("received dns packet not complete")
+
+var dnsPacketParser = &layers.DNS{}
+
+func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
+
+	data, err := decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketDNSBase))
+	if err != nil {
+		return nil, err
+	}
+
+	payload, subProtocol, err := packet.ExtractPayload(data)
+	if err != nil {
+		return nil, err
+	}
+
+	if subProtocol == packet.SubProtocolTCP {
+		if len(payload) < 2 {
+			return nil, errDNSMessageNotComplete
+		}
+
+		// DNS over TCP prefixes the DNS message with a two octet length field. If the payload is not as big as this specified length,
+		// then we cannot parse the packet, as part of the DNS message will be send in a later one.
+		// For more information see https://datatracker.ietf.org/doc/html/rfc1035.html#section-4.2.2
+		length := int(binary.BigEndian.Uint16(payload[:2]))
+		if len(payload)+2 < length {
+			return nil, errDNSMessageNotComplete
+		}
+		payload = payload[2:]
+	}
+	if err := dnsPacketParser.DecodeFromBytes(payload, gopacket.NilDecodeFeedback); err != nil {
+		return nil, err
+	}
+
+	pbDNS := &castpb.DNS{
+		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
+	}
+
+	for _, v := range dnsPacketParser.Questions {
+		pbDNS.DNSQuestionDomain = string(v.Name)
+		break
+	}
+
+	for i, v := range dnsPacketParser.Answers {
+		pbDNS.Answers[i] = &castpb.DNSAnswers{
+			Name:  string(v.Name),
+			Type:  uint32(v.Type),
+			Class: uint32(v.Class),
+			Ttl:   v.TTL,
+			Ip:    v.IP,
+			Cname: string(v.CNAME),
+		}
+	}
+
+	return pbDNS, nil
 }
 
 func addrPort(family uint16, ip [16]byte, port uint16) netip.AddrPort {

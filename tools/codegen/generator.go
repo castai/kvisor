@@ -216,6 +216,8 @@ func toGolangType(t ArgType) (string, error) {
 		return "float64", nil
 	case tupleT:
 		return "AddrTuple", nil
+	case protoDNST:
+		return "*ProtoDNS", nil
 	}
 
 	return "", fmt.Errorf("unknown event type: %d", t)
@@ -413,6 +415,9 @@ func getDecoderCode(definition eventDefinition, p param) (string, error) {
 %s`, paramName, generateDecoderErrorCheck(definition)), nil
 	case tupleT:
 		return fmt.Sprintf(`  result.%s, err = decoder.ReadAddrTuple()
+%s`, paramName, generateDecoderErrorCheck(definition)), nil
+	case protoDNST:
+		return fmt.Sprintf(`  result.%s, err = decoder.ReadProtoDNS()
 %s`, paramName, generateDecoderErrorCheck(definition)), nil
 	}
 

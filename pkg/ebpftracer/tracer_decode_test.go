@@ -23,12 +23,12 @@ var (
 	errFilterFail = errors.New("")
 
 	eventFilterFail EventFilterGenerator = GlobalEventFilterGenerator(
-		func(event *castpb.Event) error {
+		func(event *types.Event) error {
 			return errFilterFail
 		},
 	)
 	eventFilterPass EventFilterGenerator = GlobalEventFilterGenerator(
-		func(event *castpb.Event) error {
+		func(event *types.Event) error {
 			return FilterPass
 		},
 	)

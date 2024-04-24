@@ -19618,7 +19618,7 @@ func ParseNetPacketDNSBaseArgs(decoder *Decoder) (types.NetPacketDNSBaseArgs, er
 
     switch currArg {
     case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketDNSBase))
+      result.Payload, err = decoder.ReadProtoDNS()
       if err != nil {
         return types.NetPacketDNSBaseArgs{}, err
       }
@@ -20079,6 +20079,49 @@ func ParseSignalCgroupRmdirArgs(decoder *Decoder) (types.SignalCgroupRmdirArgs, 
       err = decoder.DecodeUint32(&result.HierarchyId)
       if err != nil {
         return types.SignalCgroupRmdirArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
+func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
+  var result types.NetFlowBaseArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.NetFlowBaseArgs{}, err
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.NetFlowBaseArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      err = decoder.DecodeUint8(&result.Proto)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 1:
+      result.Tuple, err = decoder.ReadAddrTuple()
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 2:
+      err = decoder.DecodeUint64(&result.Bytes)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 3:
+      err = decoder.DecodeUint64(&result.Packets)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
       }
     }
   }
@@ -21205,6 +21248,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseSignalCgroupMkdirArgs(decoder)
   case events.SignalCgroupRmdir:
     return ParseSignalCgroupRmdirArgs(decoder)
+  case events.NetFlowBase:
+    return ParseNetFlowBaseArgs(decoder)
   }
 
   return nil, ErrUnknownArgsType

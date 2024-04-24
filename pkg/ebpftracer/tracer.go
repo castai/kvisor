@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
@@ -46,23 +44,20 @@ type CgroupClient interface {
 }
 
 type Config struct {
-	BTFPath                 string
-	EventsPerCPUBuffer      int
-	EventsOutputChanSize    int
-	GCInterval              time.Duration
-	DefaultCgroupsVersion   string `validate:"required,oneof=V1 V2"`
-	ActualDestinationGetter ActualDestinationGetter
-	DebugEnabled            bool
-	ContainerClient         ContainerClient
-	CgroupClient            CgroupClient
-	EnrichEvent             SubmitForEnrichment
-	MountNamespacePIDStore  *types.PIDsPerNamespace
+	BTFPath                string
+	EventsPerCPUBuffer     int
+	EventsOutputChanSize   int
+	GCInterval             time.Duration
+	DefaultCgroupsVersion  string `validate:"required,oneof=V1 V2"`
+	DebugEnabled           bool
+	ContainerClient        ContainerClient
+	CgroupClient           CgroupClient
+	MountNamespacePIDStore *types.PIDsPerNamespace
 	// All PIPs reported from ebpf will be normalized to this PID namespace
-	HomePIDNS     proc.NamespaceID
-	AllowAnyEvent bool
+	HomePIDNS                          proc.NamespaceID
+	AllowAnyEvent                      bool
+	NetflowSampleSubmitIntervalSeconds uint64
 }
-
-type SubmitForEnrichment func(*enrichment.EnrichRequest) bool
 
 type cgroupCleanupRequest struct {
 	cgroupID     cgroup.ID
@@ -84,7 +79,7 @@ type Tracer struct {
 	cgroupEventPolicy map[cgroup.ID]map[events.ID]*cgroupEventPolicy
 	signatureEventMap map[events.ID]struct{}
 
-	eventsChan chan *castpb.Event
+	eventsChan chan *types.Event
 
 	removedCgroupsMu sync.Mutex
 	removedCgroups   map[uint64]struct{}
@@ -130,7 +125,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cfg:                  cfg,
 		module:               m,
 		bootTime:             uint64(bootTime),
-		eventsChan:           make(chan *castpb.Event, cfg.EventsOutputChanSize),
+		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
 		removedCgroups:       map[uint64]struct{}{},
 		eventPoliciesMap:     map[events.ID]*EventPolicy{},
 		cgroupEventPolicy:    map[uint64]map[events.ID]*cgroupEventPolicy{},
@@ -144,7 +139,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 }
 
 func (t *Tracer) Load() error {
-	if err := t.module.load(t.cfg.HomePIDNS); err != nil {
+	if err := t.module.load(t.cfg.HomePIDNS, t.cfg.NetflowSampleSubmitIntervalSeconds); err != nil {
 		return fmt.Errorf("loading ebpf module: %w", err)
 	}
 	t.eventsSet = newEventsDefinitionSet(t.module.objects)
@@ -181,7 +176,7 @@ func (t *Tracer) Run(ctx context.Context) error {
 	return errg.Wait()
 }
 
-func (t *Tracer) Events() <-chan *castpb.Event {
+func (t *Tracer) Events() <-chan *types.Event {
 	return t.eventsChan
 }
 
@@ -298,12 +293,6 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 		t.eventPoliciesMap[event.ID] = event
 	}
 
-	requiredSignatureEvents := policy.SignatureEngine.TargetEvents()
-
-	for _, eventID := range requiredSignatureEvents {
-		t.signatureEventMap[eventID] = struct{}{}
-	}
-
 	eventsParams := getParamTypes(t.eventsSet)
 	requiredEventsIDs := make(map[events.ID]struct{})
 	for _, event := range policy.Events {
@@ -311,9 +300,16 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 		t.eventPoliciesMap[event.ID] = event
 		t.findAllRequiredEvents(event.ID, requiredEventsIDs)
 	}
-	for _, eventID := range requiredSignatureEvents {
-		t.findAllRequiredEvents(eventID, requiredEventsIDs)
+	if policy.SignatureEngine != nil {
+		requiredSignatureEvents := policy.SignatureEngine.TargetEvents()
+		for _, eventID := range requiredSignatureEvents {
+			t.signatureEventMap[eventID] = struct{}{}
+		}
+		for _, eventID := range requiredSignatureEvents {
+			t.findAllRequiredEvents(eventID, requiredEventsIDs)
+		}
 	}
+
 	for _, eventID := range policy.SystemEvents {
 		t.findAllRequiredEvents(eventID, requiredEventsIDs)
 	}
@@ -581,7 +577,7 @@ func (t *Tracer) allowedByPolicyPre(ctx *types.EventContext) error {
 	return nil
 }
 
-func (t *Tracer) allowedByPolicy(eventID events.ID, cgroupID uint64, event *castpb.Event) error {
+func (t *Tracer) allowedByPolicy(eventID events.ID, cgroupID uint64, event *types.Event) error {
 	policy := t.getPolicy(eventID, cgroupID)
 
 	if policy != nil {

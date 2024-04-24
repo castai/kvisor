@@ -64,7 +64,7 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichRequest
 		return
 	}
 
-	sha, err := enricher.calcFileHashForPID(req.Container, proc.PID(req.EventContext.NodeHostPid), exec.Path)
+	sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, proc.PID(req.EbpfEvent.Context.NodeHostPid), exec.Path)
 	if err != nil {
 		if errors.Is(err, ErrFileDoesNotExist) {
 			return
@@ -74,13 +74,13 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichRequest
 		return
 	}
 
-	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(req.EventContext.MntID)) {
-		if pid == proc.PID(req.EventContext.NodeHostPid) {
+	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(req.EbpfEvent.Context.MntID)) {
+		if pid == proc.PID(req.EbpfEvent.Context.NodeHostPid) {
 			// We already tried that PID of the event, skipping.
 			continue
 		}
 
-		sha, err := enricher.calcFileHashForPID(req.Container, pid, exec.Path)
+		sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, pid, exec.Path)
 		// We search for the first PID we can successfully calculate a filehash for.
 		if err != nil {
 			if errors.Is(err, ErrFileDoesNotExist) {

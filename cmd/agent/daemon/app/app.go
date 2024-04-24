@@ -53,6 +53,7 @@ type Config struct {
 	SignatureEngineConfig    signature.SignatureEngineConfig
 	CastaiEnv                castai.Config
 	EnricherConfig           EnricherConfig
+	Netflow                  NetflowConfig
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
@@ -91,11 +92,20 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		EnricherConfig: &castaipb.EnricherConfig{
 			EnableFileHashEnricher: c.EnricherConfig.EnableFileHashEnricher,
 		},
+		Netflow: &castaipb.NetflowConfig{
+			Enabled:                     c.Netflow.Enabled,
+			SampleSubmitIntervalSeconds: c.Netflow.SampleSubmitIntervalSeconds,
+		},
 	}
 }
 
 type EnricherConfig struct {
 	EnableFileHashEnricher bool
+}
+
+type NetflowConfig struct {
+	Enabled                     bool
+	SampleSubmitIntervalSeconds uint64
 }
 
 func New(cfg *Config, clientset kubernetes.Interface) *App {
@@ -186,16 +196,15 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
-		BTFPath:                 a.cfg.BTFPath,
-		EventsPerCPUBuffer:      a.cfg.EBPFEventsPerCPUBuffer,
-		EventsOutputChanSize:    a.cfg.EBPFEventsOutputChanSize,
-		DefaultCgroupsVersion:   cgroupClient.DefaultCgroupVersion().String(),
-		ActualDestinationGetter: ct,
-		ContainerClient:         containersClient,
-		CgroupClient:            cgroupClient,
-		EnrichEvent:             enrichmentService.Enqueue,
-		MountNamespacePIDStore:  mountNamespacePIDStore,
-		HomePIDNS:               pidNSID,
+		BTFPath:                            a.cfg.BTFPath,
+		EventsPerCPUBuffer:                 a.cfg.EBPFEventsPerCPUBuffer,
+		EventsOutputChanSize:               a.cfg.EBPFEventsOutputChanSize,
+		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
+		ContainerClient:                    containersClient,
+		CgroupClient:                       cgroupClient,
+		MountNamespacePIDStore:             mountNamespacePIDStore,
+		HomePIDNS:                          pidNSID,
+		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -232,6 +241,11 @@ func (a *App) Run(ctx context.Context) error {
 			{ID: events.ProcessOomKilled}, // OOM events should not happen too often and we want to know about all of them
 			{ID: events.MagicWrite},
 		},
+	}
+	if a.cfg.Netflow.Enabled {
+		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+			ID: events.NetFlowBase,
+		})
 	}
 	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
 	if err := tracer.ApplyPolicy(policy); err != nil {
