@@ -149,13 +149,15 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		event.EventType = castpb.EventType_EVENT_DNS
 
 		dnsEvent, err := decodeDNS(args.Payload, t.dnsPacketParser)
-		dnsEvent.FlowDirection = convertFlowDirection(eventCtx.ParseFlowDirection())
 
 		// If we cannot parse an DNS packet, we abord
 		if err != nil {
 			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: event.GetEventType().String()}).Inc()
 			return nil
 		}
+
+		dnsEvent.FlowDirection = convertFlowDirection(eventCtx.ParseFlowDirection())
+
 		event.Data = &castpb.Event_Dns{
 			Dns: dnsEvent,
 		}
