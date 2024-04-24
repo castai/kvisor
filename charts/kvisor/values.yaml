@@ -8,7 +8,7 @@ castai:
 
   # Name of secret with Token to be used for authorizing agent access to the API
   # apiKey and apiKeySecretRef are mutually exclusive
-  # The referenced secret must provide the token in .data["API_KEY"]
+  # The referenced secret must provide the token in .data["CASTAI_API_KEY"]
   apiKeySecretRef: ""
 
   # CASTAI grpc public api address.
