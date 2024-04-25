@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"io/fs"
+	"os"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -31,9 +33,10 @@ const (
 )
 
 type Config struct {
-	CastaiClusterID    string `envconfig:"CASTAI_CLUSTER_ID" required:"true"`
-	CastaiAPIGrpcAddr  string `envconfig:"CASTAI_API_GRPC_ADDR" required:"true"`
-	CastaiAPIKey       string `envconfig:"CASTAI_API_KEY" required:"true"`
+	CastaiClusterID   string `envconfig:"CASTAI_CLUSTER_ID" required:"true"`
+	CastaiAPIGrpcAddr string `envconfig:"CASTAI_API_GRPC_ADDR" required:"true"`
+	// The api key is required, but we support two differnt ways of setting it.
+	CastaiAPIKey       string `envconfig:"CASTAI_API_KEY"`
 	CastaiGRPCInsecure bool   `envconfig:"CASTAI_GRPC_INSECURE"`
 
 	BlobsCacheURL     string        `envconfig:"COLLECTOR_BLOBS_CACHE_URL"`
@@ -58,6 +61,16 @@ func FromEnv() (Config, error) {
 	if err := envconfig.Process("", &cfg); err != nil {
 		return Config{}, err
 	}
+
+	if cfg.CastaiAPIKey == "" {
+		// fall back to non `CASTAI` prefix env variable
+		if apiKey, found := os.LookupEnv("API_KEY"); found {
+			cfg.CastaiAPIKey = apiKey
+		} else {
+			return Config{}, errors.New("required environment variable not set: CASTAI_API_KEY or API_KEY are missing")
+		}
+	}
+
 	return cfg, nil
 }
 

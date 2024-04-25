@@ -52,6 +52,20 @@ var (
 	kubeconfigPath = pflag.String("kubeconfig", "", "Kubeconfig file")
 )
 
+func lookupConfigVariable(name string) (string, error) {
+	key, found := os.LookupEnv("CASTAI_" + name)
+	if found {
+		return key, nil
+	}
+
+	key, found = os.LookupEnv(name)
+	if found {
+		return key, nil
+	}
+
+	return "", fmt.Errorf("environment variable missing: please provide either `CAST_%s` or `%s`", name, name)
+}
+
 func NewCommand(version string) *cobra.Command {
 	command := &cobra.Command{
 		Use: "daemon",
@@ -75,10 +89,27 @@ func NewCommand(version string) *cobra.Command {
 				os.Exit(1)
 			}
 
+			castaiGRPCAddress, found := os.LookupEnv("CASTAI_API_GRPC_ADDR")
+			if !found {
+				slog.Error("missing required environment variable: CASTAI_API_GRPC_ADDR")
+				os.Exit(1)
+			}
+			castaiClusterID, found := os.LookupEnv("CASTAI_CLUSTER_ID")
+			if !found {
+				slog.Error("missing required environment variable: CASTAI_CLUSTER_ID")
+				os.Exit(1)
+			}
+
+			apiKey, err := lookupConfigVariable("API_KEY")
+			if err != nil {
+				slog.Error(err.Error())
+				os.Exit(1)
+			}
+
 			castaiClientCfg := castai.Config{
-				APIKey:      os.Getenv("CASTAI_API_KEY"),
-				APIGrpcAddr: os.Getenv("CASTAI_API_GRPC_ADDR"),
-				ClusterID:   os.Getenv("CASTAI_CLUSTER_ID"),
+				APIKey:      apiKey,
+				APIGrpcAddr: castaiGRPCAddress,
+				ClusterID:   castaiClusterID,
 				Insecure:    *castaiServerInsecure,
 			}
 
