@@ -114,6 +114,11 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("validate exec events: %w", err)
 	}
 
+	fmt.Println("🧐validating signature events")
+	if err := srv.validateSignatureEvents(ctx, validateTimeout); err != nil {
+		return fmt.Errorf("validate signature events: %w", err)
+	}
+
 	fmt.Println("🙏waiting for flogs")
 	if err := srv.assertLogs(ctx); err != nil {
 		return fmt.Errorf("assert logs: %w", err)
@@ -158,6 +163,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.container-stats-scrape-interval=5s \
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
+  --set agent.extraArgs.signature-socks5-detection-enabled=true \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.kubernetes-delta-interval=5s \
@@ -369,6 +375,61 @@ func (t *testCASTAIServer) validateExecEvents() error {
 	}
 
 	return nil
+}
+
+func (t *testCASTAIServer) validateSignatureEvents(ctx context.Context, timeout time.Duration) error {
+	expectedTypes := map[castaipb.SignatureEventID]struct{}{
+		castaipb.SignatureEventID_SIGNATURE_SOCKS5_DETECTED: {},
+	}
+	currentOffset := 0
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(timeout):
+			var errorMsg strings.Builder
+
+			_, _ = errorMsg.WriteString("not all expected event types found within timeout. missing types:")
+			first := true
+
+			for et := range expectedTypes {
+				if !first {
+					_, _ = errorMsg.WriteString(", ")
+				} else {
+					first = false
+				}
+
+				_, _ = errorMsg.WriteString(et.String())
+			}
+
+			return errors.New(errorMsg.String())
+		case <-time.Tick(1 * time.Second):
+			t.mu.Lock()
+			events := t.events
+			t.mu.Unlock()
+
+			if len(events) == 0 {
+				continue
+			}
+
+			for _, event := range events[currentOffset:] {
+				signatureID := event.GetSignature().GetMetadata().GetId()
+				if signatureID == castaipb.SignatureEventID_SIGNATURE_UNKNOWN {
+					continue
+				}
+
+				delete(expectedTypes, signatureID)
+			}
+
+			currentOffset = len(events)
+
+			fmt.Println("missing signature types:", expectedTypes)
+			if len(expectedTypes) == 0 {
+				return nil
+			}
+		}
+	}
 }
 
 func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Duration) error {

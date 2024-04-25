@@ -1,0 +1,120 @@
+metadata:
+  name: ssh-server
+  labels:
+    name: socks5-generator
+spec:
+  ports:
+    - name: ssh
+      port: 2222
+  type: ClusterIP
+  selector:
+    name: ssh-server
+apiVersion: v1
+kind: Service
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssh-keys
+data:
+  key: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+    QyNTUxOQAAACC/YQN4I264QKU3jhMihNuthw3fYI/YGzjZcPg7T81+yQAAAKiKT5LNik+S
+    zQAAAAtzc2gtZWQyNTUxOQAAACC/YQN4I264QKU3jhMihNuthw3fYI/YGzjZcPg7T81+yQ
+    AAAEDPrxmVDLEipPPrWqV3VFIoZQra1hk2TrpWxwCrDrDrK79hA3gjbrhApTeOEyKE262H
+    Dd9gj9gbONlw+DtPzX7JAAAAIXBhdHJpY2twQHBhdHJpY2tzLW1icC5waWNobGVyLmljdQ
+    ECAwQ=
+    -----END OPENSSH PRIVATE KEY-----
+  key.pub: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL9hA3gjbrhApTeOEyKE262HDd9gj9gbONlw+DtPzX7J unknown
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-server
+  labels:
+    name: ssh-server
+spec:
+  selector:
+    matchLabels:
+      name: ssh-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ssh-server
+    spec:
+      hostNetwork: false
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: server
+          env:
+            - name: "PUBLIC_KEY_FILE"
+              value: "/tmp/ssh/key.pub"
+            - name: USER_NAME
+              value: "user"
+            - name: DOCKER_MODS
+              value: "linuxserver/mods:openssh-server-ssh-tunnel"
+          ports:
+            - containerPort: 2222
+          image: linuxserver/openssh-server:9.6_p1-r0-ls152@sha256:53a2b43aae8150842ca58c32bc054df8b36b23d47880716f0d77a55f4d4a981d
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: ssh-keys
+              mountPath: /tmp/ssh
+      volumes:
+        - name: ssh-keys
+          configMap:
+            name: ssh-keys
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-client
+  labels:
+    name: ssh-client
+spec:
+  selector:
+    matchLabels:
+      name: ssh-client
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ssh-client
+    spec:
+      hostNetwork: false
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: server
+          image: linuxserver/openssh-server:9.6_p1-r0-ls152@sha256:53a2b43aae8150842ca58c32bc054df8b36b23d47880716f0d77a55f4d4a981d
+          imagePullPolicy: IfNotPresent
+          env:
+          volumeMounts:
+            - name: ssh-keys
+              mountPath: /tmp/ssh
+          command:
+            - /bin/sh
+            - -c
+            - |-
+              sleep 2
+              for i in $(seq 0 10000); do
+                ssh -o UserKnownHostsFile=/dev/null \
+                    -o StrictHostKeyChecking=no \
+                    -i /tmp/ssh/key \
+                    -D 9999 \
+                    -N \
+                    -p 2222 \
+                    user@ssh-server &
+                sleep 2
+                curl --socks5 localhost:9999 google.at
+                sleep 2
+                pkill -f ssh
+              done
+              sleep 2
+      volumes:
+        - name: ssh-keys
+          configMap:
+            name: ssh-keys
+            defaultMode: 0600
