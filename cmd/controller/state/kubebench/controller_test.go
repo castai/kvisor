@@ -250,7 +250,7 @@ type mockKubeController struct {
 
 func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, bool) {
 	return kube.ImageDetails{
-		AgentImageName:   "kvisor",
+		ScannerImageName: "kvisor-scanners",
 		ImagePullSecrets: nil,
 	}, true
 }

@@ -1,5 +1,5 @@
-FROM alpine:3.17
+FROM alpine:3.19.1
 
-COPY ./bin/kvisord-event-generator /app/kvisord-event-generator
+COPY ./bin/kvisor-event-generator /app/kvisor-event-generator
 
-ENTRYPOINT ["/app/kvisord-event-generator"]
+ENTRYPOINT ["/app/kvisor-event-generator"]

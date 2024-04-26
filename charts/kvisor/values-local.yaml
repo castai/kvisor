@@ -36,6 +36,9 @@ controller:
     kube-linter-scan-interval: 5s
     pyroscope-addr: http://kvisord-pyroscope:4040
 
+  extraEnv:
+    SCANNERS_IMAGE: localhost:5000/kvisor-scanners
+
   containerSecurityContext:
     readOnlyRootFilesystem: false
 

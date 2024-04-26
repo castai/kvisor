@@ -22,4 +22,4 @@ run:
     - bin
     - api
     - research
-    - cmd/agent/kubebench # TODO: Fix kubebench issues
+    - cmd/linter/kubebench # TODO: Fix kubebench issues

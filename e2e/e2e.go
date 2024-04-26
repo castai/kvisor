@@ -26,9 +26,9 @@ import (
 )
 
 var (
-	imageTag = pflag.String("image-tag", "", "Kvisord docker image tag")
+	imageTag = pflag.String("image-tag", "", "Kvisor docker image tag")
 	timeout  = pflag.Duration("timeout", 180*time.Second, "Test timeout")
-	ns       = pflag.String("ns", "kvisord-e2e", "Namespace")
+	ns       = pflag.String("ns", "kvisor-e2e", "Namespace")
 )
 
 const (
@@ -145,16 +145,16 @@ func run(ctx context.Context) error {
 }
 
 func installChart(ns, imageTag string) ([]byte, error) {
-	fmt.Printf("installing kvisord chart with image tag %q\n", imageTag)
+	fmt.Printf("installing kvisor chart with image tag %q\n", imageTag)
 	repo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
-		repo = "kvisord"
+		repo = "kvisor"
 	}
 
 	grpcAddr := fmt.Sprintf("%s:8443", os.Getenv("POD_IP"))
 	//nolint:gosec
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(
-		`helm upgrade --install kvisord-e2e ./charts/kvisor \
+		`helm upgrade --install kvisor-e2e ./charts/kvisor \
   -n %s --create-namespace \
   --set image.repository=%s \
   --set image.tag=%s \

@@ -37,19 +37,17 @@ datasources:
         jsonData:
           defaultDatabase: default
           port: 9000
-          server: kvisord-storage.kvisord.svc.cluster.local.
+          server: kvisor-storage.kvisor.svc.cluster.local.
           username: storage
           tlsSkipVerify: true
         secureJsonData:
           password: storage
       - name: Prometheus
         type: prometheus
-        url: http://kvisord-prometheus-server.kvisord-trace.svc.cluster.local.
+        url: http://kvisor-prometheus-server.kvisor-trace.svc.cluster.local.
         access: proxy
       - name: Loki
         type: loki
-        url: http://kvisord-loki.kvisord-trace.svc.cluster.local.:3100
+        url: http://kvisor-loki.kvisor-trace.svc.cluster.local.:3100
         access: proxy
         isDefault: true
-
-

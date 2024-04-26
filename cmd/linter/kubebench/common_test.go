@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	check2 "github.com/castai/kvisor/cmd/agent/kubebench/check"
+	check2 "github.com/castai/kvisor/cmd/linter/kubebench/check"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )

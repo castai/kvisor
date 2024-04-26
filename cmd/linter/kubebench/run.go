@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	check "github.com/castai/kvisor/cmd/agent/kubebench/check"
+	check "github.com/castai/kvisor/cmd/linter/kubebench/check"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

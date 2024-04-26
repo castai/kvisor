@@ -49,7 +49,7 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 								},
 							},
 							Command: []string{
-								"/usr/local/bin/kvisor-agent",
+								"/usr/local/bin/kvisor-linter",
 							},
 							Args: []string{
 								"kube-bench",

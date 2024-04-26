@@ -4,9 +4,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/castai/kvisor/cmd/agent/daemon"
-	"github.com/castai/kvisor/cmd/agent/imagescan"
-	"github.com/castai/kvisor/cmd/agent/kubebench"
 	"github.com/spf13/cobra"
 )
 
@@ -16,13 +13,11 @@ var (
 
 func main() {
 	root := cobra.Command{
-		Use: "kvisor",
+		Use: "kvisor-daemon",
 	}
 
 	root.AddCommand(
-		daemon.NewCommand(Version),
-		imagescan.NewCommand(Version),
-		kubebench.NewCommand(),
+		NewCommand(Version),
 	)
 
 	if err := root.Execute(); err != nil {

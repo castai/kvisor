@@ -30,8 +30,8 @@ type controller struct {
 }
 
 func (c *controller) run(ctx context.Context) error {
-	c.log.Info("running kvisord events generator")
-	defer c.log.Info("stopping kvisord events generator")
+	c.log.Info("running kvisor events generator")
+	defer c.log.Info("stopping kvisor events generator")
 
 	go func() {
 		for {
@@ -69,7 +69,7 @@ func (c *controller) injectRunnerContainer(ctx context.Context) error {
 	c.log.Debugf("selected deployment, name=%s", dep.Name)
 
 	if lo.ContainsBy(dep.Spec.Template.Spec.InitContainers, func(item corev1.Container) bool {
-		return item.Name == "kvisord-anomaly-runner"
+		return item.Name == "kvisor-anomaly-runner"
 	}) {
 		c.log.Debugf("skipping, deployment already contains event runner init container")
 		return nil
@@ -81,14 +81,14 @@ func (c *controller) injectRunnerContainer(ctx context.Context) error {
 	}
 
 	dep.Spec.Template.Spec.InitContainers = append(dep.Spec.Template.Spec.InitContainers, corev1.Container{
-		Name:  "kvisord-anomaly-runner",
+		Name:  "kvisor-anomaly-runner",
 		Image: imgName,
 		Args: []string{
 			"-mode=event-runner",
 		},
 	})
 
-	dep.ObjectMeta.Annotations["kvisord-anomaly-runner"] = "true"
+	dep.ObjectMeta.Annotations["kvisor-anomaly-runner"] = "true"
 	if _, err := c.client.AppsV1().Deployments(dep.Namespace).Update(ctx, dep, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
@@ -107,11 +107,11 @@ func (c *controller) removeRunnerContainer(ctx context.Context) error {
 
 	for _, item := range list.Items {
 		item := item
-		if _, found := item.ObjectMeta.Annotations["kvisord-anomaly-runner"]; found {
+		if _, found := item.ObjectMeta.Annotations["kvisor-anomaly-runner"]; found {
 			item.Spec.Template.Spec.InitContainers = lo.Filter(item.Spec.Template.Spec.InitContainers, func(item corev1.Container, index int) bool {
-				return item.Name != "kvisord-anomaly-runner"
+				return item.Name != "kvisor-anomaly-runner"
 			})
-			delete(item.ObjectMeta.Annotations, "kvisord-anomaly-runner")
+			delete(item.ObjectMeta.Annotations, "kvisor-anomaly-runner")
 			if _, err := c.client.AppsV1().Deployments(item.Namespace).Update(ctx, &item, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
@@ -127,7 +127,7 @@ func (c *controller) selectRandomDeployment(ctx context.Context) (*appsv1.Deploy
 		return nil, err
 	}
 	list.Items = lo.Filter(list.Items, func(item appsv1.Deployment, index int) bool {
-		return item.Namespace != "kvisord"
+		return item.Namespace != "kvisor"
 	})
 
 	if len(list.Items) == 0 {
@@ -139,7 +139,7 @@ func (c *controller) selectRandomDeployment(ctx context.Context) (*appsv1.Deploy
 }
 
 func (c *controller) getGeneratorImageName(ctx context.Context) (string, error) {
-	dep, err := c.client.AppsV1().Deployments("kvisord").Get(ctx, "kvisord-event-generator", metav1.GetOptions{})
+	dep, err := c.client.AppsV1().Deployments("kvisor").Get(ctx, "kvisor-event-generator", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

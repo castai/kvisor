@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	batchv1typed "k8s.io/client-go/kubernetes/typed/batch/v1"
 
-	imagescanconfig "github.com/castai/kvisor/cmd/agent/imagescan/config"
+	imagescanconfig "github.com/castai/kvisor/cmd/imagescan/config"
 )
 
 const (
@@ -455,12 +455,12 @@ func scanJobSpec(
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
 							Name:  "collector",
-							Image: params.ScanImageDetails.AgentImageName,
+							Image: params.ScanImageDetails.ScannerImageName,
 							Command: []string{
-								"/usr/local/bin/kvisor-agent",
+								"/usr/local/bin/kvisor-image-scanner",
 							},
 							Args: []string{
-								"image-scan",
+								"scan",
 							},
 							ImagePullPolicy: corev1.PullPolicy(cfg.ScanJobImagePullPolicy),
 							Env:             envVars,

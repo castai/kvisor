@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -272,7 +273,7 @@ func (c *Client) GetOwnerUID(obj Object) string {
 }
 
 type ImageDetails struct {
-	AgentImageName   string
+	ScannerImageName string
 	ImagePullSecrets []corev1.LocalObjectReference
 }
 
@@ -284,19 +285,26 @@ func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, bool) {
 		c.log.Warn("kvisor controller pod spec not found")
 		return ImageDetails{}, false
 	}
-	var imageName string
-	for _, container := range spec.Containers {
-		if container.Name == c.kvisorControllerContainerName {
-			imageName = container.Image
-			break
+
+	imageName := os.Getenv("SCANNERS_IMAGE")
+	if imageName == "" {
+		for _, container := range spec.Containers {
+			if container.Name == c.kvisorControllerContainerName {
+				imageName = container.Image
+				break
+			}
 		}
+
+		imageName = strings.Replace(imageName, "-controller", "-scanners", 1)
 	}
+
 	if imageName == "" {
 		c.log.Warn("kvisor container image not found")
 		return ImageDetails{}, false
 	}
+
 	return ImageDetails{
-		AgentImageName:   strings.Replace(imageName, "-controller", "-agent", 1),
+		ScannerImageName: imageName,
 		ImagePullSecrets: spec.ImagePullSecrets,
 	}, true
 }

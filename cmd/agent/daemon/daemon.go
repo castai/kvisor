@@ -1,4 +1,4 @@
-package daemon
+package main
 
 import (
 	"fmt"
@@ -68,7 +68,7 @@ func lookupConfigVariable(name string) (string, error) {
 
 func NewCommand(version string) *cobra.Command {
 	command := &cobra.Command{
-		Use: "daemon",
+		Use: "run",
 		Run: func(cmd *cobra.Command, args []string) {
 			pflag.Parse()
 

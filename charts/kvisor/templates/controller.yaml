@@ -75,6 +75,10 @@ spec:
                      {{- end }}
             - name: CASTAI_CLUSTER_ID
               value: {{ required "castai.clusterID must be provided" .Values.castai.clusterID | quote }}
+        {{- range $key, $value := .Values.controller.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value }}
+        {{- end }}
           envFrom:
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}

@@ -122,7 +122,7 @@ func (s *SOCKS5Detected) OnEvent(event *types.Event) *v1.SignatureFinding {
 
 	payload, _, err := packet.ExtractPayload(networkData)
 	if err != nil {
-    fmt.Println(err)
+		fmt.Println(err)
 		return nil
 	}
 

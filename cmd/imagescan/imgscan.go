@@ -1,4 +1,4 @@
-package imagescan
+package main
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"runtime"
 
 	"github.com/castai/image-analyzer/image/hostfs"
-	"github.com/castai/kvisor/cmd/agent/imagescan/collector"
-	"github.com/castai/kvisor/cmd/agent/imagescan/config"
+	"github.com/castai/kvisor/cmd/imagescan/collector"
+	"github.com/castai/kvisor/cmd/imagescan/config"
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -21,7 +21,7 @@ import (
 
 func NewCommand(version string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "image-scan",
+		Use:   "scan",
 		Short: "Run kvisor image scanning",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := run(cmd.Context(), version); err != nil {

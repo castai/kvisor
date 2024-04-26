@@ -6,7 +6,7 @@ import (
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	imagescanconfig "github.com/castai/kvisor/cmd/agent/imagescan/config"
+	imagescanconfig "github.com/castai/kvisor/cmd/imagescan/config"
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/samber/lo"

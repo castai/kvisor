@@ -187,7 +187,7 @@ controller:
 eventGenerator:
   enabled: false
   image:
-    repository: ghcr.io/castai/kvisord/kvisord-event-generator
+    repository: ghcr.io/castai/kvisor/kvisor-event-generator
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""

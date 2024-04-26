@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: wallet
-          image: ghcr.io/castai/kvisord/kvisord-event-generator
+          image: ghcr.io/castai/kvisor/kvisor-event-generator
           imagePullPolicy: Always
           args:
             - "-mode"

@@ -17,11 +17,11 @@ import (
 // TODO: Write a better test. Go appears to be doing a different kind of binary alignment, than what we get from
 // clang. This leads to `unsafe.Sizeof` to return a different values than what the c struct actually is.
 
-// func TestContextSize(t *testing.T) {
-// 	var v EventContext
-// 	size := int(unsafe.Sizeof(v))
-// 	assert.Equal(t, size, int(v.GetSizeBytes()))
-// }
+//	func TestContextSize(t *testing.T) {
+//		var v EventContext
+//		size := int(unsafe.Sizeof(v))
+//		assert.Equal(t, size, int(v.GetSizeBytes()))
+//	}
 func TestChunkMetaSize(t *testing.T) {
 	var v ChunkMeta
 	size := int(unsafe.Sizeof(v))

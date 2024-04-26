@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/static-debian11:latest
+FROM cgr.dev/chainguard/static:latest
 
 ARG TARGETARCH
 COPY ./bin/kvisor-controller-$TARGETARCH /usr/local/bin/kvisor-controller

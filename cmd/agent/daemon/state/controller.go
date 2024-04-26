@@ -51,7 +51,7 @@ func NewController(
 		eventsExportQueue:           make(chan *castpb.Event, cfg.EventsSinkQueueSize),
 		resourcesStatsScrapePoints:  map[uint64]*resourcesStatsScrapePoint{},
 		syscallScrapePoints:         map[uint64]*syscallScrapePoint{},
-		debugEvent:                  os.Getenv("KVISORD_EBPF_DEBUG") == "1",
+		debugEvent:                  os.Getenv("KVISOR_EBPF_DEBUG") == "1",
 		writeStreamCreateRetryDelay: 2 * time.Second,
 		mutedNamespaces:             map[string]struct{}{},
 		kubeClient:                  kubeClient,

@@ -21,7 +21,7 @@ const (
 	NoAntiAffinity
 	NoLivenessProbe
 	NoReadOnlyRootFS
-	NoReadinessProe
+	NoReadinessProbe
 	NoRollingUpdateStrategy
 	PrivilegeEsxalationContainer
 	PrivilegedContainer
@@ -66,7 +66,7 @@ var LinterRuleMap = map[string]LinterRule{
 	"no-anti-affinity":                 NoAntiAffinity,
 	"no-liveness-probe":                NoLivenessProbe,
 	"no-read-only-root-fs":             NoReadOnlyRootFS,
-	"no-readiness-probe":               NoReadinessProe,
+	"no-readiness-probe":               NoReadinessProbe,
 	"no-rolling-update-strategy":       NoRollingUpdateStrategy,
 	"privilege-escalation-container":   PrivilegeEsxalationContainer,
 	"privileged-container":             PrivilegedContainer,
@@ -117,7 +117,7 @@ var GoodPracticesBundle = map[string]LinterRule{
 	"mismatching-selector":             MismatchingSelector,
 	"no-anti-affinity":                 NoAntiAffinity,
 	"no-liveness-probe":                NoLivenessProbe,
-	"no-readiness-probe":               NoReadinessProe,
+	"no-readiness-probe":               NoReadinessProbe,
 	"no-rolling-update-strategy":       NoRollingUpdateStrategy,
 	"unset-memory-requirements":        UnsetMempryRequirements,
 	"use-namespace":                    UseNamespace,

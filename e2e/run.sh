@@ -11,7 +11,7 @@ then
   exit 1
 fi
 
-name=kvisord
+name=kvisor
 
 # Build e2e docker image.
 pushd ./e2e
@@ -31,6 +31,10 @@ then
   GOOS=linux CGO_ENABLED=0 make clean-kvisor-controller kvisor-controller
   docker build . -t $name-controller:local -f Dockerfile.controller
   kind load docker-image $name-controller:local --name $KIND_CONTEXT
+
+  GOOS=linux CGO_ENABLED=0 make clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kvisor-linter
+  docker build . -t $name-scanners:local -f Dockerfile.scanners
+  kind load docker-image $name-scanners:local --name $KIND_CONTEXT
 fi
 
 # Deploy e2e resources.
@@ -39,9 +43,9 @@ function printJobLogs() {
   kubectl get jobs -owide
   echo "=========== Pods: ==========="
   kubectl get pods -owide
-  echo "=========== kvisord agent pods: ==========="
+  echo "=========== kvisor agent pods: ==========="
   kubectl describe pod -l app.kubernetes.io/component=agent
-  echo "===========kvisord agent logs: ==========="
+  echo "===========kvisor agent logs: ==========="
   kubectl logs -l app.kubernetes.io/component=agent
   echo "=========== kvisor server logs: ==========="
   kubectl logs -l app.kubernetes.io/component=controller
@@ -61,7 +65,7 @@ kubectl apply -f ./e2e/e2e.yaml
 # Make sure kvisor agent is running.
 for (( i=1; i<=20; i++ ))
 do
-    if eval kubectl get ds kvisord-e2e-castai-kvisor-agent; then
+    if eval kubectl get ds kvisor-e2e-castai-kvisor-agent; then
         break
     fi
     sleep 1

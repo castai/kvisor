@@ -126,12 +126,50 @@ $(OUTPUT_DIR_BIN)/kvisor-agent-$(GO_ARCH): \
 			-X main.Version=\"$(VERSION)\" \
 			" \
 		-v -o $@ \
-		./cmd/agent
+		./cmd/agent/daemon/
 
 .PHONY: clean-kvisor-agent
 clean-kvisor-agent:
 #
-	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-$(GO_ARCH)
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-agent-$(GO_ARCH)
+
+.PHONY: kvisor-image-scanner
+kvisor-image-scanner: $(OUTPUT_DIR_BIN)/kvisor-image-scanner-$(GO_ARCH)
+
+$(OUTPUT_DIR_BIN)/kvisor-image-scanner-$(GO_ARCH): \
+#
+	$(GO_ENV_EBPF) $(CMD_GO) build \
+		-tags $(GO_TAGS_EBPF) \
+		-ldflags="$(GO_DEBUG_FLAG) \
+			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
+			-X main.Version=\"$(VERSION)\" \
+			" \
+		-v -o $@ \
+		./cmd/imagescan/
+
+.PHONY: clean-kvisor-image-scanner
+clean-kvisor-image-scanner:
+#
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-image-scanner-$(GO_ARCH)
+
+.PHONY: kvisor-linter
+kvisor-linter: $(OUTPUT_DIR_BIN)/kvisor-linter-$(GO_ARCH)
+
+$(OUTPUT_DIR_BIN)/kvisor-linter-$(GO_ARCH): \
+#
+	$(GO_ENV_EBPF) $(CMD_GO) build \
+		-tags $(GO_TAGS_EBPF) \
+		-ldflags="$(GO_DEBUG_FLAG) \
+			-extldflags \"$(CGO_EXT_LDFLAGS_EBPF)\" \
+			-X main.Version=\"$(VERSION)\" \
+			" \
+		-v -o $@ \
+		./cmd/linter/
+
+.PHONY: clean-kvisor-linter
+clean-kvisor-linter:
+#
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-linter-$(GO_ARCH)
 
 GO_ENV_SERVER =
 GO_ENV_SERVER += GOOS=linux
@@ -177,6 +215,19 @@ kvisor-controller-docker-image: clean-kvisor-controller kvisor-controller
 .PHONY: kvisor-controller-push-deploy
 kvisor-controller-push-deploy: kvisor-controller-docker-image
 	docker push $(IMAGE_REPO)-controller:$(IMAGE_TAG)
+
+# Scanners build.
+.PHONY: kvisor-scanners-docker
+kvisor-scanners-docker:
+	make kvisor-agent
+
+.PHONY: kvisor-scanners-docker-image
+kvisor-scanners-docker-image: clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kivsor-linter
+	docker build -t $(IMAGE_REPO)-scanners:$(IMAGE_TAG) . -f Dockerfile.scanners
+
+.PHONY: kvisor-scanners-push-deploy
+kvisor-scanners-push-deploy: kvisor-scanners-docker-image
+	docker push $(IMAGE_REPO)-scanners:$(IMAGE_TAG)
 
 # Event generator build.
 .PHONY: clean-kvisor-event-generator

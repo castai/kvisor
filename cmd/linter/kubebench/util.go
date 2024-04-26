@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/castai/kvisor/cmd/agent/kubebench/check"
+	"github.com/castai/kvisor/cmd/linter/kubebench/check"
 	"github.com/fatih/color"
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
