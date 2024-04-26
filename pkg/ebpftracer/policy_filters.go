@@ -143,7 +143,7 @@ func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) Eve
 			panic(err)
 		}
 
-    cache.SetLifetime(ttl)
+		cache.SetLifetime(ttl)
 
 		return func(event *castpb.Event) error {
 			if event.GetEventType() != castpb.EventType_EVENT_DNS {

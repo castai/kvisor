@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	check2 "github.com/castai/kvisor/cmd/agent/kubebench/check"
+	check2 "github.com/castai/kvisor/cmd/linter/kubebench/check"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

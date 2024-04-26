@@ -47,6 +47,12 @@ jobs:
       - name: Build controller go binary amd64
         run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
 
+      - name: Build image-scanner go binary amd64
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-image-scanner
+
+      - name: Build linter go binary amd64
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-linter
+
       - name: Run golangci-lint
         # You may pin to the exact commit or the version.
         # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
@@ -95,6 +101,16 @@ jobs:
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}
 
+      - name: Docker build and push pr (scanners)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.scanners
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }}
+
       - name: Docker build and push main (controller)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
         uses: docker/build-push-action@v5
@@ -115,12 +131,24 @@ jobs:
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-agent:latest
 
+      - name: Docker build and push main (scanners)
+        if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.scanners
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-scanners:latest
+
       - name: Summary
         run: |
           echo "**Pushed docker images:**" >> $GITHUB_STEP_SUMMARY
           echo "ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Upgrade with helm:**" >> $GITHUB_STEP_SUMMARY
           echo "helm upgrade castai-kvisor castai-helm/kvisor -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY

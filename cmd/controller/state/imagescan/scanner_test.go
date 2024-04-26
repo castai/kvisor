@@ -53,7 +53,7 @@ func TestScanner(t *testing.T) {
 			Architecture:     "amd64",
 			Os:               "linux",
 			ScanImageDetails: kube.ImageDetails{
-				AgentImageName: "imgcollector:1.0.0",
+				ScannerImageName: "imgcollector:1.0.0",
 			},
 		})
 		r.NoError(err)
@@ -131,10 +131,10 @@ func TestScanner(t *testing.T) {
 								Name:  "collector",
 								Image: "imgcollector:1.0.0",
 								Command: []string{
-									"/usr/local/bin/kvisor-agent",
+									"/usr/local/bin/kvisor-image-scanner",
 								},
 								Args: []string{
-									"image-scan",
+									"scan",
 								},
 								EnvFrom: []corev1.EnvFromSource{
 									{
@@ -277,7 +277,7 @@ func TestScanner(t *testing.T) {
 			ResourceIDs:       []string{"p1", "p2"},
 			DeleteFinishedJob: true,
 			ScanImageDetails: kube.ImageDetails{
-				AgentImageName: "imgcollector:1.0.0",
+				ScannerImageName: "imgcollector:1.0.0",
 			},
 		})
 		r.NoError(err)
@@ -329,7 +329,7 @@ func TestScanner(t *testing.T) {
 			ResourceIDs:       []string{"p1", "p2"},
 			WaitForCompletion: true,
 			ScanImageDetails: kube.ImageDetails{
-				AgentImageName: "imgcollector:1.0.0",
+				ScannerImageName: "imgcollector:1.0.0",
 			},
 		})
 		r.ErrorContains(err, "[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")

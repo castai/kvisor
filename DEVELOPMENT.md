@@ -90,7 +90,7 @@ gcloud beta container --project $GCP_PROJECT \
   --machine-type "e2-small" \
   --disk-type "pd-balanced" \
   --disk-size "100" \
-  --num-nodes "2" \ 
+  --num-nodes "2" \
   --node-locations "us-central1-c"
 ```
 
@@ -137,7 +137,7 @@ Query container resource usage stats:
 select toStartOfMinute(ts) t,
        case when group = 'cpu' then toString(avg(value)) else formatReadableSize(avg(value)) end as val,
        group||'_'||subgroup name from container_stats
-where container_name='kvisord' and group!='syscall' and t > now() - interval 5 minute
+where container_name='kvisor' and group!='syscall' and t > now() - interval 5 minute
 group by t, group, name
 order by t;
 ```
@@ -146,7 +146,7 @@ order by t;
 
 Create package and push chart
 ```sh
-helm package ./charts/kvisord 
+helm package ./charts/kvisord
 helm push kvisord-0.1.6.tgz oci://us-east4-docker.pkg.dev/kvisor/helm-charts
 ```
 
@@ -201,7 +201,7 @@ helm upgrade --install castai-kvisor oci://us-east4-docker.pkg.dev/kvisor/helm-c
 
 ## Misc
 
-List available trace functions for ftrace. 
+List available trace functions for ftrace.
 ```
 cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 ```

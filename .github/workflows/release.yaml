@@ -35,11 +35,23 @@ jobs:
       - name: Build controller go binary amd64
         run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
 
+      - name: Build image-scanner go binary amd64
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-image-scanner
+
+      - name: Build linter go binary amd64
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-linter
+
       - name: Build agent go binary arm64
         run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
 
       - name: Build controller go binary arm64
         run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-controller
+
+      - name: Build image-scanner go binary arm64
+        run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-image-scanner
+
+      - name: Build linter go binary arm64
+        run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-linter
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -75,6 +87,17 @@ jobs:
           tags: |
             ghcr.io/castai/kvisor/kvisor-controller:${{ env.RELEASE_TAG }}
             ghcr.io/castai/kvisor/kvisor-controller:latest
+
+      - name: Build and push release (kvisor-scanners)
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          file: ./Dockerfile.scanners
+          platforms: linux/arm64,linux/amd64
+          tags: |
+            ghcr.io/castai/kvisor/kvisor-scanners:${{ env.RELEASE_TAG }}
+            ghcr.io/castai/kvisor/kvisor-scanners:latest
 
   release_chart:
     name: Release Helm Chart
@@ -149,7 +172,7 @@ jobs:
         with:
           body: |
             ${{ steps.parse-chart.outputs.desc }}
-            
+
             Source commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
           files: |
             ${{ env.CR_PACKAGE_PATH }}/${{ steps.parse-chart.outputs.packagename }}.tgz

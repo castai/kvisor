@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	imgcollectorconfig "github.com/castai/kvisor/cmd/agent/imagescan/config"
+	imgcollectorconfig "github.com/castai/kvisor/cmd/imagescan/config"
 )
 
 func TestSubscriber(t *testing.T) {
@@ -239,7 +239,7 @@ func TestSubscriber(t *testing.T) {
 				Architecture:                defaultImageArch,
 				Os:                          defaultImageOs,
 				ScanImageDetails: kube.ImageDetails{
-					AgentImageName:   "kvisor",
+					ScannerImageName: "kvisor-scanners",
 					ImagePullSecrets: nil,
 				},
 			}, ngnxImage)
@@ -594,7 +594,7 @@ func (m *mockKubeController) GetOwnerUID(obj kube.Object) string {
 
 func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, bool) {
 	return kube.ImageDetails{
-		AgentImageName:   "kvisor",
+		ScannerImageName: "kvisor-scanners",
 		ImagePullSecrets: nil,
 	}, true
 }

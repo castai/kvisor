@@ -141,8 +141,8 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 	log := logging.New(logCfg)
-	log.Infof("running kvisord agent, version=%s", a.cfg.Version)
-	defer log.Infof("stopping kvisord agent, version=%s", a.cfg.Version)
+	log.Infof("running kvisor agent, version=%s", a.cfg.Version)
+	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
 
 	if addr := a.cfg.PyroscopeAddr; addr != "" {
 		withPyroscope(addr)

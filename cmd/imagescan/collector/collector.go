@@ -24,7 +24,7 @@ import (
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/imagescan/config"
+	"github.com/castai/kvisor/cmd/imagescan/config"
 )
 
 type ingestClient interface {

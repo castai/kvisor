@@ -1,4 +1,4 @@
-FROM alpine:3.17
+FROM alpine:3.19.1
 
 COPY ./bin/kvisor-mock-server /app/kvisor-mock-server
 

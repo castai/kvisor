@@ -1,1 +1,1 @@
-Kvisord installed successfully.
+Kvisor installed successfully.

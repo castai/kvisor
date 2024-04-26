@@ -18,7 +18,7 @@ namespace_create(namespace)
 
 local_resource(
     'kvisor-agent-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-agent ./cmd/agent',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-agent ./cmd/agent/daemon',
     deps=[
         './cmd/agent',
         './api',
@@ -33,8 +33,26 @@ local_resource(
     'kvisor-controller-compile',
     'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-controller ./cmd/controller',
     deps=[
-        './cmd/server',
+        './cmd/controller',
         './api'
+    ],
+)
+
+local_resource(
+    'kvisor-image-scanner-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-image-scanner ./cmd/imagescan/',
+    deps=[
+        './cmd/imagescan',
+        './api',
+    ],
+)
+
+local_resource(
+    'kvisor-linter-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-linter ./cmd/linter/',
+    deps=[
+        './cmd/linter',
+        './api',
     ],
 )
 
@@ -96,6 +114,13 @@ docker_build_with_restart(
     live_update=[
         sync('./bin/kvisor-mock-server', '/app/kvisor-mock-server'),
     ],
+)
+
+docker_build(
+    'localhost:5000/kvisor-scanners',
+    '.',
+    dockerfile='Dockerfile.scanners.local',
+    match_in_env_vars=True,
 )
 
 chart_path = './charts/kvisor'

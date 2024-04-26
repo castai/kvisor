@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/castai/kvisor/cmd/agent/kubebench/check"
+	"github.com/castai/kvisor/cmd/linter/kubebench/check"
 	"github.com/magiconair/properties/assert"
 
 	"github.com/spf13/viper"

@@ -1,8 +1,8 @@
 FROM alpine:3.19.1
 
-# Needed for kube-bench.
-RUN apk --no-cache add procps
+# the agent needs to run as root, there is no way around this
+USER 0
 
 COPY bin/kvisor-agent /usr/local/bin/kvisor-agent
-COPY cmd/agent/kubebench/kubebench-rules /etc/kubebench-rules
+
 ENTRYPOINT ["/usr/local/bin/kvisor-agent"]
