@@ -85,6 +85,9 @@ func TestScanner(t *testing.T) {
 							"phlare.grafana.com/port":   "6060",
 							"phlare.grafana.com/scrape": "true",
 						},
+						Labels: map[string]string{
+							"azure.workload.identity/use": "true",
+						},
 					},
 					Spec: corev1.PodSpec{
 						RestartPolicy: "Never",

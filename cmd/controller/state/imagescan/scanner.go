@@ -423,6 +423,9 @@ func scanJobSpec(
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
+					Labels: map[string]string{
+						"azure.workload.identity/use": "true",
+					},
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyNever,
