@@ -205,3 +205,11 @@ List available trace functions for ftrace.
 ```
 cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 ```
+
+## Making new release
+
+1. Go to https://github.com/castai/kvisor/releases
+2. Click draw new release (should open https://github.com/castai/kvisor/releases/new)
+3. Choose tag. Add new tag. Follow semver. For fixes only bump patch version.
+4. Click generate release notes.
+5. Publish release.
