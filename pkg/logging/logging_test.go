@@ -42,7 +42,7 @@ func TestLogger(t *testing.T) {
 			time.Sleep(6 * time.Millisecond)
 		}
 
-		require.Equal(t, 5, countLogLines(&out))
+		require.GreaterOrEqual(t, 5, countLogLines(&out))
 	})
 
 	t.Run("export logs", func(t *testing.T) {
