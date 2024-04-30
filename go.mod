@@ -4,7 +4,7 @@ go 1.21.5
 
 require (
 	github.com/aquasecurity/trivy v0.50.1
-	github.com/castai/image-analyzer v0.4.2
+	github.com/castai/image-analyzer v0.4.3-0.20240430094103-b8815f4eb8de
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/cilium/ebpf v0.14.0
