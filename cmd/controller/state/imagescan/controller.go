@@ -46,6 +46,7 @@ type Config struct {
 	CastaiClusterID           string
 	CastaiGrpcInsecure        bool
 	ImageScanBlobsCacheURL    string
+	CloudProvider             string
 }
 
 type ImageScanImage struct {

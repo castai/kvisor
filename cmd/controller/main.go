@@ -39,6 +39,8 @@ var (
 
 	pyroscopeAddr = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
 
+	cloudProvider = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
+
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
 	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
 	castaiServerInsecure     = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
@@ -69,7 +71,8 @@ var (
 	kubeBenchScanInterval       = pflag.Duration("kube-bench-scan-interval", 5*time.Minute, "Kube bench scan interval")
 	kubeBenchForceScan          = pflag.Bool("kube-bench-force", false, "Kube Bench force scan")
 	kubeBenchJobImagePullPolicy = pflag.String("kube-bench-job-pull-policy", "IfNotPresent", "Kube bench job image pull policy")
-	kubeBenchCloudProvider      = pflag.String("kube-bench-cloud-provider", "", "Kube bench cloud provider")
+	// deprecated: use cloudProvider
+	kubeBenchCloudProvider = pflag.String("kube-bench-cloud-provider", "", "Kube bench cloud provider. Deprecated: use `cloud-provider` instead.")
 
 	kubeLinterEnabled      = pflag.Bool("kube-linter-enabled", false, "Kube linter enabled")
 	kubeLinterScanInterval = pflag.Duration("kube-linter-scan-interval", 60*time.Second, "Kube linter scan interval")
@@ -137,6 +140,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	var cloudProviderVal string
+	if *cloudProvider != "" {
+		cloudProviderVal = *cloudProvider
+	} else {
+		slog.Warn(`--kube-bench-cloud-provider is deprecated, please use --cloud-provider instead.`)
+		cloudProviderVal = *kubeBenchCloudProvider
+	}
+
 	podNs := os.Getenv("POD_NAMESPACE")
 	appInstance := app.New(app.Config{
 		LogLevel:              *logLevel,
@@ -174,6 +185,7 @@ func main() {
 			CastaiClusterID:           castaiClusterID,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
+			CloudProvider:             cloudProviderVal,
 		},
 		Linter: kubelinter.Config{
 			Enabled:      *kubeLinterEnabled,
@@ -185,7 +197,7 @@ func main() {
 			Force:              *kubeBenchForceScan,
 			ScanInterval:       *kubeBenchScanInterval,
 			JobImagePullPolicy: *kubeBenchJobImagePullPolicy,
-			CloudProvider:      *kubeBenchCloudProvider,
+			CloudProvider:      cloudProviderVal,
 			JobNamespace:       podNs,
 		},
 		Delta: delta.Config{
