@@ -174,6 +174,7 @@ func main() {
 			CastaiClusterID:           castaiClusterID,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
+			CloudProvider:             *kubeBenchCloudProvider,
 		},
 		Linter: kubelinter.Config{
 			Enabled:      *kubeLinterEnabled,

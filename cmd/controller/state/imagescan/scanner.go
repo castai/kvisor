@@ -402,6 +402,12 @@ func scanJobSpec(
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,
 ) *batchv1.Job {
+
+	podLabels := map[string]string{}
+	if cfg.CloudProvider == "aks" {
+		podLabels["azure.workload.identity/use"] = "true"
+	}
+
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
@@ -423,9 +429,7 @@ func scanJobSpec(
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
-					Labels: map[string]string{
-						"azure.workload.identity/use": "true",
-					},
+					Labels:      podLabels,
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyNever,
