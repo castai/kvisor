@@ -47,10 +47,12 @@ func TestFileHashEnricher(t *testing.T) {
 
 		enricher.Enrich(context.TODO(), &EnrichRequest{
 			Event: event,
-			EventContext: &types.EventContext{
-				NodeHostPid: pid,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{
+					NodeHostPid: pid,
+				},
+				Args: types.SchedProcessExecArgs{},
 			},
-			Args: types.SchedProcessExecArgs{},
 		})
 
 		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
@@ -78,9 +80,11 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event:        event,
-			EventContext: &types.EventContext{},
-			Args:         types.SchedProcessExecArgs{},
+			Event: event,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{},
+				Args:    types.SchedProcessExecArgs{},
+			},
 		})
 
 		r.Nil(event.GetExec().Meta)
@@ -101,9 +105,11 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event:        event,
-			EventContext: &types.EventContext{},
-			Args:         types.SchedProcessExecArgs{},
+			Event: event,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{},
+				Args:    types.SchedProcessExecArgs{},
+			},
 		})
 
 		r.Nil(event.GetExec())
@@ -138,10 +144,12 @@ func TestFileHashEnricher(t *testing.T) {
 
 		enricher.Enrich(context.TODO(), &EnrichRequest{
 			Event: event,
-			EventContext: &types.EventContext{
-				NodeHostPid: pid,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{
+					NodeHostPid: pid,
+				},
+				Args: types.SchedProcessExecArgs{},
 			},
-			Args: types.SchedProcessExecArgs{},
 		})
 
 		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
@@ -159,10 +167,12 @@ func TestFileHashEnricher(t *testing.T) {
 
 		enricher.Enrich(context.TODO(), &EnrichRequest{
 			Event: event,
-			EventContext: &types.EventContext{
-				NodeHostPid: pid,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{
+					NodeHostPid: pid,
+				},
+				Args: types.SchedProcessExecArgs{},
 			},
-			Args: types.SchedProcessExecArgs{},
 		})
 
 		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
@@ -198,10 +208,12 @@ func TestFileHashEnricher(t *testing.T) {
 
 		enricher.Enrich(context.TODO(), &EnrichRequest{
 			Event: event,
-			EventContext: &types.EventContext{
-				MntID: uint32(mountNSID),
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{
+					MntID: uint32(mountNSID),
+				},
+				Args: types.SchedProcessExecArgs{},
 			},
-			Args: types.SchedProcessExecArgs{},
 		})
 
 		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())

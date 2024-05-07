@@ -46,7 +46,7 @@ type module struct {
 	probesMu       sync.Mutex
 }
 
-func (m *module) load(targetPIDNSID proc.NamespaceID) error {
+func (m *module) load(targetPIDNSID proc.NamespaceID, flowSampleSubmitIntervalSeconds uint64) error {
 	if err := unix.Setrlimit(unix.RLIMIT_NOFILE, &unix.Rlimit{
 		Cur: 4096,
 		Max: 4096,
@@ -74,7 +74,8 @@ func (m *module) load(targetPIDNSID proc.NamespaceID) error {
 
 	if err := spec.RewriteConstants(map[string]interface{}{
 		"global_config": tracerGlobalConfigT{
-			PidNsId: targetPIDNSID,
+			PidNsId:                         targetPIDNSID,
+			FlowSampleSubmitIntervalSeconds: flowSampleSubmitIntervalSeconds,
 		},
 	}); err != nil {
 		return err

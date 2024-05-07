@@ -34,11 +34,8 @@ type SOCKS5Detected struct {
 }
 
 func NewSOCKS5DetectedSignature(cfg SOCKS5DetectionSignatureConfig) (Signature, error) {
-	var cacheSize uint32
-
-	if cacheSize <= 0 {
-		cacheSize = DefaultSOCKS5SignatureCacheSize
-	} else {
+	var cacheSize uint32 = DefaultSOCKS5SignatureCacheSize
+	if cfg.CacheSize > 0 {
 		cacheSize = cfg.CacheSize
 	}
 
@@ -84,8 +81,9 @@ func toProtocolFlowDirection(f types.FlowDirection) v1.FlowDirection {
 		return v1.FlowDirection_FLOW_INGRESS
 	case types.FlowDirectionEgress:
 		return v1.FlowDirection_FLOW_EGRESS
+	default:
+		return v1.FlowDirection_FLOW_UNKNOWN
 	}
-	return v1.FlowDirection_FLOW_UNKNOWN
 }
 
 func toSOCKS5Finding(state SOCKS5DetectionState, flowDirection types.FlowDirection, msg packet.SOCKS5RequestOrReply) *v1.SOCKS5DetectedFinding {

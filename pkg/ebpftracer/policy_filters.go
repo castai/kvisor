@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/cespare/xxhash"
@@ -43,7 +43,7 @@ func FilterAnd(filtersGenerators ...EventFilterGenerator) EventFilterGenerator {
 			return generator()
 		})
 
-		return func(event *castpb.Event) error {
+		return func(event *types.Event) error {
 			for _, f := range filters {
 				if err := f(event); err != nil {
 					return err
@@ -75,7 +75,7 @@ func RateLimit(spec RateLimitPolicy) EventFilterGenerator {
 	return func() EventFilter {
 		rateLimiter := newRateLimiter(spec)
 
-		return func(event *castpb.Event) error {
+		return func(event *types.Event) error {
 			if rateLimiter.Allow() {
 				return FilterPass
 			}
@@ -105,19 +105,22 @@ func newRateLimiter(spec RateLimitPolicy) *rate.Limiter {
 // FilterEmptyDnsAnswers will drop any DNS event, that is missing an answer section
 func FilterEmptyDnsAnswers(l *logging.Logger) EventFilterGenerator {
 	return func() EventFilter {
-		return func(event *castpb.Event) error {
-			if event.GetEventType() != castpb.EventType_EVENT_DNS {
+		return func(event *types.Event) error {
+			if event.Context.EventID != events.NetPacketDNSBase {
 				return FilterPass
 			}
 
-			dnsEvent := event.GetDns()
+			dnsEventArgs, ok := event.Args.(types.NetPacketDNSBaseArgs)
+			if !ok {
+				return FilterPass
+			}
 
-			if dnsEvent == nil {
+			if dnsEventArgs.Payload == nil {
 				l.Warn("retreived invalid event for event type dns")
 				return FilterPass
 			}
 
-			if len(dnsEvent.Answers) == 0 {
+			if len(dnsEventArgs.Payload.Answers) == 0 {
 				return FilterErrEmptyDNSResponse
 			}
 
@@ -145,19 +148,22 @@ func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) Eve
 
 		cache.SetLifetime(ttl)
 
-		return func(event *castpb.Event) error {
-			if event.GetEventType() != castpb.EventType_EVENT_DNS {
+		return func(event *types.Event) error {
+			if event.Context.EventID != events.NetPacketDNSBase {
 				return FilterPass
 			}
 
-			dnsEvent := event.GetDns()
+			dnsEventArgs, ok := event.Args.(types.NetPacketDNSBaseArgs)
+			if !ok {
+				return FilterPass
+			}
 
-			if dnsEvent == nil {
+			if dnsEventArgs.Payload == nil {
 				l.Warn("received invalid event for event type dns")
 				return FilterPass
 			}
 
-			cacheKey := dnsEvent.DNSQuestionDomain
+			cacheKey := dnsEventArgs.Payload.DNSQuestionDomain
 			if cache.Contains(cacheKey) {
 				if l.IsEnabled(slog.LevelDebug) {
 					l.WithField("cachekey", cacheKey).Debug("dropping DNS event")

@@ -57,6 +57,7 @@ enum buf_idx_e
 typedef struct {
     // id of the pid namespace the node host PID will be translated to
     u64 pid_ns_id;
+    u64 flow_sample_submit_interval_seconds;
 } global_config_t;
 
 volatile const global_config_t global_config;

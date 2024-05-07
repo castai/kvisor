@@ -124,7 +124,7 @@ func (e *SignatureEngine) handleEvent(event *types.Event) {
 		e.eventsChan <- &castpb.Event{
 			EventType:     castpb.EventType_EVENT_SIGNATURE,
 			Timestamp:     uint64(time.Now().UTC().UnixNano()),
-			ProcessName:   string(bytes.TrimRight(event.Context.Comm[:], "\x00")),
+			ProcessName:   string(bytes.Trim(event.Context.Comm[:], "\x00")),
 			Namespace:     event.Container.PodNamespace,
 			PodName:       event.Container.PodName,
 			ContainerName: event.Container.Name,

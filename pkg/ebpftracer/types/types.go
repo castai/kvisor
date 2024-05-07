@@ -3,6 +3,7 @@ package types
 import (
 	"net/netip"
 
+	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/bucketcache"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/proc"
@@ -18,6 +19,8 @@ type AddrTuple struct {
 	Src netip.AddrPort
 	Dst netip.AddrPort
 }
+
+type ProtoDNS = castpb.DNS
 
 type PIDsPerNamespace = bucketcache.BucketCache[proc.NamespaceID, proc.PID]
 

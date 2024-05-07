@@ -3,8 +3,12 @@ package ebpftracer
 import (
 	"errors"
 	"testing"
+	"time"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,13 +16,13 @@ func TestFilterAnd(t *testing.T) {
 	errFilterFail := errors.New("")
 
 	filterPass := GlobalEventFilterGenerator(
-		func(event *castpb.Event) error {
+		func(event *types.Event) error {
 			return FilterPass
 		},
 	)
 
 	filterFail := GlobalEventFilterGenerator(
-		func(event *castpb.Event) error {
+		func(event *types.Event) error {
 			return errFilterFail
 		},
 	)
@@ -56,9 +60,34 @@ func TestFilterAnd(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			combinedFilters := FilterAnd(testCase.filters...)()
 
-			actual := combinedFilters(&castpb.Event{})
+			actual := combinedFilters(&types.Event{})
 
 			require.Equal(t, testCase.expected, actual)
 		})
 	}
+}
+
+func TestDNSPolicyFilter(t *testing.T) {
+	r := require.New(t)
+	log := logging.NewTestLog()
+	f := DeduplicateDnsEvents(log, 2, 1*time.Hour)
+	g := f()
+
+	// Pass non dns event.
+	err := g(&types.Event{Context: &types.EventContext{EventID: events.Connect}})
+	r.NoError(err)
+
+	// Pass first dns event.
+	dnsEvent := &types.Event{
+		Context: &types.EventContext{EventID: events.NetPacketDNSBase},
+		Args: types.NetPacketDNSBaseArgs{
+			Payload: &castaipb.DNS{DNSQuestionDomain: "google.com"},
+		},
+	}
+	err = g(dnsEvent)
+	r.NoError(err)
+
+	// Should not pass since this is duplicate.
+	err = g(dnsEvent)
+	r.ErrorIs(err, FilterErrDNSDuplicateDetected)
 }

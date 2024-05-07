@@ -1,26 +1,19 @@
 package ebpftracer
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime/debug"
 	"strconv"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/metrics"
-	"github.com/castai/kvisor/pkg/net/packet"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
 )
@@ -110,12 +103,15 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
 	}
 
+	eventCtx.Ts = t.bootTime + eventCtx.Ts
+	event := &types.Event{
+		Context:   &eventCtx,
+		Container: container,
+		Args:      parsedArgs,
+	}
+
 	if _, found := t.signatureEventMap[eventId]; found {
-		t.policy.SignatureEngine.QueueEvent(&types.Event{
-			Context:   &eventCtx,
-			Container: container,
-			Args:      parsedArgs,
-		})
+		t.policy.SignatureEngine.QueueEvent(event)
 	}
 
 	// Do not parse event, if it is not registered. If there is no policy set, we treat is as to parse all the events
@@ -130,172 +126,28 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		return nil
 	}
 
-	event := castpb.Event{
-		EventType:     0,
-		Timestamp:     t.bootTime + eventCtx.Ts,
-		ProcessName:   string(bytes.TrimRight(eventCtx.Comm[:], "\x00")),
-		Namespace:     container.PodNamespace,
-		PodUid:        container.PodUID,
-		PodName:       container.PodName,
-		ContainerName: container.Name,
-		ContainerId:   container.ID,
-		CgroupId:      container.CgroupID,
-		HostPid:       eventCtx.HostPid,
-	}
-
-	switch args := parsedArgs.(type) {
-	case types.NetPacketDNSBaseArgs:
-		metrics.AgentDNSPacketsTotal.Inc()
-		event.EventType = castpb.EventType_EVENT_DNS
-
-		dnsEvent, err := decodeDNS(args.Payload, t.dnsPacketParser)
-
-		// If we cannot parse an DNS packet, we abord
-		if err != nil {
-			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: event.GetEventType().String()}).Inc()
-			return nil
-		}
-
-		dnsEvent.FlowDirection = convertFlowDirection(eventCtx.ParseFlowDirection())
-
-		event.Data = &castpb.Event_Dns{
-			Dns: dnsEvent,
-		}
-	case types.SockSetStateArgs:
-		tpl := args.Tuple
-		socketState := types.SocketState{
-			OldState: types.TCPSocketState(args.OldState),
-			NewState: types.TCPSocketState(args.NewState),
-		}
-		event.EventType = findTCPEventType(socketState)
-		if t.shouldFindActualDestination(socketState, tpl) {
-			if dst, found := t.cfg.ActualDestinationGetter.GetDestination(tpl.Src, tpl.Dst); found {
-				tpl.Dst = dst
-			}
-		}
-		event.Data = &castpb.Event_Tuple{
-			Tuple: &castpb.Tuple{
-				SrcIp:   tpl.Src.Addr().String(),
-				DstIp:   tpl.Dst.Addr().String(),
-				SrcPort: uint32(tpl.Src.Port()),
-				DstPort: uint32(tpl.Dst.Port()),
-			},
-		}
-	case types.SchedProcessExecArgs:
+	switch eventId {
+	case events.SchedProcessExec:
 		if eventCtx.Pid == 1 {
 			t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 		} else {
 			t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 		}
-
-		event.EventType = castpb.EventType_EVENT_EXEC
-		event.Data = &castpb.Event_Exec{
-			Exec: &castpb.Exec{
-				Path: args.Pathname,
-				Args: args.Argv,
-			},
-		}
-	case types.FileModificationArgs:
-		event.EventType = castpb.EventType_EVENT_FILE_CHANGE
-		event.Data = &castpb.Event_File{
-			File: &castpb.File{
-				Path: args.FilePath,
-			},
-		}
-	case types.ProcessOomKilledArgs:
-		event.EventType = castpb.EventType_EVENT_PROCESS_OOM
-		// Nothing to add, sinces we do not have a payload
-
-	case types.TestEventArgs:
-		// nothing to do here, as this event is solely used by testing
-
-	case types.MagicWriteArgs:
-		event.EventType = castpb.EventType_EVENT_MAGIC_WRITE
-		event.Data = &castpb.Event_File{
-			File: &castpb.File{
-				Path: args.Pathname,
-			},
-		}
-	default:
-		if t.cfg.AllowAnyEvent {
-			event.EventType = castpb.EventType_EVENT_ANY
-			argsData, err := json.Marshal(args)
-			if err != nil {
-				return err
-			}
-			event.Data = &castpb.Event_Any{
-				Any: &castpb.Any{
-					EventId: uint32(eventId),
-					Data:    argsData,
-					Syscall: uint32(eventCtx.Syscall),
-				},
-			}
-		}
 	}
 
-	if event.EventType == castpb.EventType_UNKNOWN {
-		return fmt.Errorf("unknown event %d, process=%s", eventId, event.GetProcessName())
-	}
-
-	if err := t.allowedByPolicy(eventId, eventCtx.CgroupID, &event); err != nil {
+	if err := t.allowedByPolicy(eventId, eventCtx.CgroupID, event); err != nil {
 		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventCtx.EventID))}).Inc()
 		return nil
 	}
 
-	if t.cfg.EnrichEvent(&enrichment.EnrichRequest{
-		Event:        &event,
-		EventContext: &eventCtx,
-		Args:         parsedArgs,
-		Container:    container,
-	}) {
-		// If we can get an event into the enrichment path, we are not allowed to put  it into
-		// the events chan, as otherwise we will report events twice.
-		return nil
-	}
-
 	select {
-	case t.eventsChan <- &event:
-
+	case t.eventsChan <- event:
 	default:
-		metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: event.GetEventType().String()}).Inc()
+		def := t.eventsSet[eventCtx.EventID]
+		metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: def.name}).Inc()
 	}
 
 	return nil
-}
-
-func convertFlowDirection(flowDir types.FlowDirection) castpb.FlowDirection {
-	switch flowDir {
-	case types.FlowDirectionIngress:
-		return castpb.FlowDirection_FLOW_INGRESS
-	case types.FlowDirectionEgress:
-		return castpb.FlowDirection_FLOW_EGRESS
-	}
-
-	return castpb.FlowDirection_FLOW_UNKNOWN
-}
-
-func findTCPEventType(state types.SocketState) castpb.EventType {
-	if state.OldState == types.TCP_STATE_CLOSE && state.NewState == types.TCP_STATE_LISTEN {
-		return castpb.EventType_EVENT_TCP_LISTEN
-	}
-
-	if state.OldState == types.TCP_STATE_SYN_SENT {
-		if state.NewState == types.TCP_STATE_ESTABLISHED {
-			return castpb.EventType_EVENT_TCP_CONNECT
-		}
-		if state.NewState == types.TCP_STATE_CLOSE {
-			return castpb.EventType_EVENT_TCP_CONNECT_ERROR
-		}
-	}
-
-	return castpb.EventType_UNKNOWN
-}
-
-func (t *Tracer) shouldFindActualDestination(socketState types.SocketState, tpl types.AddrTuple) bool {
-	if ct := t.cfg.ActualDestinationGetter; ct != nil && isTCPConnect(socketState) && !tpl.Dst.Addr().IsPrivate() {
-		return true
-	}
-	return false
 }
 
 func (t *Tracer) MuteEventsFromCgroup(cgroup uint64) error {
@@ -378,57 +230,4 @@ func (t *Tracer) IsCgroupMuted(cgroup uint64) bool {
 	err := t.module.objects.IgnoredCgroupsMap.Lookup(cgroup, &value)
 
 	return !errors.Is(err, ebpf.ErrKeyNotExist) && value > 0
-}
-
-var errDNSMessageNotComplete = errors.New("received dns packet not complete")
-
-func decodeDNS(data []byte, dnsPacketParser *layers.DNS) (*castpb.DNS, error) {
-	payload, subProtocol, err := packet.ExtractPayload(data)
-	if err != nil {
-		return nil, err
-	}
-
-	if subProtocol == packet.SubProtocolTCP {
-		if len(payload) < 2 {
-			return nil, errDNSMessageNotComplete
-		}
-
-		// DNS over TCP prefixes the DNS message with a two octet length field. If the payload is not as big as this specified length,
-		// then we cannot parse the packet, as part of the DNS message will be send in a later one.
-		// For more information see https://datatracker.ietf.org/doc/html/rfc1035.html#section-4.2.2
-		length := int(binary.BigEndian.Uint16(payload[:2]))
-		if len(payload)+2 < length {
-			return nil, errDNSMessageNotComplete
-		}
-		payload = payload[2:]
-	}
-	if err := dnsPacketParser.DecodeFromBytes(payload, gopacket.NilDecodeFeedback); err != nil {
-		return nil, err
-	}
-
-	pbDNS := &castpb.DNS{
-		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
-	}
-
-	for _, v := range dnsPacketParser.Questions {
-		pbDNS.DNSQuestionDomain = string(v.Name)
-		break
-	}
-
-	for i, v := range dnsPacketParser.Answers {
-		pbDNS.Answers[i] = &castpb.DNSAnswers{
-			Name:  string(v.Name),
-			Type:  uint32(v.Type),
-			Class: uint32(v.Class),
-			Ttl:   v.TTL,
-			Ip:    v.IP,
-			Cname: string(v.CNAME),
-		}
-	}
-
-	return pbDNS, nil
-}
-
-func isTCPConnect(st types.SocketState) bool {
-	return st.OldState == types.TCP_STATE_SYN_SENT && st.NewState == types.TCP_STATE_ESTABLISHED
 }

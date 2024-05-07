@@ -18,39 +18,43 @@ typedef union iphdrs_t {
     struct ipv6hdr ipv6hdr;
 } iphdrs;
 
+typedef union  {
+	u32 v4addr;
+	unsigned __int128 v6addr;
+}  __attribute__((packed)) addr_t;
+
+typedef struct {
+    addr_t saddr;
+    addr_t daddr;
+    u16 sport;
+    u16 dport;
+    u16 family;
+} __attribute__((packed)) tuple_t;
+
 // network flow events
 
 typedef struct netflow {
     u32 host_pid;
     u8 proto;
-    union {
-        __u8 u6_addr8[16];
-        __be16 u6_addr16[8];
-        __be32 u6_addr32[4];
-    } src, dst;
-    u16 srcport;
-    u16 dstport;
+    tuple_t tuple;
 } __attribute__((__packed__)) netflow_t;
 
-#define copy_netflow(flow)              \
-    (netflow_t) {                       \
-        .host_pid = flow.host_pid,      \
-        .proto = flow.proto,            \
-        .src = flow.src,                \
-        .dst = flow.dst,                \
-        .srcport = flow.srcport,        \
-        .dstport = flow.dstport,        \
-    }
-
-#define invert_netflow(flow)            \
-    (netflow_t) {                       \
-        .host_pid = flow.host_pid,      \
-        .proto = flow.proto,            \
-        .src = flow.dst,                \
-        .dst = flow.src,                \
-        .srcport = flow.dstport,        \
-        .dstport = flow.srcport,        \
-    }
+statfunc netflow_t invert_netflow(netflow_t flow)
+{
+    tuple_t inverted_tuple = {
+        .saddr = flow.tuple.daddr,
+        .daddr = flow.tuple.saddr,
+        .sport = flow.tuple.dport,
+        .dport = flow.tuple.sport,
+        .family = flow.tuple.family,
+    };
+    netflow_t res = {
+       .host_pid = flow.host_pid,
+       .proto = flow.proto,
+       .tuple = inverted_tuple,
+    };
+    return res;
+}
 
 #define flow_unknown 0
 #define flow_incoming 1
@@ -60,8 +64,8 @@ typedef struct netflow {
 typedef struct netflowvalue {
     u8 direction;                           // 0 = flow_unknown, 1 = flow_incoming, 2 = flow_outgoing
     u64 last_update;                        // last time this flow was updated
-    // u64 bytes;                           // total bytes sent/received
-    // u64 packets;                         // total packets sent/received
+    u64 bytes;                           // total bytes sent/received
+    u64 packets;                         // total packets sent/received
     // u64 events;                          // total events sent/received
     // u64 last_bytes;                      // last bytes sent/received
     // u64 last_packets;                    // last packets sent/received
@@ -222,13 +226,14 @@ struct {
 #define packet_egress           (1 << 5)
 // Flows (begin/end) Flags per Protocol
 #define flow_tcp_begin          (1 << 6)  // syn+ack flag or first flow packet
-#define flow_tcp_end            (1 << 7)  // fin flag or last flow packet
-#define flow_udp_begin          (1 << 8)  // first flow packet
-#define flow_udp_end            (1 << 9)  // last flow packet
-#define flow_src_initiator      (1 << 10) // src is the flow initiator
+#define flow_tcp_sample         (1 << 7)  // sample with statistics after first flow
+#define flow_tcp_end            (1 << 8)  // fin flag or last flow packet
+#define flow_udp_begin          (1 << 9)  // first flow packet
+#define flow_udp_end            (1 << 10)  // last flow packet
+#define flow_src_initiator      (1 << 11) // src is the flow initiator
 // Socks5 Direction (request/response) Flag
-#define proto_socks5_req          (1 << 11)
-#define proto_socks5_resp         (1 << 12)
+#define proto_socks5_req          (1 << 12)
+#define proto_socks5_resp         (1 << 13)
 
 // payload size: full packets, only headers
 #define FULL    65536       // 1 << 16
@@ -242,19 +247,6 @@ struct {
 // layer 7 parsing related constants
 #define http_min_len 7 // longest http command is "DELETE "
 #define socks5_min_len 4 // we try to match the socks5 request. this should
-
-typedef union  {
-	u32 v4addr;
-	unsigned __int128 v6addr;
-}  __attribute__((packed)) addr_t;
-
-typedef struct {
-    addr_t saddr;
-    addr_t daddr;
-    u16 sport;
-	u16 dport;
-	u16 family;
-} __attribute__((packed)) tuple_t;
 
 // PROTOTYPES
 
