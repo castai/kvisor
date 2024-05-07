@@ -110,8 +110,12 @@ func FilterEmptyDnsAnswers(l *logging.Logger) EventFilterGenerator {
 				return FilterPass
 			}
 
-			dnsEventArgs := event.Args.(*types.NetPacketDNSBaseArgs)
-			if dnsEventArgs == nil {
+			dnsEventArgs, ok := event.Args.(types.NetPacketDNSBaseArgs)
+			if !ok {
+				return FilterPass
+			}
+
+			if dnsEventArgs.Payload == nil {
 				l.Warn("retreived invalid event for event type dns")
 				return FilterPass
 			}
@@ -149,9 +153,12 @@ func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) Eve
 				return FilterPass
 			}
 
-			dnsEventArgs := event.Args.(*types.NetPacketDNSBaseArgs)
+			dnsEventArgs, ok := event.Args.(types.NetPacketDNSBaseArgs)
+			if !ok {
+				return FilterPass
+			}
 
-			if dnsEventArgs == nil {
+			if dnsEventArgs.Payload == nil {
 				l.Warn("received invalid event for event type dns")
 				return FilterPass
 			}
