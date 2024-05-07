@@ -27,8 +27,8 @@ typedef struct {
     addr_t saddr;
     addr_t daddr;
     u16 sport;
-	u16 dport;
-	u16 family;
+    u16 dport;
+    u16 family;
 } __attribute__((packed)) tuple_t;
 
 // network flow events
@@ -36,36 +36,8 @@ typedef struct {
 typedef struct netflow {
     u32 host_pid;
     u8 proto;
-//    union {
-//        __u8 u6_addr8[16];
-//        __be16 u6_addr16[8];
-//        __be32 u6_addr32[4];
-//    } src, dst;
-//    u16 srcport;
-//    u16 dstport;
     tuple_t tuple;
 } __attribute__((__packed__)) netflow_t;
-
-//#define copy_netflow(flow)              \
-//    (netflow_t) {                       \
-//        .host_pid = flow.host_pid,      \
-//        .proto = flow.proto,            \
-//        .tuple = flow.tuple,            \
-//        .dst = flow.dst,                \
-//        .srcport = flow.srcport,        \
-//        .dstport = flow.dstport,        \
-//    }
-
-// TODO(anjmao): Fix invert.
-//#define invert_netflow(flow)            \
-//    (netflow_t) {                       \
-//        .host_pid = flow.host_pid,      \
-//        .proto = flow.proto,            \
-//        //.src = flow.dst,                \
-//        //.dst = flow.src,                \
-//        //.srcport = flow.dstport,        \
-//        //.dstport = flow.srcport,        \
-//    }
 
 statfunc netflow_t invert_netflow(netflow_t flow)
 {

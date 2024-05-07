@@ -10,7 +10,6 @@ import (
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -33,12 +32,6 @@ func TestTracer(t *testing.T) {
 		Level: slog.LevelDebug,
 	})
 
-	ct, err := conntrack.NewClient(log)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ct.Close()
-
 	procHandle := proc.New()
 	pidNS, err := procHandle.GetCurrentPIDNSID()
 	if err != nil {
@@ -47,12 +40,11 @@ func TestTracer(t *testing.T) {
 
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
-		EventsPerCPUBuffer:      os.Getpagesize() * 64,
-		EventsOutputChanSize:    10000,
-		ActualDestinationGetter: ct,
-		DefaultCgroupsVersion:   "V2",
-		DebugEnabled:            true,
-		AllowAnyEvent:           true,
+		EventsPerCPUBuffer:    os.Getpagesize() * 64,
+		EventsOutputChanSize:  10000,
+		DefaultCgroupsVersion: "V2",
+		DebugEnabled:          true,
+		AllowAnyEvent:         true,
 		ContainerClient: &ebpftracer.MockContainerClient{
 			ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {
 				dummyContainerID := fmt.Sprint(cgroupID)

@@ -665,7 +665,6 @@ var errDNSMessageNotComplete = errors.New("received dns packet not complete")
 var dnsPacketParser = &layers.DNS{}
 
 func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
-
 	data, err := decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketDNSBase))
 	if err != nil {
 		return nil, err

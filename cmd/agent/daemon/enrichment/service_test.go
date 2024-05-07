@@ -45,9 +45,8 @@ func TestEnrichmentService(t *testing.T) {
 			PodName:   "pod-1",
 		}
 		enqueued := svc.Enqueue(&EnrichRequest{
-			Event:        event,
-			EventContext: &types.EventContext{},
-			Args:         nil,
+			Event:     event,
+			EbpfEvent: &types.Event{},
 		})
 		r.True(enqueued)
 

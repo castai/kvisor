@@ -5435,9 +5435,8 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
 
             u64 now = bpf_ktime_get_ns();
             u64 last_submit_seconds = (now - netflowvalptr->last_update) / 1000000000;
-            bpf_printk("last submit seconds %d\n", last_submit_seconds);
+            // Check if it's time to submit flow sample.
             if (last_submit_seconds >= global_config.flow_sample_submit_interval_seconds) {
-                // It's time to submit flow sample.
                 netflowvalptr->last_update = now;
                 break;
             }
@@ -5526,8 +5525,7 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
 
     // Reset stats after sample is submitted since we store diffs.
     if (flow == flow_tcp_sample) {
-        reset_flow_stats(&netflowvalue);
-        bpf_map_update_elem(&netflowmap, &neteventctx->md.flow, &netflowvalue, BPF_NOEXIST);
+        reset_flow_stats(netflowvalptr);
     }
 
     return 0;
