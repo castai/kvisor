@@ -57,3 +57,26 @@ func (f FlowDirection) String() string {
 
 	return "UNKNOWN"
 }
+
+type NetflowType uint8
+
+const (
+	NetflowTypeUnknown NetflowType = iota
+	NetflowTypeTCPBegin
+	NetflowTypeTCPSample
+	NetflowTypeTCPEnd
+)
+
+func (f NetflowType) String() string {
+	if name, found := flowTypesNames[f]; found {
+		return name
+	}
+
+	return "UNKNOWN"
+}
+
+var flowTypesNames = map[NetflowType]string{
+	NetflowTypeTCPBegin:  "TCP_BEGIN",
+	NetflowTypeTCPSample: "TCP_SAMPLE",
+	NetflowTypeTCPEnd:    "TCP_END",
+}

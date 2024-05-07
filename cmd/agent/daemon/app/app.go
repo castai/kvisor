@@ -11,14 +11,16 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
+	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
-	"github.com/castai/kvisor/cmd/agent/kube"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
+	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
@@ -30,30 +32,32 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
-	"k8s.io/client-go/kubernetes"
-
-	"github.com/castai/kvisor/pkg/containers"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Config struct {
-	LogLevel                 string
-	LogRateInterval          time.Duration
-	LogRateBurst             int
-	SendLogsLevel            string
-	Version                  string
-	BTFPath                  string
-	PyroscopeAddr            string
-	ContainerdSockPath       string
-	HostCgroupsDir           string
-	MetricsHTTPListenPort    int
-	State                    state.Config
-	EBPFEventsPerCPUBuffer   int `validate:"required"`
-	EBPFEventsOutputChanSize int `validate:"required"`
-	MutedNamespaces          []string
-	SignatureEngineConfig    signature.SignatureEngineConfig
-	CastaiEnv                castai.Config
-	EnricherConfig           EnricherConfig
-	Netflow                  NetflowConfig
+	LogLevel                       string
+	LogRateInterval                time.Duration
+	LogRateBurst                   int
+	SendLogsLevel                  string
+	Version                        string
+	BTFPath                        string
+	PyroscopeAddr                  string
+	ContainerdSockPath             string
+	HostCgroupsDir                 string
+	MetricsHTTPListenPort          int
+	State                          state.Config
+	EBPFEventsPerCPUBuffer         int `validate:"required"`
+	EBPFEventsOutputChanSize       int `validate:"required"`
+	EBPFEventsStdioExporterEnabled bool
+	MutedNamespaces                []string
+	SignatureEngineConfig          signature.SignatureEngineConfig
+	Castai                         castai.Config
+	EnricherConfig                 EnricherConfig
+	Netflow                        NetflowConfig
+	Clickhouse                     ClickhouseConfig
+	KubeAPIServiceAddr             string
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
@@ -69,7 +73,7 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		HostCgroupsDir:        c.HostCgroupsDir,
 		MetricsHttpListenPort: int32(c.MetricsHTTPListenPort),
 		State: &castaipb.AgentStateControllerConfig{
-			EventsSinkQueueSize:          int32(c.State.EventsSinkQueueSize),
+			//EventsSinkQueueSize:          int32(c.State.EventsSinkQueueSize),
 			ContainerStatsScrapeInterval: c.State.ContainerStatsScrapeInterval.String(),
 		},
 		EbpfEventsPerCpuBuffer:   int32(c.EBPFEventsPerCPUBuffer),
@@ -85,9 +89,9 @@ func (c Config) Proto() *castaipb.AgentConfig {
 			},
 		},
 		CastaiEnv: &castaipb.CastaiConfig{
-			ClusterId:   c.CastaiEnv.ClusterID,
-			ApiGrpcAddr: c.CastaiEnv.APIGrpcAddr,
-			Insecure:    c.CastaiEnv.Insecure,
+			ClusterId:   c.Castai.ClusterID,
+			ApiGrpcAddr: c.Castai.APIGrpcAddr,
+			Insecure:    c.Castai.Insecure,
 		},
 		EnricherConfig: &castaipb.EnricherConfig{
 			EnableFileHashEnricher: c.EnricherConfig.EnableFileHashEnricher,
@@ -108,30 +112,26 @@ type NetflowConfig struct {
 	SampleSubmitIntervalSeconds uint64
 }
 
-func New(cfg *Config, clientset kubernetes.Interface) *App {
+type ClickhouseConfig struct {
+	Addr     string
+	Database string
+	Username string
+	Password string
+}
+
+func New(cfg *Config) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
-	return &App{cfg: cfg, kubeClient: clientset}
+	return &App{cfg: cfg}
 }
 
 type App struct {
 	cfg *Config
-
-	kubeClient kubernetes.Interface
 }
 
 func (a *App) Run(ctx context.Context) error {
 	cfg := a.cfg
-	castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.CastaiEnv)
-	if err != nil {
-		return fmt.Errorf("setting up castai api client: %w", err)
-	}
-
-	if err := a.syncRemoteConfig(ctx, castaiClient); err != nil {
-		return fmt.Errorf("sync remote config: %w", err)
-	}
-
 	logCfg := &logging.Config{
 		Level:     logging.MustParseLevel(a.cfg.LogLevel),
 		AddSource: true,
@@ -141,16 +141,76 @@ func (a *App) Run(ctx context.Context) error {
 			Inform: true,
 		},
 	}
-	if a.cfg.SendLogsLevel != "" {
-		castaiLogsExporter := castai.NewLogsExporter(castaiClient)
-		go castaiLogsExporter.Run(ctx) //nolint:errcheck
+	var log *logging.Logger
+	var exporters *state.Exporters
 
-		logCfg.Export = logging.ExportConfig{
-			ExportFunc: castaiLogsExporter.ExportFunc(),
-			MinLevel:   logging.MustParseLevel(a.cfg.SendLogsLevel),
+	// Castai specific spetup if config is valid.
+	if cfg.Castai.Valid() {
+		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.Castai)
+		if err != nil {
+			return fmt.Errorf("setting up castai api client: %w", err)
 		}
+		if err := a.syncRemoteConfig(ctx, castaiClient); err != nil {
+			return fmt.Errorf("sync remote config: %w", err)
+		}
+		if a.cfg.SendLogsLevel != "" && a.cfg.Castai.Valid() {
+			castaiLogsExporter := castai.NewLogsExporter(castaiClient)
+			go castaiLogsExporter.Run(ctx) //nolint:errcheck
+
+			logCfg.Export = logging.ExportConfig{
+				ExportFunc: castaiLogsExporter.ExportFunc(),
+				MinLevel:   logging.MustParseLevel(a.cfg.SendLogsLevel),
+			}
+			log = logging.New(logCfg)
+		}
+		exporters = state.NewExporters(log)
+		exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient))
+		exporters.ContainerStats = append(exporters.ContainerStats, state.NewCastaiContainerStatsExporter(log, castaiClient))
+	} else {
+		log = logging.New(logCfg)
+		exporters = state.NewExporters(log)
 	}
-	log := logging.New(logCfg)
+
+	kubeAPIServiceConn, err := grpc.Dial(
+		cfg.KubeAPIServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("kube api service grpc server dial: %w", err)
+	}
+	defer kubeAPIServiceConn.Close()
+	kubeAPIServerClient := kubepb.NewKubeAPIClient(kubeAPIServiceConn)
+
+	if cfg.Clickhouse.Addr != "" {
+		storageConn, err := clickhouse.Open(&clickhouse.Options{
+			Addr: []string{cfg.Clickhouse.Addr},
+			Auth: clickhouse.Auth{
+				Database: cfg.Clickhouse.Database,
+				Username: cfg.Clickhouse.Username,
+				Password: cfg.Clickhouse.Password,
+			},
+			Settings: clickhouse.Settings{
+				"allow_experimental_object_type": "1",
+			},
+			MaxOpenConns: 20,
+		})
+		if err != nil {
+			return err
+		}
+		defer storageConn.Close()
+
+		clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn)
+		exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
+	}
+
+	if cfg.EBPFEventsStdioExporterEnabled {
+		exporters.Events = append(exporters.Events, state.NewStdioEventsExporter(log))
+	}
+
+	if exporters.Empty() {
+		return errors.New("no configured exporters")
+	}
+
 	log.Infof("running kvisor agent, version=%s", a.cfg.Version)
 	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
 
@@ -204,18 +264,26 @@ func (a *App) Run(ctx context.Context) error {
 		CgroupClient:                       cgroupClient,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
+		NetflowEnabled:                     a.cfg.Netflow.Enabled,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
+		SignatureEngine:                    signatureEngine,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
 	}
+	defer tracer.Close()
+
 	policy := &ebpftracer.Policy{
-		SignatureEngine: signatureEngine,
 		SystemEvents: []events.ID{
 			events.SignalCgroupMkdir,
 			events.SignalCgroupRmdir,
 		},
-		Events: []*ebpftracer.EventPolicy{
+		Events: []*ebpftracer.EventPolicy{},
+	}
+
+	if len(exporters.Events) > 0 {
+		policy.SignatureEvents = signatureEngine.TargetEvents()
+		policy.Events = append(policy.Events, []*ebpftracer.EventPolicy{
 			{ID: events.SchedProcessExec},
 			{
 				ID: events.SockSetState,
@@ -240,9 +308,9 @@ func (a *App) Run(ctx context.Context) error {
 			},
 			{ID: events.ProcessOomKilled}, // OOM events should not happen too often and we want to know about all of them
 			{ID: events.MagicWrite},
-		},
+		}...)
 	}
-	if a.cfg.Netflow.Enabled {
+	if len(exporters.Netflow) > 0 {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 			ID: events.NetFlowBase,
 		})
@@ -254,24 +322,17 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(proc.Path)
 
-	nodeName, found := os.LookupEnv("NODE_NAME")
-	if !found {
-		return errors.New("missing `NODE_NAME` environment variable")
-	}
-
-	kubeClient := kube.NewClient(log, a.kubeClient, nodeName)
-
 	ctrl := state.NewController(
 		log,
 		a.cfg.State,
-		castaiClient,
+		exporters,
 		containersClient,
 		netStatsReader,
 		ct,
 		tracer,
 		signatureEngine,
 		enrichmentService,
-		kubeClient,
+		kubeAPIServerClient,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
@@ -280,7 +341,7 @@ func (a *App) Run(ctx context.Context) error {
 	})
 
 	errg.Go(func() error {
-		return tracer.Run(ctx)
+		return exporters.Run(ctx)
 	})
 
 	errg.Go(func() error {
@@ -292,12 +353,15 @@ func (a *App) Run(ctx context.Context) error {
 	})
 
 	errg.Go(func() error {
-		return kubeClient.Run(ctx)
-	})
-
-	errg.Go(func() error {
 		return enrichmentService.Run(ctx)
 	})
+
+	// Tracer should not run in err group because it can block event if context is canceled
+	// during event read.
+	tracererr := make(chan error, 1)
+	go func() {
+		tracererr <- tracer.Run(ctx)
+	}()
 
 	for _, namespace := range a.cfg.MutedNamespaces {
 		err := ctrl.MuteNamespace(namespace)
@@ -307,6 +371,8 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	select {
+	case err := <-tracererr:
+		return err
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
 	}
@@ -404,7 +470,7 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	}()
 	select {
 	case <-time.After(timeout):
-		return errors.New("timeout waiting for shutdown")
+		return errors.New("timeout waiting for shutdown") // TODO(anjmao): Getting this error on tilt.
 	case err := <-errc:
 		return err
 	}

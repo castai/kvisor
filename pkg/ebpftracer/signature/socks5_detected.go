@@ -129,7 +129,7 @@ func (s *SOCKS5Detected) OnEvent(event *types.Event) *v1.SignatureFinding {
 		return nil
 	}
 
-	flowDirection := event.Context.ParseFlowDirection()
+	flowDirection := event.Context.GetFlowDirection()
 
 	switch msg := message.(type) {
 	case packet.SOCKS5InitialClientRequest:

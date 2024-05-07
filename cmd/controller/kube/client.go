@@ -2,8 +2,10 @@ package kube
 
 import (
 	"context"
+	"net/netip"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +15,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
@@ -35,10 +36,19 @@ type Object interface {
 	metav1.Object
 }
 
-type KubernetesChangeEventListener interface {
+type AddListener interface {
 	OnAdd(obj Object)
+}
+
+type UpdateListener interface {
+	OnUpdate(obj Object)
+}
+
+type DeleteListener interface {
 	OnDelete(obj Object)
-	OnUpdate(newObj Object)
+}
+
+type KubernetesChangeEventListener interface {
 	RequiredTypes() []reflect.Type
 }
 
@@ -50,10 +60,11 @@ type Client struct {
 	client                        kubernetes.Interface
 
 	mu                      sync.RWMutex
-	replicaSets             map[types.UID]metav1.ObjectMeta
-	jobs                    map[types.UID]metav1.ObjectMeta
-	deployments             map[types.UID]*appsv1.Deployment
 	kvisorControllerPodSpec *corev1.PodSpec
+
+	index *Index
+
+	clusterInfo *ClusterInfo
 
 	changeListenersMu sync.RWMutex
 	changeListeners   []*eventListener
@@ -72,9 +83,7 @@ func NewClient(
 		podName:                       podName,
 		kvisorControllerContainerName: "controller",
 		client:                        client,
-		replicaSets:                   map[types.UID]metav1.ObjectMeta{},
-		jobs:                          map[types.UID]metav1.ObjectMeta{},
-		deployments:                   map[types.UID]*appsv1.Deployment{},
+		index:                         NewIndex(),
 		version:                       version,
 	}
 }
@@ -139,12 +148,20 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			defer c.mu.Unlock()
 
 			switch t := obj.(type) {
+			case *corev1.Pod:
+				c.index.addFromPod(t)
+			case *corev1.Service:
+				c.index.addFromService(t)
+			case *corev1.Endpoints:
+				c.index.addFromEndpoints(t)
+			case *corev1.Node:
+				c.index.addFromNode(t)
 			case *batchv1.Job:
-				c.jobs[t.UID] = t.ObjectMeta
+				c.index.jobs[t.UID] = t.ObjectMeta
 			case *appsv1.ReplicaSet:
-				c.replicaSets[t.UID] = t.ObjectMeta
+				c.index.replicaSets[t.UID] = t.ObjectMeta
 			case *appsv1.Deployment:
-				c.deployments[t.UID] = t
+				c.index.deployments[t.UID] = t
 			}
 
 			if kubeObj, ok := obj.(Object); ok {
@@ -156,12 +173,20 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			defer c.mu.Unlock()
 
 			switch t := newObj.(type) {
+			case *corev1.Pod:
+				c.index.addFromPod(t)
+			case *corev1.Service:
+				c.index.addFromService(t)
+			case *corev1.Endpoints:
+				c.index.addFromEndpoints(t)
+			case *corev1.Node:
+				c.index.addFromNode(t)
 			case *batchv1.Job:
-				c.jobs[t.UID] = t.ObjectMeta
+				c.index.jobs[t.UID] = t.ObjectMeta
 			case *appsv1.ReplicaSet:
-				c.replicaSets[t.UID] = t.ObjectMeta
+				c.index.replicaSets[t.UID] = t.ObjectMeta
 			case *appsv1.Deployment:
-				c.deployments[t.UID] = t
+				c.index.deployments[t.UID] = t
 			}
 
 			if kubeObj, ok := newObj.(Object); ok {
@@ -173,12 +198,20 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 			defer c.mu.Unlock()
 
 			switch t := obj.(type) {
+			case *corev1.Pod:
+				c.index.deleteFromPod(t)
+			case *corev1.Service:
+				c.index.deleteFromService(t)
+			case *corev1.Endpoints:
+				c.index.deleteFromEndpoints(t)
+			case *corev1.Node:
+				c.index.deleteByNode(t)
 			case *batchv1.Job:
-				delete(c.jobs, t.UID)
+				delete(c.index.jobs, t.UID)
 			case *appsv1.ReplicaSet:
-				delete(c.replicaSets, t.UID)
+				delete(c.index.replicaSets, t.UID)
 			case *appsv1.Deployment:
-				delete(c.deployments, t.UID)
+				delete(c.index.deployments, t.UID)
 			}
 
 			if kubeObj, ok := obj.(Object); ok {
@@ -188,73 +221,20 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 	}
 }
 
-func findNextOwnerID(obj metav1.ObjectMeta, expectedKind string) (types.UID, bool) {
-	refs := obj.GetOwnerReferences()
-	if len(refs) == 0 {
-		return obj.GetUID(), true
-	}
+func (c *Client) GetIPInfo(ip string) (IPInfo, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-	for _, ref := range refs {
-		if ref.Kind == expectedKind {
-			return ref.UID, true
-		}
-	}
-
-	return "", false
+	val, found := c.index.podsInfoByIP[ip]
+	return val, found
 }
 
-func findOwnerFromDeployments(workloads map[types.UID]*appsv1.Deployment, pod *corev1.Pod) (types.UID, bool) {
-	for _, w := range workloads {
+func (c *Client) GetPod(uid string) (*corev1.Pod, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-		sel, err := metav1.LabelSelectorAsSelector(w.Spec.Selector)
-		if err != nil {
-			continue
-		}
-		if sel.Matches(labels.Set(pod.Labels)) {
-			return w.UID, true
-		}
-	}
-	return "", false
-}
-
-func (c *Client) getPodOwnerID(pod *corev1.Pod) string {
-	if len(pod.OwnerReferences) == 0 {
-		return string(pod.UID)
-	}
-	ref := pod.OwnerReferences[0]
-
-	switch ref.Kind {
-	case "DaemonSet", "StatefulSet":
-		return string(ref.UID)
-	case "ReplicaSet":
-		rs, found := c.replicaSets[ref.UID]
-		if found {
-			// Fast path. Find Deployment from replica set.
-			if owner, found := findNextOwnerID(rs, "Deployment"); found {
-				return string(owner)
-			}
-		}
-
-		// Slow path. Find deployment by matching selectors.
-		// In this Deployment could be managed by some crd like ArgoRollouts.
-		if owner, found := findOwnerFromDeployments(c.deployments, pod); found {
-			return string(owner)
-		}
-
-		if found {
-			return string(rs.UID)
-		}
-	case "Job":
-		job, found := c.jobs[ref.UID]
-		if found {
-			if owner, found := findNextOwnerID(job, "CronJob"); found {
-				return string(owner)
-			}
-			return string(job.UID)
-		}
-	}
-
-	return string(pod.UID)
+	val, found := c.index.pods[types.UID(uid)]
+	return val, found
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {
@@ -263,13 +243,63 @@ func (c *Client) GetOwnerUID(obj Object) string {
 
 	switch v := obj.(type) {
 	case *corev1.Pod:
-		return c.getPodOwnerID(v)
+		return string(c.index.getPodOwner(v).UID)
 	}
 
 	if len(obj.GetOwnerReferences()) == 0 {
 		return ""
 	}
 	return string(obj.GetOwnerReferences()[0].UID)
+}
+
+func (c *Client) GetPodOwner(podUID string) (metav1.OwnerReference, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	pod, found := c.index.pods[types.UID(podUID)]
+	if !found {
+		return metav1.OwnerReference{}, false
+	}
+	res := c.index.getPodOwner(pod)
+	if res.UID == types.UID(podUID) {
+		return metav1.OwnerReference{}, false
+	}
+	return res, true
+}
+
+type ClusterInfo struct {
+	PodCidr     string
+	ServiceCidr string
+}
+
+func (c *Client) GetClusterInfo() (*ClusterInfo, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.clusterInfo != nil {
+		return c.clusterInfo, true
+	}
+
+	var res ClusterInfo
+	for _, node := range c.index.nodesByName {
+		subnet, err := netip.ParsePrefix(node.Spec.PodCIDR)
+		if err != nil {
+			return nil, false
+		}
+		res.PodCidr = netip.PrefixFrom(subnet.Addr(), 16).String()
+		break
+	}
+
+	for _, info := range c.index.podsInfoByIP {
+		if svc := info.Service; svc != nil && svc.Spec.Type == corev1.ServiceTypeClusterIP {
+			addr, err := netip.ParseAddr(svc.Spec.ClusterIP)
+			if err != nil {
+				return nil, false
+			}
+			res.ServiceCidr = netip.PrefixFrom(addr, 16).String()
+		}
+	}
+	c.clusterInfo = &res
+	return &res, false
 }
 
 type ImageDetails struct {
@@ -346,14 +376,27 @@ func (c *Client) RegisterKubernetesChangeListener(l KubernetesChangeEventListene
 	c.changeListeners = append(c.changeListeners, internalListener)
 }
 
+func (c *Client) UnregisterKubernetesChangeListener(l KubernetesChangeEventListener) {
+	c.changeListenersMu.Lock()
+	defer c.changeListenersMu.Unlock()
+
+	for i, lis := range c.changeListeners {
+		if lis.lis == l {
+			c.changeListeners = slices.Delete(c.changeListeners, i, i+1)
+			return
+		}
+	}
+}
+
 func (c *Client) fireKubernetesAddEvent(obj Object) {
 	c.changeListenersMu.RLock()
 	listeners := c.changeListeners
 	c.changeListenersMu.RUnlock()
 
 	for _, l := range listeners {
-		if l.required(obj) {
-			go l.lis.OnAdd(obj)
+		actionListener, ok := l.lis.(AddListener)
+		if ok && l.required(obj) {
+			go actionListener.OnAdd(obj)
 		}
 	}
 }
@@ -364,8 +407,9 @@ func (c *Client) fireKubernetesUpdateEvent(obj Object) {
 	c.changeListenersMu.RUnlock()
 
 	for _, l := range listeners {
-		if l.required(obj) {
-			go l.lis.OnUpdate(obj)
+		actionListener, ok := l.lis.(UpdateListener)
+		if ok && l.required(obj) {
+			go actionListener.OnUpdate(obj)
 		}
 	}
 }
@@ -376,8 +420,9 @@ func (c *Client) fireKubernetesDeleteEvent(obj Object) {
 	c.changeListenersMu.RUnlock()
 
 	for _, l := range listeners {
-		if l.required(obj) {
-			go l.lis.OnDelete(obj)
+		actionListener, ok := l.lis.(DeleteListener)
+		if ok && l.required(obj) {
+			go actionListener.OnDelete(obj)
 		}
 	}
 }

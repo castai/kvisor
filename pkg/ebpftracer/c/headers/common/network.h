@@ -19,8 +19,8 @@ typedef union iphdrs_t {
 } iphdrs;
 
 typedef union  {
-	u32 v4addr;
-	unsigned __int128 v6addr;
+    u32 v4addr;
+    unsigned __int128 v6addr;
 }  __attribute__((packed)) addr_t;
 
 typedef struct {
@@ -64,12 +64,10 @@ statfunc netflow_t invert_netflow(netflow_t flow)
 typedef struct netflowvalue {
     u8 direction;                           // 0 = flow_unknown, 1 = flow_incoming, 2 = flow_outgoing
     u64 last_update;                        // last time this flow was updated
-    u64 bytes;                           // total bytes sent/received
-    u64 packets;                         // total packets sent/received
-    // u64 events;                          // total events sent/received
-    // u64 last_bytes;                      // last bytes sent/received
-    // u64 last_packets;                    // last packets sent/received
-    // u64 last_events;                     // last events sent/received
+    u64 tx_bytes;                           // total bytes sent
+    u64 rx_bytes;                           // total bytes received
+    u64 tx_packets;                         // total packets sent
+    u64 rx_packets;                         // total packets received
 } __attribute__((__packed__)) netflowvalue_t;
 
 // netflowmap (keep track of network flows)

@@ -20109,17 +20109,32 @@ func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
         return types.NetFlowBaseArgs{}, err
       }
     case 1:
-      result.Tuple, err = decoder.ReadAddrTuple()
+      err = decoder.DecodeUint8(&result.Direction)
       if err != nil {
         return types.NetFlowBaseArgs{}, err
       }
     case 2:
-      err = decoder.DecodeUint64(&result.Bytes)
+      result.Tuple, err = decoder.ReadAddrTuple()
       if err != nil {
         return types.NetFlowBaseArgs{}, err
       }
     case 3:
-      err = decoder.DecodeUint64(&result.Packets)
+      err = decoder.DecodeUint64(&result.TxBytes)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 4:
+      err = decoder.DecodeUint64(&result.RxBytes)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 5:
+      err = decoder.DecodeUint64(&result.TxPackets)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 6:
+      err = decoder.DecodeUint64(&result.RxPackets)
       if err != nil {
         return types.NetFlowBaseArgs{}, err
       }

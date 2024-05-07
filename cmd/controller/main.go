@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -30,6 +31,7 @@ var (
 	kubeconfigPath        = pflag.String("kubeconfig", "", "Kubeconfig file")
 	metricsHTTPListenPort = pflag.Int("metrics-http-listen-port", 6060, "metrics http listen port")
 	serverHTTPListenPort  = pflag.Int("http-listen-port", 8080, "server http listen port")
+	kubeServerListenPort  = pflag.Int("kube-server-listen-port", 8090, "kube server grpc http listen port")
 
 	logLevel        = pflag.String("log-level", slog.LevelDebug.String(), "Log level")
 	logRateInterval = pflag.Duration("log-rate-iterval", 100*time.Millisecond, "Log rate limit interval")
@@ -96,34 +98,38 @@ func lookupConfigVariable(name string) (string, error) {
 	return "", fmt.Errorf("environment variable missing: please provide either `CAST_%s` or `%s`", name, name)
 }
 
+func resolveCastaiConfig(castaiServerInsecure bool) (castai.Config, error) {
+	castaiGRPCAddress, found := os.LookupEnv("CASTAI_API_GRPC_ADDR")
+	if !found {
+		return castai.Config{}, fmt.Errorf("missing environment variable: CASTAI_API_GRPC_ADDR")
+	}
+	castaiClusterID, found := os.LookupEnv("CASTAI_CLUSTER_ID")
+	if !found {
+		return castai.Config{}, fmt.Errorf("missing environment variable: CASTAI_CLUSTER_ID")
+	}
+
+	apiKey, err := lookupConfigVariable("API_KEY")
+	if err != nil {
+		return castai.Config{}, err
+	}
+
+	return castai.Config{
+		APIKey:      apiKey,
+		APIGrpcAddr: castaiGRPCAddress,
+		ClusterID:   castaiClusterID,
+		Insecure:    castaiServerInsecure,
+	}, nil
+}
+
 func main() {
 	pflag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	castaiGRPCAddress, found := os.LookupEnv("CASTAI_API_GRPC_ADDR")
-	if !found {
-		slog.Error("missing required environment variable: CASTAI_API_GRPC_ADDR")
-		os.Exit(1)
-	}
-	castaiClusterID, found := os.LookupEnv("CASTAI_CLUSTER_ID")
-	if !found {
-		slog.Error("missing required environment variable: CASTAI_CLUSTER_ID")
-		os.Exit(1)
-	}
-
-	apiKey, err := lookupConfigVariable("API_KEY")
+	castaiClientCfg, err := resolveCastaiConfig(*castaiServerInsecure)
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
-	}
-
-	castaiClientCfg := castai.Config{
-		APIKey:      apiKey,
-		APIGrpcAddr: castaiGRPCAddress,
-		ClusterID:   castaiClusterID,
-		Insecure:    *castaiServerInsecure,
+		slog.Warn(fmt.Errorf("skipping CAST AI integration: %w", err).Error())
 	}
 
 	kubeConfig, err := getKubeConfig(*kubeconfigPath)
@@ -149,17 +155,25 @@ func main() {
 	}
 
 	podNs := os.Getenv("POD_NAMESPACE")
+	if podNs == "" {
+		podNs = "localenv"
+	}
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		podName = "localenv"
+	}
 	appInstance := app.New(app.Config{
 		LogLevel:              *logLevel,
 		LogRateInterval:       *logRateInterval,
 		LogRateBurst:          *logRateBurst,
-		PodName:               os.Getenv("POD_NAME"),
+		PodName:               podName,
 		PodNamespace:          podNs,
 		Version:               Version,
 		ChartVersion:          *chartVersion,
 		PyroscopeAddr:         *pyroscopeAddr,
 		MetricsHTTPListenPort: *metricsHTTPListenPort,
 		HTTPListenPort:        *serverHTTPListenPort,
+		KubeServerListenPort:  *kubeServerListenPort,
 		CastaiEnv:             castaiClientCfg,
 		CastaiController: state.CastaiConfig{
 			RemoteConfigSyncDuration: *castaiConfigSyncDuration,
@@ -181,8 +195,8 @@ func main() {
 			PrivateRegistryPullSecret: *imagePrivateRegistryPullSecret,
 			ServiceAccount:            *imageScanServiceAccount,
 			InitDelay:                 *imageScanInitDelay,
-			CastaiGRPCAddress:         castaiGRPCAddress,
-			CastaiClusterID:           castaiClusterID,
+			CastaiGRPCAddress:         castaiClientCfg.APIGrpcAddr,
+			CastaiClusterID:           castaiClientCfg.ClusterID,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
 			CloudProvider:             cloudProviderVal,
@@ -216,7 +230,7 @@ func main() {
 		clientset,
 	)
 
-	if err := appInstance.Run(ctx); err != nil {
+	if err := appInstance.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}

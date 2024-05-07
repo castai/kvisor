@@ -4,13 +4,12 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
-	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 )
 
 type Policy struct {
 	SystemEvents    []events.ID // List of events required for internal tasks such as cache cleanup
-	SignatureEngine *signature.SignatureEngine
+	SignatureEvents []events.ID
 	Events          []*EventPolicy
 	Output          PolicyOutputConfig
 }

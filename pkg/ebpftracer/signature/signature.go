@@ -44,7 +44,7 @@ func NewEngine(signatures []Signature, log *logging.Logger, cfg SignatureEngineC
 	eventsSignatureTriggers, signaturesMetadata := buildLookupMaps(signatures)
 
 	return &SignatureEngine{
-		log:                     log,
+		log:                     log.WithField("component", "signature_engine"),
 		inputEvents:             make(chan *types.Event, cfg.InputChanSize),
 		eventsChan:              make(chan *castpb.Event, cfg.OutputChanSize),
 		signatures:              signatures,
@@ -98,6 +98,9 @@ func (e *SignatureEngine) QueueEvent(event *types.Event) {
 }
 
 func (e *SignatureEngine) Run(ctx context.Context) error {
+	e.log.Infof("running")
+	defer e.log.Infof("stopping")
+
 	for {
 		select {
 		case <-ctx.Done():

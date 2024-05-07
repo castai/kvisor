@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package kube.v1;
+
+option go_package = "github.com/castai/kvisor/api/kube/v1";
+
+service KubeAPI {
+  rpc GetClusterInfo(GetClusterInfoRequest) returns (GetClusterInfoResponse);
+  rpc GetIPInfo(GetIPInfoRequest) returns (GetIPInfoResponse);
+  rpc GetPod(GetPodRequest) returns (GetPodResponse);
+}
+
+message GetClusterInfoRequest {}
+message GetClusterInfoResponse {
+  string pods_cidr = 1;
+  string service_cidr = 2;
+}
+
+message GetIPInfoRequest {
+  string ip = 1;
+}
+
+message GetIPInfoResponse {
+  IPInfo info = 1;
+}
+
+message IPInfo {
+  string pod_uid = 1;
+  string pod_name = 3;
+  string namespace = 2;
+  string workload_name = 4;
+  string workload_kind = 5;
+  string zone = 6;
+}
+
+message GetPodRequest {
+  string uid = 2;
+}
+
+message GetPodResponse {
+  Pod pod = 1;
+}
+
+message Pod {
+  string uid = 1;
+  string namespace = 2;
+  string name = 3;
+  string workload_name = 4;
+  string workload_kind = 5;
+  string zone = 6;
+}

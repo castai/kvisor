@@ -59,7 +59,7 @@ type Service struct {
 	eventEnrichers map[castpb.EventType][]EventEnricher
 }
 
-func (s *Service) Events() chan *castpb.Event {
+func (s *Service) Events() <-chan *castpb.Event {
 	return s.outQueue
 }
 

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec // TODO: Fix this, should not use default pprof.
 	"time"
 
+	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/cmd/controller/state"
@@ -27,6 +29,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 )
@@ -48,6 +51,7 @@ type Config struct {
 	// HTTPListenPort is internal http servers listen port.
 	HTTPListenPort        int `validate:"required"`
 	MetricsHTTPListenPort int
+	KubeServerListenPort  int `validate:"required"`
 
 	// PyroscopeAddr is optional pyroscope addr to send traces.
 	PyroscopeAddr string
@@ -145,11 +149,7 @@ func (a *App) Run(ctx context.Context) error {
 	cfg := a.cfg
 	clientset := a.kubeClient
 
-	castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-controller/%s", cfg.Version), cfg.CastaiEnv)
-	if err != nil {
-		return fmt.Errorf("setting up castai api client: %w", err)
-	}
-	castaiLogsExporter := castai.NewLogsExporter(castaiClient)
+	var log *logging.Logger
 	logCfg := &logging.Config{
 		AddSource: true,
 		Level:     logging.MustParseLevel(cfg.LogLevel),
@@ -158,20 +158,30 @@ func (a *App) Run(ctx context.Context) error {
 			Burst:  cfg.LogRateBurst,
 			Inform: true,
 		},
-		Export: logging.ExportConfig{
+	}
+	var castaiClient *castai.Client
+	if a.cfg.CastaiEnv.Valid() {
+		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-controller/%s", cfg.Version), cfg.CastaiEnv)
+		if err != nil {
+			return fmt.Errorf("setting up castai api client: %w", err)
+		}
+		defer castaiClient.Close()
+		castaiLogsExporter := castai.NewLogsExporter(castaiClient)
+		go castaiLogsExporter.Run(ctx) //nolint:errcheck
+		logCfg.Export = logging.ExportConfig{
 			ExportFunc: castaiLogsExporter.ExportFunc(),
 			MinLevel:   slog.LevelInfo,
-		},
+		}
+		log = logging.New(logCfg)
+	} else {
+		log = logging.New(logCfg)
 	}
-	log := logging.New(logCfg)
 
 	log.Infof("running kvisor-controller, cluster_id=%s, grpc_addr=%s, version=%s", cfg.CastaiEnv.ClusterID, cfg.CastaiEnv.APIGrpcAddr, cfg.Version)
 
 	if cfg.PyroscopeAddr != "" {
 		withPyroscope(cfg.PyroscopeAddr)
 	}
-
-	defer castaiClient.Close()
 
 	// Setup kubernetes client and watcher.
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
@@ -182,69 +192,72 @@ func (a *App) Run(ctx context.Context) error {
 	kubeClient := kube.NewClient(log, cfg.PodName, cfg.PodNamespace, k8sVersion, clientset)
 	kubeClient.RegisterHandlers(informersFactory)
 
-	// Run all components.
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return kubeClient.Run(ctx)
 	})
-	errg.Go(func() error {
-		castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, cfg.Proto(), kubeClient, castaiClient)
-		return castaiCtrl.Run(ctx)
-	})
 
-	errg.Go(func() error {
-		jobsCleanupCtrl := state.NewJobsCleanupController(log, clientset, cfg.JobsCleanup)
-		return jobsCleanupCtrl.Run(ctx)
-	})
-
-	if cfg.Delta.Enabled {
-		deltaCtrl := delta.NewController(log, cfg.Delta, castaiClient.GRPC, kubeClient)
-		kubeClient.RegisterKubernetesChangeListener(deltaCtrl)
+	// CAST AI specific logic.
+	if castaiClient != nil {
 		errg.Go(func() error {
-			return deltaCtrl.Run(ctx)
+			castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, cfg.Proto(), kubeClient, castaiClient)
+			return castaiCtrl.Run(ctx)
 		})
-	}
 
-	if cfg.ImageScan.Enabled {
-		imageScanner := imagescan.NewImageScanner(clientset, cfg.ImageScan, cfg.PodNamespace)
-		imageScanCtrl := imagescan.NewController(log, cfg.ImageScan, imageScanner, castaiClient.GRPC, kubeClient)
-		kubeClient.RegisterKubernetesChangeListener(imageScanCtrl)
 		errg.Go(func() error {
-			return imageScanCtrl.Run(ctx)
+			jobsCleanupCtrl := state.NewJobsCleanupController(log, clientset, cfg.JobsCleanup)
+			return jobsCleanupCtrl.Run(ctx)
 		})
-	}
 
-	if cfg.Linter.Enabled {
-		linter, err := kubelinter.New(lo.Keys(kubelinter.LinterRuleMap))
-		if err != nil {
-			return err
+		if cfg.Delta.Enabled {
+			deltaCtrl := delta.NewController(log, cfg.Delta, castaiClient.GRPC, kubeClient)
+			kubeClient.RegisterKubernetesChangeListener(deltaCtrl)
+			errg.Go(func() error {
+				return deltaCtrl.Run(ctx)
+			})
 		}
-		linterCtrl := kubelinter.NewController(log, a.cfg.Linter, linter, castaiClient.GRPC)
-		kubeClient.RegisterKubernetesChangeListener(linterCtrl)
-		errg.Go(func() error {
-			return linterCtrl.Run(ctx)
-		})
-	}
 
-	if cfg.KubeBench.Enabled {
-		logsReader := kube.NewPodLogReader(clientset)
-		kubeBenchCtrl := kubebench.NewController(log, clientset, a.cfg.KubeBench, castaiClient.GRPC, logsReader, kubeClient, []string{})
-		kubeClient.RegisterKubernetesChangeListener(kubeBenchCtrl)
-		errg.Go(func() error {
-			return kubeBenchCtrl.Run(ctx)
-		})
+		if cfg.ImageScan.Enabled {
+			imageScanner := imagescan.NewImageScanner(clientset, cfg.ImageScan, cfg.PodNamespace)
+			imageScanCtrl := imagescan.NewController(log, cfg.ImageScan, imageScanner, castaiClient.GRPC, kubeClient)
+			kubeClient.RegisterKubernetesChangeListener(imageScanCtrl)
+			errg.Go(func() error {
+				return imageScanCtrl.Run(ctx)
+			})
+		}
+
+		if cfg.Linter.Enabled {
+			linter, err := kubelinter.New(lo.Keys(kubelinter.LinterRuleMap))
+			if err != nil {
+				return err
+			}
+			linterCtrl := kubelinter.NewController(log, a.cfg.Linter, linter, castaiClient.GRPC)
+			kubeClient.RegisterKubernetesChangeListener(linterCtrl)
+			errg.Go(func() error {
+				return linterCtrl.Run(ctx)
+			})
+		}
+
+		if cfg.KubeBench.Enabled {
+			logsReader := kube.NewPodLogReader(clientset)
+			kubeBenchCtrl := kubebench.NewController(log, clientset, a.cfg.KubeBench, castaiClient.GRPC, logsReader, kubeClient, []string{})
+			kubeClient.RegisterKubernetesChangeListener(kubeBenchCtrl)
+			errg.Go(func() error {
+				return kubeBenchCtrl.Run(ctx)
+			})
+		}
 	}
 
 	errg.Go(func() error {
-		return castaiLogsExporter.Run(ctx)
-	})
-	errg.Go(func() error {
-		// Setup http server.
 		return a.runHTTPServer(ctx, log)
 	})
+
+	errg.Go(func() error {
+		return a.runKubeServer(ctx, log, kubeClient)
+	})
+
 	if cfg.MetricsHTTPListenPort != 0 {
 		errg.Go(func() error {
-			// Setup http server.
 			return a.runMetricsHTTPServer(ctx, log)
 		})
 	}
@@ -307,7 +320,29 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 			log.Error(err.Error())
 		}
 	}()
+	log.Infof("running http server, port=%d", a.cfg.HTTPListenPort)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+func (a *App) runKubeServer(ctx context.Context, log *logging.Logger, client *kube.Client) error {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", a.cfg.KubeServerListenPort))
+	if err != nil {
+		return err
+	}
+
+	s := grpc.NewServer()
+	kubepb.RegisterKubeAPIServer(s, kube.NewServer(client))
+
+	go func() {
+		<-ctx.Done()
+		log.Info("shutting kube grpc server")
+		s.GracefulStop()
+	}()
+	log.Infof("running kube server, port=%d", a.cfg.KubeServerListenPort)
+	if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 		return err
 	}
 	return nil
@@ -336,6 +371,7 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 			log.Error(err.Error())
 		}
 	}()
+	log.Infof("running metrics server, port=%d", a.cfg.MetricsHTTPListenPort)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

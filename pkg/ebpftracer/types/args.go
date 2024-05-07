@@ -4286,7 +4286,10 @@ type NetFlowBaseArgs struct {
   internalArgs
 
   Proto uint8
+  Direction uint8
   Tuple AddrTuple
-  Bytes uint64
-  Packets uint64
+  TxBytes uint64
+  RxBytes uint64
+  TxPackets uint64
+  RxPackets uint64
 }
