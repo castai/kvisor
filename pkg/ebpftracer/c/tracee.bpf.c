@@ -498,6 +498,9 @@ int sys_dup_exit_tail(void *ctx)
     if (!init_tailcall_program_data(&p, ctx))
         return 0;
 
+    if (!should_trace(&p))
+        return 0;
+
     syscall_data_t *sys = &p.task_info->syscall_data;
 
     if (sys->ret < 0) {
