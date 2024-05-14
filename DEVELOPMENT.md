@@ -228,9 +228,10 @@ Install kvisor with netflow export to local clickhouse.
 ```
 helm upgrade --install castai-kvisor ./charts/kvisor \
     --namespace kvisor --create-namespace \
-    --set image.tag=ca8f50ace37bf3ca6636e48f31843bd897e9f1b3 \
+    --set image.tag=43439aa7a8bad18f485e24ea364d8dda9ea26e37 \
     --set castai.enabled=false \
     --set agent.enabled=true \
+    --set agent.extraArgs.netflow-enabled=true \
     --set clickhouse.enabled=true
 ```
 
