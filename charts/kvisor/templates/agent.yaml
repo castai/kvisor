@@ -61,7 +61,7 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
-          {{- if .Values.castai.apiKey }}
+          {{- if .Values.castai.enabled }}
             - "--send-logs-level=WARN"
           {{- end }}
           {{- if eq .Values.mockServer.enabled true }}
@@ -77,7 +77,7 @@ spec:
             - "--{{ $key }}={{ $value }}"
         {{- end }}
           envFrom:
-        {{- if .Values.castai.apiKey }}
+        {{- if .Values.castai.enabled }}
           - secretRef:
               name: {{ include "kvisor.castaiSecretName" . }}
         {{- end }}

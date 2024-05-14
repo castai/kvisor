@@ -161,7 +161,8 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	var castaiClient *castai.Client
 	if a.cfg.CastaiEnv.Valid() {
-		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-controller/%s", cfg.Version), cfg.CastaiEnv)
+		var err error
+		castaiClient, err = castai.NewClient(fmt.Sprintf("kvisor-controller/%s", cfg.Version), cfg.CastaiEnv)
 		if err != nil {
 			return fmt.Errorf("setting up castai api client: %w", err)
 		}

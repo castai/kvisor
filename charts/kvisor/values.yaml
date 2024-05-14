@@ -3,6 +3,8 @@
 
 # CAST AI API configuration.
 castai:
+  enabled: true
+
   # Token to be used for authorizing agent access to the CASTAI API
   apiKey: ""
 

@@ -64,7 +64,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowEnabled                     = pflag.Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = pflag.Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
 		netflowExportInterval              = pflag.Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
-		netflowCleanupInterval             = pflag.Duration("netflow-cleanup-interval", 15*time.Second, "Netflow cleanup interval")
+		netflowCleanupInterval             = pflag.Duration("netflow-cleanup-interval", 60*time.Second, "Netflow cleanup interval")
 
 		clickhouseAddr     = pflag.String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = pflag.String("clickhouse-database", "", "Clickhouse database name")

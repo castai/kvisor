@@ -24,6 +24,7 @@ var (
 	backends6Map *bpf.Map
 )
 
+// TODO(anjmao): Rewrite this with simple cilium/ebpf map lookups to not depend on cilium packages.
 func iniCiliumMaps(log *logging.Logger) bool {
 	var err error
 

@@ -82,7 +82,7 @@ spec:
             - name: {{ $key }}
               value: {{ $value }}
         {{- end }}
-        {{- if .Values.castai.apiKey }}
+        {{- if .Values.castai.enabled }}
           envFrom:
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}

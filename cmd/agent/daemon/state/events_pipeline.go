@@ -10,6 +10,8 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/metrics"
+	"github.com/cespare/xxhash/v2"
+	"github.com/elastic/go-freelru"
 )
 
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
@@ -69,28 +71,17 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		}
 
 		// Add dns cache.
-		for _, answ := range dnsEvent.Answers {
-			if len(answ.Ip) == 0 {
-				continue
-			}
-			addr, ok := netip.AddrFromSlice(answ.Ip)
-			if !ok {
-				continue
-			}
-			c.dnsCache.Add(addr, answ.Name)
-		}
+		c.cacheDNS(event, dnsEvent)
 
 	case ebpftypes.SockSetStateArgs:
 		tpl := args.Tuple
 		event.EventType = findTCPEventType(ebpftypes.TCPSocketState(args.OldState), ebpftypes.TCPSocketState(args.NewState))
 		pbTuple := &castpb.Tuple{
-			SrcIp:   tpl.Src.Addr().String(),
-			DstIp:   tpl.Dst.Addr().String(),
-			SrcPort: uint32(tpl.Src.Port()),
-			DstPort: uint32(tpl.Dst.Port()),
-		}
-		if dns, found := c.dnsCache.Get(tpl.Dst.Addr()); found {
-			pbTuple.DnsQuestion = dns
+			SrcIp:       tpl.Src.Addr().String(),
+			DstIp:       tpl.Dst.Addr().String(),
+			SrcPort:     uint32(tpl.Src.Port()),
+			DstPort:     uint32(tpl.Dst.Port()),
+			DnsQuestion: c.getAddrDnsQuestion(e.Context.CgroupID, tpl.Dst.Addr()),
 		}
 		event.Data = &castpb.Event_Tuple{
 			Tuple: pbTuple,
@@ -136,6 +127,42 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		}
 	}
 	return event
+}
+
+func (c *Controller) getAddrDnsQuestion(cgroupID uint64, addr netip.Addr) string {
+	if cache, found := c.dnsCache.Get(cgroupID); found {
+		if dnsQuestion, found := cache.Get(addr.Unmap()); found {
+			return dnsQuestion
+		}
+	}
+	return ""
+}
+
+func (c *Controller) cacheDNS(e *castpb.Event, dnsEvent *ebpftypes.ProtoDNS) {
+	cacheVal, found := c.dnsCache.Get(e.CgroupId)
+	if !found {
+		var err error
+		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
+			return uint32(xxhash.Sum64(k.AsSlice()))
+		})
+		if err != nil {
+			c.log.Errorf("creating dns cache: %v", err)
+			return
+		}
+		c.dnsCache.Add(e.CgroupId, cacheVal)
+	}
+
+	for _, answ := range dnsEvent.Answers {
+		if len(answ.Ip) == 0 {
+			continue
+		}
+		addr, ok := netip.AddrFromSlice(answ.Ip)
+		if !ok {
+			continue
+		}
+
+		cacheVal.Add(addr, answ.Name)
+	}
 }
 
 func convertFlowDirection(flowDir ebpftypes.FlowDirection) castpb.FlowDirection {

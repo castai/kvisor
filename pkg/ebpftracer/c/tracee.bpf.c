@@ -6044,7 +6044,7 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
 // SKB eBPF programs
 //
 
-statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, void *cgrpctxmap, bool ingress)
+statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, void *cgrpctxmap)
 {
     // IMPORTANT: runs for EVERY packet of tasks belonging to root cgroup
 
@@ -6178,13 +6178,13 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, void *cgrpctxmap, bool in
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx, &cgrpctxmap_in, 1);
+    return cgroup_skb_generic(ctx, &cgrpctxmap_in);
 }
 
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx, &cgrpctxmap_eg, 0);
+    return cgroup_skb_generic(ctx, &cgrpctxmap_eg);
 }
 
 //

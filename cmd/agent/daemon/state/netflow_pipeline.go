@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"hash/maphash"
 	"net/netip"
 	"time"
 
@@ -102,7 +101,7 @@ func (c *Controller) upsertNetflow(e *types.Event) {
 	defer c.netflowsMu.Unlock()
 
 	args := e.Args.(types.NetFlowBaseArgs)
-	key := netflowKey(e, &args)
+	key := c.netflowKey(e, &args)
 	netflow, found := c.netflows[key]
 	if !found {
 		netflow = &netflowVal{
@@ -112,7 +111,7 @@ func (c *Controller) upsertNetflow(e *types.Event) {
 		c.netflows[key] = netflow
 	}
 
-	destKey := netflowDestKey(&args)
+	destKey := c.netflowDestKey(&args)
 	dest, found := netflow.destinations[destKey]
 	if !found {
 		dest = &netflowDest{
@@ -167,11 +166,11 @@ func (c *Controller) toProtoNetflow(flow *netflowVal, args *types.NetFlowBaseArg
 		Destinations:  make([]*castpb.NetflowDestination, 0, len(flow.destinations)),
 	}
 
-	c.enrichFlowKubeInfo(args.Tuple.Src.Addr(), res)
+	c.enrichFlowKubeInfo(cont.PodUID, res)
 
 	for _, dest := range flow.destinations {
 		dst := dest.addrPort
-		dns, _ := c.dnsCache.Get(dst.Addr())
+		dns := c.getAddrDnsQuestion(ctx.CgroupID, dst.Addr())
 
 		if c.clusterInfo.serviceCidr.Contains(dst.Addr()) {
 			if realDst, found := c.ct.GetDestination(args.Tuple.Src, args.Tuple.Dst); found {
@@ -196,8 +195,8 @@ func (c *Controller) toProtoNetflow(flow *netflowVal, args *types.NetFlowBaseArg
 	return res
 }
 
-func (c *Controller) enrichFlowKubeInfo(addr netip.Addr, res *castpb.Netflow) {
-	ipInfo, found := c.getIPInfo(addr)
+func (c *Controller) enrichFlowKubeInfo(podID string, res *castpb.Netflow) {
+	ipInfo, found := c.getPodInfo(podID)
 	if !found {
 		return
 	}
@@ -228,7 +227,8 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 	if !found {
 		resp, err := c.kubeClient.GetIPInfo(context.Background(), &kubepb.GetIPInfoRequest{Ip: addr.Unmap().String()})
 		if err != nil {
-			c.log.Warnf("failed to get ip info: %v", err)
+			// TODO: Add metric. Also if this returns not found error we may have some issues on controller index by ip.
+			// Ideally it should always return valid results.
 			return nil, false
 		}
 		ipInfo = resp.Info
@@ -237,56 +237,70 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 	return ipInfo, true
 }
 
+func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
+	pod, found := c.podCache.Get(podID)
+	if !found {
+		resp, err := c.kubeClient.GetPod(context.Background(), &kubepb.GetPodRequest{Uid: podID})
+		if err != nil {
+			// TODO: Add metric.
+			return nil, false
+		}
+		pod = resp.Pod
+		c.podCache.Add(podID, pod)
+	}
+	return pod, true
+}
+
 func (c *Controller) cleanupNetflow() {
 	c.netflowsMu.Lock()
 	defer c.netflowsMu.Unlock()
 
 	now := time.Now()
+	var totalRemoved int
 	for key, flow := range c.netflows {
 		lastFlowUpdate := now.Sub(flow.updatedAt)
 		if lastFlowUpdate >= c.cfg.NetflowExportInterval*2 {
-			c.log.Debugf("removed expired netflow flow, ns=%s, pod=%s", flow.event.Container.PodNamespace, flow.event.Container.PodName)
+			totalRemoved++
 			delete(c.netflows, key)
 		}
 	}
+	c.log.Debugf("removed expired netflow flows, count=%d", totalRemoved)
 }
 
-var netflowKeyHash maphash.Hash
-
-func netflowKey(e *types.Event, args *types.NetFlowBaseArgs) uint64 {
-	netflowKeyHash.Reset()
+func (c *Controller) netflowKey(e *types.Event, args *types.NetFlowBaseArgs) uint64 {
+	c.netflowKeyHash.Reset()
 
 	// Cgroup id.
 	var cgroup [8]byte
 	binary.LittleEndian.PutUint64(cgroup[:], e.Context.CgroupID)
-	_, _ = netflowKeyHash.Write(cgroup[:])
+	_, _ = c.netflowKeyHash.Write(cgroup[:])
 
 	// Pid.
 	var pid [4]byte
 	binary.LittleEndian.PutUint32(cgroup[:], e.Context.HostPid)
-	_, _ = netflowKeyHash.Write(pid[:])
+	_, _ = c.netflowKeyHash.Write(pid[:])
 
 	// Source addr+port.
 	srcBytes, _ := args.Tuple.Src.MarshalBinary()
-	_, _ = netflowKeyHash.Write(srcBytes)
+	_, _ = c.netflowKeyHash.Write(srcBytes)
 
 	// Protocol.
-	_ = netflowKeyHash.WriteByte(args.Proto)
+	_ = c.netflowKeyHash.WriteByte(args.Proto)
 
 	// Direction.
-	_ = netflowKeyHash.WriteByte(byte(e.Context.GetFlowDirection()))
+	_ = c.netflowKeyHash.WriteByte(byte(e.Context.GetFlowDirection()))
 
-	return netflowKeyHash.Sum64()
+	return c.netflowKeyHash.Sum64()
 }
 
-func netflowDestKey(args *types.NetFlowBaseArgs) uint64 {
-	netflowKeyHash.Reset()
+func (c *Controller) netflowDestKey(args *types.NetFlowBaseArgs) uint64 {
+	c.netflowDestKeyHash.Reset()
 
 	// Destination addr+port.
 	srcBytes, _ := args.Tuple.Dst.MarshalBinary()
-	_, _ = netflowKeyHash.Write(srcBytes)
+	_, _ = c.netflowKeyHash.Write(srcBytes)
 
-	return netflowKeyHash.Sum64()
+	return c.netflowKeyHash.Sum64()
 }
 
 func toProtoProtocol(proto uint8) castpb.NetflowProtocol {

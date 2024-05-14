@@ -34,9 +34,7 @@ func (c *ClickHouseNetflowExporter) Run(ctx context.Context) error {
 			return ctx.Err()
 		case e := <-c.queue:
 			if err := c.asyncWrite(ctx, false, e); err != nil {
-				c.log.Warnf("write: %v", err)
-			} else {
-				c.log.Debug("inserted flow") // TODO: remove this log after done
+				c.log.Warnf("write netflow: %v", err)
 			}
 		}
 	}
@@ -60,6 +58,8 @@ func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e
 			pod_name,
 			namespace,
 			zone,
+			workload_name,
+			workload_kind,
 			addr,
 			port,
 			dst_addr,
@@ -68,11 +68,17 @@ func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e
 			dst_pod_name,
 			dst_namespace,
 			dst_zone,
+			dst_workload_name,
+			dst_workload_kind,
 			tx_bytes,
 			tx_packets,
 			rx_bytes,
 			rx_packets
 			) VALUES(
+			?,
+			?,
+			?,
+			?,
 			?,
 			?,
 			?,
@@ -112,6 +118,8 @@ func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e
 			e.PodName,
 			e.Namespace,
 			e.Zone,
+			e.WorkloadName,
+			e.WorkloadKind,
 			srcAddr.Unmap(),
 			e.Port,
 			dstAddr.Unmap(),
@@ -120,6 +128,8 @@ func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e
 			dst.PodName,
 			dst.Namespace,
 			dst.Zone,
+			dst.WorkloadName,
+			dst.WorkloadKind,
 			dst.TxBytes,
 			dst.TxPackets,
 			dst.RxBytes,
@@ -146,25 +156,26 @@ func ClickhouseNetflowSchema() string {
 	return `
 CREATE TABLE IF NOT EXISTS netflows
 (
-    start DateTime('UTC'), // Flow aggregation start time
-    end DateTime('UTC'), // Flow aggregation end time
-    protocol LowCardinality(String), // TCP/UDP,ICMP...
-    process LowCardinality(String), // curl, nginx, server...
-    container_name LowCardinality(String),
-    // Source info.
-    pod_name LowCardinality(String),
-    namespace LowCardinality(String),
-    zone LowCardinality(String),
-    addr IPv6,
-    port UInt16,
-    // Destination info.
-    dst_addr IPv6,
-    dst_port UInt16,
+	start DateTime('UTC'),
+	end DateTime('UTC'),
+	protocol LowCardinality(String),
+	process LowCardinality(String),
+	container_name LowCardinality(String),
+	pod_name LowCardinality(String),
+	namespace LowCardinality(String),
+	zone LowCardinality(String),
+	workload_name LowCardinality(String),
+	workload_kind LowCardinality(String),
+	addr IPv6,
+	port UInt16,
+	dst_addr IPv6,
+	dst_port UInt16,
 	dst_domain String,
 	dst_pod_name LowCardinality(String),
 	dst_namespace LowCardinality(String),
 	dst_zone LowCardinality(String),
-	// Stats fields
+	dst_workload_name LowCardinality(String),
+	dst_workload_kind LowCardinality(String),
 	tx_bytes UInt64,
 	tx_packets UInt64,
 	rx_bytes UInt64,

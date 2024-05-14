@@ -1,7 +1,7 @@
 castai:
   # grpcAddr: "kvisor.dev-master.cast.ai:443"
-  apiKey: ""
-  #clusterID: "ci"
+  apiKey: "test"
+  clusterID: "ci"
 
 image:
   repository: localhost:5000/kvisor

@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"hash/maphash"
 	"net/netip"
 	"os"
 	"sync"
@@ -79,14 +80,20 @@ func NewController(
 	enrichmentService enrichmentService,
 	kubeClient kubepb.KubeAPIClient,
 ) *Controller {
-	dnsCache, err := freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
-		return uint32(xxhash.Sum64(k.AsSlice()))
+	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
+		return uint32(k)
 	})
 	if err != nil {
 		panic(err)
 	}
 	ipInfoCache, err := freelru.NewSynced[netip.Addr, *kubepb.IPInfo](1024, func(k netip.Addr) uint32 {
 		return uint32(xxhash.Sum64(k.AsSlice()))
+	})
+	if err != nil {
+		panic(err)
+	}
+	podCache, err := freelru.NewSynced[string, *kubepb.Pod](1024, func(k string) uint32 {
+		return uint32(xxhash.Sum64String(k))
 	})
 	if err != nil {
 		panic(err)
@@ -109,6 +116,7 @@ func NewController(
 		netflows:                   make(map[uint64]*netflowVal),
 		dnsCache:                   dnsCache,
 		ipInfoCache:                ipInfoCache,
+		podCache:                   podCache,
 	}
 }
 
@@ -134,12 +142,15 @@ type Controller struct {
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
 
-	netflowsMu  sync.Mutex
-	netflows    map[uint64]*netflowVal
-	clusterInfo *clusterInfo
-	dnsCache    *freelru.SyncedLRU[netip.Addr, string]
-	kubeClient  kubepb.KubeAPIClient
-	ipInfoCache *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
+	netflowsMu         sync.Mutex
+	netflows           map[uint64]*netflowVal
+	netflowKeyHash     maphash.Hash
+	netflowDestKeyHash maphash.Hash
+	clusterInfo        *clusterInfo
+	dnsCache           *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
+	kubeClient         kubepb.KubeAPIClient
+	ipInfoCache        *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
+	podCache           *freelru.SyncedLRU[string, *kubepb.Pod]
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -190,6 +201,8 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.syscallScrapePointsMu.Lock()
 	delete(c.syscallScrapePoints, container.CgroupID)
 	c.syscallScrapePointsMu.Unlock()
+
+	c.dnsCache.Remove(container.CgroupID)
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }
