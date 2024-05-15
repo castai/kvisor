@@ -59,6 +59,7 @@ message ControllerConfig {
   KubeBenchConfig kube_bench = 15;
   DeltaConfig delta = 16;
   JobsCleanupConfig jobs_cleanup = 17;
+  ControllerAgentConfig agent_config = 18;
 }
 
 message CastaiControllerConfig {
@@ -133,6 +134,10 @@ message AgentConfig {
   CastaiConfig castai_env = 18;
   EnricherConfig enricher_config = 19;
   NetflowConfig netflow = 20;
+}
+
+message ControllerAgentConfig {
+  bool enabled = 1;
 }
 
 message AgentStateControllerConfig {

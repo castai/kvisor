@@ -82,6 +82,8 @@ var (
 
 	jobsCleanupInterval = pflag.Duration("jobs-cleanup", 10*time.Minute, "Jobs cleanup interval")
 	jobsCleanupJobAge   = pflag.Duration("jobs-cleanup-job-age", 10*time.Minute, "Jobs cleanup job age")
+
+	agentEnabled = pflag.Bool("agent-enabled", false, "Whether kvisor-agent is enabled (used for reporting; does not enable agent)")
 )
 
 func lookupConfigVariable(name string) (string, error) {
@@ -225,6 +227,9 @@ func main() {
 			CleanupInterval: *jobsCleanupInterval,
 			CleanupJobAge:   *jobsCleanupJobAge,
 			Namespace:       podNs,
+		},
+		AgentConfig: app.AgentConfig{
+			Enabled: *agentEnabled,
 		},
 	},
 		clientset,

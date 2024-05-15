@@ -56,6 +56,9 @@ spec:
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
+          {{- if eq .Values.agent.enabled true }}
+            - "--agent-enabled=true"
+          {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
         {{- end }}
