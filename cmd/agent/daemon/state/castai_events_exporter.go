@@ -12,11 +12,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewCastaiEventsExporter(log *logging.Logger, apiClient *castai.Client) *CastaiEventsExporter {
+func NewCastaiEventsExporter(log *logging.Logger, apiClient *castai.Client, queueSize int) *CastaiEventsExporter {
 	return &CastaiEventsExporter{
 		log:                         log.WithField("component", "castai_events_exporter"),
 		apiClient:                   apiClient,
-		queue:                       make(chan *castpb.Event, 1000),
+		queue:                       make(chan *castpb.Event, queueSize),
 		writeStreamCreateRetryDelay: 2 * time.Second,
 	}
 }
@@ -38,14 +38,19 @@ func (c *CastaiEventsExporter) Run(ctx context.Context) error {
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay
 
+	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_events")
+	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("castai_events")
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.queue:
 			if err := ws.Send(e); err != nil {
+				sendErrorMetric.Inc()
 				continue
 			}
+			sendMetric.Inc()
 			metrics.AgentExportedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: e.GetEventType().String()}).Inc()
 		}
 	}
@@ -55,6 +60,6 @@ func (c *CastaiEventsExporter) Enqueue(e *castpb.Event) {
 	select {
 	case c.queue <- e:
 	default:
-		// TODO: metric
+		metrics.AgentExporterQueueDroppedTotal.WithLabelValues("castai_events").Inc()
 	}
 }

@@ -11,11 +11,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewCastaiContainerStatsExporter(log *logging.Logger, apiClient *castai.Client) *CastaiContainerStatsExporter {
+func NewCastaiContainerStatsExporter(log *logging.Logger, apiClient *castai.Client, queueSize int) *CastaiContainerStatsExporter {
 	return &CastaiContainerStatsExporter{
 		log:                         log.WithField("component", "castai_container_stats_exporter"),
 		apiClient:                   apiClient,
-		queue:                       make(chan *castpb.ContainerStatsBatch, 1000),
+		queue:                       make(chan *castpb.ContainerStatsBatch, queueSize),
 		writeStreamCreateRetryDelay: 2 * time.Second,
 	}
 }
@@ -37,15 +37,19 @@ func (c *CastaiContainerStatsExporter) Run(ctx context.Context) error {
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay
 
+	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_container_stats")
+	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("castai_container_stats")
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.queue:
 			if err := ws.Send(e); err != nil {
+				sendErrorMetric.Inc()
 				continue
 			}
-			metrics.AgentExportedContainerStatsTotal.Inc()
+			sendMetric.Inc()
 		}
 	}
 }
@@ -54,6 +58,6 @@ func (c *CastaiContainerStatsExporter) Enqueue(e *castpb.ContainerStatsBatch) {
 	select {
 	case c.queue <- e:
 	default:
-		// TODO: metric
+		metrics.AgentExporterQueueDroppedTotal.WithLabelValues("castai_container_stats").Inc()
 	}
 }

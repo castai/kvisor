@@ -15,6 +15,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -134,6 +135,25 @@ func TestController(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for data")
 		}
+	})
+
+	t.Run("netflow cleanup", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := newTestController()
+
+		ctrl.netflows = map[uint64]*netflowVal{
+			1: {
+				updatedAt: time.Now(),
+			},
+			2: {
+				updatedAt: time.Now().Add(-time.Hour),
+			},
+		}
+
+		ctrl.cfg.NetflowExportInterval = 1 * time.Minute
+		ctrl.cleanupNetflow()
+		// Should keep recent flows.
+		r.Equal([]uint64{1}, lo.Keys(ctrl.netflows))
 	})
 }
 

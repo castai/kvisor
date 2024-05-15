@@ -8,13 +8,14 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/metrics"
 )
 
-func NewClickhouseNetflowExporter(log *logging.Logger, conn clickhouse.Conn) *ClickHouseNetflowExporter {
+func NewClickhouseNetflowExporter(log *logging.Logger, conn clickhouse.Conn, queueSize int) *ClickHouseNetflowExporter {
 	return &ClickHouseNetflowExporter{
 		log:   log.WithField("component", "clickhouse_netflow_exporter"),
 		conn:  conn,
-		queue: make(chan *castaipb.Netflow, 1000),
+		queue: make(chan *castaipb.Netflow, queueSize),
 	}
 }
 
@@ -28,14 +29,19 @@ func (c *ClickHouseNetflowExporter) Run(ctx context.Context) error {
 	c.log.Info("running export loop")
 	defer c.log.Info("export loop done")
 
+	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("clickhouse_netflow")
+	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("clickhouse_netflow")
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.queue:
 			if err := c.asyncWrite(ctx, false, e); err != nil {
-				c.log.Warnf("write netflow: %v", err)
+				sendErrorMetric.Inc()
+				continue
 			}
+			sendMetric.Inc()
 		}
 	}
 }
@@ -44,7 +50,7 @@ func (c *ClickHouseNetflowExporter) Enqueue(e *castaipb.Netflow) {
 	select {
 	case c.queue <- e:
 	default:
-		// TODO: Metric
+		metrics.AgentExporterQueueDroppedTotal.WithLabelValues("clickhouse_netflow").Inc()
 	}
 }
 

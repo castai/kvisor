@@ -11,6 +11,7 @@ import (
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/metrics"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -55,6 +56,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("get cluster info: %w", err)
 	}
+	c.log.Infof("fetched cluster info, pod_cidr=%s, cluster_cidr=%s", c.clusterInfo.podCidr, c.clusterInfo.serviceCidr)
 
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
@@ -227,8 +229,7 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 	if !found {
 		resp, err := c.kubeClient.GetIPInfo(context.Background(), &kubepb.GetIPInfoRequest{Ip: addr.Unmap().String()})
 		if err != nil {
-			// TODO: Add metric. Also if this returns not found error we may have some issues on controller index by ip.
-			// Ideally it should always return valid results.
+			metrics.AgentFetchKubeIPInfoErrorsTotal.Inc()
 			return nil, false
 		}
 		ipInfo = resp.Info
@@ -242,7 +243,6 @@ func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
 	if !found {
 		resp, err := c.kubeClient.GetPod(context.Background(), &kubepb.GetPodRequest{Uid: podID})
 		if err != nil {
-			// TODO: Add metric.
 			return nil, false
 		}
 		pod = resp.Pod
@@ -286,9 +286,6 @@ func (c *Controller) netflowKey(e *types.Event, args *types.NetFlowBaseArgs) uin
 
 	// Protocol.
 	_ = c.netflowKeyHash.WriteByte(args.Proto)
-
-	// Direction.
-	_ = c.netflowKeyHash.WriteByte(byte(e.Context.GetFlowDirection()))
 
 	return c.netflowKeyHash.Sum64()
 }

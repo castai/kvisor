@@ -8,6 +8,7 @@ import (
 const (
 	EventTypeLabel string = "event_type"
 	EventIDLabel   string = "event_id"
+	ExporterName   string = "exporter"
 )
 
 var (
@@ -49,11 +50,6 @@ var (
 		Help: "Counter for tracking dropped events rate",
 	}, []string{EventTypeLabel})
 
-	AgentExportedContainerStatsTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kvisor_agent_exported_container_stats_total",
-		Help: "Counter for tracking exported container stats rate",
-	})
-
 	AgentDecodeEventErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_agent_decode_event_errors_total",
 		Help: "Counter for agent decode events errors rate",
@@ -69,11 +65,6 @@ var (
 		Help: "Counter for tracking amount of containers loaded by cgroup rather than via container id",
 	})
 
-	AgentLoadContainerByContainerID = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kvisor_agent_load_container_by_container_id_total",
-		Help: "Counter for tracking amount of containers loaded by container id",
-	})
-
 	AgentDNSPacketsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_agent_dns_packets_total",
 		Help: "Counter for tracking the total number of DNS events we received to process",
@@ -82,5 +73,25 @@ var (
 	AgentFindCgroupFS = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_find_cgroup_from_filesystem",
 		Help: "Counter for keeping track how often we fall back to finding cgroups via the filesystem",
+	})
+
+	AgentExporterSendTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_exporter_send_total",
+		Help: "Dropped exporter events",
+	}, []string{ExporterName})
+
+	AgentExporterSendErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_exporter_send_errors_total",
+		Help: "Dropped exporter events",
+	}, []string{ExporterName})
+
+	AgentExporterQueueDroppedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_exporter_queue_dropped_total",
+		Help: "Dropped exporter events",
+	}, []string{ExporterName})
+
+	AgentFetchKubeIPInfoErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kvisor_agent_fetch_kube_ip_info_errors_total",
+		Help: "Counter for tracking kube info calls errors",
 	})
 )

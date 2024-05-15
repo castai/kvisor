@@ -44,7 +44,6 @@ func TestTracer(t *testing.T) {
 		EventsOutputChanSize:  10000,
 		DefaultCgroupsVersion: "V2",
 		DebugEnabled:          true,
-		NetflowEnabled:        true,
 		AllowAnyEvent:         true,
 		ContainerClient: &ebpftracer.MockContainerClient{
 			ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {

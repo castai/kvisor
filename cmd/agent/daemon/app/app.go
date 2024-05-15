@@ -58,6 +58,7 @@ type Config struct {
 	Netflow                        NetflowConfig
 	Clickhouse                     ClickhouseConfig
 	KubeAPIServiceAddr             string
+	ExportersQueueSize             int `validate:"required"`
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
@@ -73,7 +74,6 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		HostCgroupsDir:        c.HostCgroupsDir,
 		MetricsHttpListenPort: int32(c.MetricsHTTPListenPort),
 		State: &castaipb.AgentStateControllerConfig{
-			//EventsSinkQueueSize:          int32(c.State.EventsSinkQueueSize),
 			ContainerStatsScrapeInterval: c.State.ContainerStatsScrapeInterval.String(),
 		},
 		EbpfEventsPerCpuBuffer:   int32(c.EBPFEventsPerCPUBuffer),
@@ -110,6 +110,7 @@ type EnricherConfig struct {
 type NetflowConfig struct {
 	Enabled                     bool
 	SampleSubmitIntervalSeconds uint64
+	OutputChanSize              int
 }
 
 type ClickhouseConfig struct {
@@ -164,8 +165,8 @@ func (a *App) Run(ctx context.Context) error {
 			log = logging.New(logCfg)
 		}
 		exporters = state.NewExporters(log)
-		exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient))
-		exporters.ContainerStats = append(exporters.ContainerStats, state.NewCastaiContainerStatsExporter(log, castaiClient))
+		exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+		exporters.ContainerStats = append(exporters.ContainerStats, state.NewCastaiContainerStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 	} else {
 		log = logging.New(logCfg)
 		exporters = state.NewExporters(log)
@@ -199,7 +200,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		defer storageConn.Close()
 
-		clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn)
+		clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
 		exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
 	}
 
@@ -264,7 +265,7 @@ func (a *App) Run(ctx context.Context) error {
 		CgroupClient:                       cgroupClient,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
-		NetflowEnabled:                     a.cfg.Netflow.Enabled,
+		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		SignatureEngine:                    signatureEngine,
 	})

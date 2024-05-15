@@ -31,7 +31,7 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 
 	r.NoError(conn.Exec(ctx, ClickhouseNetflowSchema()))
 
-	exporter := NewClickhouseNetflowExporter(log, conn)
+	exporter := NewClickhouseNetflowExporter(log, conn, 100)
 	err = exporter.asyncWrite(ctx, true, &castpb.Netflow{
 		StartTs:       uint64(time.Now().UnixNano()),
 		EndTs:         uint64(time.Now().Add(time.Minute).UnixNano()),

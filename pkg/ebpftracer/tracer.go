@@ -58,7 +58,7 @@ type Config struct {
 	// All PIPs reported from ebpf will be normalized to this PID namespace
 	HomePIDNS                          proc.NamespaceID
 	AllowAnyEvent                      bool
-	NetflowEnabled                     bool
+	NetflowOutputChanSize              int
 	NetflowSampleSubmitIntervalSeconds uint64
 }
 
@@ -130,6 +130,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		module:               m,
 		bootTime:             uint64(bootTime),
 		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
+		netflowEventsChan:    make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:       map[uint64]struct{}{},
 		eventPoliciesMap:     map[events.ID]*EventPolicy{},
 		cgroupEventPolicy:    map[uint64]map[events.ID]*cgroupEventPolicy{},
@@ -137,9 +138,6 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		signatureEventMap:    map[events.ID]struct{}{},
 		cleanupTimerTickRate: 1 * time.Minute,
 		cgroupCleanupDelay:   1 * time.Minute,
-	}
-	if cfg.NetflowEnabled {
-		t.netflowEventsChan = make(chan *types.Event, cfg.EventsOutputChanSize)
 	}
 
 	return t
