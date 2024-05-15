@@ -63,6 +63,11 @@ type Config struct {
 	KubeBench        kubebench.Config
 	Delta            delta.Config
 	JobsCleanup      state.JobsCleanupConfig
+	AgentConfig      AgentConfig
+}
+
+type AgentConfig struct {
+	Enabled bool
 }
 
 func (c Config) Proto() *castaipb.ControllerConfig {
@@ -128,6 +133,9 @@ func (c Config) Proto() *castaipb.ControllerConfig {
 			CleanupInterval: c.JobsCleanup.CleanupInterval.String(),
 			CleanupJobAge:   c.JobsCleanup.CleanupJobAge.String(),
 			Namespace:       c.JobsCleanup.Namespace,
+		},
+		AgentConfig: &castaipb.ControllerAgentConfig{
+			Enabled: c.AgentConfig.Enabled,
 		},
 	}
 }
