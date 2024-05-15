@@ -59,6 +59,12 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		HostPid:       e.Context.HostPid,
 	}
 
+	if podInfo, found := c.getPodInfo(event.PodUid); found {
+		event.WorkloadKind = podInfo.WorkloadKind
+		event.WorkloadName = podInfo.WorkloadName
+		event.WorkloadUid = podInfo.WorkloadKind
+	}
+
 	switch args := e.Args.(type) {
 	case ebpftypes.NetPacketDNSBaseArgs:
 		metrics.AgentDNSPacketsTotal.Inc()

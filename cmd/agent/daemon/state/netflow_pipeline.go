@@ -227,7 +227,9 @@ func (c *Controller) enrichFlowDestinationKubeInfo(dstAddr netip.Addr, pbDest *c
 func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 	ipInfo, found := c.ipInfoCache.Get(addr)
 	if !found {
-		resp, err := c.kubeClient.GetIPInfo(context.Background(), &kubepb.GetIPInfoRequest{Ip: addr.Unmap().String()})
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		resp, err := c.kubeClient.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{Ip: addr.Unmap().String()})
 		if err != nil {
 			metrics.AgentFetchKubeIPInfoErrorsTotal.Inc()
 			return nil, false
@@ -241,7 +243,9 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
 	pod, found := c.podCache.Get(podID)
 	if !found {
-		resp, err := c.kubeClient.GetPod(context.Background(), &kubepb.GetPodRequest{Uid: podID})
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		resp, err := c.kubeClient.GetPod(ctx, &kubepb.GetPodRequest{Uid: podID})
 		if err != nil {
 			return nil, false
 		}

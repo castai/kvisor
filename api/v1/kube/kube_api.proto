@@ -30,7 +30,8 @@ message IPInfo {
   string namespace = 2;
   string workload_name = 4;
   string workload_kind = 5;
-  string zone = 6;
+  string workload_uid = 6;
+  string zone = 7;
 }
 
 message GetPodRequest {

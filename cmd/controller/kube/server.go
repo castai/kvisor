@@ -26,6 +26,7 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	if owner := info.Owner; owner != nil {
 		res.WorkloadName = owner.Name
 		res.WorkloadKind = owner.Kind
+		res.WorkloadUid = string(owner.UID)
 	}
 	if info.Node != nil {
 		if zone, found := info.Node.Labels["topology.kubernetes.io/zone"]; found {
