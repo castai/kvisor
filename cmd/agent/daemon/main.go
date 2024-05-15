@@ -17,7 +17,8 @@ func main() {
 	}
 
 	root.AddCommand(
-		NewCommand(Version),
+		NewRunCommand(Version),
+		NewClickhouseInitCommand(),
 	)
 
 	if err := root.Execute(); err != nil {

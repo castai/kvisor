@@ -3,6 +3,8 @@
 
 # CAST AI API configuration.
 castai:
+  enabled: true
+
   # Token to be used for authorizing agent access to the CASTAI API
   apiKey: ""
 
@@ -117,6 +119,7 @@ agent:
     ebpf: false
 
 controller:
+  enabled: true
 
   replicas: 1
 
@@ -168,6 +171,7 @@ controller:
   dnsPolicy: ClusterFirst
 
   httpListenPort: 8080
+  kubeAPIListenPort: 8090
   metricsHTTPListenPort: 6060
 
   # Extra args for server container.
@@ -205,3 +209,24 @@ eventGenerator:
 
 mockServer:
   enabled: false
+
+clickhouse:
+  enabled: false
+
+  auth:
+    database: "kvisor"
+    username: "kvisor"
+    password: "kvisor"
+
+  image:
+    repository: clickhouse/clickhouse-server
+    pullPolicy: IfNotPresent
+    tag: "24.2.3.70-alpine"
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  dnsPolicy: ClusterFirst
+  persistentVolume:
+    size: 20Gi
+    #storageClass: premium-rwo

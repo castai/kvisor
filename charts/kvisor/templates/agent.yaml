@@ -61,18 +61,30 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
-          {{- if .Values.castai.apiKey }}
+          {{- if .Values.castai.enabled }}
             - "--send-logs-level=WARN"
           {{- end }}
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
+          {{- if .Values.clickhouse.enabled }}
+            - "--clickhouse-addr={{ include "kvisor.clickhouse.fullname" . }}.{{ .Release.Namespace}}:9000"
+            - "--clickhouse-database={{.Values.clickhouse.auth.database}}"
+            - "--clickhouse-username={{.Values.clickhouse.auth.username}}"
+          {{- end }}
+            - "--kube-api-service-addr={{ include "kvisor.controller.fullname" .}}.{{.Release.Namespace}}:{{ .Values.controller.kubeAPIListenPort }}"
         {{- range $key, $value := .Values.agent.extraArgs }}
             - "--{{ $key }}={{ $value }}"
         {{- end }}
           envFrom:
+        {{- if .Values.castai.enabled }}
           - secretRef:
               name: {{ include "kvisor.castaiSecretName" . }}
+        {{- end }}
+        {{- if.Values.clickhouse.enabled }}
+          - secretRef:
+              name:  {{ include "kvisor.clickhouse.fullname" . }}
+        {{- end }}
           env:
             - name: NODE_NAME
               valueFrom:
@@ -90,10 +102,10 @@ spec:
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "%s:8443" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ required "castai.grpcAddr must be provided" .Values.castai.grpcAddr | quote }}
+                       {{ .Values.castai.grpcAddr | quote }}
                      {{- end }}
             - name: CASTAI_CLUSTER_ID
-              value: {{ required "castai.clusterID must be provided" .Values.castai.clusterID | quote }}
+              value: {{ .Values.castai.clusterID | quote }}
           {{- if .Values.agent.debug.ebpf }}
             - name: KVISOR_EBPF_DEBUG
               value: "1"

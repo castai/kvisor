@@ -2,77 +2,136 @@ package state
 
 import (
 	"context"
+	"hash/maphash"
+	"net/netip"
 	"os"
 	"sync"
 	"time"
 
+	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
-	"github.com/castai/kvisor/cmd/agent/kube"
-	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
-	"github.com/castai/kvisor/pkg/ebpftracer/signature"
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/cespare/xxhash/v2"
+	"github.com/elastic/go-freelru"
 	"golang.org/x/sync/errgroup"
 )
 
 type Config struct {
-	EventsSinkQueueSize          int           `validate:"required"`
 	ContainerStatsScrapeInterval time.Duration `validate:"required"`
+	NetflowExportInterval        time.Duration `validate:"required"`
+	NetflowCleanupInterval       time.Duration `validate:"required"`
+}
+
+type containersClient interface {
+	ListContainers() []*containers.Container
+	GetContainerForCgroup(ctx context.Context, cgroup uint64) (*containers.Container, error)
+	LookupContainerForCgroupInCache(cgroup uint64) (*containers.Container, bool, error)
+	CleanupCgroup(cgroup cgroup.ID)
+	GetCgroupsInNamespace(namespace string) []uint64
+	RegisterContainerCreatedListener(l containers.ContainerCreatedListener)
+	RegisterContainerDeletedListener(l containers.ContainerDeletedListener)
+	GetCgroupCpuStats(c *containers.Container) (*cgroup.CPUStat, error)
+	GetCgroupMemoryStats(c *containers.Container) (*cgroup.MemoryStat, error)
+}
+
+type netStatsReader interface {
+	Read(pid uint32) ([]netstats.InterfaceStats, error)
+}
+
+type ebpfTracer interface {
+	Events() <-chan *types.Event
+	NetflowEvents() <-chan *types.Event
+	MuteEventsFromCgroup(cgroup uint64) error
+	MuteEventsFromCgroups(cgroups []uint64) error
+	UnmuteEventsFromCgroup(cgroup uint64) error
+	UnmuteEventsFromCgroups(cgroups []uint64) error
+	IsCgroupMuted(cgroup uint64) bool
+	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
+}
+
+type signatureEngine interface {
+	Events() <-chan *castpb.Event
+}
+
+type enrichmentService interface {
+	Enqueue(e *enrichment.EnrichRequest) bool
+	Events() <-chan *castpb.Event
+}
+
+type conntrackClient interface {
+	GetDestination(src, dst netip.AddrPort) (netip.AddrPort, bool)
 }
 
 func NewController(
 	log *logging.Logger,
 	cfg Config,
-	apiClient *castai.Client,
-	containersClient *containers.Client,
-	netStatsReader *netstats.Reader,
-	ct conntrack.Client,
-	tracer *ebpftracer.Tracer,
-	signatureEngine *signature.SignatureEngine,
-	enrichmentService *enrichment.Service,
-	kubeClient *kube.Client,
+	exporters *Exporters,
+	containersClient containersClient,
+	netStatsReader netStatsReader,
+	ct conntrackClient,
+	tracer ebpfTracer,
+	signatureEngine signatureEngine,
+	enrichmentService enrichmentService,
+	kubeClient kubepb.KubeAPIClient,
 ) *Controller {
+	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
+		return uint32(k)
+	})
+	if err != nil {
+		panic(err)
+	}
+	ipInfoCache, err := freelru.NewSynced[netip.Addr, *kubepb.IPInfo](1024, func(k netip.Addr) uint32 {
+		return uint32(xxhash.Sum64(k.AsSlice()))
+	})
+	if err != nil {
+		panic(err)
+	}
+	podCache, err := freelru.NewSynced[string, *kubepb.Pod](1024, func(k string) uint32 {
+		return uint32(xxhash.Sum64String(k))
+	})
+	if err != nil {
+		panic(err)
+	}
 	return &Controller{
-		log:                         log.WithField("component", "ctrl"),
-		cfg:                         cfg,
-		castClient:                  apiClient,
-		containersClient:            containersClient,
-		netStatsReader:              netStatsReader,
-		ct:                          ct,
-		tracer:                      tracer,
-		signatureEngine:             signatureEngine,
-		enrichmentService:           enrichmentService,
-		nodeName:                    os.Getenv("NODE_NAME"),
-		eventsExportQueue:           make(chan *castpb.Event, cfg.EventsSinkQueueSize),
-		resourcesStatsScrapePoints:  map[uint64]*resourcesStatsScrapePoint{},
-		syscallScrapePoints:         map[uint64]*syscallScrapePoint{},
-		debugEvent:                  os.Getenv("KVISOR_EBPF_DEBUG") == "1",
-		writeStreamCreateRetryDelay: 2 * time.Second,
-		mutedNamespaces:             map[string]struct{}{},
-		kubeClient:                  kubeClient,
+		log:                        log.WithField("component", "ctrl"),
+		cfg:                        cfg,
+		exporters:                  exporters,
+		containersClient:           containersClient,
+		netStatsReader:             netStatsReader,
+		ct:                         ct,
+		tracer:                     tracer,
+		signatureEngine:            signatureEngine,
+		enrichmentService:          enrichmentService,
+		kubeClient:                 kubeClient,
+		nodeName:                   os.Getenv("NODE_NAME"),
+		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
+		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
+		mutedNamespaces:            map[string]struct{}{},
+		netflows:                   make(map[uint64]*netflowVal),
+		dnsCache:                   dnsCache,
+		ipInfoCache:                ipInfoCache,
+		podCache:                   podCache,
 	}
 }
 
 type Controller struct {
 	log               *logging.Logger
 	cfg               Config
-	castClient        *castai.Client
-	containersClient  *containers.Client
-	netStatsReader    *netstats.Reader
-	ct                conntrack.Client
-	tracer            *ebpftracer.Tracer
-	signatureEngine   *signature.SignatureEngine
-	enrichmentService *enrichment.Service
+	containersClient  containersClient
+	netStatsReader    netStatsReader
+	ct                conntrackClient
+	tracer            ebpfTracer
+	signatureEngine   signatureEngine
+	enrichmentService enrichmentService
+	exporters         *Exporters
 
 	nodeName string
-
-	eventsExportQueue chan *castpb.Event
-	debugEvent        bool
 
 	// Scrape points are used to calculate deltas between scrapes.
 	resourcesStatsScrapePointsMu sync.RWMutex
@@ -80,12 +139,18 @@ type Controller struct {
 	syscallScrapePointsMu        sync.RWMutex
 	syscallScrapePoints          map[uint64]*syscallScrapePoint
 
-	writeStreamCreateRetryDelay time.Duration
-
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
 
-	kubeClient *kube.Client
+	netflowsMu         sync.Mutex
+	netflows           map[uint64]*netflowVal
+	netflowKeyHash     maphash.Hash
+	netflowDestKeyHash maphash.Hash
+	clusterInfo        *clusterInfo
+	dnsCache           *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
+	kubeClient         kubepb.KubeAPIClient
+	ipInfoCache        *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
+	podCache           *freelru.SyncedLRU[string, *kubepb.Pod]
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -95,28 +160,22 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.containersClient.RegisterContainerCreatedListener(c.onNewContainer)
 	c.containersClient.RegisterContainerDeletedListener(c.onDeleteContainer)
 
-	var errg errgroup.Group
-	errg.Go(func() error {
-		return c.runEventsExportLoop(ctx)
-	})
-	errg.Go(func() error {
-		return c.runContainerStatsPipeline(ctx)
-	})
-	errg.Go(func() error {
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case e := <-c.tracer.Events():
-				c.handleEbpfEvent(e)
-			case e := <-c.signatureEngine.Events():
-				c.eventsExportQueue <- e
-			case e := <-c.enrichmentService.Events():
-				c.eventsExportQueue <- e
-			}
-		}
-	})
-
+	errg, ctx := errgroup.WithContext(ctx)
+	if len(c.exporters.Events) > 0 {
+		errg.Go(func() error {
+			return c.runEventsPipeline(ctx)
+		})
+	}
+	if len(c.exporters.ContainerStats) > 0 {
+		errg.Go(func() error {
+			return c.runContainerStatsPipeline(ctx)
+		})
+	}
+	if len(c.exporters.Netflow) > 0 {
+		errg.Go(func() error {
+			return c.runNetflowPipeline(ctx)
+		})
+	}
 	return errg.Wait()
 }
 
@@ -129,7 +188,6 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 	// there could be a timing issue, where we want to mute a namespace before the cgroup mkdir
 	// event has been handled.
 	err := c.tracer.MuteEventsFromCgroup(container.CgroupID)
-
 	if err != nil {
 		c.log.Warnf("cannot mute cgroup %d: %v", container.CgroupID, err)
 	}
@@ -143,6 +201,8 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.syscallScrapePointsMu.Lock()
 	delete(c.syscallScrapePoints, container.CgroupID)
 	c.syscallScrapePointsMu.Unlock()
+
+	c.dnsCache.Remove(container.CgroupID)
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }

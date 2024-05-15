@@ -511,6 +511,7 @@ statfunc event_data_t *init_netflows_event_data()
     if (unlikely(e == NULL))
         return NULL;
 
+    e->context.ts = bpf_ktime_get_ns();
     e->args_buf.argnum = 0;
     e->args_buf.offset = 0;
     return e;

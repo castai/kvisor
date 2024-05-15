@@ -19,6 +19,10 @@ type Config struct {
 	Insecure    bool
 }
 
+func (c Config) Valid() bool {
+	return c.ClusterID != "" && c.APIKey != "" && c.APIGrpcAddr != ""
+}
+
 func NewClient(userAgent string, cfg Config) (*Client, error) {
 	tls := credentials.NewTLS(nil)
 	if strings.HasPrefix(cfg.APIGrpcAddr, "localhost") || cfg.Insecure {

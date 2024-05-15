@@ -83,7 +83,6 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 	}
 
 	eventId := eventCtx.EventID
-
 	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
 	if err != nil {
 		return fmt.Errorf("cannot parse event type %d: %w", eventId, err)
@@ -91,7 +90,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 
 	container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, eventCtx.CgroupID)
 	if err != nil {
-		// we ignore any event not belonging to a container for now
+		// We ignore any event not belonging to a container for now.
 		if errors.Is(err, containers.ErrContainerNotFound) {
 			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
 			if err != nil {
@@ -99,7 +98,6 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 			}
 			return nil
 		}
-
 		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
 	}
 
@@ -111,7 +109,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 	}
 
 	if _, found := t.signatureEventMap[eventId]; found {
-		t.policy.SignatureEngine.QueueEvent(event)
+		t.cfg.SignatureEngine.QueueEvent(event)
 	}
 
 	// Do not parse event, if it is not registered. If there is no policy set, we treat is as to parse all the events
@@ -140,11 +138,21 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		return nil
 	}
 
-	select {
-	case t.eventsChan <- event:
+	switch eventId {
+	case events.NetFlowBase:
+		select {
+		case t.netflowEventsChan <- event:
+		default:
+			def := t.eventsSet[eventCtx.EventID]
+			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: def.name}).Inc()
+		}
 	default:
-		def := t.eventsSet[eventCtx.EventID]
-		metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: def.name}).Inc()
+		select {
+		case t.eventsChan <- event:
+		default:
+			def := t.eventsSet[eventCtx.EventID]
+			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: def.name}).Inc()
+		}
 	}
 
 	return nil

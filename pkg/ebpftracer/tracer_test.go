@@ -48,7 +48,6 @@ func TestTracer(t *testing.T) {
 		ContainerClient: &ebpftracer.MockContainerClient{
 			ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {
 				dummyContainerID := fmt.Sprint(cgroupID)
-
 				return &containers.Container{
 					ID:           dummyContainerID,
 					Name:         "dummy-container",
@@ -70,7 +69,7 @@ func TestTracer(t *testing.T) {
 		CgroupClient:                       &ebpftracer.MockCgroupClient{},
 		MountNamespacePIDStore:             getInitializedMountNamespacePIDStore(procHandle),
 		HomePIDNS:                          pidNS,
-		NetflowSampleSubmitIntervalSeconds: 5,
+		NetflowSampleSubmitIntervalSeconds: 1,
 	})
 	defer tr.Close()
 
@@ -101,12 +100,11 @@ func TestTracer(t *testing.T) {
 	}()
 
 	policy := &ebpftracer.Policy{
-		SignatureEngine: nil,
 		Events: []*ebpftracer.EventPolicy{
 			{ID: events.NetFlowBase},
-			{ID: events.SecuritySocketConnect},
-			{ID: events.SockSetState},
-			{ID: events.NetPacketDNSBase},
+			//{ID: events.SecuritySocketConnect},
+			//{ID: events.SockSetState},
+			//{ID: events.NetPacketDNSBase},
 		},
 	}
 
@@ -126,6 +124,8 @@ func TestTracer(t *testing.T) {
 			printSignatureEvent(s)
 		case e := <-tr.Events():
 			printEvent(tr, e)
+		case e := <-tr.NetflowEvents():
+			printEvent(tr, e)
 		case err := <-errc:
 			if err != nil {
 				t.Fatal(err)
@@ -137,19 +137,23 @@ func TestTracer(t *testing.T) {
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	eventName := tr.GetEventName(e.Context.EventID)
 	fmt.Printf(
-		"cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
+		"ts=%d cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
+		e.Context.Ts,
 		e.Context.CgroupID,
 		e.Context.HostPid,
 		string(bytes.TrimRight(e.Context.Comm[:], "\x00")),
 		eventName,
 		e.Args,
 	)
+	if e.Context.EventID == events.NetFlowBase {
+		fmt.Printf(" ret=%d direction=%s, type=%s, initiator=%v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator())
+	}
 	fmt.Print("\n")
 }
 
 func printSignatureEvent(e *castaipb.Event) {
 	fmt.Printf(
-		"cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
+		"cgroup=%d, pid=%d, proc=%s, event=%s,args=%+v",
 		e.CgroupId,
 		e.HostPid,
 		e.ProcessName,

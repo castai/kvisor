@@ -1,3 +1,4 @@
+{{- if .Values.controller.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -47,6 +48,8 @@ spec:
             {{- toYaml .Values.controller.containerSecurityContext | nindent 12 }}
           args:
             - "--http-listen-port={{.Values.controller.httpListenPort}}"
+            - "--kube-server-listen-port={{.Values.controller.kubeAPIListenPort}}"
+            - "--metrics-http-listen-port={{.Values.controller.metricsHTTPListenPort}}"
             - "--castai-secret-ref-name={{ include "kvisor.castaiSecretName" . }}"
             - "--image-scan-blobs-cache-url=http://{{ include "kvisor.controller.fullname" . }}.{{.Release.Namespace}}"
             - "--chart-version={{.Chart.Version}}"
@@ -71,20 +74,25 @@ spec:
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "%s:8443" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ required "castai.grpcAddr must be provided" .Values.castai.grpcAddr | quote }}
+                       {{ .Values.castai.grpcAddr | quote }}
                      {{- end }}
             - name: CASTAI_CLUSTER_ID
-              value: {{ required "castai.clusterID must be provided" .Values.castai.clusterID | quote }}
+              value: {{  .Values.castai.clusterID | quote }}
         {{- range $key, $value := .Values.controller.extraEnv }}
             - name: {{ $key }}
               value: {{ $value }}
         {{- end }}
+        {{- if .Values.castai.enabled }}
           envFrom:
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}
+        {{- end }}
           ports:
             - name: http-server
               containerPort: {{ .Values.controller.httpListenPort }}
+              protocol: TCP
+            - name: kube-server
+              containerPort: {{ .Values.controller.kubeAPIListenPort }}
               protocol: TCP
             - name: metrics
               containerPort: {{ .Values.controller.metricsHTTPListenPort }}
@@ -118,6 +126,8 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
+{{- end }}
 ---
 {{- if .Values.controller.serviceAccount.create -}}
 apiVersion: v1
@@ -286,6 +296,10 @@ spec:
     - port: 80
       name: http
       targetPort: http-server
+      protocol: TCP
+    - port: {{ .Values.controller.kubeAPIListenPort }}
+      name: kube
+      targetPort: kube-server
       protocol: TCP
   selector:
     {{- include "kvisor.controller.selectorLabels" . | nindent 6 }}

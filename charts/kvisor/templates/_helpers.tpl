@@ -152,3 +152,25 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "kvisor.castaiMockServer.labels" -}}
 {{ include "kvisor.labels" . }}
 {{- end }}
+
+
+{{/*
+Common helpers for clickhouse.
+*/}}
+{{- define "kvisor.clickhouse.fullname" -}}
+{{ include "kvisor.fullname" . }}-clickhouse
+{{- end }}
+
+{{- define "kvisor.clickhouse.service" -}}
+{{ include "kvisor.fullname" . }}-clickhouse
+{{- end }}
+
+{{- define "kvisor.clickhouse.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kvisor.name" . }}-clickhouse
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "kvisor.clickhouse.labels" -}}
+{{ include "kvisor.labels" . }}
+{{- end }}
+

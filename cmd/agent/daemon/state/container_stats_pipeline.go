@@ -3,49 +3,26 @@ package state
 import (
 	"context"
 	"errors"
-	"io"
 	"math"
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
-	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/stats"
 	"github.com/samber/lo"
-	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func (c *Controller) runContainerStatsPipeline(ctx context.Context) error {
-	c.log.Info("running container stats sink loop")
-	defer c.log.Info("container stats sink loop done")
-
-	ws := castai.NewWriteStream[*castpb.ContainerStatsBatch, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
-		return c.castClient.GRPC.ContainerStatsWriteStream(ctx)
-	})
-	defer ws.Close()
-	ws.ReopenDelay = c.writeStreamCreateRetryDelay
-
-	send := func(batch *castpb.ContainerStatsBatch) {
-		c.log.Debugf("sending container cgroup stats, items=%d", len(batch.GetItems()))
-		if err := ws.Send(batch); err != nil {
-			if errors.Is(err, io.EOF) {
-				return
-			}
-			c.log.Errorf("sending container cgroup stats: %v", err)
-			return
-		}
-		metrics.AgentExportedContainerStatsTotal.Inc()
-	}
+	c.log.Info("running container stats pipeline")
+	defer c.log.Info("container stats pipeline done")
 
 	ticker := time.NewTicker(c.cfg.ContainerStatsScrapeInterval)
 	defer ticker.Stop()
 
 	for {
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -53,8 +30,10 @@ func (c *Controller) runContainerStatsPipeline(ctx context.Context) error {
 			batch := &castpb.ContainerStatsBatch{}
 			c.scrapeContainersResourceStats(batch)
 			c.scrapeContainersSyscallStats(ctx, batch)
-			if len(batch.GetItems()) > 0 {
-				send(batch)
+			if len(batch.Items) > 0 {
+				for _, exp := range c.exporters.ContainerStats {
+					exp.Enqueue(batch)
+				}
 			}
 		}
 	}
@@ -76,12 +55,12 @@ func (c *Controller) scrapeContainersResourceStats(batch *castpb.ContainerStatsB
 		}
 
 		now := time.Now().UTC()
-		cpu, err := cont.Cgroup.CpuStat()
+		cpu, err := c.containersClient.GetCgroupCpuStats(cont)
 		if err != nil {
 			// TODO: Metrics
 			continue
 		}
-		mem, err := cont.Cgroup.MemoryStat()
+		mem, err := c.containersClient.GetCgroupMemoryStats(cont)
 		if err != nil {
 			// TODO: Metrics
 			continue
@@ -115,14 +94,16 @@ func (c *Controller) scrapeContainersResourceStats(batch *castpb.ContainerStatsB
 		}
 
 		pbStats := c.collectContainerResourcesStats(prevScrape, currScrape)
-		batch.Items = append(batch.GetItems(), &castpb.ContainerStats{
-			Namespace:     cont.PodNamespace,
-			PodName:       cont.PodName,
-			ContainerName: cont.Name,
-			PodUid:        cont.PodUID,
-			ContainerId:   cont.ID,
-			Stats:         pbStats,
-		})
+		if len(pbStats) > 0 {
+			batch.Items = append(batch.Items, &castpb.ContainerStats{
+				Namespace:     cont.PodNamespace,
+				PodName:       cont.PodName,
+				ContainerName: cont.Name,
+				PodUid:        cont.PodUID,
+				ContainerId:   cont.ID,
+				Stats:         pbStats,
+			})
+		}
 
 		prevScrape.ts = currScrape.ts
 		prevScrape.cpuStat = currScrape.cpuStat
@@ -255,14 +236,14 @@ func (c *Controller) scrapeContainersSyscallStats(ctx context.Context, batch *ca
 			if currValue == 0 {
 				continue
 			}
-			cgStats.Stats = append(cgStats.GetStats(), &castpb.Stats{
+			cgStats.Stats = append(cgStats.Stats, &castpb.Stats{
 				Group:    castpb.StatsGroup_STATS_GROUP_SYSCALL,
 				Subgroup: uint32(stat.ID),
 				Value:    currValue,
 			})
 		}
-		if len(cgStats.GetStats()) > 0 {
-			batch.Items = append(batch.GetItems(), cgStats)
+		if len(cgStats.Stats) > 0 {
+			batch.Items = append(batch.Items, cgStats)
 		}
 
 		syscalls := make(map[ebpftracer.SyscallID]uint64, len(syscallStats))

@@ -231,3 +231,11 @@ func (c *Client) fireContainerDeletedListeners(container *Container) {
 		l(container)
 	}
 }
+
+func (c *Client) GetCgroupCpuStats(cont *Container) (*cgroup.CPUStat, error) {
+	return cont.Cgroup.CpuStat()
+}
+
+func (c *Client) GetCgroupMemoryStats(cont *Container) (*cgroup.MemoryStat, error) {
+	return cont.Cgroup.MemoryStat()
+}

@@ -1,0 +1,17 @@
+{{- if .Values.clickhouse.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvisor.clickhouse.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+data:
+  custom_config.xml: |
+    <clickhouse>
+        <listen_host>0.0.0.0</listen_host>
+        <logger>
+            <level>information</level>
+            <console>1</console>
+        </logger>
+    </clickhouse>
+
+{{- end }}

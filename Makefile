@@ -3,6 +3,7 @@
 gen-proto:
 	protoc api/v1/runtime/common.proto --go_out=paths=source_relative:.
 	protoc api/v1/runtime/runtime_agent_api.proto --go_out=paths=source_relative:. --go-grpc_out=require_unimplemented_servers=false:. --go-grpc_opt=paths=source_relative
+	protoc api/v1/kube/kube_api.proto --go_out=paths=source_relative:. --go-grpc_out=require_unimplemented_servers=false:. --go-grpc_opt=paths=source_relative
 
 UNAME_M ?= $(shell uname -m)
 

@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/metrics"
@@ -52,10 +53,12 @@ type Config struct {
 	DebugEnabled           bool
 	ContainerClient        ContainerClient
 	CgroupClient           CgroupClient
+	SignatureEngine        *signature.SignatureEngine
 	MountNamespacePIDStore *types.PIDsPerNamespace
 	// All PIPs reported from ebpf will be normalized to this PID namespace
 	HomePIDNS                          proc.NamespaceID
 	AllowAnyEvent                      bool
+	NetflowOutputChanSize              int
 	NetflowSampleSubmitIntervalSeconds uint64
 }
 
@@ -79,7 +82,8 @@ type Tracer struct {
 	cgroupEventPolicy map[cgroup.ID]map[events.ID]*cgroupEventPolicy
 	signatureEventMap map[events.ID]struct{}
 
-	eventsChan chan *types.Event
+	eventsChan        chan *types.Event
+	netflowEventsChan chan *types.Event
 
 	removedCgroupsMu sync.Mutex
 	removedCgroups   map[uint64]struct{}
@@ -126,6 +130,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		module:               m,
 		bootTime:             uint64(bootTime),
 		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
+		netflowEventsChan:    make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:       map[uint64]struct{}{},
 		eventPoliciesMap:     map[events.ID]*EventPolicy{},
 		cgroupEventPolicy:    map[uint64]map[events.ID]*cgroupEventPolicy{},
@@ -178,6 +183,10 @@ func (t *Tracer) Run(ctx context.Context) error {
 
 func (t *Tracer) Events() <-chan *types.Event {
 	return t.eventsChan
+}
+
+func (t *Tracer) NetflowEvents() <-chan *types.Event {
+	return t.netflowEventsChan
 }
 
 func (t *Tracer) GetEventName(id events.ID) string {
@@ -300,8 +309,8 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 		t.eventPoliciesMap[event.ID] = event
 		t.findAllRequiredEvents(event.ID, requiredEventsIDs)
 	}
-	if policy.SignatureEngine != nil {
-		requiredSignatureEvents := policy.SignatureEngine.TargetEvents()
+	if t.cfg.SignatureEngine != nil {
+		requiredSignatureEvents := policy.SignatureEvents
 		for _, eventID := range requiredSignatureEvents {
 			t.signatureEventMap[eventID] = struct{}{}
 		}

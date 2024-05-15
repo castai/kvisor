@@ -213,3 +213,86 @@ cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 3. Choose tag. Add new tag. Follow semver. For fixes only bump patch version.
 4. Click generate release notes.
 5. Publish release.
+
+
+## Testing netflow
+
+Clone kvisor repo and checkout save-flows branch.
+```
+git clone git@github.com:castai/kvisor.git
+git checkout save-flows
+```
+
+Install kvisor with netflow export to local clickhouse.
+
+```
+helm upgrade --install castai-kvisor ./charts/kvisor \
+    --namespace kvisor --create-namespace \
+    --set image.tag=43439aa7a8bad18f485e24ea364d8dda9ea26e37 \
+    --set castai.enabled=false \
+    --set agent.enabled=true \
+    --set agent.extraArgs.netflow-enabled=true \
+    --set clickhouse.enabled=true
+```
+
+Check pods are running
+
+```
+kubectl get pods -n kvisor
+```
+
+You should see agent, clickhouse and controller pods
+
+```
+NAME                                        READY   STATUS    RESTARTS   AGE
+castai-kvisor-agent-djjcq                   1/1     Running   0          67s
+castai-kvisor-clickhouse-0                  2/2     Running   0          66s
+castai-kvisor-controller-8697bbf8cd-sq6jp   1/1     Running   0          67s
+```
+
+### Query flows
+
+Port forward clickhouse connection
+
+```
+kubectl port-forward -n kvisor svc/castai-kvisor-clickhouse 8123
+```
+Connect to clickhouse with your favorite sql client with credentials:
+```
+Username: kvisor
+Password: kvisor
+Database: kvisor
+```
+
+Example query:
+
+```sql
+select toStartOfInterval(start, INTERVAL 1 HOUR) AS period,
+       pod_name,
+       namespace,
+       workload_name,
+       workload_kind,
+       zone,
+       dst_pod_name,
+       dst_namespace,
+       dst_domain,
+       dst_workload_name,
+       dst_workload_kind,
+       dst_zone,
+       formatReadableSize(sum(tx_bytes)) total_egress,
+       formatReadableSize(sum(rx_bytes)) total_ingress
+from netflows
+group by period,
+         pod_name,
+         namespace,
+         workload_name,
+         workload_kind,
+         zone,
+         dst_pod_name,
+         dst_namespace,
+         dst_domain,
+         dst_workload_name,
+         dst_workload_kind,
+         dst_zone
+order by period;
+```

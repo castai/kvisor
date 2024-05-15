@@ -42,6 +42,7 @@ message Tuple {
   string dst_ip = 2;
   uint32 src_port = 3;
   uint32 dst_port = 4;
+  string dns_question = 5;
 }
 
 enum FlowDirection {

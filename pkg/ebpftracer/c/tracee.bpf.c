@@ -61,7 +61,6 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx)
         id = *id_64;
     }
 
-    // Update containers syscall stats.
     int zero = 0;
     config_entry_t *config = bpf_map_lookup_elem(&config_map, &zero);
     if (unlikely(config == NULL))
@@ -72,6 +71,11 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx)
     } else {
         cgroup_id = bpf_get_current_cgroup_id();
     }
+    // Skip if cgroup is muted
+    if (bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id) != NULL) {
+        return 0;
+    }
+    // Update containers syscall stats.
     update_syscall_stats(ctx, cgroup_id, id);
 
     // Continue to tail calls.
@@ -214,6 +218,22 @@ int tracepoint__raw_syscalls__sys_exit(struct bpf_raw_tracepoint_args *ctx)
 
         id = *id_64;
     }
+
+    // Skip if cgroup is muted.
+    int zero = 0;
+    config_entry_t *config = bpf_map_lookup_elem(&config_map, &zero);
+    if (unlikely(config == NULL))
+        return 0;
+    u64 cgroup_id = 0;
+    if (config->options & OPT_CGROUP_V1) {
+        cgroup_id = get_cgroup_v1_subsys0_id(task);
+    } else {
+        cgroup_id = bpf_get_current_cgroup_id();
+    }
+    if (bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id) != NULL) {
+        return 0;
+    }
+
     bpf_tail_call(ctx, &sys_exit_init_tail, id);
     return 0;
 }
@@ -5317,7 +5337,8 @@ statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_pack
 statfunc u32 cgroup_skb_handle_##name(                           \
     struct __sk_buff *ctx,                                                     \
     net_event_context_t *neteventctx,                                          \
-    nethdrs *nethdrs                                                           \
+    nethdrs *nethdrs,                                                           \
+    bool ingress                                                           \
 )
 
 CGROUP_SKB_HANDLE_FUNCTION(family);
@@ -5332,7 +5353,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_icmp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_icmpv6);
 CGROUP_SKB_HANDLE_FUNCTION(proto_socks5);
 
-#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs);
+#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs, ingress);
 
 //
 // Network submission functions
@@ -5374,19 +5395,46 @@ statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx,
 // Check if a flag is set in the retval.
 #define retval_hasflag(flag) (neteventctx->eventctx.retval & flag) == flag
 
-statfunc void update_flow_stats(struct __sk_buff *skb, netflowvalue_t *val) {
-    val->bytes += skb->len;
-    val->packets += 1;
+statfunc void update_flow_stats(struct __sk_buff *skb, netflowvalue_t *val, bool ingress) {
+    if (ingress) {
+        val->rx_bytes += skb->len;
+        val->rx_packets += 1;
+    } else {
+        val->tx_bytes += skb->len;
+        val->tx_packets += 1;
+    }
 }
 
 statfunc void reset_flow_stats(netflowvalue_t *val) {
-    val->bytes = 0;
-    val->packets = 0;
+
+    val->tx_bytes = 0;
+    val->rx_bytes = 0;
+    val->tx_packets = 0;
+    val->rx_packets = 0;
+}
+
+statfunc u32 submit_netflow_event(struct __sk_buff *ctx, net_event_context_t *neteventctx, netflowvalue_t *netflowvalptr) {
+    event_data_t *e = init_netflows_event_data();
+    if (unlikely(e == NULL))
+        return 0;
+
+    __builtin_memcpy(&e->context.task, &neteventctx->eventctx.task, sizeof(task_context_t));
+    e->context.retval = neteventctx->eventctx.retval;
+
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.proto, sizeof(u8), 0);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->direction, sizeof(u8), 1);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.tuple, sizeof(tuple_t), 2);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_bytes, sizeof(u64), 3);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_bytes, sizeof(u64), 4);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_packets, sizeof(u64), 5);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_packets, sizeof(u64), 6);
+    net_events_perf_submit(ctx, NET_FLOW_BASE, e);
+    return 0;
 }
 
 // Keep track of a flow event if they are enabled and if any policy matched.
 // Submit the flow base event so userland can derive the flow events.
-statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
+statfunc u32 cgroup_skb_handle_flow(struct __sk_buff *ctx,
                                     net_event_context_t *neteventctx,
                                     u32 event_type, u32 size, u32 flow)
 {
@@ -5403,15 +5451,16 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
 
     // Check if the current packet source is the flow initiator.
     bool is_initiator = 0;
-
-    u64 bytes = 0;
+    bool ingress = 0;
 
     switch (flow) {
         // 1) TCP connection is being established.
         case flow_tcp_begin:
             // Ingress: Remote (src) is sending SYN+ACK: this host (dst) is the initiator.
-            if (retval_hasflag(packet_ingress))
+            if (retval_hasflag(packet_ingress)) {
                 netflowvalue.direction = flow_outgoing;
+                ingress = 1;
+            }
 
             // Egress: Host (src) is sending SYN+ACK: remote (dst) host is the initiator.
             if (retval_hasflag(packet_egress))
@@ -5419,29 +5468,33 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
 
             // Invert src/dst: The flowmap src should always be set to flow initiator.
             neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
-
-            update_flow_stats(ctx, &netflowvalue);
+            update_flow_stats(ctx, &netflowvalue, ingress);
 
             // Update the flow map.
             bpf_map_update_elem(&netflowmap, &neteventctx->md.flow, &netflowvalue, BPF_NOEXIST);
 
-            break;
+            return submit_netflow_event(ctx, neteventctx, &netflowvalue);
         // 2) TCP Flow sample with current statistics.
         case flow_tcp_sample:
             netflowvalptr = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
-            if (!netflowvalptr)
-                return 0;
+            if (!netflowvalptr) {
+                neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
+                netflowvalptr = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
+                if (!netflowvalptr) {
+                    return 0;
+                }
+            }
 
-            update_flow_stats(ctx, netflowvalptr);
-            netflowvalue.bytes = netflowvalptr->bytes;
-            netflowvalue.packets = netflowvalptr->packets;
+            update_flow_stats(ctx, netflowvalptr, retval_hasflag(packet_ingress));
 
             u64 now = bpf_ktime_get_ns();
             u64 last_submit_seconds = (now - netflowvalptr->last_update) / 1000000000;
             // Check if it's time to submit flow sample.
             if (last_submit_seconds >= global_config.flow_sample_submit_interval_seconds) {
                 netflowvalptr->last_update = now;
-                break;
+                submit_netflow_event(ctx, neteventctx, netflowvalptr);
+                reset_flow_stats(netflowvalptr);
+                return 0;
             }
 
             // Flow sample should not be submitted yet, exit.
@@ -5452,7 +5505,6 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
             // Any side can close the connection (FIN, RST, etc). Need heuristics.
 
             // Attempt 01: Try to find the flow using current src/dst.
-
             for (int n = 0; n < 3; n++) {
                 netflowvalptr = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
                 if (!netflowvalptr)
@@ -5460,7 +5512,6 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
             }
 
             // FIN could be sent by either side, by both, or by none (RST). Need heuristics.
-
             if (!netflowvalptr) {
                 // Attempt 02: Maybe this packet src wasn't the flow initiator, invert src/dst.
                 neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
@@ -5485,24 +5536,20 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
                 is_initiator = 1;
             }
 
-            // Pick direction from existing flow.
-            netflowvalue.direction = netflowvalptr->direction;
-
             // Inform userland the flow being terminated started by current packet src.
             // This is important so userland knows how to report flow termination correctly.
             if (is_initiator)
                 neteventctx->eventctx.retval |= flow_src_initiator;
+
+            update_flow_stats(ctx, netflowvalptr, retval_hasflag(packet_ingress));
+            submit_netflow_event(ctx, neteventctx, netflowvalptr);
 
             // Delete the flow from the map (make sure to delete both sides).
             bpf_map_delete_elem(&netflowmap, &neteventctx->md.flow);
             neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
             bpf_map_delete_elem(&netflowmap, &neteventctx->md.flow);
 
-            update_flow_stats(ctx, netflowvalptr);
-            netflowvalue.bytes = netflowvalptr->bytes;
-            netflowvalue.packets = netflowvalptr->packets;
-
-            break;
+            return 0;
 
         // 3) TODO: UDP flow is considered started when the first packet is sent.
         // case flow_udp_begin:
@@ -5513,23 +5560,6 @@ statfunc u32 cgroup_skb_submit_flow(struct __sk_buff *ctx,
         default:
             return 0;
     };
-
-    // Submit the flow event.
-    event_data_t *e = init_netflows_event_data();
-    if (unlikely(e == NULL))
-        return 0;
-    __builtin_memcpy(&e->context.task, &neteventctx->eventctx.task, sizeof(task_context_t));
-
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.proto, sizeof(u8), 0);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.tuple, sizeof(tuple_t), 1);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalue.bytes, sizeof(u64), 2);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalue.packets, sizeof(u64), 3);
-    net_events_perf_submit(ctx, event_type, e);
-
-    // Reset stats after sample is submitted since we store diffs.
-    if (flow == flow_tcp_sample) {
-        reset_flow_stats(netflowvalptr);
-    }
 
     return 0;
 };
@@ -6430,7 +6460,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     }
 
     // Pick src/dst ports.
-
     u16 srcport = bpf_ntohs(nethdrs->protohdrs.tcphdr.source);
     u16 dstport = bpf_ntohs(nethdrs->protohdrs.tcphdr.dest);
 
@@ -6447,15 +6476,15 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
 
         // Has TCP flow started ?
         if ((is_syn & is_ack))
-            cgroup_skb_submit_flow(ctx, neteventctx, NET_FLOW_BASE, HEADERS, flow_tcp_begin);
+            cgroup_skb_handle_flow(ctx, neteventctx, NET_FLOW_BASE, HEADERS, flow_tcp_begin);
 
         if (!is_syn && !is_fin && !is_rst) {
-            cgroup_skb_submit_flow(ctx, neteventctx, NET_FLOW_BASE, HEADERS, flow_tcp_sample);
+            cgroup_skb_handle_flow(ctx, neteventctx, NET_FLOW_BASE, HEADERS, flow_tcp_sample);
         }
 
         // Has TCP flow ended ?
         if (is_fin || is_rst)
-            cgroup_skb_submit_flow(ctx, neteventctx, NET_FLOW_BASE, HEADERS, flow_tcp_end);
+            cgroup_skb_handle_flow(ctx, neteventctx, NET_FLOW_BASE, HEADERS, flow_tcp_end);
     }
 
     // Submit TCP base event if needed (only headers)

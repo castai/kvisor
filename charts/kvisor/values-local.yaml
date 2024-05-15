@@ -19,11 +19,16 @@ agent:
     file-hash-enricher-enabled: true
     signature-tty-detection-enabled: true
     signature-socks5-detection-enabled: true
+    netflow-enabled: true
+    netflow-sample-submit-interval-seconds: 1
+    netflow-export-interval: 5s
+    ebpf-events-stdio-exporter-enabled: false
 
   containerSecurityContext:
     readOnlyRootFilesystem: false
 
 controller:
+  enabled: true
   replicas: 1
   extraArgs:
     log-level: debug
@@ -53,3 +58,8 @@ mockServer:
   image:
     repository: localhost:5000/kvisor-mock-server
     tag: latest
+
+clickhouse:
+  enabled: true
+  persistentVolume:
+    size: 10Gi

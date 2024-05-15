@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"strconv"
 	"syscall"
 
@@ -36,6 +37,12 @@ type ProcFS interface {
 	fs.StatFS
 }
 
+var (
+	ErrCannotGetPIDNSInode            = errors.New("cannot get pidns inode")
+	ErrParseStatFileInvalidCommFormat = errors.New("cannot parse stat file, invalid comm format")
+	ErrParseStatFileNotEnoughFields   = errors.New("cannot parse stat file, not enough fields")
+)
+
 type Proc struct {
 	procFS ProcFS
 }
@@ -46,11 +53,10 @@ func New() *Proc {
 	}
 }
 
-var (
-	ErrCannotGetPIDNSInode            = errors.New("cannot get pidns inode")
-	ErrParseStatFileInvalidCommFormat = errors.New("cannot parse stat file, invalid comm format")
-	ErrParseStatFileNotEnoughFields   = errors.New("cannot parse stat file, not enough fields")
-)
+// HostPath returns full file path on the host file system using procfs, eg: /proc/1/root/<my-path>
+func HostPath(p string) string {
+	return path.Join(Path, strconv.Itoa(1), p)
+}
 
 func (p *Proc) GetCurrentPIDNSID() (NamespaceID, error) {
 	return p.GetNSForPID(1, PIDNamespace)

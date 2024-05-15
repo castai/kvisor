@@ -64,7 +64,7 @@ type EventContext struct {
 	_               [2]byte // padding
 }
 
-func (ctx *EventContext) ParseFlowDirection() FlowDirection {
+func (ctx *EventContext) GetFlowDirection() FlowDirection {
 	if ctx.Retval&FlagPacketIngress > 0 && ctx.Retval&FlagPacketEgress > 0 {
 		// something is broken if both ingress and egress flags are set
 		return FlowDirectionUnknown
@@ -78,6 +78,26 @@ func (ctx *EventContext) ParseFlowDirection() FlowDirection {
 	}
 
 	return FlowDirectionUnknown
+}
+
+func (ctx *EventContext) GetNetflowType() NetflowType {
+	if ctx.Retval&FlagFlowTCPBegin > 0 {
+		return NetflowTypeTCPBegin
+	}
+	if ctx.Retval&FlagFlowTCPSample > 0 {
+		return NetflowTypeTCPSample
+	}
+	if ctx.Retval&FlagFlowTCPEnd > 0 {
+		return NetflowTypeTCPEnd
+	}
+	return NetflowTypeUnknown
+}
+
+func (ctx *EventContext) IsSourceInitiator() bool {
+	if ctx.Retval&FlagFlowSrcInitiator > 0 {
+		return true
+	}
+	return false
 }
 
 func (EventContext) GetSizeBytes() int {
@@ -227,8 +247,9 @@ const (
 	FlagPacketEgress  = (1 << 5)
 	// Flows (begin/end) Flags per Protocol
 	FlagFlowTCPBegin     = (1 << 6)  // syn+ack flag or first flow packet
-	FlagFlowTCPEnd       = (1 << 7)  // fin flag or last flow packet
-	FlagFlowUDPBegin     = (1 << 8)  // first flow packet
-	FlagFlowUDPEnd       = (1 << 9)  // last flow packet
-	FlagFlowSrcInitiator = (1 << 10) // src is the flow initiator
+	FlagFlowTCPSample    = (1 << 7)  // tcp flow sample
+	FlagFlowTCPEnd       = (1 << 8)  // fin flag or last flow packet
+	FlagFlowUDPBegin     = (1 << 9)  // first flow packet
+	FlagFlowUDPEnd       = (1 << 10) // last flow packet
+	FlagFlowSrcInitiator = (1 << 11) // src is the flow initiator
 )

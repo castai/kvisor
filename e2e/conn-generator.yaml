@@ -60,7 +60,7 @@ spec:
   selector:
     matchLabels:
       name: echo-a
-  replicas: 1
+  replicas: 2
 apiVersion: apps/v1
 kind: Deployment
 ---
@@ -84,7 +84,7 @@ spec:
           command:
             - /bin/ash
             - -c
-            - sleep 1000000000
+            - while true; do curl echo-a:8080/public; sleep 3; done
           readinessProbe:
             timeoutSeconds: 7
             exec:
@@ -112,6 +112,6 @@ spec:
   selector:
     matchLabels:
       name: pod-to-a
-  replicas: 1
+  replicas: 3
 apiVersion: apps/v1
 kind: Deployment
