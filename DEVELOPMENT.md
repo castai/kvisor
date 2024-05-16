@@ -226,9 +226,11 @@ git checkout save-flows
 Install kvisor with netflow export to local clickhouse.
 
 ```
-helm upgrade --install castai-kvisor ./charts/kvisor \
-    --namespace kvisor --create-namespace \
-    --set image.tag=43439aa7a8bad18f485e24ea364d8dda9ea26e37 \
+helm repo add castai-helm https://castai.github.io/helm-charts
+helm repo update castai-helm
+
+helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
+    --namespace castai-agent --create-namespace \
     --set castai.enabled=false \
     --set agent.enabled=true \
     --set agent.extraArgs.netflow-enabled=true \
