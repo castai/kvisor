@@ -217,12 +217,6 @@ cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 
 ## Testing netflow
 
-Clone kvisor repo and checkout save-flows branch.
-```
-git clone git@github.com:castai/kvisor.git
-git checkout save-flows
-```
-
 Install kvisor with netflow export to local clickhouse.
 
 ```
