@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iperf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iperf-server-deployment
+  namespace: iperf
+  labels:
+    app: iperf-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iperf-server
+  template:
+    metadata:
+      labels:
+        app: iperf-server
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: iperf3-server
+          image: mlabbe/iperf
+          args: ['-s']
+          ports:
+            - containerPort: 5001
+              name: server
+      terminationGracePeriodSeconds: 0
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf-server
+  namespace: iperf
+spec:
+  selector:
+    app: iperf-server
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: server
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: iperf-clients
+  namespace: iperf
+  labels:
+    app: iperf-client
+spec:
+  selector:
+    matchLabels:
+      app: iperf-client
+  template:
+    metadata:
+      labels:
+        app: iperf-client
+    spec:
+      containers:
+        - name: iperf-client
+          image: mlabbe/iperf
+          #command: ['/bin/sh', '-c', 'sleep 1d']
+          command:
+            - /bin/ash
+            - -c
+            - while true; do iperf -c iperf-server; sleep 5; done
+      terminationGracePeriodSeconds: 0

@@ -13,6 +13,7 @@ service RuntimeSecurityAgentAPI {
   rpc EventsWriteStream(stream Event) returns (WriteStreamResponse) {}
   rpc LogsWriteStream(stream LogEvent) returns (WriteStreamResponse) {}
   rpc ContainerStatsWriteStream(stream ContainerStatsBatch) returns (WriteStreamResponse) {}
+  rpc NetflowWriteStream(stream Netflow) returns (WriteStreamResponse) {}
 
   rpc GetSyncState(GetSyncStateRequest) returns (GetSyncStateResponse) {}
   rpc UpdateSyncState(UpdateSyncStateRequest) returns (UpdateSyncStateResponse) {}
@@ -134,6 +135,8 @@ message AgentConfig {
   CastaiConfig castai_env = 18;
   EnricherConfig enricher_config = 19;
   NetflowConfig netflow = 20;
+  bool ebpf_events_enabled = 21;
+  bool container_stats_enabled = 22;
 }
 
 message ControllerAgentConfig {
@@ -348,41 +351,4 @@ message KubeLinterCheck {
   string resource_uid = 1;
   uint64 passed = 2; // Represented as bitmasks of passed checks.
   uint64 failed = 3; // Represented as bitmasks of failed checks.
-}
-
-enum NetflowProtocol {
-  NETFLOW_PROTOCOL_UNKNOWN = 0;
-  NETFLOW_PROTOCOL_TCP = 1;
-  NETFLOW_PROTOCOL_UDP = 2;
-}
-
-message Netflow {
-  uint64 start_ts = 1; // Stored as unix timestamp in nanoseconds.
-  uint64 end_ts = 2; // Stored as unix timestamp in nanoseconds.
-  string process_name = 3;
-  string namespace = 4;
-  string pod_name = 5;
-  string container_name = 6;
-  string workload_name = 7;
-  string workload_kind = 8;
-  string zone = 9;
-  bytes addr = 10;
-  uint32 port = 11;
-  NetflowProtocol protocol = 12;
-  repeated NetflowDestination destinations = 14;
-}
-
-message NetflowDestination {
-  string namespace = 1;
-  string pod_name = 2;
-  string workload_name = 3;
-  string workload_kind = 4;
-  string zone = 5;
-  string dns_question = 6;
-  bytes addr = 8;
-  uint32 port = 9;
-  uint64 tx_bytes = 10;
-  uint64 rx_bytes = 11;
-  uint64 tx_packets = 12;
-  uint64 rx_packets = 13;
 }

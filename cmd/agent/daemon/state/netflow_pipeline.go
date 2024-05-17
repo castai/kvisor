@@ -15,11 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type clusterInfo struct {
-	podCidr     netip.Prefix
-	serviceCidr netip.Prefix
-}
-
 func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 	for {
 		select {
@@ -58,6 +53,8 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	}
 	c.log.Infof("fetched cluster info, pod_cidr=%s, cluster_cidr=%s", c.clusterInfo.podCidr, c.clusterInfo.serviceCidr)
 
+	groupFlows := c.cfg.NetflowGrouping != 0
+
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		for {
@@ -65,7 +62,23 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			case e := <-c.tracer.NetflowEvents():
-				c.upsertNetflow(e)
+				if groupFlows {
+					c.upsertNetflow(e)
+				} else {
+					args := e.Args.(types.NetFlowBaseArgs)
+					pbFlow := c.toProtoNetflow(e, &args)
+					pbFlowDest := c.toProtoNetflowDest(
+						e.Context.CgroupID,
+						args.Tuple.Src,
+						args.Tuple.Dst,
+						args.TxBytes,
+						args.RxBytes,
+						args.TxPackets,
+						args.RxPackets,
+					)
+					pbFlow.Destinations = []*castpb.NetflowDestination{pbFlowDest}
+					c.exportNetflow(pbFlow)
+				}
 			}
 		}
 	})
@@ -84,29 +97,20 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	return errg.Wait()
 }
 
-type netflowVal struct {
-	updatedAt    time.Time
-	event        *types.Event
-	destinations map[uint64]*netflowDest
-}
-
-type netflowDest struct {
-	addrPort  netip.AddrPort
-	txBytes   uint64
-	rxBytes   uint64
-	txPackets uint64
-	rxPackets uint64
-}
-
+// upsertNetflow groups flows by user defined grouping flags.
+// This allows to reduce cardinality but also increases agent memory usage
+// since it need to store temp grouped netflow data.
 func (c *Controller) upsertNetflow(e *types.Event) {
 	c.netflowsMu.Lock()
 	defer c.netflowsMu.Unlock()
 
+	now := time.Now()
 	args := e.Args.(types.NetFlowBaseArgs)
 	key := c.netflowKey(e, &args)
 	netflow, found := c.netflows[key]
 	if !found {
 		netflow = &netflowVal{
+			updatedAt:    now,
 			event:        e,
 			destinations: map[uint64]*netflowDest{},
 		}
@@ -119,45 +123,59 @@ func (c *Controller) upsertNetflow(e *types.Event) {
 		dest = &netflowDest{
 			addrPort: args.Tuple.Dst,
 		}
-		netflow.destinations[key] = dest
+		netflow.destinations[destKey] = dest
 	}
+
 	// Update stats
 	dest.txBytes += args.TxBytes
 	dest.rxBytes += args.RxBytes
 	dest.txPackets += args.TxPackets
 	dest.rxPackets += args.RxPackets
 
-	now := time.Now()
-	start := time.UnixMicro(int64(e.Context.Ts) / 1e3)
-	netflow.updatedAt = now
 	flowType := e.Context.GetNetflowType()
-	if now.Sub(start) >= c.cfg.NetflowExportInterval || flowType == types.NetflowTypeTCPBegin || flowType == types.NetflowTypeTCPEnd {
-		pbNetFlow := c.toProtoNetflow(netflow, &args, now)
-		for _, exp := range c.exporters.Netflow {
-			exp.Enqueue(pbNetFlow)
-		}
-		// Reset flow stats after export.
-		for _, flowDest := range netflow.destinations {
-			flowDest.txBytes = 0
-			flowDest.rxBytes = 0
-			flowDest.txPackets = 0
-			flowDest.rxPackets = 0
-		}
+	shouldExport := now.Sub(netflow.updatedAt) >= c.cfg.NetflowExportInterval || flowType == types.NetflowTypeTCPBegin || flowType == types.NetflowTypeTCPEnd
+	netflow.updatedAt = now
+	if !shouldExport {
+		return
 	}
 
-	// Cleanup flow.
-	if flowType == types.NetflowTypeTCPEnd {
-		delete(c.netflows, key)
+	// It's time to export grouped netflow data.
+	pbNetFlow := c.toProtoNetflow(netflow.event, &args)
+	pbNetFlow.Destinations = make([]*castpb.NetflowDestination, 0, len(netflow.destinations))
+	for _, dest := range netflow.destinations {
+		flowDest := c.toProtoNetflowDest(
+			netflow.event.Context.CgroupID,
+			args.Tuple.Src,
+			dest.addrPort,
+			dest.txBytes,
+			dest.rxBytes,
+			dest.txPackets,
+			dest.rxPackets,
+		)
+		pbNetFlow.Destinations = append(pbNetFlow.Destinations, flowDest)
+	}
+	c.exportNetflow(pbNetFlow)
+
+	// Reset flow stats after export.
+	for _, flowDest := range netflow.destinations {
+		flowDest.txBytes = 0
+		flowDest.rxBytes = 0
+		flowDest.txPackets = 0
+		flowDest.rxPackets = 0
 	}
 }
 
-func (c *Controller) toProtoNetflow(flow *netflowVal, args *types.NetFlowBaseArgs, now time.Time) *castpb.Netflow {
-	ctx := flow.event.Context
-	cont := flow.event.Container
+func (c *Controller) exportNetflow(pbNetFlow *castpb.Netflow) {
+	for _, exp := range c.exporters.Netflow {
+		exp.Enqueue(pbNetFlow)
+	}
+}
 
+func (c *Controller) toProtoNetflow(e *types.Event, args *types.NetFlowBaseArgs) *castpb.Netflow {
+	ctx := e.Context
+	cont := e.Container
 	res := &castpb.Netflow{
-		StartTs:       ctx.Ts,
-		EndTs:         uint64(now.UnixNano()),
+		Timestamp:     ctx.Ts,
 		ProcessName:   string(bytes.TrimRight(ctx.Comm[:], "\x00")),
 		Namespace:     cont.PodNamespace,
 		PodName:       cont.PodName,
@@ -165,63 +183,52 @@ func (c *Controller) toProtoNetflow(flow *netflowVal, args *types.NetFlowBaseArg
 		Addr:          args.Tuple.Src.Addr().AsSlice(),
 		Port:          uint32(args.Tuple.Src.Port()),
 		Protocol:      toProtoProtocol(args.Proto),
-		Destinations:  make([]*castpb.NetflowDestination, 0, len(flow.destinations)),
 	}
-
-	c.enrichFlowKubeInfo(cont.PodUID, res)
-
-	for _, dest := range flow.destinations {
-		dst := dest.addrPort
-		dns := c.getAddrDnsQuestion(ctx.CgroupID, dst.Addr())
-
-		if c.clusterInfo.serviceCidr.Contains(dst.Addr()) {
-			if realDst, found := c.ct.GetDestination(args.Tuple.Src, args.Tuple.Dst); found {
-				dst = realDst
-			}
-		}
-
-		pbDest := &castpb.NetflowDestination{
-			DnsQuestion: dns,
-			Addr:        dst.Addr().AsSlice(),
-			Port:        uint32(dst.Port()),
-			TxBytes:     dest.txBytes,
-			RxBytes:     dest.rxBytes,
-			TxPackets:   dest.txPackets,
-			RxPackets:   dest.rxPackets,
-		}
-
-		c.enrichFlowDestinationKubeInfo(dst.Addr(), pbDest)
-
-		res.Destinations = append(res.Destinations, pbDest)
+	if c.cfg.NetflowGrouping&NetflowGroupingSrcAddr != 0 {
+		res.Port = 0
+	}
+	ipInfo, found := c.getPodInfo(cont.PodUID)
+	if found {
+		res.WorkloadName = ipInfo.WorkloadName
+		res.WorkloadKind = ipInfo.WorkloadKind
+		res.Zone = ipInfo.Zone
 	}
 	return res
 }
 
-func (c *Controller) enrichFlowKubeInfo(podID string, res *castpb.Netflow) {
-	ipInfo, found := c.getPodInfo(podID)
-	if !found {
-		return
-	}
-	res.WorkloadName = ipInfo.WorkloadName
-	res.WorkloadKind = ipInfo.WorkloadKind
-	res.Zone = ipInfo.Zone
-}
+func (c *Controller) toProtoNetflowDest(cgroupID uint64, src, dst netip.AddrPort, txBytes, rxBytes, txPackets, rxPackets uint64) *castpb.NetflowDestination {
+	dns := c.getAddrDnsQuestion(cgroupID, dst.Addr())
 
-func (c *Controller) enrichFlowDestinationKubeInfo(dstAddr netip.Addr, pbDest *castpb.NetflowDestination) {
-	if !c.clusterInfo.serviceCidr.Contains(dstAddr) && !c.clusterInfo.podCidr.Contains(dstAddr) {
-		return
+	if c.clusterInfo.serviceCidr.Contains(dst.Addr()) {
+		if realDst, found := c.ct.GetDestination(src, dst); found {
+			dst = realDst
+		}
 	}
 
-	ipInfo, found := c.getIPInfo(dstAddr)
-	if !found {
-		return
+	res := &castpb.NetflowDestination{
+		DnsQuestion: dns,
+		Addr:        dst.Addr().AsSlice(),
+		Port:        uint32(dst.Port()),
+		TxBytes:     txBytes,
+		RxBytes:     rxBytes,
+		TxPackets:   txPackets,
+		RxPackets:   rxPackets,
+	}
+	if c.cfg.NetflowGrouping&NetflowGroupingDstAddr != 0 {
+		res.Port = 0
 	}
 
-	pbDest.PodName = ipInfo.PodName
-	pbDest.Namespace = ipInfo.Namespace
-	pbDest.WorkloadName = ipInfo.WorkloadName
-	pbDest.WorkloadKind = ipInfo.WorkloadKind
-	pbDest.Zone = ipInfo.Zone
+	if c.clusterInfo.serviceCidr.Contains(dst.Addr()) || c.clusterInfo.podCidr.Contains(dst.Addr()) {
+		ipInfo, found := c.getIPInfo(dst.Addr())
+		if found {
+			res.PodName = ipInfo.PodName
+			res.Namespace = ipInfo.Namespace
+			res.WorkloadName = ipInfo.WorkloadName
+			res.WorkloadKind = ipInfo.WorkloadKind
+			res.Zone = ipInfo.Zone
+		}
+	}
+	return res
 }
 
 func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
@@ -284,9 +291,15 @@ func (c *Controller) netflowKey(e *types.Event, args *types.NetFlowBaseArgs) uin
 	binary.LittleEndian.PutUint32(cgroup[:], e.Context.HostPid)
 	_, _ = c.netflowKeyHash.Write(pid[:])
 
-	// Source addr+port.
-	srcBytes, _ := args.Tuple.Src.MarshalBinary()
-	_, _ = c.netflowKeyHash.Write(srcBytes)
+	if c.cfg.NetflowGrouping&NetflowGroupingSrcAddr != 0 {
+		// Source addr.
+		srcBytes, _ := args.Tuple.Src.Addr().MarshalBinary()
+		_, _ = c.netflowKeyHash.Write(srcBytes)
+	} else {
+		// Source addr+port.
+		srcBytes, _ := args.Tuple.Src.MarshalBinary()
+		_, _ = c.netflowKeyHash.Write(srcBytes)
+	}
 
 	// Protocol.
 	_ = c.netflowKeyHash.WriteByte(args.Proto)
@@ -297,9 +310,15 @@ func (c *Controller) netflowKey(e *types.Event, args *types.NetFlowBaseArgs) uin
 func (c *Controller) netflowDestKey(args *types.NetFlowBaseArgs) uint64 {
 	c.netflowDestKeyHash.Reset()
 
-	// Destination addr+port.
-	srcBytes, _ := args.Tuple.Dst.MarshalBinary()
-	_, _ = c.netflowKeyHash.Write(srcBytes)
+	if c.cfg.NetflowGrouping&NetflowGroupingDstAddr != 0 {
+		// Destination addr.
+		srcBytes, _ := args.Tuple.Dst.Addr().MarshalBinary()
+		_, _ = c.netflowKeyHash.Write(srcBytes)
+	} else {
+		// Destination addr+port.
+		srcBytes, _ := args.Tuple.Dst.MarshalBinary()
+		_, _ = c.netflowKeyHash.Write(srcBytes)
+	}
 
 	return c.netflowKeyHash.Sum64()
 }

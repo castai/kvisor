@@ -54,6 +54,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	if err != nil {
 		return nil, err
 	}
+
 	return &Client{
 		log:                log.WithField("component", "cgroups"),
 		containerClient:    contClient,

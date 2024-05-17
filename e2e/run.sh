@@ -77,6 +77,7 @@ kubectl apply -f ./e2e/dns-generator.yaml
 kubectl apply -f ./e2e/magic-write-generator.yaml
 kubectl apply -f ./e2e/oom-generator.yaml
 kubectl apply -f ./e2e/socks5-generator.yaml
+kubectl apply -f ./e2e/iperf.yaml
 
 echo "Waiting for job to finish"
 

@@ -33,8 +33,7 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 
 	exporter := NewClickhouseNetflowExporter(log, conn, 100)
 	err = exporter.asyncWrite(ctx, true, &castpb.Netflow{
-		StartTs:       uint64(time.Now().UnixNano()),
-		EndTs:         uint64(time.Now().Add(time.Minute).UnixNano()),
+		Timestamp:     uint64(time.Now().UnixNano()),
 		ProcessName:   "curl",
 		Namespace:     "n1",
 		PodName:       "p1",
@@ -43,7 +42,7 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 		WorkloadKind:  "Deployment",
 		Zone:          "us-east-1",
 		Addr:          netip.MustParseAddr("10.10.1.10").AsSlice(),
-		Port:          345555,
+		Port:          34555,
 		Protocol:      castpb.NetflowProtocol_NETFLOW_PROTOCOL_TCP,
 		Destinations: []*castpb.NetflowDestination{
 			{
@@ -61,6 +60,86 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 		},
 	})
 	r.NoError(err)
+
+	rows, err := conn.Query(ctx, "select * from netflows")
+	r.NoError(err)
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			ts              time.Time
+			protocol        string
+			process         string
+			containerName   string
+			podName         string
+			namespace       string
+			zone            string
+			workloadName    string
+			workloadKind    string
+			addr            netip.Addr
+			port            uint16
+			dstAddr         netip.Addr
+			dstPort         uint16
+			dstDomain       string
+			dstPodName      string
+			dstNamespace    string
+			dstZone         string
+			dstWorkloadName string
+			dstWorkloadKind string
+			txBytes         uint64
+			txPackets       uint64
+			rxBytes         uint64
+			rxPackets       uint64
+		)
+		err = rows.Scan(
+			&ts,
+			&protocol,
+			&process,
+			&containerName,
+			&podName,
+			&namespace,
+			&zone,
+			&workloadName,
+			&workloadKind,
+			&addr,
+			&port,
+			&dstAddr,
+			&dstPort,
+			&dstDomain,
+			&dstPodName,
+			&dstNamespace,
+			&dstZone,
+			&dstWorkloadName,
+			&dstWorkloadKind,
+			&txBytes,
+			&txPackets,
+			&rxBytes,
+			&rxPackets,
+		)
+		r.NoError(err)
+
+		r.Equal("curl", process)
+		r.Equal("c1", containerName)
+		r.Equal("p1", podName)
+		r.Equal("n1", namespace)
+		r.Equal("us-east-1", zone)
+		r.Equal("w1", workloadName)
+		r.Equal("Deployment", workloadKind)
+		r.Equal(netip.MustParseAddr("10.10.1.10"), addr)
+		r.Equal(uint16(34555), port)
+		r.Equal("tcp", protocol)
+		r.Equal("n2", dstNamespace)
+		r.Equal("p2", dstPodName)
+		r.Equal("w2", dstWorkloadName)
+		r.Equal("Deployment", dstWorkloadKind)
+		r.Equal("us-east-2", dstZone)
+		r.Equal("service.n2.svc.cluster.local.", dstDomain)
+		r.Equal(netip.MustParseAddr("10.10.1.15"), dstAddr)
+		r.Equal(uint16(80), dstPort)
+		r.Equal(uint64(10), txBytes)
+		r.Equal(uint64(2), txPackets)
+		r.Equal(uint64(0), rxBytes) // Assuming no rxBytes were sent in the test data
+		r.Equal(uint64(0), rxPackets)
+	}
 }
 
 func newClickhouseConn(clickhouseAddr string) (clickhouse.Conn, error) {

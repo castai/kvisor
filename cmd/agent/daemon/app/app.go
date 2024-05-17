@@ -48,6 +48,8 @@ type Config struct {
 	HostCgroupsDir                 string
 	MetricsHTTPListenPort          int
 	State                          state.Config
+	ContainerStatsEnabled          bool
+	EBPFEventsEnabled              bool
 	EBPFEventsPerCPUBuffer         int `validate:"required"`
 	EBPFEventsOutputChanSize       int `validate:"required"`
 	EBPFEventsStdioExporterEnabled bool
@@ -100,6 +102,8 @@ func (c Config) Proto() *castaipb.AgentConfig {
 			Enabled:                     c.Netflow.Enabled,
 			SampleSubmitIntervalSeconds: c.Netflow.SampleSubmitIntervalSeconds,
 		},
+		EbpfEventsEnabled:     c.EBPFEventsEnabled,
+		ContainerStatsEnabled: c.ContainerStatsEnabled,
 	}
 }
 
@@ -165,8 +169,15 @@ func (a *App) Run(ctx context.Context) error {
 			log = logging.New(logCfg)
 		}
 		exporters = state.NewExporters(log)
-		exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
-		exporters.ContainerStats = append(exporters.ContainerStats, state.NewCastaiContainerStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+		if cfg.EBPFEventsEnabled {
+			exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+		}
+		if cfg.ContainerStatsEnabled {
+			exporters.ContainerStats = append(exporters.ContainerStats, state.NewCastaiContainerStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+		}
+		if cfg.Netflow.Enabled {
+			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+		}
 	} else {
 		log = logging.New(logCfg)
 		exporters = state.NewExporters(log)
@@ -200,8 +211,10 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		defer storageConn.Close()
 
-		clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
-		exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
+		if cfg.Netflow.Enabled {
+			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
+			exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
+		}
 	}
 
 	if cfg.EBPFEventsStdioExporterEnabled {

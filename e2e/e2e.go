@@ -119,6 +119,11 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("validate signature events: %w", err)
 	}
 
+	fmt.Println("🙏waiting for netflows")
+	if err := srv.assertNetflows(ctx); err != nil {
+		return fmt.Errorf("assert netflows: %w", err)
+	}
+
 	fmt.Println("🙏waiting for flogs")
 	if err := srv.assertLogs(ctx); err != nil {
 		return fmt.Errorf("assert logs: %w", err)
@@ -160,10 +165,14 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set image.tag=%s \
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
+  --set agent.extraArgs.container-stats-enabled=true \
   --set agent.extraArgs.container-stats-scrape-interval=5s \
   --set agent.extraArgs.castai-server-insecure=true \
+  --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
+  --set agent.extraArgs.netflow-enabled=true \
+  --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.kubernetes-delta-interval=5s \
@@ -196,16 +205,30 @@ var _ castaipb.RuntimeSecurityAgentAPIServer = (*testCASTAIServer)(nil)
 type testCASTAIServer struct {
 	clientset *kubernetes.Clientset
 
+	mu                sync.Mutex
 	containerStats    []*castaipb.ContainerStatsBatch
 	events            []*castaipb.Event
 	logs              []*castaipb.LogEvent
 	deltaUpdates      []*castaipb.KubernetesDeltaItem
-	mu                sync.Mutex
 	imageMetadatas    []*castaipb.ImageMetadata
 	kubeBenchReports  []*castaipb.KubeBenchReport
 	kubeLinterReports []*castaipb.KubeLinterReport
 	controllerConfig  *castaipb.ControllerConfig
 	agentConfig       *castaipb.AgentConfig
+	netflows          []*castaipb.Netflow
+}
+
+func (t *testCASTAIServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
+	for {
+		msg, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("received netflow: %+v\n", msg)
+		t.mu.Lock()
+		t.netflows = append(t.netflows, msg)
+		t.mu.Unlock()
+	}
 }
 
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -776,6 +799,43 @@ func (t *testCASTAIServer) assertKubeLinter(ctx context.Context) error {
 					return errors.New("missing linter checks")
 				}
 				return nil
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+	r := newAssertions()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for netflows")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			items := lo.Filter(t.netflows, func(item *castaipb.Netflow, index int) bool {
+				return strings.Contains(item.WorkloadName, "iperf-clients")
+			})
+			t.mu.Unlock()
+			if len(items) > 0 {
+				f1 := items[0]
+				r.NotEmpty(f1.Timestamp)
+				r.NotEmpty(f1.Namespace)
+				r.NotEmpty(f1.PodName)
+				r.NotEmpty(f1.ContainerName)
+				r.NotEmpty(f1.ProcessName)
+				r.NotEmpty(f1.Addr)
+				r.NotEmpty(f1.Destinations)
+				d1 := f1.Destinations[0]
+				r.NotEmpty(d1.Addr)
+				r.NotEmpty(d1.Port)
+				r.NotEmpty(d1.TxBytes + d1.RxBytes)
+				r.NotEmpty(d1.TxPackets + d1.RxPackets)
+				r.GreaterOrEqual(d1.TxBytes, 1*1024*1024)
+				return r.error()
 			}
 		}
 	}

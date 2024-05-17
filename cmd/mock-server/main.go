@@ -56,6 +56,21 @@ type MockServer struct {
 	log *logging.Logger
 }
 
+func (m *MockServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		json, err := protojson.Marshal(event)
+		if err != nil {
+			m.log.Debugf("cannot parse event: %v\n%v", err, event)
+			continue
+		}
+		m.log.Debugf("netflow:\n%s", string(json))
+	}
+}
+
 func (m *MockServer) KubeBenchReportIngest(ctx context.Context, in *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
 	m.log.Debugf("KubeBenchReportIngest: %v", in)
 	return &castaipb.KubeBenchReportIngestResponse{}, nil

@@ -127,7 +127,7 @@ chart_path = './charts/kvisor'
 
 k8s_yaml(helm(
     chart_path,
-    name='kvisor',
+    name='castai-kvisor',
     namespace=namespace,
     values=['./charts/kvisor/values-local.yaml']
 ))
