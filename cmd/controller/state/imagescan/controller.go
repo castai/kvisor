@@ -47,6 +47,7 @@ type Config struct {
 	CastaiGrpcInsecure        bool
 	ImageScanBlobsCacheURL    string
 	CloudProvider             string
+	IgnoredNamespaces         []string
 }
 
 type ImageScanImage struct {
@@ -61,11 +62,16 @@ func NewController(
 	kubeController kubeClient,
 ) *Controller {
 	log = log.WithField("component", "imagescan")
+	ignoredNamespaces := make(map[string]struct{}, len(cfg.IgnoredNamespaces))
+	for _, ns := range cfg.IgnoredNamespaces {
+		ignoredNamespaces[ns] = struct{}{}
+	}
+
 	return &Controller{
 		imageScanner:      imageScanner,
 		client:            client,
 		kubeController:    kubeController,
-		delta:             newDeltaState(kubeController),
+		delta:             newDeltaState(kubeController, ignoredNamespaces),
 		log:               log,
 		cfg:               cfg,
 		timeGetter:        timeGetter(),
