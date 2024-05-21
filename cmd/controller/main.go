@@ -68,6 +68,8 @@ var (
 	imageScanMemoryLimit           = pflag.String("image-scan-memory-limit", "2Gi", "Image scan memory limit")
 	imageScanProfileProfileEnabled = pflag.Bool("image-profile-enabled", false, "Image scan pprof and pyroscope")
 	imageScanBlobsCacheURL         = pflag.String("image-scan-blobs-cache-url", "http://castai-kvisor-controller.castai-agent", "Image scan blobs cache server url")
+	imageScanIgnoredNamespaces     = pflag.StringSlice("image-scan-ignored-namespaces", []string{},
+		"Image scan ignored namespaces. For example: --image-scan-ignored-namespaces=kube-system,my-namespace")
 
 	kubeBenchEnabled            = pflag.Bool("kube-bench-enabled", false, "Kube Bench enabled")
 	kubeBenchScanInterval       = pflag.Duration("kube-bench-scan-interval", 5*time.Minute, "Kube bench scan interval")
@@ -202,6 +204,7 @@ func main() {
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
 			CloudProvider:             cloudProviderVal,
+			IgnoredNamespaces:         *imageScanIgnoredNamespaces,
 		},
 		Linter: kubelinter.Config{
 			Enabled:      *kubeLinterEnabled,

@@ -34,16 +34,18 @@ func newImage() *image {
 	}
 }
 
-func newDeltaState(kubeClient kubeClient) *deltaState {
+func newDeltaState(kubeClient kubeClient, ignoredNamespaces map[string]struct{}) *deltaState {
 	return &deltaState{
-		kubeClient: kubeClient,
-		images:     map[string]*image{},
-		nodes:      map[string]*corev1.Node{},
+		kubeClient:        kubeClient,
+		images:            map[string]*image{},
+		nodes:             map[string]*corev1.Node{},
+		ignoredNamespaces: ignoredNamespaces,
 	}
 }
 
 type deltaState struct {
-	kubeClient kubeClient
+	kubeClient        kubeClient
+	ignoredNamespaces map[string]struct{}
 
 	mu sync.Mutex
 
@@ -152,6 +154,10 @@ func (d *deltaState) setImageScanned(scannedImg *castaipb.Image) {
 }
 
 func (d *deltaState) handlePodUpdate(v *corev1.Pod) {
+	if _, found := d.ignoredNamespaces[v.Namespace]; found {
+		return
+	}
+
 	if v.Status.Phase == corev1.PodSucceeded {
 		d.handlePodDelete(v)
 	}

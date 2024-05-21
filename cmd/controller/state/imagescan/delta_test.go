@@ -160,8 +160,53 @@ func TestDelta(t *testing.T) {
 		img, found = delta.images["testidamd64test"]
 		r.False(found)
 	})
+
+	t.Run("skip ignored namespaces", func(t *testing.T) {
+		r := require.New(t)
+		delta := newTestDelta()
+		delta.ignoredNamespaces = map[string]struct{}{
+			"kube-system": {},
+		}
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				UID:       "123",
+				Namespace: "kube-system",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "test",
+						Image: "test",
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("1"),
+								corev1.ResourceMemory: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				NodeName: "node1",
+			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name:    "test",
+						ImageID: "testid",
+					},
+				},
+			},
+		}
+		delta.Upsert(pod)
+
+		r.Len(delta.images, 0)
+	})
 }
 
 func newTestDelta() *deltaState {
-	return newDeltaState(&mockKubeController{})
+	return newDeltaState(&mockKubeController{}, make(map[string]struct{}))
 }
