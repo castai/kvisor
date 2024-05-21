@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"regexp"
 	"runtime"
 	"time"
 
@@ -61,6 +62,8 @@ type Config struct {
 	Clickhouse                     ClickhouseConfig
 	KubeAPIServiceAddr             string
 	ExportersQueueSize             int `validate:"required"`
+	RedactSensitiveValues          bool
+	RedactSensitiveValuesRegex     *regexp.Regexp
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
@@ -281,6 +284,8 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		SignatureEngine:                    signatureEngine,
+		RedactSensitiveValues:              cfg.RedactSensitiveValues,
+		RedactSensitiveValuesRegex:         cfg.RedactSensitiveValuesRegex,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"regexp"
 	"sync"
 	"time"
 
@@ -60,6 +61,8 @@ type Config struct {
 	AllowAnyEvent                      bool
 	NetflowOutputChanSize              int
 	NetflowSampleSubmitIntervalSeconds uint64
+	RedactSensitiveValues              bool
+	RedactSensitiveValuesRegex         *regexp.Regexp
 }
 
 type cgroupCleanupRequest struct {
@@ -95,6 +98,9 @@ type Tracer struct {
 
 	cleanupTimerTickRate time.Duration
 	cgroupCleanupDelay   time.Duration
+
+	redactSensitiveValues      bool
+	redactSensitiveValuesRegex *regexp.Regexp
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
@@ -125,19 +131,21 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	bootTime := time.Now().UnixNano() - ts.Nano()
 
 	t := &Tracer{
-		log:                  log,
-		cfg:                  cfg,
-		module:               m,
-		bootTime:             uint64(bootTime),
-		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
-		netflowEventsChan:    make(chan *types.Event, cfg.NetflowOutputChanSize),
-		removedCgroups:       map[uint64]struct{}{},
-		eventPoliciesMap:     map[events.ID]*EventPolicy{},
-		cgroupEventPolicy:    map[uint64]map[events.ID]*cgroupEventPolicy{},
-		dnsPacketParser:      &layers.DNS{},
-		signatureEventMap:    map[events.ID]struct{}{},
-		cleanupTimerTickRate: 1 * time.Minute,
-		cgroupCleanupDelay:   1 * time.Minute,
+		log:                        log,
+		cfg:                        cfg,
+		module:                     m,
+		bootTime:                   uint64(bootTime),
+		eventsChan:                 make(chan *types.Event, cfg.EventsOutputChanSize),
+		netflowEventsChan:          make(chan *types.Event, cfg.NetflowOutputChanSize),
+		removedCgroups:             map[uint64]struct{}{},
+		eventPoliciesMap:           map[events.ID]*EventPolicy{},
+		cgroupEventPolicy:          map[uint64]map[events.ID]*cgroupEventPolicy{},
+		dnsPacketParser:            &layers.DNS{},
+		signatureEventMap:          map[events.ID]struct{}{},
+		cleanupTimerTickRate:       1 * time.Minute,
+		cgroupCleanupDelay:         1 * time.Minute,
+		redactSensitiveValues:      cfg.RedactSensitiveValues,
+		redactSensitiveValuesRegex: cfg.RedactSensitiveValuesRegex,
 	}
 
 	return t
