@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"regexp"
 	"strings"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
@@ -21,39 +20,23 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
-var sensitiveValuePattern = regexp.MustCompile(`(?i)(password|passwd|pass|pwd|secret|token|key|creds|credential)(=?)`)
-
 type Decoder struct {
 	log    *logging.Logger
 	buffer []byte
 	cursor int
-
-	redactSensitiveValues      bool
-	redactSensitiveValuesRegex *regexp.Regexp
 }
 
 var ErrBufferTooShort = errors.New("can't read context from buffer: buffer too short")
-
-type Options struct {
-	RedactSensitiveValues      bool
-	RedactSensitiveValuesRegex *regexp.Regexp
-}
 
 // New creates and initializes a new decoder using rawBuffer as its initial content.
 // The decoder takes ownership of rawBuffer, and the caller should not use rawBuffer after this call.
 // New is intended to prepare a buffer to read existing data from it, translating it to protocol defined structs.
 // The protocol is specific between the Trace eBPF program and the Tracee-eBPF user space application.
-func NewEventDecoder(log *logging.Logger, rawBuffer []byte, opts *Options) *Decoder {
-	if opts == nil {
-		opts = &Options{}
-	}
-
+func NewEventDecoder(log *logging.Logger, rawBuffer []byte) *Decoder {
 	return &Decoder{
-		log:                        log,
-		buffer:                     rawBuffer,
-		cursor:                     0,
-		redactSensitiveValues:      opts.RedactSensitiveValues,
-		redactSensitiveValuesRegex: opts.RedactSensitiveValuesRegex,
+		log:    log,
+		buffer: rawBuffer,
+		cursor: 0,
 	}
 }
 
@@ -630,80 +613,11 @@ func (decoder *Decoder) ReadArgsArrayFromBuff() ([]string, error) {
 		ss = ss[:len(ss)-1]
 	}
 
-	fmt.Printf("\n\n decoder.redactSensitiveValues: %v\n", decoder.redactSensitiveValues)
-	if decoder.redactSensitiveValues {
-		decoder.redactArgs(ss)
-	}
-	fmt.Printf("\n\n args: %v\n", ss)
-
 	for int(argNum) > len(ss) {
 		ss = append(ss, "?")
 	}
 
 	return ss, nil
-}
-
-// redactArgs redacts the arguments that we consider sensitive, e.g. password, token, etc.
-//
-// It transforms this
-//
-//	["cmd", "--password", "abc123"]
-//
-// to this:
-//
-//	["cmd", "--password", "<redacted>"]
-func (decoder *Decoder) redactArgs(args []string) {
-	if decoder.redactSensitiveValuesRegex == nil {
-		// if the redactSensitiveValuesRegex is not set, we use the default sensitive value pattern.
-		// This uses our custom logic that detects sensitive values based on the key, taking into account
-		// whether the sensitive value is in the same arg (e.g. ["password=abc123"]) or the next one (e.g. ["password", "abc123"]).
-
-		var redactArg = false
-		for i, arg := range args {
-			// we have detected that this arg is a sensitive value, because of the previous arg, e.g.
-			// "password abc123" or "--password abc123"
-			// so redact it.
-			if redactArg {
-				args[i] = "<redacted>"
-				redactArg = false
-
-				continue
-			}
-
-			matches := sensitiveValuePattern.FindStringSubmatch(arg)
-			if matches == nil {
-				// arg does not contain sensitive value, continue
-				continue
-			}
-
-			hasEqualSign := matches[len(matches)-1] == "="
-			if hasEqualSign {
-				// if the arg matches the sensitive value regex AND contains an equal sign that means it looks like this:
-				// "password=abc123" or "--password=abc123"
-				// so keep the first part of the arg and redact the value.
-				args[i] = matches[1] + "=<redacted>"
-				continue
-			}
-
-			// if the arg matches the sensitive value regex but does not contain an equal sign that means that the sensitive value is actually the next args, e.g.
-			// "password abc123" or "--password abc123"
-			// so keep the current arg as is and redact the next one.
-			redactArg = true
-		}
-
-		if redactArg {
-			decoder.log.Warn("detected sensitive keyword at the end of the args array, but no value following it to redact")
-		}
-	} else {
-		// if the redactSensitiveValuesRegex value is set, we use the user defined regex to redact sensitive values.
-		// This matches the values as-is, and redacts the whole value, without taking into account any keywords.
-
-		for i, arg := range args {
-			if decoder.redactSensitiveValuesRegex.MatchString(arg) {
-				args[i] = "<redacted>"
-			}
-		}
-	}
 }
 
 func (decoder *Decoder) ReadTimespec() (float64, error) {

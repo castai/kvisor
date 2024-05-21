@@ -29,7 +29,7 @@ func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr err
 		}
 	}()
 
-	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data, nil)
+	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data)
 	var signalCtx types.SignalContext
 	if err := ebpfMsgDecoder.DecodeSignalContext(&signalCtx); err != nil {
 		return err
@@ -76,10 +76,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		}
 	}()
 
-	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data, &decoder.Options{
-		RedactSensitiveValues:      t.redactSensitiveValues,
-		RedactSensitiveValuesRegex: t.redactSensitiveValuesRegex,
-	})
+	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data)
 	var eventCtx types.EventContext
 	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
 		return err

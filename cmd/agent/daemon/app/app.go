@@ -284,8 +284,6 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		SignatureEngine:                    signatureEngine,
-		RedactSensitiveValues:              cfg.RedactSensitiveValues,
-		RedactSensitiveValuesRegex:         cfg.RedactSensitiveValuesRegex,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
