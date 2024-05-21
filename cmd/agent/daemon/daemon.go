@@ -83,7 +83,6 @@ func NewRunCommand(version string) *cobra.Command {
 
 		exportersQueueSize = pflag.Int("exporters-queue-size", 4096, "Exporters queue size")
 
-		redactSensitiveValues         = pflag.Bool("redact-sensitive-values", false, "Redact sensitive values from process exec args")
 		redactSensitiveValuesRegexStr = pflag.String("redact-sensitive-values-regex", "", "Regex which will be used to detect sensitive values in process exec args")
 	)
 
@@ -103,7 +102,7 @@ func NewRunCommand(version string) *cobra.Command {
 			}
 
 			var redactSensitiveValuesRegex *regexp.Regexp
-			if *redactSensitiveValues && *redactSensitiveValuesRegexStr != "" {
+			if *redactSensitiveValuesRegexStr != "" {
 				var err error
 				redactSensitiveValuesRegex, err = regexp.Compile(*redactSensitiveValuesRegexStr)
 				if err != nil {
@@ -148,7 +147,8 @@ func NewRunCommand(version string) *cobra.Command {
 				},
 				Castai: castaiClientCfg,
 				EnricherConfig: app.EnricherConfig{
-					EnableFileHashEnricher: *fileHashEnrichedEnabled,
+					EnableFileHashEnricher:     *fileHashEnrichedEnabled,
+					RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
 				},
 				Netflow: app.NetflowConfig{
 					Enabled:                     *netflowEnabled,
@@ -161,10 +161,8 @@ func NewRunCommand(version string) *cobra.Command {
 					Username: *clickhouseUsername,
 					Password: os.Getenv("CLICKHOUSE_PASSWORD"),
 				},
-				KubeAPIServiceAddr:         *kubeAPIServiceAddr,
-				ExportersQueueSize:         *exportersQueueSize,
-				RedactSensitiveValues:      *redactSensitiveValues,
-				RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
+				KubeAPIServiceAddr: *kubeAPIServiceAddr,
+				ExportersQueueSize: *exportersQueueSize,
 			}).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				slog.Error(err.Error())
 				os.Exit(1)

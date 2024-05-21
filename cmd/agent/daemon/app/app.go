@@ -31,6 +31,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -62,11 +63,14 @@ type Config struct {
 	Clickhouse                     ClickhouseConfig
 	KubeAPIServiceAddr             string
 	ExportersQueueSize             int `validate:"required"`
-	RedactSensitiveValues          bool
-	RedactSensitiveValuesRegex     *regexp.Regexp
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
+	var redactSensitiveValuesRegexValue *string
+	if c.EnricherConfig.RedactSensitiveValuesRegex != nil {
+		redactSensitiveValuesRegexValue = lo.ToPtr(c.EnricherConfig.RedactSensitiveValuesRegex.String())
+	}
+
 	return &castaipb.AgentConfig{
 		LogLevel:              c.LogLevel,
 		LogRateInterval:       c.LogRateInterval.String(),
@@ -100,6 +104,7 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		},
 		EnricherConfig: &castaipb.EnricherConfig{
 			EnableFileHashEnricher: c.EnricherConfig.EnableFileHashEnricher,
+			SensitiveValuesRegex:   redactSensitiveValuesRegexValue,
 		},
 		Netflow: &castaipb.NetflowConfig{
 			Enabled:                     c.Netflow.Enabled,
@@ -111,7 +116,8 @@ func (c Config) Proto() *castaipb.AgentConfig {
 }
 
 type EnricherConfig struct {
-	EnableFileHashEnricher bool
+	EnableFileHashEnricher     bool
+	RedactSensitiveValuesRegex *regexp.Regexp
 }
 
 type NetflowConfig struct {
@@ -422,6 +428,9 @@ func getActiveEnrichers(cfg EnricherConfig, log *logging.Logger, mountNamespaceP
 
 	if cfg.EnableFileHashEnricher {
 		result = append(result, enrichment.EnrichWithFileHash(log, mountNamespacePIDStore, proc.GetFS()))
+	}
+	if cfg.RedactSensitiveValuesRegex != nil {
+		result = append(result, enrichment.NewSensitiveValueRedactor(cfg.RedactSensitiveValuesRegex))
 	}
 
 	return result

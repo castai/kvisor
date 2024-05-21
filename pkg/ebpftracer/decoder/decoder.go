@@ -612,7 +612,6 @@ func (decoder *Decoder) ReadArgsArrayFromBuff() ([]string, error) {
 	if ss[len(ss)-1] == "" {
 		ss = ss[:len(ss)-1]
 	}
-
 	for int(argNum) > len(ss) {
 		ss = append(ss, "?")
 	}
