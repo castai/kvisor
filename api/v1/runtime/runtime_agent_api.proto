@@ -168,6 +168,7 @@ message CastaiConfig {
 
 message EnricherConfig {
   bool enable_file_hash_enricher = 1;
+  optional string sensitive_values_regex = 2;
 }
 
 message NetflowConfig {
