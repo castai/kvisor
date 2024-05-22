@@ -109,6 +109,11 @@ type testServer struct {
 	eventsWriteStreamHandler func(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error
 }
 
+func (t *testServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t *testServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
 	//TODO implement me
 	panic("implement me")

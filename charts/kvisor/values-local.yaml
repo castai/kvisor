@@ -19,10 +19,15 @@ agent:
     file-hash-enricher-enabled: true
     signature-tty-detection-enabled: true
     signature-socks5-detection-enabled: true
+    container-stats-enabled: true
+    ebpf-events-enabled: true
     netflow-enabled: true
     netflow-sample-submit-interval-seconds: 1
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
+
+  prometheusScrape:
+    enabled: true
 
   containerSecurityContext:
     readOnlyRootFilesystem: false
@@ -47,6 +52,9 @@ controller:
   containerSecurityContext:
     readOnlyRootFilesystem: false
 
+  prometheusScrape:
+    enabled: true
+
 eventGenerator:
   enabled: false
   image:
@@ -63,3 +71,8 @@ clickhouse:
   enabled: true
   persistentVolume:
     size: 10Gi
+
+  auth:
+    database: "kvisor"
+    username: "kvisor"
+    password: "kvisor"

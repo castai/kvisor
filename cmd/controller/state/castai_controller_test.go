@@ -75,6 +75,10 @@ type testGrpcClient struct {
 	getConfigurationResponse func() (*castaipb.GetConfigurationResponse, error)
 }
 
+func (t testGrpcClient) NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error) {
+	return nil, nil
+}
+
 func (t testGrpcClient) KubeBenchReportIngest(ctx context.Context, in *castaipb.KubeBenchReport, opts ...grpc.CallOption) (*castaipb.KubeBenchReportIngestResponse, error) {
 	return nil, nil
 }

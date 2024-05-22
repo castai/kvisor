@@ -35,19 +35,19 @@ datasources:
       - name: ClickHouse
         type: grafana-clickhouse-datasource
         jsonData:
-          defaultDatabase: default
+          defaultDatabase: kvisor
           port: 9000
-          server: kvisor-storage.kvisor.svc.cluster.local.
-          username: storage
+          server: castai-kvisor-clickhouse.kvisor.svc.cluster.local.
+          username: kvisor
           tlsSkipVerify: true
         secureJsonData:
-          password: storage
+          password: kvisor
       - name: Prometheus
         type: prometheus
-        url: http://kvisor-prometheus-server.kvisor-trace.svc.cluster.local.
+        url: http://prometheus-server.metrics.svc.cluster.local.
         access: proxy
-      - name: Loki
-        type: loki
-        url: http://kvisor-loki.kvisor-trace.svc.cluster.local.:3100
-        access: proxy
-        isDefault: true
+#      - name: Loki
+#        type: loki
+#        url: http://kvisor-loki.kvisor-trace.svc.cluster.local.:3100
+#        access: proxy
+#        isDefault: true

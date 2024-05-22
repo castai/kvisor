@@ -23,9 +23,11 @@ import (
 )
 
 type Config struct {
-	ContainerStatsScrapeInterval time.Duration `validate:"required"`
-	NetflowExportInterval        time.Duration `validate:"required"`
-	NetflowCleanupInterval       time.Duration `validate:"required"`
+	ContainerStatsScrapeInterval time.Duration
+
+	NetflowExportInterval  time.Duration `validate:"required"`
+	NetflowCleanupInterval time.Duration `validate:"required"`
+	NetflowGrouping        NetflowGrouping
 }
 
 type containersClient interface {

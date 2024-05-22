@@ -38,14 +38,17 @@ func NewRunCommand(version string) *cobra.Command {
 		logRateInterval = pflag.Duration("log-rate-iterval", 100*time.Millisecond, "Log rate limit interval")
 		logRateBurst    = pflag.Int("log-rate-burst", 100, "Log rate burst")
 
-		sendLogLevel                 = pflag.String("send-logs-level", "", "send logs level")
-		containerdSockPath           = pflag.String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
-		metricsHTTPListenPort        = pflag.Int("metrics-http-listen-port", 6060, "metrics http listen port")
-		pyroscopeAddr                = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
-		hostCgroupsDir               = pflag.String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
+		sendLogLevel          = pflag.String("send-logs-level", "", "send logs level")
+		containerdSockPath    = pflag.String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
+		metricsHTTPListenPort = pflag.Int("metrics-http-listen-port", 6060, "metrics http listen port")
+		pyroscopeAddr         = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
+		hostCgroupsDir        = pflag.String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
+
+		containerStatsEnabled        = pflag.Bool("container-stats-enabled", false, "Enable container stats scraping")
 		containerStatsScrapeInterval = pflag.Duration("container-stats-scrape-interval", 60*time.Second, "Container resources scrape interval")
 
 		btfPath                        = pflag.String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
+		ebpfEventsEnabled              = pflag.Bool("ebpf-events-enabled", false, "Enable ebpf events")
 		ebpfEventsStdioExporterEnabled = pflag.Bool("ebpf-events-stdio-exporter-enabled", false, "Export ebpf event to stdio")
 		ebpfEventsPerCPUBuffer         = pflag.Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 		ebpfEventsOutputChanSize       = pflag.Int("ebpf-events-output-queue-size", 4096, "Ebpf user spaces output channel size")
@@ -67,6 +70,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowOutputChanSize              = pflag.Int("netflow-output-queue-size", 4096, "Netflow output queue size")
 		netflowExportInterval              = pflag.Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowCleanupInterval             = pflag.Duration("netflow-cleanup-interval", 60*time.Second, "Netflow cleanup interval")
+		netflowGrouping                    state.NetflowGrouping
 
 		clickhouseAddr     = pflag.String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = pflag.String("clickhouse-database", "", "Clickhouse database name")
@@ -78,6 +82,8 @@ func NewRunCommand(version string) *cobra.Command {
 
 		exportersQueueSize = pflag.Int("exporters-queue-size", 4096, "Exporters queue size")
 	)
+
+	pflag.Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: src_addr|dst_addr to remove both source and destination ports")
 
 	command := &cobra.Command{
 		Use: "run",
@@ -103,11 +109,14 @@ func NewRunCommand(version string) *cobra.Command {
 				ContainerdSockPath:    *containerdSockPath,
 				HostCgroupsDir:        *hostCgroupsDir,
 				MetricsHTTPListenPort: *metricsHTTPListenPort,
+				ContainerStatsEnabled: *containerStatsEnabled,
 				State: state.Config{
 					ContainerStatsScrapeInterval: *containerStatsScrapeInterval,
 					NetflowExportInterval:        *netflowExportInterval,
 					NetflowCleanupInterval:       *netflowCleanupInterval,
+					NetflowGrouping:              netflowGrouping,
 				},
+				EBPFEventsEnabled:              *ebpfEventsEnabled,
 				EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
 				EBPFEventsPerCPUBuffer:         *ebpfEventsPerCPUBuffer,
 				EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,

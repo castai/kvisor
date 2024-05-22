@@ -468,6 +468,9 @@ func TestSubscriber(t *testing.T) {
 
 		assertLoop(errc, func() bool {
 			changes := client.getImagesResourcesChanges()
+			if len(changes) == 0 {
+				return false
+			}
 
 			// Should have only 1 call to api because there are no delta updates
 			r.Len(changes, 1)

@@ -2,7 +2,9 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -54,70 +56,46 @@ func (c *ClickHouseNetflowExporter) Enqueue(e *castaipb.Netflow) {
 	}
 }
 
-func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e *castaipb.Netflow) error {
-	q := `INSERT INTO netflows(
-			start,
-			end,
-			protocol,
-			process,
-			container_name,
-			pod_name,
-			namespace,
-			zone,
-			workload_name,
-			workload_kind,
-			addr,
-			port,
-			dst_addr,
-			dst_port,
-			dst_domain,
-			dst_pod_name,
-			dst_namespace,
-			dst_zone,
-			dst_workload_name,
-			dst_workload_kind,
-			tx_bytes,
-			tx_packets,
-			rx_bytes,
-			rx_packets
-			) VALUES(
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?
-			)`
+var netflowInsertQuery = newInsertQueryTemplate(tableConfig{
+	name: "netflows",
+	columns: []string{
+		"ts",
+		"protocol",
+		"process",
+		"container_name",
+		"pod_name",
+		"namespace",
+		"zone",
+		"workload_name",
+		"workload_kind",
+		"addr",
+		"port",
+		"dst_addr",
+		"dst_port",
+		"dst_domain",
+		"dst_pod_name",
+		"dst_namespace",
+		"dst_zone",
+		"dst_workload_name",
+		"dst_workload_kind",
+		"tx_bytes",
+		"tx_packets",
+		"rx_bytes",
+		"rx_packets",
+	},
+})
 
+func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e *castaipb.Netflow) error {
 	for _, dst := range e.Destinations {
 		srcAddr, _ := netip.AddrFromSlice(e.Addr)
 		dstAddr, _ := netip.AddrFromSlice(dst.Addr)
 
 		if err := c.conn.AsyncInsert(
 			ctx,
-			q,
+			netflowInsertQuery,
 			wait,
 
-			time.UnixMicro(int64(e.StartTs)/1000),
-			time.UnixMicro(int64(e.EndTs)/1000),
+			time.UnixMicro(int64(e.Timestamp)/1000),
 			toDBProtocol(e.Protocol),
 			e.ProcessName,
 			e.ContainerName,
@@ -162,9 +140,8 @@ func ClickhouseNetflowSchema() string {
 	return `
 CREATE TABLE IF NOT EXISTS netflows
 (
-	start DateTime('UTC'),
-	end DateTime('UTC'),
-	protocol LowCardinality(String),
+	ts DateTime('UTC'),
+	protocol Enum('tcp' = 1, 'udp' = 2),
 	process LowCardinality(String),
 	container_name LowCardinality(String),
 	pod_name LowCardinality(String),
@@ -188,7 +165,34 @@ CREATE TABLE IF NOT EXISTS netflows
 	rx_packets UInt64
 )
 ENGINE = MergeTree()
-ORDER BY (start, end, namespace, container_name)
-TTL toDateTime(start) + INTERVAL 3 HOUR;
+ORDER BY (ts, namespace, container_name)
+TTL toDateTime(ts) + INTERVAL 3 HOUR;
 `
+}
+
+type tableConfig struct {
+	name    string
+	columns []string
+}
+
+func newInsertQueryTemplate(t tableConfig) string {
+	var buf strings.Builder
+	buf.WriteString(fmt.Sprintf("INSERT INTO %s", t.name))
+	buf.WriteString(" (")
+	for i, c := range t.columns {
+		buf.WriteString(c)
+		if i != len(t.columns)-1 {
+			buf.WriteString(",")
+		}
+	}
+	buf.WriteString(" )")
+	buf.WriteString(" VALUES (")
+	for i := range t.columns {
+		buf.WriteString("?")
+		if i != len(t.columns)-1 {
+			buf.WriteString(",")
+		}
+	}
+	buf.WriteString(")")
+	return buf.String()
 }

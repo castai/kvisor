@@ -137,6 +137,117 @@ func TestController(t *testing.T) {
 		}
 	})
 
+	t.Run("netflow pipeline with grouping", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := newTestController()
+		ctrl.cfg.NetflowGrouping = NetflowGroupingSrcAddr | NetflowGroupingDstAddr
+		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
+		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
+
+		e := &types.Event{
+			Context: &types.EventContext{Ts: 1},
+			Container: &containers.Container{
+				PodName: "p1",
+			},
+			Args: types.NetFlowBaseArgs{
+				Proto: 6,
+				Tuple: types.AddrTuple{
+					Src: netip.MustParseAddrPort("10.10.0.10:34561"),
+					Dst: netip.MustParseAddrPort("10.10.0.15:80"),
+				},
+				TxBytes:   10,
+				TxPackets: 5,
+			},
+		}
+
+		go func() {
+			for {
+				ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- e
+				time.Sleep(time.Millisecond)
+			}
+		}()
+
+		ctrlerr := make(chan error, 1)
+		go func() {
+			ctrlerr <- ctrl.Run(ctx)
+		}()
+
+		select {
+		case e := <-exporter.events:
+			r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
+			r.Equal(netip.MustParseAddr("10.10.0.10").AsSlice(), e.Addr)
+			r.Equal(0, int(e.Port))
+			r.Len(e.Destinations, 1)
+			dest := e.Destinations[0]
+			r.Equal(netip.MustParseAddr("10.10.0.15").AsSlice(), dest.Addr)
+			r.Equal(0, int(dest.Port))
+			r.NotEmpty(int(dest.TxBytes))
+			r.NotEmpty(int(dest.TxPackets))
+		case err := <-ctrlerr:
+			t.Fatal(err)
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for data")
+		}
+	})
+
+	t.Run("netflow aggregate stats for the same netflow with grouping", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := newTestController()
+		ctrl.cfg.NetflowExportInterval = time.Hour
+		ctrl.clusterInfo = &clusterInfo{}
+		ctrl.cfg.NetflowGrouping = NetflowGroupingSrcAddr | NetflowGroupingDstAddr
+
+		ctrl.upsertNetflow(&types.Event{
+			Container: &containers.Container{},
+			Context: &types.EventContext{
+				Ts:       uint64(time.Now().UnixNano()),
+				CgroupID: 1,
+				Pid:      1,
+			},
+			Args: types.NetFlowBaseArgs{
+				Proto: 6,
+				Tuple: types.AddrTuple{
+					Src: netip.MustParseAddrPort("10.10.0.10:34000"),
+					Dst: netip.MustParseAddrPort("10.10.0.20:80"),
+				},
+				TxBytes:   10,
+				RxBytes:   9,
+				TxPackets: 2,
+				RxPackets: 1,
+			},
+		})
+
+		ctrl.upsertNetflow(&types.Event{
+			Container: &containers.Container{},
+			Context: &types.EventContext{
+				Ts:       uint64(time.Now().UnixNano()),
+				CgroupID: 1,
+				Pid:      1,
+			},
+			Args: types.NetFlowBaseArgs{
+				Proto: 6,
+				Tuple: types.AddrTuple{
+					Src: netip.MustParseAddrPort("10.10.0.10:34000"),
+					Dst: netip.MustParseAddrPort("10.10.0.20:80"),
+				},
+				TxBytes:   20,
+				RxBytes:   11,
+				TxPackets: 2,
+				RxPackets: 1,
+			},
+		})
+
+		r.Len(ctrl.netflows, 1)
+		flow := lo.Values(ctrl.netflows)[0]
+		destinations := lo.Values(flow.destinations)
+		r.Len(destinations, 1)
+		dest1 := destinations[0]
+		r.Equal(30, int(dest1.txBytes))
+		r.Equal(20, int(dest1.rxBytes))
+		r.Equal(4, int(dest1.txPackets))
+		r.Equal(2, int(dest1.rxPackets))
+	})
+
 	t.Run("netflow cleanup", func(t *testing.T) {
 		r := require.New(t)
 		ctrl := newTestController()
@@ -172,7 +283,7 @@ func newTestController() *Controller {
 	sigEngine := &mockSignatureEngine{eventsChan: make(chan *castaipb.Event, 100)}
 	enrichService := &mockEnrichmentService{eventsChan: make(chan *castaipb.Event, 100)}
 	kubeClient := &mockKubeClient{}
-	return NewController(
+	ctrl := NewController(
 		log,
 		cfg,
 		exporters,
@@ -184,6 +295,7 @@ func newTestController() *Controller {
 		enrichService,
 		kubeClient,
 	)
+	return ctrl
 }
 
 type mockEventsExporter struct {

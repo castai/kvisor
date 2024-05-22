@@ -136,12 +136,13 @@ func TestTracer(t *testing.T) {
 
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	eventName := tr.GetEventName(e.Context.EventID)
+	procName := string(bytes.TrimRight(e.Context.Comm[:], "\x00"))
 	fmt.Printf(
 		"ts=%d cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
 		e.Context.Ts,
 		e.Context.CgroupID,
 		e.Context.HostPid,
-		string(bytes.TrimRight(e.Context.Comm[:], "\x00")),
+		procName,
 		eventName,
 		e.Args,
 	)

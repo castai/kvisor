@@ -142,3 +142,40 @@ message SOCKS5DetectedFinding {
   bytes address = 5;
   uint32 port = 6;
 }
+
+
+enum NetflowProtocol {
+  NETFLOW_PROTOCOL_UNKNOWN = 0;
+  NETFLOW_PROTOCOL_TCP = 1;
+  NETFLOW_PROTOCOL_UDP = 2;
+}
+
+message Netflow {
+  uint64 timestamp = 1; // Stored as unix timestamp in nanoseconds.
+  string process_name = 2;
+  string namespace = 3;
+  string pod_name = 4;
+  string container_name = 5;
+  string workload_name = 6;
+  string workload_kind = 7;
+  string zone = 8;
+  bytes addr = 9;
+  uint32 port = 10;
+  NetflowProtocol protocol = 11;
+  repeated NetflowDestination destinations = 12;
+}
+
+message NetflowDestination {
+  string namespace = 1;
+  string pod_name = 2;
+  string workload_name = 3;
+  string workload_kind = 4;
+  string zone = 5;
+  string dns_question = 6;
+  bytes addr = 8;
+  uint32 port = 9;
+  uint64 tx_bytes = 10;
+  uint64 rx_bytes = 11;
+  uint64 tx_packets = 12;
+  uint64 rx_packets = 13;
+}
