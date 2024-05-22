@@ -31,7 +31,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -66,9 +65,9 @@ type Config struct {
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
-	var redactSensitiveValuesRegexValue *string
+	var redactSensitiveValuesRegexValue string
 	if c.EnricherConfig.RedactSensitiveValuesRegex != nil {
-		redactSensitiveValuesRegexValue = lo.ToPtr(c.EnricherConfig.RedactSensitiveValuesRegex.String())
+		redactSensitiveValuesRegexValue = c.EnricherConfig.RedactSensitiveValuesRegex.String()
 	}
 
 	return &castaipb.AgentConfig{
