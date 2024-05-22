@@ -6,12 +6,9 @@ import (
 	"strings"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/logging"
 )
 
 type SensitiveValueRedactor struct {
-	log *logging.Logger
-
 	redactSensitiveValuesRegex *regexp.Regexp
 }
 

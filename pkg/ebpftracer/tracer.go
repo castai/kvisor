@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
@@ -96,9 +95,6 @@ type Tracer struct {
 
 	cleanupTimerTickRate time.Duration
 	cgroupCleanupDelay   time.Duration
-
-	redactSensitiveValues      bool
-	redactSensitiveValuesRegex *regexp.Regexp
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
