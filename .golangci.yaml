@@ -1,7 +1,7 @@
 linters:
   disable:
     - wrapcheck
-    - goerr113
+    - err113
     - contextcheck
     - exhaustive
     - protogetter
@@ -12,7 +12,9 @@ linters:
 
 run:
   tests: false
-  skip-dirs:
+
+issues:
+  exclude-dirs:
     - .github
     - charts
     - examples
@@ -22,4 +24,5 @@ run:
     - bin
     - api
     - research
-    - cmd/linter/kubebench # TODO: Fix kubebench issues
+    - tools
+    - cmd/linter/kubebench

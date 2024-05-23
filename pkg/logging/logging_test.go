@@ -39,7 +39,7 @@ func TestLogger(t *testing.T) {
 
 		for i := 0; i < 10; i++ {
 			log.WithField("component", "test").Info("test")
-			time.Sleep(6 * time.Millisecond)
+			time.Sleep(8 * time.Millisecond)
 		}
 
 		require.GreaterOrEqual(t, countLogLines(&out), 5)
