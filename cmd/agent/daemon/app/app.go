@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"regexp"
 	"runtime"
 	"time"
 
@@ -64,6 +65,11 @@ type Config struct {
 }
 
 func (c Config) Proto() *castaipb.AgentConfig {
+	var redactSensitiveValuesRegexValue string
+	if c.EnricherConfig.RedactSensitiveValuesRegex != nil {
+		redactSensitiveValuesRegexValue = c.EnricherConfig.RedactSensitiveValuesRegex.String()
+	}
+
 	return &castaipb.AgentConfig{
 		LogLevel:              c.LogLevel,
 		LogRateInterval:       c.LogRateInterval.String(),
@@ -97,6 +103,7 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		},
 		EnricherConfig: &castaipb.EnricherConfig{
 			EnableFileHashEnricher: c.EnricherConfig.EnableFileHashEnricher,
+			SensitiveValuesRegex:   redactSensitiveValuesRegexValue,
 		},
 		Netflow: &castaipb.NetflowConfig{
 			Enabled:                     c.Netflow.Enabled,
@@ -108,7 +115,8 @@ func (c Config) Proto() *castaipb.AgentConfig {
 }
 
 type EnricherConfig struct {
-	EnableFileHashEnricher bool
+	EnableFileHashEnricher     bool
+	RedactSensitiveValuesRegex *regexp.Regexp
 }
 
 type NetflowConfig struct {
@@ -419,6 +427,9 @@ func getActiveEnrichers(cfg EnricherConfig, log *logging.Logger, mountNamespaceP
 
 	if cfg.EnableFileHashEnricher {
 		result = append(result, enrichment.EnrichWithFileHash(log, mountNamespacePIDStore, proc.GetFS()))
+	}
+	if cfg.RedactSensitiveValuesRegex != nil {
+		result = append(result, enrichment.NewSensitiveValueRedactor(cfg.RedactSensitiveValuesRegex))
 	}
 
 	return result

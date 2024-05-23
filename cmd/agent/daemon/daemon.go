@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 
@@ -81,6 +82,8 @@ func NewRunCommand(version string) *cobra.Command {
 		kubeAPIServiceAddr = pflag.String("kube-api-service-addr", "", "Custom kube API service grpc address")
 
 		exportersQueueSize = pflag.Int("exporters-queue-size", 4096, "Exporters queue size")
+
+		redactSensitiveValuesRegexStr = pflag.String("redact-sensitive-values-regex", "", "Regex which will be used to detect sensitive values in process exec args")
 	)
 
 	pflag.Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: src_addr|dst_addr to remove both source and destination ports")
@@ -96,6 +99,16 @@ func NewRunCommand(version string) *cobra.Command {
 			castaiClientCfg, err := resolveCastaiConfig(*castaiServerInsecure)
 			if err != nil {
 				slog.Warn(fmt.Errorf("skipping CAST AI integration: %w", err).Error())
+			}
+
+			var redactSensitiveValuesRegex *regexp.Regexp
+			if *redactSensitiveValuesRegexStr != "" {
+				var err error
+				redactSensitiveValuesRegex, err = regexp.Compile(*redactSensitiveValuesRegexStr)
+				if err != nil {
+					slog.With("error", err).Error(`"redact-sensitive-values-regex" must be a valid regex expression`)
+					os.Exit(1)
+				}
 			}
 
 			if err := app.New(&app.Config{
@@ -134,7 +147,8 @@ func NewRunCommand(version string) *cobra.Command {
 				},
 				Castai: castaiClientCfg,
 				EnricherConfig: app.EnricherConfig{
-					EnableFileHashEnricher: *fileHashEnrichedEnabled,
+					EnableFileHashEnricher:     *fileHashEnrichedEnabled,
+					RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
 				},
 				Netflow: app.NetflowConfig{
 					Enabled:                     *netflowEnabled,
