@@ -34,7 +34,7 @@ func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr err
 	if err := ebpfMsgDecoder.DecodeSignalContext(&signalCtx); err != nil {
 		return err
 	}
-	parsedArgs, err := decoder.ParseArgs(t.log, ebpfMsgDecoder, signalCtx.EventID)
+	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, signalCtx.EventID)
 	if err != nil {
 		return fmt.Errorf("cannot parse event type %d: %w", signalCtx.EventID, err)
 	}
@@ -83,7 +83,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 	}
 
 	eventId := eventCtx.EventID
-	parsedArgs, err := decoder.ParseArgs(t.log, ebpfMsgDecoder, eventId)
+	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
 	if err != nil {
 		return fmt.Errorf("cannot parse event type %d: %w", eventId, err)
 	}
