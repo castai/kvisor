@@ -221,7 +221,7 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 	}
 }
 
-func (c *Client) GetIPInfo(ip string) (IPInfo, bool) {
+func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -235,6 +235,35 @@ func (c *Client) GetPod(uid string) (*corev1.Pod, bool) {
 
 	val, found := c.index.pods[types.UID(uid)]
 	return val, found
+}
+
+type PodInfo struct {
+	Pod   *corev1.Pod
+	Owner metav1.OwnerReference
+	Zone  string
+}
+
+func (c *Client) GetPodInfo(uid string) (PodInfo, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	pod, found := c.index.pods[types.UID(uid)]
+	if !found {
+		return PodInfo{}, false
+	}
+	res := PodInfo{
+		Pod: pod,
+	}
+	if owner := c.index.getPodOwner(pod); owner.UID != pod.UID {
+		res.Owner = owner
+	}
+	node, found := c.index.nodesByName[pod.Spec.NodeName]
+	if found {
+		if zone, found := node.Labels["topology.kubernetes.io/zone"]; found {
+			res.Zone = zone
+		}
+	}
+	return res, true
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {

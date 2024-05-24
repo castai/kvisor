@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"net/netip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"google.golang.org/grpc/codes"
@@ -18,9 +19,14 @@ type Server struct {
 }
 
 func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*kubepb.GetIPInfoResponse, error) {
-	info, found := s.client.GetIPInfo(req.Ip)
+	addr, ok := netip.AddrFromSlice(req.Ip)
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid ip: %v", string(req.Ip))
+
+	}
+	info, found := s.client.GetIPInfo(addr)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("pod by ip %s not found", req.Ip))
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("pod by ip %s not found", addr))
 	}
 	res := &kubepb.IPInfo{}
 	if owner := info.Owner; owner != nil {
@@ -70,14 +76,15 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 }
 
 func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb.GetPodResponse, error) {
-	owner, found := s.client.GetPodOwner(req.Uid)
+	info, found := s.client.GetPodInfo(req.Uid)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "pod owner found")
+		return nil, status.Errorf(codes.NotFound, "pod info found")
 	}
 	return &kubepb.GetPodResponse{
 		Pod: &kubepb.Pod{
-			WorkloadName: owner.Name,
-			WorkloadKind: owner.Kind,
+			WorkloadName: info.Owner.Name,
+			WorkloadKind: info.Owner.Kind,
+			Zone:         info.Zone,
 		},
 	}, nil
 }

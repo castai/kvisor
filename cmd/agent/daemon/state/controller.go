@@ -94,7 +94,7 @@ func NewController(
 	if err != nil {
 		panic(err)
 	}
-	podCache, err := freelru.NewSynced[string, *kubepb.Pod](1024, func(k string) uint32 {
+	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k))
 	})
 	if err != nil {
