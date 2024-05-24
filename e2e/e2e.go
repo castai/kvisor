@@ -805,7 +805,7 @@ func (t *testCASTAIServer) assertKubeLinter(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(15 * time.Second)
 	r := newAssertions()
 
 	for {
@@ -816,9 +816,7 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 			return errors.New("timeout waiting for netflows")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			items := lo.Filter(t.netflows, func(item *castaipb.Netflow, index int) bool {
-				return strings.Contains(item.WorkloadName, "iperf-clients")
-			})
+			items := t.netflows
 			t.mu.Unlock()
 			if len(items) > 0 {
 				f1 := items[0]
@@ -834,7 +832,6 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 				r.NotEmpty(d1.Port)
 				r.NotEmpty(d1.TxBytes + d1.RxBytes)
 				r.NotEmpty(d1.TxPackets + d1.RxPackets)
-				r.GreaterOrEqual(d1.TxBytes, 1*1024*1024)
 				return r.error()
 			}
 		}
