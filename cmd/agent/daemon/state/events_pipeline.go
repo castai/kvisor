@@ -121,8 +121,10 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 				Path: args.Pathname,
 			},
 		}
-	default:
-		data, _ := json.Marshal(args) //nolint:errchkjson
+	}
+
+	if event.EventType == 0 {
+		data, _ := json.Marshal(e.Args) //nolint:errchkjson
 		event.EventType = castpb.EventType_EVENT_ANY
 		event.Data = &castpb.Event_Any{
 			Any: &castpb.Any{

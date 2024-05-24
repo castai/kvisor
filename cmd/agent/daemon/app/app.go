@@ -310,7 +310,7 @@ func (a *App) Run(ctx context.Context) error {
 			{
 				ID: events.SockSetState,
 				PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
-					Rate:  5,
+					Rate:  100,
 					Burst: 1,
 				}),
 			},

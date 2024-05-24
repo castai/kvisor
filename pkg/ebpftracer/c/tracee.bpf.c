@@ -5337,8 +5337,7 @@ statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_pack
 statfunc u32 cgroup_skb_handle_##name(                           \
     struct __sk_buff *ctx,                                                     \
     net_event_context_t *neteventctx,                                          \
-    nethdrs *nethdrs,                                                           \
-    bool ingress                                                           \
+    nethdrs *nethdrs                                                           \
 )
 
 CGROUP_SKB_HANDLE_FUNCTION(family);
@@ -5353,7 +5352,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_icmp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_icmpv6);
 CGROUP_SKB_HANDLE_FUNCTION(proto_socks5);
 
-#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs, ingress);
+#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs);
 
 //
 // Network submission functions
@@ -7021,21 +7020,17 @@ int sched_process_exit_signal(struct bpf_raw_tracepoint_args *ctx)
 // That will allow to subscribe only to wanted events and make handing easier.
 statfunc bool should_trace_sock_set_state(int old_state, int new_state)
 {
+    // Listen.
     if (old_state == TCP_CLOSE && new_state == TCP_LISTEN) {
         return true;
     }
-    if (old_state == TCP_LISTEN && new_state == TCP_CLOSE) {
-        return true;
-    }
+    // Connect.
     if (old_state == TCP_SYN_SENT && new_state == TCP_ESTABLISHED) {
         return true;
     }
+    // Connect error.
     if (old_state == TCP_SYN_SENT && new_state == TCP_CLOSE) {
         return true;
-    }
-    if (old_state == TCP_ESTABLISHED &&
-        (new_state == TCP_FIN_WAIT1 || new_state == TCP_CLOSE_WAIT)) {
-        return false;
     }
     return false;
 }
@@ -7087,7 +7082,12 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
     p.event = e;
     if (!init_program_data(&p, ctx))
         return 0;
+
     __builtin_memcpy(&p.event->context.task, &netctx->taskctx, sizeof(task_context_t));
+
+    if (!should_trace(&p)) {
+        return 0;
+    }
 
     tuple_t tuple = {};
     fill_tuple(sk, &tuple);
