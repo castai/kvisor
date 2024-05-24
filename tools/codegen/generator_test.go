@@ -172,6 +172,7 @@ import (
 
   "github.com/castai/kvisor/pkg/ebpftracer/events"
   "github.com/castai/kvisor/pkg/ebpftracer/types"
+  "github.com/castai/kvisor/pkg/logging"
 )
 
 var (
@@ -191,7 +192,7 @@ func eventMaxByteSliceBufferSize(id events.ID) int {
   return -1
 }
 
-func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
+func ParseReadArgs(log *logging.Logger, decoder *Decoder) (types.ReadArgs, error) {
   var result types.ReadArgs
   var err error
 
@@ -199,6 +200,10 @@ func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'ReadArgs': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -231,7 +236,7 @@ func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   return result, nil
 }
 
-func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
+func ParseOpenArgs(log *logging.Logger, decoder *Decoder) (types.OpenArgs, error) {
   var result types.OpenArgs
   var err error
 
@@ -239,6 +244,10 @@ func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OpenArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'OpenArgs': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -269,12 +278,12 @@ func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
   return result, nil
 }
 
-func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
+func ParseArgs(log *logging.Logger, decoder *Decoder, event events.ID) (types.Args, error) {
   switch event {
   case events.Read:
-    return ParseReadArgs(decoder)
+    return ParseReadArgs(log, decoder)
   case events.Open:
-    return ParseOpenArgs(decoder)
+    return ParseOpenArgs(log, decoder)
   }
 
   return nil, ErrUnknownArgsType
@@ -319,6 +328,7 @@ import (
 
   "github.com/castai/kvisor/pkg/ebpftracer/events"
   "github.com/castai/kvisor/pkg/ebpftracer/types"
+  "github.com/castai/kvisor/pkg/logging"
 )
 
 var (
@@ -338,7 +348,7 @@ func eventMaxByteSliceBufferSize(id events.ID) int {
   return -1
 }
 
-func ParseReadTHEThingArgs(decoder *Decoder) (types.ReadTHEThingArgs, error) {
+func ParseReadTHEThingArgs(log *logging.Logger, decoder *Decoder) (types.ReadTHEThingArgs, error) {
   var result types.ReadTHEThingArgs
   var err error
 
@@ -346,6 +356,10 @@ func ParseReadTHEThingArgs(decoder *Decoder) (types.ReadTHEThingArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadTHEThingArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'ReadTHEThingArgs': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -378,10 +392,10 @@ func ParseReadTHEThingArgs(decoder *Decoder) (types.ReadTHEThingArgs, error) {
   return result, nil
 }
 
-func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
+func ParseArgs(log *logging.Logger, decoder *Decoder, event events.ID) (types.Args, error) {
   switch event {
   case events.ReadTHEThing:
-    return ParseReadTHEThingArgs(decoder)
+    return ParseReadTHEThingArgs(log, decoder)
   }
 
   return nil, ErrUnknownArgsType

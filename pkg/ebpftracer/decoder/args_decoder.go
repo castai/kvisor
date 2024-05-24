@@ -7,6 +7,7 @@ import (
 
   "github.com/castai/kvisor/pkg/ebpftracer/events"
   "github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/logging"
 )
 
 var (
@@ -26,7 +27,7 @@ func eventMaxByteSliceBufferSize(id events.ID) int {
   return -1
 }
 
-func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
+func ParseReadArgs(log *logging.Logger, decoder *Decoder) (types.ReadArgs, error) {
   var result types.ReadArgs
   var err error
 
@@ -34,6 +35,10 @@ func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Read': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -66,7 +71,7 @@ func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   return result, nil
 }
 
-func ParseWriteArgs(decoder *Decoder) (types.WriteArgs, error) {
+func ParseWriteArgs(log *logging.Logger, decoder *Decoder) (types.WriteArgs, error) {
   var result types.WriteArgs
   var err error
 
@@ -74,6 +79,10 @@ func ParseWriteArgs(decoder *Decoder) (types.WriteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WriteArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Write': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -106,7 +115,7 @@ func ParseWriteArgs(decoder *Decoder) (types.WriteArgs, error) {
   return result, nil
 }
 
-func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
+func ParseOpenArgs(log *logging.Logger, decoder *Decoder) (types.OpenArgs, error) {
   var result types.OpenArgs
   var err error
 
@@ -114,6 +123,10 @@ func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OpenArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Open': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -144,7 +157,7 @@ func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
   return result, nil
 }
 
-func ParseCloseArgs(decoder *Decoder) (types.CloseArgs, error) {
+func ParseCloseArgs(log *logging.Logger, decoder *Decoder) (types.CloseArgs, error) {
   var result types.CloseArgs
   var err error
 
@@ -152,6 +165,10 @@ func ParseCloseArgs(decoder *Decoder) (types.CloseArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CloseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Close': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -172,7 +189,7 @@ func ParseCloseArgs(decoder *Decoder) (types.CloseArgs, error) {
   return result, nil
 }
 
-func ParseStatArgs(decoder *Decoder) (types.StatArgs, error) {
+func ParseStatArgs(log *logging.Logger, decoder *Decoder) (types.StatArgs, error) {
   var result types.StatArgs
   var err error
 
@@ -180,6 +197,10 @@ func ParseStatArgs(decoder *Decoder) (types.StatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Stat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -207,7 +228,7 @@ func ParseStatArgs(decoder *Decoder) (types.StatArgs, error) {
   return result, nil
 }
 
-func ParseFstatArgs(decoder *Decoder) (types.FstatArgs, error) {
+func ParseFstatArgs(log *logging.Logger, decoder *Decoder) (types.FstatArgs, error) {
   var result types.FstatArgs
   var err error
 
@@ -215,6 +236,10 @@ func ParseFstatArgs(decoder *Decoder) (types.FstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FstatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Fstat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -242,7 +267,7 @@ func ParseFstatArgs(decoder *Decoder) (types.FstatArgs, error) {
   return result, nil
 }
 
-func ParseLstatArgs(decoder *Decoder) (types.LstatArgs, error) {
+func ParseLstatArgs(log *logging.Logger, decoder *Decoder) (types.LstatArgs, error) {
   var result types.LstatArgs
   var err error
 
@@ -250,6 +275,10 @@ func ParseLstatArgs(decoder *Decoder) (types.LstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LstatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Lstat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -277,7 +306,7 @@ func ParseLstatArgs(decoder *Decoder) (types.LstatArgs, error) {
   return result, nil
 }
 
-func ParsePollArgs(decoder *Decoder) (types.PollArgs, error) {
+func ParsePollArgs(log *logging.Logger, decoder *Decoder) (types.PollArgs, error) {
   var result types.PollArgs
   var err error
 
@@ -285,6 +314,10 @@ func ParsePollArgs(decoder *Decoder) (types.PollArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PollArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Poll': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -317,7 +350,7 @@ func ParsePollArgs(decoder *Decoder) (types.PollArgs, error) {
   return result, nil
 }
 
-func ParseLseekArgs(decoder *Decoder) (types.LseekArgs, error) {
+func ParseLseekArgs(log *logging.Logger, decoder *Decoder) (types.LseekArgs, error) {
   var result types.LseekArgs
   var err error
 
@@ -325,6 +358,10 @@ func ParseLseekArgs(decoder *Decoder) (types.LseekArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LseekArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Lseek': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -355,7 +392,7 @@ func ParseLseekArgs(decoder *Decoder) (types.LseekArgs, error) {
   return result, nil
 }
 
-func ParseMmapArgs(decoder *Decoder) (types.MmapArgs, error) {
+func ParseMmapArgs(log *logging.Logger, decoder *Decoder) (types.MmapArgs, error) {
   var result types.MmapArgs
   var err error
 
@@ -363,6 +400,10 @@ func ParseMmapArgs(decoder *Decoder) (types.MmapArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MmapArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Mmap': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -410,7 +451,7 @@ func ParseMmapArgs(decoder *Decoder) (types.MmapArgs, error) {
   return result, nil
 }
 
-func ParseMprotectArgs(decoder *Decoder) (types.MprotectArgs, error) {
+func ParseMprotectArgs(log *logging.Logger, decoder *Decoder) (types.MprotectArgs, error) {
   var result types.MprotectArgs
   var err error
 
@@ -418,6 +459,10 @@ func ParseMprotectArgs(decoder *Decoder) (types.MprotectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MprotectArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Mprotect': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -450,7 +495,7 @@ func ParseMprotectArgs(decoder *Decoder) (types.MprotectArgs, error) {
   return result, nil
 }
 
-func ParseMunmapArgs(decoder *Decoder) (types.MunmapArgs, error) {
+func ParseMunmapArgs(log *logging.Logger, decoder *Decoder) (types.MunmapArgs, error) {
   var result types.MunmapArgs
   var err error
 
@@ -458,6 +503,10 @@ func ParseMunmapArgs(decoder *Decoder) (types.MunmapArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MunmapArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Munmap': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -485,7 +534,7 @@ func ParseMunmapArgs(decoder *Decoder) (types.MunmapArgs, error) {
   return result, nil
 }
 
-func ParseBrkArgs(decoder *Decoder) (types.BrkArgs, error) {
+func ParseBrkArgs(log *logging.Logger, decoder *Decoder) (types.BrkArgs, error) {
   var result types.BrkArgs
   var err error
 
@@ -493,6 +542,10 @@ func ParseBrkArgs(decoder *Decoder) (types.BrkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.BrkArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Brk': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -515,7 +568,7 @@ func ParseBrkArgs(decoder *Decoder) (types.BrkArgs, error) {
   return result, nil
 }
 
-func ParseRtSigactionArgs(decoder *Decoder) (types.RtSigactionArgs, error) {
+func ParseRtSigactionArgs(log *logging.Logger, decoder *Decoder) (types.RtSigactionArgs, error) {
   var result types.RtSigactionArgs
   var err error
 
@@ -523,6 +576,10 @@ func ParseRtSigactionArgs(decoder *Decoder) (types.RtSigactionArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigactionArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigaction': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -562,7 +619,7 @@ func ParseRtSigactionArgs(decoder *Decoder) (types.RtSigactionArgs, error) {
   return result, nil
 }
 
-func ParseRtSigprocmaskArgs(decoder *Decoder) (types.RtSigprocmaskArgs, error) {
+func ParseRtSigprocmaskArgs(log *logging.Logger, decoder *Decoder) (types.RtSigprocmaskArgs, error) {
   var result types.RtSigprocmaskArgs
   var err error
 
@@ -570,6 +627,10 @@ func ParseRtSigprocmaskArgs(decoder *Decoder) (types.RtSigprocmaskArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigprocmaskArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigprocmask': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -609,11 +670,11 @@ func ParseRtSigprocmaskArgs(decoder *Decoder) (types.RtSigprocmaskArgs, error) {
   return result, nil
 }
 
-func ParseRtSigreturnArgs(decoder *Decoder) (types.RtSigreturnArgs, error) {
+func ParseRtSigreturnArgs(log *logging.Logger, decoder *Decoder) (types.RtSigreturnArgs, error) {
   return types.RtSigreturnArgs{}, nil
 }
 
-func ParseIoctlArgs(decoder *Decoder) (types.IoctlArgs, error) {
+func ParseIoctlArgs(log *logging.Logger, decoder *Decoder) (types.IoctlArgs, error) {
   var result types.IoctlArgs
   var err error
 
@@ -621,6 +682,10 @@ func ParseIoctlArgs(decoder *Decoder) (types.IoctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoctlArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Ioctl': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -651,7 +716,7 @@ func ParseIoctlArgs(decoder *Decoder) (types.IoctlArgs, error) {
   return result, nil
 }
 
-func ParsePread64Args(decoder *Decoder) (types.Pread64Args, error) {
+func ParsePread64Args(log *logging.Logger, decoder *Decoder) (types.Pread64Args, error) {
   var result types.Pread64Args
   var err error
 
@@ -659,6 +724,10 @@ func ParsePread64Args(decoder *Decoder) (types.Pread64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pread64Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Pread64': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -696,7 +765,7 @@ func ParsePread64Args(decoder *Decoder) (types.Pread64Args, error) {
   return result, nil
 }
 
-func ParsePwrite64Args(decoder *Decoder) (types.Pwrite64Args, error) {
+func ParsePwrite64Args(log *logging.Logger, decoder *Decoder) (types.Pwrite64Args, error) {
   var result types.Pwrite64Args
   var err error
 
@@ -704,6 +773,10 @@ func ParsePwrite64Args(decoder *Decoder) (types.Pwrite64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pwrite64Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Pwrite64': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -741,7 +814,7 @@ func ParsePwrite64Args(decoder *Decoder) (types.Pwrite64Args, error) {
   return result, nil
 }
 
-func ParseReadvArgs(decoder *Decoder) (types.ReadvArgs, error) {
+func ParseReadvArgs(log *logging.Logger, decoder *Decoder) (types.ReadvArgs, error) {
   var result types.ReadvArgs
   var err error
 
@@ -749,6 +822,10 @@ func ParseReadvArgs(decoder *Decoder) (types.ReadvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadvArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Readv': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -781,7 +858,7 @@ func ParseReadvArgs(decoder *Decoder) (types.ReadvArgs, error) {
   return result, nil
 }
 
-func ParseWritevArgs(decoder *Decoder) (types.WritevArgs, error) {
+func ParseWritevArgs(log *logging.Logger, decoder *Decoder) (types.WritevArgs, error) {
   var result types.WritevArgs
   var err error
 
@@ -789,6 +866,10 @@ func ParseWritevArgs(decoder *Decoder) (types.WritevArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WritevArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Writev': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -821,7 +902,7 @@ func ParseWritevArgs(decoder *Decoder) (types.WritevArgs, error) {
   return result, nil
 }
 
-func ParseAccessArgs(decoder *Decoder) (types.AccessArgs, error) {
+func ParseAccessArgs(log *logging.Logger, decoder *Decoder) (types.AccessArgs, error) {
   var result types.AccessArgs
   var err error
 
@@ -829,6 +910,10 @@ func ParseAccessArgs(decoder *Decoder) (types.AccessArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AccessArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Access': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -854,7 +939,7 @@ func ParseAccessArgs(decoder *Decoder) (types.AccessArgs, error) {
   return result, nil
 }
 
-func ParsePipeArgs(decoder *Decoder) (types.PipeArgs, error) {
+func ParsePipeArgs(log *logging.Logger, decoder *Decoder) (types.PipeArgs, error) {
   var result types.PipeArgs
   var err error
 
@@ -862,6 +947,10 @@ func ParsePipeArgs(decoder *Decoder) (types.PipeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PipeArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Pipe': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -882,7 +971,7 @@ func ParsePipeArgs(decoder *Decoder) (types.PipeArgs, error) {
   return result, nil
 }
 
-func ParseSelectArgs(decoder *Decoder) (types.SelectArgs, error) {
+func ParseSelectArgs(log *logging.Logger, decoder *Decoder) (types.SelectArgs, error) {
   var result types.SelectArgs
   var err error
 
@@ -890,6 +979,10 @@ func ParseSelectArgs(decoder *Decoder) (types.SelectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SelectArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Select': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -938,11 +1031,11 @@ func ParseSelectArgs(decoder *Decoder) (types.SelectArgs, error) {
   return result, nil
 }
 
-func ParseSchedYieldArgs(decoder *Decoder) (types.SchedYieldArgs, error) {
+func ParseSchedYieldArgs(log *logging.Logger, decoder *Decoder) (types.SchedYieldArgs, error) {
   return types.SchedYieldArgs{}, nil
 }
 
-func ParseMremapArgs(decoder *Decoder) (types.MremapArgs, error) {
+func ParseMremapArgs(log *logging.Logger, decoder *Decoder) (types.MremapArgs, error) {
   var result types.MremapArgs
   var err error
 
@@ -950,6 +1043,10 @@ func ParseMremapArgs(decoder *Decoder) (types.MremapArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MremapArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Mremap': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -994,7 +1091,7 @@ func ParseMremapArgs(decoder *Decoder) (types.MremapArgs, error) {
   return result, nil
 }
 
-func ParseMsyncArgs(decoder *Decoder) (types.MsyncArgs, error) {
+func ParseMsyncArgs(log *logging.Logger, decoder *Decoder) (types.MsyncArgs, error) {
   var result types.MsyncArgs
   var err error
 
@@ -1002,6 +1099,10 @@ func ParseMsyncArgs(decoder *Decoder) (types.MsyncArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsyncArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Msync': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1034,7 +1135,7 @@ func ParseMsyncArgs(decoder *Decoder) (types.MsyncArgs, error) {
   return result, nil
 }
 
-func ParseMincoreArgs(decoder *Decoder) (types.MincoreArgs, error) {
+func ParseMincoreArgs(log *logging.Logger, decoder *Decoder) (types.MincoreArgs, error) {
   var result types.MincoreArgs
   var err error
 
@@ -1042,6 +1143,10 @@ func ParseMincoreArgs(decoder *Decoder) (types.MincoreArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MincoreArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Mincore': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1076,7 +1181,7 @@ func ParseMincoreArgs(decoder *Decoder) (types.MincoreArgs, error) {
   return result, nil
 }
 
-func ParseMadviseArgs(decoder *Decoder) (types.MadviseArgs, error) {
+func ParseMadviseArgs(log *logging.Logger, decoder *Decoder) (types.MadviseArgs, error) {
   var result types.MadviseArgs
   var err error
 
@@ -1084,6 +1189,10 @@ func ParseMadviseArgs(decoder *Decoder) (types.MadviseArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MadviseArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Madvise': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1116,7 +1225,7 @@ func ParseMadviseArgs(decoder *Decoder) (types.MadviseArgs, error) {
   return result, nil
 }
 
-func ParseShmgetArgs(decoder *Decoder) (types.ShmgetArgs, error) {
+func ParseShmgetArgs(log *logging.Logger, decoder *Decoder) (types.ShmgetArgs, error) {
   var result types.ShmgetArgs
   var err error
 
@@ -1124,6 +1233,10 @@ func ParseShmgetArgs(decoder *Decoder) (types.ShmgetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ShmgetArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Shmget': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1154,7 +1267,7 @@ func ParseShmgetArgs(decoder *Decoder) (types.ShmgetArgs, error) {
   return result, nil
 }
 
-func ParseShmatArgs(decoder *Decoder) (types.ShmatArgs, error) {
+func ParseShmatArgs(log *logging.Logger, decoder *Decoder) (types.ShmatArgs, error) {
   var result types.ShmatArgs
   var err error
 
@@ -1162,6 +1275,10 @@ func ParseShmatArgs(decoder *Decoder) (types.ShmatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ShmatArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Shmat': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1194,7 +1311,7 @@ func ParseShmatArgs(decoder *Decoder) (types.ShmatArgs, error) {
   return result, nil
 }
 
-func ParseShmctlArgs(decoder *Decoder) (types.ShmctlArgs, error) {
+func ParseShmctlArgs(log *logging.Logger, decoder *Decoder) (types.ShmctlArgs, error) {
   var result types.ShmctlArgs
   var err error
 
@@ -1202,6 +1319,10 @@ func ParseShmctlArgs(decoder *Decoder) (types.ShmctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ShmctlArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Shmctl': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1234,7 +1355,7 @@ func ParseShmctlArgs(decoder *Decoder) (types.ShmctlArgs, error) {
   return result, nil
 }
 
-func ParseDupArgs(decoder *Decoder) (types.DupArgs, error) {
+func ParseDupArgs(log *logging.Logger, decoder *Decoder) (types.DupArgs, error) {
   var result types.DupArgs
   var err error
 
@@ -1242,6 +1363,10 @@ func ParseDupArgs(decoder *Decoder) (types.DupArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DupArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Dup': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1262,7 +1387,7 @@ func ParseDupArgs(decoder *Decoder) (types.DupArgs, error) {
   return result, nil
 }
 
-func ParseDup2Args(decoder *Decoder) (types.Dup2Args, error) {
+func ParseDup2Args(log *logging.Logger, decoder *Decoder) (types.Dup2Args, error) {
   var result types.Dup2Args
   var err error
 
@@ -1270,6 +1395,10 @@ func ParseDup2Args(decoder *Decoder) (types.Dup2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Dup2Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Dup2': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1295,11 +1424,11 @@ func ParseDup2Args(decoder *Decoder) (types.Dup2Args, error) {
   return result, nil
 }
 
-func ParsePauseArgs(decoder *Decoder) (types.PauseArgs, error) {
+func ParsePauseArgs(log *logging.Logger, decoder *Decoder) (types.PauseArgs, error) {
   return types.PauseArgs{}, nil
 }
 
-func ParseNanosleepArgs(decoder *Decoder) (types.NanosleepArgs, error) {
+func ParseNanosleepArgs(log *logging.Logger, decoder *Decoder) (types.NanosleepArgs, error) {
   var result types.NanosleepArgs
   var err error
 
@@ -1307,6 +1436,10 @@ func ParseNanosleepArgs(decoder *Decoder) (types.NanosleepArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NanosleepArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Nanosleep': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1332,7 +1465,7 @@ func ParseNanosleepArgs(decoder *Decoder) (types.NanosleepArgs, error) {
   return result, nil
 }
 
-func ParseGetitimerArgs(decoder *Decoder) (types.GetitimerArgs, error) {
+func ParseGetitimerArgs(log *logging.Logger, decoder *Decoder) (types.GetitimerArgs, error) {
   var result types.GetitimerArgs
   var err error
 
@@ -1340,6 +1473,10 @@ func ParseGetitimerArgs(decoder *Decoder) (types.GetitimerArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetitimerArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getitimer': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1367,7 +1504,7 @@ func ParseGetitimerArgs(decoder *Decoder) (types.GetitimerArgs, error) {
   return result, nil
 }
 
-func ParseAlarmArgs(decoder *Decoder) (types.AlarmArgs, error) {
+func ParseAlarmArgs(log *logging.Logger, decoder *Decoder) (types.AlarmArgs, error) {
   var result types.AlarmArgs
   var err error
 
@@ -1375,6 +1512,10 @@ func ParseAlarmArgs(decoder *Decoder) (types.AlarmArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AlarmArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Alarm': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1395,7 +1536,7 @@ func ParseAlarmArgs(decoder *Decoder) (types.AlarmArgs, error) {
   return result, nil
 }
 
-func ParseSetitimerArgs(decoder *Decoder) (types.SetitimerArgs, error) {
+func ParseSetitimerArgs(log *logging.Logger, decoder *Decoder) (types.SetitimerArgs, error) {
   var result types.SetitimerArgs
   var err error
 
@@ -1403,6 +1544,10 @@ func ParseSetitimerArgs(decoder *Decoder) (types.SetitimerArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetitimerArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Setitimer': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1437,11 +1582,11 @@ func ParseSetitimerArgs(decoder *Decoder) (types.SetitimerArgs, error) {
   return result, nil
 }
 
-func ParseGetpidArgs(decoder *Decoder) (types.GetpidArgs, error) {
+func ParseGetpidArgs(log *logging.Logger, decoder *Decoder) (types.GetpidArgs, error) {
   return types.GetpidArgs{}, nil
 }
 
-func ParseSendfileArgs(decoder *Decoder) (types.SendfileArgs, error) {
+func ParseSendfileArgs(log *logging.Logger, decoder *Decoder) (types.SendfileArgs, error) {
   var result types.SendfileArgs
   var err error
 
@@ -1449,6 +1594,10 @@ func ParseSendfileArgs(decoder *Decoder) (types.SendfileArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SendfileArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Sendfile': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1486,7 +1635,7 @@ func ParseSendfileArgs(decoder *Decoder) (types.SendfileArgs, error) {
   return result, nil
 }
 
-func ParseSocketArgs(decoder *Decoder) (types.SocketArgs, error) {
+func ParseSocketArgs(log *logging.Logger, decoder *Decoder) (types.SocketArgs, error) {
   var result types.SocketArgs
   var err error
 
@@ -1494,6 +1643,10 @@ func ParseSocketArgs(decoder *Decoder) (types.SocketArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Socket': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1524,7 +1677,7 @@ func ParseSocketArgs(decoder *Decoder) (types.SocketArgs, error) {
   return result, nil
 }
 
-func ParseConnectArgs(decoder *Decoder) (types.ConnectArgs, error) {
+func ParseConnectArgs(log *logging.Logger, decoder *Decoder) (types.ConnectArgs, error) {
   var result types.ConnectArgs
   var err error
 
@@ -1532,6 +1685,10 @@ func ParseConnectArgs(decoder *Decoder) (types.ConnectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ConnectArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Connect': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1562,7 +1719,7 @@ func ParseConnectArgs(decoder *Decoder) (types.ConnectArgs, error) {
   return result, nil
 }
 
-func ParseAcceptArgs(decoder *Decoder) (types.AcceptArgs, error) {
+func ParseAcceptArgs(log *logging.Logger, decoder *Decoder) (types.AcceptArgs, error) {
   var result types.AcceptArgs
   var err error
 
@@ -1570,6 +1727,10 @@ func ParseAcceptArgs(decoder *Decoder) (types.AcceptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AcceptArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Accept': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1602,7 +1763,7 @@ func ParseAcceptArgs(decoder *Decoder) (types.AcceptArgs, error) {
   return result, nil
 }
 
-func ParseSendtoArgs(decoder *Decoder) (types.SendtoArgs, error) {
+func ParseSendtoArgs(log *logging.Logger, decoder *Decoder) (types.SendtoArgs, error) {
   var result types.SendtoArgs
   var err error
 
@@ -1610,6 +1771,10 @@ func ParseSendtoArgs(decoder *Decoder) (types.SendtoArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SendtoArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Sendto': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1657,7 +1822,7 @@ func ParseSendtoArgs(decoder *Decoder) (types.SendtoArgs, error) {
   return result, nil
 }
 
-func ParseRecvfromArgs(decoder *Decoder) (types.RecvfromArgs, error) {
+func ParseRecvfromArgs(log *logging.Logger, decoder *Decoder) (types.RecvfromArgs, error) {
   var result types.RecvfromArgs
   var err error
 
@@ -1665,6 +1830,10 @@ func ParseRecvfromArgs(decoder *Decoder) (types.RecvfromArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RecvfromArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Recvfrom': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1714,7 +1883,7 @@ func ParseRecvfromArgs(decoder *Decoder) (types.RecvfromArgs, error) {
   return result, nil
 }
 
-func ParseSendmsgArgs(decoder *Decoder) (types.SendmsgArgs, error) {
+func ParseSendmsgArgs(log *logging.Logger, decoder *Decoder) (types.SendmsgArgs, error) {
   var result types.SendmsgArgs
   var err error
 
@@ -1722,6 +1891,10 @@ func ParseSendmsgArgs(decoder *Decoder) (types.SendmsgArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SendmsgArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Sendmsg': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1754,7 +1927,7 @@ func ParseSendmsgArgs(decoder *Decoder) (types.SendmsgArgs, error) {
   return result, nil
 }
 
-func ParseRecvmsgArgs(decoder *Decoder) (types.RecvmsgArgs, error) {
+func ParseRecvmsgArgs(log *logging.Logger, decoder *Decoder) (types.RecvmsgArgs, error) {
   var result types.RecvmsgArgs
   var err error
 
@@ -1762,6 +1935,10 @@ func ParseRecvmsgArgs(decoder *Decoder) (types.RecvmsgArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RecvmsgArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Recvmsg': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1794,7 +1971,7 @@ func ParseRecvmsgArgs(decoder *Decoder) (types.RecvmsgArgs, error) {
   return result, nil
 }
 
-func ParseShutdownArgs(decoder *Decoder) (types.ShutdownArgs, error) {
+func ParseShutdownArgs(log *logging.Logger, decoder *Decoder) (types.ShutdownArgs, error) {
   var result types.ShutdownArgs
   var err error
 
@@ -1802,6 +1979,10 @@ func ParseShutdownArgs(decoder *Decoder) (types.ShutdownArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ShutdownArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Shutdown': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1827,7 +2008,7 @@ func ParseShutdownArgs(decoder *Decoder) (types.ShutdownArgs, error) {
   return result, nil
 }
 
-func ParseBindArgs(decoder *Decoder) (types.BindArgs, error) {
+func ParseBindArgs(log *logging.Logger, decoder *Decoder) (types.BindArgs, error) {
   var result types.BindArgs
   var err error
 
@@ -1835,6 +2016,10 @@ func ParseBindArgs(decoder *Decoder) (types.BindArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.BindArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Bind': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1865,7 +2050,7 @@ func ParseBindArgs(decoder *Decoder) (types.BindArgs, error) {
   return result, nil
 }
 
-func ParseListenArgs(decoder *Decoder) (types.ListenArgs, error) {
+func ParseListenArgs(log *logging.Logger, decoder *Decoder) (types.ListenArgs, error) {
   var result types.ListenArgs
   var err error
 
@@ -1873,6 +2058,10 @@ func ParseListenArgs(decoder *Decoder) (types.ListenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ListenArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Listen': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1898,7 +2087,7 @@ func ParseListenArgs(decoder *Decoder) (types.ListenArgs, error) {
   return result, nil
 }
 
-func ParseGetsocknameArgs(decoder *Decoder) (types.GetsocknameArgs, error) {
+func ParseGetsocknameArgs(log *logging.Logger, decoder *Decoder) (types.GetsocknameArgs, error) {
   var result types.GetsocknameArgs
   var err error
 
@@ -1906,6 +2095,10 @@ func ParseGetsocknameArgs(decoder *Decoder) (types.GetsocknameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetsocknameArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getsockname': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1938,7 +2131,7 @@ func ParseGetsocknameArgs(decoder *Decoder) (types.GetsocknameArgs, error) {
   return result, nil
 }
 
-func ParseGetpeernameArgs(decoder *Decoder) (types.GetpeernameArgs, error) {
+func ParseGetpeernameArgs(log *logging.Logger, decoder *Decoder) (types.GetpeernameArgs, error) {
   var result types.GetpeernameArgs
   var err error
 
@@ -1946,6 +2139,10 @@ func ParseGetpeernameArgs(decoder *Decoder) (types.GetpeernameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetpeernameArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getpeername': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1978,7 +2175,7 @@ func ParseGetpeernameArgs(decoder *Decoder) (types.GetpeernameArgs, error) {
   return result, nil
 }
 
-func ParseSocketpairArgs(decoder *Decoder) (types.SocketpairArgs, error) {
+func ParseSocketpairArgs(log *logging.Logger, decoder *Decoder) (types.SocketpairArgs, error) {
   var result types.SocketpairArgs
   var err error
 
@@ -1986,6 +2183,10 @@ func ParseSocketpairArgs(decoder *Decoder) (types.SocketpairArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketpairArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Socketpair': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2021,7 +2222,7 @@ func ParseSocketpairArgs(decoder *Decoder) (types.SocketpairArgs, error) {
   return result, nil
 }
 
-func ParseSetsockoptArgs(decoder *Decoder) (types.SetsockoptArgs, error) {
+func ParseSetsockoptArgs(log *logging.Logger, decoder *Decoder) (types.SetsockoptArgs, error) {
   var result types.SetsockoptArgs
   var err error
 
@@ -2029,6 +2230,10 @@ func ParseSetsockoptArgs(decoder *Decoder) (types.SetsockoptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetsockoptArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Setsockopt': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2071,7 +2276,7 @@ func ParseSetsockoptArgs(decoder *Decoder) (types.SetsockoptArgs, error) {
   return result, nil
 }
 
-func ParseGetsockoptArgs(decoder *Decoder) (types.GetsockoptArgs, error) {
+func ParseGetsockoptArgs(log *logging.Logger, decoder *Decoder) (types.GetsockoptArgs, error) {
   var result types.GetsockoptArgs
   var err error
 
@@ -2079,6 +2284,10 @@ func ParseGetsockoptArgs(decoder *Decoder) (types.GetsockoptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetsockoptArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Getsockopt': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2123,7 +2332,7 @@ func ParseGetsockoptArgs(decoder *Decoder) (types.GetsockoptArgs, error) {
   return result, nil
 }
 
-func ParseCloneArgs(decoder *Decoder) (types.CloneArgs, error) {
+func ParseCloneArgs(log *logging.Logger, decoder *Decoder) (types.CloneArgs, error) {
   var result types.CloneArgs
   var err error
 
@@ -2131,6 +2340,10 @@ func ParseCloneArgs(decoder *Decoder) (types.CloneArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CloneArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Clone': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2177,15 +2390,15 @@ func ParseCloneArgs(decoder *Decoder) (types.CloneArgs, error) {
   return result, nil
 }
 
-func ParseForkArgs(decoder *Decoder) (types.ForkArgs, error) {
+func ParseForkArgs(log *logging.Logger, decoder *Decoder) (types.ForkArgs, error) {
   return types.ForkArgs{}, nil
 }
 
-func ParseVforkArgs(decoder *Decoder) (types.VforkArgs, error) {
+func ParseVforkArgs(log *logging.Logger, decoder *Decoder) (types.VforkArgs, error) {
   return types.VforkArgs{}, nil
 }
 
-func ParseExecveArgs(decoder *Decoder) (types.ExecveArgs, error) {
+func ParseExecveArgs(log *logging.Logger, decoder *Decoder) (types.ExecveArgs, error) {
   var result types.ExecveArgs
   var err error
 
@@ -2193,6 +2406,10 @@ func ParseExecveArgs(decoder *Decoder) (types.ExecveArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExecveArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Execve': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2223,7 +2440,7 @@ func ParseExecveArgs(decoder *Decoder) (types.ExecveArgs, error) {
   return result, nil
 }
 
-func ParseExitArgs(decoder *Decoder) (types.ExitArgs, error) {
+func ParseExitArgs(log *logging.Logger, decoder *Decoder) (types.ExitArgs, error) {
   var result types.ExitArgs
   var err error
 
@@ -2231,6 +2448,10 @@ func ParseExitArgs(decoder *Decoder) (types.ExitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExitArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Exit': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2251,7 +2472,7 @@ func ParseExitArgs(decoder *Decoder) (types.ExitArgs, error) {
   return result, nil
 }
 
-func ParseWait4Args(decoder *Decoder) (types.Wait4Args, error) {
+func ParseWait4Args(log *logging.Logger, decoder *Decoder) (types.Wait4Args, error) {
   var result types.Wait4Args
   var err error
 
@@ -2259,6 +2480,10 @@ func ParseWait4Args(decoder *Decoder) (types.Wait4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Wait4Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Wait4': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2298,7 +2523,7 @@ func ParseWait4Args(decoder *Decoder) (types.Wait4Args, error) {
   return result, nil
 }
 
-func ParseKillArgs(decoder *Decoder) (types.KillArgs, error) {
+func ParseKillArgs(log *logging.Logger, decoder *Decoder) (types.KillArgs, error) {
   var result types.KillArgs
   var err error
 
@@ -2306,6 +2531,10 @@ func ParseKillArgs(decoder *Decoder) (types.KillArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KillArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Kill': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2331,7 +2560,7 @@ func ParseKillArgs(decoder *Decoder) (types.KillArgs, error) {
   return result, nil
 }
 
-func ParseUnameArgs(decoder *Decoder) (types.UnameArgs, error) {
+func ParseUnameArgs(log *logging.Logger, decoder *Decoder) (types.UnameArgs, error) {
   var result types.UnameArgs
   var err error
 
@@ -2339,6 +2568,10 @@ func ParseUnameArgs(decoder *Decoder) (types.UnameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UnameArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Uname': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2361,7 +2594,7 @@ func ParseUnameArgs(decoder *Decoder) (types.UnameArgs, error) {
   return result, nil
 }
 
-func ParseSemgetArgs(decoder *Decoder) (types.SemgetArgs, error) {
+func ParseSemgetArgs(log *logging.Logger, decoder *Decoder) (types.SemgetArgs, error) {
   var result types.SemgetArgs
   var err error
 
@@ -2369,6 +2602,10 @@ func ParseSemgetArgs(decoder *Decoder) (types.SemgetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemgetArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Semget': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2399,7 +2636,7 @@ func ParseSemgetArgs(decoder *Decoder) (types.SemgetArgs, error) {
   return result, nil
 }
 
-func ParseSemopArgs(decoder *Decoder) (types.SemopArgs, error) {
+func ParseSemopArgs(log *logging.Logger, decoder *Decoder) (types.SemopArgs, error) {
   var result types.SemopArgs
   var err error
 
@@ -2407,6 +2644,10 @@ func ParseSemopArgs(decoder *Decoder) (types.SemopArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemopArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Semop': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2439,7 +2680,7 @@ func ParseSemopArgs(decoder *Decoder) (types.SemopArgs, error) {
   return result, nil
 }
 
-func ParseSemctlArgs(decoder *Decoder) (types.SemctlArgs, error) {
+func ParseSemctlArgs(log *logging.Logger, decoder *Decoder) (types.SemctlArgs, error) {
   var result types.SemctlArgs
   var err error
 
@@ -2447,6 +2688,10 @@ func ParseSemctlArgs(decoder *Decoder) (types.SemctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemctlArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Semctl': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2482,7 +2727,7 @@ func ParseSemctlArgs(decoder *Decoder) (types.SemctlArgs, error) {
   return result, nil
 }
 
-func ParseShmdtArgs(decoder *Decoder) (types.ShmdtArgs, error) {
+func ParseShmdtArgs(log *logging.Logger, decoder *Decoder) (types.ShmdtArgs, error) {
   var result types.ShmdtArgs
   var err error
 
@@ -2490,6 +2735,10 @@ func ParseShmdtArgs(decoder *Decoder) (types.ShmdtArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ShmdtArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Shmdt': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2512,7 +2761,7 @@ func ParseShmdtArgs(decoder *Decoder) (types.ShmdtArgs, error) {
   return result, nil
 }
 
-func ParseMsggetArgs(decoder *Decoder) (types.MsggetArgs, error) {
+func ParseMsggetArgs(log *logging.Logger, decoder *Decoder) (types.MsggetArgs, error) {
   var result types.MsggetArgs
   var err error
 
@@ -2520,6 +2769,10 @@ func ParseMsggetArgs(decoder *Decoder) (types.MsggetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsggetArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Msgget': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2545,7 +2798,7 @@ func ParseMsggetArgs(decoder *Decoder) (types.MsggetArgs, error) {
   return result, nil
 }
 
-func ParseMsgsndArgs(decoder *Decoder) (types.MsgsndArgs, error) {
+func ParseMsgsndArgs(log *logging.Logger, decoder *Decoder) (types.MsgsndArgs, error) {
   var result types.MsgsndArgs
   var err error
 
@@ -2553,6 +2806,10 @@ func ParseMsgsndArgs(decoder *Decoder) (types.MsgsndArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsgsndArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Msgsnd': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2590,7 +2847,7 @@ func ParseMsgsndArgs(decoder *Decoder) (types.MsgsndArgs, error) {
   return result, nil
 }
 
-func ParseMsgrcvArgs(decoder *Decoder) (types.MsgrcvArgs, error) {
+func ParseMsgrcvArgs(log *logging.Logger, decoder *Decoder) (types.MsgrcvArgs, error) {
   var result types.MsgrcvArgs
   var err error
 
@@ -2598,6 +2855,10 @@ func ParseMsgrcvArgs(decoder *Decoder) (types.MsgrcvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsgrcvArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Msgrcv': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2640,7 +2901,7 @@ func ParseMsgrcvArgs(decoder *Decoder) (types.MsgrcvArgs, error) {
   return result, nil
 }
 
-func ParseMsgctlArgs(decoder *Decoder) (types.MsgctlArgs, error) {
+func ParseMsgctlArgs(log *logging.Logger, decoder *Decoder) (types.MsgctlArgs, error) {
   var result types.MsgctlArgs
   var err error
 
@@ -2648,6 +2909,10 @@ func ParseMsgctlArgs(decoder *Decoder) (types.MsgctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsgctlArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Msgctl': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2680,7 +2945,7 @@ func ParseMsgctlArgs(decoder *Decoder) (types.MsgctlArgs, error) {
   return result, nil
 }
 
-func ParseFcntlArgs(decoder *Decoder) (types.FcntlArgs, error) {
+func ParseFcntlArgs(log *logging.Logger, decoder *Decoder) (types.FcntlArgs, error) {
   var result types.FcntlArgs
   var err error
 
@@ -2688,6 +2953,10 @@ func ParseFcntlArgs(decoder *Decoder) (types.FcntlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FcntlArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fcntl': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2718,7 +2987,7 @@ func ParseFcntlArgs(decoder *Decoder) (types.FcntlArgs, error) {
   return result, nil
 }
 
-func ParseFlockArgs(decoder *Decoder) (types.FlockArgs, error) {
+func ParseFlockArgs(log *logging.Logger, decoder *Decoder) (types.FlockArgs, error) {
   var result types.FlockArgs
   var err error
 
@@ -2726,6 +2995,10 @@ func ParseFlockArgs(decoder *Decoder) (types.FlockArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FlockArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Flock': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2751,7 +3024,7 @@ func ParseFlockArgs(decoder *Decoder) (types.FlockArgs, error) {
   return result, nil
 }
 
-func ParseFsyncArgs(decoder *Decoder) (types.FsyncArgs, error) {
+func ParseFsyncArgs(log *logging.Logger, decoder *Decoder) (types.FsyncArgs, error) {
   var result types.FsyncArgs
   var err error
 
@@ -2759,6 +3032,10 @@ func ParseFsyncArgs(decoder *Decoder) (types.FsyncArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsyncArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Fsync': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2779,7 +3056,7 @@ func ParseFsyncArgs(decoder *Decoder) (types.FsyncArgs, error) {
   return result, nil
 }
 
-func ParseFdatasyncArgs(decoder *Decoder) (types.FdatasyncArgs, error) {
+func ParseFdatasyncArgs(log *logging.Logger, decoder *Decoder) (types.FdatasyncArgs, error) {
   var result types.FdatasyncArgs
   var err error
 
@@ -2787,6 +3064,10 @@ func ParseFdatasyncArgs(decoder *Decoder) (types.FdatasyncArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FdatasyncArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Fdatasync': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2807,7 +3088,7 @@ func ParseFdatasyncArgs(decoder *Decoder) (types.FdatasyncArgs, error) {
   return result, nil
 }
 
-func ParseTruncateArgs(decoder *Decoder) (types.TruncateArgs, error) {
+func ParseTruncateArgs(log *logging.Logger, decoder *Decoder) (types.TruncateArgs, error) {
   var result types.TruncateArgs
   var err error
 
@@ -2815,6 +3096,10 @@ func ParseTruncateArgs(decoder *Decoder) (types.TruncateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TruncateArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Truncate': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2840,7 +3125,7 @@ func ParseTruncateArgs(decoder *Decoder) (types.TruncateArgs, error) {
   return result, nil
 }
 
-func ParseFtruncateArgs(decoder *Decoder) (types.FtruncateArgs, error) {
+func ParseFtruncateArgs(log *logging.Logger, decoder *Decoder) (types.FtruncateArgs, error) {
   var result types.FtruncateArgs
   var err error
 
@@ -2848,6 +3133,10 @@ func ParseFtruncateArgs(decoder *Decoder) (types.FtruncateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FtruncateArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Ftruncate': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2873,7 +3162,7 @@ func ParseFtruncateArgs(decoder *Decoder) (types.FtruncateArgs, error) {
   return result, nil
 }
 
-func ParseGetdentsArgs(decoder *Decoder) (types.GetdentsArgs, error) {
+func ParseGetdentsArgs(log *logging.Logger, decoder *Decoder) (types.GetdentsArgs, error) {
   var result types.GetdentsArgs
   var err error
 
@@ -2881,6 +3170,10 @@ func ParseGetdentsArgs(decoder *Decoder) (types.GetdentsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetdentsArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getdents': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2913,7 +3206,7 @@ func ParseGetdentsArgs(decoder *Decoder) (types.GetdentsArgs, error) {
   return result, nil
 }
 
-func ParseGetcwdArgs(decoder *Decoder) (types.GetcwdArgs, error) {
+func ParseGetcwdArgs(log *logging.Logger, decoder *Decoder) (types.GetcwdArgs, error) {
   var result types.GetcwdArgs
   var err error
 
@@ -2921,6 +3214,10 @@ func ParseGetcwdArgs(decoder *Decoder) (types.GetcwdArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetcwdArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getcwd': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2946,7 +3243,7 @@ func ParseGetcwdArgs(decoder *Decoder) (types.GetcwdArgs, error) {
   return result, nil
 }
 
-func ParseChdirArgs(decoder *Decoder) (types.ChdirArgs, error) {
+func ParseChdirArgs(log *logging.Logger, decoder *Decoder) (types.ChdirArgs, error) {
   var result types.ChdirArgs
   var err error
 
@@ -2954,6 +3251,10 @@ func ParseChdirArgs(decoder *Decoder) (types.ChdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ChdirArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Chdir': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2974,7 +3275,7 @@ func ParseChdirArgs(decoder *Decoder) (types.ChdirArgs, error) {
   return result, nil
 }
 
-func ParseFchdirArgs(decoder *Decoder) (types.FchdirArgs, error) {
+func ParseFchdirArgs(log *logging.Logger, decoder *Decoder) (types.FchdirArgs, error) {
   var result types.FchdirArgs
   var err error
 
@@ -2982,6 +3283,10 @@ func ParseFchdirArgs(decoder *Decoder) (types.FchdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FchdirArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Fchdir': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3002,7 +3307,7 @@ func ParseFchdirArgs(decoder *Decoder) (types.FchdirArgs, error) {
   return result, nil
 }
 
-func ParseRenameArgs(decoder *Decoder) (types.RenameArgs, error) {
+func ParseRenameArgs(log *logging.Logger, decoder *Decoder) (types.RenameArgs, error) {
   var result types.RenameArgs
   var err error
 
@@ -3010,6 +3315,10 @@ func ParseRenameArgs(decoder *Decoder) (types.RenameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RenameArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Rename': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3035,7 +3344,7 @@ func ParseRenameArgs(decoder *Decoder) (types.RenameArgs, error) {
   return result, nil
 }
 
-func ParseMkdirArgs(decoder *Decoder) (types.MkdirArgs, error) {
+func ParseMkdirArgs(log *logging.Logger, decoder *Decoder) (types.MkdirArgs, error) {
   var result types.MkdirArgs
   var err error
 
@@ -3043,6 +3352,10 @@ func ParseMkdirArgs(decoder *Decoder) (types.MkdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MkdirArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Mkdir': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3068,7 +3381,7 @@ func ParseMkdirArgs(decoder *Decoder) (types.MkdirArgs, error) {
   return result, nil
 }
 
-func ParseRmdirArgs(decoder *Decoder) (types.RmdirArgs, error) {
+func ParseRmdirArgs(log *logging.Logger, decoder *Decoder) (types.RmdirArgs, error) {
   var result types.RmdirArgs
   var err error
 
@@ -3076,6 +3389,10 @@ func ParseRmdirArgs(decoder *Decoder) (types.RmdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RmdirArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Rmdir': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3096,7 +3413,7 @@ func ParseRmdirArgs(decoder *Decoder) (types.RmdirArgs, error) {
   return result, nil
 }
 
-func ParseCreatArgs(decoder *Decoder) (types.CreatArgs, error) {
+func ParseCreatArgs(log *logging.Logger, decoder *Decoder) (types.CreatArgs, error) {
   var result types.CreatArgs
   var err error
 
@@ -3104,6 +3421,10 @@ func ParseCreatArgs(decoder *Decoder) (types.CreatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CreatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Creat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3129,7 +3450,7 @@ func ParseCreatArgs(decoder *Decoder) (types.CreatArgs, error) {
   return result, nil
 }
 
-func ParseLinkArgs(decoder *Decoder) (types.LinkArgs, error) {
+func ParseLinkArgs(log *logging.Logger, decoder *Decoder) (types.LinkArgs, error) {
   var result types.LinkArgs
   var err error
 
@@ -3137,6 +3458,10 @@ func ParseLinkArgs(decoder *Decoder) (types.LinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LinkArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Link': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3162,7 +3487,7 @@ func ParseLinkArgs(decoder *Decoder) (types.LinkArgs, error) {
   return result, nil
 }
 
-func ParseUnlinkArgs(decoder *Decoder) (types.UnlinkArgs, error) {
+func ParseUnlinkArgs(log *logging.Logger, decoder *Decoder) (types.UnlinkArgs, error) {
   var result types.UnlinkArgs
   var err error
 
@@ -3170,6 +3495,10 @@ func ParseUnlinkArgs(decoder *Decoder) (types.UnlinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UnlinkArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Unlink': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3190,7 +3519,7 @@ func ParseUnlinkArgs(decoder *Decoder) (types.UnlinkArgs, error) {
   return result, nil
 }
 
-func ParseSymlinkArgs(decoder *Decoder) (types.SymlinkArgs, error) {
+func ParseSymlinkArgs(log *logging.Logger, decoder *Decoder) (types.SymlinkArgs, error) {
   var result types.SymlinkArgs
   var err error
 
@@ -3198,6 +3527,10 @@ func ParseSymlinkArgs(decoder *Decoder) (types.SymlinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SymlinkArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Symlink': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3223,7 +3556,7 @@ func ParseSymlinkArgs(decoder *Decoder) (types.SymlinkArgs, error) {
   return result, nil
 }
 
-func ParseReadlinkArgs(decoder *Decoder) (types.ReadlinkArgs, error) {
+func ParseReadlinkArgs(log *logging.Logger, decoder *Decoder) (types.ReadlinkArgs, error) {
   var result types.ReadlinkArgs
   var err error
 
@@ -3231,6 +3564,10 @@ func ParseReadlinkArgs(decoder *Decoder) (types.ReadlinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadlinkArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Readlink': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3261,7 +3598,7 @@ func ParseReadlinkArgs(decoder *Decoder) (types.ReadlinkArgs, error) {
   return result, nil
 }
 
-func ParseChmodArgs(decoder *Decoder) (types.ChmodArgs, error) {
+func ParseChmodArgs(log *logging.Logger, decoder *Decoder) (types.ChmodArgs, error) {
   var result types.ChmodArgs
   var err error
 
@@ -3269,6 +3606,10 @@ func ParseChmodArgs(decoder *Decoder) (types.ChmodArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ChmodArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Chmod': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3294,7 +3635,7 @@ func ParseChmodArgs(decoder *Decoder) (types.ChmodArgs, error) {
   return result, nil
 }
 
-func ParseFchmodArgs(decoder *Decoder) (types.FchmodArgs, error) {
+func ParseFchmodArgs(log *logging.Logger, decoder *Decoder) (types.FchmodArgs, error) {
   var result types.FchmodArgs
   var err error
 
@@ -3302,6 +3643,10 @@ func ParseFchmodArgs(decoder *Decoder) (types.FchmodArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FchmodArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Fchmod': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3327,7 +3672,7 @@ func ParseFchmodArgs(decoder *Decoder) (types.FchmodArgs, error) {
   return result, nil
 }
 
-func ParseChownArgs(decoder *Decoder) (types.ChownArgs, error) {
+func ParseChownArgs(log *logging.Logger, decoder *Decoder) (types.ChownArgs, error) {
   var result types.ChownArgs
   var err error
 
@@ -3335,6 +3680,10 @@ func ParseChownArgs(decoder *Decoder) (types.ChownArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ChownArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Chown': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3365,7 +3714,7 @@ func ParseChownArgs(decoder *Decoder) (types.ChownArgs, error) {
   return result, nil
 }
 
-func ParseFchownArgs(decoder *Decoder) (types.FchownArgs, error) {
+func ParseFchownArgs(log *logging.Logger, decoder *Decoder) (types.FchownArgs, error) {
   var result types.FchownArgs
   var err error
 
@@ -3373,6 +3722,10 @@ func ParseFchownArgs(decoder *Decoder) (types.FchownArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FchownArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fchown': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3403,7 +3756,7 @@ func ParseFchownArgs(decoder *Decoder) (types.FchownArgs, error) {
   return result, nil
 }
 
-func ParseLchownArgs(decoder *Decoder) (types.LchownArgs, error) {
+func ParseLchownArgs(log *logging.Logger, decoder *Decoder) (types.LchownArgs, error) {
   var result types.LchownArgs
   var err error
 
@@ -3411,6 +3764,10 @@ func ParseLchownArgs(decoder *Decoder) (types.LchownArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LchownArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Lchown': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3441,7 +3798,7 @@ func ParseLchownArgs(decoder *Decoder) (types.LchownArgs, error) {
   return result, nil
 }
 
-func ParseUmaskArgs(decoder *Decoder) (types.UmaskArgs, error) {
+func ParseUmaskArgs(log *logging.Logger, decoder *Decoder) (types.UmaskArgs, error) {
   var result types.UmaskArgs
   var err error
 
@@ -3449,6 +3806,10 @@ func ParseUmaskArgs(decoder *Decoder) (types.UmaskArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UmaskArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Umask': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3469,7 +3830,7 @@ func ParseUmaskArgs(decoder *Decoder) (types.UmaskArgs, error) {
   return result, nil
 }
 
-func ParseGettimeofdayArgs(decoder *Decoder) (types.GettimeofdayArgs, error) {
+func ParseGettimeofdayArgs(log *logging.Logger, decoder *Decoder) (types.GettimeofdayArgs, error) {
   var result types.GettimeofdayArgs
   var err error
 
@@ -3477,6 +3838,10 @@ func ParseGettimeofdayArgs(decoder *Decoder) (types.GettimeofdayArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GettimeofdayArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Gettimeofday': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3506,7 +3871,7 @@ func ParseGettimeofdayArgs(decoder *Decoder) (types.GettimeofdayArgs, error) {
   return result, nil
 }
 
-func ParseGetrlimitArgs(decoder *Decoder) (types.GetrlimitArgs, error) {
+func ParseGetrlimitArgs(log *logging.Logger, decoder *Decoder) (types.GetrlimitArgs, error) {
   var result types.GetrlimitArgs
   var err error
 
@@ -3514,6 +3879,10 @@ func ParseGetrlimitArgs(decoder *Decoder) (types.GetrlimitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetrlimitArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getrlimit': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3541,7 +3910,7 @@ func ParseGetrlimitArgs(decoder *Decoder) (types.GetrlimitArgs, error) {
   return result, nil
 }
 
-func ParseGetrusageArgs(decoder *Decoder) (types.GetrusageArgs, error) {
+func ParseGetrusageArgs(log *logging.Logger, decoder *Decoder) (types.GetrusageArgs, error) {
   var result types.GetrusageArgs
   var err error
 
@@ -3549,6 +3918,10 @@ func ParseGetrusageArgs(decoder *Decoder) (types.GetrusageArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetrusageArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getrusage': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3576,7 +3949,7 @@ func ParseGetrusageArgs(decoder *Decoder) (types.GetrusageArgs, error) {
   return result, nil
 }
 
-func ParseSysinfoArgs(decoder *Decoder) (types.SysinfoArgs, error) {
+func ParseSysinfoArgs(log *logging.Logger, decoder *Decoder) (types.SysinfoArgs, error) {
   var result types.SysinfoArgs
   var err error
 
@@ -3584,6 +3957,10 @@ func ParseSysinfoArgs(decoder *Decoder) (types.SysinfoArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SysinfoArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Sysinfo': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3606,7 +3983,7 @@ func ParseSysinfoArgs(decoder *Decoder) (types.SysinfoArgs, error) {
   return result, nil
 }
 
-func ParseTimesArgs(decoder *Decoder) (types.TimesArgs, error) {
+func ParseTimesArgs(log *logging.Logger, decoder *Decoder) (types.TimesArgs, error) {
   var result types.TimesArgs
   var err error
 
@@ -3614,6 +3991,10 @@ func ParseTimesArgs(decoder *Decoder) (types.TimesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimesArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Times': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3636,7 +4017,7 @@ func ParseTimesArgs(decoder *Decoder) (types.TimesArgs, error) {
   return result, nil
 }
 
-func ParsePtraceArgs(decoder *Decoder) (types.PtraceArgs, error) {
+func ParsePtraceArgs(log *logging.Logger, decoder *Decoder) (types.PtraceArgs, error) {
   var result types.PtraceArgs
   var err error
 
@@ -3644,6 +4025,10 @@ func ParsePtraceArgs(decoder *Decoder) (types.PtraceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PtraceArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Ptrace': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3683,11 +4068,11 @@ func ParsePtraceArgs(decoder *Decoder) (types.PtraceArgs, error) {
   return result, nil
 }
 
-func ParseGetuidArgs(decoder *Decoder) (types.GetuidArgs, error) {
+func ParseGetuidArgs(log *logging.Logger, decoder *Decoder) (types.GetuidArgs, error) {
   return types.GetuidArgs{}, nil
 }
 
-func ParseSyslogArgs(decoder *Decoder) (types.SyslogArgs, error) {
+func ParseSyslogArgs(log *logging.Logger, decoder *Decoder) (types.SyslogArgs, error) {
   var result types.SyslogArgs
   var err error
 
@@ -3695,6 +4080,10 @@ func ParseSyslogArgs(decoder *Decoder) (types.SyslogArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SyslogArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Syslog': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3725,11 +4114,11 @@ func ParseSyslogArgs(decoder *Decoder) (types.SyslogArgs, error) {
   return result, nil
 }
 
-func ParseGetgidArgs(decoder *Decoder) (types.GetgidArgs, error) {
+func ParseGetgidArgs(log *logging.Logger, decoder *Decoder) (types.GetgidArgs, error) {
   return types.GetgidArgs{}, nil
 }
 
-func ParseSetuidArgs(decoder *Decoder) (types.SetuidArgs, error) {
+func ParseSetuidArgs(log *logging.Logger, decoder *Decoder) (types.SetuidArgs, error) {
   var result types.SetuidArgs
   var err error
 
@@ -3737,6 +4126,10 @@ func ParseSetuidArgs(decoder *Decoder) (types.SetuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetuidArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setuid': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3757,7 +4150,7 @@ func ParseSetuidArgs(decoder *Decoder) (types.SetuidArgs, error) {
   return result, nil
 }
 
-func ParseSetgidArgs(decoder *Decoder) (types.SetgidArgs, error) {
+func ParseSetgidArgs(log *logging.Logger, decoder *Decoder) (types.SetgidArgs, error) {
   var result types.SetgidArgs
   var err error
 
@@ -3765,6 +4158,10 @@ func ParseSetgidArgs(decoder *Decoder) (types.SetgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetgidArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setgid': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3785,15 +4182,15 @@ func ParseSetgidArgs(decoder *Decoder) (types.SetgidArgs, error) {
   return result, nil
 }
 
-func ParseGeteuidArgs(decoder *Decoder) (types.GeteuidArgs, error) {
+func ParseGeteuidArgs(log *logging.Logger, decoder *Decoder) (types.GeteuidArgs, error) {
   return types.GeteuidArgs{}, nil
 }
 
-func ParseGetegidArgs(decoder *Decoder) (types.GetegidArgs, error) {
+func ParseGetegidArgs(log *logging.Logger, decoder *Decoder) (types.GetegidArgs, error) {
   return types.GetegidArgs{}, nil
 }
 
-func ParseSetpgidArgs(decoder *Decoder) (types.SetpgidArgs, error) {
+func ParseSetpgidArgs(log *logging.Logger, decoder *Decoder) (types.SetpgidArgs, error) {
   var result types.SetpgidArgs
   var err error
 
@@ -3801,6 +4198,10 @@ func ParseSetpgidArgs(decoder *Decoder) (types.SetpgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetpgidArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setpgid': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3826,19 +4227,19 @@ func ParseSetpgidArgs(decoder *Decoder) (types.SetpgidArgs, error) {
   return result, nil
 }
 
-func ParseGetppidArgs(decoder *Decoder) (types.GetppidArgs, error) {
+func ParseGetppidArgs(log *logging.Logger, decoder *Decoder) (types.GetppidArgs, error) {
   return types.GetppidArgs{}, nil
 }
 
-func ParseGetpgrpArgs(decoder *Decoder) (types.GetpgrpArgs, error) {
+func ParseGetpgrpArgs(log *logging.Logger, decoder *Decoder) (types.GetpgrpArgs, error) {
   return types.GetpgrpArgs{}, nil
 }
 
-func ParseSetsidArgs(decoder *Decoder) (types.SetsidArgs, error) {
+func ParseSetsidArgs(log *logging.Logger, decoder *Decoder) (types.SetsidArgs, error) {
   return types.SetsidArgs{}, nil
 }
 
-func ParseSetreuidArgs(decoder *Decoder) (types.SetreuidArgs, error) {
+func ParseSetreuidArgs(log *logging.Logger, decoder *Decoder) (types.SetreuidArgs, error) {
   var result types.SetreuidArgs
   var err error
 
@@ -3846,6 +4247,10 @@ func ParseSetreuidArgs(decoder *Decoder) (types.SetreuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetreuidArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setreuid': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3871,7 +4276,7 @@ func ParseSetreuidArgs(decoder *Decoder) (types.SetreuidArgs, error) {
   return result, nil
 }
 
-func ParseSetregidArgs(decoder *Decoder) (types.SetregidArgs, error) {
+func ParseSetregidArgs(log *logging.Logger, decoder *Decoder) (types.SetregidArgs, error) {
   var result types.SetregidArgs
   var err error
 
@@ -3879,6 +4284,10 @@ func ParseSetregidArgs(decoder *Decoder) (types.SetregidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetregidArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setregid': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3904,7 +4313,7 @@ func ParseSetregidArgs(decoder *Decoder) (types.SetregidArgs, error) {
   return result, nil
 }
 
-func ParseGetgroupsArgs(decoder *Decoder) (types.GetgroupsArgs, error) {
+func ParseGetgroupsArgs(log *logging.Logger, decoder *Decoder) (types.GetgroupsArgs, error) {
   var result types.GetgroupsArgs
   var err error
 
@@ -3912,6 +4321,10 @@ func ParseGetgroupsArgs(decoder *Decoder) (types.GetgroupsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetgroupsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getgroups': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3939,7 +4352,7 @@ func ParseGetgroupsArgs(decoder *Decoder) (types.GetgroupsArgs, error) {
   return result, nil
 }
 
-func ParseSetgroupsArgs(decoder *Decoder) (types.SetgroupsArgs, error) {
+func ParseSetgroupsArgs(log *logging.Logger, decoder *Decoder) (types.SetgroupsArgs, error) {
   var result types.SetgroupsArgs
   var err error
 
@@ -3947,6 +4360,10 @@ func ParseSetgroupsArgs(decoder *Decoder) (types.SetgroupsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetgroupsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setgroups': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3974,7 +4391,7 @@ func ParseSetgroupsArgs(decoder *Decoder) (types.SetgroupsArgs, error) {
   return result, nil
 }
 
-func ParseSetresuidArgs(decoder *Decoder) (types.SetresuidArgs, error) {
+func ParseSetresuidArgs(log *logging.Logger, decoder *Decoder) (types.SetresuidArgs, error) {
   var result types.SetresuidArgs
   var err error
 
@@ -3982,6 +4399,10 @@ func ParseSetresuidArgs(decoder *Decoder) (types.SetresuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetresuidArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Setresuid': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4012,7 +4433,7 @@ func ParseSetresuidArgs(decoder *Decoder) (types.SetresuidArgs, error) {
   return result, nil
 }
 
-func ParseGetresuidArgs(decoder *Decoder) (types.GetresuidArgs, error) {
+func ParseGetresuidArgs(log *logging.Logger, decoder *Decoder) (types.GetresuidArgs, error) {
   var result types.GetresuidArgs
   var err error
 
@@ -4020,6 +4441,10 @@ func ParseGetresuidArgs(decoder *Decoder) (types.GetresuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetresuidArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getresuid': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4056,7 +4481,7 @@ func ParseGetresuidArgs(decoder *Decoder) (types.GetresuidArgs, error) {
   return result, nil
 }
 
-func ParseSetresgidArgs(decoder *Decoder) (types.SetresgidArgs, error) {
+func ParseSetresgidArgs(log *logging.Logger, decoder *Decoder) (types.SetresgidArgs, error) {
   var result types.SetresgidArgs
   var err error
 
@@ -4064,6 +4489,10 @@ func ParseSetresgidArgs(decoder *Decoder) (types.SetresgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetresgidArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Setresgid': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4094,7 +4523,7 @@ func ParseSetresgidArgs(decoder *Decoder) (types.SetresgidArgs, error) {
   return result, nil
 }
 
-func ParseGetresgidArgs(decoder *Decoder) (types.GetresgidArgs, error) {
+func ParseGetresgidArgs(log *logging.Logger, decoder *Decoder) (types.GetresgidArgs, error) {
   var result types.GetresgidArgs
   var err error
 
@@ -4102,6 +4531,10 @@ func ParseGetresgidArgs(decoder *Decoder) (types.GetresgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetresgidArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getresgid': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4138,7 +4571,7 @@ func ParseGetresgidArgs(decoder *Decoder) (types.GetresgidArgs, error) {
   return result, nil
 }
 
-func ParseGetpgidArgs(decoder *Decoder) (types.GetpgidArgs, error) {
+func ParseGetpgidArgs(log *logging.Logger, decoder *Decoder) (types.GetpgidArgs, error) {
   var result types.GetpgidArgs
   var err error
 
@@ -4146,6 +4579,10 @@ func ParseGetpgidArgs(decoder *Decoder) (types.GetpgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetpgidArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Getpgid': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4166,7 +4603,7 @@ func ParseGetpgidArgs(decoder *Decoder) (types.GetpgidArgs, error) {
   return result, nil
 }
 
-func ParseSetfsuidArgs(decoder *Decoder) (types.SetfsuidArgs, error) {
+func ParseSetfsuidArgs(log *logging.Logger, decoder *Decoder) (types.SetfsuidArgs, error) {
   var result types.SetfsuidArgs
   var err error
 
@@ -4174,6 +4611,10 @@ func ParseSetfsuidArgs(decoder *Decoder) (types.SetfsuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetfsuidArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setfsuid': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4194,7 +4635,7 @@ func ParseSetfsuidArgs(decoder *Decoder) (types.SetfsuidArgs, error) {
   return result, nil
 }
 
-func ParseSetfsgidArgs(decoder *Decoder) (types.SetfsgidArgs, error) {
+func ParseSetfsgidArgs(log *logging.Logger, decoder *Decoder) (types.SetfsgidArgs, error) {
   var result types.SetfsgidArgs
   var err error
 
@@ -4202,6 +4643,10 @@ func ParseSetfsgidArgs(decoder *Decoder) (types.SetfsgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetfsgidArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setfsgid': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4222,7 +4667,7 @@ func ParseSetfsgidArgs(decoder *Decoder) (types.SetfsgidArgs, error) {
   return result, nil
 }
 
-func ParseGetsidArgs(decoder *Decoder) (types.GetsidArgs, error) {
+func ParseGetsidArgs(log *logging.Logger, decoder *Decoder) (types.GetsidArgs, error) {
   var result types.GetsidArgs
   var err error
 
@@ -4230,6 +4675,10 @@ func ParseGetsidArgs(decoder *Decoder) (types.GetsidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetsidArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Getsid': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4250,7 +4699,7 @@ func ParseGetsidArgs(decoder *Decoder) (types.GetsidArgs, error) {
   return result, nil
 }
 
-func ParseCapgetArgs(decoder *Decoder) (types.CapgetArgs, error) {
+func ParseCapgetArgs(log *logging.Logger, decoder *Decoder) (types.CapgetArgs, error) {
   var result types.CapgetArgs
   var err error
 
@@ -4258,6 +4707,10 @@ func ParseCapgetArgs(decoder *Decoder) (types.CapgetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CapgetArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Capget': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4287,7 +4740,7 @@ func ParseCapgetArgs(decoder *Decoder) (types.CapgetArgs, error) {
   return result, nil
 }
 
-func ParseCapsetArgs(decoder *Decoder) (types.CapsetArgs, error) {
+func ParseCapsetArgs(log *logging.Logger, decoder *Decoder) (types.CapsetArgs, error) {
   var result types.CapsetArgs
   var err error
 
@@ -4295,6 +4748,10 @@ func ParseCapsetArgs(decoder *Decoder) (types.CapsetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CapsetArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Capset': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4324,7 +4781,7 @@ func ParseCapsetArgs(decoder *Decoder) (types.CapsetArgs, error) {
   return result, nil
 }
 
-func ParseRtSigpendingArgs(decoder *Decoder) (types.RtSigpendingArgs, error) {
+func ParseRtSigpendingArgs(log *logging.Logger, decoder *Decoder) (types.RtSigpendingArgs, error) {
   var result types.RtSigpendingArgs
   var err error
 
@@ -4332,6 +4789,10 @@ func ParseRtSigpendingArgs(decoder *Decoder) (types.RtSigpendingArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigpendingArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigpending': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4359,7 +4820,7 @@ func ParseRtSigpendingArgs(decoder *Decoder) (types.RtSigpendingArgs, error) {
   return result, nil
 }
 
-func ParseRtSigtimedwaitArgs(decoder *Decoder) (types.RtSigtimedwaitArgs, error) {
+func ParseRtSigtimedwaitArgs(log *logging.Logger, decoder *Decoder) (types.RtSigtimedwaitArgs, error) {
   var result types.RtSigtimedwaitArgs
   var err error
 
@@ -4367,6 +4828,10 @@ func ParseRtSigtimedwaitArgs(decoder *Decoder) (types.RtSigtimedwaitArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigtimedwaitArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigtimedwait': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4406,7 +4871,7 @@ func ParseRtSigtimedwaitArgs(decoder *Decoder) (types.RtSigtimedwaitArgs, error)
   return result, nil
 }
 
-func ParseRtSigqueueinfoArgs(decoder *Decoder) (types.RtSigqueueinfoArgs, error) {
+func ParseRtSigqueueinfoArgs(log *logging.Logger, decoder *Decoder) (types.RtSigqueueinfoArgs, error) {
   var result types.RtSigqueueinfoArgs
   var err error
 
@@ -4414,6 +4879,10 @@ func ParseRtSigqueueinfoArgs(decoder *Decoder) (types.RtSigqueueinfoArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigqueueinfoArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigqueueinfo': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4446,7 +4915,7 @@ func ParseRtSigqueueinfoArgs(decoder *Decoder) (types.RtSigqueueinfoArgs, error)
   return result, nil
 }
 
-func ParseRtSigsuspendArgs(decoder *Decoder) (types.RtSigsuspendArgs, error) {
+func ParseRtSigsuspendArgs(log *logging.Logger, decoder *Decoder) (types.RtSigsuspendArgs, error) {
   var result types.RtSigsuspendArgs
   var err error
 
@@ -4454,6 +4923,10 @@ func ParseRtSigsuspendArgs(decoder *Decoder) (types.RtSigsuspendArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigsuspendArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigsuspend': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4481,7 +4954,7 @@ func ParseRtSigsuspendArgs(decoder *Decoder) (types.RtSigsuspendArgs, error) {
   return result, nil
 }
 
-func ParseSigaltstackArgs(decoder *Decoder) (types.SigaltstackArgs, error) {
+func ParseSigaltstackArgs(log *logging.Logger, decoder *Decoder) (types.SigaltstackArgs, error) {
   var result types.SigaltstackArgs
   var err error
 
@@ -4489,6 +4962,10 @@ func ParseSigaltstackArgs(decoder *Decoder) (types.SigaltstackArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigaltstackArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Sigaltstack': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4518,7 +4995,7 @@ func ParseSigaltstackArgs(decoder *Decoder) (types.SigaltstackArgs, error) {
   return result, nil
 }
 
-func ParseUtimeArgs(decoder *Decoder) (types.UtimeArgs, error) {
+func ParseUtimeArgs(log *logging.Logger, decoder *Decoder) (types.UtimeArgs, error) {
   var result types.UtimeArgs
   var err error
 
@@ -4526,6 +5003,10 @@ func ParseUtimeArgs(decoder *Decoder) (types.UtimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UtimeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Utime': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4553,7 +5034,7 @@ func ParseUtimeArgs(decoder *Decoder) (types.UtimeArgs, error) {
   return result, nil
 }
 
-func ParseMknodArgs(decoder *Decoder) (types.MknodArgs, error) {
+func ParseMknodArgs(log *logging.Logger, decoder *Decoder) (types.MknodArgs, error) {
   var result types.MknodArgs
   var err error
 
@@ -4561,6 +5042,10 @@ func ParseMknodArgs(decoder *Decoder) (types.MknodArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MknodArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Mknod': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4591,7 +5076,7 @@ func ParseMknodArgs(decoder *Decoder) (types.MknodArgs, error) {
   return result, nil
 }
 
-func ParseUselibArgs(decoder *Decoder) (types.UselibArgs, error) {
+func ParseUselibArgs(log *logging.Logger, decoder *Decoder) (types.UselibArgs, error) {
   var result types.UselibArgs
   var err error
 
@@ -4599,6 +5084,10 @@ func ParseUselibArgs(decoder *Decoder) (types.UselibArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UselibArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Uselib': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4619,7 +5108,7 @@ func ParseUselibArgs(decoder *Decoder) (types.UselibArgs, error) {
   return result, nil
 }
 
-func ParsePersonalityArgs(decoder *Decoder) (types.PersonalityArgs, error) {
+func ParsePersonalityArgs(log *logging.Logger, decoder *Decoder) (types.PersonalityArgs, error) {
   var result types.PersonalityArgs
   var err error
 
@@ -4627,6 +5116,10 @@ func ParsePersonalityArgs(decoder *Decoder) (types.PersonalityArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PersonalityArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Personality': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4647,7 +5140,7 @@ func ParsePersonalityArgs(decoder *Decoder) (types.PersonalityArgs, error) {
   return result, nil
 }
 
-func ParseUstatArgs(decoder *Decoder) (types.UstatArgs, error) {
+func ParseUstatArgs(log *logging.Logger, decoder *Decoder) (types.UstatArgs, error) {
   var result types.UstatArgs
   var err error
 
@@ -4655,6 +5148,10 @@ func ParseUstatArgs(decoder *Decoder) (types.UstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UstatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Ustat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4682,7 +5179,7 @@ func ParseUstatArgs(decoder *Decoder) (types.UstatArgs, error) {
   return result, nil
 }
 
-func ParseStatfsArgs(decoder *Decoder) (types.StatfsArgs, error) {
+func ParseStatfsArgs(log *logging.Logger, decoder *Decoder) (types.StatfsArgs, error) {
   var result types.StatfsArgs
   var err error
 
@@ -4690,6 +5187,10 @@ func ParseStatfsArgs(decoder *Decoder) (types.StatfsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StatfsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Statfs': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4717,7 +5218,7 @@ func ParseStatfsArgs(decoder *Decoder) (types.StatfsArgs, error) {
   return result, nil
 }
 
-func ParseFstatfsArgs(decoder *Decoder) (types.FstatfsArgs, error) {
+func ParseFstatfsArgs(log *logging.Logger, decoder *Decoder) (types.FstatfsArgs, error) {
   var result types.FstatfsArgs
   var err error
 
@@ -4725,6 +5226,10 @@ func ParseFstatfsArgs(decoder *Decoder) (types.FstatfsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FstatfsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Fstatfs': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4752,7 +5257,7 @@ func ParseFstatfsArgs(decoder *Decoder) (types.FstatfsArgs, error) {
   return result, nil
 }
 
-func ParseSysfsArgs(decoder *Decoder) (types.SysfsArgs, error) {
+func ParseSysfsArgs(log *logging.Logger, decoder *Decoder) (types.SysfsArgs, error) {
   var result types.SysfsArgs
   var err error
 
@@ -4760,6 +5265,10 @@ func ParseSysfsArgs(decoder *Decoder) (types.SysfsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SysfsArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Sysfs': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4780,7 +5289,7 @@ func ParseSysfsArgs(decoder *Decoder) (types.SysfsArgs, error) {
   return result, nil
 }
 
-func ParseGetpriorityArgs(decoder *Decoder) (types.GetpriorityArgs, error) {
+func ParseGetpriorityArgs(log *logging.Logger, decoder *Decoder) (types.GetpriorityArgs, error) {
   var result types.GetpriorityArgs
   var err error
 
@@ -4788,6 +5297,10 @@ func ParseGetpriorityArgs(decoder *Decoder) (types.GetpriorityArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetpriorityArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getpriority': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4813,7 +5326,7 @@ func ParseGetpriorityArgs(decoder *Decoder) (types.GetpriorityArgs, error) {
   return result, nil
 }
 
-func ParseSetpriorityArgs(decoder *Decoder) (types.SetpriorityArgs, error) {
+func ParseSetpriorityArgs(log *logging.Logger, decoder *Decoder) (types.SetpriorityArgs, error) {
   var result types.SetpriorityArgs
   var err error
 
@@ -4821,6 +5334,10 @@ func ParseSetpriorityArgs(decoder *Decoder) (types.SetpriorityArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetpriorityArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Setpriority': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4851,7 +5368,7 @@ func ParseSetpriorityArgs(decoder *Decoder) (types.SetpriorityArgs, error) {
   return result, nil
 }
 
-func ParseSchedSetparamArgs(decoder *Decoder) (types.SchedSetparamArgs, error) {
+func ParseSchedSetparamArgs(log *logging.Logger, decoder *Decoder) (types.SchedSetparamArgs, error) {
   var result types.SchedSetparamArgs
   var err error
 
@@ -4859,6 +5376,10 @@ func ParseSchedSetparamArgs(decoder *Decoder) (types.SchedSetparamArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSetparamArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SchedSetparam': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4886,7 +5407,7 @@ func ParseSchedSetparamArgs(decoder *Decoder) (types.SchedSetparamArgs, error) {
   return result, nil
 }
 
-func ParseSchedGetparamArgs(decoder *Decoder) (types.SchedGetparamArgs, error) {
+func ParseSchedGetparamArgs(log *logging.Logger, decoder *Decoder) (types.SchedGetparamArgs, error) {
   var result types.SchedGetparamArgs
   var err error
 
@@ -4894,6 +5415,10 @@ func ParseSchedGetparamArgs(decoder *Decoder) (types.SchedGetparamArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetparamArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SchedGetparam': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4921,7 +5446,7 @@ func ParseSchedGetparamArgs(decoder *Decoder) (types.SchedGetparamArgs, error) {
   return result, nil
 }
 
-func ParseSchedSetschedulerArgs(decoder *Decoder) (types.SchedSetschedulerArgs, error) {
+func ParseSchedSetschedulerArgs(log *logging.Logger, decoder *Decoder) (types.SchedSetschedulerArgs, error) {
   var result types.SchedSetschedulerArgs
   var err error
 
@@ -4929,6 +5454,10 @@ func ParseSchedSetschedulerArgs(decoder *Decoder) (types.SchedSetschedulerArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSetschedulerArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SchedSetscheduler': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4961,7 +5490,7 @@ func ParseSchedSetschedulerArgs(decoder *Decoder) (types.SchedSetschedulerArgs, 
   return result, nil
 }
 
-func ParseSchedGetschedulerArgs(decoder *Decoder) (types.SchedGetschedulerArgs, error) {
+func ParseSchedGetschedulerArgs(log *logging.Logger, decoder *Decoder) (types.SchedGetschedulerArgs, error) {
   var result types.SchedGetschedulerArgs
   var err error
 
@@ -4969,6 +5498,10 @@ func ParseSchedGetschedulerArgs(decoder *Decoder) (types.SchedGetschedulerArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetschedulerArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SchedGetscheduler': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4989,7 +5522,7 @@ func ParseSchedGetschedulerArgs(decoder *Decoder) (types.SchedGetschedulerArgs, 
   return result, nil
 }
 
-func ParseSchedGetPriorityMaxArgs(decoder *Decoder) (types.SchedGetPriorityMaxArgs, error) {
+func ParseSchedGetPriorityMaxArgs(log *logging.Logger, decoder *Decoder) (types.SchedGetPriorityMaxArgs, error) {
   var result types.SchedGetPriorityMaxArgs
   var err error
 
@@ -4997,6 +5530,10 @@ func ParseSchedGetPriorityMaxArgs(decoder *Decoder) (types.SchedGetPriorityMaxAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetPriorityMaxArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SchedGetPriorityMax': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5017,7 +5554,7 @@ func ParseSchedGetPriorityMaxArgs(decoder *Decoder) (types.SchedGetPriorityMaxAr
   return result, nil
 }
 
-func ParseSchedGetPriorityMinArgs(decoder *Decoder) (types.SchedGetPriorityMinArgs, error) {
+func ParseSchedGetPriorityMinArgs(log *logging.Logger, decoder *Decoder) (types.SchedGetPriorityMinArgs, error) {
   var result types.SchedGetPriorityMinArgs
   var err error
 
@@ -5025,6 +5562,10 @@ func ParseSchedGetPriorityMinArgs(decoder *Decoder) (types.SchedGetPriorityMinAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetPriorityMinArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SchedGetPriorityMin': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5045,7 +5586,7 @@ func ParseSchedGetPriorityMinArgs(decoder *Decoder) (types.SchedGetPriorityMinAr
   return result, nil
 }
 
-func ParseSchedRrGetIntervalArgs(decoder *Decoder) (types.SchedRrGetIntervalArgs, error) {
+func ParseSchedRrGetIntervalArgs(log *logging.Logger, decoder *Decoder) (types.SchedRrGetIntervalArgs, error) {
   var result types.SchedRrGetIntervalArgs
   var err error
 
@@ -5053,6 +5594,10 @@ func ParseSchedRrGetIntervalArgs(decoder *Decoder) (types.SchedRrGetIntervalArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedRrGetIntervalArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SchedRrGetInterval': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5078,7 +5623,7 @@ func ParseSchedRrGetIntervalArgs(decoder *Decoder) (types.SchedRrGetIntervalArgs
   return result, nil
 }
 
-func ParseMlockArgs(decoder *Decoder) (types.MlockArgs, error) {
+func ParseMlockArgs(log *logging.Logger, decoder *Decoder) (types.MlockArgs, error) {
   var result types.MlockArgs
   var err error
 
@@ -5086,6 +5631,10 @@ func ParseMlockArgs(decoder *Decoder) (types.MlockArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MlockArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Mlock': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5113,7 +5662,7 @@ func ParseMlockArgs(decoder *Decoder) (types.MlockArgs, error) {
   return result, nil
 }
 
-func ParseMunlockArgs(decoder *Decoder) (types.MunlockArgs, error) {
+func ParseMunlockArgs(log *logging.Logger, decoder *Decoder) (types.MunlockArgs, error) {
   var result types.MunlockArgs
   var err error
 
@@ -5121,6 +5670,10 @@ func ParseMunlockArgs(decoder *Decoder) (types.MunlockArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MunlockArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Munlock': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5148,7 +5701,7 @@ func ParseMunlockArgs(decoder *Decoder) (types.MunlockArgs, error) {
   return result, nil
 }
 
-func ParseMlockallArgs(decoder *Decoder) (types.MlockallArgs, error) {
+func ParseMlockallArgs(log *logging.Logger, decoder *Decoder) (types.MlockallArgs, error) {
   var result types.MlockallArgs
   var err error
 
@@ -5156,6 +5709,10 @@ func ParseMlockallArgs(decoder *Decoder) (types.MlockallArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MlockallArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Mlockall': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5176,15 +5733,15 @@ func ParseMlockallArgs(decoder *Decoder) (types.MlockallArgs, error) {
   return result, nil
 }
 
-func ParseMunlockallArgs(decoder *Decoder) (types.MunlockallArgs, error) {
+func ParseMunlockallArgs(log *logging.Logger, decoder *Decoder) (types.MunlockallArgs, error) {
   return types.MunlockallArgs{}, nil
 }
 
-func ParseVhangupArgs(decoder *Decoder) (types.VhangupArgs, error) {
+func ParseVhangupArgs(log *logging.Logger, decoder *Decoder) (types.VhangupArgs, error) {
   return types.VhangupArgs{}, nil
 }
 
-func ParseModifyLdtArgs(decoder *Decoder) (types.ModifyLdtArgs, error) {
+func ParseModifyLdtArgs(log *logging.Logger, decoder *Decoder) (types.ModifyLdtArgs, error) {
   var result types.ModifyLdtArgs
   var err error
 
@@ -5192,6 +5749,10 @@ func ParseModifyLdtArgs(decoder *Decoder) (types.ModifyLdtArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ModifyLdtArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'ModifyLdt': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5224,7 +5785,7 @@ func ParseModifyLdtArgs(decoder *Decoder) (types.ModifyLdtArgs, error) {
   return result, nil
 }
 
-func ParsePivotRootArgs(decoder *Decoder) (types.PivotRootArgs, error) {
+func ParsePivotRootArgs(log *logging.Logger, decoder *Decoder) (types.PivotRootArgs, error) {
   var result types.PivotRootArgs
   var err error
 
@@ -5232,6 +5793,10 @@ func ParsePivotRootArgs(decoder *Decoder) (types.PivotRootArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PivotRootArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'PivotRoot': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5257,7 +5822,7 @@ func ParsePivotRootArgs(decoder *Decoder) (types.PivotRootArgs, error) {
   return result, nil
 }
 
-func ParseSysctlArgs(decoder *Decoder) (types.SysctlArgs, error) {
+func ParseSysctlArgs(log *logging.Logger, decoder *Decoder) (types.SysctlArgs, error) {
   var result types.SysctlArgs
   var err error
 
@@ -5265,6 +5830,10 @@ func ParseSysctlArgs(decoder *Decoder) (types.SysctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SysctlArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Sysctl': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5287,7 +5856,7 @@ func ParseSysctlArgs(decoder *Decoder) (types.SysctlArgs, error) {
   return result, nil
 }
 
-func ParsePrctlArgs(decoder *Decoder) (types.PrctlArgs, error) {
+func ParsePrctlArgs(log *logging.Logger, decoder *Decoder) (types.PrctlArgs, error) {
   var result types.PrctlArgs
   var err error
 
@@ -5295,6 +5864,10 @@ func ParsePrctlArgs(decoder *Decoder) (types.PrctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PrctlArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Prctl': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5335,7 +5908,7 @@ func ParsePrctlArgs(decoder *Decoder) (types.PrctlArgs, error) {
   return result, nil
 }
 
-func ParseArchPrctlArgs(decoder *Decoder) (types.ArchPrctlArgs, error) {
+func ParseArchPrctlArgs(log *logging.Logger, decoder *Decoder) (types.ArchPrctlArgs, error) {
   var result types.ArchPrctlArgs
   var err error
 
@@ -5343,6 +5916,10 @@ func ParseArchPrctlArgs(decoder *Decoder) (types.ArchPrctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ArchPrctlArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ArchPrctl': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5368,7 +5945,7 @@ func ParseArchPrctlArgs(decoder *Decoder) (types.ArchPrctlArgs, error) {
   return result, nil
 }
 
-func ParseAdjtimexArgs(decoder *Decoder) (types.AdjtimexArgs, error) {
+func ParseAdjtimexArgs(log *logging.Logger, decoder *Decoder) (types.AdjtimexArgs, error) {
   var result types.AdjtimexArgs
   var err error
 
@@ -5376,6 +5953,10 @@ func ParseAdjtimexArgs(decoder *Decoder) (types.AdjtimexArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AdjtimexArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Adjtimex': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5398,7 +5979,7 @@ func ParseAdjtimexArgs(decoder *Decoder) (types.AdjtimexArgs, error) {
   return result, nil
 }
 
-func ParseSetrlimitArgs(decoder *Decoder) (types.SetrlimitArgs, error) {
+func ParseSetrlimitArgs(log *logging.Logger, decoder *Decoder) (types.SetrlimitArgs, error) {
   var result types.SetrlimitArgs
   var err error
 
@@ -5406,6 +5987,10 @@ func ParseSetrlimitArgs(decoder *Decoder) (types.SetrlimitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetrlimitArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setrlimit': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5433,7 +6018,7 @@ func ParseSetrlimitArgs(decoder *Decoder) (types.SetrlimitArgs, error) {
   return result, nil
 }
 
-func ParseChrootArgs(decoder *Decoder) (types.ChrootArgs, error) {
+func ParseChrootArgs(log *logging.Logger, decoder *Decoder) (types.ChrootArgs, error) {
   var result types.ChrootArgs
   var err error
 
@@ -5441,6 +6026,10 @@ func ParseChrootArgs(decoder *Decoder) (types.ChrootArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ChrootArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Chroot': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5461,11 +6050,11 @@ func ParseChrootArgs(decoder *Decoder) (types.ChrootArgs, error) {
   return result, nil
 }
 
-func ParseSyncArgs(decoder *Decoder) (types.SyncArgs, error) {
+func ParseSyncArgs(log *logging.Logger, decoder *Decoder) (types.SyncArgs, error) {
   return types.SyncArgs{}, nil
 }
 
-func ParseAcctArgs(decoder *Decoder) (types.AcctArgs, error) {
+func ParseAcctArgs(log *logging.Logger, decoder *Decoder) (types.AcctArgs, error) {
   var result types.AcctArgs
   var err error
 
@@ -5473,6 +6062,10 @@ func ParseAcctArgs(decoder *Decoder) (types.AcctArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AcctArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Acct': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5493,7 +6086,7 @@ func ParseAcctArgs(decoder *Decoder) (types.AcctArgs, error) {
   return result, nil
 }
 
-func ParseSettimeofdayArgs(decoder *Decoder) (types.SettimeofdayArgs, error) {
+func ParseSettimeofdayArgs(log *logging.Logger, decoder *Decoder) (types.SettimeofdayArgs, error) {
   var result types.SettimeofdayArgs
   var err error
 
@@ -5501,6 +6094,10 @@ func ParseSettimeofdayArgs(decoder *Decoder) (types.SettimeofdayArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SettimeofdayArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Settimeofday': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5530,7 +6127,7 @@ func ParseSettimeofdayArgs(decoder *Decoder) (types.SettimeofdayArgs, error) {
   return result, nil
 }
 
-func ParseMountArgs(decoder *Decoder) (types.MountArgs, error) {
+func ParseMountArgs(log *logging.Logger, decoder *Decoder) (types.MountArgs, error) {
   var result types.MountArgs
   var err error
 
@@ -5538,6 +6135,10 @@ func ParseMountArgs(decoder *Decoder) (types.MountArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MountArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Mount': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5580,7 +6181,7 @@ func ParseMountArgs(decoder *Decoder) (types.MountArgs, error) {
   return result, nil
 }
 
-func ParseUmount2Args(decoder *Decoder) (types.Umount2Args, error) {
+func ParseUmount2Args(log *logging.Logger, decoder *Decoder) (types.Umount2Args, error) {
   var result types.Umount2Args
   var err error
 
@@ -5588,6 +6189,10 @@ func ParseUmount2Args(decoder *Decoder) (types.Umount2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Umount2Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Umount2': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5613,7 +6218,7 @@ func ParseUmount2Args(decoder *Decoder) (types.Umount2Args, error) {
   return result, nil
 }
 
-func ParseSwaponArgs(decoder *Decoder) (types.SwaponArgs, error) {
+func ParseSwaponArgs(log *logging.Logger, decoder *Decoder) (types.SwaponArgs, error) {
   var result types.SwaponArgs
   var err error
 
@@ -5621,6 +6226,10 @@ func ParseSwaponArgs(decoder *Decoder) (types.SwaponArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SwaponArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Swapon': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5646,7 +6255,7 @@ func ParseSwaponArgs(decoder *Decoder) (types.SwaponArgs, error) {
   return result, nil
 }
 
-func ParseSwapoffArgs(decoder *Decoder) (types.SwapoffArgs, error) {
+func ParseSwapoffArgs(log *logging.Logger, decoder *Decoder) (types.SwapoffArgs, error) {
   var result types.SwapoffArgs
   var err error
 
@@ -5654,6 +6263,10 @@ func ParseSwapoffArgs(decoder *Decoder) (types.SwapoffArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SwapoffArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Swapoff': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5674,7 +6287,7 @@ func ParseSwapoffArgs(decoder *Decoder) (types.SwapoffArgs, error) {
   return result, nil
 }
 
-func ParseRebootArgs(decoder *Decoder) (types.RebootArgs, error) {
+func ParseRebootArgs(log *logging.Logger, decoder *Decoder) (types.RebootArgs, error) {
   var result types.RebootArgs
   var err error
 
@@ -5682,6 +6295,10 @@ func ParseRebootArgs(decoder *Decoder) (types.RebootArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RebootArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Reboot': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5719,7 +6336,7 @@ func ParseRebootArgs(decoder *Decoder) (types.RebootArgs, error) {
   return result, nil
 }
 
-func ParseSethostnameArgs(decoder *Decoder) (types.SethostnameArgs, error) {
+func ParseSethostnameArgs(log *logging.Logger, decoder *Decoder) (types.SethostnameArgs, error) {
   var result types.SethostnameArgs
   var err error
 
@@ -5727,6 +6344,10 @@ func ParseSethostnameArgs(decoder *Decoder) (types.SethostnameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SethostnameArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Sethostname': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5752,7 +6373,7 @@ func ParseSethostnameArgs(decoder *Decoder) (types.SethostnameArgs, error) {
   return result, nil
 }
 
-func ParseSetdomainnameArgs(decoder *Decoder) (types.SetdomainnameArgs, error) {
+func ParseSetdomainnameArgs(log *logging.Logger, decoder *Decoder) (types.SetdomainnameArgs, error) {
   var result types.SetdomainnameArgs
   var err error
 
@@ -5760,6 +6381,10 @@ func ParseSetdomainnameArgs(decoder *Decoder) (types.SetdomainnameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetdomainnameArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setdomainname': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5785,7 +6410,7 @@ func ParseSetdomainnameArgs(decoder *Decoder) (types.SetdomainnameArgs, error) {
   return result, nil
 }
 
-func ParseIoplArgs(decoder *Decoder) (types.IoplArgs, error) {
+func ParseIoplArgs(log *logging.Logger, decoder *Decoder) (types.IoplArgs, error) {
   var result types.IoplArgs
   var err error
 
@@ -5793,6 +6418,10 @@ func ParseIoplArgs(decoder *Decoder) (types.IoplArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoplArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Iopl': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5813,7 +6442,7 @@ func ParseIoplArgs(decoder *Decoder) (types.IoplArgs, error) {
   return result, nil
 }
 
-func ParseIopermArgs(decoder *Decoder) (types.IopermArgs, error) {
+func ParseIopermArgs(log *logging.Logger, decoder *Decoder) (types.IopermArgs, error) {
   var result types.IopermArgs
   var err error
 
@@ -5821,6 +6450,10 @@ func ParseIopermArgs(decoder *Decoder) (types.IopermArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IopermArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Ioperm': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5851,11 +6484,11 @@ func ParseIopermArgs(decoder *Decoder) (types.IopermArgs, error) {
   return result, nil
 }
 
-func ParseCreateModuleArgs(decoder *Decoder) (types.CreateModuleArgs, error) {
+func ParseCreateModuleArgs(log *logging.Logger, decoder *Decoder) (types.CreateModuleArgs, error) {
   return types.CreateModuleArgs{}, nil
 }
 
-func ParseInitModuleArgs(decoder *Decoder) (types.InitModuleArgs, error) {
+func ParseInitModuleArgs(log *logging.Logger, decoder *Decoder) (types.InitModuleArgs, error) {
   var result types.InitModuleArgs
   var err error
 
@@ -5863,6 +6496,10 @@ func ParseInitModuleArgs(decoder *Decoder) (types.InitModuleArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InitModuleArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'InitModule': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5895,7 +6532,7 @@ func ParseInitModuleArgs(decoder *Decoder) (types.InitModuleArgs, error) {
   return result, nil
 }
 
-func ParseDeleteModuleArgs(decoder *Decoder) (types.DeleteModuleArgs, error) {
+func ParseDeleteModuleArgs(log *logging.Logger, decoder *Decoder) (types.DeleteModuleArgs, error) {
   var result types.DeleteModuleArgs
   var err error
 
@@ -5903,6 +6540,10 @@ func ParseDeleteModuleArgs(decoder *Decoder) (types.DeleteModuleArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DeleteModuleArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'DeleteModule': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5928,15 +6569,15 @@ func ParseDeleteModuleArgs(decoder *Decoder) (types.DeleteModuleArgs, error) {
   return result, nil
 }
 
-func ParseGetKernelSymsArgs(decoder *Decoder) (types.GetKernelSymsArgs, error) {
+func ParseGetKernelSymsArgs(log *logging.Logger, decoder *Decoder) (types.GetKernelSymsArgs, error) {
   return types.GetKernelSymsArgs{}, nil
 }
 
-func ParseQueryModuleArgs(decoder *Decoder) (types.QueryModuleArgs, error) {
+func ParseQueryModuleArgs(log *logging.Logger, decoder *Decoder) (types.QueryModuleArgs, error) {
   return types.QueryModuleArgs{}, nil
 }
 
-func ParseQuotactlArgs(decoder *Decoder) (types.QuotactlArgs, error) {
+func ParseQuotactlArgs(log *logging.Logger, decoder *Decoder) (types.QuotactlArgs, error) {
   var result types.QuotactlArgs
   var err error
 
@@ -5944,6 +6585,10 @@ func ParseQuotactlArgs(decoder *Decoder) (types.QuotactlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.QuotactlArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Quotactl': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5981,35 +6626,35 @@ func ParseQuotactlArgs(decoder *Decoder) (types.QuotactlArgs, error) {
   return result, nil
 }
 
-func ParseNfsservctlArgs(decoder *Decoder) (types.NfsservctlArgs, error) {
+func ParseNfsservctlArgs(log *logging.Logger, decoder *Decoder) (types.NfsservctlArgs, error) {
   return types.NfsservctlArgs{}, nil
 }
 
-func ParseGetpmsgArgs(decoder *Decoder) (types.GetpmsgArgs, error) {
+func ParseGetpmsgArgs(log *logging.Logger, decoder *Decoder) (types.GetpmsgArgs, error) {
   return types.GetpmsgArgs{}, nil
 }
 
-func ParsePutpmsgArgs(decoder *Decoder) (types.PutpmsgArgs, error) {
+func ParsePutpmsgArgs(log *logging.Logger, decoder *Decoder) (types.PutpmsgArgs, error) {
   return types.PutpmsgArgs{}, nil
 }
 
-func ParseAfsArgs(decoder *Decoder) (types.AfsArgs, error) {
+func ParseAfsArgs(log *logging.Logger, decoder *Decoder) (types.AfsArgs, error) {
   return types.AfsArgs{}, nil
 }
 
-func ParseTuxcallArgs(decoder *Decoder) (types.TuxcallArgs, error) {
+func ParseTuxcallArgs(log *logging.Logger, decoder *Decoder) (types.TuxcallArgs, error) {
   return types.TuxcallArgs{}, nil
 }
 
-func ParseSecurityArgs(decoder *Decoder) (types.SecurityArgs, error) {
+func ParseSecurityArgs(log *logging.Logger, decoder *Decoder) (types.SecurityArgs, error) {
   return types.SecurityArgs{}, nil
 }
 
-func ParseGettidArgs(decoder *Decoder) (types.GettidArgs, error) {
+func ParseGettidArgs(log *logging.Logger, decoder *Decoder) (types.GettidArgs, error) {
   return types.GettidArgs{}, nil
 }
 
-func ParseReadaheadArgs(decoder *Decoder) (types.ReadaheadArgs, error) {
+func ParseReadaheadArgs(log *logging.Logger, decoder *Decoder) (types.ReadaheadArgs, error) {
   var result types.ReadaheadArgs
   var err error
 
@@ -6017,6 +6662,10 @@ func ParseReadaheadArgs(decoder *Decoder) (types.ReadaheadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadaheadArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Readahead': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6047,7 +6696,7 @@ func ParseReadaheadArgs(decoder *Decoder) (types.ReadaheadArgs, error) {
   return result, nil
 }
 
-func ParseSetxattrArgs(decoder *Decoder) (types.SetxattrArgs, error) {
+func ParseSetxattrArgs(log *logging.Logger, decoder *Decoder) (types.SetxattrArgs, error) {
   var result types.SetxattrArgs
   var err error
 
@@ -6055,6 +6704,10 @@ func ParseSetxattrArgs(decoder *Decoder) (types.SetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetxattrArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Setxattr': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6097,7 +6750,7 @@ func ParseSetxattrArgs(decoder *Decoder) (types.SetxattrArgs, error) {
   return result, nil
 }
 
-func ParseLsetxattrArgs(decoder *Decoder) (types.LsetxattrArgs, error) {
+func ParseLsetxattrArgs(log *logging.Logger, decoder *Decoder) (types.LsetxattrArgs, error) {
   var result types.LsetxattrArgs
   var err error
 
@@ -6105,6 +6758,10 @@ func ParseLsetxattrArgs(decoder *Decoder) (types.LsetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LsetxattrArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Lsetxattr': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6147,7 +6804,7 @@ func ParseLsetxattrArgs(decoder *Decoder) (types.LsetxattrArgs, error) {
   return result, nil
 }
 
-func ParseFsetxattrArgs(decoder *Decoder) (types.FsetxattrArgs, error) {
+func ParseFsetxattrArgs(log *logging.Logger, decoder *Decoder) (types.FsetxattrArgs, error) {
   var result types.FsetxattrArgs
   var err error
 
@@ -6155,6 +6812,10 @@ func ParseFsetxattrArgs(decoder *Decoder) (types.FsetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsetxattrArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Fsetxattr': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6197,7 +6858,7 @@ func ParseFsetxattrArgs(decoder *Decoder) (types.FsetxattrArgs, error) {
   return result, nil
 }
 
-func ParseGetxattrArgs(decoder *Decoder) (types.GetxattrArgs, error) {
+func ParseGetxattrArgs(log *logging.Logger, decoder *Decoder) (types.GetxattrArgs, error) {
   var result types.GetxattrArgs
   var err error
 
@@ -6205,6 +6866,10 @@ func ParseGetxattrArgs(decoder *Decoder) (types.GetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetxattrArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Getxattr': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6242,7 +6907,7 @@ func ParseGetxattrArgs(decoder *Decoder) (types.GetxattrArgs, error) {
   return result, nil
 }
 
-func ParseLgetxattrArgs(decoder *Decoder) (types.LgetxattrArgs, error) {
+func ParseLgetxattrArgs(log *logging.Logger, decoder *Decoder) (types.LgetxattrArgs, error) {
   var result types.LgetxattrArgs
   var err error
 
@@ -6250,6 +6915,10 @@ func ParseLgetxattrArgs(decoder *Decoder) (types.LgetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LgetxattrArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Lgetxattr': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6287,7 +6956,7 @@ func ParseLgetxattrArgs(decoder *Decoder) (types.LgetxattrArgs, error) {
   return result, nil
 }
 
-func ParseFgetxattrArgs(decoder *Decoder) (types.FgetxattrArgs, error) {
+func ParseFgetxattrArgs(log *logging.Logger, decoder *Decoder) (types.FgetxattrArgs, error) {
   var result types.FgetxattrArgs
   var err error
 
@@ -6295,6 +6964,10 @@ func ParseFgetxattrArgs(decoder *Decoder) (types.FgetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FgetxattrArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Fgetxattr': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6332,7 +7005,7 @@ func ParseFgetxattrArgs(decoder *Decoder) (types.FgetxattrArgs, error) {
   return result, nil
 }
 
-func ParseListxattrArgs(decoder *Decoder) (types.ListxattrArgs, error) {
+func ParseListxattrArgs(log *logging.Logger, decoder *Decoder) (types.ListxattrArgs, error) {
   var result types.ListxattrArgs
   var err error
 
@@ -6340,6 +7013,10 @@ func ParseListxattrArgs(decoder *Decoder) (types.ListxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ListxattrArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Listxattr': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6370,7 +7047,7 @@ func ParseListxattrArgs(decoder *Decoder) (types.ListxattrArgs, error) {
   return result, nil
 }
 
-func ParseLlistxattrArgs(decoder *Decoder) (types.LlistxattrArgs, error) {
+func ParseLlistxattrArgs(log *logging.Logger, decoder *Decoder) (types.LlistxattrArgs, error) {
   var result types.LlistxattrArgs
   var err error
 
@@ -6378,6 +7055,10 @@ func ParseLlistxattrArgs(decoder *Decoder) (types.LlistxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LlistxattrArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Llistxattr': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6408,7 +7089,7 @@ func ParseLlistxattrArgs(decoder *Decoder) (types.LlistxattrArgs, error) {
   return result, nil
 }
 
-func ParseFlistxattrArgs(decoder *Decoder) (types.FlistxattrArgs, error) {
+func ParseFlistxattrArgs(log *logging.Logger, decoder *Decoder) (types.FlistxattrArgs, error) {
   var result types.FlistxattrArgs
   var err error
 
@@ -6416,6 +7097,10 @@ func ParseFlistxattrArgs(decoder *Decoder) (types.FlistxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FlistxattrArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Flistxattr': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6446,7 +7131,7 @@ func ParseFlistxattrArgs(decoder *Decoder) (types.FlistxattrArgs, error) {
   return result, nil
 }
 
-func ParseRemovexattrArgs(decoder *Decoder) (types.RemovexattrArgs, error) {
+func ParseRemovexattrArgs(log *logging.Logger, decoder *Decoder) (types.RemovexattrArgs, error) {
   var result types.RemovexattrArgs
   var err error
 
@@ -6454,6 +7139,10 @@ func ParseRemovexattrArgs(decoder *Decoder) (types.RemovexattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RemovexattrArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Removexattr': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6479,7 +7168,7 @@ func ParseRemovexattrArgs(decoder *Decoder) (types.RemovexattrArgs, error) {
   return result, nil
 }
 
-func ParseLremovexattrArgs(decoder *Decoder) (types.LremovexattrArgs, error) {
+func ParseLremovexattrArgs(log *logging.Logger, decoder *Decoder) (types.LremovexattrArgs, error) {
   var result types.LremovexattrArgs
   var err error
 
@@ -6487,6 +7176,10 @@ func ParseLremovexattrArgs(decoder *Decoder) (types.LremovexattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LremovexattrArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Lremovexattr': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6512,7 +7205,7 @@ func ParseLremovexattrArgs(decoder *Decoder) (types.LremovexattrArgs, error) {
   return result, nil
 }
 
-func ParseFremovexattrArgs(decoder *Decoder) (types.FremovexattrArgs, error) {
+func ParseFremovexattrArgs(log *logging.Logger, decoder *Decoder) (types.FremovexattrArgs, error) {
   var result types.FremovexattrArgs
   var err error
 
@@ -6520,6 +7213,10 @@ func ParseFremovexattrArgs(decoder *Decoder) (types.FremovexattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FremovexattrArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Fremovexattr': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6545,7 +7242,7 @@ func ParseFremovexattrArgs(decoder *Decoder) (types.FremovexattrArgs, error) {
   return result, nil
 }
 
-func ParseTkillArgs(decoder *Decoder) (types.TkillArgs, error) {
+func ParseTkillArgs(log *logging.Logger, decoder *Decoder) (types.TkillArgs, error) {
   var result types.TkillArgs
   var err error
 
@@ -6553,6 +7250,10 @@ func ParseTkillArgs(decoder *Decoder) (types.TkillArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TkillArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Tkill': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6578,7 +7279,7 @@ func ParseTkillArgs(decoder *Decoder) (types.TkillArgs, error) {
   return result, nil
 }
 
-func ParseTimeArgs(decoder *Decoder) (types.TimeArgs, error) {
+func ParseTimeArgs(log *logging.Logger, decoder *Decoder) (types.TimeArgs, error) {
   var result types.TimeArgs
   var err error
 
@@ -6586,6 +7287,10 @@ func ParseTimeArgs(decoder *Decoder) (types.TimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimeArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Time': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6608,7 +7313,7 @@ func ParseTimeArgs(decoder *Decoder) (types.TimeArgs, error) {
   return result, nil
 }
 
-func ParseFutexArgs(decoder *Decoder) (types.FutexArgs, error) {
+func ParseFutexArgs(log *logging.Logger, decoder *Decoder) (types.FutexArgs, error) {
   var result types.FutexArgs
   var err error
 
@@ -6616,6 +7321,10 @@ func ParseFutexArgs(decoder *Decoder) (types.FutexArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FutexArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Futex': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6665,7 +7374,7 @@ func ParseFutexArgs(decoder *Decoder) (types.FutexArgs, error) {
   return result, nil
 }
 
-func ParseSchedSetaffinityArgs(decoder *Decoder) (types.SchedSetaffinityArgs, error) {
+func ParseSchedSetaffinityArgs(log *logging.Logger, decoder *Decoder) (types.SchedSetaffinityArgs, error) {
   var result types.SchedSetaffinityArgs
   var err error
 
@@ -6673,6 +7382,10 @@ func ParseSchedSetaffinityArgs(decoder *Decoder) (types.SchedSetaffinityArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSetaffinityArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SchedSetaffinity': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6705,7 +7418,7 @@ func ParseSchedSetaffinityArgs(decoder *Decoder) (types.SchedSetaffinityArgs, er
   return result, nil
 }
 
-func ParseSchedGetaffinityArgs(decoder *Decoder) (types.SchedGetaffinityArgs, error) {
+func ParseSchedGetaffinityArgs(log *logging.Logger, decoder *Decoder) (types.SchedGetaffinityArgs, error) {
   var result types.SchedGetaffinityArgs
   var err error
 
@@ -6713,6 +7426,10 @@ func ParseSchedGetaffinityArgs(decoder *Decoder) (types.SchedGetaffinityArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetaffinityArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SchedGetaffinity': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6745,7 +7462,7 @@ func ParseSchedGetaffinityArgs(decoder *Decoder) (types.SchedGetaffinityArgs, er
   return result, nil
 }
 
-func ParseSetThreadAreaArgs(decoder *Decoder) (types.SetThreadAreaArgs, error) {
+func ParseSetThreadAreaArgs(log *logging.Logger, decoder *Decoder) (types.SetThreadAreaArgs, error) {
   var result types.SetThreadAreaArgs
   var err error
 
@@ -6753,6 +7470,10 @@ func ParseSetThreadAreaArgs(decoder *Decoder) (types.SetThreadAreaArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetThreadAreaArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SetThreadArea': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6775,7 +7496,7 @@ func ParseSetThreadAreaArgs(decoder *Decoder) (types.SetThreadAreaArgs, error) {
   return result, nil
 }
 
-func ParseIoSetupArgs(decoder *Decoder) (types.IoSetupArgs, error) {
+func ParseIoSetupArgs(log *logging.Logger, decoder *Decoder) (types.IoSetupArgs, error) {
   var result types.IoSetupArgs
   var err error
 
@@ -6783,6 +7504,10 @@ func ParseIoSetupArgs(decoder *Decoder) (types.IoSetupArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoSetupArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'IoSetup': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6810,7 +7535,7 @@ func ParseIoSetupArgs(decoder *Decoder) (types.IoSetupArgs, error) {
   return result, nil
 }
 
-func ParseIoDestroyArgs(decoder *Decoder) (types.IoDestroyArgs, error) {
+func ParseIoDestroyArgs(log *logging.Logger, decoder *Decoder) (types.IoDestroyArgs, error) {
   var result types.IoDestroyArgs
   var err error
 
@@ -6818,6 +7543,10 @@ func ParseIoDestroyArgs(decoder *Decoder) (types.IoDestroyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoDestroyArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'IoDestroy': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6840,7 +7569,7 @@ func ParseIoDestroyArgs(decoder *Decoder) (types.IoDestroyArgs, error) {
   return result, nil
 }
 
-func ParseIoGeteventsArgs(decoder *Decoder) (types.IoGeteventsArgs, error) {
+func ParseIoGeteventsArgs(log *logging.Logger, decoder *Decoder) (types.IoGeteventsArgs, error) {
   var result types.IoGeteventsArgs
   var err error
 
@@ -6848,6 +7577,10 @@ func ParseIoGeteventsArgs(decoder *Decoder) (types.IoGeteventsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoGeteventsArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'IoGetevents': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6892,7 +7625,7 @@ func ParseIoGeteventsArgs(decoder *Decoder) (types.IoGeteventsArgs, error) {
   return result, nil
 }
 
-func ParseIoSubmitArgs(decoder *Decoder) (types.IoSubmitArgs, error) {
+func ParseIoSubmitArgs(log *logging.Logger, decoder *Decoder) (types.IoSubmitArgs, error) {
   var result types.IoSubmitArgs
   var err error
 
@@ -6900,6 +7633,10 @@ func ParseIoSubmitArgs(decoder *Decoder) (types.IoSubmitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoSubmitArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'IoSubmit': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6934,7 +7671,7 @@ func ParseIoSubmitArgs(decoder *Decoder) (types.IoSubmitArgs, error) {
   return result, nil
 }
 
-func ParseIoCancelArgs(decoder *Decoder) (types.IoCancelArgs, error) {
+func ParseIoCancelArgs(log *logging.Logger, decoder *Decoder) (types.IoCancelArgs, error) {
   var result types.IoCancelArgs
   var err error
 
@@ -6942,6 +7679,10 @@ func ParseIoCancelArgs(decoder *Decoder) (types.IoCancelArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoCancelArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'IoCancel': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6978,7 +7719,7 @@ func ParseIoCancelArgs(decoder *Decoder) (types.IoCancelArgs, error) {
   return result, nil
 }
 
-func ParseGetThreadAreaArgs(decoder *Decoder) (types.GetThreadAreaArgs, error) {
+func ParseGetThreadAreaArgs(log *logging.Logger, decoder *Decoder) (types.GetThreadAreaArgs, error) {
   var result types.GetThreadAreaArgs
   var err error
 
@@ -6986,6 +7727,10 @@ func ParseGetThreadAreaArgs(decoder *Decoder) (types.GetThreadAreaArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetThreadAreaArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'GetThreadArea': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7008,7 +7753,7 @@ func ParseGetThreadAreaArgs(decoder *Decoder) (types.GetThreadAreaArgs, error) {
   return result, nil
 }
 
-func ParseLookupDcookieArgs(decoder *Decoder) (types.LookupDcookieArgs, error) {
+func ParseLookupDcookieArgs(log *logging.Logger, decoder *Decoder) (types.LookupDcookieArgs, error) {
   var result types.LookupDcookieArgs
   var err error
 
@@ -7016,6 +7761,10 @@ func ParseLookupDcookieArgs(decoder *Decoder) (types.LookupDcookieArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LookupDcookieArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'LookupDcookie': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7046,7 +7795,7 @@ func ParseLookupDcookieArgs(decoder *Decoder) (types.LookupDcookieArgs, error) {
   return result, nil
 }
 
-func ParseEpollCreateArgs(decoder *Decoder) (types.EpollCreateArgs, error) {
+func ParseEpollCreateArgs(log *logging.Logger, decoder *Decoder) (types.EpollCreateArgs, error) {
   var result types.EpollCreateArgs
   var err error
 
@@ -7054,6 +7803,10 @@ func ParseEpollCreateArgs(decoder *Decoder) (types.EpollCreateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollCreateArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'EpollCreate': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7074,15 +7827,15 @@ func ParseEpollCreateArgs(decoder *Decoder) (types.EpollCreateArgs, error) {
   return result, nil
 }
 
-func ParseEpollCtlOldArgs(decoder *Decoder) (types.EpollCtlOldArgs, error) {
+func ParseEpollCtlOldArgs(log *logging.Logger, decoder *Decoder) (types.EpollCtlOldArgs, error) {
   return types.EpollCtlOldArgs{}, nil
 }
 
-func ParseEpollWaitOldArgs(decoder *Decoder) (types.EpollWaitOldArgs, error) {
+func ParseEpollWaitOldArgs(log *logging.Logger, decoder *Decoder) (types.EpollWaitOldArgs, error) {
   return types.EpollWaitOldArgs{}, nil
 }
 
-func ParseRemapFilePagesArgs(decoder *Decoder) (types.RemapFilePagesArgs, error) {
+func ParseRemapFilePagesArgs(log *logging.Logger, decoder *Decoder) (types.RemapFilePagesArgs, error) {
   var result types.RemapFilePagesArgs
   var err error
 
@@ -7090,6 +7843,10 @@ func ParseRemapFilePagesArgs(decoder *Decoder) (types.RemapFilePagesArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RemapFilePagesArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'RemapFilePages': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7132,7 +7889,7 @@ func ParseRemapFilePagesArgs(decoder *Decoder) (types.RemapFilePagesArgs, error)
   return result, nil
 }
 
-func ParseGetdents64Args(decoder *Decoder) (types.Getdents64Args, error) {
+func ParseGetdents64Args(log *logging.Logger, decoder *Decoder) (types.Getdents64Args, error) {
   var result types.Getdents64Args
   var err error
 
@@ -7140,6 +7897,10 @@ func ParseGetdents64Args(decoder *Decoder) (types.Getdents64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Getdents64Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getdents64': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7172,7 +7933,7 @@ func ParseGetdents64Args(decoder *Decoder) (types.Getdents64Args, error) {
   return result, nil
 }
 
-func ParseSetTidAddressArgs(decoder *Decoder) (types.SetTidAddressArgs, error) {
+func ParseSetTidAddressArgs(log *logging.Logger, decoder *Decoder) (types.SetTidAddressArgs, error) {
   var result types.SetTidAddressArgs
   var err error
 
@@ -7180,6 +7941,10 @@ func ParseSetTidAddressArgs(decoder *Decoder) (types.SetTidAddressArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetTidAddressArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SetTidAddress': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7202,11 +7967,11 @@ func ParseSetTidAddressArgs(decoder *Decoder) (types.SetTidAddressArgs, error) {
   return result, nil
 }
 
-func ParseRestartSyscallArgs(decoder *Decoder) (types.RestartSyscallArgs, error) {
+func ParseRestartSyscallArgs(log *logging.Logger, decoder *Decoder) (types.RestartSyscallArgs, error) {
   return types.RestartSyscallArgs{}, nil
 }
 
-func ParseSemtimedopArgs(decoder *Decoder) (types.SemtimedopArgs, error) {
+func ParseSemtimedopArgs(log *logging.Logger, decoder *Decoder) (types.SemtimedopArgs, error) {
   var result types.SemtimedopArgs
   var err error
 
@@ -7214,6 +7979,10 @@ func ParseSemtimedopArgs(decoder *Decoder) (types.SemtimedopArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemtimedopArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Semtimedop': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7251,7 +8020,7 @@ func ParseSemtimedopArgs(decoder *Decoder) (types.SemtimedopArgs, error) {
   return result, nil
 }
 
-func ParseFadvise64Args(decoder *Decoder) (types.Fadvise64Args, error) {
+func ParseFadvise64Args(log *logging.Logger, decoder *Decoder) (types.Fadvise64Args, error) {
   var result types.Fadvise64Args
   var err error
 
@@ -7259,6 +8028,10 @@ func ParseFadvise64Args(decoder *Decoder) (types.Fadvise64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fadvise64Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Fadvise64': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7294,7 +8067,7 @@ func ParseFadvise64Args(decoder *Decoder) (types.Fadvise64Args, error) {
   return result, nil
 }
 
-func ParseTimerCreateArgs(decoder *Decoder) (types.TimerCreateArgs, error) {
+func ParseTimerCreateArgs(log *logging.Logger, decoder *Decoder) (types.TimerCreateArgs, error) {
   var result types.TimerCreateArgs
   var err error
 
@@ -7302,6 +8075,10 @@ func ParseTimerCreateArgs(decoder *Decoder) (types.TimerCreateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerCreateArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'TimerCreate': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7336,7 +8113,7 @@ func ParseTimerCreateArgs(decoder *Decoder) (types.TimerCreateArgs, error) {
   return result, nil
 }
 
-func ParseTimerSettimeArgs(decoder *Decoder) (types.TimerSettimeArgs, error) {
+func ParseTimerSettimeArgs(log *logging.Logger, decoder *Decoder) (types.TimerSettimeArgs, error) {
   var result types.TimerSettimeArgs
   var err error
 
@@ -7344,6 +8121,10 @@ func ParseTimerSettimeArgs(decoder *Decoder) (types.TimerSettimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerSettimeArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'TimerSettime': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7383,7 +8164,7 @@ func ParseTimerSettimeArgs(decoder *Decoder) (types.TimerSettimeArgs, error) {
   return result, nil
 }
 
-func ParseTimerGettimeArgs(decoder *Decoder) (types.TimerGettimeArgs, error) {
+func ParseTimerGettimeArgs(log *logging.Logger, decoder *Decoder) (types.TimerGettimeArgs, error) {
   var result types.TimerGettimeArgs
   var err error
 
@@ -7391,6 +8172,10 @@ func ParseTimerGettimeArgs(decoder *Decoder) (types.TimerGettimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerGettimeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'TimerGettime': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7418,7 +8203,7 @@ func ParseTimerGettimeArgs(decoder *Decoder) (types.TimerGettimeArgs, error) {
   return result, nil
 }
 
-func ParseTimerGetoverrunArgs(decoder *Decoder) (types.TimerGetoverrunArgs, error) {
+func ParseTimerGetoverrunArgs(log *logging.Logger, decoder *Decoder) (types.TimerGetoverrunArgs, error) {
   var result types.TimerGetoverrunArgs
   var err error
 
@@ -7426,6 +8211,10 @@ func ParseTimerGetoverrunArgs(decoder *Decoder) (types.TimerGetoverrunArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerGetoverrunArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'TimerGetoverrun': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7446,7 +8235,7 @@ func ParseTimerGetoverrunArgs(decoder *Decoder) (types.TimerGetoverrunArgs, erro
   return result, nil
 }
 
-func ParseTimerDeleteArgs(decoder *Decoder) (types.TimerDeleteArgs, error) {
+func ParseTimerDeleteArgs(log *logging.Logger, decoder *Decoder) (types.TimerDeleteArgs, error) {
   var result types.TimerDeleteArgs
   var err error
 
@@ -7454,6 +8243,10 @@ func ParseTimerDeleteArgs(decoder *Decoder) (types.TimerDeleteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerDeleteArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'TimerDelete': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7474,7 +8267,7 @@ func ParseTimerDeleteArgs(decoder *Decoder) (types.TimerDeleteArgs, error) {
   return result, nil
 }
 
-func ParseClockSettimeArgs(decoder *Decoder) (types.ClockSettimeArgs, error) {
+func ParseClockSettimeArgs(log *logging.Logger, decoder *Decoder) (types.ClockSettimeArgs, error) {
   var result types.ClockSettimeArgs
   var err error
 
@@ -7482,6 +8275,10 @@ func ParseClockSettimeArgs(decoder *Decoder) (types.ClockSettimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockSettimeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockSettime': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7507,7 +8304,7 @@ func ParseClockSettimeArgs(decoder *Decoder) (types.ClockSettimeArgs, error) {
   return result, nil
 }
 
-func ParseClockGettimeArgs(decoder *Decoder) (types.ClockGettimeArgs, error) {
+func ParseClockGettimeArgs(log *logging.Logger, decoder *Decoder) (types.ClockGettimeArgs, error) {
   var result types.ClockGettimeArgs
   var err error
 
@@ -7515,6 +8312,10 @@ func ParseClockGettimeArgs(decoder *Decoder) (types.ClockGettimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockGettimeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockGettime': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7540,7 +8341,7 @@ func ParseClockGettimeArgs(decoder *Decoder) (types.ClockGettimeArgs, error) {
   return result, nil
 }
 
-func ParseClockGetresArgs(decoder *Decoder) (types.ClockGetresArgs, error) {
+func ParseClockGetresArgs(log *logging.Logger, decoder *Decoder) (types.ClockGetresArgs, error) {
   var result types.ClockGetresArgs
   var err error
 
@@ -7548,6 +8349,10 @@ func ParseClockGetresArgs(decoder *Decoder) (types.ClockGetresArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockGetresArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockGetres': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7573,7 +8378,7 @@ func ParseClockGetresArgs(decoder *Decoder) (types.ClockGetresArgs, error) {
   return result, nil
 }
 
-func ParseClockNanosleepArgs(decoder *Decoder) (types.ClockNanosleepArgs, error) {
+func ParseClockNanosleepArgs(log *logging.Logger, decoder *Decoder) (types.ClockNanosleepArgs, error) {
   var result types.ClockNanosleepArgs
   var err error
 
@@ -7581,6 +8386,10 @@ func ParseClockNanosleepArgs(decoder *Decoder) (types.ClockNanosleepArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockNanosleepArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'ClockNanosleep': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7616,7 +8425,7 @@ func ParseClockNanosleepArgs(decoder *Decoder) (types.ClockNanosleepArgs, error)
   return result, nil
 }
 
-func ParseExitGroupArgs(decoder *Decoder) (types.ExitGroupArgs, error) {
+func ParseExitGroupArgs(log *logging.Logger, decoder *Decoder) (types.ExitGroupArgs, error) {
   var result types.ExitGroupArgs
   var err error
 
@@ -7624,6 +8433,10 @@ func ParseExitGroupArgs(decoder *Decoder) (types.ExitGroupArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExitGroupArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'ExitGroup': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7644,7 +8457,7 @@ func ParseExitGroupArgs(decoder *Decoder) (types.ExitGroupArgs, error) {
   return result, nil
 }
 
-func ParseEpollWaitArgs(decoder *Decoder) (types.EpollWaitArgs, error) {
+func ParseEpollWaitArgs(log *logging.Logger, decoder *Decoder) (types.EpollWaitArgs, error) {
   var result types.EpollWaitArgs
   var err error
 
@@ -7652,6 +8465,10 @@ func ParseEpollWaitArgs(decoder *Decoder) (types.EpollWaitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollWaitArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'EpollWait': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7689,7 +8506,7 @@ func ParseEpollWaitArgs(decoder *Decoder) (types.EpollWaitArgs, error) {
   return result, nil
 }
 
-func ParseEpollCtlArgs(decoder *Decoder) (types.EpollCtlArgs, error) {
+func ParseEpollCtlArgs(log *logging.Logger, decoder *Decoder) (types.EpollCtlArgs, error) {
   var result types.EpollCtlArgs
   var err error
 
@@ -7697,6 +8514,10 @@ func ParseEpollCtlArgs(decoder *Decoder) (types.EpollCtlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollCtlArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'EpollCtl': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7734,7 +8555,7 @@ func ParseEpollCtlArgs(decoder *Decoder) (types.EpollCtlArgs, error) {
   return result, nil
 }
 
-func ParseTgkillArgs(decoder *Decoder) (types.TgkillArgs, error) {
+func ParseTgkillArgs(log *logging.Logger, decoder *Decoder) (types.TgkillArgs, error) {
   var result types.TgkillArgs
   var err error
 
@@ -7742,6 +8563,10 @@ func ParseTgkillArgs(decoder *Decoder) (types.TgkillArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TgkillArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Tgkill': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7772,7 +8597,7 @@ func ParseTgkillArgs(decoder *Decoder) (types.TgkillArgs, error) {
   return result, nil
 }
 
-func ParseUtimesArgs(decoder *Decoder) (types.UtimesArgs, error) {
+func ParseUtimesArgs(log *logging.Logger, decoder *Decoder) (types.UtimesArgs, error) {
   var result types.UtimesArgs
   var err error
 
@@ -7780,6 +8605,10 @@ func ParseUtimesArgs(decoder *Decoder) (types.UtimesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UtimesArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Utimes': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7807,11 +8636,11 @@ func ParseUtimesArgs(decoder *Decoder) (types.UtimesArgs, error) {
   return result, nil
 }
 
-func ParseVserverArgs(decoder *Decoder) (types.VserverArgs, error) {
+func ParseVserverArgs(log *logging.Logger, decoder *Decoder) (types.VserverArgs, error) {
   return types.VserverArgs{}, nil
 }
 
-func ParseMbindArgs(decoder *Decoder) (types.MbindArgs, error) {
+func ParseMbindArgs(log *logging.Logger, decoder *Decoder) (types.MbindArgs, error) {
   var result types.MbindArgs
   var err error
 
@@ -7819,6 +8648,10 @@ func ParseMbindArgs(decoder *Decoder) (types.MbindArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MbindArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Mbind': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7868,7 +8701,7 @@ func ParseMbindArgs(decoder *Decoder) (types.MbindArgs, error) {
   return result, nil
 }
 
-func ParseSetMempolicyArgs(decoder *Decoder) (types.SetMempolicyArgs, error) {
+func ParseSetMempolicyArgs(log *logging.Logger, decoder *Decoder) (types.SetMempolicyArgs, error) {
   var result types.SetMempolicyArgs
   var err error
 
@@ -7876,6 +8709,10 @@ func ParseSetMempolicyArgs(decoder *Decoder) (types.SetMempolicyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetMempolicyArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SetMempolicy': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7908,7 +8745,7 @@ func ParseSetMempolicyArgs(decoder *Decoder) (types.SetMempolicyArgs, error) {
   return result, nil
 }
 
-func ParseGetMempolicyArgs(decoder *Decoder) (types.GetMempolicyArgs, error) {
+func ParseGetMempolicyArgs(log *logging.Logger, decoder *Decoder) (types.GetMempolicyArgs, error) {
   var result types.GetMempolicyArgs
   var err error
 
@@ -7916,6 +8753,10 @@ func ParseGetMempolicyArgs(decoder *Decoder) (types.GetMempolicyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetMempolicyArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'GetMempolicy': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7962,7 +8803,7 @@ func ParseGetMempolicyArgs(decoder *Decoder) (types.GetMempolicyArgs, error) {
   return result, nil
 }
 
-func ParseMqOpenArgs(decoder *Decoder) (types.MqOpenArgs, error) {
+func ParseMqOpenArgs(log *logging.Logger, decoder *Decoder) (types.MqOpenArgs, error) {
   var result types.MqOpenArgs
   var err error
 
@@ -7970,6 +8811,10 @@ func ParseMqOpenArgs(decoder *Decoder) (types.MqOpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqOpenArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'MqOpen': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8007,7 +8852,7 @@ func ParseMqOpenArgs(decoder *Decoder) (types.MqOpenArgs, error) {
   return result, nil
 }
 
-func ParseMqUnlinkArgs(decoder *Decoder) (types.MqUnlinkArgs, error) {
+func ParseMqUnlinkArgs(log *logging.Logger, decoder *Decoder) (types.MqUnlinkArgs, error) {
   var result types.MqUnlinkArgs
   var err error
 
@@ -8015,6 +8860,10 @@ func ParseMqUnlinkArgs(decoder *Decoder) (types.MqUnlinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqUnlinkArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'MqUnlink': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8035,7 +8884,7 @@ func ParseMqUnlinkArgs(decoder *Decoder) (types.MqUnlinkArgs, error) {
   return result, nil
 }
 
-func ParseMqTimedsendArgs(decoder *Decoder) (types.MqTimedsendArgs, error) {
+func ParseMqTimedsendArgs(log *logging.Logger, decoder *Decoder) (types.MqTimedsendArgs, error) {
   var result types.MqTimedsendArgs
   var err error
 
@@ -8043,6 +8892,10 @@ func ParseMqTimedsendArgs(decoder *Decoder) (types.MqTimedsendArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedsendArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'MqTimedsend': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8083,7 +8936,7 @@ func ParseMqTimedsendArgs(decoder *Decoder) (types.MqTimedsendArgs, error) {
   return result, nil
 }
 
-func ParseMqTimedreceiveArgs(decoder *Decoder) (types.MqTimedreceiveArgs, error) {
+func ParseMqTimedreceiveArgs(log *logging.Logger, decoder *Decoder) (types.MqTimedreceiveArgs, error) {
   var result types.MqTimedreceiveArgs
   var err error
 
@@ -8091,6 +8944,10 @@ func ParseMqTimedreceiveArgs(decoder *Decoder) (types.MqTimedreceiveArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedreceiveArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'MqTimedreceive': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8133,7 +8990,7 @@ func ParseMqTimedreceiveArgs(decoder *Decoder) (types.MqTimedreceiveArgs, error)
   return result, nil
 }
 
-func ParseMqNotifyArgs(decoder *Decoder) (types.MqNotifyArgs, error) {
+func ParseMqNotifyArgs(log *logging.Logger, decoder *Decoder) (types.MqNotifyArgs, error) {
   var result types.MqNotifyArgs
   var err error
 
@@ -8141,6 +8998,10 @@ func ParseMqNotifyArgs(decoder *Decoder) (types.MqNotifyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqNotifyArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'MqNotify': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8168,7 +9029,7 @@ func ParseMqNotifyArgs(decoder *Decoder) (types.MqNotifyArgs, error) {
   return result, nil
 }
 
-func ParseMqGetsetattrArgs(decoder *Decoder) (types.MqGetsetattrArgs, error) {
+func ParseMqGetsetattrArgs(log *logging.Logger, decoder *Decoder) (types.MqGetsetattrArgs, error) {
   var result types.MqGetsetattrArgs
   var err error
 
@@ -8176,6 +9037,10 @@ func ParseMqGetsetattrArgs(decoder *Decoder) (types.MqGetsetattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqGetsetattrArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'MqGetsetattr': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8210,7 +9075,7 @@ func ParseMqGetsetattrArgs(decoder *Decoder) (types.MqGetsetattrArgs, error) {
   return result, nil
 }
 
-func ParseKexecLoadArgs(decoder *Decoder) (types.KexecLoadArgs, error) {
+func ParseKexecLoadArgs(log *logging.Logger, decoder *Decoder) (types.KexecLoadArgs, error) {
   var result types.KexecLoadArgs
   var err error
 
@@ -8218,6 +9083,10 @@ func ParseKexecLoadArgs(decoder *Decoder) (types.KexecLoadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KexecLoadArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'KexecLoad': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8255,7 +9124,7 @@ func ParseKexecLoadArgs(decoder *Decoder) (types.KexecLoadArgs, error) {
   return result, nil
 }
 
-func ParseWaitidArgs(decoder *Decoder) (types.WaitidArgs, error) {
+func ParseWaitidArgs(log *logging.Logger, decoder *Decoder) (types.WaitidArgs, error) {
   var result types.WaitidArgs
   var err error
 
@@ -8263,6 +9132,10 @@ func ParseWaitidArgs(decoder *Decoder) (types.WaitidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WaitidArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Waitid': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8307,7 +9180,7 @@ func ParseWaitidArgs(decoder *Decoder) (types.WaitidArgs, error) {
   return result, nil
 }
 
-func ParseAddKeyArgs(decoder *Decoder) (types.AddKeyArgs, error) {
+func ParseAddKeyArgs(log *logging.Logger, decoder *Decoder) (types.AddKeyArgs, error) {
   var result types.AddKeyArgs
   var err error
 
@@ -8315,6 +9188,10 @@ func ParseAddKeyArgs(decoder *Decoder) (types.AddKeyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AddKeyArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'AddKey': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8357,7 +9234,7 @@ func ParseAddKeyArgs(decoder *Decoder) (types.AddKeyArgs, error) {
   return result, nil
 }
 
-func ParseRequestKeyArgs(decoder *Decoder) (types.RequestKeyArgs, error) {
+func ParseRequestKeyArgs(log *logging.Logger, decoder *Decoder) (types.RequestKeyArgs, error) {
   var result types.RequestKeyArgs
   var err error
 
@@ -8365,6 +9242,10 @@ func ParseRequestKeyArgs(decoder *Decoder) (types.RequestKeyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RequestKeyArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RequestKey': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8400,7 +9281,7 @@ func ParseRequestKeyArgs(decoder *Decoder) (types.RequestKeyArgs, error) {
   return result, nil
 }
 
-func ParseKeyctlArgs(decoder *Decoder) (types.KeyctlArgs, error) {
+func ParseKeyctlArgs(log *logging.Logger, decoder *Decoder) (types.KeyctlArgs, error) {
   var result types.KeyctlArgs
   var err error
 
@@ -8408,6 +9289,10 @@ func ParseKeyctlArgs(decoder *Decoder) (types.KeyctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KeyctlArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Keyctl': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8448,7 +9333,7 @@ func ParseKeyctlArgs(decoder *Decoder) (types.KeyctlArgs, error) {
   return result, nil
 }
 
-func ParseIoprioSetArgs(decoder *Decoder) (types.IoprioSetArgs, error) {
+func ParseIoprioSetArgs(log *logging.Logger, decoder *Decoder) (types.IoprioSetArgs, error) {
   var result types.IoprioSetArgs
   var err error
 
@@ -8456,6 +9341,10 @@ func ParseIoprioSetArgs(decoder *Decoder) (types.IoprioSetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoprioSetArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'IoprioSet': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8486,7 +9375,7 @@ func ParseIoprioSetArgs(decoder *Decoder) (types.IoprioSetArgs, error) {
   return result, nil
 }
 
-func ParseIoprioGetArgs(decoder *Decoder) (types.IoprioGetArgs, error) {
+func ParseIoprioGetArgs(log *logging.Logger, decoder *Decoder) (types.IoprioGetArgs, error) {
   var result types.IoprioGetArgs
   var err error
 
@@ -8494,6 +9383,10 @@ func ParseIoprioGetArgs(decoder *Decoder) (types.IoprioGetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoprioGetArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'IoprioGet': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8519,11 +9412,11 @@ func ParseIoprioGetArgs(decoder *Decoder) (types.IoprioGetArgs, error) {
   return result, nil
 }
 
-func ParseInotifyInitArgs(decoder *Decoder) (types.InotifyInitArgs, error) {
+func ParseInotifyInitArgs(log *logging.Logger, decoder *Decoder) (types.InotifyInitArgs, error) {
   return types.InotifyInitArgs{}, nil
 }
 
-func ParseInotifyAddWatchArgs(decoder *Decoder) (types.InotifyAddWatchArgs, error) {
+func ParseInotifyAddWatchArgs(log *logging.Logger, decoder *Decoder) (types.InotifyAddWatchArgs, error) {
   var result types.InotifyAddWatchArgs
   var err error
 
@@ -8531,6 +9424,10 @@ func ParseInotifyAddWatchArgs(decoder *Decoder) (types.InotifyAddWatchArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InotifyAddWatchArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'InotifyAddWatch': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8561,7 +9458,7 @@ func ParseInotifyAddWatchArgs(decoder *Decoder) (types.InotifyAddWatchArgs, erro
   return result, nil
 }
 
-func ParseInotifyRmWatchArgs(decoder *Decoder) (types.InotifyRmWatchArgs, error) {
+func ParseInotifyRmWatchArgs(log *logging.Logger, decoder *Decoder) (types.InotifyRmWatchArgs, error) {
   var result types.InotifyRmWatchArgs
   var err error
 
@@ -8569,6 +9466,10 @@ func ParseInotifyRmWatchArgs(decoder *Decoder) (types.InotifyRmWatchArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InotifyRmWatchArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'InotifyRmWatch': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8594,7 +9495,7 @@ func ParseInotifyRmWatchArgs(decoder *Decoder) (types.InotifyRmWatchArgs, error)
   return result, nil
 }
 
-func ParseMigratePagesArgs(decoder *Decoder) (types.MigratePagesArgs, error) {
+func ParseMigratePagesArgs(log *logging.Logger, decoder *Decoder) (types.MigratePagesArgs, error) {
   var result types.MigratePagesArgs
   var err error
 
@@ -8602,6 +9503,10 @@ func ParseMigratePagesArgs(decoder *Decoder) (types.MigratePagesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MigratePagesArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'MigratePages': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8641,7 +9546,7 @@ func ParseMigratePagesArgs(decoder *Decoder) (types.MigratePagesArgs, error) {
   return result, nil
 }
 
-func ParseOpenatArgs(decoder *Decoder) (types.OpenatArgs, error) {
+func ParseOpenatArgs(log *logging.Logger, decoder *Decoder) (types.OpenatArgs, error) {
   var result types.OpenatArgs
   var err error
 
@@ -8649,6 +9554,10 @@ func ParseOpenatArgs(decoder *Decoder) (types.OpenatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OpenatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Openat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8684,7 +9593,7 @@ func ParseOpenatArgs(decoder *Decoder) (types.OpenatArgs, error) {
   return result, nil
 }
 
-func ParseMkdiratArgs(decoder *Decoder) (types.MkdiratArgs, error) {
+func ParseMkdiratArgs(log *logging.Logger, decoder *Decoder) (types.MkdiratArgs, error) {
   var result types.MkdiratArgs
   var err error
 
@@ -8692,6 +9601,10 @@ func ParseMkdiratArgs(decoder *Decoder) (types.MkdiratArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MkdiratArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Mkdirat': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8722,7 +9635,7 @@ func ParseMkdiratArgs(decoder *Decoder) (types.MkdiratArgs, error) {
   return result, nil
 }
 
-func ParseMknodatArgs(decoder *Decoder) (types.MknodatArgs, error) {
+func ParseMknodatArgs(log *logging.Logger, decoder *Decoder) (types.MknodatArgs, error) {
   var result types.MknodatArgs
   var err error
 
@@ -8730,6 +9643,10 @@ func ParseMknodatArgs(decoder *Decoder) (types.MknodatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MknodatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Mknodat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8765,7 +9682,7 @@ func ParseMknodatArgs(decoder *Decoder) (types.MknodatArgs, error) {
   return result, nil
 }
 
-func ParseFchownatArgs(decoder *Decoder) (types.FchownatArgs, error) {
+func ParseFchownatArgs(log *logging.Logger, decoder *Decoder) (types.FchownatArgs, error) {
   var result types.FchownatArgs
   var err error
 
@@ -8773,6 +9690,10 @@ func ParseFchownatArgs(decoder *Decoder) (types.FchownatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FchownatArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Fchownat': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8813,7 +9734,7 @@ func ParseFchownatArgs(decoder *Decoder) (types.FchownatArgs, error) {
   return result, nil
 }
 
-func ParseFutimesatArgs(decoder *Decoder) (types.FutimesatArgs, error) {
+func ParseFutimesatArgs(log *logging.Logger, decoder *Decoder) (types.FutimesatArgs, error) {
   var result types.FutimesatArgs
   var err error
 
@@ -8821,6 +9742,10 @@ func ParseFutimesatArgs(decoder *Decoder) (types.FutimesatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FutimesatArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Futimesat': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8853,7 +9778,7 @@ func ParseFutimesatArgs(decoder *Decoder) (types.FutimesatArgs, error) {
   return result, nil
 }
 
-func ParseNewfstatatArgs(decoder *Decoder) (types.NewfstatatArgs, error) {
+func ParseNewfstatatArgs(log *logging.Logger, decoder *Decoder) (types.NewfstatatArgs, error) {
   var result types.NewfstatatArgs
   var err error
 
@@ -8861,6 +9786,10 @@ func ParseNewfstatatArgs(decoder *Decoder) (types.NewfstatatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NewfstatatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Newfstatat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8898,7 +9827,7 @@ func ParseNewfstatatArgs(decoder *Decoder) (types.NewfstatatArgs, error) {
   return result, nil
 }
 
-func ParseUnlinkatArgs(decoder *Decoder) (types.UnlinkatArgs, error) {
+func ParseUnlinkatArgs(log *logging.Logger, decoder *Decoder) (types.UnlinkatArgs, error) {
   var result types.UnlinkatArgs
   var err error
 
@@ -8906,6 +9835,10 @@ func ParseUnlinkatArgs(decoder *Decoder) (types.UnlinkatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UnlinkatArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Unlinkat': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8936,7 +9869,7 @@ func ParseUnlinkatArgs(decoder *Decoder) (types.UnlinkatArgs, error) {
   return result, nil
 }
 
-func ParseRenameatArgs(decoder *Decoder) (types.RenameatArgs, error) {
+func ParseRenameatArgs(log *logging.Logger, decoder *Decoder) (types.RenameatArgs, error) {
   var result types.RenameatArgs
   var err error
 
@@ -8944,6 +9877,10 @@ func ParseRenameatArgs(decoder *Decoder) (types.RenameatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RenameatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Renameat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8979,7 +9916,7 @@ func ParseRenameatArgs(decoder *Decoder) (types.RenameatArgs, error) {
   return result, nil
 }
 
-func ParseLinkatArgs(decoder *Decoder) (types.LinkatArgs, error) {
+func ParseLinkatArgs(log *logging.Logger, decoder *Decoder) (types.LinkatArgs, error) {
   var result types.LinkatArgs
   var err error
 
@@ -8987,6 +9924,10 @@ func ParseLinkatArgs(decoder *Decoder) (types.LinkatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LinkatArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Linkat': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9027,7 +9968,7 @@ func ParseLinkatArgs(decoder *Decoder) (types.LinkatArgs, error) {
   return result, nil
 }
 
-func ParseSymlinkatArgs(decoder *Decoder) (types.SymlinkatArgs, error) {
+func ParseSymlinkatArgs(log *logging.Logger, decoder *Decoder) (types.SymlinkatArgs, error) {
   var result types.SymlinkatArgs
   var err error
 
@@ -9035,6 +9976,10 @@ func ParseSymlinkatArgs(decoder *Decoder) (types.SymlinkatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SymlinkatArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Symlinkat': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9065,7 +10010,7 @@ func ParseSymlinkatArgs(decoder *Decoder) (types.SymlinkatArgs, error) {
   return result, nil
 }
 
-func ParseReadlinkatArgs(decoder *Decoder) (types.ReadlinkatArgs, error) {
+func ParseReadlinkatArgs(log *logging.Logger, decoder *Decoder) (types.ReadlinkatArgs, error) {
   var result types.ReadlinkatArgs
   var err error
 
@@ -9073,6 +10018,10 @@ func ParseReadlinkatArgs(decoder *Decoder) (types.ReadlinkatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadlinkatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Readlinkat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9108,7 +10057,7 @@ func ParseReadlinkatArgs(decoder *Decoder) (types.ReadlinkatArgs, error) {
   return result, nil
 }
 
-func ParseFchmodatArgs(decoder *Decoder) (types.FchmodatArgs, error) {
+func ParseFchmodatArgs(log *logging.Logger, decoder *Decoder) (types.FchmodatArgs, error) {
   var result types.FchmodatArgs
   var err error
 
@@ -9116,6 +10065,10 @@ func ParseFchmodatArgs(decoder *Decoder) (types.FchmodatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FchmodatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Fchmodat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9151,7 +10104,7 @@ func ParseFchmodatArgs(decoder *Decoder) (types.FchmodatArgs, error) {
   return result, nil
 }
 
-func ParseFaccessatArgs(decoder *Decoder) (types.FaccessatArgs, error) {
+func ParseFaccessatArgs(log *logging.Logger, decoder *Decoder) (types.FaccessatArgs, error) {
   var result types.FaccessatArgs
   var err error
 
@@ -9159,6 +10112,10 @@ func ParseFaccessatArgs(decoder *Decoder) (types.FaccessatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FaccessatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Faccessat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9194,7 +10151,7 @@ func ParseFaccessatArgs(decoder *Decoder) (types.FaccessatArgs, error) {
   return result, nil
 }
 
-func ParsePselect6Args(decoder *Decoder) (types.Pselect6Args, error) {
+func ParsePselect6Args(log *logging.Logger, decoder *Decoder) (types.Pselect6Args, error) {
   var result types.Pselect6Args
   var err error
 
@@ -9202,6 +10159,10 @@ func ParsePselect6Args(decoder *Decoder) (types.Pselect6Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pselect6Args{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Pselect6': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9255,7 +10216,7 @@ func ParsePselect6Args(decoder *Decoder) (types.Pselect6Args, error) {
   return result, nil
 }
 
-func ParsePpollArgs(decoder *Decoder) (types.PpollArgs, error) {
+func ParsePpollArgs(log *logging.Logger, decoder *Decoder) (types.PpollArgs, error) {
   var result types.PpollArgs
   var err error
 
@@ -9263,6 +10224,10 @@ func ParsePpollArgs(decoder *Decoder) (types.PpollArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PpollArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Ppoll': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9307,7 +10272,7 @@ func ParsePpollArgs(decoder *Decoder) (types.PpollArgs, error) {
   return result, nil
 }
 
-func ParseUnshareArgs(decoder *Decoder) (types.UnshareArgs, error) {
+func ParseUnshareArgs(log *logging.Logger, decoder *Decoder) (types.UnshareArgs, error) {
   var result types.UnshareArgs
   var err error
 
@@ -9315,6 +10280,10 @@ func ParseUnshareArgs(decoder *Decoder) (types.UnshareArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UnshareArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Unshare': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9335,7 +10304,7 @@ func ParseUnshareArgs(decoder *Decoder) (types.UnshareArgs, error) {
   return result, nil
 }
 
-func ParseSetRobustListArgs(decoder *Decoder) (types.SetRobustListArgs, error) {
+func ParseSetRobustListArgs(log *logging.Logger, decoder *Decoder) (types.SetRobustListArgs, error) {
   var result types.SetRobustListArgs
   var err error
 
@@ -9343,6 +10312,10 @@ func ParseSetRobustListArgs(decoder *Decoder) (types.SetRobustListArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetRobustListArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SetRobustList': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9370,7 +10343,7 @@ func ParseSetRobustListArgs(decoder *Decoder) (types.SetRobustListArgs, error) {
   return result, nil
 }
 
-func ParseGetRobustListArgs(decoder *Decoder) (types.GetRobustListArgs, error) {
+func ParseGetRobustListArgs(log *logging.Logger, decoder *Decoder) (types.GetRobustListArgs, error) {
   var result types.GetRobustListArgs
   var err error
 
@@ -9378,6 +10351,10 @@ func ParseGetRobustListArgs(decoder *Decoder) (types.GetRobustListArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetRobustListArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'GetRobustList': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9412,7 +10389,7 @@ func ParseGetRobustListArgs(decoder *Decoder) (types.GetRobustListArgs, error) {
   return result, nil
 }
 
-func ParseSpliceArgs(decoder *Decoder) (types.SpliceArgs, error) {
+func ParseSpliceArgs(log *logging.Logger, decoder *Decoder) (types.SpliceArgs, error) {
   var result types.SpliceArgs
   var err error
 
@@ -9420,6 +10397,10 @@ func ParseSpliceArgs(decoder *Decoder) (types.SpliceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SpliceArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Splice': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9469,7 +10450,7 @@ func ParseSpliceArgs(decoder *Decoder) (types.SpliceArgs, error) {
   return result, nil
 }
 
-func ParseTeeArgs(decoder *Decoder) (types.TeeArgs, error) {
+func ParseTeeArgs(log *logging.Logger, decoder *Decoder) (types.TeeArgs, error) {
   var result types.TeeArgs
   var err error
 
@@ -9477,6 +10458,10 @@ func ParseTeeArgs(decoder *Decoder) (types.TeeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TeeArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Tee': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9512,7 +10497,7 @@ func ParseTeeArgs(decoder *Decoder) (types.TeeArgs, error) {
   return result, nil
 }
 
-func ParseSyncFileRangeArgs(decoder *Decoder) (types.SyncFileRangeArgs, error) {
+func ParseSyncFileRangeArgs(log *logging.Logger, decoder *Decoder) (types.SyncFileRangeArgs, error) {
   var result types.SyncFileRangeArgs
   var err error
 
@@ -9520,6 +10505,10 @@ func ParseSyncFileRangeArgs(decoder *Decoder) (types.SyncFileRangeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SyncFileRangeArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'SyncFileRange': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9555,7 +10544,7 @@ func ParseSyncFileRangeArgs(decoder *Decoder) (types.SyncFileRangeArgs, error) {
   return result, nil
 }
 
-func ParseVmspliceArgs(decoder *Decoder) (types.VmspliceArgs, error) {
+func ParseVmspliceArgs(log *logging.Logger, decoder *Decoder) (types.VmspliceArgs, error) {
   var result types.VmspliceArgs
   var err error
 
@@ -9563,6 +10552,10 @@ func ParseVmspliceArgs(decoder *Decoder) (types.VmspliceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VmspliceArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Vmsplice': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9600,7 +10593,7 @@ func ParseVmspliceArgs(decoder *Decoder) (types.VmspliceArgs, error) {
   return result, nil
 }
 
-func ParseMovePagesArgs(decoder *Decoder) (types.MovePagesArgs, error) {
+func ParseMovePagesArgs(log *logging.Logger, decoder *Decoder) (types.MovePagesArgs, error) {
   var result types.MovePagesArgs
   var err error
 
@@ -9608,6 +10601,10 @@ func ParseMovePagesArgs(decoder *Decoder) (types.MovePagesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MovePagesArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'MovePages': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9659,7 +10656,7 @@ func ParseMovePagesArgs(decoder *Decoder) (types.MovePagesArgs, error) {
   return result, nil
 }
 
-func ParseUtimensatArgs(decoder *Decoder) (types.UtimensatArgs, error) {
+func ParseUtimensatArgs(log *logging.Logger, decoder *Decoder) (types.UtimensatArgs, error) {
   var result types.UtimensatArgs
   var err error
 
@@ -9667,6 +10664,10 @@ func ParseUtimensatArgs(decoder *Decoder) (types.UtimensatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UtimensatArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Utimensat': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9702,7 +10703,7 @@ func ParseUtimensatArgs(decoder *Decoder) (types.UtimensatArgs, error) {
   return result, nil
 }
 
-func ParseEpollPwaitArgs(decoder *Decoder) (types.EpollPwaitArgs, error) {
+func ParseEpollPwaitArgs(log *logging.Logger, decoder *Decoder) (types.EpollPwaitArgs, error) {
   var result types.EpollPwaitArgs
   var err error
 
@@ -9710,6 +10711,10 @@ func ParseEpollPwaitArgs(decoder *Decoder) (types.EpollPwaitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollPwaitArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'EpollPwait': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9759,7 +10764,7 @@ func ParseEpollPwaitArgs(decoder *Decoder) (types.EpollPwaitArgs, error) {
   return result, nil
 }
 
-func ParseSignalfdArgs(decoder *Decoder) (types.SignalfdArgs, error) {
+func ParseSignalfdArgs(log *logging.Logger, decoder *Decoder) (types.SignalfdArgs, error) {
   var result types.SignalfdArgs
   var err error
 
@@ -9767,6 +10772,10 @@ func ParseSignalfdArgs(decoder *Decoder) (types.SignalfdArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SignalfdArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Signalfd': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9799,7 +10808,7 @@ func ParseSignalfdArgs(decoder *Decoder) (types.SignalfdArgs, error) {
   return result, nil
 }
 
-func ParseTimerfdCreateArgs(decoder *Decoder) (types.TimerfdCreateArgs, error) {
+func ParseTimerfdCreateArgs(log *logging.Logger, decoder *Decoder) (types.TimerfdCreateArgs, error) {
   var result types.TimerfdCreateArgs
   var err error
 
@@ -9807,6 +10816,10 @@ func ParseTimerfdCreateArgs(decoder *Decoder) (types.TimerfdCreateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdCreateArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'TimerfdCreate': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9832,7 +10845,7 @@ func ParseTimerfdCreateArgs(decoder *Decoder) (types.TimerfdCreateArgs, error) {
   return result, nil
 }
 
-func ParseEventfdArgs(decoder *Decoder) (types.EventfdArgs, error) {
+func ParseEventfdArgs(log *logging.Logger, decoder *Decoder) (types.EventfdArgs, error) {
   var result types.EventfdArgs
   var err error
 
@@ -9840,6 +10853,10 @@ func ParseEventfdArgs(decoder *Decoder) (types.EventfdArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EventfdArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Eventfd': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9865,7 +10882,7 @@ func ParseEventfdArgs(decoder *Decoder) (types.EventfdArgs, error) {
   return result, nil
 }
 
-func ParseFallocateArgs(decoder *Decoder) (types.FallocateArgs, error) {
+func ParseFallocateArgs(log *logging.Logger, decoder *Decoder) (types.FallocateArgs, error) {
   var result types.FallocateArgs
   var err error
 
@@ -9873,6 +10890,10 @@ func ParseFallocateArgs(decoder *Decoder) (types.FallocateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FallocateArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Fallocate': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9908,7 +10929,7 @@ func ParseFallocateArgs(decoder *Decoder) (types.FallocateArgs, error) {
   return result, nil
 }
 
-func ParseTimerfdSettimeArgs(decoder *Decoder) (types.TimerfdSettimeArgs, error) {
+func ParseTimerfdSettimeArgs(log *logging.Logger, decoder *Decoder) (types.TimerfdSettimeArgs, error) {
   var result types.TimerfdSettimeArgs
   var err error
 
@@ -9916,6 +10937,10 @@ func ParseTimerfdSettimeArgs(decoder *Decoder) (types.TimerfdSettimeArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdSettimeArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'TimerfdSettime': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9955,7 +10980,7 @@ func ParseTimerfdSettimeArgs(decoder *Decoder) (types.TimerfdSettimeArgs, error)
   return result, nil
 }
 
-func ParseTimerfdGettimeArgs(decoder *Decoder) (types.TimerfdGettimeArgs, error) {
+func ParseTimerfdGettimeArgs(log *logging.Logger, decoder *Decoder) (types.TimerfdGettimeArgs, error) {
   var result types.TimerfdGettimeArgs
   var err error
 
@@ -9963,6 +10988,10 @@ func ParseTimerfdGettimeArgs(decoder *Decoder) (types.TimerfdGettimeArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdGettimeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'TimerfdGettime': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9990,7 +11019,7 @@ func ParseTimerfdGettimeArgs(decoder *Decoder) (types.TimerfdGettimeArgs, error)
   return result, nil
 }
 
-func ParseAccept4Args(decoder *Decoder) (types.Accept4Args, error) {
+func ParseAccept4Args(log *logging.Logger, decoder *Decoder) (types.Accept4Args, error) {
   var result types.Accept4Args
   var err error
 
@@ -9998,6 +11027,10 @@ func ParseAccept4Args(decoder *Decoder) (types.Accept4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Accept4Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Accept4': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10035,7 +11068,7 @@ func ParseAccept4Args(decoder *Decoder) (types.Accept4Args, error) {
   return result, nil
 }
 
-func ParseSignalfd4Args(decoder *Decoder) (types.Signalfd4Args, error) {
+func ParseSignalfd4Args(log *logging.Logger, decoder *Decoder) (types.Signalfd4Args, error) {
   var result types.Signalfd4Args
   var err error
 
@@ -10043,6 +11076,10 @@ func ParseSignalfd4Args(decoder *Decoder) (types.Signalfd4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Signalfd4Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Signalfd4': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10080,7 +11117,7 @@ func ParseSignalfd4Args(decoder *Decoder) (types.Signalfd4Args, error) {
   return result, nil
 }
 
-func ParseEventfd2Args(decoder *Decoder) (types.Eventfd2Args, error) {
+func ParseEventfd2Args(log *logging.Logger, decoder *Decoder) (types.Eventfd2Args, error) {
   var result types.Eventfd2Args
   var err error
 
@@ -10088,6 +11125,10 @@ func ParseEventfd2Args(decoder *Decoder) (types.Eventfd2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Eventfd2Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Eventfd2': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10113,7 +11154,7 @@ func ParseEventfd2Args(decoder *Decoder) (types.Eventfd2Args, error) {
   return result, nil
 }
 
-func ParseEpollCreate1Args(decoder *Decoder) (types.EpollCreate1Args, error) {
+func ParseEpollCreate1Args(log *logging.Logger, decoder *Decoder) (types.EpollCreate1Args, error) {
   var result types.EpollCreate1Args
   var err error
 
@@ -10121,6 +11162,10 @@ func ParseEpollCreate1Args(decoder *Decoder) (types.EpollCreate1Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollCreate1Args{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'EpollCreate1': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10141,7 +11186,7 @@ func ParseEpollCreate1Args(decoder *Decoder) (types.EpollCreate1Args, error) {
   return result, nil
 }
 
-func ParseDup3Args(decoder *Decoder) (types.Dup3Args, error) {
+func ParseDup3Args(log *logging.Logger, decoder *Decoder) (types.Dup3Args, error) {
   var result types.Dup3Args
   var err error
 
@@ -10149,6 +11194,10 @@ func ParseDup3Args(decoder *Decoder) (types.Dup3Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Dup3Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Dup3': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10179,7 +11228,7 @@ func ParseDup3Args(decoder *Decoder) (types.Dup3Args, error) {
   return result, nil
 }
 
-func ParsePipe2Args(decoder *Decoder) (types.Pipe2Args, error) {
+func ParsePipe2Args(log *logging.Logger, decoder *Decoder) (types.Pipe2Args, error) {
   var result types.Pipe2Args
   var err error
 
@@ -10187,6 +11236,10 @@ func ParsePipe2Args(decoder *Decoder) (types.Pipe2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pipe2Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Pipe2': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10212,7 +11265,7 @@ func ParsePipe2Args(decoder *Decoder) (types.Pipe2Args, error) {
   return result, nil
 }
 
-func ParseInotifyInit1Args(decoder *Decoder) (types.InotifyInit1Args, error) {
+func ParseInotifyInit1Args(log *logging.Logger, decoder *Decoder) (types.InotifyInit1Args, error) {
   var result types.InotifyInit1Args
   var err error
 
@@ -10220,6 +11273,10 @@ func ParseInotifyInit1Args(decoder *Decoder) (types.InotifyInit1Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InotifyInit1Args{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'InotifyInit1': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10240,7 +11297,7 @@ func ParseInotifyInit1Args(decoder *Decoder) (types.InotifyInit1Args, error) {
   return result, nil
 }
 
-func ParsePreadvArgs(decoder *Decoder) (types.PreadvArgs, error) {
+func ParsePreadvArgs(log *logging.Logger, decoder *Decoder) (types.PreadvArgs, error) {
   var result types.PreadvArgs
   var err error
 
@@ -10248,6 +11305,10 @@ func ParsePreadvArgs(decoder *Decoder) (types.PreadvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PreadvArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Preadv': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10290,7 +11351,7 @@ func ParsePreadvArgs(decoder *Decoder) (types.PreadvArgs, error) {
   return result, nil
 }
 
-func ParsePwritevArgs(decoder *Decoder) (types.PwritevArgs, error) {
+func ParsePwritevArgs(log *logging.Logger, decoder *Decoder) (types.PwritevArgs, error) {
   var result types.PwritevArgs
   var err error
 
@@ -10298,6 +11359,10 @@ func ParsePwritevArgs(decoder *Decoder) (types.PwritevArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PwritevArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Pwritev': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10340,7 +11405,7 @@ func ParsePwritevArgs(decoder *Decoder) (types.PwritevArgs, error) {
   return result, nil
 }
 
-func ParseRtTgsigqueueinfoArgs(decoder *Decoder) (types.RtTgsigqueueinfoArgs, error) {
+func ParseRtTgsigqueueinfoArgs(log *logging.Logger, decoder *Decoder) (types.RtTgsigqueueinfoArgs, error) {
   var result types.RtTgsigqueueinfoArgs
   var err error
 
@@ -10348,6 +11413,10 @@ func ParseRtTgsigqueueinfoArgs(decoder *Decoder) (types.RtTgsigqueueinfoArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtTgsigqueueinfoArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RtTgsigqueueinfo': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10385,7 +11454,7 @@ func ParseRtTgsigqueueinfoArgs(decoder *Decoder) (types.RtTgsigqueueinfoArgs, er
   return result, nil
 }
 
-func ParsePerfEventOpenArgs(decoder *Decoder) (types.PerfEventOpenArgs, error) {
+func ParsePerfEventOpenArgs(log *logging.Logger, decoder *Decoder) (types.PerfEventOpenArgs, error) {
   var result types.PerfEventOpenArgs
   var err error
 
@@ -10393,6 +11462,10 @@ func ParsePerfEventOpenArgs(decoder *Decoder) (types.PerfEventOpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PerfEventOpenArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'PerfEventOpen': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10435,7 +11508,7 @@ func ParsePerfEventOpenArgs(decoder *Decoder) (types.PerfEventOpenArgs, error) {
   return result, nil
 }
 
-func ParseRecvmmsgArgs(decoder *Decoder) (types.RecvmmsgArgs, error) {
+func ParseRecvmmsgArgs(log *logging.Logger, decoder *Decoder) (types.RecvmmsgArgs, error) {
   var result types.RecvmmsgArgs
   var err error
 
@@ -10443,6 +11516,10 @@ func ParseRecvmmsgArgs(decoder *Decoder) (types.RecvmmsgArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RecvmmsgArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Recvmmsg': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10485,7 +11562,7 @@ func ParseRecvmmsgArgs(decoder *Decoder) (types.RecvmmsgArgs, error) {
   return result, nil
 }
 
-func ParseFanotifyInitArgs(decoder *Decoder) (types.FanotifyInitArgs, error) {
+func ParseFanotifyInitArgs(log *logging.Logger, decoder *Decoder) (types.FanotifyInitArgs, error) {
   var result types.FanotifyInitArgs
   var err error
 
@@ -10493,6 +11570,10 @@ func ParseFanotifyInitArgs(decoder *Decoder) (types.FanotifyInitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FanotifyInitArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'FanotifyInit': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10518,7 +11599,7 @@ func ParseFanotifyInitArgs(decoder *Decoder) (types.FanotifyInitArgs, error) {
   return result, nil
 }
 
-func ParseFanotifyMarkArgs(decoder *Decoder) (types.FanotifyMarkArgs, error) {
+func ParseFanotifyMarkArgs(log *logging.Logger, decoder *Decoder) (types.FanotifyMarkArgs, error) {
   var result types.FanotifyMarkArgs
   var err error
 
@@ -10526,6 +11607,10 @@ func ParseFanotifyMarkArgs(decoder *Decoder) (types.FanotifyMarkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FanotifyMarkArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'FanotifyMark': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10566,7 +11651,7 @@ func ParseFanotifyMarkArgs(decoder *Decoder) (types.FanotifyMarkArgs, error) {
   return result, nil
 }
 
-func ParsePrlimit64Args(decoder *Decoder) (types.Prlimit64Args, error) {
+func ParsePrlimit64Args(log *logging.Logger, decoder *Decoder) (types.Prlimit64Args, error) {
   var result types.Prlimit64Args
   var err error
 
@@ -10574,6 +11659,10 @@ func ParsePrlimit64Args(decoder *Decoder) (types.Prlimit64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Prlimit64Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Prlimit64': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10613,7 +11702,7 @@ func ParsePrlimit64Args(decoder *Decoder) (types.Prlimit64Args, error) {
   return result, nil
 }
 
-func ParseNameToHandleAtArgs(decoder *Decoder) (types.NameToHandleAtArgs, error) {
+func ParseNameToHandleAtArgs(log *logging.Logger, decoder *Decoder) (types.NameToHandleAtArgs, error) {
   var result types.NameToHandleAtArgs
   var err error
 
@@ -10621,6 +11710,10 @@ func ParseNameToHandleAtArgs(decoder *Decoder) (types.NameToHandleAtArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NameToHandleAtArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'NameToHandleAt': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10665,7 +11758,7 @@ func ParseNameToHandleAtArgs(decoder *Decoder) (types.NameToHandleAtArgs, error)
   return result, nil
 }
 
-func ParseOpenByHandleAtArgs(decoder *Decoder) (types.OpenByHandleAtArgs, error) {
+func ParseOpenByHandleAtArgs(log *logging.Logger, decoder *Decoder) (types.OpenByHandleAtArgs, error) {
   var result types.OpenByHandleAtArgs
   var err error
 
@@ -10673,6 +11766,10 @@ func ParseOpenByHandleAtArgs(decoder *Decoder) (types.OpenByHandleAtArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OpenByHandleAtArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'OpenByHandleAt': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10705,7 +11802,7 @@ func ParseOpenByHandleAtArgs(decoder *Decoder) (types.OpenByHandleAtArgs, error)
   return result, nil
 }
 
-func ParseClockAdjtimeArgs(decoder *Decoder) (types.ClockAdjtimeArgs, error) {
+func ParseClockAdjtimeArgs(log *logging.Logger, decoder *Decoder) (types.ClockAdjtimeArgs, error) {
   var result types.ClockAdjtimeArgs
   var err error
 
@@ -10713,6 +11810,10 @@ func ParseClockAdjtimeArgs(decoder *Decoder) (types.ClockAdjtimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockAdjtimeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockAdjtime': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10740,7 +11841,7 @@ func ParseClockAdjtimeArgs(decoder *Decoder) (types.ClockAdjtimeArgs, error) {
   return result, nil
 }
 
-func ParseSyncfsArgs(decoder *Decoder) (types.SyncfsArgs, error) {
+func ParseSyncfsArgs(log *logging.Logger, decoder *Decoder) (types.SyncfsArgs, error) {
   var result types.SyncfsArgs
   var err error
 
@@ -10748,6 +11849,10 @@ func ParseSyncfsArgs(decoder *Decoder) (types.SyncfsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SyncfsArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Syncfs': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10768,7 +11873,7 @@ func ParseSyncfsArgs(decoder *Decoder) (types.SyncfsArgs, error) {
   return result, nil
 }
 
-func ParseSendmmsgArgs(decoder *Decoder) (types.SendmmsgArgs, error) {
+func ParseSendmmsgArgs(log *logging.Logger, decoder *Decoder) (types.SendmmsgArgs, error) {
   var result types.SendmmsgArgs
   var err error
 
@@ -10776,6 +11881,10 @@ func ParseSendmmsgArgs(decoder *Decoder) (types.SendmmsgArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SendmmsgArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Sendmmsg': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10813,7 +11922,7 @@ func ParseSendmmsgArgs(decoder *Decoder) (types.SendmmsgArgs, error) {
   return result, nil
 }
 
-func ParseSetnsArgs(decoder *Decoder) (types.SetnsArgs, error) {
+func ParseSetnsArgs(log *logging.Logger, decoder *Decoder) (types.SetnsArgs, error) {
   var result types.SetnsArgs
   var err error
 
@@ -10821,6 +11930,10 @@ func ParseSetnsArgs(decoder *Decoder) (types.SetnsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetnsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setns': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10846,7 +11959,7 @@ func ParseSetnsArgs(decoder *Decoder) (types.SetnsArgs, error) {
   return result, nil
 }
 
-func ParseGetcpuArgs(decoder *Decoder) (types.GetcpuArgs, error) {
+func ParseGetcpuArgs(log *logging.Logger, decoder *Decoder) (types.GetcpuArgs, error) {
   var result types.GetcpuArgs
   var err error
 
@@ -10854,6 +11967,10 @@ func ParseGetcpuArgs(decoder *Decoder) (types.GetcpuArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetcpuArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getcpu': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10890,7 +12007,7 @@ func ParseGetcpuArgs(decoder *Decoder) (types.GetcpuArgs, error) {
   return result, nil
 }
 
-func ParseProcessVmReadvArgs(decoder *Decoder) (types.ProcessVmReadvArgs, error) {
+func ParseProcessVmReadvArgs(log *logging.Logger, decoder *Decoder) (types.ProcessVmReadvArgs, error) {
   var result types.ProcessVmReadvArgs
   var err error
 
@@ -10898,6 +12015,10 @@ func ParseProcessVmReadvArgs(decoder *Decoder) (types.ProcessVmReadvArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessVmReadvArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'ProcessVmReadv': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10947,7 +12068,7 @@ func ParseProcessVmReadvArgs(decoder *Decoder) (types.ProcessVmReadvArgs, error)
   return result, nil
 }
 
-func ParseProcessVmWritevArgs(decoder *Decoder) (types.ProcessVmWritevArgs, error) {
+func ParseProcessVmWritevArgs(log *logging.Logger, decoder *Decoder) (types.ProcessVmWritevArgs, error) {
   var result types.ProcessVmWritevArgs
   var err error
 
@@ -10955,6 +12076,10 @@ func ParseProcessVmWritevArgs(decoder *Decoder) (types.ProcessVmWritevArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessVmWritevArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'ProcessVmWritev': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11004,7 +12129,7 @@ func ParseProcessVmWritevArgs(decoder *Decoder) (types.ProcessVmWritevArgs, erro
   return result, nil
 }
 
-func ParseKcmpArgs(decoder *Decoder) (types.KcmpArgs, error) {
+func ParseKcmpArgs(log *logging.Logger, decoder *Decoder) (types.KcmpArgs, error) {
   var result types.KcmpArgs
   var err error
 
@@ -11012,6 +12137,10 @@ func ParseKcmpArgs(decoder *Decoder) (types.KcmpArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KcmpArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Kcmp': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11052,7 +12181,7 @@ func ParseKcmpArgs(decoder *Decoder) (types.KcmpArgs, error) {
   return result, nil
 }
 
-func ParseFinitModuleArgs(decoder *Decoder) (types.FinitModuleArgs, error) {
+func ParseFinitModuleArgs(log *logging.Logger, decoder *Decoder) (types.FinitModuleArgs, error) {
   var result types.FinitModuleArgs
   var err error
 
@@ -11060,6 +12189,10 @@ func ParseFinitModuleArgs(decoder *Decoder) (types.FinitModuleArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FinitModuleArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'FinitModule': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11090,7 +12223,7 @@ func ParseFinitModuleArgs(decoder *Decoder) (types.FinitModuleArgs, error) {
   return result, nil
 }
 
-func ParseSchedSetattrArgs(decoder *Decoder) (types.SchedSetattrArgs, error) {
+func ParseSchedSetattrArgs(log *logging.Logger, decoder *Decoder) (types.SchedSetattrArgs, error) {
   var result types.SchedSetattrArgs
   var err error
 
@@ -11098,6 +12231,10 @@ func ParseSchedSetattrArgs(decoder *Decoder) (types.SchedSetattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSetattrArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SchedSetattr': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11130,7 +12267,7 @@ func ParseSchedSetattrArgs(decoder *Decoder) (types.SchedSetattrArgs, error) {
   return result, nil
 }
 
-func ParseSchedGetattrArgs(decoder *Decoder) (types.SchedGetattrArgs, error) {
+func ParseSchedGetattrArgs(log *logging.Logger, decoder *Decoder) (types.SchedGetattrArgs, error) {
   var result types.SchedGetattrArgs
   var err error
 
@@ -11138,6 +12275,10 @@ func ParseSchedGetattrArgs(decoder *Decoder) (types.SchedGetattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetattrArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'SchedGetattr': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11175,7 +12316,7 @@ func ParseSchedGetattrArgs(decoder *Decoder) (types.SchedGetattrArgs, error) {
   return result, nil
 }
 
-func ParseRenameat2Args(decoder *Decoder) (types.Renameat2Args, error) {
+func ParseRenameat2Args(log *logging.Logger, decoder *Decoder) (types.Renameat2Args, error) {
   var result types.Renameat2Args
   var err error
 
@@ -11183,6 +12324,10 @@ func ParseRenameat2Args(decoder *Decoder) (types.Renameat2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Renameat2Args{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Renameat2': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11223,7 +12368,7 @@ func ParseRenameat2Args(decoder *Decoder) (types.Renameat2Args, error) {
   return result, nil
 }
 
-func ParseSeccompArgs(decoder *Decoder) (types.SeccompArgs, error) {
+func ParseSeccompArgs(log *logging.Logger, decoder *Decoder) (types.SeccompArgs, error) {
   var result types.SeccompArgs
   var err error
 
@@ -11231,6 +12376,10 @@ func ParseSeccompArgs(decoder *Decoder) (types.SeccompArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SeccompArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Seccomp': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11263,7 +12412,7 @@ func ParseSeccompArgs(decoder *Decoder) (types.SeccompArgs, error) {
   return result, nil
 }
 
-func ParseGetrandomArgs(decoder *Decoder) (types.GetrandomArgs, error) {
+func ParseGetrandomArgs(log *logging.Logger, decoder *Decoder) (types.GetrandomArgs, error) {
   var result types.GetrandomArgs
   var err error
 
@@ -11271,6 +12420,10 @@ func ParseGetrandomArgs(decoder *Decoder) (types.GetrandomArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetrandomArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getrandom': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11303,7 +12456,7 @@ func ParseGetrandomArgs(decoder *Decoder) (types.GetrandomArgs, error) {
   return result, nil
 }
 
-func ParseMemfdCreateArgs(decoder *Decoder) (types.MemfdCreateArgs, error) {
+func ParseMemfdCreateArgs(log *logging.Logger, decoder *Decoder) (types.MemfdCreateArgs, error) {
   var result types.MemfdCreateArgs
   var err error
 
@@ -11311,6 +12464,10 @@ func ParseMemfdCreateArgs(decoder *Decoder) (types.MemfdCreateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MemfdCreateArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'MemfdCreate': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11336,7 +12493,7 @@ func ParseMemfdCreateArgs(decoder *Decoder) (types.MemfdCreateArgs, error) {
   return result, nil
 }
 
-func ParseKexecFileLoadArgs(decoder *Decoder) (types.KexecFileLoadArgs, error) {
+func ParseKexecFileLoadArgs(log *logging.Logger, decoder *Decoder) (types.KexecFileLoadArgs, error) {
   var result types.KexecFileLoadArgs
   var err error
 
@@ -11344,6 +12501,10 @@ func ParseKexecFileLoadArgs(decoder *Decoder) (types.KexecFileLoadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KexecFileLoadArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'KexecFileLoad': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11384,7 +12545,7 @@ func ParseKexecFileLoadArgs(decoder *Decoder) (types.KexecFileLoadArgs, error) {
   return result, nil
 }
 
-func ParseBpfArgs(decoder *Decoder) (types.BpfArgs, error) {
+func ParseBpfArgs(log *logging.Logger, decoder *Decoder) (types.BpfArgs, error) {
   var result types.BpfArgs
   var err error
 
@@ -11392,6 +12553,10 @@ func ParseBpfArgs(decoder *Decoder) (types.BpfArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.BpfArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Bpf': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11424,7 +12589,7 @@ func ParseBpfArgs(decoder *Decoder) (types.BpfArgs, error) {
   return result, nil
 }
 
-func ParseExecveatArgs(decoder *Decoder) (types.ExecveatArgs, error) {
+func ParseExecveatArgs(log *logging.Logger, decoder *Decoder) (types.ExecveatArgs, error) {
   var result types.ExecveatArgs
   var err error
 
@@ -11432,6 +12597,10 @@ func ParseExecveatArgs(decoder *Decoder) (types.ExecveatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExecveatArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Execveat': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11472,7 +12641,7 @@ func ParseExecveatArgs(decoder *Decoder) (types.ExecveatArgs, error) {
   return result, nil
 }
 
-func ParseUserfaultfdArgs(decoder *Decoder) (types.UserfaultfdArgs, error) {
+func ParseUserfaultfdArgs(log *logging.Logger, decoder *Decoder) (types.UserfaultfdArgs, error) {
   var result types.UserfaultfdArgs
   var err error
 
@@ -11480,6 +12649,10 @@ func ParseUserfaultfdArgs(decoder *Decoder) (types.UserfaultfdArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UserfaultfdArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Userfaultfd': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11500,7 +12673,7 @@ func ParseUserfaultfdArgs(decoder *Decoder) (types.UserfaultfdArgs, error) {
   return result, nil
 }
 
-func ParseMembarrierArgs(decoder *Decoder) (types.MembarrierArgs, error) {
+func ParseMembarrierArgs(log *logging.Logger, decoder *Decoder) (types.MembarrierArgs, error) {
   var result types.MembarrierArgs
   var err error
 
@@ -11508,6 +12681,10 @@ func ParseMembarrierArgs(decoder *Decoder) (types.MembarrierArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MembarrierArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Membarrier': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11533,7 +12710,7 @@ func ParseMembarrierArgs(decoder *Decoder) (types.MembarrierArgs, error) {
   return result, nil
 }
 
-func ParseMlock2Args(decoder *Decoder) (types.Mlock2Args, error) {
+func ParseMlock2Args(log *logging.Logger, decoder *Decoder) (types.Mlock2Args, error) {
   var result types.Mlock2Args
   var err error
 
@@ -11541,6 +12718,10 @@ func ParseMlock2Args(decoder *Decoder) (types.Mlock2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Mlock2Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Mlock2': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11573,7 +12754,7 @@ func ParseMlock2Args(decoder *Decoder) (types.Mlock2Args, error) {
   return result, nil
 }
 
-func ParseCopyFileRangeArgs(decoder *Decoder) (types.CopyFileRangeArgs, error) {
+func ParseCopyFileRangeArgs(log *logging.Logger, decoder *Decoder) (types.CopyFileRangeArgs, error) {
   var result types.CopyFileRangeArgs
   var err error
 
@@ -11581,6 +12762,10 @@ func ParseCopyFileRangeArgs(decoder *Decoder) (types.CopyFileRangeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CopyFileRangeArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'CopyFileRange': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11630,7 +12815,7 @@ func ParseCopyFileRangeArgs(decoder *Decoder) (types.CopyFileRangeArgs, error) {
   return result, nil
 }
 
-func ParsePreadv2Args(decoder *Decoder) (types.Preadv2Args, error) {
+func ParsePreadv2Args(log *logging.Logger, decoder *Decoder) (types.Preadv2Args, error) {
   var result types.Preadv2Args
   var err error
 
@@ -11638,6 +12823,10 @@ func ParsePreadv2Args(decoder *Decoder) (types.Preadv2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Preadv2Args{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Preadv2': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11685,7 +12874,7 @@ func ParsePreadv2Args(decoder *Decoder) (types.Preadv2Args, error) {
   return result, nil
 }
 
-func ParsePwritev2Args(decoder *Decoder) (types.Pwritev2Args, error) {
+func ParsePwritev2Args(log *logging.Logger, decoder *Decoder) (types.Pwritev2Args, error) {
   var result types.Pwritev2Args
   var err error
 
@@ -11693,6 +12882,10 @@ func ParsePwritev2Args(decoder *Decoder) (types.Pwritev2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pwritev2Args{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Pwritev2': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11740,7 +12933,7 @@ func ParsePwritev2Args(decoder *Decoder) (types.Pwritev2Args, error) {
   return result, nil
 }
 
-func ParsePkeyMprotectArgs(decoder *Decoder) (types.PkeyMprotectArgs, error) {
+func ParsePkeyMprotectArgs(log *logging.Logger, decoder *Decoder) (types.PkeyMprotectArgs, error) {
   var result types.PkeyMprotectArgs
   var err error
 
@@ -11748,6 +12941,10 @@ func ParsePkeyMprotectArgs(decoder *Decoder) (types.PkeyMprotectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PkeyMprotectArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'PkeyMprotect': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11785,7 +12982,7 @@ func ParsePkeyMprotectArgs(decoder *Decoder) (types.PkeyMprotectArgs, error) {
   return result, nil
 }
 
-func ParsePkeyAllocArgs(decoder *Decoder) (types.PkeyAllocArgs, error) {
+func ParsePkeyAllocArgs(log *logging.Logger, decoder *Decoder) (types.PkeyAllocArgs, error) {
   var result types.PkeyAllocArgs
   var err error
 
@@ -11793,6 +12990,10 @@ func ParsePkeyAllocArgs(decoder *Decoder) (types.PkeyAllocArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PkeyAllocArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'PkeyAlloc': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11818,7 +13019,7 @@ func ParsePkeyAllocArgs(decoder *Decoder) (types.PkeyAllocArgs, error) {
   return result, nil
 }
 
-func ParsePkeyFreeArgs(decoder *Decoder) (types.PkeyFreeArgs, error) {
+func ParsePkeyFreeArgs(log *logging.Logger, decoder *Decoder) (types.PkeyFreeArgs, error) {
   var result types.PkeyFreeArgs
   var err error
 
@@ -11826,6 +13027,10 @@ func ParsePkeyFreeArgs(decoder *Decoder) (types.PkeyFreeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PkeyFreeArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'PkeyFree': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11846,7 +13051,7 @@ func ParsePkeyFreeArgs(decoder *Decoder) (types.PkeyFreeArgs, error) {
   return result, nil
 }
 
-func ParseStatxArgs(decoder *Decoder) (types.StatxArgs, error) {
+func ParseStatxArgs(log *logging.Logger, decoder *Decoder) (types.StatxArgs, error) {
   var result types.StatxArgs
   var err error
 
@@ -11854,6 +13059,10 @@ func ParseStatxArgs(decoder *Decoder) (types.StatxArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StatxArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Statx': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11896,7 +13105,7 @@ func ParseStatxArgs(decoder *Decoder) (types.StatxArgs, error) {
   return result, nil
 }
 
-func ParseIoPgeteventsArgs(decoder *Decoder) (types.IoPgeteventsArgs, error) {
+func ParseIoPgeteventsArgs(log *logging.Logger, decoder *Decoder) (types.IoPgeteventsArgs, error) {
   var result types.IoPgeteventsArgs
   var err error
 
@@ -11904,6 +13113,10 @@ func ParseIoPgeteventsArgs(decoder *Decoder) (types.IoPgeteventsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoPgeteventsArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'IoPgetevents': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11955,7 +13168,7 @@ func ParseIoPgeteventsArgs(decoder *Decoder) (types.IoPgeteventsArgs, error) {
   return result, nil
 }
 
-func ParseRseqArgs(decoder *Decoder) (types.RseqArgs, error) {
+func ParseRseqArgs(log *logging.Logger, decoder *Decoder) (types.RseqArgs, error) {
   var result types.RseqArgs
   var err error
 
@@ -11963,6 +13176,10 @@ func ParseRseqArgs(decoder *Decoder) (types.RseqArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RseqArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Rseq': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12000,7 +13217,7 @@ func ParseRseqArgs(decoder *Decoder) (types.RseqArgs, error) {
   return result, nil
 }
 
-func ParsePidfdSendSignalArgs(decoder *Decoder) (types.PidfdSendSignalArgs, error) {
+func ParsePidfdSendSignalArgs(log *logging.Logger, decoder *Decoder) (types.PidfdSendSignalArgs, error) {
   var result types.PidfdSendSignalArgs
   var err error
 
@@ -12008,6 +13225,10 @@ func ParsePidfdSendSignalArgs(decoder *Decoder) (types.PidfdSendSignalArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PidfdSendSignalArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'PidfdSendSignal': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12045,7 +13266,7 @@ func ParsePidfdSendSignalArgs(decoder *Decoder) (types.PidfdSendSignalArgs, erro
   return result, nil
 }
 
-func ParseIoUringSetupArgs(decoder *Decoder) (types.IoUringSetupArgs, error) {
+func ParseIoUringSetupArgs(log *logging.Logger, decoder *Decoder) (types.IoUringSetupArgs, error) {
   var result types.IoUringSetupArgs
   var err error
 
@@ -12053,6 +13274,10 @@ func ParseIoUringSetupArgs(decoder *Decoder) (types.IoUringSetupArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoUringSetupArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'IoUringSetup': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12080,7 +13305,7 @@ func ParseIoUringSetupArgs(decoder *Decoder) (types.IoUringSetupArgs, error) {
   return result, nil
 }
 
-func ParseIoUringEnterArgs(decoder *Decoder) (types.IoUringEnterArgs, error) {
+func ParseIoUringEnterArgs(log *logging.Logger, decoder *Decoder) (types.IoUringEnterArgs, error) {
   var result types.IoUringEnterArgs
   var err error
 
@@ -12088,6 +13313,10 @@ func ParseIoUringEnterArgs(decoder *Decoder) (types.IoUringEnterArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoUringEnterArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'IoUringEnter': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12130,7 +13359,7 @@ func ParseIoUringEnterArgs(decoder *Decoder) (types.IoUringEnterArgs, error) {
   return result, nil
 }
 
-func ParseIoUringRegisterArgs(decoder *Decoder) (types.IoUringRegisterArgs, error) {
+func ParseIoUringRegisterArgs(log *logging.Logger, decoder *Decoder) (types.IoUringRegisterArgs, error) {
   var result types.IoUringRegisterArgs
   var err error
 
@@ -12138,6 +13367,10 @@ func ParseIoUringRegisterArgs(decoder *Decoder) (types.IoUringRegisterArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoUringRegisterArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'IoUringRegister': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12175,7 +13408,7 @@ func ParseIoUringRegisterArgs(decoder *Decoder) (types.IoUringRegisterArgs, erro
   return result, nil
 }
 
-func ParseOpenTreeArgs(decoder *Decoder) (types.OpenTreeArgs, error) {
+func ParseOpenTreeArgs(log *logging.Logger, decoder *Decoder) (types.OpenTreeArgs, error) {
   var result types.OpenTreeArgs
   var err error
 
@@ -12183,6 +13416,10 @@ func ParseOpenTreeArgs(decoder *Decoder) (types.OpenTreeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OpenTreeArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'OpenTree': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12213,7 +13450,7 @@ func ParseOpenTreeArgs(decoder *Decoder) (types.OpenTreeArgs, error) {
   return result, nil
 }
 
-func ParseMoveMountArgs(decoder *Decoder) (types.MoveMountArgs, error) {
+func ParseMoveMountArgs(log *logging.Logger, decoder *Decoder) (types.MoveMountArgs, error) {
   var result types.MoveMountArgs
   var err error
 
@@ -12221,6 +13458,10 @@ func ParseMoveMountArgs(decoder *Decoder) (types.MoveMountArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MoveMountArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'MoveMount': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12261,7 +13502,7 @@ func ParseMoveMountArgs(decoder *Decoder) (types.MoveMountArgs, error) {
   return result, nil
 }
 
-func ParseFsopenArgs(decoder *Decoder) (types.FsopenArgs, error) {
+func ParseFsopenArgs(log *logging.Logger, decoder *Decoder) (types.FsopenArgs, error) {
   var result types.FsopenArgs
   var err error
 
@@ -12269,6 +13510,10 @@ func ParseFsopenArgs(decoder *Decoder) (types.FsopenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsopenArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Fsopen': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12294,7 +13539,7 @@ func ParseFsopenArgs(decoder *Decoder) (types.FsopenArgs, error) {
   return result, nil
 }
 
-func ParseFsconfigArgs(decoder *Decoder) (types.FsconfigArgs, error) {
+func ParseFsconfigArgs(log *logging.Logger, decoder *Decoder) (types.FsconfigArgs, error) {
   var result types.FsconfigArgs
   var err error
 
@@ -12302,6 +13547,10 @@ func ParseFsconfigArgs(decoder *Decoder) (types.FsconfigArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsconfigArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Fsconfig': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12346,7 +13595,7 @@ func ParseFsconfigArgs(decoder *Decoder) (types.FsconfigArgs, error) {
   return result, nil
 }
 
-func ParseFsmountArgs(decoder *Decoder) (types.FsmountArgs, error) {
+func ParseFsmountArgs(log *logging.Logger, decoder *Decoder) (types.FsmountArgs, error) {
   var result types.FsmountArgs
   var err error
 
@@ -12354,6 +13603,10 @@ func ParseFsmountArgs(decoder *Decoder) (types.FsmountArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsmountArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fsmount': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12384,7 +13637,7 @@ func ParseFsmountArgs(decoder *Decoder) (types.FsmountArgs, error) {
   return result, nil
 }
 
-func ParseFspickArgs(decoder *Decoder) (types.FspickArgs, error) {
+func ParseFspickArgs(log *logging.Logger, decoder *Decoder) (types.FspickArgs, error) {
   var result types.FspickArgs
   var err error
 
@@ -12392,6 +13645,10 @@ func ParseFspickArgs(decoder *Decoder) (types.FspickArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FspickArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fspick': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12422,7 +13679,7 @@ func ParseFspickArgs(decoder *Decoder) (types.FspickArgs, error) {
   return result, nil
 }
 
-func ParsePidfdOpenArgs(decoder *Decoder) (types.PidfdOpenArgs, error) {
+func ParsePidfdOpenArgs(log *logging.Logger, decoder *Decoder) (types.PidfdOpenArgs, error) {
   var result types.PidfdOpenArgs
   var err error
 
@@ -12430,6 +13687,10 @@ func ParsePidfdOpenArgs(decoder *Decoder) (types.PidfdOpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PidfdOpenArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'PidfdOpen': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12455,7 +13716,7 @@ func ParsePidfdOpenArgs(decoder *Decoder) (types.PidfdOpenArgs, error) {
   return result, nil
 }
 
-func ParseClone3Args(decoder *Decoder) (types.Clone3Args, error) {
+func ParseClone3Args(log *logging.Logger, decoder *Decoder) (types.Clone3Args, error) {
   var result types.Clone3Args
   var err error
 
@@ -12463,6 +13724,10 @@ func ParseClone3Args(decoder *Decoder) (types.Clone3Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Clone3Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Clone3': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12490,7 +13755,7 @@ func ParseClone3Args(decoder *Decoder) (types.Clone3Args, error) {
   return result, nil
 }
 
-func ParseCloseRangeArgs(decoder *Decoder) (types.CloseRangeArgs, error) {
+func ParseCloseRangeArgs(log *logging.Logger, decoder *Decoder) (types.CloseRangeArgs, error) {
   var result types.CloseRangeArgs
   var err error
 
@@ -12498,6 +13763,10 @@ func ParseCloseRangeArgs(decoder *Decoder) (types.CloseRangeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CloseRangeArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'CloseRange': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12523,7 +13792,7 @@ func ParseCloseRangeArgs(decoder *Decoder) (types.CloseRangeArgs, error) {
   return result, nil
 }
 
-func ParseOpenat2Args(decoder *Decoder) (types.Openat2Args, error) {
+func ParseOpenat2Args(log *logging.Logger, decoder *Decoder) (types.Openat2Args, error) {
   var result types.Openat2Args
   var err error
 
@@ -12531,6 +13800,10 @@ func ParseOpenat2Args(decoder *Decoder) (types.Openat2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Openat2Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Openat2': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12568,7 +13841,7 @@ func ParseOpenat2Args(decoder *Decoder) (types.Openat2Args, error) {
   return result, nil
 }
 
-func ParsePidfdGetfdArgs(decoder *Decoder) (types.PidfdGetfdArgs, error) {
+func ParsePidfdGetfdArgs(log *logging.Logger, decoder *Decoder) (types.PidfdGetfdArgs, error) {
   var result types.PidfdGetfdArgs
   var err error
 
@@ -12576,6 +13849,10 @@ func ParsePidfdGetfdArgs(decoder *Decoder) (types.PidfdGetfdArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PidfdGetfdArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'PidfdGetfd': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12606,7 +13883,7 @@ func ParsePidfdGetfdArgs(decoder *Decoder) (types.PidfdGetfdArgs, error) {
   return result, nil
 }
 
-func ParseFaccessat2Args(decoder *Decoder) (types.Faccessat2Args, error) {
+func ParseFaccessat2Args(log *logging.Logger, decoder *Decoder) (types.Faccessat2Args, error) {
   var result types.Faccessat2Args
   var err error
 
@@ -12614,6 +13891,10 @@ func ParseFaccessat2Args(decoder *Decoder) (types.Faccessat2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Faccessat2Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Faccessat2': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12649,7 +13930,7 @@ func ParseFaccessat2Args(decoder *Decoder) (types.Faccessat2Args, error) {
   return result, nil
 }
 
-func ParseProcessMadviseArgs(decoder *Decoder) (types.ProcessMadviseArgs, error) {
+func ParseProcessMadviseArgs(log *logging.Logger, decoder *Decoder) (types.ProcessMadviseArgs, error) {
   var result types.ProcessMadviseArgs
   var err error
 
@@ -12657,6 +13938,10 @@ func ParseProcessMadviseArgs(decoder *Decoder) (types.ProcessMadviseArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessMadviseArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'ProcessMadvise': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12699,7 +13984,7 @@ func ParseProcessMadviseArgs(decoder *Decoder) (types.ProcessMadviseArgs, error)
   return result, nil
 }
 
-func ParseEpollPwait2Args(decoder *Decoder) (types.EpollPwait2Args, error) {
+func ParseEpollPwait2Args(log *logging.Logger, decoder *Decoder) (types.EpollPwait2Args, error) {
   var result types.EpollPwait2Args
   var err error
 
@@ -12707,6 +13992,10 @@ func ParseEpollPwait2Args(decoder *Decoder) (types.EpollPwait2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollPwait2Args{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'EpollPwait2': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12751,7 +14040,7 @@ func ParseEpollPwait2Args(decoder *Decoder) (types.EpollPwait2Args, error) {
   return result, nil
 }
 
-func ParseMountSetattArgs(decoder *Decoder) (types.MountSetattArgs, error) {
+func ParseMountSetattArgs(log *logging.Logger, decoder *Decoder) (types.MountSetattArgs, error) {
   var result types.MountSetattArgs
   var err error
 
@@ -12759,6 +14048,10 @@ func ParseMountSetattArgs(decoder *Decoder) (types.MountSetattArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MountSetattArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'MountSetatt': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12801,7 +14094,7 @@ func ParseMountSetattArgs(decoder *Decoder) (types.MountSetattArgs, error) {
   return result, nil
 }
 
-func ParseQuotactlFdArgs(decoder *Decoder) (types.QuotactlFdArgs, error) {
+func ParseQuotactlFdArgs(log *logging.Logger, decoder *Decoder) (types.QuotactlFdArgs, error) {
   var result types.QuotactlFdArgs
   var err error
 
@@ -12809,6 +14102,10 @@ func ParseQuotactlFdArgs(decoder *Decoder) (types.QuotactlFdArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.QuotactlFdArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'QuotactlFd': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12848,7 +14145,7 @@ func ParseQuotactlFdArgs(decoder *Decoder) (types.QuotactlFdArgs, error) {
   return result, nil
 }
 
-func ParseLandlockCreateRulesetArgs(decoder *Decoder) (types.LandlockCreateRulesetArgs, error) {
+func ParseLandlockCreateRulesetArgs(log *logging.Logger, decoder *Decoder) (types.LandlockCreateRulesetArgs, error) {
   var result types.LandlockCreateRulesetArgs
   var err error
 
@@ -12856,6 +14153,10 @@ func ParseLandlockCreateRulesetArgs(decoder *Decoder) (types.LandlockCreateRules
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LandlockCreateRulesetArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'LandlockCreateRuleset': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12888,7 +14189,7 @@ func ParseLandlockCreateRulesetArgs(decoder *Decoder) (types.LandlockCreateRules
   return result, nil
 }
 
-func ParseLandlockAddRuleArgs(decoder *Decoder) (types.LandlockAddRuleArgs, error) {
+func ParseLandlockAddRuleArgs(log *logging.Logger, decoder *Decoder) (types.LandlockAddRuleArgs, error) {
   var result types.LandlockAddRuleArgs
   var err error
 
@@ -12896,6 +14197,10 @@ func ParseLandlockAddRuleArgs(decoder *Decoder) (types.LandlockAddRuleArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LandlockAddRuleArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'LandlockAddRule': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12935,7 +14240,7 @@ func ParseLandlockAddRuleArgs(decoder *Decoder) (types.LandlockAddRuleArgs, erro
   return result, nil
 }
 
-func ParseLandloclRestrictSetArgs(decoder *Decoder) (types.LandloclRestrictSetArgs, error) {
+func ParseLandloclRestrictSetArgs(log *logging.Logger, decoder *Decoder) (types.LandloclRestrictSetArgs, error) {
   var result types.LandloclRestrictSetArgs
   var err error
 
@@ -12943,6 +14248,10 @@ func ParseLandloclRestrictSetArgs(decoder *Decoder) (types.LandloclRestrictSetAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LandloclRestrictSetArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'LandloclRestrictSet': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12968,7 +14277,7 @@ func ParseLandloclRestrictSetArgs(decoder *Decoder) (types.LandloclRestrictSetAr
   return result, nil
 }
 
-func ParseMemfdSecretArgs(decoder *Decoder) (types.MemfdSecretArgs, error) {
+func ParseMemfdSecretArgs(log *logging.Logger, decoder *Decoder) (types.MemfdSecretArgs, error) {
   var result types.MemfdSecretArgs
   var err error
 
@@ -12976,6 +14285,10 @@ func ParseMemfdSecretArgs(decoder *Decoder) (types.MemfdSecretArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MemfdSecretArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'MemfdSecret': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12996,7 +14309,7 @@ func ParseMemfdSecretArgs(decoder *Decoder) (types.MemfdSecretArgs, error) {
   return result, nil
 }
 
-func ParseProcessMreleaseArgs(decoder *Decoder) (types.ProcessMreleaseArgs, error) {
+func ParseProcessMreleaseArgs(log *logging.Logger, decoder *Decoder) (types.ProcessMreleaseArgs, error) {
   var result types.ProcessMreleaseArgs
   var err error
 
@@ -13004,6 +14317,10 @@ func ParseProcessMreleaseArgs(decoder *Decoder) (types.ProcessMreleaseArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessMreleaseArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ProcessMrelease': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13029,7 +14346,7 @@ func ParseProcessMreleaseArgs(decoder *Decoder) (types.ProcessMreleaseArgs, erro
   return result, nil
 }
 
-func ParseWaitpidArgs(decoder *Decoder) (types.WaitpidArgs, error) {
+func ParseWaitpidArgs(log *logging.Logger, decoder *Decoder) (types.WaitpidArgs, error) {
   var result types.WaitpidArgs
   var err error
 
@@ -13037,6 +14354,10 @@ func ParseWaitpidArgs(decoder *Decoder) (types.WaitpidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WaitpidArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Waitpid': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13069,15 +14390,15 @@ func ParseWaitpidArgs(decoder *Decoder) (types.WaitpidArgs, error) {
   return result, nil
 }
 
-func ParseOldfstatArgs(decoder *Decoder) (types.OldfstatArgs, error) {
+func ParseOldfstatArgs(log *logging.Logger, decoder *Decoder) (types.OldfstatArgs, error) {
   return types.OldfstatArgs{}, nil
 }
 
-func ParseBreakArgs(decoder *Decoder) (types.BreakArgs, error) {
+func ParseBreakArgs(log *logging.Logger, decoder *Decoder) (types.BreakArgs, error) {
   return types.BreakArgs{}, nil
 }
 
-func ParseOldstatArgs(decoder *Decoder) (types.OldstatArgs, error) {
+func ParseOldstatArgs(log *logging.Logger, decoder *Decoder) (types.OldstatArgs, error) {
   var result types.OldstatArgs
   var err error
 
@@ -13085,6 +14406,10 @@ func ParseOldstatArgs(decoder *Decoder) (types.OldstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldstatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Oldstat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13112,7 +14437,7 @@ func ParseOldstatArgs(decoder *Decoder) (types.OldstatArgs, error) {
   return result, nil
 }
 
-func ParseUmountArgs(decoder *Decoder) (types.UmountArgs, error) {
+func ParseUmountArgs(log *logging.Logger, decoder *Decoder) (types.UmountArgs, error) {
   var result types.UmountArgs
   var err error
 
@@ -13120,6 +14445,10 @@ func ParseUmountArgs(decoder *Decoder) (types.UmountArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UmountArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Umount': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13140,7 +14469,7 @@ func ParseUmountArgs(decoder *Decoder) (types.UmountArgs, error) {
   return result, nil
 }
 
-func ParseStimeArgs(decoder *Decoder) (types.StimeArgs, error) {
+func ParseStimeArgs(log *logging.Logger, decoder *Decoder) (types.StimeArgs, error) {
   var result types.StimeArgs
   var err error
 
@@ -13148,6 +14477,10 @@ func ParseStimeArgs(decoder *Decoder) (types.StimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StimeArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Stime': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13170,15 +14503,15 @@ func ParseStimeArgs(decoder *Decoder) (types.StimeArgs, error) {
   return result, nil
 }
 
-func ParseSttyArgs(decoder *Decoder) (types.SttyArgs, error) {
+func ParseSttyArgs(log *logging.Logger, decoder *Decoder) (types.SttyArgs, error) {
   return types.SttyArgs{}, nil
 }
 
-func ParseGttyArgs(decoder *Decoder) (types.GttyArgs, error) {
+func ParseGttyArgs(log *logging.Logger, decoder *Decoder) (types.GttyArgs, error) {
   return types.GttyArgs{}, nil
 }
 
-func ParseNiceArgs(decoder *Decoder) (types.NiceArgs, error) {
+func ParseNiceArgs(log *logging.Logger, decoder *Decoder) (types.NiceArgs, error) {
   var result types.NiceArgs
   var err error
 
@@ -13186,6 +14519,10 @@ func ParseNiceArgs(decoder *Decoder) (types.NiceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NiceArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Nice': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13206,15 +14543,15 @@ func ParseNiceArgs(decoder *Decoder) (types.NiceArgs, error) {
   return result, nil
 }
 
-func ParseFtimeArgs(decoder *Decoder) (types.FtimeArgs, error) {
+func ParseFtimeArgs(log *logging.Logger, decoder *Decoder) (types.FtimeArgs, error) {
   return types.FtimeArgs{}, nil
 }
 
-func ParseProfArgs(decoder *Decoder) (types.ProfArgs, error) {
+func ParseProfArgs(log *logging.Logger, decoder *Decoder) (types.ProfArgs, error) {
   return types.ProfArgs{}, nil
 }
 
-func ParseSignalArgs(decoder *Decoder) (types.SignalArgs, error) {
+func ParseSignalArgs(log *logging.Logger, decoder *Decoder) (types.SignalArgs, error) {
   var result types.SignalArgs
   var err error
 
@@ -13222,6 +14559,10 @@ func ParseSignalArgs(decoder *Decoder) (types.SignalArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SignalArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Signal': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13249,19 +14590,19 @@ func ParseSignalArgs(decoder *Decoder) (types.SignalArgs, error) {
   return result, nil
 }
 
-func ParseLockArgs(decoder *Decoder) (types.LockArgs, error) {
+func ParseLockArgs(log *logging.Logger, decoder *Decoder) (types.LockArgs, error) {
   return types.LockArgs{}, nil
 }
 
-func ParseMpxArgs(decoder *Decoder) (types.MpxArgs, error) {
+func ParseMpxArgs(log *logging.Logger, decoder *Decoder) (types.MpxArgs, error) {
   return types.MpxArgs{}, nil
 }
 
-func ParseUlimitArgs(decoder *Decoder) (types.UlimitArgs, error) {
+func ParseUlimitArgs(log *logging.Logger, decoder *Decoder) (types.UlimitArgs, error) {
   return types.UlimitArgs{}, nil
 }
 
-func ParseOldoldunameArgs(decoder *Decoder) (types.OldoldunameArgs, error) {
+func ParseOldoldunameArgs(log *logging.Logger, decoder *Decoder) (types.OldoldunameArgs, error) {
   var result types.OldoldunameArgs
   var err error
 
@@ -13269,6 +14610,10 @@ func ParseOldoldunameArgs(decoder *Decoder) (types.OldoldunameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldoldunameArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Oldolduname': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13291,7 +14636,7 @@ func ParseOldoldunameArgs(decoder *Decoder) (types.OldoldunameArgs, error) {
   return result, nil
 }
 
-func ParseSigactionArgs(decoder *Decoder) (types.SigactionArgs, error) {
+func ParseSigactionArgs(log *logging.Logger, decoder *Decoder) (types.SigactionArgs, error) {
   var result types.SigactionArgs
   var err error
 
@@ -13299,6 +14644,10 @@ func ParseSigactionArgs(decoder *Decoder) (types.SigactionArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigactionArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Sigaction': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13333,11 +14682,11 @@ func ParseSigactionArgs(decoder *Decoder) (types.SigactionArgs, error) {
   return result, nil
 }
 
-func ParseSgetmaskArgs(decoder *Decoder) (types.SgetmaskArgs, error) {
+func ParseSgetmaskArgs(log *logging.Logger, decoder *Decoder) (types.SgetmaskArgs, error) {
   return types.SgetmaskArgs{}, nil
 }
 
-func ParseSsetmaskArgs(decoder *Decoder) (types.SsetmaskArgs, error) {
+func ParseSsetmaskArgs(log *logging.Logger, decoder *Decoder) (types.SsetmaskArgs, error) {
   var result types.SsetmaskArgs
   var err error
 
@@ -13345,6 +14694,10 @@ func ParseSsetmaskArgs(decoder *Decoder) (types.SsetmaskArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SsetmaskArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Ssetmask': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13365,7 +14718,7 @@ func ParseSsetmaskArgs(decoder *Decoder) (types.SsetmaskArgs, error) {
   return result, nil
 }
 
-func ParseSigsuspendArgs(decoder *Decoder) (types.SigsuspendArgs, error) {
+func ParseSigsuspendArgs(log *logging.Logger, decoder *Decoder) (types.SigsuspendArgs, error) {
   var result types.SigsuspendArgs
   var err error
 
@@ -13373,6 +14726,10 @@ func ParseSigsuspendArgs(decoder *Decoder) (types.SigsuspendArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigsuspendArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Sigsuspend': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13395,7 +14752,7 @@ func ParseSigsuspendArgs(decoder *Decoder) (types.SigsuspendArgs, error) {
   return result, nil
 }
 
-func ParseSigpendingArgs(decoder *Decoder) (types.SigpendingArgs, error) {
+func ParseSigpendingArgs(log *logging.Logger, decoder *Decoder) (types.SigpendingArgs, error) {
   var result types.SigpendingArgs
   var err error
 
@@ -13403,6 +14760,10 @@ func ParseSigpendingArgs(decoder *Decoder) (types.SigpendingArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigpendingArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Sigpending': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13425,7 +14786,7 @@ func ParseSigpendingArgs(decoder *Decoder) (types.SigpendingArgs, error) {
   return result, nil
 }
 
-func ParseOldlstatArgs(decoder *Decoder) (types.OldlstatArgs, error) {
+func ParseOldlstatArgs(log *logging.Logger, decoder *Decoder) (types.OldlstatArgs, error) {
   var result types.OldlstatArgs
   var err error
 
@@ -13433,6 +14794,10 @@ func ParseOldlstatArgs(decoder *Decoder) (types.OldlstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldlstatArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Oldlstat': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13460,7 +14825,7 @@ func ParseOldlstatArgs(decoder *Decoder) (types.OldlstatArgs, error) {
   return result, nil
 }
 
-func ParseReaddirArgs(decoder *Decoder) (types.ReaddirArgs, error) {
+func ParseReaddirArgs(log *logging.Logger, decoder *Decoder) (types.ReaddirArgs, error) {
   var result types.ReaddirArgs
   var err error
 
@@ -13468,6 +14833,10 @@ func ParseReaddirArgs(decoder *Decoder) (types.ReaddirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReaddirArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Readdir': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13500,11 +14869,11 @@ func ParseReaddirArgs(decoder *Decoder) (types.ReaddirArgs, error) {
   return result, nil
 }
 
-func ParseProfilArgs(decoder *Decoder) (types.ProfilArgs, error) {
+func ParseProfilArgs(log *logging.Logger, decoder *Decoder) (types.ProfilArgs, error) {
   return types.ProfilArgs{}, nil
 }
 
-func ParseSocketcallArgs(decoder *Decoder) (types.SocketcallArgs, error) {
+func ParseSocketcallArgs(log *logging.Logger, decoder *Decoder) (types.SocketcallArgs, error) {
   var result types.SocketcallArgs
   var err error
 
@@ -13512,6 +14881,10 @@ func ParseSocketcallArgs(decoder *Decoder) (types.SocketcallArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketcallArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Socketcall': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13539,7 +14912,7 @@ func ParseSocketcallArgs(decoder *Decoder) (types.SocketcallArgs, error) {
   return result, nil
 }
 
-func ParseOldunameArgs(decoder *Decoder) (types.OldunameArgs, error) {
+func ParseOldunameArgs(log *logging.Logger, decoder *Decoder) (types.OldunameArgs, error) {
   var result types.OldunameArgs
   var err error
 
@@ -13547,6 +14920,10 @@ func ParseOldunameArgs(decoder *Decoder) (types.OldunameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldunameArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Olduname': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13569,11 +14946,11 @@ func ParseOldunameArgs(decoder *Decoder) (types.OldunameArgs, error) {
   return result, nil
 }
 
-func ParseIdleArgs(decoder *Decoder) (types.IdleArgs, error) {
+func ParseIdleArgs(log *logging.Logger, decoder *Decoder) (types.IdleArgs, error) {
   return types.IdleArgs{}, nil
 }
 
-func ParseVm86oldArgs(decoder *Decoder) (types.Vm86oldArgs, error) {
+func ParseVm86oldArgs(log *logging.Logger, decoder *Decoder) (types.Vm86oldArgs, error) {
   var result types.Vm86oldArgs
   var err error
 
@@ -13581,6 +14958,10 @@ func ParseVm86oldArgs(decoder *Decoder) (types.Vm86oldArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Vm86oldArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Vm86old': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13603,7 +14984,7 @@ func ParseVm86oldArgs(decoder *Decoder) (types.Vm86oldArgs, error) {
   return result, nil
 }
 
-func ParseIpcArgs(decoder *Decoder) (types.IpcArgs, error) {
+func ParseIpcArgs(log *logging.Logger, decoder *Decoder) (types.IpcArgs, error) {
   var result types.IpcArgs
   var err error
 
@@ -13611,6 +14992,10 @@ func ParseIpcArgs(decoder *Decoder) (types.IpcArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IpcArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Ipc': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13658,11 +15043,11 @@ func ParseIpcArgs(decoder *Decoder) (types.IpcArgs, error) {
   return result, nil
 }
 
-func ParseSigreturnArgs(decoder *Decoder) (types.SigreturnArgs, error) {
+func ParseSigreturnArgs(log *logging.Logger, decoder *Decoder) (types.SigreturnArgs, error) {
   return types.SigreturnArgs{}, nil
 }
 
-func ParseSigprocmaskArgs(decoder *Decoder) (types.SigprocmaskArgs, error) {
+func ParseSigprocmaskArgs(log *logging.Logger, decoder *Decoder) (types.SigprocmaskArgs, error) {
   var result types.SigprocmaskArgs
   var err error
 
@@ -13670,6 +15055,10 @@ func ParseSigprocmaskArgs(decoder *Decoder) (types.SigprocmaskArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigprocmaskArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Sigprocmask': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13704,15 +15093,15 @@ func ParseSigprocmaskArgs(decoder *Decoder) (types.SigprocmaskArgs, error) {
   return result, nil
 }
 
-func ParseBdflushArgs(decoder *Decoder) (types.BdflushArgs, error) {
+func ParseBdflushArgs(log *logging.Logger, decoder *Decoder) (types.BdflushArgs, error) {
   return types.BdflushArgs{}, nil
 }
 
-func ParseAfs_syscallArgs(decoder *Decoder) (types.Afs_syscallArgs, error) {
+func ParseAfs_syscallArgs(log *logging.Logger, decoder *Decoder) (types.Afs_syscallArgs, error) {
   return types.Afs_syscallArgs{}, nil
 }
 
-func ParseLlseekArgs(decoder *Decoder) (types.LlseekArgs, error) {
+func ParseLlseekArgs(log *logging.Logger, decoder *Decoder) (types.LlseekArgs, error) {
   var result types.LlseekArgs
   var err error
 
@@ -13720,6 +15109,10 @@ func ParseLlseekArgs(decoder *Decoder) (types.LlseekArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LlseekArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'Llseek': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13762,7 +15155,7 @@ func ParseLlseekArgs(decoder *Decoder) (types.LlseekArgs, error) {
   return result, nil
 }
 
-func ParseOldSelectArgs(decoder *Decoder) (types.OldSelectArgs, error) {
+func ParseOldSelectArgs(log *logging.Logger, decoder *Decoder) (types.OldSelectArgs, error) {
   var result types.OldSelectArgs
   var err error
 
@@ -13770,6 +15163,10 @@ func ParseOldSelectArgs(decoder *Decoder) (types.OldSelectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldSelectArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'OldSelect': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13818,7 +15215,7 @@ func ParseOldSelectArgs(decoder *Decoder) (types.OldSelectArgs, error) {
   return result, nil
 }
 
-func ParseVm86Args(decoder *Decoder) (types.Vm86Args, error) {
+func ParseVm86Args(log *logging.Logger, decoder *Decoder) (types.Vm86Args, error) {
   var result types.Vm86Args
   var err error
 
@@ -13826,6 +15223,10 @@ func ParseVm86Args(decoder *Decoder) (types.Vm86Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Vm86Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Vm86': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13853,7 +15254,7 @@ func ParseVm86Args(decoder *Decoder) (types.Vm86Args, error) {
   return result, nil
 }
 
-func ParseOldGetrlimitArgs(decoder *Decoder) (types.OldGetrlimitArgs, error) {
+func ParseOldGetrlimitArgs(log *logging.Logger, decoder *Decoder) (types.OldGetrlimitArgs, error) {
   var result types.OldGetrlimitArgs
   var err error
 
@@ -13861,6 +15262,10 @@ func ParseOldGetrlimitArgs(decoder *Decoder) (types.OldGetrlimitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldGetrlimitArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'OldGetrlimit': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13888,7 +15293,7 @@ func ParseOldGetrlimitArgs(decoder *Decoder) (types.OldGetrlimitArgs, error) {
   return result, nil
 }
 
-func ParseMmap2Args(decoder *Decoder) (types.Mmap2Args, error) {
+func ParseMmap2Args(log *logging.Logger, decoder *Decoder) (types.Mmap2Args, error) {
   var result types.Mmap2Args
   var err error
 
@@ -13896,6 +15301,10 @@ func ParseMmap2Args(decoder *Decoder) (types.Mmap2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Mmap2Args{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Mmap2': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13941,7 +15350,7 @@ func ParseMmap2Args(decoder *Decoder) (types.Mmap2Args, error) {
   return result, nil
 }
 
-func ParseTruncate64Args(decoder *Decoder) (types.Truncate64Args, error) {
+func ParseTruncate64Args(log *logging.Logger, decoder *Decoder) (types.Truncate64Args, error) {
   var result types.Truncate64Args
   var err error
 
@@ -13949,6 +15358,10 @@ func ParseTruncate64Args(decoder *Decoder) (types.Truncate64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Truncate64Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Truncate64': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13974,7 +15387,7 @@ func ParseTruncate64Args(decoder *Decoder) (types.Truncate64Args, error) {
   return result, nil
 }
 
-func ParseFtruncate64Args(decoder *Decoder) (types.Ftruncate64Args, error) {
+func ParseFtruncate64Args(log *logging.Logger, decoder *Decoder) (types.Ftruncate64Args, error) {
   var result types.Ftruncate64Args
   var err error
 
@@ -13982,6 +15395,10 @@ func ParseFtruncate64Args(decoder *Decoder) (types.Ftruncate64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Ftruncate64Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Ftruncate64': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14007,7 +15424,7 @@ func ParseFtruncate64Args(decoder *Decoder) (types.Ftruncate64Args, error) {
   return result, nil
 }
 
-func ParseStat64Args(decoder *Decoder) (types.Stat64Args, error) {
+func ParseStat64Args(log *logging.Logger, decoder *Decoder) (types.Stat64Args, error) {
   var result types.Stat64Args
   var err error
 
@@ -14015,6 +15432,10 @@ func ParseStat64Args(decoder *Decoder) (types.Stat64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Stat64Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Stat64': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14042,7 +15463,7 @@ func ParseStat64Args(decoder *Decoder) (types.Stat64Args, error) {
   return result, nil
 }
 
-func ParseLstat64Args(decoder *Decoder) (types.Lstat64Args, error) {
+func ParseLstat64Args(log *logging.Logger, decoder *Decoder) (types.Lstat64Args, error) {
   var result types.Lstat64Args
   var err error
 
@@ -14050,6 +15471,10 @@ func ParseLstat64Args(decoder *Decoder) (types.Lstat64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Lstat64Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Lstat64': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14077,7 +15502,7 @@ func ParseLstat64Args(decoder *Decoder) (types.Lstat64Args, error) {
   return result, nil
 }
 
-func ParseFstat64Args(decoder *Decoder) (types.Fstat64Args, error) {
+func ParseFstat64Args(log *logging.Logger, decoder *Decoder) (types.Fstat64Args, error) {
   var result types.Fstat64Args
   var err error
 
@@ -14085,6 +15510,10 @@ func ParseFstat64Args(decoder *Decoder) (types.Fstat64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fstat64Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Fstat64': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14112,7 +15541,7 @@ func ParseFstat64Args(decoder *Decoder) (types.Fstat64Args, error) {
   return result, nil
 }
 
-func ParseLchown16Args(decoder *Decoder) (types.Lchown16Args, error) {
+func ParseLchown16Args(log *logging.Logger, decoder *Decoder) (types.Lchown16Args, error) {
   var result types.Lchown16Args
   var err error
 
@@ -14120,6 +15549,10 @@ func ParseLchown16Args(decoder *Decoder) (types.Lchown16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Lchown16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Lchown16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14154,23 +15587,23 @@ func ParseLchown16Args(decoder *Decoder) (types.Lchown16Args, error) {
   return result, nil
 }
 
-func ParseGetuid16Args(decoder *Decoder) (types.Getuid16Args, error) {
+func ParseGetuid16Args(log *logging.Logger, decoder *Decoder) (types.Getuid16Args, error) {
   return types.Getuid16Args{}, nil
 }
 
-func ParseGetgid16Args(decoder *Decoder) (types.Getgid16Args, error) {
+func ParseGetgid16Args(log *logging.Logger, decoder *Decoder) (types.Getgid16Args, error) {
   return types.Getgid16Args{}, nil
 }
 
-func ParseGeteuid16Args(decoder *Decoder) (types.Geteuid16Args, error) {
+func ParseGeteuid16Args(log *logging.Logger, decoder *Decoder) (types.Geteuid16Args, error) {
   return types.Geteuid16Args{}, nil
 }
 
-func ParseGetegid16Args(decoder *Decoder) (types.Getegid16Args, error) {
+func ParseGetegid16Args(log *logging.Logger, decoder *Decoder) (types.Getegid16Args, error) {
   return types.Getegid16Args{}, nil
 }
 
-func ParseSetreuid16Args(decoder *Decoder) (types.Setreuid16Args, error) {
+func ParseSetreuid16Args(log *logging.Logger, decoder *Decoder) (types.Setreuid16Args, error) {
   var result types.Setreuid16Args
   var err error
 
@@ -14178,6 +15611,10 @@ func ParseSetreuid16Args(decoder *Decoder) (types.Setreuid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setreuid16Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setreuid16': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14207,7 +15644,7 @@ func ParseSetreuid16Args(decoder *Decoder) (types.Setreuid16Args, error) {
   return result, nil
 }
 
-func ParseSetregid16Args(decoder *Decoder) (types.Setregid16Args, error) {
+func ParseSetregid16Args(log *logging.Logger, decoder *Decoder) (types.Setregid16Args, error) {
   var result types.Setregid16Args
   var err error
 
@@ -14215,6 +15652,10 @@ func ParseSetregid16Args(decoder *Decoder) (types.Setregid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setregid16Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setregid16': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14244,7 +15685,7 @@ func ParseSetregid16Args(decoder *Decoder) (types.Setregid16Args, error) {
   return result, nil
 }
 
-func ParseGetgroups16Args(decoder *Decoder) (types.Getgroups16Args, error) {
+func ParseGetgroups16Args(log *logging.Logger, decoder *Decoder) (types.Getgroups16Args, error) {
   var result types.Getgroups16Args
   var err error
 
@@ -14252,6 +15693,10 @@ func ParseGetgroups16Args(decoder *Decoder) (types.Getgroups16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Getgroups16Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Getgroups16': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14279,7 +15724,7 @@ func ParseGetgroups16Args(decoder *Decoder) (types.Getgroups16Args, error) {
   return result, nil
 }
 
-func ParseSetgroups16Args(decoder *Decoder) (types.Setgroups16Args, error) {
+func ParseSetgroups16Args(log *logging.Logger, decoder *Decoder) (types.Setgroups16Args, error) {
   var result types.Setgroups16Args
   var err error
 
@@ -14287,6 +15732,10 @@ func ParseSetgroups16Args(decoder *Decoder) (types.Setgroups16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setgroups16Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'Setgroups16': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14314,7 +15763,7 @@ func ParseSetgroups16Args(decoder *Decoder) (types.Setgroups16Args, error) {
   return result, nil
 }
 
-func ParseFchown16Args(decoder *Decoder) (types.Fchown16Args, error) {
+func ParseFchown16Args(log *logging.Logger, decoder *Decoder) (types.Fchown16Args, error) {
   var result types.Fchown16Args
   var err error
 
@@ -14322,6 +15771,10 @@ func ParseFchown16Args(decoder *Decoder) (types.Fchown16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fchown16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fchown16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14356,7 +15809,7 @@ func ParseFchown16Args(decoder *Decoder) (types.Fchown16Args, error) {
   return result, nil
 }
 
-func ParseSetresuid16Args(decoder *Decoder) (types.Setresuid16Args, error) {
+func ParseSetresuid16Args(log *logging.Logger, decoder *Decoder) (types.Setresuid16Args, error) {
   var result types.Setresuid16Args
   var err error
 
@@ -14364,6 +15817,10 @@ func ParseSetresuid16Args(decoder *Decoder) (types.Setresuid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setresuid16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Setresuid16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14400,7 +15857,7 @@ func ParseSetresuid16Args(decoder *Decoder) (types.Setresuid16Args, error) {
   return result, nil
 }
 
-func ParseGetresuid16Args(decoder *Decoder) (types.Getresuid16Args, error) {
+func ParseGetresuid16Args(log *logging.Logger, decoder *Decoder) (types.Getresuid16Args, error) {
   var result types.Getresuid16Args
   var err error
 
@@ -14408,6 +15865,10 @@ func ParseGetresuid16Args(decoder *Decoder) (types.Getresuid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Getresuid16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getresuid16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14444,7 +15905,7 @@ func ParseGetresuid16Args(decoder *Decoder) (types.Getresuid16Args, error) {
   return result, nil
 }
 
-func ParseSetresgid16Args(decoder *Decoder) (types.Setresgid16Args, error) {
+func ParseSetresgid16Args(log *logging.Logger, decoder *Decoder) (types.Setresgid16Args, error) {
   var result types.Setresgid16Args
   var err error
 
@@ -14452,6 +15913,10 @@ func ParseSetresgid16Args(decoder *Decoder) (types.Setresgid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setresgid16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Setresgid16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14488,7 +15953,7 @@ func ParseSetresgid16Args(decoder *Decoder) (types.Setresgid16Args, error) {
   return result, nil
 }
 
-func ParseGetresgid16Args(decoder *Decoder) (types.Getresgid16Args, error) {
+func ParseGetresgid16Args(log *logging.Logger, decoder *Decoder) (types.Getresgid16Args, error) {
   var result types.Getresgid16Args
   var err error
 
@@ -14496,6 +15961,10 @@ func ParseGetresgid16Args(decoder *Decoder) (types.Getresgid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Getresgid16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Getresgid16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14532,7 +16001,7 @@ func ParseGetresgid16Args(decoder *Decoder) (types.Getresgid16Args, error) {
   return result, nil
 }
 
-func ParseChown16Args(decoder *Decoder) (types.Chown16Args, error) {
+func ParseChown16Args(log *logging.Logger, decoder *Decoder) (types.Chown16Args, error) {
   var result types.Chown16Args
   var err error
 
@@ -14540,6 +16009,10 @@ func ParseChown16Args(decoder *Decoder) (types.Chown16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Chown16Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Chown16': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14574,7 +16047,7 @@ func ParseChown16Args(decoder *Decoder) (types.Chown16Args, error) {
   return result, nil
 }
 
-func ParseSetuid16Args(decoder *Decoder) (types.Setuid16Args, error) {
+func ParseSetuid16Args(log *logging.Logger, decoder *Decoder) (types.Setuid16Args, error) {
   var result types.Setuid16Args
   var err error
 
@@ -14582,6 +16055,10 @@ func ParseSetuid16Args(decoder *Decoder) (types.Setuid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setuid16Args{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setuid16': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14604,7 +16081,7 @@ func ParseSetuid16Args(decoder *Decoder) (types.Setuid16Args, error) {
   return result, nil
 }
 
-func ParseSetgid16Args(decoder *Decoder) (types.Setgid16Args, error) {
+func ParseSetgid16Args(log *logging.Logger, decoder *Decoder) (types.Setgid16Args, error) {
   var result types.Setgid16Args
   var err error
 
@@ -14612,6 +16089,10 @@ func ParseSetgid16Args(decoder *Decoder) (types.Setgid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setgid16Args{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setgid16': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14634,7 +16115,7 @@ func ParseSetgid16Args(decoder *Decoder) (types.Setgid16Args, error) {
   return result, nil
 }
 
-func ParseSetfsuid16Args(decoder *Decoder) (types.Setfsuid16Args, error) {
+func ParseSetfsuid16Args(log *logging.Logger, decoder *Decoder) (types.Setfsuid16Args, error) {
   var result types.Setfsuid16Args
   var err error
 
@@ -14642,6 +16123,10 @@ func ParseSetfsuid16Args(decoder *Decoder) (types.Setfsuid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setfsuid16Args{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setfsuid16': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14664,7 +16149,7 @@ func ParseSetfsuid16Args(decoder *Decoder) (types.Setfsuid16Args, error) {
   return result, nil
 }
 
-func ParseSetfsgid16Args(decoder *Decoder) (types.Setfsgid16Args, error) {
+func ParseSetfsgid16Args(log *logging.Logger, decoder *Decoder) (types.Setfsgid16Args, error) {
   var result types.Setfsgid16Args
   var err error
 
@@ -14672,6 +16157,10 @@ func ParseSetfsgid16Args(decoder *Decoder) (types.Setfsgid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setfsgid16Args{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'Setfsgid16': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14694,7 +16183,7 @@ func ParseSetfsgid16Args(decoder *Decoder) (types.Setfsgid16Args, error) {
   return result, nil
 }
 
-func ParseFcntl64Args(decoder *Decoder) (types.Fcntl64Args, error) {
+func ParseFcntl64Args(log *logging.Logger, decoder *Decoder) (types.Fcntl64Args, error) {
   var result types.Fcntl64Args
   var err error
 
@@ -14702,6 +16191,10 @@ func ParseFcntl64Args(decoder *Decoder) (types.Fcntl64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fcntl64Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fcntl64': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14732,7 +16225,7 @@ func ParseFcntl64Args(decoder *Decoder) (types.Fcntl64Args, error) {
   return result, nil
 }
 
-func ParseSendfile32Args(decoder *Decoder) (types.Sendfile32Args, error) {
+func ParseSendfile32Args(log *logging.Logger, decoder *Decoder) (types.Sendfile32Args, error) {
   var result types.Sendfile32Args
   var err error
 
@@ -14740,6 +16233,10 @@ func ParseSendfile32Args(decoder *Decoder) (types.Sendfile32Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Sendfile32Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Sendfile32': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14777,7 +16274,7 @@ func ParseSendfile32Args(decoder *Decoder) (types.Sendfile32Args, error) {
   return result, nil
 }
 
-func ParseStatfs64Args(decoder *Decoder) (types.Statfs64Args, error) {
+func ParseStatfs64Args(log *logging.Logger, decoder *Decoder) (types.Statfs64Args, error) {
   var result types.Statfs64Args
   var err error
 
@@ -14785,6 +16282,10 @@ func ParseStatfs64Args(decoder *Decoder) (types.Statfs64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Statfs64Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Statfs64': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14817,7 +16318,7 @@ func ParseStatfs64Args(decoder *Decoder) (types.Statfs64Args, error) {
   return result, nil
 }
 
-func ParseFstatfs64Args(decoder *Decoder) (types.Fstatfs64Args, error) {
+func ParseFstatfs64Args(log *logging.Logger, decoder *Decoder) (types.Fstatfs64Args, error) {
   var result types.Fstatfs64Args
   var err error
 
@@ -14825,6 +16326,10 @@ func ParseFstatfs64Args(decoder *Decoder) (types.Fstatfs64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fstatfs64Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'Fstatfs64': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14857,7 +16362,7 @@ func ParseFstatfs64Args(decoder *Decoder) (types.Fstatfs64Args, error) {
   return result, nil
 }
 
-func ParseFadvise64_64Args(decoder *Decoder) (types.Fadvise64_64Args, error) {
+func ParseFadvise64_64Args(log *logging.Logger, decoder *Decoder) (types.Fadvise64_64Args, error) {
   var result types.Fadvise64_64Args
   var err error
 
@@ -14865,6 +16370,10 @@ func ParseFadvise64_64Args(decoder *Decoder) (types.Fadvise64_64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fadvise64_64Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'Fadvise64_64': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14900,7 +16409,7 @@ func ParseFadvise64_64Args(decoder *Decoder) (types.Fadvise64_64Args, error) {
   return result, nil
 }
 
-func ParseClockGettime32Args(decoder *Decoder) (types.ClockGettime32Args, error) {
+func ParseClockGettime32Args(log *logging.Logger, decoder *Decoder) (types.ClockGettime32Args, error) {
   var result types.ClockGettime32Args
   var err error
 
@@ -14908,6 +16417,10 @@ func ParseClockGettime32Args(decoder *Decoder) (types.ClockGettime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockGettime32Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockGettime32': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14935,7 +16448,7 @@ func ParseClockGettime32Args(decoder *Decoder) (types.ClockGettime32Args, error)
   return result, nil
 }
 
-func ParseClockSettime32Args(decoder *Decoder) (types.ClockSettime32Args, error) {
+func ParseClockSettime32Args(log *logging.Logger, decoder *Decoder) (types.ClockSettime32Args, error) {
   var result types.ClockSettime32Args
   var err error
 
@@ -14943,6 +16456,10 @@ func ParseClockSettime32Args(decoder *Decoder) (types.ClockSettime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockSettime32Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockSettime32': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14970,11 +16487,11 @@ func ParseClockSettime32Args(decoder *Decoder) (types.ClockSettime32Args, error)
   return result, nil
 }
 
-func ParseClockAdjtime64Args(decoder *Decoder) (types.ClockAdjtime64Args, error) {
+func ParseClockAdjtime64Args(log *logging.Logger, decoder *Decoder) (types.ClockAdjtime64Args, error) {
   return types.ClockAdjtime64Args{}, nil
 }
 
-func ParseClockGetresTime32Args(decoder *Decoder) (types.ClockGetresTime32Args, error) {
+func ParseClockGetresTime32Args(log *logging.Logger, decoder *Decoder) (types.ClockGetresTime32Args, error) {
   var result types.ClockGetresTime32Args
   var err error
 
@@ -14982,6 +16499,10 @@ func ParseClockGetresTime32Args(decoder *Decoder) (types.ClockGetresTime32Args, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockGetresTime32Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ClockGetresTime32': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15009,7 +16530,7 @@ func ParseClockGetresTime32Args(decoder *Decoder) (types.ClockGetresTime32Args, 
   return result, nil
 }
 
-func ParseClockNanosleepTime32Args(decoder *Decoder) (types.ClockNanosleepTime32Args, error) {
+func ParseClockNanosleepTime32Args(log *logging.Logger, decoder *Decoder) (types.ClockNanosleepTime32Args, error) {
   var result types.ClockNanosleepTime32Args
   var err error
 
@@ -15017,6 +16538,10 @@ func ParseClockNanosleepTime32Args(decoder *Decoder) (types.ClockNanosleepTime32
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockNanosleepTime32Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'ClockNanosleepTime32': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15056,7 +16581,7 @@ func ParseClockNanosleepTime32Args(decoder *Decoder) (types.ClockNanosleepTime32
   return result, nil
 }
 
-func ParseTimerGettime32Args(decoder *Decoder) (types.TimerGettime32Args, error) {
+func ParseTimerGettime32Args(log *logging.Logger, decoder *Decoder) (types.TimerGettime32Args, error) {
   var result types.TimerGettime32Args
   var err error
 
@@ -15064,6 +16589,10 @@ func ParseTimerGettime32Args(decoder *Decoder) (types.TimerGettime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerGettime32Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'TimerGettime32': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15091,7 +16620,7 @@ func ParseTimerGettime32Args(decoder *Decoder) (types.TimerGettime32Args, error)
   return result, nil
 }
 
-func ParseTimerSettime32Args(decoder *Decoder) (types.TimerSettime32Args, error) {
+func ParseTimerSettime32Args(log *logging.Logger, decoder *Decoder) (types.TimerSettime32Args, error) {
   var result types.TimerSettime32Args
   var err error
 
@@ -15099,6 +16628,10 @@ func ParseTimerSettime32Args(decoder *Decoder) (types.TimerSettime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerSettime32Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'TimerSettime32': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15138,7 +16671,7 @@ func ParseTimerSettime32Args(decoder *Decoder) (types.TimerSettime32Args, error)
   return result, nil
 }
 
-func ParseTimerfdGettime32Args(decoder *Decoder) (types.TimerfdGettime32Args, error) {
+func ParseTimerfdGettime32Args(log *logging.Logger, decoder *Decoder) (types.TimerfdGettime32Args, error) {
   var result types.TimerfdGettime32Args
   var err error
 
@@ -15146,6 +16679,10 @@ func ParseTimerfdGettime32Args(decoder *Decoder) (types.TimerfdGettime32Args, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdGettime32Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'TimerfdGettime32': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15173,7 +16710,7 @@ func ParseTimerfdGettime32Args(decoder *Decoder) (types.TimerfdGettime32Args, er
   return result, nil
 }
 
-func ParseTimerfdSettime32Args(decoder *Decoder) (types.TimerfdSettime32Args, error) {
+func ParseTimerfdSettime32Args(log *logging.Logger, decoder *Decoder) (types.TimerfdSettime32Args, error) {
   var result types.TimerfdSettime32Args
   var err error
 
@@ -15181,6 +16718,10 @@ func ParseTimerfdSettime32Args(decoder *Decoder) (types.TimerfdSettime32Args, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdSettime32Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'TimerfdSettime32': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15220,7 +16761,7 @@ func ParseTimerfdSettime32Args(decoder *Decoder) (types.TimerfdSettime32Args, er
   return result, nil
 }
 
-func ParseUtimensatTime32Args(decoder *Decoder) (types.UtimensatTime32Args, error) {
+func ParseUtimensatTime32Args(log *logging.Logger, decoder *Decoder) (types.UtimensatTime32Args, error) {
   var result types.UtimensatTime32Args
   var err error
 
@@ -15228,6 +16769,10 @@ func ParseUtimensatTime32Args(decoder *Decoder) (types.UtimensatTime32Args, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UtimensatTime32Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'UtimensatTime32': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15265,7 +16810,7 @@ func ParseUtimensatTime32Args(decoder *Decoder) (types.UtimensatTime32Args, erro
   return result, nil
 }
 
-func ParsePselect6Time32Args(decoder *Decoder) (types.Pselect6Time32Args, error) {
+func ParsePselect6Time32Args(log *logging.Logger, decoder *Decoder) (types.Pselect6Time32Args, error) {
   var result types.Pselect6Time32Args
   var err error
 
@@ -15273,6 +16818,10 @@ func ParsePselect6Time32Args(decoder *Decoder) (types.Pselect6Time32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pselect6Time32Args{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'Pselect6Time32': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15328,7 +16877,7 @@ func ParsePselect6Time32Args(decoder *Decoder) (types.Pselect6Time32Args, error)
   return result, nil
 }
 
-func ParsePpollTime32Args(decoder *Decoder) (types.PpollTime32Args, error) {
+func ParsePpollTime32Args(log *logging.Logger, decoder *Decoder) (types.PpollTime32Args, error) {
   var result types.PpollTime32Args
   var err error
 
@@ -15336,6 +16885,10 @@ func ParsePpollTime32Args(decoder *Decoder) (types.PpollTime32Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PpollTime32Args{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'PpollTime32': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15382,11 +16935,11 @@ func ParsePpollTime32Args(decoder *Decoder) (types.PpollTime32Args, error) {
   return result, nil
 }
 
-func ParseIoPgeteventsTime32Args(decoder *Decoder) (types.IoPgeteventsTime32Args, error) {
+func ParseIoPgeteventsTime32Args(log *logging.Logger, decoder *Decoder) (types.IoPgeteventsTime32Args, error) {
   return types.IoPgeteventsTime32Args{}, nil
 }
 
-func ParseRecvmmsgTime32Args(decoder *Decoder) (types.RecvmmsgTime32Args, error) {
+func ParseRecvmmsgTime32Args(log *logging.Logger, decoder *Decoder) (types.RecvmmsgTime32Args, error) {
   var result types.RecvmmsgTime32Args
   var err error
 
@@ -15394,6 +16947,10 @@ func ParseRecvmmsgTime32Args(decoder *Decoder) (types.RecvmmsgTime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RecvmmsgTime32Args{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'RecvmmsgTime32': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15438,7 +16995,7 @@ func ParseRecvmmsgTime32Args(decoder *Decoder) (types.RecvmmsgTime32Args, error)
   return result, nil
 }
 
-func ParseMqTimedsendTime32Args(decoder *Decoder) (types.MqTimedsendTime32Args, error) {
+func ParseMqTimedsendTime32Args(log *logging.Logger, decoder *Decoder) (types.MqTimedsendTime32Args, error) {
   var result types.MqTimedsendTime32Args
   var err error
 
@@ -15446,6 +17003,10 @@ func ParseMqTimedsendTime32Args(decoder *Decoder) (types.MqTimedsendTime32Args, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedsendTime32Args{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'MqTimedsendTime32': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15488,7 +17049,7 @@ func ParseMqTimedsendTime32Args(decoder *Decoder) (types.MqTimedsendTime32Args, 
   return result, nil
 }
 
-func ParseMqTimedreceiveTime32Args(decoder *Decoder) (types.MqTimedreceiveTime32Args, error) {
+func ParseMqTimedreceiveTime32Args(log *logging.Logger, decoder *Decoder) (types.MqTimedreceiveTime32Args, error) {
   var result types.MqTimedreceiveTime32Args
   var err error
 
@@ -15496,6 +17057,10 @@ func ParseMqTimedreceiveTime32Args(decoder *Decoder) (types.MqTimedreceiveTime32
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedreceiveTime32Args{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'MqTimedreceiveTime32': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15540,7 +17105,7 @@ func ParseMqTimedreceiveTime32Args(decoder *Decoder) (types.MqTimedreceiveTime32
   return result, nil
 }
 
-func ParseRtSigtimedwaitTime32Args(decoder *Decoder) (types.RtSigtimedwaitTime32Args, error) {
+func ParseRtSigtimedwaitTime32Args(log *logging.Logger, decoder *Decoder) (types.RtSigtimedwaitTime32Args, error) {
   var result types.RtSigtimedwaitTime32Args
   var err error
 
@@ -15548,6 +17113,10 @@ func ParseRtSigtimedwaitTime32Args(decoder *Decoder) (types.RtSigtimedwaitTime32
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigtimedwaitTime32Args{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RtSigtimedwaitTime32': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15589,7 +17158,7 @@ func ParseRtSigtimedwaitTime32Args(decoder *Decoder) (types.RtSigtimedwaitTime32
   return result, nil
 }
 
-func ParseFutexTime32Args(decoder *Decoder) (types.FutexTime32Args, error) {
+func ParseFutexTime32Args(log *logging.Logger, decoder *Decoder) (types.FutexTime32Args, error) {
   var result types.FutexTime32Args
   var err error
 
@@ -15597,6 +17166,10 @@ func ParseFutexTime32Args(decoder *Decoder) (types.FutexTime32Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FutexTime32Args{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'FutexTime32': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15648,7 +17221,7 @@ func ParseFutexTime32Args(decoder *Decoder) (types.FutexTime32Args, error) {
   return result, nil
 }
 
-func ParseSchedRrGetInterval32Args(decoder *Decoder) (types.SchedRrGetInterval32Args, error) {
+func ParseSchedRrGetInterval32Args(log *logging.Logger, decoder *Decoder) (types.SchedRrGetInterval32Args, error) {
   var result types.SchedRrGetInterval32Args
   var err error
 
@@ -15656,6 +17229,10 @@ func ParseSchedRrGetInterval32Args(decoder *Decoder) (types.SchedRrGetInterval32
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedRrGetInterval32Args{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SchedRrGetInterval32': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15683,7 +17260,7 @@ func ParseSchedRrGetInterval32Args(decoder *Decoder) (types.SchedRrGetInterval32
   return result, nil
 }
 
-func ParseSysEnterArgs(decoder *Decoder) (types.SysEnterArgs, error) {
+func ParseSysEnterArgs(log *logging.Logger, decoder *Decoder) (types.SysEnterArgs, error) {
   var result types.SysEnterArgs
   var err error
 
@@ -15691,6 +17268,10 @@ func ParseSysEnterArgs(decoder *Decoder) (types.SysEnterArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SysEnterArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SysEnter': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15711,7 +17292,7 @@ func ParseSysEnterArgs(decoder *Decoder) (types.SysEnterArgs, error) {
   return result, nil
 }
 
-func ParseSysExitArgs(decoder *Decoder) (types.SysExitArgs, error) {
+func ParseSysExitArgs(log *logging.Logger, decoder *Decoder) (types.SysExitArgs, error) {
   var result types.SysExitArgs
   var err error
 
@@ -15719,6 +17300,10 @@ func ParseSysExitArgs(decoder *Decoder) (types.SysExitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SysExitArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SysExit': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15739,7 +17324,7 @@ func ParseSysExitArgs(decoder *Decoder) (types.SysExitArgs, error) {
   return result, nil
 }
 
-func ParseSchedProcessForkArgs(decoder *Decoder) (types.SchedProcessForkArgs, error) {
+func ParseSchedProcessForkArgs(log *logging.Logger, decoder *Decoder) (types.SchedProcessForkArgs, error) {
   var result types.SchedProcessForkArgs
   var err error
 
@@ -15747,6 +17332,10 @@ func ParseSchedProcessForkArgs(decoder *Decoder) (types.SchedProcessForkArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedProcessForkArgs{}, err
+  }
+
+  if numArgs != 9 {
+    log.Warnf("unexpected number of args received when parsing 'SchedProcessFork': wanted 9, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15807,7 +17396,7 @@ func ParseSchedProcessForkArgs(decoder *Decoder) (types.SchedProcessForkArgs, er
   return result, nil
 }
 
-func ParseSchedProcessExecArgs(decoder *Decoder) (types.SchedProcessExecArgs, error) {
+func ParseSchedProcessExecArgs(log *logging.Logger, decoder *Decoder) (types.SchedProcessExecArgs, error) {
   var result types.SchedProcessExecArgs
   var err error
 
@@ -15815,6 +17404,10 @@ func ParseSchedProcessExecArgs(decoder *Decoder) (types.SchedProcessExecArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedProcessExecArgs{}, err
+  }
+
+  if numArgs != 16 {
+    log.Warnf("unexpected number of args received when parsing 'SchedProcessExec': wanted 16, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15910,7 +17503,7 @@ func ParseSchedProcessExecArgs(decoder *Decoder) (types.SchedProcessExecArgs, er
   return result, nil
 }
 
-func ParseSchedProcessExitArgs(decoder *Decoder) (types.SchedProcessExitArgs, error) {
+func ParseSchedProcessExitArgs(log *logging.Logger, decoder *Decoder) (types.SchedProcessExitArgs, error) {
   var result types.SchedProcessExitArgs
   var err error
 
@@ -15918,6 +17511,10 @@ func ParseSchedProcessExitArgs(decoder *Decoder) (types.SchedProcessExitArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedProcessExitArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SchedProcessExit': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15943,7 +17540,7 @@ func ParseSchedProcessExitArgs(decoder *Decoder) (types.SchedProcessExitArgs, er
   return result, nil
 }
 
-func ParseSchedSwitchArgs(decoder *Decoder) (types.SchedSwitchArgs, error) {
+func ParseSchedSwitchArgs(log *logging.Logger, decoder *Decoder) (types.SchedSwitchArgs, error) {
   var result types.SchedSwitchArgs
   var err error
 
@@ -15951,6 +17548,10 @@ func ParseSchedSwitchArgs(decoder *Decoder) (types.SchedSwitchArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSwitchArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'SchedSwitch': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15991,7 +17592,7 @@ func ParseSchedSwitchArgs(decoder *Decoder) (types.SchedSwitchArgs, error) {
   return result, nil
 }
 
-func ParseProcessOomKilledArgs(decoder *Decoder) (types.ProcessOomKilledArgs, error) {
+func ParseProcessOomKilledArgs(log *logging.Logger, decoder *Decoder) (types.ProcessOomKilledArgs, error) {
   var result types.ProcessOomKilledArgs
   var err error
 
@@ -15999,6 +17600,10 @@ func ParseProcessOomKilledArgs(decoder *Decoder) (types.ProcessOomKilledArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessOomKilledArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ProcessOomKilled': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16024,11 +17629,11 @@ func ParseProcessOomKilledArgs(decoder *Decoder) (types.ProcessOomKilledArgs, er
   return result, nil
 }
 
-func ParseDoExitArgs(decoder *Decoder) (types.DoExitArgs, error) {
+func ParseDoExitArgs(log *logging.Logger, decoder *Decoder) (types.DoExitArgs, error) {
   return types.DoExitArgs{}, nil
 }
 
-func ParseCapCapableArgs(decoder *Decoder) (types.CapCapableArgs, error) {
+func ParseCapCapableArgs(log *logging.Logger, decoder *Decoder) (types.CapCapableArgs, error) {
   var result types.CapCapableArgs
   var err error
 
@@ -16036,6 +17641,10 @@ func ParseCapCapableArgs(decoder *Decoder) (types.CapCapableArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CapCapableArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'CapCapable': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16056,7 +17665,7 @@ func ParseCapCapableArgs(decoder *Decoder) (types.CapCapableArgs, error) {
   return result, nil
 }
 
-func ParseVfsWriteArgs(decoder *Decoder) (types.VfsWriteArgs, error) {
+func ParseVfsWriteArgs(log *logging.Logger, decoder *Decoder) (types.VfsWriteArgs, error) {
   var result types.VfsWriteArgs
   var err error
 
@@ -16064,6 +17673,10 @@ func ParseVfsWriteArgs(decoder *Decoder) (types.VfsWriteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsWriteArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'VfsWrite': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16104,7 +17717,7 @@ func ParseVfsWriteArgs(decoder *Decoder) (types.VfsWriteArgs, error) {
   return result, nil
 }
 
-func ParseVfsWritevArgs(decoder *Decoder) (types.VfsWritevArgs, error) {
+func ParseVfsWritevArgs(log *logging.Logger, decoder *Decoder) (types.VfsWritevArgs, error) {
   var result types.VfsWritevArgs
   var err error
 
@@ -16112,6 +17725,10 @@ func ParseVfsWritevArgs(decoder *Decoder) (types.VfsWritevArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsWritevArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'VfsWritev': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16152,7 +17769,7 @@ func ParseVfsWritevArgs(decoder *Decoder) (types.VfsWritevArgs, error) {
   return result, nil
 }
 
-func ParseMemProtAlertArgs(decoder *Decoder) (types.MemProtAlertArgs, error) {
+func ParseMemProtAlertArgs(log *logging.Logger, decoder *Decoder) (types.MemProtAlertArgs, error) {
   var result types.MemProtAlertArgs
   var err error
 
@@ -16160,6 +17777,10 @@ func ParseMemProtAlertArgs(decoder *Decoder) (types.MemProtAlertArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MemProtAlertArgs{}, err
+  }
+
+  if numArgs != 9 {
+    log.Warnf("unexpected number of args received when parsing 'MemProtAlert': wanted 9, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16222,7 +17843,7 @@ func ParseMemProtAlertArgs(decoder *Decoder) (types.MemProtAlertArgs, error) {
   return result, nil
 }
 
-func ParseCommitCredsArgs(decoder *Decoder) (types.CommitCredsArgs, error) {
+func ParseCommitCredsArgs(log *logging.Logger, decoder *Decoder) (types.CommitCredsArgs, error) {
   var result types.CommitCredsArgs
   var err error
 
@@ -16230,6 +17851,10 @@ func ParseCommitCredsArgs(decoder *Decoder) (types.CommitCredsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CommitCredsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'CommitCreds': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16255,7 +17880,7 @@ func ParseCommitCredsArgs(decoder *Decoder) (types.CommitCredsArgs, error) {
   return result, nil
 }
 
-func ParseSwitchTaskNSArgs(decoder *Decoder) (types.SwitchTaskNSArgs, error) {
+func ParseSwitchTaskNSArgs(log *logging.Logger, decoder *Decoder) (types.SwitchTaskNSArgs, error) {
   var result types.SwitchTaskNSArgs
   var err error
 
@@ -16263,6 +17888,10 @@ func ParseSwitchTaskNSArgs(decoder *Decoder) (types.SwitchTaskNSArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SwitchTaskNSArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'SwitchTaskNS': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16313,7 +17942,7 @@ func ParseSwitchTaskNSArgs(decoder *Decoder) (types.SwitchTaskNSArgs, error) {
   return result, nil
 }
 
-func ParseMagicWriteArgs(decoder *Decoder) (types.MagicWriteArgs, error) {
+func ParseMagicWriteArgs(log *logging.Logger, decoder *Decoder) (types.MagicWriteArgs, error) {
   var result types.MagicWriteArgs
   var err error
 
@@ -16321,6 +17950,10 @@ func ParseMagicWriteArgs(decoder *Decoder) (types.MagicWriteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MagicWriteArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'MagicWrite': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16356,7 +17989,7 @@ func ParseMagicWriteArgs(decoder *Decoder) (types.MagicWriteArgs, error) {
   return result, nil
 }
 
-func ParseCgroupAttachTaskArgs(decoder *Decoder) (types.CgroupAttachTaskArgs, error) {
+func ParseCgroupAttachTaskArgs(log *logging.Logger, decoder *Decoder) (types.CgroupAttachTaskArgs, error) {
   var result types.CgroupAttachTaskArgs
   var err error
 
@@ -16364,6 +17997,10 @@ func ParseCgroupAttachTaskArgs(decoder *Decoder) (types.CgroupAttachTaskArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CgroupAttachTaskArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'CgroupAttachTask': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16394,7 +18031,7 @@ func ParseCgroupAttachTaskArgs(decoder *Decoder) (types.CgroupAttachTaskArgs, er
   return result, nil
 }
 
-func ParseCgroupMkdirArgs(decoder *Decoder) (types.CgroupMkdirArgs, error) {
+func ParseCgroupMkdirArgs(log *logging.Logger, decoder *Decoder) (types.CgroupMkdirArgs, error) {
   var result types.CgroupMkdirArgs
   var err error
 
@@ -16402,6 +18039,10 @@ func ParseCgroupMkdirArgs(decoder *Decoder) (types.CgroupMkdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CgroupMkdirArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'CgroupMkdir': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16432,7 +18073,7 @@ func ParseCgroupMkdirArgs(decoder *Decoder) (types.CgroupMkdirArgs, error) {
   return result, nil
 }
 
-func ParseCgroupRmdirArgs(decoder *Decoder) (types.CgroupRmdirArgs, error) {
+func ParseCgroupRmdirArgs(log *logging.Logger, decoder *Decoder) (types.CgroupRmdirArgs, error) {
   var result types.CgroupRmdirArgs
   var err error
 
@@ -16440,6 +18081,10 @@ func ParseCgroupRmdirArgs(decoder *Decoder) (types.CgroupRmdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CgroupRmdirArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'CgroupRmdir': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16470,7 +18115,7 @@ func ParseCgroupRmdirArgs(decoder *Decoder) (types.CgroupRmdirArgs, error) {
   return result, nil
 }
 
-func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, error) {
+func ParseSecurityFileOpenArgs(log *logging.Logger, decoder *Decoder) (types.SecurityFileOpenArgs, error) {
   var result types.SecurityFileOpenArgs
   var err error
 
@@ -16478,6 +18123,10 @@ func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityFileOpenArgs{}, err
+  }
+
+  if numArgs != 6 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityFileOpen': wanted 6, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16523,7 +18172,7 @@ func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, er
   return result, nil
 }
 
-func ParseSecurityInodeUnlinkArgs(decoder *Decoder) (types.SecurityInodeUnlinkArgs, error) {
+func ParseSecurityInodeUnlinkArgs(log *logging.Logger, decoder *Decoder) (types.SecurityInodeUnlinkArgs, error) {
   var result types.SecurityInodeUnlinkArgs
   var err error
 
@@ -16531,6 +18180,10 @@ func ParseSecurityInodeUnlinkArgs(decoder *Decoder) (types.SecurityInodeUnlinkAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityInodeUnlinkArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityInodeUnlink': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16566,7 +18219,7 @@ func ParseSecurityInodeUnlinkArgs(decoder *Decoder) (types.SecurityInodeUnlinkAr
   return result, nil
 }
 
-func ParseSecuritySocketCreateArgs(decoder *Decoder) (types.SecuritySocketCreateArgs, error) {
+func ParseSecuritySocketCreateArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySocketCreateArgs, error) {
   var result types.SecuritySocketCreateArgs
   var err error
 
@@ -16574,6 +18227,10 @@ func ParseSecuritySocketCreateArgs(decoder *Decoder) (types.SecuritySocketCreate
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketCreateArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySocketCreate': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16609,7 +18266,7 @@ func ParseSecuritySocketCreateArgs(decoder *Decoder) (types.SecuritySocketCreate
   return result, nil
 }
 
-func ParseSecuritySocketListenArgs(decoder *Decoder) (types.SecuritySocketListenArgs, error) {
+func ParseSecuritySocketListenArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySocketListenArgs, error) {
   var result types.SecuritySocketListenArgs
   var err error
 
@@ -16617,6 +18274,10 @@ func ParseSecuritySocketListenArgs(decoder *Decoder) (types.SecuritySocketListen
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketListenArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySocketListen': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16647,7 +18308,7 @@ func ParseSecuritySocketListenArgs(decoder *Decoder) (types.SecuritySocketListen
   return result, nil
 }
 
-func ParseSecuritySocketConnectArgs(decoder *Decoder) (types.SecuritySocketConnectArgs, error) {
+func ParseSecuritySocketConnectArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySocketConnectArgs, error) {
   var result types.SecuritySocketConnectArgs
   var err error
 
@@ -16655,6 +18316,10 @@ func ParseSecuritySocketConnectArgs(decoder *Decoder) (types.SecuritySocketConne
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketConnectArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySocketConnect': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16685,7 +18350,7 @@ func ParseSecuritySocketConnectArgs(decoder *Decoder) (types.SecuritySocketConne
   return result, nil
 }
 
-func ParseSecuritySocketAcceptArgs(decoder *Decoder) (types.SecuritySocketAcceptArgs, error) {
+func ParseSecuritySocketAcceptArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySocketAcceptArgs, error) {
   var result types.SecuritySocketAcceptArgs
   var err error
 
@@ -16693,6 +18358,10 @@ func ParseSecuritySocketAcceptArgs(decoder *Decoder) (types.SecuritySocketAccept
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketAcceptArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySocketAccept': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16718,7 +18387,7 @@ func ParseSecuritySocketAcceptArgs(decoder *Decoder) (types.SecuritySocketAccept
   return result, nil
 }
 
-func ParseSecuritySocketBindArgs(decoder *Decoder) (types.SecuritySocketBindArgs, error) {
+func ParseSecuritySocketBindArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySocketBindArgs, error) {
   var result types.SecuritySocketBindArgs
   var err error
 
@@ -16726,6 +18395,10 @@ func ParseSecuritySocketBindArgs(decoder *Decoder) (types.SecuritySocketBindArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketBindArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySocketBind': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16751,7 +18424,7 @@ func ParseSecuritySocketBindArgs(decoder *Decoder) (types.SecuritySocketBindArgs
   return result, nil
 }
 
-func ParseSecuritySocketSetsockoptArgs(decoder *Decoder) (types.SecuritySocketSetsockoptArgs, error) {
+func ParseSecuritySocketSetsockoptArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySocketSetsockoptArgs, error) {
   var result types.SecuritySocketSetsockoptArgs
   var err error
 
@@ -16759,6 +18432,10 @@ func ParseSecuritySocketSetsockoptArgs(decoder *Decoder) (types.SecuritySocketSe
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketSetsockoptArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySocketSetsockopt': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16794,7 +18471,7 @@ func ParseSecuritySocketSetsockoptArgs(decoder *Decoder) (types.SecuritySocketSe
   return result, nil
 }
 
-func ParseSecuritySbMountArgs(decoder *Decoder) (types.SecuritySbMountArgs, error) {
+func ParseSecuritySbMountArgs(log *logging.Logger, decoder *Decoder) (types.SecuritySbMountArgs, error) {
   var result types.SecuritySbMountArgs
   var err error
 
@@ -16802,6 +18479,10 @@ func ParseSecuritySbMountArgs(decoder *Decoder) (types.SecuritySbMountArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySbMountArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'SecuritySbMount': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16837,7 +18518,7 @@ func ParseSecuritySbMountArgs(decoder *Decoder) (types.SecuritySbMountArgs, erro
   return result, nil
 }
 
-func ParseSecurityBPFArgs(decoder *Decoder) (types.SecurityBPFArgs, error) {
+func ParseSecurityBPFArgs(log *logging.Logger, decoder *Decoder) (types.SecurityBPFArgs, error) {
   var result types.SecurityBPFArgs
   var err error
 
@@ -16845,6 +18526,10 @@ func ParseSecurityBPFArgs(decoder *Decoder) (types.SecurityBPFArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityBPFArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityBPF': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16865,7 +18550,7 @@ func ParseSecurityBPFArgs(decoder *Decoder) (types.SecurityBPFArgs, error) {
   return result, nil
 }
 
-func ParseSecurityBPFMapArgs(decoder *Decoder) (types.SecurityBPFMapArgs, error) {
+func ParseSecurityBPFMapArgs(log *logging.Logger, decoder *Decoder) (types.SecurityBPFMapArgs, error) {
   var result types.SecurityBPFMapArgs
   var err error
 
@@ -16873,6 +18558,10 @@ func ParseSecurityBPFMapArgs(decoder *Decoder) (types.SecurityBPFMapArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityBPFMapArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityBPFMap': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16898,7 +18587,7 @@ func ParseSecurityBPFMapArgs(decoder *Decoder) (types.SecurityBPFMapArgs, error)
   return result, nil
 }
 
-func ParseSecurityKernelReadFileArgs(decoder *Decoder) (types.SecurityKernelReadFileArgs, error) {
+func ParseSecurityKernelReadFileArgs(log *logging.Logger, decoder *Decoder) (types.SecurityKernelReadFileArgs, error) {
   var result types.SecurityKernelReadFileArgs
   var err error
 
@@ -16906,6 +18595,10 @@ func ParseSecurityKernelReadFileArgs(decoder *Decoder) (types.SecurityKernelRead
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityKernelReadFileArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityKernelReadFile': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16946,7 +18639,7 @@ func ParseSecurityKernelReadFileArgs(decoder *Decoder) (types.SecurityKernelRead
   return result, nil
 }
 
-func ParseSecurityPostReadFileArgs(decoder *Decoder) (types.SecurityPostReadFileArgs, error) {
+func ParseSecurityPostReadFileArgs(log *logging.Logger, decoder *Decoder) (types.SecurityPostReadFileArgs, error) {
   var result types.SecurityPostReadFileArgs
   var err error
 
@@ -16954,6 +18647,10 @@ func ParseSecurityPostReadFileArgs(decoder *Decoder) (types.SecurityPostReadFile
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityPostReadFileArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityPostReadFile': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16984,7 +18681,7 @@ func ParseSecurityPostReadFileArgs(decoder *Decoder) (types.SecurityPostReadFile
   return result, nil
 }
 
-func ParseSecurityInodeMknodArgs(decoder *Decoder) (types.SecurityInodeMknodArgs, error) {
+func ParseSecurityInodeMknodArgs(log *logging.Logger, decoder *Decoder) (types.SecurityInodeMknodArgs, error) {
   var result types.SecurityInodeMknodArgs
   var err error
 
@@ -16992,6 +18689,10 @@ func ParseSecurityInodeMknodArgs(decoder *Decoder) (types.SecurityInodeMknodArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityInodeMknodArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityInodeMknod': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17022,7 +18723,7 @@ func ParseSecurityInodeMknodArgs(decoder *Decoder) (types.SecurityInodeMknodArgs
   return result, nil
 }
 
-func ParseSecurityInodeSymlinkEventIdArgs(decoder *Decoder) (types.SecurityInodeSymlinkEventIdArgs, error) {
+func ParseSecurityInodeSymlinkEventIdArgs(log *logging.Logger, decoder *Decoder) (types.SecurityInodeSymlinkEventIdArgs, error) {
   var result types.SecurityInodeSymlinkEventIdArgs
   var err error
 
@@ -17030,6 +18731,10 @@ func ParseSecurityInodeSymlinkEventIdArgs(decoder *Decoder) (types.SecurityInode
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityInodeSymlinkEventIdArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityInodeSymlinkEventId': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17055,7 +18760,7 @@ func ParseSecurityInodeSymlinkEventIdArgs(decoder *Decoder) (types.SecurityInode
   return result, nil
 }
 
-func ParseSecurityMmapFileArgs(decoder *Decoder) (types.SecurityMmapFileArgs, error) {
+func ParseSecurityMmapFileArgs(log *logging.Logger, decoder *Decoder) (types.SecurityMmapFileArgs, error) {
   var result types.SecurityMmapFileArgs
   var err error
 
@@ -17063,6 +18768,10 @@ func ParseSecurityMmapFileArgs(decoder *Decoder) (types.SecurityMmapFileArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityMmapFileArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityMmapFile': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17113,7 +18822,7 @@ func ParseSecurityMmapFileArgs(decoder *Decoder) (types.SecurityMmapFileArgs, er
   return result, nil
 }
 
-func ParseDoMmapArgs(decoder *Decoder) (types.DoMmapArgs, error) {
+func ParseDoMmapArgs(log *logging.Logger, decoder *Decoder) (types.DoMmapArgs, error) {
   var result types.DoMmapArgs
   var err error
 
@@ -17121,6 +18830,10 @@ func ParseDoMmapArgs(decoder *Decoder) (types.DoMmapArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DoMmapArgs{}, err
+  }
+
+  if numArgs != 10 {
+    log.Warnf("unexpected number of args received when parsing 'DoMmap': wanted 10, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17188,7 +18901,7 @@ func ParseDoMmapArgs(decoder *Decoder) (types.DoMmapArgs, error) {
   return result, nil
 }
 
-func ParseSecurityFileMprotectArgs(decoder *Decoder) (types.SecurityFileMprotectArgs, error) {
+func ParseSecurityFileMprotectArgs(log *logging.Logger, decoder *Decoder) (types.SecurityFileMprotectArgs, error) {
   var result types.SecurityFileMprotectArgs
   var err error
 
@@ -17196,6 +18909,10 @@ func ParseSecurityFileMprotectArgs(decoder *Decoder) (types.SecurityFileMprotect
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityFileMprotectArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityFileMprotect': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17248,7 +18965,7 @@ func ParseSecurityFileMprotectArgs(decoder *Decoder) (types.SecurityFileMprotect
   return result, nil
 }
 
-func ParseInitNamespacesArgs(decoder *Decoder) (types.InitNamespacesArgs, error) {
+func ParseInitNamespacesArgs(log *logging.Logger, decoder *Decoder) (types.InitNamespacesArgs, error) {
   var result types.InitNamespacesArgs
   var err error
 
@@ -17256,6 +18973,10 @@ func ParseInitNamespacesArgs(decoder *Decoder) (types.InitNamespacesArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InitNamespacesArgs{}, err
+  }
+
+  if numArgs != 10 {
+    log.Warnf("unexpected number of args received when parsing 'InitNamespaces': wanted 10, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17321,7 +19042,7 @@ func ParseInitNamespacesArgs(decoder *Decoder) (types.InitNamespacesArgs, error)
   return result, nil
 }
 
-func ParseSocketDupArgs(decoder *Decoder) (types.SocketDupArgs, error) {
+func ParseSocketDupArgs(log *logging.Logger, decoder *Decoder) (types.SocketDupArgs, error) {
   var result types.SocketDupArgs
   var err error
 
@@ -17329,6 +19050,10 @@ func ParseSocketDupArgs(decoder *Decoder) (types.SocketDupArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketDupArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SocketDup': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17359,7 +19084,7 @@ func ParseSocketDupArgs(decoder *Decoder) (types.SocketDupArgs, error) {
   return result, nil
 }
 
-func ParseHiddenInodesArgs(decoder *Decoder) (types.HiddenInodesArgs, error) {
+func ParseHiddenInodesArgs(log *logging.Logger, decoder *Decoder) (types.HiddenInodesArgs, error) {
   var result types.HiddenInodesArgs
   var err error
 
@@ -17367,6 +19092,10 @@ func ParseHiddenInodesArgs(decoder *Decoder) (types.HiddenInodesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HiddenInodesArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'HiddenInodes': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17387,7 +19116,7 @@ func ParseHiddenInodesArgs(decoder *Decoder) (types.HiddenInodesArgs, error) {
   return result, nil
 }
 
-func ParseKernelWriteArgs(decoder *Decoder) (types.KernelWriteArgs, error) {
+func ParseKernelWriteArgs(log *logging.Logger, decoder *Decoder) (types.KernelWriteArgs, error) {
   var result types.KernelWriteArgs
   var err error
 
@@ -17395,6 +19124,10 @@ func ParseKernelWriteArgs(decoder *Decoder) (types.KernelWriteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KernelWriteArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'KernelWrite': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17435,7 +19168,7 @@ func ParseKernelWriteArgs(decoder *Decoder) (types.KernelWriteArgs, error) {
   return result, nil
 }
 
-func ParseDirtyPipeSpliceArgs(decoder *Decoder) (types.DirtyPipeSpliceArgs, error) {
+func ParseDirtyPipeSpliceArgs(log *logging.Logger, decoder *Decoder) (types.DirtyPipeSpliceArgs, error) {
   var result types.DirtyPipeSpliceArgs
   var err error
 
@@ -17443,6 +19176,10 @@ func ParseDirtyPipeSpliceArgs(decoder *Decoder) (types.DirtyPipeSpliceArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DirtyPipeSpliceArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'DirtyPipeSplice': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17493,7 +19230,7 @@ func ParseDirtyPipeSpliceArgs(decoder *Decoder) (types.DirtyPipeSpliceArgs, erro
   return result, nil
 }
 
-func ParseContainerCreateArgs(decoder *Decoder) (types.ContainerCreateArgs, error) {
+func ParseContainerCreateArgs(log *logging.Logger, decoder *Decoder) (types.ContainerCreateArgs, error) {
   var result types.ContainerCreateArgs
   var err error
 
@@ -17501,6 +19238,10 @@ func ParseContainerCreateArgs(decoder *Decoder) (types.ContainerCreateArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ContainerCreateArgs{}, err
+  }
+
+  if numArgs != 10 {
+    log.Warnf("unexpected number of args received when parsing 'ContainerCreate': wanted 10, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17566,7 +19307,7 @@ func ParseContainerCreateArgs(decoder *Decoder) (types.ContainerCreateArgs, erro
   return result, nil
 }
 
-func ParseContainerRemoveArgs(decoder *Decoder) (types.ContainerRemoveArgs, error) {
+func ParseContainerRemoveArgs(log *logging.Logger, decoder *Decoder) (types.ContainerRemoveArgs, error) {
   var result types.ContainerRemoveArgs
   var err error
 
@@ -17574,6 +19315,10 @@ func ParseContainerRemoveArgs(decoder *Decoder) (types.ContainerRemoveArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ContainerRemoveArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ContainerRemove': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17599,7 +19344,7 @@ func ParseContainerRemoveArgs(decoder *Decoder) (types.ContainerRemoveArgs, erro
   return result, nil
 }
 
-func ParseExistingContainerArgs(decoder *Decoder) (types.ExistingContainerArgs, error) {
+func ParseExistingContainerArgs(log *logging.Logger, decoder *Decoder) (types.ExistingContainerArgs, error) {
   var result types.ExistingContainerArgs
   var err error
 
@@ -17607,6 +19352,10 @@ func ParseExistingContainerArgs(decoder *Decoder) (types.ExistingContainerArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExistingContainerArgs{}, err
+  }
+
+  if numArgs != 10 {
+    log.Warnf("unexpected number of args received when parsing 'ExistingContainer': wanted 10, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17672,7 +19421,7 @@ func ParseExistingContainerArgs(decoder *Decoder) (types.ExistingContainerArgs, 
   return result, nil
 }
 
-func ParseProcCreateArgs(decoder *Decoder) (types.ProcCreateArgs, error) {
+func ParseProcCreateArgs(log *logging.Logger, decoder *Decoder) (types.ProcCreateArgs, error) {
   var result types.ProcCreateArgs
   var err error
 
@@ -17680,6 +19429,10 @@ func ParseProcCreateArgs(decoder *Decoder) (types.ProcCreateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcCreateArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'ProcCreate': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17707,7 +19460,7 @@ func ParseProcCreateArgs(decoder *Decoder) (types.ProcCreateArgs, error) {
   return result, nil
 }
 
-func ParseKprobeAttachArgs(decoder *Decoder) (types.KprobeAttachArgs, error) {
+func ParseKprobeAttachArgs(log *logging.Logger, decoder *Decoder) (types.KprobeAttachArgs, error) {
   var result types.KprobeAttachArgs
   var err error
 
@@ -17715,6 +19468,10 @@ func ParseKprobeAttachArgs(decoder *Decoder) (types.KprobeAttachArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KprobeAttachArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'KprobeAttach': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17749,7 +19506,7 @@ func ParseKprobeAttachArgs(decoder *Decoder) (types.KprobeAttachArgs, error) {
   return result, nil
 }
 
-func ParseCallUsermodeHelperArgs(decoder *Decoder) (types.CallUsermodeHelperArgs, error) {
+func ParseCallUsermodeHelperArgs(log *logging.Logger, decoder *Decoder) (types.CallUsermodeHelperArgs, error) {
   var result types.CallUsermodeHelperArgs
   var err error
 
@@ -17757,6 +19514,10 @@ func ParseCallUsermodeHelperArgs(decoder *Decoder) (types.CallUsermodeHelperArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CallUsermodeHelperArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'CallUsermodeHelper': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17792,7 +19553,7 @@ func ParseCallUsermodeHelperArgs(decoder *Decoder) (types.CallUsermodeHelperArgs
   return result, nil
 }
 
-func ParseDebugfsCreateFileArgs(decoder *Decoder) (types.DebugfsCreateFileArgs, error) {
+func ParseDebugfsCreateFileArgs(log *logging.Logger, decoder *Decoder) (types.DebugfsCreateFileArgs, error) {
   var result types.DebugfsCreateFileArgs
   var err error
 
@@ -17800,6 +19561,10 @@ func ParseDebugfsCreateFileArgs(decoder *Decoder) (types.DebugfsCreateFileArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DebugfsCreateFileArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'DebugfsCreateFile': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17837,7 +19602,7 @@ func ParseDebugfsCreateFileArgs(decoder *Decoder) (types.DebugfsCreateFileArgs, 
   return result, nil
 }
 
-func ParsePrintSyscallTableArgs(decoder *Decoder) (types.PrintSyscallTableArgs, error) {
+func ParsePrintSyscallTableArgs(log *logging.Logger, decoder *Decoder) (types.PrintSyscallTableArgs, error) {
   var result types.PrintSyscallTableArgs
   var err error
 
@@ -17845,6 +19610,10 @@ func ParsePrintSyscallTableArgs(decoder *Decoder) (types.PrintSyscallTableArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PrintSyscallTableArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'PrintSyscallTable': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17870,7 +19639,7 @@ func ParsePrintSyscallTableArgs(decoder *Decoder) (types.PrintSyscallTableArgs, 
   return result, nil
 }
 
-func ParseHiddenKernelModuleArgs(decoder *Decoder) (types.HiddenKernelModuleArgs, error) {
+func ParseHiddenKernelModuleArgs(log *logging.Logger, decoder *Decoder) (types.HiddenKernelModuleArgs, error) {
   var result types.HiddenKernelModuleArgs
   var err error
 
@@ -17878,6 +19647,10 @@ func ParseHiddenKernelModuleArgs(decoder *Decoder) (types.HiddenKernelModuleArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HiddenKernelModuleArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'HiddenKernelModule': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17908,7 +19681,7 @@ func ParseHiddenKernelModuleArgs(decoder *Decoder) (types.HiddenKernelModuleArgs
   return result, nil
 }
 
-func ParseHiddenKernelModuleSeekerArgs(decoder *Decoder) (types.HiddenKernelModuleSeekerArgs, error) {
+func ParseHiddenKernelModuleSeekerArgs(log *logging.Logger, decoder *Decoder) (types.HiddenKernelModuleSeekerArgs, error) {
   var result types.HiddenKernelModuleSeekerArgs
   var err error
 
@@ -17916,6 +19689,10 @@ func ParseHiddenKernelModuleSeekerArgs(decoder *Decoder) (types.HiddenKernelModu
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HiddenKernelModuleSeekerArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'HiddenKernelModuleSeeker': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17951,7 +19728,7 @@ func ParseHiddenKernelModuleSeekerArgs(decoder *Decoder) (types.HiddenKernelModu
   return result, nil
 }
 
-func ParseHookedSyscallsArgs(decoder *Decoder) (types.HookedSyscallsArgs, error) {
+func ParseHookedSyscallsArgs(log *logging.Logger, decoder *Decoder) (types.HookedSyscallsArgs, error) {
   var result types.HookedSyscallsArgs
   var err error
 
@@ -17959,6 +19736,10 @@ func ParseHookedSyscallsArgs(decoder *Decoder) (types.HookedSyscallsArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HookedSyscallsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'HookedSyscalls': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17988,7 +19769,7 @@ func ParseHookedSyscallsArgs(decoder *Decoder) (types.HookedSyscallsArgs, error)
   return result, nil
 }
 
-func ParseDebugfsCreateDirArgs(decoder *Decoder) (types.DebugfsCreateDirArgs, error) {
+func ParseDebugfsCreateDirArgs(log *logging.Logger, decoder *Decoder) (types.DebugfsCreateDirArgs, error) {
   var result types.DebugfsCreateDirArgs
   var err error
 
@@ -17996,6 +19777,10 @@ func ParseDebugfsCreateDirArgs(decoder *Decoder) (types.DebugfsCreateDirArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DebugfsCreateDirArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'DebugfsCreateDir': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18021,7 +19806,7 @@ func ParseDebugfsCreateDirArgs(decoder *Decoder) (types.DebugfsCreateDirArgs, er
   return result, nil
 }
 
-func ParseDeviceAddArgs(decoder *Decoder) (types.DeviceAddArgs, error) {
+func ParseDeviceAddArgs(log *logging.Logger, decoder *Decoder) (types.DeviceAddArgs, error) {
   var result types.DeviceAddArgs
   var err error
 
@@ -18029,6 +19814,10 @@ func ParseDeviceAddArgs(decoder *Decoder) (types.DeviceAddArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DeviceAddArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'DeviceAdd': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18054,7 +19843,7 @@ func ParseDeviceAddArgs(decoder *Decoder) (types.DeviceAddArgs, error) {
   return result, nil
 }
 
-func ParseRegisterChrdevArgs(decoder *Decoder) (types.RegisterChrdevArgs, error) {
+func ParseRegisterChrdevArgs(log *logging.Logger, decoder *Decoder) (types.RegisterChrdevArgs, error) {
   var result types.RegisterChrdevArgs
   var err error
 
@@ -18062,6 +19851,10 @@ func ParseRegisterChrdevArgs(decoder *Decoder) (types.RegisterChrdevArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RegisterChrdevArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'RegisterChrdev': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18099,7 +19892,7 @@ func ParseRegisterChrdevArgs(decoder *Decoder) (types.RegisterChrdevArgs, error)
   return result, nil
 }
 
-func ParseSharedObjectLoadedArgs(decoder *Decoder) (types.SharedObjectLoadedArgs, error) {
+func ParseSharedObjectLoadedArgs(log *logging.Logger, decoder *Decoder) (types.SharedObjectLoadedArgs, error) {
   var result types.SharedObjectLoadedArgs
   var err error
 
@@ -18107,6 +19900,10 @@ func ParseSharedObjectLoadedArgs(decoder *Decoder) (types.SharedObjectLoadedArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SharedObjectLoadedArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'SharedObjectLoaded': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18147,7 +19944,7 @@ func ParseSharedObjectLoadedArgs(decoder *Decoder) (types.SharedObjectLoadedArgs
   return result, nil
 }
 
-func ParseSymbolsLoadedArgs(decoder *Decoder) (types.SymbolsLoadedArgs, error) {
+func ParseSymbolsLoadedArgs(log *logging.Logger, decoder *Decoder) (types.SymbolsLoadedArgs, error) {
   var result types.SymbolsLoadedArgs
   var err error
 
@@ -18155,6 +19952,10 @@ func ParseSymbolsLoadedArgs(decoder *Decoder) (types.SymbolsLoadedArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SymbolsLoadedArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SymbolsLoaded': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18180,7 +19981,7 @@ func ParseSymbolsLoadedArgs(decoder *Decoder) (types.SymbolsLoadedArgs, error) {
   return result, nil
 }
 
-func ParseSymbolsCollisionArgs(decoder *Decoder) (types.SymbolsCollisionArgs, error) {
+func ParseSymbolsCollisionArgs(log *logging.Logger, decoder *Decoder) (types.SymbolsCollisionArgs, error) {
   var result types.SymbolsCollisionArgs
   var err error
 
@@ -18188,6 +19989,10 @@ func ParseSymbolsCollisionArgs(decoder *Decoder) (types.SymbolsCollisionArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SymbolsCollisionArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SymbolsCollision': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18218,31 +20023,31 @@ func ParseSymbolsCollisionArgs(decoder *Decoder) (types.SymbolsCollisionArgs, er
   return result, nil
 }
 
-func ParseCaptureFileWriteArgs(decoder *Decoder) (types.CaptureFileWriteArgs, error) {
+func ParseCaptureFileWriteArgs(log *logging.Logger, decoder *Decoder) (types.CaptureFileWriteArgs, error) {
   return types.CaptureFileWriteArgs{}, nil
 }
 
-func ParseCaptureFileReadArgs(decoder *Decoder) (types.CaptureFileReadArgs, error) {
+func ParseCaptureFileReadArgs(log *logging.Logger, decoder *Decoder) (types.CaptureFileReadArgs, error) {
   return types.CaptureFileReadArgs{}, nil
 }
 
-func ParseCaptureExecArgs(decoder *Decoder) (types.CaptureExecArgs, error) {
+func ParseCaptureExecArgs(log *logging.Logger, decoder *Decoder) (types.CaptureExecArgs, error) {
   return types.CaptureExecArgs{}, nil
 }
 
-func ParseCaptureModuleArgs(decoder *Decoder) (types.CaptureModuleArgs, error) {
+func ParseCaptureModuleArgs(log *logging.Logger, decoder *Decoder) (types.CaptureModuleArgs, error) {
   return types.CaptureModuleArgs{}, nil
 }
 
-func ParseCaptureMemArgs(decoder *Decoder) (types.CaptureMemArgs, error) {
+func ParseCaptureMemArgs(log *logging.Logger, decoder *Decoder) (types.CaptureMemArgs, error) {
   return types.CaptureMemArgs{}, nil
 }
 
-func ParseCaptureBpfArgs(decoder *Decoder) (types.CaptureBpfArgs, error) {
+func ParseCaptureBpfArgs(log *logging.Logger, decoder *Decoder) (types.CaptureBpfArgs, error) {
   return types.CaptureBpfArgs{}, nil
 }
 
-func ParseDoInitModuleArgs(decoder *Decoder) (types.DoInitModuleArgs, error) {
+func ParseDoInitModuleArgs(log *logging.Logger, decoder *Decoder) (types.DoInitModuleArgs, error) {
   var result types.DoInitModuleArgs
   var err error
 
@@ -18250,6 +20055,10 @@ func ParseDoInitModuleArgs(decoder *Decoder) (types.DoInitModuleArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DoInitModuleArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'DoInitModule': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18280,7 +20089,7 @@ func ParseDoInitModuleArgs(decoder *Decoder) (types.DoInitModuleArgs, error) {
   return result, nil
 }
 
-func ParseModuleLoadArgs(decoder *Decoder) (types.ModuleLoadArgs, error) {
+func ParseModuleLoadArgs(log *logging.Logger, decoder *Decoder) (types.ModuleLoadArgs, error) {
   var result types.ModuleLoadArgs
   var err error
 
@@ -18288,6 +20097,10 @@ func ParseModuleLoadArgs(decoder *Decoder) (types.ModuleLoadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ModuleLoadArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'ModuleLoad': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18318,7 +20131,7 @@ func ParseModuleLoadArgs(decoder *Decoder) (types.ModuleLoadArgs, error) {
   return result, nil
 }
 
-func ParseModuleFreeArgs(decoder *Decoder) (types.ModuleFreeArgs, error) {
+func ParseModuleFreeArgs(log *logging.Logger, decoder *Decoder) (types.ModuleFreeArgs, error) {
   var result types.ModuleFreeArgs
   var err error
 
@@ -18326,6 +20139,10 @@ func ParseModuleFreeArgs(decoder *Decoder) (types.ModuleFreeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ModuleFreeArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'ModuleFree': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18356,7 +20173,7 @@ func ParseModuleFreeArgs(decoder *Decoder) (types.ModuleFreeArgs, error) {
   return result, nil
 }
 
-func ParseSocketAcceptArgs(decoder *Decoder) (types.SocketAcceptArgs, error) {
+func ParseSocketAcceptArgs(log *logging.Logger, decoder *Decoder) (types.SocketAcceptArgs, error) {
   var result types.SocketAcceptArgs
   var err error
 
@@ -18364,6 +20181,10 @@ func ParseSocketAcceptArgs(decoder *Decoder) (types.SocketAcceptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketAcceptArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SocketAccept': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18394,7 +20215,7 @@ func ParseSocketAcceptArgs(decoder *Decoder) (types.SocketAcceptArgs, error) {
   return result, nil
 }
 
-func ParseLoadElfPhdrsArgs(decoder *Decoder) (types.LoadElfPhdrsArgs, error) {
+func ParseLoadElfPhdrsArgs(log *logging.Logger, decoder *Decoder) (types.LoadElfPhdrsArgs, error) {
   var result types.LoadElfPhdrsArgs
   var err error
 
@@ -18402,6 +20223,10 @@ func ParseLoadElfPhdrsArgs(decoder *Decoder) (types.LoadElfPhdrsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LoadElfPhdrsArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'LoadElfPhdrs': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18432,7 +20257,7 @@ func ParseLoadElfPhdrsArgs(decoder *Decoder) (types.LoadElfPhdrsArgs, error) {
   return result, nil
 }
 
-func ParsePrintNetSeqOpsArgs(decoder *Decoder) (types.PrintNetSeqOpsArgs, error) {
+func ParsePrintNetSeqOpsArgs(log *logging.Logger, decoder *Decoder) (types.PrintNetSeqOpsArgs, error) {
   var result types.PrintNetSeqOpsArgs
   var err error
 
@@ -18440,6 +20265,10 @@ func ParsePrintNetSeqOpsArgs(decoder *Decoder) (types.PrintNetSeqOpsArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PrintNetSeqOpsArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'PrintNetSeqOps': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18465,7 +20294,7 @@ func ParsePrintNetSeqOpsArgs(decoder *Decoder) (types.PrintNetSeqOpsArgs, error)
   return result, nil
 }
 
-func ParseHookedSeqOpsArgs(decoder *Decoder) (types.HookedSeqOpsArgs, error) {
+func ParseHookedSeqOpsArgs(log *logging.Logger, decoder *Decoder) (types.HookedSeqOpsArgs, error) {
   var result types.HookedSeqOpsArgs
   var err error
 
@@ -18473,6 +20302,10 @@ func ParseHookedSeqOpsArgs(decoder *Decoder) (types.HookedSeqOpsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HookedSeqOpsArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'HookedSeqOps': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18495,7 +20328,7 @@ func ParseHookedSeqOpsArgs(decoder *Decoder) (types.HookedSeqOpsArgs, error) {
   return result, nil
 }
 
-func ParseTaskRenameArgs(decoder *Decoder) (types.TaskRenameArgs, error) {
+func ParseTaskRenameArgs(log *logging.Logger, decoder *Decoder) (types.TaskRenameArgs, error) {
   var result types.TaskRenameArgs
   var err error
 
@@ -18503,6 +20336,10 @@ func ParseTaskRenameArgs(decoder *Decoder) (types.TaskRenameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TaskRenameArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'TaskRename': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18528,7 +20365,7 @@ func ParseTaskRenameArgs(decoder *Decoder) (types.TaskRenameArgs, error) {
   return result, nil
 }
 
-func ParseSecurityInodeRenameArgs(decoder *Decoder) (types.SecurityInodeRenameArgs, error) {
+func ParseSecurityInodeRenameArgs(log *logging.Logger, decoder *Decoder) (types.SecurityInodeRenameArgs, error) {
   var result types.SecurityInodeRenameArgs
   var err error
 
@@ -18536,6 +20373,10 @@ func ParseSecurityInodeRenameArgs(decoder *Decoder) (types.SecurityInodeRenameAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityInodeRenameArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'SecurityInodeRename': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18561,7 +20402,7 @@ func ParseSecurityInodeRenameArgs(decoder *Decoder) (types.SecurityInodeRenameAr
   return result, nil
 }
 
-func ParseDoSigactionArgs(decoder *Decoder) (types.DoSigactionArgs, error) {
+func ParseDoSigactionArgs(log *logging.Logger, decoder *Decoder) (types.DoSigactionArgs, error) {
   var result types.DoSigactionArgs
   var err error
 
@@ -18569,6 +20410,10 @@ func ParseDoSigactionArgs(decoder *Decoder) (types.DoSigactionArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DoSigactionArgs{}, err
+  }
+
+  if numArgs != 11 {
+    log.Warnf("unexpected number of args received when parsing 'DoSigaction': wanted 11, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18643,7 +20488,7 @@ func ParseDoSigactionArgs(decoder *Decoder) (types.DoSigactionArgs, error) {
   return result, nil
 }
 
-func ParseBpfAttachArgs(decoder *Decoder) (types.BpfAttachArgs, error) {
+func ParseBpfAttachArgs(log *logging.Logger, decoder *Decoder) (types.BpfAttachArgs, error) {
   var result types.BpfAttachArgs
   var err error
 
@@ -18651,6 +20496,10 @@ func ParseBpfAttachArgs(decoder *Decoder) (types.BpfAttachArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.BpfAttachArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'BpfAttach': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18701,7 +20550,7 @@ func ParseBpfAttachArgs(decoder *Decoder) (types.BpfAttachArgs, error) {
   return result, nil
 }
 
-func ParseKallsymsLookupNameArgs(decoder *Decoder) (types.KallsymsLookupNameArgs, error) {
+func ParseKallsymsLookupNameArgs(log *logging.Logger, decoder *Decoder) (types.KallsymsLookupNameArgs, error) {
   var result types.KallsymsLookupNameArgs
   var err error
 
@@ -18709,6 +20558,10 @@ func ParseKallsymsLookupNameArgs(decoder *Decoder) (types.KallsymsLookupNameArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KallsymsLookupNameArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'KallsymsLookupName': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18736,7 +20589,7 @@ func ParseKallsymsLookupNameArgs(decoder *Decoder) (types.KallsymsLookupNameArgs
   return result, nil
 }
 
-func ParsePrintMemDumpArgs(decoder *Decoder) (types.PrintMemDumpArgs, error) {
+func ParsePrintMemDumpArgs(log *logging.Logger, decoder *Decoder) (types.PrintMemDumpArgs, error) {
   var result types.PrintMemDumpArgs
   var err error
 
@@ -18744,6 +20597,10 @@ func ParsePrintMemDumpArgs(decoder *Decoder) (types.PrintMemDumpArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PrintMemDumpArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'PrintMemDump': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18796,7 +20653,7 @@ func ParsePrintMemDumpArgs(decoder *Decoder) (types.PrintMemDumpArgs, error) {
   return result, nil
 }
 
-func ParseVfsReadArgs(decoder *Decoder) (types.VfsReadArgs, error) {
+func ParseVfsReadArgs(log *logging.Logger, decoder *Decoder) (types.VfsReadArgs, error) {
   var result types.VfsReadArgs
   var err error
 
@@ -18804,6 +20661,10 @@ func ParseVfsReadArgs(decoder *Decoder) (types.VfsReadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsReadArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'VfsRead': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18844,7 +20705,7 @@ func ParseVfsReadArgs(decoder *Decoder) (types.VfsReadArgs, error) {
   return result, nil
 }
 
-func ParseVfsReadvArgs(decoder *Decoder) (types.VfsReadvArgs, error) {
+func ParseVfsReadvArgs(log *logging.Logger, decoder *Decoder) (types.VfsReadvArgs, error) {
   var result types.VfsReadvArgs
   var err error
 
@@ -18852,6 +20713,10 @@ func ParseVfsReadvArgs(decoder *Decoder) (types.VfsReadvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsReadvArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'VfsReadv': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18892,7 +20757,7 @@ func ParseVfsReadvArgs(decoder *Decoder) (types.VfsReadvArgs, error) {
   return result, nil
 }
 
-func ParseVfsUtimesArgs(decoder *Decoder) (types.VfsUtimesArgs, error) {
+func ParseVfsUtimesArgs(log *logging.Logger, decoder *Decoder) (types.VfsUtimesArgs, error) {
   var result types.VfsUtimesArgs
   var err error
 
@@ -18900,6 +20765,10 @@ func ParseVfsUtimesArgs(decoder *Decoder) (types.VfsUtimesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsUtimesArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'VfsUtimes': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18940,7 +20809,7 @@ func ParseVfsUtimesArgs(decoder *Decoder) (types.VfsUtimesArgs, error) {
   return result, nil
 }
 
-func ParseDoTruncateArgs(decoder *Decoder) (types.DoTruncateArgs, error) {
+func ParseDoTruncateArgs(log *logging.Logger, decoder *Decoder) (types.DoTruncateArgs, error) {
   var result types.DoTruncateArgs
   var err error
 
@@ -18948,6 +20817,10 @@ func ParseDoTruncateArgs(decoder *Decoder) (types.DoTruncateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DoTruncateArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'DoTruncate': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18983,7 +20856,7 @@ func ParseDoTruncateArgs(decoder *Decoder) (types.DoTruncateArgs, error) {
   return result, nil
 }
 
-func ParseFileModificationArgs(decoder *Decoder) (types.FileModificationArgs, error) {
+func ParseFileModificationArgs(log *logging.Logger, decoder *Decoder) (types.FileModificationArgs, error) {
   var result types.FileModificationArgs
   var err error
 
@@ -18991,6 +20864,10 @@ func ParseFileModificationArgs(decoder *Decoder) (types.FileModificationArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FileModificationArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'FileModification': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19031,7 +20908,7 @@ func ParseFileModificationArgs(decoder *Decoder) (types.FileModificationArgs, er
   return result, nil
 }
 
-func ParseInotifyWatchArgs(decoder *Decoder) (types.InotifyWatchArgs, error) {
+func ParseInotifyWatchArgs(log *logging.Logger, decoder *Decoder) (types.InotifyWatchArgs, error) {
   var result types.InotifyWatchArgs
   var err error
 
@@ -19039,6 +20916,10 @@ func ParseInotifyWatchArgs(decoder *Decoder) (types.InotifyWatchArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InotifyWatchArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'InotifyWatch': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19069,7 +20950,7 @@ func ParseInotifyWatchArgs(decoder *Decoder) (types.InotifyWatchArgs, error) {
   return result, nil
 }
 
-func ParseProcessExecuteFailedArgs(decoder *Decoder) (types.ProcessExecuteFailedArgs, error) {
+func ParseProcessExecuteFailedArgs(log *logging.Logger, decoder *Decoder) (types.ProcessExecuteFailedArgs, error) {
   var result types.ProcessExecuteFailedArgs
   var err error
 
@@ -19077,6 +20958,10 @@ func ParseProcessExecuteFailedArgs(decoder *Decoder) (types.ProcessExecuteFailed
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessExecuteFailedArgs{}, err
+  }
+
+  if numArgs != 12 {
+    log.Warnf("unexpected number of args received when parsing 'ProcessExecuteFailed': wanted 12, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19152,7 +21037,7 @@ func ParseProcessExecuteFailedArgs(decoder *Decoder) (types.ProcessExecuteFailed
   return result, nil
 }
 
-func ParseTtyOpenArgs(decoder *Decoder) (types.TtyOpenArgs, error) {
+func ParseTtyOpenArgs(log *logging.Logger, decoder *Decoder) (types.TtyOpenArgs, error) {
   var result types.TtyOpenArgs
   var err error
 
@@ -19160,6 +21045,10 @@ func ParseTtyOpenArgs(decoder *Decoder) (types.TtyOpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TtyOpenArgs{}, err
+  }
+
+  if numArgs != 4 {
+    log.Warnf("unexpected number of args received when parsing 'TtyOpen': wanted 4, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19195,11 +21084,11 @@ func ParseTtyOpenArgs(decoder *Decoder) (types.TtyOpenArgs, error) {
   return result, nil
 }
 
-func ParseNetPacketBaseArgs(decoder *Decoder) (types.NetPacketBaseArgs, error) {
+func ParseNetPacketBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketBaseArgs, error) {
   return types.NetPacketBaseArgs{}, nil
 }
 
-func ParseNetPacketIPBaseArgs(decoder *Decoder) (types.NetPacketIPBaseArgs, error) {
+func ParseNetPacketIPBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketIPBaseArgs, error) {
   var result types.NetPacketIPBaseArgs
   var err error
 
@@ -19207,6 +21096,10 @@ func ParseNetPacketIPBaseArgs(decoder *Decoder) (types.NetPacketIPBaseArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketIPBaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketIPBase': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19227,7 +21120,7 @@ func ParseNetPacketIPBaseArgs(decoder *Decoder) (types.NetPacketIPBaseArgs, erro
   return result, nil
 }
 
-func ParseNetPacketIPv4Args(decoder *Decoder) (types.NetPacketIPv4Args, error) {
+func ParseNetPacketIPv4Args(log *logging.Logger, decoder *Decoder) (types.NetPacketIPv4Args, error) {
   var result types.NetPacketIPv4Args
   var err error
 
@@ -19235,6 +21128,10 @@ func ParseNetPacketIPv4Args(decoder *Decoder) (types.NetPacketIPv4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketIPv4Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketIPv4': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19267,7 +21164,7 @@ func ParseNetPacketIPv4Args(decoder *Decoder) (types.NetPacketIPv4Args, error) {
   return result, nil
 }
 
-func ParseNetPacketIPv6Args(decoder *Decoder) (types.NetPacketIPv6Args, error) {
+func ParseNetPacketIPv6Args(log *logging.Logger, decoder *Decoder) (types.NetPacketIPv6Args, error) {
   var result types.NetPacketIPv6Args
   var err error
 
@@ -19275,6 +21172,10 @@ func ParseNetPacketIPv6Args(decoder *Decoder) (types.NetPacketIPv6Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketIPv6Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketIPv6': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19307,7 +21208,7 @@ func ParseNetPacketIPv6Args(decoder *Decoder) (types.NetPacketIPv6Args, error) {
   return result, nil
 }
 
-func ParseNetPacketTCPBaseArgs(decoder *Decoder) (types.NetPacketTCPBaseArgs, error) {
+func ParseNetPacketTCPBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketTCPBaseArgs, error) {
   var result types.NetPacketTCPBaseArgs
   var err error
 
@@ -19315,6 +21216,10 @@ func ParseNetPacketTCPBaseArgs(decoder *Decoder) (types.NetPacketTCPBaseArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketTCPBaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketTCPBase': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19335,7 +21240,7 @@ func ParseNetPacketTCPBaseArgs(decoder *Decoder) (types.NetPacketTCPBaseArgs, er
   return result, nil
 }
 
-func ParseNetPacketTCPArgs(decoder *Decoder) (types.NetPacketTCPArgs, error) {
+func ParseNetPacketTCPArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketTCPArgs, error) {
   var result types.NetPacketTCPArgs
   var err error
 
@@ -19343,6 +21248,10 @@ func ParseNetPacketTCPArgs(decoder *Decoder) (types.NetPacketTCPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketTCPArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketTCP': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19385,7 +21294,7 @@ func ParseNetPacketTCPArgs(decoder *Decoder) (types.NetPacketTCPArgs, error) {
   return result, nil
 }
 
-func ParseNetPacketUDPBaseArgs(decoder *Decoder) (types.NetPacketUDPBaseArgs, error) {
+func ParseNetPacketUDPBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketUDPBaseArgs, error) {
   var result types.NetPacketUDPBaseArgs
   var err error
 
@@ -19393,6 +21302,10 @@ func ParseNetPacketUDPBaseArgs(decoder *Decoder) (types.NetPacketUDPBaseArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketUDPBaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketUDPBase': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19413,7 +21326,7 @@ func ParseNetPacketUDPBaseArgs(decoder *Decoder) (types.NetPacketUDPBaseArgs, er
   return result, nil
 }
 
-func ParseNetPacketUDPArgs(decoder *Decoder) (types.NetPacketUDPArgs, error) {
+func ParseNetPacketUDPArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketUDPArgs, error) {
   var result types.NetPacketUDPArgs
   var err error
 
@@ -19421,6 +21334,10 @@ func ParseNetPacketUDPArgs(decoder *Decoder) (types.NetPacketUDPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketUDPArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketUDP': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19463,7 +21380,7 @@ func ParseNetPacketUDPArgs(decoder *Decoder) (types.NetPacketUDPArgs, error) {
   return result, nil
 }
 
-func ParseNetPacketICMPBaseArgs(decoder *Decoder) (types.NetPacketICMPBaseArgs, error) {
+func ParseNetPacketICMPBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketICMPBaseArgs, error) {
   var result types.NetPacketICMPBaseArgs
   var err error
 
@@ -19471,6 +21388,10 @@ func ParseNetPacketICMPBaseArgs(decoder *Decoder) (types.NetPacketICMPBaseArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketICMPBaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketICMPBase': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19491,7 +21412,7 @@ func ParseNetPacketICMPBaseArgs(decoder *Decoder) (types.NetPacketICMPBaseArgs, 
   return result, nil
 }
 
-func ParseNetPacketICMPArgs(decoder *Decoder) (types.NetPacketICMPArgs, error) {
+func ParseNetPacketICMPArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketICMPArgs, error) {
   var result types.NetPacketICMPArgs
   var err error
 
@@ -19499,6 +21420,10 @@ func ParseNetPacketICMPArgs(decoder *Decoder) (types.NetPacketICMPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketICMPArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketICMP': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19531,7 +21456,7 @@ func ParseNetPacketICMPArgs(decoder *Decoder) (types.NetPacketICMPArgs, error) {
   return result, nil
 }
 
-func ParseNetPacketICMPv6BaseArgs(decoder *Decoder) (types.NetPacketICMPv6BaseArgs, error) {
+func ParseNetPacketICMPv6BaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketICMPv6BaseArgs, error) {
   var result types.NetPacketICMPv6BaseArgs
   var err error
 
@@ -19539,6 +21464,10 @@ func ParseNetPacketICMPv6BaseArgs(decoder *Decoder) (types.NetPacketICMPv6BaseAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketICMPv6BaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketICMPv6Base': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19559,7 +21488,7 @@ func ParseNetPacketICMPv6BaseArgs(decoder *Decoder) (types.NetPacketICMPv6BaseAr
   return result, nil
 }
 
-func ParseNetPacketICMPv6Args(decoder *Decoder) (types.NetPacketICMPv6Args, error) {
+func ParseNetPacketICMPv6Args(log *logging.Logger, decoder *Decoder) (types.NetPacketICMPv6Args, error) {
   var result types.NetPacketICMPv6Args
   var err error
 
@@ -19567,6 +21496,10 @@ func ParseNetPacketICMPv6Args(decoder *Decoder) (types.NetPacketICMPv6Args, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketICMPv6Args{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketICMPv6': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19599,7 +21532,7 @@ func ParseNetPacketICMPv6Args(decoder *Decoder) (types.NetPacketICMPv6Args, erro
   return result, nil
 }
 
-func ParseNetPacketDNSBaseArgs(decoder *Decoder) (types.NetPacketDNSBaseArgs, error) {
+func ParseNetPacketDNSBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketDNSBaseArgs, error) {
   var result types.NetPacketDNSBaseArgs
   var err error
 
@@ -19607,6 +21540,10 @@ func ParseNetPacketDNSBaseArgs(decoder *Decoder) (types.NetPacketDNSBaseArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketDNSBaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketDNSBase': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19627,7 +21564,7 @@ func ParseNetPacketDNSBaseArgs(decoder *Decoder) (types.NetPacketDNSBaseArgs, er
   return result, nil
 }
 
-func ParseNetPacketDNSArgs(decoder *Decoder) (types.NetPacketDNSArgs, error) {
+func ParseNetPacketDNSArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketDNSArgs, error) {
   var result types.NetPacketDNSArgs
   var err error
 
@@ -19635,6 +21572,10 @@ func ParseNetPacketDNSArgs(decoder *Decoder) (types.NetPacketDNSArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketDNSArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketDNS': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19677,7 +21618,7 @@ func ParseNetPacketDNSArgs(decoder *Decoder) (types.NetPacketDNSArgs, error) {
   return result, nil
 }
 
-func ParseNetPacketDNSRequestArgs(decoder *Decoder) (types.NetPacketDNSRequestArgs, error) {
+func ParseNetPacketDNSRequestArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketDNSRequestArgs, error) {
   var result types.NetPacketDNSRequestArgs
   var err error
 
@@ -19685,6 +21626,10 @@ func ParseNetPacketDNSRequestArgs(decoder *Decoder) (types.NetPacketDNSRequestAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketDNSRequestArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketDNSRequest': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19714,7 +21659,7 @@ func ParseNetPacketDNSRequestArgs(decoder *Decoder) (types.NetPacketDNSRequestAr
   return result, nil
 }
 
-func ParseNetPacketDNSResponseArgs(decoder *Decoder) (types.NetPacketDNSResponseArgs, error) {
+func ParseNetPacketDNSResponseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketDNSResponseArgs, error) {
   var result types.NetPacketDNSResponseArgs
   var err error
 
@@ -19722,6 +21667,10 @@ func ParseNetPacketDNSResponseArgs(decoder *Decoder) (types.NetPacketDNSResponse
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketDNSResponseArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketDNSResponse': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19751,7 +21700,7 @@ func ParseNetPacketDNSResponseArgs(decoder *Decoder) (types.NetPacketDNSResponse
   return result, nil
 }
 
-func ParseNetPacketHTTPBaseArgs(decoder *Decoder) (types.NetPacketHTTPBaseArgs, error) {
+func ParseNetPacketHTTPBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketHTTPBaseArgs, error) {
   var result types.NetPacketHTTPBaseArgs
   var err error
 
@@ -19759,6 +21708,10 @@ func ParseNetPacketHTTPBaseArgs(decoder *Decoder) (types.NetPacketHTTPBaseArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketHTTPBaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketHTTPBase': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19779,7 +21732,7 @@ func ParseNetPacketHTTPBaseArgs(decoder *Decoder) (types.NetPacketHTTPBaseArgs, 
   return result, nil
 }
 
-func ParseNetPacketHTTPArgs(decoder *Decoder) (types.NetPacketHTTPArgs, error) {
+func ParseNetPacketHTTPArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketHTTPArgs, error) {
   var result types.NetPacketHTTPArgs
   var err error
 
@@ -19787,6 +21740,10 @@ func ParseNetPacketHTTPArgs(decoder *Decoder) (types.NetPacketHTTPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketHTTPArgs{}, err
+  }
+
+  if numArgs != 5 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketHTTP': wanted 5, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19829,7 +21786,7 @@ func ParseNetPacketHTTPArgs(decoder *Decoder) (types.NetPacketHTTPArgs, error) {
   return result, nil
 }
 
-func ParseNetPacketHTTPRequestArgs(decoder *Decoder) (types.NetPacketHTTPRequestArgs, error) {
+func ParseNetPacketHTTPRequestArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketHTTPRequestArgs, error) {
   var result types.NetPacketHTTPRequestArgs
   var err error
 
@@ -19837,6 +21794,10 @@ func ParseNetPacketHTTPRequestArgs(decoder *Decoder) (types.NetPacketHTTPRequest
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketHTTPRequestArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketHTTPRequest': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19866,7 +21827,7 @@ func ParseNetPacketHTTPRequestArgs(decoder *Decoder) (types.NetPacketHTTPRequest
   return result, nil
 }
 
-func ParseNetPacketHTTPResponseArgs(decoder *Decoder) (types.NetPacketHTTPResponseArgs, error) {
+func ParseNetPacketHTTPResponseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketHTTPResponseArgs, error) {
   var result types.NetPacketHTTPResponseArgs
   var err error
 
@@ -19874,6 +21835,10 @@ func ParseNetPacketHTTPResponseArgs(decoder *Decoder) (types.NetPacketHTTPRespon
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketHTTPResponseArgs{}, err
+  }
+
+  if numArgs != 2 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketHTTPResponse': wanted 2, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19903,7 +21868,7 @@ func ParseNetPacketHTTPResponseArgs(decoder *Decoder) (types.NetPacketHTTPRespon
   return result, nil
 }
 
-func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseArgs, error) {
+func ParseNetPacketSOCKS5BaseArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketSOCKS5BaseArgs, error) {
   var result types.NetPacketSOCKS5BaseArgs
   var err error
 
@@ -19911,6 +21876,10 @@ func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketSOCKS5BaseArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketSOCKS5Base': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19931,7 +21900,7 @@ func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseAr
   return result, nil
 }
 
-func ParseNetPacketCaptureArgs(decoder *Decoder) (types.NetPacketCaptureArgs, error) {
+func ParseNetPacketCaptureArgs(log *logging.Logger, decoder *Decoder) (types.NetPacketCaptureArgs, error) {
   var result types.NetPacketCaptureArgs
   var err error
 
@@ -19939,6 +21908,10 @@ func ParseNetPacketCaptureArgs(decoder *Decoder) (types.NetPacketCaptureArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketCaptureArgs{}, err
+  }
+
+  if numArgs != 1 {
+    log.Warnf("unexpected number of args received when parsing 'NetPacketCapture': wanted 1, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19959,11 +21932,11 @@ func ParseNetPacketCaptureArgs(decoder *Decoder) (types.NetPacketCaptureArgs, er
   return result, nil
 }
 
-func ParseCaptureNetPacketArgs(decoder *Decoder) (types.CaptureNetPacketArgs, error) {
+func ParseCaptureNetPacketArgs(log *logging.Logger, decoder *Decoder) (types.CaptureNetPacketArgs, error) {
   return types.CaptureNetPacketArgs{}, nil
 }
 
-func ParseSockSetStateArgs(decoder *Decoder) (types.SockSetStateArgs, error) {
+func ParseSockSetStateArgs(log *logging.Logger, decoder *Decoder) (types.SockSetStateArgs, error) {
   var result types.SockSetStateArgs
   var err error
 
@@ -19971,6 +21944,10 @@ func ParseSockSetStateArgs(decoder *Decoder) (types.SockSetStateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SockSetStateArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SockSetState': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -20001,15 +21978,15 @@ func ParseSockSetStateArgs(decoder *Decoder) (types.SockSetStateArgs, error) {
   return result, nil
 }
 
-func ParseTrackSyscallStatsArgs(decoder *Decoder) (types.TrackSyscallStatsArgs, error) {
+func ParseTrackSyscallStatsArgs(log *logging.Logger, decoder *Decoder) (types.TrackSyscallStatsArgs, error) {
   return types.TrackSyscallStatsArgs{}, nil
 }
 
-func ParseTestEventArgs(decoder *Decoder) (types.TestEventArgs, error) {
+func ParseTestEventArgs(log *logging.Logger, decoder *Decoder) (types.TestEventArgs, error) {
   return types.TestEventArgs{}, nil
 }
 
-func ParseSignalCgroupMkdirArgs(decoder *Decoder) (types.SignalCgroupMkdirArgs, error) {
+func ParseSignalCgroupMkdirArgs(log *logging.Logger, decoder *Decoder) (types.SignalCgroupMkdirArgs, error) {
   var result types.SignalCgroupMkdirArgs
   var err error
 
@@ -20017,6 +21994,10 @@ func ParseSignalCgroupMkdirArgs(decoder *Decoder) (types.SignalCgroupMkdirArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SignalCgroupMkdirArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SignalCgroupMkdir': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -20047,7 +22028,7 @@ func ParseSignalCgroupMkdirArgs(decoder *Decoder) (types.SignalCgroupMkdirArgs, 
   return result, nil
 }
 
-func ParseSignalCgroupRmdirArgs(decoder *Decoder) (types.SignalCgroupRmdirArgs, error) {
+func ParseSignalCgroupRmdirArgs(log *logging.Logger, decoder *Decoder) (types.SignalCgroupRmdirArgs, error) {
   var result types.SignalCgroupRmdirArgs
   var err error
 
@@ -20055,6 +22036,10 @@ func ParseSignalCgroupRmdirArgs(decoder *Decoder) (types.SignalCgroupRmdirArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SignalCgroupRmdirArgs{}, err
+  }
+
+  if numArgs != 3 {
+    log.Warnf("unexpected number of args received when parsing 'SignalCgroupRmdir': wanted 3, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -20085,7 +22070,7 @@ func ParseSignalCgroupRmdirArgs(decoder *Decoder) (types.SignalCgroupRmdirArgs, 
   return result, nil
 }
 
-func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
+func ParseNetFlowBaseArgs(log *logging.Logger, decoder *Decoder) (types.NetFlowBaseArgs, error) {
   var result types.NetFlowBaseArgs
   var err error
 
@@ -20093,6 +22078,10 @@ func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetFlowBaseArgs{}, err
+  }
+
+  if numArgs != 7 {
+    log.Warnf("unexpected number of args received when parsing 'NetFlowBase': wanted 7, got %d", numArgs)
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -20143,1128 +22132,1128 @@ func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
   return result, nil
 }
 
-func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
+func ParseArgs(log *logging.Logger, decoder *Decoder, event events.ID) (types.Args, error) {
   switch event {
   case events.Read:
-    return ParseReadArgs(decoder)
+    return ParseReadArgs(log, decoder)
   case events.Write:
-    return ParseWriteArgs(decoder)
+    return ParseWriteArgs(log, decoder)
   case events.Open:
-    return ParseOpenArgs(decoder)
+    return ParseOpenArgs(log, decoder)
   case events.Close:
-    return ParseCloseArgs(decoder)
+    return ParseCloseArgs(log, decoder)
   case events.Stat:
-    return ParseStatArgs(decoder)
+    return ParseStatArgs(log, decoder)
   case events.Fstat:
-    return ParseFstatArgs(decoder)
+    return ParseFstatArgs(log, decoder)
   case events.Lstat:
-    return ParseLstatArgs(decoder)
+    return ParseLstatArgs(log, decoder)
   case events.Poll:
-    return ParsePollArgs(decoder)
+    return ParsePollArgs(log, decoder)
   case events.Lseek:
-    return ParseLseekArgs(decoder)
+    return ParseLseekArgs(log, decoder)
   case events.Mmap:
-    return ParseMmapArgs(decoder)
+    return ParseMmapArgs(log, decoder)
   case events.Mprotect:
-    return ParseMprotectArgs(decoder)
+    return ParseMprotectArgs(log, decoder)
   case events.Munmap:
-    return ParseMunmapArgs(decoder)
+    return ParseMunmapArgs(log, decoder)
   case events.Brk:
-    return ParseBrkArgs(decoder)
+    return ParseBrkArgs(log, decoder)
   case events.RtSigaction:
-    return ParseRtSigactionArgs(decoder)
+    return ParseRtSigactionArgs(log, decoder)
   case events.RtSigprocmask:
-    return ParseRtSigprocmaskArgs(decoder)
+    return ParseRtSigprocmaskArgs(log, decoder)
   case events.RtSigreturn:
-    return ParseRtSigreturnArgs(decoder)
+    return ParseRtSigreturnArgs(log, decoder)
   case events.Ioctl:
-    return ParseIoctlArgs(decoder)
+    return ParseIoctlArgs(log, decoder)
   case events.Pread64:
-    return ParsePread64Args(decoder)
+    return ParsePread64Args(log, decoder)
   case events.Pwrite64:
-    return ParsePwrite64Args(decoder)
+    return ParsePwrite64Args(log, decoder)
   case events.Readv:
-    return ParseReadvArgs(decoder)
+    return ParseReadvArgs(log, decoder)
   case events.Writev:
-    return ParseWritevArgs(decoder)
+    return ParseWritevArgs(log, decoder)
   case events.Access:
-    return ParseAccessArgs(decoder)
+    return ParseAccessArgs(log, decoder)
   case events.Pipe:
-    return ParsePipeArgs(decoder)
+    return ParsePipeArgs(log, decoder)
   case events.Select:
-    return ParseSelectArgs(decoder)
+    return ParseSelectArgs(log, decoder)
   case events.SchedYield:
-    return ParseSchedYieldArgs(decoder)
+    return ParseSchedYieldArgs(log, decoder)
   case events.Mremap:
-    return ParseMremapArgs(decoder)
+    return ParseMremapArgs(log, decoder)
   case events.Msync:
-    return ParseMsyncArgs(decoder)
+    return ParseMsyncArgs(log, decoder)
   case events.Mincore:
-    return ParseMincoreArgs(decoder)
+    return ParseMincoreArgs(log, decoder)
   case events.Madvise:
-    return ParseMadviseArgs(decoder)
+    return ParseMadviseArgs(log, decoder)
   case events.Shmget:
-    return ParseShmgetArgs(decoder)
+    return ParseShmgetArgs(log, decoder)
   case events.Shmat:
-    return ParseShmatArgs(decoder)
+    return ParseShmatArgs(log, decoder)
   case events.Shmctl:
-    return ParseShmctlArgs(decoder)
+    return ParseShmctlArgs(log, decoder)
   case events.Dup:
-    return ParseDupArgs(decoder)
+    return ParseDupArgs(log, decoder)
   case events.Dup2:
-    return ParseDup2Args(decoder)
+    return ParseDup2Args(log, decoder)
   case events.Pause:
-    return ParsePauseArgs(decoder)
+    return ParsePauseArgs(log, decoder)
   case events.Nanosleep:
-    return ParseNanosleepArgs(decoder)
+    return ParseNanosleepArgs(log, decoder)
   case events.Getitimer:
-    return ParseGetitimerArgs(decoder)
+    return ParseGetitimerArgs(log, decoder)
   case events.Alarm:
-    return ParseAlarmArgs(decoder)
+    return ParseAlarmArgs(log, decoder)
   case events.Setitimer:
-    return ParseSetitimerArgs(decoder)
+    return ParseSetitimerArgs(log, decoder)
   case events.Getpid:
-    return ParseGetpidArgs(decoder)
+    return ParseGetpidArgs(log, decoder)
   case events.Sendfile:
-    return ParseSendfileArgs(decoder)
+    return ParseSendfileArgs(log, decoder)
   case events.Socket:
-    return ParseSocketArgs(decoder)
+    return ParseSocketArgs(log, decoder)
   case events.Connect:
-    return ParseConnectArgs(decoder)
+    return ParseConnectArgs(log, decoder)
   case events.Accept:
-    return ParseAcceptArgs(decoder)
+    return ParseAcceptArgs(log, decoder)
   case events.Sendto:
-    return ParseSendtoArgs(decoder)
+    return ParseSendtoArgs(log, decoder)
   case events.Recvfrom:
-    return ParseRecvfromArgs(decoder)
+    return ParseRecvfromArgs(log, decoder)
   case events.Sendmsg:
-    return ParseSendmsgArgs(decoder)
+    return ParseSendmsgArgs(log, decoder)
   case events.Recvmsg:
-    return ParseRecvmsgArgs(decoder)
+    return ParseRecvmsgArgs(log, decoder)
   case events.Shutdown:
-    return ParseShutdownArgs(decoder)
+    return ParseShutdownArgs(log, decoder)
   case events.Bind:
-    return ParseBindArgs(decoder)
+    return ParseBindArgs(log, decoder)
   case events.Listen:
-    return ParseListenArgs(decoder)
+    return ParseListenArgs(log, decoder)
   case events.Getsockname:
-    return ParseGetsocknameArgs(decoder)
+    return ParseGetsocknameArgs(log, decoder)
   case events.Getpeername:
-    return ParseGetpeernameArgs(decoder)
+    return ParseGetpeernameArgs(log, decoder)
   case events.Socketpair:
-    return ParseSocketpairArgs(decoder)
+    return ParseSocketpairArgs(log, decoder)
   case events.Setsockopt:
-    return ParseSetsockoptArgs(decoder)
+    return ParseSetsockoptArgs(log, decoder)
   case events.Getsockopt:
-    return ParseGetsockoptArgs(decoder)
+    return ParseGetsockoptArgs(log, decoder)
   case events.Clone:
-    return ParseCloneArgs(decoder)
+    return ParseCloneArgs(log, decoder)
   case events.Fork:
-    return ParseForkArgs(decoder)
+    return ParseForkArgs(log, decoder)
   case events.Vfork:
-    return ParseVforkArgs(decoder)
+    return ParseVforkArgs(log, decoder)
   case events.Execve:
-    return ParseExecveArgs(decoder)
+    return ParseExecveArgs(log, decoder)
   case events.Exit:
-    return ParseExitArgs(decoder)
+    return ParseExitArgs(log, decoder)
   case events.Wait4:
-    return ParseWait4Args(decoder)
+    return ParseWait4Args(log, decoder)
   case events.Kill:
-    return ParseKillArgs(decoder)
+    return ParseKillArgs(log, decoder)
   case events.Uname:
-    return ParseUnameArgs(decoder)
+    return ParseUnameArgs(log, decoder)
   case events.Semget:
-    return ParseSemgetArgs(decoder)
+    return ParseSemgetArgs(log, decoder)
   case events.Semop:
-    return ParseSemopArgs(decoder)
+    return ParseSemopArgs(log, decoder)
   case events.Semctl:
-    return ParseSemctlArgs(decoder)
+    return ParseSemctlArgs(log, decoder)
   case events.Shmdt:
-    return ParseShmdtArgs(decoder)
+    return ParseShmdtArgs(log, decoder)
   case events.Msgget:
-    return ParseMsggetArgs(decoder)
+    return ParseMsggetArgs(log, decoder)
   case events.Msgsnd:
-    return ParseMsgsndArgs(decoder)
+    return ParseMsgsndArgs(log, decoder)
   case events.Msgrcv:
-    return ParseMsgrcvArgs(decoder)
+    return ParseMsgrcvArgs(log, decoder)
   case events.Msgctl:
-    return ParseMsgctlArgs(decoder)
+    return ParseMsgctlArgs(log, decoder)
   case events.Fcntl:
-    return ParseFcntlArgs(decoder)
+    return ParseFcntlArgs(log, decoder)
   case events.Flock:
-    return ParseFlockArgs(decoder)
+    return ParseFlockArgs(log, decoder)
   case events.Fsync:
-    return ParseFsyncArgs(decoder)
+    return ParseFsyncArgs(log, decoder)
   case events.Fdatasync:
-    return ParseFdatasyncArgs(decoder)
+    return ParseFdatasyncArgs(log, decoder)
   case events.Truncate:
-    return ParseTruncateArgs(decoder)
+    return ParseTruncateArgs(log, decoder)
   case events.Ftruncate:
-    return ParseFtruncateArgs(decoder)
+    return ParseFtruncateArgs(log, decoder)
   case events.Getdents:
-    return ParseGetdentsArgs(decoder)
+    return ParseGetdentsArgs(log, decoder)
   case events.Getcwd:
-    return ParseGetcwdArgs(decoder)
+    return ParseGetcwdArgs(log, decoder)
   case events.Chdir:
-    return ParseChdirArgs(decoder)
+    return ParseChdirArgs(log, decoder)
   case events.Fchdir:
-    return ParseFchdirArgs(decoder)
+    return ParseFchdirArgs(log, decoder)
   case events.Rename:
-    return ParseRenameArgs(decoder)
+    return ParseRenameArgs(log, decoder)
   case events.Mkdir:
-    return ParseMkdirArgs(decoder)
+    return ParseMkdirArgs(log, decoder)
   case events.Rmdir:
-    return ParseRmdirArgs(decoder)
+    return ParseRmdirArgs(log, decoder)
   case events.Creat:
-    return ParseCreatArgs(decoder)
+    return ParseCreatArgs(log, decoder)
   case events.Link:
-    return ParseLinkArgs(decoder)
+    return ParseLinkArgs(log, decoder)
   case events.Unlink:
-    return ParseUnlinkArgs(decoder)
+    return ParseUnlinkArgs(log, decoder)
   case events.Symlink:
-    return ParseSymlinkArgs(decoder)
+    return ParseSymlinkArgs(log, decoder)
   case events.Readlink:
-    return ParseReadlinkArgs(decoder)
+    return ParseReadlinkArgs(log, decoder)
   case events.Chmod:
-    return ParseChmodArgs(decoder)
+    return ParseChmodArgs(log, decoder)
   case events.Fchmod:
-    return ParseFchmodArgs(decoder)
+    return ParseFchmodArgs(log, decoder)
   case events.Chown:
-    return ParseChownArgs(decoder)
+    return ParseChownArgs(log, decoder)
   case events.Fchown:
-    return ParseFchownArgs(decoder)
+    return ParseFchownArgs(log, decoder)
   case events.Lchown:
-    return ParseLchownArgs(decoder)
+    return ParseLchownArgs(log, decoder)
   case events.Umask:
-    return ParseUmaskArgs(decoder)
+    return ParseUmaskArgs(log, decoder)
   case events.Gettimeofday:
-    return ParseGettimeofdayArgs(decoder)
+    return ParseGettimeofdayArgs(log, decoder)
   case events.Getrlimit:
-    return ParseGetrlimitArgs(decoder)
+    return ParseGetrlimitArgs(log, decoder)
   case events.Getrusage:
-    return ParseGetrusageArgs(decoder)
+    return ParseGetrusageArgs(log, decoder)
   case events.Sysinfo:
-    return ParseSysinfoArgs(decoder)
+    return ParseSysinfoArgs(log, decoder)
   case events.Times:
-    return ParseTimesArgs(decoder)
+    return ParseTimesArgs(log, decoder)
   case events.Ptrace:
-    return ParsePtraceArgs(decoder)
+    return ParsePtraceArgs(log, decoder)
   case events.Getuid:
-    return ParseGetuidArgs(decoder)
+    return ParseGetuidArgs(log, decoder)
   case events.Syslog:
-    return ParseSyslogArgs(decoder)
+    return ParseSyslogArgs(log, decoder)
   case events.Getgid:
-    return ParseGetgidArgs(decoder)
+    return ParseGetgidArgs(log, decoder)
   case events.Setuid:
-    return ParseSetuidArgs(decoder)
+    return ParseSetuidArgs(log, decoder)
   case events.Setgid:
-    return ParseSetgidArgs(decoder)
+    return ParseSetgidArgs(log, decoder)
   case events.Geteuid:
-    return ParseGeteuidArgs(decoder)
+    return ParseGeteuidArgs(log, decoder)
   case events.Getegid:
-    return ParseGetegidArgs(decoder)
+    return ParseGetegidArgs(log, decoder)
   case events.Setpgid:
-    return ParseSetpgidArgs(decoder)
+    return ParseSetpgidArgs(log, decoder)
   case events.Getppid:
-    return ParseGetppidArgs(decoder)
+    return ParseGetppidArgs(log, decoder)
   case events.Getpgrp:
-    return ParseGetpgrpArgs(decoder)
+    return ParseGetpgrpArgs(log, decoder)
   case events.Setsid:
-    return ParseSetsidArgs(decoder)
+    return ParseSetsidArgs(log, decoder)
   case events.Setreuid:
-    return ParseSetreuidArgs(decoder)
+    return ParseSetreuidArgs(log, decoder)
   case events.Setregid:
-    return ParseSetregidArgs(decoder)
+    return ParseSetregidArgs(log, decoder)
   case events.Getgroups:
-    return ParseGetgroupsArgs(decoder)
+    return ParseGetgroupsArgs(log, decoder)
   case events.Setgroups:
-    return ParseSetgroupsArgs(decoder)
+    return ParseSetgroupsArgs(log, decoder)
   case events.Setresuid:
-    return ParseSetresuidArgs(decoder)
+    return ParseSetresuidArgs(log, decoder)
   case events.Getresuid:
-    return ParseGetresuidArgs(decoder)
+    return ParseGetresuidArgs(log, decoder)
   case events.Setresgid:
-    return ParseSetresgidArgs(decoder)
+    return ParseSetresgidArgs(log, decoder)
   case events.Getresgid:
-    return ParseGetresgidArgs(decoder)
+    return ParseGetresgidArgs(log, decoder)
   case events.Getpgid:
-    return ParseGetpgidArgs(decoder)
+    return ParseGetpgidArgs(log, decoder)
   case events.Setfsuid:
-    return ParseSetfsuidArgs(decoder)
+    return ParseSetfsuidArgs(log, decoder)
   case events.Setfsgid:
-    return ParseSetfsgidArgs(decoder)
+    return ParseSetfsgidArgs(log, decoder)
   case events.Getsid:
-    return ParseGetsidArgs(decoder)
+    return ParseGetsidArgs(log, decoder)
   case events.Capget:
-    return ParseCapgetArgs(decoder)
+    return ParseCapgetArgs(log, decoder)
   case events.Capset:
-    return ParseCapsetArgs(decoder)
+    return ParseCapsetArgs(log, decoder)
   case events.RtSigpending:
-    return ParseRtSigpendingArgs(decoder)
+    return ParseRtSigpendingArgs(log, decoder)
   case events.RtSigtimedwait:
-    return ParseRtSigtimedwaitArgs(decoder)
+    return ParseRtSigtimedwaitArgs(log, decoder)
   case events.RtSigqueueinfo:
-    return ParseRtSigqueueinfoArgs(decoder)
+    return ParseRtSigqueueinfoArgs(log, decoder)
   case events.RtSigsuspend:
-    return ParseRtSigsuspendArgs(decoder)
+    return ParseRtSigsuspendArgs(log, decoder)
   case events.Sigaltstack:
-    return ParseSigaltstackArgs(decoder)
+    return ParseSigaltstackArgs(log, decoder)
   case events.Utime:
-    return ParseUtimeArgs(decoder)
+    return ParseUtimeArgs(log, decoder)
   case events.Mknod:
-    return ParseMknodArgs(decoder)
+    return ParseMknodArgs(log, decoder)
   case events.Uselib:
-    return ParseUselibArgs(decoder)
+    return ParseUselibArgs(log, decoder)
   case events.Personality:
-    return ParsePersonalityArgs(decoder)
+    return ParsePersonalityArgs(log, decoder)
   case events.Ustat:
-    return ParseUstatArgs(decoder)
+    return ParseUstatArgs(log, decoder)
   case events.Statfs:
-    return ParseStatfsArgs(decoder)
+    return ParseStatfsArgs(log, decoder)
   case events.Fstatfs:
-    return ParseFstatfsArgs(decoder)
+    return ParseFstatfsArgs(log, decoder)
   case events.Sysfs:
-    return ParseSysfsArgs(decoder)
+    return ParseSysfsArgs(log, decoder)
   case events.Getpriority:
-    return ParseGetpriorityArgs(decoder)
+    return ParseGetpriorityArgs(log, decoder)
   case events.Setpriority:
-    return ParseSetpriorityArgs(decoder)
+    return ParseSetpriorityArgs(log, decoder)
   case events.SchedSetparam:
-    return ParseSchedSetparamArgs(decoder)
+    return ParseSchedSetparamArgs(log, decoder)
   case events.SchedGetparam:
-    return ParseSchedGetparamArgs(decoder)
+    return ParseSchedGetparamArgs(log, decoder)
   case events.SchedSetscheduler:
-    return ParseSchedSetschedulerArgs(decoder)
+    return ParseSchedSetschedulerArgs(log, decoder)
   case events.SchedGetscheduler:
-    return ParseSchedGetschedulerArgs(decoder)
+    return ParseSchedGetschedulerArgs(log, decoder)
   case events.SchedGetPriorityMax:
-    return ParseSchedGetPriorityMaxArgs(decoder)
+    return ParseSchedGetPriorityMaxArgs(log, decoder)
   case events.SchedGetPriorityMin:
-    return ParseSchedGetPriorityMinArgs(decoder)
+    return ParseSchedGetPriorityMinArgs(log, decoder)
   case events.SchedRrGetInterval:
-    return ParseSchedRrGetIntervalArgs(decoder)
+    return ParseSchedRrGetIntervalArgs(log, decoder)
   case events.Mlock:
-    return ParseMlockArgs(decoder)
+    return ParseMlockArgs(log, decoder)
   case events.Munlock:
-    return ParseMunlockArgs(decoder)
+    return ParseMunlockArgs(log, decoder)
   case events.Mlockall:
-    return ParseMlockallArgs(decoder)
+    return ParseMlockallArgs(log, decoder)
   case events.Munlockall:
-    return ParseMunlockallArgs(decoder)
+    return ParseMunlockallArgs(log, decoder)
   case events.Vhangup:
-    return ParseVhangupArgs(decoder)
+    return ParseVhangupArgs(log, decoder)
   case events.ModifyLdt:
-    return ParseModifyLdtArgs(decoder)
+    return ParseModifyLdtArgs(log, decoder)
   case events.PivotRoot:
-    return ParsePivotRootArgs(decoder)
+    return ParsePivotRootArgs(log, decoder)
   case events.Sysctl:
-    return ParseSysctlArgs(decoder)
+    return ParseSysctlArgs(log, decoder)
   case events.Prctl:
-    return ParsePrctlArgs(decoder)
+    return ParsePrctlArgs(log, decoder)
   case events.ArchPrctl:
-    return ParseArchPrctlArgs(decoder)
+    return ParseArchPrctlArgs(log, decoder)
   case events.Adjtimex:
-    return ParseAdjtimexArgs(decoder)
+    return ParseAdjtimexArgs(log, decoder)
   case events.Setrlimit:
-    return ParseSetrlimitArgs(decoder)
+    return ParseSetrlimitArgs(log, decoder)
   case events.Chroot:
-    return ParseChrootArgs(decoder)
+    return ParseChrootArgs(log, decoder)
   case events.Sync:
-    return ParseSyncArgs(decoder)
+    return ParseSyncArgs(log, decoder)
   case events.Acct:
-    return ParseAcctArgs(decoder)
+    return ParseAcctArgs(log, decoder)
   case events.Settimeofday:
-    return ParseSettimeofdayArgs(decoder)
+    return ParseSettimeofdayArgs(log, decoder)
   case events.Mount:
-    return ParseMountArgs(decoder)
+    return ParseMountArgs(log, decoder)
   case events.Umount2:
-    return ParseUmount2Args(decoder)
+    return ParseUmount2Args(log, decoder)
   case events.Swapon:
-    return ParseSwaponArgs(decoder)
+    return ParseSwaponArgs(log, decoder)
   case events.Swapoff:
-    return ParseSwapoffArgs(decoder)
+    return ParseSwapoffArgs(log, decoder)
   case events.Reboot:
-    return ParseRebootArgs(decoder)
+    return ParseRebootArgs(log, decoder)
   case events.Sethostname:
-    return ParseSethostnameArgs(decoder)
+    return ParseSethostnameArgs(log, decoder)
   case events.Setdomainname:
-    return ParseSetdomainnameArgs(decoder)
+    return ParseSetdomainnameArgs(log, decoder)
   case events.Iopl:
-    return ParseIoplArgs(decoder)
+    return ParseIoplArgs(log, decoder)
   case events.Ioperm:
-    return ParseIopermArgs(decoder)
+    return ParseIopermArgs(log, decoder)
   case events.CreateModule:
-    return ParseCreateModuleArgs(decoder)
+    return ParseCreateModuleArgs(log, decoder)
   case events.InitModule:
-    return ParseInitModuleArgs(decoder)
+    return ParseInitModuleArgs(log, decoder)
   case events.DeleteModule:
-    return ParseDeleteModuleArgs(decoder)
+    return ParseDeleteModuleArgs(log, decoder)
   case events.GetKernelSyms:
-    return ParseGetKernelSymsArgs(decoder)
+    return ParseGetKernelSymsArgs(log, decoder)
   case events.QueryModule:
-    return ParseQueryModuleArgs(decoder)
+    return ParseQueryModuleArgs(log, decoder)
   case events.Quotactl:
-    return ParseQuotactlArgs(decoder)
+    return ParseQuotactlArgs(log, decoder)
   case events.Nfsservctl:
-    return ParseNfsservctlArgs(decoder)
+    return ParseNfsservctlArgs(log, decoder)
   case events.Getpmsg:
-    return ParseGetpmsgArgs(decoder)
+    return ParseGetpmsgArgs(log, decoder)
   case events.Putpmsg:
-    return ParsePutpmsgArgs(decoder)
+    return ParsePutpmsgArgs(log, decoder)
   case events.Afs:
-    return ParseAfsArgs(decoder)
+    return ParseAfsArgs(log, decoder)
   case events.Tuxcall:
-    return ParseTuxcallArgs(decoder)
+    return ParseTuxcallArgs(log, decoder)
   case events.Security:
-    return ParseSecurityArgs(decoder)
+    return ParseSecurityArgs(log, decoder)
   case events.Gettid:
-    return ParseGettidArgs(decoder)
+    return ParseGettidArgs(log, decoder)
   case events.Readahead:
-    return ParseReadaheadArgs(decoder)
+    return ParseReadaheadArgs(log, decoder)
   case events.Setxattr:
-    return ParseSetxattrArgs(decoder)
+    return ParseSetxattrArgs(log, decoder)
   case events.Lsetxattr:
-    return ParseLsetxattrArgs(decoder)
+    return ParseLsetxattrArgs(log, decoder)
   case events.Fsetxattr:
-    return ParseFsetxattrArgs(decoder)
+    return ParseFsetxattrArgs(log, decoder)
   case events.Getxattr:
-    return ParseGetxattrArgs(decoder)
+    return ParseGetxattrArgs(log, decoder)
   case events.Lgetxattr:
-    return ParseLgetxattrArgs(decoder)
+    return ParseLgetxattrArgs(log, decoder)
   case events.Fgetxattr:
-    return ParseFgetxattrArgs(decoder)
+    return ParseFgetxattrArgs(log, decoder)
   case events.Listxattr:
-    return ParseListxattrArgs(decoder)
+    return ParseListxattrArgs(log, decoder)
   case events.Llistxattr:
-    return ParseLlistxattrArgs(decoder)
+    return ParseLlistxattrArgs(log, decoder)
   case events.Flistxattr:
-    return ParseFlistxattrArgs(decoder)
+    return ParseFlistxattrArgs(log, decoder)
   case events.Removexattr:
-    return ParseRemovexattrArgs(decoder)
+    return ParseRemovexattrArgs(log, decoder)
   case events.Lremovexattr:
-    return ParseLremovexattrArgs(decoder)
+    return ParseLremovexattrArgs(log, decoder)
   case events.Fremovexattr:
-    return ParseFremovexattrArgs(decoder)
+    return ParseFremovexattrArgs(log, decoder)
   case events.Tkill:
-    return ParseTkillArgs(decoder)
+    return ParseTkillArgs(log, decoder)
   case events.Time:
-    return ParseTimeArgs(decoder)
+    return ParseTimeArgs(log, decoder)
   case events.Futex:
-    return ParseFutexArgs(decoder)
+    return ParseFutexArgs(log, decoder)
   case events.SchedSetaffinity:
-    return ParseSchedSetaffinityArgs(decoder)
+    return ParseSchedSetaffinityArgs(log, decoder)
   case events.SchedGetaffinity:
-    return ParseSchedGetaffinityArgs(decoder)
+    return ParseSchedGetaffinityArgs(log, decoder)
   case events.SetThreadArea:
-    return ParseSetThreadAreaArgs(decoder)
+    return ParseSetThreadAreaArgs(log, decoder)
   case events.IoSetup:
-    return ParseIoSetupArgs(decoder)
+    return ParseIoSetupArgs(log, decoder)
   case events.IoDestroy:
-    return ParseIoDestroyArgs(decoder)
+    return ParseIoDestroyArgs(log, decoder)
   case events.IoGetevents:
-    return ParseIoGeteventsArgs(decoder)
+    return ParseIoGeteventsArgs(log, decoder)
   case events.IoSubmit:
-    return ParseIoSubmitArgs(decoder)
+    return ParseIoSubmitArgs(log, decoder)
   case events.IoCancel:
-    return ParseIoCancelArgs(decoder)
+    return ParseIoCancelArgs(log, decoder)
   case events.GetThreadArea:
-    return ParseGetThreadAreaArgs(decoder)
+    return ParseGetThreadAreaArgs(log, decoder)
   case events.LookupDcookie:
-    return ParseLookupDcookieArgs(decoder)
+    return ParseLookupDcookieArgs(log, decoder)
   case events.EpollCreate:
-    return ParseEpollCreateArgs(decoder)
+    return ParseEpollCreateArgs(log, decoder)
   case events.EpollCtlOld:
-    return ParseEpollCtlOldArgs(decoder)
+    return ParseEpollCtlOldArgs(log, decoder)
   case events.EpollWaitOld:
-    return ParseEpollWaitOldArgs(decoder)
+    return ParseEpollWaitOldArgs(log, decoder)
   case events.RemapFilePages:
-    return ParseRemapFilePagesArgs(decoder)
+    return ParseRemapFilePagesArgs(log, decoder)
   case events.Getdents64:
-    return ParseGetdents64Args(decoder)
+    return ParseGetdents64Args(log, decoder)
   case events.SetTidAddress:
-    return ParseSetTidAddressArgs(decoder)
+    return ParseSetTidAddressArgs(log, decoder)
   case events.RestartSyscall:
-    return ParseRestartSyscallArgs(decoder)
+    return ParseRestartSyscallArgs(log, decoder)
   case events.Semtimedop:
-    return ParseSemtimedopArgs(decoder)
+    return ParseSemtimedopArgs(log, decoder)
   case events.Fadvise64:
-    return ParseFadvise64Args(decoder)
+    return ParseFadvise64Args(log, decoder)
   case events.TimerCreate:
-    return ParseTimerCreateArgs(decoder)
+    return ParseTimerCreateArgs(log, decoder)
   case events.TimerSettime:
-    return ParseTimerSettimeArgs(decoder)
+    return ParseTimerSettimeArgs(log, decoder)
   case events.TimerGettime:
-    return ParseTimerGettimeArgs(decoder)
+    return ParseTimerGettimeArgs(log, decoder)
   case events.TimerGetoverrun:
-    return ParseTimerGetoverrunArgs(decoder)
+    return ParseTimerGetoverrunArgs(log, decoder)
   case events.TimerDelete:
-    return ParseTimerDeleteArgs(decoder)
+    return ParseTimerDeleteArgs(log, decoder)
   case events.ClockSettime:
-    return ParseClockSettimeArgs(decoder)
+    return ParseClockSettimeArgs(log, decoder)
   case events.ClockGettime:
-    return ParseClockGettimeArgs(decoder)
+    return ParseClockGettimeArgs(log, decoder)
   case events.ClockGetres:
-    return ParseClockGetresArgs(decoder)
+    return ParseClockGetresArgs(log, decoder)
   case events.ClockNanosleep:
-    return ParseClockNanosleepArgs(decoder)
+    return ParseClockNanosleepArgs(log, decoder)
   case events.ExitGroup:
-    return ParseExitGroupArgs(decoder)
+    return ParseExitGroupArgs(log, decoder)
   case events.EpollWait:
-    return ParseEpollWaitArgs(decoder)
+    return ParseEpollWaitArgs(log, decoder)
   case events.EpollCtl:
-    return ParseEpollCtlArgs(decoder)
+    return ParseEpollCtlArgs(log, decoder)
   case events.Tgkill:
-    return ParseTgkillArgs(decoder)
+    return ParseTgkillArgs(log, decoder)
   case events.Utimes:
-    return ParseUtimesArgs(decoder)
+    return ParseUtimesArgs(log, decoder)
   case events.Vserver:
-    return ParseVserverArgs(decoder)
+    return ParseVserverArgs(log, decoder)
   case events.Mbind:
-    return ParseMbindArgs(decoder)
+    return ParseMbindArgs(log, decoder)
   case events.SetMempolicy:
-    return ParseSetMempolicyArgs(decoder)
+    return ParseSetMempolicyArgs(log, decoder)
   case events.GetMempolicy:
-    return ParseGetMempolicyArgs(decoder)
+    return ParseGetMempolicyArgs(log, decoder)
   case events.MqOpen:
-    return ParseMqOpenArgs(decoder)
+    return ParseMqOpenArgs(log, decoder)
   case events.MqUnlink:
-    return ParseMqUnlinkArgs(decoder)
+    return ParseMqUnlinkArgs(log, decoder)
   case events.MqTimedsend:
-    return ParseMqTimedsendArgs(decoder)
+    return ParseMqTimedsendArgs(log, decoder)
   case events.MqTimedreceive:
-    return ParseMqTimedreceiveArgs(decoder)
+    return ParseMqTimedreceiveArgs(log, decoder)
   case events.MqNotify:
-    return ParseMqNotifyArgs(decoder)
+    return ParseMqNotifyArgs(log, decoder)
   case events.MqGetsetattr:
-    return ParseMqGetsetattrArgs(decoder)
+    return ParseMqGetsetattrArgs(log, decoder)
   case events.KexecLoad:
-    return ParseKexecLoadArgs(decoder)
+    return ParseKexecLoadArgs(log, decoder)
   case events.Waitid:
-    return ParseWaitidArgs(decoder)
+    return ParseWaitidArgs(log, decoder)
   case events.AddKey:
-    return ParseAddKeyArgs(decoder)
+    return ParseAddKeyArgs(log, decoder)
   case events.RequestKey:
-    return ParseRequestKeyArgs(decoder)
+    return ParseRequestKeyArgs(log, decoder)
   case events.Keyctl:
-    return ParseKeyctlArgs(decoder)
+    return ParseKeyctlArgs(log, decoder)
   case events.IoprioSet:
-    return ParseIoprioSetArgs(decoder)
+    return ParseIoprioSetArgs(log, decoder)
   case events.IoprioGet:
-    return ParseIoprioGetArgs(decoder)
+    return ParseIoprioGetArgs(log, decoder)
   case events.InotifyInit:
-    return ParseInotifyInitArgs(decoder)
+    return ParseInotifyInitArgs(log, decoder)
   case events.InotifyAddWatch:
-    return ParseInotifyAddWatchArgs(decoder)
+    return ParseInotifyAddWatchArgs(log, decoder)
   case events.InotifyRmWatch:
-    return ParseInotifyRmWatchArgs(decoder)
+    return ParseInotifyRmWatchArgs(log, decoder)
   case events.MigratePages:
-    return ParseMigratePagesArgs(decoder)
+    return ParseMigratePagesArgs(log, decoder)
   case events.Openat:
-    return ParseOpenatArgs(decoder)
+    return ParseOpenatArgs(log, decoder)
   case events.Mkdirat:
-    return ParseMkdiratArgs(decoder)
+    return ParseMkdiratArgs(log, decoder)
   case events.Mknodat:
-    return ParseMknodatArgs(decoder)
+    return ParseMknodatArgs(log, decoder)
   case events.Fchownat:
-    return ParseFchownatArgs(decoder)
+    return ParseFchownatArgs(log, decoder)
   case events.Futimesat:
-    return ParseFutimesatArgs(decoder)
+    return ParseFutimesatArgs(log, decoder)
   case events.Newfstatat:
-    return ParseNewfstatatArgs(decoder)
+    return ParseNewfstatatArgs(log, decoder)
   case events.Unlinkat:
-    return ParseUnlinkatArgs(decoder)
+    return ParseUnlinkatArgs(log, decoder)
   case events.Renameat:
-    return ParseRenameatArgs(decoder)
+    return ParseRenameatArgs(log, decoder)
   case events.Linkat:
-    return ParseLinkatArgs(decoder)
+    return ParseLinkatArgs(log, decoder)
   case events.Symlinkat:
-    return ParseSymlinkatArgs(decoder)
+    return ParseSymlinkatArgs(log, decoder)
   case events.Readlinkat:
-    return ParseReadlinkatArgs(decoder)
+    return ParseReadlinkatArgs(log, decoder)
   case events.Fchmodat:
-    return ParseFchmodatArgs(decoder)
+    return ParseFchmodatArgs(log, decoder)
   case events.Faccessat:
-    return ParseFaccessatArgs(decoder)
+    return ParseFaccessatArgs(log, decoder)
   case events.Pselect6:
-    return ParsePselect6Args(decoder)
+    return ParsePselect6Args(log, decoder)
   case events.Ppoll:
-    return ParsePpollArgs(decoder)
+    return ParsePpollArgs(log, decoder)
   case events.Unshare:
-    return ParseUnshareArgs(decoder)
+    return ParseUnshareArgs(log, decoder)
   case events.SetRobustList:
-    return ParseSetRobustListArgs(decoder)
+    return ParseSetRobustListArgs(log, decoder)
   case events.GetRobustList:
-    return ParseGetRobustListArgs(decoder)
+    return ParseGetRobustListArgs(log, decoder)
   case events.Splice:
-    return ParseSpliceArgs(decoder)
+    return ParseSpliceArgs(log, decoder)
   case events.Tee:
-    return ParseTeeArgs(decoder)
+    return ParseTeeArgs(log, decoder)
   case events.SyncFileRange:
-    return ParseSyncFileRangeArgs(decoder)
+    return ParseSyncFileRangeArgs(log, decoder)
   case events.Vmsplice:
-    return ParseVmspliceArgs(decoder)
+    return ParseVmspliceArgs(log, decoder)
   case events.MovePages:
-    return ParseMovePagesArgs(decoder)
+    return ParseMovePagesArgs(log, decoder)
   case events.Utimensat:
-    return ParseUtimensatArgs(decoder)
+    return ParseUtimensatArgs(log, decoder)
   case events.EpollPwait:
-    return ParseEpollPwaitArgs(decoder)
+    return ParseEpollPwaitArgs(log, decoder)
   case events.Signalfd:
-    return ParseSignalfdArgs(decoder)
+    return ParseSignalfdArgs(log, decoder)
   case events.TimerfdCreate:
-    return ParseTimerfdCreateArgs(decoder)
+    return ParseTimerfdCreateArgs(log, decoder)
   case events.Eventfd:
-    return ParseEventfdArgs(decoder)
+    return ParseEventfdArgs(log, decoder)
   case events.Fallocate:
-    return ParseFallocateArgs(decoder)
+    return ParseFallocateArgs(log, decoder)
   case events.TimerfdSettime:
-    return ParseTimerfdSettimeArgs(decoder)
+    return ParseTimerfdSettimeArgs(log, decoder)
   case events.TimerfdGettime:
-    return ParseTimerfdGettimeArgs(decoder)
+    return ParseTimerfdGettimeArgs(log, decoder)
   case events.Accept4:
-    return ParseAccept4Args(decoder)
+    return ParseAccept4Args(log, decoder)
   case events.Signalfd4:
-    return ParseSignalfd4Args(decoder)
+    return ParseSignalfd4Args(log, decoder)
   case events.Eventfd2:
-    return ParseEventfd2Args(decoder)
+    return ParseEventfd2Args(log, decoder)
   case events.EpollCreate1:
-    return ParseEpollCreate1Args(decoder)
+    return ParseEpollCreate1Args(log, decoder)
   case events.Dup3:
-    return ParseDup3Args(decoder)
+    return ParseDup3Args(log, decoder)
   case events.Pipe2:
-    return ParsePipe2Args(decoder)
+    return ParsePipe2Args(log, decoder)
   case events.InotifyInit1:
-    return ParseInotifyInit1Args(decoder)
+    return ParseInotifyInit1Args(log, decoder)
   case events.Preadv:
-    return ParsePreadvArgs(decoder)
+    return ParsePreadvArgs(log, decoder)
   case events.Pwritev:
-    return ParsePwritevArgs(decoder)
+    return ParsePwritevArgs(log, decoder)
   case events.RtTgsigqueueinfo:
-    return ParseRtTgsigqueueinfoArgs(decoder)
+    return ParseRtTgsigqueueinfoArgs(log, decoder)
   case events.PerfEventOpen:
-    return ParsePerfEventOpenArgs(decoder)
+    return ParsePerfEventOpenArgs(log, decoder)
   case events.Recvmmsg:
-    return ParseRecvmmsgArgs(decoder)
+    return ParseRecvmmsgArgs(log, decoder)
   case events.FanotifyInit:
-    return ParseFanotifyInitArgs(decoder)
+    return ParseFanotifyInitArgs(log, decoder)
   case events.FanotifyMark:
-    return ParseFanotifyMarkArgs(decoder)
+    return ParseFanotifyMarkArgs(log, decoder)
   case events.Prlimit64:
-    return ParsePrlimit64Args(decoder)
+    return ParsePrlimit64Args(log, decoder)
   case events.NameToHandleAt:
-    return ParseNameToHandleAtArgs(decoder)
+    return ParseNameToHandleAtArgs(log, decoder)
   case events.OpenByHandleAt:
-    return ParseOpenByHandleAtArgs(decoder)
+    return ParseOpenByHandleAtArgs(log, decoder)
   case events.ClockAdjtime:
-    return ParseClockAdjtimeArgs(decoder)
+    return ParseClockAdjtimeArgs(log, decoder)
   case events.Syncfs:
-    return ParseSyncfsArgs(decoder)
+    return ParseSyncfsArgs(log, decoder)
   case events.Sendmmsg:
-    return ParseSendmmsgArgs(decoder)
+    return ParseSendmmsgArgs(log, decoder)
   case events.Setns:
-    return ParseSetnsArgs(decoder)
+    return ParseSetnsArgs(log, decoder)
   case events.Getcpu:
-    return ParseGetcpuArgs(decoder)
+    return ParseGetcpuArgs(log, decoder)
   case events.ProcessVmReadv:
-    return ParseProcessVmReadvArgs(decoder)
+    return ParseProcessVmReadvArgs(log, decoder)
   case events.ProcessVmWritev:
-    return ParseProcessVmWritevArgs(decoder)
+    return ParseProcessVmWritevArgs(log, decoder)
   case events.Kcmp:
-    return ParseKcmpArgs(decoder)
+    return ParseKcmpArgs(log, decoder)
   case events.FinitModule:
-    return ParseFinitModuleArgs(decoder)
+    return ParseFinitModuleArgs(log, decoder)
   case events.SchedSetattr:
-    return ParseSchedSetattrArgs(decoder)
+    return ParseSchedSetattrArgs(log, decoder)
   case events.SchedGetattr:
-    return ParseSchedGetattrArgs(decoder)
+    return ParseSchedGetattrArgs(log, decoder)
   case events.Renameat2:
-    return ParseRenameat2Args(decoder)
+    return ParseRenameat2Args(log, decoder)
   case events.Seccomp:
-    return ParseSeccompArgs(decoder)
+    return ParseSeccompArgs(log, decoder)
   case events.Getrandom:
-    return ParseGetrandomArgs(decoder)
+    return ParseGetrandomArgs(log, decoder)
   case events.MemfdCreate:
-    return ParseMemfdCreateArgs(decoder)
+    return ParseMemfdCreateArgs(log, decoder)
   case events.KexecFileLoad:
-    return ParseKexecFileLoadArgs(decoder)
+    return ParseKexecFileLoadArgs(log, decoder)
   case events.Bpf:
-    return ParseBpfArgs(decoder)
+    return ParseBpfArgs(log, decoder)
   case events.Execveat:
-    return ParseExecveatArgs(decoder)
+    return ParseExecveatArgs(log, decoder)
   case events.Userfaultfd:
-    return ParseUserfaultfdArgs(decoder)
+    return ParseUserfaultfdArgs(log, decoder)
   case events.Membarrier:
-    return ParseMembarrierArgs(decoder)
+    return ParseMembarrierArgs(log, decoder)
   case events.Mlock2:
-    return ParseMlock2Args(decoder)
+    return ParseMlock2Args(log, decoder)
   case events.CopyFileRange:
-    return ParseCopyFileRangeArgs(decoder)
+    return ParseCopyFileRangeArgs(log, decoder)
   case events.Preadv2:
-    return ParsePreadv2Args(decoder)
+    return ParsePreadv2Args(log, decoder)
   case events.Pwritev2:
-    return ParsePwritev2Args(decoder)
+    return ParsePwritev2Args(log, decoder)
   case events.PkeyMprotect:
-    return ParsePkeyMprotectArgs(decoder)
+    return ParsePkeyMprotectArgs(log, decoder)
   case events.PkeyAlloc:
-    return ParsePkeyAllocArgs(decoder)
+    return ParsePkeyAllocArgs(log, decoder)
   case events.PkeyFree:
-    return ParsePkeyFreeArgs(decoder)
+    return ParsePkeyFreeArgs(log, decoder)
   case events.Statx:
-    return ParseStatxArgs(decoder)
+    return ParseStatxArgs(log, decoder)
   case events.IoPgetevents:
-    return ParseIoPgeteventsArgs(decoder)
+    return ParseIoPgeteventsArgs(log, decoder)
   case events.Rseq:
-    return ParseRseqArgs(decoder)
+    return ParseRseqArgs(log, decoder)
   case events.PidfdSendSignal:
-    return ParsePidfdSendSignalArgs(decoder)
+    return ParsePidfdSendSignalArgs(log, decoder)
   case events.IoUringSetup:
-    return ParseIoUringSetupArgs(decoder)
+    return ParseIoUringSetupArgs(log, decoder)
   case events.IoUringEnter:
-    return ParseIoUringEnterArgs(decoder)
+    return ParseIoUringEnterArgs(log, decoder)
   case events.IoUringRegister:
-    return ParseIoUringRegisterArgs(decoder)
+    return ParseIoUringRegisterArgs(log, decoder)
   case events.OpenTree:
-    return ParseOpenTreeArgs(decoder)
+    return ParseOpenTreeArgs(log, decoder)
   case events.MoveMount:
-    return ParseMoveMountArgs(decoder)
+    return ParseMoveMountArgs(log, decoder)
   case events.Fsopen:
-    return ParseFsopenArgs(decoder)
+    return ParseFsopenArgs(log, decoder)
   case events.Fsconfig:
-    return ParseFsconfigArgs(decoder)
+    return ParseFsconfigArgs(log, decoder)
   case events.Fsmount:
-    return ParseFsmountArgs(decoder)
+    return ParseFsmountArgs(log, decoder)
   case events.Fspick:
-    return ParseFspickArgs(decoder)
+    return ParseFspickArgs(log, decoder)
   case events.PidfdOpen:
-    return ParsePidfdOpenArgs(decoder)
+    return ParsePidfdOpenArgs(log, decoder)
   case events.Clone3:
-    return ParseClone3Args(decoder)
+    return ParseClone3Args(log, decoder)
   case events.CloseRange:
-    return ParseCloseRangeArgs(decoder)
+    return ParseCloseRangeArgs(log, decoder)
   case events.Openat2:
-    return ParseOpenat2Args(decoder)
+    return ParseOpenat2Args(log, decoder)
   case events.PidfdGetfd:
-    return ParsePidfdGetfdArgs(decoder)
+    return ParsePidfdGetfdArgs(log, decoder)
   case events.Faccessat2:
-    return ParseFaccessat2Args(decoder)
+    return ParseFaccessat2Args(log, decoder)
   case events.ProcessMadvise:
-    return ParseProcessMadviseArgs(decoder)
+    return ParseProcessMadviseArgs(log, decoder)
   case events.EpollPwait2:
-    return ParseEpollPwait2Args(decoder)
+    return ParseEpollPwait2Args(log, decoder)
   case events.MountSetatt:
-    return ParseMountSetattArgs(decoder)
+    return ParseMountSetattArgs(log, decoder)
   case events.QuotactlFd:
-    return ParseQuotactlFdArgs(decoder)
+    return ParseQuotactlFdArgs(log, decoder)
   case events.LandlockCreateRuleset:
-    return ParseLandlockCreateRulesetArgs(decoder)
+    return ParseLandlockCreateRulesetArgs(log, decoder)
   case events.LandlockAddRule:
-    return ParseLandlockAddRuleArgs(decoder)
+    return ParseLandlockAddRuleArgs(log, decoder)
   case events.LandloclRestrictSet:
-    return ParseLandloclRestrictSetArgs(decoder)
+    return ParseLandloclRestrictSetArgs(log, decoder)
   case events.MemfdSecret:
-    return ParseMemfdSecretArgs(decoder)
+    return ParseMemfdSecretArgs(log, decoder)
   case events.ProcessMrelease:
-    return ParseProcessMreleaseArgs(decoder)
+    return ParseProcessMreleaseArgs(log, decoder)
   case events.Waitpid:
-    return ParseWaitpidArgs(decoder)
+    return ParseWaitpidArgs(log, decoder)
   case events.Oldfstat:
-    return ParseOldfstatArgs(decoder)
+    return ParseOldfstatArgs(log, decoder)
   case events.Break:
-    return ParseBreakArgs(decoder)
+    return ParseBreakArgs(log, decoder)
   case events.Oldstat:
-    return ParseOldstatArgs(decoder)
+    return ParseOldstatArgs(log, decoder)
   case events.Umount:
-    return ParseUmountArgs(decoder)
+    return ParseUmountArgs(log, decoder)
   case events.Stime:
-    return ParseStimeArgs(decoder)
+    return ParseStimeArgs(log, decoder)
   case events.Stty:
-    return ParseSttyArgs(decoder)
+    return ParseSttyArgs(log, decoder)
   case events.Gtty:
-    return ParseGttyArgs(decoder)
+    return ParseGttyArgs(log, decoder)
   case events.Nice:
-    return ParseNiceArgs(decoder)
+    return ParseNiceArgs(log, decoder)
   case events.Ftime:
-    return ParseFtimeArgs(decoder)
+    return ParseFtimeArgs(log, decoder)
   case events.Prof:
-    return ParseProfArgs(decoder)
+    return ParseProfArgs(log, decoder)
   case events.Signal:
-    return ParseSignalArgs(decoder)
+    return ParseSignalArgs(log, decoder)
   case events.Lock:
-    return ParseLockArgs(decoder)
+    return ParseLockArgs(log, decoder)
   case events.Mpx:
-    return ParseMpxArgs(decoder)
+    return ParseMpxArgs(log, decoder)
   case events.Ulimit:
-    return ParseUlimitArgs(decoder)
+    return ParseUlimitArgs(log, decoder)
   case events.Oldolduname:
-    return ParseOldoldunameArgs(decoder)
+    return ParseOldoldunameArgs(log, decoder)
   case events.Sigaction:
-    return ParseSigactionArgs(decoder)
+    return ParseSigactionArgs(log, decoder)
   case events.Sgetmask:
-    return ParseSgetmaskArgs(decoder)
+    return ParseSgetmaskArgs(log, decoder)
   case events.Ssetmask:
-    return ParseSsetmaskArgs(decoder)
+    return ParseSsetmaskArgs(log, decoder)
   case events.Sigsuspend:
-    return ParseSigsuspendArgs(decoder)
+    return ParseSigsuspendArgs(log, decoder)
   case events.Sigpending:
-    return ParseSigpendingArgs(decoder)
+    return ParseSigpendingArgs(log, decoder)
   case events.Oldlstat:
-    return ParseOldlstatArgs(decoder)
+    return ParseOldlstatArgs(log, decoder)
   case events.Readdir:
-    return ParseReaddirArgs(decoder)
+    return ParseReaddirArgs(log, decoder)
   case events.Profil:
-    return ParseProfilArgs(decoder)
+    return ParseProfilArgs(log, decoder)
   case events.Socketcall:
-    return ParseSocketcallArgs(decoder)
+    return ParseSocketcallArgs(log, decoder)
   case events.Olduname:
-    return ParseOldunameArgs(decoder)
+    return ParseOldunameArgs(log, decoder)
   case events.Idle:
-    return ParseIdleArgs(decoder)
+    return ParseIdleArgs(log, decoder)
   case events.Vm86old:
-    return ParseVm86oldArgs(decoder)
+    return ParseVm86oldArgs(log, decoder)
   case events.Ipc:
-    return ParseIpcArgs(decoder)
+    return ParseIpcArgs(log, decoder)
   case events.Sigreturn:
-    return ParseSigreturnArgs(decoder)
+    return ParseSigreturnArgs(log, decoder)
   case events.Sigprocmask:
-    return ParseSigprocmaskArgs(decoder)
+    return ParseSigprocmaskArgs(log, decoder)
   case events.Bdflush:
-    return ParseBdflushArgs(decoder)
+    return ParseBdflushArgs(log, decoder)
   case events.Afs_syscall:
-    return ParseAfs_syscallArgs(decoder)
+    return ParseAfs_syscallArgs(log, decoder)
   case events.Llseek:
-    return ParseLlseekArgs(decoder)
+    return ParseLlseekArgs(log, decoder)
   case events.OldSelect:
-    return ParseOldSelectArgs(decoder)
+    return ParseOldSelectArgs(log, decoder)
   case events.Vm86:
-    return ParseVm86Args(decoder)
+    return ParseVm86Args(log, decoder)
   case events.OldGetrlimit:
-    return ParseOldGetrlimitArgs(decoder)
+    return ParseOldGetrlimitArgs(log, decoder)
   case events.Mmap2:
-    return ParseMmap2Args(decoder)
+    return ParseMmap2Args(log, decoder)
   case events.Truncate64:
-    return ParseTruncate64Args(decoder)
+    return ParseTruncate64Args(log, decoder)
   case events.Ftruncate64:
-    return ParseFtruncate64Args(decoder)
+    return ParseFtruncate64Args(log, decoder)
   case events.Stat64:
-    return ParseStat64Args(decoder)
+    return ParseStat64Args(log, decoder)
   case events.Lstat64:
-    return ParseLstat64Args(decoder)
+    return ParseLstat64Args(log, decoder)
   case events.Fstat64:
-    return ParseFstat64Args(decoder)
+    return ParseFstat64Args(log, decoder)
   case events.Lchown16:
-    return ParseLchown16Args(decoder)
+    return ParseLchown16Args(log, decoder)
   case events.Getuid16:
-    return ParseGetuid16Args(decoder)
+    return ParseGetuid16Args(log, decoder)
   case events.Getgid16:
-    return ParseGetgid16Args(decoder)
+    return ParseGetgid16Args(log, decoder)
   case events.Geteuid16:
-    return ParseGeteuid16Args(decoder)
+    return ParseGeteuid16Args(log, decoder)
   case events.Getegid16:
-    return ParseGetegid16Args(decoder)
+    return ParseGetegid16Args(log, decoder)
   case events.Setreuid16:
-    return ParseSetreuid16Args(decoder)
+    return ParseSetreuid16Args(log, decoder)
   case events.Setregid16:
-    return ParseSetregid16Args(decoder)
+    return ParseSetregid16Args(log, decoder)
   case events.Getgroups16:
-    return ParseGetgroups16Args(decoder)
+    return ParseGetgroups16Args(log, decoder)
   case events.Setgroups16:
-    return ParseSetgroups16Args(decoder)
+    return ParseSetgroups16Args(log, decoder)
   case events.Fchown16:
-    return ParseFchown16Args(decoder)
+    return ParseFchown16Args(log, decoder)
   case events.Setresuid16:
-    return ParseSetresuid16Args(decoder)
+    return ParseSetresuid16Args(log, decoder)
   case events.Getresuid16:
-    return ParseGetresuid16Args(decoder)
+    return ParseGetresuid16Args(log, decoder)
   case events.Setresgid16:
-    return ParseSetresgid16Args(decoder)
+    return ParseSetresgid16Args(log, decoder)
   case events.Getresgid16:
-    return ParseGetresgid16Args(decoder)
+    return ParseGetresgid16Args(log, decoder)
   case events.Chown16:
-    return ParseChown16Args(decoder)
+    return ParseChown16Args(log, decoder)
   case events.Setuid16:
-    return ParseSetuid16Args(decoder)
+    return ParseSetuid16Args(log, decoder)
   case events.Setgid16:
-    return ParseSetgid16Args(decoder)
+    return ParseSetgid16Args(log, decoder)
   case events.Setfsuid16:
-    return ParseSetfsuid16Args(decoder)
+    return ParseSetfsuid16Args(log, decoder)
   case events.Setfsgid16:
-    return ParseSetfsgid16Args(decoder)
+    return ParseSetfsgid16Args(log, decoder)
   case events.Fcntl64:
-    return ParseFcntl64Args(decoder)
+    return ParseFcntl64Args(log, decoder)
   case events.Sendfile32:
-    return ParseSendfile32Args(decoder)
+    return ParseSendfile32Args(log, decoder)
   case events.Statfs64:
-    return ParseStatfs64Args(decoder)
+    return ParseStatfs64Args(log, decoder)
   case events.Fstatfs64:
-    return ParseFstatfs64Args(decoder)
+    return ParseFstatfs64Args(log, decoder)
   case events.Fadvise64_64:
-    return ParseFadvise64_64Args(decoder)
+    return ParseFadvise64_64Args(log, decoder)
   case events.ClockGettime32:
-    return ParseClockGettime32Args(decoder)
+    return ParseClockGettime32Args(log, decoder)
   case events.ClockSettime32:
-    return ParseClockSettime32Args(decoder)
+    return ParseClockSettime32Args(log, decoder)
   case events.ClockAdjtime64:
-    return ParseClockAdjtime64Args(decoder)
+    return ParseClockAdjtime64Args(log, decoder)
   case events.ClockGetresTime32:
-    return ParseClockGetresTime32Args(decoder)
+    return ParseClockGetresTime32Args(log, decoder)
   case events.ClockNanosleepTime32:
-    return ParseClockNanosleepTime32Args(decoder)
+    return ParseClockNanosleepTime32Args(log, decoder)
   case events.TimerGettime32:
-    return ParseTimerGettime32Args(decoder)
+    return ParseTimerGettime32Args(log, decoder)
   case events.TimerSettime32:
-    return ParseTimerSettime32Args(decoder)
+    return ParseTimerSettime32Args(log, decoder)
   case events.TimerfdGettime32:
-    return ParseTimerfdGettime32Args(decoder)
+    return ParseTimerfdGettime32Args(log, decoder)
   case events.TimerfdSettime32:
-    return ParseTimerfdSettime32Args(decoder)
+    return ParseTimerfdSettime32Args(log, decoder)
   case events.UtimensatTime32:
-    return ParseUtimensatTime32Args(decoder)
+    return ParseUtimensatTime32Args(log, decoder)
   case events.Pselect6Time32:
-    return ParsePselect6Time32Args(decoder)
+    return ParsePselect6Time32Args(log, decoder)
   case events.PpollTime32:
-    return ParsePpollTime32Args(decoder)
+    return ParsePpollTime32Args(log, decoder)
   case events.IoPgeteventsTime32:
-    return ParseIoPgeteventsTime32Args(decoder)
+    return ParseIoPgeteventsTime32Args(log, decoder)
   case events.RecvmmsgTime32:
-    return ParseRecvmmsgTime32Args(decoder)
+    return ParseRecvmmsgTime32Args(log, decoder)
   case events.MqTimedsendTime32:
-    return ParseMqTimedsendTime32Args(decoder)
+    return ParseMqTimedsendTime32Args(log, decoder)
   case events.MqTimedreceiveTime32:
-    return ParseMqTimedreceiveTime32Args(decoder)
+    return ParseMqTimedreceiveTime32Args(log, decoder)
   case events.RtSigtimedwaitTime32:
-    return ParseRtSigtimedwaitTime32Args(decoder)
+    return ParseRtSigtimedwaitTime32Args(log, decoder)
   case events.FutexTime32:
-    return ParseFutexTime32Args(decoder)
+    return ParseFutexTime32Args(log, decoder)
   case events.SchedRrGetInterval32:
-    return ParseSchedRrGetInterval32Args(decoder)
+    return ParseSchedRrGetInterval32Args(log, decoder)
   case events.SysEnter:
-    return ParseSysEnterArgs(decoder)
+    return ParseSysEnterArgs(log, decoder)
   case events.SysExit:
-    return ParseSysExitArgs(decoder)
+    return ParseSysExitArgs(log, decoder)
   case events.SchedProcessFork:
-    return ParseSchedProcessForkArgs(decoder)
+    return ParseSchedProcessForkArgs(log, decoder)
   case events.SchedProcessExec:
-    return ParseSchedProcessExecArgs(decoder)
+    return ParseSchedProcessExecArgs(log, decoder)
   case events.SchedProcessExit:
-    return ParseSchedProcessExitArgs(decoder)
+    return ParseSchedProcessExitArgs(log, decoder)
   case events.SchedSwitch:
-    return ParseSchedSwitchArgs(decoder)
+    return ParseSchedSwitchArgs(log, decoder)
   case events.ProcessOomKilled:
-    return ParseProcessOomKilledArgs(decoder)
+    return ParseProcessOomKilledArgs(log, decoder)
   case events.DoExit:
-    return ParseDoExitArgs(decoder)
+    return ParseDoExitArgs(log, decoder)
   case events.CapCapable:
-    return ParseCapCapableArgs(decoder)
+    return ParseCapCapableArgs(log, decoder)
   case events.VfsWrite:
-    return ParseVfsWriteArgs(decoder)
+    return ParseVfsWriteArgs(log, decoder)
   case events.VfsWritev:
-    return ParseVfsWritevArgs(decoder)
+    return ParseVfsWritevArgs(log, decoder)
   case events.MemProtAlert:
-    return ParseMemProtAlertArgs(decoder)
+    return ParseMemProtAlertArgs(log, decoder)
   case events.CommitCreds:
-    return ParseCommitCredsArgs(decoder)
+    return ParseCommitCredsArgs(log, decoder)
   case events.SwitchTaskNS:
-    return ParseSwitchTaskNSArgs(decoder)
+    return ParseSwitchTaskNSArgs(log, decoder)
   case events.MagicWrite:
-    return ParseMagicWriteArgs(decoder)
+    return ParseMagicWriteArgs(log, decoder)
   case events.CgroupAttachTask:
-    return ParseCgroupAttachTaskArgs(decoder)
+    return ParseCgroupAttachTaskArgs(log, decoder)
   case events.CgroupMkdir:
-    return ParseCgroupMkdirArgs(decoder)
+    return ParseCgroupMkdirArgs(log, decoder)
   case events.CgroupRmdir:
-    return ParseCgroupRmdirArgs(decoder)
+    return ParseCgroupRmdirArgs(log, decoder)
   case events.SecurityFileOpen:
-    return ParseSecurityFileOpenArgs(decoder)
+    return ParseSecurityFileOpenArgs(log, decoder)
   case events.SecurityInodeUnlink:
-    return ParseSecurityInodeUnlinkArgs(decoder)
+    return ParseSecurityInodeUnlinkArgs(log, decoder)
   case events.SecuritySocketCreate:
-    return ParseSecuritySocketCreateArgs(decoder)
+    return ParseSecuritySocketCreateArgs(log, decoder)
   case events.SecuritySocketListen:
-    return ParseSecuritySocketListenArgs(decoder)
+    return ParseSecuritySocketListenArgs(log, decoder)
   case events.SecuritySocketConnect:
-    return ParseSecuritySocketConnectArgs(decoder)
+    return ParseSecuritySocketConnectArgs(log, decoder)
   case events.SecuritySocketAccept:
-    return ParseSecuritySocketAcceptArgs(decoder)
+    return ParseSecuritySocketAcceptArgs(log, decoder)
   case events.SecuritySocketBind:
-    return ParseSecuritySocketBindArgs(decoder)
+    return ParseSecuritySocketBindArgs(log, decoder)
   case events.SecuritySocketSetsockopt:
-    return ParseSecuritySocketSetsockoptArgs(decoder)
+    return ParseSecuritySocketSetsockoptArgs(log, decoder)
   case events.SecuritySbMount:
-    return ParseSecuritySbMountArgs(decoder)
+    return ParseSecuritySbMountArgs(log, decoder)
   case events.SecurityBPF:
-    return ParseSecurityBPFArgs(decoder)
+    return ParseSecurityBPFArgs(log, decoder)
   case events.SecurityBPFMap:
-    return ParseSecurityBPFMapArgs(decoder)
+    return ParseSecurityBPFMapArgs(log, decoder)
   case events.SecurityKernelReadFile:
-    return ParseSecurityKernelReadFileArgs(decoder)
+    return ParseSecurityKernelReadFileArgs(log, decoder)
   case events.SecurityPostReadFile:
-    return ParseSecurityPostReadFileArgs(decoder)
+    return ParseSecurityPostReadFileArgs(log, decoder)
   case events.SecurityInodeMknod:
-    return ParseSecurityInodeMknodArgs(decoder)
+    return ParseSecurityInodeMknodArgs(log, decoder)
   case events.SecurityInodeSymlinkEventId:
-    return ParseSecurityInodeSymlinkEventIdArgs(decoder)
+    return ParseSecurityInodeSymlinkEventIdArgs(log, decoder)
   case events.SecurityMmapFile:
-    return ParseSecurityMmapFileArgs(decoder)
+    return ParseSecurityMmapFileArgs(log, decoder)
   case events.DoMmap:
-    return ParseDoMmapArgs(decoder)
+    return ParseDoMmapArgs(log, decoder)
   case events.SecurityFileMprotect:
-    return ParseSecurityFileMprotectArgs(decoder)
+    return ParseSecurityFileMprotectArgs(log, decoder)
   case events.InitNamespaces:
-    return ParseInitNamespacesArgs(decoder)
+    return ParseInitNamespacesArgs(log, decoder)
   case events.SocketDup:
-    return ParseSocketDupArgs(decoder)
+    return ParseSocketDupArgs(log, decoder)
   case events.HiddenInodes:
-    return ParseHiddenInodesArgs(decoder)
+    return ParseHiddenInodesArgs(log, decoder)
   case events.KernelWrite:
-    return ParseKernelWriteArgs(decoder)
+    return ParseKernelWriteArgs(log, decoder)
   case events.DirtyPipeSplice:
-    return ParseDirtyPipeSpliceArgs(decoder)
+    return ParseDirtyPipeSpliceArgs(log, decoder)
   case events.ContainerCreate:
-    return ParseContainerCreateArgs(decoder)
+    return ParseContainerCreateArgs(log, decoder)
   case events.ContainerRemove:
-    return ParseContainerRemoveArgs(decoder)
+    return ParseContainerRemoveArgs(log, decoder)
   case events.ExistingContainer:
-    return ParseExistingContainerArgs(decoder)
+    return ParseExistingContainerArgs(log, decoder)
   case events.ProcCreate:
-    return ParseProcCreateArgs(decoder)
+    return ParseProcCreateArgs(log, decoder)
   case events.KprobeAttach:
-    return ParseKprobeAttachArgs(decoder)
+    return ParseKprobeAttachArgs(log, decoder)
   case events.CallUsermodeHelper:
-    return ParseCallUsermodeHelperArgs(decoder)
+    return ParseCallUsermodeHelperArgs(log, decoder)
   case events.DebugfsCreateFile:
-    return ParseDebugfsCreateFileArgs(decoder)
+    return ParseDebugfsCreateFileArgs(log, decoder)
   case events.PrintSyscallTable:
-    return ParsePrintSyscallTableArgs(decoder)
+    return ParsePrintSyscallTableArgs(log, decoder)
   case events.HiddenKernelModule:
-    return ParseHiddenKernelModuleArgs(decoder)
+    return ParseHiddenKernelModuleArgs(log, decoder)
   case events.HiddenKernelModuleSeeker:
-    return ParseHiddenKernelModuleSeekerArgs(decoder)
+    return ParseHiddenKernelModuleSeekerArgs(log, decoder)
   case events.HookedSyscalls:
-    return ParseHookedSyscallsArgs(decoder)
+    return ParseHookedSyscallsArgs(log, decoder)
   case events.DebugfsCreateDir:
-    return ParseDebugfsCreateDirArgs(decoder)
+    return ParseDebugfsCreateDirArgs(log, decoder)
   case events.DeviceAdd:
-    return ParseDeviceAddArgs(decoder)
+    return ParseDeviceAddArgs(log, decoder)
   case events.RegisterChrdev:
-    return ParseRegisterChrdevArgs(decoder)
+    return ParseRegisterChrdevArgs(log, decoder)
   case events.SharedObjectLoaded:
-    return ParseSharedObjectLoadedArgs(decoder)
+    return ParseSharedObjectLoadedArgs(log, decoder)
   case events.SymbolsLoaded:
-    return ParseSymbolsLoadedArgs(decoder)
+    return ParseSymbolsLoadedArgs(log, decoder)
   case events.SymbolsCollision:
-    return ParseSymbolsCollisionArgs(decoder)
+    return ParseSymbolsCollisionArgs(log, decoder)
   case events.CaptureFileWrite:
-    return ParseCaptureFileWriteArgs(decoder)
+    return ParseCaptureFileWriteArgs(log, decoder)
   case events.CaptureFileRead:
-    return ParseCaptureFileReadArgs(decoder)
+    return ParseCaptureFileReadArgs(log, decoder)
   case events.CaptureExec:
-    return ParseCaptureExecArgs(decoder)
+    return ParseCaptureExecArgs(log, decoder)
   case events.CaptureModule:
-    return ParseCaptureModuleArgs(decoder)
+    return ParseCaptureModuleArgs(log, decoder)
   case events.CaptureMem:
-    return ParseCaptureMemArgs(decoder)
+    return ParseCaptureMemArgs(log, decoder)
   case events.CaptureBpf:
-    return ParseCaptureBpfArgs(decoder)
+    return ParseCaptureBpfArgs(log, decoder)
   case events.DoInitModule:
-    return ParseDoInitModuleArgs(decoder)
+    return ParseDoInitModuleArgs(log, decoder)
   case events.ModuleLoad:
-    return ParseModuleLoadArgs(decoder)
+    return ParseModuleLoadArgs(log, decoder)
   case events.ModuleFree:
-    return ParseModuleFreeArgs(decoder)
+    return ParseModuleFreeArgs(log, decoder)
   case events.SocketAccept:
-    return ParseSocketAcceptArgs(decoder)
+    return ParseSocketAcceptArgs(log, decoder)
   case events.LoadElfPhdrs:
-    return ParseLoadElfPhdrsArgs(decoder)
+    return ParseLoadElfPhdrsArgs(log, decoder)
   case events.PrintNetSeqOps:
-    return ParsePrintNetSeqOpsArgs(decoder)
+    return ParsePrintNetSeqOpsArgs(log, decoder)
   case events.HookedSeqOps:
-    return ParseHookedSeqOpsArgs(decoder)
+    return ParseHookedSeqOpsArgs(log, decoder)
   case events.TaskRename:
-    return ParseTaskRenameArgs(decoder)
+    return ParseTaskRenameArgs(log, decoder)
   case events.SecurityInodeRename:
-    return ParseSecurityInodeRenameArgs(decoder)
+    return ParseSecurityInodeRenameArgs(log, decoder)
   case events.DoSigaction:
-    return ParseDoSigactionArgs(decoder)
+    return ParseDoSigactionArgs(log, decoder)
   case events.BpfAttach:
-    return ParseBpfAttachArgs(decoder)
+    return ParseBpfAttachArgs(log, decoder)
   case events.KallsymsLookupName:
-    return ParseKallsymsLookupNameArgs(decoder)
+    return ParseKallsymsLookupNameArgs(log, decoder)
   case events.PrintMemDump:
-    return ParsePrintMemDumpArgs(decoder)
+    return ParsePrintMemDumpArgs(log, decoder)
   case events.VfsRead:
-    return ParseVfsReadArgs(decoder)
+    return ParseVfsReadArgs(log, decoder)
   case events.VfsReadv:
-    return ParseVfsReadvArgs(decoder)
+    return ParseVfsReadvArgs(log, decoder)
   case events.VfsUtimes:
-    return ParseVfsUtimesArgs(decoder)
+    return ParseVfsUtimesArgs(log, decoder)
   case events.DoTruncate:
-    return ParseDoTruncateArgs(decoder)
+    return ParseDoTruncateArgs(log, decoder)
   case events.FileModification:
-    return ParseFileModificationArgs(decoder)
+    return ParseFileModificationArgs(log, decoder)
   case events.InotifyWatch:
-    return ParseInotifyWatchArgs(decoder)
+    return ParseInotifyWatchArgs(log, decoder)
   case events.ProcessExecuteFailed:
-    return ParseProcessExecuteFailedArgs(decoder)
+    return ParseProcessExecuteFailedArgs(log, decoder)
   case events.TtyOpen:
-    return ParseTtyOpenArgs(decoder)
+    return ParseTtyOpenArgs(log, decoder)
   case events.NetPacketBase:
-    return ParseNetPacketBaseArgs(decoder)
+    return ParseNetPacketBaseArgs(log, decoder)
   case events.NetPacketIPBase:
-    return ParseNetPacketIPBaseArgs(decoder)
+    return ParseNetPacketIPBaseArgs(log, decoder)
   case events.NetPacketIPv4:
-    return ParseNetPacketIPv4Args(decoder)
+    return ParseNetPacketIPv4Args(log, decoder)
   case events.NetPacketIPv6:
-    return ParseNetPacketIPv6Args(decoder)
+    return ParseNetPacketIPv6Args(log, decoder)
   case events.NetPacketTCPBase:
-    return ParseNetPacketTCPBaseArgs(decoder)
+    return ParseNetPacketTCPBaseArgs(log, decoder)
   case events.NetPacketTCP:
-    return ParseNetPacketTCPArgs(decoder)
+    return ParseNetPacketTCPArgs(log, decoder)
   case events.NetPacketUDPBase:
-    return ParseNetPacketUDPBaseArgs(decoder)
+    return ParseNetPacketUDPBaseArgs(log, decoder)
   case events.NetPacketUDP:
-    return ParseNetPacketUDPArgs(decoder)
+    return ParseNetPacketUDPArgs(log, decoder)
   case events.NetPacketICMPBase:
-    return ParseNetPacketICMPBaseArgs(decoder)
+    return ParseNetPacketICMPBaseArgs(log, decoder)
   case events.NetPacketICMP:
-    return ParseNetPacketICMPArgs(decoder)
+    return ParseNetPacketICMPArgs(log, decoder)
   case events.NetPacketICMPv6Base:
-    return ParseNetPacketICMPv6BaseArgs(decoder)
+    return ParseNetPacketICMPv6BaseArgs(log, decoder)
   case events.NetPacketICMPv6:
-    return ParseNetPacketICMPv6Args(decoder)
+    return ParseNetPacketICMPv6Args(log, decoder)
   case events.NetPacketDNSBase:
-    return ParseNetPacketDNSBaseArgs(decoder)
+    return ParseNetPacketDNSBaseArgs(log, decoder)
   case events.NetPacketDNS:
-    return ParseNetPacketDNSArgs(decoder)
+    return ParseNetPacketDNSArgs(log, decoder)
   case events.NetPacketDNSRequest:
-    return ParseNetPacketDNSRequestArgs(decoder)
+    return ParseNetPacketDNSRequestArgs(log, decoder)
   case events.NetPacketDNSResponse:
-    return ParseNetPacketDNSResponseArgs(decoder)
+    return ParseNetPacketDNSResponseArgs(log, decoder)
   case events.NetPacketHTTPBase:
-    return ParseNetPacketHTTPBaseArgs(decoder)
+    return ParseNetPacketHTTPBaseArgs(log, decoder)
   case events.NetPacketHTTP:
-    return ParseNetPacketHTTPArgs(decoder)
+    return ParseNetPacketHTTPArgs(log, decoder)
   case events.NetPacketHTTPRequest:
-    return ParseNetPacketHTTPRequestArgs(decoder)
+    return ParseNetPacketHTTPRequestArgs(log, decoder)
   case events.NetPacketHTTPResponse:
-    return ParseNetPacketHTTPResponseArgs(decoder)
+    return ParseNetPacketHTTPResponseArgs(log, decoder)
   case events.NetPacketSOCKS5Base:
-    return ParseNetPacketSOCKS5BaseArgs(decoder)
+    return ParseNetPacketSOCKS5BaseArgs(log, decoder)
   case events.NetPacketCapture:
-    return ParseNetPacketCaptureArgs(decoder)
+    return ParseNetPacketCaptureArgs(log, decoder)
   case events.CaptureNetPacket:
-    return ParseCaptureNetPacketArgs(decoder)
+    return ParseCaptureNetPacketArgs(log, decoder)
   case events.SockSetState:
-    return ParseSockSetStateArgs(decoder)
+    return ParseSockSetStateArgs(log, decoder)
   case events.TrackSyscallStats:
-    return ParseTrackSyscallStatsArgs(decoder)
+    return ParseTrackSyscallStatsArgs(log, decoder)
   case events.TestEvent:
-    return ParseTestEventArgs(decoder)
+    return ParseTestEventArgs(log, decoder)
   case events.SignalCgroupMkdir:
-    return ParseSignalCgroupMkdirArgs(decoder)
+    return ParseSignalCgroupMkdirArgs(log, decoder)
   case events.SignalCgroupRmdir:
-    return ParseSignalCgroupRmdirArgs(decoder)
+    return ParseSignalCgroupRmdirArgs(log, decoder)
   case events.NetFlowBase:
-    return ParseNetFlowBaseArgs(decoder)
+    return ParseNetFlowBaseArgs(log, decoder)
   }
 
   return nil, ErrUnknownArgsType
