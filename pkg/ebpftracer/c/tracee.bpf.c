@@ -7073,7 +7073,7 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
     }
 
     u32 zero = 0;
-    event_data_t *e = bpf_map_lookup_elem(&net_heap_event, &zero);
+    event_data_t *e = bpf_map_lookup_elem(&net_heap_sock_state_event, &zero);
     if (unlikely(e == NULL))
         return 0;
 
