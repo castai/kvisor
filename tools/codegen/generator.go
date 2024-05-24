@@ -97,6 +97,7 @@ import (
 
   "github.com/castai/kvisor/pkg/ebpftracer/events"
   "github.com/castai/kvisor/pkg/ebpftracer/types"
+  "github.com/castai/kvisor/pkg/logging"
 )
 
 var (
@@ -257,7 +258,7 @@ func indent(str string, indentSize int) string {
 func generatePerEventParserFunction(sink *strings.Builder, definition eventDefinition) error {
 	eventName := generateArgName(definition)
 
-	_, err := sink.WriteString(fmt.Sprintf(`func Parse%s(decoder *Decoder) (types.%s, error) {
+	_, err := sink.WriteString(fmt.Sprintf(`func Parse%s(log *logging.Logger, decoder *Decoder) (types.%s, error) {
 `,
 		eventName, eventName))
 	if err != nil {
@@ -345,7 +346,11 @@ func generateParseNumArgsCode(definition eventDefinition) string {
 	return fmt.Sprintf(`  var numArgs uint8
   err = decoder.DecodeUint8(&numArgs)
 %s
-`, generateDecoderErrorCheck(definition))
+
+  if numArgs != %d {
+    log.Warnf("unexpected number of args received when parsing '%sArgs': wanted %d, got %%d", numArgs)
+  }
+`, generateDecoderErrorCheck(definition), len(definition.params), definition.event, len(definition.params))
 }
 
 func generateCurrentArgCode(definition eventDefinition) string {
@@ -431,7 +436,7 @@ func generateDecoderErrorCheck(definition eventDefinition) string {
 }
 
 func generateParserFunction(sink *strings.Builder, definitions []eventDefinition) error {
-	_, err := sink.WriteString(`func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
+	_, err := sink.WriteString(`func ParseArgs(log *logging.Logger, decoder *Decoder, event events.ID) (types.Args, error) {
   switch event {
 `)
 	if err != nil {
@@ -440,7 +445,7 @@ func generateParserFunction(sink *strings.Builder, definitions []eventDefinition
 
 	for _, definition := range definitions {
 		sink.WriteString(fmt.Sprintf(`  case events.%s:
-    return Parse%s(decoder)
+    return Parse%s(log, decoder)
 `, definition.event, generateArgName(definition)))
 	}
 
