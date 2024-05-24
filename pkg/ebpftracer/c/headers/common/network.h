@@ -209,6 +209,13 @@ struct {
     __type(value, event_data_t);            // ... linked to a scratch area
 } net_heap_event SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);                 // simultaneous softirqs running per CPU (?)
+    __type(key, u32);                       // per cpu index ... (always zero)
+    __type(value, event_data_t);            // ... linked to a scratch area
+} net_heap_sock_state_event SEC(".maps");
+
 // CONSTANTS
 
 // Network return value (retval) codes

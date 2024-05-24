@@ -238,6 +238,7 @@ type tracerMapSpecs struct {
 	ModulesMap              *ebpf.MapSpec `ebpf:"modules_map"`
 	NetCapEvents            *ebpf.MapSpec `ebpf:"net_cap_events"`
 	NetHeapEvent            *ebpf.MapSpec `ebpf:"net_heap_event"`
+	NetHeapSockStateEvent   *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
 	NetconfigMap            *ebpf.MapSpec `ebpf:"netconfig_map"`
 	Netflowmap              *ebpf.MapSpec `ebpf:"netflowmap"`
 	NetflowsDataMap         *ebpf.MapSpec `ebpf:"netflows_data_map"`
@@ -324,6 +325,7 @@ type tracerMaps struct {
 	ModulesMap              *ebpf.Map `ebpf:"modules_map"`
 	NetCapEvents            *ebpf.Map `ebpf:"net_cap_events"`
 	NetHeapEvent            *ebpf.Map `ebpf:"net_heap_event"`
+	NetHeapSockStateEvent   *ebpf.Map `ebpf:"net_heap_sock_state_event"`
 	NetconfigMap            *ebpf.Map `ebpf:"netconfig_map"`
 	Netflowmap              *ebpf.Map `ebpf:"netflowmap"`
 	NetflowsDataMap         *ebpf.Map `ebpf:"netflows_data_map"`
@@ -393,6 +395,7 @@ func (m *tracerMaps) Close() error {
 		m.ModulesMap,
 		m.NetCapEvents,
 		m.NetHeapEvent,
+		m.NetHeapSockStateEvent,
 		m.NetconfigMap,
 		m.Netflowmap,
 		m.NetflowsDataMap,
