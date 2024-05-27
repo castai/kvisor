@@ -57,6 +57,9 @@ agent:
     rollingUpdate:
       maxUnavailable: 10
 
+  # Allow to set priority class like system-node-critical.
+  priorityClass: ""
+
   podAnnotations: { }
 
   podSecurityContext: { }
@@ -134,6 +137,9 @@ controller:
 
   podAnnotations: {}
 
+  # Allow to set priority class like system-node-critical.
+  priorityClass: ""
+
   # TODO(Kvisord): Add default strict security context for all components.
   securityContext:
     fsGroup: 1001
@@ -150,17 +156,10 @@ controller:
 #    capabilities:
 #      drop: [ ALL ]
 
-  resources: { }
-    # We usually recommend not to specify default resources and to leave this as a conscious
-    # choice for the user. This also increases chances charts run on environments with little
-    # resources, such as Minikube. If you do want to specify resources, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
-    # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  resources:
+     requests:
+       cpu: 32m
+       memory: 128Mi
 
   nodeSelector: { }
 
@@ -181,12 +180,6 @@ controller:
 
   prometheusScrape:
     enabled: true
-
-  persistentVolumeKv:
-    size: 30Gi
-
-  persistentVolumePostgres:
-    size: 20Gi
 
 eventGenerator:
   enabled: false

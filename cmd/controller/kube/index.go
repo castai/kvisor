@@ -16,7 +16,7 @@ func NewIndex() *Index {
 		replicaSets:  make(map[types.UID]metav1.ObjectMeta),
 		jobs:         make(map[types.UID]metav1.ObjectMeta),
 		deployments:  make(map[types.UID]*appsv1.Deployment),
-		pods:         make(map[types.UID]*corev1.Pod),
+		pods:         make(map[types.UID]*PodInfo),
 		nodesByName:  make(map[string]*corev1.Node),
 	}
 }
@@ -26,20 +26,23 @@ type Index struct {
 	replicaSets  map[types.UID]metav1.ObjectMeta
 	jobs         map[types.UID]metav1.ObjectMeta
 	deployments  map[types.UID]*appsv1.Deployment
-	pods         map[types.UID]*corev1.Pod
+	pods         map[types.UID]*PodInfo
 	nodesByName  map[string]*corev1.Node
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
-	i.pods[pod.UID] = pod
+	owner := i.getPodOwner(pod)
+	node := i.nodesByName[pod.Spec.NodeName]
+	zone := getZone(node)
+	podInfo := &PodInfo{
+		Pod:   pod,
+		Owner: owner,
+		Zone:  zone,
+	}
+	i.pods[pod.UID] = podInfo
 	if !pod.Spec.HostNetwork {
 		ipInfo := IPInfo{
-			Pod:  pod,
-			Node: i.nodesByName[pod.Spec.NodeName],
-		}
-		owner := i.getPodOwner(pod)
-		if owner.UID != pod.UID {
-			ipInfo.Owner = &owner
+			PodInfo: podInfo,
 		}
 		if addr, err := netip.ParseAddr(pod.Status.PodIP); err == nil {
 			i.podsInfoByIP[addr] = ipInfo
@@ -224,6 +227,14 @@ func getServiceIPs(svc *corev1.Service) []string {
 	return svc.Spec.ExternalIPs
 }
 
+func getZone(n *corev1.Node) string {
+	if n == nil {
+		return ""
+	}
+	zone, _ := n.Labels["topology.kubernetes.io/zone"]
+	return zone
+}
+
 type IPEndpoint struct {
 	ID        string
 	Name      string
@@ -233,9 +244,14 @@ type IPEndpoint struct {
 
 type IPInfo struct {
 	IP       string
-	Pod      *corev1.Pod
+	PodInfo  *PodInfo
 	Service  *corev1.Service
 	Node     *corev1.Node
 	Endpoint *IPEndpoint
-	Owner    *metav1.OwnerReference
+}
+
+type PodInfo struct {
+	Pod   *corev1.Pod
+	Owner metav1.OwnerReference
+	Zone  string
 }

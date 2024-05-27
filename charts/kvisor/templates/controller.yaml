@@ -40,6 +40,7 @@ spec:
       dnsPolicy: {{.Values.controller.dnsPolicy}}
       securityContext:
         {{- toYaml .Values.controller.securityContext | nindent 8 }}
+      priorityClassName: {{ .Values.controller.priorityClass }}
       containers:
         - name: controller
           image: "{{ .Values.image.repository }}-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"

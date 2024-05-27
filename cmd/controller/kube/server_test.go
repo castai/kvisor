@@ -7,7 +7,6 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,30 +31,37 @@ func TestServer(t *testing.T) {
 		},
 	}
 
-	client.index.pods["p1"] = &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:  "p1",
-			Name: "p1",
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					UID:  "st1",
-					Kind: "StatefulSet",
-					Name: "st1",
+	client.index.pods["p1"] = &PodInfo{
+		Pod: &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:  "p1",
+				Name: "p1",
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						UID:  "st1",
+						Kind: "StatefulSet",
+						Name: "st1",
+					},
 				},
 			},
+			Spec: corev1.PodSpec{
+				NodeName: "n1",
+			},
+			Status: corev1.PodStatus{
+				PodIP: "10.10.10.10",
+			},
 		},
-		Spec: corev1.PodSpec{
-			NodeName: "n1",
+		Owner: metav1.OwnerReference{
+			UID:  "st1",
+			Kind: "StatefulSet",
+			Name: "st1",
 		},
-		Status: corev1.PodStatus{
-			PodIP: "10.10.10.10",
-		},
+		Zone: "us-east-1a",
 	}
 	client.index.podsInfoByIP[netip.MustParseAddr("10.10.10.10")] = IPInfo{
-		IP:    "",
-		Pod:   client.index.pods["p1"],
-		Node:  client.index.nodesByName["n1"],
-		Owner: lo.ToPtr(client.index.pods["p1"].OwnerReferences[0]),
+		IP:      "",
+		PodInfo: client.index.pods["p1"],
+		Node:    client.index.nodesByName["n1"],
 	}
 
 	srv := NewServer(client)

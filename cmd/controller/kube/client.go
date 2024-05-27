@@ -229,41 +229,15 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	return val, found
 }
 
-func (c *Client) GetPod(uid string) (*corev1.Pod, bool) {
+func (c *Client) GetPodInfo(uid string) (*PodInfo, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	val, found := c.index.pods[types.UID(uid)]
-	return val, found
-}
-
-type PodInfo struct {
-	Pod   *corev1.Pod
-	Owner metav1.OwnerReference
-	Zone  string
-}
-
-func (c *Client) GetPodInfo(uid string) (PodInfo, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	pod, found := c.index.pods[types.UID(uid)]
+	podInfo, found := c.index.pods[types.UID(uid)]
 	if !found {
-		return PodInfo{}, false
+		return nil, false
 	}
-	res := PodInfo{
-		Pod: pod,
-	}
-	if owner := c.index.getPodOwner(pod); owner.UID != pod.UID {
-		res.Owner = owner
-	}
-	node, found := c.index.nodesByName[pod.Spec.NodeName]
-	if found {
-		if zone, found := node.Labels["topology.kubernetes.io/zone"]; found {
-			res.Zone = zone
-		}
-	}
-	return res, true
+	return podInfo, true
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {
@@ -279,21 +253,6 @@ func (c *Client) GetOwnerUID(obj Object) string {
 		return ""
 	}
 	return string(obj.GetOwnerReferences()[0].UID)
-}
-
-func (c *Client) GetPodOwner(podUID string) (metav1.OwnerReference, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	pod, found := c.index.pods[types.UID(podUID)]
-	if !found {
-		return metav1.OwnerReference{}, false
-	}
-	res := c.index.getPodOwner(pod)
-	if res.UID == types.UID(podUID) {
-		return metav1.OwnerReference{}, false
-	}
-	return res, true
 }
 
 type ClusterInfo struct {

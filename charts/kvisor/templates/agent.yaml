@@ -48,6 +48,7 @@ spec:
       hostPID: true
       securityContext:
         {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
+      priorityClassName: {{ .Values.agent.priorityClass }}
       containers:
         - name: kvisor
           securityContext:
