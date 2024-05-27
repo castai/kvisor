@@ -236,7 +236,7 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 	if !found {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		resp, err := c.kubeClient.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{Ip: addr.Unmap().String()})
+		resp, err := c.kubeClient.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{Ip: addr.Unmap().AsSlice()})
 		if err != nil {
 			metrics.AgentFetchKubeIPInfoErrorsTotal.Inc()
 			return nil, false

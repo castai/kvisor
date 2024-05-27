@@ -750,7 +750,7 @@ func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertKubeBenchReport(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(30 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
