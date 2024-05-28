@@ -29,24 +29,17 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("pod by ip %s not found", addr))
 	}
 	res := &kubepb.IPInfo{}
-	if owner := info.Owner; owner != nil {
-		res.WorkloadName = owner.Name
-		res.WorkloadKind = owner.Kind
-		res.WorkloadUid = string(owner.UID)
-	}
 	if info.Node != nil {
-		if zone, found := info.Node.Labels["topology.kubernetes.io/zone"]; found {
-			res.Zone = zone
-		}
-		if info.Pod == nil {
-			res.WorkloadKind = "Node"
-			res.WorkloadName = info.Node.Name
-		}
+		res.Zone = getZone(info.Node)
 	}
-	if pod := info.Pod; pod != nil {
-		res.PodUid = string(pod.UID)
-		res.PodName = pod.Name
-		res.Namespace = pod.Namespace
+	if podInfo := info.PodInfo; podInfo != nil {
+		res.PodUid = string(podInfo.Pod.UID)
+		res.PodName = podInfo.Pod.Name
+		res.Namespace = podInfo.Pod.Namespace
+		res.WorkloadUid = string(podInfo.Owner.UID)
+		res.WorkloadName = podInfo.Owner.Name
+		res.WorkloadKind = podInfo.Owner.Kind
+		res.Zone = podInfo.Zone
 	}
 	if svc := info.Service; svc != nil {
 		res.WorkloadKind = "Service"
@@ -67,7 +60,7 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoRequest) (*kubepb.GetClusterInfoResponse, error) {
 	info, found := s.client.GetClusterInfo()
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "cluster info found")
+		return nil, status.Errorf(codes.NotFound, "cluster info not found")
 	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
@@ -78,7 +71,7 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb.GetPodResponse, error) {
 	info, found := s.client.GetPodInfo(req.Uid)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "pod info found")
+		return nil, status.Errorf(codes.NotFound, "pod info not found")
 	}
 	return &kubepb.GetPodResponse{
 		Pod: &kubepb.Pod{

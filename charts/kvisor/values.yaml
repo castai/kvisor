@@ -57,6 +57,9 @@ agent:
     rollingUpdate:
       maxUnavailable: 10
 
+  # Allow to set priority class like system-node-critical.
+  priorityClass: ""
+
   podAnnotations: { }
 
   podSecurityContext: { }
@@ -134,6 +137,9 @@ controller:
 
   podAnnotations: {}
 
+  # Allow to set priority class like system-node-critical.
+  priorityClass: ""
+
   # TODO(Kvisord): Add default strict security context for all components.
   securityContext:
     fsGroup: 1001
@@ -181,12 +187,6 @@ controller:
 
   prometheusScrape:
     enabled: true
-
-  persistentVolumeKv:
-    size: 30Gi
-
-  persistentVolumePostgres:
-    size: 20Gi
 
 eventGenerator:
   enabled: false
