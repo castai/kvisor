@@ -311,7 +311,7 @@ func (c *Controller) toCastaiDelta(item deltaItem) *castaipb.KubernetesDeltaItem
 		ObjectContainers:  containers,
 		ObjectOwnerUid:    ownerUID,
 		ObjectLabels:      obj.GetLabels(),
-		ObjectAnnotations: getAnnotations(obj),
+		ObjectAnnotations: obj.GetAnnotations(),
 		ObjectStatus:      status,
 		ObjectSpec:        spec,
 	}
@@ -367,15 +367,6 @@ func getContainersAndStatus(obj kube.Object) ([]*castaipb.Container, []byte, err
 		}
 	}
 	return res, st, err
-}
-
-func getAnnotations(obj kube.Object) map[string]string {
-	switch v := obj.(type) {
-	case *corev1.Service, *networkingv1.Ingress:
-		return v.GetAnnotations()
-	default:
-		return nil
-	}
 }
 
 func getObjectSpec(obj kube.Object) ([]byte, error) {
