@@ -62,7 +62,7 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 	if podInfo, found := c.getPodInfo(event.PodUid); found {
 		event.WorkloadKind = podInfo.WorkloadKind
 		event.WorkloadName = podInfo.WorkloadName
-		event.WorkloadUid = podInfo.WorkloadKind
+		event.WorkloadUid = podInfo.WorkloadUid
 	}
 
 	switch args := e.Args.(type) {

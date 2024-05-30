@@ -75,6 +75,7 @@ func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb
 	}
 	return &kubepb.GetPodResponse{
 		Pod: &kubepb.Pod{
+			WorkloadUid:  string(info.Owner.UID),
 			WorkloadName: info.Owner.Name,
 			WorkloadKind: info.Owner.Kind,
 			Zone:         info.Zone,
