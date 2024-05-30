@@ -54,7 +54,7 @@ func TestServer(t *testing.T) {
 		Owner: metav1.OwnerReference{
 			UID:  "st1",
 			Kind: "StatefulSet",
-			Name: "st1",
+			Name: "st1-name",
 		},
 		Zone: "us-east-1a",
 	}
@@ -72,7 +72,8 @@ func TestServer(t *testing.T) {
 			Uid: "p1",
 		})
 		r.NoError(err)
-		r.Equal("st1", resp.Pod.WorkloadName)
+		r.Equal("st1", resp.Pod.WorkloadUid)
+		r.Equal("st1-name", resp.Pod.WorkloadName)
 		r.Equal("StatefulSet", resp.Pod.WorkloadKind)
 		r.Equal("us-east-1a", resp.Pod.Zone)
 	})
@@ -93,7 +94,7 @@ func TestServer(t *testing.T) {
 		})
 		r.NoError(err)
 		r.Equal("p1", resp.Info.PodName)
-		r.Equal("st1", resp.Info.WorkloadName)
+		r.Equal("st1-name", resp.Info.WorkloadName)
 		r.Equal("StatefulSet", resp.Info.WorkloadKind)
 		r.Equal("us-east-1a", resp.Info.Zone)
 	})

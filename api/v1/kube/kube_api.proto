@@ -43,7 +43,8 @@ message GetPodResponse {
 }
 
 message Pod {
-  string workload_name = 1;
-  string workload_kind = 2;
-  string zone = 3;
+  string workload_uid = 1;
+  string workload_name = 2;
+  string workload_kind = 3;
+  string zone = 4;
 }
