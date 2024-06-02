@@ -123,6 +123,7 @@ type NetflowConfig struct {
 	Enabled                     bool
 	SampleSubmitIntervalSeconds uint64
 	OutputChanSize              int
+	Grouping                    ebpftracer.NetflowGrouping
 }
 
 type ClickhouseConfig struct {
@@ -288,6 +289,7 @@ func (a *App) Run(ctx context.Context) error {
 		HomePIDNS:                          pidNSID,
 		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
+		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		SignatureEngine:                    signatureEngine,
 	})
 	if err := tracer.Load(); err != nil {

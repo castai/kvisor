@@ -1,4 +1,4 @@
-package state
+package ebpftracer
 
 import (
 	"errors"
@@ -18,10 +18,10 @@ func TestParseNetflowGrouping(t *testing.T) {
 			name: "empty returns valid zero result", input: "", want: 0,
 		},
 		{
-			name: "single group value", input: "src_addr", want: NetflowGroupingSrcAddr,
+			name: "single group value", input: "drop_src_port", want: NetflowGroupingDropSrcPort,
 		},
 		{
-			name: "multiple group values", input: "src_addr|dst_addr", want: NetflowGroupingSrcAddr | NetflowGroupingDstAddr,
+			name: "multiple group values", input: "drop_src_port|drop_src_port", want: NetflowGroupingDropSrcPort,
 		},
 		{
 			name: "invalid group", input: "not_found", wantErr: errors.New("unknown grouping flag \"not_found\""),

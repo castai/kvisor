@@ -292,3 +292,22 @@ group by period,
          dst_zone
 order by period;
 ```
+
+#### Generating connections
+
+Start server
+```
+nc -lk 8000
+```
+
+Send messages
+
+```
+for i in {1..50}; do echo "hello$i" | nc -q 0 localhost 8000 & done
+```
+
+Or send messages from single process
+```
+cd ./pkg/ebpftracer
+NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
+```

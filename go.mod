@@ -9,7 +9,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/cilium/cilium v1.15.4
-	github.com/cilium/ebpf v0.14.0
+	github.com/cilium/ebpf v0.15.0
 	github.com/containerd/containerd v1.7.16
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.13.0

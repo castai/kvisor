@@ -15,6 +15,7 @@ import (
 type tracerGlobalConfigT struct {
 	PidNsId                         uint64
 	FlowSampleSubmitIntervalSeconds uint64
+	FlowGrouping                    uint64
 }
 
 // loadTracer returns the embedded CollectionSpec for tracer.

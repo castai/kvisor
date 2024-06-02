@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
@@ -46,7 +45,7 @@ type module struct {
 	probesMu       sync.Mutex
 }
 
-func (m *module) load(targetPIDNSID proc.NamespaceID, flowSampleSubmitIntervalSeconds uint64) error {
+func (m *module) load(cfg Config) error {
 	if err := unix.Setrlimit(unix.RLIMIT_NOFILE, &unix.Rlimit{
 		Cur: 4096,
 		Max: 4096,
@@ -74,8 +73,9 @@ func (m *module) load(targetPIDNSID proc.NamespaceID, flowSampleSubmitIntervalSe
 
 	if err := spec.RewriteConstants(map[string]interface{}{
 		"global_config": tracerGlobalConfigT{
-			PidNsId:                         targetPIDNSID,
-			FlowSampleSubmitIntervalSeconds: flowSampleSubmitIntervalSeconds,
+			PidNsId:                         cfg.HomePIDNS,
+			FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
+			FlowGrouping:                    uint64(cfg.NetflowGrouping),
 		},
 	}); err != nil {
 		return err

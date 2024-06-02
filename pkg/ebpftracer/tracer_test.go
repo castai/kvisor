@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/davecgh/go-spew/spew"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestTracer(t *testing.T) {
@@ -69,7 +71,8 @@ func TestTracer(t *testing.T) {
 		CgroupClient:                       &ebpftracer.MockCgroupClient{},
 		MountNamespacePIDStore:             getInitializedMountNamespacePIDStore(procHandle),
 		HomePIDNS:                          pidNS,
-		NetflowSampleSubmitIntervalSeconds: 1,
+		NetflowSampleSubmitIntervalSeconds: 0,
+		NetflowGrouping:                    ebpftracer.NetflowGroupingDropSrcPort,
 	})
 	defer tr.Close()
 
@@ -101,8 +104,8 @@ func TestTracer(t *testing.T) {
 
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
-			//{ID: events.NetFlowBase},
-			{ID: events.SchedProcessExec},
+			{ID: events.NetFlowBase},
+			//{ID: events.SchedProcessExec},
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.SockSetState},
 			//{ID: events.NetPacketDNSBase},
@@ -135,22 +138,31 @@ func TestTracer(t *testing.T) {
 	}
 }
 
-func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
-	eventName := tr.GetEventName(e.Context.EventID)
-	procName := string(bytes.TrimRight(e.Context.Comm[:], "\x00"))
-	fmt.Printf(
-		"ts=%d cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
-		e.Context.Ts,
-		e.Context.CgroupID,
-		e.Context.HostPid,
-		procName,
-		eventName,
-		e.Args,
-	)
-	if e.Context.EventID == events.NetFlowBase {
-		fmt.Printf(" ret=%d direction=%s, type=%s, initiator=%v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator())
+// NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
+func TestGenerateConn(t *testing.T) {
+	addr := os.Getenv("NC_ADDR")
+	if addr == "" {
+		t.Skip()
 	}
-	fmt.Print("\n")
+
+	var errg errgroup.Group
+	for i := 0; i < 100; i++ {
+		errg.Go(func() error {
+			conn, err := net.Dial("tcp", addr)
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+			if _, err := conn.Write([]byte(fmt.Sprintf("hi %d\n", i))); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+	err := errg.Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func printSignatureEvent(e *castaipb.Event) {
@@ -181,6 +193,24 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 	}
 
 	return mountNamespacePIDStore
+}
+
+func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
+	eventName := tr.GetEventName(e.Context.EventID)
+	procName := string(bytes.TrimRight(e.Context.Comm[:], "\x00"))
+	fmt.Printf(
+		"ts=%d cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
+		e.Context.Ts,
+		e.Context.CgroupID,
+		e.Context.HostPid,
+		procName,
+		eventName,
+		e.Args,
+	)
+	if e.Context.EventID == events.NetFlowBase {
+		fmt.Printf(" ret=%d direction=%s, type=%s, initiator=%v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator())
+	}
+	fmt.Print("\n")
 }
 
 func printSyscallStatsLoop(ctx context.Context, tr *ebpftracer.Tracer, log *logging.Logger) {

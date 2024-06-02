@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"hash/maphash"
 	"net/netip"
 	"os"
 	"sync"
@@ -25,9 +24,7 @@ import (
 type Config struct {
 	ContainerStatsScrapeInterval time.Duration
 
-	NetflowExportInterval  time.Duration `validate:"required"`
-	NetflowCleanupInterval time.Duration `validate:"required"`
-	NetflowGrouping        NetflowGrouping
+	NetflowExportInterval time.Duration `validate:"required"`
 }
 
 type containersClient interface {
@@ -115,7 +112,6 @@ func NewController(
 		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
 		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
-		netflows:                   make(map[uint64]*netflowVal),
 		dnsCache:                   dnsCache,
 		ipInfoCache:                ipInfoCache,
 		podCache:                   podCache,
@@ -144,15 +140,11 @@ type Controller struct {
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
 
-	netflowsMu         sync.Mutex
-	netflows           map[uint64]*netflowVal
-	netflowKeyHash     maphash.Hash
-	netflowDestKeyHash maphash.Hash
-	clusterInfo        *clusterInfo
-	dnsCache           *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
-	kubeClient         kubepb.KubeAPIClient
-	ipInfoCache        *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
-	podCache           *freelru.SyncedLRU[string, *kubepb.Pod]
+	clusterInfo *clusterInfo
+	dnsCache    *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
+	kubeClient  kubepb.KubeAPIClient
+	ipInfoCache *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
+	podCache    *freelru.SyncedLRU[string, *kubepb.Pod]
 }
 
 func (c *Controller) Run(ctx context.Context) error {

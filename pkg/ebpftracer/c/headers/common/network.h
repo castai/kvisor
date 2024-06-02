@@ -60,9 +60,8 @@ statfunc netflow_t invert_netflow(netflow_t flow)
 #define flow_incoming 1
 #define flow_outgoing 2
 
-// TODO: per flow statistics can be added later
 typedef struct netflowvalue {
-    u8 direction;                           // 0 = flow_unknown, 1 = flow_incoming, 2 = flow_outgoing
+    s64 active;                             // count active connections
     u64 last_update;                        // last time this flow was updated
     u64 tx_bytes;                           // total bytes sent
     u64 rx_bytes;                           // total bytes received

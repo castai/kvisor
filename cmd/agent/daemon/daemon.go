@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/app"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/castai"
+	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -70,8 +71,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowSampleSubmitIntervalSeconds = pflag.Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
 		netflowOutputChanSize              = pflag.Int("netflow-output-queue-size", 4096, "Netflow output queue size")
 		netflowExportInterval              = pflag.Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
-		netflowCleanupInterval             = pflag.Duration("netflow-cleanup-interval", 60*time.Second, "Netflow cleanup interval")
-		netflowGrouping                    state.NetflowGrouping
+		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
 		clickhouseAddr     = pflag.String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = pflag.String("clickhouse-database", "", "Clickhouse database name")
@@ -86,7 +86,7 @@ func NewRunCommand(version string) *cobra.Command {
 		redactSensitiveValuesRegexStr = pflag.String("redact-sensitive-values-regex", "", "Regex which will be used to detect sensitive values in process exec args")
 	)
 
-	pflag.Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: src_addr|dst_addr to remove both source and destination ports")
+	pflag.Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
 
 	command := &cobra.Command{
 		Use: "run",
@@ -126,8 +126,6 @@ func NewRunCommand(version string) *cobra.Command {
 				State: state.Config{
 					ContainerStatsScrapeInterval: *containerStatsScrapeInterval,
 					NetflowExportInterval:        *netflowExportInterval,
-					NetflowCleanupInterval:       *netflowCleanupInterval,
-					NetflowGrouping:              netflowGrouping,
 				},
 				EBPFEventsEnabled:              *ebpfEventsEnabled,
 				EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
@@ -154,6 +152,7 @@ func NewRunCommand(version string) *cobra.Command {
 					Enabled:                     *netflowEnabled,
 					SampleSubmitIntervalSeconds: *netflowSampleSubmitIntervalSeconds,
 					OutputChanSize:              *netflowOutputChanSize,
+					Grouping:                    netflowGrouping,
 				},
 				Clickhouse: app.ClickhouseConfig{
 					Addr:     *clickhouseAddr,
