@@ -263,7 +263,7 @@ Database: kvisor
 Example query:
 
 ```sql
-select toStartOfInterval(start, INTERVAL 1 HOUR) AS period,
+select toStartOfInterval(ts, INTERVAL 1 HOUR) AS period,
        pod_name,
        namespace,
        workload_name,
