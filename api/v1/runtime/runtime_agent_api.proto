@@ -268,7 +268,7 @@ message ImageMetadata {
   string image_name = 1;
   string image_id = 2;
   string image_digest = 3;
-  string architecture = 5;
+  string architecture = 5 [deprecated = true]; // because config_file contains architecture
   string os_name = 6;
   google.protobuf.Timestamp created_at = 7;
   repeated string resource_ids = 8;

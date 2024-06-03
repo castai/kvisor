@@ -742,7 +742,6 @@ func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
 				r.NotEmpty(l1.ImageName, "missing image name")
 				r.NotEmpty(l1.ConfigFile, "missing image config")
 				r.NotEmpty(l1.Packages, "missing image packages")
-				r.NotEmpty(l1.Architecture, "missing arch")
 				return r.error()
 			}
 		}
