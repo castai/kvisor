@@ -234,7 +234,7 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
 Check pods are running
 
 ```
-kubectl get pods -n kvisor
+kubectl get pods -n castai-agent
 ```
 
 You should see agent, clickhouse and controller pods
@@ -251,7 +251,7 @@ castai-kvisor-controller-8697bbf8cd-sq6jp   1/1     Running   0          67s
 Port forward clickhouse connection
 
 ```
-kubectl port-forward -n kvisor svc/castai-kvisor-clickhouse 8123
+kubectl port-forward -n castai-agent svc/castai-kvisor-clickhouse 8123
 ```
 Connect to clickhouse with your favorite sql client with credentials:
 ```
