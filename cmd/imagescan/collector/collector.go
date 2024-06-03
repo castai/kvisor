@@ -99,7 +99,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 		ImageName:    c.cfg.ImageName,
 		ImageId:      c.cfg.ImageID,
 		ImageDigest:  digest.String(),
-		Architecture: c.cfg.ImageArchitecture,
+		Architecture: arRef.ConfigFile.Architecture,
 		ResourceIds:  strings.Split(c.cfg.ResourceIDs, ","),
 	}
 	if arRef.OsInfo != nil {
