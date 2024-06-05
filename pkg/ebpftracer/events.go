@@ -5309,6 +5309,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "char*", Name: "stdin_path"},
 				{Type: "int", Name: "invoked_from_kernel"},
 				{Type: "const char**", Name: "env"},
+				{Type: "u32", Name: "flags"},
 			},
 		},
 		events.SchedProcessExit: {

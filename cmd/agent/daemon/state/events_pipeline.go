@@ -83,8 +83,8 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		tpl := args.Tuple
 		event.EventType = findTCPEventType(ebpftypes.TCPSocketState(args.OldState), ebpftypes.TCPSocketState(args.NewState))
 		pbTuple := &castpb.Tuple{
-			SrcIp:       tpl.Src.Addr().String(),
-			DstIp:       tpl.Dst.Addr().String(),
+			SrcIp:       tpl.Src.Addr().AsSlice(),
+			DstIp:       tpl.Dst.Addr().AsSlice(),
 			SrcPort:     uint32(tpl.Src.Port()),
 			DstPort:     uint32(tpl.Dst.Port()),
 			DnsQuestion: c.getAddrDnsQuestion(e.Context.CgroupID, tpl.Dst.Addr()),
@@ -96,8 +96,10 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		event.EventType = castpb.EventType_EVENT_EXEC
 		event.Data = &castpb.Event_Exec{
 			Exec: &castpb.Exec{
-				Path: args.Pathname,
-				Args: args.Argv,
+				Path:       args.Pathname,
+				Args:       args.Argv,
+				HashSha256: nil, // Hash is filled inside enrichment.
+				Flags:      args.Flags,
 			},
 		}
 	case ebpftypes.FileModificationArgs:

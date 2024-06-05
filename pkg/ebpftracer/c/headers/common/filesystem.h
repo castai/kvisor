@@ -8,6 +8,21 @@
 #include <common/memory.h>
 #include <common/consts.h>
 
+#ifdef OVERLAYFS_SUPER_MAGIC
+#define FS_OVERLAYFS_SUPER_MAGIC OVERLAYFS_SUPER_MAGIC
+#else
+#define FS_OVERLAYFS_SUPER_MAGIC 0x794c7630
+#endif
+
+#define UID_GID_MAP_MAX_BASE_EXTENTS 5
+
+#define FS_EXE_UPPER_LAYER 	(1 << 0)
+// TODO: Implement these flags.
+//#define FS_EXE_WRITABLE		(1 << 1)
+//#define FS_EXE_FROM_MEMFD  	(1 << 2)
+
+extern int LINUX_KERNEL_VERSION __kconfig;
+
 // PROTOTYPES
 
 statfunc u64 get_time_nanosec_timespec(struct timespec64 *);
@@ -41,6 +56,7 @@ statfunc void fill_vfs_file_bin_args_io_data(io_data_t, bin_args_t *);
 statfunc void fill_file_header(u8[FILE_MAGIC_HDR_SIZE], io_data_t);
 statfunc void
 fill_vfs_file_bin_args(u32, struct file *, loff_t *, io_data_t, size_t, int, bin_args_t *);
+statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb);
 
 // FUNCTIONS
 
@@ -477,6 +493,50 @@ statfunc void fill_file_header(u8 header[FILE_MAGIC_HDR_SIZE], io_data_t io_data
                      : [size] "r"(len), [max_size] "i"(FILE_MAGIC_HDR_SIZE));
         bpf_probe_read(header, len, io_vec.iov_base);
     }
+}
+
+statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
+{
+	unsigned long sb_magic = BPF_CORE_READ(sb, s_magic);
+	if(sb_magic != FS_OVERLAYFS_SUPER_MAGIC) {
+	    return false;
+	}
+	struct dentry *upper_dentry = NULL;
+    char *vfs_inode = (char *)BPF_CORE_READ(dentry, d_inode);
+
+    // Pointer arithmetics due to unexported ovl_inode struct
+    // warning: this works if and only if the dentry pointer is placed right after the inode struct
+    struct dentry *tmp = (struct dentry *)(vfs_inode + sizeof(struct inode));
+    //bpf_probe_read_kernel()
+    upper_dentry = READ_KERNEL(tmp);
+    if(!upper_dentry)
+    {
+        return false;
+    }
+
+    unsigned int d_flags = READ_KERNEL(dentry->d_flags);
+    bool disconnected = (d_flags & DCACHE_DISCONNECTED);
+    if(disconnected)
+    {
+        return true;
+    }
+
+    if (LINUX_KERNEL_VERSION < KERNEL_VERSION(6, 5, 0)) {
+        struct ovl_entry *oe = (struct ovl_entry*)READ_KERNEL(dentry->d_fsdata);
+        unsigned long flags = READ_KERNEL(oe->flags);
+        unsigned long has_upper = (flags & (1U << (OVL_E_UPPER_ALIAS)));
+        if (has_upper) {
+            return true;
+        }
+    } else {
+        unsigned long flags = (unsigned long)READ_KERNEL(dentry->d_fsdata);
+        unsigned long has_upper = (flags & (1U << (OVL_E_UPPER_ALIAS)));
+        if (has_upper) {
+            return true;
+        }
+    }
+
+	return false;
 }
 
 #endif

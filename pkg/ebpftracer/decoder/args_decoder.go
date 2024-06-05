@@ -15905,6 +15905,11 @@ func ParseSchedProcessExecArgs(decoder *Decoder) (types.SchedProcessExecArgs, er
       if err != nil {
         return types.SchedProcessExecArgs{}, err
       }
+    case 16:
+      err = decoder.DecodeUint32(&result.Flags)
+      if err != nil {
+        return types.SchedProcessExecArgs{}, err
+      }
     }
   }
   return result, nil

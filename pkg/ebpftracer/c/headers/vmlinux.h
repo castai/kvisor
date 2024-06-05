@@ -224,6 +224,97 @@ enum
     TCPF_NEW_SYN_RECV = 4096,
 };
 
+typedef struct {
+	int counter;
+} atomic_t;
+
+typedef struct seqcount {
+    unsigned sequence;
+} seqcount_t;
+
+typedef struct {
+    seqcount_t seqcount; // kernels equal and above 5.10
+    unsigned sequence;   // kernels below 5.10
+} seqcount_latch_t;
+
+struct seqcount_spinlock {
+	seqcount_t seqcount;
+};
+
+typedef struct seqcount_spinlock seqcount_spinlock_t;
+
+typedef struct qspinlock arch_spinlock_t;
+
+struct qspinlock {
+	union {
+		atomic_t val;
+		struct {
+			u8 locked;
+			u8 pending;
+		};
+		struct {
+			u16 locked_pending;
+			u16 tail;
+		};
+	};
+};
+
+typedef struct qspinlock arch_spinlock_t;
+
+struct qrwlock {
+	union {
+		atomic_t cnts;
+		struct {
+			u8 wlocked;
+			u8 __lstate[3];
+		};
+	};
+	arch_spinlock_t wait_lock;
+};
+
+typedef struct qrwlock arch_rwlock_t;
+
+struct raw_spinlock {
+	arch_spinlock_t raw_lock;
+};
+
+typedef struct raw_spinlock raw_spinlock_t;
+
+struct spinlock {
+	union {
+		struct raw_spinlock rlock;
+	};
+};
+
+typedef struct spinlock spinlock_t;
+
+struct lockref {
+	union {
+		__u64 lock_count;
+		struct {
+			spinlock_t lock;
+			int count;
+		};
+	};
+};
+
+struct uid_gid_extent {
+	u32 first;
+	u32 lower_first;
+	u32 count;
+};
+
+struct uid_gid_map {
+	u32 nr_extents;
+	union {
+		struct uid_gid_extent extent[5];
+		struct {
+			struct uid_gid_extent *forward;
+			struct uid_gid_extent *reverse;
+		};
+	};
+};
+
 struct bpf_raw_tracepoint_args {
     __u64 args[0];
 };
@@ -276,10 +367,6 @@ struct task_struct {
     struct sighand_struct *sighand;
 };
 
-typedef struct {
-    int counter;
-} atomic_t;
-
 struct signal_struct {
     atomic_t live;
 };
@@ -301,22 +388,42 @@ typedef struct {
     u64 val;
 } kernel_cap_t;
 
+//struct kernel_cap_struct {
+//	__u32 cap[2];
+//};
+//typedef struct kernel_cap_struct kernel_cap_t;
+
+struct group_info {
+	atomic_t usage;
+	int ngroups;
+	kgid_t gid[0];
+};
+
 struct cred {
-    kuid_t uid;
-    kgid_t gid;
-    kuid_t suid;
-    kgid_t sgid;
-    kuid_t euid;
-    kgid_t egid;
-    kuid_t fsuid;
-    kgid_t fsgid;
-    unsigned int securebits;
-    kernel_cap_t cap_inheritable;
-    kernel_cap_t cap_permitted;
-    kernel_cap_t cap_effective;
-    kernel_cap_t cap_bset;
-    kernel_cap_t cap_ambient;
-    struct user_namespace *user_ns;
+	atomic_t usage;
+	kuid_t uid;
+	kgid_t gid;
+	kuid_t suid;
+	kgid_t sgid;
+	kuid_t euid;
+	kgid_t egid;
+	kuid_t fsuid;
+	kgid_t fsgid;
+	unsigned int securebits;
+	kernel_cap_t cap_inheritable;
+	kernel_cap_t cap_permitted;
+	kernel_cap_t cap_effective;
+	kernel_cap_t cap_bset;
+	kernel_cap_t cap_ambient;
+	unsigned char jit_keyring;
+	struct key *session_keyring;
+	struct key *process_keyring;
+	struct key *thread_keyring;
+	struct key *request_key_auth;
+	void *security;
+	struct user_struct *user;
+	struct user_namespace *user_ns;
+	struct group_info *group_info;
 };
 
 struct nsproxy {
@@ -622,6 +729,10 @@ struct __kernel_timespec {
 
 struct inode {
     umode_t i_mode;
+    short unsigned int i_opflags;
+    kuid_t i_uid;
+    kgid_t i_gid;
+    unsigned int i_flags;
     struct super_block *i_sb;
     long unsigned int i_ino;
     struct timespec64 __i_ctime;
@@ -633,6 +744,7 @@ struct inode {
 struct super_block {
     dev_t s_dev;
     unsigned long s_magic;
+    long unsigned int s_flags;
 };
 
 struct mm_struct {
@@ -665,10 +777,32 @@ struct qstr {
     const unsigned char *name;
 };
 
+struct hlist_bl_node;
+
+struct hlist_bl_head {
+	struct hlist_bl_node *first;
+};
+
+struct hlist_bl_node {
+	struct hlist_bl_node *next;
+	struct hlist_bl_node **pprev;
+};
+
+struct dentry_operations;
+
 struct dentry {
-    struct dentry *d_parent;
-    struct qstr d_name;
-    struct inode *d_inode;
+	unsigned int d_flags;
+	seqcount_spinlock_t d_seq;
+	struct hlist_bl_node d_hash;
+	struct dentry *d_parent;
+	struct qstr d_name;
+	struct inode *d_inode;
+	unsigned char d_iname[32];
+	struct lockref d_lockref;
+	const struct dentry_operations *d_op;
+	struct super_block *d_sb;
+	long unsigned int d_time;
+	void *d_fsdata;
 };
 
 enum bpf_func_id
@@ -731,15 +865,6 @@ struct rb_root {
     struct rb_node *rb_node;
 };
 
-typedef struct seqcount {
-    unsigned sequence;
-} seqcount_t;
-
-typedef struct {
-    seqcount_t seqcount; // kernels equal and above 5.10
-    unsigned sequence;   // kernels below 5.10
-} seqcount_latch_t;
-
 struct latch_tree_root {
     seqcount_latch_t seq;
     struct rb_root tree[2];
@@ -751,6 +876,8 @@ struct mod_tree_node {
 };
 
 struct user_namespace {
+    struct uid_gid_map uid_map;
+    struct uid_gid_map gid_map;
     struct ns_common ns;
 };
 

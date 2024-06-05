@@ -13,24 +13,8 @@ message Any {
 message Exec {
   string path = 1;
   repeated string args = 2;
-  ExecMetadata meta = 3;
-}
-
-message Library {
-  string name = 1;
-  string version = 2;
-}
-
-message ExecMetadata {
-  Language lang = 1;
-  repeated Library libraries = 2;
   bytes hash_sha256 = 3;
-}
-
-enum Language {
-  LANG_UNKNOWN = 0;
-  LANG_GOLANG = 1;
-  LANG_C = 2;
+  uint32 flags = 4;
 }
 
 message File {
@@ -38,8 +22,8 @@ message File {
 }
 
 message Tuple {
-  string src_ip = 1;
-  string dst_ip = 2;
+  bytes src_ip = 1;
+  bytes dst_ip = 2;
   uint32 src_port = 3;
   uint32 dst_port = 4;
   string dns_question = 5;

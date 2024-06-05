@@ -98,11 +98,7 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichRequest
 }
 
 func setExecFileHash(exec *castpb.Exec, sha []byte) {
-	if exec.Meta == nil {
-		exec.Meta = &castpb.ExecMetadata{}
-	}
-
-	exec.Meta.HashSha256 = sha
+	exec.HashSha256 = sha
 }
 
 func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container, pid proc.PID, execPath string) ([]byte, error) {

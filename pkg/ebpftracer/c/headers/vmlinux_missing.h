@@ -266,4 +266,48 @@ static inline struct inet_sock *inet_sk(const struct sock *sk)
 #define IPPROTO_DSTOPTS  60  // IPv6 destination options
 #define IPPROTO_MH       135 // IPv6 mobility header
 
+/* `/include/linux/fs.h` from kernel source tree. */
+#define SB_RDONLY 1	     /* Mount read-only */
+#define S_IMMUTABLE (1 << 3) /* Immutable file */
+
+#define MAY_EXEC 0x00000001
+#define MAY_WRITE 0x00000002
+#define MAY_READ 0x00000004
+
+// OverlayFS flags.
+#define DCACHE_DISCONNECTED 0x20
+
+struct ovl_entry {
+	union {
+		struct {
+			unsigned long flags;
+		};
+		//struct rcu_head rcu;
+	};
+	//unsigned numlower;
+	//struct ovl_path lowerstack[];
+};
+
+enum ovl_entry_flag {
+	OVL_E_UPPER_ALIAS,
+	OVL_E_OPAQUE,
+	OVL_E_CONNECTED,
+};
+
+/* `/include/uapi/linux/stat.h` from kernel source tree. */
+#define S_IFMT 00170000
+#define S_IFSOCK 0140000
+#define S_IFLNK 0120000
+#define S_IFREG 0100000
+#define S_IFBLK 0060000
+#define S_IFDIR 0040000
+#define S_IFCHR 0020000
+#define S_IFIFO 0010000
+#define S_ISUID 0004000
+#define S_ISGID 0002000
+#define S_ISVTX 0001000
+#define S_ISREG(m) (((m)&S_IFMT) == S_IFREG)
+#define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
+#define S_ISLNK(m) (((m)&S_IFMT) == S_IFLNK)
+
 #endif

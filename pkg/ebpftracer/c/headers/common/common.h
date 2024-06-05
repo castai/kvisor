@@ -7,6 +7,11 @@
 
 #include <maps.h>
 
+#define READ_KERNEL(P) ({ typeof(P) _val;					\
+    bpf_probe_read_kernel(&_val, sizeof(_val), &P);	\
+    _val;						\
+})
+
 // PROTOTYPES
 
 #define statfunc static __always_inline
