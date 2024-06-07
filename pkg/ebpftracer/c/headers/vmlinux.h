@@ -224,97 +224,6 @@ enum
     TCPF_NEW_SYN_RECV = 4096,
 };
 
-typedef struct {
-	int counter;
-} atomic_t;
-
-typedef struct seqcount {
-    unsigned sequence;
-} seqcount_t;
-
-typedef struct {
-    seqcount_t seqcount; // kernels equal and above 5.10
-    unsigned sequence;   // kernels below 5.10
-} seqcount_latch_t;
-
-struct seqcount_spinlock {
-	seqcount_t seqcount;
-};
-
-typedef struct seqcount_spinlock seqcount_spinlock_t;
-
-typedef struct qspinlock arch_spinlock_t;
-
-struct qspinlock {
-	union {
-		atomic_t val;
-		struct {
-			u8 locked;
-			u8 pending;
-		};
-		struct {
-			u16 locked_pending;
-			u16 tail;
-		};
-	};
-};
-
-typedef struct qspinlock arch_spinlock_t;
-
-struct qrwlock {
-	union {
-		atomic_t cnts;
-		struct {
-			u8 wlocked;
-			u8 __lstate[3];
-		};
-	};
-	arch_spinlock_t wait_lock;
-};
-
-typedef struct qrwlock arch_rwlock_t;
-
-struct raw_spinlock {
-	arch_spinlock_t raw_lock;
-};
-
-typedef struct raw_spinlock raw_spinlock_t;
-
-struct spinlock {
-	union {
-		struct raw_spinlock rlock;
-	};
-};
-
-typedef struct spinlock spinlock_t;
-
-struct lockref {
-	union {
-		__u64 lock_count;
-		struct {
-			spinlock_t lock;
-			int count;
-		};
-	};
-};
-
-struct uid_gid_extent {
-	u32 first;
-	u32 lower_first;
-	u32 count;
-};
-
-struct uid_gid_map {
-	u32 nr_extents;
-	union {
-		struct uid_gid_extent extent[5];
-		struct {
-			struct uid_gid_extent *forward;
-			struct uid_gid_extent *reverse;
-		};
-	};
-};
-
 struct bpf_raw_tracepoint_args {
     __u64 args[0];
 };
@@ -366,6 +275,10 @@ struct task_struct {
     void *stack;
     struct sighand_struct *sighand;
 };
+
+typedef struct {
+    int counter;
+} atomic_t;
 
 struct signal_struct {
     atomic_t live;
@@ -787,13 +700,11 @@ struct dentry_operations;
 
 struct dentry {
 	unsigned int d_flags;
-	seqcount_spinlock_t d_seq;
 	struct hlist_bl_node d_hash;
 	struct dentry *d_parent;
 	struct qstr d_name;
 	struct inode *d_inode;
 	unsigned char d_iname[32];
-	struct lockref d_lockref;
 	const struct dentry_operations *d_op;
 	struct super_block *d_sb;
 	long unsigned int d_time;
@@ -860,6 +771,15 @@ struct rb_root {
     struct rb_node *rb_node;
 };
 
+typedef struct seqcount {
+    unsigned sequence;
+} seqcount_t;
+
+typedef struct {
+    seqcount_t seqcount; // kernels equal and above 5.10
+    unsigned sequence;   // kernels below 5.10
+} seqcount_latch_t;
+
 struct latch_tree_root {
     seqcount_latch_t seq;
     struct rb_root tree[2];
@@ -871,8 +791,6 @@ struct mod_tree_node {
 };
 
 struct user_namespace {
-    struct uid_gid_map uid_map;
-    struct uid_gid_map gid_map;
     struct ns_common ns;
 };
 
