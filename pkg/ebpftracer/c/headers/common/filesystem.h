@@ -497,11 +497,11 @@ statfunc void fill_file_header(u8 header[FILE_MAGIC_HDR_SIZE], io_data_t io_data
 
 statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
 {
-	unsigned long sb_magic = BPF_CORE_READ(sb, s_magic);
-	if(sb_magic != FS_OVERLAYFS_SUPER_MAGIC) {
-	    return false;
-	}
-	struct dentry *upper_dentry = NULL;
+    unsigned long sb_magic = BPF_CORE_READ(sb, s_magic);
+    if(sb_magic != FS_OVERLAYFS_SUPER_MAGIC) {
+        return false;
+    }
+    struct dentry *upper_dentry = NULL;
     char *vfs_inode = (char *)BPF_CORE_READ(dentry, d_inode);
 
     // Pointer arithmetics due to unexported ovl_inode struct
@@ -536,7 +536,7 @@ statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
         }
     }
 
-	return false;
+    return false;
 }
 
 #endif

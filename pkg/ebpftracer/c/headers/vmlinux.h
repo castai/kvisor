@@ -388,11 +388,6 @@ typedef struct {
     u64 val;
 } kernel_cap_t;
 
-//struct kernel_cap_struct {
-//	__u32 cap[2];
-//};
-//typedef struct kernel_cap_struct kernel_cap_t;
-
 struct group_info {
 	atomic_t usage;
 	int ngroups;
