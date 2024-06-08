@@ -5441,12 +5441,11 @@ statfunc u32 submit_netflow_event(struct __sk_buff *ctx, net_event_context_t *ne
     e->context.retval = neteventctx->eventctx.retval;
 
     save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.proto, sizeof(u8), 0);
-    //save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->direction, sizeof(u8), 1);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.tuple, sizeof(tuple_t), 2);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_bytes, sizeof(u64), 3);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_bytes, sizeof(u64), 4);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_packets, sizeof(u64), 5);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_packets, sizeof(u64), 6);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.tuple, sizeof(tuple_t), 1);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_bytes, sizeof(u64), 2);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_bytes, sizeof(u64), 3);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_packets, sizeof(u64), 4);
+    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_packets, sizeof(u64), 5);
     net_events_perf_submit(ctx, NET_FLOW_BASE, e);
     return 0;
 }
