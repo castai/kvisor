@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -385,16 +386,24 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 
 func (t *testCASTAIServer) validateExecEvents() error {
 	var foundExecWithHash bool
+	var foundExecFromUpperLayer bool
 
 	for _, e := range t.events {
-		if e.EventType == castaipb.EventType_EVENT_EXEC && e.GetExec() != nil && e.GetExec().Meta != nil && e.GetExec().Meta.HashSha256 != nil {
-			foundExecWithHash = true
-			break
+		if e.EventType == castaipb.EventType_EVENT_EXEC {
+			if e.GetExec().HashSha256 != nil {
+				foundExecWithHash = true
+			}
+			if flags := e.GetExec().Flags; flags == 1 {
+				foundExecFromUpperLayer = true
+			}
 		}
 	}
 
 	if !foundExecWithHash {
 		return errors.New("expected at least one exec event with hash set")
+	}
+	if !foundExecFromUpperLayer {
+		return errors.New("expected at least one exec event from upper layer")
 	}
 
 	return nil
@@ -455,15 +464,48 @@ func (t *testCASTAIServer) validateSignatureEvents(ctx context.Context, timeout 
 	}
 }
 
+type eventValidatorFunc func(e *castaipb.Event) error
+
 func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Duration) error {
-	expectedTypes := map[castaipb.EventType]struct{}{
-		castaipb.EventType_EVENT_EXEC:        {},
-		castaipb.EventType_EVENT_DNS:         {},
-		castaipb.EventType_EVENT_TCP_CONNECT: {},
-		castaipb.EventType_EVENT_FILE_CHANGE: {},
-		castaipb.EventType_EVENT_MAGIC_WRITE: {},
-		castaipb.EventType_EVENT_PROCESS_OOM: {},
+	eventsValidators := map[castaipb.EventType]eventValidatorFunc{
+		castaipb.EventType_EVENT_EXEC: func(e *castaipb.Event) error {
+			if e.GetExec().Path == "" {
+				return errors.New("missing exec path")
+			}
+			return nil
+		},
+		castaipb.EventType_EVENT_DNS: func(e *castaipb.Event) error {
+			if e.GetDns().DNSQuestionDomain == "" {
+				return errors.New("missing dns question domain")
+			}
+			return nil
+		},
+		castaipb.EventType_EVENT_TCP_CONNECT: func(e *castaipb.Event) error {
+			tuple := e.GetTuple()
+			if _, ok := netip.AddrFromSlice(tuple.SrcIp); !ok {
+				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
+			}
+			if _, ok := netip.AddrFromSlice(tuple.DstIp); !ok {
+				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
+			}
+			return nil
+		},
+		castaipb.EventType_EVENT_FILE_CHANGE: func(e *castaipb.Event) error {
+			if e.GetFile().Path == "" {
+				return errors.New("missing file path")
+			}
+			return nil
+		},
+		castaipb.EventType_EVENT_MAGIC_WRITE: func(e *castaipb.Event) error {
+			return nil
+		},
+		castaipb.EventType_EVENT_PROCESS_OOM: func(e *castaipb.Event) error {
+			return nil
+		},
 	}
+	expectedTypes := lo.KeyBy(lo.Keys(eventsValidators), func(item castaipb.EventType) castaipb.EventType {
+		return item
+	})
 
 	currentOffset := 0
 
@@ -498,6 +540,11 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 			}
 
 			for _, event := range events[currentOffset:] {
+				if validator, found := eventsValidators[event.EventType]; found {
+					if err := validator(event); err != nil {
+						return err
+					}
+				}
 				delete(expectedTypes, event.EventType)
 			}
 

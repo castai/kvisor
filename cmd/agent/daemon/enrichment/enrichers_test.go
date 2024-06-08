@@ -55,7 +55,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		})
 
-		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
+		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
 	})
 
 	t.Run("should ignore missing file", func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		})
 
-		r.Nil(event.GetExec().Meta)
+		r.Empty(event.GetExec().HashSha256)
 	})
 
 	t.Run("should ignore non exec event", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		})
 
-		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
+		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
 
 		event = &castpb.Event{
 			EventType:   castpb.EventType_EVENT_EXEC,
@@ -175,7 +175,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		})
 
-		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
+		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
 	})
 
 	t.Run("should fallback to other pids in mount ns if file is missing", func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		})
 
-		r.Equal(wantedSum[:], event.GetExec().GetMeta().GetHashSha256())
+		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
 	})
 }
 

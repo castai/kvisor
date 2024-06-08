@@ -25,7 +25,9 @@ spec:
               sleep 2
               for i in $(seq 0 10000); do
                 TEMP=$(mktemp)
-                cat /bin/false | head > $TEMP
+                cat /bin/false > $TEMP
+                chmod +x $TEMP
+                $TEMP || true
                 sleep 1
                 echo $i $TEMP
               done

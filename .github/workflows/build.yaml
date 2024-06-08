@@ -36,6 +36,11 @@ jobs:
           echo "Env commit ${{env.head_commit_message}}"
           echo "Contains msg ${{ contains(env.head_commit_message, '#skip-lint') }}"
 
+      - name: Secret Scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
       - name: Setup Go 1.22
         uses: actions/setup-go@v5
         with:

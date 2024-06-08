@@ -3383,6 +3383,7 @@ type SchedProcessExecArgs struct {
   StdinPath string
   InvokedFromKernel int32
   Env []string
+  Flags uint32
 }
 
 type SchedProcessExitArgs struct {

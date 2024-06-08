@@ -301,22 +301,37 @@ typedef struct {
     u64 val;
 } kernel_cap_t;
 
+struct group_info {
+	atomic_t usage;
+	int ngroups;
+	kgid_t gid[0];
+};
+
 struct cred {
-    kuid_t uid;
-    kgid_t gid;
-    kuid_t suid;
-    kgid_t sgid;
-    kuid_t euid;
-    kgid_t egid;
-    kuid_t fsuid;
-    kgid_t fsgid;
-    unsigned int securebits;
-    kernel_cap_t cap_inheritable;
-    kernel_cap_t cap_permitted;
-    kernel_cap_t cap_effective;
-    kernel_cap_t cap_bset;
-    kernel_cap_t cap_ambient;
-    struct user_namespace *user_ns;
+	atomic_t usage;
+	kuid_t uid;
+	kgid_t gid;
+	kuid_t suid;
+	kgid_t sgid;
+	kuid_t euid;
+	kgid_t egid;
+	kuid_t fsuid;
+	kgid_t fsgid;
+	unsigned int securebits;
+	kernel_cap_t cap_inheritable;
+	kernel_cap_t cap_permitted;
+	kernel_cap_t cap_effective;
+	kernel_cap_t cap_bset;
+	kernel_cap_t cap_ambient;
+	unsigned char jit_keyring;
+	struct key *session_keyring;
+	struct key *process_keyring;
+	struct key *thread_keyring;
+	struct key *request_key_auth;
+	void *security;
+	struct user_struct *user;
+	struct user_namespace *user_ns;
+	struct group_info *group_info;
 };
 
 struct nsproxy {
@@ -622,6 +637,10 @@ struct __kernel_timespec {
 
 struct inode {
     umode_t i_mode;
+    short unsigned int i_opflags;
+    kuid_t i_uid;
+    kgid_t i_gid;
+    unsigned int i_flags;
     struct super_block *i_sb;
     long unsigned int i_ino;
     struct timespec64 __i_ctime;
@@ -633,6 +652,7 @@ struct inode {
 struct super_block {
     dev_t s_dev;
     unsigned long s_magic;
+    long unsigned int s_flags;
 };
 
 struct mm_struct {
@@ -665,10 +685,30 @@ struct qstr {
     const unsigned char *name;
 };
 
+struct hlist_bl_node;
+
+struct hlist_bl_head {
+	struct hlist_bl_node *first;
+};
+
+struct hlist_bl_node {
+	struct hlist_bl_node *next;
+	struct hlist_bl_node **pprev;
+};
+
+struct dentry_operations;
+
 struct dentry {
-    struct dentry *d_parent;
-    struct qstr d_name;
-    struct inode *d_inode;
+	unsigned int d_flags;
+	struct hlist_bl_node d_hash;
+	struct dentry *d_parent;
+	struct qstr d_name;
+	struct inode *d_inode;
+	unsigned char d_iname[32];
+	const struct dentry_operations *d_op;
+	struct super_block *d_sb;
+	long unsigned int d_time;
+	void *d_fsdata;
 };
 
 enum bpf_func_id
