@@ -1,6 +1,8 @@
 #ifndef __COMMON_FILESYSTEM_H__
 #define __COMMON_FILESYSTEM_H__
 
+#include "bpf/bpf_core_read.h"
+#include "bpf/bpf_helpers.h"
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>
 
@@ -9,17 +11,20 @@
 #include <common/consts.h>
 
 #ifdef OVERLAYFS_SUPER_MAGIC
-#define FS_OVERLAYFS_SUPER_MAGIC OVERLAYFS_SUPER_MAGIC
+    #define FS_OVERLAYFS_SUPER_MAGIC OVERLAYFS_SUPER_MAGIC
 #else
-#define FS_OVERLAYFS_SUPER_MAGIC 0x794c7630
+    #define FS_OVERLAYFS_SUPER_MAGIC 0x794c7630
 #endif
+
+#define FS_TMPFS_SUPER_MAGIC 0x01021994
 
 #define UID_GID_MAP_MAX_BASE_EXTENTS 5
 
-#define FS_EXE_UPPER_LAYER 	(1 << 0)
+#define FS_EXE_UPPER_LAYER (1 << 0)
+#define FS_EXE_FROM_MEMFD  (1 << 1)
+#define FS_EXE_FROM_TMPFS  (1 << 2)
 // TODO: Implement these flags.
-//#define FS_EXE_WRITABLE		(1 << 1)
-//#define FS_EXE_FROM_MEMFD  	(1 << 2)
+//#define FS_EXE_WRITABLE		(1 << 3)
 
 extern int LINUX_KERNEL_VERSION __kconfig;
 
@@ -498,38 +503,35 @@ statfunc void fill_file_header(u8 header[FILE_MAGIC_HDR_SIZE], io_data_t io_data
 statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
 {
     unsigned long sb_magic = BPF_CORE_READ(sb, s_magic);
-    if(sb_magic != FS_OVERLAYFS_SUPER_MAGIC) {
+    if (sb_magic != FS_OVERLAYFS_SUPER_MAGIC) {
         return false;
     }
     struct dentry *upper_dentry = NULL;
-    char *vfs_inode = (char *)BPF_CORE_READ(dentry, d_inode);
+    char *vfs_inode = (char *) BPF_CORE_READ(dentry, d_inode);
 
     // Pointer arithmetics due to unexported ovl_inode struct
     // warning: this works if and only if the dentry pointer is placed right after the inode struct
-    struct dentry *tmp = (struct dentry *)(vfs_inode + sizeof(struct inode));
-    //bpf_probe_read_kernel()
+    struct dentry *tmp = (struct dentry *) (vfs_inode + sizeof(struct inode));
     upper_dentry = READ_KERNEL(tmp);
-    if(!upper_dentry)
-    {
+    if (!upper_dentry) {
         return false;
     }
 
     unsigned int d_flags = READ_KERNEL(dentry->d_flags);
     bool disconnected = (d_flags & DCACHE_DISCONNECTED);
-    if(disconnected)
-    {
+    if (disconnected) {
         return true;
     }
 
     if (LINUX_KERNEL_VERSION < KERNEL_VERSION(6, 5, 0)) {
-        struct ovl_entry *oe = (struct ovl_entry*)READ_KERNEL(dentry->d_fsdata);
+        struct ovl_entry *oe = (struct ovl_entry *) READ_KERNEL(dentry->d_fsdata);
         unsigned long flags = READ_KERNEL(oe->flags);
         unsigned long has_upper = (flags & (1U << (OVL_E_UPPER_ALIAS)));
         if (has_upper) {
             return true;
         }
     } else {
-        unsigned long flags = (unsigned long)READ_KERNEL(dentry->d_fsdata);
+        unsigned long flags = (unsigned long) READ_KERNEL(dentry->d_fsdata);
         unsigned long has_upper = (flags & (1U << (OVL_E_UPPER_ALIAS)));
         if (has_upper) {
             return true;
@@ -537,6 +539,42 @@ statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
     }
 
     return false;
+}
+
+static __always_inline bool get_exe_from_memfd(struct file *file)
+{
+    const unsigned char *name = BPF_CORE_READ(file, f_path.dentry, d_parent, d_name.name);
+    if (!name) {
+        bpf_printk("get_exe_from_memfd(): failed to get name");
+        return false;
+    }
+
+    const char expected_prefix[] = "memfd:";
+    char memfd_name[sizeof(expected_prefix)] = {'\0'};
+
+    if (bpf_probe_read_kernel_str(memfd_name, sizeof(memfd_name), name) !=
+        sizeof(expected_prefix)) {
+        return false;
+    }
+
+#pragma unroll
+    for (int i = 0; i < sizeof(expected_prefix); i++) {
+        if (expected_prefix[i] != memfd_name[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+statfunc bool is_executed_in_tmpfs(struct super_block *sb)
+{
+    unsigned long sb_magic = BPF_CORE_READ(sb, s_magic);
+    if (sb_magic != FS_TMPFS_SUPER_MAGIC) {
+        return false;
+    }
+
+    return true;
 }
 
 #endif

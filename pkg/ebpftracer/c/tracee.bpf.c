@@ -1303,11 +1303,17 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
 	struct dentry* dentry = f_path.dentry;
     struct super_block *sb = BPF_CORE_READ(inode, i_sb);
     u32 flags = 0;
-    if(sb && inode)
-    {
-        if (get_exe_upper_layer(dentry, sb))
-        {
+    if (sb && inode) {
+        if (get_exe_upper_layer(dentry, sb)) {
             flags |= FS_EXE_UPPER_LAYER;
+        }
+
+        if (is_executed_in_tmpfs(sb)) {
+            flags |= FS_EXE_FROM_TMPFS;
+        }
+
+        if (get_exe_from_memfd(file)) {
+            flags |= FS_EXE_FROM_MEMFD;
         }
     }
 
