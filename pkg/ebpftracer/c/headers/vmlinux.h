@@ -662,6 +662,8 @@ struct mm_struct {
         long unsigned int env_start;
         long unsigned int env_end;
     };
+
+    struct file *exe_file;
 };
 
 struct vfsmount {
