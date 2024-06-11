@@ -3,6 +3,7 @@ package state
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net/netip"
 	"time"
@@ -52,6 +53,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	}
 	c.log.Infof("fetched cluster info, pod_cidr=%s, cluster_cidr=%s", c.clusterInfo.podCidr, c.clusterInfo.serviceCidr)
 
+	lastExportedAt := time.Now().UTC()
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		for {
@@ -59,29 +61,128 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			case e := <-c.tracer.NetflowEvents():
-				args := e.Args.(types.NetFlowBaseArgs)
-				pbFlow := c.toProtoNetflow(e, &args)
-				pbFlowDest := c.toProtoNetflowDest(
-					e.Context.CgroupID,
-					args.Tuple.Src,
-					args.Tuple.Dst,
-					args.TxBytes,
-					args.RxBytes,
-					args.TxPackets,
-					args.RxPackets,
-				)
-				pbFlow.Destinations = []*castpb.NetflowDestination{pbFlowDest}
-				c.exportNetflow(pbFlow)
+				c.upsertNetflow(e)
+				eventTs := time.UnixMicro(int64(e.Context.Ts) / 1000)
+				if eventTs.Sub(lastExportedAt) >= c.cfg.NetflowExportInterval {
+					c.enqueueNetflowExport(eventTs)
+					lastExportedAt = eventTs
+				}
 			}
 		}
 	})
 	return errg.Wait()
 }
 
-func (c *Controller) exportNetflow(pbNetFlow *castpb.Netflow) {
-	for _, exp := range c.exporters.Netflow {
-		exp.Enqueue(pbNetFlow)
+// upsertNetflow groups flows by user defined grouping flags.
+// This allows to reduce cardinality but also increases agent memory usage
+// since it need to store temp grouped netflow data.
+func (c *Controller) upsertNetflow(e *types.Event) {
+	now := time.Now()
+	args := e.Args.(types.NetFlowBaseArgs)
+	key := c.netflowKey(e, &args)
+	netflow, found := c.netflows[key]
+	if !found {
+		netflow = &netflowVal{
+			updatedAt:    now,
+			event:        e,
+			destinations: map[uint64]*netflowDest{},
+		}
+		c.netflows[key] = netflow
 	}
+
+	destKey := c.netflowDestKey(&args)
+	dest, found := netflow.destinations[destKey]
+	if !found {
+		dest = &netflowDest{
+			addrPort: args.Tuple.Dst,
+		}
+		netflow.destinations[destKey] = dest
+	}
+
+	// Update stats
+	dest.txBytes += args.TxBytes
+	dest.rxBytes += args.RxBytes
+	dest.txPackets += args.TxPackets
+	dest.rxPackets += args.RxPackets
+}
+
+func (c *Controller) enqueueNetflowExport(now time.Time) {
+	for key, netflow := range c.netflows {
+		// Flow was exported before and doesn't have new changes. Delete it and continue.
+		if netflow.exportedAt.After(netflow.updatedAt) {
+			delete(c.netflows, key)
+			continue
+		}
+
+		args := netflow.event.Args.(types.NetFlowBaseArgs)
+		pbNetFlow := c.toProtoNetflow(netflow.event, &args)
+		var activeNetflowDests []*netflowDest
+		for _, dest := range netflow.destinations {
+			if !dest.empty() {
+				activeNetflowDests = append(activeNetflowDests, dest)
+			}
+		}
+		pbNetFlow.Destinations = make([]*castpb.NetflowDestination, 0, len(activeNetflowDests))
+		for _, dest := range activeNetflowDests {
+			flowDest := c.toProtoNetflowDest(
+				netflow.event.Context.CgroupID,
+				args.Tuple.Src,
+				dest.addrPort,
+				dest.txBytes,
+				dest.rxBytes,
+				dest.txPackets,
+				dest.rxPackets,
+			)
+			pbNetFlow.Destinations = append(pbNetFlow.Destinations, flowDest)
+		}
+
+		// Enqueue to exporters.
+		for _, exp := range c.exporters.Netflow {
+			exp.Enqueue(pbNetFlow)
+		}
+		netflow.exportedAt = now
+
+		// Reset flow stats after export.
+		for _, flowDest := range netflow.destinations {
+			flowDest.txBytes = 0
+			flowDest.rxBytes = 0
+			flowDest.txPackets = 0
+			flowDest.rxPackets = 0
+		}
+	}
+}
+
+func (c *Controller) netflowKey(e *types.Event, args *types.NetFlowBaseArgs) uint64 {
+	c.netflowKeyHash.Reset()
+
+	// Cgroup id.
+	var cgroup [8]byte
+	binary.LittleEndian.PutUint64(cgroup[:], e.Context.CgroupID)
+	_, _ = c.netflowKeyHash.Write(cgroup[:])
+
+	// Pid.
+	var pid [4]byte
+	binary.LittleEndian.PutUint32(cgroup[:], e.Context.HostPid)
+	_, _ = c.netflowKeyHash.Write(pid[:])
+
+	// Source addr+port.
+	srcBytes, _ := args.Tuple.Src.MarshalBinary()
+	_, _ = c.netflowKeyHash.Write(srcBytes)
+
+	// Protocol.
+	_ = c.netflowKeyHash.WriteByte(args.Proto)
+
+	return c.netflowKeyHash.Sum64()
+}
+
+func (c *Controller) netflowDestKey(args *types.NetFlowBaseArgs) uint64 {
+	c.netflowDestKeyHash.Reset()
+
+	// Destination addr+port.
+	srcBytes, _ := args.Tuple.Dst.MarshalBinary()
+	_, _ = c.netflowKeyHash.Write(srcBytes)
+
+	return c.netflowKeyHash.Sum64()
 }
 
 func (c *Controller) toProtoNetflow(e *types.Event, args *types.NetFlowBaseArgs) *castpb.Netflow {

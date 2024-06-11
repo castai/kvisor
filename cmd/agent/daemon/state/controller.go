@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"hash/maphash"
 	"net/netip"
 	"os"
 	"sync"
@@ -112,6 +113,7 @@ func NewController(
 		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
 		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
+		netflows:                   map[uint64]*netflowVal{},
 		dnsCache:                   dnsCache,
 		ipInfoCache:                ipInfoCache,
 		podCache:                   podCache,
@@ -139,6 +141,10 @@ type Controller struct {
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
+	
+	netflows           map[uint64]*netflowVal
+	netflowKeyHash     maphash.Hash
+	netflowDestKeyHash maphash.Hash
 
 	clusterInfo *clusterInfo
 	dnsCache    *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]

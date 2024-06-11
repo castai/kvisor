@@ -15,6 +15,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -97,21 +98,27 @@ func TestController(t *testing.T) {
 		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
 		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
 
-		ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- &types.Event{
-			Context: &types.EventContext{Ts: 1},
-			Container: &containers.Container{
-				PodName: "p1",
-			},
-			Args: types.NetFlowBaseArgs{
-				Proto: 6,
-				Tuple: types.AddrTuple{
-					Src: netip.MustParseAddrPort("10.10.0.10:34561"),
-					Dst: netip.MustParseAddrPort("10.10.0.15:80"),
-				},
-				TxBytes:   10,
-				TxPackets: 5,
-			},
-		}
+		go func() {
+			for {
+				time.Sleep(time.Millisecond)
+				e := &types.Event{
+					Context: &types.EventContext{Ts: uint64(time.Now().UTC().UnixNano())},
+					Container: &containers.Container{
+						PodName: "p1",
+					},
+					Args: types.NetFlowBaseArgs{
+						Proto: 6,
+						Tuple: types.AddrTuple{
+							Src: netip.MustParseAddrPort("10.10.0.10:34561"),
+							Dst: netip.MustParseAddrPort("10.10.0.15:80"),
+						},
+						TxBytes:   10,
+						TxPackets: 5,
+					},
+				}
+				ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- e
+			}
+		}()
 
 		ctrlerr := make(chan error, 1)
 		go func() {
@@ -127,14 +134,90 @@ func TestController(t *testing.T) {
 			dest := e.Destinations[0]
 			r.Equal(netip.MustParseAddr("10.10.0.15").AsSlice(), dest.Addr)
 			r.Equal(80, int(dest.Port))
-			r.Equal(10, int(dest.TxBytes))
-			r.Equal(5, int(dest.TxPackets))
+			r.GreaterOrEqual(int(dest.TxBytes), 10)
+			r.GreaterOrEqual(int(dest.TxPackets), 5)
 		case err := <-ctrlerr:
 			t.Fatal(err)
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for data")
 		}
 	})
+
+	t.Run("netflow aggregate stats for the same netflow with grouping", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := newTestController()
+		ctrl.cfg.NetflowExportInterval = time.Hour
+		ctrl.clusterInfo = &clusterInfo{}
+
+		ctrl.upsertNetflow(&types.Event{
+			Container: &containers.Container{},
+			Context: &types.EventContext{
+				Ts:       uint64(time.Now().UnixNano()),
+				CgroupID: 1,
+				Pid:      1,
+			},
+			Args: types.NetFlowBaseArgs{
+				Proto: 6,
+				Tuple: types.AddrTuple{
+					Src: netip.MustParseAddrPort("10.10.0.10:34000"),
+					Dst: netip.MustParseAddrPort("10.10.0.20:80"),
+				},
+				TxBytes:   10,
+				RxBytes:   9,
+				TxPackets: 2,
+				RxPackets: 1,
+			},
+		})
+
+		ctrl.upsertNetflow(&types.Event{
+			Container: &containers.Container{},
+			Context: &types.EventContext{
+				Ts:       uint64(time.Now().UnixNano()),
+				CgroupID: 1,
+				Pid:      1,
+			},
+			Args: types.NetFlowBaseArgs{
+				Proto: 6,
+				Tuple: types.AddrTuple{
+					Src: netip.MustParseAddrPort("10.10.0.10:34000"),
+					Dst: netip.MustParseAddrPort("10.10.0.20:80"),
+				},
+				TxBytes:   20,
+				RxBytes:   11,
+				TxPackets: 2,
+				RxPackets: 1,
+			},
+		})
+
+		r.Len(ctrl.netflows, 1)
+		flow := lo.Values(ctrl.netflows)[0]
+		destinations := lo.Values(flow.destinations)
+		r.Len(destinations, 1)
+		dest1 := destinations[0]
+		r.Equal(30, int(dest1.txBytes))
+		r.Equal(20, int(dest1.rxBytes))
+		r.Equal(4, int(dest1.txPackets))
+		r.Equal(2, int(dest1.rxPackets))
+	})
+
+	//t.Run("netflow cleanup", func(t *testing.T) {
+	//	r := require.New(t)
+	//	ctrl := newTestController()
+	//
+	//	ctrl.netflows = map[uint64]*netflowVal{
+	//		1: {
+	//			updatedAt: time.Now(),
+	//		},
+	//		2: {
+	//			updatedAt: time.Now().Add(-time.Hour),
+	//		},
+	//	}
+	//
+	//	ctrl.cfg.NetflowExportInterval = 1 * time.Minute
+	//	ctrl.cleanupNetflow()
+	//	// Should keep recent flows.
+	//	r.Equal([]uint64{1}, lo.Keys(ctrl.netflows))
+	//})
 }
 
 func newTestController() *Controller {
