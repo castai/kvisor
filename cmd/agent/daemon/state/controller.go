@@ -98,6 +98,13 @@ func NewController(
 	if err != nil {
 		panic(err)
 	}
+	ctCache, err := freelru.NewSynced[netip.AddrPort, netip.AddrPort](1024, func(k netip.AddrPort) uint32 {
+		b, _ := k.MarshalBinary()
+		return uint32(xxhash.Sum64(b))
+	})
+	if err != nil {
+		panic(err)
+	}
 	return &Controller{
 		log:                        log.WithField("component", "ctrl"),
 		cfg:                        cfg,
@@ -117,6 +124,7 @@ func NewController(
 		dnsCache:                   dnsCache,
 		ipInfoCache:                ipInfoCache,
 		podCache:                   podCache,
+		ctCache:                    ctCache,
 	}
 }
 
@@ -141,7 +149,7 @@ type Controller struct {
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
-	
+
 	netflows           map[uint64]*netflowVal
 	netflowKeyHash     maphash.Hash
 	netflowDestKeyHash maphash.Hash
@@ -151,6 +159,7 @@ type Controller struct {
 	kubeClient  kubepb.KubeAPIClient
 	ipInfoCache *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
 	podCache    *freelru.SyncedLRU[string, *kubepb.Pod]
+	ctCache     *freelru.SyncedLRU[netip.AddrPort, netip.AddrPort]
 }
 
 func (c *Controller) Run(ctx context.Context) error {

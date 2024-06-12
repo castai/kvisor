@@ -117,10 +117,13 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 		args := netflow.event.Args.(types.NetFlowBaseArgs)
 		pbNetFlow := c.toProtoNetflow(netflow.event, &args)
 		var activeNetflowDests []*netflowDest
-		for _, dest := range netflow.destinations {
-			if !dest.empty() {
-				activeNetflowDests = append(activeNetflowDests, dest)
+		for destKey, dest := range netflow.destinations {
+			if dest.empty() {
+				// No new data of flow dest. It's not active.
+				delete(netflow.destinations, destKey)
+				continue
 			}
+			activeNetflowDests = append(activeNetflowDests, dest)
 		}
 		pbNetFlow.Destinations = make([]*castpb.NetflowDestination, 0, len(activeNetflowDests))
 		for _, dest := range activeNetflowDests {
@@ -211,7 +214,7 @@ func (c *Controller) toProtoNetflowDest(cgroupID uint64, src, dst netip.AddrPort
 	dns := c.getAddrDnsQuestion(cgroupID, dst.Addr())
 
 	if c.clusterInfo.serviceCidr.Contains(dst.Addr()) {
-		if realDst, found := c.ct.GetDestination(src, dst); found {
+		if realDst, found := c.getConntrackDest(src, dst); found {
 			dst = realDst
 		}
 	}
@@ -268,6 +271,18 @@ func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
 		c.podCache.Add(podID, pod)
 	}
 	return pod, true
+}
+
+func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, bool) {
+	realDst, found := c.ctCache.Get(src)
+	if !found {
+		if realDst, found := c.ct.GetDestination(src, dst); found {
+			c.ctCache.Add(src, realDst)
+			return realDst, true
+		}
+		return netip.AddrPort{}, false
+	}
+	return realDst, true
 }
 
 func toProtoProtocol(proto uint8) castpb.NetflowProtocol {
