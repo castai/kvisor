@@ -18,6 +18,8 @@ service RuntimeSecurityAgentAPI {
   rpc GetSyncState(GetSyncStateRequest) returns (GetSyncStateResponse) {}
   rpc UpdateSyncState(UpdateSyncStateRequest) returns (UpdateSyncStateResponse) {}
 
+  rpc KubernetesDeltaBatchIngest(stream KubernetesDeltaBatch) returns (stream KubernetesDeltaIngestResponse) {}
+  // Deprecated. Should use KubernetesDeltaBatchIngest.
   rpc KubernetesDeltaIngest(stream KubernetesDeltaItem) returns (stream KubernetesDeltaIngestResponse) {}
   rpc ImageMetadataIngest(ImageMetadata) returns (ImageMetadataIngestResponse) {}
   rpc KubeBenchReportIngest(KubeBenchReport) returns (KubeBenchReportIngestResponse) {}
@@ -255,6 +257,10 @@ message KubernetesDeltaItem {
   map<string, string> object_annotations = 11;
   bytes object_status = 12;
   bytes object_spec = 13;
+}
+
+message KubernetesDeltaBatch {
+  repeated KubernetesDeltaItem items = 1;
 }
 
 message Container {

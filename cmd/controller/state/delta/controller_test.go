@@ -172,9 +172,9 @@ func TestController(t *testing.T) {
 		r := require.New(t)
 		client := newMockClient()
 		var receivedDeltasCount int
-		client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient {
+		client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient {
 			return &mockStream{
-				onSend: func(item *castaipb.KubernetesDeltaItem) error {
+				onSend: func(item *castaipb.KubernetesDeltaBatch) error {
 					receivedDeltasCount++
 					if receivedDeltasCount > 1 {
 						return errors.New("ups")
@@ -200,9 +200,9 @@ func TestController(t *testing.T) {
 	t.Run("fail on initial delta send error", func(t *testing.T) {
 		r := require.New(t)
 		client := newMockClient()
-		client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient {
+		client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient {
 			return &mockStream{
-				onSend: func(item *castaipb.KubernetesDeltaItem) error {
+				onSend: func(item *castaipb.KubernetesDeltaBatch) error {
 					return errors.New("ups")
 				},
 			}
@@ -257,12 +257,12 @@ func TestController(t *testing.T) {
 
 func newMockClient() *mockCastaiClient {
 	client := &mockCastaiClient{}
-	client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient {
+	client.streamFunc = func() castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient {
 		return &mockStream{
-			onSend: func(item *castaipb.KubernetesDeltaItem) error {
+			onSend: func(item *castaipb.KubernetesDeltaBatch) error {
 				client.mu.Lock()
 				defer client.mu.Unlock()
-				client.deltas = append(client.deltas, item)
+				client.deltas = append(client.deltas, item.Items...)
 				return nil
 			},
 		}
@@ -273,7 +273,14 @@ func newMockClient() *mockCastaiClient {
 func newTestController(log *logging.Logger, client *mockCastaiClient) *Controller {
 	ctrl := NewController(
 		log,
-		Config{Interval: 1 * time.Millisecond, InitialDeltay: 1 * time.Millisecond, SendTimeout: 10 * time.Millisecond},
+		Config{
+			Enabled:        false,
+			Interval:       1 * time.Millisecond,
+			InitialDeltay:  1 * time.Millisecond,
+			SendTimeout:    10 * time.Millisecond,
+			UseCompression: false,
+			BatchSize:      10,
+		},
 		client,
 		&mockPodOwnerGetter{},
 	)
@@ -292,22 +299,22 @@ func (m *mockPodOwnerGetter) GetOwnerUID(obj kube.Object) string {
 type mockCastaiClient struct {
 	deltas     []*castaipb.KubernetesDeltaItem
 	mu         sync.Mutex
-	streamFunc func() v1.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient
+	streamFunc func() v1.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient
 }
 
-func (m *mockCastaiClient) KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (v1.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, error) {
+func (m *mockCastaiClient) KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (v1.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error) {
 	return m.streamFunc(), nil
 }
 
 type mockStream struct {
-	onSend func(item *castaipb.KubernetesDeltaItem) error
+	onSend func(item *castaipb.KubernetesDeltaBatch) error
 }
 
 func (m *mockStream) Recv() (*castaipb.KubernetesDeltaIngestResponse, error) {
 	return &castaipb.KubernetesDeltaIngestResponse{}, nil
 }
 
-func (m *mockStream) Send(item *castaipb.KubernetesDeltaItem) error {
+func (m *mockStream) Send(item *castaipb.KubernetesDeltaBatch) error {
 	return m.onSend(item)
 }
 

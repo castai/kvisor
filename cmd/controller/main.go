@@ -52,6 +52,7 @@ var (
 	initialKubernetesDeltaReportDelay = pflag.Duration("kubernetes-delta-init-delay", 60*time.Second, "Initial delay to wait before starting reporting first kubernetes object deltas (first send report is full snapshot, this might take some time for large clusters. default: `1m`)")
 	kubernetesDeltaSendTimeout        = pflag.Duration("kubernetes-delta-send-timeout", 3*time.Minute, "Kubernetes deltas send timeout")
 	kubernetesDeltaCompressionEnabled = pflag.Bool("kubernetes-delta-compression-enabled", true, "Kubernetes deltas compression during ingest")
+	kubernetesDeltaBatchSize          = pflag.Int("kubernetes-delta-batch-size", 200, "Kubernetes deltas batch size during ingest")
 
 	imageScanEnabled               = pflag.Bool("image-scan-enabled", false, "Enable image scanning")
 	imageScanInterval              = pflag.Duration("image-scan-interval", 30*time.Second, "Image scan scheduling interval")
@@ -225,6 +226,7 @@ func main() {
 			InitialDeltay:  *initialKubernetesDeltaReportDelay,
 			SendTimeout:    *kubernetesDeltaSendTimeout,
 			UseCompression: *kubernetesDeltaCompressionEnabled,
+			BatchSize:      *kubernetesDeltaBatchSize,
 		},
 		JobsCleanup: state.JobsCleanupConfig{
 			CleanupInterval: *jobsCleanupInterval,
