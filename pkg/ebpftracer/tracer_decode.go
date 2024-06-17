@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strconv"
+	"time"
 
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
@@ -13,6 +14,8 @@ import (
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/kvisor/pkg/processtree"
+	"github.com/castai/kvisor/pkg/system"
 	"github.com/cilium/ebpf"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
@@ -21,7 +24,7 @@ import (
 // Error indicating that the resulting error was caught from a panic
 var ErrPanic = errors.New("encountered panic")
 
-func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr error) {
+func (t *Tracer) decodeAndHandleSignal(ctx context.Context, data []byte) (rerr error) {
 	defer func() {
 		if perr := recover(); perr != nil {
 			stack := string(debug.Stack())
@@ -59,6 +62,85 @@ func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr err
 		if err != nil {
 			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
 		}
+
+	case types.SignalSchedProcessExecArgs:
+		container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, args.CgroupId)
+		if err != nil {
+			// We ignore any event not belonging to a container for now.
+			if errors.Is(err, containers.ErrContainerNotFound) {
+				err := t.MuteEventsFromCgroup(args.CgroupId)
+				if err != nil {
+					return fmt.Errorf("cannot mute events for cgroup %d: %w", args.CgroupId, err)
+				}
+				return nil
+			}
+			return fmt.Errorf("cannot get container for cgroup %d: %w", args.CgroupId, err)
+		}
+
+		parentStartTime := uint64(0)
+		if args.ParentPid != 0 {
+      // We only set the parent start time, if we know the parent PID comes from the same NS.
+			parentStartTime = args.ParentStartTime
+		}
+
+		t.cfg.ProcessTreeCollector.ProcessStarted(
+			system.GetBootTime().Add(time.Duration(args.Timestamp)),
+			container.ID,
+			processtree.Process{
+				PID:             proc.PID(args.Pid),
+				StartTime:       time.Duration(args.StartTime).Truncate(time.Second),
+				PPID:            proc.PID(args.ParentPid),
+				ParentStartTime: time.Duration(parentStartTime).Truncate(time.Second),
+				Args:            args.Argv,
+				FilePath:        args.FilePath,
+			},
+		)
+
+	case types.SignalSchedProcessExitArgs:
+		container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, args.CgroupId)
+		if err != nil {
+			// We ignore any event not belonging to a container for now.
+			if errors.Is(err, containers.ErrContainerNotFound) {
+				err := t.MuteEventsFromCgroup(args.CgroupId)
+				if err != nil {
+					return fmt.Errorf("cannot mute events for cgroup %d: %w", args.CgroupId, err)
+				}
+				return nil
+			}
+			return fmt.Errorf("cannot get container for cgroup %d: %w", args.CgroupId, err)
+		}
+
+		t.cfg.ProcessTreeCollector.ProcessExited(
+			system.GetBootTime().Add(time.Duration(args.Timestamp)),
+			container.ID,
+			processtree.ToProcessKeyNs(proc.PID(args.Pid), args.StartTime), args.Timestamp)
+	case types.SignalSchedProcessForkArgs:
+		container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, args.CgroupId)
+		if err != nil {
+			// We ignore any event not belonging to a container for now.
+			if errors.Is(err, containers.ErrContainerNotFound) {
+				err := t.MuteEventsFromCgroup(args.CgroupId)
+				if err != nil {
+					return fmt.Errorf("cannot mute events for cgroup %d: %w", args.CgroupId, err)
+				}
+				return nil
+			}
+			return fmt.Errorf("cannot get container for cgroup %d: %w", args.CgroupId, err)
+		}
+
+		parentStartTime := uint64(0)
+		if args.ParentPid != 0 {
+			parentStartTime = args.ParentStartTime
+		}
+
+		t.cfg.ProcessTreeCollector.ProcessForked(
+			// We always assume the child start time as the event timestamp for forks.
+			system.GetBootTime().Add(time.Duration(args.ChildStartTime)),
+			container.ID,
+			processtree.ToProcessKeyNs(proc.PID(args.ParentNsPid), parentStartTime),
+			processtree.ToProcessKeyNs(proc.PID(args.ChildNsPid), args.ChildStartTime),
+		)
+
 	default:
 		t.log.Warnf("unhandled signal: %d", signalCtx.EventID)
 	}
@@ -122,6 +204,8 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 
 	switch eventId {
 	case events.SchedProcessExec:
+		// We cannot move bucket management to the signal handler, as this might cause an timing issue, since
+		// processing of both streams are done async.
 		if eventCtx.Pid == 1 {
 			t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 		} else {

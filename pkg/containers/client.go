@@ -10,6 +10,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/metrics"
+	"github.com/castai/kvisor/pkg/proc"
 	containerdContainers "github.com/containerd/containerd/containers"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -47,9 +48,11 @@ type Client struct {
 	containerCreatedListeners []ContainerCreatedListener
 	containerDeletedListeners []ContainerDeletedListener
 	listenerMu                sync.RWMutex
+
+	procHandler *proc.Proc
 }
 
-func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string) (*Client, error) {
+func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc) (*Client, error) {
 	contClient, err := newContainerClient(containerdSock)
 	if err != nil {
 		return nil, err
@@ -60,7 +63,43 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		containerClient:    contClient,
 		cgroupClient:       cgroupClient,
 		containersByCgroup: map[uint64]*Container{},
+		procHandler:        procHandler,
 	}, nil
+}
+
+type ContainerProcess struct {
+	ContainerID string
+	PID         uint32
+}
+
+func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, error) {
+	resp, err := c.containerClient.client.TaskService().List(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ContainerProcess, 0, len(resp.Tasks))
+
+	for _, task := range resp.Tasks {
+		path, err := c.procHandler.FindCGroupPathForPID(task.Pid)
+		if err != nil {
+			c.log.Warnf("cannot find cgroup for PID %d: %v", task.Pid, err)
+			continue
+		}
+
+		containerID, runtime := cgroup.GetContainerIdFromCgroup(path)
+		if runtime != cgroup.ContainerdRuntime && runtime != cgroup.DockerRuntime {
+			// We only support containerd and docker, we ignore the rest.
+			continue
+		}
+
+		result = append(result, ContainerProcess{
+			ContainerID: containerID,
+			PID:         task.Pid,
+		})
+	}
+
+	return result, nil
 }
 
 func (c *Client) ListContainers() []*Container {

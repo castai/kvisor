@@ -145,6 +145,8 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("assert image metadata: %w", err)
 	}
 
+  // TODO(patrick.pichler): add assert for process tree events
+
 	fmt.Println("👌e2e finished")
 
 	return nil
@@ -214,9 +216,42 @@ type testCASTAIServer struct {
 	imageMetadatas    []*castaipb.ImageMetadata
 	kubeBenchReports  []*castaipb.KubeBenchReport
 	kubeLinterReports []*castaipb.KubeLinterReport
+	processTreeEvents []*castaipb.ProcessTreeEvent
 	controllerConfig  *castaipb.ControllerConfig
 	agentConfig       *castaipb.AgentConfig
 	netflows          []*castaipb.Netflow
+}
+
+func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if !ok {
+		return errors.New("no metadata")
+	}
+	token := md["authorization"]
+	if len(token) == 0 {
+		return errors.New("no authorization")
+	}
+	if token[0] != "Token "+apiKey {
+		return fmt.Errorf("invalid token %s", token[0])
+	}
+	cluster := md["x-cluster-id"]
+	if len(cluster) == 0 {
+		return errors.New("no x-cluster-id")
+	}
+	if cluster[0] != clusterID {
+		return fmt.Errorf("invalid cluster ID %s", cluster[0])
+	}
+
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		fmt.Println("received event:", event)
+		t.mu.Lock()
+		t.processTreeEvents = append(t.processTreeEvents, event)
+		t.mu.Unlock()
+	}
 }
 
 func (t *testCASTAIServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {

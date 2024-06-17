@@ -26,6 +26,9 @@ local_resource(
         './pkg/cgroup',
         './pkg/containers',
         './pkg/bucketcache',
+        './pkg/processtree',
+        './pkg/proc',
+        './pkg/system',
     ],
 )
 

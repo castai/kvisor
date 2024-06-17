@@ -109,6 +109,11 @@ type testServer struct {
 	eventsWriteStreamHandler func(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error
 }
 
+func (t *testServer) ProcessEventsWriteStream(castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t *testServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
 	//TODO implement me
 	panic("implement me")

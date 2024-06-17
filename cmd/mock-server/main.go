@@ -56,6 +56,21 @@ type MockServer struct {
 	log *logging.Logger
 }
 
+func (m *MockServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		json, err := protojson.Marshal(event)
+		if err != nil {
+			m.log.Debugf("cannot parse process event: %v\n%v", err, event)
+			continue
+		}
+		m.log.Debugf("process event:\n%s", string(json))
+	}
+}
+
 func (m *MockServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
 	for {
 		event, err := server.Recv()

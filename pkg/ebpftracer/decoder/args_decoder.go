@@ -20010,6 +20010,59 @@ func ParseTrackSyscallStatsArgs(decoder *Decoder) (types.TrackSyscallStatsArgs, 
   return types.TrackSyscallStatsArgs{}, nil
 }
 
+func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
+  var result types.NetFlowBaseArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.NetFlowBaseArgs{}, err
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.NetFlowBaseArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      err = decoder.DecodeUint8(&result.Proto)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 1:
+      result.Tuple, err = decoder.ReadAddrTuple()
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 2:
+      err = decoder.DecodeUint64(&result.TxBytes)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 3:
+      err = decoder.DecodeUint64(&result.RxBytes)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 4:
+      err = decoder.DecodeUint64(&result.TxPackets)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    case 5:
+      err = decoder.DecodeUint64(&result.RxPackets)
+      if err != nil {
+        return types.NetFlowBaseArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
 func ParseTestEventArgs(decoder *Decoder) (types.TestEventArgs, error) {
   return types.TestEventArgs{}, nil
 }
@@ -20090,53 +20143,334 @@ func ParseSignalCgroupRmdirArgs(decoder *Decoder) (types.SignalCgroupRmdirArgs, 
   return result, nil
 }
 
-func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
-  var result types.NetFlowBaseArgs
+func ParseSignalSchedProcessExecArgs(decoder *Decoder) (types.SignalSchedProcessExecArgs, error) {
+  var result types.SignalSchedProcessExecArgs
   var err error
 
   var numArgs uint8
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
-    return types.NetFlowBaseArgs{}, err
+    return types.SignalSchedProcessExecArgs{}, err
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
     err = decoder.DecodeUint8(&currArg)
     if err != nil {
-      return types.NetFlowBaseArgs{}, err
+      return types.SignalSchedProcessExecArgs{}, err
     }
 
     switch currArg {
     case 0:
-      err = decoder.DecodeUint8(&result.Proto)
+      err = decoder.DecodeUint64(&result.Timestamp)
       if err != nil {
-        return types.NetFlowBaseArgs{}, err
+        return types.SignalSchedProcessExecArgs{}, err
       }
     case 1:
-      result.Tuple, err = decoder.ReadAddrTuple()
+      err = decoder.DecodeUint64(&result.CgroupId)
       if err != nil {
-        return types.NetFlowBaseArgs{}, err
+        return types.SignalSchedProcessExecArgs{}, err
       }
     case 2:
-      err = decoder.DecodeUint64(&result.TxBytes)
+      err = decoder.DecodeInt32(&result.Pid)
       if err != nil {
-        return types.NetFlowBaseArgs{}, err
+        return types.SignalSchedProcessExecArgs{}, err
       }
     case 3:
-      err = decoder.DecodeUint64(&result.RxBytes)
+      err = decoder.DecodeInt32(&result.HostPid)
       if err != nil {
-        return types.NetFlowBaseArgs{}, err
+        return types.SignalSchedProcessExecArgs{}, err
       }
     case 4:
-      err = decoder.DecodeUint64(&result.TxPackets)
+      err = decoder.DecodeUint64(&result.StartTime)
       if err != nil {
-        return types.NetFlowBaseArgs{}, err
+        return types.SignalSchedProcessExecArgs{}, err
       }
     case 5:
-      err = decoder.DecodeUint64(&result.RxPackets)
+      err = decoder.DecodeInt32(&result.ParentPid)
       if err != nil {
-        return types.NetFlowBaseArgs{}, err
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 6:
+      err = decoder.DecodeInt32(&result.ParentHostPid)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 7:
+      err = decoder.DecodeUint64(&result.ParentStartTime)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 8:
+      err = decoder.DecodeInt32(&result.LeaderPid)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 9:
+      err = decoder.DecodeInt32(&result.LeaderHostPid)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 10:
+      err = decoder.DecodeUint64(&result.LeaderStartTime)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 11:
+      result.Filename, err = decoder.ReadStringFromBuff()
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 12:
+      result.FilePath, err = decoder.ReadStringFromBuff()
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 13:
+      result.Argv, err = decoder.ReadArgsArrayFromBuff()
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 14:
+      err = decoder.DecodeUint16(&result.StdinType)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 15:
+      result.StdinPath, err = decoder.ReadStringFromBuff()
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 16:
+      err = decoder.DecodeInt32(&result.InvokedFromKernel)
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    case 17:
+      result.Env, err = decoder.ReadArgsArrayFromBuff()
+      if err != nil {
+        return types.SignalSchedProcessExecArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
+func ParseSignalSchedProcessExitArgs(decoder *Decoder) (types.SignalSchedProcessExitArgs, error) {
+  var result types.SignalSchedProcessExitArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.SignalSchedProcessExitArgs{}, err
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.SignalSchedProcessExitArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      err = decoder.DecodeUint64(&result.Timestamp)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 1:
+      err = decoder.DecodeUint64(&result.CgroupId)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 2:
+      err = decoder.DecodeInt32(&result.Pid)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 3:
+      err = decoder.DecodeInt32(&result.HostPid)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 4:
+      err = decoder.DecodeUint64(&result.StartTime)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 5:
+      err = decoder.DecodeInt32(&result.ParentPid)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 6:
+      err = decoder.DecodeInt32(&result.ParentHostPid)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 7:
+      err = decoder.DecodeUint64(&result.ParentStartTime)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 8:
+      err = decoder.DecodeInt32(&result.LeaderPid)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 9:
+      err = decoder.DecodeInt32(&result.LeaderHostPid)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 10:
+      err = decoder.DecodeUint64(&result.LeaderStartTime)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 11:
+      err = decoder.DecodeInt64(&result.ExitCode)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    case 12:
+      err = decoder.DecodeBool(&result.ProcessGroupExit)
+      if err != nil {
+        return types.SignalSchedProcessExitArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
+func ParseSignalSchedProcessForkArgs(decoder *Decoder) (types.SignalSchedProcessForkArgs, error) {
+  var result types.SignalSchedProcessForkArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.SignalSchedProcessForkArgs{}, err
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.SignalSchedProcessForkArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      err = decoder.DecodeUint64(&result.Timestamp)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 1:
+      err = decoder.DecodeUint64(&result.CgroupId)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 2:
+      err = decoder.DecodeInt32(&result.ParentTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 3:
+      err = decoder.DecodeInt32(&result.ParentNsTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 4:
+      err = decoder.DecodeInt32(&result.ParentPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 5:
+      err = decoder.DecodeInt32(&result.ParentNsPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 6:
+      err = decoder.DecodeUint64(&result.ParentStartTime)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 7:
+      err = decoder.DecodeInt32(&result.ChildTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 8:
+      err = decoder.DecodeInt32(&result.ChildNsTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 9:
+      err = decoder.DecodeInt32(&result.ChildPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 10:
+      err = decoder.DecodeInt32(&result.ChildNsPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 11:
+      err = decoder.DecodeUint64(&result.ChildStartTime)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 12:
+      err = decoder.DecodeInt32(&result.UpParentTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 13:
+      err = decoder.DecodeInt32(&result.UpParentNsTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 14:
+      err = decoder.DecodeInt32(&result.UpParentPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 15:
+      err = decoder.DecodeInt32(&result.UpParentNsPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 16:
+      err = decoder.DecodeUint64(&result.UpParentStartTime)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 17:
+      err = decoder.DecodeInt32(&result.LeaderTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 18:
+      err = decoder.DecodeInt32(&result.LeaderNsTid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 19:
+      err = decoder.DecodeInt32(&result.LeaderPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 20:
+      err = decoder.DecodeInt32(&result.LeaderNsPid)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
+      }
+    case 21:
+      err = decoder.DecodeUint64(&result.LeaderStartTime)
+      if err != nil {
+        return types.SignalSchedProcessForkArgs{}, err
       }
     }
   }
@@ -21257,14 +21591,20 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseSockSetStateArgs(decoder)
   case events.TrackSyscallStats:
     return ParseTrackSyscallStatsArgs(decoder)
+  case events.NetFlowBase:
+    return ParseNetFlowBaseArgs(decoder)
   case events.TestEvent:
     return ParseTestEventArgs(decoder)
   case events.SignalCgroupMkdir:
     return ParseSignalCgroupMkdirArgs(decoder)
   case events.SignalCgroupRmdir:
     return ParseSignalCgroupRmdirArgs(decoder)
-  case events.NetFlowBase:
-    return ParseNetFlowBaseArgs(decoder)
+  case events.SignalSchedProcessExec:
+    return ParseSignalSchedProcessExecArgs(decoder)
+  case events.SignalSchedProcessExit:
+    return ParseSignalSchedProcessExitArgs(decoder)
+  case events.SignalSchedProcessFork:
+    return ParseSignalSchedProcessForkArgs(decoder)
   }
 
   return nil, ErrUnknownArgsType

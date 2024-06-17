@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/samber/lo"
@@ -41,6 +42,7 @@ var (
 	ErrCannotGetPIDNSInode            = errors.New("cannot get pidns inode")
 	ErrParseStatFileInvalidCommFormat = errors.New("cannot parse stat file, invalid comm format")
 	ErrParseStatFileNotEnoughFields   = errors.New("cannot parse stat file, not enough fields")
+	ErrNoCgroupPathFound              = errors.New("no cgroup path found")
 )
 
 type Proc struct {
@@ -56,6 +58,42 @@ func New() *Proc {
 // HostPath returns full file path on the host file system using procfs, eg: /proc/1/root/<my-path>
 func HostPath(p string) string {
 	return path.Join(Path, strconv.Itoa(1), p)
+}
+
+func (p *Proc) FindCGroupPathForPID(pid PID) (string, error) {
+	cgroupData, err := p.procFS.ReadFile(fmt.Sprintf("%d/cgroup", pid))
+	if err != nil {
+		return "", err
+	}
+
+	var emptyFallback string
+
+	for _, line := range strings.Split(string(cgroupData), "\n") {
+		// Last line will be empty, we simply ignore it.
+		if len(line) == 0 {
+			continue
+		}
+
+		parts := strings.Split(line, ":")
+		if len(parts) < 3 {
+			continue
+		}
+		// TODO: we hardcode this for now, but in the future we might want to make this configurable
+		// (cpuset might not always be the first cgroup reported by the kernel)
+		if parts[1] == "cpuset" {
+			return parts[2], nil
+		}
+
+		if parts[1] == "" {
+			emptyFallback = parts[2]
+		}
+	}
+
+	if emptyFallback != "" {
+		return emptyFallback, nil
+	}
+
+	return "", ErrNoCgroupPathFound
 }
 
 func (p *Proc) GetCurrentPIDNSID() (NamespaceID, error) {
@@ -76,7 +114,7 @@ func (p *Proc) LoadMountNSOldestProcesses() (map[NamespaceID]PID, error) {
 	namespaceMap := map[NamespaceID]processInfo{}
 
 	for _, f := range files {
-		pid, err := parsePIDFromString(f.Name())
+		pid, err := parsePID(f.Name())
 		if err != nil {
 			continue
 		}
@@ -109,7 +147,7 @@ func (p *Proc) LoadMountNSOldestProcesses() (map[NamespaceID]PID, error) {
 	}), nil
 }
 
-func parsePIDFromString(pidStr string) (PID, error) {
+func parsePID(pidStr string) (PID, error) {
 	pid, err := strconv.ParseUint(pidStr, 10, 32)
 	if err != nil {
 		return 0, err

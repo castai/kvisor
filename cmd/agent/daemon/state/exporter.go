@@ -5,6 +5,7 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/processtree"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,10 +21,11 @@ type Exporters struct {
 	Events         []EventsExporter
 	ContainerStats []ContainerStatsExporter
 	Netflow        []NetflowExporter
+	ProcessTree    []ProcessTreeExporter
 }
 
 func (e *Exporters) Empty() bool {
-	return len(e.Events) == 0 && len(e.ContainerStats) == 0 && len(e.Netflow) == 0
+	return len(e.Events) == 0 && len(e.ContainerStats) == 0 && len(e.Netflow) == 0 && len(e.ProcessTree) == 0
 }
 
 func (e *Exporters) Run(ctx context.Context) error {
@@ -49,6 +51,12 @@ func (e *Exporters) Run(ctx context.Context) error {
 			return exp.Run(ctx)
 		})
 	}
+	for _, exp := range e.ProcessTree {
+		exp := exp
+		errg.Go(func() error {
+			return exp.Run(ctx)
+		})
+	}
 	return errg.Wait()
 }
 
@@ -69,4 +77,9 @@ type ContainerStatsExporter interface {
 type NetflowExporter interface {
 	DataExporter
 	Enqueue(e *castpb.Netflow)
+}
+
+type ProcessTreeExporter interface {
+	DataExporter
+	Enqueue(e processtree.ProcessTreeEvent)
 }

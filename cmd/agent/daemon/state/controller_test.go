@@ -15,6 +15,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -263,6 +264,7 @@ func newTestController() *Controller {
 	sigEngine := &mockSignatureEngine{eventsChan: make(chan *castaipb.Event, 100)}
 	enrichService := &mockEnrichmentService{eventsChan: make(chan *castaipb.Event, 100)}
 	kubeClient := &mockKubeClient{}
+	processTreeCollector := &mockProcessTreeController{}
 	ctrl := NewController(
 		log,
 		cfg,
@@ -274,6 +276,7 @@ func newTestController() *Controller {
 		sigEngine,
 		enrichService,
 		kubeClient,
+		processTreeCollector,
 	)
 	return ctrl
 }
@@ -462,4 +465,12 @@ func (m *mockKubeClient) GetPod(ctx context.Context, in *kubepb.GetPodRequest, o
 	return &kubepb.GetPodResponse{
 		Pod: &kubepb.Pod{},
 	}, nil
+}
+
+type mockProcessTreeController struct {
+	eventsChan chan processtree.ProcessTreeEvent
+}
+
+func (m *mockProcessTreeController) Events() <-chan processtree.ProcessTreeEvent {
+	return m.eventsChan
 }

@@ -4263,6 +4263,17 @@ type TrackSyscallStatsArgs struct {
   internalArgs
 }
 
+type NetFlowBaseArgs struct {
+  internalArgs
+
+  Proto uint8
+  Tuple AddrTuple
+  TxBytes uint64
+  RxBytes uint64
+  TxPackets uint64
+  RxPackets uint64
+}
+
 type TestEventArgs struct {
   internalArgs
 }
@@ -4283,13 +4294,70 @@ type SignalCgroupRmdirArgs struct {
   HierarchyId uint32
 }
 
-type NetFlowBaseArgs struct {
+type SignalSchedProcessExecArgs struct {
   internalArgs
 
-  Proto uint8
-  Tuple AddrTuple
-  TxBytes uint64
-  RxBytes uint64
-  TxPackets uint64
-  RxPackets uint64
+  Timestamp uint64
+  CgroupId uint64
+  Pid int32
+  HostPid int32
+  StartTime uint64
+  ParentPid int32
+  ParentHostPid int32
+  ParentStartTime uint64
+  LeaderPid int32
+  LeaderHostPid int32
+  LeaderStartTime uint64
+  Filename string
+  FilePath string
+  Argv []string
+  StdinType uint16
+  StdinPath string
+  InvokedFromKernel int32
+  Env []string
+}
+
+type SignalSchedProcessExitArgs struct {
+  internalArgs
+
+  Timestamp uint64
+  CgroupId uint64
+  Pid int32
+  HostPid int32
+  StartTime uint64
+  ParentPid int32
+  ParentHostPid int32
+  ParentStartTime uint64
+  LeaderPid int32
+  LeaderHostPid int32
+  LeaderStartTime uint64
+  ExitCode int64
+  ProcessGroupExit bool
+}
+
+type SignalSchedProcessForkArgs struct {
+  internalArgs
+
+  Timestamp uint64
+  CgroupId uint64
+  ParentTid int32
+  ParentNsTid int32
+  ParentPid int32
+  ParentNsPid int32
+  ParentStartTime uint64
+  ChildTid int32
+  ChildNsTid int32
+  ChildPid int32
+  ChildNsPid int32
+  ChildStartTime uint64
+  UpParentTid int32
+  UpParentNsTid int32
+  UpParentPid int32
+  UpParentNsPid int32
+  UpParentStartTime uint64
+  LeaderTid int32
+  LeaderNsTid int32
+  LeaderPid int32
+  LeaderNsPid int32
+  LeaderStartTime uint64
 }
