@@ -75,6 +75,10 @@ type testGrpcClient struct {
 	getConfigurationResponse func() (*castaipb.GetConfigurationResponse, error)
 }
 
+func (t testGrpcClient) KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error) {
+	return nil, nil
+}
+
 func (t testGrpcClient) NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error) {
 	return nil, nil
 }
