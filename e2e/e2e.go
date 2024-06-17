@@ -384,6 +384,25 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 	}
 }
 
+func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
+	panic("should not be called")
+}
+
+func (t *testCASTAIServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
+	for {
+		delta, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		t.mu.Lock()
+		t.deltaUpdates = append(t.deltaUpdates, delta.Items...)
+		t.mu.Unlock()
+		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
+			return err
+		}
+	}
+}
+
 func (t *testCASTAIServer) validateExecEvents() error {
 	var foundExecWithHash bool
 	var foundExecFromUpperLayer bool
@@ -636,21 +655,6 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 				}
 				return nil
 			}
-		}
-	}
-}
-
-func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
-	for {
-		delta, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		t.mu.Lock()
-		t.deltaUpdates = append(t.deltaUpdates, delta)
-		t.mu.Unlock()
-		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
-			return err
 		}
 	}
 }

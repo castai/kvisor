@@ -30,7 +30,7 @@ import (
 )
 
 type castaiClient interface {
-	KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, error)
+	KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error)
 }
 
 type kubeClient interface {
@@ -43,6 +43,7 @@ type Config struct {
 	InitialDeltay  time.Duration
 	SendTimeout    time.Duration `validate:"required"`
 	UseCompression bool
+	BatchSize      int `validate:"required"`
 }
 
 func NewController(
@@ -182,7 +183,7 @@ func (c *Controller) sendDeltas(ctx context.Context, pendingDeltas []deltaItem) 
 	if c.cfg.UseCompression {
 		opts = append(opts, grpc.UseCompressor(gzip.Name))
 	}
-	deltaStream, err := c.castaiClient.KubernetesDeltaIngest(ctx, opts...)
+	deltaStream, err := c.castaiClient.KubernetesDeltaBatchIngest(ctx, opts...)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
@@ -191,27 +192,26 @@ func (c *Controller) sendDeltas(ctx context.Context, pendingDeltas []deltaItem) 
 	}()
 
 	var sentDeltasCount int
-	for _, item := range pendingDeltas {
-		item := item
-		pbItem := c.toCastaiDelta(item)
-		if err := c.sendDeltaItem(ctx, deltaStream, pbItem); err != nil {
+	for _, batch := range lo.Chunk(pendingDeltas, c.cfg.BatchSize) {
+		pbItems := lo.Map(batch, c.toCastaiDelta)
+		if err := c.sendDeltaItems(ctx, deltaStream, pbItems); err != nil {
 			// Return any remaining items back to pending list.
 			c.upsertPendingItems(pendingDeltas[sentDeltasCount:])
 			return err
 		}
-		sentDeltasCount++
+		sentDeltasCount += len(batch)
 	}
 	c.log.Infof("sent deltas, id=%v, count=%d/%d, duration=%v", deltaID, len(pendingDeltas), sentDeltasCount, time.Since(start))
 	return nil
 }
 
-func (c *Controller) sendDeltaItem(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, item *castaipb.KubernetesDeltaItem) error {
+func (c *Controller) sendDeltaItems(ctx context.Context, stream castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, items []*castaipb.KubernetesDeltaItem) error {
 	return withExponentialRetry(ctx, c.log, func() error {
-		if err := stream.Send(item); err != nil {
+		if err := stream.Send(&castaipb.KubernetesDeltaBatch{Items: items}); err != nil {
 			if !isRetryableErr(err) {
 				return backoff.Permanent(err)
 			}
-			return fmt.Errorf("sending delta item: %w", err)
+			return fmt.Errorf("sending delta items batch: %w", err)
 		}
 		if _, err := stream.Recv(); err != nil {
 			if !isRetryableErr(err) {
@@ -283,7 +283,7 @@ func (c *Controller) upsertPendingItems(items []deltaItem) {
 	}
 }
 
-func (c *Controller) toCastaiDelta(item deltaItem) *castaipb.KubernetesDeltaItem {
+func (c *Controller) toCastaiDelta(item deltaItem, _ int) *castaipb.KubernetesDeltaItem {
 	obj := item.object
 	objectUID := string(obj.GetUID())
 
@@ -376,6 +376,8 @@ func getObjectSpec(obj kube.Object) ([]byte, error) {
 	case *corev1.Service:
 		return json.Marshal(v.Spec)
 	case *appsv1.Deployment:
+		return json.Marshal(v.Spec)
+	case *appsv1.ReplicaSet:
 		return json.Marshal(v.Spec)
 	case *appsv1.StatefulSet:
 		return json.Marshal(v.Spec)

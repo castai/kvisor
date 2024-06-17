@@ -56,6 +56,22 @@ type MockServer struct {
 	log *logging.Logger
 }
 
+func (m *MockServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			m.log.Warnf("delta recv: %v", err)
+			break
+		}
+		m.log.Debugf("delta_items: %v", event)
+		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
+			m.log.Warnf("delta ack send: %v", err)
+			break
+		}
+	}
+	return nil
+}
+
 func (m *MockServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
 	for {
 		event, err := server.Recv()

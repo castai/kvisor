@@ -25,6 +25,7 @@ type RuntimeSecurityAgentAPIClient interface {
 	NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error)
 	GetSyncState(ctx context.Context, in *GetSyncStateRequest, opts ...grpc.CallOption) (*GetSyncStateResponse, error)
 	UpdateSyncState(ctx context.Context, in *UpdateSyncStateRequest, opts ...grpc.CallOption) (*UpdateSyncStateResponse, error)
+	KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error)
 	KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, error)
 	ImageMetadataIngest(ctx context.Context, in *ImageMetadata, opts ...grpc.CallOption) (*ImageMetadataIngestResponse, error)
 	KubeBenchReportIngest(ctx context.Context, in *KubeBenchReport, opts ...grpc.CallOption) (*KubeBenchReportIngestResponse, error)
@@ -202,8 +203,39 @@ func (c *runtimeSecurityAgentAPIClient) UpdateSyncState(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *runtimeSecurityAgentAPIClient) KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[4], "/runtime.v1.RuntimeSecurityAgentAPI/KubernetesDeltaBatchIngest", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &runtimeSecurityAgentAPIKubernetesDeltaBatchIngestClient{stream}
+	return x, nil
+}
+
+type RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient interface {
+	Send(*KubernetesDeltaBatch) error
+	Recv() (*KubernetesDeltaIngestResponse, error)
+	grpc.ClientStream
+}
+
+type runtimeSecurityAgentAPIKubernetesDeltaBatchIngestClient struct {
+	grpc.ClientStream
+}
+
+func (x *runtimeSecurityAgentAPIKubernetesDeltaBatchIngestClient) Send(m *KubernetesDeltaBatch) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *runtimeSecurityAgentAPIKubernetesDeltaBatchIngestClient) Recv() (*KubernetesDeltaIngestResponse, error) {
+	m := new(KubernetesDeltaIngestResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *runtimeSecurityAgentAPIClient) KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[4], "/runtime.v1.RuntimeSecurityAgentAPI/KubernetesDeltaIngest", opts...)
+	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[5], "/runtime.v1.RuntimeSecurityAgentAPI/KubernetesDeltaIngest", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -271,6 +303,7 @@ type RuntimeSecurityAgentAPIServer interface {
 	NetflowWriteStream(RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error
 	GetSyncState(context.Context, *GetSyncStateRequest) (*GetSyncStateResponse, error)
 	UpdateSyncState(context.Context, *UpdateSyncStateRequest) (*UpdateSyncStateResponse, error)
+	KubernetesDeltaBatchIngest(RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error
 	KubernetesDeltaIngest(RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error
 	ImageMetadataIngest(context.Context, *ImageMetadata) (*ImageMetadataIngestResponse, error)
 	KubeBenchReportIngest(context.Context, *KubeBenchReport) (*KubeBenchReportIngestResponse, error)
@@ -301,6 +334,9 @@ func (UnimplementedRuntimeSecurityAgentAPIServer) GetSyncState(context.Context, 
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) UpdateSyncState(context.Context, *UpdateSyncStateRequest) (*UpdateSyncStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateSyncState not implemented")
+}
+func (UnimplementedRuntimeSecurityAgentAPIServer) KubernetesDeltaBatchIngest(RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
+	return status.Errorf(codes.Unimplemented, "method KubernetesDeltaBatchIngest not implemented")
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) KubernetesDeltaIngest(RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
 	return status.Errorf(codes.Unimplemented, "method KubernetesDeltaIngest not implemented")
@@ -484,6 +520,32 @@ func _RuntimeSecurityAgentAPI_UpdateSyncState_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngest_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RuntimeSecurityAgentAPIServer).KubernetesDeltaBatchIngest(&runtimeSecurityAgentAPIKubernetesDeltaBatchIngestServer{stream})
+}
+
+type RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer interface {
+	Send(*KubernetesDeltaIngestResponse) error
+	Recv() (*KubernetesDeltaBatch, error)
+	grpc.ServerStream
+}
+
+type runtimeSecurityAgentAPIKubernetesDeltaBatchIngestServer struct {
+	grpc.ServerStream
+}
+
+func (x *runtimeSecurityAgentAPIKubernetesDeltaBatchIngestServer) Send(m *KubernetesDeltaIngestResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *runtimeSecurityAgentAPIKubernetesDeltaBatchIngestServer) Recv() (*KubernetesDeltaBatch, error) {
+	m := new(KubernetesDeltaBatch)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _RuntimeSecurityAgentAPI_KubernetesDeltaIngest_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(RuntimeSecurityAgentAPIServer).KubernetesDeltaIngest(&runtimeSecurityAgentAPIKubernetesDeltaIngestServer{stream})
 }
@@ -615,6 +677,12 @@ var RuntimeSecurityAgentAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "NetflowWriteStream",
 			Handler:       _RuntimeSecurityAgentAPI_NetflowWriteStream_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "KubernetesDeltaBatchIngest",
+			Handler:       _RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngest_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
