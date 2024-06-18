@@ -77,13 +77,11 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 // This allows to reduce cardinality but also increases agent memory usage
 // since it need to store temp grouped netflow data.
 func (c *Controller) upsertNetflow(e *types.Event) {
-	now := time.Now()
 	args := e.Args.(types.NetFlowBaseArgs)
 	key := c.netflowKey(e, &args)
 	netflow, found := c.netflows[key]
 	if !found {
 		netflow = &netflowVal{
-			updatedAt:    now,
 			event:        e,
 			destinations: map[uint64]*netflowDest{},
 		}
@@ -127,9 +125,9 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 
 	for key, netflow := range c.netflows {
 		// Flow was exported before and doesn't have new changes. Delete it and continue.
-		if netflow.exportedAt.After(netflow.updatedAt) {
+		if netflow.exportedAt.After(time.UnixMicro(int64(netflow.event.Context.Ts) / 1000)) {
 			delete(c.netflows, key)
-			totalExportFlows++
+			totalExpiredFlows++
 			continue
 		}
 

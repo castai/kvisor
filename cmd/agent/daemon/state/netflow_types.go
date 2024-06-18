@@ -13,7 +13,6 @@ type clusterInfo struct {
 }
 
 type netflowVal struct {
-	updatedAt    time.Time
 	exportedAt   time.Time
 	event        *types.Event
 	destinations map[uint64]*netflowDest

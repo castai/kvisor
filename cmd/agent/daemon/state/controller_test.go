@@ -209,15 +209,19 @@ func TestController(t *testing.T) {
 			// Should delete this entry since it was not updated after export.
 			1: {
 				exportedAt: now,
-				updatedAt:  now.Add(-time.Second),
 				event: &types.Event{
+					Context: &types.EventContext{
+						Ts: uint64(now.Add(-time.Second).UnixNano()),
+					},
 					Args: types.NetFlowBaseArgs{},
 				},
 			},
 			// Should delete empty flow dest.
 			2: {
-				updatedAt: now,
 				event: &types.Event{
+					Context: &types.EventContext{
+						Ts: uint64(now.UnixNano()),
+					},
 					Args: types.NetFlowBaseArgs{},
 				},
 				destinations: map[uint64]*netflowDest{
