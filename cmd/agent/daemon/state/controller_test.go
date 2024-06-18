@@ -200,24 +200,48 @@ func TestController(t *testing.T) {
 		r.Equal(2, int(dest1.rxPackets))
 	})
 
-	//t.Run("netflow cleanup", func(t *testing.T) {
-	//	r := require.New(t)
-	//	ctrl := newTestController()
-	//
-	//	ctrl.netflows = map[uint64]*netflowVal{
-	//		1: {
-	//			updatedAt: time.Now(),
-	//		},
-	//		2: {
-	//			updatedAt: time.Now().Add(-time.Hour),
-	//		},
-	//	}
-	//
-	//	ctrl.cfg.NetflowExportInterval = 1 * time.Minute
-	//	ctrl.cleanupNetflow()
-	//	// Should keep recent flows.
-	//	r.Equal([]uint64{1}, lo.Keys(ctrl.netflows))
-	//})
+	t.Run("netflow cleanup", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := newTestController()
+
+		now := time.Now()
+		ctrl.netflows = map[uint64]*netflowVal{
+			// Should delete this entry since it was not updated after export.
+			1: {
+				exportedAt: now,
+				updatedAt:  now.Add(-time.Second),
+				event: &types.Event{
+					Args: types.NetFlowBaseArgs{},
+				},
+			},
+			// Should delete empty flow dest.
+			2: {
+				updatedAt: now,
+				event: &types.Event{
+					Args: types.NetFlowBaseArgs{},
+				},
+				destinations: map[uint64]*netflowDest{
+					1: {
+						txBytes:   0,
+						rxBytes:   0,
+						txPackets: 0,
+						rxPackets: 0,
+					},
+					2: {
+						txBytes:   0,
+						rxBytes:   0,
+						txPackets: 0,
+						rxPackets: 0,
+					},
+				},
+			},
+		}
+
+		ctrl.enqueueNetflowExport(time.Now().UTC())
+		// Should keep recent flows.
+		r.Equal([]uint64{2}, lo.Keys(ctrl.netflows))
+		r.Len(ctrl.netflows[2].destinations, 0)
+	})
 }
 
 func newTestController() *Controller {

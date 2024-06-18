@@ -107,6 +107,11 @@ func (c *Controller) upsertNetflow(e *types.Event) {
 }
 
 func (c *Controller) enqueueNetflowExport(now time.Time) {
+	start := time.Now()
+	defer func() {
+		c.log.Debugf("enqueued netflow export, took %v", time.Since(start))
+	}()
+
 	for key, netflow := range c.netflows {
 		// Flow was exported before and doesn't have new changes. Delete it and continue.
 		if netflow.exportedAt.After(netflow.updatedAt) {
@@ -115,7 +120,8 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 		}
 
 		args := netflow.event.Args.(types.NetFlowBaseArgs)
-		pbNetFlow := c.toProtoNetflow(netflow.event, &args)
+
+		// Filter only active destinations.
 		var activeNetflowDests []*netflowDest
 		for destKey, dest := range netflow.destinations {
 			if dest.empty() {
@@ -125,6 +131,11 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 			}
 			activeNetflowDests = append(activeNetflowDests, dest)
 		}
+		if len(activeNetflowDests) == 0 {
+			return
+		}
+
+		pbNetFlow := c.toProtoNetflow(netflow.event, &args)
 		pbNetFlow.Destinations = make([]*castpb.NetflowDestination, 0, len(activeNetflowDests))
 		for _, dest := range activeNetflowDests {
 			flowDest := c.toProtoNetflowDest(
@@ -146,7 +157,7 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 		netflow.exportedAt = now
 
 		// Reset flow stats after export.
-		for _, flowDest := range netflow.destinations {
+		for _, flowDest := range activeNetflowDests {
 			flowDest.txBytes = 0
 			flowDest.rxBytes = 0
 			flowDest.txPackets = 0
@@ -182,8 +193,8 @@ func (c *Controller) netflowDestKey(args *types.NetFlowBaseArgs) uint64 {
 	c.netflowDestKeyHash.Reset()
 
 	// Destination addr+port.
-	srcBytes, _ := args.Tuple.Dst.MarshalBinary()
-	_, _ = c.netflowKeyHash.Write(srcBytes)
+	dstBytes, _ := args.Tuple.Dst.MarshalBinary()
+	_, _ = c.netflowKeyHash.Write(dstBytes)
 
 	return c.netflowKeyHash.Sum64()
 }
