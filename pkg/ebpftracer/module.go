@@ -85,7 +85,7 @@ func (m *module) load(cfg Config) error {
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
 			LogLevel:    0,
-			LogSize:     200_000_000,
+			LogSize:     ebpf.DefaultVerifierLogSize,
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
 		},
@@ -93,7 +93,7 @@ func (m *module) load(cfg Config) error {
 	}); err != nil {
 		return err
 	}
-
+	
 	m.objects = &objs
 
 	// TODO(Kvisord): Mount cgroupv2 if not mounted.
