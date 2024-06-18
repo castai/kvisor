@@ -108,8 +108,12 @@ func (c *Controller) upsertNetflow(e *types.Event) {
 
 func (c *Controller) enqueueNetflowExport(now time.Time) {
 	start := time.Now()
+	var (
+		totalFlows int
+		totalDst   int
+	)
 	defer func() {
-		c.log.Debugf("enqueued netflow export, took %v", time.Since(start))
+		c.log.Debugf("enqueued netflow export, flows=%d, destinations=%d, dur=%v", totalFlows, totalDst, time.Since(start))
 	}()
 
 	for key, netflow := range c.netflows {
@@ -149,6 +153,8 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 			)
 			pbNetFlow.Destinations = append(pbNetFlow.Destinations, flowDest)
 		}
+		totalDst += len(activeNetflowDests)
+		totalFlows += 1
 
 		// Enqueue to exporters.
 		for _, exp := range c.exporters.Netflow {
