@@ -109,17 +109,27 @@ func (c *Controller) upsertNetflow(e *types.Event) {
 func (c *Controller) enqueueNetflowExport(now time.Time) {
 	start := time.Now()
 	var (
-		totalFlows int
-		totalDst   int
+		totalExportFlows  int
+		totalExportDst    int
+		totalExpiredFlows int
+		totalExpiredDst   int
 	)
 	defer func() {
-		c.log.Debugf("enqueued netflow export, flows=%d, destinations=%d, dur=%v", totalFlows, totalDst, time.Since(start))
+		c.log.Debugf(
+			"enqueued netflow export, flows=%d, flows_dst=%d, expired_flows=%d, expired_flows_dst=%d, dur=%v",
+			totalExportFlows,
+			totalExportDst,
+			totalExpiredFlows,
+			totalExpiredDst,
+			time.Since(start),
+		)
 	}()
 
 	for key, netflow := range c.netflows {
 		// Flow was exported before and doesn't have new changes. Delete it and continue.
 		if netflow.exportedAt.After(netflow.updatedAt) {
 			delete(c.netflows, key)
+			totalExportFlows++
 			continue
 		}
 
@@ -131,6 +141,7 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 			if dest.empty() {
 				// No new data of flow dest. It's not active.
 				delete(netflow.destinations, destKey)
+				totalExpiredDst++
 				continue
 			}
 			activeNetflowDests = append(activeNetflowDests, dest)
@@ -153,8 +164,8 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 			)
 			pbNetFlow.Destinations = append(pbNetFlow.Destinations, flowDest)
 		}
-		totalDst += len(activeNetflowDests)
-		totalFlows += 1
+		totalExportDst += len(activeNetflowDests)
+		totalExportFlows += 1
 
 		// Enqueue to exporters.
 		for _, exp := range c.exporters.Netflow {
