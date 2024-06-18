@@ -76,7 +76,9 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx)
         return 0;
     }
     // Update containers syscall stats.
-    update_syscall_stats(ctx, cgroup_id, id);
+    if (global_config.track_syscall_stats) {
+        update_syscall_stats(ctx, cgroup_id, id);
+    }
 
     // Continue to tail calls.
     bpf_tail_call(ctx, &sys_enter_init_tail, id);

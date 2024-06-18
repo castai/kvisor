@@ -16,6 +16,8 @@ type tracerGlobalConfigT struct {
 	PidNsId                         uint64
 	FlowSampleSubmitIntervalSeconds uint64
 	FlowGrouping                    uint64
+	TrackSyscallStats               bool
+	_                               [7]byte
 }
 
 // loadTracer returns the embedded CollectionSpec for tracer.

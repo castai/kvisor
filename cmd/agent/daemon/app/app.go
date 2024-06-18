@@ -291,6 +291,7 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		SignatureEngine:                    signatureEngine,
+		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -338,6 +339,18 @@ func (a *App) Run(ctx context.Context) error {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 			ID: events.NetFlowBase,
 		})
+
+		// If ebpf events exporters are not enabled but flows collection enabled
+		// we still need dns events to enrich dns question.
+		if len(exporters.Events) == 0 {
+			policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+				ID: events.NetPacketDNSBase,
+				FilterGenerator: ebpftracer.FilterAnd(
+					ebpftracer.FilterEmptyDnsAnswers(log),
+					ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
+				),
+			})
+		}
 	}
 	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
 	if err := tracer.ApplyPolicy(policy); err != nil {

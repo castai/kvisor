@@ -49,7 +49,6 @@ type Config struct {
 	BTFPath                string
 	EventsPerCPUBuffer     int
 	EventsOutputChanSize   int
-	GCInterval             time.Duration
 	DefaultCgroupsVersion  string `validate:"required,oneof=V1 V2"`
 	DebugEnabled           bool
 	ContainerClient        ContainerClient
@@ -62,6 +61,7 @@ type Config struct {
 	NetflowOutputChanSize              int
 	NetflowSampleSubmitIntervalSeconds uint64
 	NetflowGrouping                    NetflowGrouping
+	TrackSyscallStats                  bool
 }
 
 type cgroupCleanupRequest struct {
@@ -114,9 +114,6 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	}
 	if cfg.EventsOutputChanSize == 0 {
 		cfg.EventsOutputChanSize = 16384
-	}
-	if cfg.GCInterval == 0 {
-		cfg.GCInterval = 15 * time.Second
 	}
 
 	var ts unix.Timespec
