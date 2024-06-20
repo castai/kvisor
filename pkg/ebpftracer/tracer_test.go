@@ -3,10 +3,12 @@ package ebpftracer_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +22,8 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -105,6 +109,7 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			{ID: events.NetFlowBase},
+			{ID: events.NetPacketTCPBase},
 			//{ID: events.SchedProcessExec},
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.SockSetState},
@@ -138,7 +143,8 @@ func TestTracer(t *testing.T) {
 	}
 }
 
-// NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
+// Start server: nc -lk 8000
+// Send data: NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
 func TestGenerateConn(t *testing.T) {
 	addr := os.Getenv("NC_ADDR")
 	if addr == "" {
@@ -195,20 +201,60 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 	return mountNamespacePIDStore
 }
 
+var ingoredProcesses = map[string]struct{}{
+	"sshd": {},
+}
+
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	eventName := tr.GetEventName(e.Context.EventID)
 	procName := string(bytes.TrimRight(e.Context.Comm[:], "\x00"))
+	if _, ignored := ingoredProcesses[procName]; ignored {
+		return
+	}
+
 	fmt.Printf(
-		"ts=%d cgroup=%d, pid=%d, proc=%s, event=%s, args=%+v",
+		"ts=%d  event=%s cgroup=%d pid=%d proc=%s ",
 		e.Context.Ts,
+		eventName,
 		e.Context.CgroupID,
 		e.Context.HostPid,
 		procName,
-		eventName,
-		e.Args,
 	)
-	if e.Context.EventID == events.NetFlowBase {
-		fmt.Printf(" ret=%d direction=%s, type=%s, initiator=%v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator())
+
+	switch e.Context.EventID {
+	case events.NetFlowBase:
+		fmt.Printf("ret=%d direction=%s type=%s initiator=%v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator())
+	case events.NetPacketTCPBase:
+		pkt, err := createPacket(e.Args.(types.NetPacketTCPBaseArgs).Payload)
+		if err != nil {
+			panic(err)
+		}
+		l3, err := getLayer3FromPacket(pkt)
+		if err != nil {
+			fmt.Printf("err=%v\n", err)
+			return
+		}
+		l4, err := getLayer4TCPFromPacket(pkt)
+		if err != nil {
+			fmt.Printf("err=%v\n", err)
+			return
+		}
+		var flags []string
+		if l4.SYN {
+			flags = append(flags, "SYN")
+		}
+		if l4.ACK {
+			flags = append(flags, "ACK")
+		}
+		if l4.RST {
+			flags = append(flags, "RST")
+		}
+		if l4.FIN {
+			flags = append(flags, "FIN")
+		}
+		fmt.Printf("direction=%s src=%s:%d dst=%s:%d, flags=%s", e.Context.GetFlowDirection(), l3.SrcIP.String(), l4.SrcPort, l3.DstIP.String(), l4.DstPort, strings.Join(flags, "|"))
+	default:
+		fmt.Printf("args=%+v", e.Args)
 	}
 	fmt.Print("\n")
 }
@@ -227,4 +273,51 @@ func printSyscallStatsLoop(ctx context.Context, tr *ebpftracer.Tracer, log *logg
 			spew.Dump(stats)
 		}
 	}
+}
+
+func createPacket(payload []byte) (gopacket.Packet, error) {
+	packet := gopacket.NewPacket(
+		payload,
+		layers.LayerTypeIPv4,
+		gopacket.Default,
+	)
+	if packet == nil {
+		return nil, errors.New("invalid packet")
+	}
+	return packet, nil
+}
+
+func getLayer3FromPacket(packet gopacket.Packet) (*layers.IPv4, error) {
+	layer3 := packet.NetworkLayer()
+	switch layer3.(type) {
+	case (*layers.IPv4):
+		return layer3.(*layers.IPv4), nil
+	case (*layers.IPv6):
+	default:
+		return nil, fmt.Errorf("wrong layer 3 protocol type %T", layer3)
+	}
+	return nil, fmt.Errorf("todo: ipv6")
+}
+
+func getLayer4FromPacket(packet gopacket.Packet) (gopacket.TransportLayer, error) {
+	layer4 := packet.TransportLayer()
+	switch layer4.(type) {
+	case (*layers.TCP):
+	case (*layers.UDP):
+	default:
+		return nil, fmt.Errorf("wrong layer 4 protocol type %T", layer4)
+	}
+	return layer4, nil
+}
+
+func getLayer4TCPFromPacket(packet gopacket.Packet) (*layers.TCP, error) {
+	layer4, err := getLayer4FromPacket(packet)
+	if err != nil {
+		return nil, err
+	}
+	tcp, ok := layer4.(*layers.TCP)
+	if !ok {
+		return nil, fmt.Errorf("wrong layer 4 protocol type %T", layer4)
+	}
+	return tcp, nil
 }
