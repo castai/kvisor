@@ -109,7 +109,7 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			{ID: events.NetFlowBase},
-			{ID: events.NetPacketTCPBase},
+			//{ID: events.NetPacketTCPBase},
 			//{ID: events.SchedProcessExec},
 			//{ID: events.SecuritySocketConnect},
 			//{ID: events.SockSetState},
@@ -202,7 +202,9 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 }
 
 var ingoredProcesses = map[string]struct{}{
-	"sshd": {},
+	"sshd":    {},
+	"coredns": {},
+	"kubelet": {},
 }
 
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
@@ -223,7 +225,7 @@ func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 
 	switch e.Context.EventID {
 	case events.NetFlowBase:
-		fmt.Printf("ret=%d direction=%s type=%s initiator=%v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator())
+		fmt.Printf("ret=%d direction=%s type=%s initiator=%v args=%+v", e.Context.Retval, e.Context.GetFlowDirection(), e.Context.GetNetflowType(), e.Context.IsSourceInitiator(), e.Args)
 	case events.NetPacketTCPBase:
 		pkt, err := createPacket(e.Args.(types.NetPacketTCPBaseArgs).Payload)
 		if err != nil {

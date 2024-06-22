@@ -284,26 +284,12 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 	return ipInfo, true
 }
 
-func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
-	pod, found := c.podCache.Get(podID)
-	if !found {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		resp, err := c.kubeClient.GetPod(ctx, &kubepb.GetPodRequest{Uid: podID})
-		if err != nil {
-			return nil, false
-		}
-		pod = resp.Pod
-		c.podCache.Add(podID, pod)
-	}
-	return pod, true
-}
-
 func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, bool) {
-	realDst, found := c.ctCache.Get(src)
+	tpl := types.AddrTuple{Src: src, Dst: dst}
+	realDst, found := c.conntrackCache.Get(tpl)
 	if !found {
 		if realDst, found := c.ct.GetDestination(src, dst); found {
-			c.ctCache.Add(src, realDst)
+			c.conntrackCache.AddWithLifetime(tpl, realDst, 30*time.Second)
 			return realDst, true
 		}
 		return netip.AddrPort{}, false

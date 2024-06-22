@@ -15,14 +15,13 @@ func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	dec := decoder.NewEventDecoder(logging.NewTestLog(), []byte{})
-
 	for _, f := range files {
 		b.Run(f.Name(), func(b *testing.B) {
 			data, err := os.ReadFile("./sample_events/" + f.Name())
 			if err != nil {
 				b.Fatal(err)
 			}
+			dec := decoder.NewEventDecoder(logging.NewTestLog(), []byte{})
 
 			tracer := buildTestTracer()
 

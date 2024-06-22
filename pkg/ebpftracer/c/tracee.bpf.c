@@ -5454,78 +5454,33 @@ statfunc u32 submit_netflow_event(struct __sk_buff *ctx, net_event_context_t *ne
 
 statfunc u32 cgroup_skb_handle_flow(struct __sk_buff *skb,
                                     net_event_context_t *neteventctx,
-                                    u32 event_type, u32 flow)
+                                    u32 event_type, u32 flow_type)
 {
     // Set the current netctx task as the flow task.
     neteventctx->md.flow.host_pid = neteventctx->eventctx.task.host_pid;
 
     // Set the flow event type in retval.
-    neteventctx->eventctx.retval |= flow;
-
-    // Drop high port. This is best effort and may not work in all cases.
-//    if ((global_config.flow_grouping & FLOW_GROUPING_DROP_SRC_PORT) != 0) {
-//        if (neteventctx->md.flow.tuple.sport > neteventctx->md.flow.tuple.dport) {
-//            neteventctx->md.flow.tuple.sport = 0;
-//        } else {
-//            neteventctx->md.flow.tuple.dport = 0;
-//        }
-//    }
+    neteventctx->eventctx.retval |= flow_type;
 
     u16 sport = neteventctx->md.flow.tuple.sport;
     u16 dport = neteventctx->md.flow.tuple.dport;
-    u32 pid = neteventctx->md.flow.host_pid;
 
-    if (flow == flow_tcp_begin) {
-        if (retval_hasflag(packet_ingress)) {
-            bpf_printk("[S.] ingress sport=%d dport=%d\n", sport, dport);
-        } else {
-            bpf_printk("[D.] egress sport=%d dport=%d\n", sport, dport);
-        }
-    }
-    if (flow == flow_tcp_end) {
-        if (retval_hasflag(packet_ingress)) {
-            bpf_printk("[F] ingress sport=%d dport=%d\n", sport, dport);
-        } else {
-            bpf_printk("[F] egress sport=%d dport=%d\n", sport, dport);
-        }
-    }
-
-    if (flow == flow_tcp_begin) {
-        // Ingress: Remote (src) is sending SYN+ACK: this host (dst) is the initiator.
-//        if (retval_hasflag(packet_ingress))
-//            netflowvalue.direction = flow_outgoing;
-//
-//        // Egress: Host (src) is sending SYN+ACK: remote (dst) host is the initiator.
-//        if (retval_hasflag(packet_egress))
-//            netflowvalue.direction = flow_incoming;
-
+    if (flow_type == flow_tcp_begin) {
+        // Always invert flow during TCP to have source as connection initiator.
         neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
-        if ((global_config.flow_grouping & FLOW_GROUPING_DROP_SRC_PORT) != 0) {
-            neteventctx->md.flow.tuple.sport = 0;
-        }
-    } else {
-        if ((global_config.flow_grouping & FLOW_GROUPING_DROP_SRC_PORT) != 0) {
-            neteventctx->md.flow.tuple.sport = 0;
-        }
+    }
+
+    bool drop_src_port = (global_config.flow_grouping & FLOW_GROUPING_DROP_SRC_PORT) != 0;
+    if (drop_src_port) {
+        neteventctx->md.flow.tuple.sport = 0;
     }
 
     netflowvalue_t *value = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
     if (!value) {
-        if (flow != flow_tcp_begin) {
-            neteventctx->md.flow.tuple.sport = sport;
-            neteventctx->md.flow.tuple.dport = 0;
-            //neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
-            value = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
-            if (!value) {
-                neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
-                value = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
-            }
-        }
-        if (!value) {
-            // Only new connections should add flows.
-            if (flow != flow_tcp_begin) {
-                return 0;
-            }
+        // Only new connections should add flows.
+        // TODO: Since only new conns tracks flows this can be problematic.
+        // We may need to track flows from samples too next.
+        if (flow_type == flow_tcp_begin) {
             netflowvalue_t new_val = {
                 .last_update = bpf_ktime_get_ns(),
                 .active = 1,
@@ -5536,11 +5491,21 @@ statfunc u32 cgroup_skb_handle_flow(struct __sk_buff *skb,
             reset_flow_stats(&new_val);
             return 0;
         }
+
+        if (drop_src_port) {
+            neteventctx->md.flow.tuple.sport = sport;
+            neteventctx->md.flow.tuple.dport = 0;
+        }
+        neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
+        value = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
+        if (!value) {
+            return 0;
+        }
     }
 
     update_flow_stats(value, skb->len, retval_hasflag(packet_ingress));
 
-    switch (flow) {
+    switch (flow_type) {
         case flow_tcp_begin:
         {
             __sync_fetch_and_add(&value->active, 1);
@@ -5562,8 +5527,6 @@ statfunc u32 cgroup_skb_handle_flow(struct __sk_buff *skb,
             u64 active = __sync_fetch_and_sub(&value->active, 1) -1;
             if (active <= 0) {
                 submit_netflow_event(skb, neteventctx, value);
-                bpf_map_delete_elem(&netflowmap, &neteventctx->md.flow);
-                neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
                 bpf_map_delete_elem(&netflowmap, &neteventctx->md.flow);
             }
             return 0;
