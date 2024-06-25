@@ -98,21 +98,27 @@ func TestController(t *testing.T) {
 		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
 		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
 
-		ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- &types.Event{
-			Context: &types.EventContext{Ts: 1},
-			Container: &containers.Container{
-				PodName: "p1",
-			},
-			Args: types.NetFlowBaseArgs{
-				Proto: 6,
-				Tuple: types.AddrTuple{
-					Src: netip.MustParseAddrPort("10.10.0.10:34561"),
-					Dst: netip.MustParseAddrPort("10.10.0.15:80"),
-				},
-				TxBytes:   10,
-				TxPackets: 5,
-			},
-		}
+		go func() {
+			for {
+				time.Sleep(time.Millisecond)
+				e := &types.Event{
+					Context: &types.EventContext{Ts: uint64(time.Now().UTC().UnixNano())},
+					Container: &containers.Container{
+						PodName: "p1",
+					},
+					Args: types.NetFlowBaseArgs{
+						Proto: 6,
+						Tuple: types.AddrTuple{
+							Src: netip.MustParseAddrPort("10.10.0.10:34561"),
+							Dst: netip.MustParseAddrPort("10.10.0.15:80"),
+						},
+						TxBytes:   10,
+						TxPackets: 5,
+					},
+				}
+				ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- e
+			}
+		}()
 
 		ctrlerr := make(chan error, 1)
 		go func() {
@@ -128,61 +134,8 @@ func TestController(t *testing.T) {
 			dest := e.Destinations[0]
 			r.Equal(netip.MustParseAddr("10.10.0.15").AsSlice(), dest.Addr)
 			r.Equal(80, int(dest.Port))
-			r.Equal(10, int(dest.TxBytes))
-			r.Equal(5, int(dest.TxPackets))
-		case err := <-ctrlerr:
-			t.Fatal(err)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for data")
-		}
-	})
-
-	t.Run("netflow pipeline with grouping", func(t *testing.T) {
-		r := require.New(t)
-		ctrl := newTestController()
-		ctrl.cfg.NetflowGrouping = NetflowGroupingSrcAddr | NetflowGroupingDstAddr
-		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
-		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
-
-		e := &types.Event{
-			Context: &types.EventContext{Ts: 1},
-			Container: &containers.Container{
-				PodName: "p1",
-			},
-			Args: types.NetFlowBaseArgs{
-				Proto: 6,
-				Tuple: types.AddrTuple{
-					Src: netip.MustParseAddrPort("10.10.0.10:34561"),
-					Dst: netip.MustParseAddrPort("10.10.0.15:80"),
-				},
-				TxBytes:   10,
-				TxPackets: 5,
-			},
-		}
-
-		go func() {
-			for {
-				ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- e
-				time.Sleep(time.Millisecond)
-			}
-		}()
-
-		ctrlerr := make(chan error, 1)
-		go func() {
-			ctrlerr <- ctrl.Run(ctx)
-		}()
-
-		select {
-		case e := <-exporter.events:
-			r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
-			r.Equal(netip.MustParseAddr("10.10.0.10").AsSlice(), e.Addr)
-			r.Equal(0, int(e.Port))
-			r.Len(e.Destinations, 1)
-			dest := e.Destinations[0]
-			r.Equal(netip.MustParseAddr("10.10.0.15").AsSlice(), dest.Addr)
-			r.Equal(0, int(dest.Port))
-			r.NotEmpty(int(dest.TxBytes))
-			r.NotEmpty(int(dest.TxPackets))
+			r.GreaterOrEqual(int(dest.TxBytes), 10)
+			r.GreaterOrEqual(int(dest.TxPackets), 5)
 		case err := <-ctrlerr:
 			t.Fatal(err)
 		case <-time.After(time.Second):
@@ -195,7 +148,6 @@ func TestController(t *testing.T) {
 		ctrl := newTestController()
 		ctrl.cfg.NetflowExportInterval = time.Hour
 		ctrl.clusterInfo = &clusterInfo{}
-		ctrl.cfg.NetflowGrouping = NetflowGroupingSrcAddr | NetflowGroupingDstAddr
 
 		ctrl.upsertNetflow(&types.Event{
 			Container: &containers.Container{},
@@ -252,19 +204,47 @@ func TestController(t *testing.T) {
 		r := require.New(t)
 		ctrl := newTestController()
 
+		now := time.Now()
 		ctrl.netflows = map[uint64]*netflowVal{
+			// Should delete this entry since it was not updated after export.
 			1: {
-				updatedAt: time.Now(),
+				exportedAt: now,
+				event: &types.Event{
+					Context: &types.EventContext{
+						Ts: uint64(now.Add(-time.Second).UnixNano()),
+					},
+					Args: types.NetFlowBaseArgs{},
+				},
 			},
+			// Should delete empty flow dest.
 			2: {
-				updatedAt: time.Now().Add(-time.Hour),
+				event: &types.Event{
+					Context: &types.EventContext{
+						Ts: uint64(now.UnixNano()),
+					},
+					Args: types.NetFlowBaseArgs{},
+				},
+				destinations: map[uint64]*netflowDest{
+					1: {
+						txBytes:   0,
+						rxBytes:   0,
+						txPackets: 0,
+						rxPackets: 0,
+					},
+					2: {
+						txBytes:   0,
+						rxBytes:   0,
+						txPackets: 0,
+						rxPackets: 0,
+					},
+				},
 			},
 		}
 
-		ctrl.cfg.NetflowExportInterval = 1 * time.Minute
-		ctrl.cleanupNetflow()
+		ctrl.enqueueNetflowExport(time.Now().UTC())
 		// Should keep recent flows.
-		r.Equal([]uint64{1}, lo.Keys(ctrl.netflows))
+		r.Equal([]uint64{2}, lo.Keys(ctrl.netflows))
+		r.Len(ctrl.netflows[2].destinations, 0)
 	})
 }
 
@@ -273,7 +253,6 @@ func newTestController() *Controller {
 	cfg := Config{
 		ContainerStatsScrapeInterval: time.Millisecond,
 		NetflowExportInterval:        time.Millisecond,
-		NetflowCleanupInterval:       5 * time.Millisecond,
 	}
 	exporters := NewExporters(log)
 	contClient := &mockContainersClient{}

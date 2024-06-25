@@ -4,6 +4,9 @@ import (
 	"context"
 	"os"
 	"testing"
+
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
+	"github.com/castai/kvisor/pkg/logging"
 )
 
 func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
@@ -18,6 +21,7 @@ func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+			dec := decoder.NewEventDecoder(logging.NewTestLog(), []byte{})
 
 			tracer := buildTestTracer()
 
@@ -25,7 +29,8 @@ func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				err := tracer.decodeAndExportEvent(context.TODO(), data)
+				dec.Reset(data)
+				err := tracer.decodeAndExportEvent(context.TODO(), dec)
 				if err != nil {
 					b.Fatal(err)
 				}

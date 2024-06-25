@@ -54,10 +54,13 @@ enum buf_idx_e
 
 // clang-format on
 
+#define FLOW_GROUPING_DROP_SRC_PORT (1 << 0)
+
 typedef struct {
-    // id of the pid namespace the node host PID will be translated to
-    u64 pid_ns_id;
+    u64 pid_ns_id; // id of the pid namespace the node host PID will be translated to.
     u64 flow_sample_submit_interval_seconds;
+    u64 flow_grouping;
+    bool track_syscall_stats;
 } global_config_t;
 
 volatile const global_config_t global_config;

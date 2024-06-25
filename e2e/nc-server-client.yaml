@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nc-server
+  labels:
+    app: nc-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nc-server
+  template:
+    metadata:
+      labels:
+        app: nc-server
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: server
+          image: busybox
+          command:
+            - nc
+            - -lk
+            - -p
+            - "8000"
+          ports:
+            - containerPort: 8000
+              name: server
+      terminationGracePeriodSeconds: 0
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nc-server
+spec:
+  selector:
+    app: nc-server
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: server
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nc-client
+  labels:
+    app: nc-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nc-client
+  template:
+    metadata:
+      labels:
+        app: nc-client
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: client
+          image: busybox
+          command:
+            - sleep
+            - infinity
+      terminationGracePeriodSeconds: 0

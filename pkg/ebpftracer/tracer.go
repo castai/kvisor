@@ -13,6 +13,7 @@ import (
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -48,7 +49,6 @@ type Config struct {
 	BTFPath                string
 	EventsPerCPUBuffer     int
 	EventsOutputChanSize   int
-	GCInterval             time.Duration
 	DefaultCgroupsVersion  string `validate:"required,oneof=V1 V2"`
 	DebugEnabled           bool
 	ContainerClient        ContainerClient
@@ -60,6 +60,8 @@ type Config struct {
 	AllowAnyEvent                      bool
 	NetflowOutputChanSize              int
 	NetflowSampleSubmitIntervalSeconds uint64
+	NetflowGrouping                    NetflowGrouping
+	TrackSyscallStats                  bool
 }
 
 type cgroupCleanupRequest struct {
@@ -113,9 +115,6 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	if cfg.EventsOutputChanSize == 0 {
 		cfg.EventsOutputChanSize = 16384
 	}
-	if cfg.GCInterval == 0 {
-		cfg.GCInterval = 15 * time.Second
-	}
 
 	var ts unix.Timespec
 	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
@@ -144,7 +143,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 }
 
 func (t *Tracer) Load() error {
-	if err := t.module.load(t.cfg.HomePIDNS, t.cfg.NetflowSampleSubmitIntervalSeconds); err != nil {
+	if err := t.module.load(t.cfg); err != nil {
 		return fmt.Errorf("loading ebpf module: %w", err)
 	}
 	t.eventsSet = newEventsDefinitionSet(t.module.objects)
@@ -240,6 +239,11 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 	}
 	defer eventsReader.Close()
 
+	// Allocate message decoder and perf record once.
+	// Under the hood per event reader will reuse and grow raw sample backing bytes slice.
+	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, []byte{})
+	var record perf.Record
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -247,13 +251,14 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 		default:
 		}
 
-		record, err := eventsReader.Read()
+		err := eventsReader.ReadInto(&record)
 		if err != nil {
 			if t.cfg.DebugEnabled {
 				t.log.Warnf("reading event: %v", err)
 			}
 			continue
 		}
+		metrics.AgentPulledEventsBytesTotal.Add(float64(len(record.RawSample)))
 		if record.LostSamples > 0 {
 			t.log.Warnf("lost %d events", record.LostSamples)
 			metrics.AgentKernelLostEventsTotal.Add(float64(record.LostSamples))
@@ -261,7 +266,9 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 		}
 		metrics.AgentPulledEventsTotal.Inc()
 
-		if err := t.decodeAndExportEvent(ctx, record.RawSample); err != nil {
+		// Reset decoder with new raw sample bytes.
+		ebpfMsgDecoder.Reset(record.RawSample)
+		if err := t.decodeAndExportEvent(ctx, ebpfMsgDecoder); err != nil {
 			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
 				t.log.Errorf("decoding event: %v", err)
 			}

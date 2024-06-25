@@ -123,6 +123,7 @@ type NetflowConfig struct {
 	Enabled                     bool
 	SampleSubmitIntervalSeconds uint64
 	OutputChanSize              int
+	Grouping                    ebpftracer.NetflowGrouping
 }
 
 type ClickhouseConfig struct {
@@ -284,11 +285,13 @@ func (a *App) Run(ctx context.Context) error {
 		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
 		ContainerClient:                    containersClient,
 		CgroupClient:                       cgroupClient,
+		SignatureEngine:                    signatureEngine,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
 		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
-		SignatureEngine:                    signatureEngine,
+		NetflowGrouping:                    a.cfg.Netflow.Grouping,
+		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -303,6 +306,14 @@ func (a *App) Run(ctx context.Context) error {
 		Events: []*ebpftracer.EventPolicy{},
 	}
 
+	dnsEventPolicy := &ebpftracer.EventPolicy{
+		ID: events.NetPacketDNSBase,
+		FilterGenerator: ebpftracer.FilterAnd(
+			ebpftracer.FilterEmptyDnsAnswers(log),
+			ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
+		),
+	}
+
 	if len(exporters.Events) > 0 {
 		policy.SignatureEvents = signatureEngine.TargetEvents()
 		policy.Events = append(policy.Events, []*ebpftracer.EventPolicy{
@@ -314,13 +325,7 @@ func (a *App) Run(ctx context.Context) error {
 					Burst: 1,
 				}),
 			},
-			{
-				ID: events.NetPacketDNSBase,
-				FilterGenerator: ebpftracer.FilterAnd(
-					ebpftracer.FilterEmptyDnsAnswers(log),
-					ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
-				),
-			},
+			dnsEventPolicy,
 			{ID: events.TrackSyscallStats},
 			{
 				ID: events.FileModification,
@@ -336,6 +341,12 @@ func (a *App) Run(ctx context.Context) error {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 			ID: events.NetFlowBase,
 		})
+
+		// If ebpf events exporters are not enabled but flows collection enabled
+		// we still need dns events to enrich dns question.
+		if len(exporters.Events) == 0 {
+			policy.Events = append(policy.Events, dnsEventPolicy)
+		}
 	}
 	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
 	if err := tracer.ApplyPolicy(policy); err != nil {

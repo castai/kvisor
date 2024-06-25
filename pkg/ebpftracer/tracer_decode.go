@@ -66,9 +66,7 @@ func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr err
 	return nil
 }
 
-func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr error) {
-	metrics.AgentPulledEventsBytesTotal.Add(float64(len(data)))
-
+func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decoder.Decoder) (rerr error) {
 	defer func() {
 		if perr := recover(); perr != nil {
 			stack := string(debug.Stack())
@@ -76,12 +74,10 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, data []byte) (rerr er
 		}
 	}()
 
-	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data)
 	var eventCtx types.EventContext
 	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
 		return err
 	}
-
 	eventId := eventCtx.EventID
 	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
 	if err != nil {

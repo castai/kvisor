@@ -12,6 +12,12 @@ data:
             <level>information</level>
             <console>1</console>
         </logger>
+        <profiles>
+            <default>
+                <async_insert_max_data_size>10000000</async_insert_max_data_size>
+                <async_insert_busy_timeout_ms>5000</async_insert_busy_timeout_ms>
+            </default>
+        </profiles>
     </clickhouse>
 
 {{- end }}

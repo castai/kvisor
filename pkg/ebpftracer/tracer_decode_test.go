@@ -7,8 +7,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -122,7 +124,8 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 				applyTestPolicy(tracer, tc.policy)
 			}
 
-			err := tracer.decodeAndExportEvent(context.TODO(), data)
+			dec := decoder.NewEventDecoder(logging.NewTestLog(), data)
+			err := tracer.decodeAndExportEvent(context.TODO(), dec)
 			require.NoError(t, err)
 
 			if tc.resultEmpty {

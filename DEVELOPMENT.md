@@ -292,3 +292,44 @@ group by period,
          dst_zone
 order by period;
 ```
+
+#### Generating connections
+
+Start server
+```
+docker run -it --rm -p 8000:8000 busybox nc -lk -p 8000
+```
+
+Send messages
+
+```
+for i in {1..50}; do echo "hello$i" | nc -q 0 localhost 8000 & done
+```
+
+Or send messages from single process
+```
+cd ./pkg/ebpftracer
+NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
+```
+
+## Troubleshooting packets
+
+### PWRU
+Install pwru
+```
+wget https://github.com/cilium/pwru/releases/download/v1.0.6/pwru-linux-amd64.tar.gz && \
+tar -xzvf pwru-linux-amd64.tar.gz && \
+mv pwru /usr/bin/ && \
+rm pwru-linux-amd64.tar.gz
+```
+
+Or with docker
+```
+docker run --privileged --rm -t --pid=host -v /sys/kernel/debug/:/sys/kernel/debug/ cilium/pwru pwru --output-tuple 'host 1.1.1.1'
+```
+
+### Tracee
+
+```
+docker run --name tracee -it --rm   --pid=host --cgroupns=host --privileged   -v /etc/os-release:/etc/os-release-host:ro   -v /var/run:/var/run:ro   aquasec/tracee:latest --events net_packet_tcp
+```

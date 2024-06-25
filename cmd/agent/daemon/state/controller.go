@@ -25,9 +25,7 @@ import (
 type Config struct {
 	ContainerStatsScrapeInterval time.Duration
 
-	NetflowExportInterval  time.Duration `validate:"required"`
-	NetflowCleanupInterval time.Duration `validate:"required"`
-	NetflowGrouping        NetflowGrouping
+	NetflowExportInterval time.Duration `validate:"required"`
 }
 
 type containersClient interface {
@@ -88,14 +86,32 @@ func NewController(
 	if err != nil {
 		panic(err)
 	}
-	ipInfoCache, err := freelru.NewSynced[netip.Addr, *kubepb.IPInfo](1024, func(k netip.Addr) uint32 {
+	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
+		return uint32(xxhash.Sum64String(k))
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// IP info cache is used only in netflow pipeline.
+	// It's safe to use non synced lru since it's accessed form on goroutine.
+	ipInfoCache, err := freelru.New[netip.Addr, *kubepb.IPInfo](1024, func(k netip.Addr) uint32 {
 		return uint32(xxhash.Sum64(k.AsSlice()))
 	})
 	if err != nil {
 		panic(err)
 	}
-	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
-		return uint32(xxhash.Sum64String(k))
+
+	// Conntrack cache is used only in netflow pipeline.
+	// It's safe to use non synced lru since it's accessed form on goroutine.
+	conntrackCacheKey := xxhash.New()
+	conntrackCache, err := freelru.New[types.AddrTuple, netip.AddrPort](1024, func(k types.AddrTuple) uint32 {
+		conntrackCacheKey.Reset()
+		src, _ := k.Src.MarshalBinary()
+		dst, _ := k.Dst.MarshalBinary()
+		_, _ = conntrackCacheKey.Write(src)
+		_, _ = conntrackCacheKey.Write(dst)
+		return uint32(conntrackCacheKey.Sum64())
 	})
 	if err != nil {
 		panic(err)
@@ -115,10 +131,11 @@ func NewController(
 		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
 		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
-		netflows:                   make(map[uint64]*netflowVal),
+		netflows:                   map[uint64]*netflowVal{},
 		dnsCache:                   dnsCache,
 		ipInfoCache:                ipInfoCache,
 		podCache:                   podCache,
+		conntrackCache:             conntrackCache,
 	}
 }
 
@@ -144,15 +161,16 @@ type Controller struct {
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
 
-	netflowsMu         sync.Mutex
 	netflows           map[uint64]*netflowVal
 	netflowKeyHash     maphash.Hash
 	netflowDestKeyHash maphash.Hash
-	clusterInfo        *clusterInfo
-	dnsCache           *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
-	kubeClient         kubepb.KubeAPIClient
-	ipInfoCache        *freelru.SyncedLRU[netip.Addr, *kubepb.IPInfo]
-	podCache           *freelru.SyncedLRU[string, *kubepb.Pod]
+
+	clusterInfo    *clusterInfo
+	kubeClient     kubepb.KubeAPIClient
+	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
+	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
+	ipInfoCache    *freelru.LRU[netip.Addr, *kubepb.IPInfo]
+	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -257,4 +275,19 @@ func (c *Controller) IsMutedNamespace(namespace string) bool {
 	_, found := c.mutedNamespaces[namespace]
 
 	return found
+}
+
+func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
+	pod, found := c.podCache.Get(podID)
+	if !found {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		resp, err := c.kubeClient.GetPod(ctx, &kubepb.GetPodRequest{Uid: podID})
+		if err != nil {
+			return nil, false
+		}
+		pod = resp.Pod
+		c.podCache.Add(podID, pod)
+	}
+	return pod, true
 }

@@ -28,16 +28,17 @@ type Decoder struct {
 
 var ErrBufferTooShort = errors.New("can't read context from buffer: buffer too short")
 
-// New creates and initializes a new decoder using rawBuffer as its initial content.
-// The decoder takes ownership of rawBuffer, and the caller should not use rawBuffer after this call.
-// New is intended to prepare a buffer to read existing data from it, translating it to protocol defined structs.
-// The protocol is specific between the Trace eBPF program and the Tracee-eBPF user space application.
 func NewEventDecoder(log *logging.Logger, rawBuffer []byte) *Decoder {
 	return &Decoder{
 		log:    log,
 		buffer: rawBuffer,
 		cursor: 0,
 	}
+}
+
+func (decoder *Decoder) Reset(buf []byte) {
+	decoder.buffer = buf
+	decoder.cursor = 0
 }
 
 func (decoder *Decoder) SeekForward(amount int) {

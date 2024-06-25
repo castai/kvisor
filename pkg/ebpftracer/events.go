@@ -7363,7 +7363,6 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			sets: []string{"network_events"},
 			params: []argMeta{
 				{Type: "u8", Name: "proto"},
-				{Type: "u8", Name: "direction"},
 				{Type: "tuple", Name: "tuple"},
 				{Type: "u64", Name: "tx_bytes"},
 				{Type: "u64", Name: "rx_bytes"},
