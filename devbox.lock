@@ -246,6 +246,54 @@
           "store_path": "/nix/store/x7ajlp6djvhlhw5jjzf8rabkxgka7m2j-protoc-gen-go-1.34.1"
         }
       }
+    },
+    "tilt@0.33.10": {
+      "last_modified": "2024-06-16T13:15:37Z",
+      "resolved": "github:NixOS/nixpkgs/683aa7c4e385509ca651d49eeb35e58c7a1baad6#tilt",
+      "source": "devbox-search",
+      "version": "0.33.10",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/gzwq36y6jkihjkjbc23wgg8b2s7j1ng6-tilt-0.33.10",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/gzwq36y6jkihjkjbc23wgg8b2s7j1ng6-tilt-0.33.10"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/2gaw5amxl27jarn82ia5nwxasn2m2p0p-tilt-0.33.10",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/2gaw5amxl27jarn82ia5nwxasn2m2p0p-tilt-0.33.10"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/haxd3aa1h4z7i55kgzqhc12hva007y2z-tilt-0.33.10",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/haxd3aa1h4z7i55kgzqhc12hva007y2z-tilt-0.33.10"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/2z7zm1h4rgd69hkda6j73ibpibbzzp1l-tilt-0.33.10",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/2z7zm1h4rgd69hkda6j73ibpibbzzp1l-tilt-0.33.10"
+        }
+      }
     }
   }
 }

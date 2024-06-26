@@ -171,6 +171,8 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 					Password: auth.Password,
 				})
 				opts.RegistryOptions.RegistryToken = auth.Token
+			} else {
+				c.log.Infof("image pull secret %q cannot be used to pull %q", c.cfg.ImagePullSecret, imgRef.String())
 			}
 		} else if c.cfg.DockerOptionPath != "" {
 			optsData, err := os.ReadFile(c.cfg.DockerOptionPath)

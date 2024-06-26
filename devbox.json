@@ -6,7 +6,8 @@
     "clang_14@latest",
     "protobuf@3.24.3",
     "protoc-gen-go@1.34.1",
-    "protoc-gen-go-grpc@1.3.0"
+    "protoc-gen-go-grpc@1.3.0",
+    "tilt@0.33.10"
   ],
   "shell": {
     "init_hook": [
