@@ -2,6 +2,7 @@ package ebpftracer
 
 import (
 	"errors"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -90,4 +91,35 @@ func TestDNSPolicyFilter(t *testing.T) {
 	// Should not pass since this is duplicate.
 	err = g(dnsEvent)
 	r.ErrorIs(err, FilterErrDNSDuplicateDetected)
+}
+
+func TestRateLimitPrivateIP(t *testing.T) {
+	f := RateLimitPrivateIP(RateLimitPolicy{
+		Rate:  1,
+		Burst: 1,
+	})
+	g := f()
+
+	// Should not rate limit public IP.
+	e := &types.Event{
+		Context: &types.EventContext{EventID: events.SockSetState},
+		Args: types.SockSetStateArgs{
+			Tuple: types.AddrTuple{Dst: netip.MustParseAddrPort("140.3.2.1:7894")},
+		},
+	}
+	for range 10 {
+		if err := g(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Should rate limit private IP.
+	e.Args = types.SockSetStateArgs{
+		Tuple: types.AddrTuple{Dst: netip.MustParseAddrPort("10.0.0.1:7894")},
+	}
+	var err error
+	for range 10 {
+		err = g(e)
+	}
+	require.ErrorIs(t, err, FilterErrRateLimit)
 }

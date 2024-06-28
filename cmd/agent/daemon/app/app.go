@@ -320,7 +320,7 @@ func (a *App) Run(ctx context.Context) error {
 			{ID: events.SchedProcessExec},
 			{
 				ID: events.SockSetState,
-				PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
+				FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
 					Rate:  100,
 					Burst: 1,
 				}),
