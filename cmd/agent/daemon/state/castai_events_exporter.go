@@ -17,14 +17,19 @@ func NewCastaiEventsExporter(log *logging.Logger, apiClient *castai.Client, queu
 		log:                         log.WithField("component", "castai_events_exporter"),
 		apiClient:                   apiClient,
 		queue:                       make(chan *castpb.Event, queueSize),
+		retryQueue:                  make(chan *castpb.Event, queueSize/10),
 		writeStreamCreateRetryDelay: 2 * time.Second,
 	}
 }
 
 type CastaiEventsExporter struct {
-	log                         *logging.Logger
-	apiClient                   *castai.Client
-	queue                       chan *castpb.Event
+	log       *logging.Logger
+	apiClient *castai.Client
+	queue     chan *castpb.Event
+	// retryQueue is a queue in which we'll push events that failed to send.
+	// It is a separate queue to give failed events a priority,
+	// instead of sending them to the back of the original queue.
+	retryQueue                  chan *castpb.Event
 	writeStreamCreateRetryDelay time.Duration
 }
 
@@ -38,22 +43,47 @@ func (c *CastaiEventsExporter) Run(ctx context.Context) error {
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay
 
-	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_events")
-	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("castai_events")
+	sender := &sender{
+		ws:              ws,
+		retryQueue:      c.retryQueue,
+		sendMetric:      metrics.AgentExporterSendTotal.WithLabelValues("castai_events"),
+		sendErrorMetric: metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_events"),
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.queue:
-			if err := ws.Send(e); err != nil {
-				sendErrorMetric.Inc()
-				continue
-			}
-			sendMetric.Inc()
-			metrics.AgentExportedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: e.GetEventType().String()}).Inc()
+			sender.send(e, true)
+		case e := <-c.retryQueue:
+			sender.send(e, false)
 		}
 	}
+}
+
+type sender struct {
+	ws         *castai.WriteStream[*castpb.Event, *castpb.WriteStreamResponse]
+	retryQueue chan *castpb.Event
+
+	sendMetric      prometheus.Counter
+	sendErrorMetric prometheus.Counter
+}
+
+func (s *sender) send(e *castpb.Event, retry bool) {
+	if err := s.ws.Send(e); err != nil {
+		if retry {
+			s.retryQueue <- e
+
+			return
+		}
+
+		s.sendErrorMetric.Inc()
+		return
+	}
+
+	s.sendMetric.Inc()
+	metrics.AgentExportedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: e.GetEventType().String()}).Inc()
 }
 
 func (c *CastaiEventsExporter) Enqueue(e *castpb.Event) {
