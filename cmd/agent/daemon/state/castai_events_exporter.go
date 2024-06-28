@@ -72,12 +72,13 @@ type sender struct {
 
 func (s *sender) send(e *castpb.Event, retry bool) {
 	if err := s.ws.Send(e); err != nil {
-		s.sendErrorMetric.Inc()
-
 		if retry {
 			s.retryQueue <- e
+
+			return
 		}
 
+		s.sendErrorMetric.Inc()
 		return
 	}
 
