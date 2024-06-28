@@ -5428,10 +5428,10 @@ statfunc void update_flow_stats(netflowvalue_t *val, u64 bytes, bool ingress) {
 }
 
 statfunc void reset_flow_stats(netflowvalue_t *val) {
-    __sync_fetch_and_and(&val->tx_bytes, 0);
-    __sync_fetch_and_and(&val->rx_bytes, 0);
-    __sync_fetch_and_and(&val->tx_packets, 0);
-    __sync_fetch_and_and(&val->rx_packets, 0);
+   val->tx_bytes = 0;
+   val->rx_bytes = 0;
+   val->tx_packets = 0;
+   val->rx_packets = 0;
 }
 
 statfunc u32 submit_netflow_event(struct __sk_buff *ctx, net_event_context_t *neteventctx, netflowvalue_t *netflowvalptr) {
@@ -5524,8 +5524,8 @@ statfunc u32 cgroup_skb_handle_flow(struct __sk_buff *skb,
         }
         case flow_tcp_end:
         {
-            u64 active = __sync_fetch_and_sub(&value->active, 1) -1;
-            if (active <= 0) {
+            __sync_fetch_and_add(&value->active, 0xFFFFFFFFFFFFFFFF);
+            if (value->active <= 0) {
                 submit_netflow_event(skb, neteventctx, value);
                 bpf_map_delete_elem(&netflowmap, &neteventctx->md.flow);
             }
