@@ -3,6 +3,7 @@ package ebpftracer
 import (
 	"errors"
 	"log/slog"
+	"net/netip"
 	"time"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
@@ -76,6 +77,28 @@ func RateLimit(spec RateLimitPolicy) EventFilterGenerator {
 		rateLimiter := newRateLimiter(spec)
 
 		return func(event *types.Event) error {
+			if rateLimiter.Allow() {
+				return FilterPass
+			}
+
+			return FilterErrRateLimit
+		}
+	}
+}
+
+func RateLimitPrivateIP(spec RateLimitPolicy) EventFilterGenerator {
+	return func() EventFilter {
+		rateLimiter := newRateLimiter(spec)
+
+		return func(event *types.Event) error {
+			tcpArgs, ok := event.Args.(types.SockSetStateArgs)
+			if !ok {
+				return FilterPass
+			}
+			if !isPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
+				return FilterPass
+			}
+
 			if rateLimiter.Allow() {
 				return FilterPass
 			}
@@ -176,4 +199,13 @@ func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) Eve
 			return FilterPass
 		}
 	}
+}
+
+func isPrivateNetwork(ip netip.Addr) bool {
+	return ip.IsPrivate() ||
+		ip.IsLoopback() ||
+		ip.IsMulticast() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast()
 }
