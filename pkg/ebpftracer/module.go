@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
-	"golang.org/x/sys/unix"
 )
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
@@ -46,12 +45,7 @@ type module struct {
 }
 
 func (m *module) load(cfg Config) error {
-	if err := unix.Setrlimit(unix.RLIMIT_NOFILE, &unix.Rlimit{
-		Cur: 4096,
-		Max: 4096,
-	}); err != nil {
-		return fmt.Errorf("setting temporary rlimit: %w", err)
-	}
+	// Allow the current process to lock memory for eBPF resources.
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return err
 	}
@@ -85,7 +79,6 @@ func (m *module) load(cfg Config) error {
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
-			LogLevel:    0,
 			LogSize:     ebpf.DefaultVerifierLogSize,
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
