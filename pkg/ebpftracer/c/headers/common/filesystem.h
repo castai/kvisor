@@ -543,7 +543,7 @@ statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
 
 static __always_inline bool get_exe_from_memfd(struct file *file)
 {
-    const unsigned char *name = BPF_CORE_READ(file, f_path.dentry, d_parent, d_name.name);
+    const unsigned char *name = BPF_CORE_READ(file, f_path.dentry, d_name.name);
     if (!name) {
         bpf_printk("get_exe_from_memfd(): failed to get name");
         return false;
