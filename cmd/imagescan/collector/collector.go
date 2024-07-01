@@ -166,11 +166,16 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 
 			if authKey, auth, ok := findRegistryAuth(cfg, imgRef); ok {
 				c.log.Infof("using registry auth, key=%s", authKey)
-				opts.RegistryOptions.Credentials = append(opts.RegistryOptions.Credentials, types.Credential{
-					Username: auth.Username,
-					Password: auth.Password,
-				})
-				opts.RegistryOptions.RegistryToken = auth.Token
+				if auth.Username == "" || auth.Password == "" {
+					if auth.Token != "" {
+						opts.RegistryOptions.RegistryToken = auth.Token
+					}
+				} else {
+					opts.RegistryOptions.Credentials = append(opts.RegistryOptions.Credentials, types.Credential{
+						Username: auth.Username,
+						Password: auth.Password,
+					})
+				}
 			} else {
 				c.log.Infof("image pull secret %q cannot be used to pull %q", c.cfg.ImagePullSecret, imgRef.String())
 			}
