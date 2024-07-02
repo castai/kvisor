@@ -164,8 +164,7 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 				return nil, nil, fmt.Errorf("parsing image pull secret: %w", err)
 			}
 
-			if authKey, auth, ok := findRegistryAuth(cfg, imgRef); ok {
-				c.log.Infof("using registry auth, key=%s", authKey)
+			if _, auth, ok := findRegistryAuth(cfg, imgRef, c.log); ok {
 				if auth.Username == "" || auth.Password == "" {
 					if auth.Token != "" {
 						opts.RegistryOptions.RegistryToken = auth.Token
@@ -230,17 +229,20 @@ func (c *Collector) sendResult(ctx context.Context, imageMetadata *castaipb.Imag
 	return nil
 }
 
-func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference) (string, image.RegistryAuth, bool) {
+func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.FieldLogger) (string, image.RegistryAuth, bool) {
 	imageRepo := fmt.Sprintf("%s/%s", imgRef.Context().RegistryStr(), imgRef.Context().RepositoryStr())
+	log.Infof("finding registry auth for image %s", imageRepo)
 
 	authKeys := lo.Keys(cfg.Auths)
 	sort.Strings(authKeys)
+	log.Infof("the following registries were found: %s", authKeys)
 
 	for _, key := range authKeys {
 		// User can provide registries with protocol which we don't care about while comparing with image name.
 		prefix := strings.TrimPrefix(key, "http://")
 		prefix = strings.TrimPrefix(prefix, "https://")
-		if strings.HasPrefix(imageRepo, prefix) {
+		if strings.HasPrefix(imageRepo, prefix) || strings.HasPrefix(imageRepo, "index."+prefix) {
+			log.Infof("selected %s registry auth for image %s", key, imageRepo)
 			return key, cfg.Auths[key], true
 		}
 	}

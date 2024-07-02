@@ -234,12 +234,36 @@ func TestFindRegistryAuth(t *testing.T) {
 			expectedKey:   "",
 			expectedAuth:  image.RegistryAuth{},
 		},
+		{
+			name: "default docker registry",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"docker.io": registryAuth,
+				},
+			},
+			imageRef:      name.MustParseReference("nginx:latest"),
+			expectedFound: true,
+			expectedKey:   "docker.io",
+			expectedAuth:  registryAuth,
+		},
+		{
+			name: "default docker registry with index",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"index.docker.io": registryAuth,
+				},
+			},
+			imageRef:      name.MustParseReference("nginx:latest"),
+			expectedFound: true,
+			expectedKey:   "index.docker.io",
+			expectedAuth:  registryAuth,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := require.New(t)
-			actualKey, actualAuth, found := findRegistryAuth(test.cfg, test.imageRef)
+			actualKey, actualAuth, found := findRegistryAuth(test.cfg, test.imageRef, logrus.New())
 			r.Equal(test.expectedFound, found)
 			r.Equal(test.expectedKey, actualKey)
 			r.Equal(test.expectedAuth, actualAuth)
