@@ -145,7 +145,7 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 			activeNetflowDests = append(activeNetflowDests, dest)
 		}
 		if len(activeNetflowDests) == 0 {
-			return
+			continue
 		}
 
 		pbNetFlow := c.toProtoNetflow(netflow.event, &args)
