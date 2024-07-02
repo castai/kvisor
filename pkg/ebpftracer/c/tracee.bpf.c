@@ -6805,6 +6805,7 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
         return 0;
 
     __builtin_memcpy(&p.event->context.task, &netctx->taskctx, sizeof(task_context_t));
+    __builtin_memcpy(&p.task_info->context, &netctx->taskctx, sizeof(task_context_t));
 
     if (!should_trace(&p)) {
         return 0;
