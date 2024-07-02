@@ -74,6 +74,9 @@ type tracerProgramSpecs struct {
 	LkmSeekerProcTail                        *ebpf.ProgramSpec `ebpf:"lkm_seeker_proc_tail"`
 	OomMarkVictim                            *ebpf.ProgramSpec `ebpf:"oom_mark_victim"`
 	SchedProcessExecEventSubmitTail          *ebpf.ProgramSpec `ebpf:"sched_process_exec_event_submit_tail"`
+	SchedProcessExecSignal                   *ebpf.ProgramSpec `ebpf:"sched_process_exec_signal"`
+	SchedProcessExitSignal                   *ebpf.ProgramSpec `ebpf:"sched_process_exit_signal"`
+	SchedProcessForkSignal                   *ebpf.ProgramSpec `ebpf:"sched_process_fork_signal"`
 	SendBin                                  *ebpf.ProgramSpec `ebpf:"send_bin"`
 	SendBinTp                                *ebpf.ProgramSpec `ebpf:"send_bin_tp"`
 	SysDupExitTail                           *ebpf.ProgramSpec `ebpf:"sys_dup_exit_tail"`
@@ -446,6 +449,9 @@ type tracerPrograms struct {
 	LkmSeekerProcTail                        *ebpf.Program `ebpf:"lkm_seeker_proc_tail"`
 	OomMarkVictim                            *ebpf.Program `ebpf:"oom_mark_victim"`
 	SchedProcessExecEventSubmitTail          *ebpf.Program `ebpf:"sched_process_exec_event_submit_tail"`
+	SchedProcessExecSignal                   *ebpf.Program `ebpf:"sched_process_exec_signal"`
+	SchedProcessExitSignal                   *ebpf.Program `ebpf:"sched_process_exit_signal"`
+	SchedProcessForkSignal                   *ebpf.Program `ebpf:"sched_process_fork_signal"`
 	SendBin                                  *ebpf.Program `ebpf:"send_bin"`
 	SendBinTp                                *ebpf.Program `ebpf:"send_bin_tp"`
 	SysDupExitTail                           *ebpf.Program `ebpf:"sys_dup_exit_tail"`
@@ -586,6 +592,9 @@ func (p *tracerPrograms) Close() error {
 		p.LkmSeekerProcTail,
 		p.OomMarkVictim,
 		p.SchedProcessExecEventSubmitTail,
+		p.SchedProcessExecSignal,
+		p.SchedProcessExitSignal,
+		p.SchedProcessForkSignal,
 		p.SendBin,
 		p.SendBinTp,
 		p.SysDupExitTail,

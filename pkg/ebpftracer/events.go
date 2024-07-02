@@ -7301,8 +7301,28 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			dependencies: dependencies{skipDefaultTailCalls: true},
 			params:       []argMeta{},
 		},
+		events.NetFlowBase: {
+			ID:       events.NetFlowBase,
+			id32Bit:  events.Sys32Undefined,
+			name:     "net_packet_flow_base",
+			internal: true,
+			dependencies: dependencies{
+				ids: []events.ID{
+					events.NetPacketBase,
+				},
+			},
+			sets: []string{"network_events"},
+			params: []argMeta{
+				{Type: "u8", Name: "proto"},
+				{Type: "tuple", Name: "tuple"},
+				{Type: "u64", Name: "tx_bytes"},
+				{Type: "u64", Name: "rx_bytes"},
+				{Type: "u64", Name: "tx_packets"},
+				{Type: "u64", Name: "rx_packets"},
+			},
+		},
 		//
-		// End of Network Protocol Event Types (keep them at the end)
+		// End of Network Protocol Event Types
 		//
 
 		// Event used for testing in unit tests
@@ -7313,6 +7333,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			internal: true,
 			syscall:  false,
 		},
+
 		//
 		// Begin of Signal Events (Control Plane)
 		//
@@ -7350,24 +7371,118 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "u32", Name: "hierarchy_id"},
 			},
 		},
-		events.NetFlowBase: {
-			ID:       events.NetFlowBase,
+		events.SignalSchedProcessExec: {
+			ID:       events.SignalSchedProcessExec,
 			id32Bit:  events.Sys32Undefined,
-			name:     "net_packet_flow_base",
+			name:     "signal_process_exec",
 			internal: true,
 			dependencies: dependencies{
-				ids: []events.ID{
-					events.NetPacketBase,
+				probes: []EventProbe{
+					{handle: SignalSchedProcessExec, required: true},
 				},
 			},
-			sets: []string{"network_events"},
+			sets: []string{"signal"},
 			params: []argMeta{
-				{Type: "u8", Name: "proto"},
-				{Type: "tuple", Name: "tuple"},
-				{Type: "u64", Name: "tx_bytes"},
-				{Type: "u64", Name: "rx_bytes"},
-				{Type: "u64", Name: "tx_packets"},
-				{Type: "u64", Name: "rx_packets"},
+				{Type: "u64", Name: "timestamp"},
+
+				{Type: "u64", Name: "cgroup_id"},
+
+				{Type: "pid_t", Name: "pid"},
+				{Type: "pid_t", Name: "host_pid"},
+				{Type: "u64", Name: "start_time"},
+
+				{Type: "pid_t", Name: "parent_pid"},
+				{Type: "pid_t", Name: "parent_host_pid"},
+				{Type: "u64", Name: "parent_start_time"},
+
+				{Type: "pid_t", Name: "leader_pid"},
+				{Type: "pid_t", Name: "leader_host_pid"},
+				{Type: "u64", Name: "leader_start_time"},
+
+				{Type: "const char*", Name: "filename"},
+				{Type: "const char*", Name: "file_path"},
+
+				{Type: "const char**", Name: "argv"},
+				{Type: "umode_t", Name: "stdin_type"},
+				{Type: "char*", Name: "stdin_path"},
+				{Type: "int", Name: "invoked_from_kernel"},
+				{Type: "const char**", Name: "env"},
+			},
+		},
+		events.SignalSchedProcessExit: {
+			ID:       events.SignalSchedProcessExit,
+			id32Bit:  events.Sys32Undefined,
+			name:     "signal_process_exit",
+			internal: true,
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: SignalSchedProcessExit, required: true},
+				},
+			},
+			sets: []string{"signal"},
+			params: []argMeta{
+				{Type: "u64", Name: "timestamp"},
+
+				{Type: "u64", Name: "cgroup_id"},
+
+				{Type: "pid_t", Name: "pid"},
+				{Type: "pid_t", Name: "host_pid"},
+				{Type: "u64", Name: "start_time"},
+
+				{Type: "pid_t", Name: "parent_pid"},
+				{Type: "pid_t", Name: "parent_host_pid"},
+				{Type: "u64", Name: "parent_start_time"},
+
+				{Type: "pid_t", Name: "leader_pid"},
+				{Type: "pid_t", Name: "leader_host_pid"},
+				{Type: "u64", Name: "leader_start_time"},
+
+				{Type: "long", Name: "exit_code"},
+				// The field value represents that all threads exited at the event time.
+				// Multiple exits of threads of the same process group at the same time could result that all threads exit
+				// events would have 'true' value in this field altogether.
+				{Type: "bool", Name: "process_group_exit"},
+			},
+		},
+		events.SignalSchedProcessFork: {
+			ID:       events.SignalSchedProcessFork,
+			id32Bit:  events.Sys32Undefined,
+			name:     "signal_process_fork",
+			internal: true,
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: SignalSchedProcessFork, required: true},
+				},
+			},
+			sets: []string{"signal"},
+			params: []argMeta{
+				{Type: "u64", Name: "timestamp"},
+
+				{Type: "u64", Name: "cgroup_id"},
+
+				{Type: "int", Name: "parent_tid"},
+				{Type: "int", Name: "parent_ns_tid"},
+				{Type: "int", Name: "parent_pid"},
+				{Type: "int", Name: "parent_ns_pid"},
+				{Type: "u64", Name: "parent_start_time"},
+
+				{Type: "int", Name: "child_tid"},
+				{Type: "int", Name: "child_ns_tid"},
+				{Type: "int", Name: "child_pid"},
+				{Type: "int", Name: "child_ns_pid"},
+				{Type: "u64", Name: "child_start_time"},
+
+				{Type: "int", Name: "up_parent_tid"},
+				{Type: "int", Name: "up_parent_ns_tid"},
+				{Type: "int", Name: "up_parent_pid"},
+				{Type: "int", Name: "up_parent_ns_pid"},
+				{Type: "u64", Name: "up_parent_start_time"},
+
+				{Type: "int", Name: "leader_tid"},
+				{Type: "int", Name: "leader_ns_tid"},
+				{Type: "int", Name: "leader_pid"},
+				{Type: "int", Name: "leader_ns_pid"},
+				{Type: "u64", Name: "leader_start_time"},
 			},
 		},
 	}

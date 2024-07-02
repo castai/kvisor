@@ -20,12 +20,13 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/kvisor/pkg/processtree"
+	"github.com/castai/kvisor/pkg/system"
 	"github.com/cilium/ebpf/perf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sys/unix"
 )
 
 // ActualDestinationGetter is used to find actual destination ip.
@@ -62,6 +63,7 @@ type Config struct {
 	NetflowSampleSubmitIntervalSeconds uint64
 	NetflowGrouping                    NetflowGrouping
 	TrackSyscallStats                  bool
+	ProcessTreeCollector *processtree.ProcessTreeCollector
 }
 
 type cgroupCleanupRequest struct {
@@ -116,18 +118,11 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cfg.EventsOutputChanSize = 16384
 	}
 
-	var ts unix.Timespec
-	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
-	if err != nil {
-		panic(fmt.Errorf("getting clock time: %w", err).Error())
-	}
-	bootTime := time.Now().UnixNano() - ts.Nano()
-
 	t := &Tracer{
 		log:                  log,
 		cfg:                  cfg,
 		module:               m,
-		bootTime:             uint64(bootTime),
+		bootTime:             uint64(system.GetBootTime().UnixNano()),
 		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
 		netflowEventsChan:    make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:       map[uint64]struct{}{},

@@ -21,10 +21,11 @@ agent:
     signature-socks5-detection-enabled: true
     container-stats-enabled: true
     ebpf-events-enabled: true
-    netflow-enabled: true
+    netflow-enabled: false
     netflow-sample-submit-interval-seconds: 1
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
+    process-tree-enabled: true
 
   prometheusScrape:
     enabled: true

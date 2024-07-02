@@ -373,7 +373,10 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		ProbeTtyOpen:          newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
 
 		// Signal probes
-		SignalCgroupMkdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.CgroupMkdirSignal),
-		SignalCgroupRmdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.CgroupRmdirSignal),
+		SignalCgroupMkdir:      newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.CgroupMkdirSignal),
+		SignalCgroupRmdir:      newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.CgroupRmdirSignal),
+		SignalSchedProcessExec: newTraceProbe(rawTracepoint, "sched:sched_process_exec", objs.SchedProcessExecSignal),
+		SignalSchedProcessFork: newTraceProbe(rawTracepoint, "sched:sched_process_fork", objs.SchedProcessForkSignal),
+		SignalSchedProcessExit: newTraceProbe(rawTracepoint, "sched:sched_process_exit", objs.SchedProcessExitSignal),
 	}
 }

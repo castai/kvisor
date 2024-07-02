@@ -17,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 	"golang.org/x/sync/errgroup"
@@ -68,6 +69,10 @@ type conntrackClient interface {
 	GetDestination(src, dst netip.AddrPort) (netip.AddrPort, bool)
 }
 
+type processTreeCollector interface {
+	Events() <-chan processtree.ProcessTreeEvent
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
@@ -79,6 +84,7 @@ func NewController(
 	signatureEngine signatureEngine,
 	enrichmentService enrichmentService,
 	kubeClient kubepb.KubeAPIClient,
+	processTreeCollector processTreeCollector,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k)
@@ -136,19 +142,21 @@ func NewController(
 		ipInfoCache:                ipInfoCache,
 		podCache:                   podCache,
 		conntrackCache:             conntrackCache,
+		processTreeCollector:       processTreeCollector,
 	}
 }
 
 type Controller struct {
-	log               *logging.Logger
-	cfg               Config
-	containersClient  containersClient
-	netStatsReader    netStatsReader
-	ct                conntrackClient
-	tracer            ebpfTracer
-	signatureEngine   signatureEngine
-	enrichmentService enrichmentService
-	exporters         *Exporters
+	log                  *logging.Logger
+	cfg                  Config
+	containersClient     containersClient
+	netStatsReader       netStatsReader
+	ct                   conntrackClient
+	tracer               ebpfTracer
+	signatureEngine      signatureEngine
+	enrichmentService    enrichmentService
+	processTreeCollector processTreeCollector
+	exporters            *Exporters
 
 	nodeName string
 
@@ -194,6 +202,11 @@ func (c *Controller) Run(ctx context.Context) error {
 	if len(c.exporters.Netflow) > 0 {
 		errg.Go(func() error {
 			return c.runNetflowPipeline(ctx)
+		})
+	}
+	if len(c.exporters.ProcessTree) > 0 {
+		errg.Go(func() error {
+			return c.runProcessTreePipeline(ctx)
 		})
 	}
 	return errg.Wait()

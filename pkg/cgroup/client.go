@@ -148,7 +148,7 @@ func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
 }
 
 func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
-	containerID, containerRuntime := getContainerIdFromCgroup(cgroupPath)
+	containerID, containerRuntime := GetContainerIdFromCgroup(cgroupPath)
 
 	cg := &Cgroup{
 		Id:               cgroupID,
@@ -337,7 +337,7 @@ func NewFromProcessCgroupFile(filePath string) (*Cgroup, error) {
 		cg.Version = V2
 	}
 
-	if containerID, runtimeType := getContainerIdFromCgroup(cg.Path); containerID == "" {
+	if containerID, runtimeType := GetContainerIdFromCgroup(cg.Path); containerID == "" {
 		return nil, ErrContainerIDNotFoundInCgroupPath
 	} else {
 		cg.ContainerID = containerID
@@ -356,9 +356,9 @@ var (
 	gardenContainerIdFromCgroupRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){4}$`)
 )
 
-// getContainerIdFromCgroup extracts container id and its runtime from path. It returns
+// GetContainerIdFromCgroup extracts container id and its runtime from path. It returns
 // the container id and the used runtime.
-func getContainerIdFromCgroup(cgroupPath string) (string, ContainerRuntimeID) {
+func GetContainerIdFromCgroup(cgroupPath string) (string, ContainerRuntimeID) {
 	cgroupParts := strings.Split(cgroupPath, "/")
 
 	// search from the end to get the most inner container id
