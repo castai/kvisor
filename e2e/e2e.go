@@ -93,6 +93,14 @@ func run(ctx context.Context) error {
 	if err := srv.assertEvents(ctx); err != nil {
 		return fmt.Errorf("assert events: %w", err)
 	}
+	// After events assert is done we should cleanup and stop persisting them to reduce e2e test memory usage.
+	srv.eventsAsserted = true
+	srv.events = nil
+
+	fmt.Println("🙏waiting for netflows")
+	if err := srv.assertNetflows(ctx); err != nil {
+		return fmt.Errorf("assert netflows: %w", err)
+	}
 
 	fmt.Println("🙏waiting for container stats")
 	if err := srv.assertContainerStats(ctx); err != nil {
@@ -102,32 +110,6 @@ func run(ctx context.Context) error {
 	fmt.Println("🙏waiting for kubernetes deltas")
 	if err := srv.assertKubernetesDeltas(ctx); err != nil {
 		return fmt.Errorf("assert k8s deltas: %w", err)
-	}
-
-	validateTimeout := 30 * time.Second
-	fmt.Printf("🧐validating events (timeout %s)\n", validateTimeout)
-	if err := srv.validateEvents(ctx, validateTimeout); err != nil {
-		return fmt.Errorf("validate events: %w", err)
-	}
-
-	fmt.Println("🧐validating exec events")
-	if err := srv.validateExecEvents(); err != nil {
-		return fmt.Errorf("validate exec events: %w", err)
-	}
-
-	fmt.Println("🧐validating signature events")
-	if err := srv.validateSignatureEvents(ctx, validateTimeout); err != nil {
-		return fmt.Errorf("validate signature events: %w", err)
-	}
-
-	fmt.Println("🙏waiting for netflows")
-	if err := srv.assertNetflows(ctx); err != nil {
-		return fmt.Errorf("assert netflows: %w", err)
-	}
-
-	fmt.Println("🙏waiting for flogs")
-	if err := srv.assertLogs(ctx); err != nil {
-		return fmt.Errorf("assert logs: %w", err)
 	}
 
 	fmt.Println("🙏waiting for kube bench")
@@ -143,6 +125,11 @@ func run(ctx context.Context) error {
 	fmt.Println("🙏waiting for image metadata")
 	if err := srv.assertImageMetadata(ctx); err != nil {
 		return fmt.Errorf("assert image metadata: %w", err)
+	}
+
+	fmt.Println("🙏waiting for flogs")
+	if err := srv.assertLogs(ctx); err != nil {
+		return fmt.Errorf("assert logs: %w", err)
 	}
 
 	fmt.Println("👌e2e finished")
@@ -209,6 +196,7 @@ type testCASTAIServer struct {
 	mu                sync.Mutex
 	containerStats    []*castaipb.ContainerStatsBatch
 	events            []*castaipb.Event
+	eventsAsserted    bool
 	logs              []*castaipb.LogEvent
 	deltaUpdates      []*castaipb.KubernetesDeltaItem
 	imageMetadatas    []*castaipb.ImageMetadata
@@ -333,9 +321,11 @@ func (t *testCASTAIServer) EventsWriteStream(server castaipb.RuntimeSecurityAgen
 			return err
 		}
 		fmt.Println("received event:", event)
-		t.mu.Lock()
-		t.events = append(t.events, event)
-		t.mu.Unlock()
+		if !t.eventsAsserted {
+			t.mu.Lock()
+			t.events = append(t.events, event)
+			t.mu.Unlock()
+		}
 	}
 }
 
@@ -579,40 +569,61 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 
 func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 	timeout := time.After(30 * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timeout:
-			return errors.New("timeout waiting for received events")
-		case <-time.After(1 * time.Second):
-			t.mu.Lock()
-			events := t.events
-			t.mu.Unlock()
-			fmt.Printf("evaluating %d events\n", len(events))
-			for _, e := range events {
-				if e.ProcessName == "pause" {
-					continue
+	if err := func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timeout:
+				return errors.New("timeout waiting for received events")
+			case <-time.After(1 * time.Second):
+				t.mu.Lock()
+				events := t.events
+				t.mu.Unlock()
+				fmt.Printf("evaluating %d events\n", len(events))
+				for _, e := range events {
+					if e.ProcessName == "pause" {
+						continue
+					}
+					if e.EventType == castaipb.EventType_UNKNOWN {
+						return fmt.Errorf("unknown event type: %v", e)
+					}
+					if e.Namespace == "" {
+						return fmt.Errorf("missing namespace: %v", e)
+					}
+					if e.PodName == "" {
+						return fmt.Errorf("missing pod: %v", e)
+					}
+					if e.ContainerName == "" {
+						return fmt.Errorf("missing container: %v", e)
+					}
+					if e.ProcessName == "" {
+						return fmt.Errorf("missing process name: %v", e)
+					}
+					return nil
 				}
-				if e.EventType == castaipb.EventType_UNKNOWN {
-					return fmt.Errorf("unknown event type: %v", e)
-				}
-				if e.Namespace == "" {
-					return fmt.Errorf("missing namespace: %v", e)
-				}
-				if e.PodName == "" {
-					return fmt.Errorf("missing pod: %v", e)
-				}
-				if e.ContainerName == "" {
-					return fmt.Errorf("missing container: %v", e)
-				}
-				if e.ProcessName == "" {
-					return fmt.Errorf("missing process name: %v", e)
-				}
-				return nil
 			}
 		}
+	}(); err != nil {
+		return err
 	}
+
+	validateTimeout := 30 * time.Second
+	fmt.Printf("🧐validating events (timeout %s)\n", validateTimeout)
+	if err := t.validateEvents(ctx, validateTimeout); err != nil {
+		return fmt.Errorf("validate events: %w", err)
+	}
+
+	fmt.Println("🧐validating exec events")
+	if err := t.validateExecEvents(); err != nil {
+		return fmt.Errorf("validate exec events: %w", err)
+	}
+
+	fmt.Println("🧐validating signature events")
+	if err := t.validateSignatureEvents(ctx, validateTimeout); err != nil {
+		return fmt.Errorf("validate signature events: %w", err)
+	}
+	return nil
 }
 
 func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
