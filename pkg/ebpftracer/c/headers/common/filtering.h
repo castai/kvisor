@@ -339,7 +339,7 @@ statfunc u64 compute_scopes(program_data_t *p)
 
 statfunc u64 should_trace(program_data_t *p)
 {
-    if (bpf_map_lookup_elem(&ignored_cgroups_map, &p->task_info->context.cgroup_id) != NULL) {
+    if (bpf_map_lookup_elem(&ignored_cgroups_map, &p->event->context.task.cgroup_id) != NULL) {
         return 0;
     }
 
