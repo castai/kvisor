@@ -238,13 +238,22 @@ func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.
 	log.Infof("the following registries were found: %s", authKeys)
 
 	for _, key := range authKeys {
-		// User can provide registries with protocol which we don't care about while comparing with image name.
-		prefix := strings.TrimPrefix(key, "http://")
-		prefix = strings.TrimPrefix(prefix, "https://")
-		if strings.HasPrefix(imageRepo, prefix) || strings.HasPrefix(imageRepo, "index."+prefix) {
+		normalizedKey := normalize(key)
+		if strings.HasPrefix(imageRepo, normalizedKey) || strings.HasPrefix(imageRepo, "index."+normalizedKey) {
 			log.Infof("selected %s registry auth for image %s", key, imageRepo)
 			return key, cfg.Auths[key], true
 		}
 	}
+
 	return "", image.RegistryAuth{}, false
+}
+
+// normalize registryKey from the pull secret to follow the resolved image repo format
+func normalize(registryKey string) string {
+	trimmed := strings.TrimPrefix(registryKey, "http://")
+	trimmed = strings.TrimPrefix(trimmed, "https://")
+	if strings.HasPrefix(trimmed, "docker.io") || strings.HasPrefix(trimmed, "index.docker.io") {
+		trimmed = strings.TrimSuffix(trimmed, "/v2")
+	}
+	return trimmed
 }
