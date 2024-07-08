@@ -180,11 +180,10 @@ func TestFindRegistryAuth(t *testing.T) {
 			name: "find auth for image",
 			cfg: image.DockerConfig{
 				Auths: map[string]image.RegistryAuth{
-					"a":                               registryAuth,
-					"gitlab.com":                      registryAuth,
-					"us-east4-docker.pkg.dev":         registryAuth,
-					"us-east4-docker.pkg.dev/project": registryAuth,
-					"x":                               {},
+					"a":                       registryAuth,
+					"gitlab.com":              registryAuth,
+					"us-east4-docker.pkg.dev": registryAuth,
+					"x":                       {},
 				},
 			},
 			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
@@ -193,10 +192,26 @@ func TestFindRegistryAuth(t *testing.T) {
 			expectedAuth:  registryAuth,
 		},
 		{
+			name: "find auth for image with trailing slash",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"a":                        registryAuth,
+					"gitlab.com":               registryAuth,
+					"us-east4-docker.pkg.dev/": registryAuth,
+					"x":                        {},
+				},
+			},
+			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
+			expectedFound: true,
+			expectedKey:   "us-east4-docker.pkg.dev/",
+			expectedAuth:  registryAuth,
+		},
+		{
 			name: "find auth scoped by repository",
 			cfg: image.DockerConfig{
 				Auths: map[string]image.RegistryAuth{
 					"a":                                    registryAuth,
+					"us-east4-docker.pkg.dev":              registryAuth,
 					"us-east4-docker.pkg.dev/project/repo": registryAuth,
 					"x":                                    {},
 				},
@@ -204,6 +219,21 @@ func TestFindRegistryAuth(t *testing.T) {
 			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
 			expectedFound: true,
 			expectedKey:   "us-east4-docker.pkg.dev/project/repo",
+			expectedAuth:  registryAuth,
+		},
+		{
+			name: "find auth scoped by repository with trailing slash",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"a":                                     registryAuth,
+					"us-east4-docker.pkg.dev/":              registryAuth,
+					"us-east4-docker.pkg.dev/project/repo/": registryAuth,
+					"x":                                     {},
+				},
+			},
+			imageRef:      name.MustParseReference("us-east4-docker.pkg.dev/project/repo/name:tag"),
+			expectedFound: true,
+			expectedKey:   "us-east4-docker.pkg.dev/project/repo/",
 			expectedAuth:  registryAuth,
 		},
 		{
@@ -280,6 +310,18 @@ func TestFindRegistryAuth(t *testing.T) {
 			imageRef:      name.MustParseReference("nginx:latest"),
 			expectedFound: true,
 			expectedKey:   "index.docker.io/v2",
+			expectedAuth:  registryAuth,
+		},
+		{
+			name: "default docker registry with protocol, index and version",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"https://index.docker.io/v2/": registryAuth,
+				},
+			},
+			imageRef:      name.MustParseReference("nginx:latest"),
+			expectedFound: true,
+			expectedKey:   "https://index.docker.io/v2/",
 			expectedAuth:  registryAuth,
 		},
 	}
