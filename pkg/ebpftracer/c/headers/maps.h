@@ -125,6 +125,8 @@ BPF_LRU_HASH(syscall_stats_map, syscall_stats_key_t, u64, 65536);               
 
 BPF_HASH(oom_info, __u32, __u32, 1024);                                                 // marks PIDs as OOM
 BPF_HASH(ignored_cgroups_map, u64, u64, 10240);                                         // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
+                                                                                        //
+BPF_LRU_HASH(pid_original_file_flags, pid_t, u16, 1024);                                // holds flags of the original executed file (used to detect e.g. dropped scripts)
 
 // clang-format on
 

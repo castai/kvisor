@@ -362,7 +362,7 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		//ProbeInotifyFindInode:            NewTraceProbe(kProbe, "inotify_find_inode", "trace_inotify_find_inode"),
 		//ProbeInotifyFindInodeRet:         NewTraceProbe(kretProbe, "inotify_find_inode", "trace_ret_inotify_find_inode"),
 		//ProbeBpfCheck:                    NewTraceProbe(kProbe, "bpf_check", "trace_bpf_check"),
-		//ProbeExecBinprm:                  NewTraceProbe(kProbe, "exec_binprm", "trace_exec_binprm"),
+		ProbeExecBinprm: newTraceProbe(kProbe, "exec_binprm", objs.TraceExecBinprm),
 		//ProbeExecBinprmRet:               NewTraceProbe(kretProbe, "exec_binprm", "trace_ret_exec_binprm"),
 		//ProbeTpProbeRegPrioMayExist:      NewTraceProbe(kProbe, "tracepoint_probe_register_prio_may_exist", "trace_tracepoint_probe_register_prio_may_exist"),
 		//ProbeModuleLoad:                  NewTraceProbe(rawTracepoint, "module:module_load", "tracepoint__module__module_load"),

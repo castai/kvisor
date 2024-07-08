@@ -112,7 +112,7 @@ func TestTracer(t *testing.T) {
 			//{ID: events.NetPacketTCPBase},
 			{ID: events.SchedProcessExec},
 			//{ID: events.SecuritySocketConnect},
-			{ID: events.SockSetState},
+			// {ID: events.SockSetState},
 			//{ID: events.NetPacketDNSBase},
 		},
 	}

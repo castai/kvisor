@@ -1211,6 +1211,51 @@ int lkm_seeker_new_mod_only_tail(struct pt_regs *ctx)
     return 0;
 }
 
+SEC("kprobe/exec_binprm")
+int BPF_KPROBE(trace_exec_binprm)
+{
+    args_t args = {};
+    args.args[0] = PT_REGS_PARM1(ctx);
+    args.args[1] = PT_REGS_PARM2(ctx);
+    args.args[2] = PT_REGS_PARM3(ctx);
+    args.args[3] = PT_REGS_PARM4(ctx);
+    args.args[4] = PT_REGS_PARM5(ctx);
+    args.args[5] = PT_REGS_PARM6(ctx);
+
+    // requried by kretprobe for this function
+    save_args(&args, EXEC_BINPRM);
+
+    // NOTE: we cannot do the calc based on the value we store in the args map, as the binprm struct
+    // gets modified during the function execution and before it hits the tracepoint.
+
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    struct linux_binprm *bprm = (void *) PT_REGS_PARM1(ctx);
+    struct file *file = get_file_ptr_from_bprm(bprm);
+    struct path f_path = (struct path) BPF_CORE_READ(file, f_path);
+    struct dentry *dentry = f_path.dentry;
+    struct inode *inode = BPF_CORE_READ(file, f_inode);
+    struct super_block *sb = BPF_CORE_READ(inode, i_sb);
+
+    u16 flags = 0;
+    if (sb && inode) {
+        if (get_exe_upper_layer(dentry, sb)) {
+            flags |= FS_EXE_UPPER_LAYER;
+        }
+
+        if (is_executed_in_tmpfs(sb)) {
+            flags |= FS_EXE_FROM_TMPFS;
+        }
+
+        if (get_exe_from_memfd(file)) {
+            flags |= FS_EXE_FROM_MEMFD;
+        }
+    }
+
+    bpf_map_update_elem(&pid_original_file_flags, &pid, &flags, BPF_ANY);
+
+    return 0;
+}
+
 // clang-format off
 
 // trace/events/sched.h: TP_PROTO(struct task_struct *p, pid_t old_pid, struct linux_binprm *bprm)
@@ -1319,7 +1364,16 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
         }
     }
 
-    save_to_submit_buf(&p.event->args_buf, &flags, sizeof(u32), 16);
+    pid_t pid = p.event->context.task.host_pid;
+    u16 *original_flags = bpf_map_lookup_elem(&pid_original_file_flags, &pid);
+    if (original_flags != NULL) {
+        u32 upper_flags = *original_flags;
+        upper_flags = upper_flags << 16;
+        flags |= upper_flags;
+        bpf_map_delete_elem(&pid_original_file_flags, &pid);
+    }
+
+    save_to_submit_buf(&p.event->args_buf, &flags, sizeof(flags), 16);
 
     bpf_tail_call(ctx, &prog_array_tp, TAIL_SCHED_PROCESS_EXEC_EVENT_SUBMIT);
 
@@ -5017,9 +5071,6 @@ int BPF_KPROBE(trace_ret_inotify_find_inode)
 
     return events_perf_submit(&p, INOTIFY_WATCH, 0);
 }
-
-SEC("kprobe/exec_binprm")
-TRACE_ENT_FUNC(exec_binprm, EXEC_BINPRM);
 
 SEC("kretprobe/exec_binprm")
 int BPF_KPROBE(trace_ret_exec_binprm)
