@@ -246,6 +246,7 @@ type tracerMapSpecs struct {
 	OomInfo                 *ebpf.MapSpec `ebpf:"oom_info"`
 	PidFilter               *ebpf.MapSpec `ebpf:"pid_filter"`
 	PidNsFilter             *ebpf.MapSpec `ebpf:"pid_ns_filter"`
+	PidOriginalFileFlags    *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
 	ProcInfoMap             *ebpf.MapSpec `ebpf:"proc_info_map"`
 	ProcessTreeMap          *ebpf.MapSpec `ebpf:"process_tree_map"`
 	ProgArray               *ebpf.MapSpec `ebpf:"prog_array"`
@@ -333,6 +334,7 @@ type tracerMaps struct {
 	OomInfo                 *ebpf.Map `ebpf:"oom_info"`
 	PidFilter               *ebpf.Map `ebpf:"pid_filter"`
 	PidNsFilter             *ebpf.Map `ebpf:"pid_ns_filter"`
+	PidOriginalFileFlags    *ebpf.Map `ebpf:"pid_original_file_flags"`
 	ProcInfoMap             *ebpf.Map `ebpf:"proc_info_map"`
 	ProcessTreeMap          *ebpf.Map `ebpf:"process_tree_map"`
 	ProgArray               *ebpf.Map `ebpf:"prog_array"`
@@ -403,6 +405,7 @@ func (m *tracerMaps) Close() error {
 		m.OomInfo,
 		m.PidFilter,
 		m.PidNsFilter,
+		m.PidOriginalFileFlags,
 		m.ProcInfoMap,
 		m.ProcessTreeMap,
 		m.ProgArray,

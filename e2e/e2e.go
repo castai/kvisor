@@ -393,17 +393,32 @@ func (t *testCASTAIServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSec
 	}
 }
 
+const (
+	ExecUpperLayer uint32 = 1 << 0
+	ExecMemfd      uint32 = 1 << 1
+	ExecTmpfs      uint32 = 1 << 2
+)
+
 func (t *testCASTAIServer) validateExecEvents() error {
 	var foundExecWithHash bool
 	var foundExecFromUpperLayer bool
+	var foundExecTmpfs bool
 
 	for _, e := range t.events {
 		if e.EventType == castaipb.EventType_EVENT_EXEC {
 			if e.GetExec().HashSha256 != nil {
 				foundExecWithHash = true
 			}
-			if flags := e.GetExec().Flags; flags == 1 {
+
+			flags := e.GetExec().Flags
+			originalFileFlags := flags >> 16
+
+			if (originalFileFlags | ExecUpperLayer) > 0 {
 				foundExecFromUpperLayer = true
+			}
+
+			if (originalFileFlags | ExecTmpfs) > 0 {
+				foundExecTmpfs = true
 			}
 		}
 	}
@@ -413,6 +428,9 @@ func (t *testCASTAIServer) validateExecEvents() error {
 	}
 	if !foundExecFromUpperLayer {
 		return errors.New("expected at least one exec event from upper layer")
+	}
+	if !foundExecTmpfs {
+		return errors.New("expected at least one exec event from tmpfs")
 	}
 
 	return nil
