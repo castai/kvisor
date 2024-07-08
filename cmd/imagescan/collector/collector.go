@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -99,7 +100,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	// There are rare cases where the Architecture of an image is not set (even though this doesn't appear to be
 	// neither OCI nor docker image spec conform). This is not a 100% solution, but should be good enough.
 	if strings.TrimSpace(arch) == "" {
-		arch = c.hostFsConfig.Platform.Architecture
+		arch = runtime.GOARCH
 	}
 
 	metadata := &castaipb.ImageMetadata{
