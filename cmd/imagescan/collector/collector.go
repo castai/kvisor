@@ -234,7 +234,7 @@ func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.
 	log.Infof("finding registry auth for image %s", imageRepo)
 
 	authKeys := lo.Keys(cfg.Auths)
-	sort.Strings(authKeys)
+	sort.Slice(authKeys, func(i, j int) bool { return authKeys[i] > authKeys[j] })
 	log.Infof("the following registries were found: %s", authKeys)
 
 	for _, key := range authKeys {
@@ -252,6 +252,7 @@ func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.
 func normalize(registryKey string) string {
 	trimmed := strings.TrimPrefix(registryKey, "http://")
 	trimmed = strings.TrimPrefix(trimmed, "https://")
+	trimmed = strings.TrimSuffix(trimmed, "/")
 	if strings.HasPrefix(trimmed, "docker.io") || strings.HasPrefix(trimmed, "index.docker.io") {
 		trimmed = strings.TrimSuffix(trimmed, "/v2")
 	}
