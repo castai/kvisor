@@ -95,11 +95,18 @@ func (c *Collector) Collect(ctx context.Context) error {
 		return fmt.Errorf("extract manifest digest: %w", err)
 	}
 
+	arch := arRef.ConfigFile.Architecture
+	// There are rare cases where the Architecture of an image is not set (even though this doesn't appear to be
+	// neither OCI nor docker image spec conform). This is not a 100% solution, but should be good enough.
+	if strings.TrimSpace(arch) == "" {
+		arch = c.hostFsConfig.Platform.Architecture
+	}
+
 	metadata := &castaipb.ImageMetadata{
 		ImageName:    c.cfg.ImageName,
 		ImageId:      c.cfg.ImageID,
 		ImageDigest:  digest.String(),
-		Architecture: arRef.ConfigFile.Architecture,
+		Architecture: arch,
 		ResourceIds:  strings.Split(c.cfg.ResourceIDs, ","),
 	}
 	if arRef.OsInfo != nil {
