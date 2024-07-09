@@ -143,16 +143,16 @@ controller:
   # TODO(Kvisord): Add default strict security context for all components.
   securityContext:
     fsGroup: 1001
+    runAsNonRoot: true
 #    fsGroup: 10001
 #    runAsGroup: 10001
-#    runAsNonRoot: true
 #    runAsUser: 10001
 #    seccompProfile:
 #      type: RuntimeDefault
 
   containerSecurityContext:
     allowPrivilegeEscalation: false
-#    readOnlyRootFilesystem: true
+    readOnlyRootFilesystem: true
 #    capabilities:
 #      drop: [ ALL ]
 
