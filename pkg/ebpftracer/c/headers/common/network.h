@@ -542,42 +542,38 @@ statfunc bool fill_tuple(struct sock *sk, tuple_t *tuple)
     u16 family = BPF_CORE_READ(sk, __sk_common.skc_family);
     tuple->family = family;
 
-	switch (family) {
-	case AF_INET:
-		BPF_CORE_READ_INTO(&tuple->saddr.v4addr, sk, __sk_common.skc_rcv_saddr);
-		if (tuple->saddr.v4addr == 0)
-			return false;
+    switch (family) {
+        case AF_INET:
+            BPF_CORE_READ_INTO(&tuple->saddr.v4addr, sk, __sk_common.skc_rcv_saddr);
+            if (tuple->saddr.v4addr == 0)
+                return false;
 
-		BPF_CORE_READ_INTO(&tuple->daddr.v4addr, sk, __sk_common.skc_daddr);
-		if (tuple->daddr.v4addr == 0)
-			return false;
+            BPF_CORE_READ_INTO(&tuple->daddr.v4addr, sk, __sk_common.skc_daddr);
+            if (tuple->daddr.v4addr == 0)
+                return false;
 
-		break;
-	case AF_INET6:
-		BPF_CORE_READ_INTO(&tuple->saddr.v6addr, sk, __sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
-		if (tuple->saddr.v6addr == 0)
-			return false;
-		BPF_CORE_READ_INTO(&tuple->daddr.v6addr, sk, __sk_common.skc_v6_daddr.in6_u.u6_addr32);
-		if (tuple->daddr.v6addr == 0)
-			return false;
+            break;
+        case AF_INET6:
+            BPF_CORE_READ_INTO(
+                &tuple->saddr.v6addr, sk, __sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
+            if (tuple->saddr.v6addr == 0)
+                return false;
+            BPF_CORE_READ_INTO(&tuple->daddr.v6addr, sk, __sk_common.skc_v6_daddr.in6_u.u6_addr32);
+            if (tuple->daddr.v6addr == 0)
+                return false;
 
-		break;
+            break;
 
-	default:
-		return false;
-	}
+        default:
+            return false;
+    }
 
-	//BPF_CORE_READ_INTO(&tuple->sport, sockp, inet_sport);
-	BPF_CORE_READ_INTO(&tuple->sport, sk, __sk_common.skc_num);
-	if (tuple->sport == 0)
-	    return false;
-
-    BPF_CORE_READ_INTO(&tuple->dport, sk, __sk_common.skc_dport);
-    if (tuple->dport == 0)
-        return false;
+    tuple->sport = get_inet_sport((struct inet_sock *) sk);
+    tuple->sport = bpf_ntohs(tuple->sport);
+    tuple->dport = get_inet_dport((struct inet_sock *) sk);
     tuple->dport = bpf_ntohs(tuple->dport);
 
-	return true;
+    return true;
 }
 
 #endif
