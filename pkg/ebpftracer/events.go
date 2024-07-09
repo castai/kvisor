@@ -5273,7 +5273,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:    "sched_process_exec",
 			dependencies: dependencies{
 				probes: []EventProbe{
-					{handle: ProbeExecBinprm, required: true},
+					{handle: ProbeExecBinprm, required: false},
 					{handle: ProbeSchedProcessExec, required: true},
 					{handle: ProbeLoadElfPhdrs, required: false},
 				},
