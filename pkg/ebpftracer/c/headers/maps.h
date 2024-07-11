@@ -123,6 +123,8 @@ BPF_HASH(process_tree_map, u32, eq_t, 10240);                                   
 BPF_HASH(events_map, u32, event_config_t, MAX_EVENT_ID);                                // map to persist event configuration data
 BPF_LRU_HASH(syscall_stats_map, syscall_stats_key_t, u64, 65536);                       // holds syscalls stats per cgroup
 
+BPF_LRU_HASH(dropped_binary_inodes, u64, u32, 8192);                                    // holds inodes of binaries that have been identified as dropped
+
 BPF_HASH(oom_info, __u32, __u32, 1024);                                                 // marks PIDs as OOM
 BPF_HASH(ignored_cgroups_map, u64, u64, 10240);                                         // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
                                                                                         //
