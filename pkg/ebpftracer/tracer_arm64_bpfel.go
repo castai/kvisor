@@ -216,6 +216,7 @@ type tracerMapSpecs struct {
 	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
 	ContainersMap           *ebpf.MapSpec `ebpf:"containers_map"`
 	DebugEvents             *ebpf.MapSpec `ebpf:"debug_events"`
+	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
 	ElfFilesMap             *ebpf.MapSpec `ebpf:"elf_files_map"`
 	Entrymap                *ebpf.MapSpec `ebpf:"entrymap"`
 	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
@@ -304,6 +305,7 @@ type tracerMaps struct {
 	ConfigMap               *ebpf.Map `ebpf:"config_map"`
 	ContainersMap           *ebpf.Map `ebpf:"containers_map"`
 	DebugEvents             *ebpf.Map `ebpf:"debug_events"`
+	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
 	ElfFilesMap             *ebpf.Map `ebpf:"elf_files_map"`
 	Entrymap                *ebpf.Map `ebpf:"entrymap"`
 	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
@@ -375,6 +377,7 @@ func (m *tracerMaps) Close() error {
 		m.ConfigMap,
 		m.ContainersMap,
 		m.DebugEvents,
+		m.DroppedBinaryInodes,
 		m.ElfFilesMap,
 		m.Entrymap,
 		m.EventDataMap,

@@ -20,9 +20,10 @@
 
 #define UID_GID_MAP_MAX_BASE_EXTENTS 5
 
-#define FS_EXE_UPPER_LAYER (1 << 0)
-#define FS_EXE_FROM_MEMFD  (1 << 1)
-#define FS_EXE_FROM_TMPFS  (1 << 2)
+#define FS_EXE_UPPER_LAYER    (1 << 0)
+#define FS_EXE_FROM_MEMFD     (1 << 1)
+#define FS_EXE_FROM_TMPFS     (1 << 2)
+#define FS_EXE_DROPPED_BINARY (1 << 3)
 // TODO: Implement these flags.
 //#define FS_EXE_WRITABLE		(1 << 3)
 

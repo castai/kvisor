@@ -1364,6 +1364,11 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
         }
     }
 
+    // If there is a dummy element in the map, we know the binary was dropped.
+    if (bpf_map_lookup_elem(&dropped_binary_inodes, &inode_nr)){
+            flags |= FS_EXE_DROPPED_BINARY;
+    }
+
     pid_t pid = p.event->context.task.host_pid;
     u16 *original_flags = bpf_map_lookup_elem(&pid_original_file_flags, &pid);
     if (original_flags != NULL) {
@@ -3427,6 +3432,10 @@ statfunc int do_vfs_write_magic_return(struct pt_regs *ctx, bool is_buf)
     if (!is_elf(io_data, header)) {
         return 0;
     }
+
+    u32 one = 1;
+    // We just need a dummy value in the map for now.
+    bpf_map_update_elem(&dropped_binary_inodes, &file_info.id.inode, &one, BPF_ANY);
 
     save_bytes_to_buf(&(p.event->args_buf), header, header_bytes, 1);
     save_to_submit_buf(&(p.event->args_buf), &file_info.id.device, sizeof(dev_t), 2);

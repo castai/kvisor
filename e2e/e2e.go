@@ -394,15 +394,17 @@ func (t *testCASTAIServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSec
 }
 
 const (
-	ExecUpperLayer uint32 = 1 << 0
-	ExecMemfd      uint32 = 1 << 1
-	ExecTmpfs      uint32 = 1 << 2
+	ExecUpperLayer    uint32 = 1 << 0
+	ExecMemfd         uint32 = 1 << 1
+	ExecTmpfs         uint32 = 1 << 2
+	ExecDroppedBinary uint32 = 1 << 3
 )
 
 func (t *testCASTAIServer) validateExecEvents() error {
 	var foundExecWithHash bool
 	var foundExecFromUpperLayer bool
 	var foundExecTmpfs bool
+	var foundExecDroppedBinary bool
 
 	for _, e := range t.events {
 		if e.EventType == castaipb.EventType_EVENT_EXEC {
@@ -420,6 +422,10 @@ func (t *testCASTAIServer) validateExecEvents() error {
 			if (originalFileFlags | ExecTmpfs) > 0 {
 				foundExecTmpfs = true
 			}
+
+			if (originalFileFlags | ExecDroppedBinary) > 0 {
+				foundExecDroppedBinary = true
+			}
 		}
 	}
 
@@ -431,6 +437,9 @@ func (t *testCASTAIServer) validateExecEvents() error {
 	}
 	if !foundExecTmpfs {
 		return errors.New("expected at least one exec event from tmpfs")
+	}
+	if !foundExecDroppedBinary {
+		return errors.New("expected at least one exec event from dropped binary")
 	}
 
 	return nil
