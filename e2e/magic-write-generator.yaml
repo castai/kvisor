@@ -23,12 +23,21 @@ spec:
             - -c
             - |-
               sleep 2
+              TEMP_ARCHIVE=$(mktemp --suffix .tar.gz)
+              cd /tmp
+              cp /bin/tar tar_executable
+              chmod -x tar_executable
+              tar czvf $TEMP_ARCHIVE tar_executable
+
               for i in $(seq 0 10000); do
-                TEMP=$(mktemp)
-                cat /bin/false > $TEMP
-                chmod +x $TEMP
-                $TEMP || true
+                TEMP=$(mktemp -d)
+                cd $TEMP
+                tar xzf $TEMP_ARCHIVE
+                chmod +x tar_executable
+                ./tar_executable || true
                 sleep 1
                 echo $i $TEMP
+                cd /tmp
+                rm -rf $TEMP
               done
               sleep 2
