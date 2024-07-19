@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -43,7 +45,7 @@ func TestDecodeContext(t *testing.T) {
 		MatchedPolicies: 7,
 		Retval:          4,
 		StackID:         10,
-		ProcessorId:     5,
+		ProcessorId:     6,
 	}
 	err := binary.Write(buf, binary.LittleEndian, ctxExpected)
 	assert.Equal(t, nil, err)
@@ -1181,4 +1183,45 @@ func TestDecodeDns(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecodeRealContext(t *testing.T) {
+	r := require.New(t)
+
+	path := filepath.Join("testdata", "event.bin")
+	data, err := os.ReadFile(path)
+	r.NoError(err)
+
+	var eventCtx types.EventContext
+
+	decoder := NewEventDecoder(log, data)
+	err = decoder.DecodeContext(&eventCtx)
+	r.NoError(err)
+
+	r.Equal(types.EventContext{
+		Ts:              87539716442646,
+		StartTime:       87539290611412,
+		CgroupID:        74331,
+		Pid:             146,
+		Tid:             146,
+		Ppid:            135,
+		HostPid:         159203,
+		HostTid:         159203,
+		HostPpid:        159191,
+		NodeHostPid:     159203,
+		Uid:             0,
+		MntID:           4026533184,
+		PidID:           4026533187,
+		Comm:            [16]byte{0x64, 0x70, 0x6b, 0x67},
+		UtsName:         [16]byte{0x39, 0x32, 0x31, 0x61, 0x30, 0x33, 0x33, 0x63, 0x63, 0x31, 0x31, 0x37},
+		Flags:           0,
+		LeaderStartTime: 87539290611412,
+		ParentStartTime: 87536000187295,
+		EventID:         728,
+		Syscall:         64,
+		MatchedPolicies: 1,
+		Retval:          32768,
+		StackID:         0,
+		ProcessorId:     1,
+	}, eventCtx)
 }

@@ -197,6 +197,9 @@ statfunc int init_tailcall_program_data(program_data_t *p, void *ctx)
         return 0;
     }
 
+    // TODO(patrick.pichler): this is just a quick fix. The proper fix comes later.
+    p->task = (struct task_struct *) bpf_get_current_task();
+
     return 1;
 }
 

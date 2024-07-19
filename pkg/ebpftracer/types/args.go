@@ -3357,18 +3357,29 @@ type SchedProcessForkArgs struct {
   ParentNsTid int32
   ParentPid int32
   ParentNsPid int32
+  ParentStartTime uint64
   ChildTid int32
   ChildNsTid int32
   ChildPid int32
   ChildNsPid int32
-  StartTime uint64
+  ChildStartTime uint64
+  UpParentTid int32
+  UpParentNsTid int32
+  UpParentPid int32
+  UpParentNsPid int32
+  UpParentStartTime uint64
+  LeaderTid int32
+  LeaderNsTid int32
+  LeaderPid int32
+  LeaderNsPid int32
+  LeaderStartTime uint64
 }
 
 type SchedProcessExecArgs struct {
   internalArgs
 
-  Cmdpath string
-  Pathname string
+  Filename string
+  Filepath string
   Dev uint32
   Inode uint64
   Ctime uint64
@@ -4263,26 +4274,6 @@ type TrackSyscallStatsArgs struct {
   internalArgs
 }
 
-type TestEventArgs struct {
-  internalArgs
-}
-
-type SignalCgroupMkdirArgs struct {
-  internalArgs
-
-  CgroupId uint64
-  CgroupPath string
-  HierarchyId uint32
-}
-
-type SignalCgroupRmdirArgs struct {
-  internalArgs
-
-  CgroupId uint64
-  CgroupPath string
-  HierarchyId uint32
-}
-
 type NetFlowBaseArgs struct {
   internalArgs
 
@@ -4292,4 +4283,8 @@ type NetFlowBaseArgs struct {
   RxBytes uint64
   TxPackets uint64
   RxPackets uint64
+}
+
+type TestEventArgs struct {
+  internalArgs
 }

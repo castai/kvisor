@@ -5260,11 +5260,25 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "int", Name: "parent_ns_tid"},
 				{Type: "int", Name: "parent_pid"},
 				{Type: "int", Name: "parent_ns_pid"},
+				{Type: "u64", Name: "parent_start_time"},
+
 				{Type: "int", Name: "child_tid"},
 				{Type: "int", Name: "child_ns_tid"},
 				{Type: "int", Name: "child_pid"},
 				{Type: "int", Name: "child_ns_pid"},
-				{Type: "unsigned long", Name: "start_time"},
+				{Type: "u64", Name: "child_start_time"},
+
+				{Type: "int", Name: "up_parent_tid"},
+				{Type: "int", Name: "up_parent_ns_tid"},
+				{Type: "int", Name: "up_parent_pid"},
+				{Type: "int", Name: "up_parent_ns_pid"},
+				{Type: "u64", Name: "up_parent_start_time"},
+
+				{Type: "int", Name: "leader_tid"},
+				{Type: "int", Name: "leader_ns_tid"},
+				{Type: "int", Name: "leader_pid"},
+				{Type: "int", Name: "leader_ns_pid"},
+				{Type: "u64", Name: "leader_start_time"},
 			},
 		},
 		events.SchedProcessExec: {
@@ -5294,8 +5308,8 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 			sets: []string{"default", "proc"},
 			params: []argMeta{
-				{Type: "const char*", Name: "cmdpath"},
-				{Type: "const char*", Name: "pathname"},
+				{Type: "const char*", Name: "filename"},
+				{Type: "const char*", Name: "filepath"},
 				{Type: "dev_t", Name: "dev"},
 				{Type: "unsigned long", Name: "inode"},
 				{Type: "unsigned long", Name: "ctime"},
@@ -7302,55 +7316,6 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			dependencies: dependencies{skipDefaultTailCalls: true},
 			params:       []argMeta{},
 		},
-		//
-		// End of Network Protocol Event Types (keep them at the end)
-		//
-
-		// Event used for testing in unit tests
-		events.TestEvent: {
-			ID:       events.TestEvent,
-			id32Bit:  events.Sys32Undefined,
-			name:     "test_event",
-			internal: true,
-			syscall:  false,
-		},
-		//
-		// Begin of Signal Events (Control Plane)
-		//
-		events.SignalCgroupMkdir: {
-			ID:       events.SignalCgroupMkdir,
-			id32Bit:  events.Sys32Undefined,
-			name:     "signal_cgroup_mkdir",
-			internal: true,
-			dependencies: dependencies{
-				probes: []EventProbe{
-					{handle: SignalCgroupMkdir, required: true},
-				},
-			},
-			sets: []string{"signal"},
-			params: []argMeta{
-				{Type: "u64", Name: "cgroup_id"},
-				{Type: "const char*", Name: "cgroup_path"},
-				{Type: "u32", Name: "hierarchy_id"},
-			},
-		},
-		events.SignalCgroupRmdir: {
-			ID:       events.SignalCgroupRmdir,
-			id32Bit:  events.Sys32Undefined,
-			name:     "signal_cgroup_rmdir",
-			internal: true,
-			dependencies: dependencies{
-				probes: []EventProbe{
-					{handle: SignalCgroupRmdir, required: true},
-				},
-			},
-			sets: []string{"signal"},
-			params: []argMeta{
-				{Type: "u64", Name: "cgroup_id"},
-				{Type: "const char*", Name: "cgroup_path"},
-				{Type: "u32", Name: "hierarchy_id"},
-			},
-		},
 		events.NetFlowBase: {
 			ID:       events.NetFlowBase,
 			id32Bit:  events.Sys32Undefined,
@@ -7370,6 +7335,18 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "u64", Name: "tx_packets"},
 				{Type: "u64", Name: "rx_packets"},
 			},
+		},
+		//
+		// End of Network Protocol Event Types
+		//
+
+		// Event used for testing in unit tests
+		events.TestEvent: {
+			ID:       events.TestEvent,
+			id32Bit:  events.Sys32Undefined,
+			name:     "test_event",
+			internal: true,
+			syscall:  false,
 		},
 	}
 }

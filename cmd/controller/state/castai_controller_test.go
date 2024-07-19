@@ -75,6 +75,12 @@ type testGrpcClient struct {
 	getConfigurationResponse func() (*castaipb.GetConfigurationResponse, error)
 }
 
+var _ castaipb.RuntimeSecurityAgentAPIClient = testGrpcClient{}
+
+func (t testGrpcClient) ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error) {
+	return nil, nil
+}
+
 func (t testGrpcClient) KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error) {
 	return nil, nil
 }

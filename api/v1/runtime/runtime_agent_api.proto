@@ -14,6 +14,7 @@ service RuntimeSecurityAgentAPI {
   rpc LogsWriteStream(stream LogEvent) returns (WriteStreamResponse) {}
   rpc ContainerStatsWriteStream(stream ContainerStatsBatch) returns (WriteStreamResponse) {}
   rpc NetflowWriteStream(stream Netflow) returns (WriteStreamResponse) {}
+  rpc ProcessEventsWriteStream(stream ProcessTreeEvent) returns (WriteStreamResponse) {}
 
   rpc GetSyncState(GetSyncStateRequest) returns (GetSyncStateResponse) {}
   rpc UpdateSyncState(UpdateSyncStateRequest) returns (UpdateSyncStateResponse) {}
@@ -358,4 +359,33 @@ message KubeLinterCheck {
   string resource_uid = 1;
   uint64 passed = 2; // Represented as bitmasks of passed checks.
   uint64 failed = 3; // Represented as bitmasks of failed checks.
+}
+
+message Process {
+  uint32 pid = 1;
+  uint32 ppid = 2;
+  uint64 start_time = 3;
+  uint64 parent_start_time = 4;
+  repeated string args = 5;
+  string filepath = 6;
+  uint64 exit_time = 7;
+}
+
+enum ProcessAction {
+  PROCESS_ACTION_UNKNOWN = 0;
+  PROCESS_ACTION_EXEC = 1;
+  PROCESS_ACTION_FORK = 2;
+  PROCESS_ACTION_EXIT = 3;
+}
+
+message ProcessEvent {
+  uint64 timestamp = 1; // Stored as unix timestamp in nanoseconds.
+  string container_id = 2;
+  Process process = 3;
+  ProcessAction action = 4;
+}
+
+message ProcessTreeEvent {
+  bool initial = 1;
+  repeated ProcessEvent events = 2;
 }

@@ -132,9 +132,10 @@ BPF_LRU_HASH(pid_original_file_flags, pid_t, u16, 1024);                        
 
 // clang-format on
 
-BPF_PERF_OUTPUT(logs, 1024);        // logs submission
-BPF_PERF_OUTPUT(events, 8192);      // events submission
-BPF_PERF_OUTPUT(file_writes, 1024); // file writes events submission
-BPF_PERF_OUTPUT(signals, 1024);     // control plane signals submissions
+BPF_PERF_OUTPUT(logs, 1024);          // logs submission
+BPF_PERF_OUTPUT(events, 8192);        // events submission
+BPF_PERF_OUTPUT(signal_events, 8192); // signal events submission
+BPF_PERF_OUTPUT(file_writes, 1024);   // file writes events submission
+BPF_PERF_OUTPUT(signals, 1024);       // control plane signals submissions
 
 #endif /* __MAPS_H__ */

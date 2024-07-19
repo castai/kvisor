@@ -20,12 +20,14 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/kvisor/pkg/processtree"
+	"github.com/castai/kvisor/pkg/system"
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sys/unix"
 )
 
 // ActualDestinationGetter is used to find actual destination ip.
@@ -45,6 +47,12 @@ type CgroupClient interface {
 	IsDefaultHierarchy(uint32) bool
 }
 
+type ProcessTreeCollector interface {
+	ProcessStarted(eventTime time.Time, containerID string, p processtree.Process)
+	ProcessForked(eventTime time.Time, containerID string, parent processtree.ProcessKey, processKey processtree.ProcessKey)
+	ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, exitTime uint64)
+}
+
 type Config struct {
 	BTFPath                string
 	EventsPerCPUBuffer     int
@@ -62,6 +70,7 @@ type Config struct {
 	NetflowSampleSubmitIntervalSeconds uint64
 	NetflowGrouping                    NetflowGrouping
 	TrackSyscallStats                  bool
+	ProcessTreeCollector               ProcessTreeCollector
 }
 
 type cgroupCleanupRequest struct {
@@ -116,18 +125,11 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cfg.EventsOutputChanSize = 16384
 	}
 
-	var ts unix.Timespec
-	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
-	if err != nil {
-		panic(fmt.Errorf("getting clock time: %w", err).Error())
-	}
-	bootTime := time.Now().UnixNano() - ts.Nano()
-
 	t := &Tracer{
 		log:                  log,
 		cfg:                  cfg,
 		module:               m,
-		bootTime:             uint64(bootTime),
+		bootTime:             uint64(system.GetBootTime().UnixNano()),
 		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
 		netflowEventsChan:    make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:       map[uint64]struct{}{},
@@ -171,7 +173,7 @@ func (t *Tracer) Run(ctx context.Context) error {
 		return t.eventsReadLoop(ctx)
 	})
 	errg.Go(func() error {
-		return t.signalReadLoop(ctx)
+		return t.signalEventsReadLoop(ctx)
 	})
 	errg.Go(func() error {
 		return t.cgroupCleanupLoop(ctx)
@@ -195,45 +197,16 @@ func (t *Tracer) GetEventName(id events.ID) string {
 	return ""
 }
 
-func (t *Tracer) signalReadLoop(ctx context.Context) error {
-	eventsReader, err := perf.NewReader(t.module.objects.Signals, t.cfg.EventsPerCPUBuffer)
-	if err != nil {
-		return err
-	}
-	defer eventsReader.Close()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		record, err := eventsReader.Read()
-		if err != nil {
-			if t.cfg.DebugEnabled {
-				t.log.Warnf("reading signals: %v", err)
-			}
-			continue
-		}
-		if record.LostSamples > 0 {
-			t.log.Warnf("lost %d signals", record.LostSamples)
-			metrics.AgentKernelLostEventsTotal.Add(float64(record.LostSamples))
-			continue
-		}
-		metrics.AgentPulledEventsTotal.Inc()
-
-		if err := t.decodeAndHandleSignal(ctx, record.RawSample); err != nil {
-			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
-				t.log.Errorf("decoding signal: %v", err)
-			}
-			metrics.AgentDecodeEventErrorsTotal.Inc()
-			continue
-		}
-	}
+func (t *Tracer) signalEventsReadLoop(ctx context.Context) error {
+	return t.runPerfBufReaderLoop(ctx, t.module.objects.SignalEvents)
 }
 
 func (t *Tracer) eventsReadLoop(ctx context.Context) error {
-	eventsReader, err := perf.NewReader(t.module.objects.Events, t.cfg.EventsPerCPUBuffer)
+	return t.runPerfBufReaderLoop(ctx, t.module.objects.Events)
+}
+
+func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) error {
+	eventsReader, err := perf.NewReader(target, t.cfg.EventsPerCPUBuffer)
 	if err != nil {
 		return err
 	}

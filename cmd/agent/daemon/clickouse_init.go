@@ -52,6 +52,9 @@ func NewClickhouseInitCommand() *cobra.Command {
 				if err := conn.Exec(ctx, state.ClickhouseNetflowSchema()); err != nil {
 					return fmt.Errorf("creating clickhouse netflow schema: %w", err)
 				}
+				if err := conn.Exec(ctx, state.ClickhouseProcessTreeSchema()); err != nil {
+					return fmt.Errorf("creating clickhouse process tree schema: %w", err)
+				}
 
 				return nil
 			}

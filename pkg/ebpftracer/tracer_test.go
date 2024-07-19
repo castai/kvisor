@@ -21,6 +21,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -77,6 +78,7 @@ func TestTracer(t *testing.T) {
 		HomePIDNS:                          pidNS,
 		NetflowSampleSubmitIntervalSeconds: 0,
 		NetflowGrouping:                    ebpftracer.NetflowGroupingDropSrcPort,
+		ProcessTreeCollector:               &dummyProcessTreeCollector{},
 	})
 	defer tr.Close()
 
@@ -324,3 +326,16 @@ func getLayer4TCPFromPacket(packet gopacket.Packet) (*layers.TCP, error) {
 	}
 	return tcp, nil
 }
+
+type dummyProcessTreeCollector struct{}
+
+func (d *dummyProcessTreeCollector) ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, exitTime uint64) {
+}
+
+func (d *dummyProcessTreeCollector) ProcessForked(eventTime time.Time, containerID string, parent processtree.ProcessKey, processKey processtree.ProcessKey) {
+}
+
+func (d *dummyProcessTreeCollector) ProcessStarted(eventTime time.Time, containerID string, p processtree.Process) {
+}
+
+var _ ebpftracer.ProcessTreeCollector = (*dummyProcessTreeCollector)(nil)

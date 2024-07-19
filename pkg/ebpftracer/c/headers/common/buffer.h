@@ -1,6 +1,7 @@
 #ifndef __COMMON_BUFFER_H__
 #define __COMMON_BUFFER_H__
 
+#include "types.h"
 #include <vmlinux.h>
 
 #include <common/context.h>
@@ -473,7 +474,10 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
     return arg_num;
 }
 
-statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
+#define events_perf_submit(p, id, ret)        do_perf_submit(&events, p, id, ret)
+#define signal_events_perf_submit(p, id, ret) do_perf_submit(&signal_events, p, id, ret)
+
+statfunc int do_perf_submit(void *target, program_data_t *p, u32 id, long ret)
 {
     p->event->context.eventid = id;
     p->event->context.retval = ret;
@@ -481,7 +485,8 @@ statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
     if (p->event->context.task.tid == 0) {
         init_task_context(&p->event->context.task, p->task, p->config->options);
         // keep task_info updated
-        bpf_probe_read_kernel(&p->task_info->context, sizeof(task_context_t), &p->event->context.task);
+        bpf_probe_read_kernel(
+            &p->task_info->context, sizeof(task_context_t), &p->event->context.task);
     }
 
     // Get Stack trace
@@ -501,7 +506,7 @@ statfunc int events_perf_submit(program_data_t *p, u32 id, long ret)
                  :
                  : [size] "r"(size), [max_size] "i"(MAX_EVENT_SIZE));
 
-    return bpf_perf_event_output(p->ctx, &events, BPF_F_CURRENT_CPU, p->event, size);
+    return bpf_perf_event_output(p->ctx, target, BPF_F_CURRENT_CPU, p->event, size);
 }
 
 statfunc event_data_t *init_netflows_event_data()
