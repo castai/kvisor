@@ -247,13 +247,6 @@ const (
 	ProbeInetSockSetState
 	ProbeOomMarkVictim
 	ProbeTtyOpen
-
-	// Signal probes
-	SignalCgroupMkdir
-	SignalCgroupRmdir
-	SignalSchedProcessFork
-	SignalSchedProcessExec
-	SignalSchedProcessExit
 )
 
 func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
@@ -371,9 +364,5 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		ProbeInetSockSetState: newTraceProbe(rawTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
 		ProbeOomMarkVictim:    newTraceProbe(rawTracepoint, "oom:mark_victim", objs.OomMarkVictim),
 		ProbeTtyOpen:          newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
-
-		// Signal probes
-		SignalCgroupMkdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_mkdir", objs.CgroupMkdirSignal),
-		SignalCgroupRmdir: newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.CgroupRmdirSignal),
 	}
 }

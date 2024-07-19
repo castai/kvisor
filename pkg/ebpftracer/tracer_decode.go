@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strconv"
+	"time"
 
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
@@ -13,6 +14,8 @@ import (
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/kvisor/pkg/processtree"
+	"github.com/castai/kvisor/pkg/system"
 	"github.com/cilium/ebpf"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
@@ -20,51 +23,6 @@ import (
 
 // Error indicating that the resulting error was caught from a panic
 var ErrPanic = errors.New("encountered panic")
-
-func (t *Tracer) decodeAndHandleSignal(_ context.Context, data []byte) (rerr error) {
-	defer func() {
-		if perr := recover(); perr != nil {
-			stack := string(debug.Stack())
-			rerr = fmt.Errorf("decode %w: %v, stack=%s", ErrPanic, perr, stack)
-		}
-	}()
-
-	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, data)
-	var signalCtx types.SignalContext
-	if err := ebpfMsgDecoder.DecodeSignalContext(&signalCtx); err != nil {
-		return err
-	}
-	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, signalCtx.EventID)
-	if err != nil {
-		return fmt.Errorf("cannot parse event type %d: %w", signalCtx.EventID, err)
-	}
-
-	switch args := parsedArgs.(type) {
-	case types.SignalCgroupMkdirArgs:
-		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
-		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
-			return nil
-		}
-
-		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
-
-	case types.SignalCgroupRmdirArgs:
-		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
-		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
-			return nil
-		}
-
-		t.queueCgroupForRemoval(args.CgroupId)
-		err := t.UnmuteEventsFromCgroup(args.CgroupId)
-		if err != nil {
-			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
-		}
-	default:
-		t.log.Warnf("unhandled signal: %d", signalCtx.EventID)
-	}
-
-	return nil
-}
 
 func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decoder.Decoder) (rerr error) {
 	defer func() {
@@ -97,27 +55,12 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
 	}
 
+	rawEventTime := eventCtx.Ts
 	eventCtx.Ts = t.bootTime + eventCtx.Ts
 	event := &types.Event{
 		Context:   &eventCtx,
 		Container: container,
 		Args:      parsedArgs,
-	}
-
-	if _, found := t.signatureEventMap[eventId]; found {
-		t.cfg.SignatureEngine.QueueEvent(event)
-	}
-
-	// Do not parse event, if it is not registered. If there is no policy set, we treat is as to parse all the events
-	if _, found := t.eventPoliciesMap[eventId]; !found && t.policy != nil {
-		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventId))}).Inc()
-		return nil
-	}
-
-	// TODO: Move rate limit based policy to kernel side.
-	if err := t.allowedByPolicyPre(&eventCtx); err != nil {
-		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventId))}).Inc()
-		return nil
 	}
 
 	switch eventId {
@@ -127,6 +70,95 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		} else {
 			t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 		}
+
+		parentStartTime := time.Duration(0)
+		if eventCtx.Ppid != 0 {
+			// We only set the parent start time, if we know the parent PID comes from the same NS.
+			parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond
+		}
+		execArgs, ok := parsedArgs.(types.SchedProcessExecArgs)
+		if !ok {
+			t.log.Errorf("expected types.SchedProcessExecArgs, but got: %t", parsedArgs)
+			return nil
+		}
+		processStartTime := time.Duration(eventCtx.StartTime) * time.Nanosecond
+
+		t.cfg.ProcessTreeCollector.ProcessStarted(
+			system.GetBootTime().Add(time.Duration(rawEventTime)),
+			container.ID,
+			processtree.Process{
+				PID:             proc.PID(eventCtx.Pid),
+				StartTime:       processStartTime.Truncate(time.Second),
+				PPID:            proc.PID(eventCtx.Ppid),
+				ParentStartTime: parentStartTime.Truncate(time.Second),
+				Args:            execArgs.Argv,
+				FilePath:        execArgs.Filepath,
+			},
+		)
+
+	case events.SchedProcessExit, events.ProcessOomKilled:
+		t.cfg.ProcessTreeCollector.ProcessExited(
+			system.GetBootTime().Add(time.Duration(rawEventTime)),
+			container.ID,
+			processtree.ToProcessKeyNs(
+				proc.PID(eventCtx.Pid),
+				eventCtx.StartTime),
+			eventCtx.Ts,
+		)
+
+	case events.SchedProcessFork:
+		forkArgs := parsedArgs.(types.SchedProcessForkArgs)
+
+		// ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
+		if forkArgs.ChildNsPid != forkArgs.ParentNsPid {
+			parentStartTime := uint64(0)
+			if forkArgs.UpParentPid != 0 {
+				parentStartTime = forkArgs.UpParentStartTime
+			}
+
+			t.cfg.ProcessTreeCollector.ProcessForked(
+				// We always assume the child start time as the event timestamp for forks.
+				system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)),
+				container.ID,
+				processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime),
+				processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime),
+			)
+		}
+
+	case events.CgroupMkdir:
+		args := parsedArgs.(types.CgroupMkdirArgs)
+
+		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
+		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
+			return nil
+		}
+
+		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
+
+	case events.CgroupRmdir:
+		args := parsedArgs.(types.CgroupRmdirArgs)
+
+		t.queueCgroupForRemoval(args.CgroupId)
+		err := t.UnmuteEventsFromCgroup(args.CgroupId)
+		if err != nil {
+			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
+		}
+	}
+
+	if _, found := t.signatureEventMap[eventId]; found {
+		t.cfg.SignatureEngine.QueueEvent(event)
+	}
+
+	// Do not process an event we do not have a policy set any further.
+	if _, found := t.eventPoliciesMap[eventId]; !found && t.policy != nil {
+		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventId))}).Inc()
+		return nil
+	}
+
+	// TODO: Move rate limit based policy to kernel side.
+	if err := t.allowedByPolicyPre(&eventCtx); err != nil {
+		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventId))}).Inc()
+		return nil
 	}
 
 	if err := t.allowedByPolicy(eventId, eventCtx.CgroupID, event); err != nil {

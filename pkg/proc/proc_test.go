@@ -2,6 +2,7 @@ package proc
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 	"testing"
 	"testing/fstest"
@@ -18,10 +19,10 @@ func TestLoadMountNSOldestProcesses(t *testing.T) {
 		wantedMountNSID := NamespaceID(10)
 
 		procFS := fstest.MapFS{}
-		procFS[fmt.Sprintf("%d/stat", wantedPID)] = buildStatMapFile(0)
+		procFS[fmt.Sprintf("%d/stat", wantedPID)] = buildStatMapFile()
 		procFS[fmt.Sprintf("%d/ns/mnt", wantedPID)] = buildNamespaceMapFile(wantedMountNSID)
 
-		procFS["99/stat"] = buildStatMapFile(99)
+		procFS["99/stat"] = buildStatMapFile(StatFileStartTime(99))
 		procFS["99/ns/mnt"] = buildNamespaceMapFile(99)
 
 		proc := Proc{procFS: procFS}
@@ -38,13 +39,14 @@ func TestLoadMountNSOldestProcesses(t *testing.T) {
 		r := require.New(t)
 
 		oldestPID := PID(12)
+
 		mountNSID := NamespaceID(10)
 
 		procFS := fstest.MapFS{}
-		procFS[fmt.Sprintf("%d/stat", oldestPID)] = buildStatMapFile(0)
+		procFS[fmt.Sprintf("%d/stat", oldestPID)] = buildStatMapFile()
 		procFS[fmt.Sprintf("%d/ns/mnt", oldestPID)] = buildNamespaceMapFile(mountNSID)
 
-		procFS["99/stat"] = buildStatMapFile(99)
+		procFS["99/stat"] = buildStatMapFile(StatFileStartTime(99))
 		procFS["99/ns/mnt"] = buildNamespaceMapFile(mountNSID)
 
 		proc := Proc{procFS: procFS}
@@ -64,10 +66,10 @@ func TestLoadMountNSOldestProcesses(t *testing.T) {
 		wantedNSID := NamespaceID(10)
 
 		procFS := fstest.MapFS{}
-		procFS[fmt.Sprintf("%d/stat", wantedPID)] = buildStatMapFile(0)
+		procFS[fmt.Sprintf("%d/stat", wantedPID)] = buildStatMapFile()
 		procFS[fmt.Sprintf("%d/ns/mnt", wantedPID)] = buildNamespaceMapFile(wantedNSID)
 
-		procFS["99/stat"] = buildStatMapFile(99)
+		procFS["99/stat"] = buildStatMapFile(StatFileStartTime(99))
 
 		proc := Proc{procFS: procFS}
 
@@ -80,9 +82,31 @@ func TestLoadMountNSOldestProcesses(t *testing.T) {
 	})
 }
 
-func buildStatMapFile(age int) *fstest.MapFile {
+type StatFileComm string
+type StatFileParentPID PID
+type StatFileStartTime uint64
+
+func getOr[T any](or T, opts ...any) T {
+	for _, v := range opts {
+		if r, ok := v.(T); ok {
+			return r
+		}
+	}
+
+	return or
+}
+
+func buildStatMapFile(opts ...any) *fstest.MapFile {
+	comm := getOr[StatFileComm]("systemd", opts...)
+	ppid := getOr[StatFileParentPID](0, opts...)
+	startTime := getOr[StatFileStartTime](0, opts...)
+
 	return &fstest.MapFile{
-		Data:    []byte(fmt.Sprintf("1 (systemd) S 0 1 1 0 -1 4194560 49750 11902233 171 14858 475 453 49354 59480 20 0 1 0 %d 172085248 2208 18446744073709551615 1 1 0 0 0 0 671173123 4096 1260 0 0 0 17 3 0 0 0 0 0 0 0 0 0 0 0 0 0", age)),
+		Data: []byte(fmt.Sprintf(strings.Join([]string{
+			"1 (%s) S %d 1 1 0 -1 4194560 49750 11902233 171 14858 475 453",
+			"49354 59480 20 0 1 0 %d 172085248 2208 18446744073709551615 1",
+			"1 0 0 0 0 671173123 4096 1260 0 0 0 17 3 0 0 0 0 0 0 0 0 0 0 0 0 0",
+		}, " "), comm, ppid, startTime)),
 		Mode:    0666,
 		ModTime: time.Now(),
 	}

@@ -96,7 +96,7 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		event.EventType = castpb.EventType_EVENT_EXEC
 		event.Data = &castpb.Event_Exec{
 			Exec: &castpb.Exec{
-				Path:       args.Pathname,
+				Path:       args.Filepath,
 				Args:       args.Argv,
 				HashSha256: nil, // Hash is filled inside enrichment.
 				Flags:      args.Flags,

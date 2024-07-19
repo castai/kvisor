@@ -43,7 +43,7 @@ func (c *CastaiEventsExporter) Run(ctx context.Context) error {
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay
 
-	sender := &sender{
+	sender := &eventSender{
 		ws:              ws,
 		retryQueue:      c.retryQueue,
 		sendMetric:      metrics.AgentExporterSendTotal.WithLabelValues("castai_events"),
@@ -62,7 +62,7 @@ func (c *CastaiEventsExporter) Run(ctx context.Context) error {
 	}
 }
 
-type sender struct {
+type eventSender struct {
 	ws         *castai.WriteStream[*castpb.Event, *castpb.WriteStreamResponse]
 	retryQueue chan *castpb.Event
 
@@ -70,7 +70,7 @@ type sender struct {
 	sendErrorMetric prometheus.Counter
 }
 
-func (s *sender) send(e *castpb.Event, retry bool) {
+func (s *eventSender) send(e *castpb.Event, retry bool) {
 	if err := s.ws.Send(e); err != nil {
 		if retry {
 			s.retryQueue <- e

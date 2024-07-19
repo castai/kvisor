@@ -25,6 +25,7 @@ agent:
     netflow-sample-submit-interval-seconds: 1
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
+    process-tree-enabled: true
 
   prometheusScrape:
     enabled: true
@@ -51,6 +52,8 @@ controller:
 
   containerSecurityContext:
     readOnlyRootFilesystem: false
+  securityContext:
+    runAsNonRoot: false
 
   prometheusScrape:
     enabled: true

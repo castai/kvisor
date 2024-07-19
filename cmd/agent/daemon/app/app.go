@@ -28,6 +28,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -59,6 +60,7 @@ type Config struct {
 	Castai                         castai.Config
 	EnricherConfig                 EnricherConfig
 	Netflow                        NetflowConfig
+	ProcessTree                    ProcessTreeConfig
 	Clickhouse                     ClickhouseConfig
 	KubeAPIServiceAddr             string
 	ExportersQueueSize             int `validate:"required"`
@@ -133,6 +135,10 @@ type ClickhouseConfig struct {
 	Password string
 }
 
+type ProcessTreeConfig struct {
+	Enabled bool
+}
+
 func New(cfg *Config) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
@@ -187,6 +193,10 @@ func (a *App) Run(ctx context.Context) error {
 		if cfg.Netflow.Enabled {
 			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 		}
+		if cfg.ProcessTree.Enabled {
+			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, a.cfg.ExportersQueueSize)
+			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
+		}
 	} else {
 		log = logging.New(logCfg)
 		exporters = state.NewExporters(log)
@@ -224,6 +234,11 @@ func (a *App) Run(ctx context.Context) error {
 			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
 			exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
 		}
+
+		if cfg.ProcessTree.Enabled {
+			exporter := state.NewClickhouseProcessTreeExporter(log, storageConn, a.cfg.ExportersQueueSize)
+			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
+		}
 	}
 
 	if cfg.EBPFEventsStdioExporterEnabled {
@@ -245,9 +260,18 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath)
+	procHandler := proc.New()
+	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler)
 	if err != nil {
 		return err
+	}
+	processTreeCollector, err := processtree.New(log, procHandler, containersClient)
+	if err != nil {
+		return fmt.Errorf("process tree: %w", err)
+	}
+	err = processTreeCollector.Init(ctx)
+	if err != nil {
+		return fmt.Errorf("process tree: %w", err)
 	}
 	ct, err := conntrack.NewClient(log)
 	if err != nil {
@@ -262,7 +286,6 @@ func (a *App) Run(ctx context.Context) error {
 
 	signatureEngine := signature.NewEngine(activeSignatures, log, a.cfg.SignatureEngineConfig)
 
-	procHandler := proc.New()
 	mountNamespacePIDStore, err := getInitializedMountNamespaceStore(procHandler)
 	if err != nil {
 		return fmt.Errorf("mount namespace PID store: %w", err)
@@ -292,6 +315,7 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
+		ProcessTreeCollector:               processTreeCollector,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -300,8 +324,11 @@ func (a *App) Run(ctx context.Context) error {
 
 	policy := &ebpftracer.Policy{
 		SystemEvents: []events.ID{
-			events.SignalCgroupMkdir,
-			events.SignalCgroupRmdir,
+			events.CgroupMkdir,
+			events.CgroupRmdir,
+			events.SchedProcessExec,
+			events.SchedProcessExit,
+			events.SchedProcessFork,
 		},
 		Events: []*ebpftracer.EventPolicy{},
 	}
@@ -366,6 +393,7 @@ func (a *App) Run(ctx context.Context) error {
 		signatureEngine,
 		enrichmentService,
 		kubeAPIServerClient,
+		processTreeCollector,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)

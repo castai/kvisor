@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -132,6 +133,11 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("assert logs: %w", err)
 	}
 
+	fmt.Println("🙏waiting for process tree events")
+	if err := srv.assertProcessTreeEvents(ctx); err != nil {
+		return fmt.Errorf("assert process tree events: %w", err)
+	}
+
 	fmt.Println("👌e2e finished")
 
 	return nil
@@ -161,6 +167,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
+  --set agent.extraArgs.process-tree-enabled=true \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.kubernetes-delta-interval=5s \
@@ -202,9 +209,47 @@ type testCASTAIServer struct {
 	imageMetadatas    []*castaipb.ImageMetadata
 	kubeBenchReports  []*castaipb.KubeBenchReport
 	kubeLinterReports []*castaipb.KubeLinterReport
+	processTreeEvents []*castaipb.ProcessTreeEvent
 	controllerConfig  *castaipb.ControllerConfig
 	agentConfig       *castaipb.AgentConfig
 	netflows          []*castaipb.Netflow
+}
+
+func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if !ok {
+		return errors.New("no metadata")
+	}
+	token := md["authorization"]
+	if len(token) == 0 {
+		return errors.New("no authorization")
+	}
+	if token[0] != "Token "+apiKey {
+		return fmt.Errorf("invalid token %s", token[0])
+	}
+	cluster := md["x-cluster-id"]
+	if len(cluster) == 0 {
+		return errors.New("no x-cluster-id")
+	}
+	if cluster[0] != clusterID {
+		return fmt.Errorf("invalid cluster ID %s", cluster[0])
+	}
+
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		data, err := protojson.Marshal(event)
+		if err != nil {
+			fmt.Println("received process tree event (cannot marshall to json):", event)
+		} else {
+			fmt.Println("received process tree event:", string(data))
+		}
+		t.mu.Lock()
+		t.processTreeEvents = append(t.processTreeEvents, event)
+		t.mu.Unlock()
+	}
 }
 
 func (t *testCASTAIServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
@@ -369,6 +414,61 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 				}
 
 				return r.error()
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertProcessTreeEvents(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	expectedTypes := map[castaipb.ProcessAction]struct{}{
+		castaipb.ProcessAction_PROCESS_ACTION_FORK: {},
+		castaipb.ProcessAction_PROCESS_ACTION_EXEC: {},
+		castaipb.ProcessAction_PROCESS_ACTION_EXIT: {},
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			var errorMsg strings.Builder
+
+			_, _ = errorMsg.WriteString("not all expected process tree event types found within timeout. missing types:")
+			first := true
+
+			for et := range expectedTypes {
+				if !first {
+					_, _ = errorMsg.WriteString(", ")
+				} else {
+					first = false
+				}
+
+				_, _ = errorMsg.WriteString(et.String())
+			}
+			return errors.New(errorMsg.String())
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			processTreeEvents := t.processTreeEvents
+			t.processTreeEvents = []*castaipb.ProcessTreeEvent{}
+			t.mu.Unlock()
+
+			if len(processTreeEvents) > 0 {
+				for _, event := range processTreeEvents {
+					for _, pe := range event.Events {
+						delete(expectedTypes, pe.Action)
+					}
+
+					// In order to speed things up we will short circuit the when we all expected events have been found.
+					if len(expectedTypes) == 0 {
+						return nil
+					}
+				}
+
+				if len(expectedTypes) == 0 {
+					return nil
+				}
 			}
 		}
 	}

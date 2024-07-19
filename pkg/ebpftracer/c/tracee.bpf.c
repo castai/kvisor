@@ -545,6 +545,10 @@ int sys_dup_exit_tail(void *ctx)
 }
 
 // trace/events/sched.h: TP_PROTO(struct task_struct *parent, struct task_struct *child)
+//
+// NOTE: sched_process_fork is called by kernel_clone(), which is executed during
+//       clone() calls as well, not only fork(). This means that sched_process_fork()
+//       is also able to pick the creation of LWPs through clone().
 SEC("raw_tracepoint/sched_process_fork")
 int tracepoint__sched__sched_process_fork(struct bpf_raw_tracepoint_args *ctx)
 {
@@ -648,45 +652,42 @@ int tracepoint__sched__sched_process_fork(struct bpf_raw_tracepoint_args *ctx)
         save_to_submit_buf(&p.event->args_buf, (void *) &child_ns_pid, sizeof(int), 8);
         save_to_submit_buf(&p.event->args_buf, (void *) &child_start_time, sizeof(u64), 9);
 
-        // Process tree information (if needed).
-        if (p.config->options & OPT_FORK_PROCTREE) {
-            // Both, the thread group leader and the "up_parent" (the first process, not lwp, found
-            // as a parent of the child in the hierarchy), are needed by the userland process tree.
-            // The userland process tree default source of events is the signal events, but there is
-            // an option to use regular event for maintaining it as well (and it is needed for some
-            // situatins). These arguments will always be removed by userland event processors.
-            struct task_struct *leader = get_leader_task(child);
-            struct task_struct *up_parent = get_leader_task(get_parent_task(leader));
+        // Both, the thread group leader and the "up_parent" (the first process, not lwp, found
+        // as a parent of the child in the hierarchy), are needed by the userland process tree.
+        // The userland process tree default source of events is the signal events, but there is
+        // an option to use regular event for maintaining it as well (and it is needed for some
+        // situatins). These arguments will always be removed by userland event processors.
+        struct task_struct *leader = get_leader_task(child);
+        struct task_struct *up_parent = get_leader_task(get_parent_task(leader));
 
-            // Up Parent information: Go up in hierarchy until parent is process.
-            u64 up_parent_start_time = get_task_start_time(up_parent);
-            int up_parent_pid = get_task_host_tgid(up_parent);
-            int up_parent_tid = get_task_host_pid(up_parent);
-            int up_parent_ns_pid = get_task_ns_tgid(up_parent);
-            int up_parent_ns_tid = get_task_ns_pid(up_parent);
-            // Leader information.
-            u64 leader_start_time = get_task_start_time(leader);
-            int leader_pid = get_task_host_tgid(leader);
-            int leader_tid = get_task_host_pid(leader);
-            int leader_ns_pid = get_task_ns_tgid(leader);
-            int leader_ns_tid = get_task_ns_pid(leader);
+        // Up Parent information: Go up in hierarchy until parent is process.
+        u64 up_parent_start_time = get_task_start_time(up_parent);
+        int up_parent_pid = get_task_host_tgid(up_parent);
+        int up_parent_tid = get_task_host_pid(up_parent);
+        int up_parent_ns_pid = get_task_ns_tgid(up_parent);
+        int up_parent_ns_tid = get_task_ns_pid(up_parent);
+        // Leader information.
+        u64 leader_start_time = get_task_start_time(leader);
+        int leader_pid = get_task_host_tgid(leader);
+        int leader_tid = get_task_host_pid(leader);
+        int leader_ns_pid = get_task_ns_tgid(leader);
+        int leader_ns_tid = get_task_ns_pid(leader);
 
-            // Up Parent: always a process (might be the same as Parent if parent is a process).
-            save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_tid, sizeof(int), 10);
-            save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_ns_tid, sizeof(int), 11);
-            save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_pid, sizeof(int), 12);
-            save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_ns_pid, sizeof(int), 13);
-            save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_start_time, sizeof(u64), 14);
-            // Leader: always a process (might be the same as the Child if child is a process).
-            save_to_submit_buf(&p.event->args_buf, (void *) &leader_tid, sizeof(int), 15);
-            save_to_submit_buf(&p.event->args_buf, (void *) &leader_ns_tid, sizeof(int), 16);
-            save_to_submit_buf(&p.event->args_buf, (void *) &leader_pid, sizeof(int), 17);
-            save_to_submit_buf(&p.event->args_buf, (void *) &leader_ns_pid, sizeof(int), 18);
-            save_to_submit_buf(&p.event->args_buf, (void *) &leader_start_time, sizeof(u64), 19);
-        }
+        // Up Parent: always a process (might be the same as Parent if parent is a process).
+        save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_tid, sizeof(int), 10);
+        save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_ns_tid, sizeof(int), 11);
+        save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_pid, sizeof(int), 12);
+        save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_ns_pid, sizeof(int), 13);
+        save_to_submit_buf(&p.event->args_buf, (void *) &up_parent_start_time, sizeof(u64), 14);
+        // Leader: always a process (might be the same as the Child if child is a process).
+        save_to_submit_buf(&p.event->args_buf, (void *) &leader_tid, sizeof(int), 15);
+        save_to_submit_buf(&p.event->args_buf, (void *) &leader_ns_tid, sizeof(int), 16);
+        save_to_submit_buf(&p.event->args_buf, (void *) &leader_pid, sizeof(int), 17);
+        save_to_submit_buf(&p.event->args_buf, (void *) &leader_ns_pid, sizeof(int), 18);
+        save_to_submit_buf(&p.event->args_buf, (void *) &leader_start_time, sizeof(u64), 19);
 
         // Submit
-        events_perf_submit(&p, SCHED_PROCESS_FORK, 0);
+        signal_events_perf_submit(&p, SCHED_PROCESS_FORK, 0);
     }
 
     return 0;
@@ -1433,7 +1434,7 @@ int sched_process_exec_event_submit_tail(struct bpf_raw_tracepoint_args *ctx)
             &p.event->args_buf, (void *) env_start, (void *) env_end, envc, 15);
     }
 
-    events_perf_submit(&p, SCHED_PROCESS_EXEC, 0);
+    signal_events_perf_submit(&p, SCHED_PROCESS_EXEC, 0);
     return 0;
 }
 
@@ -1478,7 +1479,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
             save_to_submit_buf(&p.event->args_buf, (void *) &exit_code, sizeof(long), 0);
             save_to_submit_buf(&p.event->args_buf, (void *) &group_dead, sizeof(bool), 1);
 
-            events_perf_submit(&p, PROCESS_OOM_KILLED, 0);
+            signal_events_perf_submit(&p, PROCESS_OOM_KILLED, 0);
         }
 
         return 0;
@@ -1488,7 +1489,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
         save_to_submit_buf(&p.event->args_buf, (void *) &exit_code, sizeof(long), 0);
         save_to_submit_buf(&p.event->args_buf, (void *) &group_dead, sizeof(bool), 1);
 
-        events_perf_submit(&p, SCHED_PROCESS_EXIT, 0);
+        signal_events_perf_submit(&p, SCHED_PROCESS_EXIT, 0);
     }
 
     return 0;
@@ -2078,7 +2079,7 @@ int tracepoint__cgroup__cgroup_mkdir(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, &cgroup_id, sizeof(u64), 0);
     save_str_to_buf(&p.event->args_buf, path, 1);
     save_to_submit_buf(&p.event->args_buf, &hierarchy_id, sizeof(u32), 2);
-    events_perf_submit(&p, CGROUP_MKDIR, 0);
+    signal_events_perf_submit(&p, CGROUP_MKDIR, 0);
 
     return 0;
 }
@@ -2107,7 +2108,7 @@ int tracepoint__cgroup__cgroup_rmdir(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, &cgroup_id, sizeof(u64), 0);
     save_str_to_buf(&p.event->args_buf, path, 1);
     save_to_submit_buf(&p.event->args_buf, &hierarchy_id, sizeof(u32), 2);
-    events_perf_submit(&p, CGROUP_RMDIR, 0);
+    signal_events_perf_submit(&p, CGROUP_RMDIR, 0);
 
     return 0;
 }
@@ -3063,7 +3064,7 @@ statfunc bool should_submit_io_event(u32 event_id, program_data_t *p)
             should_submit(event_id, p->event));
 }
 
-statfunc int is_elf(io_data_t io_data, u8 header[FILE_MAGIC_HDR_SIZE])
+statfunc int is_elf(io_data_t io_data, const u8 header[FILE_MAGIC_HDR_SIZE])
 {
     // ELF binaries start with a 4 byte long header
     if (io_data.len < 4) {
@@ -6715,87 +6716,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5)
 }
 
 // clang-format on
-
-//
-// Control Plane Programs
-//
-// Control Plane programs are almost duplicate programs of select events which we send as direct
-// signals to tracee in a separate buffer. This is done to mitigate the consenquences of losing
-// these events in the main perf buffer.
-//
-
-// Containers Lifecyle
-
-SEC("raw_tracepoint/cgroup_mkdir_signal")
-int cgroup_mkdir_signal(struct bpf_raw_tracepoint_args *ctx)
-{
-    u32 zero = 0;
-    config_entry_t *cfg = bpf_map_lookup_elem(&config_map, &zero);
-    if (unlikely(cfg == NULL))
-        return 0;
-    controlplane_signal_t *signal = init_controlplane_signal();
-    if (unlikely(signal == NULL))
-        return 0;
-
-    struct cgroup *dst_cgrp = (struct cgroup *) ctx->args[0];
-    char *path = (char *) ctx->args[1];
-
-    u32 hierarchy_id = get_cgroup_hierarchy_id(dst_cgrp);
-    u64 cgroup_id = get_cgroup_id(dst_cgrp);
-    u32 cgroup_id_lsb = cgroup_id;
-
-    bool should_update = true;
-    if ((cfg->options & OPT_CGROUP_V1) && (cfg->cgroup_v1_hid != hierarchy_id))
-        should_update = false;
-
-    if (should_update) {
-        // Assume this is a new container. If not, userspace code will delete this entry
-        u8 state = CONTAINER_CREATED;
-        bpf_map_update_elem(&containers_map, &cgroup_id_lsb, &state, BPF_ANY);
-    }
-
-    save_to_submit_buf(&signal->args_buf, &cgroup_id, sizeof(u64), 0);
-    save_str_to_buf(&signal->args_buf, path, 1);
-    save_to_submit_buf(&signal->args_buf, &hierarchy_id, sizeof(u32), 2);
-    signal_perf_submit(ctx, signal, SIGNAL_CGROUP_MKDIR);
-
-    return 0;
-}
-
-SEC("raw_tracepoint/cgroup_rmdir_signal")
-int cgroup_rmdir_signal(struct bpf_raw_tracepoint_args *ctx)
-{
-    u32 zero = 0;
-    config_entry_t *cfg = bpf_map_lookup_elem(&config_map, &zero);
-    if (unlikely(cfg == NULL))
-        return 0;
-    controlplane_signal_t *signal = init_controlplane_signal();
-    if (unlikely(signal == NULL))
-        return 0;
-
-    struct cgroup *dst_cgrp = (struct cgroup *) ctx->args[0];
-    char *path = (char *) ctx->args[1];
-
-    u32 hierarchy_id = get_cgroup_hierarchy_id(dst_cgrp);
-    u64 cgroup_id = get_cgroup_id(dst_cgrp);
-    u32 cgroup_id_lsb = cgroup_id;
-
-    bool should_update = true;
-    if ((cfg->options & OPT_CGROUP_V1) && (cfg->cgroup_v1_hid != hierarchy_id))
-        should_update = false;
-
-    if (should_update)
-        bpf_map_delete_elem(&containers_map, &cgroup_id_lsb);
-
-    save_to_submit_buf(&signal->args_buf, &cgroup_id, sizeof(u64), 0);
-    save_str_to_buf(&signal->args_buf, path, 1);
-    save_to_submit_buf(&signal->args_buf, &hierarchy_id, sizeof(u32), 2);
-    signal_perf_submit(ctx, signal, SIGNAL_CGROUP_RMDIR);
-
-    return 0;
-}
-
-// END OF Control Plane Programs
 
 // TODO: Instead of returning sock state return tcp_connect, tcp_listen, tcp_connect_error events.
 // That will allow to subscribe only to wanted events and make handing easier.

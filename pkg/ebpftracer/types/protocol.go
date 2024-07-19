@@ -52,9 +52,9 @@ type EventContext struct {
 	Comm            [16]byte
 	UtsName         [16]byte
 	Flags           uint32
+	_               [4]byte   // padding
 	LeaderStartTime uint64
 	ParentStartTime uint64
-	_               [4]byte   // padding
 	EventID         events.ID // uint32
 	Syscall         int32
 	MatchedPolicies uint64

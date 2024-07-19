@@ -4,12 +4,14 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/google/gopacket/layers"
 	"github.com/stretchr/testify/require"
 )
@@ -142,6 +144,19 @@ func (c *MockContainerClient) CleanupCgroup(cgroup uint64) {
 	c.CgroupCleaner(cgroup)
 }
 
+type mockProcessTreeCollector struct{}
+
+func (d *mockProcessTreeCollector) ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, exitTime uint64) {
+}
+
+func (d *mockProcessTreeCollector) ProcessForked(eventTime time.Time, containerID string, parent processtree.ProcessKey, processKey processtree.ProcessKey) {
+}
+
+func (d *mockProcessTreeCollector) ProcessStarted(eventTime time.Time, containerID string, p processtree.Process) {
+}
+
+var _ ProcessTreeCollector = (*mockProcessTreeCollector)(nil)
+
 type tracerOption func(*Tracer)
 
 func buildTestTracer(options ...tracerOption) *Tracer {
@@ -163,7 +178,8 @@ func buildTestTracer(options ...tracerOption) *Tracer {
 					}, nil
 				},
 			},
-			CgroupClient: &MockCgroupClient{},
+			CgroupClient:         &MockCgroupClient{},
+			ProcessTreeCollector: &mockProcessTreeCollector{},
 		},
 		eventsChan:        make(chan *types.Event, 10),
 		eventPoliciesMap:  map[events.ID]*EventPolicy{},

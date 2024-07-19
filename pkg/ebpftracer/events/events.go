@@ -147,15 +147,6 @@ const (
 	TrackSyscallStats ID = iota + 4100
 )
 
-// Signal meta-events
-const (
-	SignalCgroupMkdir ID = iota + 5000
-	SignalCgroupRmdir
-	SignalSchedProcessFork
-	SignalSchedProcessExec
-	SignalSchedProcessExit
-)
-
 // Signature events
 const (
 	StartSignatureID ID = 6000

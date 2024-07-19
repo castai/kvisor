@@ -73,6 +73,8 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowExportInterval              = pflag.Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
+		processTreeEnabled                     = pflag.Bool("process-tree-enabled", false, "Enables process tree tracking")
+
 		clickhouseAddr     = pflag.String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = pflag.String("clickhouse-database", "", "Clickhouse database name")
 		clickhouseUsername = pflag.String("clickhouse-username", "", "Clickhouse username")
@@ -160,6 +162,9 @@ func NewRunCommand(version string) *cobra.Command {
 					Username: *clickhouseUsername,
 					Password: os.Getenv("CLICKHOUSE_PASSWORD"),
 				},
+        ProcessTree: app.ProcessTreeConfig{
+        	Enabled: *processTreeEnabled,
+        },
 				KubeAPIServiceAddr: *kubeAPIServiceAddr,
 				ExportersQueueSize: *exportersQueueSize,
 			}).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {

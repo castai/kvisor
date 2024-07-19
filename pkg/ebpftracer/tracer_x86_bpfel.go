@@ -62,8 +62,6 @@ type tracerSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerProgramSpecs struct {
 	CgroupBpfRunFilterSkb                    *ebpf.ProgramSpec `ebpf:"cgroup_bpf_run_filter_skb"`
-	CgroupMkdirSignal                        *ebpf.ProgramSpec `ebpf:"cgroup_mkdir_signal"`
-	CgroupRmdirSignal                        *ebpf.ProgramSpec `ebpf:"cgroup_rmdir_signal"`
 	CgroupSkbEgress                          *ebpf.ProgramSpec `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress                         *ebpf.ProgramSpec `ebpf:"cgroup_skb_ingress"`
 	KernelWriteMagicEnter                    *ebpf.ProgramSpec `ebpf:"kernel_write_magic_enter"`
@@ -256,6 +254,7 @@ type tracerMapSpecs struct {
 	RecentInsertedModuleMap *ebpf.MapSpec `ebpf:"recent_inserted_module_map"`
 	ScratchMap              *ebpf.MapSpec `ebpf:"scratch_map"`
 	SignalDataMap           *ebpf.MapSpec `ebpf:"signal_data_map"`
+	SignalEvents            *ebpf.MapSpec `ebpf:"signal_events"`
 	Signals                 *ebpf.MapSpec `ebpf:"signals"`
 	Sockmap                 *ebpf.MapSpec `ebpf:"sockmap"`
 	StackAddresses          *ebpf.MapSpec `ebpf:"stack_addresses"`
@@ -345,6 +344,7 @@ type tracerMaps struct {
 	RecentInsertedModuleMap *ebpf.Map `ebpf:"recent_inserted_module_map"`
 	ScratchMap              *ebpf.Map `ebpf:"scratch_map"`
 	SignalDataMap           *ebpf.Map `ebpf:"signal_data_map"`
+	SignalEvents            *ebpf.Map `ebpf:"signal_events"`
 	Signals                 *ebpf.Map `ebpf:"signals"`
 	Sockmap                 *ebpf.Map `ebpf:"sockmap"`
 	StackAddresses          *ebpf.Map `ebpf:"stack_addresses"`
@@ -417,6 +417,7 @@ func (m *tracerMaps) Close() error {
 		m.RecentInsertedModuleMap,
 		m.ScratchMap,
 		m.SignalDataMap,
+		m.SignalEvents,
 		m.Signals,
 		m.Sockmap,
 		m.StackAddresses,
@@ -440,8 +441,6 @@ func (m *tracerMaps) Close() error {
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerPrograms struct {
 	CgroupBpfRunFilterSkb                    *ebpf.Program `ebpf:"cgroup_bpf_run_filter_skb"`
-	CgroupMkdirSignal                        *ebpf.Program `ebpf:"cgroup_mkdir_signal"`
-	CgroupRmdirSignal                        *ebpf.Program `ebpf:"cgroup_rmdir_signal"`
 	CgroupSkbEgress                          *ebpf.Program `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress                         *ebpf.Program `ebpf:"cgroup_skb_ingress"`
 	KernelWriteMagicEnter                    *ebpf.Program `ebpf:"kernel_write_magic_enter"`
@@ -580,8 +579,6 @@ type tracerPrograms struct {
 func (p *tracerPrograms) Close() error {
 	return _TracerClose(
 		p.CgroupBpfRunFilterSkb,
-		p.CgroupMkdirSignal,
-		p.CgroupRmdirSignal,
 		p.CgroupSkbEgress,
 		p.CgroupSkbIngress,
 		p.KernelWriteMagicEnter,

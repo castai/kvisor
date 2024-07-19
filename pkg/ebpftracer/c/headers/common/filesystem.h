@@ -1,8 +1,6 @@
 #ifndef __COMMON_FILESYSTEM_H__
 #define __COMMON_FILESYSTEM_H__
 
-#include "bpf/bpf_core_read.h"
-#include "bpf/bpf_helpers.h"
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>
 

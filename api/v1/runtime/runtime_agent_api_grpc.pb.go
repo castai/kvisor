@@ -24,6 +24,7 @@ const (
 	RuntimeSecurityAgentAPI_LogsWriteStream_FullMethodName            = "/runtime.v1.RuntimeSecurityAgentAPI/LogsWriteStream"
 	RuntimeSecurityAgentAPI_ContainerStatsWriteStream_FullMethodName  = "/runtime.v1.RuntimeSecurityAgentAPI/ContainerStatsWriteStream"
 	RuntimeSecurityAgentAPI_NetflowWriteStream_FullMethodName         = "/runtime.v1.RuntimeSecurityAgentAPI/NetflowWriteStream"
+	RuntimeSecurityAgentAPI_ProcessEventsWriteStream_FullMethodName   = "/runtime.v1.RuntimeSecurityAgentAPI/ProcessEventsWriteStream"
 	RuntimeSecurityAgentAPI_GetSyncState_FullMethodName               = "/runtime.v1.RuntimeSecurityAgentAPI/GetSyncState"
 	RuntimeSecurityAgentAPI_UpdateSyncState_FullMethodName            = "/runtime.v1.RuntimeSecurityAgentAPI/UpdateSyncState"
 	RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngest_FullMethodName = "/runtime.v1.RuntimeSecurityAgentAPI/KubernetesDeltaBatchIngest"
@@ -44,6 +45,7 @@ type RuntimeSecurityAgentAPIClient interface {
 	LogsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_LogsWriteStreamClient, error)
 	ContainerStatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_ContainerStatsWriteStreamClient, error)
 	NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error)
+	ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error)
 	GetSyncState(ctx context.Context, in *GetSyncStateRequest, opts ...grpc.CallOption) (*GetSyncStateResponse, error)
 	UpdateSyncState(ctx context.Context, in *UpdateSyncStateRequest, opts ...grpc.CallOption) (*UpdateSyncStateResponse, error)
 	KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error)
@@ -212,6 +214,41 @@ func (x *runtimeSecurityAgentAPINetflowWriteStreamClient) CloseAndRecv() (*Write
 	return m, nil
 }
 
+func (c *runtimeSecurityAgentAPIClient) ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[4], RuntimeSecurityAgentAPI_ProcessEventsWriteStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &runtimeSecurityAgentAPIProcessEventsWriteStreamClient{ClientStream: stream}
+	return x, nil
+}
+
+type RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient interface {
+	Send(*ProcessTreeEvent) error
+	CloseAndRecv() (*WriteStreamResponse, error)
+	grpc.ClientStream
+}
+
+type runtimeSecurityAgentAPIProcessEventsWriteStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *runtimeSecurityAgentAPIProcessEventsWriteStreamClient) Send(m *ProcessTreeEvent) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *runtimeSecurityAgentAPIProcessEventsWriteStreamClient) CloseAndRecv() (*WriteStreamResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(WriteStreamResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *runtimeSecurityAgentAPIClient) GetSyncState(ctx context.Context, in *GetSyncStateRequest, opts ...grpc.CallOption) (*GetSyncStateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetSyncStateResponse)
@@ -234,7 +271,7 @@ func (c *runtimeSecurityAgentAPIClient) UpdateSyncState(ctx context.Context, in 
 
 func (c *runtimeSecurityAgentAPIClient) KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[4], RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngest_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[5], RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngest_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +303,7 @@ func (x *runtimeSecurityAgentAPIKubernetesDeltaBatchIngestClient) Recv() (*Kuber
 
 func (c *runtimeSecurityAgentAPIClient) KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[5], RuntimeSecurityAgentAPI_KubernetesDeltaIngest_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[6], RuntimeSecurityAgentAPI_KubernetesDeltaIngest_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -337,6 +374,7 @@ type RuntimeSecurityAgentAPIServer interface {
 	LogsWriteStream(RuntimeSecurityAgentAPI_LogsWriteStreamServer) error
 	ContainerStatsWriteStream(RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error
 	NetflowWriteStream(RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error
+	ProcessEventsWriteStream(RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error
 	GetSyncState(context.Context, *GetSyncStateRequest) (*GetSyncStateResponse, error)
 	UpdateSyncState(context.Context, *UpdateSyncStateRequest) (*UpdateSyncStateResponse, error)
 	KubernetesDeltaBatchIngest(RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error
@@ -365,6 +403,9 @@ func (UnimplementedRuntimeSecurityAgentAPIServer) ContainerStatsWriteStream(Runt
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) NetflowWriteStream(RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method NetflowWriteStream not implemented")
+}
+func (UnimplementedRuntimeSecurityAgentAPIServer) ProcessEventsWriteStream(RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ProcessEventsWriteStream not implemented")
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) GetSyncState(context.Context, *GetSyncStateRequest) (*GetSyncStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSyncState not implemented")
@@ -515,6 +556,32 @@ func (x *runtimeSecurityAgentAPINetflowWriteStreamServer) SendAndClose(m *WriteS
 
 func (x *runtimeSecurityAgentAPINetflowWriteStreamServer) Recv() (*Netflow, error) {
 	m := new(Netflow)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _RuntimeSecurityAgentAPI_ProcessEventsWriteStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RuntimeSecurityAgentAPIServer).ProcessEventsWriteStream(&runtimeSecurityAgentAPIProcessEventsWriteStreamServer{ServerStream: stream})
+}
+
+type RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer interface {
+	SendAndClose(*WriteStreamResponse) error
+	Recv() (*ProcessTreeEvent, error)
+	grpc.ServerStream
+}
+
+type runtimeSecurityAgentAPIProcessEventsWriteStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *runtimeSecurityAgentAPIProcessEventsWriteStreamServer) SendAndClose(m *WriteStreamResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *runtimeSecurityAgentAPIProcessEventsWriteStreamServer) Recv() (*ProcessTreeEvent, error) {
+	m := new(ProcessTreeEvent)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -714,6 +781,11 @@ var RuntimeSecurityAgentAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "NetflowWriteStream",
 			Handler:       _RuntimeSecurityAgentAPI_NetflowWriteStream_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "ProcessEventsWriteStream",
+			Handler:       _RuntimeSecurityAgentAPI_ProcessEventsWriteStream_Handler,
 			ClientStreams: true,
 		},
 		{
