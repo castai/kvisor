@@ -97,14 +97,17 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		)
 
 	case events.SchedProcessExit, events.ProcessOomKilled:
-		t.cfg.ProcessTreeCollector.ProcessExited(
-			system.GetBootTime().Add(time.Duration(rawEventTime)),
-			container.ID,
-			processtree.ToProcessKeyNs(
-				proc.PID(eventCtx.Pid),
-				eventCtx.StartTime),
-			eventCtx.Ts,
-		)
+		// We only care about process exits and not threads.
+		if eventCtx.HostPid == eventCtx.HostTid {
+			t.cfg.ProcessTreeCollector.ProcessExited(
+				system.GetBootTime().Add(time.Duration(rawEventTime)),
+				container.ID,
+				processtree.ToProcessKeyNs(
+					proc.PID(eventCtx.Pid),
+					eventCtx.StartTime),
+				eventCtx.Ts,
+			)
+		}
 
 	case events.SchedProcessFork:
 		forkArgs := parsedArgs.(types.SchedProcessForkArgs)
