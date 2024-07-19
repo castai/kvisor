@@ -265,14 +265,18 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	processTreeCollector, err := processtree.New(log, procHandler, containersClient)
-	if err != nil {
-		return fmt.Errorf("process tree: %w", err)
+
+	var processTreeCollector processtree.ProcessTreeCollector
+
+	if cfg.ProcessTree.Enabled {
+		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containersClient)
+		if err != nil {
+			return fmt.Errorf("initialize process tree: %w", err)
+		}
+	} else {
+		processTreeCollector = processtree.NewNoop()
 	}
-	err = processTreeCollector.Init(ctx)
-	if err != nil {
-		return fmt.Errorf("process tree: %w", err)
-	}
+
 	ct, err := conntrack.NewClient(log)
 	if err != nil {
 		return fmt.Errorf("conntrack: %w", err)
@@ -326,9 +330,6 @@ func (a *App) Run(ctx context.Context) error {
 		SystemEvents: []events.ID{
 			events.CgroupMkdir,
 			events.CgroupRmdir,
-			events.SchedProcessExec,
-			events.SchedProcessExit,
-			events.SchedProcessFork,
 		},
 		Events: []*ebpftracer.EventPolicy{},
 	}
@@ -339,6 +340,14 @@ func (a *App) Run(ctx context.Context) error {
 			ebpftracer.FilterEmptyDnsAnswers(log),
 			ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
 		),
+	}
+
+	if cfg.ProcessTree.Enabled {
+		policy.SystemEvents = append(policy.SystemEvents, []events.ID{
+			events.SchedProcessExec,
+			events.SchedProcessExit,
+			events.SchedProcessFork,
+		}...)
 	}
 
 	if len(exporters.Events) > 0 {
@@ -437,6 +446,18 @@ func (a *App) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
 	}
+}
+
+func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containersClient *containers.Client) (*processtree.ProcessTreeCollectorImpl, error) {
+	processTreeCollector, err := processtree.New(log, procHandler, containersClient)
+	if err != nil {
+		return nil, err
+	}
+	err = processTreeCollector.Init(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return processTreeCollector, nil
 }
 
 func (a *App) syncRemoteConfig(ctx context.Context, client *castai.Client) error {
