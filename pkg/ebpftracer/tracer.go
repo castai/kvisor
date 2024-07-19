@@ -47,7 +47,7 @@ type CgroupClient interface {
 	IsDefaultHierarchy(uint32) bool
 }
 
-type ProcessTreeCollector interface {
+type processTreeCollector interface {
 	ProcessStarted(eventTime time.Time, containerID string, p processtree.Process)
 	ProcessForked(eventTime time.Time, containerID string, parent processtree.ProcessKey, processKey processtree.ProcessKey)
 	ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, exitTime uint64)
@@ -70,7 +70,7 @@ type Config struct {
 	NetflowSampleSubmitIntervalSeconds uint64
 	NetflowGrouping                    NetflowGrouping
 	TrackSyscallStats                  bool
-	ProcessTreeCollector               ProcessTreeCollector
+	ProcessTreeCollector               processTreeCollector
 }
 
 type cgroupCleanupRequest struct {

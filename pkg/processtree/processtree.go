@@ -65,7 +65,14 @@ func (p Process) Exited() bool {
 	return p.ExitTime > 0
 }
 
-type ProcessTreeCollector struct {
+type ProcessTreeCollector interface {
+	ProcessStarted(eventTime time.Time, containerID string, p Process)
+	ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey)
+	ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, exitTime uint64)
+	Events() <-chan ProcessTreeEvent
+}
+
+type ProcessTreeCollectorImpl struct {
 	log              *logging.Logger
 	proc             *proc.Proc
 	containersClient *containers.Client
@@ -74,8 +81,8 @@ type ProcessTreeCollector struct {
 	eventSink        chan ProcessTreeEvent
 }
 
-func New(log *logging.Logger, p *proc.Proc, containersClient *containers.Client) (*ProcessTreeCollector, error) {
-	return &ProcessTreeCollector{
+func New(log *logging.Logger, p *proc.Proc, containersClient *containers.Client) (*ProcessTreeCollectorImpl, error) {
+	return &ProcessTreeCollectorImpl{
 		log:              log,
 		proc:             p,
 		containersClient: containersClient,
@@ -114,14 +121,14 @@ func ToProcessKeyNs(pid proc.PID, startTimeNs uint64) ProcessKey {
 }
 
 // NOTE: We do not defer cleanup of process trees here, since the container cleanup is already defered.
-func (c *ProcessTreeCollector) onContainerDelete(container *containers.Container) {
+func (c *ProcessTreeCollectorImpl) onContainerDelete(container *containers.Container) {
 	c.processTreesMu.Lock()
 	defer c.processTreesMu.Unlock()
 
 	delete(c.processTrees, container.ID)
 }
 
-func (c *ProcessTreeCollector) Init(ctx context.Context) error {
+func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 	c.containersClient.RegisterContainerDeletedListener(c.onContainerDelete)
 
 	processes, err := c.containersClient.LoadContainerTasks(ctx)
@@ -194,7 +201,7 @@ func (c *ProcessTreeCollector) Init(ctx context.Context) error {
 	return nil
 }
 
-func (c *ProcessTreeCollector) ProcessStarted(eventTime time.Time, containerID string, p Process) {
+func (c *ProcessTreeCollectorImpl) ProcessStarted(eventTime time.Time, containerID string, p Process) {
 	c.processTreesMu.Lock()
 	defer c.processTreesMu.Unlock()
 
@@ -215,7 +222,7 @@ func (c *ProcessTreeCollector) ProcessStarted(eventTime time.Time, containerID s
 	})
 }
 
-func (c *ProcessTreeCollector) ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey) {
+func (c *ProcessTreeCollectorImpl) ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey) {
 	c.processTreesMu.Lock()
 	defer c.processTreesMu.Unlock()
 
@@ -254,7 +261,7 @@ func (c *ProcessTreeCollector) ProcessForked(eventTime time.Time, containerID st
 	})
 }
 
-func (c *ProcessTreeCollector) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, exitTime uint64) {
+func (c *ProcessTreeCollectorImpl) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, exitTime uint64) {
 	c.processTreesMu.Lock()
 	defer c.processTreesMu.Unlock()
 
@@ -282,11 +289,11 @@ func (c *ProcessTreeCollector) ProcessExited(eventTime time.Time, containerID st
 	}
 }
 
-func (c *ProcessTreeCollector) Events() <-chan ProcessTreeEvent {
+func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {
 	return c.eventSink
 }
 
-func (c *ProcessTreeCollector) fireEvent(e ProcessEvent) {
+func (c *ProcessTreeCollectorImpl) fireEvent(e ProcessEvent) {
 	c.log.Debugf("fire process tree event %s (%s): pid: %d, startTime: %s, ppid: %d, parentStartTime: %s, containerID: %s", e.Action.String(),
 		e.Timestamp.Format(time.RFC3339), e.Process.PID, e.Process.StartTime, e.Process.PPID, e.Process.ParentStartTime, e.ContainerID)
 	select {
@@ -299,7 +306,7 @@ func (c *ProcessTreeCollector) fireEvent(e ProcessEvent) {
 	}
 }
 
-func (c *ProcessTreeCollector) fireEvents(event ProcessTreeEvent) {
+func (c *ProcessTreeCollectorImpl) fireEvents(event ProcessTreeEvent) {
 	if c.log.IsEnabled(slog.LevelDebug) {
 		c.log.Debugf("fire process tree event (initial %t) ---", event.Initial)
 		for _, e := range event.Events {
