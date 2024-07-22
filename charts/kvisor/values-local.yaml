@@ -26,6 +26,7 @@ agent:
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
     process-tree-enabled: true
+    signature-enabled: true
 
   prometheusScrape:
     enabled: true
