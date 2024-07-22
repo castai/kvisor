@@ -161,6 +161,7 @@ message SignatureEngineConfig {
   bool tty_detected_signature_enabled = 3;
   bool socks5_detected_signature_enabled = 4;
   SOCKS5DetectedSignatureConfig socks5_detected_signature_config = 5;
+  bool enabled = 6;
 }
 
 message CastaiConfig {

@@ -55,17 +55,18 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventsPerCPUBuffer         = pflag.Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 		ebpfEventsOutputChanSize       = pflag.Int("ebpf-events-output-queue-size", 4096, "Ebpf user spaces output channel size")
 
-		signatureEngineInputEventChanSize  = pflag.Int("signature-engine-input-queue-size", 1000, "Input queue size for the signature engine.")
-		signatureEngineOutputEventChanSize = pflag.Int("signature-engine-output-queue-size", 1000, "Output queue size for the signature engine.")
-
 		mutedNamespaces = pflag.StringSlice("ignored-namespaces", []string{"kube-system", "calico", "calico-system"},
 			"List of namespaces to ignore tracing events for. To ignore multiple namespaces, separate by comma or pass flag multiple times."+
 				" For example: --ignored-namespaces=kube-system,calico-system")
 
-		fileHashEnrichedEnabled           = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
-		ttyDetectionSignatureEnabled      = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
-		socks5DetectionSignatureEnabled   = pflag.Bool("signature-socks5-detection-enabled", false, "Enables the socks5 detection signature")
-		socks5DetectionSignatureCacheSize = pflag.Uint32("signature-socks5-detection-cache-size", 1024, "Configures the amount of state machine cache entries to detect socks5 information")
+		fileHashEnrichedEnabled = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
+
+		signatureEngineEnabled             = pflag.Bool("signature-enabled", false, "Enable signature engine")
+		signatureEngineInputEventChanSize  = pflag.Int("signature-engine-input-queue-size", 1000, "Input queue size for the signature engine")
+		signatureEngineOutputEventChanSize = pflag.Int("signature-engine-output-queue-size", 1000, "Output queue size for the signature engine")
+		ttyDetectionSignatureEnabled       = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
+		socks5DetectionSignatureEnabled    = pflag.Bool("signature-socks5-detection-enabled", false, "Enables the socks5 detection signature")
+		socks5DetectionSignatureCacheSize  = pflag.Uint32("signature-socks5-detection-cache-size", 1024, "Configures the amount of state machine cache entries to detect socks5 information")
 
 		netflowEnabled                     = pflag.Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = pflag.Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
@@ -73,7 +74,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowExportInterval              = pflag.Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
-		processTreeEnabled                     = pflag.Bool("process-tree-enabled", false, "Enables process tree tracking")
+		processTreeEnabled = pflag.Bool("process-tree-enabled", false, "Enables process tree tracking")
 
 		clickhouseAddr     = pflag.String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = pflag.String("clickhouse-database", "", "Clickhouse database name")
@@ -135,6 +136,7 @@ func NewRunCommand(version string) *cobra.Command {
 				EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
 				MutedNamespaces:                *mutedNamespaces,
 				SignatureEngineConfig: signature.SignatureEngineConfig{
+					Enabled:        *signatureEngineEnabled,
 					InputChanSize:  *signatureEngineInputEventChanSize,
 					OutputChanSize: *signatureEngineOutputEventChanSize,
 					DefaultSignatureConfig: signature.DefaultSignatureConfig{
@@ -162,9 +164,9 @@ func NewRunCommand(version string) *cobra.Command {
 					Username: *clickhouseUsername,
 					Password: os.Getenv("CLICKHOUSE_PASSWORD"),
 				},
-        ProcessTree: app.ProcessTreeConfig{
-        	Enabled: *processTreeEnabled,
-        },
+				ProcessTree: app.ProcessTreeConfig{
+					Enabled: *processTreeEnabled,
+				},
 				KubeAPIServiceAddr: *kubeAPIServiceAddr,
 				ExportersQueueSize: *exportersQueueSize,
 			}).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {

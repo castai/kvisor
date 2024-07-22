@@ -267,7 +267,6 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	var processTreeCollector processtree.ProcessTreeCollector
-
 	if cfg.ProcessTree.Enabled {
 		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containersClient)
 		if err != nil {
@@ -283,11 +282,10 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer ct.Close()
 
-	activeSignatures, err := signature.DefaultSignatures(log, a.cfg.SignatureEngineConfig.DefaultSignatureConfig)
+	activeSignatures, err := signature.DefaultSignatures(log, a.cfg.SignatureEngineConfig)
 	if err != nil {
 		return fmt.Errorf("error while configuring signatures: %w", err)
 	}
-
 	signatureEngine := signature.NewEngine(activeSignatures, log, a.cfg.SignatureEngineConfig)
 
 	mountNamespacePIDStore, err := getInitializedMountNamespaceStore(procHandler)
@@ -363,12 +361,13 @@ func (a *App) Run(ctx context.Context) error {
 			},
 			dnsEventPolicy,
 			{ID: events.TrackSyscallStats},
-			{
-				ID: events.FileModification,
-				PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
-					Interval: 15 * time.Second,
-				}),
-			},
+			// TODO: Move rate limit to kernel.
+			//{
+			//	ID: events.FileModification,
+			//	PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
+			//		Interval: 15 * time.Second,
+			//	}),
+			//},
 			{ID: events.ProcessOomKilled}, // OOM events should not happen too often and we want to know about all of them
 			{ID: events.MagicWrite},
 		}...)

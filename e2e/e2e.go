@@ -164,6 +164,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
+  --set agent.extraArgs.signature-enabled=true \
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
@@ -623,12 +624,6 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 			}
 			if _, ok := netip.AddrFromSlice(tuple.DstIp); !ok {
 				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
-			}
-			return nil
-		},
-		castaipb.EventType_EVENT_FILE_CHANGE: func(e *castaipb.Event) error {
-			if e.GetFile().Path == "" {
-				return errors.New("missing file path")
 			}
 			return nil
 		},

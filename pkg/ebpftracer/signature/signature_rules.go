@@ -8,17 +8,20 @@ type DefaultSignatureConfig struct {
 	SOCKS5DetectedSignatureConfig  SOCKS5DetectionSignatureConfig
 }
 
-func DefaultSignatures(log *logging.Logger, cfg DefaultSignatureConfig) ([]Signature, error) {
+func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signature, error) {
+	if !cfg.Enabled {
+		return []Signature{}, nil
+	}
 	result := []Signature{
 		NewStdViaSocketSignature(log),
 	}
 
-	if cfg.TTYDetectedSignatureEnabled {
+	if cfg.DefaultSignatureConfig.TTYDetectedSignatureEnabled {
 		result = append(result, NewTTYDetectedSignature())
 	}
 
-	if cfg.SOCKS5DetectedSignatureEnabled {
-		if s, err := NewSOCKS5DetectedSignature(log, cfg.SOCKS5DetectedSignatureConfig); err != nil {
+	if cfg.DefaultSignatureConfig.SOCKS5DetectedSignatureEnabled {
+		if s, err := NewSOCKS5DetectedSignature(log, cfg.DefaultSignatureConfig.SOCKS5DetectedSignatureConfig); err != nil {
 			return nil, err
 		} else {
 			result = append(result, s)
