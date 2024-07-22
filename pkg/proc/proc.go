@@ -55,6 +55,12 @@ func New() *Proc {
 	}
 }
 
+func NewFromFS(fs ProcFS) *Proc {
+	return &Proc{
+		procFS: fs,
+	}
+}
+
 // HostPath returns full file path on the host file system using procfs, eg: /proc/1/root/<my-path>
 func HostPath(p string) string {
 	return path.Join(Path, strconv.Itoa(1), p)

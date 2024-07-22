@@ -50,7 +50,7 @@ type CgroupClient interface {
 type processTreeCollector interface {
 	ProcessStarted(eventTime time.Time, containerID string, p processtree.Process)
 	ProcessForked(eventTime time.Time, containerID string, parent processtree.ProcessKey, processKey processtree.ProcessKey)
-	ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, exitTime uint64)
+	ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, parentProcessKey processtree.ProcessKey, exitTime uint64)
 }
 
 type Config struct {
