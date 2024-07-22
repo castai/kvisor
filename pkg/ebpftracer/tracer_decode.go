@@ -99,12 +99,19 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	case events.SchedProcessExit, events.ProcessOomKilled:
 		// We only care about process exits and not threads.
 		if eventCtx.HostPid == eventCtx.HostTid {
+			parentStartTime := time.Duration(0)
+			if eventCtx.Ppid != 0 {
+				// We only set the parent start time, if we know the parent PID comes from the same NS.
+				parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond
+			}
+
 			t.cfg.ProcessTreeCollector.ProcessExited(
 				system.GetBootTime().Add(time.Duration(rawEventTime)),
 				container.ID,
 				processtree.ToProcessKeyNs(
 					proc.PID(eventCtx.Pid),
 					eventCtx.StartTime),
+				processtree.ToProcessKey(proc.PID(eventCtx.Ppid), parentStartTime),
 				eventCtx.Ts,
 			)
 		}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/castai/kvisor/pkg/containers"
@@ -68,25 +67,26 @@ func (p Process) Exited() bool {
 type ProcessTreeCollector interface {
 	ProcessStarted(eventTime time.Time, containerID string, p Process)
 	ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey)
-	ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, exitTime uint64)
+	ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, parentProcessKey ProcessKey, exitTime uint64)
 	Events() <-chan ProcessTreeEvent
+}
+
+type containerClient interface {
+	LoadContainerTasks(ctx context.Context) ([]containers.ContainerProcess, error)
 }
 
 type ProcessTreeCollectorImpl struct {
 	log              *logging.Logger
 	proc             *proc.Proc
-	containersClient *containers.Client
-	processTrees     map[string]map[ProcessKey]Process
-	processTreesMu   sync.Mutex
+	containersClient containerClient
 	eventSink        chan ProcessTreeEvent
 }
 
-func New(log *logging.Logger, p *proc.Proc, containersClient *containers.Client) (*ProcessTreeCollectorImpl, error) {
+func New(log *logging.Logger, p *proc.Proc, containersClient containerClient) (*ProcessTreeCollectorImpl, error) {
 	return &ProcessTreeCollectorImpl{
 		log:              log,
 		proc:             p,
 		containersClient: containersClient,
-		processTrees:     map[string]map[ProcessKey]Process{},
 		eventSink:        make(chan ProcessTreeEvent, 1000),
 	}, nil
 }
@@ -120,24 +120,13 @@ func ToProcessKeyNs(pid proc.PID, startTimeNs uint64) ProcessKey {
 	}
 }
 
-// NOTE: We do not defer cleanup of process trees here, since the container cleanup is already defered.
-func (c *ProcessTreeCollectorImpl) onContainerDelete(container *containers.Container) {
-	c.processTreesMu.Lock()
-	defer c.processTreesMu.Unlock()
-
-	delete(c.processTrees, container.ID)
-}
-
 func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
-	c.containersClient.RegisterContainerDeletedListener(c.onContainerDelete)
-
 	processes, err := c.containersClient.LoadContainerTasks(ctx)
 	if err != nil {
 		return err
 	}
 
-	c.processTreesMu.Lock()
-	defer c.processTreesMu.Unlock()
+	processTrees := map[string]map[ProcessKey]Process{}
 
 	numProcesses := 0
 
@@ -171,7 +160,7 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 			processesMap[key] = processToAdd
 		}
 
-		c.processTrees[p.ContainerID] = processesMap
+		processTrees[p.ContainerID] = processesMap
 	}
 
 	eventsToFire := make([]ProcessEvent, numProcesses)
@@ -180,7 +169,7 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 	i := 0
 	// In order to get all the known process infos upstream, we treat send an exec event for
 	// each process we encountered in proc.
-	for container, processes := range c.processTrees {
+	for container, processes := range processTrees {
 		for _, process := range processes {
 			eventsToFire[i] = ProcessEvent{
 				// We take the current time for the init event timestamp to indicate that this comes from an event update.
@@ -202,18 +191,6 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 }
 
 func (c *ProcessTreeCollectorImpl) ProcessStarted(eventTime time.Time, containerID string, p Process) {
-	c.processTreesMu.Lock()
-	defer c.processTreesMu.Unlock()
-
-	processMap := c.processTrees[containerID]
-	if processMap == nil {
-		processMap = map[ProcessKey]Process{}
-	}
-
-	processMap[ToProcessKey(p.PID, p.StartTime)] = p
-
-	c.processTrees[containerID] = processMap
-
 	c.fireEvent(ProcessEvent{
 		Timestamp:   eventTime,
 		ContainerID: containerID,
@@ -223,35 +200,14 @@ func (c *ProcessTreeCollectorImpl) ProcessStarted(eventTime time.Time, container
 }
 
 func (c *ProcessTreeCollectorImpl) ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey) {
-	c.processTreesMu.Lock()
-	defer c.processTreesMu.Unlock()
-
-	processMap := c.processTrees[containerID]
-	if processMap == nil {
-		processMap = map[ProcessKey]Process{}
-	}
-
 	var process Process
 
-	if p, found := processMap[parent]; found {
-		process = p
-		process.PPID = process.PID
-		process.ParentStartTime = process.StartTime
-		process.PID = processKey.PID
-		process.StartTime = processKey.StartTime
-	} else {
-		c.log.Warnf("parent process to be forked not found, falling back to filling in known details. container: %s, process: %s, parent: %s", containerID, processKey, parent)
-		process = Process{
-			PID:             processKey.PID,
-			StartTime:       processKey.StartTime,
-			PPID:            parent.PID,
-			ParentStartTime: parent.StartTime,
-		}
+	process = Process{
+		PID:             processKey.PID,
+		StartTime:       processKey.StartTime,
+		PPID:            parent.PID,
+		ParentStartTime: parent.StartTime,
 	}
-
-	processMap[processKey] = process
-
-	c.processTrees[containerID] = processMap
 
 	c.fireEvent(ProcessEvent{
 		Timestamp:   eventTime,
@@ -261,32 +217,19 @@ func (c *ProcessTreeCollectorImpl) ProcessForked(eventTime time.Time, containerI
 	})
 }
 
-func (c *ProcessTreeCollectorImpl) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, exitTime uint64) {
-	c.processTreesMu.Lock()
-	defer c.processTreesMu.Unlock()
-
-	processMap := c.processTrees[containerID]
-	if processMap == nil {
-		processMap = map[ProcessKey]Process{}
-	}
-
-	if p, found := processMap[processKey]; found {
-		p.ExitTime = exitTime
-		processMap[processKey] = p
-
-		c.processTrees[containerID] = processMap
-
-		c.fireEvent(ProcessEvent{
-			Timestamp:   eventTime,
-			ContainerID: containerID,
-			Process:     p,
-			Action:      ProcessExit,
-		})
-	} else {
-		c.log.Warnf("cannot mark process %s (container: %s) as killed: process not found", processKey, containerID)
-
-		// There is nothing we can do if we get an exit of a never observed process.
-	}
+func (c *ProcessTreeCollectorImpl) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, parentProcessKey ProcessKey, exitTime uint64) {
+	c.fireEvent(ProcessEvent{
+		Timestamp:   eventTime,
+		ContainerID: containerID,
+		Process: Process{
+			PID:             processKey.PID,
+			StartTime:       processKey.StartTime,
+			PPID:            parentProcessKey.PID,
+			ParentStartTime: parentProcessKey.StartTime,
+			ExitTime:        exitTime,
+		},
+		Action: ProcessExit,
+	})
 }
 
 func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {

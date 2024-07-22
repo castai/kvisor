@@ -16,7 +16,7 @@ func (d *NoopProcessTreeCollector) Events() <-chan ProcessTreeEvent {
 	return d.dummyChan
 }
 
-func (d *NoopProcessTreeCollector) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, exitTime uint64) {
+func (d *NoopProcessTreeCollector) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, parent ProcessKey, exitTime uint64) {
 }
 
 func (d *NoopProcessTreeCollector) ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey) {
