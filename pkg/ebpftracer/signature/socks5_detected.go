@@ -1,11 +1,10 @@
 package signature
 
 import (
-	"fmt"
-
 	v1 "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/net/packet"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/elastic/go-freelru"
@@ -30,10 +29,11 @@ type SOCKS5DetectionSignatureConfig struct {
 }
 
 type SOCKS5Detected struct {
+	log                 *logging.Logger
 	detectionStateCache freelru.Cache[proc.PID, SOCKS5DetectionState]
 }
 
-func NewSOCKS5DetectedSignature(cfg SOCKS5DetectionSignatureConfig) (Signature, error) {
+func NewSOCKS5DetectedSignature(log *logging.Logger, cfg SOCKS5DetectionSignatureConfig) (Signature, error) {
 	var cacheSize uint32 = DefaultSOCKS5SignatureCacheSize
 	if cfg.CacheSize > 0 {
 		cacheSize = cfg.CacheSize
@@ -47,6 +47,7 @@ func NewSOCKS5DetectedSignature(cfg SOCKS5DetectionSignatureConfig) (Signature, 
 	}
 
 	return &SOCKS5Detected{
+		log:                 log,
 		detectionStateCache: cache,
 	}, nil
 }
@@ -120,7 +121,7 @@ func (s *SOCKS5Detected) OnEvent(event *types.Event) *v1.SignatureFinding {
 
 	payload, _, err := packet.ExtractPayload(networkData)
 	if err != nil {
-		fmt.Println(err)
+    s.log.Warnf("error parsing socks5 payload: %v", err)
 		return nil
 	}
 

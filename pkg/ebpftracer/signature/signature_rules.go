@@ -18,7 +18,7 @@ func DefaultSignatures(log *logging.Logger, cfg DefaultSignatureConfig) ([]Signa
 	}
 
 	if cfg.SOCKS5DetectedSignatureEnabled {
-		if s, err := NewSOCKS5DetectedSignature(cfg.SOCKS5DetectedSignatureConfig); err != nil {
+		if s, err := NewSOCKS5DetectedSignature(log, cfg.SOCKS5DetectedSignatureConfig); err != nil {
 			return nil, err
 		} else {
 			result = append(result, s)
