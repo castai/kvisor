@@ -91,9 +91,12 @@ func TestTracer(t *testing.T) {
 		errc <- tr.Run(ctx)
 	}()
 
-	signatures, err := signature.DefaultSignatures(log, signature.DefaultSignatureConfig{
-		TTYDetectedSignatureEnabled:    true,
-		SOCKS5DetectedSignatureEnabled: true,
+	signatures, err := signature.DefaultSignatures(log, signature.SignatureEngineConfig{
+		Enabled: true,
+		DefaultSignatureConfig: signature.DefaultSignatureConfig{
+			TTYDetectedSignatureEnabled:    true,
+			SOCKS5DetectedSignatureEnabled: true,
+		},
 	})
 	if err != nil {
 		t.Fatalf("error while configuring signatures: %v", err)
