@@ -1,6 +1,7 @@
 package ebpftracer
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"runtime/debug"
@@ -97,6 +98,18 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	}
 
 	switch eventId {
+	case events.SockSetState:
+		args := parsedArgs.(types.SockSetStateArgs)
+
+		// Those are the conditions we match on kernel side. If we get any event not matching those
+		// we dump the payload debugging.
+		if !((args.OldState == 7 && args.NewState == 10) ||
+			(args.OldState == 2 && args.NewState == 1) ||
+			(args.OldState == 2 && args.NewState == 7)) {
+			data := ebpfMsgDecoder.Buffer()
+			t.log.Warnf("Invalid payload for set state received: %s", base64.StdEncoding.EncodeToString(data))
+		}
+
 	case events.SchedProcessExec:
 		if eventCtx.Pid == 1 {
 			t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
