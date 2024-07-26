@@ -53,6 +53,13 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		}
 		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
 		if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
+			if errors.Is(err, containers.ErrContainerNotFound) {
+				err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
+				if err != nil {
+					return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
+				}
+				return nil
+			}
 			t.log.Errorf("cannot add container to cgroup %d: %b", args.CgroupId, err)
 		}
 		return nil

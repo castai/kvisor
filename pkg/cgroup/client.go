@@ -436,10 +436,6 @@ func (c *Client) LoadCgroup(id ID, path string) {
 	c.cgroupMu.Lock()
 	defer c.cgroupMu.Unlock()
 
-	if _, found := c.cgroupCacheByID[id]; found {
-		return
-	}
-
 	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
 		cgroup := c.getCgroupForIDAndPath(id, path)
 		return cgroup
