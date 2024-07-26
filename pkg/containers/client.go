@@ -110,7 +110,7 @@ func (c *Client) ListContainers() []*Container {
 	})
 }
 
-func (c *Client) addContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *Container, rerrr error) {
+func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *Container, rerrr error) {
 	defer func() {
 		if rerrr != nil {
 			// TODO: This is quick fix to prevent constant search for invalid containers.
@@ -190,7 +190,7 @@ func (c *Client) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*Con
 
 	if !found {
 		metrics.AgentLoadContainerByCgroup.Inc()
-		return c.addContainerByCgroupID(ctx, cgroup)
+		return c.AddContainerByCgroupID(ctx, cgroup)
 	}
 
 	return container, nil

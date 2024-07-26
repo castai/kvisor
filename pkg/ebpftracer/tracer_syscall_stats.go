@@ -7,6 +7,7 @@ import (
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/systable"
 	"github.com/cilium/ebpf"
+	"github.com/samber/lo"
 )
 
 type SyscallStatsKeyCgroupID uint64
@@ -61,7 +62,10 @@ func (t *Tracer) cleanupSyscallStats(stats map[SyscallStatsKeyCgroupID][]Syscall
 	var obsoleteStatsKeys []rawSyscallStatsKey
 
 	t.removedCgroupsMu.Lock()
-	for removedCgroupID := range t.removedCgroups {
+	removeCgroupIds := lo.Keys(t.removedCgroups)
+	t.removedCgroupsMu.Unlock()
+
+	for _, removedCgroupID := range removeCgroupIds {
 		if st, found := stats[SyscallStatsKeyCgroupID(removedCgroupID)]; found {
 			for _, syscallStats := range st {
 				obsoleteStatsKeys = append(obsoleteStatsKeys, rawSyscallStatsKey{
@@ -72,15 +76,10 @@ func (t *Tracer) cleanupSyscallStats(stats map[SyscallStatsKeyCgroupID][]Syscall
 
 		}
 	}
-	t.removedCgroupsMu.Unlock()
 
 	if len(obsoleteStatsKeys) > 0 {
 		if err := t.cleanupSyscallStatsKernel(obsoleteStatsKeys); err != nil {
 			t.log.Errorf("cleanup obsolete syscall stats: %v", err)
-		} else {
-			t.removedCgroupsMu.Lock()
-			t.removedCgroups = map[uint64]struct{}{}
-			t.removedCgroupsMu.Unlock()
 		}
 	}
 }
