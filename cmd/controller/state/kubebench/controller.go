@@ -41,7 +41,7 @@ const (
 )
 
 type kubeController interface {
-	GetKvisorAgentImageDetails() (kube.ImageDetails, bool)
+	GetKvisorAgentImageDetails() (kube.ImageDetails, error)
 }
 
 type Config struct {
@@ -288,9 +288,9 @@ func (c *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	jobSpec := specFn(node.GetName(), jobName)
 
 	// Set image.
-	imageDetails, found := c.kubeController.GetKvisorAgentImageDetails()
-	if !found {
-		return nil, errors.New("kvisor image details not found")
+	imageDetails, err := c.kubeController.GetKvisorAgentImageDetails()
+	if err != nil {
+		return nil, fmt.Errorf("kvisor image details not found: %w", err)
 	}
 	cont := jobSpec.Spec.Template.Spec.Containers[0]
 	cont.Image = imageDetails.ScannerImageName

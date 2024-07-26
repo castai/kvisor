@@ -255,9 +255,9 @@ func (c *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	agentImageDetails, found := c.kubeController.GetKvisorAgentImageDetails()
-	if !found {
-		return errors.New("kvisor image details not found")
+	agentImageDetails, err := c.kubeController.GetKvisorAgentImageDetails()
+	if err != nil {
+		return fmt.Errorf("kvisor image details not found: %w", err)
 	}
 
 	return c.imageScanner.ScanImage(ctx, ScanImageParams{

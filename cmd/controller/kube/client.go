@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"errors"
 	"net/netip"
 	"os"
 	"reflect"
@@ -297,11 +298,10 @@ type ImageDetails struct {
 
 // GetKvisorAgentImageDetails returns kvisor agent image details.
 // This is used for image analyzer and kube-bench dynamic jobs to schedule using the same image.
-func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, bool) {
-	spec, found := c.getKvisorControllerPodSpec()
-	if !found {
-		c.log.Warn("kvisor controller pod spec not found")
-		return ImageDetails{}, false
+func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, error) {
+	spec, err := c.getKvisorControllerPodSpec()
+	if err != nil {
+		return ImageDetails{}, err
 	}
 
 	imageName := os.Getenv("SCANNERS_IMAGE")
@@ -317,36 +317,35 @@ func (c *Client) GetKvisorAgentImageDetails() (ImageDetails, bool) {
 	}
 
 	if imageName == "" {
-		c.log.Warn("kvisor container image not found")
-		return ImageDetails{}, false
+		return ImageDetails{}, errors.New("kvisor container image not found")
 	}
 
 	return ImageDetails{
 		ScannerImageName: imageName,
 		ImagePullSecrets: spec.ImagePullSecrets,
-	}, true
+	}, nil
 }
 
-func (c *Client) getKvisorControllerPodSpec() (*corev1.PodSpec, bool) {
+func (c *Client) getKvisorControllerPodSpec() (*corev1.PodSpec, error) {
 	c.mu.RLock()
 	spec := c.kvisorControllerPodSpec
 	c.mu.RUnlock()
 	if spec != nil {
-		return spec, true
+		return spec, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	pod, err := c.client.CoreV1().Pods(c.kvisorNamespace).Get(ctx, c.podName, metav1.GetOptions{})
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 
 	c.mu.Lock()
 	c.kvisorControllerPodSpec = &pod.Spec
 	c.mu.Unlock()
 
-	return &pod.Spec, true
+	return &pod.Spec, nil
 }
 
 func (c *Client) RegisterKubernetesChangeListener(l KubernetesChangeEventListener) {

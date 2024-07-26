@@ -27,20 +27,20 @@ curl google.com
 
 You can run tests on your local kind cluster.
 
-```
+```sh
 KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh
 ```
 
 ## Colima
 Colima is a wrapper around Lima for macos and can be used as docker desktop for mac replacement.
 
-```
+```sh
 colima start  --cpu 2 --memory 4 --disk 100 -t vz --mount-type virtiofs
 ```
 
 Lima is lower level VM which allows to create customizable templates. This is recommended if you need to work with ebpf code.
 ### Lima
-```
+```sh
 ln -s ~/c/kvisor /tmp/kvisor
 limactl start ./tools/lima-ebpf.yaml
 ```
@@ -53,24 +53,24 @@ limactl start ./tools/lima-ebpf.yaml
 
 You can use kind or any other local k8s cluster. Kind is recommended.
 
-```
+```sh
 kind create cluster
 kubectl cluster-info --context kind-kind
 ```
 
 ### 3. Start tilt
-```
+```sh
 tilt up
 ```
 
 ### 4. Port-forward server api
-```
+```sh
 kubectl port-forward svc/kvisord-server 6060:80 -n kvisord
 ```
 
 ### 5. Run dashboard UI locally
 
-```
+```sh
 cd ui
 npm install
 PUBLIC_API_BASE_URL=http://localhost:6060 npm run dev
@@ -104,7 +104,7 @@ gcloud container clusters get-credentials $CLUSTER_NAME --zone us-central1-c --p
 ### Mount tracepoint events
 
 Mount tracepoints if they are not mounted yet.
-```
+```sh
 mount -t debugfs none /sys/kernel/debug
 ls /sys/kernel/debug/tracing/events
 ```
@@ -187,7 +187,7 @@ helm uninstall kvisord -n kvisord
 ```
 
 ### Integrate with CASTAI
-```
+```sh
 helm upgrade --install castai-kvisor oci://us-east4-docker.pkg.dev/kvisor/helm-charts/castai-kvisor \
     --version 0.12.0 \
     --namespace kvisord --create-namespace \
@@ -202,7 +202,7 @@ helm upgrade --install castai-kvisor oci://us-east4-docker.pkg.dev/kvisor/helm-c
 ## Misc
 
 List available trace functions for ftrace.
-```
+```sh
 cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 ```
 
@@ -219,7 +219,7 @@ cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 
 Install kvisor with netflow export to local clickhouse.
 
-```
+```sh
 helm repo add castai-helm https://castai.github.io/helm-charts
 helm repo update castai-helm
 
@@ -233,7 +233,7 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
 
 Check pods are running
 
-```
+```sh
 kubectl get pods -n castai-agent
 ```
 
@@ -250,7 +250,7 @@ castai-kvisor-controller-8697bbf8cd-sq6jp   1/1     Running   0          67s
 
 Port forward clickhouse connection
 
-```
+```sh
 kubectl port-forward -n castai-agent svc/castai-kvisor-clickhouse 8123
 ```
 Connect to clickhouse with your favorite sql client with credentials:
@@ -296,18 +296,18 @@ order by period;
 #### Generating connections
 
 Start server
-```
+```sh
 docker run -it --rm -p 8000:8000 busybox nc -lk -p 8000
 ```
 
 Send messages
 
-```
+```sh
 for i in {1..50}; do echo "hello$i" | nc -q 0 localhost 8000 & done
 ```
 
 Or send messages from single process
-```
+```sh
 cd ./pkg/ebpftracer
 NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
 ```
@@ -316,7 +316,7 @@ NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
 
 ### PWRU
 Install pwru
-```
+```sh
 wget https://github.com/cilium/pwru/releases/download/v1.0.6/pwru-linux-amd64.tar.gz && \
 tar -xzvf pwru-linux-amd64.tar.gz && \
 mv pwru /usr/bin/ && \
@@ -324,12 +324,12 @@ rm pwru-linux-amd64.tar.gz
 ```
 
 Or with docker
-```
+```sh
 docker run --privileged --rm -t --pid=host -v /sys/kernel/debug/:/sys/kernel/debug/ cilium/pwru pwru --output-tuple 'host 1.1.1.1'
 ```
 
 ### Tracee
 
-```
+```sh
 docker run --name tracee -it --rm   --pid=host --cgroupns=host --privileged   -v /etc/os-release:/etc/os-release-host:ro   -v /var/run:/var/run:ro   aquasec/tracee:latest --events net_packet_tcp
 ```

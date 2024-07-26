@@ -248,11 +248,11 @@ func readReport() []byte {
 type mockKubeController struct {
 }
 
-func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, bool) {
+func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, error) {
 	return kube.ImageDetails{
 		ScannerImageName: "kvisor-scanners",
 		ImagePullSecrets: nil,
-	}, true
+	}, nil
 }
 
 func (m *mockKubeController) GetPodOwnerID(pod *corev1.Pod) string {
