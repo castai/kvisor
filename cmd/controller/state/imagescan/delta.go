@@ -19,7 +19,7 @@ const defaultImageArch = "amd64"
 
 type kubeClient interface {
 	GetOwnerUID(obj kube.Object) string
-	GetKvisorAgentImageDetails() (kube.ImageDetails, bool)
+	GetKvisorAgentImageDetails() (kube.ImageDetails, error)
 }
 
 func newImage() *image {

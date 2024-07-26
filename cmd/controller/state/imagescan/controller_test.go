@@ -595,11 +595,11 @@ func (m *mockKubeController) GetOwnerUID(obj kube.Object) string {
 	return string(obj.GetUID())
 }
 
-func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, bool) {
+func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, error) {
 	return kube.ImageDetails{
 		ScannerImageName: "kvisor-scanners",
 		ImagePullSecrets: nil,
-	}, true
+	}, nil
 }
 
 type mockCastaiClient struct {
