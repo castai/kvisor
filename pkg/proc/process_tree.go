@@ -3,6 +3,7 @@ package proc
 import (
 	"bytes"
 	"cmp"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -55,6 +56,10 @@ func (p *Proc) SnapshotProcessTree(targetPID PID) ([]Process, error) {
 		data, err := p.procFS.ReadFile(
 			filepath.Join(targetPath, pidToString(pid), "stat"))
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				// A process can exit after we got the dir list. In such cases, we simply ignore it.
+				continue
+			}
 			return nil, err
 		}
 
@@ -78,13 +83,15 @@ func (p *Proc) SnapshotProcessTree(targetPID PID) ([]Process, error) {
 			path = ""
 		}
 
+		var cmdLine []string
 		data, err = p.procFS.ReadFile(
 			filepath.Join(targetPath, pidToString(pid), "cmdline"))
-		if err != nil {
+		// A process can exit after we got the dir list. Do not mess up the process tree, we will still report the process.
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, err
+		} else {
+			cmdLine = parseCmdline(data)
 		}
-
-		cmdLine := parseCmdline(data)
 
 		processes = append(processes, Process{
 			PID:       pid,
