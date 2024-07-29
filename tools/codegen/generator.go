@@ -101,6 +101,7 @@ import (
 
 var (
   ErrUnknownArgsType error = errors.New("unknown args type")
+  ErrTooManyArguments = errors.New("too many arguments from event")
 )
 
 // eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
@@ -286,6 +287,11 @@ func generatePerEventParserFunction(sink *strings.Builder, definition eventDefin
 	if err != nil {
 		return err
 	}
+
+	_, err = sink.WriteString(fmt.Sprintf(`  if numArgs > %d {
+    return types.%s{}, ErrTooManyArguments
+  }
+`, len(definition.params), eventName))
 
 	_, err = sink.WriteString("\n")
 	if err != nil {

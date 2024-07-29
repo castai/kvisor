@@ -243,7 +243,7 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 		// Reset decoder with new raw sample bytes.
 		ebpfMsgDecoder.Reset(record.RawSample)
 		if err := t.decodeAndExportEvent(ctx, ebpfMsgDecoder); err != nil {
-			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
+			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) || true {
 				t.log.Errorf("decoding event: %v", err)
 			}
 			metrics.AgentDecodeEventErrorsTotal.Inc()

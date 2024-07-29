@@ -3,8 +3,11 @@ package ebpftracer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
@@ -136,6 +139,46 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 		})
 
 	}
+}
+
+func TestDecodeContextAndArgs(t *testing.T) {
+	r := require.New(t)
+	testData := `jiaTS5ueBQB04qDEFpcFABDsAQAAAAAAAQAAADkAAAAAAAAABo0AAE2OAAC4jAAABo0AAAAAAAAoBgDwKQYA8GNvc3QtcmVwb3J0AAAAAABjb3N0LXJlcG9ydC1kZmQAAAAAAAAAAACLxYMoFZcFAICa8dYUlwUAEQMAACoAAAABAAAAAAAAAAAAAAAAAAAAAAAAABsAAAAEAAIAAAABAQAAAAIKFF7VAAAAAAAAAAAAAAAACh4AqwAAAAAAAAAAAAAAADyzkB8CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==`
+	// testData := `WFpooR17AwAJJW8HbXMDABpwAQAAAAAAAQAAAEEAAAAAAAAAtWgYAEJrGABvaBgAtWgYAAAAAABnBQDwaAUA8GNvc3QtcmVwb3J0AAAAAABjb3N0LXJlcG9ydC1kZmQAAAAAAAAAAAColQtZa3MDAPvj4UxrcwMAEQMAACoAAAABAAAAAAAAAAAAAAAAAAAAAAAAABoAAAAGAAIAAAABAQAAAAIKFBrHAAAAAAAAAAAAAAAACh4AqwAAAAAAAAAAAAAAAMCwkB8CAAAAAAAAAQEAAAACChQaxwAAAAAAAAAAAAAAAAoeAKsAAAAAAAAAAAAAAAD0sJAfAgAA`
+	// testData := `r3f6R8Z7AwACqW+f3XcDAF5NAQAAAAAAAQAAAKJOAAAAAAAAlWsPADEoFQBAaw8AlWsPAAAAAAAUCQDwGgkA8GNvc3QtcmVwb3J0AAAAAABjb3N0LXJlcG9ydC1kZmQAAAAAAAAAAADUcd3p/HADAGDFWI/8cAMAEQMAACoAAAABAAAAAAAAAAAAAAAAAAAAAAAAAB4AAAAGAAIAAAABAQAAAAIKFAheAAAAAAAAAAAAAAAACh4AqwAAAAAAAAAAAAAAAGyxkB8CAAAAAAAAAQEAAAACChQIXgAAAAAAAAAAAAAAAAoeAKsAAAAAAAAAAAAAAACqsZAfAgBr`
+	data, err := base64.StdEncoding.DecodeString(testData)
+	r.NoError(err)
+	fmt.Println(len(data))
+
+	decoder := decoder.NewEventDecoder(logging.New(&logging.Config{}), data)
+
+	eventCtx, args, err := decodeContextAndArgs(decoder)
+	r.NoError(err)
+
+	r.EqualValues(785, eventCtx.EventID)
+	r.IsType(types.SockSetStateArgs{}, args)
+	d, err := json.Marshal(args)
+	r.NoError(err)
+	fmt.Println(string(d))
+
+	// var eventCtx types.EventContext
+	// err = decoder.DecodeContext(&eventCtx)
+	// r.NoError(err)
+	// var numArgs uint8
+	// err = decoder.DecodeUint8(&numArgs)
+	// r.NoError(err)
+	// fmt.Println("num args:", numArgs)
+	//
+	// var curArg uint8
+	// err = decoder.DecodeUint8(&curArg)
+	// r.NoError(err)
+	// var oldState uint32
+	// err = decoder.DecodeUint32(&oldState)
+	// r.NoError(err)
+	//
+	// fmt.Println(curArg, oldState)
+	//
+	// fmt.Println(eventCtx.Ts)
 }
 
 func buildTestEventData(t *testing.T) []byte {

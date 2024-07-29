@@ -25,6 +25,20 @@ import (
 // Error indicating that the resulting error was caught from a panic
 var ErrPanic = errors.New("encountered panic")
 
+func decodeContextAndArgs(ebpfMsgDecoder *decoder.Decoder) (types.EventContext, types.Args, error) {
+	var eventCtx types.EventContext
+	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
+		return types.EventContext{}, nil, err
+	}
+	eventId := eventCtx.EventID
+	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
+	if err != nil {
+		return types.EventContext{}, nil, fmt.Errorf("cannot parse event type %d: %w", eventId, err)
+	}
+
+	return eventCtx, parsedArgs, nil
+}
+
 func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decoder.Decoder) (rerr error) {
 	defer func() {
 		if perr := recover(); perr != nil {
@@ -33,15 +47,12 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		}
 	}()
 
-	var eventCtx types.EventContext
-	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
-		return err
-	}
+	eventCtx, parsedArgs, err := decodeContextAndArgs(ebpfMsgDecoder)
+  if err != nil {
+    return err
+  }
+
 	eventId := eventCtx.EventID
-	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
-	if err != nil {
-		return fmt.Errorf("cannot parse event type %d: %w", eventId, err)
-	}
 
 	// Process special events for cgroup creation and removal.
 	// These are system events which are not send down via events pipeline.
