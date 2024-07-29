@@ -176,6 +176,7 @@ import (
 
 var (
   ErrUnknownArgsType error = errors.New("unknown args type")
+  ErrTooManyArguments = errors.New("too many arguments from event")
 )
 
 // eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
@@ -199,6 +200,9 @@ func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ReadArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -239,6 +243,9 @@ func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OpenArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.OpenArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -323,6 +330,7 @@ import (
 
 var (
   ErrUnknownArgsType error = errors.New("unknown args type")
+  ErrTooManyArguments = errors.New("too many arguments from event")
 )
 
 // eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
@@ -346,6 +354,9 @@ func ParseReadTHEThingArgs(decoder *Decoder) (types.ReadTHEThingArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadTHEThingArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ReadTHEThingArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {

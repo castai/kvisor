@@ -3,6 +3,7 @@ package ebpftracer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -243,7 +244,11 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 		// Reset decoder with new raw sample bytes.
 		ebpfMsgDecoder.Reset(record.RawSample)
 		if err := t.decodeAndExportEvent(ctx, ebpfMsgDecoder); err != nil {
-			if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
+			if errors.Is(err, decoder.ErrTooManyArguments) {
+				data := ebpfMsgDecoder.Buffer()
+				t.log.Errorf("decoding event: too many arguments for event. payload: %s",
+					base64.StdEncoding.EncodeToString(data))
+			} else if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
 				t.log.Errorf("decoding event: %v", err)
 			}
 			metrics.AgentDecodeEventErrorsTotal.Inc()

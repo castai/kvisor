@@ -26,6 +26,10 @@ type Decoder struct {
 	cursor int
 }
 
+func (decoder *Decoder) Buffer() []byte {
+	return decoder.buffer
+}
+
 var ErrBufferTooShort = errors.New("can't read context from buffer: buffer too short")
 
 func NewEventDecoder(log *logging.Logger, rawBuffer []byte) *Decoder {
