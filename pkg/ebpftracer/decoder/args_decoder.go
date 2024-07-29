@@ -11,6 +11,7 @@ import (
 
 var (
   ErrUnknownArgsType error = errors.New("unknown args type")
+  ErrTooManyArguments = errors.New("too many arguments from event")
 )
 
 // eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
@@ -34,6 +35,9 @@ func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ReadArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -75,6 +79,9 @@ func ParseWriteArgs(decoder *Decoder) (types.WriteArgs, error) {
   if err != nil {
     return types.WriteArgs{}, err
   }
+  if numArgs > 3 {
+    return types.WriteArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -115,6 +122,9 @@ func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
   if err != nil {
     return types.OpenArgs{}, err
   }
+  if numArgs > 3 {
+    return types.OpenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -153,6 +163,9 @@ func ParseCloseArgs(decoder *Decoder) (types.CloseArgs, error) {
   if err != nil {
     return types.CloseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.CloseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -180,6 +193,9 @@ func ParseStatArgs(decoder *Decoder) (types.StatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StatArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.StatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -216,6 +232,9 @@ func ParseFstatArgs(decoder *Decoder) (types.FstatArgs, error) {
   if err != nil {
     return types.FstatArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FstatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -251,6 +270,9 @@ func ParseLstatArgs(decoder *Decoder) (types.LstatArgs, error) {
   if err != nil {
     return types.LstatArgs{}, err
   }
+  if numArgs > 2 {
+    return types.LstatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -285,6 +307,9 @@ func ParsePollArgs(decoder *Decoder) (types.PollArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PollArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.PollArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -326,6 +351,9 @@ func ParseLseekArgs(decoder *Decoder) (types.LseekArgs, error) {
   if err != nil {
     return types.LseekArgs{}, err
   }
+  if numArgs > 3 {
+    return types.LseekArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -363,6 +391,9 @@ func ParseMmapArgs(decoder *Decoder) (types.MmapArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MmapArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.MmapArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -419,6 +450,9 @@ func ParseMprotectArgs(decoder *Decoder) (types.MprotectArgs, error) {
   if err != nil {
     return types.MprotectArgs{}, err
   }
+  if numArgs > 3 {
+    return types.MprotectArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -459,6 +493,9 @@ func ParseMunmapArgs(decoder *Decoder) (types.MunmapArgs, error) {
   if err != nil {
     return types.MunmapArgs{}, err
   }
+  if numArgs > 2 {
+    return types.MunmapArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -494,6 +531,9 @@ func ParseBrkArgs(decoder *Decoder) (types.BrkArgs, error) {
   if err != nil {
     return types.BrkArgs{}, err
   }
+  if numArgs > 1 {
+    return types.BrkArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -523,6 +563,9 @@ func ParseRtSigactionArgs(decoder *Decoder) (types.RtSigactionArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigactionArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.RtSigactionArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -570,6 +613,9 @@ func ParseRtSigprocmaskArgs(decoder *Decoder) (types.RtSigprocmaskArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigprocmaskArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.RtSigprocmaskArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -622,6 +668,9 @@ func ParseIoctlArgs(decoder *Decoder) (types.IoctlArgs, error) {
   if err != nil {
     return types.IoctlArgs{}, err
   }
+  if numArgs > 3 {
+    return types.IoctlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -659,6 +708,9 @@ func ParsePread64Args(decoder *Decoder) (types.Pread64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pread64Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Pread64Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -705,6 +757,9 @@ func ParsePwrite64Args(decoder *Decoder) (types.Pwrite64Args, error) {
   if err != nil {
     return types.Pwrite64Args{}, err
   }
+  if numArgs > 4 {
+    return types.Pwrite64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -750,6 +805,9 @@ func ParseReadvArgs(decoder *Decoder) (types.ReadvArgs, error) {
   if err != nil {
     return types.ReadvArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ReadvArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -789,6 +847,9 @@ func ParseWritevArgs(decoder *Decoder) (types.WritevArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WritevArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.WritevArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -830,6 +891,9 @@ func ParseAccessArgs(decoder *Decoder) (types.AccessArgs, error) {
   if err != nil {
     return types.AccessArgs{}, err
   }
+  if numArgs > 2 {
+    return types.AccessArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -863,6 +927,9 @@ func ParsePipeArgs(decoder *Decoder) (types.PipeArgs, error) {
   if err != nil {
     return types.PipeArgs{}, err
   }
+  if numArgs > 1 {
+    return types.PipeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -890,6 +957,9 @@ func ParseSelectArgs(decoder *Decoder) (types.SelectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SelectArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.SelectArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -951,6 +1021,9 @@ func ParseMremapArgs(decoder *Decoder) (types.MremapArgs, error) {
   if err != nil {
     return types.MremapArgs{}, err
   }
+  if numArgs > 5 {
+    return types.MremapArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1003,6 +1076,9 @@ func ParseMsyncArgs(decoder *Decoder) (types.MsyncArgs, error) {
   if err != nil {
     return types.MsyncArgs{}, err
   }
+  if numArgs > 3 {
+    return types.MsyncArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1042,6 +1118,9 @@ func ParseMincoreArgs(decoder *Decoder) (types.MincoreArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MincoreArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.MincoreArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1085,6 +1164,9 @@ func ParseMadviseArgs(decoder *Decoder) (types.MadviseArgs, error) {
   if err != nil {
     return types.MadviseArgs{}, err
   }
+  if numArgs > 3 {
+    return types.MadviseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1125,6 +1207,9 @@ func ParseShmgetArgs(decoder *Decoder) (types.ShmgetArgs, error) {
   if err != nil {
     return types.ShmgetArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ShmgetArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1162,6 +1247,9 @@ func ParseShmatArgs(decoder *Decoder) (types.ShmatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ShmatArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ShmatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1203,6 +1291,9 @@ func ParseShmctlArgs(decoder *Decoder) (types.ShmctlArgs, error) {
   if err != nil {
     return types.ShmctlArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ShmctlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1243,6 +1334,9 @@ func ParseDupArgs(decoder *Decoder) (types.DupArgs, error) {
   if err != nil {
     return types.DupArgs{}, err
   }
+  if numArgs > 1 {
+    return types.DupArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1270,6 +1364,9 @@ func ParseDup2Args(decoder *Decoder) (types.Dup2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Dup2Args{}, err
+  }
+  if numArgs > 2 {
+    return types.Dup2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1308,6 +1405,9 @@ func ParseNanosleepArgs(decoder *Decoder) (types.NanosleepArgs, error) {
   if err != nil {
     return types.NanosleepArgs{}, err
   }
+  if numArgs > 2 {
+    return types.NanosleepArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1340,6 +1440,9 @@ func ParseGetitimerArgs(decoder *Decoder) (types.GetitimerArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetitimerArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.GetitimerArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1376,6 +1479,9 @@ func ParseAlarmArgs(decoder *Decoder) (types.AlarmArgs, error) {
   if err != nil {
     return types.AlarmArgs{}, err
   }
+  if numArgs > 1 {
+    return types.AlarmArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1403,6 +1509,9 @@ func ParseSetitimerArgs(decoder *Decoder) (types.SetitimerArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetitimerArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SetitimerArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1450,6 +1559,9 @@ func ParseSendfileArgs(decoder *Decoder) (types.SendfileArgs, error) {
   if err != nil {
     return types.SendfileArgs{}, err
   }
+  if numArgs > 4 {
+    return types.SendfileArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1495,6 +1607,9 @@ func ParseSocketArgs(decoder *Decoder) (types.SocketArgs, error) {
   if err != nil {
     return types.SocketArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SocketArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1533,6 +1648,9 @@ func ParseConnectArgs(decoder *Decoder) (types.ConnectArgs, error) {
   if err != nil {
     return types.ConnectArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ConnectArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1570,6 +1688,9 @@ func ParseAcceptArgs(decoder *Decoder) (types.AcceptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.AcceptArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.AcceptArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1610,6 +1731,9 @@ func ParseSendtoArgs(decoder *Decoder) (types.SendtoArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SendtoArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.SendtoArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1665,6 +1789,9 @@ func ParseRecvfromArgs(decoder *Decoder) (types.RecvfromArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RecvfromArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.RecvfromArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1723,6 +1850,9 @@ func ParseSendmsgArgs(decoder *Decoder) (types.SendmsgArgs, error) {
   if err != nil {
     return types.SendmsgArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SendmsgArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1762,6 +1892,9 @@ func ParseRecvmsgArgs(decoder *Decoder) (types.RecvmsgArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RecvmsgArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.RecvmsgArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1803,6 +1936,9 @@ func ParseShutdownArgs(decoder *Decoder) (types.ShutdownArgs, error) {
   if err != nil {
     return types.ShutdownArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ShutdownArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1835,6 +1971,9 @@ func ParseBindArgs(decoder *Decoder) (types.BindArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.BindArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.BindArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1874,6 +2013,9 @@ func ParseListenArgs(decoder *Decoder) (types.ListenArgs, error) {
   if err != nil {
     return types.ListenArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ListenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1906,6 +2048,9 @@ func ParseGetsocknameArgs(decoder *Decoder) (types.GetsocknameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetsocknameArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetsocknameArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -1947,6 +2092,9 @@ func ParseGetpeernameArgs(decoder *Decoder) (types.GetpeernameArgs, error) {
   if err != nil {
     return types.GetpeernameArgs{}, err
   }
+  if numArgs > 3 {
+    return types.GetpeernameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -1986,6 +2134,9 @@ func ParseSocketpairArgs(decoder *Decoder) (types.SocketpairArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketpairArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SocketpairArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2029,6 +2180,9 @@ func ParseSetsockoptArgs(decoder *Decoder) (types.SetsockoptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetsockoptArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.SetsockoptArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2079,6 +2233,9 @@ func ParseGetsockoptArgs(decoder *Decoder) (types.GetsockoptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetsockoptArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.GetsockoptArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2131,6 +2288,9 @@ func ParseCloneArgs(decoder *Decoder) (types.CloneArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CloneArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.CloneArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2194,6 +2354,9 @@ func ParseExecveArgs(decoder *Decoder) (types.ExecveArgs, error) {
   if err != nil {
     return types.ExecveArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ExecveArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2232,6 +2395,9 @@ func ParseExitArgs(decoder *Decoder) (types.ExitArgs, error) {
   if err != nil {
     return types.ExitArgs{}, err
   }
+  if numArgs > 1 {
+    return types.ExitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2259,6 +2425,9 @@ func ParseWait4Args(decoder *Decoder) (types.Wait4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Wait4Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Wait4Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2307,6 +2476,9 @@ func ParseKillArgs(decoder *Decoder) (types.KillArgs, error) {
   if err != nil {
     return types.KillArgs{}, err
   }
+  if numArgs > 2 {
+    return types.KillArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2340,6 +2512,9 @@ func ParseUnameArgs(decoder *Decoder) (types.UnameArgs, error) {
   if err != nil {
     return types.UnameArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UnameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2369,6 +2544,9 @@ func ParseSemgetArgs(decoder *Decoder) (types.SemgetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemgetArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SemgetArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2407,6 +2585,9 @@ func ParseSemopArgs(decoder *Decoder) (types.SemopArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemopArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SemopArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2447,6 +2628,9 @@ func ParseSemctlArgs(decoder *Decoder) (types.SemctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemctlArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SemctlArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2491,6 +2675,9 @@ func ParseShmdtArgs(decoder *Decoder) (types.ShmdtArgs, error) {
   if err != nil {
     return types.ShmdtArgs{}, err
   }
+  if numArgs > 1 {
+    return types.ShmdtArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2520,6 +2707,9 @@ func ParseMsggetArgs(decoder *Decoder) (types.MsggetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsggetArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.MsggetArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2553,6 +2743,9 @@ func ParseMsgsndArgs(decoder *Decoder) (types.MsgsndArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsgsndArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.MsgsndArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2598,6 +2791,9 @@ func ParseMsgrcvArgs(decoder *Decoder) (types.MsgrcvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MsgrcvArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.MsgrcvArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2649,6 +2845,9 @@ func ParseMsgctlArgs(decoder *Decoder) (types.MsgctlArgs, error) {
   if err != nil {
     return types.MsgctlArgs{}, err
   }
+  if numArgs > 3 {
+    return types.MsgctlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2689,6 +2888,9 @@ func ParseFcntlArgs(decoder *Decoder) (types.FcntlArgs, error) {
   if err != nil {
     return types.FcntlArgs{}, err
   }
+  if numArgs > 3 {
+    return types.FcntlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2727,6 +2929,9 @@ func ParseFlockArgs(decoder *Decoder) (types.FlockArgs, error) {
   if err != nil {
     return types.FlockArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FlockArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2760,6 +2965,9 @@ func ParseFsyncArgs(decoder *Decoder) (types.FsyncArgs, error) {
   if err != nil {
     return types.FsyncArgs{}, err
   }
+  if numArgs > 1 {
+    return types.FsyncArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2788,6 +2996,9 @@ func ParseFdatasyncArgs(decoder *Decoder) (types.FdatasyncArgs, error) {
   if err != nil {
     return types.FdatasyncArgs{}, err
   }
+  if numArgs > 1 {
+    return types.FdatasyncArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2815,6 +3026,9 @@ func ParseTruncateArgs(decoder *Decoder) (types.TruncateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TruncateArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.TruncateArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2849,6 +3063,9 @@ func ParseFtruncateArgs(decoder *Decoder) (types.FtruncateArgs, error) {
   if err != nil {
     return types.FtruncateArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FtruncateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2881,6 +3098,9 @@ func ParseGetdentsArgs(decoder *Decoder) (types.GetdentsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetdentsArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetdentsArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -2922,6 +3142,9 @@ func ParseGetcwdArgs(decoder *Decoder) (types.GetcwdArgs, error) {
   if err != nil {
     return types.GetcwdArgs{}, err
   }
+  if numArgs > 2 {
+    return types.GetcwdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2955,6 +3178,9 @@ func ParseChdirArgs(decoder *Decoder) (types.ChdirArgs, error) {
   if err != nil {
     return types.ChdirArgs{}, err
   }
+  if numArgs > 1 {
+    return types.ChdirArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -2983,6 +3209,9 @@ func ParseFchdirArgs(decoder *Decoder) (types.FchdirArgs, error) {
   if err != nil {
     return types.FchdirArgs{}, err
   }
+  if numArgs > 1 {
+    return types.FchdirArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3010,6 +3239,9 @@ func ParseRenameArgs(decoder *Decoder) (types.RenameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RenameArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.RenameArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3044,6 +3276,9 @@ func ParseMkdirArgs(decoder *Decoder) (types.MkdirArgs, error) {
   if err != nil {
     return types.MkdirArgs{}, err
   }
+  if numArgs > 2 {
+    return types.MkdirArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3077,6 +3312,9 @@ func ParseRmdirArgs(decoder *Decoder) (types.RmdirArgs, error) {
   if err != nil {
     return types.RmdirArgs{}, err
   }
+  if numArgs > 1 {
+    return types.RmdirArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3104,6 +3342,9 @@ func ParseCreatArgs(decoder *Decoder) (types.CreatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CreatArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.CreatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3138,6 +3379,9 @@ func ParseLinkArgs(decoder *Decoder) (types.LinkArgs, error) {
   if err != nil {
     return types.LinkArgs{}, err
   }
+  if numArgs > 2 {
+    return types.LinkArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3171,6 +3415,9 @@ func ParseUnlinkArgs(decoder *Decoder) (types.UnlinkArgs, error) {
   if err != nil {
     return types.UnlinkArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UnlinkArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3198,6 +3445,9 @@ func ParseSymlinkArgs(decoder *Decoder) (types.SymlinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SymlinkArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SymlinkArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3231,6 +3481,9 @@ func ParseReadlinkArgs(decoder *Decoder) (types.ReadlinkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadlinkArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ReadlinkArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3270,6 +3523,9 @@ func ParseChmodArgs(decoder *Decoder) (types.ChmodArgs, error) {
   if err != nil {
     return types.ChmodArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ChmodArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3303,6 +3559,9 @@ func ParseFchmodArgs(decoder *Decoder) (types.FchmodArgs, error) {
   if err != nil {
     return types.FchmodArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FchmodArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3335,6 +3594,9 @@ func ParseChownArgs(decoder *Decoder) (types.ChownArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ChownArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ChownArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3374,6 +3636,9 @@ func ParseFchownArgs(decoder *Decoder) (types.FchownArgs, error) {
   if err != nil {
     return types.FchownArgs{}, err
   }
+  if numArgs > 3 {
+    return types.FchownArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3411,6 +3676,9 @@ func ParseLchownArgs(decoder *Decoder) (types.LchownArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LchownArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.LchownArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3450,6 +3718,9 @@ func ParseUmaskArgs(decoder *Decoder) (types.UmaskArgs, error) {
   if err != nil {
     return types.UmaskArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UmaskArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3477,6 +3748,9 @@ func ParseGettimeofdayArgs(decoder *Decoder) (types.GettimeofdayArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GettimeofdayArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.GettimeofdayArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3515,6 +3789,9 @@ func ParseGetrlimitArgs(decoder *Decoder) (types.GetrlimitArgs, error) {
   if err != nil {
     return types.GetrlimitArgs{}, err
   }
+  if numArgs > 2 {
+    return types.GetrlimitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3549,6 +3826,9 @@ func ParseGetrusageArgs(decoder *Decoder) (types.GetrusageArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetrusageArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.GetrusageArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3585,6 +3865,9 @@ func ParseSysinfoArgs(decoder *Decoder) (types.SysinfoArgs, error) {
   if err != nil {
     return types.SysinfoArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SysinfoArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3615,6 +3898,9 @@ func ParseTimesArgs(decoder *Decoder) (types.TimesArgs, error) {
   if err != nil {
     return types.TimesArgs{}, err
   }
+  if numArgs > 1 {
+    return types.TimesArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3644,6 +3930,9 @@ func ParsePtraceArgs(decoder *Decoder) (types.PtraceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PtraceArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.PtraceArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3696,6 +3985,9 @@ func ParseSyslogArgs(decoder *Decoder) (types.SyslogArgs, error) {
   if err != nil {
     return types.SyslogArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SyslogArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3738,6 +4030,9 @@ func ParseSetuidArgs(decoder *Decoder) (types.SetuidArgs, error) {
   if err != nil {
     return types.SetuidArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SetuidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3765,6 +4060,9 @@ func ParseSetgidArgs(decoder *Decoder) (types.SetgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetgidArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.SetgidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3801,6 +4099,9 @@ func ParseSetpgidArgs(decoder *Decoder) (types.SetpgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetpgidArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SetpgidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3847,6 +4148,9 @@ func ParseSetreuidArgs(decoder *Decoder) (types.SetreuidArgs, error) {
   if err != nil {
     return types.SetreuidArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SetreuidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3880,6 +4184,9 @@ func ParseSetregidArgs(decoder *Decoder) (types.SetregidArgs, error) {
   if err != nil {
     return types.SetregidArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SetregidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3912,6 +4219,9 @@ func ParseGetgroupsArgs(decoder *Decoder) (types.GetgroupsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetgroupsArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.GetgroupsArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -3948,6 +4258,9 @@ func ParseSetgroupsArgs(decoder *Decoder) (types.SetgroupsArgs, error) {
   if err != nil {
     return types.SetgroupsArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SetgroupsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -3982,6 +4295,9 @@ func ParseSetresuidArgs(decoder *Decoder) (types.SetresuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetresuidArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SetresuidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4020,6 +4336,9 @@ func ParseGetresuidArgs(decoder *Decoder) (types.GetresuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetresuidArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetresuidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4065,6 +4384,9 @@ func ParseSetresgidArgs(decoder *Decoder) (types.SetresgidArgs, error) {
   if err != nil {
     return types.SetresgidArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SetresgidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4102,6 +4424,9 @@ func ParseGetresgidArgs(decoder *Decoder) (types.GetresgidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetresgidArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetresgidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4147,6 +4472,9 @@ func ParseGetpgidArgs(decoder *Decoder) (types.GetpgidArgs, error) {
   if err != nil {
     return types.GetpgidArgs{}, err
   }
+  if numArgs > 1 {
+    return types.GetpgidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4174,6 +4502,9 @@ func ParseSetfsuidArgs(decoder *Decoder) (types.SetfsuidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetfsuidArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.SetfsuidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4203,6 +4534,9 @@ func ParseSetfsgidArgs(decoder *Decoder) (types.SetfsgidArgs, error) {
   if err != nil {
     return types.SetfsgidArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SetfsgidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4231,6 +4565,9 @@ func ParseGetsidArgs(decoder *Decoder) (types.GetsidArgs, error) {
   if err != nil {
     return types.GetsidArgs{}, err
   }
+  if numArgs > 1 {
+    return types.GetsidArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4258,6 +4595,9 @@ func ParseCapgetArgs(decoder *Decoder) (types.CapgetArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CapgetArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.CapgetArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4296,6 +4636,9 @@ func ParseCapsetArgs(decoder *Decoder) (types.CapsetArgs, error) {
   if err != nil {
     return types.CapsetArgs{}, err
   }
+  if numArgs > 2 {
+    return types.CapsetArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4333,6 +4676,9 @@ func ParseRtSigpendingArgs(decoder *Decoder) (types.RtSigpendingArgs, error) {
   if err != nil {
     return types.RtSigpendingArgs{}, err
   }
+  if numArgs > 2 {
+    return types.RtSigpendingArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4367,6 +4713,9 @@ func ParseRtSigtimedwaitArgs(decoder *Decoder) (types.RtSigtimedwaitArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RtSigtimedwaitArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.RtSigtimedwaitArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4415,6 +4764,9 @@ func ParseRtSigqueueinfoArgs(decoder *Decoder) (types.RtSigqueueinfoArgs, error)
   if err != nil {
     return types.RtSigqueueinfoArgs{}, err
   }
+  if numArgs > 3 {
+    return types.RtSigqueueinfoArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4455,6 +4807,9 @@ func ParseRtSigsuspendArgs(decoder *Decoder) (types.RtSigsuspendArgs, error) {
   if err != nil {
     return types.RtSigsuspendArgs{}, err
   }
+  if numArgs > 2 {
+    return types.RtSigsuspendArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4489,6 +4844,9 @@ func ParseSigaltstackArgs(decoder *Decoder) (types.SigaltstackArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigaltstackArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SigaltstackArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4527,6 +4885,9 @@ func ParseUtimeArgs(decoder *Decoder) (types.UtimeArgs, error) {
   if err != nil {
     return types.UtimeArgs{}, err
   }
+  if numArgs > 2 {
+    return types.UtimeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4561,6 +4922,9 @@ func ParseMknodArgs(decoder *Decoder) (types.MknodArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MknodArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.MknodArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4600,6 +4964,9 @@ func ParseUselibArgs(decoder *Decoder) (types.UselibArgs, error) {
   if err != nil {
     return types.UselibArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UselibArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4628,6 +4995,9 @@ func ParsePersonalityArgs(decoder *Decoder) (types.PersonalityArgs, error) {
   if err != nil {
     return types.PersonalityArgs{}, err
   }
+  if numArgs > 1 {
+    return types.PersonalityArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4655,6 +5025,9 @@ func ParseUstatArgs(decoder *Decoder) (types.UstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UstatArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.UstatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4691,6 +5064,9 @@ func ParseStatfsArgs(decoder *Decoder) (types.StatfsArgs, error) {
   if err != nil {
     return types.StatfsArgs{}, err
   }
+  if numArgs > 2 {
+    return types.StatfsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4725,6 +5101,9 @@ func ParseFstatfsArgs(decoder *Decoder) (types.FstatfsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FstatfsArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.FstatfsArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4761,6 +5140,9 @@ func ParseSysfsArgs(decoder *Decoder) (types.SysfsArgs, error) {
   if err != nil {
     return types.SysfsArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SysfsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4788,6 +5170,9 @@ func ParseGetpriorityArgs(decoder *Decoder) (types.GetpriorityArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetpriorityArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.GetpriorityArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4821,6 +5206,9 @@ func ParseSetpriorityArgs(decoder *Decoder) (types.SetpriorityArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetpriorityArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SetpriorityArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4860,6 +5248,9 @@ func ParseSchedSetparamArgs(decoder *Decoder) (types.SchedSetparamArgs, error) {
   if err != nil {
     return types.SchedSetparamArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SchedSetparamArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4895,6 +5286,9 @@ func ParseSchedGetparamArgs(decoder *Decoder) (types.SchedGetparamArgs, error) {
   if err != nil {
     return types.SchedGetparamArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SchedGetparamArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4929,6 +5323,9 @@ func ParseSchedSetschedulerArgs(decoder *Decoder) (types.SchedSetschedulerArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSetschedulerArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SchedSetschedulerArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -4970,6 +5367,9 @@ func ParseSchedGetschedulerArgs(decoder *Decoder) (types.SchedGetschedulerArgs, 
   if err != nil {
     return types.SchedGetschedulerArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SchedGetschedulerArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -4997,6 +5397,9 @@ func ParseSchedGetPriorityMaxArgs(decoder *Decoder) (types.SchedGetPriorityMaxAr
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetPriorityMaxArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.SchedGetPriorityMaxArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5026,6 +5429,9 @@ func ParseSchedGetPriorityMinArgs(decoder *Decoder) (types.SchedGetPriorityMinAr
   if err != nil {
     return types.SchedGetPriorityMinArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SchedGetPriorityMinArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5053,6 +5459,9 @@ func ParseSchedRrGetIntervalArgs(decoder *Decoder) (types.SchedRrGetIntervalArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedRrGetIntervalArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SchedRrGetIntervalArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5086,6 +5495,9 @@ func ParseMlockArgs(decoder *Decoder) (types.MlockArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MlockArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.MlockArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5122,6 +5534,9 @@ func ParseMunlockArgs(decoder *Decoder) (types.MunlockArgs, error) {
   if err != nil {
     return types.MunlockArgs{}, err
   }
+  if numArgs > 2 {
+    return types.MunlockArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5156,6 +5571,9 @@ func ParseMlockallArgs(decoder *Decoder) (types.MlockallArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MlockallArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.MlockallArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5192,6 +5610,9 @@ func ParseModifyLdtArgs(decoder *Decoder) (types.ModifyLdtArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ModifyLdtArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ModifyLdtArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5233,6 +5654,9 @@ func ParsePivotRootArgs(decoder *Decoder) (types.PivotRootArgs, error) {
   if err != nil {
     return types.PivotRootArgs{}, err
   }
+  if numArgs > 2 {
+    return types.PivotRootArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5266,6 +5690,9 @@ func ParseSysctlArgs(decoder *Decoder) (types.SysctlArgs, error) {
   if err != nil {
     return types.SysctlArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SysctlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5295,6 +5722,9 @@ func ParsePrctlArgs(decoder *Decoder) (types.PrctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PrctlArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.PrctlArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5344,6 +5774,9 @@ func ParseArchPrctlArgs(decoder *Decoder) (types.ArchPrctlArgs, error) {
   if err != nil {
     return types.ArchPrctlArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ArchPrctlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5377,6 +5810,9 @@ func ParseAdjtimexArgs(decoder *Decoder) (types.AdjtimexArgs, error) {
   if err != nil {
     return types.AdjtimexArgs{}, err
   }
+  if numArgs > 1 {
+    return types.AdjtimexArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5406,6 +5842,9 @@ func ParseSetrlimitArgs(decoder *Decoder) (types.SetrlimitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetrlimitArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SetrlimitArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5442,6 +5881,9 @@ func ParseChrootArgs(decoder *Decoder) (types.ChrootArgs, error) {
   if err != nil {
     return types.ChrootArgs{}, err
   }
+  if numArgs > 1 {
+    return types.ChrootArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5474,6 +5916,9 @@ func ParseAcctArgs(decoder *Decoder) (types.AcctArgs, error) {
   if err != nil {
     return types.AcctArgs{}, err
   }
+  if numArgs > 1 {
+    return types.AcctArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5501,6 +5946,9 @@ func ParseSettimeofdayArgs(decoder *Decoder) (types.SettimeofdayArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SettimeofdayArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SettimeofdayArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5538,6 +5986,9 @@ func ParseMountArgs(decoder *Decoder) (types.MountArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MountArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.MountArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5589,6 +6040,9 @@ func ParseUmount2Args(decoder *Decoder) (types.Umount2Args, error) {
   if err != nil {
     return types.Umount2Args{}, err
   }
+  if numArgs > 2 {
+    return types.Umount2Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5621,6 +6075,9 @@ func ParseSwaponArgs(decoder *Decoder) (types.SwaponArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SwaponArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SwaponArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5655,6 +6112,9 @@ func ParseSwapoffArgs(decoder *Decoder) (types.SwapoffArgs, error) {
   if err != nil {
     return types.SwapoffArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SwapoffArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5682,6 +6142,9 @@ func ParseRebootArgs(decoder *Decoder) (types.RebootArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RebootArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.RebootArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5728,6 +6191,9 @@ func ParseSethostnameArgs(decoder *Decoder) (types.SethostnameArgs, error) {
   if err != nil {
     return types.SethostnameArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SethostnameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5760,6 +6226,9 @@ func ParseSetdomainnameArgs(decoder *Decoder) (types.SetdomainnameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetdomainnameArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SetdomainnameArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5794,6 +6263,9 @@ func ParseIoplArgs(decoder *Decoder) (types.IoplArgs, error) {
   if err != nil {
     return types.IoplArgs{}, err
   }
+  if numArgs > 1 {
+    return types.IoplArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5821,6 +6293,9 @@ func ParseIopermArgs(decoder *Decoder) (types.IopermArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IopermArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.IopermArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5864,6 +6339,9 @@ func ParseInitModuleArgs(decoder *Decoder) (types.InitModuleArgs, error) {
   if err != nil {
     return types.InitModuleArgs{}, err
   }
+  if numArgs > 3 {
+    return types.InitModuleArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -5903,6 +6381,9 @@ func ParseDeleteModuleArgs(decoder *Decoder) (types.DeleteModuleArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DeleteModuleArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.DeleteModuleArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -5944,6 +6425,9 @@ func ParseQuotactlArgs(decoder *Decoder) (types.QuotactlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.QuotactlArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.QuotactlArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6018,6 +6502,9 @@ func ParseReadaheadArgs(decoder *Decoder) (types.ReadaheadArgs, error) {
   if err != nil {
     return types.ReadaheadArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ReadaheadArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6055,6 +6542,9 @@ func ParseSetxattrArgs(decoder *Decoder) (types.SetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetxattrArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.SetxattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6106,6 +6596,9 @@ func ParseLsetxattrArgs(decoder *Decoder) (types.LsetxattrArgs, error) {
   if err != nil {
     return types.LsetxattrArgs{}, err
   }
+  if numArgs > 5 {
+    return types.LsetxattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6155,6 +6648,9 @@ func ParseFsetxattrArgs(decoder *Decoder) (types.FsetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsetxattrArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.FsetxattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6206,6 +6702,9 @@ func ParseGetxattrArgs(decoder *Decoder) (types.GetxattrArgs, error) {
   if err != nil {
     return types.GetxattrArgs{}, err
   }
+  if numArgs > 4 {
+    return types.GetxattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6250,6 +6749,9 @@ func ParseLgetxattrArgs(decoder *Decoder) (types.LgetxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LgetxattrArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.LgetxattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6296,6 +6798,9 @@ func ParseFgetxattrArgs(decoder *Decoder) (types.FgetxattrArgs, error) {
   if err != nil {
     return types.FgetxattrArgs{}, err
   }
+  if numArgs > 4 {
+    return types.FgetxattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6341,6 +6846,9 @@ func ParseListxattrArgs(decoder *Decoder) (types.ListxattrArgs, error) {
   if err != nil {
     return types.ListxattrArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ListxattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6378,6 +6886,9 @@ func ParseLlistxattrArgs(decoder *Decoder) (types.LlistxattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LlistxattrArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.LlistxattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6417,6 +6928,9 @@ func ParseFlistxattrArgs(decoder *Decoder) (types.FlistxattrArgs, error) {
   if err != nil {
     return types.FlistxattrArgs{}, err
   }
+  if numArgs > 3 {
+    return types.FlistxattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6455,6 +6969,9 @@ func ParseRemovexattrArgs(decoder *Decoder) (types.RemovexattrArgs, error) {
   if err != nil {
     return types.RemovexattrArgs{}, err
   }
+  if numArgs > 2 {
+    return types.RemovexattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6487,6 +7004,9 @@ func ParseLremovexattrArgs(decoder *Decoder) (types.LremovexattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LremovexattrArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.LremovexattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6521,6 +7041,9 @@ func ParseFremovexattrArgs(decoder *Decoder) (types.FremovexattrArgs, error) {
   if err != nil {
     return types.FremovexattrArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FremovexattrArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6553,6 +7076,9 @@ func ParseTkillArgs(decoder *Decoder) (types.TkillArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TkillArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.TkillArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6587,6 +7113,9 @@ func ParseTimeArgs(decoder *Decoder) (types.TimeArgs, error) {
   if err != nil {
     return types.TimeArgs{}, err
   }
+  if numArgs > 1 {
+    return types.TimeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6616,6 +7145,9 @@ func ParseFutexArgs(decoder *Decoder) (types.FutexArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FutexArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.FutexArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6674,6 +7206,9 @@ func ParseSchedSetaffinityArgs(decoder *Decoder) (types.SchedSetaffinityArgs, er
   if err != nil {
     return types.SchedSetaffinityArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SchedSetaffinityArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6713,6 +7248,9 @@ func ParseSchedGetaffinityArgs(decoder *Decoder) (types.SchedGetaffinityArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetaffinityArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SchedGetaffinityArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6754,6 +7292,9 @@ func ParseSetThreadAreaArgs(decoder *Decoder) (types.SetThreadAreaArgs, error) {
   if err != nil {
     return types.SetThreadAreaArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SetThreadAreaArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6783,6 +7324,9 @@ func ParseIoSetupArgs(decoder *Decoder) (types.IoSetupArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoSetupArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.IoSetupArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6819,6 +7363,9 @@ func ParseIoDestroyArgs(decoder *Decoder) (types.IoDestroyArgs, error) {
   if err != nil {
     return types.IoDestroyArgs{}, err
   }
+  if numArgs > 1 {
+    return types.IoDestroyArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6848,6 +7395,9 @@ func ParseIoGeteventsArgs(decoder *Decoder) (types.IoGeteventsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoGeteventsArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.IoGeteventsArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6901,6 +7451,9 @@ func ParseIoSubmitArgs(decoder *Decoder) (types.IoSubmitArgs, error) {
   if err != nil {
     return types.IoSubmitArgs{}, err
   }
+  if numArgs > 3 {
+    return types.IoSubmitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -6942,6 +7495,9 @@ func ParseIoCancelArgs(decoder *Decoder) (types.IoCancelArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoCancelArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.IoCancelArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -6987,6 +7543,9 @@ func ParseGetThreadAreaArgs(decoder *Decoder) (types.GetThreadAreaArgs, error) {
   if err != nil {
     return types.GetThreadAreaArgs{}, err
   }
+  if numArgs > 1 {
+    return types.GetThreadAreaArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7016,6 +7575,9 @@ func ParseLookupDcookieArgs(decoder *Decoder) (types.LookupDcookieArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LookupDcookieArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.LookupDcookieArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7055,6 +7617,9 @@ func ParseEpollCreateArgs(decoder *Decoder) (types.EpollCreateArgs, error) {
   if err != nil {
     return types.EpollCreateArgs{}, err
   }
+  if numArgs > 1 {
+    return types.EpollCreateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7090,6 +7655,9 @@ func ParseRemapFilePagesArgs(decoder *Decoder) (types.RemapFilePagesArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RemapFilePagesArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.RemapFilePagesArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7141,6 +7709,9 @@ func ParseGetdents64Args(decoder *Decoder) (types.Getdents64Args, error) {
   if err != nil {
     return types.Getdents64Args{}, err
   }
+  if numArgs > 3 {
+    return types.Getdents64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7181,6 +7752,9 @@ func ParseSetTidAddressArgs(decoder *Decoder) (types.SetTidAddressArgs, error) {
   if err != nil {
     return types.SetTidAddressArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SetTidAddressArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7214,6 +7788,9 @@ func ParseSemtimedopArgs(decoder *Decoder) (types.SemtimedopArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SemtimedopArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SemtimedopArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7260,6 +7837,9 @@ func ParseFadvise64Args(decoder *Decoder) (types.Fadvise64Args, error) {
   if err != nil {
     return types.Fadvise64Args{}, err
   }
+  if numArgs > 4 {
+    return types.Fadvise64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7303,6 +7883,9 @@ func ParseTimerCreateArgs(decoder *Decoder) (types.TimerCreateArgs, error) {
   if err != nil {
     return types.TimerCreateArgs{}, err
   }
+  if numArgs > 3 {
+    return types.TimerCreateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7344,6 +7927,9 @@ func ParseTimerSettimeArgs(decoder *Decoder) (types.TimerSettimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerSettimeArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.TimerSettimeArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7392,6 +7978,9 @@ func ParseTimerGettimeArgs(decoder *Decoder) (types.TimerGettimeArgs, error) {
   if err != nil {
     return types.TimerGettimeArgs{}, err
   }
+  if numArgs > 2 {
+    return types.TimerGettimeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7427,6 +8016,9 @@ func ParseTimerGetoverrunArgs(decoder *Decoder) (types.TimerGetoverrunArgs, erro
   if err != nil {
     return types.TimerGetoverrunArgs{}, err
   }
+  if numArgs > 1 {
+    return types.TimerGetoverrunArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7455,6 +8047,9 @@ func ParseTimerDeleteArgs(decoder *Decoder) (types.TimerDeleteArgs, error) {
   if err != nil {
     return types.TimerDeleteArgs{}, err
   }
+  if numArgs > 1 {
+    return types.TimerDeleteArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7482,6 +8077,9 @@ func ParseClockSettimeArgs(decoder *Decoder) (types.ClockSettimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockSettimeArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.ClockSettimeArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7516,6 +8114,9 @@ func ParseClockGettimeArgs(decoder *Decoder) (types.ClockGettimeArgs, error) {
   if err != nil {
     return types.ClockGettimeArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ClockGettimeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7549,6 +8150,9 @@ func ParseClockGetresArgs(decoder *Decoder) (types.ClockGetresArgs, error) {
   if err != nil {
     return types.ClockGetresArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ClockGetresArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7581,6 +8185,9 @@ func ParseClockNanosleepArgs(decoder *Decoder) (types.ClockNanosleepArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockNanosleepArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.ClockNanosleepArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7625,6 +8232,9 @@ func ParseExitGroupArgs(decoder *Decoder) (types.ExitGroupArgs, error) {
   if err != nil {
     return types.ExitGroupArgs{}, err
   }
+  if numArgs > 1 {
+    return types.ExitGroupArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7652,6 +8262,9 @@ func ParseEpollWaitArgs(decoder *Decoder) (types.EpollWaitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollWaitArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.EpollWaitArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7698,6 +8311,9 @@ func ParseEpollCtlArgs(decoder *Decoder) (types.EpollCtlArgs, error) {
   if err != nil {
     return types.EpollCtlArgs{}, err
   }
+  if numArgs > 4 {
+    return types.EpollCtlArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7743,6 +8359,9 @@ func ParseTgkillArgs(decoder *Decoder) (types.TgkillArgs, error) {
   if err != nil {
     return types.TgkillArgs{}, err
   }
+  if numArgs > 3 {
+    return types.TgkillArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7780,6 +8399,9 @@ func ParseUtimesArgs(decoder *Decoder) (types.UtimesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.UtimesArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.UtimesArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7819,6 +8441,9 @@ func ParseMbindArgs(decoder *Decoder) (types.MbindArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MbindArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.MbindArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7877,6 +8502,9 @@ func ParseSetMempolicyArgs(decoder *Decoder) (types.SetMempolicyArgs, error) {
   if err != nil {
     return types.SetMempolicyArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SetMempolicyArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -7916,6 +8544,9 @@ func ParseGetMempolicyArgs(decoder *Decoder) (types.GetMempolicyArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetMempolicyArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.GetMempolicyArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -7971,6 +8602,9 @@ func ParseMqOpenArgs(decoder *Decoder) (types.MqOpenArgs, error) {
   if err != nil {
     return types.MqOpenArgs{}, err
   }
+  if numArgs > 4 {
+    return types.MqOpenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8016,6 +8650,9 @@ func ParseMqUnlinkArgs(decoder *Decoder) (types.MqUnlinkArgs, error) {
   if err != nil {
     return types.MqUnlinkArgs{}, err
   }
+  if numArgs > 1 {
+    return types.MqUnlinkArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8043,6 +8680,9 @@ func ParseMqTimedsendArgs(decoder *Decoder) (types.MqTimedsendArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedsendArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.MqTimedsendArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8091,6 +8731,9 @@ func ParseMqTimedreceiveArgs(decoder *Decoder) (types.MqTimedreceiveArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedreceiveArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.MqTimedreceiveArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8142,6 +8785,9 @@ func ParseMqNotifyArgs(decoder *Decoder) (types.MqNotifyArgs, error) {
   if err != nil {
     return types.MqNotifyArgs{}, err
   }
+  if numArgs > 2 {
+    return types.MqNotifyArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8176,6 +8822,9 @@ func ParseMqGetsetattrArgs(decoder *Decoder) (types.MqGetsetattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqGetsetattrArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.MqGetsetattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8218,6 +8867,9 @@ func ParseKexecLoadArgs(decoder *Decoder) (types.KexecLoadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KexecLoadArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.KexecLoadArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8263,6 +8915,9 @@ func ParseWaitidArgs(decoder *Decoder) (types.WaitidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WaitidArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.WaitidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8316,6 +8971,9 @@ func ParseAddKeyArgs(decoder *Decoder) (types.AddKeyArgs, error) {
   if err != nil {
     return types.AddKeyArgs{}, err
   }
+  if numArgs > 5 {
+    return types.AddKeyArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8366,6 +9024,9 @@ func ParseRequestKeyArgs(decoder *Decoder) (types.RequestKeyArgs, error) {
   if err != nil {
     return types.RequestKeyArgs{}, err
   }
+  if numArgs > 4 {
+    return types.RequestKeyArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8408,6 +9069,9 @@ func ParseKeyctlArgs(decoder *Decoder) (types.KeyctlArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KeyctlArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.KeyctlArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8457,6 +9121,9 @@ func ParseIoprioSetArgs(decoder *Decoder) (types.IoprioSetArgs, error) {
   if err != nil {
     return types.IoprioSetArgs{}, err
   }
+  if numArgs > 3 {
+    return types.IoprioSetArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8495,6 +9162,9 @@ func ParseIoprioGetArgs(decoder *Decoder) (types.IoprioGetArgs, error) {
   if err != nil {
     return types.IoprioGetArgs{}, err
   }
+  if numArgs > 2 {
+    return types.IoprioGetArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8531,6 +9201,9 @@ func ParseInotifyAddWatchArgs(decoder *Decoder) (types.InotifyAddWatchArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InotifyAddWatchArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.InotifyAddWatchArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8570,6 +9243,9 @@ func ParseInotifyRmWatchArgs(decoder *Decoder) (types.InotifyRmWatchArgs, error)
   if err != nil {
     return types.InotifyRmWatchArgs{}, err
   }
+  if numArgs > 2 {
+    return types.InotifyRmWatchArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8602,6 +9278,9 @@ func ParseMigratePagesArgs(decoder *Decoder) (types.MigratePagesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MigratePagesArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.MigratePagesArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8650,6 +9329,9 @@ func ParseOpenatArgs(decoder *Decoder) (types.OpenatArgs, error) {
   if err != nil {
     return types.OpenatArgs{}, err
   }
+  if numArgs > 4 {
+    return types.OpenatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8693,6 +9375,9 @@ func ParseMkdiratArgs(decoder *Decoder) (types.MkdiratArgs, error) {
   if err != nil {
     return types.MkdiratArgs{}, err
   }
+  if numArgs > 3 {
+    return types.MkdiratArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8730,6 +9415,9 @@ func ParseMknodatArgs(decoder *Decoder) (types.MknodatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MknodatArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.MknodatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8773,6 +9461,9 @@ func ParseFchownatArgs(decoder *Decoder) (types.FchownatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FchownatArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.FchownatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8822,6 +9513,9 @@ func ParseFutimesatArgs(decoder *Decoder) (types.FutimesatArgs, error) {
   if err != nil {
     return types.FutimesatArgs{}, err
   }
+  if numArgs > 3 {
+    return types.FutimesatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8861,6 +9555,9 @@ func ParseNewfstatatArgs(decoder *Decoder) (types.NewfstatatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NewfstatatArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.NewfstatatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8907,6 +9604,9 @@ func ParseUnlinkatArgs(decoder *Decoder) (types.UnlinkatArgs, error) {
   if err != nil {
     return types.UnlinkatArgs{}, err
   }
+  if numArgs > 3 {
+    return types.UnlinkatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -8944,6 +9644,9 @@ func ParseRenameatArgs(decoder *Decoder) (types.RenameatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RenameatArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.RenameatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -8987,6 +9690,9 @@ func ParseLinkatArgs(decoder *Decoder) (types.LinkatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LinkatArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.LinkatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9036,6 +9742,9 @@ func ParseSymlinkatArgs(decoder *Decoder) (types.SymlinkatArgs, error) {
   if err != nil {
     return types.SymlinkatArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SymlinkatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9073,6 +9782,9 @@ func ParseReadlinkatArgs(decoder *Decoder) (types.ReadlinkatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReadlinkatArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.ReadlinkatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9117,6 +9829,9 @@ func ParseFchmodatArgs(decoder *Decoder) (types.FchmodatArgs, error) {
   if err != nil {
     return types.FchmodatArgs{}, err
   }
+  if numArgs > 4 {
+    return types.FchmodatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9160,6 +9875,9 @@ func ParseFaccessatArgs(decoder *Decoder) (types.FaccessatArgs, error) {
   if err != nil {
     return types.FaccessatArgs{}, err
   }
+  if numArgs > 4 {
+    return types.FaccessatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9202,6 +9920,9 @@ func ParsePselect6Args(decoder *Decoder) (types.Pselect6Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pselect6Args{}, err
+  }
+  if numArgs > 6 {
+    return types.Pselect6Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9264,6 +9985,9 @@ func ParsePpollArgs(decoder *Decoder) (types.PpollArgs, error) {
   if err != nil {
     return types.PpollArgs{}, err
   }
+  if numArgs > 5 {
+    return types.PpollArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9316,6 +10040,9 @@ func ParseUnshareArgs(decoder *Decoder) (types.UnshareArgs, error) {
   if err != nil {
     return types.UnshareArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UnshareArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9343,6 +10070,9 @@ func ParseSetRobustListArgs(decoder *Decoder) (types.SetRobustListArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SetRobustListArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SetRobustListArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9378,6 +10108,9 @@ func ParseGetRobustListArgs(decoder *Decoder) (types.GetRobustListArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetRobustListArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetRobustListArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9420,6 +10153,9 @@ func ParseSpliceArgs(decoder *Decoder) (types.SpliceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SpliceArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.SpliceArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9478,6 +10214,9 @@ func ParseTeeArgs(decoder *Decoder) (types.TeeArgs, error) {
   if err != nil {
     return types.TeeArgs{}, err
   }
+  if numArgs > 4 {
+    return types.TeeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9521,6 +10260,9 @@ func ParseSyncFileRangeArgs(decoder *Decoder) (types.SyncFileRangeArgs, error) {
   if err != nil {
     return types.SyncFileRangeArgs{}, err
   }
+  if numArgs > 4 {
+    return types.SyncFileRangeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9563,6 +10305,9 @@ func ParseVmspliceArgs(decoder *Decoder) (types.VmspliceArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VmspliceArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.VmspliceArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9608,6 +10353,9 @@ func ParseMovePagesArgs(decoder *Decoder) (types.MovePagesArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MovePagesArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.MovePagesArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9668,6 +10416,9 @@ func ParseUtimensatArgs(decoder *Decoder) (types.UtimensatArgs, error) {
   if err != nil {
     return types.UtimensatArgs{}, err
   }
+  if numArgs > 4 {
+    return types.UtimensatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9710,6 +10461,9 @@ func ParseEpollPwaitArgs(decoder *Decoder) (types.EpollPwaitArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollPwaitArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.EpollPwaitArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9768,6 +10522,9 @@ func ParseSignalfdArgs(decoder *Decoder) (types.SignalfdArgs, error) {
   if err != nil {
     return types.SignalfdArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SignalfdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9808,6 +10565,9 @@ func ParseTimerfdCreateArgs(decoder *Decoder) (types.TimerfdCreateArgs, error) {
   if err != nil {
     return types.TimerfdCreateArgs{}, err
   }
+  if numArgs > 2 {
+    return types.TimerfdCreateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9841,6 +10601,9 @@ func ParseEventfdArgs(decoder *Decoder) (types.EventfdArgs, error) {
   if err != nil {
     return types.EventfdArgs{}, err
   }
+  if numArgs > 2 {
+    return types.EventfdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9873,6 +10636,9 @@ func ParseFallocateArgs(decoder *Decoder) (types.FallocateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FallocateArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.FallocateArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9916,6 +10682,9 @@ func ParseTimerfdSettimeArgs(decoder *Decoder) (types.TimerfdSettimeArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdSettimeArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.TimerfdSettimeArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -9964,6 +10733,9 @@ func ParseTimerfdGettimeArgs(decoder *Decoder) (types.TimerfdGettimeArgs, error)
   if err != nil {
     return types.TimerfdGettimeArgs{}, err
   }
+  if numArgs > 2 {
+    return types.TimerfdGettimeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -9998,6 +10770,9 @@ func ParseAccept4Args(decoder *Decoder) (types.Accept4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Accept4Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Accept4Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10044,6 +10819,9 @@ func ParseSignalfd4Args(decoder *Decoder) (types.Signalfd4Args, error) {
   if err != nil {
     return types.Signalfd4Args{}, err
   }
+  if numArgs > 4 {
+    return types.Signalfd4Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10089,6 +10867,9 @@ func ParseEventfd2Args(decoder *Decoder) (types.Eventfd2Args, error) {
   if err != nil {
     return types.Eventfd2Args{}, err
   }
+  if numArgs > 2 {
+    return types.Eventfd2Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10122,6 +10903,9 @@ func ParseEpollCreate1Args(decoder *Decoder) (types.EpollCreate1Args, error) {
   if err != nil {
     return types.EpollCreate1Args{}, err
   }
+  if numArgs > 1 {
+    return types.EpollCreate1Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10149,6 +10933,9 @@ func ParseDup3Args(decoder *Decoder) (types.Dup3Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Dup3Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Dup3Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10188,6 +10975,9 @@ func ParsePipe2Args(decoder *Decoder) (types.Pipe2Args, error) {
   if err != nil {
     return types.Pipe2Args{}, err
   }
+  if numArgs > 2 {
+    return types.Pipe2Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10221,6 +11011,9 @@ func ParseInotifyInit1Args(decoder *Decoder) (types.InotifyInit1Args, error) {
   if err != nil {
     return types.InotifyInit1Args{}, err
   }
+  if numArgs > 1 {
+    return types.InotifyInit1Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10248,6 +11041,9 @@ func ParsePreadvArgs(decoder *Decoder) (types.PreadvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PreadvArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.PreadvArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10299,6 +11095,9 @@ func ParsePwritevArgs(decoder *Decoder) (types.PwritevArgs, error) {
   if err != nil {
     return types.PwritevArgs{}, err
   }
+  if numArgs > 5 {
+    return types.PwritevArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10349,6 +11148,9 @@ func ParseRtTgsigqueueinfoArgs(decoder *Decoder) (types.RtTgsigqueueinfoArgs, er
   if err != nil {
     return types.RtTgsigqueueinfoArgs{}, err
   }
+  if numArgs > 4 {
+    return types.RtTgsigqueueinfoArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10393,6 +11195,9 @@ func ParsePerfEventOpenArgs(decoder *Decoder) (types.PerfEventOpenArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PerfEventOpenArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.PerfEventOpenArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10444,6 +11249,9 @@ func ParseRecvmmsgArgs(decoder *Decoder) (types.RecvmmsgArgs, error) {
   if err != nil {
     return types.RecvmmsgArgs{}, err
   }
+  if numArgs > 5 {
+    return types.RecvmmsgArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10494,6 +11302,9 @@ func ParseFanotifyInitArgs(decoder *Decoder) (types.FanotifyInitArgs, error) {
   if err != nil {
     return types.FanotifyInitArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FanotifyInitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10526,6 +11337,9 @@ func ParseFanotifyMarkArgs(decoder *Decoder) (types.FanotifyMarkArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FanotifyMarkArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.FanotifyMarkArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10575,6 +11389,9 @@ func ParsePrlimit64Args(decoder *Decoder) (types.Prlimit64Args, error) {
   if err != nil {
     return types.Prlimit64Args{}, err
   }
+  if numArgs > 4 {
+    return types.Prlimit64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10621,6 +11438,9 @@ func ParseNameToHandleAtArgs(decoder *Decoder) (types.NameToHandleAtArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NameToHandleAtArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.NameToHandleAtArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10674,6 +11494,9 @@ func ParseOpenByHandleAtArgs(decoder *Decoder) (types.OpenByHandleAtArgs, error)
   if err != nil {
     return types.OpenByHandleAtArgs{}, err
   }
+  if numArgs > 3 {
+    return types.OpenByHandleAtArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10714,6 +11537,9 @@ func ParseClockAdjtimeArgs(decoder *Decoder) (types.ClockAdjtimeArgs, error) {
   if err != nil {
     return types.ClockAdjtimeArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ClockAdjtimeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10749,6 +11575,9 @@ func ParseSyncfsArgs(decoder *Decoder) (types.SyncfsArgs, error) {
   if err != nil {
     return types.SyncfsArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SyncfsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10776,6 +11605,9 @@ func ParseSendmmsgArgs(decoder *Decoder) (types.SendmmsgArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SendmmsgArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SendmmsgArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10822,6 +11654,9 @@ func ParseSetnsArgs(decoder *Decoder) (types.SetnsArgs, error) {
   if err != nil {
     return types.SetnsArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SetnsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -10854,6 +11689,9 @@ func ParseGetcpuArgs(decoder *Decoder) (types.GetcpuArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetcpuArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetcpuArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10898,6 +11736,9 @@ func ParseProcessVmReadvArgs(decoder *Decoder) (types.ProcessVmReadvArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessVmReadvArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.ProcessVmReadvArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -10956,6 +11797,9 @@ func ParseProcessVmWritevArgs(decoder *Decoder) (types.ProcessVmWritevArgs, erro
   if err != nil {
     return types.ProcessVmWritevArgs{}, err
   }
+  if numArgs > 6 {
+    return types.ProcessVmWritevArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11013,6 +11857,9 @@ func ParseKcmpArgs(decoder *Decoder) (types.KcmpArgs, error) {
   if err != nil {
     return types.KcmpArgs{}, err
   }
+  if numArgs > 5 {
+    return types.KcmpArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11061,6 +11908,9 @@ func ParseFinitModuleArgs(decoder *Decoder) (types.FinitModuleArgs, error) {
   if err != nil {
     return types.FinitModuleArgs{}, err
   }
+  if numArgs > 3 {
+    return types.FinitModuleArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11098,6 +11948,9 @@ func ParseSchedSetattrArgs(decoder *Decoder) (types.SchedSetattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSetattrArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SchedSetattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11138,6 +11991,9 @@ func ParseSchedGetattrArgs(decoder *Decoder) (types.SchedGetattrArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedGetattrArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SchedGetattrArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11183,6 +12039,9 @@ func ParseRenameat2Args(decoder *Decoder) (types.Renameat2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Renameat2Args{}, err
+  }
+  if numArgs > 5 {
+    return types.Renameat2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11232,6 +12091,9 @@ func ParseSeccompArgs(decoder *Decoder) (types.SeccompArgs, error) {
   if err != nil {
     return types.SeccompArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SeccompArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11271,6 +12133,9 @@ func ParseGetrandomArgs(decoder *Decoder) (types.GetrandomArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.GetrandomArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.GetrandomArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11312,6 +12177,9 @@ func ParseMemfdCreateArgs(decoder *Decoder) (types.MemfdCreateArgs, error) {
   if err != nil {
     return types.MemfdCreateArgs{}, err
   }
+  if numArgs > 2 {
+    return types.MemfdCreateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11344,6 +12212,9 @@ func ParseKexecFileLoadArgs(decoder *Decoder) (types.KexecFileLoadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KexecFileLoadArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.KexecFileLoadArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11393,6 +12264,9 @@ func ParseBpfArgs(decoder *Decoder) (types.BpfArgs, error) {
   if err != nil {
     return types.BpfArgs{}, err
   }
+  if numArgs > 3 {
+    return types.BpfArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11432,6 +12306,9 @@ func ParseExecveatArgs(decoder *Decoder) (types.ExecveatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExecveatArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.ExecveatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11481,6 +12358,9 @@ func ParseUserfaultfdArgs(decoder *Decoder) (types.UserfaultfdArgs, error) {
   if err != nil {
     return types.UserfaultfdArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UserfaultfdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11508,6 +12388,9 @@ func ParseMembarrierArgs(decoder *Decoder) (types.MembarrierArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MembarrierArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.MembarrierArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11541,6 +12424,9 @@ func ParseMlock2Args(decoder *Decoder) (types.Mlock2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Mlock2Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Mlock2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11581,6 +12467,9 @@ func ParseCopyFileRangeArgs(decoder *Decoder) (types.CopyFileRangeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CopyFileRangeArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.CopyFileRangeArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11639,6 +12528,9 @@ func ParsePreadv2Args(decoder *Decoder) (types.Preadv2Args, error) {
   if err != nil {
     return types.Preadv2Args{}, err
   }
+  if numArgs > 6 {
+    return types.Preadv2Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11693,6 +12585,9 @@ func ParsePwritev2Args(decoder *Decoder) (types.Pwritev2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pwritev2Args{}, err
+  }
+  if numArgs > 6 {
+    return types.Pwritev2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11749,6 +12644,9 @@ func ParsePkeyMprotectArgs(decoder *Decoder) (types.PkeyMprotectArgs, error) {
   if err != nil {
     return types.PkeyMprotectArgs{}, err
   }
+  if numArgs > 4 {
+    return types.PkeyMprotectArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11794,6 +12692,9 @@ func ParsePkeyAllocArgs(decoder *Decoder) (types.PkeyAllocArgs, error) {
   if err != nil {
     return types.PkeyAllocArgs{}, err
   }
+  if numArgs > 2 {
+    return types.PkeyAllocArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11827,6 +12728,9 @@ func ParsePkeyFreeArgs(decoder *Decoder) (types.PkeyFreeArgs, error) {
   if err != nil {
     return types.PkeyFreeArgs{}, err
   }
+  if numArgs > 1 {
+    return types.PkeyFreeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -11854,6 +12758,9 @@ func ParseStatxArgs(decoder *Decoder) (types.StatxArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StatxArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.StatxArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11904,6 +12811,9 @@ func ParseIoPgeteventsArgs(decoder *Decoder) (types.IoPgeteventsArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoPgeteventsArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.IoPgeteventsArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -11964,6 +12874,9 @@ func ParseRseqArgs(decoder *Decoder) (types.RseqArgs, error) {
   if err != nil {
     return types.RseqArgs{}, err
   }
+  if numArgs > 4 {
+    return types.RseqArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12008,6 +12921,9 @@ func ParsePidfdSendSignalArgs(decoder *Decoder) (types.PidfdSendSignalArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PidfdSendSignalArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.PidfdSendSignalArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12054,6 +12970,9 @@ func ParseIoUringSetupArgs(decoder *Decoder) (types.IoUringSetupArgs, error) {
   if err != nil {
     return types.IoUringSetupArgs{}, err
   }
+  if numArgs > 2 {
+    return types.IoUringSetupArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12088,6 +13007,9 @@ func ParseIoUringEnterArgs(decoder *Decoder) (types.IoUringEnterArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IoUringEnterArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.IoUringEnterArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12139,6 +13061,9 @@ func ParseIoUringRegisterArgs(decoder *Decoder) (types.IoUringRegisterArgs, erro
   if err != nil {
     return types.IoUringRegisterArgs{}, err
   }
+  if numArgs > 4 {
+    return types.IoUringRegisterArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12184,6 +13109,9 @@ func ParseOpenTreeArgs(decoder *Decoder) (types.OpenTreeArgs, error) {
   if err != nil {
     return types.OpenTreeArgs{}, err
   }
+  if numArgs > 3 {
+    return types.OpenTreeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12221,6 +13149,9 @@ func ParseMoveMountArgs(decoder *Decoder) (types.MoveMountArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MoveMountArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.MoveMountArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12270,6 +13201,9 @@ func ParseFsopenArgs(decoder *Decoder) (types.FsopenArgs, error) {
   if err != nil {
     return types.FsopenArgs{}, err
   }
+  if numArgs > 2 {
+    return types.FsopenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12302,6 +13236,9 @@ func ParseFsconfigArgs(decoder *Decoder) (types.FsconfigArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FsconfigArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.FsconfigArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12355,6 +13292,9 @@ func ParseFsmountArgs(decoder *Decoder) (types.FsmountArgs, error) {
   if err != nil {
     return types.FsmountArgs{}, err
   }
+  if numArgs > 3 {
+    return types.FsmountArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12392,6 +13332,9 @@ func ParseFspickArgs(decoder *Decoder) (types.FspickArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FspickArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.FspickArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12431,6 +13374,9 @@ func ParsePidfdOpenArgs(decoder *Decoder) (types.PidfdOpenArgs, error) {
   if err != nil {
     return types.PidfdOpenArgs{}, err
   }
+  if numArgs > 2 {
+    return types.PidfdOpenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12463,6 +13409,9 @@ func ParseClone3Args(decoder *Decoder) (types.Clone3Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Clone3Args{}, err
+  }
+  if numArgs > 2 {
+    return types.Clone3Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12499,6 +13448,9 @@ func ParseCloseRangeArgs(decoder *Decoder) (types.CloseRangeArgs, error) {
   if err != nil {
     return types.CloseRangeArgs{}, err
   }
+  if numArgs > 2 {
+    return types.CloseRangeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12531,6 +13483,9 @@ func ParseOpenat2Args(decoder *Decoder) (types.Openat2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Openat2Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Openat2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12577,6 +13532,9 @@ func ParsePidfdGetfdArgs(decoder *Decoder) (types.PidfdGetfdArgs, error) {
   if err != nil {
     return types.PidfdGetfdArgs{}, err
   }
+  if numArgs > 3 {
+    return types.PidfdGetfdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12614,6 +13572,9 @@ func ParseFaccessat2Args(decoder *Decoder) (types.Faccessat2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Faccessat2Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Faccessat2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12657,6 +13618,9 @@ func ParseProcessMadviseArgs(decoder *Decoder) (types.ProcessMadviseArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessMadviseArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.ProcessMadviseArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12707,6 +13671,9 @@ func ParseEpollPwait2Args(decoder *Decoder) (types.EpollPwait2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.EpollPwait2Args{}, err
+  }
+  if numArgs > 5 {
+    return types.EpollPwait2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12760,6 +13727,9 @@ func ParseMountSetattArgs(decoder *Decoder) (types.MountSetattArgs, error) {
   if err != nil {
     return types.MountSetattArgs{}, err
   }
+  if numArgs > 5 {
+    return types.MountSetattArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12810,6 +13780,9 @@ func ParseQuotactlFdArgs(decoder *Decoder) (types.QuotactlFdArgs, error) {
   if err != nil {
     return types.QuotactlFdArgs{}, err
   }
+  if numArgs > 4 {
+    return types.QuotactlFdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12857,6 +13830,9 @@ func ParseLandlockCreateRulesetArgs(decoder *Decoder) (types.LandlockCreateRules
   if err != nil {
     return types.LandlockCreateRulesetArgs{}, err
   }
+  if numArgs > 3 {
+    return types.LandlockCreateRulesetArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12896,6 +13872,9 @@ func ParseLandlockAddRuleArgs(decoder *Decoder) (types.LandlockAddRuleArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.LandlockAddRuleArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.LandlockAddRuleArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -12944,6 +13923,9 @@ func ParseLandloclRestrictSetArgs(decoder *Decoder) (types.LandloclRestrictSetAr
   if err != nil {
     return types.LandloclRestrictSetArgs{}, err
   }
+  if numArgs > 2 {
+    return types.LandloclRestrictSetArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -12977,6 +13959,9 @@ func ParseMemfdSecretArgs(decoder *Decoder) (types.MemfdSecretArgs, error) {
   if err != nil {
     return types.MemfdSecretArgs{}, err
   }
+  if numArgs > 1 {
+    return types.MemfdSecretArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13004,6 +13989,9 @@ func ParseProcessMreleaseArgs(decoder *Decoder) (types.ProcessMreleaseArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessMreleaseArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.ProcessMreleaseArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13037,6 +14025,9 @@ func ParseWaitpidArgs(decoder *Decoder) (types.WaitpidArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.WaitpidArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.WaitpidArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13086,6 +14077,9 @@ func ParseOldstatArgs(decoder *Decoder) (types.OldstatArgs, error) {
   if err != nil {
     return types.OldstatArgs{}, err
   }
+  if numArgs > 2 {
+    return types.OldstatArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13121,6 +14115,9 @@ func ParseUmountArgs(decoder *Decoder) (types.UmountArgs, error) {
   if err != nil {
     return types.UmountArgs{}, err
   }
+  if numArgs > 1 {
+    return types.UmountArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13148,6 +14145,9 @@ func ParseStimeArgs(decoder *Decoder) (types.StimeArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.StimeArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.StimeArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13187,6 +14187,9 @@ func ParseNiceArgs(decoder *Decoder) (types.NiceArgs, error) {
   if err != nil {
     return types.NiceArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NiceArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13222,6 +14225,9 @@ func ParseSignalArgs(decoder *Decoder) (types.SignalArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SignalArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SignalArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13270,6 +14276,9 @@ func ParseOldoldunameArgs(decoder *Decoder) (types.OldoldunameArgs, error) {
   if err != nil {
     return types.OldoldunameArgs{}, err
   }
+  if numArgs > 1 {
+    return types.OldoldunameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13299,6 +14308,9 @@ func ParseSigactionArgs(decoder *Decoder) (types.SigactionArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigactionArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SigactionArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13346,6 +14358,9 @@ func ParseSsetmaskArgs(decoder *Decoder) (types.SsetmaskArgs, error) {
   if err != nil {
     return types.SsetmaskArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SsetmaskArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13373,6 +14388,9 @@ func ParseSigsuspendArgs(decoder *Decoder) (types.SigsuspendArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SigsuspendArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.SigsuspendArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13404,6 +14422,9 @@ func ParseSigpendingArgs(decoder *Decoder) (types.SigpendingArgs, error) {
   if err != nil {
     return types.SigpendingArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SigpendingArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13433,6 +14454,9 @@ func ParseOldlstatArgs(decoder *Decoder) (types.OldlstatArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldlstatArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.OldlstatArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13468,6 +14492,9 @@ func ParseReaddirArgs(decoder *Decoder) (types.ReaddirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ReaddirArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ReaddirArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13513,6 +14540,9 @@ func ParseSocketcallArgs(decoder *Decoder) (types.SocketcallArgs, error) {
   if err != nil {
     return types.SocketcallArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SocketcallArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13548,6 +14578,9 @@ func ParseOldunameArgs(decoder *Decoder) (types.OldunameArgs, error) {
   if err != nil {
     return types.OldunameArgs{}, err
   }
+  if numArgs > 1 {
+    return types.OldunameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13582,6 +14615,9 @@ func ParseVm86oldArgs(decoder *Decoder) (types.Vm86oldArgs, error) {
   if err != nil {
     return types.Vm86oldArgs{}, err
   }
+  if numArgs > 1 {
+    return types.Vm86oldArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13611,6 +14647,9 @@ func ParseIpcArgs(decoder *Decoder) (types.IpcArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.IpcArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.IpcArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13671,6 +14710,9 @@ func ParseSigprocmaskArgs(decoder *Decoder) (types.SigprocmaskArgs, error) {
   if err != nil {
     return types.SigprocmaskArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SigprocmaskArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13721,6 +14763,9 @@ func ParseLlseekArgs(decoder *Decoder) (types.LlseekArgs, error) {
   if err != nil {
     return types.LlseekArgs{}, err
   }
+  if numArgs > 5 {
+    return types.LlseekArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13770,6 +14815,9 @@ func ParseOldSelectArgs(decoder *Decoder) (types.OldSelectArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.OldSelectArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.OldSelectArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13827,6 +14875,9 @@ func ParseVm86Args(decoder *Decoder) (types.Vm86Args, error) {
   if err != nil {
     return types.Vm86Args{}, err
   }
+  if numArgs > 2 {
+    return types.Vm86Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13862,6 +14913,9 @@ func ParseOldGetrlimitArgs(decoder *Decoder) (types.OldGetrlimitArgs, error) {
   if err != nil {
     return types.OldGetrlimitArgs{}, err
   }
+  if numArgs > 2 {
+    return types.OldGetrlimitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13896,6 +14950,9 @@ func ParseMmap2Args(decoder *Decoder) (types.Mmap2Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Mmap2Args{}, err
+  }
+  if numArgs > 6 {
+    return types.Mmap2Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -13950,6 +15007,9 @@ func ParseTruncate64Args(decoder *Decoder) (types.Truncate64Args, error) {
   if err != nil {
     return types.Truncate64Args{}, err
   }
+  if numArgs > 2 {
+    return types.Truncate64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -13983,6 +15043,9 @@ func ParseFtruncate64Args(decoder *Decoder) (types.Ftruncate64Args, error) {
   if err != nil {
     return types.Ftruncate64Args{}, err
   }
+  if numArgs > 2 {
+    return types.Ftruncate64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14015,6 +15078,9 @@ func ParseStat64Args(decoder *Decoder) (types.Stat64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Stat64Args{}, err
+  }
+  if numArgs > 2 {
+    return types.Stat64Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14051,6 +15117,9 @@ func ParseLstat64Args(decoder *Decoder) (types.Lstat64Args, error) {
   if err != nil {
     return types.Lstat64Args{}, err
   }
+  if numArgs > 2 {
+    return types.Lstat64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14086,6 +15155,9 @@ func ParseFstat64Args(decoder *Decoder) (types.Fstat64Args, error) {
   if err != nil {
     return types.Fstat64Args{}, err
   }
+  if numArgs > 2 {
+    return types.Fstat64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14120,6 +15192,9 @@ func ParseLchown16Args(decoder *Decoder) (types.Lchown16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Lchown16Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Lchown16Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14179,6 +15254,9 @@ func ParseSetreuid16Args(decoder *Decoder) (types.Setreuid16Args, error) {
   if err != nil {
     return types.Setreuid16Args{}, err
   }
+  if numArgs > 2 {
+    return types.Setreuid16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14215,6 +15293,9 @@ func ParseSetregid16Args(decoder *Decoder) (types.Setregid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setregid16Args{}, err
+  }
+  if numArgs > 2 {
+    return types.Setregid16Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14253,6 +15334,9 @@ func ParseGetgroups16Args(decoder *Decoder) (types.Getgroups16Args, error) {
   if err != nil {
     return types.Getgroups16Args{}, err
   }
+  if numArgs > 2 {
+    return types.Getgroups16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14288,6 +15372,9 @@ func ParseSetgroups16Args(decoder *Decoder) (types.Setgroups16Args, error) {
   if err != nil {
     return types.Setgroups16Args{}, err
   }
+  if numArgs > 2 {
+    return types.Setgroups16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14322,6 +15409,9 @@ func ParseFchown16Args(decoder *Decoder) (types.Fchown16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fchown16Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Fchown16Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14364,6 +15454,9 @@ func ParseSetresuid16Args(decoder *Decoder) (types.Setresuid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setresuid16Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Setresuid16Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14409,6 +15502,9 @@ func ParseGetresuid16Args(decoder *Decoder) (types.Getresuid16Args, error) {
   if err != nil {
     return types.Getresuid16Args{}, err
   }
+  if numArgs > 3 {
+    return types.Getresuid16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14452,6 +15548,9 @@ func ParseSetresgid16Args(decoder *Decoder) (types.Setresgid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setresgid16Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Setresgid16Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14497,6 +15596,9 @@ func ParseGetresgid16Args(decoder *Decoder) (types.Getresgid16Args, error) {
   if err != nil {
     return types.Getresgid16Args{}, err
   }
+  if numArgs > 3 {
+    return types.Getresgid16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14541,6 +15643,9 @@ func ParseChown16Args(decoder *Decoder) (types.Chown16Args, error) {
   if err != nil {
     return types.Chown16Args{}, err
   }
+  if numArgs > 3 {
+    return types.Chown16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14583,6 +15688,9 @@ func ParseSetuid16Args(decoder *Decoder) (types.Setuid16Args, error) {
   if err != nil {
     return types.Setuid16Args{}, err
   }
+  if numArgs > 1 {
+    return types.Setuid16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14612,6 +15720,9 @@ func ParseSetgid16Args(decoder *Decoder) (types.Setgid16Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Setgid16Args{}, err
+  }
+  if numArgs > 1 {
+    return types.Setgid16Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14643,6 +15754,9 @@ func ParseSetfsuid16Args(decoder *Decoder) (types.Setfsuid16Args, error) {
   if err != nil {
     return types.Setfsuid16Args{}, err
   }
+  if numArgs > 1 {
+    return types.Setfsuid16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14673,6 +15787,9 @@ func ParseSetfsgid16Args(decoder *Decoder) (types.Setfsgid16Args, error) {
   if err != nil {
     return types.Setfsgid16Args{}, err
   }
+  if numArgs > 1 {
+    return types.Setfsgid16Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14702,6 +15819,9 @@ func ParseFcntl64Args(decoder *Decoder) (types.Fcntl64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fcntl64Args{}, err
+  }
+  if numArgs > 3 {
+    return types.Fcntl64Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14740,6 +15860,9 @@ func ParseSendfile32Args(decoder *Decoder) (types.Sendfile32Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Sendfile32Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Sendfile32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14786,6 +15909,9 @@ func ParseStatfs64Args(decoder *Decoder) (types.Statfs64Args, error) {
   if err != nil {
     return types.Statfs64Args{}, err
   }
+  if numArgs > 3 {
+    return types.Statfs64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14826,6 +15952,9 @@ func ParseFstatfs64Args(decoder *Decoder) (types.Fstatfs64Args, error) {
   if err != nil {
     return types.Fstatfs64Args{}, err
   }
+  if numArgs > 3 {
+    return types.Fstatfs64Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14865,6 +15994,9 @@ func ParseFadvise64_64Args(decoder *Decoder) (types.Fadvise64_64Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Fadvise64_64Args{}, err
+  }
+  if numArgs > 4 {
+    return types.Fadvise64_64Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14909,6 +16041,9 @@ func ParseClockGettime32Args(decoder *Decoder) (types.ClockGettime32Args, error)
   if err != nil {
     return types.ClockGettime32Args{}, err
   }
+  if numArgs > 2 {
+    return types.ClockGettime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -14943,6 +16078,9 @@ func ParseClockSettime32Args(decoder *Decoder) (types.ClockSettime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockSettime32Args{}, err
+  }
+  if numArgs > 2 {
+    return types.ClockSettime32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -14983,6 +16121,9 @@ func ParseClockGetresTime32Args(decoder *Decoder) (types.ClockGetresTime32Args, 
   if err != nil {
     return types.ClockGetresTime32Args{}, err
   }
+  if numArgs > 2 {
+    return types.ClockGetresTime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15017,6 +16158,9 @@ func ParseClockNanosleepTime32Args(decoder *Decoder) (types.ClockNanosleepTime32
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ClockNanosleepTime32Args{}, err
+  }
+  if numArgs > 4 {
+    return types.ClockNanosleepTime32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15065,6 +16209,9 @@ func ParseTimerGettime32Args(decoder *Decoder) (types.TimerGettime32Args, error)
   if err != nil {
     return types.TimerGettime32Args{}, err
   }
+  if numArgs > 2 {
+    return types.TimerGettime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15099,6 +16246,9 @@ func ParseTimerSettime32Args(decoder *Decoder) (types.TimerSettime32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerSettime32Args{}, err
+  }
+  if numArgs > 4 {
+    return types.TimerSettime32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15147,6 +16297,9 @@ func ParseTimerfdGettime32Args(decoder *Decoder) (types.TimerfdGettime32Args, er
   if err != nil {
     return types.TimerfdGettime32Args{}, err
   }
+  if numArgs > 2 {
+    return types.TimerfdGettime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15181,6 +16334,9 @@ func ParseTimerfdSettime32Args(decoder *Decoder) (types.TimerfdSettime32Args, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TimerfdSettime32Args{}, err
+  }
+  if numArgs > 4 {
+    return types.TimerfdSettime32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15229,6 +16385,9 @@ func ParseUtimensatTime32Args(decoder *Decoder) (types.UtimensatTime32Args, erro
   if err != nil {
     return types.UtimensatTime32Args{}, err
   }
+  if numArgs > 4 {
+    return types.UtimensatTime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15273,6 +16432,9 @@ func ParsePselect6Time32Args(decoder *Decoder) (types.Pselect6Time32Args, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.Pselect6Time32Args{}, err
+  }
+  if numArgs > 6 {
+    return types.Pselect6Time32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15337,6 +16499,9 @@ func ParsePpollTime32Args(decoder *Decoder) (types.PpollTime32Args, error) {
   if err != nil {
     return types.PpollTime32Args{}, err
   }
+  if numArgs > 5 {
+    return types.PpollTime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15395,6 +16560,9 @@ func ParseRecvmmsgTime32Args(decoder *Decoder) (types.RecvmmsgTime32Args, error)
   if err != nil {
     return types.RecvmmsgTime32Args{}, err
   }
+  if numArgs > 5 {
+    return types.RecvmmsgTime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15447,6 +16615,9 @@ func ParseMqTimedsendTime32Args(decoder *Decoder) (types.MqTimedsendTime32Args, 
   if err != nil {
     return types.MqTimedsendTime32Args{}, err
   }
+  if numArgs > 5 {
+    return types.MqTimedsendTime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15496,6 +16667,9 @@ func ParseMqTimedreceiveTime32Args(decoder *Decoder) (types.MqTimedreceiveTime32
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MqTimedreceiveTime32Args{}, err
+  }
+  if numArgs > 5 {
+    return types.MqTimedreceiveTime32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15549,6 +16723,9 @@ func ParseRtSigtimedwaitTime32Args(decoder *Decoder) (types.RtSigtimedwaitTime32
   if err != nil {
     return types.RtSigtimedwaitTime32Args{}, err
   }
+  if numArgs > 4 {
+    return types.RtSigtimedwaitTime32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15597,6 +16774,9 @@ func ParseFutexTime32Args(decoder *Decoder) (types.FutexTime32Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FutexTime32Args{}, err
+  }
+  if numArgs > 6 {
+    return types.FutexTime32Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15657,6 +16837,9 @@ func ParseSchedRrGetInterval32Args(decoder *Decoder) (types.SchedRrGetInterval32
   if err != nil {
     return types.SchedRrGetInterval32Args{}, err
   }
+  if numArgs > 2 {
+    return types.SchedRrGetInterval32Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15692,6 +16875,9 @@ func ParseSysEnterArgs(decoder *Decoder) (types.SysEnterArgs, error) {
   if err != nil {
     return types.SysEnterArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SysEnterArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15720,6 +16906,9 @@ func ParseSysExitArgs(decoder *Decoder) (types.SysExitArgs, error) {
   if err != nil {
     return types.SysExitArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SysExitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15747,6 +16936,9 @@ func ParseSchedProcessForkArgs(decoder *Decoder) (types.SchedProcessForkArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedProcessForkArgs{}, err
+  }
+  if numArgs > 20 {
+    return types.SchedProcessForkArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -15871,6 +17063,9 @@ func ParseSchedProcessExecArgs(decoder *Decoder) (types.SchedProcessExecArgs, er
   if err != nil {
     return types.SchedProcessExecArgs{}, err
   }
+  if numArgs > 17 {
+    return types.SchedProcessExecArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -15979,6 +17174,9 @@ func ParseSchedProcessExitArgs(decoder *Decoder) (types.SchedProcessExitArgs, er
   if err != nil {
     return types.SchedProcessExitArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SchedProcessExitArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16011,6 +17209,9 @@ func ParseSchedSwitchArgs(decoder *Decoder) (types.SchedSwitchArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SchedSwitchArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.SchedSwitchArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16060,6 +17261,9 @@ func ParseProcessOomKilledArgs(decoder *Decoder) (types.ProcessOomKilledArgs, er
   if err != nil {
     return types.ProcessOomKilledArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ProcessOomKilledArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16097,6 +17301,9 @@ func ParseCapCapableArgs(decoder *Decoder) (types.CapCapableArgs, error) {
   if err != nil {
     return types.CapCapableArgs{}, err
   }
+  if numArgs > 1 {
+    return types.CapCapableArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16124,6 +17331,9 @@ func ParseVfsWriteArgs(decoder *Decoder) (types.VfsWriteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsWriteArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.VfsWriteArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16173,6 +17383,9 @@ func ParseVfsWritevArgs(decoder *Decoder) (types.VfsWritevArgs, error) {
   if err != nil {
     return types.VfsWritevArgs{}, err
   }
+  if numArgs > 5 {
+    return types.VfsWritevArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16220,6 +17433,9 @@ func ParseMemProtAlertArgs(decoder *Decoder) (types.MemProtAlertArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.MemProtAlertArgs{}, err
+  }
+  if numArgs > 9 {
+    return types.MemProtAlertArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16291,6 +17507,9 @@ func ParseCommitCredsArgs(decoder *Decoder) (types.CommitCredsArgs, error) {
   if err != nil {
     return types.CommitCredsArgs{}, err
   }
+  if numArgs > 2 {
+    return types.CommitCredsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16323,6 +17542,9 @@ func ParseSwitchTaskNSArgs(decoder *Decoder) (types.SwitchTaskNSArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SwitchTaskNSArgs{}, err
+  }
+  if numArgs > 7 {
+    return types.SwitchTaskNSArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16382,6 +17604,9 @@ func ParseMagicWriteArgs(decoder *Decoder) (types.MagicWriteArgs, error) {
   if err != nil {
     return types.MagicWriteArgs{}, err
   }
+  if numArgs > 4 {
+    return types.MagicWriteArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16425,6 +17650,9 @@ func ParseCgroupAttachTaskArgs(decoder *Decoder) (types.CgroupAttachTaskArgs, er
   if err != nil {
     return types.CgroupAttachTaskArgs{}, err
   }
+  if numArgs > 3 {
+    return types.CgroupAttachTaskArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16462,6 +17690,9 @@ func ParseCgroupMkdirArgs(decoder *Decoder) (types.CgroupMkdirArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.CgroupMkdirArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.CgroupMkdirArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16501,6 +17732,9 @@ func ParseCgroupRmdirArgs(decoder *Decoder) (types.CgroupRmdirArgs, error) {
   if err != nil {
     return types.CgroupRmdirArgs{}, err
   }
+  if numArgs > 3 {
+    return types.CgroupRmdirArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16538,6 +17772,9 @@ func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityFileOpenArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.SecurityFileOpenArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16592,6 +17829,9 @@ func ParseSecurityInodeUnlinkArgs(decoder *Decoder) (types.SecurityInodeUnlinkAr
   if err != nil {
     return types.SecurityInodeUnlinkArgs{}, err
   }
+  if numArgs > 4 {
+    return types.SecurityInodeUnlinkArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16634,6 +17874,9 @@ func ParseSecuritySocketCreateArgs(decoder *Decoder) (types.SecuritySocketCreate
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketCreateArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SecuritySocketCreateArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16678,6 +17921,9 @@ func ParseSecuritySocketListenArgs(decoder *Decoder) (types.SecuritySocketListen
   if err != nil {
     return types.SecuritySocketListenArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SecuritySocketListenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16715,6 +17961,9 @@ func ParseSecuritySocketConnectArgs(decoder *Decoder) (types.SecuritySocketConne
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketConnectArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SecuritySocketConnectArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16754,6 +18003,9 @@ func ParseSecuritySocketAcceptArgs(decoder *Decoder) (types.SecuritySocketAccept
   if err != nil {
     return types.SecuritySocketAcceptArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SecuritySocketAcceptArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16787,6 +18039,9 @@ func ParseSecuritySocketBindArgs(decoder *Decoder) (types.SecuritySocketBindArgs
   if err != nil {
     return types.SecuritySocketBindArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SecuritySocketBindArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16819,6 +18074,9 @@ func ParseSecuritySocketSetsockoptArgs(decoder *Decoder) (types.SecuritySocketSe
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecuritySocketSetsockoptArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.SecuritySocketSetsockoptArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16863,6 +18121,9 @@ func ParseSecuritySbMountArgs(decoder *Decoder) (types.SecuritySbMountArgs, erro
   if err != nil {
     return types.SecuritySbMountArgs{}, err
   }
+  if numArgs > 4 {
+    return types.SecuritySbMountArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16906,6 +18167,9 @@ func ParseSecurityBPFArgs(decoder *Decoder) (types.SecurityBPFArgs, error) {
   if err != nil {
     return types.SecurityBPFArgs{}, err
   }
+  if numArgs > 1 {
+    return types.SecurityBPFArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -16933,6 +18197,9 @@ func ParseSecurityBPFMapArgs(decoder *Decoder) (types.SecurityBPFMapArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityBPFMapArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.SecurityBPFMapArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -16966,6 +18233,9 @@ func ParseSecurityKernelReadFileArgs(decoder *Decoder) (types.SecurityKernelRead
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityKernelReadFileArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.SecurityKernelReadFileArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17015,6 +18285,9 @@ func ParseSecurityPostReadFileArgs(decoder *Decoder) (types.SecurityPostReadFile
   if err != nil {
     return types.SecurityPostReadFileArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SecurityPostReadFileArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17052,6 +18325,9 @@ func ParseSecurityInodeMknodArgs(decoder *Decoder) (types.SecurityInodeMknodArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityInodeMknodArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SecurityInodeMknodArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17091,6 +18367,9 @@ func ParseSecurityInodeSymlinkEventIdArgs(decoder *Decoder) (types.SecurityInode
   if err != nil {
     return types.SecurityInodeSymlinkEventIdArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SecurityInodeSymlinkEventIdArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17123,6 +18402,9 @@ func ParseSecurityMmapFileArgs(decoder *Decoder) (types.SecurityMmapFileArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SecurityMmapFileArgs{}, err
+  }
+  if numArgs > 7 {
+    return types.SecurityMmapFileArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17181,6 +18463,9 @@ func ParseDoMmapArgs(decoder *Decoder) (types.DoMmapArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DoMmapArgs{}, err
+  }
+  if numArgs > 10 {
+    return types.DoMmapArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17257,6 +18542,9 @@ func ParseSecurityFileMprotectArgs(decoder *Decoder) (types.SecurityFileMprotect
   if err != nil {
     return types.SecurityFileMprotectArgs{}, err
   }
+  if numArgs > 7 {
+    return types.SecurityFileMprotectArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17316,6 +18604,9 @@ func ParseInitNamespacesArgs(decoder *Decoder) (types.InitNamespacesArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.InitNamespacesArgs{}, err
+  }
+  if numArgs > 10 {
+    return types.InitNamespacesArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17390,6 +18681,9 @@ func ParseSocketDupArgs(decoder *Decoder) (types.SocketDupArgs, error) {
   if err != nil {
     return types.SocketDupArgs{}, err
   }
+  if numArgs > 3 {
+    return types.SocketDupArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17428,6 +18722,9 @@ func ParseHiddenInodesArgs(decoder *Decoder) (types.HiddenInodesArgs, error) {
   if err != nil {
     return types.HiddenInodesArgs{}, err
   }
+  if numArgs > 1 {
+    return types.HiddenInodesArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17455,6 +18752,9 @@ func ParseKernelWriteArgs(decoder *Decoder) (types.KernelWriteArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KernelWriteArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.KernelWriteArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17503,6 +18803,9 @@ func ParseDirtyPipeSpliceArgs(decoder *Decoder) (types.DirtyPipeSpliceArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DirtyPipeSpliceArgs{}, err
+  }
+  if numArgs > 7 {
+    return types.DirtyPipeSpliceArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17561,6 +18864,9 @@ func ParseContainerCreateArgs(decoder *Decoder) (types.ContainerCreateArgs, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ContainerCreateArgs{}, err
+  }
+  if numArgs > 10 {
+    return types.ContainerCreateArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17635,6 +18941,9 @@ func ParseContainerRemoveArgs(decoder *Decoder) (types.ContainerRemoveArgs, erro
   if err != nil {
     return types.ContainerRemoveArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ContainerRemoveArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17667,6 +18976,9 @@ func ParseExistingContainerArgs(decoder *Decoder) (types.ExistingContainerArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ExistingContainerArgs{}, err
+  }
+  if numArgs > 10 {
+    return types.ExistingContainerArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17741,6 +19053,9 @@ func ParseProcCreateArgs(decoder *Decoder) (types.ProcCreateArgs, error) {
   if err != nil {
     return types.ProcCreateArgs{}, err
   }
+  if numArgs > 2 {
+    return types.ProcCreateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17775,6 +19090,9 @@ func ParseKprobeAttachArgs(decoder *Decoder) (types.KprobeAttachArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.KprobeAttachArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.KprobeAttachArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17818,6 +19136,9 @@ func ParseCallUsermodeHelperArgs(decoder *Decoder) (types.CallUsermodeHelperArgs
   if err != nil {
     return types.CallUsermodeHelperArgs{}, err
   }
+  if numArgs > 4 {
+    return types.CallUsermodeHelperArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17860,6 +19181,9 @@ func ParseDebugfsCreateFileArgs(decoder *Decoder) (types.DebugfsCreateFileArgs, 
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DebugfsCreateFileArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.DebugfsCreateFileArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17906,6 +19230,9 @@ func ParsePrintSyscallTableArgs(decoder *Decoder) (types.PrintSyscallTableArgs, 
   if err != nil {
     return types.PrintSyscallTableArgs{}, err
   }
+  if numArgs > 2 {
+    return types.PrintSyscallTableArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -17938,6 +19265,9 @@ func ParseHiddenKernelModuleArgs(decoder *Decoder) (types.HiddenKernelModuleArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HiddenKernelModuleArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.HiddenKernelModuleArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -17976,6 +19306,9 @@ func ParseHiddenKernelModuleSeekerArgs(decoder *Decoder) (types.HiddenKernelModu
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.HiddenKernelModuleSeekerArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.HiddenKernelModuleSeekerArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18020,6 +19353,9 @@ func ParseHookedSyscallsArgs(decoder *Decoder) (types.HookedSyscallsArgs, error)
   if err != nil {
     return types.HookedSyscallsArgs{}, err
   }
+  if numArgs > 2 {
+    return types.HookedSyscallsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18057,6 +19393,9 @@ func ParseDebugfsCreateDirArgs(decoder *Decoder) (types.DebugfsCreateDirArgs, er
   if err != nil {
     return types.DebugfsCreateDirArgs{}, err
   }
+  if numArgs > 2 {
+    return types.DebugfsCreateDirArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18090,6 +19429,9 @@ func ParseDeviceAddArgs(decoder *Decoder) (types.DeviceAddArgs, error) {
   if err != nil {
     return types.DeviceAddArgs{}, err
   }
+  if numArgs > 2 {
+    return types.DeviceAddArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18122,6 +19464,9 @@ func ParseRegisterChrdevArgs(decoder *Decoder) (types.RegisterChrdevArgs, error)
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.RegisterChrdevArgs{}, err
+  }
+  if numArgs > 4 {
+    return types.RegisterChrdevArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18167,6 +19512,9 @@ func ParseSharedObjectLoadedArgs(decoder *Decoder) (types.SharedObjectLoadedArgs
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SharedObjectLoadedArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.SharedObjectLoadedArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18216,6 +19564,9 @@ func ParseSymbolsLoadedArgs(decoder *Decoder) (types.SymbolsLoadedArgs, error) {
   if err != nil {
     return types.SymbolsLoadedArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SymbolsLoadedArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18248,6 +19599,9 @@ func ParseSymbolsCollisionArgs(decoder *Decoder) (types.SymbolsCollisionArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SymbolsCollisionArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SymbolsCollisionArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18311,6 +19665,9 @@ func ParseDoInitModuleArgs(decoder *Decoder) (types.DoInitModuleArgs, error) {
   if err != nil {
     return types.DoInitModuleArgs{}, err
   }
+  if numArgs > 3 {
+    return types.DoInitModuleArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18348,6 +19705,9 @@ func ParseModuleLoadArgs(decoder *Decoder) (types.ModuleLoadArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ModuleLoadArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.ModuleLoadArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18387,6 +19747,9 @@ func ParseModuleFreeArgs(decoder *Decoder) (types.ModuleFreeArgs, error) {
   if err != nil {
     return types.ModuleFreeArgs{}, err
   }
+  if numArgs > 3 {
+    return types.ModuleFreeArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18424,6 +19787,9 @@ func ParseSocketAcceptArgs(decoder *Decoder) (types.SocketAcceptArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SocketAcceptArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SocketAcceptArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18463,6 +19829,9 @@ func ParseLoadElfPhdrsArgs(decoder *Decoder) (types.LoadElfPhdrsArgs, error) {
   if err != nil {
     return types.LoadElfPhdrsArgs{}, err
   }
+  if numArgs > 3 {
+    return types.LoadElfPhdrsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18501,6 +19870,9 @@ func ParsePrintNetSeqOpsArgs(decoder *Decoder) (types.PrintNetSeqOpsArgs, error)
   if err != nil {
     return types.PrintNetSeqOpsArgs{}, err
   }
+  if numArgs > 2 {
+    return types.PrintNetSeqOpsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18534,6 +19906,9 @@ func ParseHookedSeqOpsArgs(decoder *Decoder) (types.HookedSeqOpsArgs, error) {
   if err != nil {
     return types.HookedSeqOpsArgs{}, err
   }
+  if numArgs > 1 {
+    return types.HookedSeqOpsArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18563,6 +19938,9 @@ func ParseTaskRenameArgs(decoder *Decoder) (types.TaskRenameArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.TaskRenameArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.TaskRenameArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18597,6 +19975,9 @@ func ParseSecurityInodeRenameArgs(decoder *Decoder) (types.SecurityInodeRenameAr
   if err != nil {
     return types.SecurityInodeRenameArgs{}, err
   }
+  if numArgs > 2 {
+    return types.SecurityInodeRenameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18629,6 +20010,9 @@ func ParseDoSigactionArgs(decoder *Decoder) (types.DoSigactionArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.DoSigactionArgs{}, err
+  }
+  if numArgs > 11 {
+    return types.DoSigactionArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18712,6 +20096,9 @@ func ParseBpfAttachArgs(decoder *Decoder) (types.BpfAttachArgs, error) {
   if err != nil {
     return types.BpfAttachArgs{}, err
   }
+  if numArgs > 7 {
+    return types.BpfAttachArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18770,6 +20157,9 @@ func ParseKallsymsLookupNameArgs(decoder *Decoder) (types.KallsymsLookupNameArgs
   if err != nil {
     return types.KallsymsLookupNameArgs{}, err
   }
+  if numArgs > 2 {
+    return types.KallsymsLookupNameArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18804,6 +20194,9 @@ func ParsePrintMemDumpArgs(decoder *Decoder) (types.PrintMemDumpArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.PrintMemDumpArgs{}, err
+  }
+  if numArgs > 7 {
+    return types.PrintMemDumpArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18865,6 +20258,9 @@ func ParseVfsReadArgs(decoder *Decoder) (types.VfsReadArgs, error) {
   if err != nil {
     return types.VfsReadArgs{}, err
   }
+  if numArgs > 5 {
+    return types.VfsReadArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -18912,6 +20308,9 @@ func ParseVfsReadvArgs(decoder *Decoder) (types.VfsReadvArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.VfsReadvArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.VfsReadvArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -18961,6 +20360,9 @@ func ParseVfsUtimesArgs(decoder *Decoder) (types.VfsUtimesArgs, error) {
   if err != nil {
     return types.VfsUtimesArgs{}, err
   }
+  if numArgs > 5 {
+    return types.VfsUtimesArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19009,6 +20411,9 @@ func ParseDoTruncateArgs(decoder *Decoder) (types.DoTruncateArgs, error) {
   if err != nil {
     return types.DoTruncateArgs{}, err
   }
+  if numArgs > 4 {
+    return types.DoTruncateArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19051,6 +20456,9 @@ func ParseFileModificationArgs(decoder *Decoder) (types.FileModificationArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.FileModificationArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.FileModificationArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19100,6 +20508,9 @@ func ParseInotifyWatchArgs(decoder *Decoder) (types.InotifyWatchArgs, error) {
   if err != nil {
     return types.InotifyWatchArgs{}, err
   }
+  if numArgs > 3 {
+    return types.InotifyWatchArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19137,6 +20548,9 @@ func ParseProcessExecuteFailedArgs(decoder *Decoder) (types.ProcessExecuteFailed
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.ProcessExecuteFailedArgs{}, err
+  }
+  if numArgs > 12 {
+    return types.ProcessExecuteFailedArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19221,6 +20635,9 @@ func ParseTtyOpenArgs(decoder *Decoder) (types.TtyOpenArgs, error) {
   if err != nil {
     return types.TtyOpenArgs{}, err
   }
+  if numArgs > 4 {
+    return types.TtyOpenArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19268,6 +20685,9 @@ func ParseNetPacketIPBaseArgs(decoder *Decoder) (types.NetPacketIPBaseArgs, erro
   if err != nil {
     return types.NetPacketIPBaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketIPBaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19295,6 +20715,9 @@ func ParseNetPacketIPv4Args(decoder *Decoder) (types.NetPacketIPv4Args, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketIPv4Args{}, err
+  }
+  if numArgs > 3 {
+    return types.NetPacketIPv4Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19336,6 +20759,9 @@ func ParseNetPacketIPv6Args(decoder *Decoder) (types.NetPacketIPv6Args, error) {
   if err != nil {
     return types.NetPacketIPv6Args{}, err
   }
+  if numArgs > 3 {
+    return types.NetPacketIPv6Args{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19376,6 +20802,9 @@ func ParseNetPacketTCPBaseArgs(decoder *Decoder) (types.NetPacketTCPBaseArgs, er
   if err != nil {
     return types.NetPacketTCPBaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketTCPBaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19403,6 +20832,9 @@ func ParseNetPacketTCPArgs(decoder *Decoder) (types.NetPacketTCPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketTCPArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.NetPacketTCPArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19454,6 +20886,9 @@ func ParseNetPacketUDPBaseArgs(decoder *Decoder) (types.NetPacketUDPBaseArgs, er
   if err != nil {
     return types.NetPacketUDPBaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketUDPBaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19481,6 +20916,9 @@ func ParseNetPacketUDPArgs(decoder *Decoder) (types.NetPacketUDPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketUDPArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.NetPacketUDPArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19532,6 +20970,9 @@ func ParseNetPacketICMPBaseArgs(decoder *Decoder) (types.NetPacketICMPBaseArgs, 
   if err != nil {
     return types.NetPacketICMPBaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketICMPBaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19559,6 +21000,9 @@ func ParseNetPacketICMPArgs(decoder *Decoder) (types.NetPacketICMPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketICMPArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.NetPacketICMPArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19600,6 +21044,9 @@ func ParseNetPacketICMPv6BaseArgs(decoder *Decoder) (types.NetPacketICMPv6BaseAr
   if err != nil {
     return types.NetPacketICMPv6BaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketICMPv6BaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19627,6 +21074,9 @@ func ParseNetPacketICMPv6Args(decoder *Decoder) (types.NetPacketICMPv6Args, erro
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketICMPv6Args{}, err
+  }
+  if numArgs > 3 {
+    return types.NetPacketICMPv6Args{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19668,6 +21118,9 @@ func ParseNetPacketDNSBaseArgs(decoder *Decoder) (types.NetPacketDNSBaseArgs, er
   if err != nil {
     return types.NetPacketDNSBaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketDNSBaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19695,6 +21148,9 @@ func ParseNetPacketDNSArgs(decoder *Decoder) (types.NetPacketDNSArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketDNSArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.NetPacketDNSArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19746,6 +21202,9 @@ func ParseNetPacketDNSRequestArgs(decoder *Decoder) (types.NetPacketDNSRequestAr
   if err != nil {
     return types.NetPacketDNSRequestArgs{}, err
   }
+  if numArgs > 2 {
+    return types.NetPacketDNSRequestArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19782,6 +21241,9 @@ func ParseNetPacketDNSResponseArgs(decoder *Decoder) (types.NetPacketDNSResponse
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketDNSResponseArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.NetPacketDNSResponseArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19820,6 +21282,9 @@ func ParseNetPacketHTTPBaseArgs(decoder *Decoder) (types.NetPacketHTTPBaseArgs, 
   if err != nil {
     return types.NetPacketHTTPBaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketHTTPBaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19847,6 +21312,9 @@ func ParseNetPacketHTTPArgs(decoder *Decoder) (types.NetPacketHTTPArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketHTTPArgs{}, err
+  }
+  if numArgs > 5 {
+    return types.NetPacketHTTPArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19898,6 +21366,9 @@ func ParseNetPacketHTTPRequestArgs(decoder *Decoder) (types.NetPacketHTTPRequest
   if err != nil {
     return types.NetPacketHTTPRequestArgs{}, err
   }
+  if numArgs > 2 {
+    return types.NetPacketHTTPRequestArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19934,6 +21405,9 @@ func ParseNetPacketHTTPResponseArgs(decoder *Decoder) (types.NetPacketHTTPRespon
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketHTTPResponseArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.NetPacketHTTPResponseArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -19972,6 +21446,9 @@ func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseAr
   if err != nil {
     return types.NetPacketSOCKS5BaseArgs{}, err
   }
+  if numArgs > 1 {
+    return types.NetPacketSOCKS5BaseArgs{}, ErrTooManyArguments
+  }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
@@ -19999,6 +21476,9 @@ func ParseNetPacketCaptureArgs(decoder *Decoder) (types.NetPacketCaptureArgs, er
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetPacketCaptureArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.NetPacketCaptureArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -20031,6 +21511,9 @@ func ParseSockSetStateArgs(decoder *Decoder) (types.SockSetStateArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.SockSetStateArgs{}, err
+  }
+  if numArgs > 3 {
+    return types.SockSetStateArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
@@ -20073,6 +21556,9 @@ func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
     return types.NetFlowBaseArgs{}, err
+  }
+  if numArgs > 6 {
+    return types.NetFlowBaseArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {

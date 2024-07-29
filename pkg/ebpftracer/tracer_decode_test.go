@@ -3,6 +3,7 @@ package ebpftracer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"testing"
@@ -136,6 +137,27 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 		})
 
 	}
+}
+
+func TestDecodeContextAndArgs(t *testing.T) {
+	r := require.New(t)
+	testData := `DKhf66A3AADFaXwacC0AAP5IAQAAAAAAodMBAKTTAQABAAAAodMBAKTTAQABAAAAodMBAAAAAAD2AwDw/P//72RvY2tlcmQAAAAAAAAAAABsaW1hLWVicGYAAAAAAAAAAAAAAAAAAAASdogZcC0AAAAAAAAAAAAA2AIAAEAAAAABAAAAAAAAAAAGAAAAAAAAAAAAAAIAAAAEAA4AAAAvdXNyL3NiaW4vemljAAEgAAAAf0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAgCcAAAAAAAACAQDADwMT3A0AAAAAAAAAAAAA`
+	data, err := base64.StdEncoding.DecodeString(testData)
+	r.NoError(err)
+
+	decoder := decoder.NewEventDecoder(logging.New(&logging.Config{}), data)
+
+	eventCtx, args, err := decodeContextAndArgs(decoder)
+	r.NoError(err)
+
+	r.EqualValues(events.MagicWrite, eventCtx.EventID)
+	r.IsType(types.MagicWriteArgs{}, args)
+	magicArgs := args.(types.MagicWriteArgs)
+
+	r.Equal("/usr/sbin/zic", magicArgs.Pathname)
+	r.Equal("f0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAgCcAAAAAAAA=", base64.StdEncoding.EncodeToString(magicArgs.Bytes))
+	r.EqualValues(264241153, magicArgs.Dev)
+	r.EqualValues(908307, magicArgs.Inode)
 }
 
 func buildTestEventData(t *testing.T) []byte {
