@@ -42,6 +42,39 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		return fmt.Errorf("cannot parse event type %d: %w", eventId, err)
 	}
 
+	// Process special events for cgroup creation and removal.
+	// These are system events which are not send down via events pipeline.
+	switch eventId {
+	case events.CgroupMkdir:
+		args := parsedArgs.(types.CgroupMkdirArgs)
+		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
+		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
+			return nil
+		}
+		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
+		if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
+			if errors.Is(err, containers.ErrContainerNotFound) {
+				err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
+				if err != nil {
+					return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
+				}
+				return nil
+			}
+			t.log.Errorf("cannot add container to cgroup %d: %b", args.CgroupId, err)
+		}
+		return nil
+	case events.CgroupRmdir:
+		args := parsedArgs.(types.CgroupRmdirArgs)
+
+		t.queueCgroupForRemoval(args.CgroupId)
+		err := t.UnmuteEventsFromCgroup(args.CgroupId)
+		if err != nil {
+			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
+		}
+		return nil
+	default:
+	}
+
 	container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, eventCtx.CgroupID)
 	if err != nil {
 		// We ignore any event not belonging to a container for now.
@@ -134,25 +167,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 				processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime),
 			)
 		}
-
-	case events.CgroupMkdir:
-		args := parsedArgs.(types.CgroupMkdirArgs)
-
-		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
-		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
-			return nil
-		}
-
-		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
-
-	case events.CgroupRmdir:
-		args := parsedArgs.(types.CgroupRmdirArgs)
-
-		t.queueCgroupForRemoval(args.CgroupId)
-		err := t.UnmuteEventsFromCgroup(args.CgroupId)
-		if err != nil {
-			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
-		}
+	default:
 	}
 
 	if _, found := t.signatureEventMap[eventId]; found {

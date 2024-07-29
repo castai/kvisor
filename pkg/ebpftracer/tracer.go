@@ -38,6 +38,7 @@ type ActualDestinationGetter interface {
 
 type ContainerClient interface {
 	GetContainerForCgroup(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
+	AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error)
 	CleanupCgroup(cgroup cgroup.ID)
 }
 
@@ -626,6 +627,10 @@ func (t *Tracer) cgroupCleanupLoop(ctx context.Context) error {
 			return item.cgroupID
 		})
 		t.removeCgroups(cgroupsToCleanup)
+
+		t.removedCgroupsMu.Lock()
+		t.removedCgroups = map[uint64]struct{}{}
+		t.removedCgroupsMu.Unlock()
 	}
 }
 

@@ -127,6 +127,10 @@ type MockContainerClient struct {
 	CgroupCleaner   func(cgroup uint64)
 }
 
+func (c *MockContainerClient) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error) {
+	return nil, nil
+}
+
 func (c *MockContainerClient) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*containers.Container, error) {
 	if c.ContainerGetter == nil {
 		return nil, nil
