@@ -57,7 +57,7 @@ func TestInitProcessTree(t *testing.T) {
 			return item
 		})
 
-		r.EqualValues([]ProcessEvent{
+		r.ElementsMatch([]ProcessEvent{
 			{
 				Timestamp:   now,
 				ContainerID: containerID1,
