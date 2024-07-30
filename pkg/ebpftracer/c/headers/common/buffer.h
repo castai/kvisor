@@ -1,6 +1,9 @@
 #ifndef __COMMON_BUFFER_H__
 #define __COMMON_BUFFER_H__
 
+#include "bpf/bpf_helpers.h"
+#include "common/common.h"
+#include "maps.h"
 #include "types.h"
 #include <vmlinux.h>
 
@@ -509,10 +512,46 @@ statfunc int do_perf_submit(void *target, program_data_t *p, u32 id, long ret)
     return bpf_perf_event_output(p->ctx, target, BPF_F_CURRENT_CPU, p->event, size);
 }
 
+statfunc event_data_t *find_next_free_scratch_buf(void *scratch_map)
+{
+    event_data_t *e = NULL;
+
+#pragma unroll
+    for (int i = 0; i < SCRATCH_MAP_SIZE; i++) {
+        int scratch_idx = i;
+        e = bpf_map_lookup_elem(scratch_map, &scratch_idx);
+        if (unlikely(e == NULL)) {
+            return NULL;
+        }
+
+        __sync_fetch_and_add(&e->in_use, 1);
+        barrier();
+        if (e->in_use > 1) {
+            // The scratch buffer already in use, we need to skip this one.
+            __sync_fetch_and_add(&e->in_use, -1);
+            continue;
+        } else {
+            // We found a free scratch buffer.
+            break;
+        }
+    }
+
+    return e;
+}
+
+statfunc void free_scratch_buf(event_data_t *e)
+{
+    if (e == NULL) {
+        return;
+    }
+
+    // We need to free the scratch buffer.
+    __sync_fetch_and_sub(&e->in_use, 1);
+}
+
 statfunc event_data_t *init_netflows_event_data()
 {
-    int zero = 0;
-    event_data_t *e = bpf_map_lookup_elem(&netflows_data_map, &zero);
+    event_data_t *e = find_next_free_scratch_buf(&netflows_data_map);
     if (unlikely(e == NULL))
         return NULL;
 
