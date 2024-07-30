@@ -10,6 +10,8 @@
 #define MAX_STACK_ADDRESSES 1024 // max amount of diff stack trace addrs to buffer
 #define MAX_STACK_DEPTH     20   // max depth of each stack trace to track
 
+#define SCRATCH_MAP_SIZE 4 // amount of scratch items to store per cpu
+
 #define BPF_MAP(_name, _type, _key_type, _value_type, _max_entries)                                \
     struct {                                                                                       \
         __uint(type, _type);                                                                       \
@@ -105,7 +107,7 @@ BPF_LRU_HASH(bpf_attach_tmp_map, u32, bpf_used_helpers_t, 1024);                
 BPF_LRU_HASH(bpf_prog_load_map, u32, void *, 1024);                                     // store bpf prog aux pointer between bpf_check and security_bpf_prog
 BPF_PERCPU_ARRAY(event_data_map, event_data_t, 1);                                      // persist event related data
 BPF_PERCPU_ARRAY(signal_data_map, controlplane_signal_t, 1);                            // signal scratch map
-BPF_PERCPU_ARRAY(netflows_data_map, event_data_t, 1);                                   // netflows scratch map
+BPF_PERCPU_ARRAY(netflows_data_map, event_data_t, SCRATCH_MAP_SIZE);                    // netflows scratch map
 BPF_HASH(logs_count, bpf_log_t, bpf_log_count_t, 4096);                                 // logs count
 BPF_PERCPU_ARRAY(scratch_map, scratch_t, 2);                                            // scratch space to avoid allocating stuff on the stack
 BPF_LRU_HASH(file_modification_map, file_mod_key_t, int, 10240);                        // hold file data to decide if should submit file modification event

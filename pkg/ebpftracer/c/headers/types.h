@@ -24,8 +24,8 @@ typedef struct task_context {
     char comm[TASK_COMM_LEN];
     char uts_name[TASK_COMM_LEN];
     u32 flags;
-    u64 leader_start_time;        // task leader's monotonic start time
-    u64 parent_start_time;        // parent process task leader's monotonic start time
+    u64 leader_start_time; // task leader's monotonic start time
+    u64 parent_start_time; // parent process task leader's monotonic start time
 } task_context_t;
 
 typedef struct event_context {
@@ -133,8 +133,7 @@ enum event_id_e {
     TTY_OPEN,
 };
 
-enum signal_event_id_e
-{
+enum signal_event_id_e {
     SIGNAL_CGROUP_MKDIR = 5000,
     SIGNAL_CGROUP_RMDIR,
     SIGNAL_SCHED_PROCESS_FORK,
@@ -361,6 +360,7 @@ typedef struct event_data {
     event_context_t context;
     args_buffer_t args_buf;
     u64 param_types;
+    u64 in_use;
 } event_data_t;
 
 // A control plane signal - sent to indicate some critical event which should be processed
