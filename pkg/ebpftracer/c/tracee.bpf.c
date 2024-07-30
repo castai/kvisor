@@ -5893,22 +5893,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
             return 1; // return fast for unsupported socket families
     }
 
-    //
-    // EVENT CONTEXT (from current task, might be a kernel context/thread)
-    //
-
-    event_data_t *e = find_next_free_scratch_buf(&net_heap_event);
-    if (unlikely(e == NULL))
-        return 0;
-
-    program_data_t p = {};
-    p.scratch_idx = 1;
-    p.event = e;
-    if (!init_program_data(&p, ctx)) {
-        free_scratch_buf(e);
-        return 0;
-    }
-
     bool mightbecloned = false; // cloned sock structs come from accept()
 
     // obtain the socket inode using current "sock" structure
@@ -5938,7 +5922,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
         u64 skptr = (u64) (void *) sk;
         u64 *o = bpf_map_lookup_elem(&sockmap, &skptr);
         if (o == 0) {
-            free_scratch_buf(e);
             return 0;
         }
         u64 oinode = *o;
@@ -5946,7 +5929,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
         // with the old inode, find the netctx for the task
         netctx = bpf_map_lookup_elem(&inodemap, &oinode);
         if (!netctx) {
-            free_scratch_buf(e);
             return 0; // old inode wasn't being traced as well
         }
 
@@ -5974,11 +5956,11 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
 
     // copy orig task ctx (from the netctx) to event ctx and build the rest
     __builtin_memcpy(&eventctx->task, &netctx->taskctx, sizeof(task_context_t));
-    eventctx->ts = p.event->context.ts;                     // copy timestamp from current ctx
+    eventctx->ts = bpf_ktime_get_ns();
     neteventctx.argnum = 1;                                 // 1 argument (add more if needed)
     eventctx->eventid = NET_PACKET_IP;                      // will be changed in skb program
     eventctx->stack_id = 0;                                 // no stack trace
-    eventctx->processor_id = p.event->context.processor_id; // copy from current ctx
+    eventctx->processor_id = (u16) bpf_get_smp_processor_id();
     eventctx->matched_policies = netctx->matched_policies;  // pick matched_policies from net ctx
     eventctx->syscall = NO_SYSCALL;                         // ingress has no orig syscall
     if (type == BPF_CGROUP_INET_EGRESS)
@@ -6001,10 +5983,8 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
             eventctx->retval |= family_ipv6;
             l3_size = get_type_size(struct ipv6hdr);
             break;
-        default: {
-            free_scratch_buf(e);
+        default:
             return 1;
-        }
     }
 
     // ... and packet direction(ingress/egress) ...
@@ -6025,7 +6005,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
     switch (family) {
         case PF_INET:
             if (nethdrs->iphdrs.iphdr.version != 4) { // IPv4
-                free_scratch_buf(e);
                 return 1;
             }
 
@@ -6042,7 +6021,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
                 case IPPROTO_ICMP:
                     break;
                 default:
-                    free_scratch_buf(e);
                     return 1; // ignore other protocols
             }
 
@@ -6056,7 +6034,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
             // TODO: dual-stack IP implementation unsupported for now
             // https://en.wikipedia.org/wiki/IPv6_transition_mechanism
             if (nethdrs->iphdrs.ipv6hdr.version != 6) { // IPv6
-                free_scratch_buf(e);
                 return 1;
             }
 
@@ -6067,7 +6044,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
                 case IPPROTO_ICMPV6:
                     break;
                 default:
-                    free_scratch_buf(e);
                     return 1; // ignore other protocols
             }
 
@@ -6077,7 +6053,6 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
             break;
 
         default:
-            free_scratch_buf(e);
             return 1;
     }
 
