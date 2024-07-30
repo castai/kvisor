@@ -519,7 +519,7 @@ statfunc event_data_t *find_next_free_scratch_buf(void *scratch_map)
 #pragma unroll
     for (int i = 0; i < SCRATCH_MAP_SIZE; i++) {
         int scratch_idx = i;
-        event_data_t *e = bpf_map_lookup_elem(scratch_map, &scratch_idx);
+        e = bpf_map_lookup_elem(scratch_map, &scratch_idx);
         if (unlikely(e == NULL)) {
             return NULL;
         }
