@@ -5510,6 +5510,10 @@ statfunc u32 submit_netflow_event(struct __sk_buff *ctx, net_event_context_t *ne
     save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_packets, sizeof(u64), 4);
     save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_packets, sizeof(u64), 5);
     net_events_perf_submit(ctx, NET_FLOW_BASE, e);
+
+    // The event buffer needs to be freed, as it will get re-used.
+    free_scratch_buf(e);
+
     return 0;
 }
 
@@ -5893,16 +5897,17 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
     // EVENT CONTEXT (from current task, might be a kernel context/thread)
     //
 
-    u32 zero = 0;
-    event_data_t *e = bpf_map_lookup_elem(&net_heap_event, &zero);
+    event_data_t *e = find_next_free_scratch_buf(&net_heap_event);
     if (unlikely(e == NULL))
         return 0;
 
     program_data_t p = {};
     p.scratch_idx = 1;
     p.event = e;
-    if (!init_program_data(&p, ctx))
+    if (!init_program_data(&p, ctx)) {
+        free_scratch_buf(e);
         return 0;
+    }
 
     bool mightbecloned = false; // cloned sock structs come from accept()
 
@@ -5932,14 +5937,18 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
         // pick network context from the sockmap (new sockptr <=> old inode <=> task)
         u64 skptr = (u64) (void *) sk;
         u64 *o = bpf_map_lookup_elem(&sockmap, &skptr);
-        if (o == 0)
+        if (o == 0) {
+            free_scratch_buf(e);
             return 0;
+        }
         u64 oinode = *o;
 
         // with the old inode, find the netctx for the task
         netctx = bpf_map_lookup_elem(&inodemap, &oinode);
-        if (!netctx)
+        if (!netctx) {
+            free_scratch_buf(e);
             return 0; // old inode wasn't being traced as well
+        }
 
         // update inodemap w/ new inode <=> task context (faster path next time)
         bpf_map_update_elem(&inodemap, &oinode, netctx, BPF_ANY);
@@ -5992,8 +6001,10 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
             eventctx->retval |= family_ipv6;
             l3_size = get_type_size(struct ipv6hdr);
             break;
-        default:
+        default: {
+            free_scratch_buf(e);
             return 1;
+        }
     }
 
     // ... and packet direction(ingress/egress) ...
@@ -6013,8 +6024,10 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
     // Parse the packet layer 3 headers.
     switch (family) {
         case PF_INET:
-            if (nethdrs->iphdrs.iphdr.version != 4) // IPv4
+            if (nethdrs->iphdrs.iphdr.version != 4) { // IPv4
+                free_scratch_buf(e);
                 return 1;
+            }
 
             if (nethdrs->iphdrs.iphdr.ihl > 5) { // re-read IP header if needed
                 l3_size -= get_type_size(struct iphdr);
@@ -6029,6 +6042,7 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
                 case IPPROTO_ICMP:
                     break;
                 default:
+                    free_scratch_buf(e);
                     return 1; // ignore other protocols
             }
 
@@ -6041,8 +6055,10 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
         case PF_INET6:
             // TODO: dual-stack IP implementation unsupported for now
             // https://en.wikipedia.org/wiki/IPv6_transition_mechanism
-            if (nethdrs->iphdrs.ipv6hdr.version != 6) // IPv6
+            if (nethdrs->iphdrs.ipv6hdr.version != 6) { // IPv6
+                free_scratch_buf(e);
                 return 1;
+            }
 
             proto = nethdrs->iphdrs.ipv6hdr.nexthdr;
             switch (proto) {
@@ -6051,6 +6067,7 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
                 case IPPROTO_ICMPV6:
                     break;
                 default:
+                    free_scratch_buf(e);
                     return 1; // ignore other protocols
             }
 
@@ -6060,6 +6077,7 @@ int BPF_KPROBE(cgroup_bpf_run_filter_skb)
             break;
 
         default:
+            free_scratch_buf(e);
             return 1;
     }
 
@@ -6773,21 +6791,23 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
             return 0; // old inode wasn't being traced as well
     }
 
-    u32 zero = 0;
-    event_data_t *e = bpf_map_lookup_elem(&net_heap_sock_state_event, &zero);
-    if (unlikely(e == NULL))
+    event_data_t *e = find_next_free_scratch_buf(&net_heap_sock_state_event);
+    // All scratch buffers are in use, there is nothing we can do.
+    if (unlikely(e == NULL)) {
         return 0;
+    }
 
     program_data_t p = {};
     p.scratch_idx = 1;
     p.event = e;
-    if (!init_program_data(&p, ctx))
-        return 0;
+    if (!init_program_data(&p, ctx)) {
+        goto cleanup;
+    }
 
     __builtin_memcpy(&p.event->context.task, &netctx->taskctx, sizeof(task_context_t));
 
     if (!should_trace(&p)) {
-        return 0;
+        goto cleanup;
     }
 
     tuple_t tuple = {};
@@ -6798,6 +6818,8 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, &tuple, sizeof(tuple), 2);
     events_perf_submit(&p, SOCK_SET_STATE, 0);
 
+cleanup:
+    free_scratch_buf(e);
     return 0;
 }
 // clang-format on
