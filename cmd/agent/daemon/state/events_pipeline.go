@@ -35,6 +35,11 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			}
 		case e := <-c.signatureEngine.Events():
 			for _, exporter := range c.exporters.Events {
+				if podInfo, found := c.getPodInfo(e.PodUid); found {
+					e.WorkloadKind = podInfo.WorkloadKind
+					e.WorkloadName = podInfo.WorkloadName
+					e.WorkloadUid = podInfo.WorkloadUid
+				}
 				exporter.Enqueue(e)
 			}
 		case e := <-c.enrichmentService.Events():
