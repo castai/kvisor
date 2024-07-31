@@ -170,24 +170,38 @@ func (i *Index) getPodOwner(pod *corev1.Pod) metav1.OwnerReference {
 	switch owner.Kind {
 	case "ReplicaSet":
 		if rs, found := i.replicaSets[owner.UID]; found {
-			owner = findOwner(owner, rs.OwnerReferences)
-			if owner.Kind != "Deployment" {
-				if dep, found := findDeploymentByPodSelector(i.deployments, pod); found {
-					return metav1.OwnerReference{
-						Kind: dep.Kind,
-						Name: dep.Name,
-						UID:  dep.UID,
-					}
+			rsOwner := findOwner(owner, rs.OwnerReferences)
+			if rsOwner.Kind == "Deployment" {
+				return rsOwner
+			}
+
+			if dep, found := findDeploymentByPodSelector(i.deployments, pod); found {
+				return metav1.OwnerReference{
+					Kind: dep.Kind,
+					Name: dep.Name,
+					UID:  dep.UID,
 				}
 			}
+
 			return owner
 		}
 	case "Job":
 		if rs, found := i.jobs[owner.UID]; found {
-			return findOwner(owner, rs.OwnerReferences)
+			jobOwner := findOwner(owner, rs.OwnerReferences)
+			if jobOwner.Kind == "CronJob" {
+				return jobOwner
+			}
+
+			return owner
 		}
 	}
-	return owner
+	// If the pod is managed by a custom CRD, we fall back to just report pod,
+	// as we do not handle custom CRDs.
+	return metav1.OwnerReference{
+		Kind: "Pod",
+		Name: pod.Name,
+		UID:  pod.UID,
+	}
 }
 
 func findDeploymentByPodSelector(deployments map[types.UID]*appsv1.Deployment, pod *corev1.Pod) (*appsv1.Deployment, bool) {
