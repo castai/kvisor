@@ -40,6 +40,7 @@
 #include <common/signal.h>
 #include <common/debug.h>
 #include <common/stats.h>
+#include <common/metrics.h>
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -6769,6 +6770,7 @@ int trace_inet_sock_set_state(struct bpf_raw_tracepoint_args *ctx)
     event_data_t *e = find_next_free_scratch_buf(&net_heap_sock_state_event);
     // All scratch buffers are in use, there is nothing we can do.
     if (unlikely(e == NULL)) {
+        metrics_increase(NO_FREE_SCRATCH_BUFFER_SOCKET_SET_STATE);
         return 0;
     }
 

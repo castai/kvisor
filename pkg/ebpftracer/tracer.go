@@ -105,8 +105,9 @@ type Tracer struct {
 	cgroupCleanupMu         sync.Mutex
 	requestedCgroupCleanups []cgroupCleanupRequest
 
-	cleanupTimerTickRate time.Duration
-	cgroupCleanupDelay   time.Duration
+	cleanupTimerTickRate      time.Duration
+	cgroupCleanupDelay        time.Duration
+	metricExportTimerTickRate time.Duration
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
@@ -127,19 +128,20 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	}
 
 	t := &Tracer{
-		log:                  log,
-		cfg:                  cfg,
-		module:               m,
-		bootTime:             uint64(system.GetBootTime().UnixNano()),
-		eventsChan:           make(chan *types.Event, cfg.EventsOutputChanSize),
-		netflowEventsChan:    make(chan *types.Event, cfg.NetflowOutputChanSize),
-		removedCgroups:       map[uint64]struct{}{},
-		eventPoliciesMap:     map[events.ID]*EventPolicy{},
-		cgroupEventPolicy:    map[uint64]map[events.ID]*cgroupEventPolicy{},
-		dnsPacketParser:      &layers.DNS{},
-		signatureEventMap:    map[events.ID]struct{}{},
-		cleanupTimerTickRate: 1 * time.Minute,
-		cgroupCleanupDelay:   1 * time.Minute,
+		log:                       log,
+		cfg:                       cfg,
+		module:                    m,
+		bootTime:                  uint64(system.GetBootTime().UnixNano()),
+		eventsChan:                make(chan *types.Event, cfg.EventsOutputChanSize),
+		netflowEventsChan:         make(chan *types.Event, cfg.NetflowOutputChanSize),
+		removedCgroups:            map[uint64]struct{}{},
+		eventPoliciesMap:          map[events.ID]*EventPolicy{},
+		cgroupEventPolicy:         map[uint64]map[events.ID]*cgroupEventPolicy{},
+		dnsPacketParser:           &layers.DNS{},
+		signatureEventMap:         map[events.ID]struct{}{},
+		cleanupTimerTickRate:      1 * time.Minute,
+		cgroupCleanupDelay:        1 * time.Minute,
+		metricExportTimerTickRate: 5 * time.Second,
 	}
 
 	return t
@@ -178,6 +180,9 @@ func (t *Tracer) Run(ctx context.Context) error {
 	})
 	errg.Go(func() error {
 		return t.cgroupCleanupLoop(ctx)
+	})
+	errg.Go(func() error {
+		return t.exportEBPFMetricsLoop(ctx)
 	})
 
 	return errg.Wait()

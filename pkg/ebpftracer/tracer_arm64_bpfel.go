@@ -233,6 +233,7 @@ type tracerMapSpecs struct {
 	KsymbolsMap             *ebpf.MapSpec `ebpf:"ksymbols_map"`
 	Logs                    *ebpf.MapSpec `ebpf:"logs"`
 	LogsCount               *ebpf.MapSpec `ebpf:"logs_count"`
+	Metrics                 *ebpf.MapSpec `ebpf:"metrics"`
 	MntNsFilter             *ebpf.MapSpec `ebpf:"mnt_ns_filter"`
 	ModulesMap              *ebpf.MapSpec `ebpf:"modules_map"`
 	NetCapEvents            *ebpf.MapSpec `ebpf:"net_cap_events"`
@@ -323,6 +324,7 @@ type tracerMaps struct {
 	KsymbolsMap             *ebpf.Map `ebpf:"ksymbols_map"`
 	Logs                    *ebpf.Map `ebpf:"logs"`
 	LogsCount               *ebpf.Map `ebpf:"logs_count"`
+	Metrics                 *ebpf.Map `ebpf:"metrics"`
 	MntNsFilter             *ebpf.Map `ebpf:"mnt_ns_filter"`
 	ModulesMap              *ebpf.Map `ebpf:"modules_map"`
 	NetCapEvents            *ebpf.Map `ebpf:"net_cap_events"`
@@ -396,6 +398,7 @@ func (m *tracerMaps) Close() error {
 		m.KsymbolsMap,
 		m.Logs,
 		m.LogsCount,
+		m.Metrics,
 		m.MntNsFilter,
 		m.ModulesMap,
 		m.NetCapEvents,
