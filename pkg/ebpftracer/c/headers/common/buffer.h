@@ -1,11 +1,13 @@
 #ifndef __COMMON_BUFFER_H__
 #define __COMMON_BUFFER_H__
 
-#include "bpf/bpf_helpers.h"
-#include "common/common.h"
-#include "maps.h"
-#include "types.h"
 #include <vmlinux.h>
+#include <types.h>
+
+#include <bpf/bpf_helpers.h>
+#include <common/common.h>
+#include <common/metrics.h>
+#include <maps.h>
 
 #include <common/context.h>
 #include <common/hash.h>
@@ -514,12 +516,10 @@ statfunc int do_perf_submit(void *target, program_data_t *p, u32 id, long ret)
 
 statfunc event_data_t *find_next_free_scratch_buf(void *scratch_map)
 {
-    event_data_t *e = NULL;
-
 #pragma unroll
     for (int i = 0; i < SCRATCH_MAP_SIZE; i++) {
         int scratch_idx = i;
-        e = bpf_map_lookup_elem(scratch_map, &scratch_idx);
+        event_data_t *e = bpf_map_lookup_elem(scratch_map, &scratch_idx);
         if (unlikely(e == NULL)) {
             return NULL;
         }
@@ -532,11 +532,13 @@ statfunc event_data_t *find_next_free_scratch_buf(void *scratch_map)
             continue;
         } else {
             // We found a free scratch buffer.
-            break;
+            return e;
         }
     }
 
-    return e;
+    metrics_increase(NO_FREE_SCRATCH_BUFFER);
+
+    return NULL;
 }
 
 statfunc void free_scratch_buf(event_data_t *e)
@@ -552,8 +554,10 @@ statfunc void free_scratch_buf(event_data_t *e)
 statfunc event_data_t *init_netflows_event_data()
 {
     event_data_t *e = find_next_free_scratch_buf(&netflows_data_map);
-    if (unlikely(e == NULL))
+    if (unlikely(e == NULL)) {
+        metrics_increase(NO_FREE_SCRATCH_BUFFER_NETFLOWS);
         return NULL;
+    }
 
     e->context.ts = bpf_ktime_get_ns();
     e->args_buf.argnum = 0;
