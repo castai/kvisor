@@ -140,6 +140,7 @@ message AgentConfig {
   NetflowConfig netflow = 20;
   bool ebpf_events_enabled = 21;
   bool container_stats_enabled = 22;
+  bool ebpf_metrics_enabled = 23;
 }
 
 message ControllerAgentConfig {

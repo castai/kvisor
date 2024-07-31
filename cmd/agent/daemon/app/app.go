@@ -55,6 +55,7 @@ type Config struct {
 	EBPFEventsPerCPUBuffer         int `validate:"required"`
 	EBPFEventsOutputChanSize       int `validate:"required"`
 	EBPFEventsStdioExporterEnabled bool
+	EBPFMetricsEnabled             bool
 	MutedNamespaces                []string
 	SignatureEngineConfig          signature.SignatureEngineConfig
 	Castai                         castai.Config
@@ -88,6 +89,7 @@ func (c Config) Proto() *castaipb.AgentConfig {
 		},
 		EbpfEventsPerCpuBuffer:   int32(c.EBPFEventsPerCPUBuffer),
 		EbpfEventsOutputChanSize: int32(c.EBPFEventsOutputChanSize),
+		EbpfMetricsEnabled:       c.EBPFMetricsEnabled,
 		MutedNamespaces:          c.MutedNamespaces,
 		SignatureEngineConfig: &castaipb.SignatureEngineConfig{
 			InputChanSize:                  int32(c.SignatureEngineConfig.InputChanSize),
@@ -318,6 +320,7 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
 		ProcessTreeCollector:               processTreeCollector,
+		MetricsReportingEnabled:            a.cfg.EBPFMetricsEnabled,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)

@@ -9,6 +9,7 @@ const (
 	EventTypeLabel string = "event_type"
 	EventIDLabel   string = "event_id"
 	ExporterName   string = "exporter"
+	MetricLabel    string = "metric"
 )
 
 var (
@@ -94,4 +95,8 @@ var (
 		Name: "kvisor_agent_fetch_kube_ip_info_errors_total",
 		Help: "Counter for tracking kube info calls errors",
 	})
+
+	EBPFExposedMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "kvisor_agent_ebpf_exposed_metrics",
+	}, []string{MetricLabel})
 )

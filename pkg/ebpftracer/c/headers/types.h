@@ -550,4 +550,15 @@ typedef struct syscall_stats_key {
 typedef __u64 stack_trace_t[MAX_STACK_DEPTH];
 typedef u32 file_type_t;
 
+// Must be kept in sync with `EBPFMetrics` defined in metrics.go.
+enum metric {
+    UNKNOWN_METRIC = 0,
+
+    NO_FREE_SCRATCH_BUFFER,
+    NO_FREE_SCRATCH_BUFFER_SOCKET_SET_STATE,
+    NO_FREE_SCRATCH_BUFFER_NETFLOWS,
+
+    MAX_METRIC,
+};
+
 #endif

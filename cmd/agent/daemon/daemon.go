@@ -54,6 +54,7 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventsStdioExporterEnabled = pflag.Bool("ebpf-events-stdio-exporter-enabled", false, "Export ebpf event to stdio")
 		ebpfEventsPerCPUBuffer         = pflag.Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 		ebpfEventsOutputChanSize       = pflag.Int("ebpf-events-output-queue-size", 4096, "Ebpf user spaces output channel size")
+		ebpfMetricsEnabled             = pflag.Bool("ebpf-metrics-enabled", false, "Enables the export of metrics from eBPF")
 
 		mutedNamespaces = pflag.StringSlice("ignored-namespaces", []string{"kube-system", "calico", "calico-system"},
 			"List of namespaces to ignore tracing events for. To ignore multiple namespaces, separate by comma or pass flag multiple times."+
@@ -134,6 +135,7 @@ func NewRunCommand(version string) *cobra.Command {
 				EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
 				EBPFEventsPerCPUBuffer:         *ebpfEventsPerCPUBuffer,
 				EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
+				EBPFMetricsEnabled:             *ebpfMetricsEnabled,
 				MutedNamespaces:                *mutedNamespaces,
 				SignatureEngineConfig: signature.SignatureEngineConfig{
 					Enabled:        *signatureEngineEnabled,
