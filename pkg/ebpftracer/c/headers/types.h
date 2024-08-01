@@ -130,7 +130,8 @@ enum event_id_e {
     SOCK_SET_STATE,
     PROCESS_OOM_KILLED,
     TTY_OPEN,
-
+    TTY_WRITE,
+    STDIO_VIA_SOCKET,
     MAX_EVENT_ID,
 };
 

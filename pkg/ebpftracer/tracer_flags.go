@@ -3,6 +3,8 @@ package ebpftracer
 import (
 	"fmt"
 	"strings"
+
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
 )
 
 type NetflowGrouping uint64
@@ -45,4 +47,34 @@ func parseNetflowGrouping(s string) (NetflowGrouping, error) {
 		res |= flag
 	}
 	return res, nil
+}
+
+type EventsPolicyConfig struct {
+	EnabledEvents []events.ID
+}
+
+func (n *EventsPolicyConfig) String() string {
+	return fmt.Sprintf("%v", *n)
+}
+
+func (n *EventsPolicyConfig) Set(s string) error {
+	n.EnabledEvents = []events.ID{}
+	parts := strings.Split(s, "|")
+	defs := newEventsDefinitionSet(&tracerObjects{})
+	defsByName := map[string]events.ID{}
+	for id, def := range defs {
+		defsByName[def.name] = id
+	}
+	for _, eventName := range parts {
+		eventID, found := defsByName[eventName]
+		if !found {
+			return fmt.Errorf("unknown event name %q", eventName)
+		}
+		n.EnabledEvents = append(n.EnabledEvents, eventID)
+	}
+	return nil
+}
+
+func (n *EventsPolicyConfig) Type() string {
+	return "EventsPolicyConfig"
 }

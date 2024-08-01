@@ -40,6 +40,7 @@
 #include <common/debug.h>
 #include <common/stats.h>
 #include <common/metrics.h>
+#include <common/signatures.h>
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -470,7 +471,6 @@ statfunc int send_socket_dup(program_data_t *p, u64 oldfd, u64 newfd)
     }
 
     // this is a socket - submit the SOCKET_DUP event
-
     reset_event_args(p);
     save_to_submit_buf(&(p->event->args_buf), &oldfd, sizeof(u32), 0);
     save_to_submit_buf(&(p->event->args_buf), &newfd, sizeof(u32), 1);
@@ -513,6 +513,57 @@ statfunc int send_socket_dup(program_data_t *p, u64 oldfd, u64 newfd)
     return events_perf_submit(p, SOCKET_DUP, 0);
 }
 
+statfunc int send_stdio_via_socket_from_socket_dup(program_data_t *p, u64 oldfd, u64 newfd)
+{
+    if (!should_submit(STDIO_VIA_SOCKET, p->event)) {
+        return 0;
+    }
+
+    if (!check_fd_type(oldfd, S_IFSOCK)) {
+        return 0;
+    }
+
+    struct file *f = get_struct_file_from_fd(oldfd);
+    if (f == NULL) {
+        return -1;
+    }
+
+    // get the address
+    struct socket *socket_from_file = (struct socket *) BPF_CORE_READ(f, private_data);
+    if (socket_from_file == NULL) {
+        return -1;
+    }
+
+    struct sock *sk = get_socket_sock(socket_from_file);
+    u16 family = get_sock_family(sk);
+    if ((family != AF_INET) && (family != AF_INET6) && (family != AF_UNIX)) {
+        return 0;
+    }
+
+    if (!is_stdio_via_socket(newfd, family)) {
+        return 0;
+    }
+
+    reset_event_args(p);
+    save_to_submit_buf(&(p->event->args_buf), &newfd, sizeof(u32), 0);
+
+    if (family == AF_INET) {
+        net_conn_v4_t net_details = {};
+        struct sockaddr_in remote;
+        get_network_details_from_sock_v4(sk, &net_details, 0);
+        get_remote_sockaddr_in_from_network_details(&remote, &net_details, family);
+        save_to_submit_buf(&(p->event->args_buf), &remote, sizeof(struct sockaddr_in), 1);
+    } else if (family == AF_INET6) {
+        net_conn_v6_t net_details = {};
+        struct sockaddr_in6 remote;
+        get_network_details_from_sock_v6(sk, &net_details, 0);
+        get_remote_sockaddr_in6_from_network_details(&remote, &net_details, family);
+        save_to_submit_buf(&(p->event->args_buf), &remote, sizeof(struct sockaddr_in6), 1);
+    }
+
+    return events_perf_submit(p, STDIO_VIA_SOCKET, 0);
+}
+
 SEC("raw_tracepoint/sys_dup")
 int sys_dup_exit_tail(void *ctx)
 {
@@ -533,11 +584,13 @@ int sys_dup_exit_tail(void *ctx)
     if (sys->id == SYSCALL_DUP) {
         // args.args[0]: oldfd
         // retval: newfd
+        send_stdio_via_socket_from_socket_dup(&p, sys->args.args[0], sys->ret);
         send_socket_dup(&p, sys->args.args[0], sys->ret);
     } else if (sys->id == SYSCALL_DUP2 || sys->id == SYSCALL_DUP3) {
         // args.args[0]: oldfd
         // args.args[1]: newfd
         // retval: retval
+        send_stdio_via_socket_from_socket_dup(&p, sys->args.args[0], sys->args.args[1]);
         send_socket_dup(&p, sys->args.args[0], sys->args.args[1]);
     }
 
@@ -2611,19 +2664,8 @@ int BPF_KPROBE(trace_security_socket_listen)
     return events_perf_submit(&p, SECURITY_SOCKET_LISTEN, 0);
 }
 
-SEC("kprobe/security_socket_connect")
-int BPF_KPROBE(trace_security_socket_connect)
+statfunc int send_socket_connect(struct pt_regs *ctx, program_data_t *p)
 {
-    program_data_t p = {};
-    if (!init_program_data(&p, ctx))
-        return 0;
-
-    if (!should_trace(&p))
-        return 0;
-
-    if (!should_submit(SECURITY_SOCKET_CONNECT, p.event))
-        return 0;
-
     u64 addr_len = PT_REGS_PARM3(ctx);
 
     struct socket *sock = (struct socket *) PT_REGS_PARM1(ctx);
@@ -2658,16 +2700,16 @@ int BPF_KPROBE(trace_security_socket_connect)
     }
 
     // Load args given to the syscall that invoked this function.
-    syscall_data_t *sys = &p.task_info->syscall_data;
-    if (!p.task_info->syscall_traced)
+    syscall_data_t *sys = &p->task_info->syscall_data;
+    if (!p->task_info->syscall_traced)
         return 0;
 
     // Reduce line cols by having a few temp pointers.
     int (*stsb)(args_buffer_t *, void *, u32, u8) = save_to_submit_buf;
-    void *args_buf = &p.event->args_buf;
+    void *args_buf = &p->event->args_buf;
     void *to = (void *) &sys->args.args[0];
 
-    if (is_x86_compat(p.task)) // only i386 binaries uses socketcall
+    if (is_x86_compat(p->task)) // only i386 binaries uses socketcall
         to = (void *) sys->args.args[1];
 
     // Save the socket fd, depending on the syscall.
@@ -2718,8 +2760,124 @@ int BPF_KPROBE(trace_security_socket_connect)
         stsb(args_buf, (void *) address, sockaddr_len, 2);
     }
 
-    // Submit the event.
-    return events_perf_submit(&p, SECURITY_SOCKET_CONNECT, 0);
+    return events_perf_submit(p, SECURITY_SOCKET_CONNECT, 0);
+}
+
+statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, program_data_t *p) {
+    u64 addr_len = PT_REGS_PARM3(ctx);
+
+    struct socket *sock = (struct socket *) PT_REGS_PARM1(ctx);
+    if (!sock)
+        return 0;
+
+    struct sockaddr *address = (struct sockaddr *) PT_REGS_PARM2(ctx);
+    if (!address)
+        return 0;
+
+    // Check if the socket type is supported.
+    u32 type = BPF_CORE_READ(sock, type);
+    switch (type) {
+        // TODO: case SOCK_DCCP:
+        case SOCK_DGRAM:
+        case SOCK_SEQPACKET:
+        case SOCK_STREAM:
+            break;
+        default:
+            return 0;
+    }
+
+    // Check if the socket family is supported.
+    sa_family_t sa_fam = get_sockaddr_family(address);
+    switch (sa_fam) {
+        case AF_INET:
+        case AF_INET6:
+            break;
+        default:
+            return 0;
+    }
+
+    // Load args given to the syscall that invoked this function.
+    syscall_data_t *sys = &p->task_info->syscall_data;
+    if (!p->task_info->syscall_traced)
+        return 0;
+
+    // Reduce line cols by having a few temp pointers.
+    reset_event_args(p);
+    int (*stsb)(args_buffer_t *, void *, u32, u8) = save_to_submit_buf;
+    void *args_buf = &p->event->args_buf;
+    void *to = (void *) &sys->args.args[0];
+
+    if (is_x86_compat(p->task)) // only i386 binaries uses socketcall
+        to = (void *) sys->args.args[1];
+
+    if (!is_stdio_via_socket((u64)to, sa_fam)) {
+        return 0;
+    }
+
+    // Save the socket fd, depending on the syscall.
+    switch (sys->id) {
+        case SYSCALL_CONNECT:
+        case SYSCALL_SOCKETCALL:
+            break;
+        default:
+            return 0;
+    }
+
+    // Save the socket fd argument to the event.
+    stsb(args_buf, to, sizeof(u32), 0);
+
+    bool need_workaround = false;
+    // Save the sockaddr struct, depending on the family.
+    size_t sockaddr_len = 0;
+    switch (sa_fam) {
+        case AF_INET:
+            sockaddr_len = sizeof(struct sockaddr_in);
+            break;
+        case AF_INET6:
+            sockaddr_len = sizeof(struct sockaddr_in6);
+            break;
+        case AF_UNIX:
+            sockaddr_len = sizeof(struct sockaddr_un);
+            if (addr_len < sockaddr_len)
+                need_workaround = true;
+            break;
+    }
+
+#if defined(bpf_target_x86)
+    if (need_workaround) {
+        // Workaround for sockaddr_un struct length (issue: #1129).
+        struct sockaddr_un sockaddr = {0};
+        bpf_probe_read(&sockaddr, (u32) addr_len, (void *) address);
+        stsb(args_buf, (void *) &sockaddr, sizeof(struct sockaddr_un), 1);
+    }
+#endif
+    // Save the sockaddr struct argument to the event.
+    if (!need_workaround) {
+        stsb(args_buf, (void *) address, sockaddr_len, 1);
+    }
+
+   return events_perf_submit(p, STDIO_VIA_SOCKET, 0);
+}
+
+SEC("kprobe/security_socket_connect")
+int BPF_KPROBE(trace_security_socket_connect)
+{
+    program_data_t p = {};
+    if (!init_program_data(&p, ctx))
+        return 0;
+
+    if (!should_trace(&p))
+        return 0;
+
+    if (should_submit(SECURITY_SOCKET_CONNECT, p.event)) {
+        send_socket_connect(ctx, &p);
+    }
+
+    if (should_submit(STDIO_VIA_SOCKET, p.event)) {
+        send_stdio_via_socket_from_sock_connect(ctx, &p);
+    }
+
+    return 0;
 }
 
 SEC("kprobe/security_socket_accept")
@@ -6805,7 +6963,8 @@ int oom_mark_victim(struct bpf_raw_tracepoint_args *ctx)
 {
     __u32 pid = ctx->args[0];
 
-    bpf_map_update_elem(&oom_info, &pid, &pid, BPF_ANY);
+    u32 one = 1;
+    bpf_map_update_elem(&oom_info, &pid, &one, BPF_ANY);
 
     return 0;
 }
@@ -6822,19 +6981,55 @@ int BPF_KPROBE(tty_open, struct inode *inode, struct file *filep)
         return 0;
     }
 
-    if (!should_submit(TTY_OPEN, p.event)) {
+    if (should_submit(TTY_WRITE, p.event)) {
+        unsigned long ino = BPF_CORE_READ(inode, i_ino);
+        u32 one = 1;
+        bpf_map_update_elem(&tty_opened_files, &ino, &one, BPF_NOEXIST);
+    }
+
+    if (should_submit(TTY_OPEN, p.event)) {
+        void *file_path = get_path_str(__builtin_preserve_access_index(&filep->f_path));
+        unsigned long ino = BPF_CORE_READ(inode, i_ino);
+        dev_t dev = BPF_CORE_READ(inode, i_rdev);
+        umode_t inode_mode = get_inode_mode_from_file(filep);
+
+        save_str_to_buf(&p.event->args_buf, file_path, 0);
+        save_to_submit_buf(&p.event->args_buf, &ino, sizeof(ino), 1);
+        save_to_submit_buf(&p.event->args_buf, &inode_mode, sizeof(inode_mode), 2);
+        save_to_submit_buf(&p.event->args_buf, &dev, sizeof(dev), 3);
+        events_perf_submit(&p, TTY_OPEN, 0);
+    }
+
+    return 0;
+}
+
+SEC("kprobe/tty_write")
+int BPF_KPROBE(tty_write, struct kiocb *iocb, struct iov_iter *from)
+{
+    program_data_t p = {};
+    if (!init_program_data(&p, ctx)) {
         return 0;
     }
 
-    void *file_path = get_path_str(__builtin_preserve_access_index(&filep->f_path));
-    unsigned long ino = BPF_CORE_READ(inode, i_ino);
-    dev_t dev = BPF_CORE_READ(inode, i_rdev);
-    umode_t inode_mode = get_inode_mode_from_file(filep);
+    if (!should_trace((&p))) {
+        return 0;
+    }
 
-    save_str_to_buf(&p.event->args_buf, file_path, 0);
-    save_to_submit_buf(&p.event->args_buf, &ino, sizeof(ino), 1);
-    save_to_submit_buf(&p.event->args_buf, &inode_mode, sizeof(inode_mode), 2);
-    save_to_submit_buf(&p.event->args_buf, &dev, sizeof(dev), 3);
+    if (should_submit(TTY_WRITE, p.event)) {
+        struct file *file = (struct file *) BPF_CORE_READ(iocb, ki_filp);
+        u64 inode = get_inode_nr_from_file(file);
+        if (!bpf_map_lookup_elem(&tty_opened_files, &inode)) {
+           // return 0;
+        }
+        bpf_map_delete_elem(&tty_opened_files, &inode);
 
-    return events_perf_submit(&p, TTY_OPEN, 0);
+        file_info_t file_info;
+        file_info.pathname_p = get_path_str_cached(file);
+        save_str_to_buf(&p.event->args_buf, file_info.pathname_p, 0);
+        save_to_submit_buf(&p.event->args_buf, &inode, sizeof(u64), 1);
+
+        return events_perf_submit(&p, TTY_WRITE, 0);
+    }
+
+    return 0;
 }

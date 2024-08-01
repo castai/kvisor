@@ -128,6 +128,24 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 				Path: args.Pathname,
 			},
 		}
+	case ebpftypes.StdioViaSocketArgs:
+		event.EventType = castpb.EventType_EVENT_STDIO_VIA_SOCKET
+		finding := castpb.StdioViaSocketFinding{
+			Socketfd: args.Sockfd,
+		}
+		switch addr := args.Addr.(type) {
+		case ebpftypes.Ip4SockAddr:
+			finding.Ip = addr.Addr.Addr().AsSlice()
+			finding.Port = uint32(addr.Addr.Port())
+		case ebpftypes.Ip6SockAddr:
+			finding.Ip = addr.Addr.Addr().AsSlice()
+			finding.Port = uint32(addr.Addr.Port())
+		}
+	case ebpftypes.TtyWriteArgs:
+		event.EventType = castpb.EventType_EVENT_TTY_WRITE
+		event.Data = &castpb.Event_File{
+			File: &castpb.File{Path: args.Path},
+		}
 	}
 
 	if event.EventType == 0 {

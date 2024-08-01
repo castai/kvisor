@@ -100,7 +100,8 @@ const (
 	SockSetState
 	ProcessOomKilled
 	TtyOpen
-
+	TtyWrite
+	StdioViaSocket
 	MaxCommonID
 )
 
@@ -150,7 +151,7 @@ const (
 
 // Signature events
 const (
-	StartSignatureID ID = 6000
+	StartSignatureID ID = 6000 + iota
 	MaxSignatureID   ID = 6999
 )
 

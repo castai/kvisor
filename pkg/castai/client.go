@@ -14,7 +14,7 @@ import (
 
 type Config struct {
 	ClusterID   string
-	APIKey      string
+	APIKey      string `json:"-"`
 	APIGrpcAddr string
 	Insecure    bool
 }

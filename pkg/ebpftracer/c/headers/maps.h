@@ -123,13 +123,11 @@ BPF_HASH(binary_filter, binary_t, eq_t, 256);                                   
 BPF_HASH(process_tree_map, u32, eq_t, 10240);                                           // filter events by the ancestry of the traced process
 BPF_HASH(events_map, u32, event_config_t, MAX_EVENT_ID);                                // map to persist event configuration data
 BPF_LRU_HASH(syscall_stats_map, syscall_stats_key_t, u64, 65536);                       // holds syscalls stats per cgroup
-
 BPF_LRU_HASH(dropped_binary_inodes, u64, u32, 8192);                                    // holds inodes of binaries that have been identified as dropped
-
-BPF_HASH(oom_info, __u32, __u32, 1024);                                                 // marks PIDs as OOM
+BPF_HASH(oom_info, u32, u8, 1024);                                                      // marks PIDs as OOM
 BPF_HASH(ignored_cgroups_map, u64, u64, 10240);                                         // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
-                                                                                        //
 BPF_LRU_HASH(pid_original_file_flags, pid_t, u16, 1024);                                // holds flags of the original executed file (used to detect e.g. dropped scripts)
+BPF_LRU_HASH(tty_opened_files, u32, u8, 1024);                                              // holds inodes for opened tty files
 
 // clang-format on
 

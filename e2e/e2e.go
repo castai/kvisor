@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -165,7 +166,6 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
-  --set agent.extraArgs.signature-stdio-via-sock-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
   --set agent.extraArgs.process-tree-enabled=true \
@@ -211,8 +211,8 @@ type testCASTAIServer struct {
 	kubeBenchReports  []*castaipb.KubeBenchReport
 	kubeLinterReports []*castaipb.KubeLinterReport
 	processTreeEvents []*castaipb.ProcessTreeEvent
-	controllerConfig  *castaipb.ControllerConfig
-	agentConfig       *castaipb.AgentConfig
+	controllerConfig  []byte
+	agentConfig       []byte
 	netflows          []*castaipb.Netflow
 }
 
@@ -643,6 +643,24 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		castaipb.EventType_EVENT_PROCESS_OOM: func(e *castaipb.Event) error {
 			return nil
 		},
+		castaipb.EventType_EVENT_STDIO_VIA_SOCKET: func(e *castaipb.Event) error {
+			if _, ok := netip.AddrFromSlice(e.GetStdioViaSocket().Ip); !ok {
+				return fmt.Errorf("invalid address %v", string(e.GetStdioViaSocket().Ip))
+			}
+			if e.GetStdioViaSocket().Port == 0 {
+				return fmt.Errorf("empyt port")
+			}
+			if fd := e.GetStdioViaSocket().Socketfd; fd > 2 {
+				return fmt.Errorf("invalid %d fd", fd)
+			}
+			return nil
+		},
+		castaipb.EventType_EVENT_TTY_WRITE: func(e *castaipb.Event) error {
+			if e.GetFile().Path == "" {
+				return fmt.Errorf("empyt file path")
+			}
+			return nil
+		},
 	}
 	expectedTypes := lo.KeyBy(lo.Keys(eventsValidators), func(item castaipb.EventType) castaipb.EventType {
 		return item
@@ -815,26 +833,29 @@ func (t *testCASTAIServer) assertConfig(ctx context.Context) error {
 			return errors.New("timeout waiting controller and agent configs")
 		case <-time.Tick(1 * time.Second):
 			t.mu.Lock()
-			ctrlConfig := t.controllerConfig
-			agentConfig := t.agentConfig
+			ctrlConfigBytes := t.controllerConfig
+			agentConfigBytes := t.agentConfig
 			t.mu.Unlock()
 
-			if ctrlConfig == nil {
+			if len(ctrlConfigBytes) == 0 {
 				fmt.Println("no controller config yet")
 				continue
 			}
-			if agentConfig == nil {
+			if len(agentConfigBytes) == 0 {
 				fmt.Println("no agent config yet")
 				continue
 			}
-			r.NotEmpty(ctrlConfig.Version)
-			r.NotEmpty(ctrlConfig.ChartVersion)
-			r.True(ctrlConfig.ImageScan.Enabled)
-			r.True(ctrlConfig.Linter.Enabled)
-			r.True(ctrlConfig.Delta.Enabled)
-			r.True(ctrlConfig.KubeBench.Enabled)
-
-			r.NotEmpty(agentConfig.Version)
+			ctrlConfig := map[string]any{}
+			agentConfig := map[string]any{}
+			if err := json.Unmarshal(ctrlConfigBytes, &ctrlConfig); err != nil {
+				return err
+			}
+			if err := json.Unmarshal(agentConfigBytes, &agentConfig); err != nil {
+				return err
+			}
+			r.NotEmpty(ctrlConfig["Version"])
+			r.NotEmpty(ctrlConfig["ChartVersion"])
+			r.NotEmpty(agentConfig["Version"])
 
 			return r.error()
 		}

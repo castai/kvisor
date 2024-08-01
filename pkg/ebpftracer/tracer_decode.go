@@ -25,12 +25,12 @@ var ErrPanic = errors.New("encountered panic")
 func decodeContextAndArgs(ebpfMsgDecoder *decoder.Decoder) (types.EventContext, types.Args, error) {
 	var eventCtx types.EventContext
 	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
-		return types.EventContext{}, nil, err
+		return types.EventContext{}, nil, fmt.Errorf("decoding context: %w", err)
 	}
 	eventId := eventCtx.EventID
 	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
 	if err != nil {
-		return types.EventContext{}, nil, fmt.Errorf("cannot parse event type %d: %w", eventId, err)
+		return types.EventContext{}, nil, fmt.Errorf("parsing event %d args: %w", eventId, err)
 	}
 
 	return eventCtx, parsedArgs, nil

@@ -268,6 +268,7 @@ type tracerMapSpecs struct {
 	SysExitTails            *ebpf.MapSpec `ebpf:"sys_exit_tails"`
 	SyscallStatsMap         *ebpf.MapSpec `ebpf:"syscall_stats_map"`
 	TaskInfoMap             *ebpf.MapSpec `ebpf:"task_info_map"`
+	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
 	UidFilter               *ebpf.MapSpec `ebpf:"uid_filter"`
 	UtsNsFilter             *ebpf.MapSpec `ebpf:"uts_ns_filter"`
 	WalkModTreeQueue        *ebpf.MapSpec `ebpf:"walk_mod_tree_queue"`
@@ -358,6 +359,7 @@ type tracerMaps struct {
 	SysExitTails            *ebpf.Map `ebpf:"sys_exit_tails"`
 	SyscallStatsMap         *ebpf.Map `ebpf:"syscall_stats_map"`
 	TaskInfoMap             *ebpf.Map `ebpf:"task_info_map"`
+	TtyOpenedFiles          *ebpf.Map `ebpf:"tty_opened_files"`
 	UidFilter               *ebpf.Map `ebpf:"uid_filter"`
 	UtsNsFilter             *ebpf.Map `ebpf:"uts_ns_filter"`
 	WalkModTreeQueue        *ebpf.Map `ebpf:"walk_mod_tree_queue"`
@@ -431,6 +433,7 @@ func (m *tracerMaps) Close() error {
 		m.SysExitTails,
 		m.SyscallStatsMap,
 		m.TaskInfoMap,
+		m.TtyOpenedFiles,
 		m.UidFilter,
 		m.UtsNsFilter,
 		m.WalkModTreeQueue,

