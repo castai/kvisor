@@ -128,9 +128,11 @@ enum event_id_e {
     MODULE_LOAD,
     MODULE_FREE,
     SOCK_SET_STATE,
-    MAX_EVENT_ID,
     PROCESS_OOM_KILLED,
     TTY_OPEN,
+    TTY_WRITE,
+    STDIO_VIA_SOCKET,
+    MAX_EVENT_ID,
 };
 
 enum signal_event_id_e {

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -32,6 +33,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -51,12 +53,12 @@ type Config struct {
 	MetricsHTTPListenPort          int
 	State                          state.Config
 	ContainerStatsEnabled          bool
-	EBPFEventsPolicy               EventsPolicyConfig
 	EBPFEventsEnabled              bool
 	EBPFEventsPerCPUBuffer         int `validate:"required"`
 	EBPFEventsOutputChanSize       int `validate:"required"`
 	EBPFEventsStdioExporterEnabled bool
 	EBPFMetricsEnabled             bool
+	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig
 	MutedNamespaces                []string
 	SignatureEngineConfig          signature.SignatureEngineConfig
 	Castai                         castai.Config
@@ -66,57 +68,6 @@ type Config struct {
 	Clickhouse                     ClickhouseConfig
 	KubeAPIServiceAddr             string
 	ExportersQueueSize             int `validate:"required"`
-}
-
-func (c Config) Proto() *castaipb.AgentConfig {
-	var redactSensitiveValuesRegexValue string
-	if c.EnricherConfig.RedactSensitiveValuesRegex != nil {
-		redactSensitiveValuesRegexValue = c.EnricherConfig.RedactSensitiveValuesRegex.String()
-	}
-
-	return &castaipb.AgentConfig{
-		LogLevel:              c.LogLevel,
-		LogRateInterval:       c.LogRateInterval.String(),
-		LogRateBurst:          int32(c.LogRateBurst),
-		SendLogsLevel:         c.SendLogsLevel,
-		Version:               c.Version,
-		BtfPath:               c.BTFPath,
-		PyroscopeAddr:         c.PyroscopeAddr,
-		ContainerdSockPath:    c.ContainerdSockPath,
-		HostCgroupsDir:        c.HostCgroupsDir,
-		MetricsHttpListenPort: int32(c.MetricsHTTPListenPort),
-		State: &castaipb.AgentStateControllerConfig{
-			ContainerStatsScrapeInterval: c.State.ContainerStatsScrapeInterval.String(),
-		},
-		EbpfEventsPerCpuBuffer:   int32(c.EBPFEventsPerCPUBuffer),
-		EbpfEventsOutputChanSize: int32(c.EBPFEventsOutputChanSize),
-		EbpfMetricsEnabled:       c.EBPFMetricsEnabled,
-		MutedNamespaces:          c.MutedNamespaces,
-		SignatureEngineConfig: &castaipb.SignatureEngineConfig{
-			InputChanSize:                  int32(c.SignatureEngineConfig.InputChanSize),
-			OutputChanSize:                 int32(c.SignatureEngineConfig.OutputChanSize),
-			TtyDetectedSignatureEnabled:    c.SignatureEngineConfig.DefaultSignatureConfig.TTYDetectedSignatureEnabled,
-			Socks5DetectedSignatureEnabled: c.SignatureEngineConfig.DefaultSignatureConfig.SOCKS5DetectedSignatureEnabled,
-			Socks5DetectedSignatureConfig: &castaipb.SOCKS5DetectedSignatureConfig{
-				CacheSize: c.SignatureEngineConfig.DefaultSignatureConfig.SOCKS5DetectedSignatureConfig.CacheSize,
-			},
-		},
-		CastaiEnv: &castaipb.CastaiConfig{
-			ClusterId:   c.Castai.ClusterID,
-			ApiGrpcAddr: c.Castai.APIGrpcAddr,
-			Insecure:    c.Castai.Insecure,
-		},
-		EnricherConfig: &castaipb.EnricherConfig{
-			EnableFileHashEnricher: c.EnricherConfig.EnableFileHashEnricher,
-			SensitiveValuesRegex:   redactSensitiveValuesRegexValue,
-		},
-		Netflow: &castaipb.NetflowConfig{
-			Enabled:                     c.Netflow.Enabled,
-			SampleSubmitIntervalSeconds: c.Netflow.SampleSubmitIntervalSeconds,
-		},
-		EbpfEventsEnabled:     c.EBPFEventsEnabled,
-		ContainerStatsEnabled: c.ContainerStatsEnabled,
-	}
 }
 
 type EnricherConfig struct {
@@ -140,11 +91,6 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool
-}
-
-type EventsPolicyConfig struct {
-	DNSEventsEnabled bool
-	TCPEventsEnabled bool
 }
 
 func New(cfg *Config) *App {
@@ -171,7 +117,6 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	var log *logging.Logger
 	var exporters *state.Exporters
-
 	// Castai specific spetup if config is valid.
 	if cfg.Castai.Valid() {
 		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.Castai)
@@ -425,41 +370,35 @@ func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporter
 
 	if len(exporters.Events) > 0 {
 		policy.SignatureEvents = signatureEngine.TargetEvents()
-		policy.Events = append(policy.Events, []*ebpftracer.EventPolicy{
-			{ID: events.SchedProcessExec},
-			{ID: events.TrackSyscallStats},
-			{ID: events.ProcessOomKilled}, // OOM events should not happen too often and we want to know about all of them
-			{ID: events.MagicWrite},
-			// TODO: Move rate limit to kernel.
-			//{
-			//	ID: events.FileModification,
-			//	PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
-			//		Interval: 15 * time.Second,
-			//	}),
-			//},
-		}...)
 
-		if cfg.EBPFEventsPolicy.TCPEventsEnabled {
-			policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-				ID: events.SockSetState,
-				FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
-					Rate:  100,
-					Burst: 1,
-				}),
-			})
-		}
-
-		if cfg.EBPFEventsPolicy.DNSEventsEnabled {
-			policy.Events = append(policy.Events, dnsEventPolicy)
+		for _, enabledEvent := range cfg.EBPFEventsPolicyConfig.EnabledEvents {
+			switch enabledEvent {
+			case events.SockSetState:
+				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+					ID: events.SockSetState,
+					FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
+						Rate:  100,
+						Burst: 1,
+					}),
+				})
+			case events.NetPacketDNSBase:
+				policy.Events = append(policy.Events, dnsEventPolicy)
+			default:
+				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{ID: enabledEvent})
+			}
 		}
 	}
+
 	if len(exporters.Netflow) > 0 {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 			ID: events.NetFlowBase,
 		})
 		// If ebpf events exporters are not enabled but flows collection enabled
-		// we still need dns events to enrich dns question.
-		if len(exporters.Events) == 0 && cfg.EBPFEventsPolicy.DNSEventsEnabled {
+		// we still may need dns events to enrich dns question.
+		dnsEnabled := lo.ContainsBy(cfg.EBPFEventsPolicyConfig.EnabledEvents, func(item events.ID) bool {
+			return item == events.NetPacketDNSBase
+		})
+		if len(exporters.Events) == 0 && dnsEnabled {
 			policy.Events = append(policy.Events, dnsEventPolicy)
 		}
 	}
@@ -485,9 +424,13 @@ func (a *App) syncRemoteConfig(ctx context.Context, client *castai.Client) error
 			return ctx.Err()
 		default:
 		}
-		_, err := client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{
+		jsonConfig, err := json.Marshal(a.cfg) //nolint:musttag
+		if err != nil {
+			return fmt.Errorf("marshaling config: %w", err)
+		}
+		_, err = client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{
 			CurrentConfig: &castaipb.GetConfigurationRequest_Agent{
-				Agent: a.cfg.Proto(),
+				Agent: jsonConfig,
 			},
 		})
 		if err != nil {

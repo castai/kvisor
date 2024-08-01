@@ -20672,6 +20672,42 @@ func ParseTtyOpenArgs(decoder *Decoder) (types.TtyOpenArgs, error) {
   return result, nil
 }
 
+func ParseTtyWriteArgs(decoder *Decoder) (types.TtyWriteArgs, error) {
+  var result types.TtyWriteArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.TtyWriteArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.TtyWriteArgs{}, ErrTooManyArguments
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.TtyWriteArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      result.Path, err = decoder.ReadStringFromBuff()
+      if err != nil {
+        return types.TtyWriteArgs{}, err
+      }
+    case 1:
+      err = decoder.DecodeUint64(&result.Inode)
+      if err != nil {
+        return types.TtyWriteArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
 func ParseNetPacketBaseArgs(decoder *Decoder) (types.NetPacketBaseArgs, error) {
   return types.NetPacketBaseArgs{}, nil
 }
@@ -21598,6 +21634,42 @@ func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
       err = decoder.DecodeUint64(&result.RxPackets)
       if err != nil {
         return types.NetFlowBaseArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
+func ParseStdioViaSocketArgs(decoder *Decoder) (types.StdioViaSocketArgs, error) {
+  var result types.StdioViaSocketArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.StdioViaSocketArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.StdioViaSocketArgs{}, ErrTooManyArguments
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.StdioViaSocketArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      err = decoder.DecodeInt32(&result.Sockfd)
+      if err != nil {
+        return types.StdioViaSocketArgs{}, err
+      }
+    case 1:
+      result.Addr, err = decoder.ReadSockaddrFromBuff()
+      if err != nil {
+        return types.StdioViaSocketArgs{}, err
       }
     }
   }
@@ -22672,6 +22744,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseProcessExecuteFailedArgs(decoder)
   case events.TtyOpen:
     return ParseTtyOpenArgs(decoder)
+  case events.TtyWrite:
+    return ParseTtyWriteArgs(decoder)
   case events.NetPacketBase:
     return ParseNetPacketBaseArgs(decoder)
   case events.NetPacketIPBase:
@@ -22724,6 +22798,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseTrackSyscallStatsArgs(decoder)
   case events.NetFlowBase:
     return ParseNetFlowBaseArgs(decoder)
+  case events.StdioViaSocket:
+    return ParseStdioViaSocketArgs(decoder)
   case events.TestEvent:
     return ParseTestEventArgs(decoder)
   }

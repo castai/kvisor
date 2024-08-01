@@ -98,9 +98,11 @@ const (
 	ModuleLoad
 	ModuleFree
 	SockSetState
-	MaxCommonID
 	ProcessOomKilled
 	TtyOpen
+	TtyWrite
+	StdioViaSocket
+	MaxCommonID
 )
 
 // Events originated from user-space
@@ -149,7 +151,7 @@ const (
 
 // Signature events
 const (
-	StartSignatureID ID = 6000
+	StartSignatureID ID = 6000 + iota
 	MaxSignatureID   ID = 6999
 )
 

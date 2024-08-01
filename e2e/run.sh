@@ -70,14 +70,14 @@ do
     fi
     sleep 1
 done
-# Deploy some basic http communication services. Now we should get some conntrack records.
+# Deploy various k8s resources to generate events.
 kubectl apply -f ./e2e/conn-generator.yaml
-
 kubectl apply -f ./e2e/dns-generator.yaml
 kubectl apply -f ./e2e/magic-write-generator.yaml
 kubectl apply -f ./e2e/oom-generator.yaml
 kubectl apply -f ./e2e/socks5-generator.yaml
 kubectl apply -f ./e2e/iperf.yaml
+kubectl apply -f ./e2e/nc-server-client.yaml
 
 echo "Waiting for job to finish"
 

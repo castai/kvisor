@@ -18,7 +18,7 @@ type CastaiConfig struct {
 	RemoteConfigSyncDuration time.Duration `validate:"required"`
 }
 
-func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appProtoConfig *castaipb.ControllerConfig, kubeClient *kube.Client, castaiClient *castai.Client) *CastaiController {
+func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appJSONConfig []byte, kubeClient *kube.Client, castaiClient *castai.Client) *CastaiController {
 	if cfg.RemoteConfigSyncDuration == 0 {
 		cfg.RemoteConfigSyncDuration = 5 * time.Minute
 	}
@@ -28,7 +28,7 @@ func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appProtoConfig *
 		log:                            log.WithField("component", "castai_ctrl"),
 		kubeClient:                     kubeClient,
 		cfg:                            cfg,
-		appProtoConfig:                 appProtoConfig,
+		appJSONConfig:                  appJSONConfig,
 		castaiClient:                   castaiClient,
 		remoteConfigFetchErrors:        &atomic.Int64{},
 		remoteConfigInitialSyncTimeout: 1 * time.Minute,
@@ -39,13 +39,13 @@ func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appProtoConfig *
 }
 
 type CastaiController struct {
-	id             string
-	enabled        bool
-	log            *logging.Logger
-	kubeClient     *kube.Client
-	cfg            CastaiConfig
-	castaiClient   *castai.Client
-	appProtoConfig *castaipb.ControllerConfig
+	id            string
+	enabled       bool
+	log           *logging.Logger
+	kubeClient    *kube.Client
+	cfg           CastaiConfig
+	castaiClient  *castai.Client
+	appJSONConfig []byte
 
 	remoteConfigFetchErrors        *atomic.Int64
 	removeConfigMaxFailures        int64
@@ -98,7 +98,7 @@ func (c *CastaiController) fetchInitialRemoteConfig(ctx context.Context) error {
 
 		cfg, err := c.fetchConfig(ctx, &castaipb.GetConfigurationRequest{
 			CurrentConfig: &castaipb.GetConfigurationRequest_Controller{
-				Controller: c.appProtoConfig,
+				Controller: c.appJSONConfig,
 			},
 		})
 		if err != nil {

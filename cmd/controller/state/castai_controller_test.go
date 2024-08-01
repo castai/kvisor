@@ -68,7 +68,7 @@ func newTestCastaiController(log *logging.Logger, kubeClient *kube.Client, clien
 	cfg := CastaiConfig{
 		RemoteConfigSyncDuration: 10 * time.Millisecond,
 	}
-	return NewCastaiController(log, cfg, &castaipb.ControllerConfig{}, kubeClient, castaiClient)
+	return NewCastaiController(log, cfg, []byte{}, kubeClient, castaiClient)
 }
 
 type testGrpcClient struct {

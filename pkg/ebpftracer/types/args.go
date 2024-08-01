@@ -4100,6 +4100,13 @@ type TtyOpenArgs struct {
   Dev uint32
 }
 
+type TtyWriteArgs struct {
+  internalArgs
+
+  Path string
+  Inode uint64
+}
+
 type NetPacketBaseArgs struct {
   internalArgs
 }
@@ -4283,6 +4290,13 @@ type NetFlowBaseArgs struct {
   RxBytes uint64
   TxPackets uint64
   RxPackets uint64
+}
+
+type StdioViaSocketArgs struct {
+  internalArgs
+
+  Sockfd int32
+  Addr Sockaddr
 }
 
 type TestEventArgs struct {

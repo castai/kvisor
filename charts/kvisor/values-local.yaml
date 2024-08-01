@@ -19,6 +19,7 @@ agent:
     file-hash-enricher-enabled: true
     signature-tty-detection-enabled: true
     signature-socks5-detection-enabled: true
+    signature-stdio-via-sock-enabled: true
     container-stats-enabled: true
     ebpf-events-enabled: true
     netflow-enabled: true
@@ -26,7 +27,6 @@ agent:
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
     process-tree-enabled: true
-    signature-enabled: true
 
   prometheusScrape:
     enabled: true
