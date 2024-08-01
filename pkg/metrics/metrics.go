@@ -7,7 +7,6 @@ import (
 
 const (
 	EventTypeLabel string = "event_type"
-	EventIDLabel   string = "event_id"
 	ExporterName   string = "exporter"
 	MetricLabel    string = "metric"
 )
@@ -21,15 +20,15 @@ var (
 		Name: "kvisor_controller_pending_images_count",
 	})
 
-	AgentPulledEventsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	AgentPulledEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_kernel_pulled_events_total",
 		Help: "Counter for tracking pulled events from kernel rate",
-	})
+	}, []string{EventTypeLabel})
 
-	AgentPulledEventsBytesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	AgentPulledEventsBytesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_kernel_pulled_events_bytes_total",
 		Help: "Counter for tracking pulled events bytes from kernel rate",
-	})
+	}, []string{EventTypeLabel})
 
 	AgentKernelLostEventsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_agent_kernel_lost_events_total",
@@ -39,7 +38,7 @@ var (
 	AgentSkippedEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_skipped_events_total",
 		Help: "Counter for tracking skipped events rate",
-	}, []string{EventIDLabel})
+	}, []string{EventTypeLabel})
 
 	AgentExportedEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_exported_events_total",

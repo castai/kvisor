@@ -51,6 +51,8 @@ func NewRunCommand(version string) *cobra.Command {
 
 		btfPath                        = pflag.String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled              = pflag.Bool("ebpf-events-enabled", false, "Enable ebpf events")
+		ebpfEventsDNSEnabled           = pflag.Bool("ebpf-events-dns-enabled", true, "Enable ebpf dns events")
+		ebpfEventsTCPEnabled           = pflag.Bool("ebpf-events-tcp-enabled", true, "Enable ebpf tcp events")
 		ebpfEventsStdioExporterEnabled = pflag.Bool("ebpf-events-stdio-exporter-enabled", false, "Export ebpf event to stdio")
 		ebpfEventsPerCPUBuffer         = pflag.Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 		ebpfEventsOutputChanSize       = pflag.Int("ebpf-events-output-queue-size", 4096, "Ebpf user spaces output channel size")
@@ -62,9 +64,9 @@ func NewRunCommand(version string) *cobra.Command {
 
 		fileHashEnrichedEnabled = pflag.Bool("file-hash-enricher-enabled", false, "Enables the file has event enricher for exec events")
 
-		signatureEngineEnabled             = pflag.Bool("signature-enabled", false, "Enable signature engine")
 		signatureEngineInputEventChanSize  = pflag.Int("signature-engine-input-queue-size", 1000, "Input queue size for the signature engine")
 		signatureEngineOutputEventChanSize = pflag.Int("signature-engine-output-queue-size", 1000, "Output queue size for the signature engine")
+		sockViaStdioSignatureEnabled       = pflag.Bool("signature-stdio-via-sock-enabled", false, "Enables the sock via stdio signature")
 		ttyDetectionSignatureEnabled       = pflag.Bool("signature-tty-detection-enabled", false, "Enables the tty detection signature")
 		socks5DetectionSignatureEnabled    = pflag.Bool("signature-socks5-detection-enabled", false, "Enables the socks5 detection signature")
 		socks5DetectionSignatureCacheSize  = pflag.Uint32("signature-socks5-detection-cache-size", 1024, "Configures the amount of state machine cache entries to detect socks5 information")
@@ -136,13 +138,17 @@ func NewRunCommand(version string) *cobra.Command {
 				EBPFEventsPerCPUBuffer:         *ebpfEventsPerCPUBuffer,
 				EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
 				EBPFMetricsEnabled:             *ebpfMetricsEnabled,
-				MutedNamespaces:                *mutedNamespaces,
+				EBPFEventsPolicy: app.EventsPolicyConfig{
+					DNSEventsEnabled: *ebpfEventsDNSEnabled,
+					TCPEventsEnabled: *ebpfEventsTCPEnabled,
+				},
+				MutedNamespaces: *mutedNamespaces,
 				SignatureEngineConfig: signature.SignatureEngineConfig{
-					Enabled:        *signatureEngineEnabled,
 					InputChanSize:  *signatureEngineInputEventChanSize,
 					OutputChanSize: *signatureEngineOutputEventChanSize,
 					DefaultSignatureConfig: signature.DefaultSignatureConfig{
 						TTYDetectedSignatureEnabled:    *ttyDetectionSignatureEnabled,
+						SockViaStdioSignatureEnabled:   *sockViaStdioSignatureEnabled,
 						SOCKS5DetectedSignatureEnabled: *socks5DetectionSignatureEnabled,
 						SOCKS5DetectedSignatureConfig: signature.SOCKS5DetectionSignatureConfig{
 							CacheSize: *socks5DetectionSignatureCacheSize,

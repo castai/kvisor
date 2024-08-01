@@ -242,13 +242,11 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 			}
 			continue
 		}
-		metrics.AgentPulledEventsBytesTotal.Add(float64(len(record.RawSample)))
 		if record.LostSamples > 0 {
 			t.log.Warnf("lost %d events", record.LostSamples)
 			metrics.AgentKernelLostEventsTotal.Add(float64(record.LostSamples))
 			continue
 		}
-		metrics.AgentPulledEventsTotal.Inc()
 
 		// Reset decoder with new raw sample bytes.
 		ebpfMsgDecoder.Reset(record.RawSample)

@@ -51,6 +51,7 @@ type Config struct {
 	MetricsHTTPListenPort          int
 	State                          state.Config
 	ContainerStatsEnabled          bool
+	EBPFEventsPolicy               EventsPolicyConfig
 	EBPFEventsEnabled              bool
 	EBPFEventsPerCPUBuffer         int `validate:"required"`
 	EBPFEventsOutputChanSize       int `validate:"required"`
@@ -139,6 +140,11 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool
+}
+
+type EventsPolicyConfig struct {
+	DNSEventsEnabled bool
+	TCPEventsEnabled bool
 }
 
 func New(cfg *Config) *App {
@@ -327,65 +333,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer tracer.Close()
 
-	policy := &ebpftracer.Policy{
-		SystemEvents: []events.ID{
-			events.CgroupMkdir,
-			events.CgroupRmdir,
-		},
-		Events: []*ebpftracer.EventPolicy{},
-	}
-
-	dnsEventPolicy := &ebpftracer.EventPolicy{
-		ID: events.NetPacketDNSBase,
-		FilterGenerator: ebpftracer.FilterAnd(
-			ebpftracer.FilterEmptyDnsAnswers(log),
-			ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
-		),
-	}
-
-	if cfg.ProcessTree.Enabled {
-		policy.SystemEvents = append(policy.SystemEvents, []events.ID{
-			events.SchedProcessExec,
-			events.SchedProcessExit,
-			events.SchedProcessFork,
-		}...)
-	}
-
-	if len(exporters.Events) > 0 {
-		policy.SignatureEvents = signatureEngine.TargetEvents()
-		policy.Events = append(policy.Events, []*ebpftracer.EventPolicy{
-			{ID: events.SchedProcessExec},
-			{
-				ID: events.SockSetState,
-				FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
-					Rate:  100,
-					Burst: 1,
-				}),
-			},
-			dnsEventPolicy,
-			{ID: events.TrackSyscallStats},
-			// TODO: Move rate limit to kernel.
-			//{
-			//	ID: events.FileModification,
-			//	PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
-			//		Interval: 15 * time.Second,
-			//	}),
-			//},
-			{ID: events.ProcessOomKilled}, // OOM events should not happen too often and we want to know about all of them
-			{ID: events.MagicWrite},
-		}...)
-	}
-	if len(exporters.Netflow) > 0 {
-		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-			ID: events.NetFlowBase,
-		})
-
-		// If ebpf events exporters are not enabled but flows collection enabled
-		// we still need dns events to enrich dns question.
-		if len(exporters.Events) == 0 {
-			policy.Events = append(policy.Events, dnsEventPolicy)
-		}
-	}
+	policy := buildEBPFPolicy(log, cfg, exporters, signatureEngine)
 	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
 	if err := tracer.ApplyPolicy(policy); err != nil {
 		return fmt.Errorf("apply policy: %w", err)
@@ -448,6 +396,74 @@ func (a *App) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
 	}
+}
+
+func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
+	policy := &ebpftracer.Policy{
+		SystemEvents: []events.ID{
+			events.CgroupMkdir,
+			events.CgroupRmdir,
+		},
+		Events: []*ebpftracer.EventPolicy{},
+	}
+
+	dnsEventPolicy := &ebpftracer.EventPolicy{
+		ID: events.NetPacketDNSBase,
+		FilterGenerator: ebpftracer.FilterAnd(
+			ebpftracer.FilterEmptyDnsAnswers(log),
+			ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
+		),
+	}
+
+	if cfg.ProcessTree.Enabled {
+		policy.SystemEvents = append(policy.SystemEvents, []events.ID{
+			events.SchedProcessExec,
+			events.SchedProcessExit,
+			events.SchedProcessFork,
+		}...)
+	}
+
+	if len(exporters.Events) > 0 {
+		policy.SignatureEvents = signatureEngine.TargetEvents()
+		policy.Events = append(policy.Events, []*ebpftracer.EventPolicy{
+			{ID: events.SchedProcessExec},
+			{ID: events.TrackSyscallStats},
+			{ID: events.ProcessOomKilled}, // OOM events should not happen too often and we want to know about all of them
+			{ID: events.MagicWrite},
+			// TODO: Move rate limit to kernel.
+			//{
+			//	ID: events.FileModification,
+			//	PreFilterGenerator: ebpftracer.PreRateLimit(ebpftracer.RateLimitPolicy{
+			//		Interval: 15 * time.Second,
+			//	}),
+			//},
+		}...)
+
+		if cfg.EBPFEventsPolicy.TCPEventsEnabled {
+			policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+				ID: events.SockSetState,
+				FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
+					Rate:  100,
+					Burst: 1,
+				}),
+			})
+		}
+
+		if cfg.EBPFEventsPolicy.DNSEventsEnabled {
+			policy.Events = append(policy.Events, dnsEventPolicy)
+		}
+	}
+	if len(exporters.Netflow) > 0 {
+		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+			ID: events.NetFlowBase,
+		})
+		// If ebpf events exporters are not enabled but flows collection enabled
+		// we still need dns events to enrich dns question.
+		if len(exporters.Events) == 0 && cfg.EBPFEventsPolicy.DNSEventsEnabled {
+			policy.Events = append(policy.Events, dnsEventPolicy)
+		}
+	}
+	return policy
 }
 
 func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containersClient *containers.Client) (*processtree.ProcessTreeCollectorImpl, error) {
