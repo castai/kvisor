@@ -61,6 +61,7 @@ typedef struct {
     u64 flow_sample_submit_interval_seconds;
     u64 flow_grouping;
     bool track_syscall_stats;
+    bool export_metrics;
 } global_config_t;
 
 volatile const global_config_t global_config;

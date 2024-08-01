@@ -25,8 +25,9 @@ statfunc int save_str_arr_to_buf(args_buffer_t *, const char __user *const __use
 statfunc int save_args_str_arr_to_buf(args_buffer_t *, const char *, const char *, int, u8);
 statfunc int save_sockaddr_to_buf(args_buffer_t *, struct socket *, u8);
 statfunc int save_args_to_submit_buf(event_data_t *, args_t *);
-statfunc int events_perf_submit(program_data_t *, u32 id, long);
-statfunc int signal_perf_submit(void *, controlplane_signal_t *sig, u32 id);
+
+#define events_perf_submit(p, id, ret)        do_perf_submit(&events, p, id, ret)
+#define signal_events_perf_submit(p, id, ret) do_perf_submit(&signal_events, p, id, ret)
 
 // FUNCTIONS
 
@@ -579,22 +580,6 @@ statfunc int net_events_perf_submit(void *ctx, u32 id, event_data_t *event)
                  : [size] "r"(size), [max_size] "i"(MAX_EVENT_SIZE));
 
     return bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, size);
-}
-
-statfunc int signal_perf_submit(void *ctx, controlplane_signal_t *sig, u32 id)
-{
-    sig->event_id = id;
-
-    u32 size =
-        sizeof(u32) + sizeof(u8) + sig->args_buf.offset; // signal id + argnum + arg buffer size
-
-    // inline bounds check to force compiler to use the register of size
-    asm volatile("if %[size] < %[max_size] goto +1;\n"
-                 "%[size] = %[max_size];\n"
-                 :
-                 : [size] "r"(size), [max_size] "i"(MAX_SIGNAL_SIZE));
-
-    return bpf_perf_event_output(ctx, &signals, BPF_F_CURRENT_CPU, sig, size);
 }
 
 #endif
