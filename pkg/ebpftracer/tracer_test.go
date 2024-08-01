@@ -115,7 +115,7 @@ func TestTracer(t *testing.T) {
 			// {ID: events.NetFlowBase},
 			//{ID: events.NetPacketTCPBase},
 			// {ID: events.SchedProcessExec},
-			{ID: events.MagicWrite},
+			// {ID: events.MagicWrite},
 			//{ID: events.SecuritySocketConnect},
 			// {ID: events.SockSetState},
 			//{ID: events.NetPacketDNSBase},
