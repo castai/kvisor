@@ -164,8 +164,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
-  --set agent.extraArgs.signature-enabled=true \
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
+  --set agent.extraArgs.signature-stdio-via-sock-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
   --set agent.extraArgs.process-tree-enabled=true \
