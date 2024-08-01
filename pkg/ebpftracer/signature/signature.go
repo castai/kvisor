@@ -19,7 +19,6 @@ type SignatureMetadata struct {
 }
 
 type SignatureEngineConfig struct {
-	Enabled                bool
 	InputChanSize          int `validate:"required"`
 	OutputChanSize         int `validate:"required"`
 	DefaultSignatureConfig DefaultSignatureConfig

@@ -4,16 +4,16 @@ import "github.com/castai/kvisor/pkg/logging"
 
 type DefaultSignatureConfig struct {
 	TTYDetectedSignatureEnabled    bool
+	SockViaStdioSignatureEnabled   bool
 	SOCKS5DetectedSignatureEnabled bool
 	SOCKS5DetectedSignatureConfig  SOCKS5DetectionSignatureConfig
 }
 
 func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signature, error) {
-	if !cfg.Enabled {
-		return []Signature{}, nil
-	}
-	result := []Signature{
-		NewStdViaSocketSignature(log),
+	var result []Signature
+
+	if cfg.DefaultSignatureConfig.SockViaStdioSignatureEnabled {
+		result = append(result, NewStdViaSocketSignature(log))
 	}
 
 	if cfg.DefaultSignatureConfig.TTYDetectedSignatureEnabled {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
-	"strconv"
 	"time"
 
 	"github.com/castai/kvisor/pkg/containers"
@@ -17,7 +16,6 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
 	"github.com/cilium/ebpf"
-	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
 )
 
@@ -50,8 +48,10 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	if err != nil {
 		return err
 	}
-
 	eventId := eventCtx.EventID
+	def := t.eventsSet[eventCtx.EventID]
+	metrics.AgentPulledEventsBytesTotal.WithLabelValues(def.name).Add(float64(ebpfMsgDecoder.BuffLen()))
+	metrics.AgentPulledEventsTotal.WithLabelValues(def.name).Inc()
 
 	// Process special events for cgroup creation and removal.
 	// These are system events which are not send down via events pipeline.
@@ -187,18 +187,18 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 
 	// Do not process an event we do not have a policy set any further.
 	if _, found := t.eventPoliciesMap[eventId]; !found && t.policy != nil {
-		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventId))}).Inc()
+		metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
 		return nil
 	}
 
 	// TODO: Move rate limit based policy to kernel side.
 	if err := t.allowedByPolicyPre(&eventCtx); err != nil {
-		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventId))}).Inc()
+		metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
 		return nil
 	}
 
 	if err := t.allowedByPolicy(eventId, eventCtx.CgroupID, event); err != nil {
-		metrics.AgentSkippedEventsTotal.With(prometheus.Labels{metrics.EventIDLabel: strconv.Itoa(int(eventCtx.EventID))}).Inc()
+		metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
 		return nil
 	}
 
@@ -207,15 +207,13 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		select {
 		case t.netflowEventsChan <- event:
 		default:
-			def := t.eventsSet[eventCtx.EventID]
-			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: def.name}).Inc()
+			metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
 		}
 	default:
 		select {
 		case t.eventsChan <- event:
 		default:
-			def := t.eventsSet[eventCtx.EventID]
-			metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: def.name}).Inc()
+			metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
 		}
 	}
 
