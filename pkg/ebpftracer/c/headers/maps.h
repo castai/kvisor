@@ -106,7 +106,6 @@ BPF_LRU_HASH(bpf_attach_map, u32, bpf_used_helpers_t, 1024);                    
 BPF_LRU_HASH(bpf_attach_tmp_map, u32, bpf_used_helpers_t, 1024);                        // temporarily hold bpf_used_helpers_t
 BPF_LRU_HASH(bpf_prog_load_map, u32, void *, 1024);                                     // store bpf prog aux pointer between bpf_check and security_bpf_prog
 BPF_PERCPU_ARRAY(event_data_map, event_data_t, 1);                                      // persist event related data
-BPF_PERCPU_ARRAY(signal_data_map, controlplane_signal_t, 1);                            // signal scratch map
 BPF_PERCPU_ARRAY(netflows_data_map, event_data_t, SCRATCH_MAP_SIZE);                    // netflows scratch map
 BPF_HASH(logs_count, bpf_log_t, bpf_log_count_t, 4096);                                 // logs count
 BPF_PERCPU_ARRAY(scratch_map, scratch_t, 2);                                            // scratch space to avoid allocating stuff on the stack

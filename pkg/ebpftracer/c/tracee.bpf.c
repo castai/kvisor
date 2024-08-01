@@ -37,7 +37,6 @@
 #include <common/memory.h>
 #include <common/network.h>
 #include <common/probes.h>
-#include <common/signal.h>
 #include <common/debug.h>
 #include <common/stats.h>
 #include <common/metrics.h>

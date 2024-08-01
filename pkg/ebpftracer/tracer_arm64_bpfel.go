@@ -17,7 +17,8 @@ type tracerGlobalConfigT struct {
 	FlowSampleSubmitIntervalSeconds uint64
 	FlowGrouping                    uint64
 	TrackSyscallStats               bool
-	_                               [7]byte
+	ExportMetrics                   bool
+	_                               [6]byte
 }
 
 // loadTracer returns the embedded CollectionSpec for tracer.
@@ -254,7 +255,6 @@ type tracerMapSpecs struct {
 	RecentDeletedModuleMap  *ebpf.MapSpec `ebpf:"recent_deleted_module_map"`
 	RecentInsertedModuleMap *ebpf.MapSpec `ebpf:"recent_inserted_module_map"`
 	ScratchMap              *ebpf.MapSpec `ebpf:"scratch_map"`
-	SignalDataMap           *ebpf.MapSpec `ebpf:"signal_data_map"`
 	SignalEvents            *ebpf.MapSpec `ebpf:"signal_events"`
 	Signals                 *ebpf.MapSpec `ebpf:"signals"`
 	Sockmap                 *ebpf.MapSpec `ebpf:"sockmap"`
@@ -345,7 +345,6 @@ type tracerMaps struct {
 	RecentDeletedModuleMap  *ebpf.Map `ebpf:"recent_deleted_module_map"`
 	RecentInsertedModuleMap *ebpf.Map `ebpf:"recent_inserted_module_map"`
 	ScratchMap              *ebpf.Map `ebpf:"scratch_map"`
-	SignalDataMap           *ebpf.Map `ebpf:"signal_data_map"`
 	SignalEvents            *ebpf.Map `ebpf:"signal_events"`
 	Signals                 *ebpf.Map `ebpf:"signals"`
 	Sockmap                 *ebpf.Map `ebpf:"sockmap"`
@@ -419,7 +418,6 @@ func (m *tracerMaps) Close() error {
 		m.RecentDeletedModuleMap,
 		m.RecentInsertedModuleMap,
 		m.ScratchMap,
-		m.SignalDataMap,
 		m.SignalEvents,
 		m.Signals,
 		m.Sockmap,

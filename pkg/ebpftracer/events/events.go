@@ -98,9 +98,10 @@ const (
 	ModuleLoad
 	ModuleFree
 	SockSetState
-	MaxCommonID
 	ProcessOomKilled
 	TtyOpen
+
+	MaxCommonID
 )
 
 // Events originated from user-space

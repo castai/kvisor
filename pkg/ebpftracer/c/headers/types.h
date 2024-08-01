@@ -128,9 +128,10 @@ enum event_id_e {
     MODULE_LOAD,
     MODULE_FREE,
     SOCK_SET_STATE,
-    MAX_EVENT_ID,
     PROCESS_OOM_KILLED,
     TTY_OPEN,
+
+    MAX_EVENT_ID,
 };
 
 enum signal_event_id_e {
@@ -363,20 +364,7 @@ typedef struct event_data {
     u64 in_use;
 } event_data_t;
 
-// A control plane signal - sent to indicate some critical event which should be processed
-// with priority.
-//
-// Signals currently consist of shortened events sent only with their arguments.
-// As such, they consist of an event id and an argument buffer.
-// If we ever require a signal independent of an event, the event_id field should change
-// accordingly.
-typedef struct controlplane_signal {
-    u32 event_id;
-    args_buffer_t args_buf;
-} controlplane_signal_t;
-
-#define MAX_EVENT_SIZE  sizeof(event_context_t) + sizeof(u8) + ARGS_BUF_SIZE
-#define MAX_SIGNAL_SIZE sizeof(u32) + sizeof(u8) + ARGS_BUF_SIZE
+#define MAX_EVENT_SIZE sizeof(event_context_t) + sizeof(u8) + ARGS_BUF_SIZE
 
 #define BPF_MAX_LOG_FILE_LEN 72
 
