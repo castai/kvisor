@@ -627,6 +627,16 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 			}
 			return nil
 		},
+		castaipb.EventType_EVENT_TCP_LISTEN: func(e *castaipb.Event) error {
+			tuple := e.GetTuple()
+			if _, ok := netip.AddrFromSlice(tuple.SrcIp); !ok {
+				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
+			}
+			if tuple.SrcPort == 0 {
+				return fmt.Errorf("invalid port: 0")
+			}
+			return nil
+		},
 		castaipb.EventType_EVENT_MAGIC_WRITE: func(e *castaipb.Event) error {
 			return nil
 		},
