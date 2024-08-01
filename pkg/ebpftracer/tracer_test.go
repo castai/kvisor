@@ -92,7 +92,6 @@ func TestTracer(t *testing.T) {
 	}()
 
 	signatures, err := signature.DefaultSignatures(log, signature.SignatureEngineConfig{
-		Enabled: true,
 		DefaultSignatureConfig: signature.DefaultSignatureConfig{
 			TTYDetectedSignatureEnabled:    true,
 			SOCKS5DetectedSignatureEnabled: true,
