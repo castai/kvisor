@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	"strconv"
@@ -316,13 +317,15 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 	for _, eventID := range policy.SystemEvents {
 		t.findAllRequiredEvents(eventID, requiredEventsIDs)
 	}
-	t.log.Debugf("required events: %v", lo.Map(lo.Keys(requiredEventsIDs), func(item events.ID, index int) string {
-		def, found := t.eventsSet[item]
-		if found {
-			return def.name
-		}
-		return strconv.Itoa(int(item))
-	}))
+	if t.log.IsEnabled(slog.LevelDebug) {
+		t.log.Debugf("required events: %v", lo.Map(lo.Keys(requiredEventsIDs), func(item events.ID, index int) string {
+			def, found := t.eventsSet[item]
+			if found {
+				return def.name
+			}
+			return strconv.Itoa(int(item))
+		}))
+	}
 
 	eventsBpfMapConfig := make(map[events.ID][]byte)
 

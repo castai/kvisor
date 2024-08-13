@@ -188,6 +188,7 @@ type tracerProgramSpecs struct {
 	TracepointSchedSchedSwitch               *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_switch"`
 	TracepointTaskTaskRename                 *ebpf.ProgramSpec `ebpf:"tracepoint__task__task_rename"`
 	TtyOpen                                  *ebpf.ProgramSpec `ebpf:"tty_open"`
+	TtyWrite                                 *ebpf.ProgramSpec `ebpf:"tty_write"`
 	UprobeLkmSeeker                          *ebpf.ProgramSpec `ebpf:"uprobe_lkm_seeker"`
 	UprobeLkmSeekerSubmitter                 *ebpf.ProgramSpec `ebpf:"uprobe_lkm_seeker_submitter"`
 	UprobeMemDumpTrigger                     *ebpf.ProgramSpec `ebpf:"uprobe_mem_dump_trigger"`
@@ -570,6 +571,7 @@ type tracerPrograms struct {
 	TracepointSchedSchedSwitch               *ebpf.Program `ebpf:"tracepoint__sched__sched_switch"`
 	TracepointTaskTaskRename                 *ebpf.Program `ebpf:"tracepoint__task__task_rename"`
 	TtyOpen                                  *ebpf.Program `ebpf:"tty_open"`
+	TtyWrite                                 *ebpf.Program `ebpf:"tty_write"`
 	UprobeLkmSeeker                          *ebpf.Program `ebpf:"uprobe_lkm_seeker"`
 	UprobeLkmSeekerSubmitter                 *ebpf.Program `ebpf:"uprobe_lkm_seeker_submitter"`
 	UprobeMemDumpTrigger                     *ebpf.Program `ebpf:"uprobe_mem_dump_trigger"`
@@ -708,6 +710,7 @@ func (p *tracerPrograms) Close() error {
 		p.TracepointSchedSchedSwitch,
 		p.TracepointTaskTaskRename,
 		p.TtyOpen,
+		p.TtyWrite,
 		p.UprobeLkmSeeker,
 		p.UprobeLkmSeekerSubmitter,
 		p.UprobeMemDumpTrigger,

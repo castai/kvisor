@@ -6963,7 +6963,7 @@ int oom_mark_victim(struct bpf_raw_tracepoint_args *ctx)
 {
     __u32 pid = ctx->args[0];
 
-    u32 one = 1;
+    u8 one = 1;
     bpf_map_update_elem(&oom_info, &pid, &one, BPF_ANY);
 
     return 0;
@@ -6983,8 +6983,8 @@ int BPF_KPROBE(tty_open, struct inode *inode, struct file *filep)
 
     if (should_submit(TTY_WRITE, p.event)) {
         unsigned long ino = BPF_CORE_READ(inode, i_ino);
-        u32 one = 1;
-        bpf_map_update_elem(&tty_opened_files, &ino, &one, BPF_NOEXIST);
+        u8 one = 1;
+        bpf_map_update_elem(&tty_opened_files, &ino, &one, BPF_ANY);
     }
 
     if (should_submit(TTY_OPEN, p.event)) {
@@ -7019,7 +7019,7 @@ int BPF_KPROBE(tty_write, struct kiocb *iocb, struct iov_iter *from)
         struct file *file = (struct file *) BPF_CORE_READ(iocb, ki_filp);
         u64 inode = get_inode_nr_from_file(file);
         if (!bpf_map_lookup_elem(&tty_opened_files, &inode)) {
-           // return 0;
+           return 0;
         }
         bpf_map_delete_elem(&tty_opened_files, &inode);
 

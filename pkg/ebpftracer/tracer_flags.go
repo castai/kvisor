@@ -59,13 +59,14 @@ func (n *EventsPolicyConfig) String() string {
 
 func (n *EventsPolicyConfig) Set(s string) error {
 	n.EnabledEvents = []events.ID{}
-	parts := strings.Split(s, "|")
+	parts := strings.Split(s, ",")
 	defs := newEventsDefinitionSet(&tracerObjects{})
 	defsByName := map[string]events.ID{}
 	for id, def := range defs {
 		defsByName[def.name] = id
 	}
 	for _, eventName := range parts {
+		eventName = strings.TrimSpace(eventName)
 		eventID, found := defsByName[eventName]
 		if !found {
 			return fmt.Errorf("unknown event name %q", eventName)

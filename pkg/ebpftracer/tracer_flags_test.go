@@ -55,7 +55,7 @@ func TestParseEventsPolicyConfig(t *testing.T) {
 			name: "single event", input: "magic_write", want: EventsPolicyConfig{EnabledEvents: []events.ID{events.MagicWrite}},
 		},
 		{
-			name: "multiple events", input: "magic_write|sched_process_exec", want: EventsPolicyConfig{
+			name: "multiple events", input: "magic_write,sched_process_exec", want: EventsPolicyConfig{
 				EnabledEvents: []events.ID{events.MagicWrite, events.SchedProcessExec},
 			},
 		},

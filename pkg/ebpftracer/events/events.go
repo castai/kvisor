@@ -151,7 +151,7 @@ const (
 
 // Signature events
 const (
-	StartSignatureID ID = 6000 + iota
+	StartSignatureID ID = iota + 6000
 	MaxSignatureID   ID = 6999
 )
 
