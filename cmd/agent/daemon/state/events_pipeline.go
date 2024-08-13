@@ -141,6 +141,9 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 			finding.Ip = addr.Addr.Addr().AsSlice()
 			finding.Port = uint32(addr.Addr.Port())
 		}
+		event.Data = &castpb.Event_StdioViaSocket{
+			StdioViaSocket: &finding,
+		}
 	case ebpftypes.TtyWriteArgs:
 		event.EventType = castpb.EventType_EVENT_TTY_WRITE
 		event.Data = &castpb.Event_File{

