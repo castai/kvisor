@@ -123,6 +123,8 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 		)
 	}()
 
+	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
+
 	for key, netflow := range c.netflows {
 		// Flow was exported before and doesn't have new changes. Delete it and continue.
 		if netflow.exportedAt.After(time.UnixMicro(int64(netflow.event.Context.Ts) / 1000)) {
@@ -152,6 +154,7 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 		pbNetFlow.Destinations = make([]*castpb.NetflowDestination, 0, len(activeNetflowDests))
 		for _, dest := range activeNetflowDests {
 			flowDest := c.toProtoNetflowDest(
+				podsByIPCache,
 				netflow.event.Context.CgroupID,
 				args.Tuple.Src,
 				dest.addrPort,
@@ -236,7 +239,7 @@ func (c *Controller) toProtoNetflow(e *types.Event, args *types.NetFlowBaseArgs)
 	return res
 }
 
-func (c *Controller) toProtoNetflowDest(cgroupID uint64, src, dst netip.AddrPort, txBytes, rxBytes, txPackets, rxPackets uint64) *castpb.NetflowDestination {
+func (c *Controller) toProtoNetflowDest(podsByIPCache map[netip.Addr]*kubepb.IPInfo, cgroupID uint64, src, dst netip.AddrPort, txBytes, rxBytes, txPackets, rxPackets uint64) *castpb.NetflowDestination {
 	dns := c.getAddrDnsQuestion(cgroupID, dst.Addr())
 
 	if c.clusterInfo.serviceCidr.Contains(dst.Addr()) {
@@ -256,7 +259,7 @@ func (c *Controller) toProtoNetflowDest(cgroupID uint64, src, dst netip.AddrPort
 	}
 
 	if c.clusterInfo.serviceCidr.Contains(dst.Addr()) || c.clusterInfo.podCidr.Contains(dst.Addr()) {
-		ipInfo, found := c.getIPInfo(dst.Addr())
+		ipInfo, found := c.getIPInfo(podsByIPCache, dst.Addr())
 		if found {
 			res.PodName = ipInfo.PodName
 			res.Namespace = ipInfo.Namespace
@@ -268,8 +271,8 @@ func (c *Controller) toProtoNetflowDest(cgroupID uint64, src, dst netip.AddrPort
 	return res
 }
 
-func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
-	ipInfo, found := c.ipInfoCache.Get(addr)
+func (c *Controller) getIPInfo(podsByIPCache map[netip.Addr]*kubepb.IPInfo, addr netip.Addr) (*kubepb.IPInfo, bool) {
+	ipInfo, found := podsByIPCache[addr]
 	if !found {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -279,7 +282,7 @@ func (c *Controller) getIPInfo(addr netip.Addr) (*kubepb.IPInfo, bool) {
 			return nil, false
 		}
 		ipInfo = resp.Info
-		c.ipInfoCache.Add(addr, ipInfo)
+		podsByIPCache[addr] = ipInfo
 	}
 	return ipInfo, true
 }

@@ -99,15 +99,6 @@ func NewController(
 		panic(err)
 	}
 
-	// IP info cache is used only in netflow pipeline.
-	// It's safe to use non synced lru since it's accessed form on goroutine.
-	ipInfoCache, err := freelru.New[netip.Addr, *kubepb.IPInfo](1024, func(k netip.Addr) uint32 {
-		return uint32(xxhash.Sum64(k.AsSlice()))
-	})
-	if err != nil {
-		panic(err)
-	}
-
 	// Conntrack cache is used only in netflow pipeline.
 	// It's safe to use non synced lru since it's accessed form on goroutine.
 	conntrackCacheKey := xxhash.New()
@@ -139,7 +130,6 @@ func NewController(
 		mutedNamespaces:            map[string]struct{}{},
 		netflows:                   map[uint64]*netflowVal{},
 		dnsCache:                   dnsCache,
-		ipInfoCache:                ipInfoCache,
 		podCache:                   podCache,
 		conntrackCache:             conntrackCache,
 		processTreeCollector:       processTreeCollector,
@@ -177,7 +167,6 @@ type Controller struct {
 	kubeClient     kubepb.KubeAPIClient
 	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
-	ipInfoCache    *freelru.LRU[netip.Addr, *kubepb.IPInfo]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 }
 
