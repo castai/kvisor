@@ -28,9 +28,10 @@ service RuntimeSecurityAgentAPI {
 }
 
 message GetConfigurationRequest {
+  reserved 1, 2; // Previously configs there strongly typed.
   oneof current_config {
-    bytes controller = 1;
-    bytes agent = 2;
+    bytes controller = 3;
+    bytes agent = 4;
   }
 }
 
