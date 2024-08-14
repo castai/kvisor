@@ -26,28 +26,28 @@ type castaiClient interface {
 }
 
 type Config struct {
-	Enabled                   bool
-	CastaiSecretRefName       string
-	ScanInterval              time.Duration `validate:"required"`
-	ScanTimeout               time.Duration
-	MaxConcurrentScans        int64 `validate:"required"`
-	ScanJobImagePullPolicy    string
-	Mode                      string
-	CPURequest                string
-	CPULimit                  string
-	MemoryRequest             string
-	MemoryLimit               string
-	ProfileEnabled            bool
-	PhlareEnabled             bool
-	PrivateRegistryPullSecret string
-	ServiceAccount            string
-	InitDelay                 time.Duration
-	CastaiGRPCAddress         string
-	CastaiClusterID           string
-	CastaiGrpcInsecure        bool
-	ImageScanBlobsCacheURL    string
-	CloudProvider             string
-	IgnoredNamespaces         []string
+	Enabled                   bool          `json:"enabled"`
+	CastaiSecretRefName       string        `json:"castaiSecretRefName"`
+	ScanInterval              time.Duration `validate:"required" json:"scanInterval"`
+	ScanTimeout               time.Duration `json:"scanTimeout"`
+	MaxConcurrentScans        int64         `validate:"required" json:"maxConcurrentScans"`
+	ScanJobImagePullPolicy    string        `json:"scanJobImagePullPolicy"`
+	Mode                      string        `json:"mode"`
+	CPURequest                string        `json:"CPURequest"`
+	CPULimit                  string        `json:"CPULimit"`
+	MemoryRequest             string        `json:"memoryRequest"`
+	MemoryLimit               string        `json:"memoryLimit"`
+	ProfileEnabled            bool          `json:"profileEnabled"`
+	PhlareEnabled             bool          `json:"phlareEnabled"`
+	PrivateRegistryPullSecret string        `json:"privateRegistryPullSecret"`
+	ServiceAccount            string        `json:"serviceAccount"`
+	InitDelay                 time.Duration `json:"initDelay"`
+	CastaiGRPCAddress         string        `json:"castaiGRPCAddress"`
+	CastaiClusterID           string        `json:"castaiClusterID"`
+	CastaiGrpcInsecure        bool          `json:"castaiGrpcInsecure"`
+	ImageScanBlobsCacheURL    string        `json:"imageScanBlobsCacheURL"`
+	CloudProvider             string        `json:"cloudProvider"`
+	IgnoredNamespaces         []string      `json:"ignoredNamespaces"`
 }
 
 type ImageScanImage struct {

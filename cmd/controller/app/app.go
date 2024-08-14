@@ -36,38 +36,38 @@ import (
 
 type Config struct {
 	// Logging configuration.
-	LogLevel        string
-	LogRateInterval time.Duration
-	LogRateBurst    int
+	LogLevel        string        `json:"logLevel"`
+	LogRateInterval time.Duration `json:"logRateInterval"`
+	LogRateBurst    int           `json:"logRateBurst"`
 
 	// Built binary version.
-	Version      string
-	ChartVersion string
+	Version      string `json:"version"`
+	ChartVersion string `json:"chartVersion"`
 
 	// Current running pod metadata.
-	PodNamespace string `validate:"required"`
-	PodName      string `validate:"required"`
+	PodNamespace string `validate:"required" json:"podNamespace"`
+	PodName      string `validate:"required" json:"podName"`
 
 	// HTTPListenPort is internal http servers listen port.
-	HTTPListenPort        int `validate:"required"`
-	MetricsHTTPListenPort int
-	KubeServerListenPort  int `validate:"required"`
+	HTTPListenPort        int `validate:"required" json:"HTTPListenPort"`
+	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
+	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
 
 	// PyroscopeAddr is optional pyroscope addr to send traces.
-	PyroscopeAddr string
+	PyroscopeAddr string `json:"pyroscopeAddr"`
 
-	CastaiController state.CastaiConfig
-	CastaiEnv        castai.Config
-	ImageScan        imagescan.Config
-	Linter           kubelinter.Config
-	KubeBench        kubebench.Config
-	Delta            delta.Config
-	JobsCleanup      state.JobsCleanupConfig
-	AgentConfig      AgentConfig
+	CastaiController state.CastaiConfig      `json:"castaiController"`
+	CastaiEnv        castai.Config           `json:"castaiEnv"`
+	ImageScan        imagescan.Config        `json:"imageScan"`
+	Linter           kubelinter.Config       `json:"linter"`
+	KubeBench        kubebench.Config        `json:"kubeBench"`
+	Delta            delta.Config            `json:"delta"`
+	JobsCleanup      state.JobsCleanupConfig `json:"jobsCleanup"`
+	AgentConfig      AgentConfig             `json:"agentConfig"`
 }
 
 type AgentConfig struct {
-	Enabled bool
+	Enabled bool `json:"enabled"`
 }
 
 func New(cfg Config, clientset kubernetes.Interface) *App {

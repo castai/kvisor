@@ -38,12 +38,12 @@ type kubeClient interface {
 }
 
 type Config struct {
-	Enabled        bool
-	Interval       time.Duration `validate:"required"`
-	InitialDeltay  time.Duration
-	SendTimeout    time.Duration `validate:"required"`
-	UseCompression bool
-	BatchSize      int `validate:"required"`
+	Enabled        bool          `json:"enabled"`
+	Interval       time.Duration `validate:"required" json:"interval"`
+	InitialDeltay  time.Duration `json:"initialDeltay"`
+	SendTimeout    time.Duration `validate:"required" json:"sendTimeout"`
+	UseCompression bool          `json:"useCompression"`
+	BatchSize      int           `validate:"required" json:"batchSize"`
 }
 
 func NewController(

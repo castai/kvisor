@@ -15,7 +15,7 @@ import (
 )
 
 type CastaiConfig struct {
-	RemoteConfigSyncDuration time.Duration `validate:"required"`
+	RemoteConfigSyncDuration time.Duration `validate:"required" json:"remoteConfigSyncDuration"`
 }
 
 func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appJSONConfig []byte, kubeClient *kube.Client, castaiClient *castai.Client) *CastaiController {

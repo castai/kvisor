@@ -28,9 +28,9 @@ type castaiClient interface {
 }
 
 type Config struct {
-	Enabled      bool
-	ScanInterval time.Duration `validate:"required"`
-	InitDelay    time.Duration
+	Enabled      bool          `json:"enabled"`
+	ScanInterval time.Duration `validate:"required" json:"scanInterval"`
+	InitDelay    time.Duration `json:"initDelay"`
 }
 
 func NewController(log *logging.Logger, cfg Config, linter *Linter, castaiClient castaiClient) *Controller {

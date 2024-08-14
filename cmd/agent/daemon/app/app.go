@@ -41,56 +41,56 @@ import (
 )
 
 type Config struct {
-	LogLevel                       string
-	LogRateInterval                time.Duration
-	LogRateBurst                   int
-	SendLogsLevel                  string
-	Version                        string
-	BTFPath                        string
-	PyroscopeAddr                  string
-	ContainerdSockPath             string
-	HostCgroupsDir                 string
-	MetricsHTTPListenPort          int
-	State                          state.Config
-	ContainerStatsEnabled          bool
-	EBPFEventsEnabled              bool
-	EBPFEventsPerCPUBuffer         int `validate:"required"`
-	EBPFEventsOutputChanSize       int `validate:"required"`
-	EBPFEventsStdioExporterEnabled bool
-	EBPFMetricsEnabled             bool
-	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig
-	MutedNamespaces                []string
-	SignatureEngineConfig          signature.SignatureEngineConfig
-	Castai                         castai.Config
-	EnricherConfig                 EnricherConfig
-	Netflow                        NetflowConfig
-	ProcessTree                    ProcessTreeConfig
-	Clickhouse                     ClickhouseConfig
-	KubeAPIServiceAddr             string
-	ExportersQueueSize             int `validate:"required"`
+	LogLevel                       string                          `json:"logLevel"`
+	LogRateInterval                time.Duration                   `json:"logRateInterval"`
+	LogRateBurst                   int                             `json:"logRateBurst"`
+	SendLogsLevel                  string                          `json:"sendLogsLevel"`
+	Version                        string                          `json:"version"`
+	BTFPath                        string                          `json:"BTFPath"`
+	PyroscopeAddr                  string                          `json:"pyroscopeAddr"`
+	ContainerdSockPath             string                          `json:"containerdSockPath"`
+	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
+	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
+	State                          state.Config                    `json:"state"`
+	ContainerStatsEnabled          bool                            `json:"containerStatsEnabled"`
+	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
+	EBPFEventsPerCPUBuffer         int                             `validate:"required" json:"EBPFEventsPerCPUBuffer"`
+	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
+	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
+	EBPFMetricsEnabled             bool                            `json:"EBPFMetricsEnabled"`
+	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
+	MutedNamespaces                []string                        `json:"mutedNamespaces"`
+	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
+	Castai                         castai.Config                   `json:"castai"`
+	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
+	Netflow                        NetflowConfig                   `json:"netflow"`
+	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
+	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
+	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
+	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
 }
 
 type EnricherConfig struct {
-	EnableFileHashEnricher     bool
-	RedactSensitiveValuesRegex *regexp.Regexp
+	EnableFileHashEnricher     bool           `json:"enableFileHashEnricher"`
+	RedactSensitiveValuesRegex *regexp.Regexp `json:"redactSensitiveValuesRegex"`
 }
 
 type NetflowConfig struct {
-	Enabled                     bool
-	SampleSubmitIntervalSeconds uint64
-	OutputChanSize              int
-	Grouping                    ebpftracer.NetflowGrouping
+	Enabled                     bool                       `json:"enabled"`
+	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
+	OutputChanSize              int                        `json:"outputChanSize"`
+	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
 }
 
 type ClickhouseConfig struct {
-	Addr     string
-	Database string
-	Username string
-	Password string
+	Addr     string `json:"addr"`
+	Database string `json:"database"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type ProcessTreeConfig struct {
-	Enabled bool
+	Enabled bool `json:"enabled"`
 }
 
 func New(cfg *Config) *App {

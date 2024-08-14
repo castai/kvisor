@@ -3,8 +3,8 @@ package signature
 import "github.com/castai/kvisor/pkg/logging"
 
 type DefaultSignatureConfig struct {
-	SOCKS5DetectedSignatureEnabled bool
-	SOCKS5DetectedSignatureConfig  SOCKS5DetectionSignatureConfig
+	SOCKS5DetectedSignatureEnabled bool                           `json:"SOCKS5DetectedSignatureEnabled"`
+	SOCKS5DetectedSignatureConfig  SOCKS5DetectionSignatureConfig `json:"SOCKS5DetectedSignatureConfig"`
 }
 
 func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signature, error) {

@@ -13,10 +13,10 @@ import (
 )
 
 type Config struct {
-	ClusterID   string
+	ClusterID   string `json:"clusterID"`
 	APIKey      string `json:"-"`
-	APIGrpcAddr string
-	Insecure    bool
+	APIGrpcAddr string `json:"APIGrpcAddr"`
+	Insecure    bool   `json:"insecure"`
 }
 
 func (c Config) Valid() bool {

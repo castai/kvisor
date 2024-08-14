@@ -50,7 +50,7 @@ func parseNetflowGrouping(s string) (NetflowGrouping, error) {
 }
 
 type EventsPolicyConfig struct {
-	EnabledEvents []events.ID
+	EnabledEvents []events.ID `json:"enabledEvents"`
 }
 
 func (n *EventsPolicyConfig) String() string {

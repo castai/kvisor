@@ -45,12 +45,12 @@ type kubeController interface {
 }
 
 type Config struct {
-	Enabled            bool
-	Force              bool
-	ScanInterval       time.Duration `validate:"required"`
-	JobImagePullPolicy string
-	CloudProvider      string
-	JobNamespace       string
+	Enabled            bool          `json:"enabled"`
+	Force              bool          `json:"force"`
+	ScanInterval       time.Duration `validate:"required" json:"scanInterval"`
+	JobImagePullPolicy string        `json:"jobImagePullPolicy"`
+	CloudProvider      string        `json:"cloudProvider"`
+	JobNamespace       string        `json:"jobNamespace"`
 }
 
 func NewController(

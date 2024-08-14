@@ -14,9 +14,9 @@ import (
 )
 
 type JobsCleanupConfig struct {
-	CleanupInterval time.Duration `validate:"required"`
-	CleanupJobAge   time.Duration `validate:"required"`
-	Namespace       string        `validate:"required"`
+	CleanupInterval time.Duration `validate:"required" json:"cleanupInterval"`
+	CleanupJobAge   time.Duration `validate:"required" json:"cleanupJobAge"`
+	Namespace       string        `validate:"required" json:"namespace"`
 }
 
 func NewJobsCleanupController(log *logging.Logger, clientset kubernetes.Interface, cfg JobsCleanupConfig) *JobsCleanupController {
