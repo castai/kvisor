@@ -127,6 +127,11 @@ message SOCKS5DetectedFinding {
   uint32 port = 6;
 }
 
+message SSHData {
+  FlowDirection flow_direction = 1;
+  string version = 2;
+  string comments = 3;
+}
 
 enum NetflowProtocol {
   NETFLOW_PROTOCOL_UNKNOWN = 0;

@@ -4259,6 +4259,12 @@ type NetPacketSOCKS5BaseArgs struct {
   Payload []byte
 }
 
+type NetPacketSSHBaseArgs struct {
+  internalArgs
+
+  Payload *ProtoSSH
+}
+
 type NetPacketCaptureArgs struct {
   internalArgs
 

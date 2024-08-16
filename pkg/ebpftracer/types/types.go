@@ -21,6 +21,7 @@ type AddrTuple struct {
 }
 
 type ProtoDNS = castpb.DNS
+type ProtoSSH = castpb.SSHData
 
 type PIDsPerNamespace = bucketcache.BucketCache[proc.NamespaceID, proc.PID]
 

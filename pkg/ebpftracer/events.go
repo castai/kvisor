@@ -7278,6 +7278,21 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "bytes", Name: "payload"},
 			},
 		},
+		events.NetPacketSSHBase: {
+			ID:       events.NetPacketSSHBase,
+			id32Bit:  events.Sys32Undefined,
+			name:     "net_packet_ssh_base",
+			internal: true,
+			dependencies: dependencies{
+				ids: []events.ID{
+					events.NetPacketBase,
+				},
+			},
+			sets: []string{"network_events"},
+			params: []argMeta{
+				{Type: "proto.SSH", Name: "payload"},
+			},
+		},
 		events.NetPacketCapture: {
 			ID:       events.NetPacketCapture, // all packets have full payload (sent in a dedicated perfbuffer)
 			id32Bit:  events.Sys32Undefined,

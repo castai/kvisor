@@ -54,6 +54,7 @@ enum EventType {
   EVENT_SIGNATURE = 9;
   EVENT_TTY_WRITE = 10;
   EVENT_STDIO_VIA_SOCKET = 11;
+  EVENT_SSH = 12;
 
   EVENT_ANY = 999;
 }
@@ -81,6 +82,7 @@ message Event {
     v1.SignatureEvent signature = 25;
     v1.Any any = 26;
     v1.StdioViaSocketFinding stdio_via_socket = 27;
+    v1.SSHData ssh = 28;
   }
 }
 

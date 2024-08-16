@@ -149,6 +149,13 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		event.Data = &castpb.Event_File{
 			File: &castpb.File{Path: args.Path},
 		}
+	case ebpftypes.NetPacketSSHBaseArgs:
+		event.EventType = castpb.EventType_EVENT_SSH
+		sshEvent := args.Payload
+		sshEvent.FlowDirection = convertFlowDirection(e.Context.GetFlowDirection())
+		event.Data = &castpb.Event_Ssh{
+			Ssh: sshEvent,
+		}
 	}
 
 	if event.EventType == 0 {

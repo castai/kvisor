@@ -45,6 +45,24 @@ func TestTracer(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	signatures, err := signature.DefaultSignatures(log, signature.SignatureEngineConfig{
+		DefaultSignatureConfig: signature.DefaultSignatureConfig{
+			SOCKS5DetectedSignatureEnabled: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("error while configuring signatures: %v", err)
+	}
+
+	signatureEngine := signature.NewEngine(signatures, log, signature.SignatureEngineConfig{
+		InputChanSize:  100,
+		OutputChanSize: 100,
+	})
+	sigerr := make(chan error, 1)
+	go func() {
+		sigerr <- signatureEngine.Run(ctx)
+	}()
+
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
 		EventsPerCPUBuffer:    os.Getpagesize() * 64,
@@ -52,6 +70,7 @@ func TestTracer(t *testing.T) {
 		DefaultCgroupsVersion: "V2",
 		DebugEnabled:          true,
 		AllowAnyEvent:         true,
+		SignatureEngine:       signatureEngine,
 		ContainerClient: &ebpftracer.MockContainerClient{
 			ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {
 				dummyContainerID := fmt.Sprint(cgroupID)
@@ -91,40 +110,23 @@ func TestTracer(t *testing.T) {
 		errc <- tr.Run(ctx)
 	}()
 
-	signatures, err := signature.DefaultSignatures(log, signature.SignatureEngineConfig{
-		DefaultSignatureConfig: signature.DefaultSignatureConfig{
-			SOCKS5DetectedSignatureEnabled: true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("error while configuring signatures: %v", err)
-	}
-
-	signatureEngine := signature.NewEngine(signatures, log, signature.SignatureEngineConfig{
-		InputChanSize:  100,
-		OutputChanSize: 100,
-	})
-	sigerr := make(chan error, 1)
-	go func() {
-		sigerr <- signatureEngine.Run(ctx)
-	}()
-
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
-			// {ID: events.NetFlowBase},
+			{ID: events.NetPacketSSHBase},
 			//{ID: events.NetPacketTCPBase},
 			// {ID: events.SchedProcessExec},
 			//{ID: events.MagicWrite},
-			{ID: events.SecuritySocketConnect},
-			{ID: events.SocketDup},
+			// {ID: events.SecuritySocketConnect},
+			// {ID: events.SocketDup},
 			// {ID: events.SockSetState},
 			//{ID: events.NetPacketDNSBase},
 			//{ID: events.VfsWrite},
 			//{ID: events.Write},
-			{ID: events.StdioViaSocket},
-			{ID: events.TtyOpen},
-			{ID: events.TtyWrite},
+			// {ID: events.StdioViaSocket},
+			// {ID: events.TtyOpen},
+			// {ID: events.TtyWrite},
 		},
+    SignatureEvents: signatureEngine.TargetEvents(),
 	}
 
 	if err := tr.ApplyPolicy(policy); err != nil {

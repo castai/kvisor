@@ -21504,6 +21504,37 @@ func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseAr
   return result, nil
 }
 
+func ParseNetPacketSSHBaseArgs(decoder *Decoder) (types.NetPacketSSHBaseArgs, error) {
+  var result types.NetPacketSSHBaseArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.NetPacketSSHBaseArgs{}, err
+  }
+  if numArgs > 1 {
+    return types.NetPacketSSHBaseArgs{}, ErrTooManyArguments
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.NetPacketSSHBaseArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      result.Payload, err = decoder.ReadProtoSSH()
+      if err != nil {
+        return types.NetPacketSSHBaseArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
 func ParseNetPacketCaptureArgs(decoder *Decoder) (types.NetPacketCaptureArgs, error) {
   var result types.NetPacketCaptureArgs
   var err error
@@ -22788,6 +22819,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseNetPacketHTTPResponseArgs(decoder)
   case events.NetPacketSOCKS5Base:
     return ParseNetPacketSOCKS5BaseArgs(decoder)
+  case events.NetPacketSSHBase:
+    return ParseNetPacketSSHBaseArgs(decoder)
   case events.NetPacketCapture:
     return ParseNetPacketCaptureArgs(decoder)
   case events.CaptureNetPacket:

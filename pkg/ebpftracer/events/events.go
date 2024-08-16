@@ -21,6 +21,7 @@ const (
 	NetPacketDNSBase
 	NetPacketHTTPBase
 	NetPacketSOCKS5Base
+	NetPacketSSHBase
 	NetPacketCapture
 	NetCaptureBase
 	NetFlowBase

@@ -219,6 +219,8 @@ func toGolangType(t ArgType) (string, error) {
 		return "AddrTuple", nil
 	case protoDNST:
 		return "*ProtoDNS", nil
+	case protoSSHT:
+		return "*ProtoSSH", nil
 	}
 
 	return "", fmt.Errorf("unknown event type: %d", t)
@@ -424,6 +426,9 @@ func getDecoderCode(definition eventDefinition, p param) (string, error) {
 %s`, paramName, generateDecoderErrorCheck(definition)), nil
 	case protoDNST:
 		return fmt.Sprintf(`  result.%s, err = decoder.ReadProtoDNS()
+%s`, paramName, generateDecoderErrorCheck(definition)), nil
+	case protoSSHT:
+		return fmt.Sprintf(`  result.%s, err = decoder.ReadProtoSSH()
 %s`, paramName, generateDecoderErrorCheck(definition)), nil
 	}
 
