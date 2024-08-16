@@ -110,6 +110,7 @@ typedef enum net_packet {
     SUB_NET_PACKET_DNS = 1 << 6,
     SUB_NET_PACKET_HTTP = 1 << 7,
     SUB_NET_PACKET_SOCKS5 = 1 << 8,
+    SUB_NET_PACKET_SSH = 1 << 9,
 } net_packet_t;
 
 typedef struct net_event_contextmd {
@@ -244,13 +245,15 @@ struct {
 #define HEADERS 0           // no payload
 
 // when guessing by src/dst ports, declare at network.h
+#define TCP_PORT_SSH 22
 #define UDP_PORT_DNS 53
 #define TCP_PORT_DNS 53
 #define TCP_PORT_SOCKS5 1080
 
 // layer 7 parsing related constants
 #define http_min_len 7 // longest http command is "DELETE "
-#define socks5_min_len 4 // we try to match the socks5 request. this should
+#define socks5_min_len 4
+#define ssh_min_len 4 // the initial SSH messages always send `SSH-`
 
 // PROTOTYPES
 

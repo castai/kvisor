@@ -61,6 +61,7 @@ func NewRunCommand(version string) *cobra.Command {
 				events.ProcessOomKilled,
 				events.StdioViaSocket,
 				events.TtyWrite,
+				events.NetPacketSSHBase,
 			},
 		}
 		ebpfEventsStdioExporterEnabled = pflag.Bool("ebpf-events-stdio-exporter-enabled", false, "Export ebpf event to stdio")

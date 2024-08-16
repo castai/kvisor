@@ -37,6 +37,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.30.0
+	github.com/tklauser/go-sysconf v0.3.12
 	github.com/vishvananda/netns v0.0.4
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
@@ -175,7 +176,6 @@ require (
 	github.com/skeema/knownhosts v1.2.1 // indirect
 	github.com/spdx/tools-golang v0.5.4-0.20231108154018-0c0f394b5e1a // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
-	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20231127184239-0ced8385386a // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect

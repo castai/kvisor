@@ -2604,7 +2604,8 @@ int BPF_KPROBE(trace_security_socket_listen)
     return events_perf_submit(&p, SECURITY_SOCKET_LISTEN, 0);
 }
 
-statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, program_data_t *p) {
+statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, program_data_t *p)
+{
     u64 addr_len = PT_REGS_PARM3(ctx);
 
     struct socket *sock = (struct socket *) PT_REGS_PARM1(ctx);
@@ -2651,7 +2652,7 @@ statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, progra
     if (is_x86_compat(p->task)) // only i386 binaries uses socketcall
         to = (void *) sys->args.args[1];
 
-    if (!is_stdio_via_socket((u64)to, sa_fam)) {
+    if (!is_stdio_via_socket((u64) to, sa_fam)) {
         return 0;
     }
 
@@ -2697,7 +2698,7 @@ statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, progra
         stsb(args_buf, (void *) address, sockaddr_len, 1);
     }
 
-   return events_perf_submit(p, STDIO_VIA_SOCKET, 0);
+    return events_perf_submit(p, STDIO_VIA_SOCKET, 0);
 }
 
 SEC("kprobe/security_socket_connect")
@@ -5335,6 +5336,8 @@ statfunc enum event_id_e net_packet_to_net_event(net_packet_t packet_type)
             return NET_PACKET_HTTP;
         case SUB_NET_PACKET_SOCKS5:
             return NET_PACKET_SOCKS5;
+        case SUB_NET_PACKET_SSH:
+            return NET_PACKET_SSH;
     };
     return MAX_EVENT_ID;
 }
@@ -5425,11 +5428,11 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_http);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5);
+CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 CGROUP_SKB_HANDLE_FUNCTION(proto_icmp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_icmpv6);
-CGROUP_SKB_HANDLE_FUNCTION(proto_socks5);
 
 #define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs);
 
@@ -6466,6 +6469,50 @@ statfunc bool net_l7_is_socks5(struct __sk_buff *skb, u32 l7_off)
 out:
     return false;
 }
+
+// see https://datatracker.ietf.org/doc/html/rfc4253 for the definition of the ssh protocol
+statfunc bool net_l7_is_ssh(struct __sk_buff *skb, u32 l7_off)
+{
+    char buf[ssh_min_len];
+    __builtin_memset(&buf, 0, sizeof(buf));
+
+    if (skb->len < l7_off) {
+        return false;
+    }
+
+    u32 payload_len = skb->len - l7_off;
+    u32 read_len = payload_len;
+    // inline bounds check to force compiler to use the register of size
+    asm volatile("if %[size] < %[max_size] goto +1;\n"
+                 "%[size] = %[max_size];\n"
+                 :
+                 : [size] "r"(read_len), [max_size] "i"(ssh_min_len));
+
+    // make the verifier happy to ensure that we read more than a single byte
+    asm goto("if %[size] < %[min_ssh] goto %l[out]"
+             :
+             : [size] "r"(read_len), [min_ssh] "i"(ssh_min_len)::out);
+
+    if (read_len < ssh_min_len) {
+        return false;
+    }
+
+    // load first ssh_min_len bytes from layer 7 in packet.
+    if (bpf_skb_load_bytes(skb, l7_off, buf, read_len) < 0) {
+        return false; // failed loading data into http_min_str - return.
+    }
+
+    // the rfc mentions that a server could also send other data before the ssh version, meaning
+    // this check will not work 100% of the time, but it should be good enough to catch most ssh
+    // servers.
+    if (has_prefix("SSH-", buf, 5)) {
+        return true;
+    }
+
+out:
+    return false;
+}
+
 // clang-format off
 
 //
@@ -6515,34 +6562,63 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_TCP))
         cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_TCP, HEADERS);
 
-    // Fastpath: return if no other L7 network events.
+    bool submit_dns = should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS);
+    bool submit_http = should_submit_net_event(neteventctx, SUB_NET_PACKET_HTTP);
+    bool submit_socks5 = should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5);
+    bool submit_ssh = should_submit_net_event(neteventctx, SUB_NET_PACKET_SSH);
 
-    if (!should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS) &&
-        !should_submit_net_event(neteventctx, SUB_NET_PACKET_HTTP) &&
-        !should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5))
+    // Fastpath: return if no other L7 network events.
+    if (!submit_dns && !submit_http && !submit_socks5 && !submit_ssh)
         goto capture;
 
+    // clang-format on
     // Guess layer 7 protocols by src/dst ports ...
+    u16 lower_port = srcport < dstport ? srcport : dstport;
 
-    switch (srcport < dstport ? srcport : dstport) {
+    switch (lower_port) {
         case TCP_PORT_DNS:
-            return CGROUP_SKB_HANDLE(proto_tcp_dns);
+            if (submit_dns)
+                return CGROUP_SKB_HANDLE(proto_tcp_dns);
         case TCP_PORT_SOCKS5:
-            return CGROUP_SKB_HANDLE(proto_tcp_socks5);
+            if (submit_socks5)
+                return CGROUP_SKB_HANDLE(proto_tcp_socks5);
+        case TCP_PORT_SSH: {
+            if (submit_ssh) {
+                // We are only interested in the initial packets from server and client, as we
+                // cannot really do a lot with the rest.
+                int ssh_proto = net_l7_is_ssh(ctx, neteventctx->md.header_size);
+                if (ssh_proto) {
+                    return CGROUP_SKB_HANDLE(proto_tcp_ssh);
+                }
+            }
+        }
     }
 
     // ... and by analyzing payload.
-
-    int http_proto = net_l7_is_http(ctx, neteventctx->md.header_size);
-    if (http_proto) {
-        neteventctx->eventctx.retval |= http_proto;
-        return CGROUP_SKB_HANDLE(proto_tcp_http);
+    if (submit_http) {
+        int http_proto = net_l7_is_http(ctx, neteventctx->md.header_size);
+        if (http_proto) {
+            neteventctx->eventctx.retval |= http_proto;
+            return CGROUP_SKB_HANDLE(proto_tcp_http);
+        }
     }
 
-    int socks5_proto = net_l7_is_socks5(ctx, neteventctx->md.header_size);
-    if (socks5_proto) {
-        return CGROUP_SKB_HANDLE(proto_tcp_socks5);
+    if (submit_socks5) {
+        int socks5_proto = net_l7_is_socks5(ctx, neteventctx->md.header_size);
+        if (socks5_proto) {
+            return CGROUP_SKB_HANDLE(proto_tcp_socks5);
+        }
     }
+
+    // We already probed for SSH traffic before, if the port was related to SSH. No need to probe
+    // again.
+    if (submit_ssh && lower_port != TCP_PORT_SSH) {
+        int ssh_proto = net_l7_is_ssh(ctx, neteventctx->md.header_size);
+        if (ssh_proto) {
+            return CGROUP_SKB_HANDLE(proto_tcp_ssh);
+        }
+    }
+    // clang-format off
 
     // ... continue with net_l7_is_protocol_xxx
 
@@ -6703,6 +6779,28 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5)
     return 1; // NOTE: might block SOCKS5 here if needed (return 0)
 }
 
+CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh)
+{
+    // TODO(patrick.pichler): this needs better handling, as i do not want to have this a network base event
+    u32 payload_len = ctx->len - neteventctx->md.header_size;
+
+    // submit SSH base event if needed (full packet)
+    // we only care about packets that have a payload though
+    if (should_submit_net_event(neteventctx, SUB_NET_PACKET_SSH) && payload_len > 0) {
+        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_SSH, FULL);
+    }
+
+    // capture SSH-TCP, TCP or IP packets (filtered)
+    if (should_capture_net_event(neteventctx, SUB_NET_PACKET_IP) ||
+        should_capture_net_event(neteventctx, SUB_NET_PACKET_TCP) ||
+        should_capture_net_event(neteventctx, SUB_NET_PACKET_HTTP)) {
+        neteventctx->md.header_size = ctx->len; // full ssh packet
+        cgroup_skb_capture();
+    }
+
+    return 1; // NOTE: might block SSH here if needed (return 0)
+}
+
 // clang-format on
 
 // TODO: Instead of returning sock state return tcp_connect, tcp_listen, tcp_connect_error events.
@@ -6856,7 +6954,7 @@ int BPF_KPROBE(tty_write, struct kiocb *iocb, struct iov_iter *from)
         struct file *file = (struct file *) BPF_CORE_READ(iocb, ki_filp);
         u64 inode = get_inode_nr_from_file(file);
         if (!bpf_map_lookup_elem(&tty_opened_files, &inode)) {
-           return 0;
+            return 0;
         }
         bpf_map_delete_elem(&tty_opened_files, &inode);
 

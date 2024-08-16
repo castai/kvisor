@@ -76,17 +76,6 @@ func toProtocolAddressType(t packet.SOCKS5AddressType) v1.SOCKS5AddressType {
 	return v1.SOCKS5AddressType_SOCKS5_ADDRESS_TYPE_UNKNOWN
 }
 
-func toProtocolFlowDirection(f types.FlowDirection) v1.FlowDirection {
-	switch f {
-	case types.FlowDirectionIngress:
-		return v1.FlowDirection_FLOW_INGRESS
-	case types.FlowDirectionEgress:
-		return v1.FlowDirection_FLOW_EGRESS
-	default:
-		return v1.FlowDirection_FLOW_UNKNOWN
-	}
-}
-
 func toSOCKS5Finding(state SOCKS5DetectionState, flowDirection types.FlowDirection, msg packet.SOCKS5RequestOrReply) *v1.SOCKS5DetectedFinding {
 	var role v1.SOCKS5Role
 

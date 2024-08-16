@@ -661,6 +661,9 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 			}
 			return nil
 		},
+		castaipb.EventType_EVENT_SSH: func(e *castaipb.Event) error {
+			return nil
+		},
 	}
 	expectedTypes := lo.KeyBy(lo.Keys(eventsValidators), func(item castaipb.EventType) castaipb.EventType {
 		return item

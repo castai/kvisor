@@ -279,6 +279,8 @@ func getParamType(paramType string) ArgType {
 		return tupleT
 	case "proto.DNS":
 		return protoDNST
+	case "proto.SSH":
+		return protoSSHT
 	default:
 		// Default to pointer (printed as hex) for unsupported types
 		return pointerT

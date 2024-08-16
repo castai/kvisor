@@ -721,6 +721,34 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 	return pbDNS, nil
 }
 
+func (decoder *Decoder) ReadProtoSSH() (*types.ProtoSSH, error) {
+	var version string
+	var comments string
+
+	payload, err := decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketSSHBase))
+	if err != nil {
+		return nil, err
+	}
+
+	// Instead of parsing the full payload, we simply exploit the fact that the `SSH-` substring
+	// has to be present and marks the beginning of the version.
+	parsed := bytes.SplitN(payload, []byte("SSH-"), 2)
+	if len(parsed) != 2 {
+		return nil, fmt.Errorf("expected two parts after payload splitting, but got %d", len(parsed))
+	}
+	versionLineFields := bytes.SplitN(bytes.Trim(parsed[1], "\r\n"), []byte{' '}, 2)
+	version = fmt.Sprintf("SSH-%s", versionLineFields[0])
+
+	if len(versionLineFields) == 2 {
+		comments = string(versionLineFields[1])
+	}
+
+	return &types.ProtoSSH{
+		Version:  version,
+		Comments: comments,
+	}, nil
+}
+
 func addrPort(family uint16, ip [16]byte, port uint16) netip.AddrPort {
 	switch types.SockAddrFamily(family) {
 	case types.AF_INET:
