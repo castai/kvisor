@@ -53,6 +53,13 @@ provision:
       nix-env -iA nixpkgs.devbox
       devbox install
 
+  # Increase file watches limit.
+  - mode: system
+    script: |
+      #!/bin/sh
+      sysctl fs.inotify.max_user_watches=524288
+      sysctl fs.inotify.max_user_instances=512
+
   # Install docker.
   - mode: system
     # This script defines the host.docker.internal hostname when hostResolver is disabled.
