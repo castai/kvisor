@@ -301,6 +301,18 @@ func TestFindRegistryAuth(t *testing.T) {
 			expectedAuth:  registryAuth,
 		},
 		{
+			name: "default docker registry with index and version v1",
+			cfg: image.DockerConfig{
+				Auths: map[string]image.RegistryAuth{
+					"index.docker.io/v1": registryAuth,
+				},
+			},
+			imageRef:      name.MustParseReference("nginx:latest"),
+			expectedFound: true,
+			expectedKey:   "index.docker.io/v1",
+			expectedAuth:  registryAuth,
+		},
+		{
 			name: "default docker registry with index and version",
 			cfg: image.DockerConfig{
 				Auths: map[string]image.RegistryAuth{

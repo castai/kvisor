@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -256,13 +257,17 @@ func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.
 	return "", image.RegistryAuth{}, false
 }
 
+var (
+	dockerHubMatcherRegex = regexp.MustCompile("(/v1|/v2)$")
+)
+
 // normalize registryKey from the pull secret to follow the resolved image repo format
 func normalize(registryKey string) string {
 	trimmed := strings.TrimPrefix(registryKey, "http://")
 	trimmed = strings.TrimPrefix(trimmed, "https://")
 	trimmed = strings.TrimSuffix(trimmed, "/")
 	if strings.HasPrefix(trimmed, "docker.io") || strings.HasPrefix(trimmed, "index.docker.io") {
-		trimmed = strings.TrimSuffix(trimmed, "/v2")
+		trimmed = dockerHubMatcherRegex.ReplaceAllString(trimmed, "")
 	}
 	return trimmed
 }
