@@ -20,6 +20,7 @@ agent:
     signature-socks5-detection-enabled: true
     container-stats-enabled: true
     ebpf-events-enabled: true
+    ebpf-events-policy: "sock_set_state,sched_process_exec,net_packet_dns_base,magic_write,process_oom_killed,stdio_via_socket,tty_write"
     netflow-enabled: true
     netflow-sample-submit-interval-seconds: 1
     netflow-export-interval: 5s
