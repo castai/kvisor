@@ -54,13 +54,7 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventsEnabled = pflag.Bool("ebpf-events-enabled", false, "Enable ebpf events")
 		ebpfEventsPolicy  = ebpftracer.EventsPolicyConfig{
 			EnabledEvents: []events.ID{
-				events.SockSetState,
 				events.SchedProcessExec,
-				events.NetPacketDNSBase,
-				events.MagicWrite,
-				events.ProcessOomKilled,
-				events.StdioViaSocket,
-				events.TtyWrite,
 			},
 		}
 		ebpfEventsStdioExporterEnabled = pflag.Bool("ebpf-events-stdio-exporter-enabled", false, "Export ebpf event to stdio")
