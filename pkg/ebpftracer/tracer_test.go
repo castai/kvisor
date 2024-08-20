@@ -93,7 +93,6 @@ func TestTracer(t *testing.T) {
 
 	signatures, err := signature.DefaultSignatures(log, signature.SignatureEngineConfig{
 		DefaultSignatureConfig: signature.DefaultSignatureConfig{
-			TTYDetectedSignatureEnabled:    true,
 			SOCKS5DetectedSignatureEnabled: true,
 		},
 	})
@@ -115,10 +114,16 @@ func TestTracer(t *testing.T) {
 			// {ID: events.NetFlowBase},
 			//{ID: events.NetPacketTCPBase},
 			// {ID: events.SchedProcessExec},
-			// {ID: events.MagicWrite},
-			//{ID: events.SecuritySocketConnect},
+			//{ID: events.MagicWrite},
+			{ID: events.SecuritySocketConnect},
+			{ID: events.SocketDup},
 			// {ID: events.SockSetState},
 			//{ID: events.NetPacketDNSBase},
+			//{ID: events.VfsWrite},
+			//{ID: events.Write},
+			{ID: events.StdioViaSocket},
+			{ID: events.TtyOpen},
+			{ID: events.TtyWrite},
 		},
 	}
 

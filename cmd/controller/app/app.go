@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/cmd/controller/state"
 	"github.com/castai/kvisor/cmd/controller/state/delta"
@@ -36,108 +36,38 @@ import (
 
 type Config struct {
 	// Logging configuration.
-	LogLevel        string
-	LogRateInterval time.Duration
-	LogRateBurst    int
+	LogLevel        string        `json:"logLevel"`
+	LogRateInterval time.Duration `json:"logRateInterval"`
+	LogRateBurst    int           `json:"logRateBurst"`
 
 	// Built binary version.
-	Version      string
-	ChartVersion string
+	Version      string `json:"version"`
+	ChartVersion string `json:"chartVersion"`
 
 	// Current running pod metadata.
-	PodNamespace string `validate:"required"`
-	PodName      string `validate:"required"`
+	PodNamespace string `validate:"required" json:"podNamespace"`
+	PodName      string `validate:"required" json:"podName"`
 
 	// HTTPListenPort is internal http servers listen port.
-	HTTPListenPort        int `validate:"required"`
-	MetricsHTTPListenPort int
-	KubeServerListenPort  int `validate:"required"`
+	HTTPListenPort        int `validate:"required" json:"HTTPListenPort"`
+	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
+	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
 
 	// PyroscopeAddr is optional pyroscope addr to send traces.
-	PyroscopeAddr string
+	PyroscopeAddr string `json:"pyroscopeAddr"`
 
-	CastaiController state.CastaiConfig
-	CastaiEnv        castai.Config
-	ImageScan        imagescan.Config
-	Linter           kubelinter.Config
-	KubeBench        kubebench.Config
-	Delta            delta.Config
-	JobsCleanup      state.JobsCleanupConfig
-	AgentConfig      AgentConfig
+	CastaiController state.CastaiConfig      `json:"castaiController"`
+	CastaiEnv        castai.Config           `json:"castaiEnv"`
+	ImageScan        imagescan.Config        `json:"imageScan"`
+	Linter           kubelinter.Config       `json:"linter"`
+	KubeBench        kubebench.Config        `json:"kubeBench"`
+	Delta            delta.Config            `json:"delta"`
+	JobsCleanup      state.JobsCleanupConfig `json:"jobsCleanup"`
+	AgentConfig      AgentConfig             `json:"agentConfig"`
 }
 
 type AgentConfig struct {
-	Enabled bool
-}
-
-func (c Config) Proto() *castaipb.ControllerConfig {
-	return &castaipb.ControllerConfig{
-		LogLevel:              c.LogLevel,
-		LogRateInterval:       c.LogRateInterval.String(),
-		LogRateBurst:          int32(c.LogRateBurst),
-		Version:               c.Version,
-		ChartVersion:          c.ChartVersion,
-		PodNamespace:          c.PodNamespace,
-		PodName:               c.PodName,
-		HttpListenPort:        int32(c.HTTPListenPort),
-		MetricsHttpListenPort: int32(c.MetricsHTTPListenPort),
-		PyroscopeAddr:         c.PyroscopeAddr,
-		CastaiController: &castaipb.CastaiControllerConfig{
-			RemoteConfigSyncDuration: c.CastaiController.RemoteConfigSyncDuration.String(),
-		},
-		CastaiEnv: &castaipb.CastaiConfig{
-			ClusterId:   c.CastaiEnv.ClusterID,
-			ApiGrpcAddr: c.CastaiEnv.APIGrpcAddr,
-			Insecure:    c.CastaiEnv.Insecure,
-		},
-		ImageScan: &castaipb.ImageScanConfig{
-			Enabled:                   c.ImageScan.Enabled,
-			CastaiSecretRefName:       c.ImageScan.CastaiSecretRefName,
-			ScanInterval:              c.ImageScan.ScanInterval.String(),
-			ScanTimeout:               c.ImageScan.ScanTimeout.String(),
-			MaxConcurrentScans:        c.ImageScan.MaxConcurrentScans,
-			ScanJobImagePullPolicy:    c.ImageScan.ScanJobImagePullPolicy,
-			Mode:                      c.ImageScan.Mode,
-			CpuRequest:                c.ImageScan.CPURequest,
-			CpuLimit:                  c.ImageScan.CPULimit,
-			MemoryRequest:             c.ImageScan.MemoryRequest,
-			MemoryLimit:               c.ImageScan.MemoryLimit,
-			ProfileEnabled:            c.ImageScan.ProfileEnabled,
-			PhlareEnabled:             c.ImageScan.PhlareEnabled,
-			PrivateRegistryPullSecret: c.ImageScan.PrivateRegistryPullSecret,
-			ServiceAccount:            c.ImageScan.ServiceAccount,
-			InitDelay:                 c.ImageScan.InitDelay.String(),
-			ImageScanBlobsCacheUrl:    c.ImageScan.ImageScanBlobsCacheURL,
-		},
-		Linter: &castaipb.LinterConfig{
-			Enabled:      c.Linter.Enabled,
-			ScanInterval: c.Linter.ScanInterval.String(),
-			InitDelay:    c.Linter.InitDelay.String(),
-		},
-		KubeBench: &castaipb.KubeBenchConfig{
-			Enabled:            c.KubeBench.Enabled,
-			Force:              c.KubeBench.Force,
-			ScanInterval:       c.KubeBench.ScanInterval.String(),
-			JobImagePullPolicy: c.KubeBench.JobImagePullPolicy,
-			CloudProvider:      c.KubeBench.CloudProvider,
-			JobNamespace:       c.KubeBench.JobNamespace,
-		},
-		Delta: &castaipb.DeltaConfig{
-			Enabled:        c.Delta.Enabled,
-			Interval:       c.Delta.Interval.String(),
-			InitialDeltay:  c.Delta.InitialDeltay.String(),
-			SendTimeout:    c.Delta.SendTimeout.String(),
-			UseCompression: c.Delta.UseCompression,
-		},
-		JobsCleanup: &castaipb.JobsCleanupConfig{
-			CleanupInterval: c.JobsCleanup.CleanupInterval.String(),
-			CleanupJobAge:   c.JobsCleanup.CleanupJobAge.String(),
-			Namespace:       c.JobsCleanup.Namespace,
-		},
-		AgentConfig: &castaipb.ControllerAgentConfig{
-			Enabled: c.AgentConfig.Enabled,
-		},
-	}
+	Enabled bool `json:"enabled"`
 }
 
 func New(cfg Config, clientset kubernetes.Interface) *App {
@@ -209,7 +139,12 @@ func (a *App) Run(ctx context.Context) error {
 	// CAST AI specific logic.
 	if castaiClient != nil {
 		errg.Go(func() error {
-			castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, cfg.Proto(), kubeClient, castaiClient)
+			jsonConfig, err := json.Marshal(a.cfg) //nolint:musttag
+			if err != nil {
+				return fmt.Errorf("marshaling config: %w", err)
+			}
+
+			castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, jsonConfig, kubeClient, castaiClient)
 			return castaiCtrl.Run(ctx)
 		})
 

@@ -247,6 +247,7 @@ const (
 	ProbeInetSockSetState
 	ProbeOomMarkVictim
 	ProbeTtyOpen
+	ProbeTtyWrite
 )
 
 func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
@@ -364,5 +365,6 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		ProbeInetSockSetState: newTraceProbe(rawTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
 		ProbeOomMarkVictim:    newTraceProbe(rawTracepoint, "oom:mark_victim", objs.OomMarkVictim),
 		ProbeTtyOpen:          newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
+		ProbeTtyWrite:         newTraceProbe(kProbe, "tty_write", objs.TtyWrite),
 	}
 }

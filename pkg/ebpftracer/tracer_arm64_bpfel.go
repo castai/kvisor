@@ -188,6 +188,7 @@ type tracerProgramSpecs struct {
 	TracepointSchedSchedSwitch               *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_switch"`
 	TracepointTaskTaskRename                 *ebpf.ProgramSpec `ebpf:"tracepoint__task__task_rename"`
 	TtyOpen                                  *ebpf.ProgramSpec `ebpf:"tty_open"`
+	TtyWrite                                 *ebpf.ProgramSpec `ebpf:"tty_write"`
 	UprobeLkmSeeker                          *ebpf.ProgramSpec `ebpf:"uprobe_lkm_seeker"`
 	UprobeLkmSeekerSubmitter                 *ebpf.ProgramSpec `ebpf:"uprobe_lkm_seeker_submitter"`
 	UprobeMemDumpTrigger                     *ebpf.ProgramSpec `ebpf:"uprobe_mem_dump_trigger"`
@@ -268,6 +269,7 @@ type tracerMapSpecs struct {
 	SysExitTails            *ebpf.MapSpec `ebpf:"sys_exit_tails"`
 	SyscallStatsMap         *ebpf.MapSpec `ebpf:"syscall_stats_map"`
 	TaskInfoMap             *ebpf.MapSpec `ebpf:"task_info_map"`
+	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
 	UidFilter               *ebpf.MapSpec `ebpf:"uid_filter"`
 	UtsNsFilter             *ebpf.MapSpec `ebpf:"uts_ns_filter"`
 	WalkModTreeQueue        *ebpf.MapSpec `ebpf:"walk_mod_tree_queue"`
@@ -358,6 +360,7 @@ type tracerMaps struct {
 	SysExitTails            *ebpf.Map `ebpf:"sys_exit_tails"`
 	SyscallStatsMap         *ebpf.Map `ebpf:"syscall_stats_map"`
 	TaskInfoMap             *ebpf.Map `ebpf:"task_info_map"`
+	TtyOpenedFiles          *ebpf.Map `ebpf:"tty_opened_files"`
 	UidFilter               *ebpf.Map `ebpf:"uid_filter"`
 	UtsNsFilter             *ebpf.Map `ebpf:"uts_ns_filter"`
 	WalkModTreeQueue        *ebpf.Map `ebpf:"walk_mod_tree_queue"`
@@ -431,6 +434,7 @@ func (m *tracerMaps) Close() error {
 		m.SysExitTails,
 		m.SyscallStatsMap,
 		m.TaskInfoMap,
+		m.TtyOpenedFiles,
 		m.UidFilter,
 		m.UtsNsFilter,
 		m.WalkModTreeQueue,
@@ -567,6 +571,7 @@ type tracerPrograms struct {
 	TracepointSchedSchedSwitch               *ebpf.Program `ebpf:"tracepoint__sched__sched_switch"`
 	TracepointTaskTaskRename                 *ebpf.Program `ebpf:"tracepoint__task__task_rename"`
 	TtyOpen                                  *ebpf.Program `ebpf:"tty_open"`
+	TtyWrite                                 *ebpf.Program `ebpf:"tty_write"`
 	UprobeLkmSeeker                          *ebpf.Program `ebpf:"uprobe_lkm_seeker"`
 	UprobeLkmSeekerSubmitter                 *ebpf.Program `ebpf:"uprobe_lkm_seeker_submitter"`
 	UprobeMemDumpTrigger                     *ebpf.Program `ebpf:"uprobe_mem_dump_trigger"`
@@ -705,6 +710,7 @@ func (p *tracerPrograms) Close() error {
 		p.TracepointSchedSchedSwitch,
 		p.TracepointTaskTaskRename,
 		p.TtyOpen,
+		p.TtyWrite,
 		p.UprobeLkmSeeker,
 		p.UprobeLkmSeekerSubmitter,
 		p.UprobeMemDumpTrigger,

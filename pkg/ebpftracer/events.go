@@ -6904,7 +6904,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 		events.TtyOpen: {
 			ID:      events.TtyOpen,
 			id32Bit: events.Sys32Undefined,
-			name:    "tty_write",
+			name:    "tty_open",
 			dependencies: dependencies{
 				probes: []EventProbe{
 					{handle: ProbeTtyOpen, required: true},
@@ -6918,7 +6918,22 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "dev_t", Name: "dev"},
 			},
 		},
-
+		events.TtyWrite: {
+			ID:      events.TtyWrite,
+			id32Bit: events.Sys32Undefined,
+			name:    "tty_write",
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeTtyOpen, required: true},
+					{handle: ProbeTtyWrite, required: true},
+				},
+			},
+			sets: []string{},
+			params: []argMeta{
+				{Type: "char*", Name: "path"},
+				{Type: "unsigned long", Name: "inode"},
+			},
+		},
 		//
 		// Begin of Network Protocol Event Types
 		//
@@ -7339,6 +7354,29 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 		//
 		// End of Network Protocol Event Types
 		//
+
+		// Signature events
+		events.StdioViaSocket: {
+			ID:      events.StdioViaSocket,
+			id32Bit: events.Sys32Undefined,
+			name:    "stdio_via_socket",
+			dependencies: dependencies{
+				tailCalls: []TailCall{
+					{objs.SysEnterInitTail, objs.SysEnterInit, []uint32{uint32(events.Dup), uint32(events.Dup2), uint32(events.Dup3)}},
+					{objs.SysExitInitTail, objs.SysExitInit, []uint32{uint32(events.Dup), uint32(events.Dup2), uint32(events.Dup3)}},
+					{objs.SysExitTails, objs.SysDupExitTail, []uint32{uint32(events.Dup), uint32(events.Dup2), uint32(events.Dup3)}},
+				},
+				probes: []EventProbe{
+					{handle: ProbeSyscallEnter__Internal, required: true},
+					{handle: ProbeSyscallExit__Internal, required: true},
+					{handle: ProbeSecuritySocketConnect, required: true},
+				},
+			},
+			params: []argMeta{
+				{Type: "int", Name: "sockfd"},
+				{Type: "struct sockaddr*", Name: "addr"},
+			},
+		},
 
 		// Event used for testing in unit tests
 		events.TestEvent: {

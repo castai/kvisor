@@ -24,9 +24,9 @@ import (
 )
 
 type Config struct {
-	ContainerStatsScrapeInterval time.Duration
+	ContainerStatsScrapeInterval time.Duration `json:"containerStatsScrapeInterval"`
 
-	NetflowExportInterval time.Duration `validate:"required"`
+	NetflowExportInterval time.Duration `validate:"required" json:"netflowExportInterval"`
 }
 
 type containersClient interface {

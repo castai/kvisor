@@ -441,6 +441,7 @@ struct dir_context {
 struct iov_iter {
 };
 struct kiocb {
+    void *ki_filp;
 };
 
 struct file_operations {

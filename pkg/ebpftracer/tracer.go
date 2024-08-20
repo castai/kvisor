@@ -7,8 +7,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -253,8 +255,8 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 		if err := t.decodeAndExportEvent(ctx, ebpfMsgDecoder); err != nil {
 			if errors.Is(err, decoder.ErrTooManyArguments) {
 				data := ebpfMsgDecoder.Buffer()
-				t.log.Errorf("decoding event: too many arguments for event. payload: %s",
-					base64.StdEncoding.EncodeToString(data))
+				t.log.Errorf("decoding event: too many arguments for event. payload=%s, err=%v",
+					base64.StdEncoding.EncodeToString(data), err)
 			} else if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
 				t.log.Errorf("decoding event: %v", err)
 			}
@@ -314,6 +316,15 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 
 	for _, eventID := range policy.SystemEvents {
 		t.findAllRequiredEvents(eventID, requiredEventsIDs)
+	}
+	if t.log.IsEnabled(slog.LevelDebug) {
+		t.log.Debugf("required events: %v", lo.Map(lo.Keys(requiredEventsIDs), func(item events.ID, index int) string {
+			def, found := t.eventsSet[item]
+			if found {
+				return def.name
+			}
+			return strconv.Itoa(int(item))
+		}))
 	}
 
 	eventsBpfMapConfig := make(map[events.ID][]byte)
