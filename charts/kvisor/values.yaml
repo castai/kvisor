@@ -14,7 +14,7 @@ castai:
   apiKeySecretRef: ""
 
   # CASTAI grpc public api address.
-  grpcAddr: "api-grpc.cast.ai:443"
+  grpcAddr: "kvisor.prod-master.cast.ai:443"
 
   # CASTAI Cluster unique identifier.
   clusterID: ""
