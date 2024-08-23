@@ -1,0 +1,75 @@
+#!/usr/bin/env bpftrace
+
+#include <linux/sched.h>
+#include <linux/socket.h>
+
+/*
+rawtracepoint:inet_sock_set_state
+{
+    $task = (struct task_struct *)curtask;
+    printf("Some random fields: %s %d: %d %d \n",
+        comm, $task->pid, arg1, arg2);
+}
+*/
+
+/*
+tracepoint:sock:inet_sock_set_state
+{
+  printf("%s %d %d\n", comm, args.sport, args.dport);
+}
+*/
+/*
+rawtracepoint:inet_sock_set_state
+{
+  $sk = (struct sock *) arg0;
+  $old_state = arg1;
+  $new_state = arg2;
+
+  if (!($old_state == 2 && $new_state == 1)) {
+      return;
+  }
+
+  $inet_sk = (struct inet_sock *) $sk;
+
+  printf("%s %d %d %d\n", comm, $old_state, $new_state, $inet_sk->inet_sport);
+}
+*/
+
+/*
+fentry:security_sk_clone
+{
+  $osock = (struct sock *) arg0;
+  $nsock = (struct sock *) arg1;
+  $cookie =  bpf_get_socket_cookie(ctx);
+
+  printf("%s %lu %lu %d\n", comm,
+    $osock,
+    $nsock,
+    $cookie
+  );
+}
+*/
+
+/*
+kprobe:security_socket_sendmsg
+{
+  $socket = (struct socket *)arg0;
+  @calls[comm, pid, $socket->sk->__sk_common.skc_family]++;
+}
+*/
+
+rawtracepoint:inet_sock_set_state
+{
+  $sk = (struct sock *) arg0;
+  $old_state = arg1;
+  $new_state = arg2;
+
+  // if (!($old_state == 7 && $new_state == 2)) {
+  if (!($old_state == 2 && $new_state == 1)) {
+     return;
+  }
+
+  $inet_sk = (struct inet_sock *) $sk;
+
+  printf("%s %d %d %d\n", comm, $old_state, $new_state, $inet_sk->inet_sport);
+}

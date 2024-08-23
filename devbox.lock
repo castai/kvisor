@@ -1,6 +1,44 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "bpftrace@latest": {
+      "last_modified": "2024-08-15T06:27:57Z",
+      "resolved": "github:NixOS/nixpkgs/8b908192e64224420e2d59dfd9b2e4309e154c5d#bpftrace",
+      "source": "devbox-search",
+      "version": "0.21.2",
+      "systems": {
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/z270p45hrshji023nklznx1w2gbkqncn-bpftrace-0.21.2",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/0zdzxmc6y4bcj5vxb3y5lih46lbwg8kp-bpftrace-0.21.2-man",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/z270p45hrshji023nklznx1w2gbkqncn-bpftrace-0.21.2"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dsk1xfqxx8mgaxghbzhs5cg25k832za7-bpftrace-0.21.2",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/7jp8rpzg8h51j0gdv8hzi1ampkiwkzkv-bpftrace-0.21.2-man",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dsk1xfqxx8mgaxghbzhs5cg25k832za7-bpftrace-0.21.2"
+        }
+      }
+    },
     "clang_14@latest": {
       "last_modified": "2024-03-22T11:26:23Z",
       "resolved": "github:NixOS/nixpkgs/a3ed7406349a9335cb4c2a71369b697cecd9d351#clang_14",
