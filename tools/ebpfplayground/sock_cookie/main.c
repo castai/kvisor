@@ -30,6 +30,7 @@ enum
     kind_security_socket_connect = 1,
     kind_security_socket_sendmsg = 2,
     kind_inet_sock_set_state = 3,
+    kind_cgroup_skb_egress = 4,
 };
 
 struct event {
@@ -182,6 +183,7 @@ int cgroup_skb_ingress(struct __sk_buff *ctx)
         return 1;
     }
 	bpf_printk("cgroup_skb ingress %d\n", cookie);
+
     return 1;
 }
 
@@ -209,6 +211,20 @@ int cgroup_skb_egress(struct __sk_buff *ctx)
         return 1;
     }
 	bpf_printk("cgroup_skb egress %d\n", cookie);
+
+    struct event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
+    if (!e) {
+        return 0;
+    }
+    e->kind = kind_cgroup_skb_egress;
+    e->cookie = cookie;
+
+    struct netcontext_val *netctx = bpf_map_lookup_elem(&netcontext, &cookie);
+    if (netctx) {
+        __builtin_memcpy(&e->comm, &netctx->comm, 16);
+    }
+    bpf_ringbuf_submit(e, 0);
 
     return 1;
 }

@@ -107,7 +107,7 @@ func main() {
 		attach(objs.SecuritySkClone),
 		attach(objs.TraceInetSockSetState),
 		//attachCgroupSKB(objs.CgroupSkbIngress, ebpf.AttachCGroupInetIngress),
-		//attachCgroupSKB(objs.CgroupSkbEgress, ebpf.AttachCGroupInetEgress),
+		attachCgroupSKB(objs.CgroupSkbEgress, ebpf.AttachCGroupInetEgress),
 	}
 
 	defer func() {
@@ -176,8 +176,10 @@ func readEvents(ctx context.Context, rd *ringbuf.Reader) {
 			kind = "security_socket_sendmsg"
 		case 3:
 			kind = "inet_sock_set_state"
+		case 4:
+			kind = "kind_cgroup_skb_egress"
 		}
-		fmt.Printf("kind=%s proc=%s src=%s:%d dst=%s:%d cookie=%d\n", kind, string(event.Comm[:]), intToIP(event.Saddr), event.Sport, intToIP(event.Daddr), event.Dport, event.Cookie)
+		fmt.Printf("kind=%30s proc=%10s  cookie=%d src=%s:%d dst=%s:%d\n", kind, string(event.Comm[:]), event.Cookie, intToIP(event.Saddr), event.Sport, intToIP(event.Daddr), event.Dport)
 	}
 }
 
