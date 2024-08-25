@@ -5820,9 +5820,6 @@ int BPF_KPROBE(trace_security_socket_recvmsg)
     if (!should_trace(&p))
         return 0;
 
-    u64 cookie = bpf_get_socket_cookie(sock);
-    bpf_printk("recvmsg %d\n", cookie);
-
     return update_net_inodemap(sock, &p);
 }
 
@@ -5847,9 +5844,6 @@ int BPF_KPROBE(trace_security_socket_sendmsg)
 
     if (!should_trace(&p))
         return 0;
-
-    u64 cookie = bpf_get_socket_cookie(sock);
-    bpf_printk("sendmsg %d\n", cookie);
 
     return update_net_inodemap(sock, &p);
 }
