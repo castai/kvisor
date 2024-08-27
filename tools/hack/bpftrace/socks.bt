@@ -36,21 +36,6 @@ rawtracepoint:inet_sock_set_state
 */
 
 /*
-fentry:security_sk_clone
-{
-  $osock = (struct sock *) arg0;
-  $nsock = (struct sock *) arg1;
-  $cookie =  bpf_get_socket_cookie(ctx);
-
-  printf("%s %lu %lu %d\n", comm,
-    $osock,
-    $nsock,
-    $cookie
-  );
-}
-*/
-
-/*
 kprobe:security_socket_sendmsg
 {
   $socket = (struct socket *)arg0;
@@ -58,6 +43,7 @@ kprobe:security_socket_sendmsg
 }
 */
 
+/*
 rawtracepoint:inet_sock_set_state
 {
   $sk = (struct sock *) arg0;
@@ -72,4 +58,15 @@ rawtracepoint:inet_sock_set_state
   $inet_sk = (struct inet_sock *) $sk;
 
   printf("%s %d %d %d\n", comm, $old_state, $new_state, $inet_sk->inet_sport);
+}*/
+
+kprobe:security_sk_clone
+{
+  $osock = (struct sock *) arg0;
+  $nsock = (struct sock *) arg1;
+
+  printf("%s %lu %lu\n", comm,
+    $osock,
+    $nsock
+  );
 }

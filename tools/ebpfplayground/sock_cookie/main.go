@@ -2,25 +2,27 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
-	"net"
+	"net/netip"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type event -cc clang-14 -strip=llvm-strip -target amd64 bpf main.c -- -I../headers
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-14 -strip=llvm-strip -target amd64 bpf main.c -- -I../headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang-14 -strip=llvm-strip -target arm64 bpf main.c -- -I../headers -Wno-address-of-packed-member -O2
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -44,7 +46,7 @@ func main() {
 	}
 	defer rd.Close()
 
-	attach := func(prog *ebpf.Program) link.Link {
+	attachTracing := func(prog *ebpf.Program) link.Link {
 		info, _ := prog.Info()
 		fmt.Printf("attaching prog: %v\n", info.Name)
 		defer func() {
@@ -54,10 +56,11 @@ func main() {
 			Program: prog,
 		})
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("prog=%s: %v", prog, err)
 		}
 		return ln
 	}
+	_ = attachTracing
 
 	attachTP := func(prog *ebpf.Program, name string) link.Link {
 		ln, err := link.AttachRawTracepoint(link.RawTracepointOptions{
@@ -71,18 +74,21 @@ func main() {
 	}
 	_ = attachTP
 
+	attachKprobe := func(prog *ebpf.Program, name string) link.Link {
+		ln, err := link.Kprobe(name, prog, &link.KprobeOptions{})
+		if err != nil {
+			log.Fatalf("kprobe %s: %v", name, err)
+		}
+		return ln
+	}
+	_ = attachKprobe
+
 	cgPath, err := detectCgroupPath()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("cgPath", cgPath)
-	ff, err := os.Open(cgPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	ff.Close()
 
-	attachCgroupSKB := func(prog *ebpf.Program, attachType ebpf.AttachType) link.Link {
+	attachCgroup := func(prog *ebpf.Program, attachType ebpf.AttachType) link.Link {
 		info, _ := prog.Info()
 		fmt.Printf("attaching prog: %v\n", info.Name)
 		defer func() {
@@ -98,16 +104,19 @@ func main() {
 		}
 		return ln
 	}
-	_ = attachCgroupSKB
+	_ = attachCgroup
 
 	links := []link.Link{
-		attach(objs.SecuritySocketConnect),
-		attach(objs.SecuritySocketSendmsg),
-		//attach(objs.SecuritySocketRecvmsg),
-		attach(objs.SecuritySkClone),
-		attach(objs.TraceInetSockSetState),
-		//attachCgroupSKB(objs.CgroupSkbIngress, ebpf.AttachCGroupInetIngress),
-		attachCgroupSKB(objs.CgroupSkbEgress, ebpf.AttachCGroupInetEgress),
+		//attachTracing(objs.SecuritySocketSendmsg),
+		attachTracing(objs.TraceInetSockSetState),
+		//attachTracing(objs.SecuritySocketConnect),
+		//attachTracing(objs.SecuritySocketRecvmsg),
+		//attachTracing(objs.SecuritySkClone),
+		attachKprobe(objs.TraceSecuritySkClone, "security_sk_clone"),
+		attachCgroup(objs.CgroupSkbIngress, ebpf.AttachCGroupInetIngress),
+		attachCgroup(objs.CgroupSkbEgress, ebpf.AttachCGroupInetEgress),
+		attachCgroup(objs.CgroupConnect4, ebpf.AttachCGroupInet4Connect),
+		attachCgroup(objs.CgroupSockCreate, ebpf.AttachCGroupInetSockCreate),
 	}
 
 	defer func() {
@@ -136,17 +145,8 @@ func main() {
 	}
 }
 
-// intToIP converts IPv4 number to net.IP
-func intToIP(ipNum uint32) net.IP {
-	ip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(ip, ipNum)
-	return ip
-}
-
 func readEvents(ctx context.Context, rd *ringbuf.Reader) {
-	var event bpfEvent
 	for {
-
 		select {
 		case <-ctx.Done():
 			return
@@ -163,23 +163,18 @@ func readEvents(ctx context.Context, rd *ringbuf.Reader) {
 			continue
 		}
 
-		if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.BigEndian, &event); err != nil {
-			log.Printf("parsing ringbuf event: %s", err)
+		e := ebpfEvent{buffer: record.RawSample}
+		if err := e.Decode(); err != nil {
+			fmt.Printf("decode event: %v\n", err)
 			continue
 		}
-
-		var kind string
-		switch event.Kind {
-		case 1:
-			kind = "security_socket_connect"
-		case 2:
-			kind = "security_socket_sendmsg"
-		case 3:
-			kind = "inet_sock_set_state"
-		case 4:
-			kind = "kind_cgroup_skb_egress"
-		}
-		fmt.Printf("kind=%30s proc=%10s  cookie=%d src=%s:%d dst=%s:%d\n", kind, string(event.Comm[:]), event.Cookie, intToIP(event.Saddr), event.Sport, intToIP(event.Daddr), event.Dport)
+		fmt.Printf("kind=%-30s proc=%-10s src=%-20s dst=%-20s cookie=%-10d \n",
+			e.kind,
+			fmt.Sprintf("(%s | %s)", string(e.currComm[:]), string(e.comm[:])),
+			e.tuple.Src,
+			e.tuple.Dst,
+			e.cookie,
+		)
 	}
 }
 
@@ -221,4 +216,148 @@ func detectCgroupPath() (string, error) {
 	}
 
 	return "", errors.New("cgroupv2 not found, need to mount")
+}
+
+/*
+struct event {
+    u8 kind;
+	u8 curr_comm[16];
+	u8 comm[16];
+	tuple_t tuple;
+	u64 cookie;
+};
+*/
+
+type ebpfEvent struct {
+	buffer []byte
+	cursor int
+
+	kind     ebpfEventKind
+	currComm [16]byte
+	comm     [16]byte
+	tuple    types.AddrTuple
+	cookie   uint64
+}
+
+func (e *ebpfEvent) Decode() error {
+	var kind uint8
+	if err := e.DecodeUint8(&kind); err != nil {
+		return fmt.Errorf("decode kind: %w", err)
+	}
+	e.kind = ebpfEventKind(kind)
+	if err := e.DecodeBytes(e.currComm[:], 16); err != nil {
+		return fmt.Errorf("decode current comm: %w", err)
+	}
+	if err := e.DecodeBytes(e.comm[:], 16); err != nil {
+		return fmt.Errorf("decode comm: %w", err)
+	}
+	if err := e.DecodeTuple(&e.tuple); err != nil {
+		return fmt.Errorf("decode tuple: %w", err)
+	}
+	if err := e.DecodeUint64(&e.cookie); err != nil {
+		return fmt.Errorf("decode cookie: %w", err)
+	}
+	return nil
+}
+
+func (e *ebpfEvent) DecodeTuple(dst *types.AddrTuple) error {
+	srcAddr := [16]byte{}
+	if err := e.DecodeBytes(srcAddr[:], len(srcAddr)); err != nil {
+		return err
+	}
+	dstAddr := [16]byte{}
+	if err := e.DecodeBytes(dstAddr[:], len(dstAddr)); err != nil {
+		return err
+	}
+	var srcPort uint16
+	if err := e.DecodeUint16(&srcPort); err != nil {
+		return err
+	}
+	var dstPort uint16
+	if err := e.DecodeUint16(&dstPort); err != nil {
+		return err
+	}
+	var family uint16
+	if err := e.DecodeUint16(&family); err != nil {
+		return err
+	}
+	dst.Src = addrPort(family, srcAddr, srcPort)
+	dst.Dst = addrPort(family, dstAddr, dstPort)
+	return nil
+}
+
+func (e *ebpfEvent) DecodeBytes(dst []byte, size int) error {
+	offset := e.cursor
+	bufferLen := len(e.buffer[offset:])
+	if bufferLen < size {
+		return errors.New("short buffer")
+	}
+	_ = copy(dst[:], e.buffer[offset:offset+size])
+	e.cursor += size
+	return nil
+}
+
+func (e *ebpfEvent) DecodeUint8(msg *uint8) error {
+	readAmount := 1
+	offset := e.cursor
+	if len(e.buffer[offset:]) < readAmount {
+		return errors.New("short buffer")
+	}
+	*msg = e.buffer[e.cursor]
+	e.cursor += readAmount
+	return nil
+}
+
+func (e *ebpfEvent) DecodeUint16(dst *uint16) error {
+	readAmount := 2
+	offset := e.cursor
+	if len(e.buffer[offset:]) < readAmount {
+		return errors.New("short buffer")
+	}
+	*dst = binary.LittleEndian.Uint16(e.buffer[offset : offset+readAmount])
+	e.cursor += readAmount
+	return nil
+}
+
+func (e *ebpfEvent) DecodeUint64(msg *uint64) error {
+	readAmount := 8
+	offset := e.cursor
+	if len(e.buffer[offset:]) < readAmount {
+		return errors.New("short buffer")
+	}
+	*msg = binary.LittleEndian.Uint64(e.buffer[offset : offset+readAmount])
+	e.cursor += readAmount
+	return nil
+}
+
+func addrPort(family uint16, ip [16]byte, port uint16) netip.AddrPort {
+	switch types.SockAddrFamily(family) {
+	case types.AF_INET6:
+		return netip.AddrPortFrom(netip.AddrFrom16(ip).Unmap(), port)
+	}
+	return netip.AddrPortFrom(netip.AddrFrom4([4]byte{ip[0], ip[1], ip[2], ip[3]}), port)
+}
+
+type ebpfEventKind uint8
+
+func (e ebpfEventKind) String() string {
+	switch e {
+	case 1:
+		return "security_socket_connect"
+	case 2:
+		return "security_socket_sendmsg"
+	case 3:
+		return "inet_sock_set_state"
+	case 4:
+		return "cgroup_skb_egress"
+	case 5:
+		return "cgroup_skb_ingress"
+	case 6:
+		return "security_sk_clone"
+	case 7:
+		return "security_sk_clone_old"
+	case 8:
+		return "cgroup_sock_create"
+	}
+	return strconv.Itoa(int(e))
 }
