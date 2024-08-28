@@ -96,7 +96,7 @@ type Logger struct {
 }
 
 func (l *Logger) Error(msg string) {
-	l.doLog(slog.LevelError, msg)
+	l.doLog(slog.LevelError, msg) //nolint:govet
 }
 
 func (l *Logger) Errorf(format string, a ...any) {
@@ -108,11 +108,11 @@ func (l *Logger) Infof(format string, a ...any) {
 }
 
 func (l *Logger) Info(msg string) {
-	l.doLog(slog.LevelInfo, msg)
+	l.doLog(slog.LevelInfo, msg) //nolint:govet
 }
 
 func (l *Logger) Debug(msg string) {
-	l.doLog(slog.LevelDebug, msg)
+	l.doLog(slog.LevelDebug, msg) //nolint:govet
 }
 
 func (l *Logger) Debugf(format string, a ...any) {
@@ -120,7 +120,7 @@ func (l *Logger) Debugf(format string, a ...any) {
 }
 
 func (l *Logger) Warn(msg string) {
-	l.doLog(slog.LevelWarn, msg)
+	l.doLog(slog.LevelWarn, msg) //nolint:govet
 }
 
 func (l *Logger) Warnf(format string, a ...any) {
@@ -128,7 +128,7 @@ func (l *Logger) Warnf(format string, a ...any) {
 }
 
 func (l *Logger) Fatal(msg string) {
-	l.doLog(slog.LevelError, msg)
+	l.doLog(slog.LevelError, msg) //nolint:govet
 	os.Exit(1)
 }
 
@@ -137,15 +137,20 @@ func (l *Logger) IsEnabled(lvl slog.Level) bool {
 	return l.log.Handler().Enabled(ctx, lvl)
 }
 
-func (l *Logger) doLog(lvl slog.Level, format string, args ...any) {
+func (l *Logger) doLog(lvl slog.Level, msg string, args ...any) {
 	ctx := context.Background()
 	if !l.log.Handler().Enabled(ctx, lvl) {
 		return
 	}
 	var pcs [1]uintptr
 	runtime.Callers(3, pcs[:])
-	r := slog.NewRecord(time.Now(), lvl, fmt.Sprintf(format, args...), pcs[0])
-	_ = l.log.Handler().Handle(ctx, r) //nolint:contextcheck
+	if len(args) > 0 {
+		r := slog.NewRecord(time.Now(), lvl, fmt.Sprintf(msg, args...), pcs[0])
+		_ = l.log.Handler().Handle(ctx, r) //nolint:contextcheck
+	} else {
+		r := slog.NewRecord(time.Now(), lvl, msg, pcs[0])
+		_ = l.log.Handler().Handle(ctx, r) //nolint:contextcheck
+	}
 }
 
 func (l *Logger) With(args ...any) *Logger {

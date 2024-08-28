@@ -44,7 +44,7 @@ func (t *Tracer) ReadSyscallStats() (map[SyscallStatsKeyCgroupID][]SyscallStats,
 			continue
 		}
 		out[SyscallStatsKeyCgroupID(key.CgroupID)] = append(out[SyscallStatsKeyCgroupID(key.CgroupID)], SyscallStats{
-			ID:    SyscallID(key.ID),
+			ID:    SyscallID(key.ID), // nolint:gosec
 			Count: value,
 		})
 	}

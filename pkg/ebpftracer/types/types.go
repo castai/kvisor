@@ -26,7 +26,7 @@ type ProtoSSH = castpb.SSHData
 type PIDsPerNamespace = bucketcache.BucketCache[proc.NamespaceID, proc.PID]
 
 func namespaceHash(ns proc.NamespaceID) uint32 {
-	return uint32(ns)
+	return uint32(ns) // nolint:gosec
 }
 
 func NewPIDsPerNamespaceCache(size, maxBucketSize uint32) (*PIDsPerNamespace, error) {

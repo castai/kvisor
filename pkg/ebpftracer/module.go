@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+////go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 
 type moduleConfig struct {
@@ -80,7 +80,6 @@ func (m *module) load(cfg Config) error {
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
-			LogSize:     ebpf.DefaultVerifierLogSize,
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
 		},

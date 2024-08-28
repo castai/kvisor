@@ -2,7 +2,6 @@ package kube
 
 import (
 	"context"
-	"fmt"
 	"net/netip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
@@ -26,7 +25,7 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	}
 	info, found := s.client.GetIPInfo(addr)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("pod by ip %s not found", addr))
+		return nil, status.Errorf(codes.NotFound, "pod by ip %s not found", addr)
 	}
 	res := &kubepb.IPInfo{}
 	if info.Node != nil {
