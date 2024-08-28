@@ -295,7 +295,7 @@ func getDefaultVersionAndHierarchy(log *logging.Logger) (Version, uint32, error)
 		return V2, 0, nil
 	}
 
-	return V1, uint32(value), nil
+	return V1, uint32(value), nil // nolint:gosec
 }
 
 func isCgroupV2MountedAndDefault() (bool, error) {

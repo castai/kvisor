@@ -95,7 +95,7 @@ func (c *ClickHouseNetflowExporter) asyncWrite(ctx context.Context, wait bool, e
 			netflowInsertQuery,
 			wait,
 
-			time.UnixMicro(int64(e.Timestamp)/1000),
+			time.UnixMicro(int64(e.Timestamp)/1000), // nolint:gosec
 			toDBProtocol(e.Protocol),
 			e.ProcessName,
 			e.ContainerName,

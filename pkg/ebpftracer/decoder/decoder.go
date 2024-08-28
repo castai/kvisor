@@ -104,9 +104,9 @@ func (decoder *Decoder) DecodeContext(ctx *types.EventContext) error {
 	// task_context end
 
 	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset+120 : offset+124]))
-	ctx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+124 : offset+128]))
+	ctx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+124 : offset+128])) // nolint:gosec
 	ctx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+128 : offset+136])
-	ctx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+136 : offset+144]))
+	ctx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+136 : offset+144])) // nolint:gosec
 	ctx.StackID = binary.LittleEndian.Uint32(decoder.buffer[offset+144 : offset+148])
 	ctx.ProcessorId = binary.LittleEndian.Uint16(decoder.buffer[offset+148 : offset+150])
 	// 2 byte padding
@@ -180,7 +180,7 @@ func (decoder *Decoder) DecodeInt16(msg *int16) error {
 	if len(decoder.buffer[offset:]) < readAmount {
 		return ErrBufferTooShort
 	}
-	*msg = int16(binary.LittleEndian.Uint16(decoder.buffer[offset : offset+readAmount]))
+	*msg = int16(binary.LittleEndian.Uint16(decoder.buffer[offset : offset+readAmount])) // nolint:gosec
 	decoder.cursor += readAmount
 	return nil
 }
@@ -216,7 +216,7 @@ func (decoder *Decoder) DecodeInt32(msg *int32) error {
 	if len(decoder.buffer[offset:]) < readAmount {
 		return ErrBufferTooShort
 	}
-	*msg = int32(binary.LittleEndian.Uint32(decoder.buffer[offset : offset+readAmount]))
+	*msg = int32(binary.LittleEndian.Uint32(decoder.buffer[offset : offset+readAmount])) // nolint:gosec
 	decoder.cursor += readAmount
 	return nil
 }
@@ -240,7 +240,7 @@ func (decoder *Decoder) DecodeInt64(msg *int64) error {
 	if len(decoder.buffer[offset:]) < readAmount {
 		return ErrBufferTooShort
 	}
-	*msg = int64(binary.LittleEndian.Uint64(decoder.buffer[decoder.cursor : decoder.cursor+readAmount]))
+	*msg = int64(binary.LittleEndian.Uint64(decoder.buffer[decoder.cursor : decoder.cursor+readAmount])) // nolint:gosec
 	decoder.cursor += readAmount
 	return nil
 }
@@ -287,7 +287,7 @@ func (decoder *Decoder) DecodeIntArray(msg []int32, size int) error {
 		return ErrBufferTooShort
 	}
 	for i := 0; i < size; i++ {
-		msg[i] = int32(binary.LittleEndian.Uint32(decoder.buffer[decoder.cursor : decoder.cursor+4]))
+		msg[i] = int32(binary.LittleEndian.Uint32(decoder.buffer[decoder.cursor : decoder.cursor+4])) // nolint:gosec
 		decoder.cursor += 4
 	}
 	return nil
@@ -345,7 +345,7 @@ func (decoder *Decoder) DecodeChunkMeta(chunkMeta *types.ChunkMeta) error {
 	chunkMeta.BinType = types.BinType(decoder.buffer[offset])
 	chunkMeta.CgroupID = binary.LittleEndian.Uint64(decoder.buffer[offset+1 : offset+9])
 	_ = copy(chunkMeta.Metadata[:], decoder.buffer[offset+9:offset+37])
-	chunkMeta.Size = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+37 : offset+41]))
+	chunkMeta.Size = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+37 : offset+41])) // nolint:gosec
 	chunkMeta.Off = binary.LittleEndian.Uint64(decoder.buffer[offset+41 : offset+49])
 	decoder.cursor += int(chunkMeta.GetSizeBytes())
 	return nil
@@ -750,7 +750,7 @@ func (decoder *Decoder) ReadProtoSSH() (*types.ProtoSSH, error) {
 }
 
 func addrPort(family uint16, ip [16]byte, port uint16) netip.AddrPort {
-	switch types.SockAddrFamily(family) {
+	switch types.SockAddrFamily(family) { // nolint:gosec
 	case types.AF_INET:
 		return netip.AddrPortFrom(netip.AddrFrom4([4]byte{ip[0], ip[1], ip[2], ip[3]}), port)
 	}

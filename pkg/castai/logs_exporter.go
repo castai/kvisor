@@ -43,7 +43,7 @@ func (l *LogsExporter) ExportFunc() logging.ExportFunc {
 	return func(ctx context.Context, record slog.Record) {
 		select {
 		case l.logsChan <- &castaipb.LogEvent{
-			Level: int32(record.Level),
+			Level: int32(record.Level), // nolint:gosec
 			Msg:   record.Message,
 		}:
 		default:

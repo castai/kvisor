@@ -481,7 +481,7 @@ func (t *Tracer) computeConfigValues(p *Policy) []byte {
 	configVal := make([]byte, 256)
 
 	// tracee_pid
-	binary.LittleEndian.PutUint32(configVal[0:4], uint32(os.Getpid()))
+	binary.LittleEndian.PutUint32(configVal[0:4], uint32(os.Getpid())) // nolint:gosec
 	// options
 	binary.LittleEndian.PutUint32(configVal[4:8], t.getOptionsConfig(p))
 	// cgroup_v1_hid
@@ -515,7 +515,7 @@ func (t *Tracer) computeConfigValues(p *Policy) []byte {
 func (t *Tracer) initTailCall(tailCall TailCall) error {
 	tailCallIndexes := tailCall.indexes
 	// Pick eBPF program file descriptor.
-	bpfProgFD := uint32(tailCall.ebpfProg.FD())
+	bpfProgFD := uint32(tailCall.ebpfProg.FD()) // nolint:gosec
 	if tailCall.ebpfProg.FD() < 0 {
 		return fmt.Errorf("ebpf tail call map fd is negative")
 	}

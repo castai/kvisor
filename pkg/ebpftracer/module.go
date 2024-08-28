@@ -80,7 +80,6 @@ func (m *module) load(cfg Config) error {
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
-			LogSize:     ebpf.DefaultVerifierLogSize,
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
 		},

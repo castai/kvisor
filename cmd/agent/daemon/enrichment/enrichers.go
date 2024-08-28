@@ -26,7 +26,7 @@ type PIDsInNamespaceGetter func(ns uint32) []uint32
 
 // more hash function in https://github.com/elastic/go-freelru/blob/main/bench/hash.go
 func hashStringXXHASH(s fileHashCacheKey) uint32 {
-	return uint32(xxhash.Sum64String(string(s)))
+	return uint32(xxhash.Sum64String(string(s))) // nolint:gosec
 }
 
 func EnrichWithFileHash(log *logging.Logger, mountNamespacePIDStore *types.PIDsPerNamespace, procFS proc.ProcFS) EventEnricher {

@@ -159,7 +159,7 @@ func parsePID(pidStr string) (PID, error) {
 		return 0, err
 	}
 
-	return PID(pid), nil
+	return PID(pid), nil // nolint:gosec
 }
 
 func (p *Proc) GetNSForPID(pid PID, ns NamespaceType) (NamespaceID, error) {

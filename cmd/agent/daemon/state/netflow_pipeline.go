@@ -62,7 +62,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 				return ctx.Err()
 			case e := <-c.tracer.NetflowEvents():
 				c.upsertNetflow(e)
-				eventTs := time.UnixMicro(int64(e.Context.Ts) / 1000)
+				eventTs := time.UnixMicro(int64(e.Context.Ts) / 1000) // nolint:gosec
 				if eventTs.Sub(lastExportedAt) >= c.cfg.NetflowExportInterval {
 					c.enqueueNetflowExport(eventTs)
 					lastExportedAt = eventTs
@@ -127,7 +127,7 @@ func (c *Controller) enqueueNetflowExport(now time.Time) {
 
 	for key, netflow := range c.netflows {
 		// Flow was exported before and doesn't have new changes. Delete it and continue.
-		if netflow.exportedAt.After(time.UnixMicro(int64(netflow.event.Context.Ts) / 1000)) {
+		if netflow.exportedAt.After(time.UnixMicro(int64(netflow.event.Context.Ts) / 1000)) { // nolint:gosec
 			delete(c.netflows, key)
 			totalExpiredFlows++
 			continue

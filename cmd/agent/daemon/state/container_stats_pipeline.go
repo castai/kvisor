@@ -255,9 +255,9 @@ func (c *Controller) scrapeContainersSyscallStats(ctx context.Context, batch *ca
 }
 
 func uint64Quantity(val uint64, format resource.Format, scale resource.Scale) resource.Quantity {
-	q := *resource.NewScaledQuantity(int64(val), scale)
+	q := *resource.NewScaledQuantity(int64(val), scale) // nolint:gosec
 	if val > math.MaxInt64 {
-		q = *resource.NewScaledQuantity(int64(val/10), resource.Scale(1)+scale)
+		q = *resource.NewScaledQuantity(int64(val/10), resource.Scale(1)+scale) // nolint:gosec
 	}
 	q.Format = format
 	return q

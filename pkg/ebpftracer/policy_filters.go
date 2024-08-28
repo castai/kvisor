@@ -154,7 +154,7 @@ func FilterEmptyDnsAnswers(l *logging.Logger) EventFilterGenerator {
 
 // more hash function in https://github.com/elastic/go-freelru/blob/main/bench/hash.go
 func hashStringXXHASH(s string) uint32 {
-	return uint32(xxhash.Sum64String(s))
+	return uint32(xxhash.Sum64String(s)) // nolint:gosec
 }
 
 // DeduplicateDnsEvents creates a filter that will drop any DNS event with questions already seen in `ttl` time

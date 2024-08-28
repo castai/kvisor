@@ -186,7 +186,7 @@ func (c *Controller) cacheDNS(e *castpb.Event, dnsEvent *ebpftypes.ProtoDNS) {
 	if !found {
 		var err error
 		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
-			return uint32(xxhash.Sum64(k.AsSlice()))
+			return uint32(xxhash.Sum64(k.AsSlice())) // nolint:gosec
 		})
 		if err != nil {
 			c.log.Errorf("creating dns cache: %v", err)

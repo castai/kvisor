@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -107,16 +108,13 @@ func main() {
 	_ = attachCgroup
 
 	links := []link.Link{
-		//attachTracing(objs.SecuritySocketSendmsg),
 		attachTracing(objs.TraceInetSockSetState),
-		//attachTracing(objs.SecuritySocketConnect),
-		//attachTracing(objs.SecuritySocketRecvmsg),
-		//attachTracing(objs.SecuritySkClone),
 		attachKprobe(objs.TraceSecuritySkClone, "security_sk_clone"),
 		attachCgroup(objs.CgroupSkbIngress, ebpf.AttachCGroupInetIngress),
 		attachCgroup(objs.CgroupSkbEgress, ebpf.AttachCGroupInetEgress),
 		attachCgroup(objs.CgroupConnect4, ebpf.AttachCGroupInet4Connect),
 		attachCgroup(objs.CgroupSockCreate, ebpf.AttachCGroupInetSockCreate),
+		attachCgroup(objs.CgroupSockRelease, ebpf.AttachCgroupInetSockRelease),
 	}
 
 	defer func() {
@@ -168,7 +166,7 @@ func readEvents(ctx context.Context, rd *ringbuf.Reader) {
 			fmt.Printf("decode event: %v\n", err)
 			continue
 		}
-		fmt.Printf("kind=%-30s proc=%-10s src=%-20s dst=%-20s cookie=%-10d \n",
+		fmt.Printf("kind=%-30s proc=%-20s src=%-20s dst=%-20s cookie=%-10d \n",
 			e.kind,
 			fmt.Sprintf("(%s | %s)", string(e.currComm[:]), string(e.comm[:])),
 			e.tuple.Src,
@@ -218,45 +216,42 @@ func detectCgroupPath() (string, error) {
 	return "", errors.New("cgroupv2 not found, need to mount")
 }
 
-/*
-struct event {
-    u8 kind;
-	u8 curr_comm[16];
-	u8 comm[16];
-	tuple_t tuple;
-	u64 cookie;
-};
-*/
-
 type ebpfEvent struct {
 	buffer []byte
 	cursor int
 
 	kind     ebpfEventKind
-	currComm [16]byte
-	comm     [16]byte
+	currComm string
+	comm     string
 	tuple    types.AddrTuple
 	cookie   uint64
 }
 
 func (e *ebpfEvent) Decode() error {
-	var kind uint8
-	if err := e.DecodeUint8(&kind); err != nil {
+	var kind uint32
+	if err := e.DecodeUint32(&kind); err != nil {
 		return fmt.Errorf("decode kind: %w", err)
 	}
 	e.kind = ebpfEventKind(kind)
-	if err := e.DecodeBytes(e.currComm[:], 16); err != nil {
-		return fmt.Errorf("decode current comm: %w", err)
-	}
-	if err := e.DecodeBytes(e.comm[:], 16); err != nil {
-		return fmt.Errorf("decode comm: %w", err)
-	}
 	if err := e.DecodeTuple(&e.tuple); err != nil {
 		return fmt.Errorf("decode tuple: %w", err)
 	}
 	if err := e.DecodeUint64(&e.cookie); err != nil {
 		return fmt.Errorf("decode cookie: %w", err)
 	}
+
+	currComm := [16]byte{}
+	if err := e.DecodeBytes(currComm[:], 16); err != nil {
+		return fmt.Errorf("decode current comm: %w", err)
+	}
+	e.currComm = string(bytes.TrimRight(currComm[:], "\x00"))
+
+	comm := [16]byte{}
+	if err := e.DecodeBytes(comm[:], 16); err != nil {
+		return fmt.Errorf("decode comm: %w", err)
+	}
+	e.comm = string(bytes.TrimRight(comm[:], "\x00"))
+
 	return nil
 }
 
@@ -319,6 +314,17 @@ func (e *ebpfEvent) DecodeUint16(dst *uint16) error {
 	return nil
 }
 
+func (e *ebpfEvent) DecodeUint32(dst *uint32) error {
+	readAmount := 4
+	offset := e.cursor
+	if len(e.buffer[offset:]) < readAmount {
+		return errors.New("short buffer")
+	}
+	*dst = binary.LittleEndian.Uint32(e.buffer[offset : offset+readAmount])
+	e.cursor += readAmount
+	return nil
+}
+
 func (e *ebpfEvent) DecodeUint64(msg *uint64) error {
 	readAmount := 8
 	offset := e.cursor
@@ -338,7 +344,7 @@ func addrPort(family uint16, ip [16]byte, port uint16) netip.AddrPort {
 	return netip.AddrPortFrom(netip.AddrFrom4([4]byte{ip[0], ip[1], ip[2], ip[3]}), port)
 }
 
-type ebpfEventKind uint8
+type ebpfEventKind uint32
 
 func (e ebpfEventKind) String() string {
 	switch e {
@@ -358,6 +364,10 @@ func (e ebpfEventKind) String() string {
 		return "security_sk_clone_old"
 	case 8:
 		return "cgroup_sock_create"
+	case 9:
+		return "cgroup_connectv4"
+	case 10:
+		return "cgroup_sock_release"
 	}
 	return strconv.Itoa(int(e))
 }

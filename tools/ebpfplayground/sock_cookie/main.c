@@ -57,6 +57,8 @@ enum
     kind_security_sk_clone = 6,
     kind_security_sk_clone_old = 7,
     kind_cgroup_sock_create = 8,
+    kind_cgroup_connect4 = 9,
+    kind_cgroup_sock_release = 10,
 };
 
 typedef union  {
@@ -73,11 +75,11 @@ typedef struct {
 } __attribute__((packed)) tuple_t;
 
 struct event {
-    u8 kind;
-	u8 curr_comm[16];
-	u8 comm[16];
+    u32 kind;
 	tuple_t tuple;
 	u64 cookie;
+	u8 curr_comm[16];
+	u8 comm[16];
 };
 struct event *unused __attribute__((unused));
 
@@ -173,7 +175,6 @@ int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int oldstate, int newst
 
     struct netcontext_val *netctx = bpf_map_lookup_elem(&netcontext, &cookie);
     if (netctx) {
-        bpf_printk("found comm, size=%d\n",  sizeof(netctx->comm));
         __builtin_memcpy(&e->comm, &netctx->comm, sizeof(netctx->comm));
     }
     bpf_ringbuf_submit(e, 0);
@@ -181,9 +182,7 @@ int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int oldstate, int newst
     return 0;
 }
 
-SEC("cgroup_skb/ingress")
-int cgroup_skb_ingress(struct __sk_buff *ctx)
-{
+static __always_inline u16 cgroup_skb_handler(struct __sk_buff *ctx, u8 event_kind) {
     switch (ctx->family) {
         case PF_INET:
         case PF_INET6:
@@ -204,6 +203,7 @@ int cgroup_skb_ingress(struct __sk_buff *ctx)
     nethdrs hdrs = {0}, *nethdrs = &hdrs;
 
     u32 size = 0;
+    u32 prev_hdr_size = 0;
     u32 family = ctx->family;
 
     switch (family) {
@@ -238,6 +238,11 @@ int cgroup_skb_ingress(struct __sk_buff *ctx)
 
             switch (nethdrs->iphdrs.iphdr.protocol) {
                 case IPPROTO_TCP:
+                    dest = &nethdrs->protohdrs.tcphdr;
+                    prev_hdr_size = size;
+                    size = get_type_size(struct tcphdr);
+                    if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
+                        return 1;
                     tuple.sport = bpf_ntohs(nethdrs->protohdrs.tcphdr.source);
                     tuple.dport = bpf_ntohs(nethdrs->protohdrs.tcphdr.dest);
                     break;
@@ -296,127 +301,16 @@ int cgroup_skb_ingress(struct __sk_buff *ctx)
     return 1;
 }
 
+SEC("cgroup_skb/ingress")
+int cgroup_skb_ingress(struct __sk_buff *ctx)
+{
+    return cgroup_skb_handler(ctx, kind_cgroup_skb_ingress);
+}
+
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress(struct __sk_buff *ctx)
 {
-    switch (ctx->family) {
-        case PF_INET:
-        case PF_INET6:
-            break;
-        default:
-            return 1; // PF_INET and PF_INET6 only
-    }
-
-    struct bpf_sock *sk = ctx->sk;
-    if (!sk)
-        return 1;
-
-    sk = bpf_sk_fullsock(sk);
-    if (!sk)
-        return 1;
-
-    void *dest;
-    nethdrs hdrs = {0}, *nethdrs = &hdrs;
-
-    u32 size = 0;
-    u32 family = ctx->family;
-
-    switch (family) {
-        case PF_INET:
-            dest = &nethdrs->iphdrs.iphdr;
-            size = get_type_size(struct iphdr);
-            break;
-        case PF_INET6:
-            dest = &nethdrs->iphdrs.ipv6hdr;
-            size = get_type_size(struct ipv6hdr);
-            break;
-        default:
-            return 1;
-    }
-
-    if (bpf_skb_load_bytes_relative(ctx, 0, dest, size, 1))
-        return 1;
-
-    tuple_t tuple = {0};
-    u32 ihl = 0;
-    switch (family) {
-        case PF_INET:
-            if (nethdrs->iphdrs.iphdr.version != 4) // IPv4
-                return 1;
-
-            ihl = nethdrs->iphdrs.iphdr.ihl;
-            if (ihl > 5) { // re-read IPv4 header if needed
-                size -= get_type_size(struct iphdr);
-                size += ihl * 4;
-                bpf_skb_load_bytes_relative(ctx, 0, dest, size, 1);
-            }
-
-            switch (nethdrs->iphdrs.iphdr.protocol) {
-                case IPPROTO_TCP:
-                    dest = &nethdrs->protohdrs.tcphdr;
-                    u32 prev_hdr_size = size;
-                    size = get_type_size(struct tcphdr);
-                    tuple.sport = bpf_ntohs(nethdrs->protohdrs.tcphdr.source);
-                    tuple.dport = bpf_ntohs(nethdrs->protohdrs.tcphdr.dest);
-                    if (size) {
-                        if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
-                            return 1;
-                    }
-                    break;
-                case IPPROTO_UDP:
-                case IPPROTO_ICMP:
-                    break;
-                default:
-                    return 1; // unsupported proto
-            }
-
-            tuple.saddr.v4addr = nethdrs->iphdrs.iphdr.saddr;
-            tuple.daddr.v4addr = nethdrs->iphdrs.iphdr.daddr;
-            tuple.family = AF_INET;
-
-            break;
-
-        case PF_INET6:
-            // TODO: dual-stack IP implementation unsupported for now
-            // https://en.wikipedia.org/wiki/IPv6_transition_mechanism
-            if (nethdrs->iphdrs.ipv6hdr.version != 6) // IPv6
-                return 1;
-
-            switch (nethdrs->iphdrs.ipv6hdr.nexthdr) {
-                case IPPROTO_TCP:
-                case IPPROTO_UDP:
-                case IPPROTO_ICMPV6:
-                    break;
-                default:
-                    return 1; // unsupported proto
-            }
-            break;
-
-        default:
-            return 1; // verifier
-    }
-
-	u64 cookie = bpf_get_socket_cookie(ctx);
-    if (cookie == 1) {
-        return 1;
-    }
-	bpf_printk("cgroup_skb egress cookie=%d\n", cookie);
-
-    struct event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
-    if (!e) {
-        return 0;
-    }
-    e->kind = kind_cgroup_skb_egress;
-    e->cookie = cookie;
-    e->tuple = tuple;
-    struct netcontext_val *netctx = bpf_map_lookup_elem(&netcontext, &cookie);
-    if (netctx) {
-        __builtin_memcpy(&e->comm, &netctx->comm, sizeof(netctx->comm));
-    }
-    bpf_ringbuf_submit(e, 0);
-
-    return 1;
+    return cgroup_skb_handler(ctx, kind_cgroup_skb_egress);
 }
 
 SEC("cgroup/connect4")
@@ -427,9 +321,28 @@ int cgroup_connect4(struct bpf_sock_addr *ctx)
     if (cookie == 1) {
         return 1;
     }
+    struct netcontext_val netctx = {0};
+    bpf_get_current_comm(&netctx.comm, sizeof(netctx.comm));
+    bpf_map_update_elem(&netcontext, &cookie, &netctx, BPF_ANY);
+
     bpf_printk("cgroup connect4 cookie=%d\n", cookie);
 
-	return 1;
+    struct event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
+    if (!e) {
+        return 0;
+    }
+    e->kind = kind_cgroup_connect4;
+    e->cookie = cookie;
+//    e->tuple.saddr.v4addr = BPF_CORE_READ(ctx, src_ip4);
+//    //e->tuple.saddr.v6addr = BPF_CORE_READ(ctx, src_ip6);
+//    e->tuple.daddr.v4addr = BPF_CORE_READ(ctx, dst_ip4);
+//    e->tuple.sport = BPF_CORE_READ(ctx, src_port);
+//    e->tuple.dport = BPF_CORE_READ(ctx, dst_port);
+//    e->tuple.family = ctx->family;
+    bpf_get_current_comm(&e->curr_comm, sizeof(e->comm));
+    bpf_ringbuf_submit(e, 0);
+    return 1;
 }
 
 SEC("cgroup/sock_create")
@@ -454,12 +367,39 @@ int cgroup_sock_create(struct bpf_sock *ctx)
     e->kind = kind_cgroup_sock_create;
     e->cookie = cookie;
     e->tuple.saddr.v4addr = BPF_CORE_READ(ctx, src_ip4);
-    //e->tuple.saddr.v6addr = BPF_CORE_READ(ctx, src_ip6);
     e->tuple.daddr.v4addr = BPF_CORE_READ(ctx, dst_ip4);
     e->tuple.sport = BPF_CORE_READ(ctx, src_port);
     e->tuple.dport = BPF_CORE_READ(ctx, dst_port);
     e->tuple.family = ctx->family;
-    bpf_get_current_comm(&e->comm, sizeof(e->comm));
+    bpf_get_current_comm(&e->curr_comm, sizeof(e->comm));
+    bpf_ringbuf_submit(e, 0);
+    return 1;
+}
+
+SEC("cgroup/sock_release")
+int cgroup_sock_release(struct bpf_sock *ctx)
+{
+    u64 id = bpf_get_current_pid_tgid();
+	u64 cookie = bpf_get_socket_cookie(ctx);
+    if (cookie == 1) {
+        return 1;
+    }
+
+    bpf_printk("cgroup sock_release cookie=%d\n", cookie);
+
+    struct event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
+    if (!e) {
+        return 0;
+    }
+    e->kind = kind_cgroup_sock_release;
+    e->cookie = cookie;
+    e->tuple.saddr.v4addr = BPF_CORE_READ(ctx, src_ip4);
+    e->tuple.daddr.v4addr = BPF_CORE_READ(ctx, dst_ip4);
+    e->tuple.sport = BPF_CORE_READ(ctx, src_port);
+    e->tuple.dport = BPF_CORE_READ(ctx, dst_port);
+    e->tuple.family = ctx->family;
+    bpf_get_current_comm(&e->curr_comm, sizeof(e->comm));
     bpf_ringbuf_submit(e, 0);
     return 1;
 }

@@ -87,13 +87,13 @@ func NewController(
 	processTreeCollector processTreeCollector,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
-		return uint32(k)
+		return uint32(k) // nolint:gosec
 	})
 	if err != nil {
 		panic(err)
 	}
 	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
-		return uint32(xxhash.Sum64String(k))
+		return uint32(xxhash.Sum64String(k)) // nolint:gosec
 	})
 	if err != nil {
 		panic(err)
@@ -108,7 +108,7 @@ func NewController(
 		dst, _ := k.Dst.MarshalBinary()
 		_, _ = conntrackCacheKey.Write(src)
 		_, _ = conntrackCacheKey.Write(dst)
-		return uint32(conntrackCacheKey.Sum64())
+		return uint32(conntrackCacheKey.Sum64()) // nolint:gosec
 	})
 	if err != nil {
 		panic(err)

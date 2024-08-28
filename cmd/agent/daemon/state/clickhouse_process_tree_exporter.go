@@ -25,7 +25,7 @@ const (
   exit_time
  ) VALUES (@ts, @container_id, @pid, @start_time, @ppid, @parent_start_time, @args, @file_path, @exit_time)`
 
-  clickhouseProcessTreeLabel = "clickhouse_process_tree"
+	clickhouseProcessTreeLabel = "clickhouse_process_tree"
 )
 
 type ClickhouseProcessTreeExporter struct {
@@ -122,8 +122,8 @@ func (c *ClickhouseProcessTreeExporter) generateExitEvents(ctx context.Context, 
 			return err
 		}
 
-		startTime := time.Duration(rawStartTime) * time.Second
-		parentStartTime := time.Duration(rawParentStartTime) * time.Second
+		startTime := time.Duration(rawStartTime) * time.Second             // nolint:gosec
+		parentStartTime := time.Duration(rawParentStartTime) * time.Second // nolint:gosec
 
 		if processes, found := lookup[containerID]; found {
 			key := processtree.ProcessKey{

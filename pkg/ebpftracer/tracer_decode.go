@@ -118,17 +118,17 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		parentStartTime := time.Duration(0)
 		if eventCtx.Ppid != 0 {
 			// We only set the parent start time, if we know the parent PID comes from the same NS.
-			parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond
+			parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
 		}
 		execArgs, ok := parsedArgs.(types.SchedProcessExecArgs)
 		if !ok {
 			t.log.Errorf("expected types.SchedProcessExecArgs, but got: %t", parsedArgs)
 			return nil
 		}
-		processStartTime := time.Duration(eventCtx.StartTime) * time.Nanosecond
+		processStartTime := time.Duration(eventCtx.StartTime) * time.Nanosecond // nolint:gosec
 
 		t.cfg.ProcessTreeCollector.ProcessStarted(
-			system.GetBootTime().Add(time.Duration(rawEventTime)),
+			system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
 			container.ID,
 			processtree.Process{
 				PID:             proc.PID(eventCtx.Pid),
@@ -146,11 +146,11 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 			parentStartTime := time.Duration(0)
 			if eventCtx.Ppid != 0 {
 				// We only set the parent start time, if we know the parent PID comes from the same NS.
-				parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond
+				parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
 			}
 
 			t.cfg.ProcessTreeCollector.ProcessExited(
-				system.GetBootTime().Add(time.Duration(rawEventTime)),
+				system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
 				container.ID,
 				processtree.ToProcessKeyNs(
 					proc.PID(eventCtx.Pid),
@@ -172,7 +172,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 
 			t.cfg.ProcessTreeCollector.ProcessForked(
 				// We always assume the child start time as the event timestamp for forks.
-				system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)),
+				system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)), // nolint:gosec
 				container.ID,
 				processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime),
 				processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime),

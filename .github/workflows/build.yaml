@@ -67,7 +67,7 @@ jobs:
           args: -v --timeout=5m
           skip-pkg-cache: true
           skip-build-cache: true
-          version: v1.58.2
+          version: v1.60.3
 
       - name: Test
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}

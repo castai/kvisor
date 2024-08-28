@@ -116,7 +116,7 @@ func ToProcessKey(pid proc.PID, startTime time.Duration) ProcessKey {
 func ToProcessKeyNs(pid proc.PID, startTimeNs uint64) ProcessKey {
 	return ProcessKey{
 		PID:       pid,
-		StartTime: time.Duration(startTimeNs).Truncate(time.Second),
+		StartTime: time.Duration(startTimeNs).Truncate(time.Second), // nolint:gosec
 	}
 }
 

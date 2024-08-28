@@ -59,6 +59,7 @@ type bpfProgramSpecs struct {
 	CgroupSkbEgress       *ebpf.ProgramSpec `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress      *ebpf.ProgramSpec `ebpf:"cgroup_skb_ingress"`
 	CgroupSockCreate      *ebpf.ProgramSpec `ebpf:"cgroup_sock_create"`
+	CgroupSockRelease     *ebpf.ProgramSpec `ebpf:"cgroup_sock_release"`
 	TraceInetSockSetState *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
 	TraceSecuritySkClone  *ebpf.ProgramSpec `ebpf:"trace_security_sk_clone"`
 }
@@ -109,6 +110,7 @@ type bpfPrograms struct {
 	CgroupSkbEgress       *ebpf.Program `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress      *ebpf.Program `ebpf:"cgroup_skb_ingress"`
 	CgroupSockCreate      *ebpf.Program `ebpf:"cgroup_sock_create"`
+	CgroupSockRelease     *ebpf.Program `ebpf:"cgroup_sock_release"`
 	TraceInetSockSetState *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
 	TraceSecuritySkClone  *ebpf.Program `ebpf:"trace_security_sk_clone"`
 }
@@ -119,6 +121,7 @@ func (p *bpfPrograms) Close() error {
 		p.CgroupSkbEgress,
 		p.CgroupSkbIngress,
 		p.CgroupSockCreate,
+		p.CgroupSockRelease,
 		p.TraceInetSockSetState,
 		p.TraceSecuritySkClone,
 	)
