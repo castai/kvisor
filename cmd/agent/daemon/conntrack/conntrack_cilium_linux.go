@@ -110,7 +110,7 @@ func lookupCilium4(src, dst netip.AddrPort) *netip.AddrPort {
 	// https://github.com/cilium/cilium/blob/v1.13.0/bpf/lib/common.h#L819
 	// CtEntity.RxBytes stores `backend_id` if `e.Flags & TUPLE_F_SERVICE`
 	backendId := e.RxBytes
-	backendKey := lbmap.NewBackend4KeyV3(loadbalancer.BackendID(backendId))
+	backendKey := lbmap.NewBackend4KeyV3(loadbalancer.BackendID(backendId)) // nolint:gosec
 	b, err := backends4Map.Lookup(backendKey)
 	if err != nil || b == nil {
 		return nil
@@ -151,7 +151,7 @@ func lookupCilium6(src, dst netip.AddrPort) *netip.AddrPort {
 	}
 	e := v.(*ctmap.CtEntry)
 	backendId := e.RxBytes
-	backendKey := lbmap.NewBackend6KeyV3(loadbalancer.BackendID(backendId))
+	backendKey := lbmap.NewBackend6KeyV3(loadbalancer.BackendID(backendId)) // nolint:gosec
 	b, err := backends6Map.Lookup(backendKey)
 	if err != nil || b == nil {
 		return nil
