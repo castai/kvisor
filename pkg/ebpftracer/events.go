@@ -6951,12 +6951,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				probes: []EventProbe{
 					{handle: ProbeCgroupSKBIngress, required: true},
 					{handle: ProbeCgroupSKBEgress, required: true},
-					{handle: ProbeSockAllocFile, required: true},
-					{handle: ProbeSockAllocFileRet, required: true},
-					{handle: ProbeCgroupBPFRunFilterSKB, required: true},
-					{handle: ProbeSecuritySocketRecvmsg, required: true},
-					{handle: ProbeSecuritySocketSendmsg, required: true},
-					{handle: ProbeSecuritySkClone, required: true},
+					{handle: ProbeCgroupSockCreate, required: true},
 				},
 			},
 			sets:   []string{"network_events"},
@@ -7324,10 +7319,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:    "sock_set_state",
 			dependencies: dependencies{
 				probes: []EventProbe{
-					{handle: ProbeSockAllocFile, required: true},
-					{handle: ProbeSockAllocFileRet, required: true},
-					{handle: ProbeSecuritySocketConnect, required: true},
-					{handle: ProbeSecuritySocketListen, required: true},
+					{handle: ProbeCgroupSockCreate, required: true},
 					{handle: ProbeInetSockSetState, required: true},
 				},
 			},

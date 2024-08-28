@@ -310,4 +310,23 @@ enum ovl_entry_flag {
 #define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
 #define S_ISLNK(m) (((m)&S_IFMT) == S_IFLNK)
 
+struct bpf_sock {
+	__u32 bound_dev_if;
+	__u32 family;
+	__u32 type;
+	__u32 protocol;
+	__u32 mark;
+	__u32 priority;
+	/* IP address also allows 1 and 2 bytes access */
+	__u32 src_ip4;
+	__u32 src_ip6[4];
+	__u32 src_port;		/* host byte order */
+	__be16 dst_port;	/* network byte order */
+	__u16 :16;		/* zero padding */
+	__u32 dst_ip4;
+	__u32 dst_ip6[4];
+	__u32 state;
+	__s32 rx_queue_mapping;
+};
+
 #endif

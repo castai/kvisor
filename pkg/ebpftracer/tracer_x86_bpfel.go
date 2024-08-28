@@ -62,9 +62,9 @@ type tracerSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerProgramSpecs struct {
-	CgroupBpfRunFilterSkb                    *ebpf.ProgramSpec `ebpf:"cgroup_bpf_run_filter_skb"`
 	CgroupSkbEgress                          *ebpf.ProgramSpec `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress                         *ebpf.ProgramSpec `ebpf:"cgroup_skb_ingress"`
+	CgroupSockCreate                         *ebpf.ProgramSpec `ebpf:"cgroup_sock_create"`
 	KernelWriteMagicEnter                    *ebpf.ProgramSpec `ebpf:"kernel_write_magic_enter"`
 	KernelWriteMagicReturn                   *ebpf.ProgramSpec `ebpf:"kernel_write_magic_return"`
 	LkmSeekerKsetTail                        *ebpf.ProgramSpec `ebpf:"lkm_seeker_kset_tail"`
@@ -128,7 +128,6 @@ type tracerProgramSpecs struct {
 	TraceRetKernelWrite                      *ebpf.ProgramSpec `ebpf:"trace_ret_kernel_write"`
 	TraceRetKernelWriteTail                  *ebpf.ProgramSpec `ebpf:"trace_ret_kernel_write_tail"`
 	TraceRetRegisterKprobe                   *ebpf.ProgramSpec `ebpf:"trace_ret_register_kprobe"`
-	TraceRetSockAllocFile                    *ebpf.ProgramSpec `ebpf:"trace_ret_sock_alloc_file"`
 	TraceRetVfsRead                          *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_read"`
 	TraceRetVfsReadTail                      *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_read_tail"`
 	TraceRetVfsReadv                         *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_readv"`
@@ -154,16 +153,12 @@ type tracerProgramSpecs struct {
 	TraceSecurityMmapFile                    *ebpf.ProgramSpec `ebpf:"trace_security_mmap_file"`
 	TraceSecurityPathNotify                  *ebpf.ProgramSpec `ebpf:"trace_security_path_notify"`
 	TraceSecuritySbMount                     *ebpf.ProgramSpec `ebpf:"trace_security_sb_mount"`
-	TraceSecuritySkClone                     *ebpf.ProgramSpec `ebpf:"trace_security_sk_clone"`
 	TraceSecuritySocketAccept                *ebpf.ProgramSpec `ebpf:"trace_security_socket_accept"`
 	TraceSecuritySocketBind                  *ebpf.ProgramSpec `ebpf:"trace_security_socket_bind"`
 	TraceSecuritySocketConnect               *ebpf.ProgramSpec `ebpf:"trace_security_socket_connect"`
 	TraceSecuritySocketCreate                *ebpf.ProgramSpec `ebpf:"trace_security_socket_create"`
 	TraceSecuritySocketListen                *ebpf.ProgramSpec `ebpf:"trace_security_socket_listen"`
-	TraceSecuritySocketRecvmsg               *ebpf.ProgramSpec `ebpf:"trace_security_socket_recvmsg"`
-	TraceSecuritySocketSendmsg               *ebpf.ProgramSpec `ebpf:"trace_security_socket_sendmsg"`
 	TraceSecuritySocketSetsockopt            *ebpf.ProgramSpec `ebpf:"trace_security_socket_setsockopt"`
-	TraceSockAllocFile                       *ebpf.ProgramSpec `ebpf:"trace_sock_alloc_file"`
 	TraceSwitchTaskNamespaces                *ebpf.ProgramSpec `ebpf:"trace_switch_task_namespaces"`
 	TraceSysEnter                            *ebpf.ProgramSpec `ebpf:"trace_sys_enter"`
 	TraceSysExit                             *ebpf.ProgramSpec `ebpf:"trace_sys_exit"`
@@ -203,76 +198,74 @@ type tracerProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerMapSpecs struct {
-	ArgsMap                 *ebpf.MapSpec `ebpf:"args_map"`
-	BinaryFilter            *ebpf.MapSpec `ebpf:"binary_filter"`
-	BpfAttachMap            *ebpf.MapSpec `ebpf:"bpf_attach_map"`
-	BpfAttachTmpMap         *ebpf.MapSpec `ebpf:"bpf_attach_tmp_map"`
-	BpfProgLoadMap          *ebpf.MapSpec `ebpf:"bpf_prog_load_map"`
-	Bufs                    *ebpf.MapSpec `ebpf:"bufs"`
-	CgroupIdFilter          *ebpf.MapSpec `ebpf:"cgroup_id_filter"`
-	CgrpctxmapEg            *ebpf.MapSpec `ebpf:"cgrpctxmap_eg"`
-	CgrpctxmapIn            *ebpf.MapSpec `ebpf:"cgrpctxmap_in"`
-	CommFilter              *ebpf.MapSpec `ebpf:"comm_filter"`
-	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
-	ContainersMap           *ebpf.MapSpec `ebpf:"containers_map"`
-	DebugEvents             *ebpf.MapSpec `ebpf:"debug_events"`
-	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
-	ElfFilesMap             *ebpf.MapSpec `ebpf:"elf_files_map"`
-	Entrymap                *ebpf.MapSpec `ebpf:"entrymap"`
-	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
-	Events                  *ebpf.MapSpec `ebpf:"events"`
-	EventsMap               *ebpf.MapSpec `ebpf:"events_map"`
-	FdArgPathMap            *ebpf.MapSpec `ebpf:"fd_arg_path_map"`
-	FileModificationMap     *ebpf.MapSpec `ebpf:"file_modification_map"`
-	FileReadPathFilter      *ebpf.MapSpec `ebpf:"file_read_path_filter"`
-	FileTypeFilter          *ebpf.MapSpec `ebpf:"file_type_filter"`
-	FileWritePathFilter     *ebpf.MapSpec `ebpf:"file_write_path_filter"`
-	FileWrites              *ebpf.MapSpec `ebpf:"file_writes"`
-	IgnoredCgroupsMap       *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
-	Inodemap                *ebpf.MapSpec `ebpf:"inodemap"`
-	IoFilePathCacheMap      *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
-	KconfigMap              *ebpf.MapSpec `ebpf:"kconfig_map"`
-	KsymbolsMap             *ebpf.MapSpec `ebpf:"ksymbols_map"`
-	Logs                    *ebpf.MapSpec `ebpf:"logs"`
-	LogsCount               *ebpf.MapSpec `ebpf:"logs_count"`
-	Metrics                 *ebpf.MapSpec `ebpf:"metrics"`
-	MntNsFilter             *ebpf.MapSpec `ebpf:"mnt_ns_filter"`
-	ModulesMap              *ebpf.MapSpec `ebpf:"modules_map"`
-	NetCapEvents            *ebpf.MapSpec `ebpf:"net_cap_events"`
-	NetHeapEvent            *ebpf.MapSpec `ebpf:"net_heap_event"`
-	NetHeapSockStateEvent   *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
-	NetconfigMap            *ebpf.MapSpec `ebpf:"netconfig_map"`
-	Netflowmap              *ebpf.MapSpec `ebpf:"netflowmap"`
-	NetflowsDataMap         *ebpf.MapSpec `ebpf:"netflows_data_map"`
-	NewModuleMap            *ebpf.MapSpec `ebpf:"new_module_map"`
-	OomInfo                 *ebpf.MapSpec `ebpf:"oom_info"`
-	PidFilter               *ebpf.MapSpec `ebpf:"pid_filter"`
-	PidNsFilter             *ebpf.MapSpec `ebpf:"pid_ns_filter"`
-	PidOriginalFileFlags    *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
-	ProcInfoMap             *ebpf.MapSpec `ebpf:"proc_info_map"`
-	ProcessTreeMap          *ebpf.MapSpec `ebpf:"process_tree_map"`
-	ProgArray               *ebpf.MapSpec `ebpf:"prog_array"`
-	ProgArrayTp             *ebpf.MapSpec `ebpf:"prog_array_tp"`
-	RecentDeletedModuleMap  *ebpf.MapSpec `ebpf:"recent_deleted_module_map"`
-	RecentInsertedModuleMap *ebpf.MapSpec `ebpf:"recent_inserted_module_map"`
-	ScratchMap              *ebpf.MapSpec `ebpf:"scratch_map"`
-	SignalEvents            *ebpf.MapSpec `ebpf:"signal_events"`
-	Signals                 *ebpf.MapSpec `ebpf:"signals"`
-	Sockmap                 *ebpf.MapSpec `ebpf:"sockmap"`
-	StackAddresses          *ebpf.MapSpec `ebpf:"stack_addresses"`
-	Sys32To64Map            *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail        *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail      *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails           *ebpf.MapSpec `ebpf:"sys_enter_tails"`
-	SysExitInitTail         *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail       *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
-	SysExitTails            *ebpf.MapSpec `ebpf:"sys_exit_tails"`
-	SyscallStatsMap         *ebpf.MapSpec `ebpf:"syscall_stats_map"`
-	TaskInfoMap             *ebpf.MapSpec `ebpf:"task_info_map"`
-	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
-	UidFilter               *ebpf.MapSpec `ebpf:"uid_filter"`
-	UtsNsFilter             *ebpf.MapSpec `ebpf:"uts_ns_filter"`
-	WalkModTreeQueue        *ebpf.MapSpec `ebpf:"walk_mod_tree_queue"`
+	ArgsMap                   *ebpf.MapSpec `ebpf:"args_map"`
+	BinaryFilter              *ebpf.MapSpec `ebpf:"binary_filter"`
+	BpfAttachMap              *ebpf.MapSpec `ebpf:"bpf_attach_map"`
+	BpfAttachTmpMap           *ebpf.MapSpec `ebpf:"bpf_attach_tmp_map"`
+	BpfProgLoadMap            *ebpf.MapSpec `ebpf:"bpf_prog_load_map"`
+	Bufs                      *ebpf.MapSpec `ebpf:"bufs"`
+	CgroupIdFilter            *ebpf.MapSpec `ebpf:"cgroup_id_filter"`
+	CgroupSkbEventsScratchMap *ebpf.MapSpec `ebpf:"cgroup_skb_events_scratch_map"`
+	CommFilter                *ebpf.MapSpec `ebpf:"comm_filter"`
+	ConfigMap                 *ebpf.MapSpec `ebpf:"config_map"`
+	ContainersMap             *ebpf.MapSpec `ebpf:"containers_map"`
+	DebugEvents               *ebpf.MapSpec `ebpf:"debug_events"`
+	DroppedBinaryInodes       *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
+	ElfFilesMap               *ebpf.MapSpec `ebpf:"elf_files_map"`
+	Entrymap                  *ebpf.MapSpec `ebpf:"entrymap"`
+	EventDataMap              *ebpf.MapSpec `ebpf:"event_data_map"`
+	Events                    *ebpf.MapSpec `ebpf:"events"`
+	EventsMap                 *ebpf.MapSpec `ebpf:"events_map"`
+	FdArgPathMap              *ebpf.MapSpec `ebpf:"fd_arg_path_map"`
+	FileModificationMap       *ebpf.MapSpec `ebpf:"file_modification_map"`
+	FileReadPathFilter        *ebpf.MapSpec `ebpf:"file_read_path_filter"`
+	FileTypeFilter            *ebpf.MapSpec `ebpf:"file_type_filter"`
+	FileWritePathFilter       *ebpf.MapSpec `ebpf:"file_write_path_filter"`
+	FileWrites                *ebpf.MapSpec `ebpf:"file_writes"`
+	IgnoredCgroupsMap         *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
+	IoFilePathCacheMap        *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
+	KconfigMap                *ebpf.MapSpec `ebpf:"kconfig_map"`
+	KsymbolsMap               *ebpf.MapSpec `ebpf:"ksymbols_map"`
+	Logs                      *ebpf.MapSpec `ebpf:"logs"`
+	LogsCount                 *ebpf.MapSpec `ebpf:"logs_count"`
+	Metrics                   *ebpf.MapSpec `ebpf:"metrics"`
+	MntNsFilter               *ebpf.MapSpec `ebpf:"mnt_ns_filter"`
+	ModulesMap                *ebpf.MapSpec `ebpf:"modules_map"`
+	NetCapEvents              *ebpf.MapSpec `ebpf:"net_cap_events"`
+	NetHeapEvent              *ebpf.MapSpec `ebpf:"net_heap_event"`
+	NetHeapSockStateEvent     *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
+	NetTaskctxMap             *ebpf.MapSpec `ebpf:"net_taskctx_map"`
+	NetconfigMap              *ebpf.MapSpec `ebpf:"netconfig_map"`
+	Netflowmap                *ebpf.MapSpec `ebpf:"netflowmap"`
+	NetflowsDataMap           *ebpf.MapSpec `ebpf:"netflows_data_map"`
+	NewModuleMap              *ebpf.MapSpec `ebpf:"new_module_map"`
+	OomInfo                   *ebpf.MapSpec `ebpf:"oom_info"`
+	PidFilter                 *ebpf.MapSpec `ebpf:"pid_filter"`
+	PidNsFilter               *ebpf.MapSpec `ebpf:"pid_ns_filter"`
+	PidOriginalFileFlags      *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
+	ProcInfoMap               *ebpf.MapSpec `ebpf:"proc_info_map"`
+	ProcessTreeMap            *ebpf.MapSpec `ebpf:"process_tree_map"`
+	ProgArray                 *ebpf.MapSpec `ebpf:"prog_array"`
+	ProgArrayTp               *ebpf.MapSpec `ebpf:"prog_array_tp"`
+	RecentDeletedModuleMap    *ebpf.MapSpec `ebpf:"recent_deleted_module_map"`
+	RecentInsertedModuleMap   *ebpf.MapSpec `ebpf:"recent_inserted_module_map"`
+	ScratchMap                *ebpf.MapSpec `ebpf:"scratch_map"`
+	SignalEvents              *ebpf.MapSpec `ebpf:"signal_events"`
+	Signals                   *ebpf.MapSpec `ebpf:"signals"`
+	StackAddresses            *ebpf.MapSpec `ebpf:"stack_addresses"`
+	Sys32To64Map              *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
+	SysEnterInitTail          *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
+	SysEnterSubmitTail        *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
+	SysEnterTails             *ebpf.MapSpec `ebpf:"sys_enter_tails"`
+	SysExitInitTail           *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
+	SysExitSubmitTail         *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
+	SysExitTails              *ebpf.MapSpec `ebpf:"sys_exit_tails"`
+	SyscallStatsMap           *ebpf.MapSpec `ebpf:"syscall_stats_map"`
+	TaskInfoMap               *ebpf.MapSpec `ebpf:"task_info_map"`
+	TtyOpenedFiles            *ebpf.MapSpec `ebpf:"tty_opened_files"`
+	UidFilter                 *ebpf.MapSpec `ebpf:"uid_filter"`
+	UtsNsFilter               *ebpf.MapSpec `ebpf:"uts_ns_filter"`
+	WalkModTreeQueue          *ebpf.MapSpec `ebpf:"walk_mod_tree_queue"`
 }
 
 // tracerObjects contains all objects after they have been loaded into the kernel.
@@ -294,76 +287,74 @@ func (o *tracerObjects) Close() error {
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerMaps struct {
-	ArgsMap                 *ebpf.Map `ebpf:"args_map"`
-	BinaryFilter            *ebpf.Map `ebpf:"binary_filter"`
-	BpfAttachMap            *ebpf.Map `ebpf:"bpf_attach_map"`
-	BpfAttachTmpMap         *ebpf.Map `ebpf:"bpf_attach_tmp_map"`
-	BpfProgLoadMap          *ebpf.Map `ebpf:"bpf_prog_load_map"`
-	Bufs                    *ebpf.Map `ebpf:"bufs"`
-	CgroupIdFilter          *ebpf.Map `ebpf:"cgroup_id_filter"`
-	CgrpctxmapEg            *ebpf.Map `ebpf:"cgrpctxmap_eg"`
-	CgrpctxmapIn            *ebpf.Map `ebpf:"cgrpctxmap_in"`
-	CommFilter              *ebpf.Map `ebpf:"comm_filter"`
-	ConfigMap               *ebpf.Map `ebpf:"config_map"`
-	ContainersMap           *ebpf.Map `ebpf:"containers_map"`
-	DebugEvents             *ebpf.Map `ebpf:"debug_events"`
-	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
-	ElfFilesMap             *ebpf.Map `ebpf:"elf_files_map"`
-	Entrymap                *ebpf.Map `ebpf:"entrymap"`
-	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
-	Events                  *ebpf.Map `ebpf:"events"`
-	EventsMap               *ebpf.Map `ebpf:"events_map"`
-	FdArgPathMap            *ebpf.Map `ebpf:"fd_arg_path_map"`
-	FileModificationMap     *ebpf.Map `ebpf:"file_modification_map"`
-	FileReadPathFilter      *ebpf.Map `ebpf:"file_read_path_filter"`
-	FileTypeFilter          *ebpf.Map `ebpf:"file_type_filter"`
-	FileWritePathFilter     *ebpf.Map `ebpf:"file_write_path_filter"`
-	FileWrites              *ebpf.Map `ebpf:"file_writes"`
-	IgnoredCgroupsMap       *ebpf.Map `ebpf:"ignored_cgroups_map"`
-	Inodemap                *ebpf.Map `ebpf:"inodemap"`
-	IoFilePathCacheMap      *ebpf.Map `ebpf:"io_file_path_cache_map"`
-	KconfigMap              *ebpf.Map `ebpf:"kconfig_map"`
-	KsymbolsMap             *ebpf.Map `ebpf:"ksymbols_map"`
-	Logs                    *ebpf.Map `ebpf:"logs"`
-	LogsCount               *ebpf.Map `ebpf:"logs_count"`
-	Metrics                 *ebpf.Map `ebpf:"metrics"`
-	MntNsFilter             *ebpf.Map `ebpf:"mnt_ns_filter"`
-	ModulesMap              *ebpf.Map `ebpf:"modules_map"`
-	NetCapEvents            *ebpf.Map `ebpf:"net_cap_events"`
-	NetHeapEvent            *ebpf.Map `ebpf:"net_heap_event"`
-	NetHeapSockStateEvent   *ebpf.Map `ebpf:"net_heap_sock_state_event"`
-	NetconfigMap            *ebpf.Map `ebpf:"netconfig_map"`
-	Netflowmap              *ebpf.Map `ebpf:"netflowmap"`
-	NetflowsDataMap         *ebpf.Map `ebpf:"netflows_data_map"`
-	NewModuleMap            *ebpf.Map `ebpf:"new_module_map"`
-	OomInfo                 *ebpf.Map `ebpf:"oom_info"`
-	PidFilter               *ebpf.Map `ebpf:"pid_filter"`
-	PidNsFilter             *ebpf.Map `ebpf:"pid_ns_filter"`
-	PidOriginalFileFlags    *ebpf.Map `ebpf:"pid_original_file_flags"`
-	ProcInfoMap             *ebpf.Map `ebpf:"proc_info_map"`
-	ProcessTreeMap          *ebpf.Map `ebpf:"process_tree_map"`
-	ProgArray               *ebpf.Map `ebpf:"prog_array"`
-	ProgArrayTp             *ebpf.Map `ebpf:"prog_array_tp"`
-	RecentDeletedModuleMap  *ebpf.Map `ebpf:"recent_deleted_module_map"`
-	RecentInsertedModuleMap *ebpf.Map `ebpf:"recent_inserted_module_map"`
-	ScratchMap              *ebpf.Map `ebpf:"scratch_map"`
-	SignalEvents            *ebpf.Map `ebpf:"signal_events"`
-	Signals                 *ebpf.Map `ebpf:"signals"`
-	Sockmap                 *ebpf.Map `ebpf:"sockmap"`
-	StackAddresses          *ebpf.Map `ebpf:"stack_addresses"`
-	Sys32To64Map            *ebpf.Map `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail        *ebpf.Map `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail      *ebpf.Map `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails           *ebpf.Map `ebpf:"sys_enter_tails"`
-	SysExitInitTail         *ebpf.Map `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail       *ebpf.Map `ebpf:"sys_exit_submit_tail"`
-	SysExitTails            *ebpf.Map `ebpf:"sys_exit_tails"`
-	SyscallStatsMap         *ebpf.Map `ebpf:"syscall_stats_map"`
-	TaskInfoMap             *ebpf.Map `ebpf:"task_info_map"`
-	TtyOpenedFiles          *ebpf.Map `ebpf:"tty_opened_files"`
-	UidFilter               *ebpf.Map `ebpf:"uid_filter"`
-	UtsNsFilter             *ebpf.Map `ebpf:"uts_ns_filter"`
-	WalkModTreeQueue        *ebpf.Map `ebpf:"walk_mod_tree_queue"`
+	ArgsMap                   *ebpf.Map `ebpf:"args_map"`
+	BinaryFilter              *ebpf.Map `ebpf:"binary_filter"`
+	BpfAttachMap              *ebpf.Map `ebpf:"bpf_attach_map"`
+	BpfAttachTmpMap           *ebpf.Map `ebpf:"bpf_attach_tmp_map"`
+	BpfProgLoadMap            *ebpf.Map `ebpf:"bpf_prog_load_map"`
+	Bufs                      *ebpf.Map `ebpf:"bufs"`
+	CgroupIdFilter            *ebpf.Map `ebpf:"cgroup_id_filter"`
+	CgroupSkbEventsScratchMap *ebpf.Map `ebpf:"cgroup_skb_events_scratch_map"`
+	CommFilter                *ebpf.Map `ebpf:"comm_filter"`
+	ConfigMap                 *ebpf.Map `ebpf:"config_map"`
+	ContainersMap             *ebpf.Map `ebpf:"containers_map"`
+	DebugEvents               *ebpf.Map `ebpf:"debug_events"`
+	DroppedBinaryInodes       *ebpf.Map `ebpf:"dropped_binary_inodes"`
+	ElfFilesMap               *ebpf.Map `ebpf:"elf_files_map"`
+	Entrymap                  *ebpf.Map `ebpf:"entrymap"`
+	EventDataMap              *ebpf.Map `ebpf:"event_data_map"`
+	Events                    *ebpf.Map `ebpf:"events"`
+	EventsMap                 *ebpf.Map `ebpf:"events_map"`
+	FdArgPathMap              *ebpf.Map `ebpf:"fd_arg_path_map"`
+	FileModificationMap       *ebpf.Map `ebpf:"file_modification_map"`
+	FileReadPathFilter        *ebpf.Map `ebpf:"file_read_path_filter"`
+	FileTypeFilter            *ebpf.Map `ebpf:"file_type_filter"`
+	FileWritePathFilter       *ebpf.Map `ebpf:"file_write_path_filter"`
+	FileWrites                *ebpf.Map `ebpf:"file_writes"`
+	IgnoredCgroupsMap         *ebpf.Map `ebpf:"ignored_cgroups_map"`
+	IoFilePathCacheMap        *ebpf.Map `ebpf:"io_file_path_cache_map"`
+	KconfigMap                *ebpf.Map `ebpf:"kconfig_map"`
+	KsymbolsMap               *ebpf.Map `ebpf:"ksymbols_map"`
+	Logs                      *ebpf.Map `ebpf:"logs"`
+	LogsCount                 *ebpf.Map `ebpf:"logs_count"`
+	Metrics                   *ebpf.Map `ebpf:"metrics"`
+	MntNsFilter               *ebpf.Map `ebpf:"mnt_ns_filter"`
+	ModulesMap                *ebpf.Map `ebpf:"modules_map"`
+	NetCapEvents              *ebpf.Map `ebpf:"net_cap_events"`
+	NetHeapEvent              *ebpf.Map `ebpf:"net_heap_event"`
+	NetHeapSockStateEvent     *ebpf.Map `ebpf:"net_heap_sock_state_event"`
+	NetTaskctxMap             *ebpf.Map `ebpf:"net_taskctx_map"`
+	NetconfigMap              *ebpf.Map `ebpf:"netconfig_map"`
+	Netflowmap                *ebpf.Map `ebpf:"netflowmap"`
+	NetflowsDataMap           *ebpf.Map `ebpf:"netflows_data_map"`
+	NewModuleMap              *ebpf.Map `ebpf:"new_module_map"`
+	OomInfo                   *ebpf.Map `ebpf:"oom_info"`
+	PidFilter                 *ebpf.Map `ebpf:"pid_filter"`
+	PidNsFilter               *ebpf.Map `ebpf:"pid_ns_filter"`
+	PidOriginalFileFlags      *ebpf.Map `ebpf:"pid_original_file_flags"`
+	ProcInfoMap               *ebpf.Map `ebpf:"proc_info_map"`
+	ProcessTreeMap            *ebpf.Map `ebpf:"process_tree_map"`
+	ProgArray                 *ebpf.Map `ebpf:"prog_array"`
+	ProgArrayTp               *ebpf.Map `ebpf:"prog_array_tp"`
+	RecentDeletedModuleMap    *ebpf.Map `ebpf:"recent_deleted_module_map"`
+	RecentInsertedModuleMap   *ebpf.Map `ebpf:"recent_inserted_module_map"`
+	ScratchMap                *ebpf.Map `ebpf:"scratch_map"`
+	SignalEvents              *ebpf.Map `ebpf:"signal_events"`
+	Signals                   *ebpf.Map `ebpf:"signals"`
+	StackAddresses            *ebpf.Map `ebpf:"stack_addresses"`
+	Sys32To64Map              *ebpf.Map `ebpf:"sys_32_to_64_map"`
+	SysEnterInitTail          *ebpf.Map `ebpf:"sys_enter_init_tail"`
+	SysEnterSubmitTail        *ebpf.Map `ebpf:"sys_enter_submit_tail"`
+	SysEnterTails             *ebpf.Map `ebpf:"sys_enter_tails"`
+	SysExitInitTail           *ebpf.Map `ebpf:"sys_exit_init_tail"`
+	SysExitSubmitTail         *ebpf.Map `ebpf:"sys_exit_submit_tail"`
+	SysExitTails              *ebpf.Map `ebpf:"sys_exit_tails"`
+	SyscallStatsMap           *ebpf.Map `ebpf:"syscall_stats_map"`
+	TaskInfoMap               *ebpf.Map `ebpf:"task_info_map"`
+	TtyOpenedFiles            *ebpf.Map `ebpf:"tty_opened_files"`
+	UidFilter                 *ebpf.Map `ebpf:"uid_filter"`
+	UtsNsFilter               *ebpf.Map `ebpf:"uts_ns_filter"`
+	WalkModTreeQueue          *ebpf.Map `ebpf:"walk_mod_tree_queue"`
 }
 
 func (m *tracerMaps) Close() error {
@@ -375,8 +366,7 @@ func (m *tracerMaps) Close() error {
 		m.BpfProgLoadMap,
 		m.Bufs,
 		m.CgroupIdFilter,
-		m.CgrpctxmapEg,
-		m.CgrpctxmapIn,
+		m.CgroupSkbEventsScratchMap,
 		m.CommFilter,
 		m.ConfigMap,
 		m.ContainersMap,
@@ -394,7 +384,6 @@ func (m *tracerMaps) Close() error {
 		m.FileWritePathFilter,
 		m.FileWrites,
 		m.IgnoredCgroupsMap,
-		m.Inodemap,
 		m.IoFilePathCacheMap,
 		m.KconfigMap,
 		m.KsymbolsMap,
@@ -406,6 +395,7 @@ func (m *tracerMaps) Close() error {
 		m.NetCapEvents,
 		m.NetHeapEvent,
 		m.NetHeapSockStateEvent,
+		m.NetTaskctxMap,
 		m.NetconfigMap,
 		m.Netflowmap,
 		m.NetflowsDataMap,
@@ -423,7 +413,6 @@ func (m *tracerMaps) Close() error {
 		m.ScratchMap,
 		m.SignalEvents,
 		m.Signals,
-		m.Sockmap,
 		m.StackAddresses,
 		m.Sys32To64Map,
 		m.SysEnterInitTail,
@@ -445,9 +434,9 @@ func (m *tracerMaps) Close() error {
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerPrograms struct {
-	CgroupBpfRunFilterSkb                    *ebpf.Program `ebpf:"cgroup_bpf_run_filter_skb"`
 	CgroupSkbEgress                          *ebpf.Program `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress                         *ebpf.Program `ebpf:"cgroup_skb_ingress"`
+	CgroupSockCreate                         *ebpf.Program `ebpf:"cgroup_sock_create"`
 	KernelWriteMagicEnter                    *ebpf.Program `ebpf:"kernel_write_magic_enter"`
 	KernelWriteMagicReturn                   *ebpf.Program `ebpf:"kernel_write_magic_return"`
 	LkmSeekerKsetTail                        *ebpf.Program `ebpf:"lkm_seeker_kset_tail"`
@@ -511,7 +500,6 @@ type tracerPrograms struct {
 	TraceRetKernelWrite                      *ebpf.Program `ebpf:"trace_ret_kernel_write"`
 	TraceRetKernelWriteTail                  *ebpf.Program `ebpf:"trace_ret_kernel_write_tail"`
 	TraceRetRegisterKprobe                   *ebpf.Program `ebpf:"trace_ret_register_kprobe"`
-	TraceRetSockAllocFile                    *ebpf.Program `ebpf:"trace_ret_sock_alloc_file"`
 	TraceRetVfsRead                          *ebpf.Program `ebpf:"trace_ret_vfs_read"`
 	TraceRetVfsReadTail                      *ebpf.Program `ebpf:"trace_ret_vfs_read_tail"`
 	TraceRetVfsReadv                         *ebpf.Program `ebpf:"trace_ret_vfs_readv"`
@@ -537,16 +525,12 @@ type tracerPrograms struct {
 	TraceSecurityMmapFile                    *ebpf.Program `ebpf:"trace_security_mmap_file"`
 	TraceSecurityPathNotify                  *ebpf.Program `ebpf:"trace_security_path_notify"`
 	TraceSecuritySbMount                     *ebpf.Program `ebpf:"trace_security_sb_mount"`
-	TraceSecuritySkClone                     *ebpf.Program `ebpf:"trace_security_sk_clone"`
 	TraceSecuritySocketAccept                *ebpf.Program `ebpf:"trace_security_socket_accept"`
 	TraceSecuritySocketBind                  *ebpf.Program `ebpf:"trace_security_socket_bind"`
 	TraceSecuritySocketConnect               *ebpf.Program `ebpf:"trace_security_socket_connect"`
 	TraceSecuritySocketCreate                *ebpf.Program `ebpf:"trace_security_socket_create"`
 	TraceSecuritySocketListen                *ebpf.Program `ebpf:"trace_security_socket_listen"`
-	TraceSecuritySocketRecvmsg               *ebpf.Program `ebpf:"trace_security_socket_recvmsg"`
-	TraceSecuritySocketSendmsg               *ebpf.Program `ebpf:"trace_security_socket_sendmsg"`
 	TraceSecuritySocketSetsockopt            *ebpf.Program `ebpf:"trace_security_socket_setsockopt"`
-	TraceSockAllocFile                       *ebpf.Program `ebpf:"trace_sock_alloc_file"`
 	TraceSwitchTaskNamespaces                *ebpf.Program `ebpf:"trace_switch_task_namespaces"`
 	TraceSysEnter                            *ebpf.Program `ebpf:"trace_sys_enter"`
 	TraceSysExit                             *ebpf.Program `ebpf:"trace_sys_exit"`
@@ -584,9 +568,9 @@ type tracerPrograms struct {
 
 func (p *tracerPrograms) Close() error {
 	return _TracerClose(
-		p.CgroupBpfRunFilterSkb,
 		p.CgroupSkbEgress,
 		p.CgroupSkbIngress,
+		p.CgroupSockCreate,
 		p.KernelWriteMagicEnter,
 		p.KernelWriteMagicReturn,
 		p.LkmSeekerKsetTail,
@@ -650,7 +634,6 @@ func (p *tracerPrograms) Close() error {
 		p.TraceRetKernelWrite,
 		p.TraceRetKernelWriteTail,
 		p.TraceRetRegisterKprobe,
-		p.TraceRetSockAllocFile,
 		p.TraceRetVfsRead,
 		p.TraceRetVfsReadTail,
 		p.TraceRetVfsReadv,
@@ -676,16 +659,12 @@ func (p *tracerPrograms) Close() error {
 		p.TraceSecurityMmapFile,
 		p.TraceSecurityPathNotify,
 		p.TraceSecuritySbMount,
-		p.TraceSecuritySkClone,
 		p.TraceSecuritySocketAccept,
 		p.TraceSecuritySocketBind,
 		p.TraceSecuritySocketConnect,
 		p.TraceSecuritySocketCreate,
 		p.TraceSecuritySocketListen,
-		p.TraceSecuritySocketRecvmsg,
-		p.TraceSecuritySocketSendmsg,
 		p.TraceSecuritySocketSetsockopt,
-		p.TraceSockAllocFile,
 		p.TraceSwitchTaskNamespaces,
 		p.TraceSysEnter,
 		p.TraceSysExit,

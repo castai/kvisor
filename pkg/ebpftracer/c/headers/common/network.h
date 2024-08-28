@@ -134,24 +134,7 @@ typedef struct net_event_context {
 
 // network related maps
 
-typedef struct {
-    u64 ts;
-    u16 ip_csum;
-    struct in6_addr src;
-    struct in6_addr dst;
-} indexer_t;
-
-typedef struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 4096); // 800 KB    // simultaneous cgroup/skb ingress/eggress progs
-    __type(key, indexer_t);                 // layer 3 header fields used as indexer
-    __type(value, net_event_context_t);     // event context built so cgroup/skb can use
-} cgrpctxmap_t;
-
-cgrpctxmap_t cgrpctxmap_in SEC(".maps");    // saved info SKB caller <=> SKB ingress
-cgrpctxmap_t cgrpctxmap_eg SEC(".maps");    // saved info SKB caller <=> SKB egress
-
-// inodemap
+// socket cookie
 
 typedef struct net_task_context {
     struct task_struct *task;
@@ -165,18 +148,9 @@ typedef struct net_task_context {
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 65535); // 9 MB     // simultaneous sockets being traced
-    __type(key, u64);                       // socket inode number ...
+    __type(key, u64);                       // socket cookie number ...
     __type(value, struct net_task_context); // ... linked to a task context
-} inodemap SEC(".maps");                    // relate sockets and tasks
-
-// sockmap (map two cloned "socket" representation structs ("sock"))
-
-struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 65535); // 9 MB     // simultaneous sockets being cloned
-    __type(key, u64);                       // *(struct sock *newsock) ...
-    __type(value, u64);                     // ... old sock->socket inode number
-} sockmap SEC(".maps");                     // relate a cloned sock struct with
+} net_taskctx_map SEC(".maps");              // relate sockets and tasks
 
 // entrymap
 
@@ -206,8 +180,8 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, SCRATCH_MAP_SIZE);    // simultaneous softirqs running per CPU (?)
     __type(key, u32);                         // per cpu index ... (always zero)
-    __type(value, event_data_t);              // ... linked to a scratch area
-} net_heap_event SEC(".maps");
+    __type(value, net_event_context_t);              // ... linked to a scratch area
+} cgroup_skb_events_scratch_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
