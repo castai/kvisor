@@ -155,7 +155,7 @@ func (a *App) Run(ctx context.Context) error {
 		exporters = state.NewExporters(log)
 	}
 
-	kubeAPIServiceConn, err := grpc.Dial(
+	kubeAPIServiceConn, err := grpc.NewClient(
 		cfg.KubeAPIServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

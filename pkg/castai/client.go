@@ -28,7 +28,7 @@ func NewClient(userAgent string, cfg Config) (*Client, error) {
 	if strings.HasPrefix(cfg.APIGrpcAddr, "localhost") || cfg.Insecure {
 		tls = insecure.NewCredentials()
 	}
-	grpcConn, err := grpc.Dial(
+	grpcConn, err := grpc.NewClient(
 		cfg.APIGrpcAddr,
 		grpc.WithTransportCredentials(tls),
 		grpc.WithUserAgent(userAgent),
