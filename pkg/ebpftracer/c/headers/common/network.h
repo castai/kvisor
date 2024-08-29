@@ -134,8 +134,6 @@ typedef struct net_event_context {
 
 // network related maps
 
-// socket cookie
-
 typedef struct net_task_context {
     struct task_struct *task;
     task_context_t taskctx;

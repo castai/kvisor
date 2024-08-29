@@ -8,8 +8,8 @@ require (
 	github.com/castai/image-analyzer v0.5.1
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cespare/xxhash v1.1.0
-	github.com/cilium/cilium v1.16.1
-	github.com/cilium/ebpf v0.16.1-0.20240821115849-625b0a910e1b
+	github.com/cilium/cilium v1.15.4
+	github.com/cilium/ebpf v0.16.0
 	github.com/containerd/containerd v1.7.16
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.13.0
@@ -97,10 +97,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cilium/hive v0.0.0-20240529072208-d997f86e4219 // indirect
 	github.com/cilium/proxy v0.0.0-20240418093727-2c7164c53e26 // indirect
-	github.com/cilium/statedb v0.2.4 // indirect
-	github.com/cilium/stream v0.0.0-20240226091623-f979d32855f8 // indirect
 	github.com/cilium/workerpool v1.2.0 // indirect
 	github.com/containerd/errdefs v0.1.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -149,7 +146,6 @@ require (
 	github.com/liamg/memoryfs v1.6.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
-	github.com/mackerelio/go-osstat v0.2.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
@@ -159,6 +155,8 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
+	github.com/onsi/ginkgo/v2 v2.17.1 // indirect
+	github.com/onsi/gomega v1.32.0 // indirect
 	github.com/open-policy-agent/opa v0.64.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
 	github.com/owenrumney/squealer v1.2.2 // indirect
@@ -199,7 +197,6 @@ require (
 	k8s.io/apiserver v0.30.2 // indirect
 	k8s.io/component-base v0.30.2 // indirect
 	k8s.io/kubectl v0.30.0 // indirect
-	sigs.k8s.io/controller-runtime v0.18.4 // indirect
 )
 
 require (

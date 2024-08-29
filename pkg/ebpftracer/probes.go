@@ -203,7 +203,6 @@ const (
 	ProbeDoInitModuleRet
 	ProbeLoadElfPhdrs
 	ProbeFilldir64
-	ProbeSecurityFilePermission
 	ProbeTaskRename
 	ProbePrintSyscallTable
 	ProbePrintNetSeqOps
@@ -215,12 +214,6 @@ const (
 	ProbeCheckMapFuncCompatibility
 	ProbeKallsymsLookupName
 	ProbeKallsymsLookupNameRet
-	//ProbeSockAllocFile
-	//ProbeSockAllocFileRet
-	//ProbeSecuritySkClone
-	//ProbeSecuritySocketRecvmsg
-	//ProbeSecuritySocketSendmsg
-	//ProbeCgroupBPFRunFilterSKB
 	ProbeCgroupSKBIngress
 	ProbeCgroupSKBEgress
 	ProbeDoMmap
@@ -241,7 +234,6 @@ const (
 	ProbeFilpClose
 	ProbeInotifyFindInode
 	ProbeInotifyFindInodeRet
-	ProbeBpfCheck
 	ProbeExecBinprm
 	ProbeExecBinprmRet
 	ProbeHiddenKernelModuleSeeker
