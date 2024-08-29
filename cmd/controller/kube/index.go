@@ -12,22 +12,22 @@ import (
 
 func NewIndex() *Index {
 	return &Index{
-		podsInfoByIP: make(map[netip.Addr]IPInfo),
-		replicaSets:  make(map[types.UID]metav1.ObjectMeta),
-		jobs:         make(map[types.UID]metav1.ObjectMeta),
-		deployments:  make(map[types.UID]*appsv1.Deployment),
-		pods:         make(map[types.UID]*PodInfo),
-		nodesByName:  make(map[string]*corev1.Node),
+		ipsDetails:  make(map[netip.Addr]IPInfo),
+		replicaSets: make(map[types.UID]metav1.ObjectMeta),
+		jobs:        make(map[types.UID]metav1.ObjectMeta),
+		deployments: make(map[types.UID]*appsv1.Deployment),
+		pods:        make(map[types.UID]*PodInfo),
+		nodesByName: make(map[string]*corev1.Node),
 	}
 }
 
 type Index struct {
-	podsInfoByIP map[netip.Addr]IPInfo
-	replicaSets  map[types.UID]metav1.ObjectMeta
-	jobs         map[types.UID]metav1.ObjectMeta
-	deployments  map[types.UID]*appsv1.Deployment
-	pods         map[types.UID]*PodInfo
-	nodesByName  map[string]*corev1.Node
+	ipsDetails  map[netip.Addr]IPInfo
+	replicaSets map[types.UID]metav1.ObjectMeta
+	jobs        map[types.UID]metav1.ObjectMeta
+	deployments map[types.UID]*appsv1.Deployment
+	pods        map[types.UID]*PodInfo
+	nodesByName map[string]*corev1.Node
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
@@ -45,7 +45,7 @@ func (i *Index) addFromPod(pod *corev1.Pod) {
 			PodInfo: podInfo,
 		}
 		if addr, err := netip.ParseAddr(pod.Status.PodIP); err == nil {
-			i.podsInfoByIP[addr] = ipInfo
+			i.ipsDetails[addr] = ipInfo
 		}
 	}
 }
@@ -62,7 +62,7 @@ func (i *Index) addFromEndpoints(v *corev1.Endpoints) {
 			if err != nil {
 				continue
 			}
-			i.podsInfoByIP[addr] = IPInfo{Endpoint: &IPEndpoint{
+			i.ipsDetails[addr] = IPInfo{Endpoint: &IPEndpoint{
 				ID:        string(v.UID),
 				Name:      v.Name,
 				Namespace: v.Namespace,
@@ -83,7 +83,7 @@ func (i *Index) addFromService(v *corev1.Service) {
 		if err != nil {
 			continue
 		}
-		i.podsInfoByIP[addr] = IPInfo{Service: v}
+		i.ipsDetails[addr] = IPInfo{Service: v}
 	}
 }
 
@@ -96,7 +96,7 @@ func (i *Index) addFromNode(v *corev1.Node) {
 			if err != nil {
 				continue
 			}
-			i.podsInfoByIP[addr] = IPInfo{Node: v}
+			i.ipsDetails[addr] = IPInfo{Node: v}
 			return
 		}
 	}
@@ -110,7 +110,7 @@ func (i *Index) deleteFromPod(v *corev1.Pod) {
 		if err != nil {
 			return
 		}
-		delete(i.podsInfoByIP, addr)
+		delete(i.ipsDetails, addr)
 	}
 }
 
@@ -124,7 +124,7 @@ func (i *Index) deleteFromEndpoints(v *corev1.Endpoints) {
 			if err != nil {
 				continue
 			}
-			delete(i.podsInfoByIP, addr)
+			delete(i.ipsDetails, addr)
 		}
 	}
 }
@@ -140,7 +140,7 @@ func (i *Index) deleteFromService(v *corev1.Service) {
 		if err != nil {
 			continue
 		}
-		delete(i.podsInfoByIP, addr)
+		delete(i.ipsDetails, addr)
 	}
 }
 
@@ -153,7 +153,7 @@ func (i *Index) deleteByNode(v *corev1.Node) {
 			if err != nil {
 				continue
 			}
-			delete(i.podsInfoByIP, addr)
+			delete(i.ipsDetails, addr)
 		}
 	}
 }
