@@ -99,20 +99,32 @@ func run(ctx context.Context) error {
 	srv.eventsAsserted = true
 	srv.events = nil
 
+	fmt.Println("🙏waiting for process tree events")
+	if err := srv.assertProcessTreeEvents(ctx); err != nil {
+		return fmt.Errorf("assert process tree events: %w", err)
+	}
+	srv.processTreeEventsAsserted = true
+	srv.processTreeEvents = nil
+
 	fmt.Println("🙏waiting for netflows")
 	if err := srv.assertNetflows(ctx); err != nil {
 		return fmt.Errorf("assert netflows: %w", err)
 	}
+	srv.netflowsAsserted = true
+	srv.netflows = nil
 
 	fmt.Println("🙏waiting for container stats")
 	if err := srv.assertContainerStats(ctx); err != nil {
 		return fmt.Errorf("assert container stats: %w", err)
 	}
+	srv.containerStatsAsserted = true
+	srv.containerStats = nil
 
 	fmt.Println("🙏waiting for kubernetes deltas")
 	if err := srv.assertKubernetesDeltas(ctx); err != nil {
 		return fmt.Errorf("assert k8s deltas: %w", err)
 	}
+	srv.deltaUpdates = nil
 
 	fmt.Println("🙏waiting for kube bench")
 	if err := srv.assertKubeBenchReport(ctx); err != nil {
@@ -123,21 +135,19 @@ func run(ctx context.Context) error {
 	if err := srv.assertKubeLinter(ctx); err != nil {
 		return fmt.Errorf("assert kube linter: %w", err)
 	}
+	srv.kubeLinterReports = nil
 
 	fmt.Println("🙏waiting for image metadata")
 	if err := srv.assertImageMetadata(ctx); err != nil {
 		return fmt.Errorf("assert image metadata: %w", err)
 	}
+	srv.imageMetadatas = nil
 
 	fmt.Println("🙏waiting for flogs")
 	if err := srv.assertLogs(ctx); err != nil {
 		return fmt.Errorf("assert logs: %w", err)
 	}
-
-	fmt.Println("🙏waiting for process tree events")
-	if err := srv.assertProcessTreeEvents(ctx); err != nil {
-		return fmt.Errorf("assert process tree events: %w", err)
-	}
+	srv.logs = nil
 
 	fmt.Println("👌e2e finished")
 
@@ -201,19 +211,22 @@ var _ castaipb.RuntimeSecurityAgentAPIServer = (*testCASTAIServer)(nil)
 type testCASTAIServer struct {
 	clientset *kubernetes.Clientset
 
-	mu                sync.Mutex
-	containerStats    []*castaipb.ContainerStatsBatch
-	events            []*castaipb.Event
-	eventsAsserted    bool
-	logs              []*castaipb.LogEvent
-	deltaUpdates      []*castaipb.KubernetesDeltaItem
-	imageMetadatas    []*castaipb.ImageMetadata
-	kubeBenchReports  []*castaipb.KubeBenchReport
-	kubeLinterReports []*castaipb.KubeLinterReport
-	processTreeEvents []*castaipb.ProcessTreeEvent
-	controllerConfig  []byte
-	agentConfig       []byte
-	netflows          []*castaipb.Netflow
+	mu                        sync.Mutex
+	containerStats            []*castaipb.ContainerStatsBatch
+	containerStatsAsserted    bool
+	events                    []*castaipb.Event
+	eventsAsserted            bool
+	logs                      []*castaipb.LogEvent
+	deltaUpdates              []*castaipb.KubernetesDeltaItem
+	imageMetadatas            []*castaipb.ImageMetadata
+	kubeBenchReports          []*castaipb.KubeBenchReport
+	kubeLinterReports         []*castaipb.KubeLinterReport
+	processTreeEvents         []*castaipb.ProcessTreeEvent
+	processTreeEventsAsserted bool
+	controllerConfig          []byte
+	agentConfig               []byte
+	netflows                  []*castaipb.Netflow
+	netflowsAsserted          bool
 }
 
 func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
@@ -241,6 +254,9 @@ func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecur
 		if err != nil {
 			return err
 		}
+		if t.processTreeEventsAsserted {
+			continue
+		}
 		data, err := protojson.Marshal(event)
 		if err != nil {
 			fmt.Println("received process tree event (cannot marshall to json):", event)
@@ -258,6 +274,9 @@ func (t *testCASTAIServer) NetflowWriteStream(server castaipb.RuntimeSecurityAge
 		msg, err := server.Recv()
 		if err != nil {
 			return err
+		}
+		if t.netflowsAsserted {
+			continue
 		}
 		fmt.Printf("received netflow: %+v\n", msg)
 		t.mu.Lock()
@@ -298,6 +317,9 @@ func (t *testCASTAIServer) ContainerStatsWriteStream(server castaipb.RuntimeSecu
 		msg, err := server.Recv()
 		if err != nil {
 			return err
+		}
+		if t.containerStatsAsserted {
+			continue
 		}
 		fmt.Println("received container stats:", len(msg.Items))
 		t.mu.Lock()
@@ -366,12 +388,13 @@ func (t *testCASTAIServer) EventsWriteStream(server castaipb.RuntimeSecurityAgen
 		if err != nil {
 			return err
 		}
-		fmt.Println("received event:", event)
-		if !t.eventsAsserted {
-			t.mu.Lock()
-			t.events = append(t.events, event)
-			t.mu.Unlock()
+		if t.eventsAsserted {
+			continue
 		}
+		fmt.Println("received event:", event)
+		t.mu.Lock()
+		t.events = append(t.events, event)
+		t.mu.Unlock()
 	}
 }
 
