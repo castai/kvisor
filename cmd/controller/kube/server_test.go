@@ -29,6 +29,9 @@ func TestServer(t *testing.T) {
 				"topology.kubernetes.io/zone": "us-east-1a",
 			},
 		},
+		Spec: corev1.NodeSpec{
+			PodCIDR: "10.10.10.0/24",
+		},
 	}
 
 	client.index.pods["p1"] = &PodInfo{
@@ -58,15 +61,25 @@ func TestServer(t *testing.T) {
 		},
 		Zone: "us-east-1a",
 	}
-	client.index.podsInfoByIP[netip.MustParseAddr("10.10.10.10")] = IPInfo{
+	client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = IPInfo{
 		IP:      "",
 		PodInfo: client.index.pods["p1"],
 		Node:    client.index.nodesByName["n1"],
 	}
 
+	client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")] = IPInfo{
+		Service: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{},
+			Spec: corev1.ServiceSpec{
+				Type:      corev1.ServiceTypeClusterIP,
+				ClusterIP: "10.30.0.36",
+			},
+		},
+	}
+
 	srv := NewServer(client)
 
-	t.Run("test get pod by id", func(t *testing.T) {
+	t.Run("get pod by id", func(t *testing.T) {
 		r := require.New(t)
 		resp, err := srv.GetPod(ctx, &kubepb.GetPodRequest{
 			Uid: "p1",
@@ -78,7 +91,7 @@ func TestServer(t *testing.T) {
 		r.Equal("us-east-1a", resp.Pod.Zone)
 	})
 
-	t.Run("test pod not found", func(t *testing.T) {
+	t.Run("pod not found", func(t *testing.T) {
 		r := require.New(t)
 		_, err := srv.GetPod(ctx, &kubepb.GetPodRequest{
 			Uid: "p2",
@@ -87,7 +100,7 @@ func TestServer(t *testing.T) {
 		r.Equal(codes.NotFound, st.Code())
 	})
 
-	t.Run("test get ip info", func(t *testing.T) {
+	t.Run("get ip info", func(t *testing.T) {
 		r := require.New(t)
 		resp, err := srv.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{
 			Ip: netip.MustParseAddr("10.10.10.10").AsSlice(),
@@ -99,12 +112,20 @@ func TestServer(t *testing.T) {
 		r.Equal("us-east-1a", resp.Info.Zone)
 	})
 
-	t.Run("test get ip info not found", func(t *testing.T) {
+	t.Run("get ip info not found", func(t *testing.T) {
 		r := require.New(t)
 		_, err := srv.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{
 			Ip: netip.MustParseAddr("10.2.2.2").AsSlice(),
 		})
 		st, _ := status.FromError(err)
 		r.Equal(codes.NotFound, st.Code())
+	})
+
+	t.Run("get cluster info", func(t *testing.T) {
+		r := require.New(t)
+		resp, err := srv.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
+		r.NoError(err)
+		r.Equal("10.10.10.0/16", resp.PodsCidr)
+		r.Equal("10.30.0.0/16", resp.ServiceCidr)
 	})
 }

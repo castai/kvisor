@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"os"
 	"reflect"
@@ -226,7 +227,7 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	val, found := c.index.podsInfoByIP[ip]
+	val, found := c.index.ipsDetails[ip]
 	return val, found
 }
 
@@ -261,34 +262,67 @@ type ClusterInfo struct {
 	ServiceCidr string
 }
 
-func (c *Client) GetClusterInfo() (*ClusterInfo, bool) {
+func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.clusterInfo != nil {
-		return c.clusterInfo, true
+		return c.clusterInfo, nil
 	}
 
 	var res ClusterInfo
+	// Try to find pods cidr from nodes.
 	for _, node := range c.index.nodesByName {
-		subnet, err := netip.ParsePrefix(node.Spec.PodCIDR)
-		if err != nil {
-			return nil, false
+		if node.Spec.PodCIDR != "" {
+			subnet, err := netip.ParsePrefix(node.Spec.PodCIDR)
+			if err != nil {
+				return nil, fmt.Errorf("parse node pod cidr: %w", err)
+			}
+			res.PodCidr = netip.PrefixFrom(subnet.Addr(), 16).String()
+			break
 		}
-		res.PodCidr = netip.PrefixFrom(subnet.Addr(), 16).String()
-		break
 	}
 
-	for _, info := range c.index.podsInfoByIP {
+	for _, info := range c.index.ipsDetails {
+		// Find service cidr from clusterIP services.
 		if svc := info.Service; svc != nil && svc.Spec.Type == corev1.ServiceTypeClusterIP {
-			addr, err := netip.ParseAddr(svc.Spec.ClusterIP)
-			if err != nil {
-				return nil, false
+			if svc.Spec.ClusterIP != "" {
+				addr, err := netip.ParseAddr(svc.Spec.ClusterIP)
+				if err != nil {
+					return nil, fmt.Errorf("parse service cluster ip: %w", err)
+				}
+				cidr, err := addr.Prefix(16)
+				if err != nil {
+					return nil, fmt.Errorf("get cluster ip prefix: %w", err)
+				}
+				res.ServiceCidr = cidr.String()
+				if res.PodCidr != "" {
+					break
+				}
 			}
-			res.ServiceCidr = netip.PrefixFrom(addr, 16).String()
+		}
+		// Find pod cidr from pod if not found from nodes.
+		if res.PodCidr == "" {
+			if pod := info.PodInfo; pod != nil && pod.Pod != nil && pod.Pod.Status.PodIP != "" {
+				addr, err := netip.ParseAddr(pod.Pod.Status.PodIP)
+				if err != nil {
+					return nil, fmt.Errorf("parse pod addr: %w", err)
+				}
+				cidr, err := addr.Prefix(16)
+				if err != nil {
+					return nil, fmt.Errorf("get pod ip prefix: %w", err)
+				}
+				res.PodCidr = cidr.String()
+				if res.ServiceCidr != "" {
+					break
+				}
+			}
 		}
 	}
+	if res.PodCidr == "" && res.ServiceCidr == "" {
+		return nil, fmt.Errorf("no pod cidr or service cidr found")
+	}
 	c.clusterInfo = &res
-	return &res, false
+	return &res, nil
 }
 
 type ImageDetails struct {

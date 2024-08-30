@@ -57,9 +57,9 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 }
 
 func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoRequest) (*kubepb.GetClusterInfoResponse, error) {
-	info, found := s.client.GetClusterInfo()
-	if !found {
-		return nil, status.Errorf(codes.NotFound, "cluster info not found")
+	info, err := s.client.GetClusterInfo()
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "cluster info not found: %v", err)
 	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
