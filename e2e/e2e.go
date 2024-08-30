@@ -227,6 +227,7 @@ type testCASTAIServer struct {
 	agentConfig               []byte
 	netflows                  []*castaipb.Netflow
 	netflowsAsserted          bool
+	outputReceivedData        bool
 }
 
 func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
@@ -260,7 +261,7 @@ func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecur
 		data, err := protojson.Marshal(event)
 		if err != nil {
 			fmt.Println("received process tree event (cannot marshall to json):", event)
-		} else {
+		} else if t.outputReceivedData {
 			fmt.Println("received process tree event:", string(data))
 		}
 		t.mu.Lock()
@@ -278,7 +279,9 @@ func (t *testCASTAIServer) NetflowWriteStream(server castaipb.RuntimeSecurityAge
 		if t.netflowsAsserted {
 			continue
 		}
-		fmt.Printf("received netflow: %+v\n", msg)
+		if t.outputReceivedData {
+			fmt.Printf("received netflow: %+v\n", msg)
+		}
 		t.mu.Lock()
 		t.netflows = append(t.netflows, msg)
 		t.mu.Unlock()
@@ -321,7 +324,9 @@ func (t *testCASTAIServer) ContainerStatsWriteStream(server castaipb.RuntimeSecu
 		if t.containerStatsAsserted {
 			continue
 		}
-		fmt.Println("received container stats:", len(msg.Items))
+		if t.outputReceivedData {
+			fmt.Println("received container stats:", len(msg.Items))
+		}
 		t.mu.Lock()
 		t.containerStats = append(t.containerStats, msg)
 		t.mu.Unlock()
@@ -357,8 +362,9 @@ func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.G
 	if v := req.GetAgent(); v != nil {
 		t.agentConfig = v
 	}
-
-	fmt.Printf("received configs:\ncontroller=%v\n agent=%v\n", t.controllerConfig, t.agentConfig)
+	if t.outputReceivedData {
+		fmt.Printf("received configs:\ncontroller=%v\n agent=%v\n", t.controllerConfig, t.agentConfig)
+	}
 
 	return &castaipb.GetConfigurationResponse{}, nil
 }
@@ -388,10 +394,12 @@ func (t *testCASTAIServer) EventsWriteStream(server castaipb.RuntimeSecurityAgen
 		if err != nil {
 			return err
 		}
+		if t.outputReceivedData {
+			fmt.Printf("received event: %+v\n", event)
+		}
 		if t.eventsAsserted {
 			continue
 		}
-		fmt.Println("received event:", event)
 		t.mu.Lock()
 		t.events = append(t.events, event)
 		t.mu.Unlock()
@@ -404,7 +412,9 @@ func (t *testCASTAIServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentA
 		if err != nil {
 			return err
 		}
-		fmt.Println("received log:", event)
+		if t.outputReceivedData {
+			fmt.Println("received log:", event)
+		}
 		t.mu.Lock()
 		t.logs = append(t.logs, event)
 		t.mu.Unlock()
