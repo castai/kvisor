@@ -318,6 +318,9 @@ func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
 			}
 		}
 	}
+	if res.PodCidr == "" && res.ServiceCidr == "" {
+		return nil, fmt.Errorf("no pod cidr or service cidr found")
+	}
 	c.clusterInfo = &res
 	return &res, nil
 }
