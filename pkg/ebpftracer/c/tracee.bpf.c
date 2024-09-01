@@ -5667,7 +5667,6 @@ int cgroup_sock_create(struct bpf_sock *ctx)
     set_net_task_context(&p, &netctx);
 
     bpf_map_update_elem(&net_taskctx_map, &cookie, &netctx, BPF_ANY);
-    bpf_printk("sock_create, cookie=%d\n", cookie);
 
     return 1;
 }
@@ -5776,6 +5775,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
                     return 1;
                 }
             }
+            neteventctx->md.header_size += size;
 
             prev_hdr_size = size;
             next_proto = nethdrs->iphdrs.iphdr.protocol;
@@ -5807,6 +5807,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
             if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
                 return 1;
 
+            neteventctx->md.header_size += size;
+
             break;
         case PF_INET6:
             dest = &nethdrs->iphdrs.ipv6hdr;
@@ -5815,6 +5817,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
             // Load L3 header.
             if (bpf_skb_load_bytes_relative(ctx, 0, dest, size, BPF_HDR_START_NET))
                 return 1;
+
+            neteventctx->md.header_size += size;
 
             // TODO: dual-stack IP implementation unsupported for now
             // https://en.wikipedia.org/wiki/IPv6_transition_mechanism
@@ -5851,13 +5855,12 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
             if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
                 return 1;
 
+            neteventctx->md.header_size += size;
+
             break;
         default:
             return 1;
     }
-
-    // Update the network event context with payload size.
-    neteventctx->md.header_size += size;
 
     // Update the network flow map indexer with the packet headers.
     neteventctx->md.flow.proto = next_proto;

@@ -232,7 +232,6 @@ type tracerMapSpecs struct {
 	MntNsFilter               *ebpf.MapSpec `ebpf:"mnt_ns_filter"`
 	ModulesMap                *ebpf.MapSpec `ebpf:"modules_map"`
 	NetCapEvents              *ebpf.MapSpec `ebpf:"net_cap_events"`
-	NetHeapEvent              *ebpf.MapSpec `ebpf:"net_heap_event"`
 	NetHeapSockStateEvent     *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
 	NetTaskctxMap             *ebpf.MapSpec `ebpf:"net_taskctx_map"`
 	NetconfigMap              *ebpf.MapSpec `ebpf:"netconfig_map"`
@@ -321,7 +320,6 @@ type tracerMaps struct {
 	MntNsFilter               *ebpf.Map `ebpf:"mnt_ns_filter"`
 	ModulesMap                *ebpf.Map `ebpf:"modules_map"`
 	NetCapEvents              *ebpf.Map `ebpf:"net_cap_events"`
-	NetHeapEvent              *ebpf.Map `ebpf:"net_heap_event"`
 	NetHeapSockStateEvent     *ebpf.Map `ebpf:"net_heap_sock_state_event"`
 	NetTaskctxMap             *ebpf.Map `ebpf:"net_taskctx_map"`
 	NetconfigMap              *ebpf.Map `ebpf:"netconfig_map"`
@@ -393,7 +391,6 @@ func (m *tracerMaps) Close() error {
 		m.MntNsFilter,
 		m.ModulesMap,
 		m.NetCapEvents,
-		m.NetHeapEvent,
 		m.NetHeapSockStateEvent,
 		m.NetTaskctxMap,
 		m.NetconfigMap,
