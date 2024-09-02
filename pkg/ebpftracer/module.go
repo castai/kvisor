@@ -138,7 +138,7 @@ func (m *module) attachProbe(handle handle) error {
 	if !found {
 		return fmt.Errorf("probe %d not registered", handle)
 	}
-	m.log.Debugf("attaching probe: %s", probe.String())
+	m.log.Infof("attaching probe: %s", probe.String())
 	if err := probe.attach(); err != nil {
 		return err
 	}
