@@ -143,12 +143,14 @@ typedef struct net_task_context {
     u64 matched_policies;
 } net_task_context_t;
 
+
+// Sockets task context. Used to get user space task context for network related events.
 struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 65535); // 9 MB     // simultaneous sockets being traced
-    __type(key, u64);                       // socket cookie number ...
-    __type(value, struct net_task_context); // ... linked to a task context
-} net_taskctx_map SEC(".maps");              // relate sockets and tasks
+    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
+    __uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_CLONE);
+    __type(key, int);
+    __type(value, struct net_task_context);
+} net_taskctx_map SEC(".maps");
 
 // entrymap
 

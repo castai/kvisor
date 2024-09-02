@@ -5662,11 +5662,11 @@ int cgroup_sock_create(struct bpf_sock *ctx)
         return 1;
     }
 
-    u64 cookie = bpf_get_socket_cookie(ctx);
     net_task_context_t netctx = {0};
     set_net_task_context(&p, &netctx);
 
-    bpf_map_update_elem(&net_taskctx_map, &cookie, &netctx, BPF_ANY);
+    // Populate socket map with network task context.
+    bpf_sk_storage_get(&net_taskctx_map, ctx, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
 
     return 1;
 }
@@ -5692,8 +5692,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
     if (!sk)
         return 1;
 
-    u64 cookie = bpf_get_socket_cookie(ctx);
-    net_task_context_t *netctx = bpf_map_lookup_elem(&net_taskctx_map, &cookie); // obtain event context
+    net_task_context_t *netctx = bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0); // obtain event context
     if (!netctx) {
         // 1. kthreads receiving ICMP and ICMPv6 (e.g dest unreach)
         // 2. tasks not being traced (socket was created before agent started)
@@ -6379,8 +6378,8 @@ int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int old_state, int new_
     if (!should_trace_sock_set_state(old_state, new_state)) {
         return 0;
     }
-    u64 cookie = bpf_get_socket_cookie(sk);
-    struct net_task_context *netctx = bpf_map_lookup_elem(&net_taskctx_map, &cookie);
+
+    struct net_task_context *netctx = bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0);
     if (!netctx) {
         return 0;
     }
