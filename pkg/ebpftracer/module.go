@@ -88,6 +88,8 @@ func (m *module) load(cfg Config) error {
 		return err
 	}
 
+	btf.FlushKernelSpec()
+
 	m.objects = &objs
 
 	// TODO(Kvisord): Mount cgroupv2 if not mounted.
