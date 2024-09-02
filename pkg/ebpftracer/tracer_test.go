@@ -47,7 +47,7 @@ func TestTracer(t *testing.T) {
 
 	signatures, err := signature.DefaultSignatures(log, signature.SignatureEngineConfig{
 		DefaultSignatureConfig: signature.DefaultSignatureConfig{
-			SOCKS5DetectedSignatureEnabled: true,
+			SOCKS5DetectedSignatureEnabled: false,
 		},
 	})
 	if err != nil {
@@ -112,21 +112,23 @@ func TestTracer(t *testing.T) {
 
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
-			{ID: events.NetPacketSSHBase},
+			//{ID: events.NetPacketSSHBase},
+			{ID: events.SockSetState},
 			//{ID: events.NetPacketTCPBase},
+			//{ID: events.NetPacketHTTPBase},
 			// {ID: events.SchedProcessExec},
 			//{ID: events.MagicWrite},
 			// {ID: events.SecuritySocketConnect},
 			// {ID: events.SocketDup},
-			// {ID: events.SockSetState},
-			//{ID: events.NetPacketDNSBase},
+			{ID: events.NetPacketDNSBase},
 			//{ID: events.VfsWrite},
 			//{ID: events.Write},
-			// {ID: events.StdioViaSocket},
+			//{ID: events.StdioViaSocket},
 			// {ID: events.TtyOpen},
-			// {ID: events.TtyWrite},
+			//{ID: events.TtyWrite},
+			//{ID: events.NetFlowBase},
 		},
-    SignatureEvents: signatureEngine.TargetEvents(),
+		SignatureEvents: signatureEngine.TargetEvents(),
 	}
 
 	if err := tr.ApplyPolicy(policy); err != nil {

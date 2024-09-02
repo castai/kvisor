@@ -10,10 +10,11 @@ import (
 type probeType uint8
 
 const (
-	kProbe        = iota // github.com/iovisor/bcc/blob/master/docs/reference_guide.md#1-kp
-	kretProbe            // github.com/iovisor/bcc/blob/master/docs/reference_guide.md#1-kp
-	tracepoint           // github.com/iovisor/bcc/blob/master/docs/reference_guide.md#3-tracep
-	rawTracepoint        // github.com/iovisor/bcc/blob/master/docs/reference_guide.md#7-raw-tracep
+	kProbe = iota
+	kretProbe
+	tracepoint
+	rawTracepoint
+	btfTracepoint
 )
 
 type probe interface {
@@ -64,6 +65,11 @@ func (p *traceProbe) attach() error {
 		probeLink, err = link.AttachRawTracepoint(link.RawTracepointOptions{
 			Name:    tpEvent,
 			Program: p.program,
+		})
+	case btfTracepoint:
+		probeLink, err = link.AttachTracing(link.TracingOptions{
+			Program:    p.program,
+			AttachType: ebpf.AttachTraceRawTp,
 		})
 	}
 	if err != nil {
@@ -197,7 +203,6 @@ const (
 	ProbeDoInitModuleRet
 	ProbeLoadElfPhdrs
 	ProbeFilldir64
-	ProbeSecurityFilePermission
 	ProbeTaskRename
 	ProbePrintSyscallTable
 	ProbePrintNetSeqOps
@@ -209,12 +214,6 @@ const (
 	ProbeCheckMapFuncCompatibility
 	ProbeKallsymsLookupName
 	ProbeKallsymsLookupNameRet
-	ProbeSockAllocFile
-	ProbeSockAllocFileRet
-	ProbeSecuritySkClone
-	ProbeSecuritySocketRecvmsg
-	ProbeSecuritySocketSendmsg
-	ProbeCgroupBPFRunFilterSKB
 	ProbeCgroupSKBIngress
 	ProbeCgroupSKBEgress
 	ProbeDoMmap
@@ -235,7 +234,6 @@ const (
 	ProbeFilpClose
 	ProbeInotifyFindInode
 	ProbeInotifyFindInodeRet
-	ProbeBpfCheck
 	ProbeExecBinprm
 	ProbeExecBinprmRet
 	ProbeHiddenKernelModuleSeeker
@@ -248,6 +246,7 @@ const (
 	ProbeOomMarkVictim
 	ProbeTtyOpen
 	ProbeTtyWrite
+	ProbeCgroupSockCreate
 )
 
 func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
@@ -330,14 +329,14 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		//ProbeCheckMapFuncCompatibility:   NewTraceProbe(kProbe, "check_map_func_compatibility", "trace_check_map_func_compatibility"),
 		//ProbeKallsymsLookupName:          NewTraceProbe(kProbe, "kallsyms_lookup_name", "trace_kallsyms_lookup_name"),
 		//ProbeKallsymsLookupNameRet:       NewTraceProbe(kretProbe, "kallsyms_lookup_name", "trace_ret_kallsyms_lookup_name"),
-		ProbeSockAllocFile:         newTraceProbe(kProbe, "sock_alloc_file", objs.TraceSockAllocFile),
-		ProbeSockAllocFileRet:      newTraceProbe(kretProbe, "sock_alloc_file", objs.TraceRetSockAllocFile),
-		ProbeSecuritySkClone:       newTraceProbe(kProbe, "security_sk_clone", objs.TraceSecuritySkClone),
-		ProbeSecuritySocketSendmsg: newTraceProbe(kProbe, "security_socket_sendmsg", objs.TraceSecuritySocketSendmsg),
-		ProbeSecuritySocketRecvmsg: newTraceProbe(kProbe, "security_socket_recvmsg", objs.TraceSecuritySocketRecvmsg),
-		ProbeCgroupBPFRunFilterSKB: newTraceProbe(kProbe, "__cgroup_bpf_run_filter_skb", objs.CgroupBpfRunFilterSkb),
-		ProbeCgroupSKBIngress:      newCgroupProbe(ebpf.AttachCGroupInetIngress, cgroupPath, objs.CgroupSkbIngress),
-		ProbeCgroupSKBEgress:       newCgroupProbe(ebpf.AttachCGroupInetEgress, cgroupPath, objs.CgroupSkbEgress),
+		//ProbeSockAllocFile:         newTraceProbe(kProbe, "sock_alloc_file", objs.TraceSockAllocFile),
+		//ProbeSockAllocFileRet:      newTraceProbe(kretProbe, "sock_alloc_file", objs.TraceRetSockAllocFile),
+		//ProbeSecuritySkClone:       newTraceProbe(kProbe, "security_sk_clone", objs.TraceSecuritySkClone),
+		//ProbeSecuritySocketSendmsg: newTraceProbe(kProbe, "security_socket_sendmsg", objs.TraceSecuritySocketSendmsg),
+		//ProbeSecuritySocketRecvmsg: newTraceProbe(kProbe, "security_socket_recvmsg", objs.TraceSecuritySocketRecvmsg),
+		//ProbeCgroupBPFRunFilterSKB: newTraceProbe(kProbe, "__cgroup_bpf_run_filter_skb", objs.CgroupBpfRunFilterSkb),
+		ProbeCgroupSKBIngress: newCgroupProbe(ebpf.AttachCGroupInetIngress, cgroupPath, objs.CgroupSkbIngress),
+		ProbeCgroupSKBEgress:  newCgroupProbe(ebpf.AttachCGroupInetEgress, cgroupPath, objs.CgroupSkbEgress),
 		//ProbeDoMmap:                      NewTraceProbe(kProbe, "do_mmap", "trace_do_mmap"),
 		//ProbeDoMmapRet:                   NewTraceProbe(kretProbe, "do_mmap", "trace_ret_do_mmap"),
 		//ProbeVfsRead:                     NewTraceProbe(kProbe, "vfs_read", "trace_vfs_read"),
@@ -362,9 +361,10 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		//ProbeModuleLoad:                  NewTraceProbe(rawTracepoint, "module:module_load", "tracepoint__module__module_load"),
 		//ProbeModuleFree:                  NewTraceProbe(rawTracepoint, "module:module_free", "tracepoint__module__module_free"),
 		//ProbeLayoutAndAllocate:           NewTraceProbe(kretProbe, "layout_and_allocate", "trace_ret_layout_and_allocate"),
-		ProbeInetSockSetState: newTraceProbe(rawTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
+		ProbeInetSockSetState: newTraceProbe(btfTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
 		ProbeOomMarkVictim:    newTraceProbe(rawTracepoint, "oom:mark_victim", objs.OomMarkVictim),
 		ProbeTtyOpen:          newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
 		ProbeTtyWrite:         newTraceProbe(kProbe, "tty_write", objs.TtyWrite),
+		ProbeCgroupSockCreate: newCgroupProbe(ebpf.AttachCGroupInetSockCreate, cgroupPath, objs.CgroupSockCreate),
 	}
 }

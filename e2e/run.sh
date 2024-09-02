@@ -113,7 +113,7 @@ while true; do
 done
 
 if [[ $job_result -eq 1 ]]; then
-    echo "Job failed!"
+    echo "😞 Job failed! Try to run locally and good luck 🤞: KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh"
     exit 1
 fi
-echo "Job succeeded!"
+echo "👌 Job succeeded!"
