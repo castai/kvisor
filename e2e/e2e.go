@@ -1073,7 +1073,6 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 					if d1.TxBytes == 0 || d1.RxBytes == 0 {
 						continue
 					}
-					f1 := items[0]
 					r.NotEmpty(f1.Timestamp)
 					r.NotEmpty(f1.Namespace)
 					r.NotEmpty(f1.PodName)
