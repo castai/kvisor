@@ -5674,7 +5674,7 @@ int cgroup_sock_create(struct bpf_sock *ctx)
 //
 // SKB eBPF programs
 //
-statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
+statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
 {
     switch (ctx->family) {
         case PF_INET:
@@ -5721,6 +5721,11 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
     eventctx->matched_policies = netctx->matched_policies;  // pick matched_policies from net ctx
     eventctx->syscall = NO_SYSCALL;                         // ingress has no orig syscall
     neteventctx->md.header_size = 0;
+    if (ingress) {
+        eventctx->retval |= packet_ingress;
+    } else {
+        eventctx->retval |= packet_egress;
+    }
 
     nethdrs hdrs = {0}, *nethdrs = &hdrs;
     u32 ret = CGROUP_SKB_HANDLE(proto);
@@ -5730,13 +5735,13 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx);
+    return cgroup_skb_generic(ctx, true);
 }
 
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx);
+    return cgroup_skb_generic(ctx, false);
 }
 
 //

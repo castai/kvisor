@@ -103,6 +103,9 @@ func (m *module) load(cfg Config) error {
 
 	m.loaded.Store(true)
 
+	// Should reduce allocated memory, see https://github.com/cilium/ebpf/issues/1063
+	btf.FlushKernelSpec()
+
 	return nil
 }
 
