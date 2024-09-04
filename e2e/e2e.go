@@ -1081,7 +1081,6 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 					r.NotEmpty(f1.ProcessName)
 					r.NotEmpty(f1.Addr)
 					r.NotEmpty(f1.Destinations)
-					d1 := f1.Destinations[0]
 					r.NotEmpty(d1.Addr)
 					r.NotEmpty(d1.Port)
 					r.NotEmpty(d1.TxBytes + d1.RxBytes)
