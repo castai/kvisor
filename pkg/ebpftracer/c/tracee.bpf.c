@@ -5482,7 +5482,7 @@ statfunc void update_flow_stats(netflowvalue_t *val, u64 bytes, bool ingress) {
         __sync_fetch_and_add(&val->rx_packets, 1);
     } else {
         __sync_fetch_and_add(&val->tx_bytes, bytes);
-        __sync_fetch_and_add(&val->tx_bytes, 1);
+        __sync_fetch_and_add(&val->tx_packets, 1);
     }
 }
 
@@ -5706,10 +5706,10 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
         return 1;
     }
 
-    int zero = 0;
-    net_event_context_t *neteventctx = bpf_map_lookup_elem(&cgroup_skb_events_scratch_map, &zero);
-    if (unlikely(neteventctx == NULL))
-        return 0;
+    // TODO: We may run into stack limit issue here.
+    // If that happens change event_context_t to be a pointer since we have it inside ebpf map anyway.
+    net_event_context_t neteventctx_val = {0};
+    net_event_context_t *neteventctx = &neteventctx_val;
 
     event_context_t *eventctx = &neteventctx->eventctx;
     __builtin_memcpy(&eventctx->task, &netctx->taskctx, sizeof(task_context_t));
@@ -5722,9 +5722,9 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
     eventctx->syscall = NO_SYSCALL;                         // ingress has no orig syscall
     neteventctx->md.header_size = 0;
     if (ingress) {
-        eventctx->retval |= packet_ingress;
+        eventctx->retval = packet_ingress;
     } else {
-        eventctx->retval |= packet_egress;
+        eventctx->retval = packet_egress;
     }
 
     nethdrs hdrs = {0}, *nethdrs = &hdrs;
