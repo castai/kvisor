@@ -1068,21 +1068,24 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 			t.mu.Lock()
 			items := t.netflows
 			t.mu.Unlock()
-			if len(items) > 0 {
-				f1 := items[0]
-				r.NotEmpty(f1.Timestamp)
-				r.NotEmpty(f1.Namespace)
-				r.NotEmpty(f1.PodName)
-				r.NotEmpty(f1.ContainerName)
-				r.NotEmpty(f1.ProcessName)
-				r.NotEmpty(f1.Addr)
-				r.NotEmpty(f1.Destinations)
-				d1 := f1.Destinations[0]
-				r.NotEmpty(d1.Addr)
-				r.NotEmpty(d1.Port)
-				r.NotEmpty(d1.TxBytes + d1.RxBytes)
-				r.NotEmpty(d1.TxPackets + d1.RxPackets)
-				return r.error()
+			for _, f1 := range items {
+				for _, d1 := range f1.Destinations {
+					if d1.TxBytes == 0 || d1.RxBytes == 0 {
+						continue
+					}
+					r.NotEmpty(f1.Timestamp)
+					r.NotEmpty(f1.Namespace)
+					r.NotEmpty(f1.PodName)
+					r.NotEmpty(f1.ContainerName)
+					r.NotEmpty(f1.ProcessName)
+					r.NotEmpty(f1.Addr)
+					r.NotEmpty(f1.Destinations)
+					r.NotEmpty(d1.Addr)
+					r.NotEmpty(d1.Port)
+					r.NotEmpty(d1.TxBytes + d1.RxBytes)
+					r.NotEmpty(d1.TxPackets + d1.RxPackets)
+					return r.error()
+				}
 			}
 		}
 	}

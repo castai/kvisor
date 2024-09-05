@@ -5482,7 +5482,7 @@ statfunc void update_flow_stats(netflowvalue_t *val, u64 bytes, bool ingress) {
         __sync_fetch_and_add(&val->rx_packets, 1);
     } else {
         __sync_fetch_and_add(&val->tx_bytes, bytes);
-        __sync_fetch_and_add(&val->tx_bytes, 1);
+        __sync_fetch_and_add(&val->tx_packets, 1);
     }
 }
 
@@ -5674,7 +5674,7 @@ int cgroup_sock_create(struct bpf_sock *ctx)
 //
 // SKB eBPF programs
 //
-statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
+statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
 {
     switch (ctx->family) {
         case PF_INET:
@@ -5706,10 +5706,10 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
         return 1;
     }
 
-    int zero = 0;
-    net_event_context_t *neteventctx = bpf_map_lookup_elem(&cgroup_skb_events_scratch_map, &zero);
-    if (unlikely(neteventctx == NULL))
-        return 0;
+    // TODO: We may run into stack limit issue here.
+    // If that happens change event_context_t to be a pointer since we have it inside ebpf map anyway.
+    net_event_context_t neteventctx_val = {0};
+    net_event_context_t *neteventctx = &neteventctx_val;
 
     event_context_t *eventctx = &neteventctx->eventctx;
     __builtin_memcpy(&eventctx->task, &netctx->taskctx, sizeof(task_context_t));
@@ -5721,6 +5721,11 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
     eventctx->matched_policies = netctx->matched_policies;  // pick matched_policies from net ctx
     eventctx->syscall = NO_SYSCALL;                         // ingress has no orig syscall
     neteventctx->md.header_size = 0;
+    if (ingress) {
+        eventctx->retval = packet_ingress;
+    } else {
+        eventctx->retval = packet_egress;
+    }
 
     nethdrs hdrs = {0}, *nethdrs = &hdrs;
     u32 ret = CGROUP_SKB_HANDLE(proto);
@@ -5730,13 +5735,13 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx)
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx);
+    return cgroup_skb_generic(ctx, true);
 }
 
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx);
+    return cgroup_skb_generic(ctx, false);
 }
 
 //

@@ -95,7 +95,7 @@ func TestTracer(t *testing.T) {
 		CgroupClient:                       &ebpftracer.MockCgroupClient{},
 		MountNamespacePIDStore:             getInitializedMountNamespacePIDStore(procHandle),
 		HomePIDNS:                          pidNS,
-		NetflowSampleSubmitIntervalSeconds: 0,
+		NetflowSampleSubmitIntervalSeconds: 2,
 		NetflowGrouping:                    ebpftracer.NetflowGroupingDropSrcPort,
 		ProcessTreeCollector:               processtree.NewNoop(),
 	})
@@ -113,20 +113,20 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			//{ID: events.NetPacketSSHBase},
-			{ID: events.SockSetState},
+			//{ID: events.SockSetState},
 			//{ID: events.NetPacketTCPBase},
 			//{ID: events.NetPacketHTTPBase},
 			// {ID: events.SchedProcessExec},
 			//{ID: events.MagicWrite},
 			// {ID: events.SecuritySocketConnect},
 			// {ID: events.SocketDup},
-			{ID: events.NetPacketDNSBase},
+			//{ID: events.NetPacketDNSBase},
 			//{ID: events.VfsWrite},
 			//{ID: events.Write},
 			//{ID: events.StdioViaSocket},
 			// {ID: events.TtyOpen},
 			//{ID: events.TtyWrite},
-			//{ID: events.NetFlowBase},
+			{ID: events.NetFlowBase},
 		},
 		SignatureEvents: signatureEngine.TargetEvents(),
 	}
