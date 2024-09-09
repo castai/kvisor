@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -99,11 +100,10 @@ var udp6Request = []byte{
 
 func TestExtractPayload(t *testing.T) {
 	type testCase struct {
-		title               string
-		data                []byte
-		expectedError       error
-		expectedPayload     []byte
-		expectedSubProtocol SubProtocol
+		title           string
+		data            []byte
+		expectedError   error
+		expectedDetails PacketDetails
 	}
 
 	testCases := []testCase{
@@ -123,48 +123,63 @@ func TestExtractPayload(t *testing.T) {
 			expectedError: ErrUnsupportedIPVersion,
 		},
 		{
-			title:               "ipv4 tcp request",
-			data:                tcp4Packet,
-			expectedPayload:     tcp4PacketPayload,
-			expectedSubProtocol: SubProtocolTCP,
+			title: "ipv4 tcp request",
+			data:  tcp4Packet,
+			expectedDetails: PacketDetails{
+				Payload: tcp4PacketPayload,
+				Proto:   SubProtocolTCP,
+				Src:     netip.AddrPortFrom(netip.MustParseAddr("1.2.3.4"), 123),
+				Dst:     netip.AddrPortFrom(netip.MustParseAddr("5.6.7.8"), 567),
+			},
 		},
 		{
-			title:               "ipv4 udp request",
-			data:                udp4Request,
-			expectedPayload:     udp4RequestPayload,
-			expectedSubProtocol: SubProtocolUDP,
+			title: "ipv4 udp request",
+			data:  udp4Request,
+			expectedDetails: PacketDetails{
+				Payload: udp4RequestPayload,
+				Proto:   SubProtocolUDP,
+				Src:     netip.AddrPortFrom(netip.MustParseAddr("1.2.3.4"), 123),
+				Dst:     netip.AddrPortFrom(netip.MustParseAddr("5.6.7.8"), 567),
+			},
 		},
 		{
-			title:               "ipv6 tcp request",
-			data:                tcp6Packet,
-			expectedPayload:     tcp6PacketPayload,
-			expectedSubProtocol: SubProtocolTCP,
+			title: "ipv6 tcp request",
+			data:  tcp6Packet,
+			expectedDetails: PacketDetails{
+				Payload: tcp6PacketPayload,
+				Proto:   SubProtocolTCP,
+				Src:     netip.AddrPortFrom(netip.MustParseAddr("2001:559:bc13:5400:1749:4628:3934:e1b"), 123),
+				Dst:     netip.AddrPortFrom(netip.MustParseAddr("2607:f8b0:400a:809::200e"), 567),
+			},
 		},
 		{
-			title:               "ipv6 udp request",
-			data:                udp6Request,
-			expectedPayload:     udp6RequestPayload,
-			expectedSubProtocol: SubProtocolUDP,
+			title: "ipv6 udp request",
+			data:  udp6Request,
+			expectedDetails: PacketDetails{
+				Payload: udp6RequestPayload,
+				Proto:   SubProtocolUDP,
+				Src:     netip.AddrPortFrom(netip.MustParseAddr("2001:559:bc13:5400:1749:4628:3934:e1b"), 54276),
+				Dst:     netip.AddrPortFrom(netip.MustParseAddr("2607:f8b0:400a:809::200e"), 443),
+			},
 		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.title, func(t *testing.T) {
-			payload, subProtocol, err := ExtractPayload(test.data)
+			packetDetails, err := ExtractPacketDetails(test.data)
 			if test.expectedError != nil {
 				require.ErrorIs(t, err, test.expectedError)
-				require.Equal(t, UnsupportedSubProtocol, subProtocol)
+				require.Equal(t, UnsupportedSubProtocol, packetDetails.Proto)
 				return
 			} else {
 				require.NoError(t, err)
 			}
-			require.Equal(t, test.expectedPayload, payload)
-			require.Equal(t, test.expectedSubProtocol, subProtocol)
+			require.Equal(t, test.expectedDetails, packetDetails)
 		})
 	}
 }
 
-var sinkPayload []byte
+var sinkPacketDetails PacketDetails
 
 func BenchmarkDecode(b *testing.B) {
 	type benchmark struct {
@@ -197,7 +212,7 @@ func BenchmarkDecode(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				sinkPayload, _, _ = ExtractPayload(bench.data)
+				sinkPacketDetails, _ = ExtractPacketDetails(bench.data)
 			}
 		})
 	}

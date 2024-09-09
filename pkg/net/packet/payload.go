@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net/netip"
 )
 
 const (
@@ -46,78 +47,127 @@ var (
 	ErrNoData                  = errors.New("no data provided")
 )
 
-// ExtractPayload will try to extract the payload for a given IPv4/IPv6 packet.
-func ExtractPayload(data []byte) ([]byte, SubProtocol, error) {
+type PacketDetails struct {
+	Payload []byte
+	Proto   SubProtocol
+	Src     netip.AddrPort
+	Dst     netip.AddrPort
+}
+
+// ExtractPacketDetails will try to extract the payload for a given IPv4/IPv6 packet.
+func ExtractPacketDetails(data []byte) (PacketDetails, error) {
 	if len(data) == 0 {
-		return nil, UnsupportedSubProtocol, ErrNoData
+		return PacketDetails{}, ErrNoData
 	}
 
 	version := data[0] >> 4
 
 	switch version {
-	case 4:
+	case ipV4:
 		return extractPayloadV4(data)
-	case 6:
+	case ipV6:
 		return extractPayloadV6(data)
 	default:
-		return nil, UnsupportedSubProtocol, fmt.Errorf("cannot extract payload for IP packet version `%d`: %w", version, ErrUnsupportedIPVersion)
+		return PacketDetails{}, fmt.Errorf("cannot extract payload for IP packet version `%d`: %w", version, ErrUnsupportedIPVersion)
 	}
 }
 
-func extractPayloadV4(data []byte) ([]byte, SubProtocol, error) {
+func extractPayloadV4(data []byte) (PacketDetails, error) {
 	subProtocol := SubProtocol(data[9])
 	totalLength := int(binary.BigEndian.Uint16(data[2:4]))
 	if len(data) < totalLength {
-		return nil, UnsupportedSubProtocol, ErrPacketTooSmall
+		return PacketDetails{}, ErrPacketTooSmall
 	}
 
 	subOffset := int((data[0] & 0x0F) << 2)
 
 	if subOffset > totalLength {
-		return nil, UnsupportedSubProtocol, ErrOffsetBiggerThanData
+		return PacketDetails{}, ErrOffsetBiggerThanData
 	}
+
+	srcAddr := netip.AddrFrom4([4]byte(data[12:16]))
+	dstAddr := netip.AddrFrom4([4]byte(data[16:20]))
 
 	switch subProtocol {
 	case SubProtocolTCP:
 		if (totalLength - subOffset) < minTcpHeaderLength {
-			return nil, UnsupportedSubProtocol, ErrSubProtocolDataTooSmall
+			return PacketDetails{}, ErrSubProtocolDataTooSmall
 		}
+
+		srcPort := binary.BigEndian.Uint16(data[subOffset : subOffset+2])
+		dstPort := binary.BigEndian.Uint16(data[subOffset+2 : subOffset+4])
+
 		dataOffset := (data[subOffset+12] & 0xF0) >> 2
-		return data[subOffset+int(dataOffset) : totalLength], SubProtocolTCP, nil
+
+		return PacketDetails{
+			Payload: data[subOffset+int(dataOffset) : totalLength],
+			Proto:   subProtocol,
+			Src:     netip.AddrPortFrom(srcAddr, srcPort),
+			Dst:     netip.AddrPortFrom(dstAddr, dstPort),
+		}, nil
 
 	case SubProtocolUDP:
 		if (totalLength - subOffset) < udpHeaderLength {
-			return nil, UnsupportedSubProtocol, ErrSubProtocolDataTooSmall
+			return PacketDetails{}, ErrSubProtocolDataTooSmall
 		}
-		return data[subOffset+udpHeaderLength : totalLength], SubProtocolUDP, nil
+
+		srcPort := binary.BigEndian.Uint16(data[subOffset : subOffset+2])
+		dstPort := binary.BigEndian.Uint16(data[subOffset+2 : subOffset+4])
+
+		return PacketDetails{
+			Payload: data[subOffset+udpHeaderLength : totalLength],
+			Proto:   subProtocol,
+			Src:     netip.AddrPortFrom(srcAddr, srcPort),
+			Dst:     netip.AddrPortFrom(dstAddr, dstPort),
+		}, nil
 	}
 
-	return nil, UnsupportedSubProtocol, fmt.Errorf("error while parsing sub protocol `%d`: %w", subProtocol, ErrUnsupportedSubProtocol)
+	return PacketDetails{}, fmt.Errorf("error while parsing sub protocol `%d`: %w", subProtocol, ErrUnsupportedSubProtocol)
 }
 
-func extractPayloadV6(data []byte) ([]byte, SubProtocol, error) {
+func extractPayloadV6(data []byte) (PacketDetails, error) {
 	subProtocol := SubProtocol(data[6])
 	totalLength := int(binary.BigEndian.Uint16(data[4:6])) + ipV6HeaderLength
 	if len(data) < totalLength {
-		return nil, UnsupportedSubProtocol, ErrPacketTooSmall
+		return PacketDetails{}, ErrPacketTooSmall
 	}
+
+	srcAddr := netip.AddrFrom16([16]byte(data[8:24]))
+	dstAddr := netip.AddrFrom16([16]byte(data[24:40]))
+
 	// We ignore ipv6 extension headers for now.
 	subOffset := ipV6HeaderLength
 
 	switch subProtocol {
 	case SubProtocolTCP:
 		if (totalLength - subOffset) < minTcpHeaderLength {
-			return nil, UnsupportedSubProtocol, ErrSubProtocolDataTooSmall
+			return PacketDetails{}, ErrSubProtocolDataTooSmall
 		}
+		srcPort := binary.BigEndian.Uint16(data[subOffset : subOffset+2])
+		dstPort := binary.BigEndian.Uint16(data[subOffset+2 : subOffset+4])
 		dataOffset := (data[subOffset+12] & 0xF0) >> 2
-		return data[subOffset+int(dataOffset) : totalLength], SubProtocolTCP, nil
+
+		return PacketDetails{
+			Payload: data[subOffset+int(dataOffset) : totalLength],
+			Proto:   subProtocol,
+			Src:     netip.AddrPortFrom(srcAddr, srcPort),
+			Dst:     netip.AddrPortFrom(dstAddr, dstPort),
+		}, nil
 
 	case SubProtocolUDP:
 		if (totalLength - subOffset) < udpHeaderLength {
-			return nil, UnsupportedSubProtocol, ErrSubProtocolDataTooSmall
+			return PacketDetails{}, ErrSubProtocolDataTooSmall
 		}
-		return data[subOffset+udpHeaderLength : totalLength], SubProtocolUDP, nil
+		srcPort := binary.BigEndian.Uint16(data[subOffset : subOffset+2])
+		dstPort := binary.BigEndian.Uint16(data[subOffset+2 : subOffset+4])
+
+		return PacketDetails{
+			Payload: data[subOffset+udpHeaderLength : totalLength],
+			Proto:   subProtocol,
+			Src:     netip.AddrPortFrom(srcAddr, srcPort),
+			Dst:     netip.AddrPortFrom(dstAddr, dstPort),
+		}, nil
 	}
 
-	return nil, UnsupportedSubProtocol, nil
+	return PacketDetails{}, nil
 }
