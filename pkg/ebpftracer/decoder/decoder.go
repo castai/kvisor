@@ -675,31 +675,37 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 		return nil, err
 	}
 
-	payload, subProtocol, err := packet.ExtractPayload(data)
+	details, err := packet.ExtractPacketDetails(data)
 	if err != nil {
 		return nil, err
 	}
 
-	if subProtocol == packet.SubProtocolTCP {
-		if len(payload) < 2 {
+	if details.Proto == packet.SubProtocolTCP {
+		if len(details.Payload) < 2 {
 			return nil, errDNSMessageNotComplete
 		}
 
 		// DNS over TCP prefixes the DNS message with a two octet length field. If the payload is not as big as this specified length,
 		// then we cannot parse the packet, as part of the DNS message will be send in a later one.
 		// For more information see https://datatracker.ietf.org/doc/html/rfc1035.html#section-4.2.2
-		length := int(binary.BigEndian.Uint16(payload[:2]))
-		if len(payload)+2 < length {
+		length := int(binary.BigEndian.Uint16(details.Payload[:2]))
+		if len(details.Payload)+2 < length {
 			return nil, errDNSMessageNotComplete
 		}
-		payload = payload[2:]
+		details.Payload = details.Payload[2:]
 	}
-	if err := dnsPacketParser.DecodeFromBytes(payload, gopacket.NilDecodeFeedback); err != nil {
+	if err := dnsPacketParser.DecodeFromBytes(details.Payload, gopacket.NilDecodeFeedback); err != nil {
 		return nil, err
 	}
 
 	pbDNS := &castpb.DNS{
 		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
+		Tuple: &castpb.Tuple{
+			SrcIp:   details.Src.Addr().AsSlice(),
+			DstIp:   details.Dst.Addr().AsSlice(),
+			SrcPort: uint32(details.Src.Port()),
+			DstPort: uint32(details.Dst.Port()),
+		},
 	}
 
 	for _, v := range dnsPacketParser.Questions {
@@ -721,6 +727,8 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 	return pbDNS, nil
 }
 
+var ErrWrongSSHVersionPrefix = errors.New("got wrong ssh version prefix")
+
 func (decoder *Decoder) ReadProtoSSH() (*types.ProtoSSH, error) {
 	var version string
 	var comments string
@@ -730,14 +738,17 @@ func (decoder *Decoder) ReadProtoSSH() (*types.ProtoSSH, error) {
 		return nil, err
 	}
 
-	// Instead of parsing the full payload, we simply exploit the fact that the `SSH-` substring
-	// has to be present and marks the beginning of the version.
-	parsed := bytes.SplitN(payload, []byte("SSH-"), 2)
-	if len(parsed) != 2 {
-		return nil, fmt.Errorf("expected two parts after payload splitting, but got %d", len(parsed))
+	details, err := packet.ExtractPacketDetails(payload)
+	if err != nil {
+		return nil, err
 	}
-	versionLineFields := bytes.SplitN(bytes.Trim(parsed[1], "\r\n"), []byte{' '}, 2)
-	version = fmt.Sprintf("SSH-%s", versionLineFields[0])
+
+	versionLineFields := bytes.SplitN(bytes.Trim(details.Payload, "\r\n"), []byte{' '}, 2)
+
+	version = string(versionLineFields[0])
+	if !strings.HasPrefix(version, "SSH-") {
+		return nil, fmt.Errorf("%w: expected `SSH-` got `%s`", ErrWrongSSHVersionPrefix, version)
+	}
 
 	if len(versionLineFields) == 2 {
 		comments = string(versionLineFields[1])
@@ -746,6 +757,12 @@ func (decoder *Decoder) ReadProtoSSH() (*types.ProtoSSH, error) {
 	return &types.ProtoSSH{
 		Version:  version,
 		Comments: comments,
+		Tuple: &castpb.Tuple{
+			SrcIp:   details.Src.Addr().AsSlice(),
+			DstIp:   details.Dst.Addr().AsSlice(),
+			SrcPort: uint32(details.Src.Port()),
+			DstPort: uint32(details.Dst.Port()),
+		},
 	}, nil
 }
 

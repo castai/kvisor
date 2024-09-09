@@ -108,13 +108,13 @@ func (s *SOCKS5Detected) OnEvent(event *types.Event) *v1.SignatureFinding {
 		return nil
 	}
 
-	payload, _, err := packet.ExtractPayload(networkData)
+	packetDetails, err := packet.ExtractPacketDetails(networkData)
 	if err != nil {
-    s.log.Warnf("error parsing socks5 payload: %v", err)
+		s.log.Warnf("error parsing socks5 payload: %v", err)
 		return nil
 	}
 
-	message, err := packet.ParseSOCKS5(payload)
+	message, err := packet.ParseSOCKS5(packetDetails.Payload)
 	if err != nil {
 		return nil
 	}

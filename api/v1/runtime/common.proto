@@ -39,6 +39,7 @@ message DNS {
   string DNSQuestionDomain = 1;
   repeated DNSAnswers answers = 2;
   FlowDirection flow_direction = 3;
+  Tuple tuple = 4;
 }
 
 message DNSAnswers {
@@ -131,6 +132,7 @@ message SSHData {
   FlowDirection flow_direction = 1;
   string version = 2;
   string comments = 3;
+  Tuple tuple = 4;
 }
 
 enum NetflowProtocol {
