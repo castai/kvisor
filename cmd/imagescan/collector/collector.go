@@ -69,6 +69,9 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.Timeout)
+	defer cancel()
+
 	artifact, err := analyzer.NewArtifact(img, c.log, c.cache, analyzer.ArtifactOption{
 		Offline:  true,
 		Parallel: c.cfg.Parallel,

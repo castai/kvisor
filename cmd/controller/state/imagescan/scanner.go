@@ -181,7 +181,11 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		},
 		{
 			Name:  "COLLECTOR_TIMEOUT",
-			Value: "5m",
+			Value: "20m",
+		},
+		{
+			Name:  "COLLECTOR_PARALLEL",
+			Value: "5",
 		},
 		{
 			Name:  "COLLECTOR_MODE",
