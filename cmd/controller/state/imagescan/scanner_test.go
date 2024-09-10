@@ -179,7 +179,11 @@ func TestScanner(t *testing.T) {
 											},
 											{
 												Name:  "COLLECTOR_TIMEOUT",
-												Value: "5m",
+												Value: "20m",
+											},
+											{
+												Name:  "COLLECTOR_PARALLEL",
+												Value: "5",
 											},
 											{
 												Name:  "COLLECTOR_MODE",
