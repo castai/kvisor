@@ -63,14 +63,14 @@ type ImageInfo struct {
 }
 
 func (c *Collector) Collect(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.Timeout)
+	defer cancel()
+
 	img, cleanup, err := c.getImage(ctx)
 	if err != nil {
 		return fmt.Errorf("getting image: %w", err)
 	}
 	defer cleanup()
-
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.Timeout)
-	defer cancel()
 
 	artifact, err := analyzer.NewArtifact(img, c.log, c.cache, analyzer.ArtifactOption{
 		Offline:  true,
