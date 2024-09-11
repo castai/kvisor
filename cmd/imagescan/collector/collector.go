@@ -72,14 +72,23 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	defer cleanup()
 
+	disabledAnalyzers := []fanalyzer.Type{
+		fanalyzer.TypeLicenseFile,
+		fanalyzer.TypeDpkgLicense,
+		fanalyzer.TypeHelm,
+	}
+
+	for _, a := range c.cfg.DisabledAnalyzers {
+		if a == "" {
+			continue
+		}
+		disabledAnalyzers = append(disabledAnalyzers, fanalyzer.Type(a))
+	}
+
 	artifact, err := analyzer.NewArtifact(img, c.log, c.cache, analyzer.ArtifactOption{
-		Offline:  true,
-		Parallel: c.cfg.Parallel,
-		DisabledAnalyzers: []fanalyzer.Type{
-			fanalyzer.TypeLicenseFile,
-			fanalyzer.TypeDpkgLicense,
-			fanalyzer.TypeHelm,
-		},
+		Offline:           true,
+		Parallel:          c.cfg.Parallel,
+		DisabledAnalyzers: disabledAnalyzers,
 	})
 	if err != nil {
 		return err

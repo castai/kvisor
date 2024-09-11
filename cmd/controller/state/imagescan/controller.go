@@ -48,6 +48,7 @@ type Config struct {
 	ImageScanBlobsCacheURL    string        `json:"imageScanBlobsCacheURL"`
 	CloudProvider             string        `json:"cloudProvider"`
 	IgnoredNamespaces         []string      `json:"ignoredNamespaces"`
+	DisabledAnalyzers         []string      `json:"disabledAnalyzers"`
 }
 
 type ImageScanImage struct {

@@ -52,6 +52,7 @@ type Config struct {
 	DockerOptionPath  string        `envconfig:"COLLECTOR_DOCKER_OPTION_PATH" default:""`
 	PprofAddr         string        `envconfig:"COLLECTOR_PPROF_ADDR" default:""`
 	Parallel          int           `envconfig:"COLLECTOR_PARALLEL" default:"1"`
+	DisabledAnalyzers []string      `envconfig:"COLLECTOR_DISABLED_ANALYZERS" default:""`
 	// ImageLocalTarPath is used only with ModeTarArchive for local dev.
 	ImageLocalTarPath string
 }

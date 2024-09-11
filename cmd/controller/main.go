@@ -71,6 +71,8 @@ var (
 	imageScanBlobsCacheURL         = pflag.String("image-scan-blobs-cache-url", "http://castai-kvisor-controller.castai-agent", "Image scan blobs cache server url")
 	imageScanIgnoredNamespaces     = pflag.StringSlice("image-scan-ignored-namespaces", []string{},
 		"Image scan ignored namespaces. For example: --image-scan-ignored-namespaces=kube-system,my-namespace")
+	imageScanDisabledAnalyzers = pflag.StringSlice("image-scan-disabled-analyzers", []string{"secret"},
+		"Image scan disabled scanners. For example: image-scan-disabled-analyzers=secret") // secret analyzer is disabled by default for performance reasons, see https://github.com/castai/kvisor/pull/343
 
 	kubeBenchEnabled            = pflag.Bool("kube-bench-enabled", false, "Kube Bench enabled")
 	kubeBenchScanInterval       = pflag.Duration("kube-bench-scan-interval", 5*time.Minute, "Kube bench scan interval")
@@ -206,6 +208,7 @@ func main() {
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
 			CloudProvider:             cloudProviderVal,
 			IgnoredNamespaces:         *imageScanIgnoredNamespaces,
+			DisabledAnalyzers:         *imageScanDisabledAnalyzers,
 		},
 		Linter: kubelinter.Config{
 			Enabled:      *kubeLinterEnabled,

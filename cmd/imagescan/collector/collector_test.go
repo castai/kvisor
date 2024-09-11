@@ -57,6 +57,7 @@ func TestCollector(t *testing.T) {
 				ImageArchitecture: "amd64",
 				ImageOS:           "linux",
 				Parallel:          1,
+				DisabledAnalyzers: []string{"secret"},
 			},
 			ingestClient,
 			mockCache,
@@ -164,12 +165,13 @@ func TestCollectorLargeImageDockerRemote(t *testing.T) {
 	ingestClient := &mockIngestClient{}
 
 	c := New(log, config.Config{
-		ImageID:   imgID,
-		ImageName: imgName,
-		Timeout:   10 * time.Minute,
-		Mode:      config.ModeRemote,
-		Runtime:   config.RuntimeDocker,
-		Parallel:  5,
+		ImageID:           imgID,
+		ImageName:         imgName,
+		Timeout:           5 * time.Minute,
+		Mode:              config.ModeRemote,
+		Runtime:           config.RuntimeDocker,
+		Parallel:          5,
+		DisabledAnalyzers: []string{"secret"},
 	}, ingestClient, mockCache, nil)
 
 	startCPUProfile("cpu.pprof")
