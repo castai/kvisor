@@ -58,6 +58,7 @@ func TestScanner(t *testing.T) {
 					CastaiGRPCAddress:   "api.cast.ai:443",
 					CastaiClusterID:     "abcd",
 					CloudProvider:       testCase.cloudProvider,
+					DisabledAnalyzers:   []string{"secret", "pip"},
 				}, ns)
 				scanner.jobCheckInterval = 1 * time.Microsecond
 
@@ -178,10 +179,6 @@ func TestScanner(t *testing.T) {
 												Value: "test-image",
 											},
 											{
-												Name:  "COLLECTOR_TIMEOUT",
-												Value: "5m",
-											},
-											{
 												Name:  "COLLECTOR_MODE",
 												Value: "hostfs",
 											},
@@ -208,6 +205,14 @@ func TestScanner(t *testing.T) {
 											{
 												Name:  "CASTAI_CLUSTER_ID",
 												Value: "abcd",
+											},
+											{
+												Name:  "COLLECTOR_TIMEOUT",
+												Value: "5m",
+											},
+											{
+												Name:  "COLLECTOR_DISABLED_ANALYZERS",
+												Value: "secret,pip",
 											},
 											{
 												Name:  "COLLECTOR_PPROF_ADDR",

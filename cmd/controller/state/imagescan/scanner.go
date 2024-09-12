@@ -180,10 +180,6 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Value: params.ImageName,
 		},
 		{
-			Name:  "COLLECTOR_TIMEOUT",
-			Value: "5m",
-		},
-		{
 			Name:  "COLLECTOR_MODE",
 			Value: string(mode),
 		},
@@ -210,6 +206,14 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 		{
 			Name:  "CASTAI_CLUSTER_ID",
 			Value: s.cfg.CastaiClusterID,
+		},
+		{
+			Name:  "COLLECTOR_TIMEOUT",
+			Value: "5m",
+		},
+		{
+			Name:  "COLLECTOR_DISABLED_ANALYZERS",
+			Value: strings.Join(s.cfg.DisabledAnalyzers, ","),
 		},
 	}
 

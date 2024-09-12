@@ -57,6 +57,7 @@ func TestCollector(t *testing.T) {
 				ImageArchitecture: "amd64",
 				ImageOS:           "linux",
 				Parallel:          1,
+				DisabledAnalyzers: []string{"secret"},
 			},
 			ingestClient,
 			mockCache,
@@ -94,7 +95,7 @@ func TestCollector(t *testing.T) {
 	})
 }
 
-func TestCollectorLargeImageDocker(t *testing.T) {
+func TestCollectorLargeImageDockerTar(t *testing.T) {
 	// Skip this test by default. Uncomment to run locally.
 	if os.Getenv("LOCAL_IMAGE") == "" {
 		t.Skip()
@@ -142,8 +143,41 @@ func TestCollectorLargeImageDocker(t *testing.T) {
 	}()
 
 	r.NoError(c.Collect(ctx))
-	writeMemProfile("heap.prof")
+	writeMemProfile("heap.pprof")
 	r.NoError(os.WriteFile("metadata.json", receivedMetaBytes, 0600))
+}
+
+func TestCollectorLargeImageDockerRemote(t *testing.T) {
+	// Skip this test by default. Set LOCAL_IMAGE to run locally.
+	imgName := os.Getenv("LOCAL_IMAGE")
+	if imgName == "" {
+		t.Skip()
+	}
+	imgID := imgName
+
+	r := require.New(t)
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+	//debug.SetGCPercent(-1)
+	mockCache := mockblobcache.MockClient{}
+
+	ingestClient := &mockIngestClient{}
+
+	c := New(log, config.Config{
+		ImageID:           imgID,
+		ImageName:         imgName,
+		Timeout:           5 * time.Minute,
+		Mode:              config.ModeRemote,
+		Runtime:           config.RuntimeDocker,
+		Parallel:          5,
+		DisabledAnalyzers: []string{"secret"},
+	}, ingestClient, mockCache, nil)
+
+	startCPUProfile("cpu.pprof")
+	r.NoError(c.Collect(ctx))
+	pprof.StopCPUProfile()
+	writeMemProfile("heap.pprof")
 }
 
 func printMemStats() {
@@ -161,6 +195,16 @@ func writeMemProfile(name string) {
 	defer f.Close() // error handling omitted for example
 	if err := pprof.WriteHeapProfile(f); err != nil {
 		logrus.Fatalf("could not write memory profile: %v", err)
+	}
+}
+
+func startCPUProfile(name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		logrus.Fatalf("could not create CPU profile: %v", err)
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		logrus.Fatalf("could not start CPU profile: %v", err)
 	}
 }
 

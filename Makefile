@@ -223,7 +223,7 @@ kvisor-scanners-docker:
 	make kvisor-agent
 
 .PHONY: kvisor-scanners-docker-image
-kvisor-scanners-docker-image: clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kivsor-linter
+kvisor-scanners-docker-image: clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kvisor-linter
 	docker build -t $(IMAGE_REPO)-scanners:$(IMAGE_TAG) . -f Dockerfile.scanners
 
 .PHONY: kvisor-scanners-push-deploy

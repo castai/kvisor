@@ -63,20 +63,32 @@ type ImageInfo struct {
 }
 
 func (c *Collector) Collect(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.Timeout)
+	defer cancel()
+
 	img, cleanup, err := c.getImage(ctx)
 	if err != nil {
 		return fmt.Errorf("getting image: %w", err)
 	}
 	defer cleanup()
 
+	disabledAnalyzers := []fanalyzer.Type{
+		fanalyzer.TypeLicenseFile,
+		fanalyzer.TypeDpkgLicense,
+		fanalyzer.TypeHelm,
+	}
+
+	for _, a := range c.cfg.DisabledAnalyzers {
+		if a == "" {
+			continue
+		}
+		disabledAnalyzers = append(disabledAnalyzers, fanalyzer.Type(a))
+	}
+
 	artifact, err := analyzer.NewArtifact(img, c.log, c.cache, analyzer.ArtifactOption{
-		Offline:  true,
-		Parallel: c.cfg.Parallel,
-		DisabledAnalyzers: []fanalyzer.Type{
-			fanalyzer.TypeLicenseFile,
-			fanalyzer.TypeDpkgLicense,
-			fanalyzer.TypeHelm,
-		},
+		Offline:           true,
+		Parallel:          c.cfg.Parallel,
+		DisabledAnalyzers: disabledAnalyzers,
 	})
 	if err != nil {
 		return err

@@ -68,9 +68,6 @@ func run(ctx context.Context, version string) error {
 	}
 	c := collector.New(log, cfg, ingestClient.GRPC, blobsCache, h)
 
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-
 	if cfg.PprofAddr != "" {
 		mux := http.NewServeMux()
 		addPprofHandlers(mux)
