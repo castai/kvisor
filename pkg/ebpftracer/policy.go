@@ -47,8 +47,6 @@ type LRUPolicy struct {
 }
 
 type PolicyOutputConfig struct {
-	StackAddresses bool
-	ExecEnv        bool
 	RelativeTime   bool
 	ExecHash       bool
 

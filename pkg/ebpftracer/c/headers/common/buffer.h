@@ -10,7 +10,6 @@
 #include <maps.h>
 
 #include <common/context.h>
-#include <common/hash.h>
 #include <common/network.h>
 
 // PROTOTYPES
@@ -489,18 +488,10 @@ statfunc int do_perf_submit(void *target, program_data_t *p, u32 id, long ret)
     p->event->context.retval = ret;
 
     if (p->event->context.task.tid == 0) {
-        init_task_context(&p->event->context.task, p->task, p->config->options);
+        init_task_context(&p->event->context.task, p->task);
         // keep task_info updated
         bpf_probe_read_kernel(
             &p->task_info->context, sizeof(task_context_t), &p->event->context.task);
-    }
-
-    // Get Stack trace
-    if (p->config->options & OPT_CAPTURE_STACK_TRACES) {
-        int stack_id = bpf_get_stackid(p->ctx, &stack_addresses, BPF_F_USER_STACK);
-        if (stack_id >= 0) {
-            p->event->context.stack_id = stack_id;
-        }
     }
 
     u32 size = sizeof(event_context_t) + sizeof(u8) +

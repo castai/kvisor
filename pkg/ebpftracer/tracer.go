@@ -1,14 +1,12 @@
 package ebpftracer
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"net/netip"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -170,11 +168,6 @@ func (t *Tracer) Run(ctx context.Context) error {
 		return errors.New("tracer is not loaded")
 	}
 	errg, ctx := errgroup.WithContext(ctx)
-	if t.cfg.DebugEnabled {
-		errg.Go(func() error {
-			return t.debugEventsLoop(ctx)
-		})
-	}
 	errg.Go(func() error {
 		return t.eventsReadLoop(ctx)
 	})
@@ -376,10 +369,6 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 			return fmt.Errorf("updating events map, event %d: %w", id, err)
 		}
 	}
-	config := t.computeConfigValues(policy)
-	if err := t.module.objects.ConfigMap.Update(uint32(0), config, 0); err != nil {
-		return fmt.Errorf("updating config map: %w", err)
-	}
 
 	// Initialize tail call dependencies.
 	for _, tailCall := range tailCalls {
@@ -393,16 +382,14 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 }
 
 func marshalEventConfig(eventsParams map[events.ID][]ArgType, id events.ID) []byte {
-	eventConfigVal := make([]byte, 16)
-	// bitmap of policies that require this event to be submitted
-	binary.LittleEndian.PutUint64(eventConfigVal[0:8], 1)
+	eventConfigVal := make([]byte, 8)
 	// encoded event's parameter types
 	var paramTypes uint64
 	params := eventsParams[id]
 	for n, paramType := range params {
 		paramTypes = paramTypes | (uint64(paramType) << (8 * n))
 	}
-	binary.LittleEndian.PutUint64(eventConfigVal[8:16], paramTypes)
+	binary.LittleEndian.PutUint64(eventConfigVal[0:8], paramTypes)
 	return eventConfigVal
 }
 
@@ -425,88 +412,6 @@ func getParamTypes(eventsSet map[events.ID]definition) map[events.ID][]ArgType {
 		}
 	}
 	return eventsParams
-}
-
-const (
-	optExecEnv uint32 = 1 << iota
-	optCaptureFilesWrite
-	optExtractDynCode
-	optStackAddresses
-	optCaptureModules
-	optCgroupV1
-	optTranslateFDFilePath
-	optCaptureBpf
-	optCaptureFileRead
-)
-
-func (t *Tracer) getOptionsConfig(p *Policy) uint32 {
-	var cOptVal uint32
-
-	if p.Output.ExecEnv {
-		cOptVal = cOptVal | optExecEnv
-	}
-	if p.Output.StackAddresses {
-		cOptVal = cOptVal | optStackAddresses
-	}
-	// TODO: Check other options.
-	//if t.config.Capture.FileWrite.Capture {
-	//	cOptVal = cOptVal | optCaptureFilesWrite
-	//}
-	//if t.config.Capture.FileRead.Capture {
-	//	cOptVal = cOptVal | optCaptureFileRead
-	//}
-	//if t.config.Capture.Module {
-	//	cOptVal = cOptVal | optCaptureModules
-	//}
-	//if t.config.Capture.Bpf {
-	//	cOptVal = cOptVal | optCaptureBpf
-	//}
-	//if t.config.Capture.Mem {
-	//	cOptVal = cOptVal | optExtractDynCode
-	//}
-	//if t.config.Output.ParseArgumentsFDs {
-	//	cOptVal = cOptVal | optTranslateFDFilePath
-	//}
-	if t.cfg.DefaultCgroupsVersion == "V1" {
-		cOptVal = cOptVal | optCgroupV1
-	}
-	return cOptVal
-}
-
-func (t *Tracer) computeConfigValues(p *Policy) []byte {
-	// config_entry
-	configVal := make([]byte, 256)
-
-	// tracee_pid
-	binary.LittleEndian.PutUint32(configVal[0:4], uint32(os.Getpid())) // nolint:gosec
-	// options
-	binary.LittleEndian.PutUint32(configVal[4:8], t.getOptionsConfig(p))
-	// cgroup_v1_hid
-	//binary.LittleEndian.PutUint32(configVal[8:12], uint32(t.containers.GetDefaultCgroupHierarchyID()))
-	binary.LittleEndian.PutUint32(configVal[8:12], 0)
-	// padding
-	binary.LittleEndian.PutUint32(configVal[12:16], 0)
-
-	id := 0
-	byteIndex := id / 8
-	bitOffset := id % 8
-
-	// enabled_scopes
-	configVal[216+byteIndex] |= 1 << bitOffset
-
-	// compute all policies internals
-	//t.config.Policies.Compute()
-
-	// uid_max
-	//binary.LittleEndian.PutUint64(configVal[224:232], t.config.Policies.UIDFilterMax())
-	//// uid_min
-	//binary.LittleEndian.PutUint64(configVal[232:240], t.config.Policies.UIDFilterMin())
-	//// pid_max
-	//binary.LittleEndian.PutUint64(configVal[240:248], t.config.Policies.PIDFilterMax())
-	//// pid_min
-	//binary.LittleEndian.PutUint64(configVal[248:256], t.config.Policies.PIDFilterMin())
-
-	return configVal
 }
 
 func (t *Tracer) initTailCall(tailCall TailCall) error {
@@ -537,43 +442,6 @@ func (t *Tracer) initTailCall(tailCall TailCall) error {
 	}
 
 	return nil
-}
-
-func (t *Tracer) debugEventsLoop(ctx context.Context) error {
-	rd, err := perf.NewReader(t.module.objects.DebugEvents, 2048)
-	if err != nil {
-		return fmt.Errorf("creating debug events perf reader: %w", err)
-	}
-
-	var e types.RawDebugEvent
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		v, err := rd.Read()
-		if err != nil {
-			if errors.Is(err, perf.ErrClosed) {
-				return nil
-			}
-			continue
-		}
-
-		if v.LostSamples > 0 {
-			t.log.Warnf("lost samples %d", v.LostSamples)
-		}
-		if len(v.RawSample) == 0 {
-			continue
-		}
-		if err := binary.Read(bytes.NewBuffer(v.RawSample), binary.LittleEndian, &e); err != nil {
-			return fmt.Errorf("read event binary: %w", err)
-		}
-
-		msg := e.String()
-		fmt.Printf("%s\n", msg)
-	}
 }
 
 func (t *Tracer) allowedByPolicyPre(ctx *types.EventContext) error {
