@@ -8,17 +8,11 @@
 
 // PROTOTYPES
 
-statfunc const char *get_cgroup_dirname(struct cgroup *);
 statfunc const u64 get_cgroup_id(struct cgroup *);
 statfunc const u32 get_cgroup_hierarchy_id(struct cgroup *);
 statfunc const u64 get_cgroup_v1_subsys0_id(struct task_struct *);
 
 // FUNCTIONS
-
-statfunc const char *get_cgroup_dirname(struct cgroup *cgrp)
-{
-    return BPF_CORE_READ(cgrp, kn, name);
-}
 
 statfunc const u64 get_cgroup_id(struct cgroup *cgrp)
 {

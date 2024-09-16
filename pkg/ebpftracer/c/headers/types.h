@@ -6,7 +6,8 @@
 
 #include <common/consts.h>
 
-#define PATH_MAX 4096
+#define PATH_MAX          4096
+#define MAX_BIN_PATH_SIZE 256
 
 typedef struct task_context {
     u64 start_time; // thread's start time
@@ -22,8 +23,6 @@ typedef struct task_context {
     u32 mnt_id;
     u32 pid_id;
     char comm[TASK_COMM_LEN];
-    char uts_name[TASK_COMM_LEN];
-    u32 flags;
     u64 leader_start_time; // task leader's monotonic start time
     u64 parent_start_time; // parent process task leader's monotonic start time
 } task_context_t;
@@ -33,9 +32,7 @@ typedef struct event_context {
     task_context_t task;
     u32 eventid;
     s32 syscall; // The syscall which triggered the event
-    u64 matched_policies;
     s64 retval;
-    u32 stack_id;
     u16 processor_id; // The ID of the processor which processed the event
 } event_context_t;
 
@@ -48,11 +45,8 @@ enum event_id_e {
     NET_PACKET_ICMP,
     NET_PACKET_ICMPV6,
     NET_PACKET_DNS,
-    NET_PACKET_HTTP,
     NET_PACKET_SOCKS5,
     NET_PACKET_SSH,
-    NET_PACKET_CAP_BASE,
-    NET_CAPTURE_BASE,
     NET_FLOW_BASE,
     MAX_NET_EVENT_ID,
     // Common event IDs
@@ -62,86 +56,20 @@ enum event_id_e {
     SCHED_PROCESS_EXEC,
     SCHED_PROCESS_EXIT,
     SCHED_SWITCH,
-    DO_EXIT,
-    CAP_CAPABLE,
-    VFS_WRITE,
-    VFS_WRITEV,
-    VFS_READ,
-    VFS_READV,
-    MEM_PROT_ALERT,
-    COMMIT_CREDS,
-    SWITCH_TASK_NS,
     MAGIC_WRITE,
-    CGROUP_ATTACH_TASK,
     CGROUP_MKDIR,
     CGROUP_RMDIR,
     SECURITY_BPRM_CHECK,
-    SECURITY_FILE_OPEN,
-    SECURITY_INODE_UNLINK,
-    SECURITY_SOCKET_CREATE,
-    SECURITY_SOCKET_LISTEN,
     SECURITY_SOCKET_CONNECT,
-    SECURITY_SOCKET_ACCEPT,
-    SECURITY_SOCKET_BIND,
-    SECURITY_SOCKET_SETSOCKOPT,
-    SECURITY_SB_MOUNT,
-    SECURITY_BPF,
-    SECURITY_BPF_MAP,
-    SECURITY_KERNEL_READ_FILE,
-    SECURITY_INODE_MKNOD,
-    SECURITY_POST_READ_FILE,
-    SECURITY_INODE_SYMLINK,
-    SECURITY_MMAP_FILE,
-    SECURITY_FILE_MPROTECT,
     SOCKET_DUP,
-    HIDDEN_INODES,
-    __KERNEL_WRITE,
-    PROC_CREATE,
-    KPROBE_ATTACH,
-    CALL_USERMODE_HELPER,
-    DIRTY_PIPE_SPLICE,
-    DEBUGFS_CREATE_FILE,
-    PRINT_SYSCALL_TABLE,
-    DEBUGFS_CREATE_DIR,
-    DEVICE_ADD,
-    REGISTER_CHRDEV,
-    SHARED_OBJECT_LOADED,
-    DO_INIT_MODULE,
-    SOCKET_ACCEPT,
     LOAD_ELF_PHDRS,
-    HOOKED_PROC_FOPS,
-    PRINT_NET_SEQ_OPS,
-    TASK_RENAME,
-    SECURITY_INODE_RENAME,
-    DO_SIGACTION,
-    BPF_ATTACH,
-    KALLSYMS_LOOKUP_NAME,
-    DO_MMAP,
-    PRINT_MEM_DUMP,
-    VFS_UTIMES,
-    DO_TRUNCATE,
     FILE_MODIFICATION,
-    INOTIFY_WATCH,
-    SECURITY_BPF_PROG,
-    PROCESS_EXECUTION_FAILED,
-    SECURITY_PATH_NOTIFY,
-    HIDDEN_KERNEL_MODULE_SEEKER,
-    MODULE_LOAD,
-    MODULE_FREE,
     SOCK_SET_STATE,
     PROCESS_OOM_KILLED,
     TTY_OPEN,
     TTY_WRITE,
     STDIO_VIA_SOCKET,
     MAX_EVENT_ID,
-};
-
-enum signal_event_id_e {
-    SIGNAL_CGROUP_MKDIR = 5000,
-    SIGNAL_CGROUP_RMDIR,
-    SIGNAL_SCHED_PROCESS_FORK,
-    SIGNAL_SCHED_PROCESS_EXEC,
-    SIGNAL_SCHED_PROCESS_EXIT,
 };
 
 typedef struct args {
@@ -176,13 +104,6 @@ enum internal_hook_e {
     EXEC_BINPRM = 80000,
 };
 
-enum mem_prot_alert_e {
-    ALERT_MMAP_W_X = 1,
-    ALERT_MPROT_X_ADD,
-    ALERT_MPROT_W_ADD,
-    ALERT_MPROT_W_REM
-};
-
 typedef struct syscall_data {
     uint id;           // Current syscall id
     args_t args;       // Syscall arguments
@@ -190,30 +111,7 @@ typedef struct syscall_data {
     unsigned long ret; // Syscall ret val. May be used by syscall exit tail calls.
 } syscall_data_t;
 
-typedef struct fd_arg_task {
-    u32 pid;
-    u32 tid;
-    int fd;
-} fd_arg_task_t;
-
 #define MAX_CACHED_PATH_SIZE 64
-
-typedef struct fd_arg_path {
-    char path[MAX_CACHED_PATH_SIZE];
-} fd_arg_path_t;
-
-// Flags in each task's context
-enum context_flags_e {
-    CONTAINER_STARTED_FLAG = (1 << 0), // mark the task's container have started
-    IS_COMPAT_FLAG = (1 << 1)          // is the task running in compatible mode
-};
-
-enum container_state_e {
-    CONTAINER_UNKNOWN = 0, // mark that container state is unknown
-    CONTAINER_EXISTED,     // container existed before tracee was started
-    CONTAINER_CREATED,     // new cgroup path created
-    CONTAINER_STARTED      // a process in the cgroup executed a new binary
-};
 
 typedef struct task_info {
     task_context_t context;
@@ -248,8 +146,7 @@ typedef struct io_data {
 } io_data_t;
 
 typedef struct proc_info {
-    bool new_proc;        // set if this process was started after tracee. Used with new_pid filter
-    u64 follow_in_scopes; // set if this process was traced before. Used with the follow filter
+    bool new_proc; // set if this process was started after tracee. Used with new_pid filter
     struct binary binary;
     u32 binary_no_mnt; // used in binary lookup when we don't care about mount ns. always 0.
     file_info_t interpreter;
@@ -274,84 +171,9 @@ typedef struct path_buf {
     u8 buf[PATH_MAX];
 } path_buf_t;
 
-typedef struct path_filter {
-    char path[MAX_PATH_PREF_SIZE];
-} path_filter_t;
-
-typedef struct string_filter {
-    char str[MAX_STR_FILTER_SIZE];
-} string_filter_t;
-
-typedef struct ksym_name {
-    char str[MAX_KSYM_NAME_SIZE];
-} ksym_name_t;
-
-typedef struct equality {
-    // bitmask with scopes on which a equal '=' filter is set
-    // its bit value will depend on the filter's equality precedence order
-    u64 equal_in_scopes;
-    // bitmask with scopes on which a filter equality is set
-    u64 equality_set_in_scopes;
-} eq_t;
-
-typedef struct policies_config {
-    // enabled scopes bitmask per filter
-    u64 uid_filter_enabled_scopes;
-    u64 pid_filter_enabled_scopes;
-    u64 mnt_ns_filter_enabled_scopes;
-    u64 pid_ns_filter_enabled_scopes;
-    u64 uts_ns_filter_enabled_scopes;
-    u64 comm_filter_enabled_scopes;
-    u64 cgroup_id_filter_enabled_scopes;
-    u64 cont_filter_enabled_scopes;
-    u64 new_cont_filter_enabled_scopes;
-    u64 new_pid_filter_enabled_scopes;
-    u64 proc_tree_filter_enabled_scopes;
-    u64 bin_path_filter_enabled_scopes;
-    u64 follow_filter_enabled_scopes;
-    // filter_out bitmask per filter
-    u64 uid_filter_out_scopes;
-    u64 pid_filter_out_scopes;
-    u64 mnt_ns_filter_out_scopes;
-    u64 pid_ns_filter_out_scopes;
-    u64 uts_ns_filter_out_scopes;
-    u64 comm_filter_out_scopes;
-    u64 cgroup_id_filter_out_scopes;
-    u64 cont_filter_out_scopes;
-    u64 new_cont_filter_out_scopes;
-    u64 new_pid_filter_out_scopes;
-    u64 proc_tree_filter_out_scopes;
-    u64 bin_path_filter_out_scopes;
-    // bitmask with scopes that have at least one filter enabled
-    u64 enabled_scopes;
-    // global min max
-    u64 uid_max;
-    u64 uid_min;
-    u64 pid_max;
-    u64 pid_min;
-} policies_config_t;
-
-typedef struct config_entry {
-    u32 tracee_pid;
-    u32 options;
-    u32 cgroup_v1_hid;
-    u16 padding; // free for further use
-    policies_config_t policies_config;
-} config_entry_t;
-
 typedef struct event_config {
-    u64 submit_for_policies;
     u64 param_types;
 } event_config_t;
-
-enum capture_options_e {
-    NET_CAP_OPT_FILTERED = (1 << 0), // pcap should obey event filters
-};
-
-typedef struct netconfig_entry {
-    u32 capture_options; // bitmask of capture options (pcap)
-    u32 capture_length;  // amount of network packet payload to capture (pcap)
-} netconfig_entry_t;
 
 typedef struct args_buffer {
     u8 argnum;
@@ -423,32 +245,12 @@ typedef union scratch {
 
 typedef struct program_data {
     struct task_struct *task;
-    config_entry_t *config;
     task_info_t *task_info;
     proc_info_t *proc_info;
     event_data_t *event;
     u32 scratch_idx;
     void *ctx;
 } program_data_t;
-
-// For a good summary about capabilities, see https://lwn.net/Articles/636533/
-typedef struct slim_cred {
-    uid_t uid;           // real UID of the task
-    gid_t gid;           // real GID of the task
-    uid_t suid;          // saved UID of the task
-    gid_t sgid;          // saved GID of the task
-    uid_t euid;          // effective UID of the task
-    gid_t egid;          // effective GID of the task
-    uid_t fsuid;         // UID for VFS ops
-    gid_t fsgid;         // GID for VFS ops
-    u32 user_ns;         // User Namespace of the event
-    u32 securebits;      // SUID-less security management
-    u64 cap_inheritable; // caps our children can inherit
-    u64 cap_permitted;   // caps we're permitted
-    u64 cap_effective;   // caps we can actually use
-    u64 cap_bset;        // capability bounding set
-    u64 cap_ambient;     // Ambient capability set
-} slim_cred_t;
 
 typedef struct network_connection_v4 {
     u32 local_address;
@@ -472,49 +274,6 @@ typedef struct net_id {
     u16 protocol;
 } net_id_t;
 
-typedef struct net_ctx {
-    u32 host_tid;
-    char comm[TASK_COMM_LEN];
-} net_ctx_t;
-
-typedef struct net_ctx_ext {
-    u32 host_tid;
-    char comm[TASK_COMM_LEN];
-    __be16 local_port;
-} net_ctx_ext_t;
-
-typedef struct kernel_mod {
-    bool unused; // Empty struct yields an error from the verifier: "Invalid argument(-22)""
-} kernel_module_t;
-
-typedef struct kernel_new_mod {
-    u64 insert_time;
-    u64 last_seen_time;
-} kernel_new_mod_t;
-
-typedef struct kernel_deleted_mod {
-    u64 deleted_time;
-} kernel_deleted_mod_t;
-
-typedef struct rb_node_stack {
-    struct rb_node *node;
-} rb_node_t;
-
-#define MODULE_SRCVERSION_MAX_LENGTH 25
-
-// this struct is used to encode which helpers are used in bpf program.
-// it is an array of 4 u64 values - 256 bits.
-// there are currently 212 bpf helper functions
-// (https://elixir.bootlin.com/linux/v6.2.6/source/include/uapi/linux/bpf.h#L5488). the helpers IDs
-// start from 0 and continue in a sequence. the encoding is very simple - a bit is turned on if we
-// see the corresponding helper ID being used.
-#define MAX_NUM_OF_HELPERS   256
-#define SIZE_OF_HELPER_ELEM  64
-#define NUM_OF_HELPERS_ELEMS MAX_NUM_OF_HELPERS / SIZE_OF_HELPER_ELEM
-typedef struct bpf_used_helpers {
-    u64 helpers[NUM_OF_HELPERS_ELEMS];
-} bpf_used_helpers_t;
-
 typedef struct file_mod_key {
     u32 host_pid;
     dev_t device;
@@ -526,19 +285,11 @@ enum file_modification_op {
     FILE_MODIFICATION_DONE,
 };
 
-// Type for values representing file types filters
-typedef u32 file_type_filter_t;
-
 // Used to calculate syscall calls per cgroup.
 typedef struct syscall_stats_key {
     u64 cgroup_id;
     u64 id;
 } syscall_stats_key_t;
-
-#define MAX_STACK_DEPTH 20 // max depth of each stack trace to track
-
-typedef __u64 stack_trace_t[MAX_STACK_DEPTH];
-typedef u32 file_type_t;
 
 // Must be kept in sync with `EBPFMetrics` defined in metrics.go.
 enum metric {

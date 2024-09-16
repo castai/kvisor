@@ -1,6 +1,8 @@
 package decoder
 
 //go:generate go run ../../../tools/codegen/... ../events.go ../types/args.go args_decoder.go decoder
+//go:generate go run ../../../tools/eventcontextcodegen/... ../tracer_arm64_bpfel.go ../types/protocol.go context_decoder_arm64_gen.go arm64
+//go:generate go run ../../../tools/eventcontextcodegen/... ../tracer_x86_bpfel.go ../types/protocol.go context_decoder_x86_gen.go x86
 
 import (
 	"bytes"
@@ -59,62 +61,6 @@ func (decoder *Decoder) ReadAmountBytes() int {
 	return decoder.cursor
 }
 
-func (decoder *Decoder) DecodeSignalContext(ctx *types.SignalContext) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < ctx.GetSizeBytes() {
-		return fmt.Errorf("signal context buffer size [%d] smaller than %d", len(decoder.buffer[offset:]), ctx.GetSizeBytes())
-	}
-
-	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset : offset+4]))
-
-	decoder.cursor += ctx.GetSizeBytes()
-
-	return nil
-}
-
-// DecodeContext translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.eventContext struct.
-func (decoder *Decoder) DecodeContext(ctx *types.EventContext) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < ctx.GetSizeBytes() {
-		return fmt.Errorf("context buffer size [%d] smaller than %d", len(decoder.buffer[offset:]), ctx.GetSizeBytes())
-	}
-
-	// event_context start
-	ctx.Ts = binary.LittleEndian.Uint64(decoder.buffer[offset : offset+8])
-
-	// task_context start
-	ctx.StartTime = binary.LittleEndian.Uint64(decoder.buffer[offset+8 : offset+16])
-	ctx.CgroupID = binary.LittleEndian.Uint64(decoder.buffer[offset+16 : offset+24])
-	ctx.Pid = binary.LittleEndian.Uint32(decoder.buffer[offset+24 : offset+28])
-	ctx.Tid = binary.LittleEndian.Uint32(decoder.buffer[offset+28 : offset+32])
-	ctx.Ppid = binary.LittleEndian.Uint32(decoder.buffer[offset+32 : offset+36])
-	ctx.HostPid = binary.LittleEndian.Uint32(decoder.buffer[offset+36 : offset+40])
-	ctx.HostTid = binary.LittleEndian.Uint32(decoder.buffer[offset+40 : offset+44])
-	ctx.HostPpid = binary.LittleEndian.Uint32(decoder.buffer[offset+44 : offset+48])
-	ctx.NodeHostPid = binary.LittleEndian.Uint32(decoder.buffer[offset+48 : offset+52])
-	ctx.Uid = binary.LittleEndian.Uint32(decoder.buffer[offset+52 : offset+56])
-	ctx.MntID = binary.LittleEndian.Uint32(decoder.buffer[offset+56 : offset+60])
-	ctx.PidID = binary.LittleEndian.Uint32(decoder.buffer[offset+60 : offset+64])
-	_ = copy(ctx.Comm[:], decoder.buffer[offset+64:offset+80])
-	_ = copy(ctx.UtsName[:], decoder.buffer[offset+80:offset+96])
-	ctx.Flags = binary.LittleEndian.Uint32(decoder.buffer[offset+96 : offset+100])
-	// 4 bytes padding
-	ctx.LeaderStartTime = binary.LittleEndian.Uint64(decoder.buffer[offset+104 : offset+112])
-	ctx.ParentStartTime = binary.LittleEndian.Uint64(decoder.buffer[offset+112 : offset+120])
-	// task_context end
-
-	ctx.EventID = events.ID(binary.LittleEndian.Uint32(decoder.buffer[offset+120 : offset+124]))
-	ctx.Syscall = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+124 : offset+128])) // nolint:gosec
-	ctx.MatchedPolicies = binary.LittleEndian.Uint64(decoder.buffer[offset+128 : offset+136])
-	ctx.Retval = int64(binary.LittleEndian.Uint64(decoder.buffer[offset+136 : offset+144])) // nolint:gosec
-	ctx.StackID = binary.LittleEndian.Uint32(decoder.buffer[offset+144 : offset+148])
-	ctx.ProcessorId = binary.LittleEndian.Uint16(decoder.buffer[offset+148 : offset+150])
-	// 2 byte padding
-	// event_context end
-
-	decoder.cursor += ctx.GetSizeBytes()
-	return nil
-}
 func (decoder *Decoder) SkipUint8() error {
 	readAmount := 1
 	offset := decoder.cursor
@@ -311,101 +257,7 @@ func (decoder *Decoder) DecodeUint64Array(msg *[]uint64) error {
 	return nil
 }
 
-// DecodeSlimCred translates data from the decoder buffer, starting from the decoder cursor, to SlimCred struct.
-func (decoder *Decoder) DecodeSlimCred(slimCred *types.SlimCred) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < 80 {
-		return ErrBufferTooShort
-	}
-	slimCred.Uid = binary.LittleEndian.Uint32(decoder.buffer[offset : offset+4])
-	slimCred.Gid = binary.LittleEndian.Uint32(decoder.buffer[offset+4 : offset+8])
-	slimCred.Suid = binary.LittleEndian.Uint32(decoder.buffer[offset+8 : offset+12])
-	slimCred.Sgid = binary.LittleEndian.Uint32(decoder.buffer[offset+12 : offset+16])
-	slimCred.Euid = binary.LittleEndian.Uint32(decoder.buffer[offset+16 : offset+20])
-	slimCred.Egid = binary.LittleEndian.Uint32(decoder.buffer[offset+20 : offset+24])
-	slimCred.Fsuid = binary.LittleEndian.Uint32(decoder.buffer[offset+24 : offset+28])
-	slimCred.Fsgid = binary.LittleEndian.Uint32(decoder.buffer[offset+28 : offset+32])
-	slimCred.UserNamespace = binary.LittleEndian.Uint32(decoder.buffer[offset+32 : offset+36])
-	slimCred.SecureBits = binary.LittleEndian.Uint32(decoder.buffer[offset+36 : offset+40])
-	slimCred.CapInheritable = binary.LittleEndian.Uint64(decoder.buffer[offset+40 : offset+48])
-	slimCred.CapPermitted = binary.LittleEndian.Uint64(decoder.buffer[offset+48 : offset+56])
-	slimCred.CapEffective = binary.LittleEndian.Uint64(decoder.buffer[offset+56 : offset+64])
-	slimCred.CapBounding = binary.LittleEndian.Uint64(decoder.buffer[offset+64 : offset+72])
-	slimCred.CapAmbient = binary.LittleEndian.Uint64(decoder.buffer[offset+72 : offset+80])
-	decoder.cursor += int(slimCred.GetSizeBytes())
-	return nil
-}
-
-// DecodeChunkMeta translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.ChunkMeta struct.
-func (decoder *Decoder) DecodeChunkMeta(chunkMeta *types.ChunkMeta) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < int(chunkMeta.GetSizeBytes()) {
-		return ErrBufferTooShort
-	}
-	chunkMeta.BinType = types.BinType(decoder.buffer[offset])
-	chunkMeta.CgroupID = binary.LittleEndian.Uint64(decoder.buffer[offset+1 : offset+9])
-	_ = copy(chunkMeta.Metadata[:], decoder.buffer[offset+9:offset+37])
-	chunkMeta.Size = int32(binary.LittleEndian.Uint32(decoder.buffer[offset+37 : offset+41])) // nolint:gosec
-	chunkMeta.Off = binary.LittleEndian.Uint64(decoder.buffer[offset+41 : offset+49])
-	decoder.cursor += int(chunkMeta.GetSizeBytes())
-	return nil
-}
-
-// DecodeVfsFileMeta translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.VfsFileMeta struct.
-func (decoder *Decoder) DecodeVfsFileMeta(vfsFileMeta *types.VfsFileMeta) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < int(vfsFileMeta.GetSizeBytes()) {
-		return ErrBufferTooShort
-	}
-	vfsFileMeta.DevID = binary.LittleEndian.Uint32(decoder.buffer[offset : offset+4])
-	vfsFileMeta.Inode = binary.LittleEndian.Uint64(decoder.buffer[offset+4 : offset+12])
-	vfsFileMeta.Mode = binary.LittleEndian.Uint32(decoder.buffer[offset+12 : offset+16])
-	vfsFileMeta.Pid = binary.LittleEndian.Uint32(decoder.buffer[offset+16 : offset+20])
-	decoder.cursor += int(vfsFileMeta.GetSizeBytes())
-	return nil
-}
-
 // DecodeKernelModuleMeta translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.KernelModuleMeta struct.
-func (decoder *Decoder) DecodeKernelModuleMeta(kernelModuleMeta *types.KernelModuleMeta) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < int(kernelModuleMeta.GetSizeBytes()) {
-		return ErrBufferTooShort
-	}
-	kernelModuleMeta.DevID = binary.LittleEndian.Uint32(decoder.buffer[offset : offset+4])
-	kernelModuleMeta.Inode = binary.LittleEndian.Uint64(decoder.buffer[offset+4 : offset+12])
-	kernelModuleMeta.Pid = binary.LittleEndian.Uint32(decoder.buffer[offset+12 : offset+16])
-	kernelModuleMeta.Size = binary.LittleEndian.Uint32(decoder.buffer[offset+16 : offset+20])
-	decoder.cursor += int(kernelModuleMeta.GetSizeBytes())
-	return nil
-}
-
-// DecodeBpfObjectMeta translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.BpfObjectMeta struct.
-func (decoder *Decoder) DecodeBpfObjectMeta(bpfObjectMeta *types.BpfObjectMeta) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < int(bpfObjectMeta.GetSizeBytes()) {
-		return ErrBufferTooShort
-	}
-	_ = copy(bpfObjectMeta.Name[:], decoder.buffer[offset:offset+16])
-	bpfObjectMeta.Rand = binary.LittleEndian.Uint32(decoder.buffer[offset+16 : offset+20])
-	bpfObjectMeta.Pid = binary.LittleEndian.Uint32(decoder.buffer[offset+20 : offset+24])
-	bpfObjectMeta.Size = binary.LittleEndian.Uint32(decoder.buffer[offset+24 : offset+28])
-	decoder.cursor += int(bpfObjectMeta.GetSizeBytes())
-	return nil
-}
-
-// DecodeMprotectWriteMeta translates data from the decoder buffer, starting from the decoder cursor, to bufferdecoder.MprotectWriteMeta struct.
-func (decoder *Decoder) DecodeMprotectWriteMeta(mprotectWriteMeta *types.MprotectWriteMeta) error {
-	offset := decoder.cursor
-	if len(decoder.buffer[offset:]) < int(mprotectWriteMeta.GetSizeBytes()) {
-		return ErrBufferTooShort
-	}
-	mprotectWriteMeta.Ts = binary.LittleEndian.Uint64(decoder.buffer[offset : offset+8])
-	mprotectWriteMeta.Pid = binary.LittleEndian.Uint32(decoder.buffer[offset+8 : offset+12])
-
-	decoder.cursor += int(mprotectWriteMeta.GetSizeBytes())
-	return nil
-}
-
 func (decoder *Decoder) ReadSockaddrFromBuff() (types.Sockaddr, error) {
 	var familyInt int16
 	err := decoder.DecodeInt16(&familyInt)

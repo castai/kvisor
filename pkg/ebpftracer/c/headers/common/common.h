@@ -18,12 +18,6 @@
 
 // FUNCTIONS & MACROS
 
-statfunc const char *get_device_name(struct device *dev)
-{
-    struct kobject kobj = BPF_CORE_READ(dev, kobj);
-    return kobj.name;
-}
-
 // Workaround: Newer LLVM versions might fail to optimize has_prefix()
 // loop unrolling with the following error:
 //

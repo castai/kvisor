@@ -15,8 +15,10 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+
+type TracerEventContextT = tracerEventContextT
 
 type moduleConfig struct {
 	BTFObjPath string
@@ -64,14 +66,15 @@ func (m *module) load(cfg Config) error {
 			return fmt.Errorf("loading custom btf: %w", err)
 		}
 	}
-
 	if err := spec.RewriteConstants(map[string]interface{}{
 		"global_config": tracerGlobalConfigT{
+			SelfPid:                         uint32(os.Getpid()), // nolint:gosec
 			PidNsId:                         cfg.HomePIDNS,
 			FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
 			FlowGrouping:                    uint64(cfg.NetflowGrouping),
 			TrackSyscallStats:               cfg.TrackSyscallStats,
 			ExportMetrics:                   cfg.MetricsReportingEnabled,
+			CgroupV1:                        cfg.DefaultCgroupsVersion == "V1",
 		},
 	}); err != nil {
 		return err

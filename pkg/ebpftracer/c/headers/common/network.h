@@ -56,10 +56,6 @@ statfunc netflow_t invert_netflow(netflow_t flow)
     return res;
 }
 
-#define flow_unknown 0
-#define flow_incoming 1
-#define flow_outgoing 2
-
 typedef struct netflowvalue {
     s64 active;                             // count active connections
     u64 last_update;                        // last time this flow was updated
@@ -98,7 +94,6 @@ typedef struct nethdrs_t {
 // cgroupctxmap
 
 typedef enum net_packet {
-    CAP_NET_PACKET = 1 << 0,
     // Layer 3
     SUB_NET_PACKET_IP = 1 << 1,
     // Layer 4
@@ -108,7 +103,6 @@ typedef enum net_packet {
     SUB_NET_PACKET_ICMPV6 = 1 << 5,
     // Layer 7
     SUB_NET_PACKET_DNS = 1 << 6,
-    SUB_NET_PACKET_HTTP = 1 << 7,
     SUB_NET_PACKET_SOCKS5 = 1 << 8,
     SUB_NET_PACKET_SSH = 1 << 9,
 } net_packet_t;
@@ -139,8 +133,6 @@ typedef struct net_task_context {
     task_context_t taskctx;
     s32 syscall;
     u16 padding;
-    u16 policies_version;
-    u64 matched_policies;
 } net_task_context_t;
 
 
@@ -152,36 +144,7 @@ struct {
     __type(value, struct net_task_context);
 } net_taskctx_map SEC(".maps");
 
-// entrymap
-
-typedef struct entry {
-    long unsigned int args[6];
-} entry_t;
-
-struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 2048);              // simultaneous tasks being traced for entry/exit
-    __type(key, u32);                       // host thread group id (tgid or tid) ...
-    __type(value, struct entry);            // ... linked to entry ctx->args
-} entrymap SEC(".maps");                    // can't use args_map (indexed by existing events only)
-
-// network capture events
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-    __uint(max_entries, 10240);
-    __type(key, u32);
-    __type(value, u32);
-} net_cap_events SEC(".maps");
-
 // scratch area
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, SCRATCH_MAP_SIZE);    // simultaneous softirqs running per CPU (?)
-    __type(key, u32);                         // per cpu index ... (always zero)
-    __type(value, net_event_context_t);              // ... linked to a scratch area
-} cgroup_skb_events_scratch_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -191,15 +154,8 @@ struct {
 } net_heap_sock_state_event SEC(".maps");
 
 // CONSTANTS
-
 // Network return value (retval) codes
 
-// Layer 3 Protocol (since no Layer 2 is available)
-#define family_ipv4             (1 << 0)
-#define family_ipv6             (1 << 1)
-// HTTP Direction (request/response) Flag
-#define proto_http_req          (1 << 2)
-#define proto_http_resp         (1 << 3)
 // Packet Direction (ingress/egress) Flag
 #define packet_ingress          (1 << 4)
 #define packet_egress           (1 << 5)
@@ -207,12 +163,6 @@ struct {
 #define flow_tcp_begin          (1 << 6)  // syn+ack flag or first flow packet
 #define flow_tcp_sample         (1 << 7)  // sample with statistics after first flow
 #define flow_tcp_end            (1 << 8)  // fin flag or last flow packet
-#define flow_udp_begin          (1 << 9)  // first flow packet
-#define flow_udp_end            (1 << 10)  // last flow packet
-#define flow_src_initiator      (1 << 11) // src is the flow initiator
-// Socks5 Direction (request/response) Flag
-#define proto_socks5_req          (1 << 12)
-#define proto_socks5_resp         (1 << 13)
 
 // payload size: full packets, only headers
 #define FULL    65536       // 1 << 16
@@ -225,14 +175,12 @@ struct {
 #define TCP_PORT_SOCKS5 1080
 
 // layer 7 parsing related constants
-#define http_min_len 7 // longest http command is "DELETE "
 #define socks5_min_len 4
 #define ssh_min_len 4 // the initial SSH messages always send `SSH-`
 
 // PROTOTYPES
 
 statfunc u32 get_inet_rcv_saddr(struct inet_sock *);
-statfunc u32 get_inet_saddr(struct inet_sock *);
 statfunc u32 get_inet_daddr(struct inet_sock *);
 statfunc u16 get_inet_sport(struct inet_sock *);
 statfunc u16 get_inet_num(struct inet_sock *);
@@ -254,8 +202,6 @@ statfunc int get_local_sockaddr_in_from_network_details(struct sockaddr_in *, ne
 statfunc int get_remote_sockaddr_in_from_network_details(struct sockaddr_in *, net_conn_v4_t *, u16);
 statfunc int get_local_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
 statfunc int get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
-statfunc int get_local_net_id_from_network_details_v4(struct sock *, net_id_t *, net_conn_v4_t *, u16);
-statfunc int get_local_net_id_from_network_details_v6(struct sock *, net_id_t *, net_conn_v6_t *, u16);
 statfunc bool fill_tuple(struct sock *, tuple_t *);
 
 // clang-format on
@@ -269,11 +215,6 @@ statfunc bool fill_tuple(struct sock *, tuple_t *);
 statfunc u32 get_inet_rcv_saddr(struct inet_sock *inet)
 {
     return BPF_CORE_READ(inet, inet_rcv_saddr);
-}
-
-statfunc u32 get_inet_saddr(struct inet_sock *inet)
-{
-    return BPF_CORE_READ(inet, inet_saddr);
 }
 
 statfunc u32 get_inet_daddr(struct inet_sock *inet)
@@ -485,31 +426,6 @@ statfunc int get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *a
     addr->sin6_flowinfo = net_details->flowinfo;
     addr->sin6_addr = net_details->remote_address;
     addr->sin6_scope_id = net_details->scope_id;
-
-    return 0;
-}
-
-statfunc int get_local_net_id_from_network_details_v4(struct sock *sk,
-                                                      net_id_t *connect_id,
-                                                      net_conn_v4_t *net_details,
-                                                      u16 family)
-{
-    connect_id->address.s6_addr32[3] = net_details->local_address;
-    connect_id->address.s6_addr16[5] = 0xffff;
-    connect_id->port = net_details->local_port;
-    connect_id->protocol = get_sock_protocol(sk);
-
-    return 0;
-}
-
-statfunc int get_local_net_id_from_network_details_v6(struct sock *sk,
-                                                      net_id_t *connect_id,
-                                                      net_conn_v6_t *net_details,
-                                                      u16 family)
-{
-    connect_id->address = net_details->local_address;
-    connect_id->port = net_details->local_port;
-    connect_id->protocol = get_sock_protocol(sk);
 
     return 0;
 }

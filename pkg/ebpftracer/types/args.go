@@ -469,7 +469,6 @@ type ExecveArgs struct {
 
   Pathname string
   Argv []string
-  Envp []string
 }
 
 type ExitArgs struct {
@@ -2431,7 +2430,6 @@ type ExecveatArgs struct {
   Dirfd int32
   Pathname string
   Argv []string
-  Envp []string
   Flags int32
 }
 
@@ -3393,7 +3391,6 @@ type SchedProcessExecArgs struct {
   StdinType uint16
   StdinPath string
   InvokedFromKernel int32
-  Env []string
   Flags uint32
 }
 
@@ -3421,69 +3418,6 @@ type ProcessOomKilledArgs struct {
   ProcessGroupExit bool
 }
 
-type DoExitArgs struct {
-  internalArgs
-}
-
-type CapCapableArgs struct {
-  internalArgs
-
-  Cap int32
-}
-
-type VfsWriteArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Count uint64
-  Pos uint64
-}
-
-type VfsWritevArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Vlen uint64
-  Pos uint64
-}
-
-type MemProtAlertArgs struct {
-  internalArgs
-
-  Alert uint32
-  Addr uintptr
-  Len uint64
-  Prot int32
-  PrevProt int32
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Ctime uint64
-}
-
-type CommitCredsArgs struct {
-  internalArgs
-
-  OldCred SlimCred
-  NewCred SlimCred
-}
-
-type SwitchTaskNSArgs struct {
-  internalArgs
-
-  Pid int32
-  NewMnt uint32
-  NewPid uint32
-  NewUts uint32
-  NewIpc uint32
-  NewNet uint32
-  NewCgroup uint32
-}
-
 type MagicWriteArgs struct {
   internalArgs
 
@@ -3491,14 +3425,6 @@ type MagicWriteArgs struct {
   Bytes []byte
   Dev uint32
   Inode uint64
-}
-
-type CgroupAttachTaskArgs struct {
-  internalArgs
-
-  CgroupPath string
-  Comm string
-  Pid int32
 }
 
 type CgroupMkdirArgs struct {
@@ -3517,43 +3443,6 @@ type CgroupRmdirArgs struct {
   HierarchyId uint32
 }
 
-type SecurityFileOpenArgs struct {
-  internalArgs
-
-  Pathname string
-  Flags int32
-  Dev uint32
-  Inode uint64
-  Ctime uint64
-  SyscallPathname string
-}
-
-type SecurityInodeUnlinkArgs struct {
-  internalArgs
-
-  Pathname string
-  Inode uint64
-  Dev uint32
-  Ctime uint64
-}
-
-type SecuritySocketCreateArgs struct {
-  internalArgs
-
-  Family int32
-  Type int32
-  Protocol int32
-  Kern int32
-}
-
-type SecuritySocketListenArgs struct {
-  internalArgs
-
-  Sockfd int32
-  LocalAddr Sockaddr
-  Backlog int32
-}
-
 type SecuritySocketConnectArgs struct {
   internalArgs
 
@@ -3562,376 +3451,11 @@ type SecuritySocketConnectArgs struct {
   RemoteAddr Sockaddr
 }
 
-type SecuritySocketAcceptArgs struct {
-  internalArgs
-
-  Sockfd int32
-  LocalAddr Sockaddr
-}
-
-type SecuritySocketBindArgs struct {
-  internalArgs
-
-  Sockfd int32
-  LocalAddr Sockaddr
-}
-
-type SecuritySocketSetsockoptArgs struct {
-  internalArgs
-
-  Sockfd int32
-  Level int32
-  Optname int32
-  LocalAddr Sockaddr
-}
-
-type SecuritySbMountArgs struct {
-  internalArgs
-
-  DevName string
-  Path string
-  Type string
-  Flags uint64
-}
-
-type SecurityBPFArgs struct {
-  internalArgs
-
-  Cmd int32
-}
-
-type SecurityBPFMapArgs struct {
-  internalArgs
-
-  MapId uint32
-  MapName string
-}
-
-type SecurityKernelReadFileArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Type int32
-  Ctime uint64
-}
-
-type SecurityPostReadFileArgs struct {
-  internalArgs
-
-  Pathname string
-  Size int64
-  Type int32
-}
-
-type SecurityInodeMknodArgs struct {
-  internalArgs
-
-  FileName string
-  Mode uint16
-  Dev uint32
-}
-
-type SecurityInodeSymlinkEventIdArgs struct {
-  internalArgs
-
-  Linkpath string
-  Target string
-}
-
-type SecurityMmapFileArgs struct {
-  internalArgs
-
-  Pathname string
-  Flags int32
-  Dev uint32
-  Inode uint64
-  Ctime uint64
-  Prot uint64
-  MmapFlags uint64
-}
-
-type DoMmapArgs struct {
-  internalArgs
-
-  Addr uintptr
-  Pathname string
-  Flags uint32
-  Dev uint32
-  Inode uint64
-  Ctime uint64
-  Pgoff uint64
-  Len uint64
-  Prot uint64
-  MmapFlags uint64
-}
-
-type SecurityFileMprotectArgs struct {
-  internalArgs
-
-  Pathname string
-  Prot int32
-  Ctime uint64
-  PrevProt int32
-  Addr uintptr
-  Len uint64
-  Pkey int32
-}
-
-type InitNamespacesArgs struct {
-  internalArgs
-
-  Cgroup uint32
-  Ipc uint32
-  Mnt uint32
-  Net uint32
-  Pid uint32
-  PidForChildren uint32
-  Time uint32
-  TimeForChildren uint32
-  User uint32
-  Uts uint32
-}
-
 type SocketDupArgs struct {
   internalArgs
 
   Oldfd int32
   Newfd int32
-  RemoteAddr Sockaddr
-}
-
-type HiddenInodesArgs struct {
-  internalArgs
-
-  HiddenProcess string
-}
-
-type KernelWriteArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Count uint64
-  Pos uint64
-}
-
-type DirtyPipeSpliceArgs struct {
-  internalArgs
-
-  InodeIn uint64
-  InFileType uint16
-  InFilePath string
-  ExposedDataStartOffset uint64
-  ExposedDataLen uint64
-  InodeOut uint64
-  OutPipeLastBufferFlags uint32
-}
-
-type ContainerCreateArgs struct {
-  internalArgs
-
-  Runtime string
-  ContainerId string
-  Ctime uint64
-  ContainerImage string
-  ContainerImageDigest string
-  ContainerName string
-  PodName string
-  PodNamespace string
-  PodUid string
-  PodSandbox bool
-}
-
-type ContainerRemoveArgs struct {
-  internalArgs
-
-  Runtime string
-  ContainerId string
-}
-
-type ExistingContainerArgs struct {
-  internalArgs
-
-  Runtime string
-  ContainerId string
-  Ctime uint64
-  ContainerImage string
-  ContainerImageDigest string
-  ContainerName string
-  PodName string
-  PodNamespace string
-  PodUid string
-  PodSandbox bool
-}
-
-type ProcCreateArgs struct {
-  internalArgs
-
-  Name string
-  ProcOpsAddr uintptr
-}
-
-type KprobeAttachArgs struct {
-  internalArgs
-
-  SymbolName string
-  PreHandlerAddr uintptr
-  PostHandlerAddr uintptr
-}
-
-type CallUsermodeHelperArgs struct {
-  internalArgs
-
-  Pathname string
-  Argv []string
-  Envp []string
-  Wait int32
-}
-
-type DebugfsCreateFileArgs struct {
-  internalArgs
-
-  FileName string
-  Path string
-  Mode uint32
-  ProcOpsAddr uintptr
-}
-
-type PrintSyscallTableArgs struct {
-  internalArgs
-
-  SyscallsAddresses []uint64
-  CallerContextId uint64
-}
-
-type HiddenKernelModuleArgs struct {
-  internalArgs
-
-  Address string
-  Name string
-  Srcversion string
-}
-
-type HiddenKernelModuleSeekerArgs struct {
-  internalArgs
-
-  Address uint64
-  Name []byte
-  Flags uint32
-  Srcversion []byte
-}
-
-type HookedSyscallsArgs struct {
-  internalArgs
-
-  CheckSyscalls uintptr
-  HookedSyscalls uintptr
-}
-
-type DebugfsCreateDirArgs struct {
-  internalArgs
-
-  Name string
-  Path string
-}
-
-type DeviceAddArgs struct {
-  internalArgs
-
-  Name string
-  ParentName string
-}
-
-type RegisterChrdevArgs struct {
-  internalArgs
-
-  RequestedMajorNumber uint32
-  GrantedMajorNumber uint32
-  CharDeviceName string
-  CharDeviceFops uintptr
-}
-
-type SharedObjectLoadedArgs struct {
-  internalArgs
-
-  Pathname string
-  Flags int32
-  Dev uint32
-  Inode uint64
-  Ctime uint64
-}
-
-type SymbolsLoadedArgs struct {
-  internalArgs
-
-  LibraryPath string
-  Symbols []string
-}
-
-type SymbolsCollisionArgs struct {
-  internalArgs
-
-  LoadedPath string
-  CollisionPath string
-  Symbols []string
-}
-
-type CaptureFileWriteArgs struct {
-  internalArgs
-}
-
-type CaptureFileReadArgs struct {
-  internalArgs
-}
-
-type CaptureExecArgs struct {
-  internalArgs
-}
-
-type CaptureModuleArgs struct {
-  internalArgs
-}
-
-type CaptureMemArgs struct {
-  internalArgs
-}
-
-type CaptureBpfArgs struct {
-  internalArgs
-}
-
-type DoInitModuleArgs struct {
-  internalArgs
-
-  Name string
-  Version string
-  SrcVersion string
-}
-
-type ModuleLoadArgs struct {
-  internalArgs
-
-  Name string
-  Version string
-  SrcVersion string
-}
-
-type ModuleFreeArgs struct {
-  internalArgs
-
-  Name string
-  Version string
-  SrcVersion string
-}
-
-type SocketAcceptArgs struct {
-  internalArgs
-
-  Sockfd int32
-  LocalAddr Sockaddr
   RemoteAddr Sockaddr
 }
 
@@ -3943,119 +3467,6 @@ type LoadElfPhdrsArgs struct {
   Inode uint64
 }
 
-type PrintNetSeqOpsArgs struct {
-  internalArgs
-
-  NetSeqOps []uint64
-  CallerContextId uint64
-}
-
-type HookedSeqOpsArgs struct {
-  internalArgs
-
-  HookedSeqOps uintptr
-}
-
-type TaskRenameArgs struct {
-  internalArgs
-
-  OldName string
-  NewName string
-}
-
-type SecurityInodeRenameArgs struct {
-  internalArgs
-
-  OldPath string
-  NewPath string
-}
-
-type DoSigactionArgs struct {
-  internalArgs
-
-  Sig int32
-  IsSaInitialized bool
-  SaFlags uint64
-  SaMask uint64
-  SaHandleMethod uint8
-  SaHandler uintptr
-  IsOldSaInitialized bool
-  OldSaFlags uint64
-  OldSaMask uint64
-  OldSaHandleMethod uint8
-  OldSaHandler uintptr
-}
-
-type BpfAttachArgs struct {
-  internalArgs
-
-  ProgType int32
-  ProgName string
-  ProgId uint32
-  ProgHelpers []uint64
-  SymbolName string
-  SymbolAddr uint64
-  AttachType int32
-}
-
-type KallsymsLookupNameArgs struct {
-  internalArgs
-
-  SymbolName string
-  SymbolAddress uintptr
-}
-
-type PrintMemDumpArgs struct {
-  internalArgs
-
-  Bytes []byte
-  Address uintptr
-  Length uint64
-  CallerContextId uint64
-  Arch string
-  SymbolName string
-  SymbolOwner string
-}
-
-type VfsReadArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Count uint64
-  Pos uint64
-}
-
-type VfsReadvArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Vlen uint64
-  Pos uint64
-}
-
-type VfsUtimesArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-  Atime uint64
-  Mtime uint64
-}
-
-type DoTruncateArgs struct {
-  internalArgs
-
-  Pathname string
-  Inode uint64
-  Dev uint32
-  Length uint64
-}
-
 type FileModificationArgs struct {
   internalArgs
 
@@ -4064,31 +3475,6 @@ type FileModificationArgs struct {
   Inode uint64
   OldCtime uint64
   NewCtime uint64
-}
-
-type InotifyWatchArgs struct {
-  internalArgs
-
-  Pathname string
-  Inode uint64
-  Dev uint32
-}
-
-type ProcessExecuteFailedArgs struct {
-  internalArgs
-
-  Path string
-  BinaryPath string
-  BinaryDeviceId uint32
-  BinaryInodeNumber uint64
-  BinaryCtime uint64
-  BinaryInodeMode uint16
-  InterpreterPath string
-  StdinType uint16
-  StdinPath string
-  KernelInvoked int32
-  BinaryArguments []string
-  Environment []string
 }
 
 type TtyOpenArgs struct {
@@ -4117,36 +3503,10 @@ type NetPacketIPBaseArgs struct {
   Payload []byte
 }
 
-type NetPacketIPv4Args struct {
-  internalArgs
-
-  Src string
-  Dst string
-  ProtoIpv4 uintptr
-}
-
-type NetPacketIPv6Args struct {
-  internalArgs
-
-  Src string
-  Dst string
-  ProtoIpv6 uintptr
-}
-
 type NetPacketTCPBaseArgs struct {
   internalArgs
 
   Payload []byte
-}
-
-type NetPacketTCPArgs struct {
-  internalArgs
-
-  Src string
-  Dst string
-  SrcPort uint16
-  DstPort uint16
-  ProtoTcp uintptr
 }
 
 type NetPacketUDPBaseArgs struct {
@@ -4155,28 +3515,10 @@ type NetPacketUDPBaseArgs struct {
   Payload []byte
 }
 
-type NetPacketUDPArgs struct {
-  internalArgs
-
-  Src string
-  Dst string
-  SrcPort uint16
-  DstPort uint16
-  ProtoUdp uintptr
-}
-
 type NetPacketICMPBaseArgs struct {
   internalArgs
 
   Payload []byte
-}
-
-type NetPacketICMPArgs struct {
-  internalArgs
-
-  Src string
-  Dst string
-  ProtoIcmp uintptr
 }
 
 type NetPacketICMPv6BaseArgs struct {
@@ -4185,72 +3527,10 @@ type NetPacketICMPv6BaseArgs struct {
   Payload []byte
 }
 
-type NetPacketICMPv6Args struct {
-  internalArgs
-
-  Src string
-  Dst string
-  ProtoIcmpv6 uintptr
-}
-
 type NetPacketDNSBaseArgs struct {
   internalArgs
 
   Payload *ProtoDNS
-}
-
-type NetPacketDNSArgs struct {
-  internalArgs
-
-  Src string
-  Dst string
-  SrcPort uint16
-  DstPort uint16
-  ProtoDns uintptr
-}
-
-type NetPacketDNSRequestArgs struct {
-  internalArgs
-
-  Metadata uintptr
-  DnsQuestions uintptr
-}
-
-type NetPacketDNSResponseArgs struct {
-  internalArgs
-
-  Metadata uintptr
-  DnsResponse uintptr
-}
-
-type NetPacketHTTPBaseArgs struct {
-  internalArgs
-
-  Payload []byte
-}
-
-type NetPacketHTTPArgs struct {
-  internalArgs
-
-  Src string
-  Dst string
-  SrcPort uint16
-  DstPort uint16
-  ProtoHttp uintptr
-}
-
-type NetPacketHTTPRequestArgs struct {
-  internalArgs
-
-  Metadata uintptr
-  HttpRequest uintptr
-}
-
-type NetPacketHTTPResponseArgs struct {
-  internalArgs
-
-  Metadata uintptr
-  HttpResponse uintptr
 }
 
 type NetPacketSOCKS5BaseArgs struct {
@@ -4263,16 +3543,6 @@ type NetPacketSSHBaseArgs struct {
   internalArgs
 
   Payload *ProtoSSH
-}
-
-type NetPacketCaptureArgs struct {
-  internalArgs
-
-  Payload []byte
-}
-
-type CaptureNetPacketArgs struct {
-  internalArgs
 }
 
 type SockSetStateArgs struct {

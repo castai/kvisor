@@ -12,25 +12,16 @@
 statfunc int get_task_flags(struct task_struct *task);
 statfunc int get_task_syscall_id(struct task_struct *task);
 statfunc u32 get_task_mnt_ns_id(struct task_struct *task);
-statfunc u32 get_task_pid_ns_for_children_id(struct task_struct *task);
 statfunc u32 get_task_pid_ns_id(struct task_struct *task);
-statfunc u32 get_task_uts_ns_id(struct task_struct *task);
-statfunc u32 get_task_ipc_ns_id(struct task_struct *task);
-statfunc u32 get_task_net_ns_id(struct task_struct *task);
-statfunc u32 get_task_cgroup_ns_id(struct task_struct *task);
 statfunc u32 get_task_pid_vnr(struct task_struct *task);
 statfunc u32 get_task_ns_pid(struct task_struct *task);
 statfunc u32 get_task_ns_tgid(struct task_struct *task);
-statfunc u32 get_task_ns_ppid(struct task_struct *task);
-statfunc char *get_task_uts_name(struct task_struct *task);
-statfunc u32 get_task_ppid(struct task_struct *task);
 statfunc u64 get_task_start_time(struct task_struct *task);
 statfunc u32 get_task_host_pid(struct task_struct *task);
 statfunc u32 get_task_host_tgid(struct task_struct *task);
 statfunc struct task_struct *get_parent_task(struct task_struct *task);
 statfunc u32 get_task_exit_code(struct task_struct *task);
 statfunc int get_task_parent_flags(struct task_struct *task);
-statfunc const struct cred *get_task_real_cred(struct task_struct *task);
 
 // FUNCTIONS
 
@@ -54,11 +45,6 @@ statfunc u32 get_task_mnt_ns_id(struct task_struct *task)
     return get_mnt_ns_id(BPF_CORE_READ(task, nsproxy));
 }
 
-statfunc u32 get_task_pid_ns_for_children_id(struct task_struct *task)
-{
-    return get_pid_ns_for_children_id(BPF_CORE_READ(task, nsproxy));
-}
-
 statfunc u32 get_task_pid_ns_id(struct task_struct *task)
 {
     unsigned int level = 0;
@@ -75,26 +61,6 @@ statfunc u32 get_task_pid_ns_id(struct task_struct *task)
     level = BPF_CORE_READ(pid, level);
     ns = BPF_CORE_READ(pid, numbers[level].ns);
     return BPF_CORE_READ(ns, ns.inum);
-}
-
-statfunc u32 get_task_uts_ns_id(struct task_struct *task)
-{
-    return get_uts_ns_id(BPF_CORE_READ(task, nsproxy));
-}
-
-statfunc u32 get_task_ipc_ns_id(struct task_struct *task)
-{
-    return get_ipc_ns_id(BPF_CORE_READ(task, nsproxy));
-}
-
-statfunc u32 get_task_net_ns_id(struct task_struct *task)
-{
-    return get_net_ns_id(BPF_CORE_READ(task, nsproxy));
-}
-
-statfunc u32 get_task_cgroup_ns_id(struct task_struct *task)
-{
-    return get_cgroup_ns_id(BPF_CORE_READ(task, nsproxy));
 }
 
 statfunc u32 get_task_pid_vnr(struct task_struct *task)
@@ -125,28 +91,9 @@ statfunc u32 get_task_ns_tgid(struct task_struct *task)
     return get_task_pid_vnr(group_leader);
 }
 
-statfunc u32 get_task_ns_ppid(struct task_struct *task)
-{
-    struct task_struct *real_parent = BPF_CORE_READ(task, real_parent);
-    return get_task_pid_vnr(real_parent);
-}
-
-statfunc char *get_task_uts_name(struct task_struct *task)
-{
-    struct nsproxy *np = BPF_CORE_READ(task, nsproxy);
-    struct uts_namespace *uts_ns = BPF_CORE_READ(np, uts_ns);
-    return BPF_CORE_READ(uts_ns, name.nodename);
-}
-
 statfunc u32 get_task_pid(struct task_struct *task)
 {
     return BPF_CORE_READ(task, pid);
-}
-
-statfunc u32 get_task_ppid(struct task_struct *task)
-{
-    struct task_struct *parent = BPF_CORE_READ(task, real_parent);
-    return BPF_CORE_READ(parent, tgid);
 }
 
 statfunc u64 get_task_start_time(struct task_struct *task)
@@ -183,11 +130,6 @@ statfunc int get_task_parent_flags(struct task_struct *task)
 {
     struct task_struct *parent = BPF_CORE_READ(task, real_parent);
     return get_task_flags(parent);
-}
-
-statfunc const struct cred *get_task_real_cred(struct task_struct *task)
-{
-    return BPF_CORE_READ(task, real_cred);
 }
 
 #endif

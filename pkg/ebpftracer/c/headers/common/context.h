@@ -1,6 +1,7 @@
 #ifndef __COMMON_CONTEXT_H__
 #define __COMMON_CONTEXT_H__
 
+#include "common/consts.h"
 #include <vmlinux.h>
 
 #include <common/logging.h>
@@ -10,19 +11,18 @@
 
 // PROTOTYPES
 
-statfunc int init_task_context(task_context_t *, struct task_struct *, u32);
+statfunc int init_task_context(task_context_t *, struct task_struct *);
 statfunc void init_proc_info_scratch(u32, scratch_t *);
 statfunc proc_info_t *init_proc_info(u32, u32);
 statfunc void init_task_info_scratch(u32, scratch_t *);
 statfunc task_info_t *init_task_info(u32, u32);
-statfunc bool context_changed(task_context_t *, task_context_t *);
 statfunc int init_program_data(program_data_t *, void *);
 statfunc int init_tailcall_program_data(program_data_t *, void *);
 statfunc void reset_event_args(program_data_t *);
 
 // FUNCTIONS
 
-statfunc int init_task_context(task_context_t *tsk_ctx, struct task_struct *task, u32 options)
+statfunc int init_task_context(task_context_t *tsk_ctx, struct task_struct *task)
 {
     // NOTE: parent is always a real process, not a potential thread group leader
     struct task_struct *leader = get_leader_task(task);
@@ -50,16 +50,8 @@ statfunc int init_task_context(task_context_t *tsk_ctx, struct task_struct *task
     tsk_ctx->leader_start_time = get_task_start_time(leader);
     tsk_ctx->parent_start_time = get_task_start_time(up_parent);
 
-    if (is_compat(task))
-        tsk_ctx->flags |= IS_COMPAT_FLAG;
-
     // Program name
     bpf_get_current_comm(&tsk_ctx->comm, sizeof(tsk_ctx->comm));
-
-    // UTS Name
-    char *uts_name = get_task_uts_name(task);
-    if (uts_name)
-        bpf_probe_read_kernel_str(&tsk_ctx->uts_name, TASK_COMM_LEN, uts_name);
 
     return 0;
 }
@@ -112,10 +104,6 @@ statfunc int init_program_data(program_data_t *p, void *ctx)
             return 0;
     }
 
-    p->config = bpf_map_lookup_elem(&config_map, &zero);
-    if (unlikely(p->config == NULL))
-        return 0;
-
     p->event->args_buf.offset = 0;
     p->event->args_buf.argnum = 0;
     p->task = (struct task_struct *) bpf_get_current_task();
@@ -146,28 +134,15 @@ statfunc int init_program_data(program_data_t *p, void *ctx)
         if (unlikely(p->task_info == NULL))
             return 0;
 
-        init_task_context(&p->task_info->context, p->task, p->config->options);
+        init_task_context(&p->task_info->context, p->task);
     }
 
-    if (p->config->options & OPT_CGROUP_V1) {
+    if (global_config.cgroup_v1) {
         p->event->context.task.cgroup_id = get_cgroup_v1_subsys0_id(p->task);
     } else {
         p->event->context.task.cgroup_id = bpf_get_current_cgroup_id();
     }
     p->task_info->context.cgroup_id = p->event->context.task.cgroup_id;
-    u32 cgroup_id_lsb = p->event->context.task.cgroup_id;
-    u8 *state = bpf_map_lookup_elem(&containers_map, &cgroup_id_lsb);
-    if (state != NULL) {
-        p->task_info->container_state = *state;
-        switch (*state) {
-            case CONTAINER_STARTED:
-            case CONTAINER_EXISTED:
-                p->event->context.task.flags |= CONTAINER_STARTED_FLAG;
-        }
-    }
-
-    // initialize matched_policies to all policies match
-    p->event->context.matched_policies = ~0ULL;
 
     return 1;
 }
@@ -181,10 +156,6 @@ statfunc int init_tailcall_program_data(program_data_t *p, void *ctx)
 
     p->event = bpf_map_lookup_elem(&event_data_map, &zero);
     if (unlikely(p->event == NULL))
-        return 0;
-
-    p->config = bpf_map_lookup_elem(&config_map, &zero);
-    if (unlikely(p->config == NULL))
         return 0;
 
     p->task_info = bpf_map_lookup_elem(&task_info_map, &p->event->context.task.host_tid);

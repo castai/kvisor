@@ -12,13 +12,44 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type tracerEventContextT struct {
+	Ts          uint64
+	Task        tracerTaskContextT
+	Eventid     uint32
+	Syscall     int32
+	Retval      int64
+	ProcessorId uint16
+	_           [6]byte
+}
+
 type tracerGlobalConfigT struct {
+	SelfPid                         uint32
+	_                               [4]byte
 	PidNsId                         uint64
 	FlowSampleSubmitIntervalSeconds uint64
 	FlowGrouping                    uint64
 	TrackSyscallStats               bool
 	ExportMetrics                   bool
-	_                               [6]byte
+	CgroupV1                        bool
+	_                               [5]byte
+}
+
+type tracerTaskContextT struct {
+	StartTime       uint64
+	CgroupId        uint64
+	Pid             uint32
+	Tid             uint32
+	Ppid            uint32
+	HostPid         uint32
+	HostTid         uint32
+	HostPpid        uint32
+	NodeHostPid     uint32
+	Uid             uint32
+	MntId           uint32
+	PidId           uint32
+	Comm            [16]int8
+	LeaderStartTime uint64
+	ParentStartTime uint64
 }
 
 // loadTracer returns the embedded CollectionSpec for tracer.
@@ -62,209 +93,89 @@ type tracerSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerProgramSpecs struct {
-	CgroupSkbEgress                          *ebpf.ProgramSpec `ebpf:"cgroup_skb_egress"`
-	CgroupSkbIngress                         *ebpf.ProgramSpec `ebpf:"cgroup_skb_ingress"`
-	CgroupSockCreate                         *ebpf.ProgramSpec `ebpf:"cgroup_sock_create"`
-	KernelWriteMagicEnter                    *ebpf.ProgramSpec `ebpf:"kernel_write_magic_enter"`
-	KernelWriteMagicReturn                   *ebpf.ProgramSpec `ebpf:"kernel_write_magic_return"`
-	LkmSeekerKsetTail                        *ebpf.ProgramSpec `ebpf:"lkm_seeker_kset_tail"`
-	LkmSeekerModTreeTail                     *ebpf.ProgramSpec `ebpf:"lkm_seeker_mod_tree_tail"`
-	LkmSeekerNewModOnlyTail                  *ebpf.ProgramSpec `ebpf:"lkm_seeker_new_mod_only_tail"`
-	LkmSeekerProcTail                        *ebpf.ProgramSpec `ebpf:"lkm_seeker_proc_tail"`
-	OomMarkVictim                            *ebpf.ProgramSpec `ebpf:"oom_mark_victim"`
-	SchedProcessExecEventSubmitTail          *ebpf.ProgramSpec `ebpf:"sched_process_exec_event_submit_tail"`
-	SendBin                                  *ebpf.ProgramSpec `ebpf:"send_bin"`
-	SendBinTp                                *ebpf.ProgramSpec `ebpf:"send_bin_tp"`
-	SysDupExitTail                           *ebpf.ProgramSpec `ebpf:"sys_dup_exit_tail"`
-	SysEnterInit                             *ebpf.ProgramSpec `ebpf:"sys_enter_init"`
-	SysEnterSubmit                           *ebpf.ProgramSpec `ebpf:"sys_enter_submit"`
-	SysExitInit                              *ebpf.ProgramSpec `ebpf:"sys_exit_init"`
-	SysExitSubmit                            *ebpf.ProgramSpec `ebpf:"sys_exit_submit"`
-	SyscallAccept4                           *ebpf.ProgramSpec `ebpf:"syscall__accept4"`
-	SyscallExecve                            *ebpf.ProgramSpec `ebpf:"syscall__execve"`
-	SyscallExecveat                          *ebpf.ProgramSpec `ebpf:"syscall__execveat"`
-	SyscallInitModule                        *ebpf.ProgramSpec `ebpf:"syscall__init_module"`
-	TraceRegisterChrdev                      *ebpf.ProgramSpec `ebpf:"trace___register_chrdev"`
-	TraceBpfCheck                            *ebpf.ProgramSpec `ebpf:"trace_bpf_check"`
-	TraceCallUsermodehelper                  *ebpf.ProgramSpec `ebpf:"trace_call_usermodehelper"`
-	TraceCapCapable                          *ebpf.ProgramSpec `ebpf:"trace_cap_capable"`
-	TraceCheckHelperCall                     *ebpf.ProgramSpec `ebpf:"trace_check_helper_call"`
-	TraceCheckMapFuncCompatibility           *ebpf.ProgramSpec `ebpf:"trace_check_map_func_compatibility"`
-	TraceCommitCreds                         *ebpf.ProgramSpec `ebpf:"trace_commit_creds"`
-	TraceDebugfsCreateDir                    *ebpf.ProgramSpec `ebpf:"trace_debugfs_create_dir"`
-	TraceDebugfsCreateFile                   *ebpf.ProgramSpec `ebpf:"trace_debugfs_create_file"`
-	TraceDeviceAdd                           *ebpf.ProgramSpec `ebpf:"trace_device_add"`
-	TraceDoExit                              *ebpf.ProgramSpec `ebpf:"trace_do_exit"`
-	TraceDoInitModule                        *ebpf.ProgramSpec `ebpf:"trace_do_init_module"`
-	TraceDoMmap                              *ebpf.ProgramSpec `ebpf:"trace_do_mmap"`
-	TraceDoSigaction                         *ebpf.ProgramSpec `ebpf:"trace_do_sigaction"`
-	TraceDoSplice                            *ebpf.ProgramSpec `ebpf:"trace_do_splice"`
-	TraceDoTruncate                          *ebpf.ProgramSpec `ebpf:"trace_do_truncate"`
-	TraceExecBinprm                          *ebpf.ProgramSpec `ebpf:"trace_exec_binprm"`
-	TraceFdInstall                           *ebpf.ProgramSpec `ebpf:"trace_fd_install"`
-	TraceFileModified                        *ebpf.ProgramSpec `ebpf:"trace_file_modified"`
-	TraceFileUpdateTime                      *ebpf.ProgramSpec `ebpf:"trace_file_update_time"`
-	TraceFilldir64                           *ebpf.ProgramSpec `ebpf:"trace_filldir64"`
-	TraceFilpClose                           *ebpf.ProgramSpec `ebpf:"trace_filp_close"`
-	TraceInetSockSetState                    *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
-	TraceInotifyFindInode                    *ebpf.ProgramSpec `ebpf:"trace_inotify_find_inode"`
-	TraceKallsymsLookupName                  *ebpf.ProgramSpec `ebpf:"trace_kallsyms_lookup_name"`
-	TraceKernelWrite                         *ebpf.ProgramSpec `ebpf:"trace_kernel_write"`
-	TraceLoadElfPhdrs                        *ebpf.ProgramSpec `ebpf:"trace_load_elf_phdrs"`
-	TraceMmapAlert                           *ebpf.ProgramSpec `ebpf:"trace_mmap_alert"`
-	TraceProcCreate                          *ebpf.ProgramSpec `ebpf:"trace_proc_create"`
-	TraceRegisterKprobe                      *ebpf.ProgramSpec `ebpf:"trace_register_kprobe"`
-	TraceRetRegisterChrdev                   *ebpf.ProgramSpec `ebpf:"trace_ret__register_chrdev"`
-	TraceRetDoInitModule                     *ebpf.ProgramSpec `ebpf:"trace_ret_do_init_module"`
-	TraceRetDoMmap                           *ebpf.ProgramSpec `ebpf:"trace_ret_do_mmap"`
-	TraceRetDoSplice                         *ebpf.ProgramSpec `ebpf:"trace_ret_do_splice"`
-	TraceRetExecBinprm                       *ebpf.ProgramSpec `ebpf:"trace_ret_exec_binprm"`
-	TraceRetExecBinprm1                      *ebpf.ProgramSpec `ebpf:"trace_ret_exec_binprm1"`
-	TraceRetExecBinprm2                      *ebpf.ProgramSpec `ebpf:"trace_ret_exec_binprm2"`
-	TraceRetFileModified                     *ebpf.ProgramSpec `ebpf:"trace_ret_file_modified"`
-	TraceRetFileUpdateTime                   *ebpf.ProgramSpec `ebpf:"trace_ret_file_update_time"`
-	TraceRetInotifyFindInode                 *ebpf.ProgramSpec `ebpf:"trace_ret_inotify_find_inode"`
-	TraceRetKallsymsLookupName               *ebpf.ProgramSpec `ebpf:"trace_ret_kallsyms_lookup_name"`
-	TraceRetKernelWrite                      *ebpf.ProgramSpec `ebpf:"trace_ret_kernel_write"`
-	TraceRetKernelWriteTail                  *ebpf.ProgramSpec `ebpf:"trace_ret_kernel_write_tail"`
-	TraceRetRegisterKprobe                   *ebpf.ProgramSpec `ebpf:"trace_ret_register_kprobe"`
-	TraceRetVfsRead                          *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_read"`
-	TraceRetVfsReadTail                      *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_read_tail"`
-	TraceRetVfsReadv                         *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_readv"`
-	TraceRetVfsReadvTail                     *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_readv_tail"`
-	TraceRetVfsWrite                         *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_write"`
-	TraceRetVfsWriteTail                     *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_write_tail"`
-	TraceRetVfsWritev                        *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_writev"`
-	TraceRetVfsWritevTail                    *ebpf.ProgramSpec `ebpf:"trace_ret_vfs_writev_tail"`
-	TraceSecurityBpf                         *ebpf.ProgramSpec `ebpf:"trace_security_bpf"`
-	TraceSecurityBpfMap                      *ebpf.ProgramSpec `ebpf:"trace_security_bpf_map"`
-	TraceSecurityBpfProg                     *ebpf.ProgramSpec `ebpf:"trace_security_bpf_prog"`
-	TraceSecurityBprmCheck                   *ebpf.ProgramSpec `ebpf:"trace_security_bprm_check"`
-	TraceSecurityFileIoctl                   *ebpf.ProgramSpec `ebpf:"trace_security_file_ioctl"`
-	TraceSecurityFileMprotect                *ebpf.ProgramSpec `ebpf:"trace_security_file_mprotect"`
-	TraceSecurityFileOpen                    *ebpf.ProgramSpec `ebpf:"trace_security_file_open"`
-	TraceSecurityFilePermission              *ebpf.ProgramSpec `ebpf:"trace_security_file_permission"`
-	TraceSecurityInodeMknod                  *ebpf.ProgramSpec `ebpf:"trace_security_inode_mknod"`
-	TraceSecurityInodeRename                 *ebpf.ProgramSpec `ebpf:"trace_security_inode_rename"`
-	TraceSecurityInodeSymlink                *ebpf.ProgramSpec `ebpf:"trace_security_inode_symlink"`
-	TraceSecurityInodeUnlink                 *ebpf.ProgramSpec `ebpf:"trace_security_inode_unlink"`
-	TraceSecurityKernelPostReadFile          *ebpf.ProgramSpec `ebpf:"trace_security_kernel_post_read_file"`
-	TraceSecurityKernelReadFile              *ebpf.ProgramSpec `ebpf:"trace_security_kernel_read_file"`
-	TraceSecurityMmapFile                    *ebpf.ProgramSpec `ebpf:"trace_security_mmap_file"`
-	TraceSecurityPathNotify                  *ebpf.ProgramSpec `ebpf:"trace_security_path_notify"`
-	TraceSecuritySbMount                     *ebpf.ProgramSpec `ebpf:"trace_security_sb_mount"`
-	TraceSecuritySocketAccept                *ebpf.ProgramSpec `ebpf:"trace_security_socket_accept"`
-	TraceSecuritySocketBind                  *ebpf.ProgramSpec `ebpf:"trace_security_socket_bind"`
-	TraceSecuritySocketConnect               *ebpf.ProgramSpec `ebpf:"trace_security_socket_connect"`
-	TraceSecuritySocketCreate                *ebpf.ProgramSpec `ebpf:"trace_security_socket_create"`
-	TraceSecuritySocketListen                *ebpf.ProgramSpec `ebpf:"trace_security_socket_listen"`
-	TraceSecuritySocketSetsockopt            *ebpf.ProgramSpec `ebpf:"trace_security_socket_setsockopt"`
-	TraceSwitchTaskNamespaces                *ebpf.ProgramSpec `ebpf:"trace_switch_task_namespaces"`
-	TraceSysEnter                            *ebpf.ProgramSpec `ebpf:"trace_sys_enter"`
-	TraceSysExit                             *ebpf.ProgramSpec `ebpf:"trace_sys_exit"`
-	TraceTracepointProbeRegisterPrioMayExist *ebpf.ProgramSpec `ebpf:"trace_tracepoint_probe_register_prio_may_exist"`
-	TraceUtimesCommon                        *ebpf.ProgramSpec `ebpf:"trace_utimes_common"`
-	TraceVfsRead                             *ebpf.ProgramSpec `ebpf:"trace_vfs_read"`
-	TraceVfsReadv                            *ebpf.ProgramSpec `ebpf:"trace_vfs_readv"`
-	TraceVfsUtimes                           *ebpf.ProgramSpec `ebpf:"trace_vfs_utimes"`
-	TraceVfsWrite                            *ebpf.ProgramSpec `ebpf:"trace_vfs_write"`
-	TraceVfsWritev                           *ebpf.ProgramSpec `ebpf:"trace_vfs_writev"`
-	TracepointCgroupCgroupAttachTask         *ebpf.ProgramSpec `ebpf:"tracepoint__cgroup__cgroup_attach_task"`
-	TracepointCgroupCgroupMkdir              *ebpf.ProgramSpec `ebpf:"tracepoint__cgroup__cgroup_mkdir"`
-	TracepointCgroupCgroupRmdir              *ebpf.ProgramSpec `ebpf:"tracepoint__cgroup__cgroup_rmdir"`
-	TracepointModuleModuleFree               *ebpf.ProgramSpec `ebpf:"tracepoint__module__module_free"`
-	TracepointModuleModuleLoad               *ebpf.ProgramSpec `ebpf:"tracepoint__module__module_load"`
-	TracepointRawSyscallsSysEnter            *ebpf.ProgramSpec `ebpf:"tracepoint__raw_syscalls__sys_enter"`
-	TracepointRawSyscallsSysExit             *ebpf.ProgramSpec `ebpf:"tracepoint__raw_syscalls__sys_exit"`
-	TracepointSchedSchedProcessExec          *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_exec"`
-	TracepointSchedSchedProcessExit          *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_exit"`
-	TracepointSchedSchedProcessFork          *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_fork"`
-	TracepointSchedSchedProcessFree          *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_free"`
-	TracepointSchedSchedSwitch               *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_switch"`
-	TracepointTaskTaskRename                 *ebpf.ProgramSpec `ebpf:"tracepoint__task__task_rename"`
-	TtyOpen                                  *ebpf.ProgramSpec `ebpf:"tty_open"`
-	TtyWrite                                 *ebpf.ProgramSpec `ebpf:"tty_write"`
-	UprobeLkmSeeker                          *ebpf.ProgramSpec `ebpf:"uprobe_lkm_seeker"`
-	UprobeLkmSeekerSubmitter                 *ebpf.ProgramSpec `ebpf:"uprobe_lkm_seeker_submitter"`
-	UprobeMemDumpTrigger                     *ebpf.ProgramSpec `ebpf:"uprobe_mem_dump_trigger"`
-	UprobeSeqOpsTrigger                      *ebpf.ProgramSpec `ebpf:"uprobe_seq_ops_trigger"`
-	VfsWriteMagicEnter                       *ebpf.ProgramSpec `ebpf:"vfs_write_magic_enter"`
-	VfsWriteMagicReturn                      *ebpf.ProgramSpec `ebpf:"vfs_write_magic_return"`
-	VfsWritevMagicEnter                      *ebpf.ProgramSpec `ebpf:"vfs_writev_magic_enter"`
-	VfsWritevMagicReturn                     *ebpf.ProgramSpec `ebpf:"vfs_writev_magic_return"`
+	CgroupSkbEgress                 *ebpf.ProgramSpec `ebpf:"cgroup_skb_egress"`
+	CgroupSkbIngress                *ebpf.ProgramSpec `ebpf:"cgroup_skb_ingress"`
+	CgroupSockCreate                *ebpf.ProgramSpec `ebpf:"cgroup_sock_create"`
+	KernelWriteMagicEnter           *ebpf.ProgramSpec `ebpf:"kernel_write_magic_enter"`
+	KernelWriteMagicReturn          *ebpf.ProgramSpec `ebpf:"kernel_write_magic_return"`
+	OomMarkVictim                   *ebpf.ProgramSpec `ebpf:"oom_mark_victim"`
+	SchedProcessExecEventSubmitTail *ebpf.ProgramSpec `ebpf:"sched_process_exec_event_submit_tail"`
+	SysDupExitTail                  *ebpf.ProgramSpec `ebpf:"sys_dup_exit_tail"`
+	SysEnterInit                    *ebpf.ProgramSpec `ebpf:"sys_enter_init"`
+	SysEnterSubmit                  *ebpf.ProgramSpec `ebpf:"sys_enter_submit"`
+	SysExitInit                     *ebpf.ProgramSpec `ebpf:"sys_exit_init"`
+	SysExitSubmit                   *ebpf.ProgramSpec `ebpf:"sys_exit_submit"`
+	SyscallExecve                   *ebpf.ProgramSpec `ebpf:"syscall__execve"`
+	SyscallExecveat                 *ebpf.ProgramSpec `ebpf:"syscall__execveat"`
+	TraceExecBinprm                 *ebpf.ProgramSpec `ebpf:"trace_exec_binprm"`
+	TraceFdInstall                  *ebpf.ProgramSpec `ebpf:"trace_fd_install"`
+	TraceFileModified               *ebpf.ProgramSpec `ebpf:"trace_file_modified"`
+	TraceFileUpdateTime             *ebpf.ProgramSpec `ebpf:"trace_file_update_time"`
+	TraceFilpClose                  *ebpf.ProgramSpec `ebpf:"trace_filp_close"`
+	TraceInetSockSetState           *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
+	TraceLoadElfPhdrs               *ebpf.ProgramSpec `ebpf:"trace_load_elf_phdrs"`
+	TraceRetFileModified            *ebpf.ProgramSpec `ebpf:"trace_ret_file_modified"`
+	TraceRetFileUpdateTime          *ebpf.ProgramSpec `ebpf:"trace_ret_file_update_time"`
+	TraceSecurityBprmCheck          *ebpf.ProgramSpec `ebpf:"trace_security_bprm_check"`
+	TraceSecuritySocketConnect      *ebpf.ProgramSpec `ebpf:"trace_security_socket_connect"`
+	TraceSysEnter                   *ebpf.ProgramSpec `ebpf:"trace_sys_enter"`
+	TraceSysExit                    *ebpf.ProgramSpec `ebpf:"trace_sys_exit"`
+	TracepointCgroupCgroupMkdir     *ebpf.ProgramSpec `ebpf:"tracepoint__cgroup__cgroup_mkdir"`
+	TracepointCgroupCgroupRmdir     *ebpf.ProgramSpec `ebpf:"tracepoint__cgroup__cgroup_rmdir"`
+	TracepointRawSyscallsSysEnter   *ebpf.ProgramSpec `ebpf:"tracepoint__raw_syscalls__sys_enter"`
+	TracepointRawSyscallsSysExit    *ebpf.ProgramSpec `ebpf:"tracepoint__raw_syscalls__sys_exit"`
+	TracepointSchedSchedProcessExec *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_exec"`
+	TracepointSchedSchedProcessExit *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_exit"`
+	TracepointSchedSchedProcessFork *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_fork"`
+	TracepointSchedSchedProcessFree *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_process_free"`
+	TracepointSchedSchedSwitch      *ebpf.ProgramSpec `ebpf:"tracepoint__sched__sched_switch"`
+	TtyOpen                         *ebpf.ProgramSpec `ebpf:"tty_open"`
+	TtyWrite                        *ebpf.ProgramSpec `ebpf:"tty_write"`
+	VfsWriteMagicEnter              *ebpf.ProgramSpec `ebpf:"vfs_write_magic_enter"`
+	VfsWriteMagicReturn             *ebpf.ProgramSpec `ebpf:"vfs_write_magic_return"`
+	VfsWritevMagicEnter             *ebpf.ProgramSpec `ebpf:"vfs_writev_magic_enter"`
+	VfsWritevMagicReturn            *ebpf.ProgramSpec `ebpf:"vfs_writev_magic_return"`
 }
 
 // tracerMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerMapSpecs struct {
-	ArgsMap                   *ebpf.MapSpec `ebpf:"args_map"`
-	BinaryFilter              *ebpf.MapSpec `ebpf:"binary_filter"`
-	BpfAttachMap              *ebpf.MapSpec `ebpf:"bpf_attach_map"`
-	BpfAttachTmpMap           *ebpf.MapSpec `ebpf:"bpf_attach_tmp_map"`
-	BpfProgLoadMap            *ebpf.MapSpec `ebpf:"bpf_prog_load_map"`
-	Bufs                      *ebpf.MapSpec `ebpf:"bufs"`
-	CgroupIdFilter            *ebpf.MapSpec `ebpf:"cgroup_id_filter"`
-	CgroupSkbEventsScratchMap *ebpf.MapSpec `ebpf:"cgroup_skb_events_scratch_map"`
-	CommFilter                *ebpf.MapSpec `ebpf:"comm_filter"`
-	ConfigMap                 *ebpf.MapSpec `ebpf:"config_map"`
-	ContainersMap             *ebpf.MapSpec `ebpf:"containers_map"`
-	DebugEvents               *ebpf.MapSpec `ebpf:"debug_events"`
-	DroppedBinaryInodes       *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
-	ElfFilesMap               *ebpf.MapSpec `ebpf:"elf_files_map"`
-	Entrymap                  *ebpf.MapSpec `ebpf:"entrymap"`
-	EventDataMap              *ebpf.MapSpec `ebpf:"event_data_map"`
-	Events                    *ebpf.MapSpec `ebpf:"events"`
-	EventsMap                 *ebpf.MapSpec `ebpf:"events_map"`
-	FdArgPathMap              *ebpf.MapSpec `ebpf:"fd_arg_path_map"`
-	FileModificationMap       *ebpf.MapSpec `ebpf:"file_modification_map"`
-	FileReadPathFilter        *ebpf.MapSpec `ebpf:"file_read_path_filter"`
-	FileTypeFilter            *ebpf.MapSpec `ebpf:"file_type_filter"`
-	FileWritePathFilter       *ebpf.MapSpec `ebpf:"file_write_path_filter"`
-	FileWrites                *ebpf.MapSpec `ebpf:"file_writes"`
-	IgnoredCgroupsMap         *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
-	IoFilePathCacheMap        *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
-	KconfigMap                *ebpf.MapSpec `ebpf:"kconfig_map"`
-	KsymbolsMap               *ebpf.MapSpec `ebpf:"ksymbols_map"`
-	Logs                      *ebpf.MapSpec `ebpf:"logs"`
-	LogsCount                 *ebpf.MapSpec `ebpf:"logs_count"`
-	Metrics                   *ebpf.MapSpec `ebpf:"metrics"`
-	MntNsFilter               *ebpf.MapSpec `ebpf:"mnt_ns_filter"`
-	ModulesMap                *ebpf.MapSpec `ebpf:"modules_map"`
-	NetCapEvents              *ebpf.MapSpec `ebpf:"net_cap_events"`
-	NetHeapSockStateEvent     *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
-	NetTaskctxMap             *ebpf.MapSpec `ebpf:"net_taskctx_map"`
-	NetconfigMap              *ebpf.MapSpec `ebpf:"netconfig_map"`
-	Netflowmap                *ebpf.MapSpec `ebpf:"netflowmap"`
-	NetflowsDataMap           *ebpf.MapSpec `ebpf:"netflows_data_map"`
-	NewModuleMap              *ebpf.MapSpec `ebpf:"new_module_map"`
-	OomInfo                   *ebpf.MapSpec `ebpf:"oom_info"`
-	PidFilter                 *ebpf.MapSpec `ebpf:"pid_filter"`
-	PidNsFilter               *ebpf.MapSpec `ebpf:"pid_ns_filter"`
-	PidOriginalFileFlags      *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
-	ProcInfoMap               *ebpf.MapSpec `ebpf:"proc_info_map"`
-	ProcessTreeMap            *ebpf.MapSpec `ebpf:"process_tree_map"`
-	ProgArray                 *ebpf.MapSpec `ebpf:"prog_array"`
-	ProgArrayTp               *ebpf.MapSpec `ebpf:"prog_array_tp"`
-	RecentDeletedModuleMap    *ebpf.MapSpec `ebpf:"recent_deleted_module_map"`
-	RecentInsertedModuleMap   *ebpf.MapSpec `ebpf:"recent_inserted_module_map"`
-	ScratchMap                *ebpf.MapSpec `ebpf:"scratch_map"`
-	SignalEvents              *ebpf.MapSpec `ebpf:"signal_events"`
-	Signals                   *ebpf.MapSpec `ebpf:"signals"`
-	StackAddresses            *ebpf.MapSpec `ebpf:"stack_addresses"`
-	Sys32To64Map              *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail          *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail        *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails             *ebpf.MapSpec `ebpf:"sys_enter_tails"`
-	SysExitInitTail           *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail         *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
-	SysExitTails              *ebpf.MapSpec `ebpf:"sys_exit_tails"`
-	SyscallStatsMap           *ebpf.MapSpec `ebpf:"syscall_stats_map"`
-	TaskInfoMap               *ebpf.MapSpec `ebpf:"task_info_map"`
-	TtyOpenedFiles            *ebpf.MapSpec `ebpf:"tty_opened_files"`
-	UidFilter                 *ebpf.MapSpec `ebpf:"uid_filter"`
-	UtsNsFilter               *ebpf.MapSpec `ebpf:"uts_ns_filter"`
-	WalkModTreeQueue          *ebpf.MapSpec `ebpf:"walk_mod_tree_queue"`
+	ArgsMap               *ebpf.MapSpec `ebpf:"args_map"`
+	Bufs                  *ebpf.MapSpec `ebpf:"bufs"`
+	DroppedBinaryInodes   *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
+	EventDataMap          *ebpf.MapSpec `ebpf:"event_data_map"`
+	Events                *ebpf.MapSpec `ebpf:"events"`
+	EventsMap             *ebpf.MapSpec `ebpf:"events_map"`
+	FileModificationMap   *ebpf.MapSpec `ebpf:"file_modification_map"`
+	FileWrites            *ebpf.MapSpec `ebpf:"file_writes"`
+	IgnoredCgroupsMap     *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
+	IoFilePathCacheMap    *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
+	Logs                  *ebpf.MapSpec `ebpf:"logs"`
+	LogsCount             *ebpf.MapSpec `ebpf:"logs_count"`
+	Metrics               *ebpf.MapSpec `ebpf:"metrics"`
+	NetHeapSockStateEvent *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
+	NetTaskctxMap         *ebpf.MapSpec `ebpf:"net_taskctx_map"`
+	Netflowmap            *ebpf.MapSpec `ebpf:"netflowmap"`
+	NetflowsDataMap       *ebpf.MapSpec `ebpf:"netflows_data_map"`
+	OomInfo               *ebpf.MapSpec `ebpf:"oom_info"`
+	PidOriginalFileFlags  *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
+	ProcInfoMap           *ebpf.MapSpec `ebpf:"proc_info_map"`
+	ProgArray             *ebpf.MapSpec `ebpf:"prog_array"`
+	ProgArrayTp           *ebpf.MapSpec `ebpf:"prog_array_tp"`
+	ScratchMap            *ebpf.MapSpec `ebpf:"scratch_map"`
+	SignalEvents          *ebpf.MapSpec `ebpf:"signal_events"`
+	Signals               *ebpf.MapSpec `ebpf:"signals"`
+	Sys32To64Map          *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
+	SysEnterInitTail      *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
+	SysEnterSubmitTail    *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
+	SysEnterTails         *ebpf.MapSpec `ebpf:"sys_enter_tails"`
+	SysExitInitTail       *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
+	SysExitSubmitTail     *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
+	SysExitTails          *ebpf.MapSpec `ebpf:"sys_exit_tails"`
+	SyscallStatsMap       *ebpf.MapSpec `ebpf:"syscall_stats_map"`
+	TaskInfoMap           *ebpf.MapSpec `ebpf:"task_info_map"`
+	TtyOpenedFiles        *ebpf.MapSpec `ebpf:"tty_opened_files"`
 }
 
 // tracerObjects contains all objects after they have been loaded into the kernel.
@@ -286,131 +197,70 @@ func (o *tracerObjects) Close() error {
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerMaps struct {
-	ArgsMap                   *ebpf.Map `ebpf:"args_map"`
-	BinaryFilter              *ebpf.Map `ebpf:"binary_filter"`
-	BpfAttachMap              *ebpf.Map `ebpf:"bpf_attach_map"`
-	BpfAttachTmpMap           *ebpf.Map `ebpf:"bpf_attach_tmp_map"`
-	BpfProgLoadMap            *ebpf.Map `ebpf:"bpf_prog_load_map"`
-	Bufs                      *ebpf.Map `ebpf:"bufs"`
-	CgroupIdFilter            *ebpf.Map `ebpf:"cgroup_id_filter"`
-	CgroupSkbEventsScratchMap *ebpf.Map `ebpf:"cgroup_skb_events_scratch_map"`
-	CommFilter                *ebpf.Map `ebpf:"comm_filter"`
-	ConfigMap                 *ebpf.Map `ebpf:"config_map"`
-	ContainersMap             *ebpf.Map `ebpf:"containers_map"`
-	DebugEvents               *ebpf.Map `ebpf:"debug_events"`
-	DroppedBinaryInodes       *ebpf.Map `ebpf:"dropped_binary_inodes"`
-	ElfFilesMap               *ebpf.Map `ebpf:"elf_files_map"`
-	Entrymap                  *ebpf.Map `ebpf:"entrymap"`
-	EventDataMap              *ebpf.Map `ebpf:"event_data_map"`
-	Events                    *ebpf.Map `ebpf:"events"`
-	EventsMap                 *ebpf.Map `ebpf:"events_map"`
-	FdArgPathMap              *ebpf.Map `ebpf:"fd_arg_path_map"`
-	FileModificationMap       *ebpf.Map `ebpf:"file_modification_map"`
-	FileReadPathFilter        *ebpf.Map `ebpf:"file_read_path_filter"`
-	FileTypeFilter            *ebpf.Map `ebpf:"file_type_filter"`
-	FileWritePathFilter       *ebpf.Map `ebpf:"file_write_path_filter"`
-	FileWrites                *ebpf.Map `ebpf:"file_writes"`
-	IgnoredCgroupsMap         *ebpf.Map `ebpf:"ignored_cgroups_map"`
-	IoFilePathCacheMap        *ebpf.Map `ebpf:"io_file_path_cache_map"`
-	KconfigMap                *ebpf.Map `ebpf:"kconfig_map"`
-	KsymbolsMap               *ebpf.Map `ebpf:"ksymbols_map"`
-	Logs                      *ebpf.Map `ebpf:"logs"`
-	LogsCount                 *ebpf.Map `ebpf:"logs_count"`
-	Metrics                   *ebpf.Map `ebpf:"metrics"`
-	MntNsFilter               *ebpf.Map `ebpf:"mnt_ns_filter"`
-	ModulesMap                *ebpf.Map `ebpf:"modules_map"`
-	NetCapEvents              *ebpf.Map `ebpf:"net_cap_events"`
-	NetHeapSockStateEvent     *ebpf.Map `ebpf:"net_heap_sock_state_event"`
-	NetTaskctxMap             *ebpf.Map `ebpf:"net_taskctx_map"`
-	NetconfigMap              *ebpf.Map `ebpf:"netconfig_map"`
-	Netflowmap                *ebpf.Map `ebpf:"netflowmap"`
-	NetflowsDataMap           *ebpf.Map `ebpf:"netflows_data_map"`
-	NewModuleMap              *ebpf.Map `ebpf:"new_module_map"`
-	OomInfo                   *ebpf.Map `ebpf:"oom_info"`
-	PidFilter                 *ebpf.Map `ebpf:"pid_filter"`
-	PidNsFilter               *ebpf.Map `ebpf:"pid_ns_filter"`
-	PidOriginalFileFlags      *ebpf.Map `ebpf:"pid_original_file_flags"`
-	ProcInfoMap               *ebpf.Map `ebpf:"proc_info_map"`
-	ProcessTreeMap            *ebpf.Map `ebpf:"process_tree_map"`
-	ProgArray                 *ebpf.Map `ebpf:"prog_array"`
-	ProgArrayTp               *ebpf.Map `ebpf:"prog_array_tp"`
-	RecentDeletedModuleMap    *ebpf.Map `ebpf:"recent_deleted_module_map"`
-	RecentInsertedModuleMap   *ebpf.Map `ebpf:"recent_inserted_module_map"`
-	ScratchMap                *ebpf.Map `ebpf:"scratch_map"`
-	SignalEvents              *ebpf.Map `ebpf:"signal_events"`
-	Signals                   *ebpf.Map `ebpf:"signals"`
-	StackAddresses            *ebpf.Map `ebpf:"stack_addresses"`
-	Sys32To64Map              *ebpf.Map `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail          *ebpf.Map `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail        *ebpf.Map `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails             *ebpf.Map `ebpf:"sys_enter_tails"`
-	SysExitInitTail           *ebpf.Map `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail         *ebpf.Map `ebpf:"sys_exit_submit_tail"`
-	SysExitTails              *ebpf.Map `ebpf:"sys_exit_tails"`
-	SyscallStatsMap           *ebpf.Map `ebpf:"syscall_stats_map"`
-	TaskInfoMap               *ebpf.Map `ebpf:"task_info_map"`
-	TtyOpenedFiles            *ebpf.Map `ebpf:"tty_opened_files"`
-	UidFilter                 *ebpf.Map `ebpf:"uid_filter"`
-	UtsNsFilter               *ebpf.Map `ebpf:"uts_ns_filter"`
-	WalkModTreeQueue          *ebpf.Map `ebpf:"walk_mod_tree_queue"`
+	ArgsMap               *ebpf.Map `ebpf:"args_map"`
+	Bufs                  *ebpf.Map `ebpf:"bufs"`
+	DroppedBinaryInodes   *ebpf.Map `ebpf:"dropped_binary_inodes"`
+	EventDataMap          *ebpf.Map `ebpf:"event_data_map"`
+	Events                *ebpf.Map `ebpf:"events"`
+	EventsMap             *ebpf.Map `ebpf:"events_map"`
+	FileModificationMap   *ebpf.Map `ebpf:"file_modification_map"`
+	FileWrites            *ebpf.Map `ebpf:"file_writes"`
+	IgnoredCgroupsMap     *ebpf.Map `ebpf:"ignored_cgroups_map"`
+	IoFilePathCacheMap    *ebpf.Map `ebpf:"io_file_path_cache_map"`
+	Logs                  *ebpf.Map `ebpf:"logs"`
+	LogsCount             *ebpf.Map `ebpf:"logs_count"`
+	Metrics               *ebpf.Map `ebpf:"metrics"`
+	NetHeapSockStateEvent *ebpf.Map `ebpf:"net_heap_sock_state_event"`
+	NetTaskctxMap         *ebpf.Map `ebpf:"net_taskctx_map"`
+	Netflowmap            *ebpf.Map `ebpf:"netflowmap"`
+	NetflowsDataMap       *ebpf.Map `ebpf:"netflows_data_map"`
+	OomInfo               *ebpf.Map `ebpf:"oom_info"`
+	PidOriginalFileFlags  *ebpf.Map `ebpf:"pid_original_file_flags"`
+	ProcInfoMap           *ebpf.Map `ebpf:"proc_info_map"`
+	ProgArray             *ebpf.Map `ebpf:"prog_array"`
+	ProgArrayTp           *ebpf.Map `ebpf:"prog_array_tp"`
+	ScratchMap            *ebpf.Map `ebpf:"scratch_map"`
+	SignalEvents          *ebpf.Map `ebpf:"signal_events"`
+	Signals               *ebpf.Map `ebpf:"signals"`
+	Sys32To64Map          *ebpf.Map `ebpf:"sys_32_to_64_map"`
+	SysEnterInitTail      *ebpf.Map `ebpf:"sys_enter_init_tail"`
+	SysEnterSubmitTail    *ebpf.Map `ebpf:"sys_enter_submit_tail"`
+	SysEnterTails         *ebpf.Map `ebpf:"sys_enter_tails"`
+	SysExitInitTail       *ebpf.Map `ebpf:"sys_exit_init_tail"`
+	SysExitSubmitTail     *ebpf.Map `ebpf:"sys_exit_submit_tail"`
+	SysExitTails          *ebpf.Map `ebpf:"sys_exit_tails"`
+	SyscallStatsMap       *ebpf.Map `ebpf:"syscall_stats_map"`
+	TaskInfoMap           *ebpf.Map `ebpf:"task_info_map"`
+	TtyOpenedFiles        *ebpf.Map `ebpf:"tty_opened_files"`
 }
 
 func (m *tracerMaps) Close() error {
 	return _TracerClose(
 		m.ArgsMap,
-		m.BinaryFilter,
-		m.BpfAttachMap,
-		m.BpfAttachTmpMap,
-		m.BpfProgLoadMap,
 		m.Bufs,
-		m.CgroupIdFilter,
-		m.CgroupSkbEventsScratchMap,
-		m.CommFilter,
-		m.ConfigMap,
-		m.ContainersMap,
-		m.DebugEvents,
 		m.DroppedBinaryInodes,
-		m.ElfFilesMap,
-		m.Entrymap,
 		m.EventDataMap,
 		m.Events,
 		m.EventsMap,
-		m.FdArgPathMap,
 		m.FileModificationMap,
-		m.FileReadPathFilter,
-		m.FileTypeFilter,
-		m.FileWritePathFilter,
 		m.FileWrites,
 		m.IgnoredCgroupsMap,
 		m.IoFilePathCacheMap,
-		m.KconfigMap,
-		m.KsymbolsMap,
 		m.Logs,
 		m.LogsCount,
 		m.Metrics,
-		m.MntNsFilter,
-		m.ModulesMap,
-		m.NetCapEvents,
 		m.NetHeapSockStateEvent,
 		m.NetTaskctxMap,
-		m.NetconfigMap,
 		m.Netflowmap,
 		m.NetflowsDataMap,
-		m.NewModuleMap,
 		m.OomInfo,
-		m.PidFilter,
-		m.PidNsFilter,
 		m.PidOriginalFileFlags,
 		m.ProcInfoMap,
-		m.ProcessTreeMap,
 		m.ProgArray,
 		m.ProgArrayTp,
-		m.RecentDeletedModuleMap,
-		m.RecentInsertedModuleMap,
 		m.ScratchMap,
 		m.SignalEvents,
 		m.Signals,
-		m.StackAddresses,
 		m.Sys32To64Map,
 		m.SysEnterInitTail,
 		m.SysEnterSubmitTail,
@@ -421,9 +271,6 @@ func (m *tracerMaps) Close() error {
 		m.SyscallStatsMap,
 		m.TaskInfoMap,
 		m.TtyOpenedFiles,
-		m.UidFilter,
-		m.UtsNsFilter,
-		m.WalkModTreeQueue,
 	)
 }
 
@@ -431,136 +278,48 @@ func (m *tracerMaps) Close() error {
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerPrograms struct {
-	CgroupSkbEgress                          *ebpf.Program `ebpf:"cgroup_skb_egress"`
-	CgroupSkbIngress                         *ebpf.Program `ebpf:"cgroup_skb_ingress"`
-	CgroupSockCreate                         *ebpf.Program `ebpf:"cgroup_sock_create"`
-	KernelWriteMagicEnter                    *ebpf.Program `ebpf:"kernel_write_magic_enter"`
-	KernelWriteMagicReturn                   *ebpf.Program `ebpf:"kernel_write_magic_return"`
-	LkmSeekerKsetTail                        *ebpf.Program `ebpf:"lkm_seeker_kset_tail"`
-	LkmSeekerModTreeTail                     *ebpf.Program `ebpf:"lkm_seeker_mod_tree_tail"`
-	LkmSeekerNewModOnlyTail                  *ebpf.Program `ebpf:"lkm_seeker_new_mod_only_tail"`
-	LkmSeekerProcTail                        *ebpf.Program `ebpf:"lkm_seeker_proc_tail"`
-	OomMarkVictim                            *ebpf.Program `ebpf:"oom_mark_victim"`
-	SchedProcessExecEventSubmitTail          *ebpf.Program `ebpf:"sched_process_exec_event_submit_tail"`
-	SendBin                                  *ebpf.Program `ebpf:"send_bin"`
-	SendBinTp                                *ebpf.Program `ebpf:"send_bin_tp"`
-	SysDupExitTail                           *ebpf.Program `ebpf:"sys_dup_exit_tail"`
-	SysEnterInit                             *ebpf.Program `ebpf:"sys_enter_init"`
-	SysEnterSubmit                           *ebpf.Program `ebpf:"sys_enter_submit"`
-	SysExitInit                              *ebpf.Program `ebpf:"sys_exit_init"`
-	SysExitSubmit                            *ebpf.Program `ebpf:"sys_exit_submit"`
-	SyscallAccept4                           *ebpf.Program `ebpf:"syscall__accept4"`
-	SyscallExecve                            *ebpf.Program `ebpf:"syscall__execve"`
-	SyscallExecveat                          *ebpf.Program `ebpf:"syscall__execveat"`
-	SyscallInitModule                        *ebpf.Program `ebpf:"syscall__init_module"`
-	TraceRegisterChrdev                      *ebpf.Program `ebpf:"trace___register_chrdev"`
-	TraceBpfCheck                            *ebpf.Program `ebpf:"trace_bpf_check"`
-	TraceCallUsermodehelper                  *ebpf.Program `ebpf:"trace_call_usermodehelper"`
-	TraceCapCapable                          *ebpf.Program `ebpf:"trace_cap_capable"`
-	TraceCheckHelperCall                     *ebpf.Program `ebpf:"trace_check_helper_call"`
-	TraceCheckMapFuncCompatibility           *ebpf.Program `ebpf:"trace_check_map_func_compatibility"`
-	TraceCommitCreds                         *ebpf.Program `ebpf:"trace_commit_creds"`
-	TraceDebugfsCreateDir                    *ebpf.Program `ebpf:"trace_debugfs_create_dir"`
-	TraceDebugfsCreateFile                   *ebpf.Program `ebpf:"trace_debugfs_create_file"`
-	TraceDeviceAdd                           *ebpf.Program `ebpf:"trace_device_add"`
-	TraceDoExit                              *ebpf.Program `ebpf:"trace_do_exit"`
-	TraceDoInitModule                        *ebpf.Program `ebpf:"trace_do_init_module"`
-	TraceDoMmap                              *ebpf.Program `ebpf:"trace_do_mmap"`
-	TraceDoSigaction                         *ebpf.Program `ebpf:"trace_do_sigaction"`
-	TraceDoSplice                            *ebpf.Program `ebpf:"trace_do_splice"`
-	TraceDoTruncate                          *ebpf.Program `ebpf:"trace_do_truncate"`
-	TraceExecBinprm                          *ebpf.Program `ebpf:"trace_exec_binprm"`
-	TraceFdInstall                           *ebpf.Program `ebpf:"trace_fd_install"`
-	TraceFileModified                        *ebpf.Program `ebpf:"trace_file_modified"`
-	TraceFileUpdateTime                      *ebpf.Program `ebpf:"trace_file_update_time"`
-	TraceFilldir64                           *ebpf.Program `ebpf:"trace_filldir64"`
-	TraceFilpClose                           *ebpf.Program `ebpf:"trace_filp_close"`
-	TraceInetSockSetState                    *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
-	TraceInotifyFindInode                    *ebpf.Program `ebpf:"trace_inotify_find_inode"`
-	TraceKallsymsLookupName                  *ebpf.Program `ebpf:"trace_kallsyms_lookup_name"`
-	TraceKernelWrite                         *ebpf.Program `ebpf:"trace_kernel_write"`
-	TraceLoadElfPhdrs                        *ebpf.Program `ebpf:"trace_load_elf_phdrs"`
-	TraceMmapAlert                           *ebpf.Program `ebpf:"trace_mmap_alert"`
-	TraceProcCreate                          *ebpf.Program `ebpf:"trace_proc_create"`
-	TraceRegisterKprobe                      *ebpf.Program `ebpf:"trace_register_kprobe"`
-	TraceRetRegisterChrdev                   *ebpf.Program `ebpf:"trace_ret__register_chrdev"`
-	TraceRetDoInitModule                     *ebpf.Program `ebpf:"trace_ret_do_init_module"`
-	TraceRetDoMmap                           *ebpf.Program `ebpf:"trace_ret_do_mmap"`
-	TraceRetDoSplice                         *ebpf.Program `ebpf:"trace_ret_do_splice"`
-	TraceRetExecBinprm                       *ebpf.Program `ebpf:"trace_ret_exec_binprm"`
-	TraceRetExecBinprm1                      *ebpf.Program `ebpf:"trace_ret_exec_binprm1"`
-	TraceRetExecBinprm2                      *ebpf.Program `ebpf:"trace_ret_exec_binprm2"`
-	TraceRetFileModified                     *ebpf.Program `ebpf:"trace_ret_file_modified"`
-	TraceRetFileUpdateTime                   *ebpf.Program `ebpf:"trace_ret_file_update_time"`
-	TraceRetInotifyFindInode                 *ebpf.Program `ebpf:"trace_ret_inotify_find_inode"`
-	TraceRetKallsymsLookupName               *ebpf.Program `ebpf:"trace_ret_kallsyms_lookup_name"`
-	TraceRetKernelWrite                      *ebpf.Program `ebpf:"trace_ret_kernel_write"`
-	TraceRetKernelWriteTail                  *ebpf.Program `ebpf:"trace_ret_kernel_write_tail"`
-	TraceRetRegisterKprobe                   *ebpf.Program `ebpf:"trace_ret_register_kprobe"`
-	TraceRetVfsRead                          *ebpf.Program `ebpf:"trace_ret_vfs_read"`
-	TraceRetVfsReadTail                      *ebpf.Program `ebpf:"trace_ret_vfs_read_tail"`
-	TraceRetVfsReadv                         *ebpf.Program `ebpf:"trace_ret_vfs_readv"`
-	TraceRetVfsReadvTail                     *ebpf.Program `ebpf:"trace_ret_vfs_readv_tail"`
-	TraceRetVfsWrite                         *ebpf.Program `ebpf:"trace_ret_vfs_write"`
-	TraceRetVfsWriteTail                     *ebpf.Program `ebpf:"trace_ret_vfs_write_tail"`
-	TraceRetVfsWritev                        *ebpf.Program `ebpf:"trace_ret_vfs_writev"`
-	TraceRetVfsWritevTail                    *ebpf.Program `ebpf:"trace_ret_vfs_writev_tail"`
-	TraceSecurityBpf                         *ebpf.Program `ebpf:"trace_security_bpf"`
-	TraceSecurityBpfMap                      *ebpf.Program `ebpf:"trace_security_bpf_map"`
-	TraceSecurityBpfProg                     *ebpf.Program `ebpf:"trace_security_bpf_prog"`
-	TraceSecurityBprmCheck                   *ebpf.Program `ebpf:"trace_security_bprm_check"`
-	TraceSecurityFileIoctl                   *ebpf.Program `ebpf:"trace_security_file_ioctl"`
-	TraceSecurityFileMprotect                *ebpf.Program `ebpf:"trace_security_file_mprotect"`
-	TraceSecurityFileOpen                    *ebpf.Program `ebpf:"trace_security_file_open"`
-	TraceSecurityFilePermission              *ebpf.Program `ebpf:"trace_security_file_permission"`
-	TraceSecurityInodeMknod                  *ebpf.Program `ebpf:"trace_security_inode_mknod"`
-	TraceSecurityInodeRename                 *ebpf.Program `ebpf:"trace_security_inode_rename"`
-	TraceSecurityInodeSymlink                *ebpf.Program `ebpf:"trace_security_inode_symlink"`
-	TraceSecurityInodeUnlink                 *ebpf.Program `ebpf:"trace_security_inode_unlink"`
-	TraceSecurityKernelPostReadFile          *ebpf.Program `ebpf:"trace_security_kernel_post_read_file"`
-	TraceSecurityKernelReadFile              *ebpf.Program `ebpf:"trace_security_kernel_read_file"`
-	TraceSecurityMmapFile                    *ebpf.Program `ebpf:"trace_security_mmap_file"`
-	TraceSecurityPathNotify                  *ebpf.Program `ebpf:"trace_security_path_notify"`
-	TraceSecuritySbMount                     *ebpf.Program `ebpf:"trace_security_sb_mount"`
-	TraceSecuritySocketAccept                *ebpf.Program `ebpf:"trace_security_socket_accept"`
-	TraceSecuritySocketBind                  *ebpf.Program `ebpf:"trace_security_socket_bind"`
-	TraceSecuritySocketConnect               *ebpf.Program `ebpf:"trace_security_socket_connect"`
-	TraceSecuritySocketCreate                *ebpf.Program `ebpf:"trace_security_socket_create"`
-	TraceSecuritySocketListen                *ebpf.Program `ebpf:"trace_security_socket_listen"`
-	TraceSecuritySocketSetsockopt            *ebpf.Program `ebpf:"trace_security_socket_setsockopt"`
-	TraceSwitchTaskNamespaces                *ebpf.Program `ebpf:"trace_switch_task_namespaces"`
-	TraceSysEnter                            *ebpf.Program `ebpf:"trace_sys_enter"`
-	TraceSysExit                             *ebpf.Program `ebpf:"trace_sys_exit"`
-	TraceTracepointProbeRegisterPrioMayExist *ebpf.Program `ebpf:"trace_tracepoint_probe_register_prio_may_exist"`
-	TraceUtimesCommon                        *ebpf.Program `ebpf:"trace_utimes_common"`
-	TraceVfsRead                             *ebpf.Program `ebpf:"trace_vfs_read"`
-	TraceVfsReadv                            *ebpf.Program `ebpf:"trace_vfs_readv"`
-	TraceVfsUtimes                           *ebpf.Program `ebpf:"trace_vfs_utimes"`
-	TraceVfsWrite                            *ebpf.Program `ebpf:"trace_vfs_write"`
-	TraceVfsWritev                           *ebpf.Program `ebpf:"trace_vfs_writev"`
-	TracepointCgroupCgroupAttachTask         *ebpf.Program `ebpf:"tracepoint__cgroup__cgroup_attach_task"`
-	TracepointCgroupCgroupMkdir              *ebpf.Program `ebpf:"tracepoint__cgroup__cgroup_mkdir"`
-	TracepointCgroupCgroupRmdir              *ebpf.Program `ebpf:"tracepoint__cgroup__cgroup_rmdir"`
-	TracepointModuleModuleFree               *ebpf.Program `ebpf:"tracepoint__module__module_free"`
-	TracepointModuleModuleLoad               *ebpf.Program `ebpf:"tracepoint__module__module_load"`
-	TracepointRawSyscallsSysEnter            *ebpf.Program `ebpf:"tracepoint__raw_syscalls__sys_enter"`
-	TracepointRawSyscallsSysExit             *ebpf.Program `ebpf:"tracepoint__raw_syscalls__sys_exit"`
-	TracepointSchedSchedProcessExec          *ebpf.Program `ebpf:"tracepoint__sched__sched_process_exec"`
-	TracepointSchedSchedProcessExit          *ebpf.Program `ebpf:"tracepoint__sched__sched_process_exit"`
-	TracepointSchedSchedProcessFork          *ebpf.Program `ebpf:"tracepoint__sched__sched_process_fork"`
-	TracepointSchedSchedProcessFree          *ebpf.Program `ebpf:"tracepoint__sched__sched_process_free"`
-	TracepointSchedSchedSwitch               *ebpf.Program `ebpf:"tracepoint__sched__sched_switch"`
-	TracepointTaskTaskRename                 *ebpf.Program `ebpf:"tracepoint__task__task_rename"`
-	TtyOpen                                  *ebpf.Program `ebpf:"tty_open"`
-	TtyWrite                                 *ebpf.Program `ebpf:"tty_write"`
-	UprobeLkmSeeker                          *ebpf.Program `ebpf:"uprobe_lkm_seeker"`
-	UprobeLkmSeekerSubmitter                 *ebpf.Program `ebpf:"uprobe_lkm_seeker_submitter"`
-	UprobeMemDumpTrigger                     *ebpf.Program `ebpf:"uprobe_mem_dump_trigger"`
-	UprobeSeqOpsTrigger                      *ebpf.Program `ebpf:"uprobe_seq_ops_trigger"`
-	VfsWriteMagicEnter                       *ebpf.Program `ebpf:"vfs_write_magic_enter"`
-	VfsWriteMagicReturn                      *ebpf.Program `ebpf:"vfs_write_magic_return"`
-	VfsWritevMagicEnter                      *ebpf.Program `ebpf:"vfs_writev_magic_enter"`
-	VfsWritevMagicReturn                     *ebpf.Program `ebpf:"vfs_writev_magic_return"`
+	CgroupSkbEgress                 *ebpf.Program `ebpf:"cgroup_skb_egress"`
+	CgroupSkbIngress                *ebpf.Program `ebpf:"cgroup_skb_ingress"`
+	CgroupSockCreate                *ebpf.Program `ebpf:"cgroup_sock_create"`
+	KernelWriteMagicEnter           *ebpf.Program `ebpf:"kernel_write_magic_enter"`
+	KernelWriteMagicReturn          *ebpf.Program `ebpf:"kernel_write_magic_return"`
+	OomMarkVictim                   *ebpf.Program `ebpf:"oom_mark_victim"`
+	SchedProcessExecEventSubmitTail *ebpf.Program `ebpf:"sched_process_exec_event_submit_tail"`
+	SysDupExitTail                  *ebpf.Program `ebpf:"sys_dup_exit_tail"`
+	SysEnterInit                    *ebpf.Program `ebpf:"sys_enter_init"`
+	SysEnterSubmit                  *ebpf.Program `ebpf:"sys_enter_submit"`
+	SysExitInit                     *ebpf.Program `ebpf:"sys_exit_init"`
+	SysExitSubmit                   *ebpf.Program `ebpf:"sys_exit_submit"`
+	SyscallExecve                   *ebpf.Program `ebpf:"syscall__execve"`
+	SyscallExecveat                 *ebpf.Program `ebpf:"syscall__execveat"`
+	TraceExecBinprm                 *ebpf.Program `ebpf:"trace_exec_binprm"`
+	TraceFdInstall                  *ebpf.Program `ebpf:"trace_fd_install"`
+	TraceFileModified               *ebpf.Program `ebpf:"trace_file_modified"`
+	TraceFileUpdateTime             *ebpf.Program `ebpf:"trace_file_update_time"`
+	TraceFilpClose                  *ebpf.Program `ebpf:"trace_filp_close"`
+	TraceInetSockSetState           *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
+	TraceLoadElfPhdrs               *ebpf.Program `ebpf:"trace_load_elf_phdrs"`
+	TraceRetFileModified            *ebpf.Program `ebpf:"trace_ret_file_modified"`
+	TraceRetFileUpdateTime          *ebpf.Program `ebpf:"trace_ret_file_update_time"`
+	TraceSecurityBprmCheck          *ebpf.Program `ebpf:"trace_security_bprm_check"`
+	TraceSecuritySocketConnect      *ebpf.Program `ebpf:"trace_security_socket_connect"`
+	TraceSysEnter                   *ebpf.Program `ebpf:"trace_sys_enter"`
+	TraceSysExit                    *ebpf.Program `ebpf:"trace_sys_exit"`
+	TracepointCgroupCgroupMkdir     *ebpf.Program `ebpf:"tracepoint__cgroup__cgroup_mkdir"`
+	TracepointCgroupCgroupRmdir     *ebpf.Program `ebpf:"tracepoint__cgroup__cgroup_rmdir"`
+	TracepointRawSyscallsSysEnter   *ebpf.Program `ebpf:"tracepoint__raw_syscalls__sys_enter"`
+	TracepointRawSyscallsSysExit    *ebpf.Program `ebpf:"tracepoint__raw_syscalls__sys_exit"`
+	TracepointSchedSchedProcessExec *ebpf.Program `ebpf:"tracepoint__sched__sched_process_exec"`
+	TracepointSchedSchedProcessExit *ebpf.Program `ebpf:"tracepoint__sched__sched_process_exit"`
+	TracepointSchedSchedProcessFork *ebpf.Program `ebpf:"tracepoint__sched__sched_process_fork"`
+	TracepointSchedSchedProcessFree *ebpf.Program `ebpf:"tracepoint__sched__sched_process_free"`
+	TracepointSchedSchedSwitch      *ebpf.Program `ebpf:"tracepoint__sched__sched_switch"`
+	TtyOpen                         *ebpf.Program `ebpf:"tty_open"`
+	TtyWrite                        *ebpf.Program `ebpf:"tty_write"`
+	VfsWriteMagicEnter              *ebpf.Program `ebpf:"vfs_write_magic_enter"`
+	VfsWriteMagicReturn             *ebpf.Program `ebpf:"vfs_write_magic_return"`
+	VfsWritevMagicEnter             *ebpf.Program `ebpf:"vfs_writev_magic_enter"`
+	VfsWritevMagicReturn            *ebpf.Program `ebpf:"vfs_writev_magic_return"`
 }
 
 func (p *tracerPrograms) Close() error {
@@ -570,113 +329,30 @@ func (p *tracerPrograms) Close() error {
 		p.CgroupSockCreate,
 		p.KernelWriteMagicEnter,
 		p.KernelWriteMagicReturn,
-		p.LkmSeekerKsetTail,
-		p.LkmSeekerModTreeTail,
-		p.LkmSeekerNewModOnlyTail,
-		p.LkmSeekerProcTail,
 		p.OomMarkVictim,
 		p.SchedProcessExecEventSubmitTail,
-		p.SendBin,
-		p.SendBinTp,
 		p.SysDupExitTail,
 		p.SysEnterInit,
 		p.SysEnterSubmit,
 		p.SysExitInit,
 		p.SysExitSubmit,
-		p.SyscallAccept4,
 		p.SyscallExecve,
 		p.SyscallExecveat,
-		p.SyscallInitModule,
-		p.TraceRegisterChrdev,
-		p.TraceBpfCheck,
-		p.TraceCallUsermodehelper,
-		p.TraceCapCapable,
-		p.TraceCheckHelperCall,
-		p.TraceCheckMapFuncCompatibility,
-		p.TraceCommitCreds,
-		p.TraceDebugfsCreateDir,
-		p.TraceDebugfsCreateFile,
-		p.TraceDeviceAdd,
-		p.TraceDoExit,
-		p.TraceDoInitModule,
-		p.TraceDoMmap,
-		p.TraceDoSigaction,
-		p.TraceDoSplice,
-		p.TraceDoTruncate,
 		p.TraceExecBinprm,
 		p.TraceFdInstall,
 		p.TraceFileModified,
 		p.TraceFileUpdateTime,
-		p.TraceFilldir64,
 		p.TraceFilpClose,
 		p.TraceInetSockSetState,
-		p.TraceInotifyFindInode,
-		p.TraceKallsymsLookupName,
-		p.TraceKernelWrite,
 		p.TraceLoadElfPhdrs,
-		p.TraceMmapAlert,
-		p.TraceProcCreate,
-		p.TraceRegisterKprobe,
-		p.TraceRetRegisterChrdev,
-		p.TraceRetDoInitModule,
-		p.TraceRetDoMmap,
-		p.TraceRetDoSplice,
-		p.TraceRetExecBinprm,
-		p.TraceRetExecBinprm1,
-		p.TraceRetExecBinprm2,
 		p.TraceRetFileModified,
 		p.TraceRetFileUpdateTime,
-		p.TraceRetInotifyFindInode,
-		p.TraceRetKallsymsLookupName,
-		p.TraceRetKernelWrite,
-		p.TraceRetKernelWriteTail,
-		p.TraceRetRegisterKprobe,
-		p.TraceRetVfsRead,
-		p.TraceRetVfsReadTail,
-		p.TraceRetVfsReadv,
-		p.TraceRetVfsReadvTail,
-		p.TraceRetVfsWrite,
-		p.TraceRetVfsWriteTail,
-		p.TraceRetVfsWritev,
-		p.TraceRetVfsWritevTail,
-		p.TraceSecurityBpf,
-		p.TraceSecurityBpfMap,
-		p.TraceSecurityBpfProg,
 		p.TraceSecurityBprmCheck,
-		p.TraceSecurityFileIoctl,
-		p.TraceSecurityFileMprotect,
-		p.TraceSecurityFileOpen,
-		p.TraceSecurityFilePermission,
-		p.TraceSecurityInodeMknod,
-		p.TraceSecurityInodeRename,
-		p.TraceSecurityInodeSymlink,
-		p.TraceSecurityInodeUnlink,
-		p.TraceSecurityKernelPostReadFile,
-		p.TraceSecurityKernelReadFile,
-		p.TraceSecurityMmapFile,
-		p.TraceSecurityPathNotify,
-		p.TraceSecuritySbMount,
-		p.TraceSecuritySocketAccept,
-		p.TraceSecuritySocketBind,
 		p.TraceSecuritySocketConnect,
-		p.TraceSecuritySocketCreate,
-		p.TraceSecuritySocketListen,
-		p.TraceSecuritySocketSetsockopt,
-		p.TraceSwitchTaskNamespaces,
 		p.TraceSysEnter,
 		p.TraceSysExit,
-		p.TraceTracepointProbeRegisterPrioMayExist,
-		p.TraceUtimesCommon,
-		p.TraceVfsRead,
-		p.TraceVfsReadv,
-		p.TraceVfsUtimes,
-		p.TraceVfsWrite,
-		p.TraceVfsWritev,
-		p.TracepointCgroupCgroupAttachTask,
 		p.TracepointCgroupCgroupMkdir,
 		p.TracepointCgroupCgroupRmdir,
-		p.TracepointModuleModuleFree,
-		p.TracepointModuleModuleLoad,
 		p.TracepointRawSyscallsSysEnter,
 		p.TracepointRawSyscallsSysExit,
 		p.TracepointSchedSchedProcessExec,
@@ -684,13 +360,8 @@ func (p *tracerPrograms) Close() error {
 		p.TracepointSchedSchedProcessFork,
 		p.TracepointSchedSchedProcessFree,
 		p.TracepointSchedSchedSwitch,
-		p.TracepointTaskTaskRename,
 		p.TtyOpen,
 		p.TtyWrite,
-		p.UprobeLkmSeeker,
-		p.UprobeLkmSeekerSubmitter,
-		p.UprobeMemDumpTrigger,
-		p.UprobeSeqOpsTrigger,
 		p.VfsWriteMagicEnter,
 		p.VfsWriteMagicReturn,
 		p.VfsWritevMagicEnter,

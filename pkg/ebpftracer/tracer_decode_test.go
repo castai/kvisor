@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
@@ -47,6 +49,12 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 		policy      *Policy
 		resultEmpty bool
 	}
+
+	r := require.New(t)
+
+	testEventDataPath := filepath.Join("decoder", "testdata", "event.bin")
+	testEventData, err := os.ReadFile(testEventDataPath)
+	r.NoError(err)
 
 	testCases := []testCase{
 		{
@@ -108,7 +116,7 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 			policy: &Policy{
 				Events: []*EventPolicy{
 					{
-						ID: events.NetPacketDNS,
+						ID: events.NetPacketDNSBase,
 					},
 				},
 			},
@@ -118,14 +126,13 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			data := buildTestEventData(t)
 			tracer := buildTestTracer()
 
 			if tc.policy != nil {
 				applyTestPolicy(tracer, tc.policy)
 			}
 
-			dec := decoder.NewEventDecoder(logging.NewTestLog(), data)
+			dec := decoder.NewEventDecoder(logging.NewTestLog(), testEventData)
 			err := tracer.decodeAndExportEvent(context.TODO(), dec)
 			require.NoError(t, err)
 
@@ -141,8 +148,10 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 
 func TestDecodeContextAndArgs(t *testing.T) {
 	r := require.New(t)
-	testData := `DKhf66A3AADFaXwacC0AAP5IAQAAAAAAodMBAKTTAQABAAAAodMBAKTTAQABAAAAodMBAAAAAAD2AwDw/P//72RvY2tlcmQAAAAAAAAAAABsaW1hLWVicGYAAAAAAAAAAAAAAAAAAAASdogZcC0AAAAAAAAAAAAA2QIAAEAAAAABAAAAAAAAAAAGAAAAAAAAAAAAAAIAAAAEAA4AAAAvdXNyL3NiaW4vemljAAEgAAAAf0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAgCcAAAAAAAACAQDADwMT3A0AAAAAAAAAAAAA`
-	data, err := base64.StdEncoding.DecodeString(testData)
+	path := filepath.Join("decoder", "testdata", "event.bin")
+	data, err := os.ReadFile(path)
+	r.NoError(err)
+
 	r.NoError(err)
 
 	decoder := decoder.NewEventDecoder(logging.New(&logging.Config{}), data)
@@ -154,31 +163,30 @@ func TestDecodeContextAndArgs(t *testing.T) {
 	r.IsType(types.MagicWriteArgs{}, args)
 	magicArgs := args.(types.MagicWriteArgs)
 
-	r.Equal("/usr/sbin/zic", magicArgs.Pathname)
-	r.Equal("f0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAgCcAAAAAAAA=", base64.StdEncoding.EncodeToString(magicArgs.Bytes))
-	r.EqualValues(264241153, magicArgs.Dev)
-	r.EqualValues(908307, magicArgs.Inode)
+	r.Equal("/tmp/tmp.u3Yro419hD/tar_executable", magicArgs.Pathname)
+	r.Equal("f0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAgL4AAAAAAAA=", base64.StdEncoding.EncodeToString(magicArgs.Bytes))
+	r.EqualValues(0x122, magicArgs.Dev)
+	r.EqualValues(0x403f00, magicArgs.Inode)
 }
 
 func buildTestEventData(t *testing.T) []byte {
-	ctx := types.EventContext{
-		EventID:     events.ProcessOomKilled,
-		Ts:          11,
-		CgroupID:    22,
-		ProcessorId: 5,
-		Pid:         543,
-		Tid:         77,
-		Ppid:        4567,
-		HostPid:     5430,
-		HostTid:     124,
-		HostPpid:    555,
-		Uid:         9876,
-		MntID:       1357,
-		PidID:       3758,
-		Comm:        [16]byte{1, 3, 5, 3, 1, 5, 56, 6, 7, 32, 2, 4},
-		UtsName:     [16]byte{5, 6, 7, 8, 9, 4, 3, 2},
-		Retval:      0,
-		StackID:     0,
+	ctx := TracerEventContextT{
+		Ts: 11,
+		Task: tracerTaskContextT{
+			CgroupId:    22,
+			Pid:         543,
+			Tid:         77,
+			Ppid:        4567,
+			HostPid:     5430,
+			HostTid:     124,
+			HostPpid:    555,
+			NodeHostPid: 21345,
+			Uid:         98123,
+			MntId:       1357,
+			PidId:       3758,
+			Comm:        [16]int8{0x48},
+		},
+		Eventid: uint32(events.ProcessOomKilled),
 	}
 
 	dataBuf := &bytes.Buffer{}

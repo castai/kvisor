@@ -19,73 +19,6 @@ var (
 	log *logging.Logger
 )
 
-func TestDecodeContext(t *testing.T) {
-	buf := new(bytes.Buffer)
-	ctxExpected := types.EventContext{
-		Ts:              11,
-		StartTime:       223,
-		CgroupID:        22,
-		Pid:             543,
-		Tid:             77,
-		Ppid:            4567,
-		HostPid:         5430,
-		HostTid:         124,
-		HostPpid:        555,
-		NodeHostPid:     51,
-		Uid:             9876,
-		MntID:           1357,
-		PidID:           3758,
-		Comm:            [16]byte{1, 3, 5, 3, 1, 5, 56, 6, 7, 32, 2, 4},
-		UtsName:         [16]byte{5, 6, 7, 8, 9, 4, 3, 2},
-		Flags:           12,
-		LeaderStartTime: 10,
-		ParentStartTime: 11,
-		EventID:         16,
-		Syscall:         9,
-		MatchedPolicies: 7,
-		Retval:          4,
-		StackID:         10,
-		ProcessorId:     6,
-	}
-	err := binary.Write(buf, binary.LittleEndian, ctxExpected)
-	assert.Equal(t, nil, err)
-	var ctxObtained types.EventContext
-	rawData := buf.Bytes()
-	d := NewEventDecoder(log, rawData)
-	cursorBefore := d.cursor
-	err = d.DecodeContext(&ctxObtained)
-	cursorAfter := d.cursor
-
-	// checking no error
-	assert.Equal(t, nil, err)
-	// checking decoding succeeded correctly
-	assert.Equal(t, ctxExpected, ctxObtained)
-	// checking decoder cursor on buffer moved appropriately
-	assert.Equal(t, int(ctxExpected.GetSizeBytes()), cursorAfter-cursorBefore)
-}
-
-func TestDecodeSignalContext(t *testing.T) {
-	buf := new(bytes.Buffer)
-	ctxExpected := types.SignalContext{
-		EventID: 100,
-	}
-	err := binary.Write(buf, binary.LittleEndian, ctxExpected)
-	assert.Equal(t, nil, err)
-	var ctxObtained types.SignalContext
-	rawData := buf.Bytes()
-	d := NewEventDecoder(log, rawData)
-	cursorBefore := d.cursor
-	err = d.DecodeSignalContext(&ctxObtained)
-	cursorAfter := d.cursor
-
-	// checking no error
-	assert.Equal(t, nil, err)
-	// checking decoding succeeded correctly
-	assert.Equal(t, ctxExpected, ctxObtained)
-	// checking decoder cursor on buffer moved appropriately
-	assert.Equal(t, int(ctxExpected.GetSizeBytes()), cursorAfter-cursorBefore)
-}
-
 func TestDecodeUint8(t *testing.T) {
 	buf := new(bytes.Buffer)
 	var expected uint8 = 42
@@ -366,124 +299,6 @@ func TestDecodeIntArray(t *testing.T) {
 	assert.Equal(t, expected, obtained)
 }
 
-func TestDecodeSlimCred(t *testing.T) {
-	buf := new(bytes.Buffer)
-	expected := types.SlimCred{
-		Uid:            43,
-		Gid:            6789,
-		Suid:           987,
-		Sgid:           678,
-		Euid:           543,
-		Egid:           7538,
-		Fsuid:          687,
-		Fsgid:          3454,
-		UserNamespace:  34,
-		SecureBits:     456789,
-		CapInheritable: 342,
-		CapPermitted:   9873,
-		CapEffective:   555,
-		CapBounding:    5555,
-		CapAmbient:     432,
-	}
-	err := binary.Write(buf, binary.LittleEndian, expected)
-	assert.Equal(t, nil, err)
-	var obtained types.SlimCred
-	rawBuf := buf.Bytes()
-	d := NewEventDecoder(log, rawBuf)
-	err = d.DecodeSlimCred(&obtained)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expected, obtained)
-}
-
-func TestDecodeChunkMeta(t *testing.T) {
-	buf := new(bytes.Buffer)
-	expected := types.ChunkMeta{
-		BinType:  54,
-		CgroupID: 6543,
-		Metadata: [28]byte{5, 4, 3, 5, 6, 7, 4, 54, 3, 32, 4, 4, 4, 4, 4},
-		Size:     6543,
-		Off:      76543,
-	}
-	err := binary.Write(buf, binary.LittleEndian, expected)
-	assert.Equal(t, nil, err)
-	var obtained types.ChunkMeta
-	rawBuf := buf.Bytes()
-	d := NewEventDecoder(log, rawBuf)
-	err = d.DecodeChunkMeta(&obtained)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expected, obtained)
-}
-
-func TestDecodeVfsWriteMeta(t *testing.T) {
-	buf := new(bytes.Buffer)
-	expected := types.VfsFileMeta{
-		DevID: 54,
-		Inode: 543,
-		Mode:  654,
-		Pid:   98479,
-	}
-	err := binary.Write(buf, binary.LittleEndian, expected)
-	assert.Equal(t, nil, err)
-	var obtained types.VfsFileMeta
-	rawBuf := buf.Bytes()
-	d := NewEventDecoder(log, rawBuf)
-	err = d.DecodeVfsFileMeta(&obtained)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expected, obtained)
-}
-
-func TestDecodeKernelModuleMeta(t *testing.T) {
-	buf := new(bytes.Buffer)
-	expected := types.KernelModuleMeta{
-		DevID: 7489,
-		Inode: 543,
-		Pid:   7654,
-		Size:  4533,
-	}
-	err := binary.Write(buf, binary.LittleEndian, expected)
-	assert.Equal(t, nil, err)
-	var obtained types.KernelModuleMeta
-	rawBuf := buf.Bytes()
-	d := NewEventDecoder(log, rawBuf)
-	err = d.DecodeKernelModuleMeta(&obtained)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expected, obtained)
-}
-
-func TestDecodeBpfObjectMeta(t *testing.T) {
-	buf := new(bytes.Buffer)
-	expected := types.BpfObjectMeta{
-		Name: [16]byte{80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80},
-		Rand: 543,
-		Pid:  7654,
-		Size: 4533,
-	}
-	err := binary.Write(buf, binary.LittleEndian, expected)
-	assert.Equal(t, nil, err)
-	var obtained types.BpfObjectMeta
-	rawBuf := buf.Bytes()
-	d := NewEventDecoder(log, rawBuf)
-	err = d.DecodeBpfObjectMeta(&obtained)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expected, obtained)
-}
-
-func TestDecodeMprotectWriteMeta(t *testing.T) {
-	buf := new(bytes.Buffer)
-	expected := types.MprotectWriteMeta{
-		Pid: 12,
-		Ts:  6789,
-	}
-	err := binary.Write(buf, binary.LittleEndian, expected)
-	assert.Equal(t, nil, err)
-	var obtained types.MprotectWriteMeta
-	rawBuf := buf.Bytes()
-	d := NewEventDecoder(log, rawBuf)
-	err = d.DecodeMprotectWriteMeta(&obtained)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expected, obtained)
-}
-
 func BenchmarkDecodeContext(*testing.B) {
 	var ctx types.EventContext
 	/*
@@ -718,283 +533,6 @@ func BenchmarkBinaryBool(*testing.B) {
 	}
 }
 
-func BenchmarkDecodeSlimCred(*testing.B) {
-	/*
-		s := bufferdecoder.SlimCred{
-			Uid:            12,
-			Gid:            34,
-			Suid:           56,
-			Sgid:           78,
-			Euid:           91,
-			Egid:           234,
-			Fsuid:          654,
-			Fsgid:          765,
-			UserNamespace:  7654,
-			SecureBits:     7654,
-			CapInheritable: 345,
-			CapPermitted:   234,
-			CapEffective:   7653,
-			CapBounding:    8765,
-			CapAmbient:     765423,
-		}
-
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{12, 0, 0, 0, 34, 0, 0, 0, 56, 0, 0, 0, 78, 0, 0, 0, 91, 0, 0, 0, 234, 0, 0, 0, 142, 2, 0, 0, 253, 2, 0, 0,
-		230, 29, 0, 0, 230, 29, 0, 0, 89, 1, 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 0, 0, 0, 0, 229, 29, 0, 0, 0, 0, 0, 0,
-		61, 34, 0, 0, 0, 0, 0, 0, 239, 173, 11, 0, 0, 0, 0, 0}
-	var s types.SlimCred
-	for i := 0; i < 100; i++ {
-		decoder := NewEventDecoder(log, buffer)
-		decoder.DecodeSlimCred(&s)
-	}
-}
-
-func BenchmarkBinarySlimCred(*testing.B) {
-	/*
-		s := bufferdecoder.SlimCred{
-			Uid:            12,
-			Gid:            34,
-			Suid:           56,
-			Sgid:           78,
-			Euid:           91,
-			Egid:           234,
-			Fsuid:          654,
-			Fsgid:          765,
-			UserNamespace:  7654,
-			SecureBits:     7654,
-			CapInheritable: 345,
-			CapPermitted:   234,
-			CapEffective:   7653,
-			CapBounding:    8765,
-			CapAmbient:     765423,
-		}
-
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{12, 0, 0, 0, 34, 0, 0, 0, 56, 0, 0, 0, 78, 0, 0, 0, 91, 0, 0, 0, 234, 0, 0, 0, 142, 2, 0, 0, 253, 2, 0, 0,
-		230, 29, 0, 0, 230, 29, 0, 0, 89, 1, 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 0, 0, 0, 0, 229, 29, 0, 0, 0, 0, 0, 0,
-		61, 34, 0, 0, 0, 0, 0, 0, 239, 173, 11, 0, 0, 0, 0, 0}
-	var s types.SlimCred
-	for i := 0; i < 100; i++ {
-		binBuf := bytes.NewBuffer(buffer)
-		binary.Read(binBuf, binary.LittleEndian, &s)
-	}
-}
-
-func BenchmarkDecodeChunkMeta(*testing.B) {
-	/*
-		s := ChunkMeta{
-			binType:  1,
-			CgroupID: 54,
-			Metadata: [24]byte{
-				54,
-				12,
-				54,
-				145,
-				42,
-				72,
-				134,
-				64,
-				125,
-				53,
-				62,
-				62,
-				123,
-				255,
-				123,
-				5,
-				0,
-				32,
-				234,
-				23,
-				42,
-				123,
-				32,
-				2,
-			},
-			Size: 2,
-			Off:  23,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{1, 54, 0, 0, 0, 0, 0, 0, 0, 54, 12, 54, 145, 42, 72, 134, 64, 125, 53, 62, 62, 123, 255, 123, 5, 0, 32, 234,
-		23, 42, 123, 32, 2, 2, 0, 0, 0, 23, 0, 0, 0, 0, 0, 0, 0}
-	var s types.ChunkMeta
-	for i := 0; i < 100; i++ {
-		decoder := NewEventDecoder(log, buffer)
-		decoder.DecodeChunkMeta(&s)
-	}
-}
-func BenchmarkBinaryChunkMeta(*testing.B) {
-	/*
-		s := ChunkMeta{
-			binType:  1,
-			CgroupID: 54,
-			Metadata: [24]byte{
-				54,
-				12,
-				54,
-				145,
-				42,
-				72,
-				134,
-				64,
-				125,
-				53,
-				62,
-				62,
-				123,
-				255,
-				123,
-				5,
-				0,
-				32,
-				234,
-				23,
-				42,
-				123,
-				32,
-				2,
-			},
-			Size: 2,
-			Off:  23,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{1, 54, 0, 0, 0, 0, 0, 0, 0, 54, 12, 54, 145, 42, 72, 134, 64, 125, 53, 62, 62, 123, 255, 123, 5, 0, 32, 234,
-		23, 42, 123, 32, 2, 2, 0, 0, 0, 23, 0, 0, 0, 0, 0, 0, 0}
-	var s types.ChunkMeta
-	for i := 0; i < 100; i++ {
-		binBuf := bytes.NewBuffer(buffer)
-		binary.Read(binBuf, binary.LittleEndian, &s)
-	}
-}
-
-func BenchmarkDecodeVfsWriteMeta(*testing.B) {
-	/*
-		s := VfsFileMeta{
-			DevID: 24,
-			Inode: 3,
-			Mode:  255,
-			Pid:   0,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-
-	buffer := []byte{24, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0}
-	var s types.VfsFileMeta
-	for i := 0; i < 100; i++ {
-		decoder := NewEventDecoder(log, buffer)
-		decoder.DecodeVfsFileMeta(&s)
-	}
-}
-
-func BenchmarkBinaryVfsWriteMeta(*testing.B) {
-	/*
-		s := VfsFileMeta{
-			DevID: 24,
-			Inode: 3,
-			Mode:  255,
-			Pid:   0,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-
-	buffer := []byte{24, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0}
-	var s types.VfsFileMeta
-	for i := 0; i < 100; i++ {
-		binBuf := bytes.NewBuffer(buffer)
-		binary.Read(binBuf, binary.LittleEndian, &s)
-	}
-}
-
-func BenchmarkDecodeKernelModuleMeta(*testing.B) {
-	/*
-		s := KernelModuleMeta{
-			DevID: 43,
-			Inode: 65,
-			Pid:   234,
-			Size:  1,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{43, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}
-	var s types.KernelModuleMeta
-	for i := 0; i < 100; i++ {
-		decoder := NewEventDecoder(log, buffer)
-		decoder.DecodeKernelModuleMeta(&s)
-	}
-}
-
-func BenchmarkBinaryKernelModuleMeta(*testing.B) {
-	/*
-		s := KernelModuleMeta{
-			DevID: 43,
-			Inode: 65,
-			Pid:   234,
-			Size:  1,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{43, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}
-	var s types.KernelModuleMeta
-	for i := 0; i < 100; i++ {
-		binBuf := bytes.NewBuffer(buffer)
-		binary.Read(binBuf, binary.LittleEndian, &s)
-	}
-}
-
-func BenchmarkDecodeMprotectWriteMeta(*testing.B) {
-	/*
-		s := MprotectWriteMeta{
-			Ts: 123,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{123, 0, 0, 0, 0, 0, 0, 0}
-	var s types.MprotectWriteMeta
-	for i := 0; i < 100; i++ {
-		decoder := NewEventDecoder(log, buffer)
-		decoder.DecodeMprotectWriteMeta(&s)
-	}
-}
-
-func BenchmarkBinaryMprotectWriteMeta(*testing.B) {
-	/*
-		s := MprotectWriteMeta{
-			Ts: 123,
-		}
-		******************
-		buffer is the []byte representation of s instance
-		******************
-	*/
-	buffer := []byte{123, 0, 0, 0, 0, 0, 0, 0}
-	var s types.MprotectWriteMeta
-	for i := 0; i < 100; i++ {
-		binBuf := bytes.NewBuffer(buffer)
-		binary.Read(binBuf, binary.LittleEndian, &s)
-	}
-}
-
 func TestPrintUint32IP(t *testing.T) {
 	var input uint32 = 3232238339
 	ip := PrintUint32IP(input)
@@ -1185,7 +723,7 @@ func TestDecodeDns(t *testing.T) {
 	}
 }
 
-func TestDecodeRealContext(t *testing.T) {
+func TestDecodeContext(t *testing.T) {
 	r := require.New(t)
 
 	path := filepath.Join("testdata", "event.bin")
@@ -1199,29 +737,25 @@ func TestDecodeRealContext(t *testing.T) {
 	r.NoError(err)
 
 	r.Equal(types.EventContext{
-		Ts:              87539716442646,
-		StartTime:       87539290611412,
-		CgroupID:        74331,
-		Pid:             146,
-		Tid:             146,
-		Ppid:            135,
-		HostPid:         159203,
-		HostTid:         159203,
-		HostPpid:        159191,
-		NodeHostPid:     159203,
+		Ts:              4693384711035,
+		StartTime:       4693381625195,
+		CgroupID:        11604,
+		Pid:             2297,
+		Tid:             2297,
+		Ppid:            1,
+		HostPid:         26269,
+		HostTid:         26269,
+		HostPpid:        21059,
+		NodeHostPid:     26269,
 		Uid:             0,
-		MntID:           4026533184,
-		PidID:           4026533187,
-		Comm:            [16]byte{0x64, 0x70, 0x6b, 0x67},
-		UtsName:         [16]byte{0x39, 0x32, 0x31, 0x61, 0x30, 0x33, 0x33, 0x63, 0x63, 0x31, 0x31, 0x37},
-		Flags:           0,
-		LeaderStartTime: 87539290611412,
-		ParentStartTime: 87536000187295,
-		EventID:         728,
+		MntID:           4026533011,
+		PidID:           4026533012,
+		Comm:            [16]byte{0x74, 0x61, 0x72},
+		LeaderStartTime: 4693381625195,
+		ParentStartTime: 4361168401687,
+		EventID:         717,
 		Syscall:         64,
-		MatchedPolicies: 1,
-		Retval:          32768,
-		StackID:         0,
+		Retval:          9728,
 		ProcessorId:     1,
 	}, eventCtx)
 }
