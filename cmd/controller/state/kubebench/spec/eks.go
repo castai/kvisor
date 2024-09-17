@@ -56,7 +56,7 @@ func EKS(nodeName, jobName string) *batchv1.Job {
 								"--config-dir", "/etc/kubebench-rules/",
 								"run",
 								"--targets", "node",
-								"--benchmark", "eks-1.3.0",
+								"--benchmark", "eks-1.4.0",
 								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{

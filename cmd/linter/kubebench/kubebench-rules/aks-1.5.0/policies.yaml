@@ -1,0 +1,153 @@
+controls: ""
+version: aks-1.5.0
+id: 4
+text: Policies
+type: policies
+groups:
+    - id: "4.1"
+      text: RBAC and Service Accounts
+      checks:
+        - id: 4.1.1
+          text: Ensure that the cluster-admin role is only used where required
+          type: automated
+          remediation: "Identify all clusterrolebindings to the cluster-admin role. Check if they are used and if they need this role or if they could use a role with fewer privileges. \n\nWhere possible, first bind users to a lower privileged role and then remove the clusterrolebinding to the cluster-admin role :\n\n```\nkubectl delete clusterrolebinding [name]\n```"
+          scored: false
+        - id: 4.1.2
+          text: Minimize access to secrets
+          type: automated
+          remediation: Where possible, remove `get`, `list` and `watch` access to `secret` objects in the cluster.
+          scored: false
+        - id: 4.1.3
+          text: Minimize wildcard use in Roles and ClusterRoles
+          type: automated
+          remediation: Where possible replace any use of wildcards in clusterroles and roles with specific objects or actions.
+          scored: false
+        - id: 4.1.4
+          text: Minimize access to create pods
+          type: automated
+          remediation: Where possible, remove `create` access to `pod` objects in the cluster.
+          scored: false
+        - id: 4.1.5
+          text: Ensure that default service accounts are not actively used
+          type: automated
+          remediation: "Create explicit service accounts wherever a Kubernetes workload requires specific access to the Kubernetes API server.\n\nModify the configuration of each default service account to include this value \n\n```\nautomountServiceAccountToken: false\n```\n\nAutomatic remediation for the default account:\n\n`kubectl patch serviceaccount default -p $'automountServiceAccountToken: false'`"
+          scored: false
+        - id: 4.1.6
+          text: Ensure that Service Account Tokens are only mounted where necessary
+          type: automated
+          remediation: Modify the definition of pods and service accounts which do not need to mount service account tokens to disable it.
+          scored: false
+    - id: "4.2"
+      text: Pod Security Standards
+      checks:
+        - id: 4.2.1
+          text: Minimize the admission of privileged containers
+          type: automated
+          remediation: |-
+            Add policies to each namespace in the cluster which has user workloads to restrict the admission of privileged containers.
+
+            To enable PSA for a namespace in your cluster, set the pod-security.kubernetes.io/enforce label with the policy value you want to enforce.
+
+            `kubectl label --overwrite ns NAMESPACE pod-security.kubernetes.io/enforce=restricted`
+
+            The above command enforces the restricted policy for the NAMESPACE namespace.
+
+            You can also enable Pod Security Admission for all your namespaces. For example:
+
+            `kubectl label --overwrite ns --all pod-security.kubernetes.io/warn=baseline`
+
+            Pod Security Policies and Assignments can be found by searching for Policies in the Azure Portal. A detailed step-by-step guide can be found here:
+
+            https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes
+          scored: false
+        - id: 4.2.2
+          text: Minimize the admission of containers wishing to share the host process ID namespace
+          type: automated
+          remediation: |-
+            Add policies to each namespace in the cluster which has user workloads to restrict the admission of `hostPID` containers.
+
+            Pod Security Policies and Assignments can be found by searching for Policies in the Azure Portal. A detailed step-by-step guide can be found here:
+
+            https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes
+          scored: false
+        - id: 4.2.3
+          text: Minimize the admission of containers wishing to share the host IPC namespace
+          type: automated
+          remediation: |-
+            Add policies to each namespace in the cluster which has user workloads to restrict the admission of `hostIPC` containers.
+
+            Pod Security Policies and Assignments can be found by searching for Policies in the Azure Portal. A detailed step-by-step guide can be found here:
+
+            https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes
+          scored: false
+        - id: 4.2.4
+          text: Minimize the admission of containers wishing to share the host network namespace
+          type: automated
+          remediation: |-
+            Add policies to each namespace in the cluster which has user workloads to restrict the admission of `hostNetwork` containers.
+
+            Pod Security Policies and Assignments can be found by searching for Policies in the Azure Portal. A detailed step-by-step guide can be found here:
+
+            https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes
+          scored: false
+        - id: 4.2.5
+          text: Minimize the admission of containers with allowPrivilegeEscalation
+          type: automated
+          remediation: |-
+            Add policies to each namespace in the cluster which has user workloads to restrict the admission of containers with `.spec.allowPrivilegeEscalation` set to `true`.
+
+            Pod Security Policies and Assignments can be found by searching for Policies in the Azure Portal. A detailed step-by-step guide can be found here:
+
+            https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes
+          scored: false
+    - id: "4.3"
+      text: Azure Policy / OPA
+      checks: []
+    - id: "4.4"
+      text: CNI Plugin
+      checks:
+        - id: 4.4.1
+          text: Ensure latest CNI version is used
+          type: automated
+          remediation: As with RBAC policies, network policies should adhere to the policy of least privileged access. Start by creating a deny all policy that restricts all inbound and outbound traffic from a namespace or create a global policy using Calico.
+          scored: false
+        - id: 4.4.2
+          text: Ensure that all Namespaces have Network Policies defined
+          type: automated
+          remediation: Follow the documentation and create `NetworkPolicy` objects as you need them.
+          scored: false
+    - id: "4.5"
+      text: Secrets Management
+      checks:
+        - id: 4.5.1
+          text: Prefer using secrets as files over secrets as environment variables
+          type: automated
+          remediation: If possible, rewrite application code to read secrets from mounted secret files, rather than from environment variables.
+          scored: false
+        - id: 4.5.2
+          text: Consider external secret storage
+          type: manual
+          remediation: Refer to the secrets management options offered by your cloud provider or a third-party secrets management solution.
+          scored: false
+    - id: "4.6"
+      text: General Policies
+      checks:
+        - id: 4.6.1
+          text: Create administrative boundaries between resources using namespaces
+          type: manual
+          remediation: Follow the documentation and create namespaces for objects in your deployment as you need them.
+          scored: false
+        - id: 4.6.2
+          text: Apply Security Context to Your Pods and Containers
+          type: manual
+          remediation: |-
+            As a best practice we recommend that you scope the binding for privileged pods to service accounts within a particular namespace, e.g. kube-system, and limiting access to that namespace. For all other serviceaccounts/namespaces, we recommend implementing a more restrictive policy that prevents pods from running as privileged or escalating privileges.
+            It should also restrict the types of volumes that can be mounted and the root supplemental groups that can be added.
+
+            Another, albeit similar, approach is to start with policy that locks everything down and incrementally add exceptions for applications that need looser restrictions such as logging agents which need the ability to mount a host path.
+          scored: false
+        - id: 4.6.3
+          text: The default namespace should not be used
+          type: automated
+          remediation: Ensure that namespaces are created to allow for appropriate segregation of Kubernetes resources and that all new resources are created in a specific namespace.
+          scored: false

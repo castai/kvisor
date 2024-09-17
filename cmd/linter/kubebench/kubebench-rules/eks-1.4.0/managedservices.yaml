@@ -1,0 +1,294 @@
+controls: ""
+version: eks-1.4.0
+id: 5
+text: Managed services
+type: managedservices
+groups:
+    - id: "5.1"
+      text: Image Registry and Image Scanning
+      checks:
+        - id: 5.1.1
+          text: Ensure Image Vulnerability Scanning using Amazon ECR image scanning or a third party provider
+          type: automated
+          remediation: |-
+            To utilize AWS ECR for Image scanning please follow the steps below:
+
+            To create a repository configured for scan on push (AWS CLI)
+            ```
+            aws ecr create-repository --repository-name $REPO_NAME --image-scanning-configuration scanOnPush=true --region $REGION_CODE
+            ```
+
+            To edit the settings of an existing repository (AWS CLI)
+            ```
+            aws ecr put-image-scanning-configuration --repository-name $REPO_NAME --image-scanning-configuration scanOnPush=true --region $REGION_CODE
+            ```
+
+            Use the following steps to start a manual image scan using the AWS Management Console.
+
+            1. Open the Amazon ECR console at https://console.aws.amazon.com/ecr/repositories.
+            2. From the navigation bar, choose the Region to create your repository in.
+            3. In the navigation pane, choose Repositories.
+            4. On the Repositories page, choose the repository that contains the image to scan.
+            5. On the Images page, select the image to scan and then choose Scan.
+          scored: false
+        - id: 5.1.2
+          text: Minimize user access to Amazon ECR
+          type: manual
+          remediation: |-
+            Before you use IAM to manage access to Amazon ECR, you should understand what IAM features are available to use with Amazon ECR. To get a high-level view of how Amazon ECR and other AWS services work with IAM, see AWS Services That Work with IAM in the IAM User Guide.
+
+            **Topics**
+
+            - Amazon ECR Identity-Based Policies
+            - Amazon ECR Resource-Based Policies
+            - Authorization Based on Amazon ECR Tags
+            - Amazon ECR IAM Roles
+
+            **Amazon ECR Identity-Based Policies**
+
+            With IAM identity-based policies, you can specify allowed or denied actions and resources as well as the conditions under which actions are allowed or denied. Amazon ECR supports specific actions, resources, and condition keys. To learn about all of the elements that you use in a JSON policy, see IAM JSON Policy Elements Reference in the IAM User Guide.
+
+            **Actions**
+            The Action element of an IAM identity-based policy describes the specific action or actions that will be allowed or denied by the policy. Policy actions usually have the same name as the associated AWS API operation. The action is used in a policy to grant permissions to perform the associated operation.
+
+            Policy actions in Amazon ECR use the following prefix before the action: ecr:. For example, to grant someone permission to create an Amazon ECR repository with the Amazon ECR CreateRepository API operation, you include the ecr:CreateRepository action in their policy. Policy statements must include either an Action or NotAction element. Amazon ECR defines its own set of actions that describe tasks that you can perform with this service.
+
+            To specify multiple actions in a single statement, separate them with commas as follows:
+
+            `"Action": [
+             "ecr:action1",
+             "ecr:action2"`
+
+            You can specify multiple actions using wildcards (*). For example, to specify all actions that begin with the word Describe, include the following action:
+
+            `"Action": "ecr:Describe*"`
+
+            To see a list of Amazon ECR actions, see Actions, Resources, and Condition Keys for Amazon Elastic Container Registry in the IAM User Guide.
+
+            **Resources**
+            The Resource element specifies the object or objects to which the action applies. Statements must include either a Resource or a NotResource element. You specify a resource using an ARN or using the wildcard (*) to indicate that the statement applies to all resources.
+
+            An Amazon ECR repository resource has the following ARN:
+
+            `arn:${Partition}:ecr:${Region}:${Account}:repository/${Repository-name}`
+
+            For more information about the format of ARNs, see Amazon Resource Names (ARNs) and AWS Service Namespaces.
+
+            For example, to specify the my-repo repository in the us-east-1 Region in your statement, use the following ARN:
+
+            `"Resource": "arn:aws:ecr:us-east-1:123456789012:repository/my-repo"`
+
+            To specify all repositories that belong to a specific account, use the wildcard (*):
+
+            `"Resource": "arn:aws:ecr:us-east-1:123456789012:repository/*"`
+
+            To specify multiple resources in a single statement, separate the ARNs with commas.
+
+            `"Resource": [
+             "resource1",
+             "resource2"`
+
+            To see a list of Amazon ECR resource types and their ARNs, see Resources Defined by Amazon Elastic Container Registry in the IAM User Guide. To learn with which actions you can specify the ARN of each resource, see Actions Defined by Amazon Elastic Container Registry.
+
+            **Condition Keys**
+            The Condition element (or Condition block) lets you specify conditions in which a statement is in effect. The Condition element is optional. You can build conditional expressions that use condition operators, such as equals or less than, to match the condition in the policy with values in the request.
+
+            If you specify multiple Condition elements in a statement, or multiple keys in a single Condition element, AWS evaluates them using a logical AND operation. If you specify multiple values for a single condition key, AWS evaluates the condition using a logical OR operation. All of the conditions must be met before the statement's permissions are granted.
+
+            You can also use placeholder variables when you specify conditions. For example, you can grant an IAM user permission to access a resource only if it is tagged with their IAM user name. For more information, see IAM Policy Elements: Variables and Tags in the IAM User Guide.
+
+            Amazon ECR defines its own set of condition keys and also supports using some global condition keys. To see all AWS global condition keys, see AWS Global Condition Context Keys in the IAM User Guide.
+
+            Most Amazon ECR actions support the aws:ResourceTag and ecr:ResourceTag condition keys. For more information, see Using Tag-Based Access Control.
+
+            To see a list of Amazon ECR condition keys, see Condition Keys Defined by Amazon Elastic Container Registry in the IAM User Guide. To learn with which actions and resources you can use a condition key, see Actions Defined by Amazon Elastic Container Registry.
+          scored: false
+        - id: 5.1.3
+          text: Minimize cluster access to read-only for Amazon ECR
+          type: manual
+          remediation: |-
+            You can use your Amazon ECR images with Amazon EKS, but you need to satisfy the following prerequisites.
+
+            The Amazon EKS worker node IAM role (NodeInstanceRole) that you use with your worker nodes must possess the following IAM policy permissions for Amazon ECR.
+
+            ```
+            {
+             "Version": "2012-10-17",
+             "Statement": [
+             {
+             "Effect": "Allow",
+             "Action": [
+             "ecr:BatchCheckLayerAvailability",
+             "ecr:BatchGetImage",
+             "ecr:GetDownloadUrlForLayer",
+             "ecr:GetAuthorizationToken"
+             ],
+             "Resource": "*"
+             }
+             ]
+            }
+            ```
+          scored: false
+        - id: 5.1.4
+          text: Minimize Container Registries to only those approved
+          type: manual
+          remediation: |-
+            To minimize AWS ECR container registries to only those approved, you can follow these steps:
+
+            1. Define your approval criteria: Determine the criteria that containers must meet to be considered approved. This can include factors such as security, compliance, compatibility, and other requirements.
+
+            2. Identify all existing ECR registries: Identify all ECR registries that are currently being used in your organization.
+
+            3. Evaluate ECR registries against approval criteria: Evaluate each ECR registry against your approval criteria to determine whether it should be approved or not. This can be done by reviewing the registry settings and configuration, as well as conducting security assessments and vulnerability scans.
+
+            4. Establish policies and procedures: Establish policies and procedures that outline how ECR registries will be approved, maintained, and monitored. This should include guidelines for developers to follow when selecting a registry for their container images.
+
+            5. Implement access controls: Implement access controls to ensure that only approved ECR registries are used to store and distribute container images. This can be done by setting up IAM policies and roles that restrict access to unapproved registries or create a whitelist of approved registries.
+
+            6. Monitor and review: Continuously monitor and review the use of ECR registries to ensure that they continue to meet your approval criteria. This can include regularly reviewing access logs, scanning for vulnerabilities, and conducting periodic audits.
+
+            By following these steps, you can minimize AWS ECR container registries to only those approved, which can help to improve security, reduce complexity, and streamline container management in your organization. Additionally, AWS provides several tools and services that can help you manage your ECR registries, such as AWS Config, AWS CloudFormation, and AWS Identity and Access Management (IAM).
+          scored: false
+    - id: "5.2"
+      text: Identity and Access Management (IAM)
+      checks:
+        - id: 5.2.1
+          text: Prefer using dedicated EKS Service Accounts
+          type: manual
+          remediation: |-
+            With IAM roles for service accounts on Amazon EKS clusters, you can associate an IAM role with a Kubernetes service account. This service account can then provide AWS permissions to the containers in any pod that uses that service account. With this feature, you no longer need to provide extended permissions to the worker node IAM role so that pods on that node can call AWS APIs.
+
+            Applications must sign their AWS API requests with AWS credentials. This feature provides a strategy for managing credentials for your applications, similar to the way that Amazon EC2 instance profiles provide credentials to Amazon EC2 instances. Instead of creating and distributing your AWS credentials to the containers or using the Amazon EC2 instance’s role, you can associate an IAM role with a Kubernetes service account. The applications in the pod’s containers can then use an AWS SDK or the AWS CLI to make API requests to authorized AWS services.
+
+            The IAM roles for service accounts feature provides the following benefits:
+
+            - Least privilege — By using the IAM roles for service accounts feature, you no longer need to provide extended permissions to the worker node IAM role so that pods on that node can call AWS APIs. You can scope IAM permissions to a service account, and only pods that use that service account have access to those permissions. This feature also eliminates the need for third-party solutions such as kiam or kube2iam.
+            - Credential isolation — A container can only retrieve credentials for the IAM role that is associated with the service account to which it belongs. A container never has access to credentials that are intended for another container that belongs to another pod.
+            - Audit-ability — Access and event logging is available through CloudTrail to help ensure retrospective auditing.
+
+            To get started, see list text hereEnabling IAM roles for service accounts on your cluster.
+
+            For an end-to-end walkthrough using eksctl, see Walkthrough: Updating a DaemonSet to use IAM for service accounts.
+          scored: false
+    - id: "5.3"
+      text: AWS EKS Key Management Service
+      checks:
+        - id: 5.3.1
+          text: Ensure Kubernetes Secrets are encrypted using Customer Master Keys (CMKs) managed in AWS KMS
+          type: manual
+          remediation: "This process can only be performed during Cluster Creation. \n\nEnable 'Secrets Encryption' during Amazon EKS cluster creation as described in the links within the 'References' section."
+          scored: false
+    - id: "5.4"
+      text: Cluster Networking
+      checks:
+        - id: 5.4.1
+          text: Restrict Access to the Control Plane Endpoint
+          type: automated
+          remediation: |-
+            By enabling private endpoint access to the Kubernetes API server, all communication between your nodes and the API server stays within your VPC. You can also limit the IP addresses that can access your API server from the internet, or completely disable internet access to the API server.
+
+            With this in mind, you can update your cluster accordingly using the AWS CLI to ensure that Private Endpoint Access is enabled.
+
+            If you choose to also enable Public Endpoint Access then you should also configure a list of allowable CIDR blocks, resulting in restricted access from the internet. If you specify no CIDR blocks, then the public API server endpoint is able to receive and process requests from all IP addresses by defaulting to ['0.0.0.0/0'].
+
+            For example, the following command would enable private access to the Kubernetes API as well as limited public access over the internet from a single IP address (noting the /32 CIDR suffix):
+
+            ``aws eks update-cluster-config --region $AWS_REGION --name $CLUSTER_NAME --resources-vpc-config endpointPrivateAccess=true, endpointPrivateAccess=true, publicAccessCidrs="203.0.113.5/32"``
+
+            Note:
+
+            The CIDR blocks specified cannot include reserved addresses.
+            There is a maximum number of CIDR blocks that you can specify. For more information, see the EKS Service Quotas link in the references section.
+            For more detailed information, see the EKS Cluster Endpoint documentation link in the references section.
+          scored: false
+        - id: 5.4.2
+          text: Ensure clusters are created with Private Endpoint Enabled and Public Access Disabled
+          type: automated
+          remediation: |-
+            By enabling private endpoint access to the Kubernetes API server, all communication between your nodes and the API server stays within your VPC.
+
+            With this in mind, you can update your cluster accordingly using the AWS CLI to ensure that Private Endpoint Access is enabled.
+
+            For example, the following command would enable private access to the Kubernetes API and ensure that no public access is permitted:
+
+            ``aws eks update-cluster-config --region $AWS_REGION --name $CLUSTER_NAME --resources-vpc-config endpointPrivateAccess=true,endpointPublicAccess=false``
+
+            Note: For more detailed information, see the EKS Cluster Endpoint documentation link in the references section.
+          scored: false
+        - id: 5.4.3
+          text: Ensure clusters are created with Private Nodes
+          type: automated
+          remediation: |-
+            ```
+            aws eks update-cluster-config \
+             --region region-code \
+             --name my-cluster \
+             --resources-vpc-config endpointPublicAccess=true,publicAccessCidrs="203.0.113.5/32",endpointPrivateAccess=true
+            ```
+          scored: false
+        - id: 5.4.4
+          text: Ensure Network Policy is Enabled and set as appropriate
+          type: automated
+          remediation: Utilize Calico or other network policy engine to segment and isolate your traffic.
+          scored: false
+        - id: 5.4.5
+          text: Encrypt traffic to HTTPS load balancers with TLS certificates
+          type: manual
+          remediation: Your load balancer vendor can provide details on configuring HTTPS with TLS.
+          scored: false
+    - id: "5.5"
+      text: Authentication and Authorization
+      checks:
+        - id: 5.5.1
+          text: Manage Kubernetes RBAC users with AWS IAM Authenticator for Kubernetes or Upgrade to AWS CLI v1.16.156 or greater
+          type: manual
+          remediation: |-
+            Refer to the '[Managing users or IAM roles for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/add-user-role.html)' in Amazon EKS documentation.
+
+            Note: If using AWS CLI version 1.16.156 or later there is no need to install the AWS IAM Authenticator anymore.
+
+            The relevant AWS CLI commands, depending on the use case, are:
+            ```
+            aws eks update-kubeconfig
+            aws eks get-token
+            ```
+          scored: false
+    - id: "5.6"
+      text: Other Cluster Configurations
+      checks:
+        - id: 5.6.1
+          text: Consider Fargate for running untrusted workloads
+          type: manual
+          remediation: |-
+            **Create a Fargate profile for your cluster**
+            Before you can schedule pods running on Fargate in your cluster, you must define a Fargate profile that specifies which pods should use Fargate when they are launched. For more information, see AWS Fargate profile.
+
+            **Note**
+            If you created your cluster with eksctl using the --fargate option, then a Fargate profile has already been created for your cluster with selectors for all pods in the kube-system and default namespaces. Use the following procedure to create Fargate profiles for any other namespaces you would like to use with Fargate.
+
+            **via eksctl CLI**
+            Create your Fargate profile with the following eksctl command, replacing the variable text with your own values. You must specify a namespace, but the labels option is not required.
+
+            ```
+            eksctl create fargateprofile --cluster cluster_name --name fargate_profile_name --namespace kubernetes_namespace --labels key=value
+            ```
+
+            **via AWS Management Console**
+
+            To create a Fargate profile for a cluster with the AWS Management Console
+            1. Open the Amazon EKS console at https://console.aws.amazon.com/eks/home#/clusters.
+            1. Choose the cluster to create a Fargate profile for.
+            1. Under Fargate profiles, choose Add Fargate profile.
+            1. On the Configure Fargate profile page, enter the following information and choose Next.
+
+            - For Name, enter a unique name for your Fargate profile.
+            - For Pod execution role, choose the pod execution role to use with your Fargate profile. Only IAM roles with the eks-fargate-pods.amazonaws.com service principal are shown. If you do not see any roles listed here, you must create one. For more information, see Pod execution role.
+            - For Subnets, choose the subnets to use for your pods. By default, all subnets in your cluster's VPC are selected. Only private subnets are supported for pods running on Fargate; you must deselect any public subnets.
+            - For Tags, you can optionally tag your Fargate profile. These tags do not propagate to other resources associated with the profile, such as its pods.
+
+            5. On the Configure pods selection page, enter the following information and choose Next.
+            - For Namespace, enter a namespace to match for pods, such as kube-system or default.
+            - Add Kubernetes labels to the selector that pods in the specified namespace must have to match the selector. For example, you could add the label infrastructure: fargate to the selector so that only pods in the specified namespace that also have the infrastructure: fargate Kubernetes label match the selector.
+
+            6. On the Review and create page, review the information for your Fargate profile and choose Create.
+          scored: false

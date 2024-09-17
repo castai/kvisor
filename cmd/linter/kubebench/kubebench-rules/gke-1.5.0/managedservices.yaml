@@ -1,0 +1,687 @@
+controls: ""
+version: gke-1.5.0
+id: 5
+text: Managed services
+type: managedservices
+groups:
+    - id: "5.1"
+      text: Image Registry and Image Scanning
+      checks:
+        - id: 5.1.1
+          text: Ensure Image Vulnerability Scanning is enabled
+          type: automated
+          remediation: |-
+            #### For Images Hosted in GCR:
+
+            ##### Using Google Cloud Console
+
+            1. Go to GCR by visiting: [https://console.cloud.google.com/gcr](https://console.cloud.google.com/gcr)
+            2. Select Settings and, under the Vulnerability Scanning heading, click the TURN ON button.
+
+            ##### Using Command Line
+            ```
+            gcloud services enable containeranalysis.googleapis.com
+            ```
+
+            #### For Images Hosted in AR:
+
+            ##### Using Google Cloud Console
+
+            1. Go to GCR by visiting: [https://console.cloud.google.com/artifacts](https://console.cloud.google.com/artifacts)
+            2. Select Settings and, under the Vulnerability Scanning heading, click the ENABLE button.
+
+            ##### Using Command Line
+            ```
+            gcloud services enable containerscanning.googleapis.com
+            ```
+          scored: false
+        - id: 5.1.2
+          text: Minimize user access to Container Image repositories
+          type: manual
+          remediation: "#### For Images Hosted in AR:\n\nUsing Google Cloud Console: \n\n1. Go to Artifacts Browser by visiting [https://console.cloud.google.com/artifacts](https://console.cloud.google.com/artifacts)\n2. From the list of artifacts select each repository with format `Docker`\n3. Under the Permissions tab, modify the roles for each member and ensure only authorized users have the Artifact Registry Administrator, Artifact Registry Reader, Artifact Registry Repository Administrator and Artifact Registry Writer roles.\n\nUsing Command Line: \n```\ngcloud artifacts repositories set-iam-policy <repository-name> <path-to-policy-file> --location <repository-location>\n```\n\nTo learn how to configure policy files see: https://cloud.google.com/artifact-registry/docs/access-control#grant\n\n#### For Images Hosted in GCR:\nUsing Google Cloud Console: \n\nTo modify roles granted at the GCR bucket level:\n1. Go to Storage Browser by visiting: [https://console.cloud.google.com/storage/browser](https://console.cloud.google.com/storage/browser).\n2. From the list of storage buckets, select `artifacts.<project_id>.appspot.com` for the GCR bucket\n3. Under the Permissions tab, modify permissions of the identified member via the drop-down role menu and change the Role to `Storage Object Viewer` for read-only access.\n\nFor a User or Service account with Project level permissions inherited by the GCR bucket, or the `Service Account User Role`:\n1. Go to IAM by visiting: [https://console.cloud.google.com/iam-admin/iam](https://console.cloud.google.com/iam-admin/iam)\n2. Find the User or Service account to be modified and click on the corresponding pencil icon.\n3. Remove the `create`/`modify` role (`Storage Admin` / `Storage Object Admin` / `Storage Object Creator` / `Service Account User`) on the user or service account.\n4. If required add the `Storage Object Viewer` role - note with caution that this permits the account to view all objects stored in GCS for the project.\n\nUsing Command Line:\n\nTo change roles at the GCR bucket level:\nFirstly, run the following if read permissions are required:\n```\ngsutil iam ch <type>:<email_address>:objectViewer gs://artifacts.<project_id>.appspot.com\n```\nThen remove the excessively privileged role (`Storage Admin` / `Storage Object Admin` / `Storage Object Creator`) using:\n```\ngsutil iam ch -d <type>:<email_address>:<role> gs://artifacts.<project_id>.appspot.com\n```\nwhere:\n- `<type>` can be one of the following:\n - `user`, if the `<email_address>` is a Google account.\n - `serviceAccount`, if `<email_address>` specifies a Service account.\n - `<email_address>` can be one of the following:\n - a Google account (for example, `someone@example.com`).\n - a Cloud IAM service account.\n\nTo modify roles defined at the project level and subsequently inherited within the GCR bucket, or the Service Account User role, extract the IAM policy file, modify it accordingly and apply it using:\n```\ngcloud projects set-iam-policy <project_id> <policy_file>\n```"
+          scored: false
+        - id: 5.1.3
+          text: Minimize cluster access to read-only for Container Image repositories
+          type: manual
+          remediation: "#### For Images Hosted in AR:\n\nUsing Google Cloud Console:\n\n1. Go to Artifacts Browser by visiting [https://console.cloud.google.com/artifacts](https://console.cloud.google.com/artifacts) \n2. From the list of repositories, for each repository with Format Docker\n3. Under the Permissions tab, modify the permissions for GKE Service account and ensure that only the Artifact Registry Viewer role is set.\n\nUsing Command Line:\nAdd artifactregistry.reader role\n```\ngcloud artifacts repositories add-iam-policy-binding <repository> \\\n--location=<repository-location> \\\n--member='serviceAccount:<email-address>' \\\n--role='roles/artifactregistry.reader'\n```\n\nRemove any roles other than `artifactregistry.reader`\n\n```\ngcloud artifacts repositories remove-iam-policy-binding <repository> \\\n--location <repository-location> \\\n--member='serviceAccount:<email-address>' \\\n--role='<role-name>'\n```\n\n#### For Images Hosted in GCR:\n\nUsing Google Cloud Console:\n\nFor an account explicitly granted access to the bucket:\n1. Go to Storage Browser by visiting: [https://console.cloud.google.com/storage/browser](https://console.cloud.google.com/storage/browser).\n 2. From the list of storage buckets, select `artifacts.<project_id>.appspot.com` for the GCR bucket.\n 3. Under the Permissions tab, modify permissions of the identified GKE Service Account via the drop-down role menu and change to the Role to `Storage Object Viewer` for read-only access.\n\nFor an account that inherits access to the bucket through Project level permissions:\n1. Go to IAM console by visiting: [https://console.cloud.google.com/iam-admin](https://console.cloud.google.com/iam-admin).\n2. From the list of accounts, identify the required service account and select the corresponding pencil icon.\n3. Remove the `Storage Admin` / `Storage Object Admin` / `Storage Object Creator` roles.\n4. Add the `Storage Object Viewer` role - note with caution that this permits the account to view all objects stored in GCS for the project.\n5. Click `SAVE`.\n\nUsing Command Line:\n\nFor an account explicitly granted to the bucket:\nFirstly add read access to the Kubernetes Service Account:\n```\ngsutil iam ch <type>:<email_address>:objectViewer gs://artifacts.<project_id>.appspot.com\n```\nwhere:\n- `<type>` can be one of the following:\n - `user`, if the `<email_address>` is a Google account.\n - `serviceAccount`, if `<email_address>` specifies a Service account.\n - `<email_address>` can be one of the following:\n - a Google account (for example, `someone@example.com`).\n - a Cloud IAM service account.\n\nThen remove the excessively privileged role (`Storage Admin` / `Storage Object Admin` / `Storage Object Creator`) using:\n```\ngsutil iam ch -d <type>:<email_address>:<role> gs://artifacts.<project_id>.appspot.com\n```\nFor an account that inherits access to the GCR Bucket through Project level permissions, modify the Projects IAM policy file accordingly, then upload it using:\n```\ngcloud projects set-iam-policy <project_id> <policy_file>\n```"
+          scored: false
+        - id: 5.1.4
+          text: Minimize Container Registries to only those approved
+          type: manual
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Binary Authorization by visiting: [https://console.cloud.google.com/security/binary-authorization](https://console.cloud.google.com/security/binary-authorization)
+            2. Enable Binary Authorization API (if disabled).
+            3. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            4. Select Kubernetes cluster for which Binary Authorization is disabled.
+            5. Within the `Details` pane, under the `Security` heading, click on the pencil icon called `Edit binary authorization`.
+            6. Ensure that `Enable Binary Authorization` is checked.
+            7. Click `SAVE CHANGES`.
+            8. Return to the Binary Authorization by visiting: [https://console.cloud.google.com/security/binary-authorization](https://console.cloud.google.com/security/binary-authorization).
+            9. Set an appropriate policy for the cluster and enter the approved container registries under Image paths.
+
+            Using Command Line:
+
+            Update the cluster to enable Binary Authorization:
+            ```
+            gcloud container cluster update <cluster_name> --enable-binauthz
+            ```
+            Create a Binary Authorization Policy using the Binary Authorization Policy Reference: [https://cloud.google.com/binary-authorization/docs/policy-yaml-reference](https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for guidance.
+
+            Import the policy file into Binary Authorization:
+            ```
+            gcloud container binauthz policy import <yaml_policy>
+            ```
+          scored: false
+    - id: "5.2"
+      text: Identity and Access Management (IAM)
+      checks:
+        - id: 5.2.1
+          text: Ensure GKE clusters are not running using the Compute Engine default service account
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+
+            To create a minimally privileged service account:
+            1. Go to Service Accounts by visiting: [https://console.cloud.google.com/iam-admin/serviceaccounts](https://console.cloud.google.com/iam-admin/serviceaccounts).
+            2. Click on `CREATE SERVICE ACCOUNT`.
+            3. Enter Service Account Details.
+            4. Click `CREATE AND CONTINUE`.
+            5. Within Service Account permissions add the following roles:
+             - `Logs Writer`.
+             - `Monitoring Metric Writer`.
+             - `Monitoring Viewer.
+            6. Click `CONTINUE`.
+            7. Grant users access to this service account and create keys as required.
+            8. Click `DONE`.
+
+            To create a Node pool to use the Service account:
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Click on the cluster name within which the Node pool will be launched.
+            3. Click on `ADD NODE POOL`.
+            4. Within the Node Pool details, select the `Security` subheading, and under `Identity defaults, select the minimally privileged service account from the Service Account drop-down.
+            5. Click `CREATE to launch the Node pool.
+
+            Note: The workloads will need to be migrated to the new Node pool, and the old node pools that use the default service account should be deleted to complete the remediation.
+
+            Using Command Line:
+
+            To create a minimally privileged service account:
+            ```
+            gcloud iam service-accounts create <node_sa_name> --display-name "GKE Node Service Account"
+            export NODE_SA_EMAIL=gcloud iam service-accounts list --format='value(email)' --filter='displayName:GKE Node Service Account'
+            ```
+            Grant the following roles to the service account:
+            ```
+            export PROJECT_ID=gcloud config get-value project
+            gcloud projects add-iam-policy-binding <project_id> --member serviceAccount:<node_sa_email> --role roles/monitoring.metricWriter
+            gcloud projects add-iam-policy-binding <project_id> --member serviceAccount:<node_sa_email> --role roles/monitoring.viewer
+            gcloud projects add-iam-policy-binding <project_id> --member serviceAccount:<node_sa_email> --role roles/logging.logWriter
+            ```
+            To create a new Node pool using the Service account, run the following command:
+            ```
+            gcloud container node-pools create <node_pool> --service-account=<sa_name>@<project_id>.iam.gserviceaccount.com--cluster=<cluster_name> --zone <compute_zone>
+            ```
+            Note: The workloads will need to be migrated to the new Node pool, and the old node pools that use the default service account should be deleted to complete the remediation.
+          scored: false
+        - id: 5.2.2
+          text: Prefer using dedicated GCP Service Accounts and Workload Identity
+          type: manual
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. From the list of clusters, select the cluster for which Workload Identity is disabled.
+            3. Within the `Details` pane, under the `Security` section, click on the pencil icon named `Edit workload identity`.
+            4. Enable Workload Identity and set the workload pool to the namespace of the Cloud project containing the cluster, for example: `<project_id>.svc.id.goog`.
+            5. Click `SAVE CHANGES` and wait for the cluster to update.
+            6. Once the cluster has updated, select each Node pool within the cluster Details page.
+            7. For each Node pool, select `EDIT` within the Node pool Details page
+            8. Within the Edit node pool pane, check the 'Enable GKE Metadata Server' checkbox and click `SAVE`.
+
+            Using Command Line:
+            ```
+            gcloud container clusters update <cluster_name> --zone <cluster_zone> --workload-pool <project_id>.svc.id.goog
+            ```
+            Note that existing Node pools are unaffected. New Node pools default to `--workload-metadata-from-node=GKE_METADATA_SERVER`.
+            Then, modify existing Node pools to enable `GKE_METADATA_SERVER`:
+            ```
+            gcloud container node-pools update <node_pool_name> --cluster <cluster_name> --zone <cluster_zone> --workload-metadata=GKE_METADATA
+            ```
+            Workloads may need to be modified in order for them to use Workload Identity as described within: [https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity). Also consider the effects on the availability of hosted workloads as Node pools are updated. It may be more appropriate to create new Node Pools.
+          scored: false
+    - id: "5.3"
+      text: Cloud Key Management Service (Cloud KMS)
+      checks:
+        - id: 5.3.1
+          text: Ensure Kubernetes Secrets are encrypted using keys managed in Cloud KMS
+          type: automated
+          remediation: "To enable Application-layer Secrets Encryption, several configuration items are required. These include: \n- A key ring \n- A key \n- A GKE service account with `Cloud KMS CryptoKey Encrypter/Decrypter` role\n\nOnce these are created, Application-layer Secrets Encryption can be enabled on an existing or new cluster. \n\nUsing Google Cloud Console:\n\nTo create a key\n1. Go to Cloud KMS by visiting [https://console.cloud.google.com/security/kms](https://console.cloud.google.com/security/kms).\n2. Select `CREATE KEY RING`.\n3. Enter a Key ring name and the region where the keys will be stored.\n4. Click `CREATE`.\n5. Enter a Key name and appropriate rotation period within the Create key pane.\n6. Click `CREATE`.\n\nTo enable on a new cluster\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).\n2. Click `CREATE CLUSTER`, and choose the required cluster mode.\n3. Within the `Security` heading, under `CLUSTER`, check `Encrypt secrets at the application layer` checkbox.\n4. Select the kms key as the customer-managed key and, if prompted, grant permissions to the GKE Service account.\n5. Click `CREATE`.\n\nTo enable on an existing cluster\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).\n2. Select the cluster to be updated.\n3. Under the Details pane, within the Security heading, click on the pencil named Application-layer secrets encryption.\n4. Enable `Encrypt secrets at the application layer` and choose a kms key.\n5. Click `SAVE CHANGES`.\n\nUsing Command Line: \n\nTo create a key:\nCreate a key ring:\n```\ngcloud kms keyrings create <ring_name> --location <location> --project <key_project_id>\n```\nCreate a key:\n```\ngcloud kms keys create <key_name> --location <location> --keyring <ring_name> --purpose encryption --project <key_project_id>\n```\nGrant the Kubernetes Engine Service Agent service account the `Cloud KMS CryptoKey Encrypter/Decrypter` role: \n```\ngcloud kms keys add-iam-policy-binding <key_name> --location <location> --keyring <ring_name> --member serviceAccount:<service_account_name> --role roles/cloudkms.cryptoKeyEncrypterDecrypter --project <key_project_id>\n```\nTo create a new cluster with Application-layer Secrets Encryption: \n```\ngcloud container clusters create <cluster_name> --cluster-version=latest --zone <zone> --database-encryption-key projects/<key_project_id>/locations/<location>/keyRings/<ring_name>/cryptoKeys/<key_name> --project <cluster_project_id>\n```\nTo enable on an existing cluster:\n```\ngcloud container clusters update <cluster_name> --zone <zone> --database-encryption-key projects/<key_project_id>/locations/<location>/keyRings/<ring_name>/cryptoKeys/<key_name> --project <cluster_project_id>\n```"
+          scored: false
+    - id: "5.4"
+      text: Node Metadata
+      checks:
+        - id: 5.4.1
+          text: Ensure legacy Compute Engine instance metadata APIs are Disabled
+          type: automated
+          remediation: "The legacy GCE metadata endpoint must be disabled upon the cluster or node-pool creation. For GKE versions 1.12 and newer, the legacy GCE metadata endpoint is disabled by default.\n\nUsing Google Cloud Console:\n\nTo update an existing cluster, create a new Node pool with the legacy GCE metadata endpoint disabled:\n1. Go to Kubernetes Engine by visiting [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)\n2. Click on the name of cluster to be upgraded and click ADD NODE POOL.\n3. Navigate to the Metadata pane and ensure that GCE instance metadata is set to the key:value pair of `disable-legacy-endpoints: true`\n4. Click SAVE\n\nWorkloads will need be be migrated from any existing non-conforming Node pools, to the new Node pool, then delete non-conforming Node pools to complete the remediation. \n\nUsing Command Line:\n\nTo update an existing cluster, create a new Node pool with the legacy GCE metadata endpoint disabled:\n```\ngcloud container node-pools create [POOL_NAME] \\\n --metadata disable-legacy-endpoints=true \\\n --cluster [CLUSTER_NAME] \\\n --zone [COMPUTE_ZONE]\n```\nYou will need to migrate workloads from any existing non-conforming Node pools, to the new Node pool, then delete non-conforming Node pools to complete the remediation."
+          scored: false
+        - id: 5.4.2
+          text: Ensure the GKE Metadata Server is Enabled
+          type: automated
+          remediation: "The GKE Metadata Server requires Workload Identity to be enabled on a cluster. Modify the cluster to enable Workload Identity and enable the GKE Metadata Server.\n\nUsing Google Cloud Console\n\n1. Go to Kubernetes Engine by visiting [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)\n2. From the list of clusters, select the cluster for which Workload Identity is disabled.\n3. Under the `DETAILS` pane, navigate down to the `Security` subsection.\n4. Click on the pencil icon named `Edit Workload Identity`, click on `Enable Workload Identity` in the pop-up window, and select a workload pool from the drop-down box. By default, it will be the namespace of the Cloud project containing the cluster, for example: `<project_id>.svc.id.goog`.\n5. Click `SAVE CHANGES` and wait for the cluster to update.\n6. Once the cluster has updated, select each Node pool within the cluster Details page.\n7. For each Node pool, select `EDIT` within the Node pool details page.\n8. Within the `Edit node pool` pane, check the `Enable GKE Metadata Server` checkbox.\n9. Click `SAVE`.\n\nUsing Command Line\n```\ngcloud container clusters update <cluster_name> --identity-namespace=<project_id>.svc.id.goog\n```\nNote that existing Node pools are unaffected. New Node pools default to `--workload-metadata-from-node=GKE_METADATA_SERVER`.\n\nTo modify an existing Node pool to enable GKE Metadata Server: \n```\ngcloud container node-pools update <node_pool_name> --cluster=<cluster_name> --workload-metadata-from-node=GKE_METADATA_SERVER\n```\nWorkloads may need modification in order for them to use Workload Identity as described within: [https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)."
+          scored: false
+    - id: "5.5"
+      text: Node Configuration and Maintenance
+      checks:
+        - id: 5.5.1
+          text: Ensure Container-Optimized OS (cos_containerd) is used for GKE node images
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select the Kubernetes cluster which does not use COS.
+            3. Under the Node pools heading, select the Node Pool that requires alteration.
+            4. Click `EDIT`.
+            5. Under the Image Type heading click `CHANGE`.
+            6. From the pop-up menu select `Container-optimised OS with containerd (cos_containerd) (default)` and click `CHANGE`
+            7. Repeat for all non-compliant Node pools.
+
+            Using Command Line:
+
+            To set the node image to `cos` for an existing cluster's Node pool:
+            ```
+            gcloud container clusters upgrade <cluster_name> --image-type cos_containerd --zone <compute_zone> --node-pool <node_pool_name>
+            ```
+          scored: false
+        - id: 5.5.2
+          text: Ensure Node Auto-Repair is enabled for GKE nodes
+          type: automated
+          remediation: |-
+            Using Google Cloud Console
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)
+            2. Select the Kubernetes cluster containing the node pool for which auto-repair is disabled.
+            3. Select the Node pool by clicking on the name of the pool.
+            4. Navigate to the Node pool details pane and click `EDIT`.
+            5. Under the `Management` heading, check the `Enable auto-repair` box.
+            6. Click `SAVE`.
+            7. Repeat steps 2-6 for every cluster and node pool with auto-upgrade disabled.
+
+            Using Command Line
+
+            To enable node auto-repair for an existing cluster's Node pool:
+            ```
+            gcloud container node-pools update <node_pool_name> --cluster <cluster_name> --zone <compute_zone> --enable-autorepair
+            ```
+          scored: false
+        - id: 5.5.3
+          text: Ensure Node Auto-Upgrade is enabled for GKE nodes
+          type: automated
+          remediation: |-
+            Using Google Cloud Console
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select the Kubernetes cluster containing the node pool for which auto-upgrade disabled.
+            3. Select the Node pool by clicking on the name of the pool.
+            4. Navigate to the Node pool details pane and click `EDIT`.
+            5. Under the Management heading, check the `Enable auto-repair` box.
+            6. Click `SAVE`.
+            7. Repeat steps 2-6 for every cluster and node pool with auto-upgrade disabled.
+
+            Using Command Line
+
+            To enable node auto-upgrade for an existing cluster's Node pool, run the following command:
+            ```
+            gcloud container node-pools update <node_pool_name> --cluster <cluster_name> --zone <cluster_zone> --enable-autoupgrade
+            ```
+          scored: false
+        - id: 5.5.4
+          text: When creating New Clusters - Automate GKE version management using Release Channels
+          type: manual
+          remediation: |-
+            Currently, cluster Release Channels are only configurable at cluster provisioning time.
+
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Click `CREATE`, and choose `CONFIGURE` for the required cluster mode.
+            3. Under the Control plane version heading, click the `Release Channels` button.
+            4. Select the `Regular` or `Stable` channels from the Release Channel drop-down menu.
+            5. Configure the rest of the cluster settings as required.
+            6. Click `CREATE`.
+
+            Using Command Line:
+            Create a new cluster by running the following command:
+            ```
+            gcloud container clusters create <cluster_name> --zone <cluster_zone> --release-channel <release_channel>
+            ```
+            where `<release_channel>` is `stable` or `regular`, according to requirements.
+          scored: false
+        - id: 5.5.5
+          text: Ensure Shielded GKE Nodes are Enabled
+          type: automated
+          remediation: |-
+            Note: From version 1.18, clusters will have Shielded GKE nodes enabled by default.
+
+            Using Google Cloud Console:
+
+            To update an existing cluster to use Shielded GKE nodes:
+            1. Navigate to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select the cluster which for which `Shielded GKE Nodes` is to be enabled.
+            3. With in the `Details` pane, under the `Security` heading, click on the pencil icon named `Edit Shields GKE nodes`.
+            4. Check the box named `Enable Shield GKE nodes`.
+            5. Click `SAVE CHANGES`.
+
+            Using Command Line:
+
+            To migrate an existing cluster, the flag `--enable-shielded-nodes` needs to be specified in the cluster update command:
+            ```
+            gcloud container clusters update <cluster_name> --zone <cluster_zone> --enable-shielded-nodes
+            ```
+          scored: false
+        - id: 5.5.6
+          text: Ensure Integrity Monitoring for Shielded GKE Nodes is Enabled
+          type: automated
+          remediation: "Once a Node pool is provisioned, it cannot be updated to enable Integrity Monitoring. New Node pools must be created within the cluster with Integrity Monitoring enabled.\n\nUsing Google Cloud Console\n\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)\n2. From the list of clusters, click on the cluster requiring the update and click `ADD NODE POOL`.\n3. Ensure that the 'Integrity monitoring' checkbox is checked under the 'Shielded options' Heading.\n4. Click `SAVE`.\n\nWorkloads from existing non-conforming Node pools will need to be migrated to the newly created Node pool, then delete non-conforming Node pools to complete the remediation\n\nUsing Command Line\n\nTo create a Node pool within the cluster with Integrity Monitoring enabled, run the following command: \n```\ngcloud container node-pools create <node_pool_name> --cluster <cluster_name> --zone <compute_zone> --shielded-integrity-monitoring\n```\nWorkloads from existing non-conforming Node pools will need to be migrated to the newly created Node pool, then delete non-conforming Node pools to complete the remediation"
+          scored: false
+        - id: 5.5.7
+          text: Ensure Secure Boot for Shielded GKE Nodes is Enabled
+          type: automated
+          remediation: "Once a Node pool is provisioned, it cannot be updated to enable Secure Boot. New Node pools must be created within the cluster with Secure Boot enabled.\n\nUsing Google Cloud Console:\n\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)\n2. From the list of clusters, click on the cluster requiring the update and click `ADD NODE POOL`.\n3. Ensure that the `Secure boot` checkbox is checked under the `Shielded options` Heading.\n4. Click `SAVE`.\n\nWorkloads will need to be migrated from existing non-conforming Node pools to the newly created Node pool, then delete the non-conforming pools.\n\nUsing Command Line:\n\nTo create a Node pool within the cluster with Secure Boot enabled, run the following command: \n```\ngcloud container node-pools create <node_pool_name> --cluster <cluster_name> --zone <compute_zone> --shielded-secure-boot\n```\n\nWorkloads will need to be migrated from existing non-conforming Node pools to the newly created Node pool, then delete the non-conforming pools."
+          scored: false
+    - id: "5.6"
+      text: Cluster Networking
+      checks:
+        - id: 5.6.1
+          text: Enable VPC Flow Logs and Intranode Visibility
+          type: automated
+          remediation: |-
+            Enable Intranode Visibility:
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select Kubernetes clusters for which intranode visibility is disabled.
+            3. Within the `Details` pane, under the `Network` section, click on the pencil icon named `Edit intranode visibility`.
+            4. Check the box next to `Enable Intranode visibility`.
+            5. Click `SAVE CHANGES`.
+
+            Using Command Line:
+
+            To enable intranode visibility on an existing cluster, run the following command:
+            ```
+            gcloud container clusters update <cluster_name> --enable-intra-node-visibility
+            ```
+
+            Enable VPC Flow Logs:
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select Kubernetes clusters for which VPC Flow Logs are disabled.
+            3. Select `Nodes` tab.
+            4. Select Node Pool without VPC Flow Logs enabled.
+            5. Select an Instance Group within the node pool.
+            6. Select an `Instance Group Member`.
+            7. Select the `Subnetwork` under Network Interfaces.
+            8. Click on `EDIT`.
+            9. Set Flow logs to `On`.
+            10. Click `SAVE`.
+
+            Using Command Line:
+            1. Find the subnetwork name associated with the cluster.
+            ```
+            gcloud container clusters describe <cluster_name> --region <cluster_region> --format json | jq '.subnetwork'
+            ```
+            2. Update the subnetwork to enable VPC Flow Logs.
+            ```
+            gcloud compute networks subnets update <subnet_name> --enable-flow-logs
+            ```
+          scored: false
+        - id: 5.6.2
+          text: Ensure use of VPC-native clusters
+          type: automated
+          remediation: "Alias IPs cannot be enabled on an existing cluster. To create a new cluster using Alias IPs, follow the instructions below. \n\nUsing Google Cloud Console:\n\nIf using Standard configuration mode:\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)\n2. Click `CREATE CLUSTER`, and select Standard configuration mode.\n3. Configure your cluster as desired , then, click `Networking` under `CLUSTER` in the navigation pane.\n4. In the 'VPC-native' section, leave 'Enable VPC-native (using alias IP)' selected\n5. Click CREATE.\n\nIf using Autopilot configuration mode:\n\nNote that this is VPC-native only and cannot be disable:\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).\n2. Click CREATE CLUSTER, and select Autopilot configuration mode.\n3. Configure your cluster as required \n4. Click `CREATE`.\n\nUsing Command Line\n\nTo enable Alias IP on a new cluster, run the following command:\n```\ngcloud container clusters create <cluster_name> --zone <compute_zone> --enable-ip-alias\n```\n\nIf using Autopilot configuration mode:\n```\ngcloud container clusters create-auto <cluster_name> --zone <compute_zone>\n```"
+          scored: false
+        - id: 5.6.3
+          text: Ensure Control Plane Authorized Networks is Enabled
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)
+            2. Select Kubernetes clusters for which Control Plane Authorized Networks is disabled
+            3. Within the Details pane, under the Networking heading, click on the pencil icon named Edit control plane authorised networks.
+            4. Check the box next to Enable control plane authorised networks.
+            5. Click SAVE CHANGES.
+
+            Using Command Line:
+
+            To enable Control Plane Authorized Networks for an existing cluster, run the following command:
+            ```
+            gcloud container clusters update <cluster_name> --zone <compute_zone> --enable-master-authorized-networks
+            ```
+
+            Along with this, you can list authorized networks using the `--master-authorized-networks` flag which contains a list of up to 20 external networks that are allowed to connect to your cluster's control plane through HTTPS. You provide these networks as a comma-separated list of addresses in CIDR notation (such as `90.90.100.0/24`).
+          scored: false
+        - id: 5.6.4
+          text: Ensure clusters are created with Private Endpoint Enabled and Public Access Disabled
+          type: automated
+          remediation: |-
+            Once a cluster is created without enabling Private Endpoint only, it cannot be remediated. Rather, the cluster must be recreated.
+
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)
+            2. Click CREATE CLUSTER, and choose CONFIGURE for the Standard mode cluster.
+            3. Configure the cluster as required then click Networking under CLUSTER in the navigation pane.
+            4. Under IPv4 network access, click the Private cluster radio button.
+            5. Uncheck the Access control plane using its external IP address checkbox.
+            6. In the Control plane IP range textbox, provide an IP range for the control plane.
+            7. Configure the other settings as required, and click CREATE.
+
+            Using Command Line:
+
+            Create a cluster with a Private Endpoint enabled and Public Access disabled by including the `--enable-private-endpoint` flag within the cluster create command:
+            ```
+            gcloud container clusters create <cluster_name> --enable-private-endpoint
+            ```
+            Setting this flag also requires the setting of `--enable-private-nodes`, `--enable-ip-alias` and `--master-ipv4-cidr=<master_cidr_range>`.
+          scored: false
+        - id: 5.6.5
+          text: Ensure clusters are created with Private Nodes
+          type: automated
+          remediation: |-
+            Once a cluster is created without enabling Private Nodes, it cannot be remediated. Rather the cluster must be recreated.
+
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Click CREATE CLUSTER.
+            3. Configure the cluster as required then click Networking under CLUSTER in the navigation pane.
+            4. Under IPv4 network access, click the Private cluster radio button.
+            5. Configure the other settings as required, and click CREATE.
+
+            Using Command Line:
+
+            To create a cluster with Private Nodes enabled, include the `--enable-private-nodes` flag within the cluster create command:
+            ```
+            gcloud container clusters create <cluster_name> --enable-private-nodes
+            ```
+            Setting this flag also requires the setting of `--enable-ip-alias` and `--master-ipv4-cidr=<master_cidr_range>`.
+          scored: false
+        - id: 5.6.6
+          text: Consider firewalling GKE worker nodes
+          type: manual
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Firewall Rules by visiting: [https://console.cloud.google.com/networking/firewalls/list](https://console.cloud.google.com/networking/firewalls/list)
+            2. Click CREATE FIREWALL RULE.
+            3. Configure the firewall rule as required. Ensure the firewall targets the nodes correctly, either selecting the nodes using tags (under Targets, select Specified target tags, and set Target tags to `<tag>`), or using the Service account associated with node (under Targets, select Specified service account, set Service account scope as appropriate, and Target service account to `<service_account>`).
+            4. Click `CREATE`.
+
+            Using Command Line:
+
+            Use the following command to generate firewall rules, setting the variables as appropriate:
+            ```
+            gcloud compute firewall-rules create <firewall_rule_name> --network <network> --priority <priority> --direction <direction> --action <action> --target-tags <tag> --target-service-accounts <service_account> --source-ranges <source_cidr_range> --source-tags <source_tags> --source-service-accounts <source_service_account> --destination-ranges <destination_cidr_range> --rules <rules>
+            ```
+          scored: false
+        - id: 5.6.7
+          text: Ensure Network Policy is Enabled and set as appropriate
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select the cluster for which Network policy is disabled.
+            3. Under the details pane, within the Networking section, click on the pencil icon named Edit network policy.
+            4. Set 'Network policy for control plane' to 'Enabled'.
+            5. Click `SAVE CHANGES`.
+            6. Once the cluster has updated, repeat steps 1-3.
+            7. Set 'Network Policy for nodes' to 'Enabled'.
+            8. Click `SAVE CHANGES`.
+
+            Using Command Line:
+
+            To enable Network Policy for an existing cluster, firstly enable the Network Policy add-on:
+            ```
+            gcloud container clusters update <cluster_name> --zone <compute_zone> --update-addons NetworkPolicy=ENABLED
+            ```
+
+            Then, enable Network Policy:
+            ```
+            gcloud container clusters update <cluster_name> --zone <compute_zone> --enable-network-policy
+            ```
+          scored: false
+        - id: 5.6.8
+          text: Ensure use of Google-managed SSL Certificates
+          type: manual
+          remediation: |-
+            If services of `type:LoadBalancer` are discovered, consider replacing the Service with an Ingress.
+
+            To configure the Ingress and use Google-managed SSL certificates, follow the instructions as listed at: [https://cloud.google.com/kubernetes-engine/docs/how-to/managed-certs](https://cloud.google.com/kubernetes-engine/docs/how-to/managed-certs).
+          scored: false
+    - id: "5.7"
+      text: Logging
+      checks:
+        - id: 5.7.1
+          text: Ensure Logging and Cloud Monitoring is Enabled
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+            To enable Logging:
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select the cluster for which Logging is disabled.
+            3. Under the details pane, within the Features section, click on the pencil icon named `Edit logging`.
+            4. Check the box next to `Enable Logging`.
+            5. In the drop-down Components box, select the components to be logged.
+            6. Click `SAVE CHANGES`, and wait for the cluster to update.
+
+            To enable Cloud Monitoring:
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select the cluster for which Logging is disabled.
+            3. Under the details pane, within the Features section, click on the pencil icon named `Edit Cloud Monitoring`.
+            4. Check the box next to `Enable Cloud Monitoring`.
+            5. In the drop-down Components box, select the components to be logged.
+            6. Click `SAVE CHANGES`, and wait for the cluster to update.
+
+            Using Command Line:
+            To enable Logging for an existing cluster, run the following command:
+
+            gcloud container clusters update <cluster_name> --zone <compute_zone> --logging=<components_to_be_logged>
+
+            See https://cloud.google.com/sdk/gcloud/reference/container/clusters/update#--logging for a list of available components for logging.
+
+            To enable Cloud Monitoring for an existing cluster, run the following command:
+
+            gcloud container clusters update <cluster_name> --zone <compute_zone> --monitoring=<components_to_be_logged>
+
+            See https://cloud.google.com/sdk/gcloud/reference/container/clusters/update#--monitoring for a list of available components for Cloud Monitoring.
+          scored: false
+        - id: 5.7.2
+          text: Enable Linux auditd logging
+          type: manual
+          remediation: |-
+            Using Command Line:
+
+            Download the example manifests:
+            ```
+            curl https://raw.githubusercontent.com/GoogleCloudPlatform/k8s-node-tools/master/os-audit/cos-auditd-logging.yaml > cos-auditd-logging.yaml
+            ```
+            Edit the example manifests if needed. Then, deploy them:
+            ```
+            kubectl apply -f cos-auditd-logging.yaml
+            ```
+            Verify that the logging Pods have started. If a different Namespace was defined in the manifests, replace `cos-auditd` with the name of the namespace being used:
+            ```
+            kubectl get pods --namespace=cos-auditd
+            ```
+          scored: false
+    - id: "5.8"
+      text: Authentication and Authorization
+      checks:
+        - id: 5.8.1
+          text: Ensure authentication using Client Certificates is Disabled
+          type: automated
+          remediation: "Currently, there is no way to remove a client certificate from an existing cluster. Thus a new cluster must be created.\n\nUsing Google Cloud Console\n\n1. Go to Kubernetes Engine by visiting [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)\n2. Click CREATE CLUSTER\n3. Configure as required and the click on 'Availability, networking, security, and additional features' section \n4. Ensure that the 'Issue a client certificate' checkbox is not ticked\n5. Click CREATE.\n\nUsing Command Line\n\nCreate a new cluster without a Client Certificate:\n```\ngcloud container clusters create [CLUSTER_NAME] \\ \n --no-issue-client-certificate\n```"
+          scored: false
+        - id: 5.8.2
+          text: Manage Kubernetes RBAC users with Google Groups for GKE
+          type: manual
+          remediation: |-
+            Follow the G Suite Groups instructions at: [https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#google-groups-for-gke](https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#google-groups-for-gke).
+
+            Then, create a cluster with:
+            ```
+            gcloud container clusters create <cluster_name> --security-group <security_group_name>
+            ```
+            Finally create `Roles`, `ClusterRoles`, `RoleBindings`, and `ClusterRoleBindings` that reference the G Suite Groups.
+          scored: false
+        - id: 5.8.3
+          text: Ensure Legacy Authorization (ABAC) is Disabled
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            2. Select Kubernetes clusters for which Legacy Authorization is enabled.
+            3. Click EDIT.
+            4. Set 'Legacy Authorization' to 'Disabled'.
+            5. Click SAVE.
+
+            Using Command Line:
+
+            To disable Legacy Authorization for an existing cluster, run the following command:
+            ```
+            gcloud container clusters update <cluster_name> --zone <compute_zone> --no-enable-legacy-authorization
+            ```
+          scored: false
+    - id: "5.9"
+      text: Storage
+      checks:
+        - id: 5.9.1
+          text: Enable Customer-Managed Encryption Keys (CMEK) for GKE Persistent Disks (PD)
+          type: manual
+          remediation: |-
+            This cannot be remediated by updating an existing cluster. The node pool must either be recreated or a new cluster created.
+
+            Using Google Cloud Console:
+
+            FOR NODE BOOT DISKS:
+
+            To create a new node pool:
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)
+            2. Select Kubernetes clusters for which node boot disk CMEK is disabled.
+            3. Click `ADD NODE POOL`.
+            4. In the Nodes section, under machine configuration, ensure Boot disk type is `Standard persistent disk` or `SSD persistent disk`.
+            5. Select `Enable customer-managed encryption for Boot Disk` and select the Cloud KMS encryption key to be used.
+            6. Click `CREATE`.
+
+            To create a new cluster:
+            1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list)
+            2. Click `CREATE` and click `CONFIGURE for the required cluster mode.
+            3. Under `NODE POOLS, expand the default-pool list and click `Nodes.
+            4. In the Configure node settings pane, select `Standard persistent disk` or `SSD Persistent Disk` as the Boot disk type.
+            5. Select `Enable customer-managed encryption for Boot Disk` check box and choose the Cloud KMS encryption key to be used.
+            6. Configure the rest of the cluster settings as required.
+            7. Click `CREATE`.
+
+            FOR ATTACHED DISKS:
+
+            This is not possible using Google Cloud Console.
+
+            Using Command Line:
+
+            FOR NODE BOOT DISKS:
+
+            Create a new node pool using customer-managed encryption keys for the node boot disk, of `<disk_type>` either `pd-standard` or `pd-ssd`:
+            ```
+            gcloud container node-pools create <cluster_name> --disk-type <disk_type> --boot-disk-kms-key projects/<key_project_id>/locations/<location>/keyRings/<ring_name>/cryptoKeys/<key_name>
+            ```
+
+            Create a cluster using customer-managed encryption keys for the node boot disk, of `<disk_type>` either `pd-standard` or `pd-ssd`:
+            ```
+            gcloud container clusters create <cluster_name> --disk-type <disk_type> --boot-disk-kms-key projects/<key_project_id>/locations/<location>/keyRings/<ring_name>/cryptoKeys/<key_name>
+            ```
+
+            FOR ATTACHED DISKS:
+
+            Follow the instructions detailed at: [https://cloud.google.com/kubernetes-engine/docs/how-to/using-cmek](https://cloud.google.com/kubernetes-engine/docs/how-to/using-cmek).
+          scored: false
+    - id: "5.10"
+      text: Other Cluster Configurations
+      checks:
+        - id: 5.10.1
+          text: Ensure Kubernetes Web UI is Disabled
+          type: automated
+          remediation: |-
+            Using Google Cloud Console:
+
+            Currently not possible, due to the add-on having been removed. Must use the command line.
+
+            Using Command Line:
+
+            To disable the Kubernetes Dashboard on an existing cluster, run the following command:
+            ```
+            gcloud container clusters update <cluster_name> --zone <zone> --update-addons=KubernetesDashboard=DISABLED
+            ```
+          scored: false
+        - id: 5.10.2
+          text: Ensure that Alpha clusters are not used for production workloads
+          type: automated
+          remediation: "Alpha features cannot be disabled. To remediate, a new cluster must be created.\n\nUsing Google Cloud Console\n\n1. Go to Kubernetes Engine by visiting [https://console.cloud.google.com/kubernetes/](https://console.cloud.google.com/kubernetes/)\n2. Click CREATE CLUSTER, and choose CONFIGURE for the Standard mode cluster.\n3. Note: Within Features in the the CLUSTER section, under the Other heading, Enable Kubernetes alpha features in this cluster will not be available by default. It will only be available if the cluster is created with a Static version for the Control plane version, along with both Automatically upgrade nodes to the next available version and Enable auto-repair being checked under the Node pool details for each node.\n4. Configure the other settings as required and click CREATE.\n\nUsing Command Line: \n\nUpon creating a new cluster \n```\ngcloud container clusters create [CLUSTER_NAME] \\\n --zone [COMPUTE_ZONE]\n```\nDo not use the --enable-kubernetes-alpha argument."
+          scored: false
+        - id: 5.10.3
+          text: Consider GKE Sandbox for running untrusted workloads
+          type: manual
+          remediation: "Once a node pool is created, GKE Sandbox cannot be enabled, rather a new node pool is required. The default node pool (the first node pool in your cluster, created when the cluster is created) cannot use GKE Sandbox.\n\nUsing Google Cloud Console:\n\n1. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/](https://console.cloud.google.com/kubernetes/).\n2. Select a cluster and click `ADD NODE POOL`.\n3. Configure the Node pool with following settings: \n - For the node version, select `v1.12.6-gke.8` or higher.\n - For the node image, select `Container-Optimized OS with Containerd (cos_containerd) (default)`.\n - Under `Security`, select `Enable sandbox with gVisor`.\n4. Configure other Node pool settings as required.\n5. Click `SAVE`.\n\nUsing Command Line:\n\nTo enable GKE Sandbox on an existing cluster, a new Node pool must be created, which can be done using:\n```\n gcloud container node-pools create <node_pool_name> --zone <compute-zone> --cluster <cluster_name> --image-type=cos_containerd --sandbox=\"type=gvisor\"\n```"
+          scored: false
+        - id: 5.10.4
+          text: Ensure use of Binary Authorization
+          type: automated
+          remediation: |-
+            Using Google Cloud Console
+
+            1. Go to Binary Authorization by visiting: [https://console.cloud.google.com/security/binary-authorization](https://console.cloud.google.com/security/binary-authorization).
+            2. Enable the Binary Authorization API (if disabled).
+            3. Create an appropriate policy for use with the cluster. See [https://cloud.google.com/binary-authorization/docs/policy-yaml-reference](https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for guidance.
+            4. Go to Kubernetes Engine by visiting: [https://console.cloud.google.com/kubernetes/list](https://console.cloud.google.com/kubernetes/list).
+            5. Select the cluster for which Binary Authorization is disabled.
+            6. Under the details pane, within the Security section, click on the pencil icon named `Edit Binary Authorization`.
+            7. Check the box next to `Enable Binary Authorization`.
+            8. Choose whether to `Audit`, `Enforce` or both `Audit and Enforce` the policy and provide a directory for the policy to be used.
+            9. Click `SAVE CHANGES`.
+
+            Using Command Line:
+
+            Update the cluster to enable Binary Authorization:
+            ```
+            gcloud container cluster update <cluster_name> --zone <compute_zone> --binauthz-evaluation-mode=<evaluation_mode>
+            ```
+
+            See: [https://cloud.google.com/sdk/gcloud/reference/container/clusters/update#--binauthz-evaluation-mode](https://cloud.google.com/sdk/gcloud/reference/container/clusters/update#--binauthz-evaluation-mode) for more details around the evaluation modes available.
+
+            Create a Binary Authorization Policy using the Binary Authorization Policy Reference: [https://cloud.google.com/binary-authorization/docs/policy-yaml-reference](https://cloud.google.com/binary-authorization/docs/policy-yaml-reference) for guidance.
+
+            Import the policy file into Binary Authorization:
+            ```
+            gcloud container binauthz policy import <yaml_policy>
+            ```
+          scored: false
+        - id: 5.10.5
+          text: Enable Cloud Security Command Center (Cloud SCC)
+          type: manual
+          remediation: |-
+            Note: The Security Command Center Asset APIs have been deprecated, pending removal on or after 26th June 2024. Cloud Asset Inventory should be used instead.
+
+            Follow the instructions at: [https://cloud.google.com/security-command-center/docs/quickstart-scc-setup](https://cloud.google.com/security-command-center/docs/quickstart-scc-setup).
+          scored: false
+        - id: 5.10.6
+          text: Enable Security Posture
+          type: manual
+          remediation: |-
+            Enable security posture via the UI, gCloud or API.
+            https://cloud.google.com/kubernetes-engine/docs/how-to/protect-workload-configuration
+          scored: false
