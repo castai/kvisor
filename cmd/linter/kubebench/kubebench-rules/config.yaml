@@ -125,6 +125,7 @@ node:
 
   kubernetes:
     defaultconf: "/etc/kubernetes/config"
+    azurejson: "/etc/kubernetes/azure.json"
 
   kubelet:
     cafile:
@@ -337,6 +338,18 @@ target_mapping:
     - "controlplane"
     - "policies"
     - "managedservices"
+  "gke-1.5.0":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
+  "gke-1.6.0":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
   "eks-1.0.1":
     - "master"
     - "node"
@@ -361,6 +374,18 @@ target_mapping:
     - "controlplane"
     - "policies"
     - "managedservices"
+  "eks-1.4.0":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
+  "eks-1.5.0":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
   "rh-0.7":
     - "master"
     - "node"
@@ -371,6 +396,18 @@ target_mapping:
     - "policies"
     - "managedservices"
   "aks-1.3":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
+  "aks-1.4.0":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
+  "aks-1.5.0":
     - "master"
     - "node"
     - "controlplane"

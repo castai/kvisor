@@ -1,0 +1,71 @@
+controls: ""
+version: gke-1.5.0
+id: 3
+text: Worker Nodes
+type: node
+groups:
+    - id: "3.1"
+      text: Worker Node Configuration Files
+      checks:
+        - id: 3.1.1
+          text: Ensure that the proxy kubeconfig file permissions are set to 644 or more restrictive
+          audit: '/bin/sh -c ''if test -e $proxykubeconfig; then stat -c permissions=%a $proxykubeconfig; fi'' '
+          type: manual
+          tests:
+            test_items:
+                - flag: permissions
+                  compare:
+                    op: bitmask
+                    value: "644"
+          remediation: |-
+            Run the below command (based on the file location on your system) on the each worker
+            node. For example,
+            ```
+            chmod 644 <proxy kubeconfig file>
+            ```
+          scored: false
+        - id: 3.1.2
+          text: Ensure that the proxy kubeconfig file ownership is set to root:root
+          audit: '/bin/sh -c ''if test -e $proxykubeconfig; then stat -c %U:%G $proxykubeconfig; fi'' '
+          type: manual
+          tests:
+            test_items:
+                - flag: root:root
+          remediation: |-
+            Run the below command (based on the file location on your system) on each worker node. For example,
+
+            ```
+            chown root:root <proxy kubeconfig file>
+            ```
+          scored: false
+        - id: 3.1.3
+          text: Ensure that the kubelet configuration file has permissions set to 600
+          audit: '/bin/sh -c ''if test -e $kubeletconf; then stat -c permissions=%a $kubeletconf; fi'' '
+          type: manual
+          tests:
+            test_items:
+                - flag: permissions
+                  compare:
+                    op: bitmask
+                    value: "600"
+          remediation: |-
+            Run the following command (using the kubelet config file location):
+
+            ```
+            chmod 600 <kubelet_config_file>
+            ```
+          scored: false
+        - id: 3.1.4
+          text: Ensure that the kubelet configuration file ownership is set to root:root
+          audit: '/bin/sh -c ''if test -e $kubeletconf; then stat -c %U:%G $kubeletconf; fi'' '
+          type: manual
+          tests:
+            test_items:
+                - flag: root:root
+          remediation: |-
+            Run the following command (using the config file location identified in the Audit step):
+
+            ```
+            chown root:root <kubelet_config_file>
+            ```
+          scored: false
