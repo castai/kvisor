@@ -5573,10 +5573,10 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:    "security_bprm_check",
 			dependencies: dependencies{
 				probes: []EventProbe{
-					{handle: ProbeSecurityBPRMCheck, required: true},
+					{handle: ProbeCgroupRmdir, required: true},
 				},
 			},
-			sets: []string{"lsm_hooks", "proc", "proc_life"},
+			sets: []string{},
 			params: []argMeta{
 				{Type: "u64", Name: "cgroup_id"},
 				{Type: "const char*", Name: "cgroup_path"},
