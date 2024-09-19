@@ -386,8 +386,8 @@ github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0 h1:nvj0OLI3YqYXe
 github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0/go.mod h1:D/8v3kj0zr8ZAKg1AQ6crr+5VwKN5eIywRkfhyM/+dE=
 github.com/bytecodealliance/wasmtime-go/v3 v3.0.2 h1:3uZCA/BLTIu+DqCfguByNMJa2HVHpXvjfy0Dy7g6fuA=
 github.com/bytecodealliance/wasmtime-go/v3 v3.0.2/go.mod h1:RnUjnIXxEJcL6BgCvNyzCCRzZcxCgsZCi+RNlvYor5Q=
-github.com/castai/image-analyzer v0.5.1 h1:qVdwP2EMPokCovEuB+JlAfX7OsR0LdkwjmuPxhAmeF0=
-github.com/castai/image-analyzer v0.5.1/go.mod h1:ij/GVFNH5TBjPFPU5F0j19NS7zB3wSZ4mvgtPt8/EMY=
+github.com/castai/image-analyzer v0.5.2 h1:A6MfYkGmPlVf6jE2M+PHDuNjMCB1ZuDLqiO9FxFHlK4=
+github.com/castai/image-analyzer v0.5.2/go.mod h1:ij/GVFNH5TBjPFPU5F0j19NS7zB3wSZ4mvgtPt8/EMY=
 github.com/cenkalti/backoff/v4 v4.2.1 h1:y4OZtCnogmCPw98Zjyt5a6+QwPLGkiQsYW5oUqylYbM=
 github.com/cenkalti/backoff/v4 v4.2.1/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

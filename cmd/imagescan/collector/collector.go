@@ -216,7 +216,7 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 				},
 			}
 		}
-		img, err := image.NewFromRemote(ctx, c.cfg.ImageName, opts)
+		img, err := image.NewFromRemote(ctx, c.log, c.cfg.ImageName, opts)
 		return img, func() {}, err
 	}
 
