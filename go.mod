@@ -5,7 +5,7 @@ go 1.22.3
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.23.2
 	github.com/aquasecurity/trivy v0.51.2
-	github.com/castai/image-analyzer v0.5.1
+	github.com/castai/image-analyzer v0.5.2
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/cilium/cilium v1.15.4
