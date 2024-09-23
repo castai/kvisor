@@ -38,7 +38,7 @@ func init() {
 				if !found {
 					return nil
 				}
-				if podSpec.AutomountServiceAccountToken != nil && *podSpec.AutomountServiceAccountToken {
+				if podSpec.AutomountServiceAccountToken != nil && !*podSpec.AutomountServiceAccountToken {
 					return nil
 				}
 				return []diagnostic.Diagnostic{{Message: "Resource does not have service account token automount disabled"}}
