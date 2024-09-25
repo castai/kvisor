@@ -16,51 +16,73 @@ containerd:
   system: false
   user: false
 provision:
-  # Install global os packages here if devbox doesn't have it.
-  - mode: system
-    script: |
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-
-  - mode: user
+  - mode: dependency
     script: |
       #!/bin/bash
-  
-      set -euo pipefail
-  
-      NIX_INSTALLER=https://nixos.org/nix/install
-      NIX_CONFIG=$(
-          cat <<'EOF'
-      sandbox = false
-      experimental-features = nix-command flakes
+
+      set -eux -o pipefail
+
+      export DEBIAN_FRONTEND=noninteractive
+
+      apt-get update && apt-get upgrade -y
+
+      apt-get install -y \
+                apt-transport-https ca-certificates curl \
+                sudo coreutils findutils  \
+                bash git curl rsync \
+                build-essential make pkg-config \
+                libelf-dev \
+                zlib1g-dev \
+                libbpf-dev \
+                linux-headers-generic \
+                linux-tools-generic \
+                fish
+
+      apt-get install -y bash-completion vim \
+              iproute2 vlan bridge-utils net-tools \
+              netcat-openbsd iputils-ping \
+              wget \
+              dnsutils
+
+  - mode: dependency
+    script: |
+      #!/bin/bash
+
+      set -eux -o pipefail
+
+      export HOME=/root
+
+      if [ -f /etc/bashrc ]; then
+        source /etc/bashrc
+      fi
+
+      if [ ! $(command -v nix &> /dev/null) ] ; then
+        echo 'installing nix...'
+        curl -L https://nixos.org/nix/install | sh -s -- --daemon
+
+        echo 'extra-experimental-features = flakes nix-command' | sudo tee -a /etc/nix/nix.conf
+      fi
+
+  - mode: dependency
+    script: |
+      #!/bin/bash
+
+      set -eux -o pipefail
+
+      export HOME=/root
+      source /etc/bashrc
+
+      # This command is expected to fail on first try after installation. For everything to be setup
+      # correctly, the VM needs to be restarted.
+      nix profile install \
+              nixpkgs#git nixpkgs#jq nixpkgs#clang_14 nixpkgs#llvmPackages_14.clang-tools nixpkgs#llvm_14 \
+              nixpkgs#devbox nixpkgs#bpftrace
+
+      # In order to fix nix usage with sudo, allow the /nix/var/nix/profiles env var to be passed in as PATH
+      cat <<EOF > /etc/sudoers.d/nix
+      Defaults        secure_path="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
       EOF
-      )
-  
-      # Install Nix
-      if ! command -v nix &>/dev/null; then
-          sh <(curl -L "${NIX_INSTALLER}") --daemon
-      fi
-  
-      # Configure Nix
-      if [[ ! -d "${HOME}/.config/nix" ]]; then
-          mkdir -p "${HOME}/.config/nix"
-          echo "${NIX_CONFIG}" >"${HOME}/.config/nix/nix.conf"
-      fi
 
-  # Install and setup devbox
-  - mode: system
-    script: |
-      nix-env -iA nixpkgs.devbox
-      devbox install
-
-  # Increase file watches limit.
-  - mode: system
-    script: |
-      #!/bin/sh
-      sysctl fs.inotify.max_user_watches=524288
-      sysctl fs.inotify.max_user_instances=512
-
-  # Install docker.
   - mode: system
     # This script defines the host.docker.internal hostname when hostResolver is disabled.
     # It is also needed for lima 0.8.2 and earlier, which does not support hostResolver.hosts.
@@ -69,6 +91,14 @@ provision:
     script: |
       #!/bin/sh
       sed -i 's/host.lima.internal.*/host.lima.internal host.docker.internal/' /etc/hosts
+
+  # Increase file watches limit.
+  - mode: system
+    script: |
+      #!/bin/sh
+      sysctl fs.inotify.max_user_watches=524288
+      sysctl fs.inotify.max_user_instances=512
+
   - mode: system
     script: |
       #!/bin/bash
