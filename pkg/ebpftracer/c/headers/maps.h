@@ -89,6 +89,7 @@ BPF_LRU_HASH(tty_opened_files, u32, u8, 1024);                                  
 // clang-format on
 
 BPF_ARRAY(metrics, u64, MAX_METRIC); // map containing different metric counters
+BPF_ARRAY(config_map, config_t, 1);
 
 // TODO(patrick.pichler): think about maybe removing this
 BPF_PERF_OUTPUT(logs, 1024);          // logs submission

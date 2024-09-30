@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type tracerConfigT struct{ SummaryMapIndex int32 }
+
 type tracerEventContextT struct {
 	Ts          uint64
 	Task        tracerTaskContextT
@@ -34,6 +36,23 @@ type tracerGlobalConfigT struct {
 	_                               [5]byte
 }
 
+type tracerIpKey struct {
+	ProcessIdentity struct {
+		Pid          uint32
+		PidStartTime uint64
+		CgroupId     uint64
+		Comm         [16]uint8
+	}
+	Tuple struct {
+		Saddr  struct{ Raw [16]uint8 }
+		Daddr  struct{ Raw [16]uint8 }
+		Sport  uint16
+		Dport  uint16
+		Family uint16
+	}
+	Proto uint8
+}
+
 type tracerTaskContextT struct {
 	StartTime       uint64
 	CgroupId        uint64
@@ -50,6 +69,14 @@ type tracerTaskContextT struct {
 	Comm            [16]int8
 	LeaderStartTime uint64
 	ParentStartTime uint64
+}
+
+type tracerTrafficSummary struct {
+	RxPackets    uint64
+	RxBytes      uint64
+	TxPackets    uint64
+	TxBytes      uint64
+	LastPacketTs uint64
 }
 
 // loadTracer returns the embedded CollectionSpec for tracer.
@@ -141,41 +168,42 @@ type tracerProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerMapSpecs struct {
-	ArgsMap               *ebpf.MapSpec `ebpf:"args_map"`
-	Bufs                  *ebpf.MapSpec `ebpf:"bufs"`
-	DroppedBinaryInodes   *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
-	EventDataMap          *ebpf.MapSpec `ebpf:"event_data_map"`
-	Events                *ebpf.MapSpec `ebpf:"events"`
-	EventsMap             *ebpf.MapSpec `ebpf:"events_map"`
-	FileModificationMap   *ebpf.MapSpec `ebpf:"file_modification_map"`
-	FileWrites            *ebpf.MapSpec `ebpf:"file_writes"`
-	IgnoredCgroupsMap     *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
-	IoFilePathCacheMap    *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
-	Logs                  *ebpf.MapSpec `ebpf:"logs"`
-	LogsCount             *ebpf.MapSpec `ebpf:"logs_count"`
-	Metrics               *ebpf.MapSpec `ebpf:"metrics"`
-	NetHeapSockStateEvent *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
-	NetTaskctxMap         *ebpf.MapSpec `ebpf:"net_taskctx_map"`
-	Netflowmap            *ebpf.MapSpec `ebpf:"netflowmap"`
-	NetflowsDataMap       *ebpf.MapSpec `ebpf:"netflows_data_map"`
-	OomInfo               *ebpf.MapSpec `ebpf:"oom_info"`
-	PidOriginalFileFlags  *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
-	ProcInfoMap           *ebpf.MapSpec `ebpf:"proc_info_map"`
-	ProgArray             *ebpf.MapSpec `ebpf:"prog_array"`
-	ProgArrayTp           *ebpf.MapSpec `ebpf:"prog_array_tp"`
-	ScratchMap            *ebpf.MapSpec `ebpf:"scratch_map"`
-	SignalEvents          *ebpf.MapSpec `ebpf:"signal_events"`
-	Signals               *ebpf.MapSpec `ebpf:"signals"`
-	Sys32To64Map          *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail      *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail    *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails         *ebpf.MapSpec `ebpf:"sys_enter_tails"`
-	SysExitInitTail       *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail     *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
-	SysExitTails          *ebpf.MapSpec `ebpf:"sys_exit_tails"`
-	SyscallStatsMap       *ebpf.MapSpec `ebpf:"syscall_stats_map"`
-	TaskInfoMap           *ebpf.MapSpec `ebpf:"task_info_map"`
-	TtyOpenedFiles        *ebpf.MapSpec `ebpf:"tty_opened_files"`
+	ArgsMap                 *ebpf.MapSpec `ebpf:"args_map"`
+	Bufs                    *ebpf.MapSpec `ebpf:"bufs"`
+	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
+	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
+	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
+	Events                  *ebpf.MapSpec `ebpf:"events"`
+	EventsMap               *ebpf.MapSpec `ebpf:"events_map"`
+	FileModificationMap     *ebpf.MapSpec `ebpf:"file_modification_map"`
+	FileWrites              *ebpf.MapSpec `ebpf:"file_writes"`
+	IgnoredCgroupsMap       *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
+	IoFilePathCacheMap      *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
+	Logs                    *ebpf.MapSpec `ebpf:"logs"`
+	LogsCount               *ebpf.MapSpec `ebpf:"logs_count"`
+	Metrics                 *ebpf.MapSpec `ebpf:"metrics"`
+	NetHeapSockStateEvent   *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
+	NetTaskctxMap           *ebpf.MapSpec `ebpf:"net_taskctx_map"`
+	NetflowsDataMap         *ebpf.MapSpec `ebpf:"netflows_data_map"`
+	NetworkTrafficBufferMap *ebpf.MapSpec `ebpf:"network_traffic_buffer_map"`
+	OomInfo                 *ebpf.MapSpec `ebpf:"oom_info"`
+	PidOriginalFileFlags    *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
+	ProcInfoMap             *ebpf.MapSpec `ebpf:"proc_info_map"`
+	ProgArray               *ebpf.MapSpec `ebpf:"prog_array"`
+	ProgArrayTp             *ebpf.MapSpec `ebpf:"prog_array_tp"`
+	ScratchMap              *ebpf.MapSpec `ebpf:"scratch_map"`
+	SignalEvents            *ebpf.MapSpec `ebpf:"signal_events"`
+	Signals                 *ebpf.MapSpec `ebpf:"signals"`
+	Sys32To64Map            *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
+	SysEnterInitTail        *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
+	SysEnterSubmitTail      *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
+	SysEnterTails           *ebpf.MapSpec `ebpf:"sys_enter_tails"`
+	SysExitInitTail         *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
+	SysExitSubmitTail       *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
+	SysExitTails            *ebpf.MapSpec `ebpf:"sys_exit_tails"`
+	SyscallStatsMap         *ebpf.MapSpec `ebpf:"syscall_stats_map"`
+	TaskInfoMap             *ebpf.MapSpec `ebpf:"task_info_map"`
+	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
 }
 
 // tracerObjects contains all objects after they have been loaded into the kernel.
@@ -197,47 +225,49 @@ func (o *tracerObjects) Close() error {
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerMaps struct {
-	ArgsMap               *ebpf.Map `ebpf:"args_map"`
-	Bufs                  *ebpf.Map `ebpf:"bufs"`
-	DroppedBinaryInodes   *ebpf.Map `ebpf:"dropped_binary_inodes"`
-	EventDataMap          *ebpf.Map `ebpf:"event_data_map"`
-	Events                *ebpf.Map `ebpf:"events"`
-	EventsMap             *ebpf.Map `ebpf:"events_map"`
-	FileModificationMap   *ebpf.Map `ebpf:"file_modification_map"`
-	FileWrites            *ebpf.Map `ebpf:"file_writes"`
-	IgnoredCgroupsMap     *ebpf.Map `ebpf:"ignored_cgroups_map"`
-	IoFilePathCacheMap    *ebpf.Map `ebpf:"io_file_path_cache_map"`
-	Logs                  *ebpf.Map `ebpf:"logs"`
-	LogsCount             *ebpf.Map `ebpf:"logs_count"`
-	Metrics               *ebpf.Map `ebpf:"metrics"`
-	NetHeapSockStateEvent *ebpf.Map `ebpf:"net_heap_sock_state_event"`
-	NetTaskctxMap         *ebpf.Map `ebpf:"net_taskctx_map"`
-	Netflowmap            *ebpf.Map `ebpf:"netflowmap"`
-	NetflowsDataMap       *ebpf.Map `ebpf:"netflows_data_map"`
-	OomInfo               *ebpf.Map `ebpf:"oom_info"`
-	PidOriginalFileFlags  *ebpf.Map `ebpf:"pid_original_file_flags"`
-	ProcInfoMap           *ebpf.Map `ebpf:"proc_info_map"`
-	ProgArray             *ebpf.Map `ebpf:"prog_array"`
-	ProgArrayTp           *ebpf.Map `ebpf:"prog_array_tp"`
-	ScratchMap            *ebpf.Map `ebpf:"scratch_map"`
-	SignalEvents          *ebpf.Map `ebpf:"signal_events"`
-	Signals               *ebpf.Map `ebpf:"signals"`
-	Sys32To64Map          *ebpf.Map `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail      *ebpf.Map `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail    *ebpf.Map `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails         *ebpf.Map `ebpf:"sys_enter_tails"`
-	SysExitInitTail       *ebpf.Map `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail     *ebpf.Map `ebpf:"sys_exit_submit_tail"`
-	SysExitTails          *ebpf.Map `ebpf:"sys_exit_tails"`
-	SyscallStatsMap       *ebpf.Map `ebpf:"syscall_stats_map"`
-	TaskInfoMap           *ebpf.Map `ebpf:"task_info_map"`
-	TtyOpenedFiles        *ebpf.Map `ebpf:"tty_opened_files"`
+	ArgsMap                 *ebpf.Map `ebpf:"args_map"`
+	Bufs                    *ebpf.Map `ebpf:"bufs"`
+	ConfigMap               *ebpf.Map `ebpf:"config_map"`
+	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
+	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
+	Events                  *ebpf.Map `ebpf:"events"`
+	EventsMap               *ebpf.Map `ebpf:"events_map"`
+	FileModificationMap     *ebpf.Map `ebpf:"file_modification_map"`
+	FileWrites              *ebpf.Map `ebpf:"file_writes"`
+	IgnoredCgroupsMap       *ebpf.Map `ebpf:"ignored_cgroups_map"`
+	IoFilePathCacheMap      *ebpf.Map `ebpf:"io_file_path_cache_map"`
+	Logs                    *ebpf.Map `ebpf:"logs"`
+	LogsCount               *ebpf.Map `ebpf:"logs_count"`
+	Metrics                 *ebpf.Map `ebpf:"metrics"`
+	NetHeapSockStateEvent   *ebpf.Map `ebpf:"net_heap_sock_state_event"`
+	NetTaskctxMap           *ebpf.Map `ebpf:"net_taskctx_map"`
+	NetflowsDataMap         *ebpf.Map `ebpf:"netflows_data_map"`
+	NetworkTrafficBufferMap *ebpf.Map `ebpf:"network_traffic_buffer_map"`
+	OomInfo                 *ebpf.Map `ebpf:"oom_info"`
+	PidOriginalFileFlags    *ebpf.Map `ebpf:"pid_original_file_flags"`
+	ProcInfoMap             *ebpf.Map `ebpf:"proc_info_map"`
+	ProgArray               *ebpf.Map `ebpf:"prog_array"`
+	ProgArrayTp             *ebpf.Map `ebpf:"prog_array_tp"`
+	ScratchMap              *ebpf.Map `ebpf:"scratch_map"`
+	SignalEvents            *ebpf.Map `ebpf:"signal_events"`
+	Signals                 *ebpf.Map `ebpf:"signals"`
+	Sys32To64Map            *ebpf.Map `ebpf:"sys_32_to_64_map"`
+	SysEnterInitTail        *ebpf.Map `ebpf:"sys_enter_init_tail"`
+	SysEnterSubmitTail      *ebpf.Map `ebpf:"sys_enter_submit_tail"`
+	SysEnterTails           *ebpf.Map `ebpf:"sys_enter_tails"`
+	SysExitInitTail         *ebpf.Map `ebpf:"sys_exit_init_tail"`
+	SysExitSubmitTail       *ebpf.Map `ebpf:"sys_exit_submit_tail"`
+	SysExitTails            *ebpf.Map `ebpf:"sys_exit_tails"`
+	SyscallStatsMap         *ebpf.Map `ebpf:"syscall_stats_map"`
+	TaskInfoMap             *ebpf.Map `ebpf:"task_info_map"`
+	TtyOpenedFiles          *ebpf.Map `ebpf:"tty_opened_files"`
 }
 
 func (m *tracerMaps) Close() error {
 	return _TracerClose(
 		m.ArgsMap,
 		m.Bufs,
+		m.ConfigMap,
 		m.DroppedBinaryInodes,
 		m.EventDataMap,
 		m.Events,
@@ -251,8 +281,8 @@ func (m *tracerMaps) Close() error {
 		m.Metrics,
 		m.NetHeapSockStateEvent,
 		m.NetTaskctxMap,
-		m.Netflowmap,
 		m.NetflowsDataMap,
+		m.NetworkTrafficBufferMap,
 		m.OomInfo,
 		m.PidOriginalFileFlags,
 		m.ProcInfoMap,

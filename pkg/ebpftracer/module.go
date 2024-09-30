@@ -15,8 +15,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 
 type TracerEventContextT = tracerEventContextT
 
@@ -38,6 +38,8 @@ type module struct {
 	log     *logging.Logger
 	objects *tracerObjects
 	cfg     moduleConfig
+
+	networkTrafficSummaryMapSpec *ebpf.MapSpec
 
 	loaded *atomic.Bool
 
@@ -80,14 +82,30 @@ func (m *module) load(cfg Config) error {
 		return err
 	}
 
+	mapBufferSpec, found := spec.Maps["network_traffic_buffer_map"]
+	if !found {
+		return fmt.Errorf("error network_traffic_buffer_map map spec not found")
+	}
+	m.networkTrafficSummaryMapSpec = mapBufferSpec
+	summaryMapBuffer, err := buildNetworkSummaryBufferMap(mapBufferSpec)
+	if err != nil {
+		return fmt.Errorf("erro while building summary map buffer: %w", err)
+	}
+
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
 		},
-		MapReplacements: nil,
+		MapReplacements: map[string]*ebpf.Map{
+			"network_traffic_buffer_map": summaryMapBuffer,
+		},
 	}); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) {
+			m.log.Errorf("Verifier error: %+v", ve)
+		}
 		return err
 	}
 

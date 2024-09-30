@@ -1663,8 +1663,6 @@ statfunc u64 sizeof_net_event_context_t(void)
 
 statfunc void set_net_task_context(program_data_t *p, net_task_context_t *netctx)
 {
-    netctx->task = p->task;
-    netctx->syscall = p->event->context.syscall;
     __builtin_memset(&netctx->taskctx, 0, sizeof(task_context_t));
     __builtin_memcpy(&netctx->taskctx, &p->event->context.task, sizeof(task_context_t));
 
@@ -1718,30 +1716,6 @@ statfunc bool should_submit_net_event(net_event_context_t *neteventctx,
 
 #pragma clang diagnostic pop // -Waddress-of-packed-member
 
-// Return if a network flow event should be submitted.
-statfunc bool should_submit_flow_event(net_event_context_t *neteventctx)
-{
-    switch (neteventctx->md.should_flow) {
-        case 0:
-            break;
-        case 1:
-            return true;
-        case 2:
-            return false;
-    }
-
-    u32 evt_id = NET_FLOW_BASE;
-
-    // Again, if any policy matched, submit the flow base event so other flow
-    // events can be derived in userland and their policies matched in userland.
-    event_config_t *evt_config = bpf_map_lookup_elem(&events_map, &evt_id);
-    if (evt_config == NULL)
-        return 0;
-
-    neteventctx->md.should_flow = 1; // cache result: submit flow events
-
-    return true;
-}
 
 // Return if a network capture event should be submitted.
 statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_packet_t packet_type)
@@ -1757,10 +1731,11 @@ statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_pack
 //
 
 #define CGROUP_SKB_HANDLE_FUNCTION(name)                                       \
-statfunc u32 cgroup_skb_handle_##name(                           \
+statfunc u32 cgroup_skb_handle_##name(                                         \
     struct __sk_buff *ctx,                                                     \
     net_event_context_t *neteventctx,                                          \
-    nethdrs *nethdrs                                                           \
+    nethdrs *nethdrs,                                                          \
+    enum flow_direction flow_direction                                        \
 )
 
 CGROUP_SKB_HANDLE_FUNCTION(family);
@@ -1771,10 +1746,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
-CGROUP_SKB_HANDLE_FUNCTION(proto_icmp);
-CGROUP_SKB_HANDLE_FUNCTION(proto_icmpv6);
 
-#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs);
+#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs, flow_direction);
 
 //
 // Network submission functions
@@ -1815,131 +1788,6 @@ statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx,
 
 // Check if a flag is set in the retval.
 #define retval_hasflag(flag) (neteventctx->eventctx.retval & flag) == flag
-
-statfunc void update_flow_stats(netflowvalue_t *val, u64 bytes, bool ingress) {
-    if (ingress) {
-        __sync_fetch_and_add(&val->rx_bytes, bytes);
-        __sync_fetch_and_add(&val->rx_packets, 1);
-    } else {
-        __sync_fetch_and_add(&val->tx_bytes, bytes);
-        __sync_fetch_and_add(&val->tx_packets, 1);
-    }
-}
-
-statfunc void reset_flow_stats(netflowvalue_t *val) {
-   val->tx_bytes = 0;
-   val->rx_bytes = 0;
-   val->tx_packets = 0;
-   val->rx_packets = 0;
-}
-
-statfunc u32 submit_netflow_event(struct __sk_buff *ctx, net_event_context_t *neteventctx, netflowvalue_t *netflowvalptr) {
-    event_data_t *e = init_netflows_event_data();
-    if (unlikely(e == NULL))
-        return 0;
-
-    __builtin_memcpy(&e->context.task, &neteventctx->eventctx.task, sizeof(task_context_t));
-    e->context.retval = neteventctx->eventctx.retval;
-
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.proto, sizeof(u8), 0);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &neteventctx->md.flow.tuple, sizeof(tuple_t), 1);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_bytes, sizeof(u64), 2);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_bytes, sizeof(u64), 3);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->tx_packets, sizeof(u64), 4);
-    save_to_submit_buf_kernel(&e->args_buf, (void *) &netflowvalptr->rx_packets, sizeof(u64), 5);
-    net_events_perf_submit(ctx, NET_FLOW_BASE, e);
-
-    // The event buffer needs to be freed, as it will get re-used.
-    free_scratch_buf(e);
-
-    return 0;
-}
-
-statfunc u32 cgroup_skb_handle_flow(struct __sk_buff *skb,
-                                    net_event_context_t *neteventctx,
-                                    u32 event_type, u32 flow_type)
-{
-    // Set the current netctx task as the flow task.
-    neteventctx->md.flow.host_pid = neteventctx->eventctx.task.host_pid;
-
-    // Set the flow event type in retval.
-    neteventctx->eventctx.retval |= flow_type;
-
-    u16 sport = neteventctx->md.flow.tuple.sport;
-    u16 dport = neteventctx->md.flow.tuple.dport;
-
-    if (flow_type == flow_tcp_begin) {
-        // Always invert flow during TCP to have source as connection initiator.
-        neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
-    }
-
-    bool drop_src_port = (global_config.flow_grouping & FLOW_GROUPING_DROP_SRC_PORT) != 0;
-    if (drop_src_port) {
-        neteventctx->md.flow.tuple.sport = 0;
-    }
-
-    netflowvalue_t *value = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
-    if (!value) {
-        // Only new connections should add flows.
-        // TODO: Since only new conns tracks flows this can be problematic.
-        // We may need to track flows from samples too next.
-        if (flow_type == flow_tcp_begin) {
-            netflowvalue_t new_val = {
-                .last_update = bpf_ktime_get_ns(),
-                .active = 1,
-            };
-            update_flow_stats(&new_val, skb->len, retval_hasflag(packet_ingress));
-            bpf_map_update_elem(&netflowmap, &neteventctx->md.flow, &new_val, BPF_NOEXIST);
-            submit_netflow_event(skb, neteventctx, &new_val);
-            reset_flow_stats(&new_val);
-            return 0;
-        }
-
-        if (drop_src_port) {
-            neteventctx->md.flow.tuple.sport = sport;
-            neteventctx->md.flow.tuple.dport = 0;
-        }
-        neteventctx->md.flow = invert_netflow(neteventctx->md.flow);
-        value = bpf_map_lookup_elem(&netflowmap, &neteventctx->md.flow);
-        if (!value) {
-            return 0;
-        }
-    }
-
-    update_flow_stats(value, skb->len, retval_hasflag(packet_ingress));
-
-    switch (flow_type) {
-        case flow_tcp_begin:
-        {
-            __sync_fetch_and_add(&value->active, 1);
-        }
-        case flow_tcp_sample:
-        {
-            u64 now = bpf_ktime_get_ns();
-            u64 last_submit_seconds = (now - value->last_update) / 1000000000;
-            // Check if it's time to submit flow sample.
-            if (last_submit_seconds >= global_config.flow_sample_submit_interval_seconds) {
-                value->last_update = now;
-                submit_netflow_event(skb, neteventctx, value);
-                reset_flow_stats(value);
-            }
-            return 0;
-        }
-        case flow_tcp_end:
-        {
-            __sync_fetch_and_add(&value->active, 0xFFFFFFFFFFFFFFFF);
-            if (value->active <= 0) {
-                submit_netflow_event(skb, neteventctx, value);
-                bpf_map_delete_elem(&netflowmap, &neteventctx->md.flow);
-            }
-            return 0;
-        }
-        default:
-            return 0;
-    };
-
-    return 0;
-};
 
 SEC("cgroup/sock_create")
 int cgroup_sock_create(struct bpf_sock *ctx)
@@ -1987,7 +1835,7 @@ int cgroup_sock_create(struct bpf_sock *ctx)
 //
 // SKB eBPF programs
 //
-statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
+statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_direction)
 {
     switch (ctx->family) {
         case PF_INET:
@@ -2032,11 +1880,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
     eventctx->processor_id = (u16) bpf_get_smp_processor_id();
     eventctx->syscall = NO_SYSCALL;                         // ingress has no orig syscall
     neteventctx->md.header_size = 0;
-    if (ingress) {
-        eventctx->retval = packet_ingress;
-    } else {
-        eventctx->retval = packet_egress;
-    }
+    eventctx->retval = flow_direction == INGRESS ? packet_ingress : packet_egress;
 
     nethdrs hdrs = {0}, *nethdrs = &hdrs;
     u32 ret = CGROUP_SKB_HANDLE(proto);
@@ -2046,13 +1890,13 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, bool ingress)
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx, true);
+    return cgroup_skb_generic(ctx, INGRESS);
 }
 
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress(struct __sk_buff *ctx)
 {
-    return cgroup_skb_generic(ctx, false);
+    return cgroup_skb_generic(ctx, EGRESS);
 }
 
 //
@@ -2062,6 +1906,7 @@ int cgroup_skb_egress(struct __sk_buff *ctx)
 //
 // SUPPORTED L3 NETWORK PROTOCOLS (ip, ipv6) HANDLERS
 //
+// clang-format on
 CGROUP_SKB_HANDLE_FUNCTION(proto)
 {
     void *dest = NULL;
@@ -2103,27 +1948,18 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
                     dest = &nethdrs->protohdrs.udphdr;
                     size = get_type_size(struct udphdr);
                     break;
-                case IPPROTO_ICMP:
-                    dest = &nethdrs->protohdrs.icmphdr;
-                    size = 0; // will be added later, last function
-                    break;
                 default:
-                    return 1; // other protocols are not an error
+                    size = 0;
+                    break;
             }
-
-            neteventctx->md.flow.tuple.saddr.v4addr = nethdrs->iphdrs.iphdr.saddr;
-            neteventctx->md.flow.tuple.daddr.v4addr = nethdrs->iphdrs.iphdr.daddr;
-            neteventctx->md.flow.tuple.family = AF_INET;
 
             // Load next proto header.
-            if (size == 0) {
-                return 1;
+            if (size > 0) {
+                if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
+                    return 1;
             }
-            if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
-                return 1;
 
             neteventctx->md.header_size += size;
-
             break;
         case PF_INET6:
             dest = &nethdrs->iphdrs.ipv6hdr;
@@ -2151,34 +1987,32 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
                     dest = &nethdrs->protohdrs.udphdr;
                     size = get_type_size(struct udphdr);
                     break;
-                case IPPROTO_ICMPV6:
-                    dest = &nethdrs->protohdrs.icmp6hdr;
-                    size = 0; // will be added later, last function
-                    break;
                 default:
-                    return 1; // other protocols are not an error
+                    size = 0;
+                    break;
             }
-
-            // Update the network flow map indexer with the packet headers.
-            __builtin_memcpy(&neteventctx->md.flow.tuple.saddr.v6addr, &nethdrs->iphdrs.ipv6hdr.saddr.in6_u, 4 * sizeof(u32));
-            __builtin_memcpy(&neteventctx->md.flow.tuple.daddr.v6addr, &nethdrs->iphdrs.ipv6hdr.daddr.in6_u, 4 * sizeof(u32));
 
             // Load next proto header.
-            if (size == 0) {
-                return 1;
+            if (size > 0) {
+                if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
+                    return 1;
             }
-            if (bpf_skb_load_bytes_relative(ctx, prev_hdr_size, dest, size, BPF_HDR_START_NET))
-                return 1;
 
             neteventctx->md.header_size += size;
-
             break;
         default:
             return 1;
     }
 
-    // Update the network flow map indexer with the packet headers.
-    neteventctx->md.flow.proto = next_proto;
+    if (should_submit_event(NET_FLOW_BASE)) {
+        record_netflow(ctx, &neteventctx->eventctx.task, nethdrs, flow_direction);
+    }
+
+    // size == 0 means protocol we do not have any specific handling logic for. We still want
+    // to record a netflow though.
+    if (size == 0) {
+        return 1;
+    }
 
     // fastpath: submit the IP base event
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_IP))
@@ -2190,10 +2024,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
             return CGROUP_SKB_HANDLE(proto_tcp);
         case IPPROTO_UDP:
             return CGROUP_SKB_HANDLE(proto_udp);
-        case IPPROTO_ICMP:
-            return CGROUP_SKB_HANDLE(proto_icmp);
-        case IPPROTO_ICMPV6:
-            return CGROUP_SKB_HANDLE(proto_icmpv6);
         default:
             return 1; // verifier needs
     }
@@ -2355,30 +2185,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     u16 srcport = bpf_ntohs(nethdrs->protohdrs.tcphdr.source);
     u16 dstport = bpf_ntohs(nethdrs->protohdrs.tcphdr.dest);
 
-    // Update the network flow map indexer with the packet headers.
-    neteventctx->md.flow.tuple.sport = srcport;
-    neteventctx->md.flow.tuple.dport = dstport;
-
-    if (should_submit_flow_event(neteventctx)) {
-        // Check if TCP flow needs to be submitted (only headers).
-        bool is_rst = nethdrs->protohdrs.tcphdr.rst;
-        bool is_syn = nethdrs->protohdrs.tcphdr.syn;
-        bool is_ack = nethdrs->protohdrs.tcphdr.ack;
-        bool is_fin = nethdrs->protohdrs.tcphdr.fin;
-
-        // Has TCP flow started ?
-        if ((is_syn & is_ack))
-            cgroup_skb_handle_flow(ctx, neteventctx, NET_FLOW_BASE, flow_tcp_begin);
-
-        if (!is_syn && !is_fin && !is_rst) {
-            cgroup_skb_handle_flow(ctx, neteventctx, NET_FLOW_BASE, flow_tcp_sample);
-        }
-
-        // Has TCP flow ended ?
-        if (is_fin || is_rst)
-            cgroup_skb_handle_flow(ctx, neteventctx, NET_FLOW_BASE, flow_tcp_end);
-    }
-
     // Submit TCP base event if needed (only headers)
 
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_TCP))
@@ -2462,24 +2268,6 @@ done:
     return 1; // NOTE: might block UDP here if needed (return 0)
 }
 
-CGROUP_SKB_HANDLE_FUNCTION(proto_icmp)
-{
-    // submit ICMP base event if needed (full packet)
-    if (should_submit_net_event(neteventctx, SUB_NET_PACKET_ICMP))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_ICMP, FULL);
-
-    return 1; // NOTE: might block ICMP here if needed (return 0)
-}
-
-CGROUP_SKB_HANDLE_FUNCTION(proto_icmpv6)
-{
-    // submit ICMPv6 base event if needed (full packet)
-    if (should_submit_net_event(neteventctx, SUB_NET_PACKET_ICMPV6))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_ICMPV6, FULL);
-
-    return 1; // NOTE: might block ICMPv6 here if needed (return 0)
-}
-
 //
 // SUPPORTED L7 NETWORK PROTOCOL (dns) HANDLERS
 //
@@ -2553,6 +2341,7 @@ statfunc bool should_trace_sock_set_state(int old_state, int new_state)
 SEC("tp_btf/inet_sock_set_state")
 int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int old_state, int new_state)
 {
+    // TODO(patrick.pichler): add logic for handling listening sockets
     if (!should_trace_sock_set_state(old_state, new_state)) {
         return 0;
     }

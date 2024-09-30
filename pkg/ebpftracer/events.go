@@ -5680,6 +5680,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			dependencies: dependencies{skipDefaultTailCalls: true},
 			params:       []argMeta{},
 		},
+    // This event will never fire and is just defined to load the necessary probes for netflows to work.
 		events.NetFlowBase: {
 			ID:       events.NetFlowBase,
 			id32Bit:  events.Sys32Undefined,
@@ -5690,15 +5691,8 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 					events.NetPacketBase,
 				},
 			},
-			sets: []string{"network_events"},
-			params: []argMeta{
-				{Type: "u8", Name: "proto"},
-				{Type: "tuple", Name: "tuple"},
-				{Type: "u64", Name: "tx_bytes"},
-				{Type: "u64", Name: "rx_bytes"},
-				{Type: "u64", Name: "tx_packets"},
-				{Type: "u64", Name: "rx_packets"},
-			},
+			sets:   []string{"network_events"},
+			params: []argMeta{},
 		},
 		//
 		// End of Network Protocol Event Types

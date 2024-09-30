@@ -188,6 +188,10 @@ typedef struct event_data {
     u64 in_use;
 } event_data_t;
 
+typedef struct config {
+    int summary_map_index;
+} config_t;
+
 #define MAX_EVENT_SIZE sizeof(event_context_t) + sizeof(u8) + ARGS_BUF_SIZE
 
 #define BPF_MAX_LOG_FILE_LEN 72

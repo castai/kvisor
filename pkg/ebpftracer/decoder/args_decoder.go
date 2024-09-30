@@ -17955,59 +17955,7 @@ func ParseTrackSyscallStatsArgs(decoder *Decoder) (types.TrackSyscallStatsArgs, 
 }
 
 func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
-  var result types.NetFlowBaseArgs
-  var err error
-
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetFlowBaseArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.NetFlowBaseArgs{}, ErrTooManyArguments
-  }
-
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetFlowBaseArgs{}, err
-    }
-
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint8(&result.Proto)
-      if err != nil {
-        return types.NetFlowBaseArgs{}, err
-      }
-    case 1:
-      result.Tuple, err = decoder.ReadAddrTuple()
-      if err != nil {
-        return types.NetFlowBaseArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.TxBytes)
-      if err != nil {
-        return types.NetFlowBaseArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.RxBytes)
-      if err != nil {
-        return types.NetFlowBaseArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.TxPackets)
-      if err != nil {
-        return types.NetFlowBaseArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint64(&result.RxPackets)
-      if err != nil {
-        return types.NetFlowBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+  return types.NetFlowBaseArgs{}, nil
 }
 
 func ParseStdioViaSocketArgs(decoder *Decoder) (types.StdioViaSocketArgs, error) {

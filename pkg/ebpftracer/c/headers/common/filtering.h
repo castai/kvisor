@@ -13,6 +13,7 @@
 
 statfunc bool should_trace(program_data_t *);
 statfunc bool should_submit(u32, event_data_t *);
+statfunc bool should_submit_event(u32);
 
 // FUNCTIONS
 
@@ -42,6 +43,11 @@ statfunc bool should_submit(u32 event_id, event_data_t *event)
     event->param_types = event_config->param_types;
 
     return true;
+}
+
+statfunc bool should_submit_event(u32 event_id)
+{
+    return !!bpf_map_lookup_elem(&events_map, &event_id);
 }
 
 #endif

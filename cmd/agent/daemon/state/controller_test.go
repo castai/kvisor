@@ -16,8 +16,8 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 )
 
@@ -58,7 +58,7 @@ func TestController(t *testing.T) {
 		ctrl.exporters.ContainerStats = append(ctrl.exporters.ContainerStats, exporter)
 		ctrl.tracer.(*mockEbpfTracer).syscallStats = map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats{
 			1: {
-				{ebpftracer.SyscallID(2), 3},
+				{ID: ebpftracer.SyscallID(2), Count: 3},
 			},
 		}
 		ctrl.containersClient.(*mockContainersClient).list = []*containers.Container{
@@ -95,31 +95,68 @@ func TestController(t *testing.T) {
 
 	t.Run("netflow pipeline", func(t *testing.T) {
 		r := require.New(t)
-		ctrl := newTestController()
-		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
-		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
-
-		go func() {
-			for {
-				time.Sleep(time.Millisecond)
-				e := &types.Event{
-					Context: &types.EventContext{Ts: uint64(time.Now().UTC().UnixNano())},
-					Container: &containers.Container{
-						PodName: "p1",
-					},
-					Args: types.NetFlowBaseArgs{
-						Proto: 6,
-						Tuple: types.AddrTuple{
-							Src: netip.MustParseAddrPort("10.10.0.10:34561"),
-							Dst: netip.MustParseAddrPort("10.10.0.15:80"),
+		ctrl := newTestController(
+			customizeMockTracer(func(t *mockEbpfTracer) {
+				t.netflowCollectChan <- map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary{
+					// I know this looks ugly, but there is no nice way to generate the type info for
+					// those nested types with bpf2go (in theory we could create temp globals but I
+					// would rather not).
+					ebpftracer.TrafficKey{
+						ProcessIdentity: struct {
+							Pid          uint32
+							PidStartTime uint64
+							CgroupId     uint64
+							Comm         [16]uint8
+						}{
+							Pid:          1,
+							PidStartTime: 0,
+							CgroupId:     100,
+							Comm:         [16]uint8{},
 						},
+						Tuple: struct {
+							Saddr  struct{ Raw [16]uint8 }
+							Daddr  struct{ Raw [16]uint8 }
+							Sport  uint16
+							Dport  uint16
+							Family uint16
+						}{
+							Saddr: struct{ Raw [16]uint8 }{
+								// 10.10.0.10
+								Raw: [16]byte{0xa, 0xa, 0, 0xa},
+							},
+							Daddr: struct{ Raw [16]uint8 }{
+								// 10.10.0.15
+								Raw: [16]byte{0xa, 0xa, 0, 0xf},
+							},
+							Sport:  34561,
+							Dport:  80,
+							Family: unix.AF_INET,
+						},
+						Proto: unix.IPPROTO_TCP,
+					}: {
 						TxBytes:   10,
 						TxPackets: 5,
 					},
 				}
-				ctrl.tracer.(*mockEbpfTracer).netflowEventsChan <- e
-			}
-		}()
+			}),
+			customizeMockContainersClient(func(t *mockContainersClient) {
+				t.list = append(t.list, &containers.Container{
+					ID:           "abcd",
+					Name:         "container 1",
+					CgroupID:     100,
+					PodNamespace: "default",
+					PodUID:       "abcd",
+					PodName:      "test-pod",
+					Cgroup: &cgroup.Cgroup{
+						Id:      100,
+						Version: 2,
+					},
+					PIDs: []uint32{1},
+				})
+			}),
+		)
+		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
+		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
 
 		ctrlerr := make(chan error, 1)
 		go func() {
@@ -143,114 +180,12 @@ func TestController(t *testing.T) {
 			t.Fatal("timed out waiting for data")
 		}
 	})
-
-	t.Run("netflow aggregate stats for the same netflow with grouping", func(t *testing.T) {
-		r := require.New(t)
-		ctrl := newTestController()
-		ctrl.cfg.NetflowExportInterval = time.Hour
-		ctrl.clusterInfo = &clusterInfo{}
-
-		ctrl.upsertNetflow(&types.Event{
-			Container: &containers.Container{},
-			Context: &types.EventContext{
-				Ts:       uint64(time.Now().UnixNano()),
-				CgroupID: 1,
-				Pid:      1,
-			},
-			Args: types.NetFlowBaseArgs{
-				Proto: 6,
-				Tuple: types.AddrTuple{
-					Src: netip.MustParseAddrPort("10.10.0.10:34000"),
-					Dst: netip.MustParseAddrPort("10.10.0.20:80"),
-				},
-				TxBytes:   10,
-				RxBytes:   9,
-				TxPackets: 2,
-				RxPackets: 1,
-			},
-		})
-
-		ctrl.upsertNetflow(&types.Event{
-			Container: &containers.Container{},
-			Context: &types.EventContext{
-				Ts:       uint64(time.Now().UnixNano()),
-				CgroupID: 1,
-				Pid:      1,
-			},
-			Args: types.NetFlowBaseArgs{
-				Proto: 6,
-				Tuple: types.AddrTuple{
-					Src: netip.MustParseAddrPort("10.10.0.10:34000"),
-					Dst: netip.MustParseAddrPort("10.10.0.20:80"),
-				},
-				TxBytes:   20,
-				RxBytes:   11,
-				TxPackets: 2,
-				RxPackets: 1,
-			},
-		})
-
-		r.Len(ctrl.netflows, 1)
-		flow := lo.Values(ctrl.netflows)[0]
-		destinations := lo.Values(flow.destinations)
-		r.Len(destinations, 1)
-		dest1 := destinations[0]
-		r.Equal(30, int(dest1.txBytes))
-		r.Equal(20, int(dest1.rxBytes))
-		r.Equal(4, int(dest1.txPackets))
-		r.Equal(2, int(dest1.rxPackets))
-	})
-
-	t.Run("netflow cleanup", func(t *testing.T) {
-		t.SkipNow()
-		r := require.New(t)
-		ctrl := newTestController()
-
-		now := time.Now()
-		ctrl.netflows = map[uint64]*netflowVal{
-			// Should delete this entry since it was not updated after export.
-			1: {
-				exportedAt: now,
-				event: &types.Event{
-					Context: &types.EventContext{
-						Ts: uint64(now.Add(-1 * time.Second).UnixNano()),
-					},
-					Args: types.NetFlowBaseArgs{},
-				},
-			},
-			// Should delete empty flow dest.
-			2: {
-				event: &types.Event{
-					Context: &types.EventContext{
-						Ts: uint64(now.UnixNano()),
-					},
-					Args: types.NetFlowBaseArgs{},
-				},
-				destinations: map[uint64]*netflowDest{
-					1: {
-						txBytes:   0,
-						rxBytes:   0,
-						txPackets: 0,
-						rxPackets: 0,
-					},
-					2: {
-						txBytes:   0,
-						rxBytes:   0,
-						txPackets: 0,
-						rxPackets: 0,
-					},
-				},
-			},
-		}
-
-		ctrl.enqueueNetflowExport(time.Now().UTC())
-		// Should keep recent flows.
-		r.Equal([]uint64{2}, lo.Keys(ctrl.netflows))
-		r.Len(ctrl.netflows[2].destinations, 0)
-	})
 }
 
-func newTestController() *Controller {
+type customizeMockTracer func(t *mockEbpfTracer)
+type customizeMockContainersClient func(t *mockContainersClient)
+
+func newTestController(opts ...any) *Controller {
 	log := logging.NewTestLog()
 	cfg := Config{
 		ContainerStatsScrapeInterval: time.Millisecond,
@@ -258,9 +193,20 @@ func newTestController() *Controller {
 	}
 	exporters := NewExporters(log)
 	contClient := &mockContainersClient{}
+	contClientCustomizer := getOptOr[customizeMockContainersClient](opts, func(t *mockContainersClient) {})
+	contClientCustomizer(contClient)
+
 	netReader := &mockNetStatsReader{}
 	ctClient := &mockConntrackClient{}
-	tracer := &mockEbpfTracer{eventsChan: make(chan *types.Event, 100), netflowEventsChan: make(chan *types.Event, 100)}
+
+	tracer := &mockEbpfTracer{
+		eventsChan:         make(chan *types.Event, 100),
+		netflowEventsChan:  make(chan *types.Event, 100),
+		netflowCollectChan: make(chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, 100),
+	}
+	tracerCustomizer := getOptOr[customizeMockTracer](opts, func(t *mockEbpfTracer) {})
+	tracerCustomizer(tracer)
+
 	sigEngine := &mockSignatureEngine{eventsChan: make(chan *castaipb.Event, 100)}
 	enrichService := &mockEnrichmentService{eventsChan: make(chan *castaipb.Event, 100)}
 	kubeClient := &mockKubeClient{}
@@ -381,10 +327,23 @@ func (m *mockConntrackClient) GetDestination(src, dst netip.AddrPort) (netip.Add
 	return netip.AddrPort{}, false
 }
 
+var _ ebpfTracer = (*mockEbpfTracer)(nil)
+
 type mockEbpfTracer struct {
-	eventsChan        chan *types.Event
-	netflowEventsChan chan *types.Event
-	syscallStats      map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
+	eventsChan         chan *types.Event
+	netflowEventsChan  chan *types.Event
+	syscallStats       map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
+	netflowCollectChan chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary
+}
+
+func (m *mockEbpfTracer) CollectNetworkSummary() (map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, error) {
+	select {
+	case v := <-m.netflowCollectChan:
+		return v, nil
+	default:
+		return map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary{}, nil
+
+	}
 }
 
 func (m *mockEbpfTracer) ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error) {
@@ -473,4 +432,15 @@ type mockProcessTreeController struct {
 
 func (m *mockProcessTreeController) Events() <-chan processtree.ProcessTreeEvent {
 	return m.eventsChan
+}
+
+func getOptOr[T any](opts []any, or T) T {
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case T:
+			return v
+		}
+	}
+
+	return or
 }
