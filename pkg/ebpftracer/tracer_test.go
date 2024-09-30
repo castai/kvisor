@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 	"testing"
@@ -110,13 +111,17 @@ func TestTracer(t *testing.T) {
 		errc <- tr.Run(ctx)
 	}()
 
+	go func() {
+		errc <- printNetworkTracerSummary(ctx, log, tr)
+	}()
+
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.NetPacketSSHBase},
-			//{ID: events.SockSetState},
+			// {ID: events.SockSetState},
 			//{ID: events.NetPacketTCPBase},
 			// {ID: events.SchedProcessExec},
-			{ID: events.MagicWrite},
+			// {ID: events.MagicWrite},
 			// {ID: events.SecuritySocketConnect},
 			// {ID: events.SocketDup},
 			//{ID: events.NetPacketDNSBase},
@@ -125,7 +130,7 @@ func TestTracer(t *testing.T) {
 			// {ID: events.StdioViaSocket},
 			// {ID: events.TtyOpen},
 			//{ID: events.TtyWrite},
-			// {ID: events.NetFlowBase},
+			{ID: events.NetFlowBase},
 		},
 		SignatureEvents: signatureEngine.TargetEvents(),
 	}
@@ -151,6 +156,59 @@ func TestTracer(t *testing.T) {
 		case err := <-errc:
 			if err != nil {
 				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpftracer.Tracer) error {
+	ticker := time.NewTicker(10 * time.Second)
+	defer func() {
+		ticker.Stop()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			data, err := t.CollectNetworkSummary()
+			if err != nil {
+				log.Errorf("error while collecting network traffic summary: %v", err)
+				continue
+			}
+
+			fmt.Println("=== Network Summary")
+			for tk, ts := range data {
+				var (
+					daddr netip.Addr
+					saddr netip.Addr
+				)
+
+				switch tk.Tuple.Family {
+				case uint16(types.AF_INET):
+					if ip, ok := netip.AddrFromSlice(tk.Tuple.Saddr.Raw[:4]); ok {
+						saddr = ip
+					} else {
+						log.Warnf("cannot parse local addr v4 `%v`", tk.Tuple.Saddr.Raw[:4])
+					}
+
+					if ip, ok := netip.AddrFromSlice(tk.Tuple.Daddr.Raw[:4]); ok {
+						daddr = ip
+					} else {
+						log.Warnf("cannot parse remote addr v4 `%v`", tk.Tuple.Daddr.Raw[:4])
+					}
+				case uint16(types.AF_INET6):
+					saddr = netip.AddrFrom16(tk.Tuple.Saddr.Raw)
+					daddr = netip.AddrFrom16(tk.Tuple.Daddr.Raw)
+				}
+
+				fmt.Printf("%s PID %d (protocol: %d): %s:%d -> %s:%d TX: %d RX: %d TX_Packets: %d RX_Packets: %d\n",
+					string(tk.ProcessIdentity.Comm[:]), tk.ProcessIdentity.Pid, tk.Proto,
+					saddr, tk.Tuple.Sport, daddr, tk.Tuple.Dport,
+					ts.TxBytes, ts.RxBytes,
+					ts.TxPackets, ts.RxPackets,
+				)
 			}
 		}
 	}

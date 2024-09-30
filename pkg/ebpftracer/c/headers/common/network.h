@@ -9,8 +9,6 @@
 
 #include <common/common.h>
 
-// clang-format off
-
 // TYPES
 
 typedef union iphdrs_t {
@@ -18,61 +16,78 @@ typedef union iphdrs_t {
     struct ipv6hdr ipv6hdr;
 } iphdrs;
 
-typedef union  {
-    u32 v4addr;
-    unsigned __int128 v6addr;
-}  __attribute__((packed)) addr_t;
+typedef union {
+    // Used for bpf2go to generate a proper golang struct.
+    __u8 raw[16];
+    __u32 v4addr;
+    __be32 u6_addr32[4];
+} __attribute__((packed)) addr_t;
 
 typedef struct {
     addr_t saddr;
     addr_t daddr;
-    u16 sport;
-    u16 dport;
-    u16 family;
+    __u16 sport;
+    __u16 dport;
+    __u16 family;
 } __attribute__((packed)) tuple_t;
 
-// network flow events
+union addr {
+    __u8 raw[16];
+    __be32 ipv6[4];
+    __be32 ipv4;
+} __attribute__((__packed__));
 
-typedef struct netflow {
-    u32 host_pid;
-    u8 proto;
+typedef struct process_identity {
+    __u32 pid;
+    __u64 pid_start_time;
+    __u64 cgroup_id;
+    // TODO(patrick.pichler): In the future we might want to get rid of comm and move it
+    // to an enrichment stage in userspace. If we do this, we could probably also get rid
+    // of it for event context.
+    __u8 comm[TASK_COMM_LEN];
+} __attribute__((__packed__)) process_identity_t;
+
+struct traffic_summary {
+    __u64 rx_packets;
+    __u64 rx_bytes;
+
+    __u64 tx_packets;
+    __u64 tx_bytes;
+
+    __u64 last_packet_ts;
+    // In order for BTF to be generated for this struct, a dummy variable needs to
+    // be created.
+} __attribute__((__packed__)) traffic_summary_dummy;
+
+struct ip_key {
+    struct process_identity process_identity;
+
     tuple_t tuple;
-} __attribute__((__packed__)) netflow_t;
+    __u8 proto;
 
-statfunc netflow_t invert_netflow(netflow_t flow)
-{
-    tuple_t inverted_tuple = {
-        .saddr = flow.tuple.daddr,
-        .daddr = flow.tuple.saddr,
-        .sport = flow.tuple.dport,
-        .dport = flow.tuple.sport,
-        .family = flow.tuple.family,
-    };
-    netflow_t res = {
-       .host_pid = flow.host_pid,
-       .proto = flow.proto,
-       .tuple = inverted_tuple,
-    };
-    return res;
-}
+    // In order for BTF to be generated for this struct, a dummy variable needs to
+    // be created.
+} __attribute__((__packed__)) ip_key_dummy;
 
-typedef struct netflowvalue {
-    s64 active;                             // count active connections
-    u64 last_update;                        // last time this flow was updated
-    u64 tx_bytes;                           // total bytes sent
-    u64 rx_bytes;                           // total bytes received
-    u64 tx_packets;                         // total packets sent
-    u64 rx_packets;                         // total packets received
-} __attribute__((__packed__)) netflowvalue_t;
-
-// netflowmap (keep track of network flows)
+#define MAX_NETFLOWS 65535
 
 struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, 65535);             // simultaneous network flows being tracked
-    __type(key, netflow_t);                 // the network flow ...
-    __type(value, netflowvalue_t);          // ... linked to flow stats
-} netflowmap SEC(".maps");                  // relate sockets and tasks
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(max_entries, 2);
+    __type(key, int);
+    __array(
+        values, struct {
+            __uint(type, BPF_MAP_TYPE_LRU_HASH);
+            __uint(max_entries, MAX_NETFLOWS);
+            __type(key, struct ip_key);
+            __type(value, struct traffic_summary);
+        });
+} network_traffic_buffer_map SEC(".maps");
+
+enum flow_direction {
+    INGRESS,
+    EGRESS,
+};
 
 // NOTE: proto header structs need full type in vmlinux.h (for correct skb copy)
 
@@ -108,10 +123,8 @@ typedef enum net_packet {
 } net_packet_t;
 
 typedef struct net_event_contextmd {
-    u8 should_flow;    // Cache result from should_submit_flow_event
     u32 header_size;
-    u8 captured;        // packet has already been captured
-    netflow_t flow;
+    u8 captured; // packet has already been captured
 } __attribute__((__packed__)) net_event_contextmd_t;
 
 typedef struct net_event_context {
@@ -129,12 +142,8 @@ typedef struct net_event_context {
 // network related maps
 
 typedef struct net_task_context {
-    struct task_struct *task;
     task_context_t taskctx;
-    s32 syscall;
-    u16 padding;
 } net_task_context_t;
-
 
 // Sockets task context. Used to get user space task context for network related events.
 struct {
@@ -148,35 +157,35 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, SCRATCH_MAP_SIZE);                // simultaneous softirqs running per CPU (?)
-    __type(key, u32);                                     // per cpu index ... (always zero)
-    __type(value, event_data_t);                          // ... linked to a scratch area
+    __uint(max_entries, SCRATCH_MAP_SIZE); // simultaneous softirqs running per CPU (?)
+    __type(key, u32);                      // per cpu index ... (always zero)
+    __type(value, event_data_t);           // ... linked to a scratch area
 } net_heap_sock_state_event SEC(".maps");
 
 // CONSTANTS
 // Network return value (retval) codes
 
 // Packet Direction (ingress/egress) Flag
-#define packet_ingress          (1 << 4)
-#define packet_egress           (1 << 5)
+#define packet_ingress (1 << 4)
+#define packet_egress  (1 << 5)
 // Flows (begin/end) Flags per Protocol
-#define flow_tcp_begin          (1 << 6)  // syn+ack flag or first flow packet
-#define flow_tcp_sample         (1 << 7)  // sample with statistics after first flow
-#define flow_tcp_end            (1 << 8)  // fin flag or last flow packet
+#define flow_tcp_begin  (1 << 6) // syn+ack flag or first flow packet
+#define flow_tcp_sample (1 << 7) // sample with statistics after first flow
+#define flow_tcp_end    (1 << 8) // fin flag or last flow packet
 
 // payload size: full packets, only headers
-#define FULL    65536       // 1 << 16
-#define HEADERS 0           // no payload
+#define FULL    65536 // 1 << 16
+#define HEADERS 0     // no payload
 
 // when guessing by src/dst ports, declare at network.h
-#define TCP_PORT_SSH 22
-#define UDP_PORT_DNS 53
-#define TCP_PORT_DNS 53
+#define TCP_PORT_SSH    22
+#define UDP_PORT_DNS    53
+#define TCP_PORT_DNS    53
 #define TCP_PORT_SOCKS5 1080
 
 // layer 7 parsing related constants
 #define socks5_min_len 4
-#define ssh_min_len 4 // the initial SSH messages always send `SSH-`
+#define ssh_min_len    4 // the initial SSH messages always send `SSH-`
 
 // PROTOTYPES
 
@@ -199,9 +208,12 @@ statfunc int get_network_details_from_sock_v4(struct sock *, net_conn_v4_t *, in
 statfunc struct ipv6_pinfo *inet6_sk_own_impl(struct sock *, struct inet_sock *);
 statfunc int get_network_details_from_sock_v6(struct sock *, net_conn_v6_t *, int);
 statfunc int get_local_sockaddr_in_from_network_details(struct sockaddr_in *, net_conn_v4_t *, u16);
-statfunc int get_remote_sockaddr_in_from_network_details(struct sockaddr_in *, net_conn_v4_t *, u16);
-statfunc int get_local_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
-statfunc int get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
+statfunc int
+get_remote_sockaddr_in_from_network_details(struct sockaddr_in *, net_conn_v4_t *, u16);
+statfunc int
+get_local_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
+statfunc int
+get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
 statfunc bool fill_tuple(struct sock *, tuple_t *);
 
 // clang-format on
@@ -443,8 +455,9 @@ statfunc bool fill_tuple(struct sock *sk, tuple_t *tuple)
             break;
         case AF_INET6:
             BPF_CORE_READ_INTO(
-                &tuple->saddr.v6addr, sk, __sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
-            BPF_CORE_READ_INTO(&tuple->daddr.v6addr, sk, __sk_common.skc_v6_daddr.in6_u.u6_addr32);
+                &tuple->saddr.u6_addr32, sk, __sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
+            BPF_CORE_READ_INTO(
+                &tuple->daddr.u6_addr32, sk, __sk_common.skc_v6_daddr.in6_u.u6_addr32);
             break;
 
         default:
@@ -455,6 +468,182 @@ statfunc bool fill_tuple(struct sock *sk, tuple_t *tuple)
     tuple->dport = bpf_ntohs(get_inet_dport((struct inet_sock *) sk));
 
     return true;
+}
+
+/*
+ * Fills the given ip_key with the provided data. One thing to watch out for is, that the tuple
+ * will have the local addr and port filled into the saddr/sport fields and remote will be in
+ * daddr/dport.
+ */
+statfunc bool load_ip_key(struct ip_key *key,
+                          struct bpf_sock *sk,
+                          nethdrs *nethdrs,
+                          struct process_identity process_identity,
+                          enum flow_direction flow_direction)
+{
+    if (unlikely(!key || !sk || !nethdrs)) {
+        return false;
+    }
+
+    key->tuple.family = sk->family;
+
+    __u16 src_port = 0;
+    __u16 dst_port = 0;
+    __u8 proto = 0;
+
+    switch (sk->family) {
+        case AF_INET:
+            proto = nethdrs->iphdrs.iphdr.protocol;
+
+            // NOTE(patrick.pichler): The mismatch between saddr and daddr for ingress/egress is
+            // on purpose, as we want to store the local addr/port in the saddr/sport and the
+            // remote addr/port in daddr/dport.
+            switch (flow_direction) {
+                case INGRESS:
+                    key->tuple.saddr.v4addr = nethdrs->iphdrs.iphdr.daddr;
+                    key->tuple.daddr.v4addr = nethdrs->iphdrs.iphdr.saddr;
+                    break;
+                case EGRESS:
+                    key->tuple.saddr.v4addr = nethdrs->iphdrs.iphdr.saddr;
+                    key->tuple.daddr.v4addr = nethdrs->iphdrs.iphdr.daddr;
+                    break;
+            }
+            break;
+        case AF_INET6:
+            proto = nethdrs->iphdrs.ipv6hdr.nexthdr;
+
+            // NOTE(patrick.pichler): The mismatch between saddr and daddr for ingress/egress is
+            // on purpose, as we want to store the local addr/port in the saddr/sport and the
+            // remote addr/port in daddr/dport.
+            switch (flow_direction) {
+                case INGRESS:
+                    __builtin_memcpy(key->tuple.saddr.u6_addr32,
+                                     nethdrs->iphdrs.ipv6hdr.daddr.in6_u.u6_addr32,
+                                     4);
+                    __builtin_memcpy(key->tuple.daddr.u6_addr32,
+                                     nethdrs->iphdrs.ipv6hdr.saddr.in6_u.u6_addr32,
+                                     4);
+                    break;
+                case EGRESS:
+                    __builtin_memcpy(key->tuple.saddr.u6_addr32,
+                                     nethdrs->iphdrs.ipv6hdr.saddr.in6_u.u6_addr32,
+                                     4);
+                    __builtin_memcpy(key->tuple.daddr.u6_addr32,
+                                     nethdrs->iphdrs.ipv6hdr.daddr.in6_u.u6_addr32,
+                                     4);
+                    break;
+            }
+            break;
+        default:
+            return false;
+    }
+
+    key->proto = proto;
+
+    switch (proto) {
+        case IPPROTO_TCP:
+            src_port = bpf_ntohs(nethdrs->protohdrs.tcphdr.source);
+            dst_port = bpf_ntohs(nethdrs->protohdrs.tcphdr.dest);
+            break;
+        case IPPROTO_UDP:
+            src_port = bpf_ntohs(nethdrs->protohdrs.udphdr.source);
+            dst_port = bpf_ntohs(nethdrs->protohdrs.udphdr.dest);
+            break;
+        default: {
+            // For any other protocol, we fallback to simply reading the ports from the socket.
+            struct bpf_sock *full_sk = bpf_sk_fullsock(sk);
+            if (unlikely(!full_sk)) {
+                break;
+            }
+
+            src_port = full_sk->src_port;
+            dst_port = bpf_ntohs((__u16) full_sk->dst_port);
+            break;
+        }
+    }
+
+    key->process_identity = process_identity;
+
+    // NOTE(patrick.pichler): The mismatch between saddr and daddr for ingress/egress is
+    // on purpose, as we want to store the local addr/port in the saddr/sport and the
+    // remote addr/port in daddr/dport.
+    switch (flow_direction) {
+        case INGRESS:
+            key->tuple.sport = dst_port;
+            key->tuple.dport = src_port;
+            break;
+        case EGRESS:
+            key->tuple.sport = src_port;
+            key->tuple.dport = dst_port;
+            break;
+    }
+
+    return true;
+}
+
+statfunc void
+update_traffic_summary(struct traffic_summary *val, u64 bytes, enum flow_direction direction)
+{
+    if (unlikely(!val)) {
+        return;
+    }
+
+    val->last_packet_ts = bpf_ktime_get_ns();
+
+    switch (direction) {
+        case INGRESS:
+            __sync_fetch_and_add(&val->rx_bytes, bytes);
+            __sync_fetch_and_add(&val->rx_packets, 1);
+            break;
+        case EGRESS:
+            __sync_fetch_and_add(&val->tx_bytes, bytes);
+            __sync_fetch_and_add(&val->tx_packets, 1);
+            break;
+    }
+}
+
+statfunc void record_netflow(struct __sk_buff *ctx,
+                             task_context_t *task_ctx,
+                             nethdrs *nethdrs,
+                             enum flow_direction direction)
+{
+    process_identity_t identity = {
+        .pid = task_ctx->pid,
+        .pid_start_time = task_ctx->start_time,
+        .cgroup_id = task_ctx->cgroup_id,
+    };
+
+    __builtin_memcpy(identity.comm, task_ctx->comm, sizeof(identity.comm));
+
+    int zero = 0;
+    config_t *config = bpf_map_lookup_elem(&config_map, &zero);
+    if (!config)
+        return;
+
+    struct ip_key key = {0};
+
+    if (!load_ip_key(&key, ctx->sk, nethdrs, identity, direction)) {
+        return;
+    }
+
+    void *sum_map = bpf_map_lookup_elem(&network_traffic_buffer_map, &config->summary_map_index);
+    if (!sum_map)
+        return;
+
+    struct traffic_summary *summary = bpf_map_lookup_elem(sum_map, &key);
+    if (summary == NULL) {
+        struct traffic_summary empty = {0};
+
+        // We do not really care if the update fails, as it would mean, another thread added the
+        // entry.
+        bpf_map_update_elem(sum_map, &key, &empty, BPF_NOEXIST);
+
+        summary = bpf_map_lookup_elem(sum_map, &key);
+        if (summary == NULL) // Something went terribly wrong...
+            return;
+    }
+
+    update_traffic_summary(summary, ctx->len, direction);
 }
 
 #endif

@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"hash/maphash"
 	"net/netip"
 	"os"
 	"sync"
@@ -54,6 +53,7 @@ type ebpfTracer interface {
 	UnmuteEventsFromCgroups(cgroups []uint64) error
 	IsCgroupMuted(cgroup uint64) bool
 	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
+	CollectNetworkSummary() (map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, error)
 }
 
 type signatureEngine interface {
@@ -128,7 +128,6 @@ func NewController(
 		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
 		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
-		netflows:                   map[uint64]*netflowVal{},
 		dnsCache:                   dnsCache,
 		podCache:                   podCache,
 		conntrackCache:             conntrackCache,
@@ -158,10 +157,6 @@ type Controller struct {
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
-
-	netflows           map[uint64]*netflowVal
-	netflowKeyHash     maphash.Hash
-	netflowDestKeyHash maphash.Hash
 
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient

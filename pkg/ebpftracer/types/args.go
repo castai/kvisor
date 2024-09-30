@@ -3559,13 +3559,6 @@ type TrackSyscallStatsArgs struct {
 
 type NetFlowBaseArgs struct {
   internalArgs
-
-  Proto uint8
-  Tuple AddrTuple
-  TxBytes uint64
-  RxBytes uint64
-  TxPackets uint64
-  RxPackets uint64
 }
 
 type StdioViaSocketArgs struct {
