@@ -50,7 +50,7 @@ func (t *Tracer) CollectNetworkSummary() (map[TrafficKey]TrafficSummary, error) 
 	numEntries := t.module.objects.NetworkTrafficBufferMap.MaxEntries()
 	indexToCollect := config.SummaryMapIndex
 
-	config.SummaryMapIndex = (config.SummaryMapIndex + 1) % int32(numEntries)
+  config.SummaryMapIndex = (config.SummaryMapIndex + 1) % int32(numEntries) // nolint:gosec
 
 	err = t.module.objects.ConfigMap.Update(zero, &config, ebpf.UpdateExist)
 	if err != nil {
