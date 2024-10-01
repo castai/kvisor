@@ -268,6 +268,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
 		BTFPath:                            a.cfg.BTFPath,
+		HostCgroupsPath:                    a.cfg.HostCgroupsDir,
 		EventsPerCPUBuffer:                 a.cfg.EBPFEventsPerCPUBuffer,
 		EventsOutputChanSize:               a.cfg.EBPFEventsOutputChanSize,
 		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),

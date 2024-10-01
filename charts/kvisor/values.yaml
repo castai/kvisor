@@ -65,7 +65,26 @@ agent:
   securityContext: {}
 
   containerSecurityContext:
-    privileged: true
+    privileged: false
+    allowPrivilegeEscalation: true
+    runAsNonRoot: false
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - SYS_PTRACE
+        - SYS_RESOURCE
+        - NET_ADMIN
+        - BPF
+        - PERFMON
+      drop:
+        - ALL
+    seccompProfile:
+      type: Unconfined
+    appArmorProfile:
+      type: Unconfined
+    seLinuxOptions:
+      level: s0
+      type: spc_t
     readOnlyRootFilesystem: true
 
   resources: {}

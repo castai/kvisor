@@ -65,6 +65,7 @@ func (m MetricsReportingConfig) Enabled() bool {
 
 type Config struct {
 	BTFPath                string
+	HostCgroupsPath        string
 	EventsPerCPUBuffer     int
 	EventsOutputChanSize   int
 	DefaultCgroupsVersion  string `validate:"required,oneof=V1 V2"`

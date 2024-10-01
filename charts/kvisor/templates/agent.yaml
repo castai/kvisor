@@ -20,7 +20,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       {{- if .Values.agent.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: "{{.Values.agent.metricsHTTPListenPort}}"
+        prometheus.io/port: "{{ .Values.agent.metricsHTTPListenPort }}"
       {{- end }}
       {{- if .Values.pyroscope.enabled }}
         phlare.grafana.com/scrape: "true"
@@ -32,6 +32,7 @@ spec:
         profiles.grafana.com/goroutine.scrape: "true"
         profiles.grafana.com/goroutine.port: "{{ .Values.agent.metricsHTTPListenPort }}"
       {{- end }}
+        container.apparmor.security.beta.kubernetes.io/kvisor: unconfined
       {{- with .Values.agent.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -134,7 +135,7 @@ spec:
             periodSeconds: 10
           volumeMounts:
             - name: cgroups
-              mountPath: "/cgroups"
+              mountPath: /cgroups
               readOnly: true
             - name: etc-os-release
               mountPath: /etc/os-release-host
