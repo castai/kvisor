@@ -132,7 +132,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		log:                       log,
 		cfg:                       cfg,
 		module:                    m,
-		bootTime:                  uint64(system.GetBootTime().UnixNano()),
+    bootTime:                  uint64(system.GetBootTime().UnixNano()), // nolint:gosec
 		eventsChan:                make(chan *types.Event, cfg.EventsOutputChanSize),
 		netflowEventsChan:         make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:            map[uint64]struct{}{},

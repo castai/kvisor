@@ -149,10 +149,10 @@ func (c *Controller) lintObjects(ctx context.Context, objects []kube.Object) (re
 		Checks: lo.Map(checks, func(item LinterCheck, index int) *castaipb.KubeLinterCheck {
 			var passed, failed uint64
 			if item.Passed != nil {
-				passed = uint64(*item.Passed)
+        passed = uint64(*item.Passed) // nolint:gosec
 			}
 			if item.Failed != nil {
-				failed = uint64(*item.Failed)
+        failed = uint64(*item.Failed) // nolint:gosec
 			}
 			return &castaipb.KubeLinterCheck{
 				ResourceUid: item.ResourceID,
