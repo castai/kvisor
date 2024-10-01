@@ -45,9 +45,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
+      automountServiceAccountToken: false
       hostPID: true
       securityContext:
-        {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.agent.securityContext | nindent 8 }}
       priorityClassName: {{ .Values.agent.priorityClass }}
       containers:
         - name: kvisor
@@ -116,6 +117,11 @@ spec:
               name: metrics
               protocol: TCP
           livenessProbe:
+            httpGet:
+              port: metrics
+              path: /healthz
+            periodSeconds: 5
+          readinessProbe:
             httpGet:
               port: metrics
               path: /healthz
