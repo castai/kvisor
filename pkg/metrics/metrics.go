@@ -6,9 +6,10 @@ import (
 )
 
 const (
-	EventTypeLabel string = "event_type"
-	ExporterName   string = "exporter"
-	MetricLabel    string = "metric"
+	EventTypeLabel   string = "event_type"
+	ExporterName     string = "exporter"
+	MetricLabel      string = "metric"
+	EBPFProgramLabel string = "program"
 )
 
 var (
@@ -77,7 +78,7 @@ var (
 
 	AgentExporterSendTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_exporter_send_total",
-		Help: "Dropped exporter events",
+		Help: "Send exporter events",
 	}, []string{ExporterName})
 
 	AgentExporterSendErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -98,4 +99,14 @@ var (
 	EBPFExposedMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kvisor_agent_ebpf_exposed_metrics",
 	}, []string{MetricLabel})
+
+	EBPFProgramRunTimeMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "kvisor_agent_ebpf_program_run_time_ms",
+    Help: "Run time of eBPF programs in milliseconds as reported by the kernel",
+	}, []string{EBPFProgramLabel})
+
+	EBPFProgramRunCountMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "kvisor_agent_ebpf_program_run_count",
+    Help: "Number of times a certain eBPF program run as reported by the kernel",
+	}, []string{EBPFProgramLabel})
 )

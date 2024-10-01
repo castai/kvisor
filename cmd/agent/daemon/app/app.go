@@ -40,6 +40,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type EBPFMetricsConfig struct {
+	TracerMetricsEnabled  bool `json:"TracerMetricsEnabled"`
+	ProgramMetricsEnabled bool `json:"ProgramMetricsEnabled"`
+}
+
 type Config struct {
 	LogLevel                       string                          `json:"logLevel"`
 	LogRateInterval                time.Duration                   `json:"logRateInterval"`
@@ -57,7 +62,7 @@ type Config struct {
 	EBPFEventsPerCPUBuffer         int                             `validate:"required" json:"EBPFEventsPerCPUBuffer"`
 	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
 	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
-	EBPFMetricsEnabled             bool                            `json:"EBPFMetricsEnabled"`
+	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
 	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
 	MutedNamespaces                []string                        `json:"mutedNamespaces"`
 	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
@@ -256,6 +261,11 @@ func (a *App) Run(ctx context.Context) error {
 		return fmt.Errorf("proc handler: %w", err)
 	}
 
+	if cfg.EBPFMetrics.ProgramMetricsEnabled {
+		cleanup := enableBPFStats(cfg, log)
+		defer cleanup()
+	}
+
 	tracer := ebpftracer.New(log, ebpftracer.Config{
 		BTFPath:                            a.cfg.BTFPath,
 		EventsPerCPUBuffer:                 a.cfg.EBPFEventsPerCPUBuffer,
@@ -271,7 +281,10 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
 		ProcessTreeCollector:               processTreeCollector,
-		MetricsReportingEnabled:            a.cfg.EBPFMetricsEnabled,
+		MetricsReporting: ebpftracer.MetricsReportingConfig{
+			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
+			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
+		},
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -341,6 +354,17 @@ func (a *App) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
 	}
+}
+
+func enableBPFStats(cfg *Config, log *logging.Logger) func() {
+	cleanup, err := ebpftracer.EnabledBPFStats(log)
+	if err != nil {
+		// In case we cannot enable bpf stats, there is no need to have the metrics export for them enabled.
+		cfg.EBPFMetrics.ProgramMetricsEnabled = false
+		return func() {}
+	}
+
+	return cleanup
 }
 
 func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
