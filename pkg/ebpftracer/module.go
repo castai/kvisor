@@ -75,7 +75,7 @@ func (m *module) load(cfg Config) error {
 			FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
 			FlowGrouping:                    uint64(cfg.NetflowGrouping),
 			TrackSyscallStats:               cfg.TrackSyscallStats,
-			ExportMetrics:                   cfg.MetricsReportingEnabled,
+			ExportMetrics:                   cfg.MetricsReporting.TracerMetricsEnabled,
 			CgroupV1:                        cfg.DefaultCgroupsVersion == "V1",
 		},
 	}); err != nil {

@@ -54,6 +54,15 @@ type processTreeCollector interface {
 	ProcessExited(eventTime time.Time, containerID string, processKey processtree.ProcessKey, parentProcessKey processtree.ProcessKey, exitTime uint64)
 }
 
+type MetricsReportingConfig struct {
+	ProgramMetricsEnabled bool
+	TracerMetricsEnabled  bool
+}
+
+func (m MetricsReportingConfig) Enabled() bool {
+	return m.ProgramMetricsEnabled || m.TracerMetricsEnabled
+}
+
 type Config struct {
 	BTFPath                string
 	EventsPerCPUBuffer     int
@@ -72,7 +81,7 @@ type Config struct {
 	NetflowGrouping                    NetflowGrouping
 	TrackSyscallStats                  bool
 	ProcessTreeCollector               processTreeCollector
-	MetricsReportingEnabled            bool
+	MetricsReporting                   MetricsReportingConfig
 }
 
 type cgroupCleanupRequest struct {
@@ -132,7 +141,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		log:                       log,
 		cfg:                       cfg,
 		module:                    m,
-    bootTime:                  uint64(system.GetBootTime().UnixNano()), // nolint:gosec
+		bootTime:                  uint64(system.GetBootTime().UnixNano()), // nolint:gosec
 		eventsChan:                make(chan *types.Event, cfg.EventsOutputChanSize),
 		netflowEventsChan:         make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:            map[uint64]struct{}{},
@@ -178,9 +187,9 @@ func (t *Tracer) Run(ctx context.Context) error {
 		return t.cgroupCleanupLoop(ctx)
 	})
 
-	if t.cfg.MetricsReportingEnabled {
+	if t.cfg.MetricsReporting.Enabled() {
 		errg.Go(func() error {
-			return t.exportEBPFMetricsLoop(ctx)
+			return t.exportMetricsLoop(ctx)
 		})
 	}
 
