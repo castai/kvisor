@@ -108,7 +108,7 @@ func (m *module) load(cfg Config) error {
 	}
 
 	m.objects = &objs
-	m.probes = newProbes(m.objects, cfg.HostCgroupsPath)
+	m.probes = newProbes(m.objects, cfg.CgroupClient.GetCgroupsRootPath())
 	m.loaded.Store(true)
 
 	// Should reduce allocated memory, see https://github.com/cilium/ebpf/issues/1063
