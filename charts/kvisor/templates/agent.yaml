@@ -20,7 +20,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       {{- if .Values.agent.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: "{{.Values.agent.metricsHTTPListenPort}}"
+        prometheus.io/port: "{{ .Values.agent.metricsHTTPListenPort }}"
       {{- end }}
       {{- if .Values.pyroscope.enabled }}
         phlare.grafana.com/scrape: "true"
@@ -32,6 +32,7 @@ spec:
         profiles.grafana.com/goroutine.scrape: "true"
         profiles.grafana.com/goroutine.port: "{{ .Values.agent.metricsHTTPListenPort }}"
       {{- end }}
+        container.apparmor.security.beta.kubernetes.io/kvisor: unconfined
       {{- with .Values.agent.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -45,9 +46,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
+      automountServiceAccountToken: false
       hostPID: true
       securityContext:
-        {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.agent.securityContext | nindent 8 }}
       priorityClassName: {{ .Values.agent.priorityClass }}
       containers:
         - name: kvisor
@@ -120,6 +122,11 @@ spec:
               port: metrics
               path: /healthz
             periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              port: metrics
+              path: /healthz
+            periodSeconds: 5
           startupProbe:
             httpGet:
               port: metrics
@@ -128,7 +135,7 @@ spec:
             periodSeconds: 10
           volumeMounts:
             - name: cgroups
-              mountPath: "/cgroups"
+              mountPath: /cgroups
               readOnly: true
             - name: etc-os-release
               mountPath: /etc/os-release-host
