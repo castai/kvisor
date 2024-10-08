@@ -5680,7 +5680,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			dependencies: dependencies{skipDefaultTailCalls: true},
 			params:       []argMeta{},
 		},
-		// This event will never fire and is just defined to load the necessary probes for netflows to work.
+    // This event will never fire and is just defined to load the necessary probes for netflows to work.
 		events.NetFlowBase: {
 			ID:       events.NetFlowBase,
 			id32Bit:  events.Sys32Undefined,

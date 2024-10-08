@@ -39,19 +39,10 @@ func init() {
 				if !found {
 					return nil
 				}
-				// Check if security context is set at the pod level
 				if isSecurityContextSet(podSpec.SecurityContext) {
 					return nil
 				}
-				// Check if security context is set for all the containers in the pod
-				for _, container := range podSpec.NonInitContainers() {
-					if !isContainerSecurityContextSet(container.SecurityContext) {
-						return []diagnostic.Diagnostic{{
-							Message: "Resource does not have security context attached to the pod or any of the containers",
-						}}
-					}
-				}
-				return nil
+				return []diagnostic.Diagnostic{{Message: "Resource does not have security context attached"}}
 			}, nil
 		}),
 	})
@@ -66,18 +57,6 @@ func isSecurityContextSet(ctx *corev1.PodSecurityContext) bool {
 		ctx.RunAsNonRoot != nil || ctx.SupplementalGroups != nil ||
 		ctx.FSGroup != nil || ctx.Sysctls != nil ||
 		ctx.FSGroupChangePolicy != nil || ctx.SeccompProfile != nil
-}
-
-func isContainerSecurityContextSet(ctx *corev1.SecurityContext) bool {
-	if ctx == nil {
-		return false
-	}
-	return ctx.Capabilities != nil || ctx.Privileged != nil ||
-		ctx.SELinuxOptions != nil || ctx.WindowsOptions != nil ||
-		ctx.RunAsUser != nil || ctx.RunAsGroup != nil ||
-		ctx.RunAsNonRoot != nil || ctx.ReadOnlyRootFilesystem != nil ||
-		ctx.AllowPrivilegeEscalation != nil || ctx.ProcMount != nil ||
-		ctx.SeccompProfile != nil || ctx.AppArmorProfile != nil
 }
 
 type Params struct {

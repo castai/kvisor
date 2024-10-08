@@ -1,9 +1,11 @@
 package ebpftracer
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -108,7 +110,18 @@ func (m *module) load(cfg Config) error {
 	}
 
 	m.objects = &objs
-	m.probes = newProbes(m.objects, cfg.CgroupClient.GetCgroupsRootPath())
+
+	// TODO(Kvisord): Mount cgroupv2 if not mounted.
+	cgroupPath, err := detectCgroupPath()
+	if err != nil {
+		cgroupPath = "/cgroupv2"
+		m.log.Debugf("mounting cgroupv2 to path %s", cgroupPath)
+		if err := mountCgroup2(cgroupPath); err != nil {
+			return fmt.Errorf("mounting cgroupv2: %w", err)
+		}
+	}
+	m.probes = newProbes(m.objects, cgroupPath)
+
 	m.loaded.Store(true)
 
 	// Should reduce allocated memory, see https://github.com/cilium/ebpf/issues/1063
@@ -155,4 +168,22 @@ func (m *module) attachProbe(handle handle) error {
 	}
 	m.attachedProbes[handle] = struct{}{}
 	return nil
+}
+
+func detectCgroupPath() (string, error) {
+	f, err := os.Open("/proc/mounts")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		fields := strings.Split(scanner.Text(), " ")
+		if len(fields) >= 3 && fields[2] == "cgroup2" {
+			return fields[1], nil
+		}
+	}
+
+	return "", errors.New("cgroupv2 not found, need to mount")
 }
