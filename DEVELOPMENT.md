@@ -333,26 +333,3 @@ docker run --privileged --rm -t --pid=host -v /sys/kernel/debug/:/sys/kernel/deb
 ```sh
 docker run --name tracee -it --rm   --pid=host --cgroupns=host --privileged   -v /etc/os-release:/etc/os-release-host:ro   -v /var/run:/var/run:ro   aquasec/tracee:latest --events net_packet_tcp
 ```
-
-## Linux capabilities
-
-Use [inspektor-gadget](https://github.com/inspektor-gadget) CLI tool to get the required linux capabilities for the kvisor agent container:
-
-```sh
-KVISOR_AGENT_KUBERNETES_NODE="kvisor-e2e-control-plane" # Replace with the kvisor agent pod name
-kubectl debug --profile=sysadmin node/${KVISOR_AGENT_KUBERNETES_NODE} -it --image=ghcr.io/inspektor-gadget/ig -- \
-    ig trace capabilities -c kvisor --unique -t 0
-
-RUNTIME.CONTAINERNAME          PID              COMM             SYSCALL            CAP CAPNAME            AUDIT            VERDICT
-kvisor                         69801            kvisor-agent     bpf                39  BPF                1                Allow
-kvisor                         69801            kvisor-agent     bpf                38  PERFMON            1                Allow
-kvisor                         69801            kvisor-agent     openat             19  SYS_PTRACE         1                Allow
-kvisor                         69801            kvisor-agent     readlinkat         19  SYS_PTRACE         1                Allow
-kvisor                         69801            kvisor-agent     read               19  SYS_PTRACE         1                Allow
-kvisor                         69801            kvisor-agent     setns              21  SYS_ADMIN          1                Allow
-kvisor                         69801            kvisor-agent     newfstatat         19  SYS_PTRACE         1                Allow
-kvisor                         69801            kvisor-agent     bpf                12  NET_ADMIN          1                Allow
-kvisor                         69801            kvisor-agent     perf_event_open    38  PERFMON            1                Allow
-```
-
-Any `Deny` in the `VERDICT` column should be added to the `containerSecurityContext` of the kvisor agent container in the `charts/kvisor/values.yaml` file to be allowed.

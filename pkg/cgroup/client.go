@@ -117,10 +117,6 @@ func NewClient(log *logging.Logger, root string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) GetCgroupsRootPath() string {
-	return c.cgRoot
-}
-
 func (c *Client) lookupCgroupForIDInCache(id ID) (*Cgroup, bool) {
 	c.cgroupMu.RLock()
 	defer c.cgroupMu.RUnlock()

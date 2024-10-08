@@ -174,8 +174,8 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 				// We always assume the child start time as the event timestamp for forks.
 				system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)), // nolint:gosec
 				container.ID,
-				processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime),        // nolint:gosec
-				processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime), //nolint:gosec
+        processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime), // nolint:gosec
+        processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime), //nolint:gosec
 			)
 		}
 	default:
