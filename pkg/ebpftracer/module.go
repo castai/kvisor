@@ -112,7 +112,7 @@ func (m *module) load(cfg Config) error {
 	m.objects = &objs
 
 	// TODO(Kvisord): Mount cgroupv2 if not mounted.
-	cgroupPath, err := detectCgroupPath()
+	cgroupPath, err := detectCgroupPath(cfg.CgroupClient.GetCgroupsRootPath())
 	if err != nil {
 		cgroupPath = "/cgroupv2"
 		m.log.Debugf("mounting cgroupv2 to path %s", cgroupPath)
@@ -120,6 +120,7 @@ func (m *module) load(cfg Config) error {
 			return fmt.Errorf("mounting cgroupv2: %w", err)
 		}
 	}
+	m.log.Debugf("using cgroup path: %s", cgroupPath)
 	m.probes = newProbes(m.objects, cgroupPath)
 
 	m.loaded.Store(true)
@@ -170,7 +171,7 @@ func (m *module) attachProbe(handle handle) error {
 	return nil
 }
 
-func detectCgroupPath() (string, error) {
+func detectCgroupPath(rootPath string) (string, error) {
 	f, err := os.Open("/proc/mounts")
 	if err != nil {
 		return "", err
