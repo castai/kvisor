@@ -150,6 +150,7 @@ message Netflow {
   string workload_name = 6;
   string workload_kind = 7;
   string zone = 8;
+  string node_name = 13;
   bytes addr = 9;
   uint32 port = 10;
   NetflowProtocol protocol = 11;
@@ -163,6 +164,7 @@ message NetflowDestination {
   string workload_kind = 4;
   string zone = 5;
   string dns_question = 6;
+  string node_name = 14;
   bytes addr = 8;
   uint32 port = 9;
   uint64 tx_bytes = 10;
