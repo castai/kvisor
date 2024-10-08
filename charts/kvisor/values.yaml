@@ -66,8 +66,8 @@ agent:
 
   containerSecurityContext:
     privileged: false
+    allowPrivilegeEscalation: true
     runAsNonRoot: false
-    allowPrivilegeEscalation: false
     capabilities:
       add:
         - SYS_ADMIN
