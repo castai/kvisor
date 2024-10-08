@@ -73,6 +73,7 @@ message Event {
   uint64 cgroup_id = 10;
   uint32 host_pid = 11;
   string workload_uid = 12;
+  string node_name = 14;
 
   oneof data {
     v1.Exec exec = 21;

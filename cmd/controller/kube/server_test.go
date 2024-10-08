@@ -89,6 +89,7 @@ func TestServer(t *testing.T) {
 		r.Equal("st1-name", resp.Pod.WorkloadName)
 		r.Equal("StatefulSet", resp.Pod.WorkloadKind)
 		r.Equal("us-east-1a", resp.Pod.Zone)
+		r.Equal("n1", resp.Pod.NodeName)
 	})
 
 	t.Run("pod not found", func(t *testing.T) {
@@ -110,6 +111,7 @@ func TestServer(t *testing.T) {
 		r.Equal("st1-name", resp.Info.WorkloadName)
 		r.Equal("StatefulSet", resp.Info.WorkloadKind)
 		r.Equal("us-east-1a", resp.Info.Zone)
+		r.Equal("n1", resp.Info.NodeName)
 	})
 
 	t.Run("get ip info not found", func(t *testing.T) {

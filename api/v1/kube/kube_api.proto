@@ -32,6 +32,7 @@ message IPInfo {
   string workload_kind = 5;
   string workload_uid = 6;
   string zone = 7;
+  string node_name = 8;
 }
 
 message GetPodRequest {
@@ -47,4 +48,5 @@ message Pod {
   string workload_name = 2;
   string workload_kind = 3;
   string zone = 4;
+  string node_name = 5;
 }

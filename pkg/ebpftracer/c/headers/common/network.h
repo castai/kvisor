@@ -474,6 +474,7 @@ statfunc bool fill_tuple(struct sock *sk, tuple_t *tuple)
  * Fills the given ip_key with the provided data. One thing to watch out for is, that the tuple
  * will have the local addr and port filled into the saddr/sport fields and remote will be in
  * daddr/dport.
+ * TODO: Right now we do not track source and destination ports due high cardinality.
  */
 statfunc bool load_ip_key(struct ip_key *key,
                           struct bpf_sock *sk,
@@ -487,8 +488,6 @@ statfunc bool load_ip_key(struct ip_key *key,
 
     key->tuple.family = sk->family;
 
-    __u16 src_port = 0;
-    __u16 dst_port = 0;
     __u8 proto = 0;
 
     switch (sk->family) {
@@ -539,44 +538,7 @@ statfunc bool load_ip_key(struct ip_key *key,
     }
 
     key->proto = proto;
-
-    switch (proto) {
-        case IPPROTO_TCP:
-            src_port = bpf_ntohs(nethdrs->protohdrs.tcphdr.source);
-            dst_port = bpf_ntohs(nethdrs->protohdrs.tcphdr.dest);
-            break;
-        case IPPROTO_UDP:
-            src_port = bpf_ntohs(nethdrs->protohdrs.udphdr.source);
-            dst_port = bpf_ntohs(nethdrs->protohdrs.udphdr.dest);
-            break;
-        default: {
-            // For any other protocol, we fallback to simply reading the ports from the socket.
-            struct bpf_sock *full_sk = bpf_sk_fullsock(sk);
-            if (unlikely(!full_sk)) {
-                break;
-            }
-
-            src_port = full_sk->src_port;
-            dst_port = bpf_ntohs((__u16) full_sk->dst_port);
-            break;
-        }
-    }
-
     key->process_identity = process_identity;
-
-    // NOTE(patrick.pichler): The mismatch between saddr and daddr for ingress/egress is
-    // on purpose, as we want to store the local addr/port in the saddr/sport and the
-    // remote addr/port in daddr/dport.
-    switch (flow_direction) {
-        case INGRESS:
-            key->tuple.sport = dst_port;
-            key->tuple.dport = src_port;
-            break;
-        case EGRESS:
-            key->tuple.sport = src_port;
-            key->tuple.dport = dst_port;
-            break;
-    }
 
     return true;
 }

@@ -68,6 +68,7 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		event.WorkloadKind = podInfo.WorkloadKind
 		event.WorkloadName = podInfo.WorkloadName
 		event.WorkloadUid = podInfo.WorkloadUid
+		event.NodeName = podInfo.NodeName
 	}
 
 	switch args := e.Args.(type) {
@@ -164,7 +165,7 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		event.Data = &castpb.Event_Any{
 			Any: &castpb.Any{
 				EventId: uint32(e.Context.EventID),
-        Syscall: uint32(e.Context.Syscall), // nolint:gosec
+				Syscall: uint32(e.Context.Syscall), // nolint:gosec
 				Data:    data,
 			},
 		}

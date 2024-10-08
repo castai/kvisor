@@ -122,7 +122,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 	}
 
 	res := &castpb.Netflow{
-    Timestamp:     uint64(t.UnixNano()), // nolint:gosec
+		Timestamp:     uint64(t.UnixNano()), // nolint:gosec
 		ProcessName:   string(bytes.TrimRight(key.ProcessIdentity.Comm[:], "\x00")),
 		Namespace:     container.PodNamespace,
 		PodName:       container.PodName,
@@ -148,6 +148,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		res.WorkloadName = ipInfo.WorkloadName
 		res.WorkloadKind = ipInfo.WorkloadKind
 		res.Zone = ipInfo.Zone
+		res.NodeName = ipInfo.NodeName
 	}
 
 	return res, nil
@@ -194,6 +195,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 			destination.WorkloadName = ipInfo.WorkloadName
 			destination.WorkloadKind = ipInfo.WorkloadKind
 			destination.Zone = ipInfo.Zone
+			destination.NodeName = ipInfo.NodeName
 		}
 	}
 	return destination, nil

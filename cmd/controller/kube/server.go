@@ -39,6 +39,7 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 		res.WorkloadName = podInfo.Owner.Name
 		res.WorkloadKind = podInfo.Owner.Kind
 		res.Zone = podInfo.Zone
+		res.NodeName = podInfo.Pod.Spec.NodeName
 	}
 	if svc := info.Service; svc != nil {
 		res.WorkloadKind = "Service"
@@ -78,6 +79,7 @@ func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb
 			WorkloadName: info.Owner.Name,
 			WorkloadKind: info.Owner.Kind,
 			Zone:         info.Zone,
+			NodeName:     info.Pod.Spec.NodeName,
 		},
 	}, nil
 }
