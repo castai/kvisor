@@ -181,7 +181,11 @@ func detectCgroupPath(rootPath string) (string, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), " ")
-		if len(fields) >= 3 && fields[2] == "cgroup2" {
+		// Find the mount point for the root cgroup path (e.g., /cgroups),
+		// which corresponds to the host's cgroup hierarchy.
+		// This is necessary because the container's cgroup path (/sys/fs/cgroup)
+		// does not have visibility into the host's cgroup hierarchy.
+		if len(fields) >= 3 && fields[2] == "cgroup2" && strings.HasPrefix(fields[1], rootPath) {
 			return fields[1], nil
 		}
 	}
