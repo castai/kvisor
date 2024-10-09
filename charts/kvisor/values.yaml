@@ -47,7 +47,7 @@ agent:
     # Specifies whether a service account should be created
     create: true
     # Annotations to add to the service account
-    annotations: { }
+    annotations: {}
     # The name of the service account to use.
     # If not set and create is true, a name is generated using the fullname template
     name: ""
@@ -60,23 +60,34 @@ agent:
   # Allow to set priority class like system-node-critical.
   priorityClass: ""
 
-  podAnnotations: { }
+  podAnnotations: {}
 
-  podSecurityContext: { }
-  # fsGroup: 2000
+  securityContext: {}
 
   containerSecurityContext:
-    privileged: true
-#    capabilities:
-#      drop:
-#        - all
-#      add:
-#        - "NET_ADMIN"
-#        - "SYS_PTRACE"
-#        - "SYS_ADMIN"
-    readOnlyRootFilesystem: false # TODO(Kvisord): Make readonly. Now tmp dir is needed to create cgroups mount.
+    privileged: false
+    runAsNonRoot: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - SYS_PTRACE
+        - SYS_RESOURCE
+        - NET_ADMIN
+        - BPF
+        - PERFMON
+      drop:
+        - ALL
+    seccompProfile:
+      type: Unconfined
+    appArmorProfile:
+      type: Unconfined
+    seLinuxOptions:
+      level: s0
+      type: spc_t
+    readOnlyRootFilesystem: true
 
-  resources: { }
+  resources: {}
     # We usually recommend not to specify default resources and to leave this as a conscious
     # choice for the user. This also increases chances charts run on environments with little
     # resources, such as Minikube. If you do want to specify resources, uncomment the following
@@ -88,7 +99,7 @@ agent:
   #   cpu: 100m
   #   memory: 128Mi
 
-  nodeSelector: { }
+  nodeSelector: {}
 
   tolerations:
     - effect: NoSchedule
@@ -130,7 +141,7 @@ controller:
     # Specifies whether a service account should be created
     create: true
     # Annotations to add to the service account
-    annotations: { }
+    annotations: {}
     # The name of the service account to use.
     # If not set and create is true, a name is generated using the fullname template
     name: ""
@@ -163,11 +174,11 @@ controller:
     limits:
       memory: 512Mi
 
-  nodeSelector: { }
+  nodeSelector: {}
 
-  tolerations: [ ]
+  tolerations: []
 
-  affinity: { }
+  affinity: {}
 
   dnsPolicy: ClusterFirst
 

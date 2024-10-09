@@ -112,7 +112,7 @@ func (m *module) load(cfg Config) error {
 	m.objects = &objs
 
 	// TODO(Kvisord): Mount cgroupv2 if not mounted.
-	cgroupPath, err := detectCgroupPath()
+	cgroupPath, err := detectCgroupPath(cfg.CgroupClient.GetCgroupsRootPath())
 	if err != nil {
 		cgroupPath = "/cgroupv2"
 		m.log.Debugf("mounting cgroupv2 to path %s", cgroupPath)
@@ -120,6 +120,7 @@ func (m *module) load(cfg Config) error {
 			return fmt.Errorf("mounting cgroupv2: %w", err)
 		}
 	}
+	m.log.Debugf("using cgroup path: %s", cgroupPath)
 	m.probes = newProbes(m.objects, cgroupPath)
 
 	m.loaded.Store(true)
@@ -170,7 +171,7 @@ func (m *module) attachProbe(handle handle) error {
 	return nil
 }
 
-func detectCgroupPath() (string, error) {
+func detectCgroupPath(rootPath string) (string, error) {
 	f, err := os.Open("/proc/mounts")
 	if err != nil {
 		return "", err
@@ -180,7 +181,11 @@ func detectCgroupPath() (string, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), " ")
-		if len(fields) >= 3 && fields[2] == "cgroup2" {
+		// Find the mount point for the root cgroup path (e.g., /cgroups),
+		// which corresponds to the host's cgroup hierarchy.
+		// This is necessary because the container's cgroup path (/sys/fs/cgroup)
+		// does not have visibility into the host's cgroup hierarchy.
+		if len(fields) >= 3 && fields[2] == "cgroup2" && strings.HasPrefix(fields[1], rootPath) {
 			return fields[1], nil
 		}
 	}

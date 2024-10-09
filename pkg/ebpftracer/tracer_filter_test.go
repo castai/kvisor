@@ -102,6 +102,10 @@ type MockCgroupClient struct {
 	DefaultHierarchyChecker func(hierarchyID uint32) bool
 }
 
+func (m MockCgroupClient) GetCgroupsRootPath() string {
+	return "/sys/fs/cgroup"
+}
+
 func (m MockCgroupClient) IsDefaultHierarchy(hierarchyID uint32) bool {
 	if m.DefaultHierarchyChecker != nil {
 		return m.DefaultHierarchyChecker(hierarchyID)
