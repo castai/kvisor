@@ -13,7 +13,7 @@ Now inside vm you can run ebpftracer
 ```sh
 cd /tmp/kvisor/pkg/ebpftracer
 go generate ./...
-go test -v . -run=TestTracer
+go test -v . -exec sudo -run=TestTracer
 ```
 
 Trigger ebpf events
