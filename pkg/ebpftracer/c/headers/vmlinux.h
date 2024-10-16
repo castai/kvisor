@@ -58,8 +58,7 @@ typedef long unsigned int __kernel_ulong_t;
 
 typedef _Bool bool;
 
-enum
-{
+enum {
     false = 0,
     true = 1,
 };
@@ -131,26 +130,22 @@ struct pt_regs {
 
 // common to all architectures
 
-enum
-{
+enum {
     BPF_ANY = 0,
     BPF_NOEXIST = 1,
     BPF_EXIST = 2,
     BPF_F_LOCK = 4,
 };
 
-enum
-{
+enum {
     BPF_F_USER_STACK = 256,
 };
 
-enum
-{
+enum {
     BPF_F_CURRENT_CPU = 4294967295,
 };
 
-enum
-{
+enum {
     TCP_ESTABLISHED = 1,
     TCP_SYN_SENT = 2,
     TCP_SYN_RECV = 3,
@@ -166,8 +161,7 @@ enum
     TCP_MAX_STATES = 13,
 };
 
-enum sock_type
-{
+enum sock_type {
     SOCK_STREAM = 1,
     SOCK_DGRAM = 2,
     SOCK_RAW = 3,
@@ -177,8 +171,7 @@ enum sock_type
     SOCK_PACKET = 10,
 };
 
-enum
-{
+enum {
     IPPROTO_IP = 0,
     IPPROTO_ICMP = 1,
     IPPROTO_IGMP = 2,
@@ -209,8 +202,7 @@ enum
     IPPROTO_MAX = 263,
 };
 
-enum
-{
+enum {
     TCPF_ESTABLISHED = 2,
     TCPF_SYN_SENT = 4,
     TCPF_FIN_WAIT1 = 16,
@@ -302,36 +294,36 @@ typedef struct {
 } kernel_cap_t;
 
 struct group_info {
-	atomic_t usage;
-	int ngroups;
-	kgid_t gid[0];
+    atomic_t usage;
+    int ngroups;
+    kgid_t gid[0];
 };
 
 struct cred {
-	atomic_t usage;
-	kuid_t uid;
-	kgid_t gid;
-	kuid_t suid;
-	kgid_t sgid;
-	kuid_t euid;
-	kgid_t egid;
-	kuid_t fsuid;
-	kgid_t fsgid;
-	unsigned int securebits;
-	kernel_cap_t cap_inheritable;
-	kernel_cap_t cap_permitted;
-	kernel_cap_t cap_effective;
-	kernel_cap_t cap_bset;
-	kernel_cap_t cap_ambient;
-	unsigned char jit_keyring;
-	struct key *session_keyring;
-	struct key *process_keyring;
-	struct key *thread_keyring;
-	struct key *request_key_auth;
-	void *security;
-	struct user_struct *user;
-	struct user_namespace *user_ns;
-	struct group_info *group_info;
+    atomic_t usage;
+    kuid_t uid;
+    kgid_t gid;
+    kuid_t suid;
+    kgid_t sgid;
+    kuid_t euid;
+    kgid_t egid;
+    kuid_t fsuid;
+    kgid_t fsgid;
+    unsigned int securebits;
+    kernel_cap_t cap_inheritable;
+    kernel_cap_t cap_permitted;
+    kernel_cap_t cap_effective;
+    kernel_cap_t cap_bset;
+    kernel_cap_t cap_ambient;
+    unsigned char jit_keyring;
+    struct key *session_keyring;
+    struct key *process_keyring;
+    struct key *thread_keyring;
+    struct key *request_key_auth;
+    void *security;
+    struct user_struct *user;
+    struct user_namespace *user_ns;
+    struct group_info *group_info;
 };
 
 struct nsproxy {
@@ -484,8 +476,7 @@ struct public_key_signature {
     const void *data;
 };
 
-enum zone_type
-{
+enum zone_type {
     ZONE_DMA,
 };
 
@@ -691,31 +682,30 @@ struct qstr {
 struct hlist_bl_node;
 
 struct hlist_bl_head {
-	struct hlist_bl_node *first;
+    struct hlist_bl_node *first;
 };
 
 struct hlist_bl_node {
-	struct hlist_bl_node *next;
-	struct hlist_bl_node **pprev;
+    struct hlist_bl_node *next;
+    struct hlist_bl_node **pprev;
 };
 
 struct dentry_operations;
 
 struct dentry {
-	unsigned int d_flags;
-	struct hlist_bl_node d_hash;
-	struct dentry *d_parent;
-	struct qstr d_name;
-	struct inode *d_inode;
-	unsigned char d_iname[32];
-	const struct dentry_operations *d_op;
-	struct super_block *d_sb;
-	long unsigned int d_time;
-	void *d_fsdata;
+    unsigned int d_flags;
+    struct hlist_bl_node d_hash;
+    struct dentry *d_parent;
+    struct qstr d_name;
+    struct inode *d_inode;
+    unsigned char d_iname[32];
+    const struct dentry_operations *d_op;
+    struct super_block *d_sb;
+    long unsigned int d_time;
+    void *d_fsdata;
 };
 
-enum bpf_func_id
-{
+enum bpf_func_id {
     BPF_FUNC_probe_write_user = 36,
     BPF_FUNC_override_return = 58,
     BPF_FUNC_sk_storage_get = 107,
@@ -734,8 +724,7 @@ struct kset {
     struct list_head list;
 };
 
-enum mod_mem_type
-{
+enum mod_mem_type {
     MOD_TEXT = 0,
     MOD_DATA,
     MOD_RODATA,
@@ -822,8 +811,7 @@ struct iovec {
     __kernel_size_t iov_len;
 };
 
-enum bpf_map_type
-{
+enum bpf_map_type {
     BPF_MAP_TYPE_UNSPEC = 0,
     BPF_MAP_TYPE_HASH = 1,
     BPF_MAP_TYPE_ARRAY = 2,
@@ -905,28 +893,28 @@ struct __sk_buff {
 };
 
 struct bpf_flow_keys {
-	__u16	nhoff;
-	__u16	thoff;
-	__u16	addr_proto;			/* ETH_P_* of valid addrs */
-	__u8	is_frag;
-	__u8	is_first_frag;
-	__u8	is_encap;
-	__u8	ip_proto;
-	__be16	n_proto;
-	__be16	sport;
-	__be16	dport;
-	union {
-		struct {
-			__be32	ipv4_src;
-			__be32	ipv4_dst;
-		};
-		struct {
-			__u32	ipv6_src[4];	/* in6_addr; network order */
-			__u32	ipv6_dst[4];	/* in6_addr; network order */
-		};
-	};
-	__u32	flags;
-	__be32	flow_label;
+    __u16 nhoff;
+    __u16 thoff;
+    __u16 addr_proto; /* ETH_P_* of valid addrs */
+    __u8 is_frag;
+    __u8 is_first_frag;
+    __u8 is_encap;
+    __u8 ip_proto;
+    __be16 n_proto;
+    __be16 sport;
+    __be16 dport;
+    union {
+        struct {
+            __be32 ipv4_src;
+            __be32 ipv4_dst;
+        };
+        struct {
+            __u32 ipv6_src[4]; /* in6_addr; network order */
+            __u32 ipv6_dst[4]; /* in6_addr; network order */
+        };
+    };
+    __u32 flags;
+    __be32 flow_label;
 };
 
 struct ethhdr {
@@ -937,8 +925,7 @@ struct ethhdr {
 
 typedef __u16 __sum16;
 
-enum kernel_read_file_id
-{
+enum kernel_read_file_id {
     READING_UNKNOWN = 0,
     READING_FIRMWARE = 1,
     READING_MODULE = 2,
@@ -975,14 +962,12 @@ struct seq_operations {
     int (*show)(struct seq_file *m, void *v);
 };
 
-enum bpf_attach_type
-{
+enum bpf_attach_type {
     BPF_CGROUP_INET_INGRESS = 0,
     BPF_CGROUP_INET_EGRESS = 1,
 };
 
-enum bpf_hdr_start_off
-{
+enum bpf_hdr_start_off {
     BPF_HDR_START_MAC = 0,
     BPF_HDR_START_NET = 1,
 };
@@ -1009,8 +994,7 @@ struct sighand_struct {
     struct k_sigaction action[_NSIG];
 };
 
-enum bpf_cmd
-{
+enum bpf_cmd {
     BPF_MAP_CREATE,
     BPF_MAP_LOOKUP_ELEM,
     BPF_MAP_UPDATE_ELEM,
@@ -1067,8 +1051,7 @@ union bpf_attr {
     } link_create;
 };
 
-enum bpf_prog_type
-{
+enum bpf_prog_type {
     BPF_PROG_TYPE_UNSPEC,
     BPF_PROG_TYPE_SOCKET_FILTER,
     BPF_PROG_TYPE_KPROBE,
