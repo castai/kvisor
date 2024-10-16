@@ -153,6 +153,24 @@ struct {
     __type(value, struct net_task_context);
 } net_taskctx_map SEC(".maps");
 
+// We sadly need this second map to store context for existing sockets, as we cannot access the
+// `sk_sock_storage` from an iterator without the help of the `bpf_sock_from_file` helper, which
+// only is available starting from `5.11`.
+//
+// The idea of the socket_key is borrowed from inspektor-gadget. There are potential problems with
+// it though, as it is based on the assumption that port+proto+network ns is unique, which is not
+// always the case, as there is SO_REUSEPORT. Overall it should be good enough for our case though,
+// as we currenlty cannot handle such cases anyway.
+//
+// TODO(patrick.pichler): replace this map with `bpf_sock_from_file` once we up our min kernel
+// version to at least 5.11
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, MAX_NETFLOWS);
+    __type(key, struct sock *);
+    __type(value, struct net_task_context);
+} existing_sockets_map SEC(".maps");
+
 // scratch area
 
 struct {

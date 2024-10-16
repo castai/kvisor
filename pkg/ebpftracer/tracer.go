@@ -333,10 +333,16 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 
 	var tailCalls []TailCall
 	probesToAttach := map[handle]bool{}
+	initializeExistingSockets := false
+
 	for id := range requiredEventsIDs {
 		def, found := t.eventsSet[id]
 		if !found {
 			return fmt.Errorf("missing event definition for id %d", id)
+		}
+
+		if def.requiredOptions.socketsInitialized {
+			initializeExistingSockets = true
 		}
 
 		tailCalls = append(tailCalls, def.dependencies.tailCalls...)
@@ -385,6 +391,16 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 		err := t.initTailCall(tailCall)
 		if err != nil {
 			return fmt.Errorf("failed to initialize tail call: %w", err)
+		}
+	}
+
+	if initializeExistingSockets {
+		// In case initialized sockets are required, we run the initialization logic after the
+		// eBPF handlers are in place, to prevent race conditions/timing issues where the are
+		// sockets created between running the iterator and registering the eBPF programs.
+		err := t.module.InitializeExistingSockets()
+		if err != nil {
+			return fmt.Errorf("failed to load existing sockets: %w", err)
 		}
 	}
 

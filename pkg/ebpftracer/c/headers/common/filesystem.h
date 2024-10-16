@@ -23,8 +23,6 @@
 // TODO: Implement these flags.
 //#define FS_EXE_WRITABLE		(1 << 3)
 
-extern int LINUX_KERNEL_VERSION __kconfig;
-
 // PROTOTYPES
 
 statfunc u64 get_time_nanosec_timespec(struct timespec64 *);

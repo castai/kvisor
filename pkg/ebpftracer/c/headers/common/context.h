@@ -1,6 +1,7 @@
 #ifndef __COMMON_CONTEXT_H__
 #define __COMMON_CONTEXT_H__
 
+#include "bpf/bpf_core_read.h"
 #include "common/consts.h"
 #include <vmlinux.h>
 
@@ -51,7 +52,7 @@ statfunc int init_task_context(task_context_t *tsk_ctx, struct task_struct *task
     tsk_ctx->parent_start_time = get_task_start_time(up_parent);
 
     // Program name
-    bpf_get_current_comm(&tsk_ctx->comm, sizeof(tsk_ctx->comm));
+    BPF_CORE_READ_INTO(&tsk_ctx->comm, task, comm);
 
     return 0;
 }

@@ -1828,6 +1828,52 @@ int cgroup_sock_create(struct bpf_sock *ctx)
     return 1;
 }
 
+// This iterates over all open files of all processes, filter per socket and updates the
+// netcontext map accordingly.
+SEC("iter/task_file")
+int socket_task_file_iter(struct bpf_iter__task_file *ctx)
+{
+    struct file *file = ctx->file;
+    struct task_struct *task = ctx->task;
+
+    if (!file || !task)
+        return 0;
+
+    // // We only care about sockets.
+    if ((u64) file->f_op != global_config.socket_file_ops_addr) {
+        return 0;
+    }
+    net_task_context_t netctx = {0};
+    init_task_context(&netctx.taskctx, task);
+    netctx.taskctx.host_pid = task->pid;
+    netctx.taskctx.host_tid = task->tgid;
+
+    if (LINUX_KERNEL_VERSION < KERNEL_VERSION(5, 11, 0)) {
+        struct socket *socket = (struct socket *) file->private_data;
+        if (!socket) {
+            return 0;
+        }
+        struct sock *sock = BPF_CORE_READ(socket, sk);
+        if (!sock) {
+            return 0;
+        }
+
+        bpf_map_update_elem(&existing_sockets_map, &sock, &netctx, BPF_ANY);
+    } else {
+        struct socket *sock = bpf_sock_from_file(file);
+        if (sock) {
+            bpf_sk_storage_get(&net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+        }
+    }
+
+    return 0;
+}
+
+statfunc net_task_context_t *find_context_for_existing_sockets()
+{
+    return NULL;
+}
+
 //
 // SKB eBPF programs
 //
@@ -1849,12 +1895,31 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
     if (!sk)
         return 1;
 
-    net_task_context_t *netctx = bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0); // obtain event context
+    net_task_context_t *netctx =
+        bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0); // obtain event context
     if (!netctx) {
-        // 1. kthreads receiving ICMP and ICMPv6 (e.g dest unreach)
-        // 2. tasks not being traced (socket was created before agent started)
-        // ...
-        return 1;
+        net_task_context_t *existing_netctx = NULL;
+
+        // For older kernels, also check the existing socket map.
+        if (LINUX_KERNEL_VERSION < KERNEL_VERSION(5, 11, 0)) {
+            struct sock *key = (void *) ctx->sk;
+            existing_netctx = bpf_map_lookup_elem(&existing_sockets_map, &key);
+            // There are certain types of sockets that we do not detect and would still be missing,
+            // such as for the IGMP.
+            if (!existing_netctx) {
+                return 1;
+            }
+        } else {
+            // If we are on newer kernels, there is no fallback.
+            return 1;
+        }
+
+        netctx =
+            bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_SK_STORAGE_GET_F_CREATE);
+        if (!netctx) {
+            // This should never happen, but if it does there is nothing we can do.
+            return 1;
+        }
     }
 
     // Skip if cgroup is muted.

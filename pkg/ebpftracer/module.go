@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
@@ -61,6 +62,11 @@ func (m *module) load(cfg Config) error {
 		return err
 	}
 
+	ksymAddrs := map[string]uint64{"socket_file_ops": 0}
+	if err := proc.LoadSymbolAddresses(ksymAddrs); err != nil {
+		return fmt.Errorf("error while resolving kallsym addresses: %w", err)
+	}
+
 	var kernelTypes *btf.Spec
 	if m.cfg.BTFObjPath != "" {
 		kernelTypes, err = btf.LoadSpec(m.cfg.BTFObjPath)
@@ -77,6 +83,7 @@ func (m *module) load(cfg Config) error {
 			TrackSyscallStats:               cfg.TrackSyscallStats,
 			ExportMetrics:                   cfg.MetricsReporting.TracerMetricsEnabled,
 			CgroupV1:                        cfg.DefaultCgroupsVersion == "V1",
+			SocketFileOpsAddr:               ksymAddrs["socket_file_ops"],
 		},
 	}); err != nil {
 		return err
