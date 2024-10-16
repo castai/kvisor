@@ -4,6 +4,7 @@
 // clang-format off
 
 #include <vmlinux.h>
+#include <bpf/bpf_helpers.h>
 
 #define MAX_PERCPU_BUFSIZE (1 << 15)  // set by the kernel as an upper bound
 #define MAX_STRING_SIZE    4096       // same as PATH_MAX
@@ -35,8 +36,13 @@ typedef struct {
     bool track_syscall_stats;
     bool export_metrics;
     bool cgroup_v1;
+    // TODO(patrick.pichler): replace this with a `__ksym` defined variable once
+    // this PR gets merged https://github.com/cilium/ebpf/pull/1587
+    u64 socket_file_ops_addr;
 } global_config_t;
 
 volatile const global_config_t global_config;
+
+extern int LINUX_KERNEL_VERSION __kconfig;
 
 #endif

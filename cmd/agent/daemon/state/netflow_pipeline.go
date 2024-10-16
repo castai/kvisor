@@ -123,7 +123,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 
 	res := &castpb.Netflow{
 		Timestamp:     uint64(t.UnixNano()), // nolint:gosec
-		ProcessName:   string(bytes.TrimRight(key.ProcessIdentity.Comm[:], "\x00")),
+		ProcessName:   string(bytes.SplitN(key.ProcessIdentity.Comm[:], []byte{0}, 2)[0]),
 		Namespace:     container.PodNamespace,
 		PodName:       container.PodName,
 		ContainerName: container.Name,

@@ -204,7 +204,7 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 				}
 
 				fmt.Printf("%s PID %d (protocol: %d): %s:%d -> %s:%d TX: %d RX: %d TX_Packets: %d RX_Packets: %d\n",
-					string(tk.ProcessIdentity.Comm[:]), tk.ProcessIdentity.Pid, tk.Proto,
+					string(bytes.SplitN(tk.ProcessIdentity.Comm[:], []byte{0}, 2)[0]), tk.ProcessIdentity.Pid, tk.Proto,
 					saddr, tk.Tuple.Sport, daddr, tk.Tuple.Dport,
 					ts.TxBytes, ts.RxBytes,
 					ts.TxPackets, ts.RxPackets,

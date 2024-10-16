@@ -34,6 +34,7 @@ type tracerGlobalConfigT struct {
 	ExportMetrics                   bool
 	CgroupV1                        bool
 	_                               [5]byte
+	SocketFileOpsAddr               uint64
 }
 
 type tracerIpKey struct {
@@ -127,6 +128,7 @@ type tracerProgramSpecs struct {
 	KernelWriteMagicReturn          *ebpf.ProgramSpec `ebpf:"kernel_write_magic_return"`
 	OomMarkVictim                   *ebpf.ProgramSpec `ebpf:"oom_mark_victim"`
 	SchedProcessExecEventSubmitTail *ebpf.ProgramSpec `ebpf:"sched_process_exec_event_submit_tail"`
+	SocketTaskFileIter              *ebpf.ProgramSpec `ebpf:"socket_task_file_iter"`
 	SysDupExitTail                  *ebpf.ProgramSpec `ebpf:"sys_dup_exit_tail"`
 	SysEnterInit                    *ebpf.ProgramSpec `ebpf:"sys_enter_init"`
 	SysEnterSubmit                  *ebpf.ProgramSpec `ebpf:"sys_enter_submit"`
@@ -175,6 +177,7 @@ type tracerMapSpecs struct {
 	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
 	Events                  *ebpf.MapSpec `ebpf:"events"`
 	EventsMap               *ebpf.MapSpec `ebpf:"events_map"`
+	ExistingSocketsMap      *ebpf.MapSpec `ebpf:"existing_sockets_map"`
 	FileModificationMap     *ebpf.MapSpec `ebpf:"file_modification_map"`
 	FileWrites              *ebpf.MapSpec `ebpf:"file_writes"`
 	IgnoredCgroupsMap       *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
@@ -232,6 +235,7 @@ type tracerMaps struct {
 	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
 	Events                  *ebpf.Map `ebpf:"events"`
 	EventsMap               *ebpf.Map `ebpf:"events_map"`
+	ExistingSocketsMap      *ebpf.Map `ebpf:"existing_sockets_map"`
 	FileModificationMap     *ebpf.Map `ebpf:"file_modification_map"`
 	FileWrites              *ebpf.Map `ebpf:"file_writes"`
 	IgnoredCgroupsMap       *ebpf.Map `ebpf:"ignored_cgroups_map"`
@@ -272,6 +276,7 @@ func (m *tracerMaps) Close() error {
 		m.EventDataMap,
 		m.Events,
 		m.EventsMap,
+		m.ExistingSocketsMap,
 		m.FileModificationMap,
 		m.FileWrites,
 		m.IgnoredCgroupsMap,
@@ -315,6 +320,7 @@ type tracerPrograms struct {
 	KernelWriteMagicReturn          *ebpf.Program `ebpf:"kernel_write_magic_return"`
 	OomMarkVictim                   *ebpf.Program `ebpf:"oom_mark_victim"`
 	SchedProcessExecEventSubmitTail *ebpf.Program `ebpf:"sched_process_exec_event_submit_tail"`
+	SocketTaskFileIter              *ebpf.Program `ebpf:"socket_task_file_iter"`
 	SysDupExitTail                  *ebpf.Program `ebpf:"sys_dup_exit_tail"`
 	SysEnterInit                    *ebpf.Program `ebpf:"sys_enter_init"`
 	SysEnterSubmit                  *ebpf.Program `ebpf:"sys_enter_submit"`
@@ -361,6 +367,7 @@ func (p *tracerPrograms) Close() error {
 		p.KernelWriteMagicReturn,
 		p.OomMarkVictim,
 		p.SchedProcessExecEventSubmitTail,
+		p.SocketTaskFileIter,
 		p.SysDupExitTail,
 		p.SysEnterInit,
 		p.SysEnterSubmit,

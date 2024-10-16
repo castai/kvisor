@@ -10,20 +10,25 @@ type argMeta struct {
 	Type string `json:"type"`
 }
 
+type requriedOptions struct {
+	socketsInitialized bool
+}
+
 type definition struct {
-	ID           events.ID
-	id32Bit      events.ID
-	name         string
-	internal     bool
-	syscall      bool
-	dependencies dependencies
-	sets         []string
-	params       []argMeta
+	ID              events.ID
+	id32Bit         events.ID
+	name            string
+	internal        bool
+	syscall         bool
+	dependencies    dependencies
+	sets            []string
+	params          []argMeta
+	requiredOptions requriedOptions
 }
 
 type EventProbe struct {
-	handle   handle
-	required bool // tracee fails if probe can't be attached
+	handle      handle
+	required    bool // tracee fails if probe can't be attached
 }
 
 type dependencies struct {
@@ -5417,6 +5422,9 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "int", Name: "type"},
 				{Type: "struct sockaddr*", Name: "remote_addr"},
 			},
+			requiredOptions: requriedOptions{
+				socketsInitialized: true,
+			},
 		},
 		events.SocketDup: {
 			ID:      events.SocketDup,
@@ -5521,11 +5529,6 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:     "net_packet_base",
 			internal: true,
 			dependencies: dependencies{
-				//capabilities: capabilities{
-				//	ebpf: []cap.Value{
-				//		cap.NET_ADMIN, // needed for BPF_PROG_TYPE_CGROUP_SKB
-				//	},
-				//},
 				probes: []EventProbe{
 					{handle: ProbeCgroupSKBIngress, required: true},
 					{handle: ProbeCgroupSKBEgress, required: true},
@@ -5670,6 +5673,9 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "u32", Name: "new_state"},
 				{Type: "tuple", Name: "tuple"},
 			},
+			requiredOptions: requriedOptions{
+				socketsInitialized: true,
+			},
 		},
 		events.TrackSyscallStats: {
 			ID:           events.TrackSyscallStats,
@@ -5680,7 +5686,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			dependencies: dependencies{skipDefaultTailCalls: true},
 			params:       []argMeta{},
 		},
-    // This event will never fire and is just defined to load the necessary probes for netflows to work.
+		// This event will never fire and is just defined to load the necessary probes for netflows to work.
 		events.NetFlowBase: {
 			ID:       events.NetFlowBase,
 			id32Bit:  events.Sys32Undefined,
@@ -5693,6 +5699,9 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 			sets:   []string{"network_events"},
 			params: []argMeta{},
+			requiredOptions: requriedOptions{
+				socketsInitialized: true,
+			},
 		},
 		//
 		// End of Network Protocol Event Types

@@ -502,6 +502,10 @@ struct in6_addr {
     } in6_u;
 };
 
+typedef struct {
+    s64 counter;
+} atomic64_t;
+
 struct sock_common {
     union {
         struct {
@@ -518,8 +522,10 @@ struct sock_common {
     unsigned short skc_family;
     volatile unsigned char skc_state;
     int skc_bound_dev_if;
+    possible_net_t skc_net;
     struct in6_addr skc_v6_daddr;
     struct in6_addr skc_v6_rcv_saddr;
+    atomic64_t skc_cookie;
 };
 
 struct kobject {
@@ -792,6 +798,7 @@ struct ipc_namespace {
 
 struct net {
     struct ns_common ns;
+    u64 net_cookie;
 };
 
 typedef __u32 __wsum;
@@ -1280,6 +1287,27 @@ struct icmp6hdr {
         struct icmpv6_nd_advt u_nd_advt;
         struct icmpv6_nd_ra u_nd_ra;
     } icmp6_dataun;
+};
+
+struct bpf_iter_meta {
+    union {
+        struct seq_file *seq;
+    };
+    u64 session_id;
+    u64 seq_num;
+};
+
+struct bpf_iter__task_file {
+    union {
+        struct bpf_iter_meta *meta;
+    };
+    union {
+        struct task_struct *task;
+    };
+    u32 fd;
+    union {
+        struct file *file;
+    };
 };
 
 #pragma clang attribute pop
