@@ -666,8 +666,6 @@ int BPF_KPROBE(trace_exec_binprm)
     return 0;
 }
 
-// clang-format off
-
 // trace/events/sched.h: TP_PROTO(struct task_struct *p, pid_t old_pid, struct linux_binprm *bprm)
 SEC("raw_tracepoint/sched_process_exec")
 int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
@@ -730,14 +728,24 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
     bool itp_inode_diff = proc_info->interpreter.id.inode != inode_nr;
 
     if (itp_inode_exists && (itp_dev_diff || itp_inode_diff)) {
-        save_str_to_buf(&p.event->args_buf, &proc_info->interpreter.pathname, 6);                    // interpreter path
-        save_to_submit_buf(&p.event->args_buf, &proc_info->interpreter.id.device, sizeof(dev_t), 7); // interpreter device number
-        save_to_submit_buf(&p.event->args_buf, &proc_info->interpreter.id.inode, sizeof(u64), 8);    // interpreter inode number
-        save_to_submit_buf(&p.event->args_buf, &proc_info->interpreter.id.ctime, sizeof(u64), 9);    // interpreter changed time
+        save_str_to_buf(
+            &p.event->args_buf, &proc_info->interpreter.pathname, 6); // interpreter path
+        save_to_submit_buf(&p.event->args_buf,
+                           &proc_info->interpreter.id.device,
+                           sizeof(dev_t),
+                           7); // interpreter device number
+        save_to_submit_buf(&p.event->args_buf,
+                           &proc_info->interpreter.id.inode,
+                           sizeof(u64),
+                           8); // interpreter inode number
+        save_to_submit_buf(&p.event->args_buf,
+                           &proc_info->interpreter.id.ctime,
+                           sizeof(u64),
+                           9); // interpreter changed time
     }
 
-    struct path f_path = (struct path)BPF_CORE_READ(file, f_path);
-	struct dentry* dentry = f_path.dentry;
+    struct path f_path = (struct path) BPF_CORE_READ(file, f_path);
+    struct dentry *dentry = f_path.dentry;
     struct super_block *sb = BPF_CORE_READ(inode, i_sb);
     u32 flags = 0;
     if (sb && inode) {
@@ -755,8 +763,8 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
     }
 
     // If there is a dummy element in the map, we know the binary was dropped.
-    if (bpf_map_lookup_elem(&dropped_binary_inodes, &inode_nr)){
-            flags |= FS_EXE_DROPPED_BINARY;
+    if (bpf_map_lookup_elem(&dropped_binary_inodes, &inode_nr)) {
+        flags |= FS_EXE_DROPPED_BINARY;
     }
 
     pid_t pid = p.event->context.task.host_pid;
@@ -774,8 +782,6 @@ int tracepoint__sched__sched_process_exec(struct bpf_raw_tracepoint_args *ctx)
 
     return 0;
 }
-
-// clang-format on
 
 SEC("raw_tracepoint/sched_process_exec_event_submit_tail")
 int sched_process_exec_event_submit_tail(struct bpf_raw_tracepoint_args *ctx)
@@ -1490,8 +1496,6 @@ int BPF_KPROBE(trace_filp_close)
     return 0;
 }
 
-// clang-format off
-
 SEC("kprobe/load_elf_phdrs")
 int BPF_KPROBE(trace_load_elf_phdrs)
 {
@@ -1505,7 +1509,8 @@ int BPF_KPROBE(trace_load_elf_phdrs)
     proc_info_t *proc_info = p.proc_info;
 
     struct file *loaded_elf = (struct file *) PT_REGS_PARM2(ctx);
-    const char *elf_pathname = (char *) get_path_str(__builtin_preserve_access_index(&loaded_elf->f_path));
+    const char *elf_pathname =
+        (char *) get_path_str(__builtin_preserve_access_index(&loaded_elf->f_path));
 
     // The interpreter field will be updated for any loading of an elf, both for the binary and for
     // the interpreter. Because the interpreter is loaded only after the executed elf is loaded, the
@@ -1528,8 +1533,6 @@ int BPF_KPROBE(trace_load_elf_phdrs)
 
     return 0;
 }
-
-// clang-format on
 
 enum signal_handling_method_e {
     SIG_DFL,
@@ -1648,8 +1651,6 @@ int BPF_KPROBE(trace_ret_file_modified)
     return 0;
 }
 
-// clang-format off
-
 // Network Packets
 
 //
@@ -1666,8 +1667,8 @@ statfunc void set_net_task_context(program_data_t *p, net_task_context_t *netctx
     __builtin_memset(&netctx->taskctx, 0, sizeof(task_context_t));
     __builtin_memcpy(&netctx->taskctx, &p->event->context.task, sizeof(task_context_t));
 
-    // Normally this will be set filled inside events_perf_submit but for some events like set_socket_state we
-    // want to prefill full network context.
+    // Normally this will be set filled inside events_perf_submit but for some events like
+    // set_socket_state we want to prefill full network context.
     init_task_context(&netctx->taskctx, p->task);
 }
 
@@ -1702,8 +1703,7 @@ statfunc enum event_id_e net_packet_to_net_event(net_packet_t packet_type)
 #pragma clang diagnostic ignored "-Waddress-of-packed-member"
 
 // Return if a network event should to be sumitted.
-statfunc bool should_submit_net_event(net_event_context_t *neteventctx,
-                                     net_packet_t packet_type)
+statfunc bool should_submit_net_event(net_event_context_t *neteventctx, net_packet_t packet_type)
 {
     enum event_id_e evt_id = net_packet_to_net_event(packet_type);
 
@@ -1715,7 +1715,6 @@ statfunc bool should_submit_net_event(net_event_context_t *neteventctx,
 }
 
 #pragma clang diagnostic pop // -Waddress-of-packed-member
-
 
 // Return if a network capture event should be submitted.
 statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_packet_t packet_type)
@@ -1730,13 +1729,11 @@ statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_pack
 // Protocol parsing functions
 //
 
-#define CGROUP_SKB_HANDLE_FUNCTION(name)                                       \
-statfunc u32 cgroup_skb_handle_##name(                                         \
-    struct __sk_buff *ctx,                                                     \
-    net_event_context_t *neteventctx,                                          \
-    nethdrs *nethdrs,                                                          \
-    enum flow_direction flow_direction                                        \
-)
+#define CGROUP_SKB_HANDLE_FUNCTION(name)                                                           \
+    statfunc u32 cgroup_skb_handle_##name(struct __sk_buff *ctx,                                   \
+                                          net_event_context_t *neteventctx,                        \
+                                          nethdrs *nethdrs,                                        \
+                                          enum flow_direction flow_direction)
 
 CGROUP_SKB_HANDLE_FUNCTION(family);
 CGROUP_SKB_HANDLE_FUNCTION(proto);
@@ -1754,9 +1751,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 //
 
 // Submit a network event (packet, capture, flow) to userland.
-statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx,
-                               net_event_context_t *neteventctx,
-                               u32 event_type, u32 size)
+statfunc u32 cgroup_skb_submit(
+    void *map, struct __sk_buff *ctx, net_event_context_t *neteventctx, u32 event_type, u32 size)
 {
     size = size > FULL ? FULL : size;
     switch (size) {
@@ -1867,18 +1863,18 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         return 1;
     }
 
-    // TODO: We may run into stack limit issue here.
-    // If that happens change event_context_t to be a pointer since we have it inside ebpf map anyway.
+    // TODO: We may run into stack limit issue here. If that happens change event_context_t to be a
+    // pointer since we have it inside ebpf map anyway.
     net_event_context_t neteventctx_val = {0};
     net_event_context_t *neteventctx = &neteventctx_val;
 
     event_context_t *eventctx = &neteventctx->eventctx;
     __builtin_memcpy(&eventctx->task, &netctx->taskctx, sizeof(task_context_t));
     eventctx->ts = bpf_ktime_get_ns();
-    neteventctx->argnum = 1;                                 // 1 argument (add more if needed)
-    eventctx->eventid = NET_PACKET_IP;                      // will be changed in skb program
+    neteventctx->argnum = 1;           // 1 argument (add more if needed)
+    eventctx->eventid = NET_PACKET_IP; // will be changed in skb program
     eventctx->processor_id = (u16) bpf_get_smp_processor_id();
-    eventctx->syscall = NO_SYSCALL;                         // ingress has no orig syscall
+    eventctx->syscall = NO_SYSCALL; // ingress has no orig syscall
     neteventctx->md.header_size = 0;
     eventctx->retval = flow_direction == INGRESS ? packet_ingress : packet_egress;
 
@@ -1906,7 +1902,6 @@ int cgroup_skb_egress(struct __sk_buff *ctx)
 //
 // SUPPORTED L3 NETWORK PROTOCOLS (ip, ipv6) HANDLERS
 //
-// clang-format on
 CGROUP_SKB_HANDLE_FUNCTION(proto)
 {
     void *dest = NULL;
@@ -2034,8 +2029,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
 //
 // GUESS L7 NETWORK PROTOCOLS (http, dns, etc)
 //
-
-// clang-format on
 
 #define SOCKS5_VERSION(buf)     buf[0]
 #define SOCKS5_NUM_METHODS(buf) buf[1]
@@ -2165,8 +2158,6 @@ out:
     return false;
 }
 
-// clang-format off
-
 //
 // SUPPORTED L4 NETWORK PROTOCOL (tcp, udp, icmp) HANDLERS
 //
@@ -2198,7 +2189,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     if (!submit_dns && !submit_socks5 && !submit_ssh)
         goto done;
 
-    // clang-format on
     // Guess layer 7 protocols by src/dst ports ...
     u16 lower_port = srcport < dstport ? srcport : dstport;
 
@@ -2227,8 +2217,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
             return CGROUP_SKB_HANDLE(proto_tcp_socks5);
         }
     }
-    // clang-format off
-
     // ... continue with net_l7_is_protocol_xxx
 
 done:
@@ -2305,7 +2293,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5)
 
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh)
 {
-    // TODO(patrick.pichler): this needs better handling, as i do not want to have this a network base event
+    // TODO(patrick.pichler): this needs better handling, as i do not want to have this a network
+    // base event
     u32 payload_len = ctx->len - neteventctx->md.header_size;
 
     // submit SSH base event if needed (full packet)
@@ -2316,8 +2305,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh)
 
     return 1; // NOTE: might block SSH here if needed (return 0)
 }
-
-// clang-format on
 
 // TODO: Instead of returning sock state return tcp_connect, tcp_listen, tcp_connect_error events.
 // That will allow to subscribe only to wanted events and make handing easier.
@@ -2383,7 +2370,6 @@ cleanup:
     free_scratch_buf(e);
     return 0;
 }
-// clang-format on
 
 SEC("raw_tracepoint/oom/mark_victim")
 int oom_mark_victim(struct bpf_raw_tracepoint_args *ctx)
