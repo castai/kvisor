@@ -1905,13 +1905,27 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
             struct sock *key = (void *) ctx->sk;
             existing_netctx = bpf_map_lookup_elem(&existing_sockets_map, &key);
             // There are certain types of sockets that we do not detect and would still be missing,
-            // such as for the IGMP.
-            if (!existing_netctx) {
+            // such as for the IGMP. This only applies to cgroup v1 though, as for cgroup v2, we
+            // can still attribute traffic to at least a container via the cgroup id.
+            if (!existing_netctx && global_config.cgroup_v1) {
                 return 1;
             }
         } else {
-            // If we are on newer kernels, there is no fallback.
-            return 1;
+            // There is no fallback for cgroup v1 as we cannot figure out the cgroup id for the
+            // originating process.
+            if (global_config.cgroup_v1) {
+                return 1;
+            }
+        }
+
+        // For cgroup v2, if there was no existing task context found, we fallback to just the
+        // cgroup id which we should be able to attribute to a container in userspace.
+        //
+        // NOTE: this will not work for nested cgroups, but it is an accepted limitation for now.
+        if (!existing_netctx) {
+            net_task_context_t cgroup_context = {0};
+            cgroup_context.taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
+            existing_netctx = &cgroup_context;
         }
 
         netctx =
