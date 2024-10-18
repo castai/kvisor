@@ -463,6 +463,7 @@ func scanJobSpec(
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser:                lo.ToPtr(nonRootUserID),
 								RunAsNonRoot:             lo.ToPtr(true),
+								ReadOnlyRootFilesystem:   lo.ToPtr(true),
 								AllowPrivilegeEscalation: lo.ToPtr(false),
 							},
 							Name:  "collector",

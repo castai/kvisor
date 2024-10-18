@@ -239,6 +239,7 @@ func TestScanner(t *testing.T) {
 										SecurityContext: &corev1.SecurityContext{
 											RunAsUser:                lo.ToPtr(nonRootUserID),
 											RunAsNonRoot:             lo.ToPtr(true),
+											ReadOnlyRootFilesystem:   lo.ToPtr(true),
 											AllowPrivilegeEscalation: lo.ToPtr(false),
 										},
 									},
