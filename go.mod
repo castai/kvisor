@@ -16,7 +16,7 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/florianl/go-conntrack v0.4.0
 	github.com/go-playground/validator/v10 v10.17.0
-	github.com/golang/glog v1.2.0
+	github.com/golang/glog v1.2.2
 	github.com/google/go-containerregistry v0.19.1
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
