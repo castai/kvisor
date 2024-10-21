@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ github.event.head_commit.message != '[Release] Update Chart.yaml' }}
     steps:
       - name: Checkout
@@ -160,7 +160,7 @@ jobs:
   # if we everything is working with cgroups v1 and v2
   e2e:
     name: E2E
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'pull_request' }}
     needs: build
     steps:
