@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/castai/kvisor/pkg/logging"
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
 )
 
@@ -56,7 +56,7 @@ type blobsCacheStore interface {
 
 func newMemoryBlobsCacheStore(log *logging.Logger) blobsCacheStore {
 	// One large blob json size is around 16KB, so we should use max 32MB of extra memory.
-	cache, _ := lru.New(2000)
+	cache, _ := lru.New[string, []byte](2000)
 	return &memoryBlobsCacheStore{
 		log:   log,
 		cache: cache,
@@ -65,7 +65,7 @@ func newMemoryBlobsCacheStore(log *logging.Logger) blobsCacheStore {
 
 type memoryBlobsCacheStore struct {
 	log   *logging.Logger
-	cache *lru.Cache
+	cache *lru.Cache[string, []byte]
 }
 
 func (c *memoryBlobsCacheStore) putBlob(key string, blob []byte) {
@@ -81,5 +81,5 @@ func (c *memoryBlobsCacheStore) getBlob(key string) ([]byte, bool) {
 	if !ok {
 		return nil, false
 	}
-	return val.([]byte), true
+	return val, true
 }
