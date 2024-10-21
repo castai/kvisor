@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-FROM ubuntu:jammy
+FROM ubuntu:noble@sha256:99c35190e22d294cdace2783ac55effc69d32896daaa265f0bbedbcde4fbe3e5
 
 ARG uid=1000
 ARG gid=1000
