@@ -74,7 +74,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push release (kvisor-agent)
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6
         with:
           context: .
           push: true
@@ -87,7 +87,7 @@ jobs:
             us-docker.pkg.dev/castai-hub/library/kvisor-agent:latest
 
       - name: Build and push release (kvisor-controller)
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6
         with:
           context: .
           push: true
@@ -100,7 +100,7 @@ jobs:
             us-docker.pkg.dev/castai-hub/library/kvisor-controller:latest
 
       - name: Build and push release (kvisor-scanners)
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6
         with:
           context: .
           push: true
