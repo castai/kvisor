@@ -26,7 +26,7 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const cfgDir = "../kubebench-rules/"
