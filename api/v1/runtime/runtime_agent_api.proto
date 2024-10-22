@@ -63,6 +63,8 @@ message Event {
   EventType event_type = 1;
   uint64 timestamp = 2; // Stored as unix timestamp in nanoseconds.
   string process_name = 3;
+  uint32 process_pid = 15;
+  uint64 process_start_time = 16;
   string namespace = 4;
   string pod_name = 5;
   string container_name = 6;
