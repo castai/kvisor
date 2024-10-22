@@ -160,7 +160,6 @@ const (
 	ProbeCgroupRmdir
 	ProbeSecurityBPRMCheck
 	ProbeSecuritySocketConnect
-	ProbeLoadElfPhdrs
 	ProbeCgroupSKBIngress
 	ProbeCgroupSKBEgress
 	ProbeFileUpdateTime
@@ -198,7 +197,6 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		ProbeCgroupRmdir:            newTraceProbe(rawTracepoint, "cgroup:cgroup_rmdir", objs.TracepointCgroupCgroupRmdir),
 		ProbeSecurityBPRMCheck:      newTraceProbe(kProbe, "security_bprm_check", objs.TraceSecurityBprmCheck),
 		ProbeSecuritySocketConnect:  newTraceProbe(kProbe, "security_socket_connect", objs.TraceSecuritySocketConnect),
-		ProbeLoadElfPhdrs:           newTraceProbe(kProbe, "load_elf_phdrs", objs.TraceLoadElfPhdrs),
 		ProbeCgroupSKBIngress:       newCgroupProbe(ebpf.AttachCGroupInetIngress, cgroupPath, objs.CgroupSkbIngress),
 		ProbeCgroupSKBEgress:        newCgroupProbe(ebpf.AttachCGroupInetEgress, cgroupPath, objs.CgroupSkbEgress),
 		ProbeFileUpdateTime:         newTraceProbe(kProbe, "file_update_time", objs.TraceFileUpdateTime),

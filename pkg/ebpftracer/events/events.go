@@ -36,7 +36,6 @@ const (
 	SecurityBprmCheck
 	SecuritySocketConnect
 	SocketDup
-	LoadElfPhdrs
 	FileModification
 	SockSetState
 	ProcessOomKilled

@@ -5259,7 +5259,6 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				probes: []EventProbe{
 					{handle: ProbeExecBinprm, required: false},
 					{handle: ProbeSchedProcessExec, required: true},
-					{handle: ProbeLoadElfPhdrs, required: false},
 				},
 				tailCalls: []TailCall{
 					{
@@ -5446,22 +5445,6 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "int", Name: "oldfd"},
 				{Type: "int", Name: "newfd"},
 				{Type: "struct sockaddr*", Name: "remote_addr"},
-			},
-		},
-		events.LoadElfPhdrs: {
-			ID:      events.LoadElfPhdrs,
-			id32Bit: events.Sys32Undefined,
-			name:    "load_elf_phdrs",
-			dependencies: dependencies{
-				probes: []EventProbe{
-					{handle: ProbeLoadElfPhdrs, required: true},
-				},
-			},
-			sets: []string{"proc"},
-			params: []argMeta{
-				{Type: "const char*", Name: "pathname"},
-				{Type: "dev_t", Name: "dev"},
-				{Type: "unsigned long", Name: "inode"},
 			},
 		},
 		events.FileModification: {
