@@ -142,7 +142,6 @@ type tracerProgramSpecs struct {
 	TraceFileUpdateTime             *ebpf.ProgramSpec `ebpf:"trace_file_update_time"`
 	TraceFilpClose                  *ebpf.ProgramSpec `ebpf:"trace_filp_close"`
 	TraceInetSockSetState           *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
-	TraceLoadElfPhdrs               *ebpf.ProgramSpec `ebpf:"trace_load_elf_phdrs"`
 	TraceRetFileModified            *ebpf.ProgramSpec `ebpf:"trace_ret_file_modified"`
 	TraceRetFileUpdateTime          *ebpf.ProgramSpec `ebpf:"trace_ret_file_update_time"`
 	TraceSecurityBprmCheck          *ebpf.ProgramSpec `ebpf:"trace_security_bprm_check"`
@@ -334,7 +333,6 @@ type tracerPrograms struct {
 	TraceFileUpdateTime             *ebpf.Program `ebpf:"trace_file_update_time"`
 	TraceFilpClose                  *ebpf.Program `ebpf:"trace_filp_close"`
 	TraceInetSockSetState           *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
-	TraceLoadElfPhdrs               *ebpf.Program `ebpf:"trace_load_elf_phdrs"`
 	TraceRetFileModified            *ebpf.Program `ebpf:"trace_ret_file_modified"`
 	TraceRetFileUpdateTime          *ebpf.Program `ebpf:"trace_ret_file_update_time"`
 	TraceSecurityBprmCheck          *ebpf.Program `ebpf:"trace_security_bprm_check"`
@@ -381,7 +379,6 @@ func (p *tracerPrograms) Close() error {
 		p.TraceFileUpdateTime,
 		p.TraceFilpClose,
 		p.TraceInetSockSetState,
-		p.TraceLoadElfPhdrs,
 		p.TraceRetFileModified,
 		p.TraceRetFileUpdateTime,
 		p.TraceSecurityBprmCheck,

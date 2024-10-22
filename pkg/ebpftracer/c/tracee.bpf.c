@@ -1496,44 +1496,6 @@ int BPF_KPROBE(trace_filp_close)
     return 0;
 }
 
-SEC("kprobe/load_elf_phdrs")
-int BPF_KPROBE(trace_load_elf_phdrs)
-{
-    program_data_t p = {};
-    if (!init_program_data(&p, ctx))
-        return 0;
-
-    if (!should_trace((&p)))
-        return 0;
-
-    proc_info_t *proc_info = p.proc_info;
-
-    struct file *loaded_elf = (struct file *) PT_REGS_PARM2(ctx);
-    const char *elf_pathname =
-        (char *) get_path_str(__builtin_preserve_access_index(&loaded_elf->f_path));
-
-    // The interpreter field will be updated for any loading of an elf, both for the binary and for
-    // the interpreter. Because the interpreter is loaded only after the executed elf is loaded, the
-    // value of the executed binary should be overridden by the interpreter.
-
-    size_t sz = sizeof(proc_info->interpreter.pathname);
-    bpf_probe_read_kernel_str(proc_info->interpreter.pathname, sz, elf_pathname);
-    proc_info->interpreter.id.device = get_dev_from_file(loaded_elf);
-    proc_info->interpreter.id.inode = get_inode_nr_from_file(loaded_elf);
-    proc_info->interpreter.id.ctime = get_ctime_nanosec_from_file(loaded_elf);
-
-    if (should_submit(LOAD_ELF_PHDRS, p.event)) {
-        save_str_to_buf(&p.event->args_buf, (void *) elf_pathname, 0);
-        save_to_submit_buf(&p.event->args_buf, &proc_info->interpreter.id.device, sizeof(dev_t), 1);
-        save_to_submit_buf(
-            &p.event->args_buf, &proc_info->interpreter.id.inode, sizeof(unsigned long), 2);
-
-        events_perf_submit(&p, LOAD_ELF_PHDRS, 0);
-    }
-
-    return 0;
-}
-
 enum signal_handling_method_e {
     SIG_DFL,
     SIG_IGN,

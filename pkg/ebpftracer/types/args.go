@@ -3459,14 +3459,6 @@ type SocketDupArgs struct {
   RemoteAddr Sockaddr
 }
 
-type LoadElfPhdrsArgs struct {
-  internalArgs
-
-  Pathname string
-  Dev uint32
-  Inode uint64
-}
-
 type FileModificationArgs struct {
   internalArgs
 

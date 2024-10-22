@@ -17483,47 +17483,6 @@ func ParseSocketDupArgs(decoder *Decoder) (types.SocketDupArgs, error) {
   return result, nil
 }
 
-func ParseLoadElfPhdrsArgs(decoder *Decoder) (types.LoadElfPhdrsArgs, error) {
-  var result types.LoadElfPhdrsArgs
-  var err error
-
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LoadElfPhdrsArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.LoadElfPhdrsArgs{}, ErrTooManyArguments
-  }
-
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LoadElfPhdrsArgs{}, err
-    }
-
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LoadElfPhdrsArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.LoadElfPhdrsArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Inode)
-      if err != nil {
-        return types.LoadElfPhdrsArgs{}, err
-      }
-    }
-  }
-  return result, nil
-}
-
 func ParseFileModificationArgs(decoder *Decoder) (types.FileModificationArgs, error) {
   var result types.FileModificationArgs
   var err error
@@ -18916,8 +18875,6 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseSecuritySocketConnectArgs(decoder)
   case events.SocketDup:
     return ParseSocketDupArgs(decoder)
-  case events.LoadElfPhdrs:
-    return ParseLoadElfPhdrsArgs(decoder)
   case events.FileModification:
     return ParseFileModificationArgs(decoder)
   case events.TtyOpen:
