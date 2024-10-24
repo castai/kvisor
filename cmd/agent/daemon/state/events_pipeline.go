@@ -53,18 +53,20 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 
 func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 	event := &castpb.Event{
-		EventType:        0,
-		Timestamp:        e.Context.Ts,
-		ProcessName:      string(bytes.TrimRight(e.Context.Comm[:], "\x00")),
-		ProcessPid:       e.Context.Pid,
-		ProcessStartTime: uint64((time.Duration(e.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Seconds()), // nolint:gosec
-		Namespace:        e.Container.PodNamespace,
-		PodUid:           e.Container.PodUID,
-		PodName:          e.Container.PodName,
-		ContainerName:    e.Container.Name,
-		ContainerId:      e.Container.ID,
-		CgroupId:         e.Container.CgroupID,
-		HostPid:          e.Context.HostPid,
+		EventType:     0,
+		Timestamp:     e.Context.Ts,
+		ProcessName:   string(bytes.TrimRight(e.Context.Comm[:], "\x00")),
+		Namespace:     e.Container.PodNamespace,
+		PodUid:        e.Container.PodUID,
+		PodName:       e.Container.PodName,
+		ContainerName: e.Container.Name,
+		ContainerId:   e.Container.ID,
+		CgroupId:      e.Container.CgroupID,
+		HostPid:       e.Context.HostPid,
+		ProcessIdentity: &castpb.ProcessIdentity{
+			Pid:       e.Context.Pid,
+			StartTime: uint64((time.Duration(e.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Seconds()), // nolint:gosec
+		},
 	}
 
 	if podInfo, found := c.getPodInfo(event.PodUid); found {
