@@ -74,6 +74,7 @@ message Event {
   uint32 host_pid = 11;
   string workload_uid = 12;
   string node_name = 14;
+  ProcessIdentity process_identity = 15;
 
   oneof data {
     v1.Exec exec = 21;
@@ -85,6 +86,11 @@ message Event {
     v1.StdioViaSocketFinding stdio_via_socket = 27;
     v1.SSHData ssh = 28;
   }
+}
+
+message ProcessIdentity {
+  uint32 pid = 1;
+  uint64 start_time = 2;
 }
 
 message WriteStreamResponse {}
