@@ -48,6 +48,18 @@ type ProcessEvent struct {
 	Action      ProcessAction
 }
 
+func (e ProcessEvent) String() string {
+	return fmt.Sprintf("%s ts: %s, pid: %d, startTime: %d, ppid: %d, parentStartTime: %d, containerID: %s",
+		e.Action.String(),
+		e.Timestamp.Format(time.RFC3339),
+		e.Process.PID,
+		uint64(e.Process.StartTime.Seconds()),
+		e.Process.PPID,
+		uint64(e.Process.ParentStartTime.Seconds()),
+		e.ContainerID,
+	)
+}
+
 type ProcessEventListener func(e ProcessEvent)
 
 type Process struct {
@@ -237,8 +249,7 @@ func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {
 }
 
 func (c *ProcessTreeCollectorImpl) fireEvent(e ProcessEvent) {
-	c.log.Debugf("fire process tree event %s (%s): pid: %d, startTime: %s, ppid: %d, parentStartTime: %s, containerID: %s", e.Action.String(),
-		e.Timestamp.Format(time.RFC3339), e.Process.PID, e.Process.StartTime, e.Process.PPID, e.Process.ParentStartTime, e.ContainerID)
+	c.log.Debugf("fire process tree event: %s", e.String())
 	select {
 	case c.eventSink <- ProcessTreeEvent{
 		Initial: false,
@@ -253,8 +264,7 @@ func (c *ProcessTreeCollectorImpl) fireEvents(event ProcessTreeEvent) {
 	if c.log.IsEnabled(slog.LevelDebug) {
 		c.log.Debugf("fire process tree event (initial %t) ---", event.Initial)
 		for _, e := range event.Events {
-			c.log.Debugf("process event %s (%s): pid: %d, startTime: %s, ppid: %d, parentStartTime: %s, containerID: %s", e.Action.String(),
-				e.Timestamp.Format(time.RFC3339), e.Process.PID, e.Process.StartTime, e.Process.PPID, e.Process.ParentStartTime, e.ContainerID)
+			c.log.Debugf("process tree event: %s", e.String())
 		}
 		c.log.Debugf("fire process tree event (initial %t) done ---", event.Initial)
 	}
