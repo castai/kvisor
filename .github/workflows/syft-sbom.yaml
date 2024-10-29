@@ -14,6 +14,6 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Anchore SBOM Action
-        uses: anchore/sbom-action@8d0a6505bf28ced3e85154d13dc6af83299e13f1 # v0
+        uses: anchore/sbom-action@251a468eed47e5082b105c3ba6ee500c0e65a764 # v0
         with:
           artifact-name: ${{ github.event.repository.name }}-spdx.json
