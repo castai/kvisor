@@ -65,7 +65,7 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 		HostPid:       e.Context.HostPid,
 		ProcessIdentity: &castpb.ProcessIdentity{
 			Pid:       e.Context.Pid,
-			StartTime: uint64((time.Duration(e.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Seconds()), // nolint:gosec
+			StartTime: uint64((time.Duration(e.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Nanoseconds()), // nolint:gosec
 		},
 	}
 
