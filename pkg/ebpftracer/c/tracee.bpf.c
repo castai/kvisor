@@ -1864,7 +1864,8 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
 
         // For older kernels, also check the existing socket map.
         if (LINUX_KERNEL_VERSION < KERNEL_VERSION(5, 11, 0)) {
-            struct sock *key = (void *) ctx->sk;
+            struct sock *key = (void *) BPF_CORE_READ(ctx, sk);
+
             existing_netctx = bpf_map_lookup_elem(&existing_sockets_map, &key);
             // There are certain types of sockets that we do not detect and would still be missing,
             // such as for the IGMP. This only applies to cgroup v1 though, as for cgroup v2, we
@@ -2347,7 +2348,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh)
     return 1; // NOTE: might block SSH here if needed (return 0)
 }
 
-// TODO: Instead of returning sock state return tcp_connect, tcp_listen, tcp_connect_error events.
 // That will allow to subscribe only to wanted events and make handing easier.
 statfunc bool should_trace_sock_set_state(int old_state, int new_state)
 {
@@ -2366,11 +2366,22 @@ statfunc bool should_trace_sock_set_state(int old_state, int new_state)
     return false;
 }
 
-SEC("tp_btf/inet_sock_set_state")
-int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int old_state, int new_state)
-{
+statfunc int bpf_sock_ops_establish_cb(struct bpf_sock_ops *skops) {
+	if (skops == NULL || !(skops->family == AF_INET || skops->family == AF_INET6))
+		return 0;
+
+	bpf_sock_ops_cb_flags_set(skops,  BPF_SOCK_OPS_STATE_CB_FLAG);
+	return 0;
+}
+
+statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state, int new_state) {
     // TODO(patrick.pichler): add logic for handling listening sockets
     if (!should_trace_sock_set_state(old_state, new_state)) {
+        return 0;
+    }
+
+    struct bpf_sock *sk = skops->sk;
+    if (!sk) {
         return 0;
     }
 
@@ -2388,11 +2399,10 @@ int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int old_state, int new_
 
     program_data_t p = {};
     p.scratch_idx = 1;
+    p.ctx = skops;
     p.event = e;
-    if (!init_program_data(&p, ctx)) {
-        goto cleanup;
-    }
-
+    p.event->args_buf.offset = 0;
+    p.event->args_buf.argnum = 0;
     __builtin_memcpy(&p.event->context.task, &netctx->taskctx, sizeof(task_context_t));
 
     if (!should_trace(&p)) {
@@ -2400,16 +2410,47 @@ int BPF_PROG(trace_inet_sock_set_state, struct sock *sk, int old_state, int new_
     }
 
     tuple_t tuple = {};
-    fill_tuple(sk, &tuple);
+    fill_tuple_from_bpf_sock(sk, &tuple);
 
     save_to_submit_buf(&p.event->args_buf, (void *) &old_state, sizeof(u32), 0);
     save_to_submit_buf(&p.event->args_buf, (void *) &new_state, sizeof(u32), 1);
     save_to_submit_buf(&p.event->args_buf, &tuple, sizeof(tuple), 2);
+    if (p.event->context.task.tid == 0) {
+        return 0;
+    }
     events_perf_submit(&p, SOCK_SET_STATE, 0);
 
 cleanup:
     free_scratch_buf(e);
     return 0;
+}
+
+SEC("sockops")
+int cgroup_sockops(struct bpf_sock_ops *skops) {
+	u32 op = skops->op;
+
+	switch (op) {
+	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+		return bpf_sock_ops_establish_cb(skops);
+	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+		return bpf_sock_ops_establish_cb(skops);
+	case BPF_SOCK_OPS_TCP_CONNECT_CB:
+	    return bpf_sock_ops_establish_cb(skops);
+	case BPF_SOCK_OPS_TCP_LISTEN_CB:
+        {
+            // For listen we should handle the callback directly because it's
+            // the first state will not work with bpf_sock_ops_cb_flags_set.
+            return handle_sock_state_change(skops, TCP_CLOSE, TCP_LISTEN);
+        }
+	case BPF_SOCK_OPS_STATE_CB:
+        {
+            int old_state = skops->args[0];
+            int new_state = skops->args[1];
+            return handle_sock_state_change(skops, old_state, new_state);
+        }
+	}
+
+	return 0;
 }
 
 SEC("raw_tracepoint/oom/mark_victim")

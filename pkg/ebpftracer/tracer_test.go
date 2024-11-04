@@ -118,7 +118,7 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.NetPacketSSHBase},
-			// {ID: events.SockSetState},
+			{ID: events.SockSetState},
 			//{ID: events.NetPacketTCPBase},
 			// {ID: events.SchedProcessExec},
 			// {ID: events.MagicWrite},

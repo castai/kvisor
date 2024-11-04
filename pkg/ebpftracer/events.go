@@ -27,8 +27,8 @@ type definition struct {
 }
 
 type EventProbe struct {
-	handle      handle
-	required    bool // tracee fails if probe can't be attached
+	handle   handle
+	required bool // tracee fails if probe can't be attached
 }
 
 type dependencies struct {
@@ -5648,7 +5648,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			dependencies: dependencies{
 				probes: []EventProbe{
 					{handle: ProbeCgroupSockCreate, required: true},
-					{handle: ProbeInetSockSetState, required: true},
+					{handle: ProbeCgroupSockOpts, required: true},
 				},
 			},
 			params: []argMeta{

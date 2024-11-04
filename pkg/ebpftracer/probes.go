@@ -169,11 +169,11 @@ const (
 	ProbeFdInstall
 	ProbeFilpClose
 	ProbeExecBinprm
-	ProbeInetSockSetState
 	ProbeOomMarkVictim
 	ProbeTtyOpen
 	ProbeTtyWrite
 	ProbeCgroupSockCreate
+	ProbeCgroupSockOpts
 )
 
 func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
@@ -206,10 +206,10 @@ func newProbes(objs *tracerObjects, cgroupPath string) map[handle]probe {
 		ProbeFdInstall:              newTraceProbe(kProbe, "fd_install", objs.TraceFdInstall),
 		ProbeFilpClose:              newTraceProbe(kProbe, "filp_close", objs.TraceFilpClose),
 		ProbeExecBinprm:             newTraceProbe(kProbe, "exec_binprm", objs.TraceExecBinprm),
-		ProbeInetSockSetState:       newTraceProbe(btfTracepoint, "sock:inet_sock_set_state", objs.TraceInetSockSetState),
 		ProbeOomMarkVictim:          newTraceProbe(rawTracepoint, "oom:mark_victim", objs.OomMarkVictim),
 		ProbeTtyOpen:                newTraceProbe(kProbe, "tty_open", objs.TtyOpen),
 		ProbeTtyWrite:               newTraceProbe(kProbe, "tty_write", objs.TtyWrite),
 		ProbeCgroupSockCreate:       newCgroupProbe(ebpf.AttachCGroupInetSockCreate, cgroupPath, objs.CgroupSockCreate),
+		ProbeCgroupSockOpts:         newCgroupProbe(ebpf.AttachCGroupSockOps, cgroupPath, objs.CgroupSockops),
 	}
 }

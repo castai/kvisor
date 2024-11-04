@@ -57,7 +57,7 @@ statfunc int save_to_submit_buf(args_buffer_t *buf, void *ptr, u32 size, u8 inde
         return 0;
 
     // Read into buffer
-    if (bpf_probe_read(&(buf->args[buf->offset + 1]), size, ptr) == 0) {
+    if (bpf_probe_read_kernel(&(buf->args[buf->offset + 1]), size, ptr) == 0) {
         // We update offset only if all writes were successful
         buf->offset += size + 1;
         buf->argnum++;
