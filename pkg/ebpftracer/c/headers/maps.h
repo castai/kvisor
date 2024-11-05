@@ -98,4 +98,44 @@ BPF_PERF_OUTPUT(signal_events, 8192); // signal events submission
 BPF_PERF_OUTPUT(file_writes, 1024);   // file writes events submission
 BPF_PERF_OUTPUT(signals, 1024);       // control plane signals submissions
 
+// Network Maps
+
+#define MAX_NETFLOWS 65535
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(max_entries, 2);
+    __type(key, int);
+    __array(
+        values, struct {
+            __uint(type, BPF_MAP_TYPE_LRU_HASH);
+            __uint(max_entries, MAX_NETFLOWS);
+            __type(key, struct ip_key);
+            __type(value, struct traffic_summary);
+        });
+} network_traffic_buffer_map SEC(".maps");
+
+// Sockets task context. Used to get user space task context for network related events.
+struct {
+    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
+    __uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_CLONE);
+    __type(key, int);
+    __type(value, struct net_task_context);
+} net_taskctx_map SEC(".maps");
+
+// We sadly need this second map to store context for existing sockets, as we cannot access the
+// `sk_sock_storage` from an iterator without the help of the `bpf_sock_from_file` helper, which
+// only is available starting from `5.11`.
+//
+// The idea of the socket_key is borrowed from inspektor-gadget. There are potential problems with
+// it though, as it is based on the assumption that port+proto+network ns is unique, which is not
+// always the case, as there is SO_REUSEPORT. Overall it should be good enough for our case though,
+// as we currenlty cannot handle such cases anyway.
+//
+// TODO(patrick.pichler): replace this map with `bpf_sock_from_file` once we up our min kernel
+// version to at least 5.11
+BPF_HASH(existing_sockets_map, struct sock*, struct net_task_context, MAX_NETFLOWS);
+
+BPF_PERCPU_ARRAY(net_heap_sock_state_event, event_data_t, SCRATCH_MAP_SIZE);
+
 #endif /* __MAPS_H__ */

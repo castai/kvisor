@@ -98,6 +98,7 @@ gen-args-types:
 .PHONY: gen-bpf
 gen-bpf:
 	go generate ./pkg/ebpftracer
+	go generate ./pkg/ebpftracer/debug
 
 .PHONY: gen-bpf-docker
 gen-bpf-docker: builder-image

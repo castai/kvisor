@@ -16,7 +16,6 @@
 #include <bpf/bpf_tracing.h>
 #include <maps.h>
 #include <types.h>
-#include <tracee.h>
 
 #include <common/arch.h>
 #include <common/arguments.h>
@@ -1810,6 +1809,12 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
     netctx.taskctx.host_pid = task->pid;
     netctx.taskctx.host_tid = task->tgid;
 
+    if (global_config.cgroup_v1) {
+        netctx.taskctx.cgroup_id = get_cgroup_v1_subsys0_id(task);
+    } else {
+        netctx.taskctx.cgroup_id = get_default_cgroup_id(task);
+    }
+
     if (LINUX_KERNEL_VERSION < KERNEL_VERSION(5, 11, 0)) {
         struct socket *socket = (struct socket *) file->private_data;
         if (!socket) {
@@ -1829,11 +1834,6 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
     }
 
     return 0;
-}
-
-statfunc net_task_context_t *find_context_for_existing_sockets()
-{
-    return NULL;
 }
 
 //

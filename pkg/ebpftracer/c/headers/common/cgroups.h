@@ -58,4 +58,10 @@ statfunc const u64 get_cgroup_v1_subsys0_id(struct task_struct *task)
     return get_cgroup_id(cgroup);
 }
 
+statfunc const u64 get_default_cgroup_id(struct task_struct *task)
+{
+    struct cgroup *cgroup = BPF_CORE_READ(task, cgroups, dfl_cgrp);
+    return get_cgroup_id(cgroup);
+}
+
 #endif
