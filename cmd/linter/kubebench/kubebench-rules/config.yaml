@@ -272,6 +272,7 @@ version_mapping:
   "ocp-4.0": "rh-1.0"
   "aks-1.0": "aks-1.0"
   "aks-1.3": "aks-1.3"
+  "aks-1.6": "aks-1.6"
   "ack-1.0": "ack-1.0"
   "cis-1.6-k3s": "cis-1.6-k3s"
   "tkgi-1.2.53": "tkgi-1.2.53"
@@ -408,6 +409,12 @@ target_mapping:
     - "policies"
     - "managedservices"
   "aks-1.5.0":
+    - "master"
+    - "node"
+    - "controlplane"
+    - "policies"
+    - "managedservices"
+  "aks-1.6.0":
     - "master"
     - "node"
     - "controlplane"
