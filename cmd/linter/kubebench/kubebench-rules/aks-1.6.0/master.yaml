@@ -1,0 +1,5 @@
+controls: ""
+version: aks-1.6.0
+id: 1
+text: Master (Control Plane) Components
+type: master
