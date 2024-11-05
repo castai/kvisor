@@ -118,7 +118,7 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.NetPacketSSHBase},
-			// {ID: events.SockSetState},
+			{ID: events.SockSetState},
 			//{ID: events.NetPacketTCPBase},
 			// {ID: events.SchedProcessExec},
 			// {ID: events.MagicWrite},
@@ -162,7 +162,7 @@ func TestTracer(t *testing.T) {
 }
 
 func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpftracer.Tracer) error {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer func() {
 		ticker.Stop()
 	}()

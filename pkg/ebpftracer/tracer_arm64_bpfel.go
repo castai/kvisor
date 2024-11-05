@@ -124,6 +124,7 @@ type tracerProgramSpecs struct {
 	CgroupSkbEgress                 *ebpf.ProgramSpec `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress                *ebpf.ProgramSpec `ebpf:"cgroup_skb_ingress"`
 	CgroupSockCreate                *ebpf.ProgramSpec `ebpf:"cgroup_sock_create"`
+	CgroupSockops                   *ebpf.ProgramSpec `ebpf:"cgroup_sockops"`
 	KernelWriteMagicEnter           *ebpf.ProgramSpec `ebpf:"kernel_write_magic_enter"`
 	KernelWriteMagicReturn          *ebpf.ProgramSpec `ebpf:"kernel_write_magic_return"`
 	OomMarkVictim                   *ebpf.ProgramSpec `ebpf:"oom_mark_victim"`
@@ -141,7 +142,6 @@ type tracerProgramSpecs struct {
 	TraceFileModified               *ebpf.ProgramSpec `ebpf:"trace_file_modified"`
 	TraceFileUpdateTime             *ebpf.ProgramSpec `ebpf:"trace_file_update_time"`
 	TraceFilpClose                  *ebpf.ProgramSpec `ebpf:"trace_filp_close"`
-	TraceInetSockSetState           *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
 	TraceRetFileModified            *ebpf.ProgramSpec `ebpf:"trace_ret_file_modified"`
 	TraceRetFileUpdateTime          *ebpf.ProgramSpec `ebpf:"trace_ret_file_update_time"`
 	TraceSecurityBprmCheck          *ebpf.ProgramSpec `ebpf:"trace_security_bprm_check"`
@@ -315,6 +315,7 @@ type tracerPrograms struct {
 	CgroupSkbEgress                 *ebpf.Program `ebpf:"cgroup_skb_egress"`
 	CgroupSkbIngress                *ebpf.Program `ebpf:"cgroup_skb_ingress"`
 	CgroupSockCreate                *ebpf.Program `ebpf:"cgroup_sock_create"`
+	CgroupSockops                   *ebpf.Program `ebpf:"cgroup_sockops"`
 	KernelWriteMagicEnter           *ebpf.Program `ebpf:"kernel_write_magic_enter"`
 	KernelWriteMagicReturn          *ebpf.Program `ebpf:"kernel_write_magic_return"`
 	OomMarkVictim                   *ebpf.Program `ebpf:"oom_mark_victim"`
@@ -332,7 +333,6 @@ type tracerPrograms struct {
 	TraceFileModified               *ebpf.Program `ebpf:"trace_file_modified"`
 	TraceFileUpdateTime             *ebpf.Program `ebpf:"trace_file_update_time"`
 	TraceFilpClose                  *ebpf.Program `ebpf:"trace_filp_close"`
-	TraceInetSockSetState           *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
 	TraceRetFileModified            *ebpf.Program `ebpf:"trace_ret_file_modified"`
 	TraceRetFileUpdateTime          *ebpf.Program `ebpf:"trace_ret_file_update_time"`
 	TraceSecurityBprmCheck          *ebpf.Program `ebpf:"trace_security_bprm_check"`
@@ -361,6 +361,7 @@ func (p *tracerPrograms) Close() error {
 		p.CgroupSkbEgress,
 		p.CgroupSkbIngress,
 		p.CgroupSockCreate,
+		p.CgroupSockops,
 		p.KernelWriteMagicEnter,
 		p.KernelWriteMagicReturn,
 		p.OomMarkVictim,
@@ -378,7 +379,6 @@ func (p *tracerPrograms) Close() error {
 		p.TraceFileModified,
 		p.TraceFileUpdateTime,
 		p.TraceFilpClose,
-		p.TraceInetSockSetState,
 		p.TraceRetFileModified,
 		p.TraceRetFileUpdateTime,
 		p.TraceSecurityBprmCheck,

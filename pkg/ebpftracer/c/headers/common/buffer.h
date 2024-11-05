@@ -25,9 +25,6 @@ statfunc int save_args_str_arr_to_buf(args_buffer_t *, const char *, const char 
 statfunc int save_sockaddr_to_buf(args_buffer_t *, struct socket *, u8);
 statfunc int save_args_to_submit_buf(event_data_t *, args_t *);
 
-#define events_perf_submit(p, id, ret)        do_perf_submit(&events, p, id, ret)
-#define signal_events_perf_submit(p, id, ret) do_perf_submit(&signal_events, p, id, ret)
-
 // FUNCTIONS
 
 statfunc buf_t *get_buf(int idx)
@@ -57,7 +54,7 @@ statfunc int save_to_submit_buf(args_buffer_t *buf, void *ptr, u32 size, u8 inde
         return 0;
 
     // Read into buffer
-    if (bpf_probe_read(&(buf->args[buf->offset + 1]), size, ptr) == 0) {
+    if (bpf_probe_read_kernel(&(buf->args[buf->offset + 1]), size, ptr) == 0) {
         // We update offset only if all writes were successful
         buf->offset += size + 1;
         buf->argnum++;
@@ -479,15 +476,15 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
     return arg_num;
 }
 
-#define events_perf_submit(p, id, ret)        do_perf_submit(&events, p, id, ret)
-#define signal_events_perf_submit(p, id, ret) do_perf_submit(&signal_events, p, id, ret)
+#define events_perf_submit(p, id, ret)        do_perf_submit(&events, p, id, ret, true)
+#define signal_events_perf_submit(p, id, ret) do_perf_submit(&signal_events, p, id, ret, true)
 
-statfunc int do_perf_submit(void *target, program_data_t *p, u32 id, long ret)
+statfunc int do_perf_submit(void *target, program_data_t *p, u32 id, long ret, bool init_task_ctx)
 {
     p->event->context.eventid = id;
     p->event->context.retval = ret;
 
-    if (p->event->context.task.tid == 0) {
+    if (init_task_ctx) {
         init_task_context(&p->event->context.task, p->task);
         // keep task_info updated
         bpf_probe_read_kernel(

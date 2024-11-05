@@ -94,12 +94,11 @@ statfunc task_info_t *init_task_info(u32 tid, u32 scratch_idx)
 // clang-format off
 statfunc int init_program_data(program_data_t *p, void *ctx)
 {
-    int zero = 0;
-
     p->ctx = ctx;
 
     // allow caller to specify a stack/map based event_data_t pointer
     if (p->event == NULL) {
+        int zero = 0;
         p->event = bpf_map_lookup_elem(&event_data_map, &zero);
         if (unlikely(p->event == NULL))
             return 0;

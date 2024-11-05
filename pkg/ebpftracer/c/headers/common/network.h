@@ -4,6 +4,7 @@
 #include "types.h"
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>
+#include <vmlinux_missing.h>
 
 #include <bpf/bpf_endian.h>
 
@@ -232,7 +233,6 @@ statfunc int
 get_local_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
 statfunc int
 get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *, net_conn_v6_t *, u16);
-statfunc bool fill_tuple(struct sock *, tuple_t *);
 
 // clang-format on
 
@@ -460,30 +460,27 @@ statfunc int get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *a
     return 0;
 }
 
-statfunc bool fill_tuple(struct sock *sk, tuple_t *tuple)
+statfunc bool fill_tuple_from_bpf_sock(struct bpf_sock *sk, tuple_t *tuple)
 {
-    u16 family = BPF_CORE_READ(sk, __sk_common.skc_family);
-    tuple->family = family;
+    tuple->family = sk->family;
 
-    switch (family) {
+    switch (sk->family) {
         case AF_INET:
-            BPF_CORE_READ_INTO(&tuple->saddr.v4addr, sk, __sk_common.skc_rcv_saddr);
-            BPF_CORE_READ_INTO(&tuple->daddr.v4addr, sk, __sk_common.skc_daddr);
+            tuple->saddr.v4addr = sk->src_ip4;
+            tuple->daddr.v4addr = sk->dst_ip4;
 
             break;
         case AF_INET6:
-            BPF_CORE_READ_INTO(
-                &tuple->saddr.u6_addr32, sk, __sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
-            BPF_CORE_READ_INTO(
-                &tuple->daddr.u6_addr32, sk, __sk_common.skc_v6_daddr.in6_u.u6_addr32);
+            __builtin_memcpy(tuple->saddr.u6_addr32, sk->src_ip6, 4);
+            __builtin_memcpy(tuple->daddr.u6_addr32, sk->dst_ip6, 4);
             break;
 
         default:
             return false;
     }
 
-    tuple->sport = bpf_ntohs(get_inet_sport((struct inet_sock *) sk));
-    tuple->dport = bpf_ntohs(get_inet_dport((struct inet_sock *) sk));
+    tuple->sport = sk->src_port;
+    tuple->dport = bpf_ntohs(sk->dst_port); // Convert to host byte order (little endian).
 
     return true;
 }
