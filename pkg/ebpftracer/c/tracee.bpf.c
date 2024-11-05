@@ -1864,7 +1864,8 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
 
         // For older kernels, also check the existing socket map.
         if (LINUX_KERNEL_VERSION < KERNEL_VERSION(5, 11, 0)) {
-            struct sock *key = (void *) BPF_CORE_READ(ctx, sk);
+            struct sk_buff *buf = (void *) ctx;
+            struct sock *key = BPF_CORE_READ(buf, sk);
 
             existing_netctx = bpf_map_lookup_elem(&existing_sockets_map, &key);
             // There are certain types of sockets that we do not detect and would still be missing,

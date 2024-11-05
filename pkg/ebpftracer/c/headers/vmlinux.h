@@ -605,6 +605,10 @@ typedef s64 ktime_t;
 struct sk_buff {
     __u16 network_header;
     union {
+        struct sock *sk;
+        int ip_defrag_offset;
+    };
+    union {
         ktime_t tstamp;
         u64 skb_mstamp_ns;
     };
