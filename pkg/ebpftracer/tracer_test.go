@@ -162,7 +162,7 @@ func TestTracer(t *testing.T) {
 }
 
 func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpftracer.Tracer) error {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer func() {
 		ticker.Stop()
 	}()

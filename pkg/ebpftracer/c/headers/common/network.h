@@ -168,7 +168,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, MAX_NETFLOWS);
-    __type(key, struct bpf_sock *);
+    __type(key, struct sock *);
     __type(value, struct net_task_context);
 } existing_sockets_map SEC(".maps");
 
@@ -458,34 +458,6 @@ statfunc int get_remote_sockaddr_in6_from_network_details(struct sockaddr_in6 *a
     addr->sin6_scope_id = net_details->scope_id;
 
     return 0;
-}
-
-statfunc bool fill_tuple_from_sock(struct sock *sk, tuple_t *tuple)
-{
-    u16 family = BPF_CORE_READ(sk, __sk_common.skc_family);
-    tuple->family = family;
-
-    switch (family) {
-        case AF_INET:
-            BPF_CORE_READ_INTO(&tuple->saddr.v4addr, sk, __sk_common.skc_rcv_saddr);
-            BPF_CORE_READ_INTO(&tuple->daddr.v4addr, sk, __sk_common.skc_daddr);
-
-            break;
-        case AF_INET6:
-            BPF_CORE_READ_INTO(
-                &tuple->saddr.u6_addr32, sk, __sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
-            BPF_CORE_READ_INTO(
-                &tuple->daddr.u6_addr32, sk, __sk_common.skc_v6_daddr.in6_u.u6_addr32);
-            break;
-
-        default:
-            return false;
-    }
-
-    tuple->sport = bpf_ntohs(get_inet_sport((struct inet_sock *) sk));
-    tuple->dport = bpf_ntohs(get_inet_dport((struct inet_sock *) sk));
-
-    return true;
 }
 
 statfunc bool fill_tuple_from_bpf_sock(struct bpf_sock *sk, tuple_t *tuple)

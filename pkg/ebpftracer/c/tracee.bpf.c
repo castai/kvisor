@@ -1891,8 +1891,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
             existing_netctx = &cgroup_context;
         }
 
-        netctx =
-            bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_SK_STORAGE_GET_F_CREATE);
+        netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_SK_STORAGE_GET_F_CREATE);
         if (!netctx) {
             // This should never happen, but if it does there is nothing we can do.
             return 1;
@@ -2415,10 +2414,8 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
     save_to_submit_buf(&p.event->args_buf, (void *) &old_state, sizeof(u32), 0);
     save_to_submit_buf(&p.event->args_buf, (void *) &new_state, sizeof(u32), 1);
     save_to_submit_buf(&p.event->args_buf, &tuple, sizeof(tuple), 2);
-    if (p.event->context.task.tid == 0) {
-        return 0;
-    }
-    events_perf_submit(&p, SOCK_SET_STATE, 0);
+
+    do_perf_submit(&events, &p, SOCK_SET_STATE, 0, false);
 
 cleanup:
     free_scratch_buf(e);
@@ -2431,9 +2428,7 @@ int cgroup_sockops(struct bpf_sock_ops *skops) {
 
 	switch (op) {
 	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-		return bpf_sock_ops_establish_cb(skops);
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-		return bpf_sock_ops_establish_cb(skops);
 	case BPF_SOCK_OPS_TCP_CONNECT_CB:
 	    return bpf_sock_ops_establish_cb(skops);
 	case BPF_SOCK_OPS_TCP_LISTEN_CB:

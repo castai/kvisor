@@ -76,12 +76,6 @@
     #define _IOC_WRITE 1U
 #endif
 
-#define __bpf_md_ptr(type, name)	\
-union {					\
-	type name;			\
-	__u64 :64;			\
-} __attribute__((aligned(8)))
-
 #define _IOC(dir, type, nr, size)                                                                  \
     (((dir) << _IOC_DIRSHIFT) | ((type) << _IOC_TYPESHIFT) | ((nr) << _IOC_NRSHIFT) |              \
      ((size) << _IOC_SIZESHIFT))
@@ -316,25 +310,6 @@ enum ovl_entry_flag {
 #define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
 #define S_ISLNK(m) (((m)&S_IFMT) == S_IFLNK)
 
-struct bpf_sock {
-	__u32 bound_dev_if;
-	__u32 family;
-	__u32 type;
-	__u32 protocol;
-	__u32 mark;
-	__u32 priority;
-	/* IP address also allows 1 and 2 bytes access */
-	__u32 src_ip4;
-	__u32 src_ip6[4];
-	__u32 src_port;		/* host byte order */
-	__be16 dst_port;	/* network byte order */
-	__u16 :16;		/* zero padding */
-	__u32 dst_ip4;
-	__u32 dst_ip6[4];
-	__u32 state;
-	__s32 rx_queue_mapping;
-};
-
 // https://elixir.bootlin.com/linux/v6.10.7/source/include/uapi/linux/bpf.h#L1358
 /* flags for BPF_MAP_CREATE command */
 enum {
@@ -403,67 +378,5 @@ enum {
 	 */
 	BPF_SK_STORAGE_GET_F_CREATE  = BPF_LOCAL_STORAGE_GET_F_CREATE,
 };
-
-/*
- * Copy of sock_ops operations.
- * See: https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/bpf.h#L6233.
- */
-enum {
-	BPF_SOCK_OPS_VOID                   = 0,
-	BPF_SOCK_OPS_TIMEOUT_INIT           = 1,
-	BPF_SOCK_OPS_RWND_INIT              = 2,
-	BPF_SOCK_OPS_TCP_CONNECT_CB         = 3,
-	BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB  = 4,
-	BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB = 5,
-	BPF_SOCK_OPS_NEEDS_ECN              = 6,
-	BPF_SOCK_OPS_BASE_RTT               = 7,
-	BPF_SOCK_OPS_RTO_CB                 = 8,
-	BPF_SOCK_OPS_RETRANS_CB             = 9,
-	BPF_SOCK_OPS_STATE_CB               = 10,
-	BPF_SOCK_OPS_TCP_LISTEN_CB          = 11,
-	BPF_SOCK_OPS_RTT_CB                 = 12,
-	BPF_SOCK_OPS_PARSE_HDR_OPT_CB       = 13,
-	BPF_SOCK_OPS_HDR_OPT_LEN_CB         = 14,
-	BPF_SOCK_OPS_WRITE_HDR_OPT_CB       = 15,
-};
-
-/*
- * Copy of definitions for bpf_sock_ops_cb_flags.
- * See: https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/bpf.h#L6178.
- */
-enum {
-	BPF_SOCK_OPS_RTO_CB_FLAG                   = 1,
-	BPF_SOCK_OPS_RETRANS_CB_FLAG               = 2,
-	BPF_SOCK_OPS_STATE_CB_FLAG                 = 4,
-	BPF_SOCK_OPS_RTT_CB_FLAG                   = 8,
-	BPF_SOCK_OPS_PARSE_ALL_HDR_OPT_CB_FLAG     = 16,
-	BPF_SOCK_OPS_PARSE_UNKNOWN_HDR_OPT_CB_FLAG = 32,
-	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64,
-	BPF_SOCK_OPS_ALL_CB_FLAGS                  = 127,
-};
-
-/*
- * Copy of bpf.h's bpf_sock_ops with minimal subset
- * of fields used by the tcprtt_sockops example.
- * See: https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/bpf.h#L6101.
- */
-struct bpf_sock_ops {
-	__u32 op;
-	union {
-		__u32 args[4];
-		__u32 reply;
-		__u32 replylong[4];
-	};
-	__u32 family;
-	__u32 remote_ip4;	/* Stored in network byte order */
-    __u32 local_ip4;	/* Stored in network byte order */
-    __u32 remote_ip6[4];/* Stored in network byte order */
-    __u32 local_ip6[4];	/* Stored in network byte order */
-    __u32 remote_port;	/* Stored in network byte order */
-    __u32 local_port;	/* stored in host byte order */
-	__u32 srtt_us;
-    __u32 bpf_sock_ops_cb_flags;
-    __bpf_md_ptr(struct bpf_sock *, sk);
-} __attribute__((preserve_access_index));
 
 #endif
