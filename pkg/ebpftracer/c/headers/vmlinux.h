@@ -369,6 +369,7 @@ struct uts_namespace {
 
 struct css_set {
     struct cgroup_subsys_state *subsys[12];
+    struct cgroup *dfl_cgrp;
 };
 
 struct percpu_ref {
@@ -855,7 +856,10 @@ enum bpf_map_type {
     BPF_MAP_TYPE_TASK_STORAGE = 29,
 };
 
+struct bpf_map;
+
 struct bpf_map {
+    enum bpf_map_type map_type;
     u32 id;
     char name[16];
 };
@@ -1409,6 +1413,27 @@ struct bpf_iter__task_file {
     u32 fd;
     union {
         struct file *file;
+    };
+};
+
+struct bpf_iter_seq_sk_storage_map_info {
+    struct bpf_map *map;
+    unsigned int bucket_id;
+    unsigned int skip_elems;
+};
+
+struct bpf_iter__bpf_sk_storage_map {
+    union {
+        struct bpf_iter_meta *meta;
+    };
+    union {
+        struct bpf_map *map;
+    };
+    union {
+        struct sock *sk;
+    };
+    union {
+        void *value;
     };
 };
 
