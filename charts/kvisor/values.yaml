@@ -58,7 +58,7 @@ agent:
       maxUnavailable: 10
 
   # Allow to set priority class like system-node-critical.
-  priorityClass: ""
+  priorityClass: "system-node-critical"
 
   podAnnotations: {}
 
