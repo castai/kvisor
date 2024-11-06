@@ -27,6 +27,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
@@ -207,7 +208,8 @@ func (a *App) Run(ctx context.Context) error {
 		return errors.New("no configured exporters")
 	}
 
-	log.Infof("running kvisor agent, version=%s", a.cfg.Version)
+	kernelVersion, _ := kernel.CurrentKernelVersion()
+	log.Infof("running kvisor agent, version=%s, kernel_version=%s", a.cfg.Version, kernelVersion)
 	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
 
 	if addr := a.cfg.PyroscopeAddr; addr != "" {
