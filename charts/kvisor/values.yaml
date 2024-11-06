@@ -76,6 +76,7 @@ agent:
         - NET_ADMIN
         - BPF
         - PERFMON
+        - IPC_LOCK # Needed for mmap.
       drop:
         - ALL
     seccompProfile:

@@ -30,6 +30,10 @@ type Version struct {
 	VersionCode int
 }
 
+func (v Version) String() string {
+	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+}
+
 // KernelVersionFromReleaseString converts a release string with format
 // 4.4.2[-1] to a kernel version number in LINUX_VERSION_CODE format.
 // That is, for kernel "a.b.c", the version number will be (a<<16 + b<<8 + c)
