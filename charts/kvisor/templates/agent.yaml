@@ -245,4 +245,17 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kvisor.agent.serviceAccountName" . }}
     namespace: {{.Release.Namespace}}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+    name: castai-agent-node-critical-pods
+    namespace: {{ .Release.Namespace }}
+spec:
+    scopeSelector:
+        matchExpressions:
+            - operator: In
+              scopeName: PriorityClass
+              values:
+                - system-node-critical
 {{- end }}
