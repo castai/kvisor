@@ -772,7 +772,7 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 				t.mu.Unlock()
 				fmt.Printf("evaluating %d events\n", len(events))
 				for _, e := range events {
-					ts := time.Unix(int64(e.Timestamp)/1e9, int64(e.Timestamp)%1e9)
+					ts := time.Unix(int64(e.Timestamp)/1e9, int64(e.Timestamp)%1e9) //nolint:gosec
 					if ts.Before(t.testStartTime) {
 						return fmt.Errorf("broken event timestamp %s, it's before test server start time %s", ts.String(), t.testStartTime.String())
 					}
