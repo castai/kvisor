@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
@@ -71,15 +72,30 @@ type eventSender struct {
 }
 
 func (s *eventSender) send(e *castpb.Event, retry bool) {
+	if e.GetEventType().String() == "EVENT_TCP_CONNECT" {
+		fmt.Println("sending event of type EVENT_TCP_CONNECT")
+	}
+
 	if err := s.ws.Send(e); err != nil {
 		if retry {
+			if e.GetEventType().String() == "EVENT_TCP_CONNECT" {
+				fmt.Println("retrying event of type EVENT_TCP_CONNECT")
+			}
 			s.retryQueue <- e
 
 			return
 		}
 
+		if e.GetEventType().String() == "EVENT_TCP_CONNECT" {
+			fmt.Println("failed to send event of type EVENT_TCP_CONNECT")
+		}
+
 		s.sendErrorMetric.Inc()
 		return
+	}
+
+	if e.GetEventType().String() == "EVENT_TCP_CONNECT" {
+		fmt.Println("succsefully sent event of type EVENT_TCP_CONNECT")
 	}
 
 	s.sendMetric.Inc()
