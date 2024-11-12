@@ -186,6 +186,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set controller.extraArgs.image-scan-enabled=true \
   --set controller.extraArgs.image-scan-interval=5s \
   --set controller.extraArgs.image-scan-init-delay=5s \
+  --set controller.extraArgs.image-concurrent-scans=3 \
   --set controller.extraArgs.kube-bench-enabled=true \
   --set controller.extraArgs.kube-bench-scan-interval=5s \
   --set controller.extraArgs.kube-bench-cloud-provider=gke \
@@ -304,6 +305,7 @@ func (t *testCASTAIServer) ImageMetadataIngest(ctx context.Context, imageMetadat
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	fmt.Printf("received image metadata, image_name=%s\n", imageMetadata.ImageName)
 	t.imageMetadatas = append(t.imageMetadatas, imageMetadata)
 
 	return &castaipb.ImageMetadataIngestResponse{}, nil
