@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	srv := &testCASTAIServer{clientset: clientset}
+	srv := &testCASTAIServer{clientset: clientset, testStartTime: time.Now().UTC()}
 	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -186,6 +186,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set controller.extraArgs.image-scan-enabled=true \
   --set controller.extraArgs.image-scan-interval=5s \
   --set controller.extraArgs.image-scan-init-delay=5s \
+  --set controller.extraArgs.image-concurrent-scans=3 \
   --set controller.extraArgs.kube-bench-enabled=true \
   --set controller.extraArgs.kube-bench-scan-interval=5s \
   --set controller.extraArgs.kube-bench-cloud-provider=gke \
@@ -210,6 +211,8 @@ var _ castaipb.RuntimeSecurityAgentAPIServer = (*testCASTAIServer)(nil)
 
 type testCASTAIServer struct {
 	clientset *kubernetes.Clientset
+
+	testStartTime time.Time
 
 	mu                        sync.Mutex
 	containerStats            []*castaipb.ContainerStatsBatch
@@ -302,6 +305,7 @@ func (t *testCASTAIServer) ImageMetadataIngest(ctx context.Context, imageMetadat
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	fmt.Printf("received image metadata, image_name=%s\n", imageMetadata.ImageName)
 	t.imageMetadatas = append(t.imageMetadatas, imageMetadata)
 
 	return &castaipb.ImageMetadataIngestResponse{}, nil
@@ -768,6 +772,10 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 				t.mu.Unlock()
 				fmt.Printf("evaluating %d events\n", len(events))
 				for _, e := range events {
+					ts := time.Unix(int64(e.Timestamp)/1e9, int64(e.Timestamp)%1e9) //nolint:gosec
+					if ts.Before(t.testStartTime) {
+						return fmt.Errorf("broken event timestamp %s, it's before test server start time %s", ts.String(), t.testStartTime.String())
+					}
 					if e.ProcessName == "pause" {
 						continue
 					}

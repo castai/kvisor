@@ -2403,6 +2403,10 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
     p.event = e;
     p.event->args_buf.offset = 0;
     p.event->args_buf.argnum = 0;
+    p.event->context.ts = bpf_ktime_get_ns();;
+    p.event->context.eventid = SOCK_SET_STATE;
+
+    // Copy task context from correct user space thread.
     __builtin_memcpy(&p.event->context.task, &netctx->taskctx, sizeof(task_context_t));
 
     if (!should_trace(&p)) {
