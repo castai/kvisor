@@ -3,12 +3,14 @@ package state
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/metrics"
@@ -116,18 +118,10 @@ func (c *Controller) enqueueNetworkSummayExport(ctx context.Context, summary map
 }
 
 func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t time.Time) (*castpb.Netflow, error) {
-	container, err := c.containersClient.GetContainerForCgroup(ctx, key.ProcessIdentity.CgroupId)
-	if err != nil {
-		return nil, err
-	}
-
 	res := &castpb.Netflow{
-		Timestamp:     uint64(t.UnixNano()), // nolint:gosec
-		ProcessName:   string(bytes.SplitN(key.ProcessIdentity.Comm[:], []byte{0}, 2)[0]),
-		Namespace:     container.PodNamespace,
-		PodName:       container.PodName,
-		ContainerName: container.Name,
-		Protocol:      toProtoProtocol(key.Proto),
+		Timestamp:   uint64(t.UnixNano()), // nolint:gosec
+		ProcessName: string(bytes.SplitN(key.ProcessIdentity.Comm[:], []byte{0}, 2)[0]),
+		Protocol:    toProtoProtocol(key.Proto),
 		// TODO(patrick.pichler): only set local port if it is the listening port. ephemeral ports
 		// are not that interesting and  generate a lot of additional data.
 		// The main problem right is to figure out which port is the ephemeral and which the listening
@@ -143,12 +137,23 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		res.Addr = key.Tuple.Saddr.Raw[:]
 	}
 
-	ipInfo, found := c.getPodInfo(container.PodUID)
-	if found {
-		res.WorkloadName = ipInfo.WorkloadName
-		res.WorkloadKind = ipInfo.WorkloadKind
-		res.Zone = ipInfo.Zone
-		res.NodeName = ipInfo.NodeName
+	container, err := c.containersClient.GetContainerForCgroup(ctx, key.ProcessIdentity.CgroupId)
+	if err != nil && !errors.Is(err, containers.ErrContainerNotFound) {
+		return nil, err
+	}
+
+	if container != nil {
+		res.Namespace = container.PodNamespace
+		res.PodName = container.PodName
+		res.ContainerName = container.Name
+
+		ipInfo, found := c.getPodInfo(container.PodUID)
+		if found {
+			res.WorkloadName = ipInfo.WorkloadName
+			res.WorkloadKind = ipInfo.WorkloadKind
+			res.Zone = ipInfo.Zone
+			res.NodeName = ipInfo.NodeName
+		}
 	}
 
 	return res, nil
