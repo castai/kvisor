@@ -246,10 +246,11 @@ subjects:
     name: {{ include "kvisor.agent.serviceAccountName" . }}
     namespace: {{.Release.Namespace}}
 ---
+{{ if not (empty .Values.agent.priorityClass) }}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-    name: castai-agent-node-critical-pods
+    name: {{ include "kvisor.agent.fullname" . }}-critical-pods
     namespace: {{ .Release.Namespace }}
 spec:
     scopeSelector:
@@ -257,5 +258,6 @@ spec:
             - operator: In
               scopeName: PriorityClass
               values:
-                - system-node-critical
+                - {{ .Values.agent.priorityClass }}
+{{- end }}
 {{- end }}

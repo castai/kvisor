@@ -308,3 +308,18 @@ spec:
   selector:
     {{- include "kvisor.controller.selectorLabels" . | nindent 6 }}
   type: ClusterIP
+---
+{{ if not (empty .Values.controller.priorityClass) }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}-critical-pods
+  namespace: {{ .Release.Namespace }}
+spec:
+  scopeSelector:
+    matchExpressions:
+      - operator: In
+        scopeName: PriorityClass
+        values:
+          - {{ .Values.controller.priorityClass }}
+{{- end }}

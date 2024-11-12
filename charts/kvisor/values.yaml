@@ -149,8 +149,8 @@ controller:
 
   podAnnotations: {}
 
-  # Allow to set priority class like system-node-critical.
-  priorityClass: ""
+  # Allow to set priority class like system-cluster-critical.
+  priorityClass: "system-cluster-critical"
 
   # TODO(Kvisord): Add default strict security context for all components.
   securityContext:
