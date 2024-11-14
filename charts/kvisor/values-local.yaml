@@ -37,8 +37,6 @@ controller:
   replicas: 1
   extraArgs:
     log-level: debug
-    kubernetes-delta-interval: 5s
-    kubernetes-delta-init-delay: 5s
     image-scan-enabled: true
     image-scan-interval: 5s
     image-scan-init-delay: 5s

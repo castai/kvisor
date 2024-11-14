@@ -23,7 +23,6 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -120,12 +119,6 @@ func run(ctx context.Context) error {
 	srv.containerStatsAsserted = true
 	srv.containerStats = nil
 
-	fmt.Println("🙏waiting for kubernetes deltas")
-	if err := srv.assertKubernetesDeltas(ctx); err != nil {
-		return fmt.Errorf("assert k8s deltas: %w", err)
-	}
-	srv.deltaUpdates = nil
-
 	fmt.Println("🙏waiting for kube bench")
 	if err := srv.assertKubeBenchReport(ctx); err != nil {
 		return fmt.Errorf("assert kube bench: %w", err)
@@ -181,8 +174,6 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.process-tree-enabled=true \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
-  --set controller.extraArgs.kubernetes-delta-interval=5s \
-  --set controller.extraArgs.kubernetes-delta-init-delay=5s \
   --set controller.extraArgs.image-scan-enabled=true \
   --set controller.extraArgs.image-scan-interval=5s \
   --set controller.extraArgs.image-scan-init-delay=5s \
@@ -220,7 +211,6 @@ type testCASTAIServer struct {
 	events                    []*castaipb.Event
 	eventsAsserted            bool
 	logs                      []*castaipb.LogEvent
-	deltaUpdates              []*castaipb.KubernetesDeltaItem
 	imageMetadatas            []*castaipb.ImageMetadata
 	kubeBenchReports          []*castaipb.KubeBenchReport
 	kubeLinterReports         []*castaipb.KubeLinterReport
@@ -517,18 +507,7 @@ func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurity
 }
 
 func (t *testCASTAIServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
-	for {
-		delta, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		t.mu.Lock()
-		t.deltaUpdates = append(t.deltaUpdates, delta.Items...)
-		t.mu.Unlock()
-		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
-			return err
-		}
-	}
+	panic("should not be called")
 }
 
 const (
@@ -902,81 +881,6 @@ func (t *testCASTAIServer) assertConfig(ctx context.Context) error {
 			r.NotEmpty(agentConfig["Version"])
 
 			return r.error()
-		}
-	}
-}
-
-func (t *testCASTAIServer) assertKubernetesDeltas(ctx context.Context) error {
-	currentOffset := 0
-	timeout := time.After(10 * time.Second)
-
-	allDeployments, err := t.clientset.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("listing k8s pods: %w", err)
-	}
-
-	allServices, err := t.clientset.CoreV1().Services(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("listing k8s services: %w", err)
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timeout:
-			return errors.New("timeout waiting for received kubernetes deltas with all fields set")
-		case <-time.Tick(1 * time.Second):
-			t.mu.Lock()
-			deltas := t.deltaUpdates
-			t.mu.Unlock()
-
-			// Some validation for received deltas counts.
-			deltaDeploymentsCount := lo.CountBy(deltas, func(item *castaipb.KubernetesDeltaItem) bool {
-				return item.ObjectKind == "Deployment"
-			})
-			if deltaDeploymentsCount < len(allDeployments.Items) {
-				fmt.Printf("expected at least %d deployments, got %d\n", deltaDeploymentsCount, len(allDeployments.Items))
-				continue
-			}
-			deltaServicesCount := lo.CountBy(deltas, func(item *castaipb.KubernetesDeltaItem) bool {
-				return item.ObjectKind == "Service"
-			})
-			if deltaServicesCount < len(allServices.Items) {
-				fmt.Printf("expected at least %d services, got %d\n", deltaServicesCount, len(allServices.Items))
-				continue
-			}
-
-			// Some validation for received delta fields.
-			for _, item := range deltas[currentOffset:] {
-				if item.ObjectKind != "Deployment" {
-					continue
-				}
-				if item.ObjectName == "" {
-					continue
-				}
-				if item.ObjectUid == "" {
-					continue
-				}
-				if item.ObjectKind == "" {
-					continue
-				}
-				if item.ObjectNamespace == "" {
-					continue
-				}
-				if len(item.ObjectLabels) == 0 {
-					continue
-				}
-				if len(item.ObjectStatus) == 0 {
-					continue
-				}
-				if len(item.ObjectSpec) == 0 {
-					continue
-				}
-				return nil
-			}
-
-			currentOffset = len(deltas)
 		}
 	}
 }

@@ -14,7 +14,6 @@ import (
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/cmd/controller/state"
-	"github.com/castai/kvisor/cmd/controller/state/delta"
 	"github.com/castai/kvisor/cmd/controller/state/imagescan"
 	"github.com/castai/kvisor/cmd/controller/state/kubebench"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter"
@@ -61,7 +60,6 @@ type Config struct {
 	ImageScan        imagescan.Config        `json:"imageScan"`
 	Linter           kubelinter.Config       `json:"linter"`
 	KubeBench        kubebench.Config        `json:"kubeBench"`
-	Delta            delta.Config            `json:"delta"`
 	JobsCleanup      state.JobsCleanupConfig `json:"jobsCleanup"`
 	AgentConfig      AgentConfig             `json:"agentConfig"`
 }
@@ -152,14 +150,6 @@ func (a *App) Run(ctx context.Context) error {
 			jobsCleanupCtrl := state.NewJobsCleanupController(log, clientset, cfg.JobsCleanup)
 			return jobsCleanupCtrl.Run(ctx)
 		})
-
-		if cfg.Delta.Enabled {
-			deltaCtrl := delta.NewController(log, cfg.Delta, castaiClient.GRPC, kubeClient)
-			kubeClient.RegisterKubernetesChangeListener(deltaCtrl)
-			errg.Go(func() error {
-				return deltaCtrl.Run(ctx)
-			})
-		}
 
 		if cfg.ImageScan.Enabled {
 			imageScanner := imagescan.NewImageScanner(clientset, cfg.ImageScan, cfg.PodNamespace)
