@@ -126,7 +126,7 @@ func (e *SignatureEngine) handleEvent(event *types.Event) {
 
 		e.eventsChan <- &castpb.Event{
 			EventType:     castpb.EventType_EVENT_SIGNATURE,
-      Timestamp:     uint64(time.Now().UTC().UnixNano()), // nolint:gosec
+			Timestamp:     uint64(time.Now().UTC().UnixNano()), // nolint:gosec
 			ProcessName:   string(bytes.Trim(event.Context.Comm[:], "\x00")),
 			Namespace:     event.Container.PodNamespace,
 			PodName:       event.Container.PodName,
@@ -135,6 +135,10 @@ func (e *SignatureEngine) handleEvent(event *types.Event) {
 			ContainerId:   event.Container.ID,
 			CgroupId:      event.Context.CgroupID,
 			HostPid:       event.Context.HostPid,
+			ProcessIdentity: &castpb.ProcessIdentity{
+				Pid:       event.Context.Pid,
+				StartTime: uint64((time.Duration(event.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Nanoseconds()), // nolint:gosec
+			},
 			Data: &castpb.Event_Signature{
 				Signature: &castpb.SignatureEvent{
 					Metadata: metadata,
