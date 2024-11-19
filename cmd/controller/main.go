@@ -46,14 +46,6 @@ var (
 	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
 	castaiServerInsecure     = pflag.Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
 
-	// These flags are not used but kept for some time in case someone uses them.
-	_ = pflag.Bool("kubernetes-delta-enabled", true, "Enable kubernetes delta sync")
-	_ = pflag.Duration("kubernetes-delta-interval", 15*time.Second, "Interval to report kubernetes object changes to cast backend (default `15s`, set to `0s` to disable)")
-	_ = pflag.Duration("kubernetes-delta-init-delay", 60*time.Second, "Initial delay to wait before starting reporting first kubernetes object deltas (first send report is full snapshot, this might take some time for large clusters. default: `1m`)")
-	_ = pflag.Duration("kubernetes-delta-send-timeout", 3*time.Minute, "Kubernetes deltas send timeout")
-	_ = pflag.Bool("kubernetes-delta-compression-enabled", true, "Kubernetes deltas compression during ingest")
-	_ = pflag.Int("kubernetes-delta-batch-size", 200, "Kubernetes deltas batch size during ingest")
-
 	imageScanEnabled               = pflag.Bool("image-scan-enabled", false, "Enable image scanning")
 	imageScanInterval              = pflag.Duration("image-scan-interval", 30*time.Second, "Image scan scheduling interval")
 	imageScanTimeout               = pflag.Duration("image-scan-timeout", 10*time.Minute, "Image scan timeout")
