@@ -30,6 +30,7 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/magiconair/properties v1.8.7
 	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/samber/lo v1.47.0
@@ -162,7 +163,6 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
 	github.com/open-policy-agent/opa v0.68.1-0.20240903211041-76f7038ea2d1 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
 	github.com/owenrumney/squealer v1.2.4 // indirect
