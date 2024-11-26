@@ -344,28 +344,34 @@ func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobIn
 		done = lo.ContainsBy(job.Status.Conditions, func(v batchv1.JobCondition) bool {
 			return v.Status == corev1.ConditionTrue && v.Type == batchv1.JobComplete
 		})
+
 		if done {
 			return true, nil
 		}
 		failed := lo.ContainsBy(job.Status.Conditions, func(v batchv1.JobCondition) bool {
 			return v.Status == corev1.ConditionTrue && v.Type == batchv1.JobFailed
 		})
+
 		if failed {
 			jobPod, err := s.getJobPod(ctx, jobName)
 			if err != nil {
-				return true, err
+				return true, fmt.Errorf("getting job pod: %w", err)
 			}
+
 			logsStream, err := s.podLogProvider.GetLogReader(ctx, s.podNamespace, jobPod.Name)
 			if err != nil {
 				return true, fmt.Errorf("creating logs stream for failed job: %w", err)
 			}
 			defer logsStream.Close()
+
 			logs, err := io.ReadAll(logsStream)
 			if err != nil {
 				return true, fmt.Errorf("reading failed job logs: %w", err)
 			}
+
 			return true, fmt.Errorf("scan job failed: %s", string(logs))
 		}
+
 		return false, nil
 	})
 }

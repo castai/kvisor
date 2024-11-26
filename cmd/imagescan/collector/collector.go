@@ -91,17 +91,17 @@ func (c *Collector) Collect(ctx context.Context) error {
 		DisabledAnalyzers: disabledAnalyzers,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("creating an artifact: %w", err)
 	}
 
 	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("inspecting an artifact: %w", err)
 	}
 
 	manifest, err := img.Manifest()
 	if err != nil {
-		return fmt.Errorf("extract manifest: %w", err)
+		return fmt.Errorf("extracting manifest from an artifact: %w", err)
 	}
 
 	digest, err := img.Digest()
@@ -131,26 +131,26 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	packagesBytes, err := json.Marshal(arRef.BlobsInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshalling blobs info: %w", err)
 	}
 	metadata.Packages = packagesBytes
 
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshalling manifest: %w", err)
 	}
 	metadata.Manifest = manifestBytes
 
 	configFileBytes, err := json.Marshal(arRef.ConfigFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshalling config: %w", err)
 	}
 	metadata.ConfigFile = configFileBytes
 
 	if index := img.Index(); index != nil {
 		indexBytes, err := json.Marshal(index)
 		if err != nil {
-			return err
+			return fmt.Errorf("marshalling index: %w", err)
 		}
 		metadata.Index = indexBytes
 	}
@@ -171,7 +171,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("parsing image reference: %w", err)
 	}
 	if c.cfg.Mode == config.ModeRemote {
 		opts := types.ImageOptions{}
