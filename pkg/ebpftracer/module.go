@@ -21,14 +21,9 @@ import (
 
 type TracerEventContextT = tracerEventContextT
 
-type moduleConfig struct {
-	BTFObjPath string
-}
-
-func newModule(log *logging.Logger, cfg moduleConfig) *module {
+func newModule(log *logging.Logger) *module {
 	return &module{
 		log:            log,
-		cfg:            cfg,
 		loaded:         &atomic.Bool{},
 		attachedProbes: map[handle]struct{}{},
 	}
@@ -38,7 +33,6 @@ func newModule(log *logging.Logger, cfg moduleConfig) *module {
 type module struct {
 	log     *logging.Logger
 	objects *tracerObjects
-	cfg     moduleConfig
 
 	networkTrafficSummaryMapSpec *ebpf.MapSpec
 
@@ -68,8 +62,8 @@ func (m *module) load(cfg Config) error {
 	}
 
 	var kernelTypes *btf.Spec
-	if m.cfg.BTFObjPath != "" {
-		kernelTypes, err = btf.LoadSpec(m.cfg.BTFObjPath)
+	if cfg.BTFPath != "" {
+		kernelTypes, err = btf.LoadSpec(cfg.BTFPath)
 		if err != nil {
 			return fmt.Errorf("loading custom btf: %w", err)
 		}
@@ -118,10 +112,11 @@ func (m *module) load(cfg Config) error {
 
 	m.objects = &objs
 
-	// TODO(Kvisord): Mount cgroupv2 if not mounted.
+	// Make sure cgroupv2 is mounted. It's required for cgroup networking ebpf programs.
 	cgroupPath, err := detectCgroupPath(cfg.CgroupClient.GetCgroupsRootPath())
-	if err != nil {
-		cgroupPath = "/cgroupv2"
+	if err != nil && cfg.AutomountCgroupv2 {
+		// Path /cgroup2-manual-mount is created as a temp dir from the host using volume mount.
+		cgroupPath = "/cgroup2-manual-mount/cgroupv2"
 		m.log.Debugf("mounting cgroupv2 to path %s", cgroupPath)
 		if err := mountCgroup2(cgroupPath); err != nil {
 			return fmt.Errorf("mounting cgroupv2: %w", err)

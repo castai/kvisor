@@ -137,6 +137,8 @@ spec:
             - name: cgroups
               mountPath: /cgroups
               readOnly: true
+            - mountPath: /cgroup2-manual-mount
+              name: cgroup-mountdir
             - name: etc-os-release
               mountPath: /etc/os-release-host
               readOnly: true
@@ -172,6 +174,8 @@ spec:
         - name: cgroups
           hostPath:
             path: /sys/fs/cgroup
+        - name: cgroup-mountdir
+          emptyDir: {}
         - name: containerd-k8s-rootfs
           hostPath:
             path: /run/containerd/io.containerd.runtime.v2.task/k8s.io
