@@ -398,3 +398,23 @@ kvisor                         69801            kvisor-agent     perf_event_open
 ```
 
 Any `Deny` in the `VERDICT` column should be added to the `containerSecurityContext` of the kvisor agent container in the `charts/kvisor/values.yaml` file to be allowed.
+
+
+## Creating EKS cluster
+
+```sh
+eksctl create cluster \                 
+  --name <your-cluster-name> \
+  --region us-east-1 \
+  --nodes 1 \
+  --nodes-min 1 \
+  --nodes-max 1 \
+  --node-type t3.medium \
+  --managed
+```
+
+To delete cluster
+
+```
+eksctl delete cluster <your-cluster-name> --region=us-east-1
+```
