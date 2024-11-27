@@ -4,16 +4,16 @@ go 1.23.2
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
-	github.com/aquasecurity/trivy v0.57.0
+	github.com/aquasecurity/trivy v0.57.1
 	github.com/castai/image-analyzer v0.6.2
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
 	github.com/cilium/ebpf v0.16.0
-	github.com/containerd/containerd v1.7.23
+	github.com/containerd/containerd v1.7.24
 	github.com/containerd/containerd/api v1.8.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/elastic/go-freelru v0.15.0
+	github.com/elastic/go-freelru v0.16.0
 	github.com/fatih/color v1.18.0
 	github.com/florianl/go-conntrack v0.4.0
 	github.com/go-playground/validator/v10 v10.23.0
@@ -24,7 +24,7 @@ require (
 	github.com/grafana/pyroscope-go v1.2.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/iancoleman/strcase v0.3.0
-	github.com/jedib0t/go-pretty/v6 v6.6.1
+	github.com/jedib0t/go-pretty/v6 v6.6.2
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo/v4 v4.12.0
@@ -37,7 +37,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/spf13/viper v1.19.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.34.0
 	github.com/tklauser/go-sysconf v0.3.14
 	github.com/vishvananda/netns v0.0.5
@@ -51,9 +51,9 @@ require (
 	google.golang.org/grpc v1.68.0
 	google.golang.org/protobuf v1.35.2
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.31.2
-	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.2
+	k8s.io/api v0.31.3
+	k8s.io/apimachinery v0.31.3
+	k8s.io/client-go v0.31.3
 	k8s.io/klog/v2 v2.130.1
 )
 
