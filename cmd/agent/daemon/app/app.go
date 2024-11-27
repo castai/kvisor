@@ -74,6 +74,7 @@ type Config struct {
 	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
 	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
+	AutomountCgroupv2              bool                            `json:"automountCgroupv2"`
 }
 
 type EnricherConfig struct {
@@ -275,6 +276,7 @@ func (a *App) Run(ctx context.Context) error {
 		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
 		ContainerClient:                    containersClient,
 		CgroupClient:                       cgroupClient,
+		AutomountCgroupv2:                  a.cfg.AutomountCgroupv2,
 		SignatureEngine:                    signatureEngine,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,

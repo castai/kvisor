@@ -244,6 +244,18 @@ cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 4. Click generate release notes.
 5. Publish release.
 
+## Testing runtime on real k8s cluster
+
+To install local kvisor chart to real cluster and test runtime you can run. In this mode it will only output ebpf events to stdout.
+
+```
+helm upgrade -i castai-kvisor ./charts/kvisor/ -n castai-agent --create-namespace \
+    --set image.tag=<your-pr-image-tag> \
+    --set castai.enabled=false \
+    --set agent.enabled=true \
+    --set agent.extraArgs.ebpf-events-enabled=true \
+    --set agent.extraArgs.ebpf-events-stdio-exporter-enabled=true
+```
 
 ## Testing netflow
 
@@ -386,3 +398,23 @@ kvisor                         69801            kvisor-agent     perf_event_open
 ```
 
 Any `Deny` in the `VERDICT` column should be added to the `containerSecurityContext` of the kvisor agent container in the `charts/kvisor/values.yaml` file to be allowed.
+
+
+## Creating EKS cluster
+
+```sh
+eksctl create cluster \                 
+  --name <your-cluster-name> \
+  --region us-east-1 \
+  --nodes 1 \
+  --nodes-min 1 \
+  --nodes-max 1 \
+  --node-type t3.medium \
+  --managed
+```
+
+To delete cluster
+
+```
+eksctl delete cluster <your-cluster-name> --region=us-east-1
+```

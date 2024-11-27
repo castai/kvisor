@@ -102,6 +102,8 @@ func NewRunCommand(version string) *cobra.Command {
 
 		exportersQueueSize = command.Flags().Int("exporters-queue-size", 4096, "Exporters queue size")
 
+		automountCgroupv2 = command.Flags().Bool("automount-cgroupv2", true, "Automount cgroupv2 if not mounted")
+
 		redactSensitiveValuesRegexStr = command.Flags().String("redact-sensitive-values-regex", "", "Regex which will be used to detect sensitive values in process exec args")
 	)
 
@@ -185,6 +187,7 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			KubeAPIServiceAddr: *kubeAPIServiceAddr,
 			ExportersQueueSize: *exportersQueueSize,
+			AutomountCgroupv2:  *automountCgroupv2,
 		}).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error(err.Error())
 			os.Exit(1)

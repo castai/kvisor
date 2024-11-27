@@ -70,6 +70,7 @@ type Config struct {
 	EventsOutputChanSize   int
 	DefaultCgroupsVersion  string `validate:"required,oneof=V1 V2"`
 	DebugEnabled           bool
+	AutomountCgroupv2      bool
 	ContainerClient        ContainerClient
 	CgroupClient           CgroupClient
 	SignatureEngine        *signature.SignatureEngine
@@ -127,9 +128,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	}
 
 	log = log.WithField("component", "ebpftracer")
-	m := newModule(log, moduleConfig{
-		BTFObjPath: cfg.BTFPath,
-	})
+	m := newModule(log)
 
 	if cfg.EventsPerCPUBuffer == 0 {
 		cfg.EventsPerCPUBuffer = 8192
