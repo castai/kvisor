@@ -117,12 +117,12 @@ func (m *module) load(cfg Config) error {
 	if err != nil && cfg.AutomountCgroupv2 {
 		// Path /cgroup2-manual-mount is created as a temp dir from the host using volume mount.
 		cgroupPath = "/cgroup2-manual-mount/cgroupv2"
-		m.log.Debugf("mounting cgroupv2 to path %s", cgroupPath)
+		m.log.Infof("mounting cgroupv2 to path %s", cgroupPath)
 		if err := mountCgroup2(cgroupPath); err != nil {
 			return fmt.Errorf("mounting cgroupv2: %w", err)
 		}
 	}
-	m.log.Debugf("using cgroup path: %s", cgroupPath)
+	m.log.Infof("using cgroup path: %s", cgroupPath)
 	m.probes = newProbes(m.objects, cgroupPath)
 
 	m.loaded.Store(true)

@@ -244,6 +244,18 @@ cat /sys/kernel/debug/tracing/available_filter_functions | grep socket_connect
 4. Click generate release notes.
 5. Publish release.
 
+## Testing runtime on real k8s cluster
+
+To install local kvisor chart to real cluster and test runtime you can run. In this mode it will only output ebpf events to stdout.
+
+```
+helm upgrade -i castai-kvisor ./charts/kvisor/ -n castai-agent --create-namespace \
+    --set image.tag=<your-pr-image-tag> \
+    --set castai.enabled=false \
+    --set agent.enabled=true \
+    --set agent.extraArgs.ebpf-events-enabled=true \
+    --set agent.extraArgs.ebpf-events-stdio-exporter-enabled=true
+```
 
 ## Testing netflow
 
