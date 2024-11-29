@@ -95,10 +95,8 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 
 	switch containerRuntime {
 	case "docker":
-		if mode == "" {
-			mode = imagescanconfig.ModeDaemon
-		}
-		if mode == imagescanconfig.ModeDaemon {
+		switch mode {
+		case imagescanconfig.ModeDaemon, "":
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "docker-sock",
 				VolumeSource: corev1.VolumeSource{
@@ -115,10 +113,8 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			})
 		}
 	case "containerd":
-		if mode == "" {
-			mode = imagescanconfig.ModeHostFS
-		}
-		if mode == imagescanconfig.ModeHostFS {
+		switch mode {
+		case imagescanconfig.ModeHostFS, "":
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "containerd-content",
 				VolumeSource: corev1.VolumeSource{
@@ -133,7 +129,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				ReadOnly:  true,
 				MountPath: imagescanconfig.ContainerdContentDir,
 			})
-		} else if mode == imagescanconfig.ModeDaemon {
+		case imagescanconfig.ModeDaemon:
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "containerd-sock",
 				VolumeSource: corev1.VolumeSource{
@@ -149,6 +145,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				MountPath: "/run/containerd/containerd.sock",
 			})
 		}
+
 		if s.cfg.PrivateRegistryPullSecret != "" {
 			vols.volumes = append(vols.volumes, corev1.Volume{
 				Name: "pull-secret",
@@ -293,7 +290,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	_, err := jobs.Get(ctx, jobSpec.Name, metav1.GetOptions{})
 	if err == nil {
 		if err := s.waitForCompletion(ctx, jobs, jobName); err != nil {
-			return fmt.Errorf("job already exist, wait for completion: %w", err)
+			return fmt.Errorf("job already exists, waiting for completion: %w", err)
 		}
 		return nil
 	}
@@ -311,9 +308,9 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			jobPod, _ := s.getJobPod(ctx, jobName)
 			if jobPod != nil {
 				conds := getPodConditionsString(jobPod.Status.Conditions)
-				return fmt.Errorf("wait for completion, pod_conditions=%s: %w", conds, err)
+				return fmt.Errorf("waiting for completion, pod_conditions=%s: %w", conds, err)
 			}
-			return fmt.Errorf("wait for completion: %w", err)
+			return fmt.Errorf("waiting for completion: %w", err)
 		}
 	}
 	return nil
@@ -412,7 +409,6 @@ func scanJobSpec(
 	vol volumesAndMounts,
 	tolerations []corev1.Toleration,
 ) *batchv1.Job {
-
 	podLabels := map[string]string{}
 	if cfg.CloudProvider == "aks" {
 		podLabels["azure.workload.identity/use"] = "true"
