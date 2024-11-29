@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
 	github.com/aquasecurity/trivy v0.57.1
-	github.com/castai/image-analyzer v0.6.2
+	github.com/castai/image-analyzer v0.6.3-0.20241128123517-b398bfe744a5
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
@@ -320,7 +320,7 @@ require (
 	github.com/josharian/native v1.1.1-0.20230202152459-5c7d0dd6ab86 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/knqyf263/go-apk-version v0.0.0-20200609155635-041fdbb8563f // indirect
-	github.com/knqyf263/go-deb-version v0.0.0-20230223133812-3ed183d23422 // indirect
+	github.com/knqyf263/go-deb-version v0.0.0-20241115132648-6f4aee6ccd23 // indirect
 	github.com/knqyf263/go-rpmdb v0.1.1 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
