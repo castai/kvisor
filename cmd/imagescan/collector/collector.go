@@ -63,6 +63,12 @@ type ImageInfo struct {
 }
 
 func (c *Collector) Collect(ctx context.Context) error {
+	now := time.Now().UTC()
+	c.log.Infof("collecting %q image", c.cfg.ImageName)
+	defer func() {
+		c.log.Infof("finished collecting %q image in %v", c.cfg.ImageName, time.Since(now))
+	}()
+
 	ctx, cancel := context.WithTimeout(ctx, c.cfg.Timeout)
 	defer cancel()
 
