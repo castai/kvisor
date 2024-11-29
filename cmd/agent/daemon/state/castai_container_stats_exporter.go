@@ -5,9 +5,9 @@ import (
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 	"google.golang.org/grpc"
 )
 

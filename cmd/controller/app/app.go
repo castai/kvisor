@@ -24,6 +24,7 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
@@ -38,6 +39,8 @@ type Config struct {
 	LogLevel        string        `json:"logLevel"`
 	LogRateInterval time.Duration `json:"logRateInterval"`
 	LogRateBurst    int           `json:"logRateBurst"`
+
+	PromMetricsExportInterval time.Duration `json:"promMetricsExportInterval"`
 
 	// Built binary version.
 	Version      string `json:"version"`
@@ -105,6 +108,12 @@ func (a *App) Run(ctx context.Context) error {
 		defer castaiClient.Close()
 		castaiLogsExporter := castai.NewLogsExporter(castaiClient)
 		go castaiLogsExporter.Run(ctx) //nolint:errcheck
+
+		castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+			ExportInterval: a.cfg.PromMetricsExportInterval,
+		})
+		go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+
 		logCfg.Export = logging.ExportConfig{
 			ExportFunc: castaiLogsExporter.ExportFunc(),
 			MinLevel:   slog.LevelInfo,

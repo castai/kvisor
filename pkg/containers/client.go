@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
 	containerdContainers "github.com/containerd/containerd/containers"
 	"github.com/samber/lo"

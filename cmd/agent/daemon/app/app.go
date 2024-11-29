@@ -33,6 +33,7 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
@@ -51,6 +52,7 @@ type Config struct {
 	LogRateInterval                time.Duration                   `json:"logRateInterval"`
 	LogRateBurst                   int                             `json:"logRateBurst"`
 	SendLogsLevel                  string                          `json:"sendLogsLevel"`
+	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
 	Version                        string                          `json:"version"`
 	BTFPath                        string                          `json:"BTFPath"`
 	PyroscopeAddr                  string                          `json:"pyroscopeAddr"`
@@ -136,6 +138,11 @@ func (a *App) Run(ctx context.Context) error {
 		if a.cfg.SendLogsLevel != "" && a.cfg.Castai.Valid() {
 			castaiLogsExporter := castai.NewLogsExporter(castaiClient)
 			go castaiLogsExporter.Run(ctx) //nolint:errcheck
+
+			castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+				ExportInterval: a.cfg.PromMetricsExportInterval,
+			})
+			go castaiMetricsExporter.Run(ctx) //nolint:errcheck
 
 			logCfg.Export = logging.ExportConfig{
 				ExportFunc: castaiLogsExporter.ExportFunc(),

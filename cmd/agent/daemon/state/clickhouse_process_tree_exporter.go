@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/samber/lo"
 )
@@ -139,7 +139,7 @@ func (c *ClickhouseProcessTreeExporter) generateExitEvents(ctx context.Context, 
 						StartTime:       startTime,
 						PPID:            ppid,
 						ParentStartTime: parentStartTime,
-            ExitTime:        uint64(now.UnixNano()), // nolint:gosec
+						ExitTime:        uint64(now.UnixNano()), // nolint:gosec
 					},
 					Action: processtree.ProcessExit,
 				})
@@ -171,9 +171,9 @@ func (c *ClickhouseProcessTreeExporter) asyncWrite(ctx context.Context, wait boo
 		clickhouse.Named("pid", e.Process.PID),
 		// NOTE: StartTime will be stored in seconds since boot, since this is the best resolution we can get everywhere
 		// we need. This should still be good enough to identify a process.
-    clickhouse.Named("start_time", uint64(e.Process.StartTime/time.Second)), // nolint:gosec
+		clickhouse.Named("start_time", uint64(e.Process.StartTime/time.Second)), // nolint:gosec
 		clickhouse.Named("ppid", e.Process.PPID),
-    clickhouse.Named("parent_start_time", uint64(e.Process.ParentStartTime/time.Second)), // nolint:gosec
+		clickhouse.Named("parent_start_time", uint64(e.Process.ParentStartTime/time.Second)), // nolint:gosec
 		clickhouse.Named("args", e.Process.Args),
 		clickhouse.Named("file_path", e.Process.FilePath),
 		clickhouse.Named("exit_time", e.Process.ExitTime),

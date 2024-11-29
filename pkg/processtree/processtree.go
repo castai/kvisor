@@ -8,9 +8,9 @@ import (
 	"slices"
 	"time"
 
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/prometheus/client_golang/prometheus"
 )

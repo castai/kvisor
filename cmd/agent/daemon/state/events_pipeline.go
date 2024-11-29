@@ -9,8 +9,8 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 )

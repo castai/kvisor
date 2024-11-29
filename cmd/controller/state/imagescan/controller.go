@@ -10,8 +10,8 @@ import (
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/controller/metrics"
 	imagescanconfig "github.com/castai/kvisor/cmd/imagescan/config"
-	"github.com/castai/kvisor/pkg/metrics"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 

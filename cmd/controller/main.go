@@ -32,9 +32,10 @@ var (
 	serverHTTPListenPort  = pflag.Int("http-listen-port", 8080, "server http listen port")
 	kubeServerListenPort  = pflag.Int("kube-server-listen-port", 8090, "kube server grpc http listen port")
 
-	logLevel        = pflag.String("log-level", slog.LevelDebug.String(), "Log level")
-	logRateInterval = pflag.Duration("log-rate-iterval", 100*time.Millisecond, "Log rate limit interval")
-	logRateBurst    = pflag.Int("log-rate-burst", 100, "Log rate burst")
+	logLevel                  = pflag.String("log-level", slog.LevelDebug.String(), "Log level")
+	logRateInterval           = pflag.Duration("log-rate-interval", 100*time.Millisecond, "Log rate limit interval")
+	logRateBurst              = pflag.Int("log-rate-burst", 100, "Log rate burst")
+	promMetricsExportInterval = pflag.Duration("prom-metrics-export-interval", 5*time.Minute, "Internal prometheus metrics export interval")
 
 	chartVersion = pflag.String("chart-version", "", "Helm chart version")
 
@@ -162,18 +163,19 @@ func main() {
 		podName = "localenv"
 	}
 	appInstance := app.New(app.Config{
-		LogLevel:              *logLevel,
-		LogRateInterval:       *logRateInterval,
-		LogRateBurst:          *logRateBurst,
-		PodName:               podName,
-		PodNamespace:          podNs,
-		Version:               Version,
-		ChartVersion:          *chartVersion,
-		PyroscopeAddr:         *pyroscopeAddr,
-		MetricsHTTPListenPort: *metricsHTTPListenPort,
-		HTTPListenPort:        *serverHTTPListenPort,
-		KubeServerListenPort:  *kubeServerListenPort,
-		CastaiEnv:             castaiClientCfg,
+		LogLevel:                  *logLevel,
+		LogRateInterval:           *logRateInterval,
+		LogRateBurst:              *logRateBurst,
+		PromMetricsExportInterval: *promMetricsExportInterval,
+		PodName:                   podName,
+		PodNamespace:              podNs,
+		Version:                   Version,
+		ChartVersion:              *chartVersion,
+		PyroscopeAddr:             *pyroscopeAddr,
+		MetricsHTTPListenPort:     *metricsHTTPListenPort,
+		HTTPListenPort:            *serverHTTPListenPort,
+		KubeServerListenPort:      *kubeServerListenPort,
+		CastaiEnv:                 castaiClientCfg,
 		CastaiController: state.CastaiConfig{
 			RemoteConfigSyncDuration: *castaiConfigSyncDuration,
 		},

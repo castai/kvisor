@@ -10,10 +10,10 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/metrics"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
