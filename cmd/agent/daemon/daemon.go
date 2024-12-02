@@ -44,6 +44,7 @@ func NewRunCommand(version string) *cobra.Command {
 		logRateInterval = command.Flags().Duration("log-rate-interval", 100*time.Millisecond, "Log rate limit interval")
 		logRateBurst    = command.Flags().Int("log-rate-burst", 100, "Log rate burst")
 
+		promMetricsExportEnabled  = command.Flags().Bool("prom-metrics-export-enabled", false, "Enabled sending internal prometheus metrics")
 		promMetricsExportInterval = command.Flags().Duration("prom-metrics-export-interval", 5*time.Minute, "Internal prometheus metrics export interval")
 
 		sendLogLevel          = command.Flags().String("send-logs-level", "", "send logs level")
@@ -136,6 +137,7 @@ func NewRunCommand(version string) *cobra.Command {
 			LogRateInterval:           *logRateInterval,
 			LogRateBurst:              *logRateBurst,
 			SendLogsLevel:             *sendLogLevel,
+			PromMetricsExportEnabled:  *promMetricsExportEnabled,
 			PromMetricsExportInterval: *promMetricsExportInterval,
 			Version:                   version,
 			BTFPath:                   *btfPath,

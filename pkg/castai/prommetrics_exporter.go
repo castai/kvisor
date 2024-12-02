@@ -17,6 +17,7 @@ type logsExporter interface {
 }
 
 type PromMetricsExporterConfig struct {
+	PodName        string
 	MetricsPrefix  string
 	ExportInterval time.Duration
 }
@@ -83,7 +84,7 @@ func (e *PromMetricsExporter) export() error {
 	}
 	e.logsExporter.AddLogEvent(&castaipb.LogEvent{
 		Level: int32(slog.LevelInfo),
-		Msg:   fmt.Sprintf("kvisor metrics:\n%s", strings.Join(msgs, "\n")),
+		Msg:   fmt.Sprintf("kvisor metrics, pod=%s:\n%s", e.cfg.PodName, strings.Join(msgs, "\n")),
 	})
 	return nil
 }

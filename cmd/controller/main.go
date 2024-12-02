@@ -35,6 +35,7 @@ var (
 	logLevel                  = pflag.String("log-level", slog.LevelDebug.String(), "Log level")
 	logRateInterval           = pflag.Duration("log-rate-interval", 100*time.Millisecond, "Log rate limit interval")
 	logRateBurst              = pflag.Int("log-rate-burst", 100, "Log rate burst")
+	promMetricsExportEnabled  = pflag.Bool("prom-metrics-export-enabled", false, "Enabled sending internal prometheus metrics")
 	promMetricsExportInterval = pflag.Duration("prom-metrics-export-interval", 5*time.Minute, "Internal prometheus metrics export interval")
 
 	chartVersion = pflag.String("chart-version", "", "Helm chart version")
@@ -166,6 +167,7 @@ func main() {
 		LogLevel:                  *logLevel,
 		LogRateInterval:           *logRateInterval,
 		LogRateBurst:              *logRateBurst,
+		PromMetricsExportEnabled:  *promMetricsExportEnabled,
 		PromMetricsExportInterval: *promMetricsExportInterval,
 		PodName:                   podName,
 		PodNamespace:              podNs,

@@ -52,6 +52,7 @@ type Config struct {
 	LogRateInterval                time.Duration                   `json:"logRateInterval"`
 	LogRateBurst                   int                             `json:"logRateBurst"`
 	SendLogsLevel                  string                          `json:"sendLogsLevel"`
+	PromMetricsExportEnabled       bool                            `json:"promMetricsExportEnabled"`
 	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
 	Version                        string                          `json:"version"`
 	BTFPath                        string                          `json:"BTFPath"`
@@ -124,6 +125,9 @@ func (a *App) Run(ctx context.Context) error {
 			Inform: true,
 		},
 	}
+
+	podName := os.Getenv("POD_NAME")
+
 	var log *logging.Logger
 	var exporters *state.Exporters
 	// Castai specific spetup if config is valid.
@@ -139,10 +143,13 @@ func (a *App) Run(ctx context.Context) error {
 			castaiLogsExporter := castai.NewLogsExporter(castaiClient)
 			go castaiLogsExporter.Run(ctx) //nolint:errcheck
 
-			castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
-				ExportInterval: a.cfg.PromMetricsExportInterval,
-			})
-			go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+			if a.cfg.PromMetricsExportEnabled {
+				castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+					PodName:        podName,
+					ExportInterval: a.cfg.PromMetricsExportInterval,
+				})
+				go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+			}
 
 			logCfg.Export = logging.ExportConfig{
 				ExportFunc: castaiLogsExporter.ExportFunc(),
@@ -221,7 +228,7 @@ func (a *App) Run(ctx context.Context) error {
 	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
 
 	if addr := a.cfg.PyroscopeAddr; addr != "" {
-		withPyroscope(addr)
+		withPyroscope(podName, addr)
 	}
 
 	cgroupClient, err := cgroup.NewClient(log, a.cfg.HostCgroupsDir)
@@ -557,12 +564,12 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	}
 }
 
-func withPyroscope(addr string) {
+func withPyroscope(podName, addr string) {
 	if _, err := pyroscope.Start(pyroscope.Config{
 		ApplicationName: "kvisor-agent",
 		ServerAddress:   addr,
 		Tags: map[string]string{
-			"pod": os.Getenv("POD_NAME"),
+			"pod": podName,
 		},
 		ProfileTypes: []pyroscope.ProfileType{
 			pyroscope.ProfileCPU,

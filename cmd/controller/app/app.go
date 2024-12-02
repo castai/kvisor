@@ -40,6 +40,7 @@ type Config struct {
 	LogRateInterval time.Duration `json:"logRateInterval"`
 	LogRateBurst    int           `json:"logRateBurst"`
 
+	PromMetricsExportEnabled  bool          `json:"promMetricsExportEnabled"`
 	PromMetricsExportInterval time.Duration `json:"promMetricsExportInterval"`
 
 	// Built binary version.
@@ -109,10 +110,13 @@ func (a *App) Run(ctx context.Context) error {
 		castaiLogsExporter := castai.NewLogsExporter(castaiClient)
 		go castaiLogsExporter.Run(ctx) //nolint:errcheck
 
-		castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
-			ExportInterval: a.cfg.PromMetricsExportInterval,
-		})
-		go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+		if a.cfg.PromMetricsExportEnabled {
+			castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+				PodName:        a.cfg.PodName,
+				ExportInterval: a.cfg.PromMetricsExportInterval,
+			})
+			go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+		}
 
 		logCfg.Export = logging.ExportConfig{
 			ExportFunc: castaiLogsExporter.ExportFunc(),
