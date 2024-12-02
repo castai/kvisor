@@ -36,6 +36,7 @@ func TestPrometheusExporter(t *testing.T) {
 	logsExp := &mockLogsExporter{}
 	exp := NewPromMetricsExporter(log, logsExp, prometheus.DefaultGatherer, PromMetricsExporterConfig{
 		MetricsPrefix:  "kvisor_test",
+		PodName:        "pod1",
 		ExportInterval: time.Millisecond,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -50,7 +51,7 @@ func TestPrometheusExporter(t *testing.T) {
 	cancel()
 
 	r.Len(logsExp.logs, 2)
-	r.Equal(`kvisor metrics:
+	r.Equal(`kvisor metrics, pod=pod1:
 kvisor_test_counter event_type=exec 10
 kvisor_test_gauge event_name=Connect event_type=tcp_connect 15`, logsExp.logs[0].Msg)
 }
