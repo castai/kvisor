@@ -202,19 +202,10 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		return nil
 	}
 
-	switch eventId {
-	case events.NetFlowBase:
-		select {
-		case t.netflowEventsChan <- event:
-		default:
-			metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
-		}
+	select {
+	case t.eventsChan <- event:
 	default:
-		select {
-		case t.eventsChan <- event:
-		default:
-			metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
-		}
+		metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
 	}
 
 	return nil

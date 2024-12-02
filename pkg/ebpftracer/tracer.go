@@ -23,7 +23,7 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/ringbuf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
@@ -65,8 +65,12 @@ func (m MetricsReportingConfig) Enabled() bool {
 }
 
 type Config struct {
-	BTFPath                string
-	EventsPerCPUBuffer     int
+	BTFPath string
+
+	SignalEventsRingBufferSize uint32 `validate:"required"`
+	EventsRingBufferSize       uint32 `validate:"required"`
+	SkbEventsRingBufferSize    uint32 `validate:"required"`
+
 	EventsOutputChanSize   int
 	DefaultCgroupsVersion  string `validate:"required,oneof=V1 V2"`
 	DebugEnabled           bool
@@ -78,12 +82,12 @@ type Config struct {
 	// All PIPs reported from ebpf will be normalized to this PID namespace
 	HomePIDNS                          proc.NamespaceID
 	AllowAnyEvent                      bool
-	NetflowOutputChanSize              int
 	NetflowSampleSubmitIntervalSeconds uint64
 	NetflowGrouping                    NetflowGrouping
 	TrackSyscallStats                  bool
 	ProcessTreeCollector               processTreeCollector
 	MetricsReporting                   MetricsReportingConfig
+	PodName                            string
 }
 
 type cgroupCleanupRequest struct {
@@ -106,8 +110,7 @@ type Tracer struct {
 	cgroupEventPolicy map[cgroup.ID]map[events.ID]*cgroupEventPolicy
 	signatureEventMap map[events.ID]struct{}
 
-	eventsChan        chan *types.Event
-	netflowEventsChan chan *types.Event
+	eventsChan chan *types.Event
 
 	removedCgroupsMu sync.Mutex
 	removedCgroups   map[uint64]struct{}
@@ -120,6 +123,8 @@ type Tracer struct {
 	cleanupTimerTickRate      time.Duration
 	cgroupCleanupDelay        time.Duration
 	metricExportTimerTickRate time.Duration
+
+	currentTracerEbpfMetrics map[string]uint64
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
@@ -130,9 +135,6 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	log = log.WithField("component", "ebpftracer")
 	m := newModule(log)
 
-	if cfg.EventsPerCPUBuffer == 0 {
-		cfg.EventsPerCPUBuffer = 8192
-	}
 	if cfg.EventsOutputChanSize == 0 {
 		cfg.EventsOutputChanSize = 16384
 	}
@@ -143,7 +145,6 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		module:                    m,
 		bootTime:                  uint64(system.GetBootTime().UnixNano()), // nolint:gosec
 		eventsChan:                make(chan *types.Event, cfg.EventsOutputChanSize),
-		netflowEventsChan:         make(chan *types.Event, cfg.NetflowOutputChanSize),
 		removedCgroups:            map[uint64]struct{}{},
 		eventPoliciesMap:          map[events.ID]*EventPolicy{},
 		cgroupEventPolicy:         map[uint64]map[events.ID]*cgroupEventPolicy{},
@@ -152,6 +153,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cleanupTimerTickRate:      1 * time.Minute,
 		cgroupCleanupDelay:        1 * time.Minute,
 		metricExportTimerTickRate: 5 * time.Second,
+		currentTracerEbpfMetrics:  map[string]uint64{},
 	}
 
 	return t
@@ -184,6 +186,9 @@ func (t *Tracer) Run(ctx context.Context) error {
 		return t.signalEventsReadLoop(ctx)
 	})
 	errg.Go(func() error {
+		return t.skbEventsReadLoop(ctx)
+	})
+	errg.Go(func() error {
 		return t.cgroupCleanupLoop(ctx)
 	})
 
@@ -200,15 +205,15 @@ func (t *Tracer) Events() <-chan *types.Event {
 	return t.eventsChan
 }
 
-func (t *Tracer) NetflowEvents() <-chan *types.Event {
-	return t.netflowEventsChan
-}
-
 func (t *Tracer) GetEventName(id events.ID) string {
 	if def, found := t.eventsSet[id]; found {
 		return def.name
 	}
 	return ""
+}
+
+func (t *Tracer) skbEventsReadLoop(ctx context.Context) error {
+	return t.runPerfBufReaderLoop(ctx, t.module.objects.SkbEvents)
 }
 
 func (t *Tracer) signalEventsReadLoop(ctx context.Context) error {
@@ -220,7 +225,7 @@ func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 }
 
 func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) error {
-	eventsReader, err := perf.NewReader(target, t.cfg.EventsPerCPUBuffer)
+	eventsReader, err := ringbuf.NewReader(target)
 	if err != nil {
 		return err
 	}
@@ -229,7 +234,7 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 	// Allocate message decoder and perf record once.
 	// Under the hood per event reader will reuse and grow raw sample backing bytes slice.
 	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, []byte{})
-	var record perf.Record
+	var record ringbuf.Record
 
 	for {
 		select {
@@ -243,11 +248,6 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 			if t.cfg.DebugEnabled {
 				t.log.Warnf("reading event: %v", err)
 			}
-			continue
-		}
-		if record.LostSamples > 0 {
-			t.log.Warnf("lost %d events", record.LostSamples)
-			metrics.AgentKernelLostEventsTotal.Add(float64(record.LostSamples))
 			continue
 		}
 

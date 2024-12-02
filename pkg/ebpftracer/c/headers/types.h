@@ -8,6 +8,8 @@
 
 #define PATH_MAX          4096
 #define MAX_BIN_PATH_SIZE 256
+// Limit skb payload size to 512 which is the same as max dns packet size.
+#define MAX_SKB_PAYLOAD_SIZE 512
 
 typedef struct task_context {
     u64 start_time; // thread's start time
@@ -302,6 +304,10 @@ enum metric {
     NO_FREE_SCRATCH_BUFFER_SOCKET_SET_STATE,
     NO_FREE_SCRATCH_BUFFER_NETFLOWS,
 
+    SIGNAL_EVENTS_RINGBUF_DISCARD,
+    EVENTS_RINGBUF_DISCARD,
+    SKB_EVENTS_RINGBUF_DISCARD,
+
     MAX_METRIC,
 };
 
@@ -411,13 +417,11 @@ typedef struct net_event_contextmd {
 typedef struct net_event_context {
     event_context_t eventctx;
     u8 argnum;
-    struct { // event arguments (needs packing), use anonymous struct to ...
+    struct {
         u8 index0;
         u32 bytes;
-        // ... (payload sent by bpf_perf_event_output)
     } __attribute__((__packed__)); // ... avoid address-of-packed-member warns
-    // members bellow this point are metadata (not part of event to be sent)
-    net_event_contextmd_t md;
+    u8 payload[MAX_SKB_PAYLOAD_SIZE];
 } __attribute__((__packed__)) net_event_context_t;
 
 // network related maps

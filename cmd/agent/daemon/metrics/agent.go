@@ -23,11 +23,6 @@ var (
 		Help: "Counter for tracking pulled events bytes from kernel rate",
 	}, []string{EventTypeLabel})
 
-	AgentKernelLostEventsTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kvisor_agent_kernel_lost_events_total",
-		Help: "Counter for tracking lost events from kernel rate",
-	})
-
 	AgentSkippedEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_skipped_events_total",
 		Help: "Counter for tracking skipped events rate",

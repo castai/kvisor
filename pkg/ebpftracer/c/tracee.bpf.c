@@ -33,6 +33,7 @@
 #include <common/stats.h>
 #include <common/metrics.h>
 #include <common/signatures.h>
+#include <common/metrics.h>
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -165,7 +166,7 @@ int sys_enter_submit(struct bpf_raw_tracepoint_args *ctx)
 
     if (sys->id != SYSCALL_RT_SIGRETURN && !p.task_info->syscall_traced) {
         save_to_submit_buf(&p.event->args_buf, (void *) &(sys->args.args[0]), sizeof(int), 0);
-        events_perf_submit(&p, sys->id, 0);
+        events_ringbuf_submit(&p, sys->id, 0);
     }
 
     // call syscall handler, if exists
@@ -287,7 +288,7 @@ int sys_exit_submit(struct bpf_raw_tracepoint_args *ctx)
 
     save_args_to_submit_buf(p.event, &sys->args);
     p.event->context.ts = sys->ts;
-    events_perf_submit(&p, sys->id, ret);
+    events_ringbuf_submit(&p, sys->id, ret);
 
 out:
     bpf_tail_call(ctx, &sys_exit_tails, sys->id);
@@ -325,7 +326,7 @@ int trace_sys_enter(struct bpf_raw_tracepoint_args *ctx)
         id = *id_64;
     }
     save_to_submit_buf(&p.event->args_buf, (void *) &id, sizeof(int), 0);
-    events_perf_submit(&p, RAW_SYS_ENTER, 0);
+    events_ringbuf_submit(&p, RAW_SYS_ENTER, 0);
     return 0;
 }
 
@@ -356,7 +357,7 @@ int trace_sys_exit(struct bpf_raw_tracepoint_args *ctx)
         id = *id_64;
     }
     save_to_submit_buf(&p.event->args_buf, (void *) &id, sizeof(int), 0);
-    events_perf_submit(&p, RAW_SYS_EXIT, 0);
+    events_ringbuf_submit(&p, RAW_SYS_EXIT, 0);
     return 0;
 }
 
@@ -379,7 +380,7 @@ int syscall__execve(void *ctx)
     save_str_to_buf(&p.event->args_buf, (void *) sys->args.args[0] /*filename*/, 0);
     save_str_arr_to_buf(&p.event->args_buf, (const char *const *) sys->args.args[1] /*argv*/, 1);
 
-    return events_perf_submit(&p, SYSCALL_EXECVE, 0);
+    return events_ringbuf_submit(&p, SYSCALL_EXECVE, 0);
 }
 
 SEC("raw_tracepoint/sys_execveat")
@@ -403,7 +404,7 @@ int syscall__execveat(void *ctx)
     save_str_arr_to_buf(&p.event->args_buf, (const char *const *) sys->args.args[2] /*argv*/, 2);
     save_to_submit_buf(&p.event->args_buf, (void *) &sys->args.args[4] /*flags*/, sizeof(int), 4);
 
-    return events_perf_submit(&p, SYSCALL_EXECVEAT, 0);
+    return events_ringbuf_submit(&p, SYSCALL_EXECVEAT, 0);
 }
 
 statfunc int send_stdio_via_socket_from_socket_dup(program_data_t *p, u64 oldfd, u64 newfd)
@@ -454,7 +455,7 @@ statfunc int send_stdio_via_socket_from_socket_dup(program_data_t *p, u64 oldfd,
         save_to_submit_buf(&(p->event->args_buf), &remote, sizeof(struct sockaddr_in6), 1);
     }
 
-    return events_perf_submit(p, STDIO_VIA_SOCKET, 0);
+    return events_ringbuf_submit(p, STDIO_VIA_SOCKET, 0);
 }
 
 SEC("raw_tracepoint/sys_dup")
@@ -614,7 +615,7 @@ int tracepoint__sched__sched_process_fork(struct bpf_raw_tracepoint_args *ctx)
         save_to_submit_buf(&p.event->args_buf, (void *) &leader_start_time, sizeof(u64), 19);
 
         // Submit
-        signal_events_perf_submit(&p, SCHED_PROCESS_FORK, 0);
+        signal_events_ringbuf_submit(&p, SCHED_PROCESS_FORK, 0);
     }
 
     return 0;
@@ -819,7 +820,7 @@ int sched_process_exec_event_submit_tail(struct bpf_raw_tracepoint_args *ctx)
     save_str_to_buf(&p.event->args_buf, stdin_path, 13);
     save_to_submit_buf(&p.event->args_buf, &invoked_from_kernel, sizeof(int), 14);
 
-    signal_events_perf_submit(&p, SCHED_PROCESS_EXEC, 0);
+    signal_events_ringbuf_submit(&p, SCHED_PROCESS_EXEC, 0);
     return 0;
 }
 
@@ -864,7 +865,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
             save_to_submit_buf(&p.event->args_buf, (void *) &exit_code, sizeof(long), 0);
             save_to_submit_buf(&p.event->args_buf, (void *) &group_dead, sizeof(bool), 1);
 
-            signal_events_perf_submit(&p, PROCESS_OOM_KILLED, 0);
+            signal_events_ringbuf_submit(&p, PROCESS_OOM_KILLED, 0);
         }
 
         return 0;
@@ -874,7 +875,7 @@ int tracepoint__sched__sched_process_exit(struct bpf_raw_tracepoint_args *ctx)
         save_to_submit_buf(&p.event->args_buf, (void *) &exit_code, sizeof(long), 0);
         save_to_submit_buf(&p.event->args_buf, (void *) &group_dead, sizeof(bool), 1);
 
-        signal_events_perf_submit(&p, SCHED_PROCESS_EXIT, 0);
+        signal_events_ringbuf_submit(&p, SCHED_PROCESS_EXIT, 0);
     }
 
     return 0;
@@ -925,7 +926,7 @@ int tracepoint__sched__sched_switch(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, (void *) &next_pid, sizeof(int), 3);
     save_str_to_buf(&p.event->args_buf, next->comm, 4);
 
-    return events_perf_submit(&p, SCHED_SWITCH, 0);
+    return events_ringbuf_submit(&p, SCHED_SWITCH, 0);
 }
 
 statfunc struct trace_kprobe *get_trace_kprobe_from_trace_probe(void *tracep)
@@ -985,7 +986,7 @@ int tracepoint__cgroup__cgroup_mkdir(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, &cgroup_id, sizeof(u64), 0);
     save_str_to_buf(&p.event->args_buf, path, 1);
     save_to_submit_buf(&p.event->args_buf, &hierarchy_id, sizeof(u32), 2);
-    signal_events_perf_submit(&p, CGROUP_MKDIR, 0);
+    signal_events_ringbuf_submit(&p, CGROUP_MKDIR, 0);
 
     return 0;
 }
@@ -1014,7 +1015,7 @@ int tracepoint__cgroup__cgroup_rmdir(struct bpf_raw_tracepoint_args *ctx)
     save_to_submit_buf(&p.event->args_buf, &cgroup_id, sizeof(u64), 0);
     save_str_to_buf(&p.event->args_buf, path, 1);
     save_to_submit_buf(&p.event->args_buf, &hierarchy_id, sizeof(u32), 2);
-    signal_events_perf_submit(&p, CGROUP_RMDIR, 0);
+    signal_events_ringbuf_submit(&p, CGROUP_RMDIR, 0);
 
     return 0;
 }
@@ -1059,7 +1060,7 @@ int BPF_KPROBE(trace_security_bprm_check)
     save_to_submit_buf(&p.event->args_buf, &inode_nr, sizeof(unsigned long), 2);
     save_str_arr_to_buf(&p.event->args_buf, argv, 3);
 
-    return events_perf_submit(&p, SECURITY_BPRM_CHECK, 0);
+    return events_ringbuf_submit(&p, SECURITY_BPRM_CHECK, 0);
 }
 
 statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, program_data_t *p)
@@ -1156,7 +1157,7 @@ statfunc int send_stdio_via_socket_from_sock_connect(struct pt_regs *ctx, progra
         stsb(args_buf, (void *) address, sockaddr_len, 1);
     }
 
-    return events_perf_submit(p, STDIO_VIA_SOCKET, 0);
+    return events_ringbuf_submit(p, STDIO_VIA_SOCKET, 0);
 }
 
 SEC("kprobe/security_socket_connect")
@@ -1407,7 +1408,7 @@ statfunc int do_vfs_write_magic_return(struct pt_regs *ctx, bool is_buf)
     save_to_submit_buf(&(p.event->args_buf), &file_info.id.inode, sizeof(unsigned long), 3);
 
     // Submit magic_write event
-    return events_perf_submit(&p, MAGIC_WRITE, bytes_written);
+    return events_ringbuf_submit(&p, MAGIC_WRITE, bytes_written);
 }
 
 SEC("kprobe/vfs_write")
@@ -1563,7 +1564,7 @@ statfunc int common_file_modification_ret(struct pt_regs *ctx)
     save_to_submit_buf(&p.event->args_buf, &old_ctime, sizeof(u64), 3);
     save_to_submit_buf(&p.event->args_buf, &file_info.id.ctime, sizeof(u64), 4);
 
-    events_perf_submit(&p, FILE_MODIFICATION, 0);
+    events_ringbuf_submit(&p, FILE_MODIFICATION, 0);
 
     return 0;
 }
@@ -1628,7 +1629,7 @@ statfunc void set_net_task_context(program_data_t *p, net_task_context_t *netctx
     __builtin_memset(&netctx->taskctx, 0, sizeof(task_context_t));
     __builtin_memcpy(&netctx->taskctx, &p->event->context.task, sizeof(task_context_t));
 
-    // Normally this will be set filled inside events_perf_submit but for some events like
+    // Normally this will be set filled inside events_ringbuf_submit but for some events like
     // set_socket_state we want to prefill full network context.
     init_task_context(&netctx->taskctx, p->task);
 }
@@ -1664,7 +1665,7 @@ statfunc enum event_id_e net_packet_to_net_event(net_packet_t packet_type)
 #pragma clang diagnostic ignored "-Waddress-of-packed-member"
 
 // Return if a network event should to be sumitted.
-statfunc bool should_submit_net_event(net_event_context_t *neteventctx, net_packet_t packet_type)
+statfunc bool should_submit_net_event(event_context_t *neteventctx, net_packet_t packet_type)
 {
     enum event_id_e evt_id = net_packet_to_net_event(packet_type);
 
@@ -1677,14 +1678,6 @@ statfunc bool should_submit_net_event(net_event_context_t *neteventctx, net_pack
 
 #pragma clang diagnostic pop // -Waddress-of-packed-member
 
-// Return if a network capture event should be submitted.
-statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_packet_t packet_type)
-{
-    if (neteventctx->md.captured) // already captured
-        return 0;
-
-    return should_submit_net_event(neteventctx, packet_type);
-}
 
 //
 // Protocol parsing functions
@@ -1692,7 +1685,8 @@ statfunc u64 should_capture_net_event(net_event_context_t *neteventctx, net_pack
 
 #define CGROUP_SKB_HANDLE_FUNCTION(name)                                                           \
     statfunc u32 cgroup_skb_handle_##name(struct __sk_buff *ctx,                                   \
-                                          net_event_context_t *neteventctx,                        \
+                                          net_event_contextmd_t md,                                \
+                                          event_context_t *neteventctx,                            \
                                           nethdrs *nethdrs,                                        \
                                           enum flow_direction flow_direction)
 
@@ -1705,43 +1699,63 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 
-#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, neteventctx, nethdrs, flow_direction);
+#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, md, neteventctx, nethdrs, flow_direction);
 
 //
 // Network submission functions
 //
 
 // Submit a network event (packet, capture, flow) to userland.
-statfunc u32 cgroup_skb_submit(
-    void *map, struct __sk_buff *ctx, net_event_context_t *neteventctx, u32 event_type, u32 size)
+statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_contextmd_t md, event_context_t *neteventctx, u32 event_type, u32 size)
 {
     size = size > FULL ? FULL : size;
     switch (size) {
         case HEADERS: // submit only headers
-            size = neteventctx->md.header_size;
+            size = md.header_size;
             break;
         case FULL: // submit full packet
             size = ctx->len;
             break;
         default: // submit size bytes
-            size += neteventctx->md.header_size;
+            size += md.header_size;
             size = size > ctx->len ? ctx->len : size;
             break;
     }
 
-    // Flag eBPF subsystem to use current CPU and copy size bytes of payload.
-    u64 flags = BPF_F_CURRENT_CPU | (u64) size << 32;
-    neteventctx->bytes = size;
+    net_event_context_t *e = bpf_ringbuf_reserve(map, sizeof(net_event_context_t), 0);
+    if (!e) {
+        return 1;
+    }
+    __builtin_memcpy(&e->eventctx, neteventctx, sizeof(event_context_t));
 
-    // Set the event type before submitting event.
-    neteventctx->eventctx.eventid = event_type;
+    u32 read_len = size;
 
-    // Submit the event.
-    return bpf_perf_event_output(ctx, map, flags, neteventctx, sizeof_net_event_context_t());
+    // Make the verifier happy to ensure we are not reading less than 1 byte and not more than max skb payload size.
+    asm goto("if %[size] < 1 goto %l[out]" ::[size] "r"(read_len)::out);
+    asm goto("if %[size] > %[max] goto %l[out]"
+                :
+                :[size] "r"(read_len)
+                ,[max] "i"(MAX_SKB_PAYLOAD_SIZE)::out);
+
+    if (bpf_skb_load_bytes(ctx, 0, &e->payload, read_len)) {
+        goto out;
+    }
+
+    e->argnum = 1;
+    e->bytes = size;
+    e->eventctx.eventid = event_type;
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+
+out:
+    bpf_ringbuf_discard(e, 0);
+    metrics_increase(SKB_EVENTS_RINGBUF_DISCARD);
+    return 0;
 }
 
 // Submit a network event.
-#define cgroup_skb_submit_event(a, b, c, d) cgroup_skb_submit(&events, a, b, c, d)
+#define cgroup_skb_submit_event(a, b, c, d, e) cgroup_skb_submit(&skb_events, a, b, c, d, e)
 
 // Check if a flag is set in the retval.
 #define retval_hasflag(flag) (neteventctx->eventctx.retval & flag) == flag
@@ -1905,20 +1919,18 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         return 1;
     }
 
-    // TODO: We may run into stack limit issue here. If that happens change event_context_t to be a
-    // pointer since we have it inside ebpf map anyway.
-    net_event_context_t neteventctx_val = {0};
-    net_event_context_t *neteventctx = &neteventctx_val;
+    event_context_t neteventctx_val = {0};
+    event_context_t *neteventctx = &neteventctx_val;
 
-    event_context_t *eventctx = &neteventctx->eventctx;
-    __builtin_memcpy(&eventctx->task, &netctx->taskctx, sizeof(task_context_t));
-    eventctx->ts = bpf_ktime_get_ns();
-    neteventctx->argnum = 1;           // 1 argument (add more if needed)
-    eventctx->eventid = NET_PACKET_IP; // will be changed in skb program
-    eventctx->processor_id = (u16) bpf_get_smp_processor_id();
-    eventctx->syscall = NO_SYSCALL; // ingress has no orig syscall
-    neteventctx->md.header_size = 0;
-    eventctx->retval = flow_direction == INGRESS ? packet_ingress : packet_egress;
+    __builtin_memcpy(&neteventctx->task, &netctx->taskctx, sizeof(task_context_t));
+    neteventctx->ts = bpf_ktime_get_ns();
+    neteventctx->eventid = NET_PACKET_IP; // will be changed in skb program
+    neteventctx->processor_id = (u16) bpf_get_smp_processor_id();
+    neteventctx->syscall = NO_SYSCALL; // ingress has no orig syscall
+    neteventctx->retval = flow_direction == INGRESS ? packet_ingress : packet_egress;
+
+    net_event_contextmd_t md = {0};
+    md.header_size = 0;
 
     nethdrs hdrs = {0}, *nethdrs = &hdrs;
     u32 ret = CGROUP_SKB_HANDLE(proto);
@@ -1972,7 +1984,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
                     return 1;
                 }
             }
-            neteventctx->md.header_size += size;
+            md.header_size += size;
 
             prev_hdr_size = size;
             next_proto = nethdrs->iphdrs.iphdr.protocol;
@@ -1996,7 +2008,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
                     return 1;
             }
 
-            neteventctx->md.header_size += size;
+            md.header_size += size;
             break;
         case PF_INET6:
             dest = &nethdrs->iphdrs.ipv6hdr;
@@ -2006,7 +2018,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
             if (bpf_skb_load_bytes_relative(ctx, 0, dest, size, BPF_HDR_START_NET))
                 return 1;
 
-            neteventctx->md.header_size += size;
+            md.header_size += size;
 
             // TODO: dual-stack IP implementation unsupported for now
             // https://en.wikipedia.org/wiki/IPv6_transition_mechanism
@@ -2035,14 +2047,14 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
                     return 1;
             }
 
-            neteventctx->md.header_size += size;
+            md.header_size += size;
             break;
         default:
             return 1;
     }
 
     if (should_submit_event(NET_FLOW_BASE)) {
-        record_netflow(ctx, &neteventctx->eventctx.task, nethdrs, flow_direction);
+        record_netflow(ctx, &neteventctx->task, nethdrs, flow_direction);
     }
 
     // size == 0 means protocol we do not have any specific handling logic for. We still want
@@ -2053,7 +2065,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
 
     // fastpath: submit the IP base event
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_IP))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_IP, HEADERS);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_IP, HEADERS);
 
     // Call the next protocol handler.
     switch (next_proto) {
@@ -2210,8 +2222,8 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
 
     if (nethdrs->protohdrs.tcphdr.doff > 5) { // offset flag set
         u32 doff = nethdrs->protohdrs.tcphdr.doff * (32 / 8);
-        neteventctx->md.header_size -= get_type_size(struct tcphdr);
-        neteventctx->md.header_size += doff;
+        md.header_size -= get_type_size(struct tcphdr);
+        md.header_size += doff;
     }
 
     // Pick src/dst ports.
@@ -2221,7 +2233,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     // Submit TCP base event if needed (only headers)
 
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_TCP))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_TCP, HEADERS);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_TCP, HEADERS);
 
     bool submit_dns = should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS);
     bool submit_socks5 = should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5);
@@ -2246,7 +2258,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     // We already probed for SSH traffic before, if the port was related to SSH. No need to probe
     // again.
     if (submit_ssh) {
-        int ssh_proto = net_l7_is_ssh(ctx, neteventctx->md.header_size);
+        int ssh_proto = net_l7_is_ssh(ctx, md.header_size);
         if (ssh_proto) {
             return CGROUP_SKB_HANDLE(proto_tcp_ssh);
         }
@@ -2254,7 +2266,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
 
     // ... and by analyzing payload.
     if (submit_socks5) {
-        int socks5_proto = net_l7_is_socks5(ctx, neteventctx->md.header_size);
+        int socks5_proto = net_l7_is_socks5(ctx, md.header_size);
         if (socks5_proto) {
             return CGROUP_SKB_HANDLE(proto_tcp_socks5);
         }
@@ -2270,7 +2282,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_udp)
     // Submit UDP base event if needed (only headers).
 
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_UDP))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_UDP, HEADERS);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_UDP, HEADERS);
 
     // Fastpath: return if no other L7 network events.
 
@@ -2306,7 +2318,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns)
 {
     // submit DNS base event if needed (full packet)
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_DNS, FULL);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_DNS, FULL);
 
     return 1; // NOTE: might block DNS here if needed (return 0)
 }
@@ -2315,19 +2327,19 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns)
 {
     // submit DNS base event if needed (full packet)
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS))
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_DNS, FULL);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_DNS, FULL);
 
     return 1; // NOTE: might block DNS here if needed (return 0)
 }
 
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5)
 {
-    u32 payload_len = ctx->len - neteventctx->md.header_size;
+    u32 payload_len = ctx->len - md.header_size;
 
     // submit SOCKS5 base event if needed (full packet)
     // we only care about packets that have a payload though
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5) && payload_len > 0) {
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_SOCKS5, FULL);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_SOCKS5, FULL);
     }
 
     return 1; // NOTE: might block SOCKS5 here if needed (return 0)
@@ -2337,12 +2349,12 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh)
 {
     // TODO(patrick.pichler): this needs better handling, as i do not want to have this a network
     // base event
-    u32 payload_len = ctx->len - neteventctx->md.header_size;
+    u32 payload_len = ctx->len - md.header_size;
 
     // submit SSH base event if needed (full packet)
     // we only care about packets that have a payload though
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_SSH) && payload_len > 0) {
-        cgroup_skb_submit_event(ctx, neteventctx, NET_PACKET_SSH, FULL);
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_SSH, FULL);
     }
 
     return 1; // NOTE: might block SSH here if needed (return 0)
@@ -2420,7 +2432,7 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
     save_to_submit_buf(&p.event->args_buf, (void *) &new_state, sizeof(u32), 1);
     save_to_submit_buf(&p.event->args_buf, &tuple, sizeof(tuple), 2);
 
-    do_perf_submit(&events, &p, SOCK_SET_STATE, 0, false);
+    do_ringbuf_submit(&events, &p, SOCK_SET_STATE, 0, false, EVENTS_RINGBUF_DISCARD);
 
 cleanup:
     free_scratch_buf(e);
@@ -2492,7 +2504,7 @@ int BPF_KPROBE(tty_open, struct inode *inode, struct file *filep)
         save_to_submit_buf(&p.event->args_buf, &ino, sizeof(ino), 1);
         save_to_submit_buf(&p.event->args_buf, &inode_mode, sizeof(inode_mode), 2);
         save_to_submit_buf(&p.event->args_buf, &dev, sizeof(dev), 3);
-        events_perf_submit(&p, TTY_OPEN, 0);
+        events_ringbuf_submit(&p, TTY_OPEN, 0);
     }
 
     return 0;
@@ -2523,7 +2535,7 @@ int BPF_KPROBE(tty_write, struct kiocb *iocb, struct iov_iter *from)
         save_str_to_buf(&p.event->args_buf, file_info.pathname_p, 0);
         save_to_submit_buf(&p.event->args_buf, &inode, sizeof(u64), 1);
 
-        return events_perf_submit(&p, TTY_WRITE, 0);
+        return events_ringbuf_submit(&p, TTY_WRITE, 0);
     }
 
     return 0;

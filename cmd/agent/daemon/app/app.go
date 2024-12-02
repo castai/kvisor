@@ -63,11 +63,13 @@ type Config struct {
 	State                          state.Config                    `json:"state"`
 	ContainerStatsEnabled          bool                            `json:"containerStatsEnabled"`
 	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
-	EBPFEventsPerCPUBuffer         int                             `validate:"required" json:"EBPFEventsPerCPUBuffer"`
 	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
 	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
 	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
 	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
+	EBPFSignalEventsRingBufferSize uint32                          `json:"EBPFSignalEventsRingBufferSize"`
+	EBPFEventsRingBufferSize       uint32                          `json:"EBPFEventsRingBufferSize"`
+	EBPFSkbEventsRingBufferSize    uint32                          `json:"EBPFSkbEventsRingBufferSize"`
 	MutedNamespaces                []string                        `json:"mutedNamespaces"`
 	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
 	Castai                         castai.Config                   `json:"castai"`
@@ -88,7 +90,6 @@ type EnricherConfig struct {
 type NetflowConfig struct {
 	Enabled                     bool                       `json:"enabled"`
 	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
-	OutputChanSize              int                        `json:"outputChanSize"`
 	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
 }
 
@@ -285,7 +286,9 @@ func (a *App) Run(ctx context.Context) error {
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
 		BTFPath:                            a.cfg.BTFPath,
-		EventsPerCPUBuffer:                 a.cfg.EBPFEventsPerCPUBuffer,
+		SignalEventsRingBufferSize:         a.cfg.EBPFSignalEventsRingBufferSize,
+		EventsRingBufferSize:               a.cfg.EBPFEventsRingBufferSize,
+		SkbEventsRingBufferSize:            a.cfg.EBPFSkbEventsRingBufferSize,
 		EventsOutputChanSize:               a.cfg.EBPFEventsOutputChanSize,
 		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
 		ContainerClient:                    containersClient,
@@ -294,7 +297,6 @@ func (a *App) Run(ctx context.Context) error {
 		SignatureEngine:                    signatureEngine,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
-		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
@@ -303,6 +305,7 @@ func (a *App) Run(ctx context.Context) error {
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
 		},
+		PodName: podName,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
