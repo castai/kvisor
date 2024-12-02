@@ -68,7 +68,6 @@ func (e *PromMetricsExporter) export() error {
 		for _, m := range metric.Metric {
 			var labels []string
 			for _, pair := range m.GetLabel() {
-				pair.GetName()
 				labels = append(labels, fmt.Sprintf("%s=%s", pair.GetName(), pair.GetValue()))
 			}
 			var val float64
