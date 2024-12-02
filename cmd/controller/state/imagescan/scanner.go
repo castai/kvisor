@@ -307,8 +307,12 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			defer cancel()
 			jobPod, _ := s.getJobPod(ctx, jobName)
 			if jobPod != nil {
-				conds := getPodConditionsString(jobPod.Status.Conditions)
-				return fmt.Errorf("waiting for completion, pod_conditions=%s: %w", conds, err)
+				podStatus := jobPod.Status
+				phase := podStatus.Phase
+				reason := podStatus.Reason
+				conds := getPodConditionsString(podStatus.Conditions)
+				terms := getPodContainerLastTerminationStatesString(podStatus.ContainerStatuses)
+				return fmt.Errorf("waiting for completion, pod_phase=%s, pod_reason=%s, pod_conditions=%s, pod_termination=%s : %w", phase, reason, conds, terms, err)
 			}
 			return fmt.Errorf("waiting for completion: %w", err)
 		}
@@ -326,6 +330,18 @@ func getPodConditionsString(conditions []corev1.PodCondition) string {
 		condStrings = append(condStrings, fmt.Sprintf("[type=%s, status=%s, reason=%s]", condition.Type, condition.Status, reason))
 	}
 	return strings.Join(condStrings, ", ")
+}
+
+func getPodContainerLastTerminationStatesString(statuses []corev1.ContainerStatus) string {
+	var statusStrings []string
+	for _, status := range statuses {
+		state := status.LastTerminationState.Terminated
+		if state == nil {
+			continue
+		}
+		statusStrings = append(statusStrings, state.Reason)
+	}
+	return strings.Join(statusStrings, ", ")
 }
 
 func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {
