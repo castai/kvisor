@@ -3,10 +3,11 @@ package cri
 import (
 	"context"
 	"fmt"
+	"net/url"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
-	"net/url"
 )
 
 func NewRuntimeClient(ctx context.Context, endpoint string) (criapi.RuntimeServiceClient, error) {

@@ -44,8 +44,8 @@ type Container struct {
 type Client struct {
 	log                     *logging.Logger
 	containerClient         *containerClient
-	criRuntimeServiceClient criapi.RuntimeServiceClient
 	cgroupClient            *cgroup.Client
+	criRuntimeServiceClient criapi.RuntimeServiceClient
 
 	containersByCgroup map[uint64]*Container
 	mu                 sync.RWMutex
@@ -207,11 +207,17 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 		c.log.Infof("pulled sandbox id: %s", sandbox.Items[0].Metadata.Uid)
 		for k, v := range sandbox.Items[0].Labels {
 			if _, ok := c.forwardedLabels[k]; ok {
+				if cont.Labels == nil {
+					cont.Labels = make(map[string]string)
+				}
 				cont.Labels[k] = v
 			}
 		}
 		for k, v := range sandbox.Items[0].Annotations {
 			if _, ok := c.forwardedLabels[k]; ok {
+				if cont.Annotations == nil {
+					cont.Annotations = make(map[string]string)
+				}
 				cont.Annotations[k] = v
 			}
 		}

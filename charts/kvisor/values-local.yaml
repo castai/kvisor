@@ -25,6 +25,7 @@ agent:
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
     process-tree-enabled: true
+    ebpf-events-include-pod-labels: 'helm.sh/chart'
 
   prometheusScrape:
     enabled: true
