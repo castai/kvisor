@@ -14,6 +14,7 @@ agent:
   enabled: true
   extraArgs:
     log-level: debug
+    prom-metrics-export-interval: 10s
     container-stats-scrape-interval: 10s
     pyroscope-addr: http://kvisord-pyroscope:4040
     file-hash-enricher-enabled: true
@@ -37,6 +38,7 @@ controller:
   replicas: 1
   extraArgs:
     log-level: debug
+    prom-metrics-export-interval: 10s
     image-scan-enabled: true
     image-scan-interval: 5s
     image-scan-init-delay: 5s
@@ -68,7 +70,7 @@ mockServer:
     tag: latest
 
 clickhouse:
-  enabled: true
+  enabled: false
   persistentVolume:
     size: 10Gi
 
