@@ -86,9 +86,7 @@ func (t *Tracer) exportEBPFTracerMetrics() error {
 	for iter.Next(&metric, &counter) {
 		name := eBPFMetric(metric).String()
 		metrics.EBPFExposedMetrics.WithLabelValues(name).Set(float64(counter))
-		if counter > 0 {
-			t.logInternalEbpfTracerMetric(name, counter)
-		}
+		t.logInternalEbpfTracerMetric(name, counter)
 	}
 	if err := iter.Err(); err != nil {
 		return err

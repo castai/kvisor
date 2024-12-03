@@ -67,7 +67,7 @@ func TestTracer(t *testing.T) {
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
 		EventsOutputChanSize:       10000,
-		SignalEventsRingBufferSize: 1 << 20,
+		SignalEventsRingBufferSize: 1 << 12,
 		EventsRingBufferSize:       1 << 12,
 		SkbEventsRingBufferSize:    1 << 12,
 
@@ -102,6 +102,10 @@ func TestTracer(t *testing.T) {
 		NetflowSampleSubmitIntervalSeconds: 2,
 		NetflowGrouping:                    ebpftracer.NetflowGroupingDropSrcPort,
 		ProcessTreeCollector:               processtree.NewNoop(),
+		MetricsReporting: ebpftracer.MetricsReportingConfig{
+			ProgramMetricsEnabled: true,
+			TracerMetricsEnabled:  true,
+		},
 	})
 	defer tr.Close()
 
@@ -120,9 +124,8 @@ func TestTracer(t *testing.T) {
 
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
-			{ID: events.NetPacketSSHBase},
 			//{ID: events.SockSetState},
-			//{ID: events.NetPacketDNSBase},
+			{ID: events.NetPacketDNSBase},
 			//{ID: events.NetPacketTCPBase},
 			//{ID: events.SchedProcessExec},
 		},

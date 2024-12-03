@@ -229,7 +229,13 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 	if err != nil {
 		return err
 	}
-	defer eventsReader.Close()
+
+	go func() {
+		<-ctx.Done()
+		if err := eventsReader.Close(); err != nil {
+			t.log.Warnf("closing events reader: %v", err)
+		}
+	}()
 
 	// Allocate message decoder and perf record once.
 	// Under the hood per event reader will reuse and grow raw sample backing bytes slice.

@@ -1742,6 +1742,7 @@ statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_conte
     }
 
     e->argnum = 1;
+    e->index0 = 0;
     e->bytes = size;
     e->eventctx.eventid = event_type;
 

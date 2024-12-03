@@ -105,16 +105,14 @@ var (
 )
 
 // eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
-// event types. For example, most events have a max size of 4096, but for network related events
-// there is no max size (this is represented as -1).
+// event types. For example, most events have a max size of 4096, but for network we limit to 512 bytes.
 func eventMaxByteSliceBufferSize(id events.ID) int {
   // For non network event, we have a max byte slice size of 4096
   if id < events.NetPacketBase || id > events.MaxNetID {
     return 4096
   }
 
-  // Network events do not have a max buffer size.
-  return -1
+  return 512
 }
 `, targetPackage)
 }
