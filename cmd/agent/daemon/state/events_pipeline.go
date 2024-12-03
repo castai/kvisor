@@ -67,6 +67,8 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 			Pid:       e.Context.Pid,
 			StartTime: uint64((time.Duration(e.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Nanoseconds()), // nolint:gosec
 		},
+		ObjectLabels:      e.Container.Labels,
+		ObjectAnnotations: e.Container.Annotations,
 	}
 
 	if podInfo, found := c.getPodInfo(event.PodUid); found {

@@ -17,6 +17,7 @@ import (
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
+	"github.com/castai/kvisor/cmd/agent/daemon/cri"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
@@ -75,6 +76,9 @@ type Config struct {
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
 	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
 	AutomountCgroupv2              bool                            `json:"automountCgroupv2"`
+	CRIEndpoint                    string                          `json:"criEndpoint"`
+	EventLabels                    []string                        `json:"eventLabels"`
+	EventAnnotations               []string                        `json:"eventAnnotations"`
 }
 
 type EnricherConfig struct {
@@ -221,8 +225,14 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	criClient, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
+	if err != nil {
+		return fmt.Errorf("new CRI runtime client: %v", err)
+	}
+
 	procHandler := proc.New()
-	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler)
+	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler, criClient, a.cfg.EventLabels, a.cfg.EventAnnotations)
 	if err != nil {
 		return err
 	}

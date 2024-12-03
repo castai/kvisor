@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 var (
@@ -34,13 +35,17 @@ type Container struct {
 	Cgroup       *cgroup.Cgroup
 	PIDs         []uint32
 	Err          error
+
+	Labels      map[string]string
+	Annotations map[string]string
 }
 
 // Client is generic container client.
 type Client struct {
-	log             *logging.Logger
-	containerClient *containerClient
-	cgroupClient    *cgroup.Client
+	log                     *logging.Logger
+	containerClient         *containerClient
+	criRuntimeServiceClient criapi.RuntimeServiceClient
+	cgroupClient            *cgroup.Client
 
 	containersByCgroup map[uint64]*Container
 	mu                 sync.RWMutex
@@ -50,20 +55,37 @@ type Client struct {
 	listenerMu                sync.RWMutex
 
 	procHandler *proc.Proc
+
+	forwardedLabels      map[string]struct{}
+	forwardedAnnotations map[string]struct{}
 }
 
-func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc) (*Client, error) {
+func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
+	labels, annotations []string) (*Client, error) {
 	contClient, err := newContainerClient(containerdSock)
 	if err != nil {
 		return nil, err
 	}
 
+	forwardedLabels := map[string]struct{}{}
+	forwardedAnnotations := map[string]struct{}{}
+	for _, l := range labels {
+		forwardedLabels[l] = struct{}{}
+	}
+
+	for _, a := range annotations {
+		forwardedAnnotations[a] = struct{}{}
+	}
+
 	return &Client{
-		log:                log.WithField("component", "cgroups"),
-		containerClient:    contClient,
-		cgroupClient:       cgroupClient,
-		containersByCgroup: map[uint64]*Container{},
-		procHandler:        procHandler,
+		log:                     log.WithField("component", "cgroups"),
+		containerClient:         contClient,
+		cgroupClient:            cgroupClient,
+		containersByCgroup:      map[uint64]*Container{},
+		procHandler:             procHandler,
+		criRuntimeServiceClient: criRuntimeServiceClient,
+		forwardedLabels:         forwardedLabels,
+		forwardedAnnotations:    forwardedAnnotations,
 	}, nil
 }
 
@@ -169,6 +191,30 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 		PodName:      podName,
 		Cgroup:       cg,
 		PIDs:         pids,
+	}
+
+	sandbox, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
+		Filter: &criapi.PodSandboxFilter{
+			Id: container.SandboxID,
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sandbox.Items) > 0 {
+		c.log.Infof("pulled sandbox id: %s", sandbox.Items[0].Metadata.Uid)
+		for k, v := range sandbox.Items[0].Labels {
+			if _, ok := c.forwardedLabels[k]; ok {
+				cont.Labels[k] = v
+			}
+		}
+		for k, v := range sandbox.Items[0].Annotations {
+			if _, ok := c.forwardedLabels[k]; ok {
+				cont.Annotations[k] = v
+			}
+		}
 	}
 
 	c.mu.Lock()

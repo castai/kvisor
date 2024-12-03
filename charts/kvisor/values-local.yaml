@@ -68,7 +68,7 @@ mockServer:
     tag: latest
 
 clickhouse:
-  enabled: true
+  enabled: false
   persistentVolume:
     size: 10Gi
 
