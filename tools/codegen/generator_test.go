@@ -168,29 +168,9 @@ func TestParserCodeGenerator(t *testing.T) {
 package parser
 
 import (
-  "errors"
-
   "github.com/castai/kvisor/pkg/ebpftracer/events"
   "github.com/castai/kvisor/pkg/ebpftracer/types"
 )
-
-var (
-  ErrUnknownArgsType error = errors.New("unknown args type")
-  ErrTooManyArguments = errors.New("too many arguments from event")
-)
-
-// eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
-// event types. For example, most events have a max size of 4096, but for network related events
-// there is no max size (this is represented as -1).
-func eventMaxByteSliceBufferSize(id events.ID) int {
-  // For non network event, we have a max byte slice size of 4096
-  if id < events.NetPacketBase || id > events.MaxNetID {
-    return 4096
-  }
-
-  // Network events do not have a max buffer size.
-  return -1
-}
 
 func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
   var result types.ReadArgs
@@ -322,29 +302,9 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
 package parser
 
 import (
-  "errors"
-
   "github.com/castai/kvisor/pkg/ebpftracer/events"
   "github.com/castai/kvisor/pkg/ebpftracer/types"
 )
-
-var (
-  ErrUnknownArgsType error = errors.New("unknown args type")
-  ErrTooManyArguments = errors.New("too many arguments from event")
-)
-
-// eventMaxByteSliceBufferSize is used to determine the max slice size allowed for different
-// event types. For example, most events have a max size of 4096, but for network related events
-// there is no max size (this is represented as -1).
-func eventMaxByteSliceBufferSize(id events.ID) int {
-  // For non network event, we have a max byte slice size of 4096
-  if id < events.NetPacketBase || id > events.MaxNetID {
-    return 4096
-  }
-
-  // Network events do not have a max buffer size.
-  return -1
-}
 
 func ParseReadTHEThingArgs(decoder *Decoder) (types.ReadTHEThingArgs, error) {
   var result types.ReadTHEThingArgs
