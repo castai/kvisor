@@ -311,7 +311,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 				phase := podStatus.Phase
 				reason := podStatus.Reason
 				conds := getPodConditionsString(podStatus.Conditions)
-				terms := getPodContainerLastTerminationStatesString(podStatus.ContainerStatuses)
+				terms := getPodContainerTerminationStatesString(podStatus.ContainerStatuses)
 				return fmt.Errorf("waiting for completion, pod_phase=%s, pod_reason=%s, pod_conditions=%s, pod_termination=%s : %w", phase, reason, conds, terms, err)
 			}
 			return fmt.Errorf("waiting for completion: %w", err)
@@ -332,14 +332,15 @@ func getPodConditionsString(conditions []corev1.PodCondition) string {
 	return strings.Join(condStrings, ", ")
 }
 
-func getPodContainerLastTerminationStatesString(statuses []corev1.ContainerStatus) string {
+func getPodContainerTerminationStatesString(statuses []corev1.ContainerStatus) string {
 	var statusStrings []string
 	for _, status := range statuses {
-		state := status.LastTerminationState.Terminated
-		if state == nil {
-			continue
+		if state := status.State.Terminated; state != nil {
+			statusStrings = append(statusStrings, state.Reason)
 		}
-		statusStrings = append(statusStrings, state.Reason)
+		if state := status.LastTerminationState.Terminated; state != nil {
+			statusStrings = append(statusStrings, state.Reason)
+		}
 	}
 	return strings.Join(statusStrings, ", ")
 }

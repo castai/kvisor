@@ -345,6 +345,11 @@ func TestScanner(t *testing.T) {
 				},
 				ContainerStatuses: []corev1.ContainerStatus{
 					{
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								Reason: "QuotaReached",
+							},
+						},
 						LastTerminationState: corev1.ContainerState{
 							Terminated: &corev1.ContainerStateTerminated{
 								Reason: "QuotaReached",
