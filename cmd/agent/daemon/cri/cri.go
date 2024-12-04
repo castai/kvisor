@@ -23,11 +23,11 @@ func NewRuntimeClient(ctx context.Context, endpoint string) (criapi.RuntimeServi
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to CRI runtime: %v", err)
+		return nil, fmt.Errorf("failed to connect to CRI runtime: %w", err)
 	}
 	rtcli := criapi.NewRuntimeServiceClient(conn)
 	if _, err := rtcli.Version(ctx, &criapi.VersionRequest{}); err != nil {
-		return nil, fmt.Errorf("failed CRI version check: %v", err)
+		return nil, fmt.Errorf("failed CRI version check: %w", err)
 	}
 
 	return rtcli, nil

@@ -228,7 +228,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	criClient, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
-		return fmt.Errorf("new CRI runtime client: %v", err)
+		return fmt.Errorf("new CRI runtime client: %w", err)
 	}
 
 	procHandler := proc.New()
