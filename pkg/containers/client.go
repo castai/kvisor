@@ -204,7 +204,6 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 	}
 
 	if len(sandbox.Items) > 0 {
-		c.log.Infof("pulled sandbox id: %s", sandbox.Items[0].Metadata.Uid)
 		for k, v := range sandbox.Items[0].Labels {
 			if _, ok := c.forwardedLabels[k]; ok {
 				if cont.Labels == nil {

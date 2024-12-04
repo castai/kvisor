@@ -105,8 +105,7 @@ func NewRunCommand(version string) *cobra.Command {
 		automountCgroupv2 = command.Flags().Bool("automount-cgroupv2", true, "Automount cgroupv2 if not mounted")
 
 		redactSensitiveValuesRegexStr = command.Flags().String("redact-sensitive-values-regex", "", "Regex which will be used to detect sensitive values in process exec args")
-
-		// TODO: stop relying on containerd master race
+		
 		criEndpoint          = command.Flags().String("cri-endpoint", "unix:///run/containerd/containerd.sock", "Cri endpoint")
 		ebpfEventLabels      = command.Flags().StringSlice("ebpf-events-include-pod-labels", []string{}, "List of label keys to be sent with eBPF events, separated by comma")
 		ebpfEventAnnotations = command.Flags().StringSlice("ebpf-events-include-pod-annotations", []string{}, "List of annotation keys to be sent with eBPF events, separated by comma")
