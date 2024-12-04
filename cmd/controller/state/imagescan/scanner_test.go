@@ -221,6 +221,11 @@ func TestScanner(t *testing.T) {
 										},
 										VolumeMounts: []corev1.VolumeMount{
 											{
+												Name:      "tmp",
+												ReadOnly:  false,
+												MountPath: "/tmp",
+											},
+											{
 												Name:      "containerd-content",
 												ReadOnly:  true,
 												MountPath: "/var/lib/containerd/io.containerd.content.v1.content",
@@ -245,6 +250,12 @@ func TestScanner(t *testing.T) {
 									},
 								},
 								Volumes: []corev1.Volume{
+									{
+										Name: "tmp",
+										VolumeSource: corev1.VolumeSource{
+											EmptyDir: &corev1.EmptyDirVolumeSource{},
+										},
+									},
 									{
 										Name: "containerd-content",
 										VolumeSource: corev1.VolumeSource{
