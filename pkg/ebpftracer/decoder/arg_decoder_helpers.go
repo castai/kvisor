@@ -19,5 +19,5 @@ func eventMaxByteSliceBufferSize(id events.ID) int {
 		return 4096
 	}
 
-	return 512
+	return -1
 }
