@@ -65,7 +65,7 @@ func NewRunCommand(version string) *cobra.Command {
 				events.NetPacketDNSBase,
 				events.MagicWrite,
 				events.ProcessOomKilled,
-				events.StdioViaSocket,
+				// events.StdioViaSocket, // TODO(anjmao): Tracing this event via syscall hooks is very expensive. Rework the whole syscall tracing.
 				events.TtyWrite,
 				events.NetPacketSSHBase,
 			},
