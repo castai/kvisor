@@ -1722,6 +1722,10 @@ statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_conte
             break;
     }
 
+    if (size > MAX_SKB_PAYLOAD_SIZE) {
+        return 1;
+    }
+
     net_event_context_t *e = bpf_ringbuf_reserve(map, sizeof(net_event_context_t), 0);
     if (!e) {
         return 1;
