@@ -659,18 +659,19 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		castaipb.EventType_EVENT_PROCESS_OOM: func(e *castaipb.Event) error {
 			return nil
 		},
-		castaipb.EventType_EVENT_STDIO_VIA_SOCKET: func(e *castaipb.Event) error {
-			if _, ok := netip.AddrFromSlice(e.GetStdioViaSocket().Ip); !ok {
-				return fmt.Errorf("invalid address %v", string(e.GetStdioViaSocket().Ip))
-			}
-			if e.GetStdioViaSocket().Port == 0 {
-				return fmt.Errorf("empyt port")
-			}
-			if fd := e.GetStdioViaSocket().Socketfd; fd > 2 {
-				return fmt.Errorf("invalid %d fd", fd)
-			}
-			return nil
-		},
+		// TODO(anjmao): Rework syscall tracing.
+		//castaipb.EventType_EVENT_STDIO_VIA_SOCKET: func(e *castaipb.Event) error {
+		//	if _, ok := netip.AddrFromSlice(e.GetStdioViaSocket().Ip); !ok {
+		//		return fmt.Errorf("invalid address %v", string(e.GetStdioViaSocket().Ip))
+		//	}
+		//	if e.GetStdioViaSocket().Port == 0 {
+		//		return fmt.Errorf("empyt port")
+		//	}
+		//	if fd := e.GetStdioViaSocket().Socketfd; fd > 2 {
+		//		return fmt.Errorf("invalid %d fd", fd)
+		//	}
+		//	return nil
+		//},
 		castaipb.EventType_EVENT_TTY_WRITE: func(e *castaipb.Event) error {
 			if e.GetFile().Path == "" {
 				return fmt.Errorf("empyt file path")

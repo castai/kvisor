@@ -420,11 +420,8 @@ func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporter
 			switch enabledEvent {
 			case events.SockSetState:
 				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-					ID: events.SockSetState,
-					FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
-						Rate:  100,
-						Burst: 1,
-					}),
+					ID:              events.SockSetState,
+					FilterGenerator: ebpftracer.SkipPrivateIP(), // TODO: Move private ip skip to kernel side.
 				})
 			case events.NetPacketDNSBase:
 				policy.Events = append(policy.Events, dnsEventPolicy)
