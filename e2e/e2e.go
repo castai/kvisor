@@ -172,8 +172,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
   --set agent.extraArgs.process-tree-enabled=true \
-  --set agent.ebpf-events-include-pod-labels=name,app.kubernetes.io/name \
-  --set agent.ebpf-events-include-pod-annotations=cast.ai \
+  --set agent.ebpf-events-include-pod-labels="name\,app.kubernetes.io/name" \
+  --set agent.ebpf-events-include-pod-annotations="cast.ai" \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.image-scan-enabled=true \
