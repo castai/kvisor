@@ -89,6 +89,10 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	}, nil
 }
 
+func (c *Client) Close() error {
+	return c.containerClient.client.Close()
+}
+
 type ContainerProcess struct {
 	ContainerID string
 	PID         uint32

@@ -226,16 +226,18 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
-	criClient, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
+	criClient, closeFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
 		return fmt.Errorf("new CRI runtime client: %w", err)
 	}
+	defer closeFn()
 
 	procHandler := proc.New()
 	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler, criClient, a.cfg.EventLabels, a.cfg.EventAnnotations)
 	if err != nil {
 		return err
 	}
+	defer containersClient.Close()
 
 	var processTreeCollector processtree.ProcessTreeCollector
 	if cfg.ProcessTree.Enabled {
