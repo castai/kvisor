@@ -172,6 +172,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
   --set agent.extraArgs.process-tree-enabled=true \
+  --set agent.ebpf-events-include-pod-labels='name' \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
   --set controller.extraArgs.image-scan-enabled=true \
@@ -772,6 +773,9 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 					}
 					if e.ProcessName == "" {
 						return fmt.Errorf("missing process name: %v", e)
+					}
+					if len(e.ObjectLabels) == 0 {
+						return fmt.Errorf("missing object labels: %v", e)
 					}
 					return nil
 				}

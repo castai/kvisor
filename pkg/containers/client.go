@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,8 +57,8 @@ type Client struct {
 
 	procHandler *proc.Proc
 
-	forwardedLabels      map[string]struct{}
-	forwardedAnnotations map[string]struct{}
+	forwardedLabels      []string
+	forwardedAnnotations []string
 }
 
 func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
@@ -67,16 +68,6 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		return nil, err
 	}
 
-	forwardedLabels := map[string]struct{}{}
-	forwardedAnnotations := map[string]struct{}{}
-	for _, l := range labels {
-		forwardedLabels[l] = struct{}{}
-	}
-
-	for _, a := range annotations {
-		forwardedAnnotations[a] = struct{}{}
-	}
-
 	return &Client{
 		log:                     log.WithField("component", "cgroups"),
 		containerClient:         contClient,
@@ -84,8 +75,8 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		containersByCgroup:      map[uint64]*Container{},
 		procHandler:             procHandler,
 		criRuntimeServiceClient: criRuntimeServiceClient,
-		forwardedLabels:         forwardedLabels,
-		forwardedAnnotations:    forwardedAnnotations,
+		forwardedLabels:         labels,
+		forwardedAnnotations:    annotations,
 	}, nil
 }
 
@@ -209,19 +200,24 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 
 	if len(sandbox.Items) > 0 {
 		for k, v := range sandbox.Items[0].Labels {
-			if _, ok := c.forwardedLabels[k]; ok {
-				if cont.Labels == nil {
-					cont.Labels = make(map[string]string)
+			for _, labelPrefix := range c.forwardedLabels {
+				if strings.HasPrefix(k, labelPrefix) {
+					if cont.Labels == nil {
+						cont.Labels = make(map[string]string)
+					}
+					cont.Labels[k] = v
 				}
-				cont.Labels[k] = v
 			}
 		}
+
 		for k, v := range sandbox.Items[0].Annotations {
-			if _, ok := c.forwardedLabels[k]; ok {
-				if cont.Annotations == nil {
-					cont.Annotations = make(map[string]string)
+			for _, annotationPrefix := range c.forwardedAnnotations {
+				if strings.HasPrefix(k, annotationPrefix) {
+					if cont.Annotations == nil {
+						cont.Annotations = make(map[string]string)
+					}
+					cont.Annotations[k] = v
 				}
-				cont.Annotations[k] = v
 			}
 		}
 	}
