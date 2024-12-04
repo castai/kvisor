@@ -226,11 +226,11 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
-	criClient, closeFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
+	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
 		return fmt.Errorf("new CRI runtime client: %w", err)
 	}
-	defer closeFn()
+	defer criCloseFn() //nolint:errcheck
 
 	procHandler := proc.New()
 	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler, criClient, a.cfg.EventLabels, a.cfg.EventAnnotations)
