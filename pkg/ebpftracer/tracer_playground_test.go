@@ -67,9 +67,9 @@ func TestTracer(t *testing.T) {
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
 		EventsOutputChanSize:       10000,
-		SignalEventsRingBufferSize: 1 << 12,
-		EventsRingBufferSize:       1 << 12,
-		SkbEventsRingBufferSize:    1 << 12,
+		SignalEventsRingBufferSize: 1 << 22,
+		EventsRingBufferSize:       1 << 22,
+		SkbEventsRingBufferSize:    1 << 22,
 
 		DefaultCgroupsVersion: "V2",
 		DebugEnabled:          true,

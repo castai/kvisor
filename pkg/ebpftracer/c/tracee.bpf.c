@@ -1619,11 +1619,6 @@ int BPF_KPROBE(trace_ret_file_modified)
 // Support functions for network code
 //
 
-statfunc u64 sizeof_net_event_context_t(void)
-{
-    return sizeof(net_event_context_t) - sizeof(net_event_contextmd_t);
-}
-
 statfunc void set_net_task_context(program_data_t *p, net_task_context_t *netctx)
 {
     __builtin_memset(&netctx->taskctx, 0, sizeof(task_context_t));
@@ -1705,6 +1700,69 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 // Network submission functions
 //
 
+#define SKB_PAYLOAD_BUCKET1 128
+#define SKB_PAYLOAD_BUCKET2 256
+#define SKB_PAYLOAD_BUCKET3 512
+#define SKB_PAYLOAD_BUCKET4 1024
+#define SKB_PAYLOAD_BUCKET5 2048
+#define SKB_PAYLOAD_BUCKET6 4096
+#define SKB_PAYLOAD_BUCKET7 8192
+#define SKB_MAX_PAYLOAD_SIZE SKB_PAYLOAD_SIZE7
+
+#define SKB_NET_EVENT_CONTEXT(name, payload_size)                                                                                                                                                   \
+    typedef struct skb_event_context_##name {                                                                                                                                                       \
+        event_context_t eventctx;                                                                                                                                                                   \
+        u8 argnum;                                                                                                                                                                                  \
+        struct {                                                                                                                                                                                    \
+            u8 index0;                                                                                                                                                                              \
+            u32 bytes;                                                                                                                                                                              \
+        } __attribute__((__packed__));                                                                                                                                                              \
+        u8 payload[payload_size];                                                                                                                                                                   \
+    } __attribute__((__packed__)) skb_event_context_##name##_t;                                                                                                                                     \
+                                                                                                                                                                                                    \
+    static __always_inline u32 cgroup_skb_submit_via_ringbuf_##name(void *map, struct __sk_buff *ctx, net_event_contextmd_t md, event_context_t *neteventctx, u32 event_type, u32 size) {           \
+                skb_event_context_##name##_t *e = bpf_ringbuf_reserve(map, sizeof(skb_event_context_##name##_t), 0);                                                                                \
+                if (!e) {                                                                                                                                                                           \
+                    metrics_increase(SKB_EVENTS_RINGBUF_DISCARD);                                                                                                                                   \
+                    return 1;                                                                                                                                                                       \
+                }                                                                                                                                                                                   \
+                __builtin_memcpy(&e->eventctx, neteventctx, sizeof(event_context_t));                                                                                                               \
+                                                                                                                                                                                                    \
+                u32 read_len = size;                                                                                                                                                                \
+                                                                                                                                                                                                    \
+                asm goto("if %[size] < 1 goto %l[out]" ::[size] "r"(read_len)::out);                                                                                                                \
+                asm goto("if %[size] > %[max] goto %l[out]"                                                                                                                                         \
+                            :                                                                                                                                                                       \
+                            :[size] "r"(read_len)                                                                                                                                                   \
+                            ,[max] "i"(payload_size)::out);                                                                                                                                         \
+                                                                                                                                                                                                    \
+                if (bpf_skb_load_bytes(ctx, 0, &e->payload, read_len)) {                                                                                                                            \
+                    bpf_ringbuf_discard(e, 0);                                                                                                                                                      \
+                    return 1;                                                                                                                                                                       \
+                }                                                                                                                                                                                   \
+                                                                                                                                                                                                    \
+                e->argnum = 1;                                                                                                                                                                      \
+                e->index0 = 0;                                                                                                                                                                      \
+                e->bytes = size;                                                                                                                                                                    \
+                e->eventctx.eventid = event_type;                                                                                                                                                   \
+                                                                                                                                                                                                    \
+                bpf_ringbuf_submit(e, 0);                                                                                                                                                           \
+                return 0;                                                                                                                                                                           \
+                                                                                                                                                                                                    \
+            out:                                                                                                                                                                                    \
+                bpf_ringbuf_discard(e, 0);                                                                                                                                                          \
+                return 0;                                                                                                                                                                           \
+    }
+
+
+SKB_NET_EVENT_CONTEXT(bucket1, SKB_PAYLOAD_BUCKET1);
+SKB_NET_EVENT_CONTEXT(bucket2, SKB_PAYLOAD_BUCKET2);
+SKB_NET_EVENT_CONTEXT(bucket3, SKB_PAYLOAD_BUCKET3);
+SKB_NET_EVENT_CONTEXT(bucket4, SKB_PAYLOAD_BUCKET4);
+SKB_NET_EVENT_CONTEXT(bucket5, SKB_PAYLOAD_BUCKET5);
+SKB_NET_EVENT_CONTEXT(bucket6, SKB_PAYLOAD_BUCKET6);
+SKB_NET_EVENT_CONTEXT(bucket7, SKB_PAYLOAD_BUCKET7);
+
 // Submit a network event (packet, capture, flow) to userland.
 statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_contextmd_t md, event_context_t *neteventctx, u32 event_type, u32 size)
 {
@@ -1722,41 +1780,22 @@ statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_conte
             break;
     }
 
-    if (size > MAX_SKB_PAYLOAD_SIZE) {
-        return 1;
+    if (size <= SKB_PAYLOAD_BUCKET1) {
+        return cgroup_skb_submit_via_ringbuf_bucket1(map, ctx, md, neteventctx, event_type, size);
+    } else if (size <= SKB_PAYLOAD_BUCKET2) {
+        return cgroup_skb_submit_via_ringbuf_bucket2(map, ctx, md, neteventctx, event_type, size);
+    } else if (size <= SKB_PAYLOAD_BUCKET3) {
+        return cgroup_skb_submit_via_ringbuf_bucket3(map, ctx, md, neteventctx, event_type, size);
+    } else if (size <= SKB_PAYLOAD_BUCKET4) {
+        return cgroup_skb_submit_via_ringbuf_bucket4(map, ctx, md, neteventctx, event_type, size);
+    } else if (size <= SKB_PAYLOAD_BUCKET5) {
+        return cgroup_skb_submit_via_ringbuf_bucket5(map, ctx, md, neteventctx, event_type, size);
+    } else if (size <= SKB_PAYLOAD_BUCKET6) {
+        return cgroup_skb_submit_via_ringbuf_bucket6(map, ctx, md, neteventctx, event_type, size);
+    } else if (size <= SKB_PAYLOAD_BUCKET7) {
+        return cgroup_skb_submit_via_ringbuf_bucket7(map, ctx, md, neteventctx, event_type, size);
     }
-
-    net_event_context_t *e = bpf_ringbuf_reserve(map, sizeof(net_event_context_t), 0);
-    if (!e) {
-        return 1;
-    }
-    __builtin_memcpy(&e->eventctx, neteventctx, sizeof(event_context_t));
-
-    u32 read_len = size;
-
-    // Make the verifier happy to ensure we are not reading less than 1 byte and not more than max skb payload size.
-    asm goto("if %[size] < 1 goto %l[out]" ::[size] "r"(read_len)::out);
-    asm goto("if %[size] > %[max] goto %l[out]"
-                :
-                :[size] "r"(read_len)
-                ,[max] "i"(MAX_SKB_PAYLOAD_SIZE)::out);
-
-    if (bpf_skb_load_bytes(ctx, 0, &e->payload, read_len)) {
-        goto out;
-    }
-
-    e->argnum = 1;
-    e->index0 = 0;
-    e->bytes = size;
-    e->eventctx.eventid = event_type;
-
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-
-out:
-    bpf_ringbuf_discard(e, 0);
-    metrics_increase(SKB_EVENTS_RINGBUF_DISCARD);
-    return 0;
+    return 1;
 }
 
 // Submit a network event.

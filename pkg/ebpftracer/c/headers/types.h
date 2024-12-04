@@ -8,8 +8,6 @@
 
 #define PATH_MAX          4096
 #define MAX_BIN_PATH_SIZE 256
-// Limit skb payload size to 512 which is the same as max dns packet size.
-#define MAX_SKB_PAYLOAD_SIZE 512
 
 typedef struct task_context {
     u64 start_time; // thread's start time
@@ -413,16 +411,6 @@ typedef struct net_event_contextmd {
     u32 header_size;
     u8 captured; // packet has already been captured
 } __attribute__((__packed__)) net_event_contextmd_t;
-
-typedef struct net_event_context {
-    event_context_t eventctx;
-    u8 argnum;
-    struct {
-        u8 index0;
-        u32 bytes;
-    } __attribute__((__packed__)); // ... avoid address-of-packed-member warns
-    u8 payload[MAX_SKB_PAYLOAD_SIZE];
-} __attribute__((__packed__)) net_event_context_t;
 
 // network related maps
 
