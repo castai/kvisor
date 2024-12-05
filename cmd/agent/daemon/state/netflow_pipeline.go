@@ -35,11 +35,11 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 		res := clusterInfo{}
 		res.podCidr, err = netip.ParsePrefix(resp.PodsCidr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parsing pods cidr: %w", err)
 		}
 		res.serviceCidr, err = netip.ParsePrefix(resp.ServiceCidr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parsing service cidr: %w", err)
 		}
 		return &res, nil
 	}
@@ -52,9 +52,10 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	var err error
 	c.clusterInfo, err = c.getClusterInfo(ctx)
 	if err != nil {
-		return fmt.Errorf("get cluster info: %w", err)
+		c.log.Errorf("getting cluster info: %v", err)
+	} else {
+		c.log.Infof("fetched cluster info, pod_cidr=%s, cluster_cidr=%s", c.clusterInfo.podCidr, c.clusterInfo.serviceCidr)
 	}
-	c.log.Infof("fetched cluster info, pod_cidr=%s, cluster_cidr=%s", c.clusterInfo.podCidr, c.clusterInfo.serviceCidr)
 
 	ticker := time.NewTicker(c.cfg.NetflowExportInterval)
 	defer func() {
@@ -177,7 +178,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 
 	dns := c.getAddrDnsQuestion(key.ProcessIdentity.CgroupId, remote.Addr())
 
-	if c.clusterInfo.serviceCidr.Contains(remote.Addr()) {
+	if c.clusterInfo != nil && c.clusterInfo.serviceCidr.Contains(remote.Addr()) {
 		if realDst, found := c.getConntrackDest(local, remote); found {
 			remote = realDst
 		}
@@ -192,7 +193,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		TxPackets:   summary.TxPackets,
 		RxPackets:   summary.RxPackets,
 	}
-	if c.clusterInfo.serviceCidr.Contains(remote.Addr()) || c.clusterInfo.podCidr.Contains(remote.Addr()) {
+	if c.clusterInfo != nil && (c.clusterInfo.serviceCidr.Contains(remote.Addr()) || c.clusterInfo.podCidr.Contains(remote.Addr())) {
 		ipInfo, found := c.getIPInfo(podsByIPCache, remote.Addr())
 		if found {
 			destination.PodName = ipInfo.PodName
