@@ -405,7 +405,7 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 		// sockets created between running the iterator and registering the eBPF programs.
 		err := t.module.InitializeExistingSockets()
 		if err != nil {
-			return fmt.Errorf("failed to load existing sockets: %w", err)
+			t.log.Warnf("failed to load existing sockets: %v", err)
 		}
 	}
 
