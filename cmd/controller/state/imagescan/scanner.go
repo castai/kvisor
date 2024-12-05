@@ -89,7 +89,19 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	}
 
 	jobName := genJobName(params.ImageName)
-	vols := volumesAndMounts{}
+	vols := volumesAndMounts{
+		volumes: []corev1.Volume{{ // required by image-analyzer during layer tar walking
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}},
+		mounts: []corev1.VolumeMount{{
+			Name:      "tmp",
+			ReadOnly:  false,
+			MountPath: "/tmp",
+		}},
+	}
 	mode := imagescanconfig.Mode(params.Mode)
 	containerRuntime := params.ContainerRuntime
 
@@ -307,8 +319,12 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			defer cancel()
 			jobPod, _ := s.getJobPod(ctx, jobName)
 			if jobPod != nil {
-				conds := getPodConditionsString(jobPod.Status.Conditions)
-				return fmt.Errorf("waiting for completion, pod_conditions=%s: %w", conds, err)
+				podStatus := jobPod.Status
+				phase := podStatus.Phase
+				reason := podStatus.Reason
+				conds := getPodConditionsString(podStatus.Conditions)
+				terms := getPodContainerTerminationStatesString(podStatus.ContainerStatuses)
+				return fmt.Errorf("waiting for completion, pod_phase=%s, pod_reason=%s, pod_conditions=%s, pod_termination=%s : %w", phase, reason, conds, terms, err)
 			}
 			return fmt.Errorf("waiting for completion: %w", err)
 		}
@@ -326,6 +342,19 @@ func getPodConditionsString(conditions []corev1.PodCondition) string {
 		condStrings = append(condStrings, fmt.Sprintf("[type=%s, status=%s, reason=%s]", condition.Type, condition.Status, reason))
 	}
 	return strings.Join(condStrings, ", ")
+}
+
+func getPodContainerTerminationStatesString(statuses []corev1.ContainerStatus) string {
+	var statusStrings []string
+	for _, status := range statuses {
+		if state := status.State.Terminated; state != nil {
+			statusStrings = append(statusStrings, state.Reason)
+		}
+		if state := status.LastTerminationState.Terminated; state != nil {
+			statusStrings = append(statusStrings, state.Reason)
+		}
+	}
+	return strings.Join(statusStrings, ", ")
 }
 
 func (s *Scanner) waitForCompletion(ctx context.Context, jobs batchv1typed.JobInterface, jobName string) error {

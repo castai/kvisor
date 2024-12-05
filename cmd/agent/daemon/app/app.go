@@ -34,6 +34,7 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/go-playground/validator/v10"
 	"github.com/grafana/pyroscope-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
@@ -52,6 +53,8 @@ type Config struct {
 	LogRateInterval                time.Duration                   `json:"logRateInterval"`
 	LogRateBurst                   int                             `json:"logRateBurst"`
 	SendLogsLevel                  string                          `json:"sendLogsLevel"`
+	PromMetricsExportEnabled       bool                            `json:"promMetricsExportEnabled"`
+	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
 	Version                        string                          `json:"version"`
 	BTFPath                        string                          `json:"BTFPath"`
 	PyroscopeAddr                  string                          `json:"pyroscopeAddr"`
@@ -61,11 +64,13 @@ type Config struct {
 	State                          state.Config                    `json:"state"`
 	ContainerStatsEnabled          bool                            `json:"containerStatsEnabled"`
 	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
-	EBPFEventsPerCPUBuffer         int                             `validate:"required" json:"EBPFEventsPerCPUBuffer"`
 	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
 	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
 	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
 	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
+	EBPFSignalEventsRingBufferSize uint32                          `json:"EBPFSignalEventsRingBufferSize"`
+	EBPFEventsRingBufferSize       uint32                          `json:"EBPFEventsRingBufferSize"`
+	EBPFSkbEventsRingBufferSize    uint32                          `json:"EBPFSkbEventsRingBufferSize"`
 	MutedNamespaces                []string                        `json:"mutedNamespaces"`
 	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
 	Castai                         castai.Config                   `json:"castai"`
@@ -89,7 +94,6 @@ type EnricherConfig struct {
 type NetflowConfig struct {
 	Enabled                     bool                       `json:"enabled"`
 	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
-	OutputChanSize              int                        `json:"outputChanSize"`
 	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
 }
 
@@ -126,6 +130,9 @@ func (a *App) Run(ctx context.Context) error {
 			Inform: true,
 		},
 	}
+
+	podName := os.Getenv("POD_NAME")
+
 	var log *logging.Logger
 	var exporters *state.Exporters
 	// Castai specific spetup if config is valid.
@@ -140,6 +147,14 @@ func (a *App) Run(ctx context.Context) error {
 		if a.cfg.SendLogsLevel != "" && a.cfg.Castai.Valid() {
 			castaiLogsExporter := castai.NewLogsExporter(castaiClient)
 			go castaiLogsExporter.Run(ctx) //nolint:errcheck
+
+			if a.cfg.PromMetricsExportEnabled {
+				castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+					PodName:        podName,
+					ExportInterval: a.cfg.PromMetricsExportInterval,
+				})
+				go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+			}
 
 			logCfg.Export = logging.ExportConfig{
 				ExportFunc: castaiLogsExporter.ExportFunc(),
@@ -218,7 +233,7 @@ func (a *App) Run(ctx context.Context) error {
 	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
 
 	if addr := a.cfg.PyroscopeAddr; addr != "" {
-		withPyroscope(addr)
+		withPyroscope(podName, addr)
 	}
 
 	cgroupClient, err := cgroup.NewClient(log, a.cfg.HostCgroupsDir)
@@ -283,7 +298,9 @@ func (a *App) Run(ctx context.Context) error {
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
 		BTFPath:                            a.cfg.BTFPath,
-		EventsPerCPUBuffer:                 a.cfg.EBPFEventsPerCPUBuffer,
+		SignalEventsRingBufferSize:         a.cfg.EBPFSignalEventsRingBufferSize,
+		EventsRingBufferSize:               a.cfg.EBPFEventsRingBufferSize,
+		SkbEventsRingBufferSize:            a.cfg.EBPFSkbEventsRingBufferSize,
 		EventsOutputChanSize:               a.cfg.EBPFEventsOutputChanSize,
 		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
 		ContainerClient:                    containersClient,
@@ -292,7 +309,6 @@ func (a *App) Run(ctx context.Context) error {
 		SignatureEngine:                    signatureEngine,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
-		NetflowOutputChanSize:              a.cfg.Netflow.OutputChanSize,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
@@ -301,6 +317,7 @@ func (a *App) Run(ctx context.Context) error {
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
 		},
+		PodName: podName,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -415,11 +432,8 @@ func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporter
 			switch enabledEvent {
 			case events.SockSetState:
 				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-					ID: events.SockSetState,
-					FilterGenerator: ebpftracer.RateLimitPrivateIP(ebpftracer.RateLimitPolicy{
-						Rate:  100,
-						Burst: 1,
-					}),
+					ID:              events.SockSetState,
+					FilterGenerator: ebpftracer.SkipPrivateIP(), // TODO: Move private ip skip to kernel side.
 				})
 			case events.NetPacketDNSBase:
 				policy.Events = append(policy.Events, dnsEventPolicy)
@@ -562,12 +576,12 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	}
 }
 
-func withPyroscope(addr string) {
+func withPyroscope(podName, addr string) {
 	if _, err := pyroscope.Start(pyroscope.Config{
 		ApplicationName: "kvisor-agent",
 		ServerAddress:   addr,
 		Tags: map[string]string{
-			"pod": os.Getenv("POD_NAME"),
+			"pod": podName,
 		},
 		ProfileTypes: []pyroscope.ProfileType{
 			pyroscope.ProfileCPU,

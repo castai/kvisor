@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -20,22 +19,23 @@ import (
 )
 
 func NewCommand(version string) *cobra.Command {
+	// TODO: Switch to pkg/logging.
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
 	return &cobra.Command{
 		Use:   "scan",
 		Short: "Run kvisor image scanning",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := run(cmd.Context(), version); err != nil {
-				slog.Error(err.Error())
+			if err := run(cmd.Context(), log, version); err != nil {
+				log.Error(err.Error())
 				os.Exit(1)
 			}
 		},
 	}
 }
 
-func run(ctx context.Context, version string) error {
-	// TODO: Switch to pkg/logging.
-	log := logrus.New()
-	log.SetLevel(logrus.DebugLevel)
+func run(ctx context.Context, log *logrus.Logger, version string) error {
 	log.Infof("running image scan job, version=%s", version)
 
 	cfg, err := config.FromEnv()

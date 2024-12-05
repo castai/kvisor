@@ -6,12 +6,12 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
@@ -202,19 +202,10 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		return nil
 	}
 
-	switch eventId {
-	case events.NetFlowBase:
-		select {
-		case t.netflowEventsChan <- event:
-		default:
-			metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
-		}
+	select {
+	case t.eventsChan <- event:
 	default:
-		select {
-		case t.eventsChan <- event:
-		default:
-			metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
-		}
+		metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
 	}
 
 	return nil

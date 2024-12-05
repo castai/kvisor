@@ -196,6 +196,7 @@ type tracerMapSpecs struct {
 	ScratchMap              *ebpf.MapSpec `ebpf:"scratch_map"`
 	SignalEvents            *ebpf.MapSpec `ebpf:"signal_events"`
 	Signals                 *ebpf.MapSpec `ebpf:"signals"`
+	SkbEvents               *ebpf.MapSpec `ebpf:"skb_events"`
 	Sys32To64Map            *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
 	SysEnterInitTail        *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
 	SysEnterSubmitTail      *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
@@ -254,6 +255,7 @@ type tracerMaps struct {
 	ScratchMap              *ebpf.Map `ebpf:"scratch_map"`
 	SignalEvents            *ebpf.Map `ebpf:"signal_events"`
 	Signals                 *ebpf.Map `ebpf:"signals"`
+	SkbEvents               *ebpf.Map `ebpf:"skb_events"`
 	Sys32To64Map            *ebpf.Map `ebpf:"sys_32_to_64_map"`
 	SysEnterInitTail        *ebpf.Map `ebpf:"sys_enter_init_tail"`
 	SysEnterSubmitTail      *ebpf.Map `ebpf:"sys_enter_submit_tail"`
@@ -295,6 +297,7 @@ func (m *tracerMaps) Close() error {
 		m.ScratchMap,
 		m.SignalEvents,
 		m.Signals,
+		m.SkbEvents,
 		m.Sys32To64Map,
 		m.SysEnterInitTail,
 		m.SysEnterSubmitTail,

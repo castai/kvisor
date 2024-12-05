@@ -9,8 +9,8 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 )
 
 func NewClickhouseNetflowExporter(log *logging.Logger, conn clickhouse.Conn, queueSize int) *ClickHouseNetflowExporter {

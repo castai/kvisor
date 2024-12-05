@@ -5,16 +5,16 @@ import (
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 )
 
 const (
-  castaiProcessTreeLabel = "castai_process_tree"
+	castaiProcessTreeLabel = "castai_process_tree"
 )
 
 type CastaiProcessTreeExporter struct {
@@ -81,13 +81,13 @@ func toProtoProcessTreeEvent(e processtree.ProcessTreeEvent) *castpb.ProcessTree
 
 	for i, pe := range e.Events {
 		events[i] = &castpb.ProcessEvent{
-      Timestamp:   uint64(pe.Timestamp.UnixNano()), // nolint:gosec
+			Timestamp:   uint64(pe.Timestamp.UnixNano()), // nolint:gosec
 			ContainerId: pe.ContainerID,
 			Process: &castpb.Process{
 				Pid:             pe.Process.PID,
-        StartTime:       uint64(pe.Process.StartTime), // nolint:gosec
+				StartTime:       uint64(pe.Process.StartTime), // nolint:gosec
 				Ppid:            pe.Process.PPID,
-        ParentStartTime: uint64(pe.Process.ParentStartTime), // nolint:gosec
+				ParentStartTime: uint64(pe.Process.ParentStartTime), // nolint:gosec
 				Args:            pe.Process.Args,
 				Filepath:        pe.Process.FilePath,
 				ExitTime:        pe.Process.ExitTime,

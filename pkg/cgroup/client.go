@@ -14,8 +14,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/metrics"
 )
 
 var (

@@ -11,6 +11,9 @@ import (
 func mountCgroup2(mountPoint string) error {
 	err := os.Mkdir(mountPoint, 0755)
 	if err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
 		return fmt.Errorf("creating directory at %q: %w", mountPoint, err)
 	}
 	// https://docs.kernel.org/admin-guide/cgroup-v2.html#mounting

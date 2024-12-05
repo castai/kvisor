@@ -221,6 +221,11 @@ func TestScanner(t *testing.T) {
 										},
 										VolumeMounts: []corev1.VolumeMount{
 											{
+												Name:      "tmp",
+												ReadOnly:  false,
+												MountPath: "/tmp",
+											},
+											{
 												Name:      "containerd-content",
 												ReadOnly:  true,
 												MountPath: "/var/lib/containerd/io.containerd.content.v1.content",
@@ -245,6 +250,12 @@ func TestScanner(t *testing.T) {
 									},
 								},
 								Volumes: []corev1.Volume{
+									{
+										Name: "tmp",
+										VolumeSource: corev1.VolumeSource{
+											EmptyDir: &corev1.EmptyDirVolumeSource{},
+										},
+									},
 									{
 										Name: "containerd-content",
 										VolumeSource: corev1.VolumeSource{
@@ -329,6 +340,8 @@ func TestScanner(t *testing.T) {
 				},
 			},
 			Status: corev1.PodStatus{
+				Phase:  corev1.PodFailed,
+				Reason: corev1.PodReasonTerminationByKubelet,
 				Conditions: []corev1.PodCondition{
 					{
 						Type:   corev1.PodReady,
@@ -339,6 +352,20 @@ func TestScanner(t *testing.T) {
 						Type:   corev1.PodScheduled,
 						Status: corev1.ConditionFalse,
 						Reason: "no cpu",
+					},
+				},
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								Reason: "QuotaReached",
+							},
+						},
+						LastTerminationState: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								Reason: "QuotaReached",
+							},
+						},
 					},
 				},
 			},
@@ -360,6 +387,9 @@ func TestScanner(t *testing.T) {
 				ScannerImageName: "imgcollector:1.0.0",
 			},
 		})
-		r.ErrorContains(err, "[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")
+		r.ErrorContains(err, "phase=Failed")
+		r.ErrorContains(err, "reason=TerminationByKubelet")
+		r.ErrorContains(err, "conditions=[type=Ready, status=False, reason=no cpu], [type=PodScheduled, status=False, reason=no cpu]")
+		r.ErrorContains(err, "termination=QuotaReached")
 	})
 }

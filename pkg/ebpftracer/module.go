@@ -93,6 +93,10 @@ func (m *module) load(cfg Config) error {
 		return fmt.Errorf("erro while building summary map buffer: %w", err)
 	}
 
+	spec.Maps["signal_events"].MaxEntries = cfg.SignalEventsRingBufferSize
+	spec.Maps["events"].MaxEntries = cfg.EventsRingBufferSize
+	spec.Maps["skb_events"].MaxEntries = cfg.SkbEventsRingBufferSize
+
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},
 		Programs: ebpf.ProgramOptions{
