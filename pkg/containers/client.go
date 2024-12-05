@@ -220,6 +220,8 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 				}
 			}
 		}
+	} else {
+		c.log.Errorf("sandbox id not found : %s", container.SandboxID)
 	}
 
 	c.mu.Lock()
