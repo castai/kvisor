@@ -65,16 +65,19 @@ func NewRunCommand(version string) *cobra.Command {
 				events.NetPacketDNSBase,
 				events.MagicWrite,
 				events.ProcessOomKilled,
-				events.StdioViaSocket,
+				// events.StdioViaSocket, // TODO(anjmao): Tracing this event via syscall hooks is very expensive. Rework the whole syscall tracing.
 				events.TtyWrite,
 				events.NetPacketSSHBase,
 			},
 		}
 		ebpfEventsStdioExporterEnabled = command.Flags().Bool("ebpf-events-stdio-exporter-enabled", false, "Export ebpf event to stdio")
-		ebpfEventsPerCPUBuffer         = command.Flags().Int("ebpf-events-per-cpu-buffer", os.Getpagesize()*64, "Ebpf per cpu buffer size")
 		ebpfEventsOutputChanSize       = command.Flags().Int("ebpf-events-output-queue-size", 4096, "Ebpf user spaces output channel size")
-		ebpfTracerMetricsEnabled       = command.Flags().Bool("ebpf-tracer-metrics-enabled", false, "Enables the export of tracer related metrics from eBPF")
+		ebpfTracerMetricsEnabled       = command.Flags().Bool("ebpf-tracer-metrics-enabled", true, "Enables the export of tracer related metrics from eBPF")
 		ebpfProgramMetricsEnabled      = command.Flags().Bool("ebpf-program-metrics-enabled", false, "Enables the export of metrics about eBPF programs")
+
+		EBPFSignalEventsRingBufferSize = command.Flags().Uint32("ebpf-signal-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for priority events. Should be power of 2")
+		EBPFEventsRingBufferSize       = command.Flags().Uint32("ebpf-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for events. Should be power of 2")
+		EBPFSkbEventsRingBufferSize    = command.Flags().Uint32("ebpf-skb-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for skb network events. Should be power of 2")
 
 		mutedNamespaces = command.Flags().StringSlice("ignored-namespaces", []string{"kube-system", "calico", "calico-system"},
 			"List of namespaces to ignore tracing events for. To ignore multiple namespaces, separate by comma or pass flag multiple times."+
@@ -89,7 +92,6 @@ func NewRunCommand(version string) *cobra.Command {
 
 		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
-		netflowOutputChanSize              = command.Flags().Int("netflow-output-queue-size", 4096, "Netflow output queue size")
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
@@ -152,14 +154,16 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
-			EBPFEventsPerCPUBuffer:         *ebpfEventsPerCPUBuffer,
 			EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
 			EBPFMetrics: app.EBPFMetricsConfig{
 				TracerMetricsEnabled:  *ebpfTracerMetricsEnabled,
 				ProgramMetricsEnabled: *ebpfProgramMetricsEnabled,
 			},
-			EBPFEventsPolicyConfig: ebpfEventsPolicy,
-			MutedNamespaces:        *mutedNamespaces,
+			EBPFEventsPolicyConfig:         ebpfEventsPolicy,
+			EBPFSignalEventsRingBufferSize: *EBPFSignalEventsRingBufferSize,
+			EBPFEventsRingBufferSize:       *EBPFEventsRingBufferSize,
+			EBPFSkbEventsRingBufferSize:    *EBPFSkbEventsRingBufferSize,
+			MutedNamespaces:                *mutedNamespaces,
 			SignatureEngineConfig: signature.SignatureEngineConfig{
 				InputChanSize:  *signatureEngineInputEventChanSize,
 				OutputChanSize: *signatureEngineOutputEventChanSize,
@@ -178,7 +182,6 @@ func NewRunCommand(version string) *cobra.Command {
 			Netflow: app.NetflowConfig{
 				Enabled:                     *netflowEnabled,
 				SampleSubmitIntervalSeconds: *netflowSampleSubmitIntervalSeconds,
-				OutputChanSize:              *netflowOutputChanSize,
 				Grouping:                    netflowGrouping,
 			},
 			Clickhouse: app.ClickhouseConfig{

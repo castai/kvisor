@@ -46,7 +46,6 @@ type netStatsReader interface {
 
 type ebpfTracer interface {
 	Events() <-chan *types.Event
-	NetflowEvents() <-chan *types.Event
 	MuteEventsFromCgroup(cgroup uint64) error
 	MuteEventsFromCgroups(cgroups []uint64) error
 	UnmuteEventsFromCgroup(cgroup uint64) error

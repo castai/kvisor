@@ -108,6 +108,21 @@ func RateLimitPrivateIP(spec RateLimitPolicy) EventFilterGenerator {
 	}
 }
 
+func SkipPrivateIP() EventFilterGenerator {
+	return func() EventFilter {
+		return func(event *types.Event) error {
+			tcpArgs, ok := event.Args.(types.SockSetStateArgs)
+			if !ok {
+				return FilterPass
+			}
+			if !isPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
+				return FilterPass
+			}
+			return FilterErrRateLimit
+		}
+	}
+}
+
 func newRateLimiter(spec RateLimitPolicy) *rate.Limiter {
 	var limit rate.Limit
 

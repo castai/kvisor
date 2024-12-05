@@ -93,10 +93,23 @@ BPF_ARRAY(config_map, config_t, 1);
 
 // TODO(patrick.pichler): think about maybe removing this
 BPF_PERF_OUTPUT(logs, 1024);          // logs submission
-BPF_PERF_OUTPUT(events, 8192);        // events submission
-BPF_PERF_OUTPUT(signal_events, 8192); // signal events submission
 BPF_PERF_OUTPUT(file_writes, 1024);   // file writes events submission
 BPF_PERF_OUTPUT(signals, 1024);       // control plane signals submissions
+
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 1); // Actual size is set in user space before loading.
+} signal_events SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 1); // Actual size is set in user space before loading.
+} events SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 1); // Actual size is set in user space before loading.
+} skb_events SEC(".maps");
 
 // Network Maps
 

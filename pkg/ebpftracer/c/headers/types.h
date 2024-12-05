@@ -302,6 +302,10 @@ enum metric {
     NO_FREE_SCRATCH_BUFFER_SOCKET_SET_STATE,
     NO_FREE_SCRATCH_BUFFER_NETFLOWS,
 
+    SIGNAL_EVENTS_RINGBUF_DISCARD,
+    EVENTS_RINGBUF_DISCARD,
+    SKB_EVENTS_RINGBUF_DISCARD,
+
     MAX_METRIC,
 };
 
@@ -407,18 +411,6 @@ typedef struct net_event_contextmd {
     u32 header_size;
     u8 captured; // packet has already been captured
 } __attribute__((__packed__)) net_event_contextmd_t;
-
-typedef struct net_event_context {
-    event_context_t eventctx;
-    u8 argnum;
-    struct { // event arguments (needs packing), use anonymous struct to ...
-        u8 index0;
-        u32 bytes;
-        // ... (payload sent by bpf_perf_event_output)
-    } __attribute__((__packed__)); // ... avoid address-of-packed-member warns
-    // members bellow this point are metadata (not part of event to be sent)
-    net_event_contextmd_t md;
-} __attribute__((__packed__)) net_event_context_t;
 
 // network related maps
 
