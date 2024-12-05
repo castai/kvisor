@@ -89,7 +89,19 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 	}
 
 	jobName := genJobName(params.ImageName)
-	vols := volumesAndMounts{}
+	vols := volumesAndMounts{
+		volumes: []corev1.Volume{{ // required by image-analyzer during layer tar walking
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}},
+		mounts: []corev1.VolumeMount{{
+			Name:      "tmp",
+			ReadOnly:  false,
+			MountPath: "/tmp",
+		}},
+	}
 	mode := imagescanconfig.Mode(params.Mode)
 	containerRuntime := params.ContainerRuntime
 
