@@ -285,7 +285,7 @@ func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
 	for _, info := range c.index.ipsDetails {
 		// Find service cidr from clusterIP services.
 		if svc := info.Service; svc != nil && svc.Spec.Type == corev1.ServiceTypeClusterIP {
-			if svc.Spec.ClusterIP != "" {
+			if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != corev1.ClusterIPNone {
 				addr, err := netip.ParseAddr(svc.Spec.ClusterIP)
 				if err != nil {
 					return nil, fmt.Errorf("parse service cluster ip: %w", err)
