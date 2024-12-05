@@ -35,11 +35,11 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 		res := clusterInfo{}
 		res.podCidr, err = netip.ParsePrefix(resp.PodsCidr)
 		if err != nil {
-			return nil, fmt.Errorf("parsing pods cidr: %v", err)
+			return nil, fmt.Errorf("parsing pods cidr: %w", err)
 		}
 		res.serviceCidr, err = netip.ParsePrefix(resp.ServiceCidr)
 		if err != nil {
-			return nil, fmt.Errorf("parsing service cidr: %v", err)
+			return nil, fmt.Errorf("parsing service cidr: %w", err)
 		}
 		return &res, nil
 	}
