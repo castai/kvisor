@@ -208,8 +208,8 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 	type cacheValue struct{}
 
 	return func() PreEventFilter {
-		cache, err := freelru.New[uint32, cacheValue](size, func(key uint32) uint32 {
-			return key
+		cache, err := freelru.New[uint64, cacheValue](size, func(key uint64) uint32 {
+			return uint32(key) //nolint:gosec
 		})
 		// err is only ever returned on configuration issues. There is nothing we can really do here, besides
 		// panicing and surfacing the error to the user.
@@ -223,6 +223,10 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 			if ctx.EventID != events.NetPacketDNSBase {
 				return nil, FilterPass
 			}
+
+			var zero uint8
+			err = decoder.DecodeUint8(&zero)
+			err = decoder.DecodeUint8(&zero)
 
 			packetData, err := decoder.ReadMaxByteSliceFromBuff(-1)
 			if err != nil {
@@ -238,11 +242,11 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 			if err != nil {
 				return nil, err
 			}
-			if len(dns.Questions) == 0 {
+			if len(dns.Questions) == 0 || len(dns.Answers) == 0 {
 				return nil, FilterErrEmptyDNSResponse
 			}
 
-			cacheKey := uint32(xxhash.Sum64(dns.Questions[0].Name))
+			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
 			if cache.Contains(cacheKey) {
 				if log.IsEnabled(slog.LevelDebug) {
 					log.WithField("cachekey", string(dns.Questions[0].Name)).Debug("dropping DNS event")

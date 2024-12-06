@@ -98,7 +98,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	case events.SchedProcessExit, events.ProcessOomKilled:
 		t.handleSchedProcessExitEvent(&eventCtx, container, rawEventTime)
 	case events.SchedProcessFork:
-		t.handleSchedProcessForkEvent(&eventCtx, parsedArgs, container)
+		t.handleSchedProcessForkEvent(parsedArgs, container)
 	default:
 	}
 
@@ -214,7 +214,7 @@ func (t *Tracer) handleSchedProcessExitEvent(eventCtx *types.EventContext, conta
 	)
 }
 
-func (t *Tracer) handleSchedProcessForkEvent(eventCtx *types.EventContext, parsedArgs types.Args, container *containers.Container) {
+func (t *Tracer) handleSchedProcessForkEvent(parsedArgs types.Args, container *containers.Container) {
 	forkArgs := parsedArgs.(types.SchedProcessForkArgs)
 
 	// ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
