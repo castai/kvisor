@@ -2256,6 +2256,20 @@ out:
     return false;
 }
 
+// see https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1 for dns header.
+statfunc bool net_l7_empty_dns_answer(struct __sk_buff *skb, u32 l7_off)
+{
+    if (skb->len < l7_off) {
+        return false;
+    }
+
+    u16 ancount = 0;
+    if (bpf_skb_load_bytes(skb, l7_off + 6, &ancount, sizeof(ancount)) < 0) {
+        return false;
+    }
+    return bpf_ntohs(ancount) == 0;
+}
+
 //
 // SUPPORTED L4 NETWORK PROTOCOL (tcp, udp, icmp) HANDLERS
 //
@@ -2360,6 +2374,11 @@ done:
 
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns)
 {
+    // Skip the 2-byte length prefix for dns over tcp.
+    if (net_l7_empty_dns_answer(ctx, md.header_size + 2)) {
+       return 1;
+    }
+
     // submit DNS base event if needed (full packet)
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS))
         cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_DNS, FULL);
@@ -2369,6 +2388,10 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns)
 
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns)
 {
+    if (net_l7_empty_dns_answer(ctx, md.header_size)) {
+       return 1;
+    }
+
     // submit DNS base event if needed (full packet)
     if (should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS))
         cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_DNS, FULL);

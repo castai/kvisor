@@ -398,8 +398,16 @@ func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporter
 	}
 
 	dnsEventPolicy := &ebpftracer.EventPolicy{
-		ID:                 events.NetPacketDNSBase,
-		PreFilterGenerator: ebpftracer.DnsEventsFilter(log, 100, 60*time.Second),
+		ID: events.NetPacketDNSBase,
+		KernelFilters: []ebpftracer.KernelEventFilter{
+			{
+				Name: "Skip emtpy dns answers",
+				Description: `Helper net_l7_empty_dns_answer is used to check if dns header answers field is non zero.
+Currently we care only care about dns responses with valid answers.
+`,
+			},
+		},
+		PreFilterGenerator: ebpftracer.DnsEventsFilter(log, 200, 60*time.Second),
 	}
 
 	if cfg.ProcessTree.Enabled {

@@ -522,7 +522,7 @@ var errDNSMessageNotComplete = errors.New("received dns packet not complete")
 // NOTE: This is not thread safe. Since currently only single go-routine reads the data this is fine.
 var dnsPacketParser = &layers.DNS{}
 
-func (decoder *Decoder) DecodeDnsLayer(details *packet.PacketDetails) (*layers.DNS, error) {
+func (decoder *Decoder) DecodeDNSLayer(details *packet.PacketDetails) (*layers.DNS, error) {
 	if details.Proto == packet.SubProtocolTCP {
 		if len(details.Payload) < 2 {
 			return nil, errDNSMessageNotComplete

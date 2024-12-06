@@ -128,33 +128,6 @@ func newRateLimiter(spec RateLimitPolicy) *rate.Limiter {
 	return rateLimiter
 }
 
-// FilterEmptyDnsAnswers will drop any DNS event, that is missing an answer section
-func FilterEmptyDnsAnswers(l *logging.Logger) EventFilterGenerator {
-	return func() EventFilter {
-		return func(event *types.Event) error {
-			if event.Context.EventID != events.NetPacketDNSBase {
-				return FilterPass
-			}
-
-			dnsEventArgs, ok := event.Args.(types.NetPacketDNSBaseArgs)
-			if !ok {
-				return FilterPass
-			}
-
-			if dnsEventArgs.Payload == nil {
-				l.Warn("retreived invalid event for event type dns")
-				return FilterPass
-			}
-
-			if len(dnsEventArgs.Payload.Answers) == 0 {
-				return FilterErrEmptyDNSResponse
-			}
-
-			return FilterPass
-		}
-	}
-}
-
 // more hash function in https://github.com/elastic/go-freelru/blob/main/bench/hash.go
 func hashStringXXHASH(s string) uint32 {
 	return uint32(xxhash.Sum64String(s)) // nolint:gosec
@@ -171,7 +144,6 @@ func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) Eve
 		if err != nil {
 			panic(err)
 		}
-
 		cache.SetLifetime(ttl)
 
 		return func(event *types.Event) error {
@@ -218,15 +190,17 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 		}
 
 		cache.SetLifetime(ttl)
+		var discard uint8
 
 		return func(ctx *types.EventContext, decoder *decoder.Decoder) (types.Args, error) {
 			if ctx.EventID != events.NetPacketDNSBase {
 				return nil, FilterPass
 			}
 
-			var zero uint8
-			err = decoder.DecodeUint8(&zero)
-			err = decoder.DecodeUint8(&zero)
+			// Read firsts two bytes and discard. It's mapped to argsnum and index.
+			// For network events in most cases there is only 1 argument (payload).
+			_ = decoder.DecodeUint8(&discard)
+			_ = decoder.DecodeUint8(&discard)
 
 			packetData, err := decoder.ReadMaxByteSliceFromBuff(-1)
 			if err != nil {
@@ -238,7 +212,7 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 				return nil, err
 			}
 
-			dns, err := decoder.DecodeDnsLayer(&details)
+			dns, err := decoder.DecodeDNSLayer(&details)
 			if err != nil {
 				return nil, err
 			}
@@ -246,6 +220,7 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 				return nil, FilterErrEmptyDNSResponse
 			}
 
+			// Cache dns by dns question. Cached records are not dropped.
 			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
 			if cache.Contains(cacheKey) {
 				if log.IsEnabled(slog.LevelDebug) {
@@ -255,10 +230,9 @@ func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEve
 			}
 			cache.Add(cacheKey, cacheValue{})
 
-			result := types.NetPacketDNSBaseArgs{
+			return types.NetPacketDNSBaseArgs{
 				Payload: toProtoDNS(&details, dns),
-			}
-			return result, FilterPass
+			}, FilterPass
 		}
 	}
 }

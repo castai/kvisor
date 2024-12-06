@@ -482,14 +482,12 @@ func (t *Tracer) getFilterPolicy(eventID events.ID, cgroupID uint64) *cgroupEven
 	eventPolicy, found := t.eventPoliciesMap[eventID]
 	if found {
 		cgPolicyMap, found := t.cgroupEventPolicy[cgroupID]
-
 		if !found {
 			cgPolicyMap = make(map[events.ID]*cgroupEventPolicy)
 			t.cgroupEventPolicy[cgroupID] = cgPolicyMap
 		}
 
 		cgPolicy, found := cgPolicyMap[eventID]
-
 		if !found {
 			cgPolicy = newCgroupEventPolicy(eventPolicy)
 			t.cgroupEventPolicy[cgroupID][eventID] = cgPolicy

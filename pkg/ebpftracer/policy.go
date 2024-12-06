@@ -28,10 +28,18 @@ type EventFilter func(event *types.Event) error
 // EventFilterGenerator Produces an event filter for each call
 type EventFilterGenerator func() EventFilter
 
+// KernelEventFilter is a placeholder and currently used for documentation purposes only.
+// Each used filter is describer with explanation how it's implemented in the kernel.
+type KernelEventFilter struct {
+	Name        string
+	Description string
+}
+
 type EventPolicy struct {
 	ID                 events.ID
 	PreFilterGenerator PreEventFilterGenerator
 	FilterGenerator    EventFilterGenerator
+	KernelFilters      []KernelEventFilter
 }
 
 // RateLimitPolicy allows to configure event rate limiting.
