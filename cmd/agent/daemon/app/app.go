@@ -398,11 +398,8 @@ func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporter
 	}
 
 	dnsEventPolicy := &ebpftracer.EventPolicy{
-		ID: events.NetPacketDNSBase,
-		FilterGenerator: ebpftracer.FilterAnd(
-			ebpftracer.FilterEmptyDnsAnswers(log),
-			ebpftracer.DeduplicateDnsEvents(log, 100, 60*time.Second),
-		),
+		ID:                 events.NetPacketDNSBase,
+		PreFilterGenerator: ebpftracer.DnsEventsFilter(log, 100, 60*time.Second),
 	}
 
 	if cfg.ProcessTree.Enabled {

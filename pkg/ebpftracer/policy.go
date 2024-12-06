@@ -3,6 +3,7 @@ package ebpftracer
 import (
 	"time"
 
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 )
@@ -14,8 +15,9 @@ type Policy struct {
 	Output          PolicyOutputConfig
 }
 
-// PreEventFilter allows for filtering of events coming from the kernel before they are decoded
-type PreEventFilter func(ctx *types.EventContext) error
+// PreEventFilter allows for filtering of events coming from the kernel before they are decoded.
+// Parsed args should be returned if filter passes.
+type PreEventFilter func(ctx *types.EventContext, decoder *decoder.Decoder) (types.Args, error)
 
 // EventFilterGenerator Produces an pre event filter for each call
 type PreEventFilterGenerator func() PreEventFilter
@@ -47,8 +49,8 @@ type LRUPolicy struct {
 }
 
 type PolicyOutputConfig struct {
-	RelativeTime   bool
-	ExecHash       bool
+	RelativeTime bool
+	ExecHash     bool
 
 	ParseArguments    bool
 	ParseArgumentsFDs bool
@@ -73,20 +75,4 @@ func newCgroupEventPolicy(policy *EventPolicy) *cgroupEventPolicy {
 type cgroupEventPolicy struct {
 	preFilter PreEventFilter
 	filter    EventFilter
-}
-
-func (c *cgroupEventPolicy) allowPre(ctx *types.EventContext) error {
-	if c.preFilter != nil {
-		return c.preFilter(ctx)
-	}
-
-	return nil
-}
-
-func (c *cgroupEventPolicy) allow(event *types.Event) error {
-	if c.filter != nil {
-		return c.filter(event)
-	}
-
-	return nil
 }

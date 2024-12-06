@@ -519,7 +519,29 @@ func (decoder *Decoder) ReadAddrTuple() (types.AddrTuple, error) {
 
 var errDNSMessageNotComplete = errors.New("received dns packet not complete")
 
+// NOTE: This is not thread safe. Since currently only single go-routine reads the data this is fine.
 var dnsPacketParser = &layers.DNS{}
+
+func (decoder *Decoder) DecodeDnsLayer(details *packet.PacketDetails) (*layers.DNS, error) {
+	if details.Proto == packet.SubProtocolTCP {
+		if len(details.Payload) < 2 {
+			return nil, errDNSMessageNotComplete
+		}
+
+		// DNS over TCP prefixes the DNS message with a two octet length field. If the payload is not as big as this specified length,
+		// then we cannot parse the packet, as part of the DNS message will be send in a later one.
+		// For more information see https://datatracker.ietf.org/doc/html/rfc1035.html#section-4.2.2
+		length := int(binary.BigEndian.Uint16(details.Payload[:2]))
+		if len(details.Payload)+2 < length {
+			return nil, errDNSMessageNotComplete
+		}
+		details.Payload = details.Payload[2:]
+	}
+	if err := dnsPacketParser.DecodeFromBytes(details.Payload, gopacket.NilDecodeFeedback); err != nil {
+		return nil, err
+	}
+	return dnsPacketParser, nil
+}
 
 func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 	data, err := decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketDNSBase))
