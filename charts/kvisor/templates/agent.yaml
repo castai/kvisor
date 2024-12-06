@@ -144,9 +144,6 @@ spec:
               readOnly: true
             - name: debugfs
               mountPath: /sys/kernel/debug
-            - name: containerd-k8s-rootfs
-              mountPath: /run/containerd/io.containerd.runtime.v2.task/k8s.io
-              readOnly: true
             - name: containerd-sock
               mountPath: /run/containerd/containerd.sock
               readOnly: true
@@ -176,10 +173,6 @@ spec:
             path: /sys/fs/cgroup
         - name: cgroup-mountdir
           emptyDir: {}
-        - name: containerd-k8s-rootfs
-          hostPath:
-            path: /run/containerd/io.containerd.runtime.v2.task/k8s.io
-            type: Directory
         - name: containerd-sock
           hostPath:
             path: /run/containerd/containerd.sock
