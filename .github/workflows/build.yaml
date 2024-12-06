@@ -154,7 +154,7 @@ jobs:
           echo "ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Upgrade with helm:**" >> $GITHUB_STEP_SUMMARY
-          echo "helm upgrade castai-kvisor castai-helm/kvisor -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "helm upgrade castai-kvisor castai-helm/castai-kvisor -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
 
   # TODO: we might want to run the tests both in ubuntu-22.04, as well as ubuntu-20.04 to test
   # if we everything is working with cgroups v1 and v2
