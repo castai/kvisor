@@ -17,6 +17,8 @@ spec:
       app: iperf-server
   template:
     metadata:
+      annotations:
+        cast.ai/e2e: e2e
       labels:
         app: iperf-server
     spec:

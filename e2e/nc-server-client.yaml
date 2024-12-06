@@ -11,6 +11,8 @@ spec:
       app: nc-server
   template:
     metadata:
+      annotations:
+        cast.ai/e2e: e2e
       labels:
         app: nc-server
     spec:

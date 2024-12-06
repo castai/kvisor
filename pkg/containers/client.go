@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 var (
@@ -34,13 +36,17 @@ type Container struct {
 	Cgroup       *cgroup.Cgroup
 	PIDs         []uint32
 	Err          error
+
+	Labels      map[string]string
+	Annotations map[string]string
 }
 
 // Client is generic container client.
 type Client struct {
-	log             *logging.Logger
-	containerClient *containerClient
-	cgroupClient    *cgroup.Client
+	log                     *logging.Logger
+	containerClient         *containerClient
+	cgroupClient            *cgroup.Client
+	criRuntimeServiceClient criapi.RuntimeServiceClient
 
 	containersByCgroup map[uint64]*Container
 	mu                 sync.RWMutex
@@ -50,21 +56,32 @@ type Client struct {
 	listenerMu                sync.RWMutex
 
 	procHandler *proc.Proc
+
+	forwardedLabels      []string
+	forwardedAnnotations []string
 }
 
-func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc) (*Client, error) {
+func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
+	labels, annotations []string) (*Client, error) {
 	contClient, err := newContainerClient(containerdSock)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		log:                log.WithField("component", "cgroups"),
-		containerClient:    contClient,
-		cgroupClient:       cgroupClient,
-		containersByCgroup: map[uint64]*Container{},
-		procHandler:        procHandler,
+		log:                     log.WithField("component", "cgroups"),
+		containerClient:         contClient,
+		cgroupClient:            cgroupClient,
+		containersByCgroup:      map[uint64]*Container{},
+		procHandler:             procHandler,
+		criRuntimeServiceClient: criRuntimeServiceClient,
+		forwardedLabels:         labels,
+		forwardedAnnotations:    annotations,
 	}, nil
+}
+
+func (c *Client) Close() error {
+	return c.containerClient.client.Close()
 }
 
 type ContainerProcess struct {
@@ -169,6 +186,42 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 		PodName:      podName,
 		Cgroup:       cg,
 		PIDs:         pids,
+	}
+
+	sandbox, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
+		Filter: &criapi.PodSandboxFilter{
+			Id: container.SandboxID,
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sandbox.Items) > 0 {
+		for k, v := range sandbox.Items[0].Labels {
+			for _, labelPrefix := range c.forwardedLabels {
+				if strings.HasPrefix(k, labelPrefix) {
+					if cont.Labels == nil {
+						cont.Labels = make(map[string]string)
+					}
+					cont.Labels[k] = v
+				}
+			}
+		}
+
+		for k, v := range sandbox.Items[0].Annotations {
+			for _, annotationPrefix := range c.forwardedAnnotations {
+				if strings.HasPrefix(k, annotationPrefix) {
+					if cont.Annotations == nil {
+						cont.Annotations = make(map[string]string)
+					}
+					cont.Annotations[k] = v
+				}
+			}
+		}
+	} else {
+		c.log.Errorf("sandbox id not found : %s", container.SandboxID)
 	}
 
 	c.mu.Lock()
