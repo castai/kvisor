@@ -7,6 +7,7 @@ import (
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
@@ -43,12 +44,12 @@ func TestAllowedByPolicyShouldBePerCgroup(t *testing.T) {
 		},
 	})
 
-	err := tracer.allowedByPolicy(events.TestEvent, 22, &types.Event{})
+	err := tracer.getFilterPolicy(events.TestEvent, 22).filter(&types.Event{})
 	r.NoError(err)
 
-	err = tracer.allowedByPolicy(events.TestEvent, 66, &types.Event{})
-
+	err = tracer.getFilterPolicy(events.TestEvent, 64).filter(&types.Event{})
 	r.NoError(err)
+
 	r.Len(callerMap, 2)
 }
 
@@ -62,9 +63,9 @@ func TestAllowedByPrePolicyShouldBePerCgroup(t *testing.T) {
 
 		// we need to capture the value of counter, as otherwise it will be the same for each invocation
 		return func(c int) PreEventFilter {
-			return func(ctx *types.EventContext) error {
+			return func(ctx *types.EventContext, dec *decoder.Decoder) (types.Args, error) {
 				callerMap[c] = struct{}{}
-				return FilterPass
+				return nil, FilterPass
 			}
 		}(counter)
 	}
@@ -79,16 +80,11 @@ func TestAllowedByPrePolicyShouldBePerCgroup(t *testing.T) {
 		},
 	})
 
-	err := tracer.allowedByPolicyPre(&types.EventContext{
-		EventID:  events.TestEvent,
-		CgroupID: 10,
-	})
+	_, err := tracer.getFilterPolicy(events.TestEvent, 22).preFilter(&types.EventContext{}, nil)
 	r.NoError(err)
 
-	err = tracer.allowedByPolicyPre(&types.EventContext{
-		EventID:  events.TestEvent,
-		CgroupID: 20,
-	})
+	_, err = tracer.getFilterPolicy(events.TestEvent, 64).preFilter(&types.EventContext{}, nil)
+	r.NoError(err)
 
 	r.NoError(err)
 	r.Len(callerMap, 2)
