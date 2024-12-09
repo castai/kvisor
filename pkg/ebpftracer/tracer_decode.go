@@ -19,22 +19,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Error indicating that the resulting error was caught from a panic
+// ErrPanic indicating that the resulting error was caught from a panic
 var ErrPanic = errors.New("encountered panic")
-
-func decodeContextAndArgs(ebpfMsgDecoder *decoder.Decoder) (types.EventContext, types.Args, error) {
-	var eventCtx types.EventContext
-	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
-		return types.EventContext{}, nil, fmt.Errorf("decoding context: %w", err)
-	}
-	eventId := eventCtx.EventID
-	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
-	if err != nil {
-		return types.EventContext{}, nil, fmt.Errorf("parsing event %d args: %w", eventId, err)
-	}
-
-	return eventCtx, parsedArgs, nil
-}
 
 func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decoder.Decoder) (rerr error) {
 	defer func() {
@@ -44,45 +30,42 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		}
 	}()
 
-	eventCtx, parsedArgs, err := decodeContextAndArgs(ebpfMsgDecoder)
-	if err != nil {
-		return err
+	var eventCtx types.EventContext
+	if err := ebpfMsgDecoder.DecodeContext(&eventCtx); err != nil {
+		return fmt.Errorf("decoding context: %w", err)
 	}
+
 	eventId := eventCtx.EventID
 	def := t.eventsSet[eventCtx.EventID]
 	metrics.AgentPulledEventsBytesTotal.WithLabelValues(def.name).Add(float64(ebpfMsgDecoder.BuffLen()))
 	metrics.AgentPulledEventsTotal.WithLabelValues(def.name).Inc()
 
+	filterPolicy := t.getFilterPolicy(eventCtx.EventID, eventCtx.CgroupID)
+
+	var err error
+	var parsedArgs types.Args
+	if filterPolicy != nil && filterPolicy.preFilter != nil {
+		parsedArgs, err = filterPolicy.preFilter(&eventCtx, ebpfMsgDecoder)
+		if err != nil {
+			metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
+			return nil
+		}
+	}
+
+	if parsedArgs == nil {
+		parsedArgs, err = decoder.ParseArgs(ebpfMsgDecoder, eventId)
+		if err != nil {
+			return fmt.Errorf("parsing event %d args: %w", eventId, err)
+		}
+	}
+
 	// Process special events for cgroup creation and removal.
 	// These are system events which are not send down via events pipeline.
 	switch eventId {
 	case events.CgroupMkdir:
-		args := parsedArgs.(types.CgroupMkdirArgs)
-		// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
-		if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
-			return nil
-		}
-		t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
-		if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
-			if errors.Is(err, containers.ErrContainerNotFound) {
-				err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
-				if err != nil {
-					return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
-				}
-				return nil
-			}
-			t.log.Errorf("cannot add container to cgroup %d: %b", args.CgroupId, err)
-		}
-		return nil
+		return t.handleCgroupMkdirEvent(&eventCtx, parsedArgs)
 	case events.CgroupRmdir:
-		args := parsedArgs.(types.CgroupRmdirArgs)
-
-		t.queueCgroupForRemoval(args.CgroupId)
-		err := t.UnmuteEventsFromCgroup(args.CgroupId)
-		if err != nil {
-			return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
-		}
-		return nil
+		return t.handleCgroupRmdirEvent(parsedArgs)
 	default:
 	}
 
@@ -109,75 +92,13 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 
 	switch eventId {
 	case events.SchedProcessExec:
-		if eventCtx.Pid == 1 {
-			t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
-		} else {
-			t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
+		if err := t.handleSchedProcessExecEvent(&eventCtx, parsedArgs, container, rawEventTime); err != nil {
+			return err
 		}
-
-		parentStartTime := time.Duration(0)
-		if eventCtx.Ppid != 0 {
-			// We only set the parent start time, if we know the parent PID comes from the same NS.
-			parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
-		}
-		execArgs, ok := parsedArgs.(types.SchedProcessExecArgs)
-		if !ok {
-			t.log.Errorf("expected types.SchedProcessExecArgs, but got: %t", parsedArgs)
-			return nil
-		}
-		processStartTime := time.Duration(eventCtx.StartTime) * time.Nanosecond // nolint:gosec
-
-		t.cfg.ProcessTreeCollector.ProcessStarted(
-			system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
-			container.ID,
-			processtree.Process{
-				PID:             proc.PID(eventCtx.Pid),
-				StartTime:       processStartTime.Truncate(time.Second),
-				PPID:            proc.PID(eventCtx.Ppid),
-				ParentStartTime: parentStartTime.Truncate(time.Second),
-				Args:            execArgs.Argv,
-				FilePath:        execArgs.Filepath,
-			},
-		)
-
 	case events.SchedProcessExit, events.ProcessOomKilled:
-		// We only care about process exits and not threads.
-		if eventCtx.HostPid == eventCtx.HostTid {
-			parentStartTime := time.Duration(0)
-			if eventCtx.Ppid != 0 {
-				// We only set the parent start time, if we know the parent PID comes from the same NS.
-				parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
-			}
-
-			t.cfg.ProcessTreeCollector.ProcessExited(
-				system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
-				container.ID,
-				processtree.ToProcessKeyNs(
-					proc.PID(eventCtx.Pid),
-					eventCtx.StartTime),
-				processtree.ToProcessKey(proc.PID(eventCtx.Ppid), parentStartTime),
-				eventCtx.Ts,
-			)
-		}
-
+		t.handleSchedProcessExitEvent(&eventCtx, container, rawEventTime)
 	case events.SchedProcessFork:
-		forkArgs := parsedArgs.(types.SchedProcessForkArgs)
-
-		// ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
-		if forkArgs.ChildNsPid != forkArgs.ParentNsPid {
-			parentStartTime := uint64(0)
-			if forkArgs.UpParentPid != 0 {
-				parentStartTime = forkArgs.UpParentStartTime
-			}
-
-			t.cfg.ProcessTreeCollector.ProcessForked(
-				// We always assume the child start time as the event timestamp for forks.
-				system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)), // nolint:gosec
-				container.ID,
-				processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime),        // nolint:gosec
-				processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime), //nolint:gosec
-			)
-		}
+		t.handleSchedProcessForkEvent(parsedArgs, container)
 	default:
 	}
 
@@ -191,15 +112,11 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		return nil
 	}
 
-	// TODO: Move rate limit based policy to kernel side.
-	if err := t.allowedByPolicyPre(&eventCtx); err != nil {
-		metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
-		return nil
-	}
-
-	if err := t.allowedByPolicy(eventId, eventCtx.CgroupID, event); err != nil {
-		metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
-		return nil
+	if filterPolicy != nil && filterPolicy.filter != nil {
+		if err := filterPolicy.filter(event); err != nil {
+			metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
+			return nil
+		}
 	}
 
 	select {
@@ -209,6 +126,112 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	}
 
 	return nil
+}
+
+func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs types.Args) error {
+	args := parsedArgs.(types.CgroupMkdirArgs)
+	// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
+	if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
+		return nil
+	}
+	t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
+	if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
+		if errors.Is(err, containers.ErrContainerNotFound) {
+			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
+			if err != nil {
+				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
+			}
+			return nil
+		}
+		t.log.Errorf("cannot add container to cgroup %d: %b", args.CgroupId, err)
+	}
+	return nil
+}
+
+func (t *Tracer) handleCgroupRmdirEvent(parsedArgs types.Args) error {
+	args := parsedArgs.(types.CgroupRmdirArgs)
+
+	t.queueCgroupForRemoval(args.CgroupId)
+	err := t.UnmuteEventsFromCgroup(args.CgroupId)
+	if err != nil {
+		return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
+	}
+	return nil
+}
+
+func (t *Tracer) handleSchedProcessExecEvent(eventCtx *types.EventContext, parsedArgs types.Args, container *containers.Container, rawEventTime uint64) error {
+	if eventCtx.Pid == 1 {
+		t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
+	} else {
+		t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
+	}
+
+	parentStartTime := time.Duration(0)
+	if eventCtx.Ppid != 0 {
+		// We only set the parent start time, if we know the parent PID comes from the same NS.
+		parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
+	}
+	execArgs, ok := parsedArgs.(types.SchedProcessExecArgs)
+	if !ok {
+		return fmt.Errorf("expected types.SchedProcessExecArgs, but got: %t", parsedArgs)
+	}
+	processStartTime := time.Duration(eventCtx.StartTime) * time.Nanosecond // nolint:gosec
+
+	t.cfg.ProcessTreeCollector.ProcessStarted(
+		system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
+		container.ID,
+		processtree.Process{
+			PID:             proc.PID(eventCtx.Pid),
+			StartTime:       processStartTime.Truncate(time.Second),
+			PPID:            proc.PID(eventCtx.Ppid),
+			ParentStartTime: parentStartTime.Truncate(time.Second),
+			Args:            execArgs.Argv,
+			FilePath:        execArgs.Filepath,
+		},
+	)
+	return nil
+}
+
+func (t *Tracer) handleSchedProcessExitEvent(eventCtx *types.EventContext, container *containers.Container, rawEventTime uint64) {
+	// We only care about process exits and not threads.
+	if eventCtx.HostPid != eventCtx.HostTid {
+		return
+	}
+	parentStartTime := time.Duration(0)
+	if eventCtx.Ppid != 0 {
+		// We only set the parent start time, if we know the parent PID comes from the same NS.
+		parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
+	}
+
+	t.cfg.ProcessTreeCollector.ProcessExited(
+		system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
+		container.ID,
+		processtree.ToProcessKeyNs(
+			proc.PID(eventCtx.Pid),
+			eventCtx.StartTime),
+		processtree.ToProcessKey(proc.PID(eventCtx.Ppid), parentStartTime),
+		eventCtx.Ts,
+	)
+}
+
+func (t *Tracer) handleSchedProcessForkEvent(parsedArgs types.Args, container *containers.Container) {
+	forkArgs := parsedArgs.(types.SchedProcessForkArgs)
+
+	// ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
+	if forkArgs.ChildNsPid != forkArgs.ParentNsPid {
+		parentStartTime := uint64(0)
+		if forkArgs.UpParentPid != 0 {
+			parentStartTime = forkArgs.UpParentStartTime
+		}
+
+		t.cfg.ProcessTreeCollector.ProcessForked(
+			// We always assume the child start time as the event timestamp for forks.
+			system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)), // nolint:gosec
+			container.ID,
+			processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime),        // nolint:gosec
+			processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime), //nolint:gosec
+		)
+	}
 }
 
 func (t *Tracer) MuteEventsFromCgroup(cgroup uint64) error {

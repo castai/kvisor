@@ -519,7 +519,53 @@ func (decoder *Decoder) ReadAddrTuple() (types.AddrTuple, error) {
 
 var errDNSMessageNotComplete = errors.New("received dns packet not complete")
 
+// NOTE: This is not thread safe. Since currently only single go-routine reads the data this is fine.
 var dnsPacketParser = &layers.DNS{}
+
+func (decoder *Decoder) DecodeDNSLayer(details *packet.PacketDetails) (*layers.DNS, error) {
+	if details.Proto == packet.SubProtocolTCP {
+		if len(details.Payload) < 2 {
+			return nil, errDNSMessageNotComplete
+		}
+
+		// DNS over TCP prefixes the DNS message with a two octet length field. If the payload is not as big as this specified length,
+		// then we cannot parse the packet, as part of the DNS message will be send in a later one.
+		// For more information see https://datatracker.ietf.org/doc/html/rfc1035.html#section-4.2.2
+		length := int(binary.BigEndian.Uint16(details.Payload[:2]))
+		if len(details.Payload)+2 < length {
+			return nil, errDNSMessageNotComplete
+		}
+		details.Payload = details.Payload[2:]
+	}
+	if err := dnsPacketParser.DecodeFromBytes(details.Payload, gopacket.NilDecodeFeedback); err != nil {
+		return nil, err
+	}
+	return dnsPacketParser, nil
+}
+
+func (decoder *Decoder) DecodeDNSAndDetails() (*layers.DNS, packet.PacketDetails, error) {
+	var discard uint8
+	// Read firsts two bytes and discard. It's mapped to argsnum and index.
+	// For network events in most cases there is only 1 argument (payload).
+	_ = decoder.DecodeUint8(&discard)
+	_ = decoder.DecodeUint8(&discard)
+
+	packetData, err := decoder.ReadMaxByteSliceFromBuff(-1)
+	if err != nil {
+		return nil, packet.PacketDetails{}, err
+	}
+
+	details, err := packet.ExtractPacketDetails(packetData)
+	if err != nil {
+		return nil, packet.PacketDetails{}, err
+	}
+
+	dns, err := decoder.DecodeDNSLayer(&details)
+	if err != nil {
+		return nil, packet.PacketDetails{}, err
+	}
+	return dns, details, nil
+}
 
 func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 	data, err := decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketDNSBase))
@@ -550,6 +596,10 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 		return nil, err
 	}
 
+	return ToProtoDNS(&details, dnsPacketParser), nil
+}
+
+func ToProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *castpb.DNS {
 	pbDNS := &castpb.DNS{
 		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
 		Tuple: &castpb.Tuple{
@@ -575,8 +625,7 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 			Cname: string(v.CNAME),
 		}
 	}
-
-	return pbDNS, nil
+	return pbDNS
 }
 
 var ErrWrongSSHVersionPrefix = errors.New("got wrong ssh version prefix")

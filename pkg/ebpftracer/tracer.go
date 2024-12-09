@@ -475,43 +475,19 @@ func (t *Tracer) initTailCall(tailCall TailCall) error {
 	return nil
 }
 
-func (t *Tracer) allowedByPolicyPre(ctx *types.EventContext) error {
-	policy := t.getPolicy(ctx.EventID, ctx.CgroupID)
-
-	if policy != nil {
-		return policy.allowPre(ctx)
-	}
-
-	// No policy.
-	return nil
-}
-
-func (t *Tracer) allowedByPolicy(eventID events.ID, cgroupID uint64, event *types.Event) error {
-	policy := t.getPolicy(eventID, cgroupID)
-
-	if policy != nil {
-		return policy.allow(event)
-	}
-
-	// No policy.
-	return nil
-}
-
-func (t *Tracer) getPolicy(eventID events.ID, cgroupID uint64) *cgroupEventPolicy {
+func (t *Tracer) getFilterPolicy(eventID events.ID, cgroupID uint64) *cgroupEventPolicy {
 	t.policyMu.Lock()
 	defer t.policyMu.Unlock()
 
 	eventPolicy, found := t.eventPoliciesMap[eventID]
 	if found {
 		cgPolicyMap, found := t.cgroupEventPolicy[cgroupID]
-
 		if !found {
 			cgPolicyMap = make(map[events.ID]*cgroupEventPolicy)
 			t.cgroupEventPolicy[cgroupID] = cgPolicyMap
 		}
 
 		cgPolicy, found := cgPolicyMap[eventID]
-
 		if !found {
 			cgPolicy = newCgroupEventPolicy(eventPolicy)
 			t.cgroupEventPolicy[cgroupID][eventID] = cgPolicy

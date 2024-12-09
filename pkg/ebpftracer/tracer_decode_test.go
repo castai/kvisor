@@ -6,10 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/castai/kvisor/pkg/cgroup"
+	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -32,13 +35,13 @@ var (
 	)
 
 	preEventFilterFail PreEventFilterGenerator = GlobalPreEventFilterGenerator(
-		func(ctx *types.EventContext) error {
-			return errFilterFail
+		func(ctx *types.EventContext, d *decoder.Decoder) (types.Args, error) {
+			return nil, errFilterFail
 		},
 	)
 	preEventFilterPass PreEventFilterGenerator = GlobalPreEventFilterGenerator(
-		func(ctx *types.EventContext) error {
-			return errFilterFail
+		func(ctx *types.EventContext, d *decoder.Decoder) (types.Args, error) {
+			return nil, errFilterFail
 		},
 	)
 )
@@ -146,27 +149,58 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 	}
 }
 
-func TestDecodeContextAndArgs(t *testing.T) {
+func TestDecodeAndExport(t *testing.T) {
 	r := require.New(t)
 	path := filepath.Join("decoder", "testdata", "event.bin")
 	data, err := os.ReadFile(path)
 	r.NoError(err)
 
-	r.NoError(err)
+	dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), data)
 
-	decoder := decoder.NewEventDecoder(logging.New(&logging.Config{}), data)
+	tr := &Tracer{
+		eventsChan: make(chan *types.Event),
+		cfg:        Config{ContainerClient: newMockContainersClient()},
+	}
 
-	eventCtx, args, err := decodeContextAndArgs(decoder)
-	r.NoError(err)
+	go func() {
+		err = tr.decodeAndExportEvent(context.Background(), dec)
+		r.NoError(err)
+	}()
 
-	r.EqualValues(events.MagicWrite, eventCtx.EventID)
-	r.IsType(types.MagicWriteArgs{}, args)
-	magicArgs := args.(types.MagicWriteArgs)
+	e := <-tr.eventsChan
+
+	r.EqualValues(events.MagicWrite, e.Context.EventID)
+	r.IsType(types.MagicWriteArgs{}, e.Args)
+	magicArgs := e.Args.(types.MagicWriteArgs)
 
 	r.Equal("/tmp/tmp.u3Yro419hD/tar_executable", magicArgs.Pathname)
 	r.Equal("f0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAgL4AAAAAAAA=", base64.StdEncoding.EncodeToString(magicArgs.Bytes))
 	r.EqualValues(0x122, magicArgs.Dev)
 	r.EqualValues(0x403f00, magicArgs.Inode)
+}
+
+func newMockContainersClient() *MockContainerClient {
+	return &MockContainerClient{
+		ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {
+			dummyContainerID := fmt.Sprint(cgroupID)
+			return &containers.Container{
+				ID:           dummyContainerID,
+				Name:         "dummy-container",
+				CgroupID:     cgroupID,
+				PodNamespace: "default",
+				PodUID:       dummyContainerID,
+				PodName:      "dummy-container-" + dummyContainerID,
+				Cgroup: &cgroup.Cgroup{
+					Id:               cgroupID,
+					Version:          cgroup.V2,
+					ContainerRuntime: cgroup.ContainerdRuntime,
+					ContainerID:      dummyContainerID,
+					Path:             "",
+				},
+				PIDs: []uint32{},
+			}, nil
+		},
+	}
 }
 
 func buildTestEventData(t *testing.T) []byte {
