@@ -312,7 +312,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer tracer.Close()
 
-	policy := buildEBPFPolicy(log, cfg, exporters, signatureEngine)
+	policy := buildEBPFPolicy(cfg, exporters, signatureEngine)
 	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
 	if err := tracer.ApplyPolicy(policy); err != nil {
 		return fmt.Errorf("apply policy: %w", err)
@@ -388,7 +388,7 @@ func enableBPFStats(cfg *Config, log *logging.Logger) func() {
 	return cleanup
 }
 
-func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
+func buildEBPFPolicy(cfg *Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
 	policy := &ebpftracer.Policy{
 		SystemEvents: []events.ID{
 			events.CgroupMkdir,

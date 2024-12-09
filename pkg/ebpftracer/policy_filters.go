@@ -6,15 +6,11 @@ import (
 	"net/netip"
 	"time"
 
-	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/net/packet"
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
-	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
 	"golang.org/x/time/rate"
 )
@@ -174,96 +170,6 @@ func DeduplicateDnsEvents(l *logging.Logger, size uint32, ttl time.Duration) Eve
 			return FilterPass
 		}
 	}
-}
-
-func DnsEventsFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEventFilterGenerator {
-	type cacheValue struct{}
-
-	return func() PreEventFilter {
-		cache, err := freelru.New[uint64, cacheValue](size, func(key uint64) uint32 {
-			return uint32(key) //nolint:gosec
-		})
-		// err is only ever returned on configuration issues. There is nothing we can really do here, besides
-		// panicing and surfacing the error to the user.
-		if err != nil {
-			panic(err)
-		}
-
-		cache.SetLifetime(ttl)
-		var discard uint8
-
-		return func(ctx *types.EventContext, decoder *decoder.Decoder) (types.Args, error) {
-			if ctx.EventID != events.NetPacketDNSBase {
-				return nil, FilterPass
-			}
-
-			// Read firsts two bytes and discard. It's mapped to argsnum and index.
-			// For network events in most cases there is only 1 argument (payload).
-			_ = decoder.DecodeUint8(&discard)
-			_ = decoder.DecodeUint8(&discard)
-
-			packetData, err := decoder.ReadMaxByteSliceFromBuff(-1)
-			if err != nil {
-				return nil, err
-			}
-
-			details, err := packet.ExtractPacketDetails(packetData)
-			if err != nil {
-				return nil, err
-			}
-
-			dns, err := decoder.DecodeDNSLayer(&details)
-			if err != nil {
-				return nil, err
-			}
-			if len(dns.Questions) == 0 || len(dns.Answers) == 0 {
-				return nil, FilterErrEmptyDNSResponse
-			}
-
-			// Cache dns by dns question. Cached records are not dropped.
-			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
-			if cache.Contains(cacheKey) {
-				if log.IsEnabled(slog.LevelDebug) {
-					log.WithField("cachekey", string(dns.Questions[0].Name)).Debug("dropping DNS event")
-				}
-				return nil, FilterErrDNSDuplicateDetected
-			}
-			cache.Add(cacheKey, cacheValue{})
-
-			return types.NetPacketDNSBaseArgs{
-				Payload: toProtoDNS(&details, dns),
-			}, FilterPass
-		}
-	}
-}
-
-func toProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *castpb.DNS {
-	pbDNS := &castpb.DNS{
-		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
-		Tuple: &castpb.Tuple{
-			SrcIp:   details.Src.Addr().AsSlice(),
-			DstIp:   details.Dst.Addr().AsSlice(),
-			SrcPort: uint32(details.Src.Port()),
-			DstPort: uint32(details.Dst.Port()),
-		},
-	}
-
-	for _, v := range dnsPacketParser.Questions {
-		pbDNS.DNSQuestionDomain = string(v.Name)
-		break
-	}
-
-	for i, v := range dnsPacketParser.Answers {
-		pbDNS.Answers[i] = &castpb.DNSAnswers{
-			Name:  string(v.Name),
-			Type:  uint32(v.Type),
-			Class: uint32(v.Class),
-			Ttl:   v.TTL,
-			Ip:    v.IP,
-			Cname: string(v.CNAME),
-		}
-	}
-	return pbDNS
 }
 
 func isPrivateNetwork(ip netip.Addr) bool {
