@@ -543,6 +543,30 @@ func (decoder *Decoder) DecodeDNSLayer(details *packet.PacketDetails) (*layers.D
 	return dnsPacketParser, nil
 }
 
+func (decoder *Decoder) DecodeDNSAndDetails() (*layers.DNS, packet.PacketDetails, error) {
+	var discard uint8
+	// Read firsts two bytes and discard. It's mapped to argsnum and index.
+	// For network events in most cases there is only 1 argument (payload).
+	_ = decoder.DecodeUint8(&discard)
+	_ = decoder.DecodeUint8(&discard)
+
+	packetData, err := decoder.ReadMaxByteSliceFromBuff(-1)
+	if err != nil {
+		return nil, packet.PacketDetails{}, err
+	}
+
+	details, err := packet.ExtractPacketDetails(packetData)
+	if err != nil {
+		return nil, packet.PacketDetails{}, err
+	}
+
+	dns, err := decoder.DecodeDNSLayer(&details)
+	if err != nil {
+		return nil, packet.PacketDetails{}, err
+	}
+	return dns, details, nil
+}
+
 func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 	data, err := decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketDNSBase))
 	if err != nil {
@@ -572,6 +596,10 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 		return nil, err
 	}
 
+	return ToProtoDNS(&details, dnsPacketParser), nil
+}
+
+func ToProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *castpb.DNS {
 	pbDNS := &castpb.DNS{
 		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
 		Tuple: &castpb.Tuple{
@@ -597,8 +625,7 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 			Cname: string(v.CNAME),
 		}
 	}
-
-	return pbDNS, nil
+	return pbDNS
 }
 
 var ErrWrongSSHVersionPrefix = errors.New("got wrong ssh version prefix")
