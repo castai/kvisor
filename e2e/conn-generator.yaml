@@ -19,6 +19,8 @@ metadata:
 spec:
   template:
     metadata:
+      annotations:
+        cast.ai/e2e: e2e
       labels:
         name: echo-a
     spec:

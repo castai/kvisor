@@ -28,6 +28,8 @@ spec:
   backoffLimit: 0
   template:
     metadata:
+      annotations:
+        cast.ai/e2e: e2e
       labels:
         app.kubernetes.io/name: e2e
     spec:
