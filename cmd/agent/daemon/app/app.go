@@ -407,7 +407,6 @@ Currently we care only care about dns responses with valid answers.
 `,
 			},
 		},
-		PreFilterGenerator: ebpftracer.DnsEventsFilter(log, 200, 60*time.Second),
 	}
 
 	if cfg.ProcessTree.Enabled {
