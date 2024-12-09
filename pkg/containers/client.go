@@ -188,9 +188,29 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 		PIDs:         pids,
 	}
 
+	sandboxID := container.SandboxID
+	if sandboxID == "" {
+		// option #1: parse container.Spec
+		// spec := container.Spec
+		// option #2: use CRI client
+		ctr, err := c.criRuntimeServiceClient.ListContainers(ctx, &criapi.ListContainersRequest{
+			Filter: &criapi.ContainerFilter{
+				Id: container.ID,
+			},
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		c.log.Infof("container sandbox: retrieved %d containers, it's sandbox id: %s", len(ctr.Containers), ctr.Containers[0].PodSandboxId)
+		sandboxID = ctr.Containers[0].PodSandboxId
+	}
+
+	c.log.Infof("container sandbox: id: %s", sandboxID)
 	sandbox, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
 		Filter: &criapi.PodSandboxFilter{
-			Id: container.SandboxID,
+			Id: sandboxID,
 		},
 	})
 
@@ -199,6 +219,7 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 	}
 
 	if len(sandbox.Items) > 0 {
+		c.log.Infof("found %d sandboxes", len(sandbox.Items))
 		for k, v := range sandbox.Items[0].Labels {
 			for _, labelPrefix := range c.forwardedLabels {
 				if strings.HasPrefix(k, labelPrefix) {
