@@ -17,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -271,24 +272,27 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 }
 
 var ingoredProcesses = map[string]struct{}{
-	"sshd":    {},
-	"coredns": {},
-	"kubelet": {},
+	"sshd":     {},
+	"coredns":  {},
+	"kubelet":  {},
+	"iptables": {},
 }
 
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	eventName := tr.GetEventName(e.Context.EventID)
-	procName := string(bytes.TrimRight(e.Context.Comm[:], "\x00"))
+	procName := decoder.ProcessNameString(e.Context.Comm[:])
 	if _, ignored := ingoredProcesses[procName]; ignored {
 		return
 	}
 
 	fmt.Printf(
-		"ts=%d  event=%s cgroup=%d pid=%d proc=%s ",
+		"ts=%d  event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s ",
 		e.Context.Ts,
 		eventName,
 		e.Context.CgroupID,
 		e.Context.HostPid,
+		e.Context.Pid,
+		e.Context.Ppid,
 		procName,
 	)
 
@@ -335,6 +339,13 @@ func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 			fmt.Printf(" answer=%s", answer.String())
 		}
 		fmt.Printf("\n")
+	case events.SchedProcessExec:
+		args, ok := e.Args.(types.SchedProcessExecArgs)
+		if !ok {
+			panic("not args")
+		}
+		fmt.Printf("file=%s args=%v", args.Filepath, args.Argv)
+	case events.SchedProcessFork, events.SchedProcessExit:
 	default:
 		fmt.Printf("args=%+v", e.Args)
 	}

@@ -760,6 +760,30 @@ func TestDecodeContext(t *testing.T) {
 	}, eventCtx)
 }
 
+func TestProcessNameString(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    []byte
+		expected string
+	}{
+		{
+			name:     "no null terminator",
+			value:    []byte("curl"),
+			expected: "curl",
+		},
+		{
+			name:     "truncate at first null terminator",
+			value:    []byte{116, 101, 115, 116, 0, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			expected: "test",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.expected, ProcessNameString(test.value))
+		})
+	}
+}
+
 var sshRequestData = []byte{
 	// Payload size
 	0x5e, 0x00, 0x00, 0x00,

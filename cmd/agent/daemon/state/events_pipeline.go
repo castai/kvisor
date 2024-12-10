@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/netip"
@@ -10,6 +9,7 @@ import (
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
@@ -55,7 +55,7 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 	event := &castpb.Event{
 		EventType:     0,
 		Timestamp:     e.Context.Ts,
-		ProcessName:   string(bytes.TrimRight(e.Context.Comm[:], "\x00")),
+		ProcessName:   decoder.ProcessNameString(e.Context.Comm[:]),
 		Namespace:     e.Container.PodNamespace,
 		PodUid:        e.Container.PodUID,
 		PodName:       e.Container.PodName,
