@@ -17,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -278,7 +279,7 @@ var ingoredProcesses = map[string]struct{}{
 
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	eventName := tr.GetEventName(e.Context.EventID)
-	procName := string(bytes.TrimRight(e.Context.Comm[:], "\x00"))
+	procName := decoder.ProcessNameString(e.Context.Comm[:])
 	if _, ignored := ingoredProcesses[procName]; ignored {
 		return
 	}

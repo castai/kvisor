@@ -599,6 +599,16 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 	return ToProtoDNS(&details, dnsPacketParser), nil
 }
 
+// ProcessNameString converts raw process name to readable string.
+// Since it's a C-like string it can contain NUL byte.
+func ProcessNameString(raw []byte) string {
+	nulByteIndex := bytes.IndexByte(raw[:], 0)
+	if nulByteIndex == -1 {
+		return string(raw)
+	}
+	return string(raw[:nulByteIndex])
+}
+
 func ToProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *castpb.DNS {
 	pbDNS := &castpb.DNS{
 		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),

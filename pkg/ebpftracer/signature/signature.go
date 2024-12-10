@@ -1,11 +1,11 @@
 package signature
 
 import (
-	"bytes"
 	"context"
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
@@ -127,7 +127,7 @@ func (e *SignatureEngine) handleEvent(event *types.Event) {
 		e.eventsChan <- &castpb.Event{
 			EventType:     castpb.EventType_EVENT_SIGNATURE,
 			Timestamp:     uint64(time.Now().UTC().UnixNano()), // nolint:gosec
-			ProcessName:   string(bytes.Trim(event.Context.Comm[:], "\x00")),
+			ProcessName:   decoder.ProcessNameString(event.Context.Comm[:]),
 			Namespace:     event.Container.PodNamespace,
 			PodName:       event.Container.PodName,
 			ContainerName: event.Container.Name,
