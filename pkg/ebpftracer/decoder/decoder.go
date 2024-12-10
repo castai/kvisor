@@ -20,6 +20,7 @@ import (
 	"github.com/castai/kvisor/pkg/net/packet"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"golang.org/x/sys/unix"
 )
 
 type Decoder struct {
@@ -602,11 +603,7 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 // ProcessNameString converts raw process name to readable string.
 // Since it's a C-like string it can contain NUL byte.
 func ProcessNameString(raw []byte) string {
-	nulByteIndex := bytes.IndexByte(raw[:], 0)
-	if nulByteIndex == -1 {
-		return string(raw)
-	}
-	return string(raw[:nulByteIndex])
+	return unix.ByteSliceToString(raw)
 }
 
 func ToProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *castpb.DNS {

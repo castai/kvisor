@@ -272,9 +272,10 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 }
 
 var ingoredProcesses = map[string]struct{}{
-	"sshd":    {},
-	"coredns": {},
-	"kubelet": {},
+	"sshd":     {},
+	"coredns":  {},
+	"kubelet":  {},
+	"iptables": {},
 }
 
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
@@ -285,11 +286,13 @@ func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	}
 
 	fmt.Printf(
-		"ts=%d  event=%s cgroup=%d pid=%d proc=%s ",
+		"ts=%d  event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s ",
 		e.Context.Ts,
 		eventName,
 		e.Context.CgroupID,
 		e.Context.HostPid,
+		e.Context.Pid,
+		e.Context.Ppid,
 		procName,
 	)
 
@@ -336,6 +339,13 @@ func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 			fmt.Printf(" answer=%s", answer.String())
 		}
 		fmt.Printf("\n")
+	case events.SchedProcessExec:
+		args, ok := e.Args.(types.SchedProcessExecArgs)
+		if !ok {
+			panic("not args")
+		}
+		fmt.Printf("file=%s args=%v", args.Filepath, args.Argv)
+	case events.SchedProcessFork, events.SchedProcessExit:
 	default:
 		fmt.Printf("args=%+v", e.Args)
 	}
