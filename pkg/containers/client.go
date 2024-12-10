@@ -232,7 +232,7 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	c.containersByCgroup[cg.Id] = cont
 	c.mu.Unlock()
 
-	c.log.Debugf("added container, id=%s pod=%s name=%s sandbox=%s", container.Id, podName, containerName, sandbox.Metadata.Uid)
+	c.log.Debugf("added container, id=%s pod=%s name=%s sandbox=%s", container.Id, podName, containerName, container.PodSandboxId)
 
 	go c.fireContainerCreatedListeners(cont)
 
