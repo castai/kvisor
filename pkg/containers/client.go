@@ -12,9 +12,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
-	containerdContainers "github.com/containerd/containerd/containers"
 	"github.com/samber/lo"
-	"github.com/tidwall/gjson"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -148,54 +146,22 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 		return nil, ErrContainerNotFound
 	}
 
-	container, err := c.containerClient.client.ContainerService().Get(ctx, cg.ContainerID)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.addContainerWithCgroup(container, cg)
-}
-
-func (c *Client) getContainerSandboxCRI(ctx context.Context, container *containerdContainers.Container) (*criapi.PodSandbox, error) {
-	sandboxID := container.SandboxID
-	if sandboxID == "" {
-		jsonValue := container.Spec.GetValue()
-		annotations := gjson.Get(string(jsonValue), "annotations")
-		annotation := annotations.Get(gjson.Escape("io.kubernetes.cri.sandbox-id"))
-
-		if annotation.Exists() {
-			c.log.Infof("annotation found: %s", annotation.String())
-			sandboxID = annotation.String()
-		}
-	}
-
-	if sandboxID == "" {
-		return nil, fmt.Errorf("sandbox id not found")
-	}
-
-	sandbox, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
-		Filter: &criapi.PodSandboxFilter{
-			Id: sandboxID,
+	resp, err := c.criRuntimeServiceClient.ListContainers(ctx, &criapi.ListContainersRequest{
+		Filter: &criapi.ContainerFilter{
+			Id: cg.ContainerID,
 		},
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
-	sandboxes := sandbox.Items
-	if len(sandboxes) == 0 {
-		return nil, fmt.Errorf("sandbox not found")
+	if len(resp.Containers) == 0 {
+		return nil, ErrContainerNotFound
 	}
 
-	if len(sandboxes) > 1 {
-		return nil, fmt.Errorf("found multiple sandboxes: %d", len(sandboxes))
-	}
-
-	return sandboxes[0], nil
+	return c.addContainerWithCgroup(resp.Containers[0], cg)
 }
 
-func (c *Client) addContainerWithCgroup(container containerdContainers.Container, cg *cgroup.Cgroup) (cont *Container, rerrr error) {
+func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.Cgroup) (cont *Container, rerrr error) {
 	podNamespace := container.Labels["io.kubernetes.pod.namespace"]
 	containerName := container.Labels["io.kubernetes.container.name"]
 	podName := container.Labels["io.kubernetes.pod.name"]
@@ -228,10 +194,19 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 		PIDs:         pids,
 	}
 
-	sandbox, err := c.getContainerSandboxCRI(ctx, &container)
+	sandboxResp, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
+		Filter: &criapi.PodSandboxFilter{
+			Id: container.PodSandboxId,
+		},
+	})
 	if err != nil {
 		c.log.Warnf("error getting sandbox CRI for container: %v", err)
 	}
+	if len(sandboxResp.Items) == 0 {
+		c.log.Errorf("sandbox id not found : %s", container.PodSandboxId)
+	}
+
+	sandbox := sandboxResp.Items[0]
 
 	for k, v := range sandbox.Labels {
 		for _, labelPrefix := range c.forwardedLabels {
@@ -259,7 +234,7 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 	c.containersByCgroup[cg.Id] = cont
 	c.mu.Unlock()
 
-	c.log.Debugf("added container, id=%s pod=%s name=%s sandbox=%s", container.ID, podName, containerName, sandbox.Metadata.Uid)
+	c.log.Debugf("added container, id=%s pod=%s name=%s sandbox=%s", container.Id, podName, containerName, sandbox.Metadata.Uid)
 
 	go c.fireContainerCreatedListeners(cont)
 
