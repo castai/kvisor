@@ -210,6 +210,11 @@ jobs:
           git commit -m "[Release] Update Chart.yaml"
           git push
 
+      - name: Summary
+        run: |
+          echo "**Upgrade with helm:**" >> $GITHUB_STEP_SUMMARY
+          echo "helm repo update && helm upgrade castai-kvisor castai-helm/castai-kvisor -n castai-agent --reset-then-reuse-values" >> $GITHUB_STEP_SUMMARY
+
 # TODO: Enable this step to sync chart content into helm-charts repo
 #      - name: Sync chart with helm-charts github
 #        run: |
