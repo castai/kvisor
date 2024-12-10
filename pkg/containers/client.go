@@ -251,7 +251,7 @@ func (c *Client) getPodSandbox(ctx context.Context, cont *criapi.Container) (*cr
 	}
 
 	if len(sandboxResp.Items) == 0 {
-		return nil, fmt.Errorf("pod sandbox not found: %v", err)
+		return nil, fmt.Errorf("pod sandbox not found: %w", err)
 	}
 	if len(sandboxResp.Items) > 1 {
 		return nil, fmt.Errorf("multiple sandboxes found when one was expected")
