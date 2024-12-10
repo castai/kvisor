@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	containerdContainers "github.com/containerd/containerd/containers"
 	"github.com/samber/lo"
+	"github.com/tidwall/gjson"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -155,6 +156,45 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 	return c.addContainerWithCgroup(container, cg)
 }
 
+func (c *Client) getContainerSandboxCRI(ctx context.Context, container *containerdContainers.Container) (*criapi.PodSandbox, error) {
+	sandboxID := container.SandboxID
+	if sandboxID == "" {
+		jsonValue := container.Spec.GetValue()
+		annotations := gjson.Get(string(jsonValue), "annotations")
+		annotation := annotations.Get(gjson.Escape("io.kubernetes.cri.sandbox-id"))
+
+		if annotation.Exists() {
+			c.log.Infof("annotation found: %s", annotation.String())
+			sandboxID = annotation.String()
+		}
+	}
+
+	if sandboxID == "" {
+		return nil, fmt.Errorf("sandbox id not found")
+	}
+
+	sandbox, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
+		Filter: &criapi.PodSandboxFilter{
+			Id: sandboxID,
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	sandboxes := sandbox.Items
+	if len(sandboxes) == 0 {
+		return nil, fmt.Errorf("sandbox not found")
+	}
+
+	if len(sandboxes) > 1 {
+		return nil, fmt.Errorf("found multiple sandboxes: %d", len(sandboxes))
+	}
+
+	return sandboxes[0], nil
+}
+
 func (c *Client) addContainerWithCgroup(container containerdContainers.Container, cg *cgroup.Cgroup) (cont *Container, rerrr error) {
 	podNamespace := container.Labels["io.kubernetes.pod.namespace"]
 	containerName := container.Labels["io.kubernetes.container.name"]
@@ -188,68 +228,38 @@ func (c *Client) addContainerWithCgroup(container containerdContainers.Container
 		PIDs:         pids,
 	}
 
-	sandboxID := container.SandboxID
-	if sandboxID == "" {
-		// option #1: parse container.Spec
-		// spec := container.Spec
-		// option #2: use CRI client
-		ctr, err := c.criRuntimeServiceClient.ListContainers(ctx, &criapi.ListContainersRequest{
-			Filter: &criapi.ContainerFilter{
-				Id: container.ID,
-			},
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		c.log.Infof("container sandbox: retrieved %d containers, it's sandbox id: %s", len(ctr.Containers), ctr.Containers[0].PodSandboxId)
-		sandboxID = ctr.Containers[0].PodSandboxId
-	}
-
-	c.log.Infof("container sandbox: id: %s", sandboxID)
-	sandbox, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
-		Filter: &criapi.PodSandboxFilter{
-			Id: sandboxID,
-		},
-	})
-
+	sandbox, err := c.getContainerSandboxCRI(ctx, &container)
 	if err != nil {
-		return nil, err
+		c.log.Warnf("error getting sandbox CRI for container: %v", err)
 	}
 
-	if len(sandbox.Items) > 0 {
-		c.log.Infof("found %d sandboxes", len(sandbox.Items))
-		for k, v := range sandbox.Items[0].Labels {
-			for _, labelPrefix := range c.forwardedLabels {
-				if strings.HasPrefix(k, labelPrefix) {
-					if cont.Labels == nil {
-						cont.Labels = make(map[string]string)
-					}
-					cont.Labels[k] = v
+	for k, v := range sandbox.Labels {
+		for _, labelPrefix := range c.forwardedLabels {
+			if strings.HasPrefix(k, labelPrefix) {
+				if cont.Labels == nil {
+					cont.Labels = make(map[string]string)
 				}
+				cont.Labels[k] = v
 			}
 		}
+	}
 
-		for k, v := range sandbox.Items[0].Annotations {
-			for _, annotationPrefix := range c.forwardedAnnotations {
-				if strings.HasPrefix(k, annotationPrefix) {
-					if cont.Annotations == nil {
-						cont.Annotations = make(map[string]string)
-					}
-					cont.Annotations[k] = v
+	for k, v := range sandbox.Annotations {
+		for _, annotationPrefix := range c.forwardedAnnotations {
+			if strings.HasPrefix(k, annotationPrefix) {
+				if cont.Annotations == nil {
+					cont.Annotations = make(map[string]string)
 				}
+				cont.Annotations[k] = v
 			}
 		}
-	} else {
-		c.log.Errorf("sandbox id not found : %s", container.SandboxID)
 	}
 
 	c.mu.Lock()
 	c.containersByCgroup[cg.Id] = cont
 	c.mu.Unlock()
 
-	c.log.Debugf("added container, id=%s pod=%s name=%s", container.ID, podName, containerName)
+	c.log.Debugf("added container, id=%s pod=%s name=%s sandbox=%s", container.ID, podName, containerName, sandbox.Metadata.Uid)
 
 	go c.fireContainerCreatedListeners(cont)
 
