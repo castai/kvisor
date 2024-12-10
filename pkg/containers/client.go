@@ -158,6 +158,10 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 		return nil, ErrContainerNotFound
 	}
 
+	if len(resp.Containers) > 1 {
+		return nil, fmt.Errorf("multiple containers found when one was expected")
+	}
+
 	return c.addContainerWithCgroup(resp.Containers[0], cg)
 }
 
@@ -175,6 +179,7 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
+
 	pids, err := c.containerClient.getContainerPids(ctx, cg.ContainerID)
 	if err != nil {
 		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
@@ -194,38 +199,31 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 		PIDs:         pids,
 	}
 
-	sandboxResp, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
-		Filter: &criapi.PodSandboxFilter{
-			Id: container.PodSandboxId,
-		},
-	})
+	sandbox, err := c.getPodSandbox(ctx, container)
 	if err != nil {
-		c.log.Warnf("error getting sandbox CRI for container: %v", err)
-	}
-	if len(sandboxResp.Items) == 0 {
-		c.log.Errorf("sandbox id not found : %s", container.PodSandboxId)
+		c.log.Warnf("cannot get pod sandbox: %v", err)
 	}
 
-	sandbox := sandboxResp.Items[0]
-
-	for k, v := range sandbox.Labels {
-		for _, labelPrefix := range c.forwardedLabels {
-			if strings.HasPrefix(k, labelPrefix) {
-				if cont.Labels == nil {
-					cont.Labels = make(map[string]string)
+	if sandbox != nil {
+		for k, v := range sandbox.Labels {
+			for _, labelPrefix := range c.forwardedLabels {
+				if strings.HasPrefix(k, labelPrefix) {
+					if cont.Labels == nil {
+						cont.Labels = make(map[string]string)
+					}
+					cont.Labels[k] = v
 				}
-				cont.Labels[k] = v
 			}
 		}
-	}
 
-	for k, v := range sandbox.Annotations {
-		for _, annotationPrefix := range c.forwardedAnnotations {
-			if strings.HasPrefix(k, annotationPrefix) {
-				if cont.Annotations == nil {
-					cont.Annotations = make(map[string]string)
+		for k, v := range sandbox.Annotations {
+			for _, annotationPrefix := range c.forwardedAnnotations {
+				if strings.HasPrefix(k, annotationPrefix) {
+					if cont.Annotations == nil {
+						cont.Annotations = make(map[string]string)
+					}
+					cont.Annotations[k] = v
 				}
-				cont.Annotations[k] = v
 			}
 		}
 	}
@@ -239,6 +237,27 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	go c.fireContainerCreatedListeners(cont)
 
 	return cont, nil
+}
+
+func (c *Client) getPodSandbox(ctx context.Context, cont *criapi.Container) (*criapi.PodSandbox, error) {
+	sandboxResp, err := c.criRuntimeServiceClient.ListPodSandbox(ctx, &criapi.ListPodSandboxRequest{
+		Filter: &criapi.PodSandboxFilter{
+			Id: cont.PodSandboxId,
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sandboxResp.Items) == 0 {
+		return nil, fmt.Errorf("pod sandbox not found: %v", err)
+	}
+	if len(sandboxResp.Items) > 1 {
+		return nil, fmt.Errorf("multiple sandboxes found when one was expected")
+	}
+
+	return sandboxResp.Items[0], nil
 }
 
 func (c *Client) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*Container, error) {
