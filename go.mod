@@ -12,6 +12,7 @@ require (
 	github.com/cilium/ebpf v0.16.0
 	github.com/containerd/containerd v1.7.24
 	github.com/containerd/containerd/api v1.8.0
+	github.com/containerd/typeurl v1.0.2
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
 	github.com/fatih/color v1.18.0
@@ -39,6 +40,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.34.0
+	github.com/tidwall/gjson v1.18.0
 	github.com/tklauser/go-sysconf v0.3.14
 	github.com/vishvananda/netns v0.0.5
 	go.uber.org/atomic v1.11.0
@@ -54,6 +56,7 @@ require (
 	k8s.io/api v0.31.3
 	k8s.io/apimachinery v0.31.3
 	k8s.io/client-go v0.31.3
+	k8s.io/cri-api v0.31.3
 	k8s.io/klog/v2 v2.130.1
 )
 
@@ -188,6 +191,8 @@ require (
 	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/spdx/tools-golang v0.5.5 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tklauser/numcpus v0.8.0 // indirect
 	github.com/tonistiigi/go-csvvalue v0.0.0-20240710180619-ddb21b71c0b4 // indirect
 	github.com/vishvananda/netlink v1.3.1-0.20241022031324-976bd8de7d81 // indirect

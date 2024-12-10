@@ -11,6 +11,8 @@ spec:
       app: oom-generator
   template:
     metadata:
+      annotations:
+        cast.ai/e2e: e2e
       labels:
         app: oom-generator
     spec:

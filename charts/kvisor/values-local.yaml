@@ -26,6 +26,8 @@ agent:
     netflow-export-interval: 5s
     ebpf-events-stdio-exporter-enabled: false
     process-tree-enabled: true
+    ebpf-events-include-pod-labels: 'helm.sh/chart,app.kubernetes.io/name'
+    ebpf-events-include-pod-annotations: 'cast.ai'
 
   prometheusScrape:
     enabled: true
