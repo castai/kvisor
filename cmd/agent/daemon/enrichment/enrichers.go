@@ -3,7 +3,6 @@ package enrichment
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
@@ -133,7 +132,6 @@ func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container,
 	if _, err := io.Copy(h, f); err != nil {
 		return nil, err
 	}
-
 	hash = h.Sum(nil)
 	enricher.cacheHash(key, hash)
 
@@ -152,7 +150,7 @@ func (enricher *fileHashEnricher) buildCacheKey(cont *containers.Container, info
 		return ""
 	}
 
-	return fileHashCacheKey(fmt.Sprintf("%s:%d", cont.Cgroup.ContainerID, stat.Ino))
+	return fileHashCacheKey(cont.Cgroup.ContainerID + strconv.Itoa(int(stat.Ino))) //nolint:gosec
 }
 
 func (enricher *fileHashEnricher) checkCache(key fileHashCacheKey) ([]byte, bool) {

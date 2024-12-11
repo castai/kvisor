@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -17,6 +18,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/elastic/go-freelru"
 	"github.com/stretchr/testify/require"
 )
 
@@ -145,7 +147,6 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 				require.Len(t, tracer.Events(), 1, "there should be one event")
 			}
 		})
-
 	}
 }
 
@@ -233,4 +234,33 @@ func buildTestEventData(t *testing.T) []byte {
 	require.NoError(t, err)
 
 	return dataBuf.Bytes()
+}
+
+func TestMemLeak(t *testing.T) {
+	tracer := buildTestTracer()
+
+	tracer.eventPoliciesMap = map[events.ID]*EventPolicy{
+		events.TestEvent: {
+			FilterGenerator: func() EventFilter {
+				cache, err := freelru.New[uint64, string](100, func(key uint64) uint32 {
+					return uint32(key) //nolint:gosec
+				})
+				_ = cache
+				if err != nil {
+					panic(err)
+				}
+				return func(event *types.Event) error {
+					return nil
+				}
+			},
+		},
+	}
+	var i uint64
+	for {
+		i++
+		tracer.getFilterPolicy(events.TestEvent, i)
+		time.Sleep(100 * time.Microsecond)
+		delete(tracer.cgroupEventPolicy, i)
+		fmt.Println(i)
+	}
 }
