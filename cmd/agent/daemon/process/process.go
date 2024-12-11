@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -82,7 +84,7 @@ func (c *Client) RemoveContainer(pid int) {
 }
 
 func (c *Client) getContainerIDFromFile(pid int) (string, error) {
-	cgroupPath := fmt.Sprintf("%s/%d/cgroup", c.procDir, pid)
+	cgroupPath := path.Join(c.procDir, strconv.Itoa(pid), "cgroup")
 	f, err := os.Open(cgroupPath)
 	if err != nil {
 		return "", fmt.Errorf("opening file %s: %w", cgroupPath, ErrContainerNotFound)

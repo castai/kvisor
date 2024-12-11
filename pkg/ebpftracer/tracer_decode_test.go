@@ -145,7 +145,6 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 				require.Len(t, tracer.Events(), 1, "there should be one event")
 			}
 		})
-
 	}
 }
 

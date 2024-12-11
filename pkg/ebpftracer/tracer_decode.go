@@ -40,9 +40,39 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	metrics.AgentPulledEventsBytesTotal.WithLabelValues(def.name).Add(float64(ebpfMsgDecoder.BuffLen()))
 	metrics.AgentPulledEventsTotal.WithLabelValues(def.name).Inc()
 
+	// Process special events for cgroup creation and removal.
+	// These are system events which are not send down via events pipeline.
+	switch eventId {
+	case events.CgroupMkdir:
+		parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
+		if err != nil {
+			return fmt.Errorf("parsing event %d args: %w", eventId, err)
+		}
+		return t.handleCgroupMkdirEvent(&eventCtx, parsedArgs)
+	case events.CgroupRmdir:
+		parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
+		if err != nil {
+			return fmt.Errorf("parsing event %d args: %w", eventId, err)
+		}
+		return t.handleCgroupRmdirEvent(parsedArgs)
+	default:
+	}
+
+	container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, eventCtx.CgroupID)
+	if err != nil {
+		// We ignore any event not belonging to a container for now.
+		if errors.Is(err, containers.ErrContainerNotFound) {
+			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, fmt.Sprintf("container not found during received event %s", def.name))
+			if err != nil {
+				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
+	}
+
 	filterPolicy := t.getFilterPolicy(eventCtx.EventID, eventCtx.CgroupID)
 
-	var err error
 	var parsedArgs types.Args
 	if filterPolicy != nil && filterPolicy.preFilter != nil {
 		parsedArgs, err = filterPolicy.preFilter(&eventCtx, ebpfMsgDecoder)
@@ -57,29 +87,6 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		if err != nil {
 			return fmt.Errorf("parsing event %d args: %w", eventId, err)
 		}
-	}
-
-	// Process special events for cgroup creation and removal.
-	// These are system events which are not send down via events pipeline.
-	switch eventId {
-	case events.CgroupMkdir:
-		return t.handleCgroupMkdirEvent(&eventCtx, parsedArgs)
-	case events.CgroupRmdir:
-		return t.handleCgroupRmdirEvent(parsedArgs)
-	default:
-	}
-
-	container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, eventCtx.CgroupID)
-	if err != nil {
-		// We ignore any event not belonging to a container for now.
-		if errors.Is(err, containers.ErrContainerNotFound) {
-			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
-			if err != nil {
-				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
-			}
-			return nil
-		}
-		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
 	}
 
 	rawEventTime := eventCtx.Ts
@@ -137,7 +144,7 @@ func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs
 	t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
 	if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
 		if errors.Is(err, containers.ErrContainerNotFound) {
-			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
+			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, "container not found during cgroup mkdir event")
 			if err != nil {
 				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
 			}
@@ -234,13 +241,13 @@ func (t *Tracer) handleSchedProcessForkEvent(parsedArgs types.Args, container *c
 	}
 }
 
-func (t *Tracer) MuteEventsFromCgroup(cgroup uint64) error {
-	t.log.Infof("muting cgroup %d", cgroup)
+func (t *Tracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
+	t.log.Debugf("muting cgroup %d, reason: %s", cgroup, reason)
 	return t.module.objects.IgnoredCgroupsMap.Put(cgroup, cgroup)
 }
 
-func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64) error {
-	t.log.Infof("muting cgroups %v", cgroups)
+func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64, reason string) error {
+	t.log.Debugf("muting cgroups %v, reason: %s", cgroups, reason)
 
 	kernelVersion, err := kernel.CurrentKernelVersion()
 	if err != nil {
@@ -270,7 +277,7 @@ func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64) error {
 }
 
 func (t *Tracer) UnmuteEventsFromCgroup(cgroup uint64) error {
-	t.log.Infof("unmuting cgroup %d", cgroup)
+	t.log.Debugf("unmuting cgroup %d", cgroup)
 
 	err := t.module.objects.IgnoredCgroupsMap.Delete(cgroup)
 
@@ -283,7 +290,7 @@ func (t *Tracer) UnmuteEventsFromCgroup(cgroup uint64) error {
 }
 
 func (t *Tracer) UnmuteEventsFromCgroups(cgroups []uint64) error {
-	t.log.Infof("unmuting cgroup %v", cgroups)
+	t.log.Debugf("unmuting cgroup %v", cgroups)
 
 	kernelVersion, err := kernel.CurrentKernelVersion()
 	if err != nil {
