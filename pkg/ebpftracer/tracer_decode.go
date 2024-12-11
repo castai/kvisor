@@ -40,31 +40,20 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	metrics.AgentPulledEventsBytesTotal.WithLabelValues(def.name).Add(float64(ebpfMsgDecoder.BuffLen()))
 	metrics.AgentPulledEventsTotal.WithLabelValues(def.name).Inc()
 
-	filterPolicy := t.getFilterPolicy(eventCtx.EventID, eventCtx.CgroupID)
-
-	var err error
-	var parsedArgs types.Args
-	if filterPolicy != nil && filterPolicy.preFilter != nil {
-		parsedArgs, err = filterPolicy.preFilter(&eventCtx, ebpfMsgDecoder)
-		if err != nil {
-			metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
-			return nil
-		}
-	}
-
-	if parsedArgs == nil {
-		parsedArgs, err = decoder.ParseArgs(ebpfMsgDecoder, eventId)
-		if err != nil {
-			return fmt.Errorf("parsing event %d args: %w", eventId, err)
-		}
-	}
-
 	// Process special events for cgroup creation and removal.
 	// These are system events which are not send down via events pipeline.
 	switch eventId {
 	case events.CgroupMkdir:
+		parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
+		if err != nil {
+			return fmt.Errorf("parsing event %d args: %w", eventId, err)
+		}
 		return t.handleCgroupMkdirEvent(&eventCtx, parsedArgs)
 	case events.CgroupRmdir:
+		parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventId)
+		if err != nil {
+			return fmt.Errorf("parsing event %d args: %w", eventId, err)
+		}
 		return t.handleCgroupRmdirEvent(parsedArgs)
 	default:
 	}
@@ -80,6 +69,24 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 			return nil
 		}
 		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
+	}
+
+	filterPolicy := t.getFilterPolicy(eventCtx.EventID, eventCtx.CgroupID)
+
+	var parsedArgs types.Args
+	if filterPolicy != nil && filterPolicy.preFilter != nil {
+		parsedArgs, err = filterPolicy.preFilter(&eventCtx, ebpfMsgDecoder)
+		if err != nil {
+			metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
+			return nil
+		}
+	}
+
+	if parsedArgs == nil {
+		parsedArgs, err = decoder.ParseArgs(ebpfMsgDecoder, eventId)
+		if err != nil {
+			return fmt.Errorf("parsing event %d args: %w", eventId, err)
+		}
 	}
 
 	rawEventTime := eventCtx.Ts
