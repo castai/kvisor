@@ -242,12 +242,12 @@ func (t *Tracer) handleSchedProcessForkEvent(parsedArgs types.Args, container *c
 }
 
 func (t *Tracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
-	t.log.Infof("muting cgroup %d, reason: %s", cgroup, reason)
+	t.log.Debugf("muting cgroup %d, reason: %s", cgroup, reason)
 	return t.module.objects.IgnoredCgroupsMap.Put(cgroup, cgroup)
 }
 
 func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64, reason string) error {
-	t.log.Infof("muting cgroups %v, reason: %s", cgroups, reason)
+	t.log.Debugf("muting cgroups %v, reason: %s", cgroups, reason)
 
 	kernelVersion, err := kernel.CurrentKernelVersion()
 	if err != nil {
@@ -277,7 +277,7 @@ func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64, reason string) error {
 }
 
 func (t *Tracer) UnmuteEventsFromCgroup(cgroup uint64) error {
-	t.log.Infof("unmuting cgroup %d", cgroup)
+	t.log.Debugf("unmuting cgroup %d", cgroup)
 
 	err := t.module.objects.IgnoredCgroupsMap.Delete(cgroup)
 
@@ -290,7 +290,7 @@ func (t *Tracer) UnmuteEventsFromCgroup(cgroup uint64) error {
 }
 
 func (t *Tracer) UnmuteEventsFromCgroups(cgroups []uint64) error {
-	t.log.Infof("unmuting cgroup %v", cgroups)
+	t.log.Debugf("unmuting cgroup %v", cgroups)
 
 	kernelVersion, err := kernel.CurrentKernelVersion()
 	if err != nil {
