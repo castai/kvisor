@@ -485,7 +485,6 @@ func (t *Tracer) getFilterPolicy(eventID events.ID, cgroupID uint64) *cgroupEven
 		if !found {
 			cgPolicyMap = make(map[events.ID]*cgroupEventPolicy)
 			t.cgroupEventPolicy[cgroupID] = cgPolicyMap
-			metrics.AgentTracerCgroupEventPolicies.Inc()
 		}
 
 		cgPolicy, found := cgPolicyMap[eventID]
@@ -559,7 +558,6 @@ func (t *Tracer) removeCgroups(cgroupIDs []cgroup.ID) {
 	t.removedCgroupsMu.Lock()
 	for _, id := range cgroupIDs {
 		delete(t.cgroupEventPolicy, id)
-		metrics.AgentTracerCgroupEventPolicies.Dec()
 		t.removedCgroups[id] = struct{}{}
 	}
 	t.policyMu.Unlock()

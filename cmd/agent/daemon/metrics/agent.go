@@ -96,9 +96,4 @@ var (
 		Name: "kvisor_agent_ebpf_program_run_count",
 		Help: "Number of times a certain eBPF program run as reported by the kernel",
 	}, []string{EBPFProgramLabel})
-
-	AgentTracerCgroupEventPolicies = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "kvisor_agent_cgroup_event_policies_count",
-		Help: "Currently active cgroup event policies",
-	})
 )
