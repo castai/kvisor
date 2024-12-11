@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"os"
 	"sync"
@@ -46,8 +47,8 @@ type netStatsReader interface {
 
 type ebpfTracer interface {
 	Events() <-chan *types.Event
-	MuteEventsFromCgroup(cgroup uint64) error
-	MuteEventsFromCgroups(cgroups []uint64) error
+	MuteEventsFromCgroup(cgroup uint64, reason string) error
+	MuteEventsFromCgroups(cgroups []uint64, reason string) error
 	UnmuteEventsFromCgroup(cgroup uint64) error
 	UnmuteEventsFromCgroups(cgroups []uint64) error
 	IsCgroupMuted(cgroup uint64) bool
@@ -203,7 +204,7 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 	// We explicitly mute cgroups of new containers in muted namespaces, as otherwise
 	// there could be a timing issue, where we want to mute a namespace before the cgroup mkdir
 	// event has been handled.
-	err := c.tracer.MuteEventsFromCgroup(container.CgroupID)
+	err := c.tracer.MuteEventsFromCgroup(container.CgroupID, fmt.Sprintf("new container for muted namespsace %q", container.PodNamespace))
 	if err != nil {
 		c.log.Warnf("cannot mute cgroup %d: %v", container.CgroupID, err)
 	}
@@ -241,7 +242,7 @@ func (c *Controller) MuteNamespace(namespace string) error {
 
 	cgroups := c.containersClient.GetCgroupsInNamespace(namespace)
 
-	err := c.tracer.MuteEventsFromCgroups(cgroups)
+	err := c.tracer.MuteEventsFromCgroups(cgroups, fmt.Sprintf("muted namespace %q", namespace))
 
 	if err != nil {
 		return err

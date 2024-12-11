@@ -73,7 +73,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	if err != nil {
 		// We ignore any event not belonging to a container for now.
 		if errors.Is(err, containers.ErrContainerNotFound) {
-			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
+			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, fmt.Sprintf("container not found during received event %s", def.name))
 			if err != nil {
 				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
 			}
@@ -137,7 +137,7 @@ func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs
 	t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
 	if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
 		if errors.Is(err, containers.ErrContainerNotFound) {
-			err := t.MuteEventsFromCgroup(eventCtx.CgroupID)
+			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, "container not found during cgroup mkdir event")
 			if err != nil {
 				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
 			}
@@ -234,13 +234,13 @@ func (t *Tracer) handleSchedProcessForkEvent(parsedArgs types.Args, container *c
 	}
 }
 
-func (t *Tracer) MuteEventsFromCgroup(cgroup uint64) error {
-	t.log.Infof("muting cgroup %d", cgroup)
+func (t *Tracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
+	t.log.Infof("muting cgroup %d, reason: %s", cgroup, reason)
 	return t.module.objects.IgnoredCgroupsMap.Put(cgroup, cgroup)
 }
 
-func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64) error {
-	t.log.Infof("muting cgroups %v", cgroups)
+func (t *Tracer) MuteEventsFromCgroups(cgroups []uint64, reason string) error {
+	t.log.Infof("muting cgroups %v, reason: %s", cgroups, reason)
 
 	kernelVersion, err := kernel.CurrentKernelVersion()
 	if err != nil {

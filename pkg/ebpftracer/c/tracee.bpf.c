@@ -970,9 +970,6 @@ int tracepoint__cgroup__cgroup_mkdir(struct bpf_raw_tracepoint_args *ctx)
     if (!init_program_data(&p, ctx))
         return 0;
 
-    if (!should_trace(&p))
-        return 0;
-
     if (!should_submit(CGROUP_MKDIR, p.event))
         return 0;
 
@@ -997,9 +994,6 @@ int tracepoint__cgroup__cgroup_rmdir(struct bpf_raw_tracepoint_args *ctx)
 {
     program_data_t p = {};
     if (!init_program_data(&p, ctx))
-        return 0;
-
-    if (!should_trace(&p))
         return 0;
 
     if (!should_submit(CGROUP_MKDIR, p.event))
