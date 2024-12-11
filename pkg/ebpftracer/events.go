@@ -5386,7 +5386,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 		events.CgroupRmdir: {
 			ID:      events.CgroupRmdir,
 			id32Bit: events.Sys32Undefined,
-			name:    "security_bprm_check",
+			name:    "cgroup_rmdir",
 			dependencies: dependencies{
 				probes: []EventProbe{
 					{handle: ProbeCgroupRmdir, required: true},
