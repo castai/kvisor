@@ -364,11 +364,11 @@ func (m *mockEbpfTracer) NetflowEvents() <-chan *types.Event {
 	return m.netflowEventsChan
 }
 
-func (m *mockEbpfTracer) MuteEventsFromCgroup(cgroup uint64) error {
+func (m *mockEbpfTracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
 	return nil
 }
 
-func (m *mockEbpfTracer) MuteEventsFromCgroups(cgroups []uint64) error {
+func (m *mockEbpfTracer) MuteEventsFromCgroups(cgroups []uint64, reason string) error {
 	return nil
 }
 
