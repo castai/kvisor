@@ -150,7 +150,7 @@ func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs
 			}
 			return nil
 		}
-		t.log.Errorf("cannot add container to cgroup %d: %b", args.CgroupId, err)
+		t.log.Errorf("cannot add container to cgroup %d: %v", args.CgroupId, err)
 	}
 	return nil
 }

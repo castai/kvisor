@@ -46,6 +46,7 @@ func (c *Controller) scrapeContainersResourceStats(batch *castpb.ContainerStatsB
 			continue
 		}
 
+		// TODO: This is now never filled. For some reasons some calls to containerd returns context deadline errors.
 		if len(cont.PIDs) == 0 {
 			continue
 		}

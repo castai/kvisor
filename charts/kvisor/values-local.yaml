@@ -24,7 +24,7 @@ agent:
     netflow-enabled: true
     netflow-sample-submit-interval-seconds: 1
     netflow-export-interval: 5s
-    ebpf-events-stdio-exporter-enabled: false
+    ebpf-events-stdio-exporter-enabled: true
     process-tree-enabled: true
     ebpf-events-include-pod-labels: 'helm.sh/chart,app.kubernetes.io/name'
     ebpf-events-include-pod-annotations: 'cast.ai'

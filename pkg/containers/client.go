@@ -13,8 +13,6 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/samber/lo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -33,8 +31,9 @@ type Container struct {
 	PodUID       string
 	PodName      string
 	Cgroup       *cgroup.Cgroup
-	PIDs         []uint32
 	Err          error
+
+	PIDs []uint32
 
 	Labels      map[string]string
 	Annotations map[string]string
@@ -177,17 +176,6 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 		return nil, ErrContainerNotFound
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	pids, err := c.containerClient.getContainerPids(ctx, cg.ContainerID)
-	if err != nil {
-		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
-			return nil, ErrContainerNotFound
-		}
-		return nil, fmt.Errorf("get container pids: %w", err)
-	}
-
 	cont = &Container{
 		ID:           cg.ContainerID,
 		Name:         containerName,
@@ -196,10 +184,11 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 		PodUID:       podID,
 		PodName:      podName,
 		Cgroup:       cg,
-		PIDs:         pids,
 	}
 
-	sandbox, err := c.getPodSandbox(ctx, container)
+	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	sandbox, err := c.getPodSandbox(getSandboxCtx, container)
 	if err != nil {
 		c.log.Warnf("cannot get pod sandbox: %v", err)
 	}
