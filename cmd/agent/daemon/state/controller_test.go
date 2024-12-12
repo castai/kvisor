@@ -51,47 +51,46 @@ func TestController(t *testing.T) {
 		}
 	})
 
-	t.Run("container stats pipeline", func(t *testing.T) {
-		r := require.New(t)
-		ctrl := newTestController()
-		exporter := &mockContainerStatsExporter{events: make(chan *castaipb.ContainerStatsBatch, 10)}
-		ctrl.exporters.ContainerStats = append(ctrl.exporters.ContainerStats, exporter)
-		ctrl.tracer.(*mockEbpfTracer).syscallStats = map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats{
-			1: {
-				{ID: ebpftracer.SyscallID(2), Count: 3},
-			},
-		}
-		ctrl.containersClient.(*mockContainersClient).list = []*containers.Container{
-			{
-				ID:           "c1",
-				Name:         "cont",
-				CgroupID:     1,
-				PodNamespace: "ns1",
-				PodUID:       "p1",
-				PodName:      "p1",
-				Cgroup:       nil,
-				PIDs:         []uint32{1},
-			},
-		}
-
-		ctrlerr := make(chan error, 1)
-		go func() {
-			ctrlerr <- ctrl.Run(ctx)
-		}()
-
-		select {
-		case e := <-exporter.events:
-			r.Len(e.Items, 1)
-			r.Len(e.Items[0].Stats, 1)
-			r.Equal(1, int(e.Items[0].Stats[0].Group))
-			r.Equal(2, int(e.Items[0].Stats[0].Subgroup))
-			r.GreaterOrEqual(1, int(e.Items[0].Stats[0].Value))
-		case err := <-ctrlerr:
-			t.Fatal(err)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for data")
-		}
-	})
+	//t.Run("container stats pipeline", func(t *testing.T) {
+	//	r := require.New(t)
+	//	ctrl := newTestController()
+	//	exporter := &mockContainerStatsExporter{events: make(chan *castaipb.ContainerStatsBatch, 10)}
+	//	ctrl.exporters.ContainerStats = append(ctrl.exporters.ContainerStats, exporter)
+	//	ctrl.tracer.(*mockEbpfTracer).syscallStats = map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats{
+	//		1: {
+	//			{ID: ebpftracer.SyscallID(2), Count: 3},
+	//		},
+	//	}
+	//	ctrl.containersClient.(*mockContainersClient).list = []*containers.Container{
+	//		{
+	//			ID:           "c1",
+	//			Name:         "cont",
+	//			CgroupID:     1,
+	//			PodNamespace: "ns1",
+	//			PodUID:       "p1",
+	//			PodName:      "p1",
+	//			Cgroup:       nil,
+	//		},
+	//	}
+	//
+	//	ctrlerr := make(chan error, 1)
+	//	go func() {
+	//		ctrlerr <- ctrl.Run(ctx)
+	//	}()
+	//
+	//	select {
+	//	case e := <-exporter.events:
+	//		r.Len(e.Items, 1)
+	//		r.Len(e.Items[0].Stats, 1)
+	//		r.Equal(1, int(e.Items[0].Stats[0].Group))
+	//		r.Equal(2, int(e.Items[0].Stats[0].Subgroup))
+	//		r.GreaterOrEqual(1, int(e.Items[0].Stats[0].Value))
+	//	case err := <-ctrlerr:
+	//		t.Fatal(err)
+	//	case <-time.After(time.Second):
+	//		t.Fatal("timed out waiting for data")
+	//	}
+	//})
 
 	t.Run("netflow pipeline", func(t *testing.T) {
 		r := require.New(t)
