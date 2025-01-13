@@ -96,4 +96,9 @@ var (
 		Name: "kvisor_agent_ebpf_program_run_count",
 		Help: "Number of times a certain eBPF program run as reported by the kernel",
 	}, []string{EBPFProgramLabel})
+
+	AgentContainerStatsScrapeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kvisor_agent_container_stats_scrape_errors_total",
+		Help: "Container stats scrape errors",
+	})
 )

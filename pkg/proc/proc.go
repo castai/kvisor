@@ -163,7 +163,7 @@ func parsePID(pidStr string) (PID, error) {
 }
 
 func (p *Proc) GetNSForPID(pid PID, ns NamespaceType) (NamespaceID, error) {
-	info, err := p.procFS.Stat(fmt.Sprintf("%d/ns/%s", pid, ns))
+	info, err := p.procFS.Stat(path.Join(strconv.Itoa(int(pid)), "ns", string(ns)))
 	if err != nil {
 		return 0, err
 	}
@@ -177,7 +177,7 @@ func (p *Proc) GetNSForPID(pid PID, ns NamespaceType) (NamespaceID, error) {
 
 // GetProcessStartTime parses the /proc/<pid>/stat file to determine the start time of the process after system boot.
 func (p *Proc) GetProcessStartTime(pid PID) (uint64, error) {
-	data, err := p.procFS.ReadFile(fmt.Sprintf("%d/stat", pid))
+	data, err := p.procFS.ReadFile(path.Join(strconv.Itoa(int(pid)), "stat"))
 	if err != nil {
 		return 0, err
 	}
@@ -197,4 +197,9 @@ func (p *Proc) GetProcessStartTime(pid PID) (uint64, error) {
 	}
 
 	return strconv.ParseUint(string(fields[adjustedStartTimeIdx]), 10, 64)
+}
+
+func (p *Proc) PSIEnabled() bool {
+	_, err := p.procFS.Stat(path.Join("pressure", "cpu"))
+	return err == nil
 }

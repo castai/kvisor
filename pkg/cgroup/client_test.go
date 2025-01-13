@@ -1,74 +1,11 @@
 package cgroup
 
 import (
-	"path"
 	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestNewFromProcessCgroupFile(t *testing.T) {
-	t.Skip() // TODO: Fix tests after NewFromProcessCgroupFile is used.
-
-	cg, err := NewFromProcessCgroupFile(path.Join("fixtures/proc/100/cgroup"))
-	assert.Nil(t, err)
-	assert.Equal(t, "/system.slice/docker.service", cg.Id)
-	assert.Equal(t, V1, cg.Version)
-	assert.Equal(t, "/system.slice/docker.service", cg.ContainerID)
-	assert.Equal(t, DockerRuntime, cg.ContainerRuntime)
-
-	assert.Equal(t,
-		map[string]string{
-			"blkio":        "/system.slice/docker.service",
-			"cpu":          "/system.slice/docker.service",
-			"cpuacct":      "/system.slice/docker.service",
-			"cpuset":       "/",
-			"devices":      "/system.slice/docker.service",
-			"freezer":      "/",
-			"hugetlb":      "/",
-			"memory":       "/system.slice/docker.service",
-			"name=systemd": "/system.slice/docker.service",
-			"net_cls":      "/",
-			"net_prio":     "/",
-			"perf_event":   "/",
-			"pids":         "/system.slice/docker.service",
-		},
-		cg.subsystems,
-	)
-
-	cg, err = NewFromProcessCgroupFile(path.Join("fixtures/proc/200/cgroup"))
-	assert.Nil(t, err)
-	assert.Equal(t, V1, cg.Version)
-	assert.Equal(t, "/docker/b43d92bf1e5c6f78bb9b7bc6f40721280299855ba692092716e3a1b6c0b86f3f", cg.Id)
-	assert.Equal(t, "b43d92bf1e5c6f78bb9b7bc6f40721280299855ba692092716e3a1b6c0b86f3f", cg.ContainerID)
-	assert.Equal(t, DockerRuntime, cg.ContainerRuntime)
-
-	cg, err = NewFromProcessCgroupFile(path.Join("fixtures/proc/300/cgroup"))
-	assert.Nil(t, err)
-	assert.Equal(t, V1, cg.Version)
-	assert.Equal(t, "/kubepods/burstable/pod6a4ce4a0-ba47-11ea-b2a7-0cc47ac5979e/17db96a24ae1e9dd57143e62b1cb0d2d35e693c65c774c7470e87b0572e07c1a", cg.Id)
-	assert.Equal(t, "17db96a24ae1e9dd57143e62b1cb0d2d35e693c65c774c7470e87b0572e07c1a", cg.ContainerID)
-	assert.Equal(t, DockerRuntime, cg.ContainerRuntime)
-
-	cg, err = NewFromProcessCgroupFile(path.Join("fixtures/proc/400/cgroup"))
-	assert.Nil(t, err)
-	assert.Equal(t, V2, cg.Version)
-	assert.Equal(t, "/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod8712f785_1a3e_41ec_a00b_e2dcc77431cb.slice/docker-73051af271105c07e1f493b34856a77e665e3b0b4fc72f76c807dfbffeb881bd.scope", cg.Id)
-	assert.Equal(t, "73051af271105c07e1f493b34856a77e665e3b0b4fc72f76c807dfbffeb881bd", cg.ContainerID)
-	assert.Equal(t, DockerRuntime, cg.ContainerRuntime)
-
-	baseCgroupPath = "/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podc83d0428_58af_41eb_8dba_b9e6eddffe7b.slice/docker-0e612005fd07e7f47e2cd07df99a2b4e909446814d71d0b5e4efc7159dd51252.scope"
-	defer func() {
-		baseCgroupPath = ""
-	}()
-	cg, err = NewFromProcessCgroupFile(path.Join("fixtures/proc/500/cgroup"))
-	assert.Nil(t, err)
-	assert.Equal(t, V2, cg.Version)
-	assert.Equal(t, "/system.slice/docker-ba7b10d15d16e10e3de7a2dcd408a3d971169ae303f46cfad4c5453c6326fee2.scope", cg.Id)
-	assert.Equal(t, "ba7b10d15d16e10e3de7a2dcd408a3d971169ae303f46cfad4c5453c6326fee2", cg.ContainerID)
-	assert.Equal(t, DockerRuntime, cg.ContainerRuntime)
-}
 
 func TestContainerByCgroup(t *testing.T) {
 	as := assert.New(t)

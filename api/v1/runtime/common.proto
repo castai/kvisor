@@ -51,21 +51,6 @@ message DNSAnswers {
   string cname = 6;
 }
 
-enum StatsGroup {
-  STATS_GROUP_UNKNOWN = 0;
-  STATS_GROUP_SYSCALL = 1;
-  STATS_GROUP_CPU = 2;
-  STATS_GROUP_MEMORY = 3;
-  STATS_GROUP_IO = 4;
-  STATS_GROUP_NET = 5;
-}
-
-message Stats {
-  StatsGroup group = 1;
-  uint32 subgroup = 2;
-  double value = 3;
-}
-
 message LogEvent {
   int32 level = 1;
   string msg = 2;
@@ -171,4 +156,63 @@ message NetflowDestination {
   uint64 rx_bytes = 11;
   uint64 tx_packets = 12;
   uint64 rx_packets = 13;
+}
+
+message PSIData {
+  double avg10 = 1;
+  double avg60 = 2;
+  double avg300 = 3;
+  uint64 total = 4;
+}
+
+message PSIStats {
+  PSIData some = 1;
+  PSIData full = 2;
+}
+
+message CpuStats {
+  // Total CPU time consumed.
+  // Units: nanoseconds.
+  uint64 total_usage = 1;
+  // Time spent by tasks of the cgroup in kernel mode.
+  // Units: nanoseconds.
+  uint64 usage_in_kernelmode = 2;
+  // Time spent by tasks of the cgroup in user mode.
+  // Units: nanoseconds.
+  uint64 usage_in_usermode = 3;
+  // Number of periods when the container hit its throttling limit.
+  uint64 throttled_periods = 4;
+  // Aggregate time the container was throttled for in nanoseconds.
+  uint64 throttled_time = 5;
+
+  PSIStats psi = 6;
+}
+
+message MemoryData {
+  uint64 usage = 1;
+  uint64 limit = 2;
+}
+
+message MemoryStats {
+  // memory used for cache
+  uint64 cache = 1;
+  // usage of memory
+  MemoryData usage = 2;
+  // usage of memory + swap
+  MemoryData swap_usage = 3;
+  // usage of swap only
+  MemoryData swap_only_usage = 4;
+  // usage of kernel memory
+  PSIStats psi = 8;
+}
+
+message PidsStats {
+  // number of pids in the cgroup
+  uint64 current = 1;
+  // active pids hard limit
+  uint64 limit = 2;
+}
+
+message IOStats {
+  PSIStats psi = 1;
 }

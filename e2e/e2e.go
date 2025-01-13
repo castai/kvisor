@@ -837,16 +837,13 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 				if i1.ContainerName == "" {
 					return errors.New("missing container")
 				}
-				s1 := i1.Stats
-				if len(s1) == 0 {
-					return errors.New("missing stat items")
+				if i1.NodeName == "" {
+					return errors.New("missing node")
 				}
-				stat := s1[0]
-				if stat.Group == castaipb.StatsGroup_STATS_GROUP_UNKNOWN {
-					return errors.New("missing stat group")
-				}
-				if stat.Value == 0 {
-					return errors.New("missing stat value")
+				cpuUsage := i1.CpuStats.TotalUsage
+				memUsage := i1.MemoryStats.Usage.Usage
+				if cpuUsage == 0 && memUsage == 0 {
+					return errors.New("missing cpu or memory usage")
 				}
 				return nil
 			}

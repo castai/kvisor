@@ -13,3 +13,4 @@ The helm chart for the CAST AI Kvisor is published in the [castai/helm-charts](h
 ## Licence
 
 [Apache 2.0 License](LICENSE) See [NOTICE.md](NOTICE.md) for complete details, including software and third-party licenses and permissions.
+

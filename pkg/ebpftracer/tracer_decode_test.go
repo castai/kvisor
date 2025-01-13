@@ -191,10 +191,8 @@ func newMockContainersClient() *MockContainerClient {
 				PodName:      "dummy-container-" + dummyContainerID,
 				Cgroup: &cgroup.Cgroup{
 					Id:               cgroupID,
-					Version:          cgroup.V2,
 					ContainerRuntime: cgroup.ContainerdRuntime,
 					ContainerID:      dummyContainerID,
-					Path:             "",
 				},
 				PIDs: []uint32{},
 			}, nil

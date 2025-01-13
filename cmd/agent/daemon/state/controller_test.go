@@ -147,8 +147,7 @@ func TestController(t *testing.T) {
 					PodUID:       "abcd",
 					PodName:      "test-pod",
 					Cgroup: &cgroup.Cgroup{
-						Id:      100,
-						Version: 2,
+						Id: 100,
 					},
 					PIDs: []uint32{1},
 				})
@@ -266,12 +265,8 @@ type mockContainersClient struct {
 	list []*containers.Container
 }
 
-func (m *mockContainersClient) GetCgroupCpuStats(c *containers.Container) (*cgroup.CPUStat, error) {
-	return &cgroup.CPUStat{}, nil
-}
-
-func (m *mockContainersClient) GetCgroupMemoryStats(c *containers.Container) (*cgroup.MemoryStat, error) {
-	return &cgroup.MemoryStat{}, nil
+func (m *mockContainersClient) GetCgroupStats(c *containers.Container) (cgroup.Stats, error) {
+	return cgroup.Stats{}, nil
 }
 
 func (m *mockContainersClient) ListContainers() []*containers.Container {

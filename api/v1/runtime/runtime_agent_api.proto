@@ -111,7 +111,12 @@ message ContainerStats {
   string workload_kind = 7;
   string pod_uid = 5;
   string container_id = 6;
-  repeated v1.Stats stats = 21;
+  string node_name = 8;
+
+  CpuStats cpu_stats = 21;
+  MemoryStats memory_stats = 22;
+  PidsStats pids_stats = 23;
+  IOStats io_stats = 24;
 }
 
 enum KubernetesDeltaItemEvent {

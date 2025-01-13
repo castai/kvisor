@@ -164,7 +164,7 @@ func (m *MockServer) ContainerStatsWriteStream(server castaipb.RuntimeSecurityAg
 			return err
 		}
 		for _, v := range event.Items {
-			m.log.Debugf("container_stats, ns=%s, pod=%s, cont=%s, items=%d", v.Namespace, v.PodName, v.ContainerName, len(v.Stats))
+			m.log.Debugf("container_stats, ns=%s, pod=%s, cont=%s, cpu=%v, mem=%v", v.Namespace, v.PodName, v.ContainerName, v.CpuStats, v.MemoryStats)
 		}
 	}
 }

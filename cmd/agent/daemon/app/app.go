@@ -236,7 +236,9 @@ func (a *App) Run(ctx context.Context) error {
 		withPyroscope(podName, addr)
 	}
 
-	cgroupClient, err := cgroup.NewClient(log, a.cfg.HostCgroupsDir)
+	procHandler := proc.New()
+
+	cgroupClient, err := cgroup.NewClient(log, a.cfg.HostCgroupsDir, procHandler.PSIEnabled())
 	if err != nil {
 		return err
 	}
@@ -247,7 +249,6 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer criCloseFn() //nolint:errcheck
 
-	procHandler := proc.New()
 	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler, criClient, a.cfg.EventLabels, a.cfg.EventAnnotations)
 	if err != nil {
 		return err

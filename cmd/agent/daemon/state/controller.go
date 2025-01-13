@@ -37,8 +37,7 @@ type containersClient interface {
 	GetCgroupsInNamespace(namespace string) []uint64
 	RegisterContainerCreatedListener(l containers.ContainerCreatedListener)
 	RegisterContainerDeletedListener(l containers.ContainerDeletedListener)
-	GetCgroupCpuStats(c *containers.Container) (*cgroup.CPUStat, error)
-	GetCgroupMemoryStats(c *containers.Container) (*cgroup.MemoryStat, error)
+	GetCgroupStats(c *containers.Container) (cgroup.Stats, error)
 }
 
 type netStatsReader interface {
@@ -125,8 +124,7 @@ func NewController(
 		enrichmentService:          enrichmentService,
 		kubeClient:                 kubeClient,
 		nodeName:                   os.Getenv("NODE_NAME"),
-		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
-		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
+		resourcesStatsScrapePoints: map[uint64]*containerStatsScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
 		dnsCache:                   dnsCache,
 		podCache:                   podCache,
@@ -151,9 +149,7 @@ type Controller struct {
 
 	// Scrape points are used to calculate deltas between scrapes.
 	resourcesStatsScrapePointsMu sync.RWMutex
-	resourcesStatsScrapePoints   map[uint64]*resourcesStatsScrapePoint
-	syscallScrapePointsMu        sync.RWMutex
-	syscallScrapePoints          map[uint64]*syscallScrapePoint
+	resourcesStatsScrapePoints   map[uint64]*containerStatsScrapePoint
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
@@ -215,24 +211,14 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	delete(c.resourcesStatsScrapePoints, container.CgroupID)
 	c.resourcesStatsScrapePointsMu.Unlock()
 
-	c.syscallScrapePointsMu.Lock()
-	delete(c.syscallScrapePoints, container.CgroupID)
-	c.syscallScrapePointsMu.Unlock()
-
 	c.dnsCache.Remove(container.CgroupID)
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }
 
-type resourcesStatsScrapePoint struct {
-	ts       time.Time
-	cpuStat  *cgroup.CPUStat
-	memStats *cgroup.MemoryStat
-	netStats *netstats.InterfaceStats
-}
-
-type syscallScrapePoint struct {
-	syscalls map[ebpftracer.SyscallID]uint64
+type containerStatsScrapePoint struct {
+	ts      time.Time
+	cpuStat *castpb.CpuStats
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

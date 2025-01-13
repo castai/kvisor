@@ -1,86 +1,71 @@
 package cgroup
 
 import (
-	"fmt"
+	"bufio"
 	"os"
-	"path"
-	"strconv"
-	"strings"
 )
 
-// See https://github.com/opencontainers/runc/tree/main/libcontainer/cgroups for more examples.
+func statCpuV2(dirPath string, stats *Stats) error {
+	const file = "cpu.stat"
+	f, err := openCgroupFile(dirPath, file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
-type CPUStat struct {
-	UsageSeconds         float64
-	ThrottledTimeSeconds float64
-	LimitCores           float64
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		t, v, err := parseKeyValue(sc.Text())
+		if err != nil {
+			return &parseError{Path: dirPath, File: file, Err: err}
+		}
+		switch t {
+		case "usage_usec":
+			stats.CpuStats.TotalUsage = v * 1000
+
+		case "user_usec":
+			stats.CpuStats.UsageInUsermode = v * 1000
+
+		case "system_usec":
+			stats.CpuStats.UsageInKernelmode = v * 1000
+
+		case "nr_throttled":
+			stats.CpuStats.ThrottledPeriods = v
+
+		case "throttled_usec":
+			stats.CpuStats.ThrottledTime = v * 1000
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return &parseError{Path: dirPath, File: file, Err: err}
+	}
+	return nil
 }
 
-func (cg Cgroup) CpuStat() (*CPUStat, error) {
-	if cg.Version == V1 {
-		return cg.cpuStatV1()
+func statCpuV1(dirPath string, stats *Stats) error {
+	const file = "cpu.stat"
+	f, err := openCgroupFile(dirPath, file)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
-	return cg.cpuStatV2()
-}
+	defer f.Close()
 
-func (cg Cgroup) cpuStatV1() (*CPUStat, error) {
-	throttling, err := readVariablesFromFile(path.Join(cg.cgRoot, "cpu", cg.subsystems["cpu"], "cpu.stat"))
-	if err != nil {
-		return nil, err
-	}
-	usageNs, err := readIntFromFile(path.Join(cg.cgRoot, "cpuacct", cg.subsystems["cpuacct"], "cpuacct.usage"))
-	if err != nil {
-		return nil, err
-	}
-	periodUs, err := readIntFromFile(path.Join(cg.cgRoot, "cpu", cg.subsystems["cpu"], "cpu.cfs_period_us"))
-	if err != nil {
-		return nil, err
-	}
-	quotaUs, err := readIntFromFile(path.Join(cg.cgRoot, "cpu", cg.subsystems["cpu"], "cpu.cfs_quota_us"))
-	if err != nil {
-		return nil, err
-	}
-	res := &CPUStat{
-		UsageSeconds:         float64(usageNs) / 1e9,
-		ThrottledTimeSeconds: float64(throttling["throttled_time"]) / 1e9,
-	}
-	if quotaUs > 0 {
-		res.LimitCores = float64(quotaUs) / float64(periodUs)
-	}
-	return res, nil
-}
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		t, v, err := parseKeyValue(sc.Text())
+		if err != nil {
+			return &parseError{Path: dirPath, File: file, Err: err}
+		}
+		switch t {
+		case "nr_throttled":
+			stats.CpuStats.ThrottledPeriods = v
 
-func (cg Cgroup) cpuStatV2() (*CPUStat, error) {
-	vars, err := readVariablesFromFile(path.Join(cg.cgRoot, cg.subsystems[""], "cpu.stat"))
-	if err != nil {
-		return nil, err
+		case "throttled_time":
+			stats.CpuStats.ThrottledTime = v
+		}
 	}
-	res := &CPUStat{
-		UsageSeconds:         float64(vars["usage_usec"]) / 1e6,
-		ThrottledTimeSeconds: float64(vars["throttled_usec"]) / 1e6,
-	}
-	payload, err := os.ReadFile(path.Join(cg.cgRoot, cg.subsystems[""], "cpu.max"))
-	if err != nil {
-		return nil, err
-	}
-	data := strings.TrimSpace(string(payload))
-	parts := strings.Fields(data)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid cpu.max payload: %s", data)
-	}
-	if parts[0] == "max" { //no limit
-		return res, nil
-	}
-	quotaUs, err := strconv.ParseUint(parts[0], 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid quota value in cpu.max: %s", parts[0])
-	}
-	periodUs, err := strconv.ParseUint(parts[1], 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid period value in cpu.max: %s", parts[1])
-	}
-	if periodUs > 0 {
-		res.LimitCores = float64(quotaUs) / float64(periodUs)
-	}
-	return res, nil
+	return nil
 }

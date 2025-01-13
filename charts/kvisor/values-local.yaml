@@ -15,11 +15,11 @@ agent:
   extraArgs:
     log-level: debug
     prom-metrics-export-interval: 10s
-    container-stats-scrape-interval: 10s
     pyroscope-addr: http://kvisord-pyroscope:4040
     file-hash-enricher-enabled: true
     signature-socks5-detection-enabled: true
     container-stats-enabled: true
+    container-stats-scrape-interval: 5s
     ebpf-events-enabled: true
     netflow-enabled: true
     netflow-sample-submit-interval-seconds: 1
