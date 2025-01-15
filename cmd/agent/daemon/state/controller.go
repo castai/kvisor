@@ -9,7 +9,7 @@ import (
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	castpb "github.com/castai/kvisor/api/v1/runtime"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
@@ -24,7 +24,7 @@ import (
 )
 
 type Config struct {
-	ContainerStatsScrapeInterval time.Duration `json:"containerStatsScrapeInterval"`
+	StatsScrapeInterval time.Duration `json:"statsScrapeInterval"`
 
 	NetflowExportInterval time.Duration `validate:"required" json:"netflowExportInterval"`
 }
@@ -56,12 +56,12 @@ type ebpfTracer interface {
 }
 
 type signatureEngine interface {
-	Events() <-chan *castpb.Event
+	Events() <-chan *castaipb.Event
 }
 
 type enrichmentService interface {
 	Enqueue(e *enrichment.EnrichRequest) bool
-	Events() <-chan *castpb.Event
+	Events() <-chan *castaipb.Event
 }
 
 type conntrackClient interface {
@@ -70,6 +70,12 @@ type conntrackClient interface {
 
 type processTreeCollector interface {
 	Events() <-chan processtree.ProcessTreeEvent
+}
+
+type procHandler interface {
+	PSIEnabled() bool
+	GetPSIStats(file string) (*castaipb.PSIStats, error)
+	GetMeminfoStats() (*castaipb.MemoryStats, error)
 }
 
 func NewController(
@@ -84,6 +90,7 @@ func NewController(
 	enrichmentService enrichmentService,
 	kubeClient kubepb.KubeAPIClient,
 	processTreeCollector processTreeCollector,
+	procHandler procHandler,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -130,6 +137,7 @@ func NewController(
 		podCache:                   podCache,
 		conntrackCache:             conntrackCache,
 		processTreeCollector:       processTreeCollector,
+		procHandler:                procHandler,
 	}
 }
 
@@ -144,6 +152,7 @@ type Controller struct {
 	enrichmentService    enrichmentService
 	processTreeCollector processTreeCollector
 	exporters            *Exporters
+	procHandler          procHandler
 
 	nodeName string
 
@@ -174,9 +183,9 @@ func (c *Controller) Run(ctx context.Context) error {
 			return c.runEventsPipeline(ctx)
 		})
 	}
-	if len(c.exporters.ContainerStats) > 0 {
+	if len(c.exporters.Stats) > 0 {
 		errg.Go(func() error {
-			return c.runContainerStatsPipeline(ctx)
+			return c.runStatsPipeline(ctx)
 		})
 	}
 	if len(c.exporters.Netflow) > 0 {
@@ -218,7 +227,7 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 
 type containerStatsScrapePoint struct {
 	ts      time.Time
-	cpuStat *castpb.CpuStats
+	cpuStat *castaipb.CpuStats
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

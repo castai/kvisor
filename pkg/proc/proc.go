@@ -1,6 +1,7 @@
 package proc
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -9,8 +10,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/samber/lo"
 )
 
@@ -199,7 +203,79 @@ func (p *Proc) GetProcessStartTime(pid PID) (uint64, error) {
 	return strconv.ParseUint(string(fields[adjustedStartTimeIdx]), 10, 64)
 }
 
-func (p *Proc) PSIEnabled() bool {
-	_, err := p.procFS.Stat(path.Join("pressure", "cpu"))
+var psiCheckOnce = sync.OnceValue(func() bool {
+	_, err := os.Stat("/proc/pressure/cpu")
 	return err == nil
+})
+
+func (p *Proc) PSIEnabled() bool {
+	return psiCheckOnce()
+}
+
+func (*Proc) GetPSIStats(file string) (*castaipb.PSIStats, error) {
+	return cgroup.StatPSI("/proc/pressure", file)
+}
+
+func (p *Proc) GetMeminfoStats() (*castaipb.MemoryStats, error) {
+	f, err := p.procFS.Open("meminfo")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// Fields we are interested in.
+	var (
+		memTotal  uint64
+		memFree   uint64
+		swapFree  uint64
+		swapTotal uint64
+	)
+	mem := map[string]*uint64{
+		"MemTotal":  &memTotal,
+		"MemFree":   &memFree,
+		"SwapFree":  &swapFree,
+		"SwapTotal": &swapTotal,
+	}
+
+	found := 0
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		parts := strings.SplitN(sc.Text(), ":", 3)
+		if len(parts) != 2 {
+			// Should not happen.
+			continue
+		}
+		k := parts[0]
+		p, ok := mem[k]
+		if !ok {
+			// Unknown field -- not interested.
+			continue
+		}
+		vStr := strings.TrimSpace(strings.TrimSuffix(parts[1], " kB"))
+		*p, err = strconv.ParseUint(vStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		found++
+		if found == len(mem) {
+			// Got everything we need -- skip the rest.
+			break
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+
+	memUsage := memTotal - memFree
+	swapUsage := ((swapTotal - swapFree) * 1024) + memUsage
+
+	return &castaipb.MemoryStats{
+		Usage: &castaipb.MemoryData{
+			Usage: memUsage,
+		},
+		SwapUsage: &castaipb.MemoryData{
+			Usage: swapUsage,
+		},
+	}, nil
 }

@@ -14,7 +14,7 @@ import (
 
 func statMemoryV2(dirPath string, stats *Stats) error {
 	const file = "memory.stat"
-	statsFile, err := openCgroupFile(dirPath, file)
+	statsFile, err := openFile(dirPath, file)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func getMemoryDataV2(path, name string) (*castaipb.MemoryData, error) {
 
 func statMemoryV1(dirPath string, stats *Stats) error {
 	const file = "memory.stat"
-	statsFile, err := openCgroupFile(dirPath, file)
+	statsFile, err := openFile(dirPath, file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -178,12 +178,16 @@ func rootStatsFromMeminfo(stats *Stats) error {
 
 	// Fields we are interested in.
 	var (
-		swap_free  uint64
-		swap_total uint64
+		memTotal  uint64
+		memFree   uint64
+		swapFree  uint64
+		swapTotal uint64
 	)
 	mem := map[string]*uint64{
-		"SwapFree":  &swap_free,
-		"SwapTotal": &swap_total,
+		"MemTotal":  &memTotal,
+		"MemFree":   &memFree,
+		"SwapFree":  &swapFree,
+		"SwapTotal": &swapTotal,
 	}
 
 	found := 0
@@ -216,16 +220,9 @@ func rootStatsFromMeminfo(stats *Stats) error {
 		return &parseError{Path: "", File: file, Err: err}
 	}
 
-	// cgroup v1 `usage_in_bytes` reports memory usage as the sum of
-	// - rss (NR_ANON_MAPPED)
-	// - cache (NR_FILE_PAGES)
-	// cgroup v1 reports SwapUsage values as mem+swap combined
-	// cgroup v2 reports rss and cache as anon and file.
-	// sum `anon` + `file` to report the same value as `usage_in_bytes` in v1.
-	// sum swap usage as combined mem+swap usage for consistency as well.
-	//stats.MemoryStats.Usage.Usage = stats.MemoryStats.Stats["anon"] + stats.MemoryStats.Stats["file"] // TODO: Add this.
+	stats.MemoryStats.Usage.Usage = memTotal - memFree
 	stats.MemoryStats.Usage.Limit = math.MaxUint64
-	stats.MemoryStats.SwapUsage.Usage = (swap_total - swap_free) * 1024
+	stats.MemoryStats.SwapUsage.Usage = (swapTotal - swapFree) * 1024
 	stats.MemoryStats.SwapUsage.Limit = math.MaxUint64
 	stats.MemoryStats.SwapUsage.Usage += stats.MemoryStats.Usage.Usage
 

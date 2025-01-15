@@ -157,14 +157,21 @@ func (m *MockServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_Log
 	}
 }
 
-func (m *MockServer) ContainerStatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error {
+func (m *MockServer) StatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamServer) error {
 	for {
 		event, err := server.Recv()
 		if err != nil {
 			return err
 		}
 		for _, v := range event.Items {
-			m.log.Debugf("container_stats, ns=%s, pod=%s, cont=%s, cpu=%v, mem=%v", v.Namespace, v.PodName, v.ContainerName, v.CpuStats, v.MemoryStats)
+			cont := v.GetContainer()
+			if cont != nil {
+				m.log.Debugf("container_stats, ns=%s, pod=%s, cont=%s, cpu=%v, mem=%v", cont.Namespace, cont.PodName, cont.ContainerName, cont.CpuStats, cont.MemoryStats)
+			}
+			node := v.GetNode()
+			if node != nil {
+				m.log.Debugf("node_stats, node=%s,cpu=%v, mem=%v", node.NodeName, cont.CpuStats, cont.MemoryStats)
+			}
 		}
 	}
 }

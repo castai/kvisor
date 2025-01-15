@@ -62,7 +62,7 @@ type Config struct {
 	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
 	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
 	State                          state.Config                    `json:"state"`
-	ContainerStatsEnabled          bool                            `json:"containerStatsEnabled"`
+	StatsEnabled                   bool                            `json:"statsEnabled"`
 	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
 	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
 	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
@@ -166,8 +166,8 @@ func (a *App) Run(ctx context.Context) error {
 		if cfg.EBPFEventsEnabled {
 			exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 		}
-		if cfg.ContainerStatsEnabled {
-			exporters.ContainerStats = append(exporters.ContainerStats, state.NewCastaiContainerStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+		if cfg.StatsEnabled {
+			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 		}
 		if cfg.Netflow.Enabled {
 			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, a.cfg.ExportersQueueSize))
@@ -312,7 +312,7 @@ func (a *App) Run(ctx context.Context) error {
 		HomePIDNS:                          pidNSID,
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
-		TrackSyscallStats:                  cfg.ContainerStatsEnabled,
+		TrackSyscallStats:                  cfg.StatsEnabled,
 		ProcessTreeCollector:               processTreeCollector,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
@@ -345,6 +345,7 @@ func (a *App) Run(ctx context.Context) error {
 		enrichmentService,
 		kubeAPIServerClient,
 		processTreeCollector,
+		procHandler,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)

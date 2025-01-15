@@ -7,7 +7,7 @@ import (
 
 func statCpuV2(dirPath string, stats *Stats) error {
 	const file = "cpu.stat"
-	f, err := openCgroupFile(dirPath, file)
+	f, err := openFile(dirPath, file)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func statCpuV2(dirPath string, stats *Stats) error {
 
 func statCpuV1(dirPath string, stats *Stats) error {
 	const file = "cpu.stat"
-	f, err := openCgroupFile(dirPath, file)
+	f, err := openFile(dirPath, file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

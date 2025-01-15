@@ -54,7 +54,7 @@ func parseUint(s string, base, bitSize int) (uint64, error) {
 	return value, nil
 }
 
-func openCgroupFile(dirPath, fileName string) (*os.File, error) {
+func openFile(dirPath, fileName string) (*os.File, error) {
 	return os.OpenFile(path.Join(dirPath, fileName), os.O_RDONLY, 0o600)
 }
 

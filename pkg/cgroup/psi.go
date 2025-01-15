@@ -12,8 +12,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func statPSI(dirPath string, file string) (*castaipb.PSIStats, error) {
-	f, err := openCgroupFile(dirPath, file)
+func StatPSI(dirPath string, file string) (*castaipb.PSIStats, error) {
+	f, err := openFile(dirPath, file)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// Kernel < 4.20, or CONFIG_PSI is not set,

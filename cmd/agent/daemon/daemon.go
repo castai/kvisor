@@ -53,8 +53,8 @@ func NewRunCommand(version string) *cobra.Command {
 		pyroscopeAddr         = command.Flags().String("pyroscope-addr", "", "Enable pyroscope tracing")
 		hostCgroupsDir        = command.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 
-		containerStatsEnabled        = command.Flags().Bool("container-stats-enabled", false, "Enable container stats scraping")
-		containerStatsScrapeInterval = command.Flags().Duration("container-stats-scrape-interval", 60*time.Second, "Container resources scrape interval")
+		statsEnabled        = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
+		statsScrapeInterval = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
 
 		btfPath           = command.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled = command.Flags().Bool("ebpf-events-enabled", false, "Enable ebpf events")
@@ -151,10 +151,10 @@ func NewRunCommand(version string) *cobra.Command {
 			ContainerdSockPath:        *containerdSockPath,
 			HostCgroupsDir:            *hostCgroupsDir,
 			MetricsHTTPListenPort:     *metricsHTTPListenPort,
-			ContainerStatsEnabled:     *containerStatsEnabled,
+			StatsEnabled:              *statsEnabled,
 			State: state.Config{
-				ContainerStatsScrapeInterval: *containerStatsScrapeInterval,
-				NetflowExportInterval:        *netflowExportInterval,
+				StatsScrapeInterval:   *statsScrapeInterval,
+				NetflowExportInterval: *netflowExportInterval,
 			},
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,

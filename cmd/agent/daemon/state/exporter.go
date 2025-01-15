@@ -18,14 +18,14 @@ func NewExporters(log *logging.Logger) *Exporters {
 type Exporters struct {
 	log *logging.Logger
 
-	Events         []EventsExporter
-	ContainerStats []ContainerStatsExporter
-	Netflow        []NetflowExporter
-	ProcessTree    []ProcessTreeExporter
+	Events      []EventsExporter
+	Stats       []StatsExporter
+	Netflow     []NetflowExporter
+	ProcessTree []ProcessTreeExporter
 }
 
 func (e *Exporters) Empty() bool {
-	return len(e.Events) == 0 && len(e.ContainerStats) == 0 && len(e.Netflow) == 0 && len(e.ProcessTree) == 0
+	return len(e.Events) == 0 && len(e.Stats) == 0 && len(e.Netflow) == 0 && len(e.ProcessTree) == 0
 }
 
 func (e *Exporters) Run(ctx context.Context) error {
@@ -39,7 +39,7 @@ func (e *Exporters) Run(ctx context.Context) error {
 			return exp.Run(ctx)
 		})
 	}
-	for _, exp := range e.ContainerStats {
+	for _, exp := range e.Stats {
 		exp := exp
 		errg.Go(func() error {
 			return exp.Run(ctx)
@@ -69,9 +69,9 @@ type EventsExporter interface {
 	Enqueue(e *castpb.Event)
 }
 
-type ContainerStatsExporter interface {
+type StatsExporter interface {
 	DataExporter
-	Enqueue(e *castpb.ContainerStatsBatch)
+	Enqueue(e *castpb.StatsBatch)
 }
 
 type NetflowExporter interface {

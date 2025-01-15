@@ -76,13 +76,13 @@ func newCgroupStatsGetterFunc(version Version, psiEnabled bool, cgRootfsPath, cg
 			}
 
 			if psiEnabled {
-				memPSI, _ := statPSI(cgPath, "memory.pressure")
+				memPSI, _ := StatPSI(cgPath, "memory.pressure")
 				stats.MemoryStats.Psi = memPSI
 
-				cpuPSI, _ := statPSI(cgPath, "cpu.pressure")
+				cpuPSI, _ := StatPSI(cgPath, "cpu.pressure")
 				stats.CpuStats.Psi = cpuPSI
 
-				ioPSI, _ := statPSI(cgPath, "io.pressure")
+				ioPSI, _ := StatPSI(cgPath, "io.pressure")
 				stats.IOStats.Psi = ioPSI
 			}
 			return nil

@@ -186,8 +186,8 @@ type customizeMockContainersClient func(t *mockContainersClient)
 func newTestController(opts ...any) *Controller {
 	log := logging.NewTestLog()
 	cfg := Config{
-		ContainerStatsScrapeInterval: time.Millisecond,
-		NetflowExportInterval:        time.Millisecond,
+		StatsScrapeInterval:   time.Millisecond,
+		NetflowExportInterval: time.Millisecond,
 	}
 	exporters := NewExporters(log)
 	contClient := &mockContainersClient{}
@@ -209,6 +209,9 @@ func newTestController(opts ...any) *Controller {
 	enrichService := &mockEnrichmentService{eventsChan: make(chan *castaipb.Event, 100)}
 	kubeClient := &mockKubeClient{}
 	processTreeCollector := &mockProcessTreeController{}
+
+	procHandler := &mockProcHandler{}
+
 	ctrl := NewController(
 		log,
 		cfg,
@@ -221,6 +224,7 @@ func newTestController(opts ...any) *Controller {
 		enrichService,
 		kubeClient,
 		processTreeCollector,
+		procHandler,
 	)
 	return ctrl
 }
@@ -238,14 +242,14 @@ func (m *mockEventsExporter) Enqueue(e *castaipb.Event) {
 }
 
 type mockContainerStatsExporter struct {
-	events chan *castaipb.ContainerStatsBatch
+	events chan *castaipb.StatsBatch
 }
 
 func (m *mockContainerStatsExporter) Run(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockContainerStatsExporter) Enqueue(e *castaipb.ContainerStatsBatch) {
+func (m *mockContainerStatsExporter) Enqueue(e *castaipb.StatsBatch) {
 	m.events <- e
 }
 
@@ -437,4 +441,19 @@ func getOptOr[T any](opts []any, or T) T {
 	}
 
 	return or
+}
+
+type mockProcHandler struct {
+}
+
+func (m mockProcHandler) PSIEnabled() bool {
+	return true
+}
+
+func (m mockProcHandler) GetPSIStats(file string) (*castaipb.PSIStats, error) {
+	return &castaipb.PSIStats{}, nil
+}
+
+func (m mockProcHandler) GetMeminfoStats() (*castaipb.MemoryStats, error) {
+	return &castaipb.MemoryStats{}, nil
 }

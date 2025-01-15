@@ -12,7 +12,7 @@ service RuntimeSecurityAgentAPI {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
   rpc EventsWriteStream(stream Event) returns (WriteStreamResponse) {}
   rpc LogsWriteStream(stream LogEvent) returns (WriteStreamResponse) {}
-  rpc ContainerStatsWriteStream(stream ContainerStatsBatch) returns (WriteStreamResponse) {}
+  rpc StatsWriteStream(stream StatsBatch) returns (WriteStreamResponse) {}
   rpc NetflowWriteStream(stream Netflow) returns (WriteStreamResponse) {}
   rpc ProcessEventsWriteStream(stream ProcessTreeEvent) returns (WriteStreamResponse) {}
 
@@ -99,8 +99,15 @@ message WriteStreamResponse {}
 
 message SendLogsResponse {}
 
-message ContainerStatsBatch {
-  repeated ContainerStats items = 1;
+message StatsBatch {
+  repeated StatsItem items = 1;
+}
+
+message StatsItem {
+  oneof data {
+    ContainerStats container = 1;
+    NodeStats node = 2;
+  }
 }
 
 message ContainerStats {
@@ -117,6 +124,13 @@ message ContainerStats {
   MemoryStats memory_stats = 22;
   PidsStats pids_stats = 23;
   IOStats io_stats = 24;
+}
+
+message NodeStats {
+  string node_name = 1;
+  CpuStats cpu_stats = 21;
+  MemoryStats memory_stats = 22;
+  IOStats io_stats = 23;
 }
 
 enum KubernetesDeltaItemEvent {

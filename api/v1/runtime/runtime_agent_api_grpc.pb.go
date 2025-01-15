@@ -21,7 +21,7 @@ type RuntimeSecurityAgentAPIClient interface {
 	GetConfiguration(ctx context.Context, in *GetConfigurationRequest, opts ...grpc.CallOption) (*GetConfigurationResponse, error)
 	EventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_EventsWriteStreamClient, error)
 	LogsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_LogsWriteStreamClient, error)
-	ContainerStatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_ContainerStatsWriteStreamClient, error)
+	StatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_StatsWriteStreamClient, error)
 	NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error)
 	ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error)
 	GetSyncState(ctx context.Context, in *GetSyncStateRequest, opts ...grpc.CallOption) (*GetSyncStateResponse, error)
@@ -119,30 +119,30 @@ func (x *runtimeSecurityAgentAPILogsWriteStreamClient) CloseAndRecv() (*WriteStr
 	return m, nil
 }
 
-func (c *runtimeSecurityAgentAPIClient) ContainerStatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_ContainerStatsWriteStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[2], "/runtime.v1.RuntimeSecurityAgentAPI/ContainerStatsWriteStream", opts...)
+func (c *runtimeSecurityAgentAPIClient) StatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (RuntimeSecurityAgentAPI_StatsWriteStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[2], "/runtime.v1.RuntimeSecurityAgentAPI/StatsWriteStream", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &runtimeSecurityAgentAPIContainerStatsWriteStreamClient{stream}
+	x := &runtimeSecurityAgentAPIStatsWriteStreamClient{stream}
 	return x, nil
 }
 
-type RuntimeSecurityAgentAPI_ContainerStatsWriteStreamClient interface {
-	Send(*ContainerStatsBatch) error
+type RuntimeSecurityAgentAPI_StatsWriteStreamClient interface {
+	Send(*StatsBatch) error
 	CloseAndRecv() (*WriteStreamResponse, error)
 	grpc.ClientStream
 }
 
-type runtimeSecurityAgentAPIContainerStatsWriteStreamClient struct {
+type runtimeSecurityAgentAPIStatsWriteStreamClient struct {
 	grpc.ClientStream
 }
 
-func (x *runtimeSecurityAgentAPIContainerStatsWriteStreamClient) Send(m *ContainerStatsBatch) error {
+func (x *runtimeSecurityAgentAPIStatsWriteStreamClient) Send(m *StatsBatch) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *runtimeSecurityAgentAPIContainerStatsWriteStreamClient) CloseAndRecv() (*WriteStreamResponse, error) {
+func (x *runtimeSecurityAgentAPIStatsWriteStreamClient) CloseAndRecv() (*WriteStreamResponse, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
@@ -335,7 +335,7 @@ type RuntimeSecurityAgentAPIServer interface {
 	GetConfiguration(context.Context, *GetConfigurationRequest) (*GetConfigurationResponse, error)
 	EventsWriteStream(RuntimeSecurityAgentAPI_EventsWriteStreamServer) error
 	LogsWriteStream(RuntimeSecurityAgentAPI_LogsWriteStreamServer) error
-	ContainerStatsWriteStream(RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error
+	StatsWriteStream(RuntimeSecurityAgentAPI_StatsWriteStreamServer) error
 	NetflowWriteStream(RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error
 	ProcessEventsWriteStream(RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error
 	GetSyncState(context.Context, *GetSyncStateRequest) (*GetSyncStateResponse, error)
@@ -361,8 +361,8 @@ func (UnimplementedRuntimeSecurityAgentAPIServer) EventsWriteStream(RuntimeSecur
 func (UnimplementedRuntimeSecurityAgentAPIServer) LogsWriteStream(RuntimeSecurityAgentAPI_LogsWriteStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method LogsWriteStream not implemented")
 }
-func (UnimplementedRuntimeSecurityAgentAPIServer) ContainerStatsWriteStream(RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method ContainerStatsWriteStream not implemented")
+func (UnimplementedRuntimeSecurityAgentAPIServer) StatsWriteStream(RuntimeSecurityAgentAPI_StatsWriteStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method StatsWriteStream not implemented")
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) NetflowWriteStream(RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method NetflowWriteStream not implemented")
@@ -473,26 +473,26 @@ func (x *runtimeSecurityAgentAPILogsWriteStreamServer) Recv() (*LogEvent, error)
 	return m, nil
 }
 
-func _RuntimeSecurityAgentAPI_ContainerStatsWriteStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(RuntimeSecurityAgentAPIServer).ContainerStatsWriteStream(&runtimeSecurityAgentAPIContainerStatsWriteStreamServer{stream})
+func _RuntimeSecurityAgentAPI_StatsWriteStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RuntimeSecurityAgentAPIServer).StatsWriteStream(&runtimeSecurityAgentAPIStatsWriteStreamServer{stream})
 }
 
-type RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer interface {
+type RuntimeSecurityAgentAPI_StatsWriteStreamServer interface {
 	SendAndClose(*WriteStreamResponse) error
-	Recv() (*ContainerStatsBatch, error)
+	Recv() (*StatsBatch, error)
 	grpc.ServerStream
 }
 
-type runtimeSecurityAgentAPIContainerStatsWriteStreamServer struct {
+type runtimeSecurityAgentAPIStatsWriteStreamServer struct {
 	grpc.ServerStream
 }
 
-func (x *runtimeSecurityAgentAPIContainerStatsWriteStreamServer) SendAndClose(m *WriteStreamResponse) error {
+func (x *runtimeSecurityAgentAPIStatsWriteStreamServer) SendAndClose(m *WriteStreamResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *runtimeSecurityAgentAPIContainerStatsWriteStreamServer) Recv() (*ContainerStatsBatch, error) {
-	m := new(ContainerStatsBatch)
+func (x *runtimeSecurityAgentAPIStatsWriteStreamServer) Recv() (*StatsBatch, error) {
+	m := new(StatsBatch)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -737,8 +737,8 @@ var RuntimeSecurityAgentAPI_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "ContainerStatsWriteStream",
-			Handler:       _RuntimeSecurityAgentAPI_ContainerStatsWriteStream_Handler,
+			StreamName:    "StatsWriteStream",
+			Handler:       _RuntimeSecurityAgentAPI_StatsWriteStream_Handler,
 			ClientStreams: true,
 		},
 		{
