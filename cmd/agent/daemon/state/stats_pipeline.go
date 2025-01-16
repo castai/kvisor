@@ -211,6 +211,9 @@ func getIOStatsDiff(prev, curr *castaipb.IOStats) *castaipb.IOStats {
 }
 
 func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
+	if prev == nil || curr == nil {
+		return nil
+	}
 	return &castaipb.PSIStats{
 		Some: &castaipb.PSIData{
 			Total: curr.Some.Total - prev.Some.Total,
