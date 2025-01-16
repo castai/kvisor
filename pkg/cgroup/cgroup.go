@@ -1,6 +1,7 @@
 package cgroup
 
 import (
+	"os"
 	"path"
 	"strings"
 
@@ -32,6 +33,9 @@ func (cg *Cgroup) GetStats() (Stats, error) {
 		IOStats:     &castaipb.IOStats{},
 	}
 	if err := cg.statsGetterFunc(&res); err != nil {
+		if os.IsNotExist(err) {
+			return res, nil
+		}
 		return res, err
 	}
 	return res, nil

@@ -162,8 +162,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set image.tag=%s \
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
-  --set agent.extraArgs.container-stats-enabled=true \
-  --set agent.extraArgs.container-stats-scrape-interval=5s \
+  --set agent.extraArgs.stats-enabled=true \
+  --set agent.extraArgs.stats-scrape-interval=5s \
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
