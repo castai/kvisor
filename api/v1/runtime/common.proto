@@ -159,10 +159,7 @@ message NetflowDestination {
 }
 
 message PSIData {
-  double avg10 = 1;
-  double avg60 = 2;
-  double avg300 = 3;
-  uint64 total = 4;
+  uint64 total = 1;
 }
 
 message PSIStats {
@@ -194,15 +191,9 @@ message MemoryData {
 }
 
 message MemoryStats {
-  // memory used for cache
   uint64 cache = 1;
-  // usage of memory
   MemoryData usage = 2;
-  // usage of memory + swap
-  MemoryData swap_usage = 3;
-  // usage of swap only
   MemoryData swap_only_usage = 4;
-  // usage of kernel memory
   PSIStats psi = 8;
 }
 

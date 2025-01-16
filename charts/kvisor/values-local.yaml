@@ -18,8 +18,8 @@ agent:
     pyroscope-addr: http://kvisord-pyroscope:4040
     file-hash-enricher-enabled: true
     signature-socks5-detection-enabled: true
-    container-stats-enabled: true
-    container-stats-scrape-interval: 5s
+    stats-enabled: true
+    stats-scrape-interval: 5s
     ebpf-events-enabled: true
     netflow-enabled: true
     netflow-sample-submit-interval-seconds: 1

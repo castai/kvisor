@@ -131,7 +131,7 @@ func NewController(
 		enrichmentService:          enrichmentService,
 		kubeClient:                 kubeClient,
 		nodeName:                   os.Getenv("NODE_NAME"),
-		resourcesStatsScrapePoints: map[uint64]*containerStatsScrapePoint{},
+		containerStatsScrapePoints: map[uint64]*containerStatsScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
 		dnsCache:                   dnsCache,
 		podCache:                   podCache,
@@ -157,8 +157,9 @@ type Controller struct {
 	nodeName string
 
 	// Scrape points are used to calculate deltas between scrapes.
-	resourcesStatsScrapePointsMu sync.RWMutex
-	resourcesStatsScrapePoints   map[uint64]*containerStatsScrapePoint
+	containerStatsScrapePointsMu sync.RWMutex
+	containerStatsScrapePoints   map[uint64]*containerStatsScrapePoint
+	nodeScrapePoint              *nodeScrapePoint
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
@@ -216,18 +217,13 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 }
 
 func (c *Controller) onDeleteContainer(container *containers.Container) {
-	c.resourcesStatsScrapePointsMu.Lock()
-	delete(c.resourcesStatsScrapePoints, container.CgroupID)
-	c.resourcesStatsScrapePointsMu.Unlock()
+	c.containerStatsScrapePointsMu.Lock()
+	delete(c.containerStatsScrapePoints, container.CgroupID)
+	c.containerStatsScrapePointsMu.Unlock()
 
 	c.dnsCache.Remove(container.CgroupID)
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
-}
-
-type containerStatsScrapePoint struct {
-	ts      time.Time
-	cpuStat *castaipb.CpuStats
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

@@ -10,6 +10,18 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 )
 
+type containerStatsScrapePoint struct {
+	cpuStat *castaipb.CpuStats
+	memStat *castaipb.MemoryStats
+	ioStat  *castaipb.IOStats
+}
+
+type nodeScrapePoint struct {
+	cpuStat *castaipb.CpuStats
+	memStat *castaipb.MemoryStats
+	ioStat  *castaipb.IOStats
+}
+
 func (c *Controller) runStatsPipeline(ctx context.Context) error {
 	c.log.Info("running stats pipeline")
 	defer c.log.Info("stats pipeline done")
@@ -17,7 +29,8 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 	ticker := time.NewTicker(c.cfg.StatsScrapeInterval)
 	defer ticker.Stop()
 
-	// Initial scrape to populate container metrics for cpu diff.
+	// Initial scrape to populate initial points for diffs.
+	c.scrapeNodeStats(nil)
 	c.scrapeContainersResourceStats(nil)
 
 	for {
@@ -25,14 +38,18 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			batch := &castaipb.StatsBatch{}
-			c.scrapeNodeStats(batch)
-			c.scrapeContainersResourceStats(batch)
-			if len(batch.Items) > 0 {
-				for _, exp := range c.exporters.Stats {
-					exp.Enqueue(batch)
+			func() {
+				start := time.Now()
+				batch := &castaipb.StatsBatch{}
+				c.scrapeNodeStats(batch)
+				c.scrapeContainersResourceStats(batch)
+				if len(batch.Items) > 0 {
+					for _, exp := range c.exporters.Stats {
+						exp.Enqueue(batch)
+					}
 				}
-			}
+				c.log.Debugf("stats exported, duration=%v", time.Since(start))
+			}()
 		}
 	}
 }
@@ -44,7 +61,6 @@ func (c *Controller) scrapeContainersResourceStats(batch *castaipb.StatsBatch) {
 }
 
 func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, batch *castaipb.StatsBatch) {
-	now := time.Now().UTC()
 	cgStats, err := c.containersClient.GetCgroupStats(cont)
 	if err != nil {
 		if c.log.IsEnabled(slog.LevelDebug) {
@@ -55,18 +71,21 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 	}
 
 	currScrape := &containerStatsScrapePoint{
-		ts:      now,
 		cpuStat: cgStats.CpuStats,
+		memStat: cgStats.MemoryStats,
+		ioStat:  cgStats.IOStats,
 	}
 
-	// We need at least 2 scrapes to calculate cpu diff count.
-	c.resourcesStatsScrapePointsMu.RLock()
-	prevScrape, found := c.resourcesStatsScrapePoints[cont.CgroupID]
-	c.resourcesStatsScrapePointsMu.RUnlock()
+	// We need at least 2 scrapes to calculate diffs.
+	// Diffs are needed for always increasing counters only because we store them as deltas.
+	// This includes cpu usage and psi total value.
+	c.containerStatsScrapePointsMu.RLock()
+	prevScrape, found := c.containerStatsScrapePoints[cont.CgroupID]
+	c.containerStatsScrapePointsMu.RUnlock()
 	if !found {
-		c.resourcesStatsScrapePointsMu.Lock()
-		c.resourcesStatsScrapePoints[cont.CgroupID] = currScrape
-		c.resourcesStatsScrapePointsMu.Unlock()
+		c.containerStatsScrapePointsMu.Lock()
+		c.containerStatsScrapePoints[cont.CgroupID] = currScrape
+		c.containerStatsScrapePointsMu.Unlock()
 		return
 	}
 
@@ -80,10 +99,10 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 		ContainerName: cont.Name,
 		PodUid:        cont.PodUID,
 		ContainerId:   cont.ID,
-		CpuStats:      getCPUStatsDiff(prevScrape, currScrape),
-		MemoryStats:   cgStats.MemoryStats,
+		CpuStats:      getCPUStatsDiff(prevScrape.cpuStat, currScrape.cpuStat),
+		MemoryStats:   getMemoryStatsDiff(prevScrape.memStat, currScrape.memStat),
 		PidsStats:     cgStats.PidsStats,
-		IoStats:       cgStats.IOStats,
+		IoStats:       getIOStatsDiff(prevScrape.ioStat, currScrape.ioStat),
 	}
 	if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
 		item.NodeName = podInfo.NodeName
@@ -92,38 +111,69 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 	}
 	batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Container{Container: item}})
 
-	prevScrape.ts = currScrape.ts
 	prevScrape.cpuStat = currScrape.cpuStat
+	prevScrape.memStat = currScrape.memStat
+	prevScrape.ioStat = currScrape.ioStat
 }
 
 func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
-	item := &castaipb.NodeStats{}
 	if err := func() error {
-		if c.procHandler.PSIEnabled() {
-			cpuPSI, err := c.procHandler.GetPSIStats("cpu")
-			if err != nil {
-				return err
-			}
-			item.CpuStats = &castaipb.CpuStats{Psi: cpuPSI}
-
-			memStats, err := c.procHandler.GetMeminfoStats()
-			if err != nil {
-				return err
-			}
-			item.MemoryStats = memStats
-			memoryPSI, err := c.procHandler.GetPSIStats("memory")
-			if err != nil {
-				return err
-			}
-			item.MemoryStats.Psi = memoryPSI
-
-			ioPSI, err := c.procHandler.GetPSIStats("io")
-			if err != nil {
-				return err
-			}
-			item.IoStats = &castaipb.IOStats{Psi: ioPSI}
-			batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Node{Node: item}})
+		// For now, we only care about PSI related metrics on node.
+		if !c.procHandler.PSIEnabled() {
+			return nil
 		}
+
+		cpuPSI, err := c.procHandler.GetPSIStats("cpu")
+		if err != nil {
+			return err
+		}
+		memStats, err := c.procHandler.GetMeminfoStats()
+		if err != nil {
+			return err
+		}
+		memoryPSI, err := c.procHandler.GetPSIStats("memory")
+		if err != nil {
+			return err
+		}
+		ioPSI, err := c.procHandler.GetPSIStats("io")
+		if err != nil {
+			return err
+		}
+
+		currScrape := &nodeScrapePoint{
+			cpuStat: &castaipb.CpuStats{Psi: cpuPSI},
+			memStat: &castaipb.MemoryStats{
+				Usage:         memStats.Usage,
+				SwapOnlyUsage: memStats.SwapOnlyUsage,
+				Psi:           memoryPSI,
+			},
+			ioStat: &castaipb.IOStats{Psi: ioPSI},
+		}
+
+		// We need at least 2 scrapes to calculate diffs.
+		// Diffs are needed for always increasing counters only because we store them as deltas.
+		// This includes cpu usage and psi total value.
+		if c.nodeScrapePoint == nil {
+			c.nodeScrapePoint = currScrape
+			return nil
+		}
+		if batch == nil {
+			return nil
+		}
+
+		batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Node{
+			Node: &castaipb.NodeStats{
+				NodeName:    c.nodeName,
+				CpuStats:    getCPUStatsDiff(c.nodeScrapePoint.cpuStat, currScrape.cpuStat),
+				MemoryStats: getMemoryStatsDiff(c.nodeScrapePoint.memStat, currScrape.memStat),
+				IoStats:     getIOStatsDiff(c.nodeScrapePoint.ioStat, currScrape.ioStat),
+			},
+		}})
+
+		c.nodeScrapePoint.cpuStat = currScrape.cpuStat
+		c.nodeScrapePoint.memStat = currScrape.memStat
+		c.nodeScrapePoint.ioStat = currScrape.ioStat
+
 		return nil
 	}(); err != nil {
 		if c.log.IsEnabled(slog.LevelDebug) {
@@ -134,13 +184,39 @@ func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
 	}
 }
 
-func getCPUStatsDiff(prev, curr *containerStatsScrapePoint) *castaipb.CpuStats {
+func getCPUStatsDiff(prev, curr *castaipb.CpuStats) *castaipb.CpuStats {
 	return &castaipb.CpuStats{
-		TotalUsage:        curr.cpuStat.TotalUsage - prev.cpuStat.TotalUsage,
-		UsageInKernelmode: curr.cpuStat.UsageInKernelmode - prev.cpuStat.UsageInKernelmode,
-		UsageInUsermode:   curr.cpuStat.UsageInUsermode - prev.cpuStat.UsageInUsermode,
-		ThrottledPeriods:  curr.cpuStat.ThrottledPeriods,
-		ThrottledTime:     curr.cpuStat.ThrottledTime,
-		Psi:               curr.cpuStat.Psi,
+		TotalUsage:        curr.TotalUsage - prev.TotalUsage,
+		UsageInKernelmode: curr.UsageInKernelmode - prev.UsageInKernelmode,
+		UsageInUsermode:   curr.UsageInUsermode - prev.UsageInUsermode,
+		ThrottledPeriods:  curr.ThrottledPeriods,
+		ThrottledTime:     curr.ThrottledTime,
+		Psi:               getPSIStatsDiff(prev.Psi, curr.Psi),
+	}
+}
+
+func getMemoryStatsDiff(prev, curr *castaipb.MemoryStats) *castaipb.MemoryStats {
+	return &castaipb.MemoryStats{
+		Cache:         curr.Cache,
+		Usage:         curr.Usage,
+		SwapOnlyUsage: curr.SwapOnlyUsage,
+		Psi:           getPSIStatsDiff(prev.Psi, curr.Psi),
+	}
+}
+
+func getIOStatsDiff(prev, curr *castaipb.IOStats) *castaipb.IOStats {
+	return &castaipb.IOStats{
+		Psi: getPSIStatsDiff(prev.Psi, curr.Psi),
+	}
+}
+
+func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
+	return &castaipb.PSIStats{
+		Some: &castaipb.PSIData{
+			Total: curr.Some.Total - prev.Some.Total,
+		},
+		Full: &castaipb.PSIData{
+			Total: curr.Full.Total - prev.Full.Total,
+		},
 	}
 }

@@ -60,27 +60,15 @@ func parsePSIData(psi []string) (*castaipb.PSIData, error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid psi data: %q", f)
 		}
-		var pv *float64
 		switch kv[0] {
-		case "avg10":
-			pv = &data.Avg10
-		case "avg60":
-			pv = &data.Avg60
-		case "avg300":
-			pv = &data.Avg300
 		case "total":
 			v, err := strconv.ParseUint(kv[1], 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid %s PSI value: %w", kv[0], err)
 			}
 			data.Total = v
-		}
-		if pv != nil {
-			v, err := strconv.ParseFloat(kv[1], 64)
-			if err != nil {
-				return nil, fmt.Errorf("invalid %s PSI value: %w", kv[0], err)
-			}
-			*pv = v
+			// For now we care only about total value.
+			return &data, nil
 		}
 	}
 	return &data, nil

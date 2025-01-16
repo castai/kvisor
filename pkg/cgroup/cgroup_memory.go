@@ -3,10 +3,7 @@ package cgroup
 import (
 	"bufio"
 	"errors"
-	"math"
 	"os"
-	"strconv"
-	"strings"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"golang.org/x/sys/unix"
@@ -48,15 +45,6 @@ func statMemoryV2(dirPath string, stats *Stats) error {
 		return err
 	}
 	stats.MemoryStats.SwapOnlyUsage = swapOnlyUsage
-	swapUsage := swapOnlyUsage
-	// As cgroup v1 reports SwapUsage values as mem+swap combined,
-	// while in cgroup v2 swap values do not include memory,
-	// report combined mem+swap for v1 compatibility.
-	swapUsage.Usage += memoryUsage.Usage
-	if swapUsage.Limit != math.MaxUint64 {
-		swapUsage.Limit += memoryUsage.Limit
-	}
-	stats.MemoryStats.SwapUsage = swapUsage
 
 	return nil
 }
@@ -113,7 +101,7 @@ func statMemoryV1(dirPath string, stats *Stats) error {
 		}
 	}
 
-	memoryUsage, err := getMemoryDataV1(dirPath, "") // TODO: Why empty?
+	memoryUsage, err := getMemoryDataV1(dirPath, "")
 	if err != nil {
 		return err
 	}
@@ -122,7 +110,6 @@ func statMemoryV1(dirPath string, stats *Stats) error {
 	if err != nil {
 		return err
 	}
-	stats.MemoryStats.SwapUsage = swapUsage
 	stats.MemoryStats.SwapOnlyUsage = &castaipb.MemoryData{
 		Usage: swapUsage.Usage - memoryUsage.Usage,
 	}
@@ -164,67 +151,4 @@ func getMemoryDataV1(path, name string) (*castaipb.MemoryData, error) {
 	memoryData.Limit = value
 
 	return &memoryData, nil
-}
-
-var _ = rootStatsFromMeminfo
-
-func rootStatsFromMeminfo(stats *Stats) error {
-	const file = "/proc/meminfo"
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Fields we are interested in.
-	var (
-		memTotal  uint64
-		memFree   uint64
-		swapFree  uint64
-		swapTotal uint64
-	)
-	mem := map[string]*uint64{
-		"MemTotal":  &memTotal,
-		"MemFree":   &memFree,
-		"SwapFree":  &swapFree,
-		"SwapTotal": &swapTotal,
-	}
-
-	found := 0
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		parts := strings.SplitN(sc.Text(), ":", 3)
-		if len(parts) != 2 {
-			// Should not happen.
-			continue
-		}
-		k := parts[0]
-		p, ok := mem[k]
-		if !ok {
-			// Unknown field -- not interested.
-			continue
-		}
-		vStr := strings.TrimSpace(strings.TrimSuffix(parts[1], " kB"))
-		*p, err = strconv.ParseUint(vStr, 10, 64)
-		if err != nil {
-			return &parseError{File: file, Err: errors.New("bad value for " + k)}
-		}
-
-		found++
-		if found == len(mem) {
-			// Got everything we need -- skip the rest.
-			break
-		}
-	}
-	if err := sc.Err(); err != nil {
-		return &parseError{Path: "", File: file, Err: err}
-	}
-
-	stats.MemoryStats.Usage.Usage = memTotal - memFree
-	stats.MemoryStats.Usage.Limit = math.MaxUint64
-	stats.MemoryStats.SwapUsage.Usage = (swapTotal - swapFree) * 1024
-	stats.MemoryStats.SwapUsage.Limit = math.MaxUint64
-	stats.MemoryStats.SwapUsage.Usage += stats.MemoryStats.Usage.Usage
-
-	return nil
 }

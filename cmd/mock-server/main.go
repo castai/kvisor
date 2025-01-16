@@ -170,7 +170,7 @@ func (m *MockServer) StatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_St
 			}
 			node := v.GetNode()
 			if node != nil {
-				m.log.Debugf("node_stats, node=%s,cpu=%v, mem=%v", node.NodeName, cont.CpuStats, cont.MemoryStats)
+				m.log.Debugf("node_stats, node=%s,cpu=%v, mem=%v", node.NodeName, node.CpuStats, node.MemoryStats)
 			}
 		}
 	}

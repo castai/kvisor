@@ -268,13 +268,13 @@ func (p *Proc) GetMeminfoStats() (*castaipb.MemoryStats, error) {
 	}
 
 	memUsage := memTotal - memFree
-	swapUsage := ((swapTotal - swapFree) * 1024) + memUsage
+	swapUsage := (swapTotal - swapFree) * 1024
 
 	return &castaipb.MemoryStats{
 		Usage: &castaipb.MemoryData{
 			Usage: memUsage,
 		},
-		SwapUsage: &castaipb.MemoryData{
+		SwapOnlyUsage: &castaipb.MemoryData{
 			Usage: swapUsage,
 		},
 	}, nil
