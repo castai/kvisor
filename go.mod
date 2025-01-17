@@ -7,6 +7,7 @@ require (
 	github.com/aquasecurity/trivy v0.57.1
 	github.com/castai/image-analyzer v0.7.0
 	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/cenkalti/backoff/v5 v5.0.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
 	github.com/cilium/ebpf v0.16.0
