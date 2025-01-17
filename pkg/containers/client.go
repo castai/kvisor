@@ -12,7 +12,6 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
-	"github.com/samber/lo"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -120,9 +119,15 @@ func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, er
 func (c *Client) ListContainers() []*Container {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return lo.Filter(lo.Values(c.containersByCgroup), func(item *Container, index int) bool {
-		return item.Err == nil && item.Cgroup != nil
-	})
+
+	var res []*Container
+	for _, cont := range c.containersByCgroup {
+		if cont.Err != nil || cont.Cgroup == nil || cont.Name == "" {
+			continue
+		}
+		res = append(res, cont)
+	}
+	return res
 }
 
 func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *Container, rerrr error) {
@@ -296,9 +301,9 @@ func (c *Client) GetCgroupsInNamespace(namespace string) []uint64 {
 
 	var result []uint64
 
-	for cgroup, container := range c.containersByCgroup {
+	for cg, container := range c.containersByCgroup {
 		if container.PodNamespace == namespace {
-			result = append(result, cgroup)
+			result = append(result, cg)
 		}
 	}
 
@@ -339,10 +344,6 @@ func (c *Client) fireContainerDeletedListeners(container *Container) {
 	}
 }
 
-func (c *Client) GetCgroupCpuStats(cont *Container) (*cgroup.CPUStat, error) {
-	return cont.Cgroup.CpuStat()
-}
-
-func (c *Client) GetCgroupMemoryStats(cont *Container) (*cgroup.MemoryStat, error) {
-	return cont.Cgroup.MemoryStat()
+func (c *Client) GetCgroupStats(cont *Container) (cgroup.Stats, error) {
+	return cont.Cgroup.GetStats()
 }

@@ -154,7 +154,7 @@ func (*testServer) KubernetesDeltaIngest(castaipb.RuntimeSecurityAgentAPI_Kubern
 	panic("unimplemented")
 }
 
-func (t *testServer) ContainerStatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error {
+func (t *testServer) StatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamServer) error {
 	//TODO implement me
 	panic("implement me")
 }

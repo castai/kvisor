@@ -10,6 +10,7 @@ const (
 	ExporterName     string = "exporter"
 	MetricLabel      string = "metric"
 	EBPFProgramLabel string = "program"
+	StatsKind        string = "kind"
 )
 
 var (
@@ -96,4 +97,9 @@ var (
 		Name: "kvisor_agent_ebpf_program_run_count",
 		Help: "Number of times a certain eBPF program run as reported by the kernel",
 	}, []string{EBPFProgramLabel})
+
+	AgentStatsScrapeErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_stats_scrape_errors_total",
+		Help: "Stats scrape errors",
+	}, []string{StatsKind})
 )

@@ -1,64 +1,154 @@
 package cgroup
 
 import (
-	"path"
+	"bufio"
+	"errors"
+	"os"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"golang.org/x/sys/unix"
 )
 
-const maxMemory = 1 << 62
+func statMemoryV2(dirPath string, stats *Stats) error {
+	const file = "memory.stat"
+	statsFile, err := openFile(dirPath, file)
+	if err != nil {
+		return err
+	}
+	defer statsFile.Close()
 
-type MemoryStat struct {
-	RSS   uint64
-	Cache uint64
-	Limit uint64
+	sc := bufio.NewScanner(statsFile)
+	for sc.Scan() {
+		t, v, err := parseKeyValue(sc.Text())
+		if err != nil {
+			return &parseError{Path: dirPath, File: file, Err: err}
+		}
+		if t == "file" {
+			stats.MemoryStats.Cache = v
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return &parseError{Path: dirPath, File: file, Err: err}
+	}
+
+	memoryUsage, err := getMemoryDataV2(dirPath, "")
+	if err != nil {
+		if errors.Is(err, unix.ENOENT) && dirPath == UnifiedMountpoint {
+			// The root cgroup does not have memory.{current,max,peak}
+			return nil
+		}
+		return err
+	}
+	stats.MemoryStats.Usage = memoryUsage
+	swapOnlyUsage, err := getMemoryDataV2(dirPath, "swap")
+	if err != nil {
+		return err
+	}
+	stats.MemoryStats.SwapOnlyUsage = swapOnlyUsage
+
+	return nil
 }
 
-func (cg *Cgroup) MemoryStat() (*MemoryStat, error) {
-	if cg.Version == V1 {
-		return cg.memoryStatV1()
+func getMemoryDataV2(path, name string) (*castaipb.MemoryData, error) {
+	memoryData := castaipb.MemoryData{}
+
+	moduleName := "memory"
+	if name != "" {
+		moduleName = "memory." + name
 	}
-	return cg.memoryStatV2()
+	usage := moduleName + ".current"
+	limit := moduleName + ".max"
+
+	value, err := getCgroupParamUint(path, usage)
+	if err != nil {
+		if name != "" && os.IsNotExist(err) {
+			// Ignore EEXIST as there's no swap accounting
+			// if kernel CONFIG_MEMCG_SWAP is not set or
+			// swapaccount=0 kernel boot parameter is given.
+			return &memoryData, nil
+		}
+		return nil, err
+	}
+	memoryData.Usage = value
+
+	value, err = getCgroupParamUint(path, limit)
+	if err != nil {
+		return nil, err
+	}
+	memoryData.Limit = value
+	return &memoryData, nil
 }
 
-func (cg *Cgroup) memoryStatV1() (*MemoryStat, error) {
-	vars, err := readVariablesFromFile(path.Join(cg.cgRoot, "memory", cg.subsystems["memory"], "memory.stat"))
+func statMemoryV1(dirPath string, stats *Stats) error {
+	const file = "memory.stat"
+	statsFile, err := openFile(dirPath, file)
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
-	limit, err := readUintFromFile(path.Join(cg.cgRoot, "memory", cg.subsystems["memory"], "memory.limit_in_bytes"))
+	defer statsFile.Close()
+
+	sc := bufio.NewScanner(statsFile)
+	for sc.Scan() {
+		t, v, err := parseKeyValue(sc.Text())
+		if err != nil {
+			return &parseError{Path: dirPath, File: file, Err: err}
+		}
+		if t == "cache" {
+			stats.MemoryStats.Cache = v
+		}
+	}
+
+	memoryUsage, err := getMemoryDataV1(dirPath, "")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if limit > maxMemory {
-		limit = 0
+	stats.MemoryStats.Usage = memoryUsage
+	swapUsage, err := getMemoryDataV1(dirPath, "memsw")
+	if err != nil {
+		return err
 	}
-	// Note from https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt:
-	// Only anonymous and swap cache memory is listed as part of 'rss' stat.
-	//	This should not be confused with the true 'resident set size' or the
-	//	amount of physical memory used by the cgroup.
-	//	'rss + mapped_file" will give you resident set size of cgroup.
-	//	(Note: file and shmem may be shared among other cgroups. In that case,
-	//	 mapped_file is accounted only when the memory cgroup is owner of page
-	//	 cache.)
-	return &MemoryStat{
-		RSS:   vars["rss"] + vars["mapped_file"],
-		Cache: vars["cache"],
-		Limit: limit,
-	}, nil
+	stats.MemoryStats.SwapOnlyUsage = &castaipb.MemoryData{
+		Usage: swapUsage.Usage - memoryUsage.Usage,
+	}
+	return nil
 }
 
-func (cg *Cgroup) memoryStatV2() (*MemoryStat, error) {
-	current, err := readUintFromFile(path.Join(cg.cgRoot, cg.subsystems[""], "memory.current"))
+func getMemoryDataV1(path, name string) (*castaipb.MemoryData, error) {
+	memoryData := castaipb.MemoryData{}
+
+	moduleName := "memory"
+	if name != "" {
+		moduleName = "memory." + name
+	}
+	var (
+		usage = moduleName + ".usage_in_bytes"
+		limit = moduleName + ".limit_in_bytes"
+	)
+
+	value, err := getCgroupParamUint(path, usage)
 	if err != nil {
+		if name != "" && os.IsNotExist(err) {
+			// Ignore ENOENT as swap and kmem controllers
+			// are optional in the kernel.
+			return &memoryData, nil
+		}
 		return nil, err
 	}
-	vars, err := readVariablesFromFile(path.Join(cg.cgRoot, cg.subsystems[""], "memory.stat"))
+	memoryData.Usage = value
+	value, err = getCgroupParamUint(path, limit)
 	if err != nil {
+		if name == "kmem" && os.IsNotExist(err) {
+			// Ignore ENOENT as kmem.limit_in_bytes has
+			// been removed in newer kernels.
+			return &memoryData, nil
+		}
+
 		return nil, err
 	}
-	limit, _ := readUintFromFile(path.Join(cg.cgRoot, cg.subsystems[""], "memory.max"))
-	return &MemoryStat{
-		RSS:   current - vars["file"],
-		Cache: vars["file"],
-		Limit: limit,
-	}, nil
+	memoryData.Limit = value
+
+	return &memoryData, nil
 }

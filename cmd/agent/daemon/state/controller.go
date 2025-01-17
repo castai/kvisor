@@ -9,7 +9,7 @@ import (
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	castpb "github.com/castai/kvisor/api/v1/runtime"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
@@ -24,7 +24,7 @@ import (
 )
 
 type Config struct {
-	ContainerStatsScrapeInterval time.Duration `json:"containerStatsScrapeInterval"`
+	StatsScrapeInterval time.Duration `json:"statsScrapeInterval"`
 
 	NetflowExportInterval time.Duration `validate:"required" json:"netflowExportInterval"`
 }
@@ -37,8 +37,7 @@ type containersClient interface {
 	GetCgroupsInNamespace(namespace string) []uint64
 	RegisterContainerCreatedListener(l containers.ContainerCreatedListener)
 	RegisterContainerDeletedListener(l containers.ContainerDeletedListener)
-	GetCgroupCpuStats(c *containers.Container) (*cgroup.CPUStat, error)
-	GetCgroupMemoryStats(c *containers.Container) (*cgroup.MemoryStat, error)
+	GetCgroupStats(c *containers.Container) (cgroup.Stats, error)
 }
 
 type netStatsReader interface {
@@ -57,12 +56,12 @@ type ebpfTracer interface {
 }
 
 type signatureEngine interface {
-	Events() <-chan *castpb.Event
+	Events() <-chan *castaipb.Event
 }
 
 type enrichmentService interface {
 	Enqueue(e *enrichment.EnrichRequest) bool
-	Events() <-chan *castpb.Event
+	Events() <-chan *castaipb.Event
 }
 
 type conntrackClient interface {
@@ -71,6 +70,12 @@ type conntrackClient interface {
 
 type processTreeCollector interface {
 	Events() <-chan processtree.ProcessTreeEvent
+}
+
+type procHandler interface {
+	PSIEnabled() bool
+	GetPSIStats(file string) (*castaipb.PSIStats, error)
+	GetMeminfoStats() (*castaipb.MemoryStats, error)
 }
 
 func NewController(
@@ -85,6 +90,7 @@ func NewController(
 	enrichmentService enrichmentService,
 	kubeClient kubepb.KubeAPIClient,
 	processTreeCollector processTreeCollector,
+	procHandler procHandler,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -125,13 +131,13 @@ func NewController(
 		enrichmentService:          enrichmentService,
 		kubeClient:                 kubeClient,
 		nodeName:                   os.Getenv("NODE_NAME"),
-		resourcesStatsScrapePoints: map[uint64]*resourcesStatsScrapePoint{},
-		syscallScrapePoints:        map[uint64]*syscallScrapePoint{},
+		containerStatsScrapePoints: map[uint64]*containerStatsScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
 		dnsCache:                   dnsCache,
 		podCache:                   podCache,
 		conntrackCache:             conntrackCache,
 		processTreeCollector:       processTreeCollector,
+		procHandler:                procHandler,
 	}
 }
 
@@ -146,14 +152,14 @@ type Controller struct {
 	enrichmentService    enrichmentService
 	processTreeCollector processTreeCollector
 	exporters            *Exporters
+	procHandler          procHandler
 
 	nodeName string
 
 	// Scrape points are used to calculate deltas between scrapes.
-	resourcesStatsScrapePointsMu sync.RWMutex
-	resourcesStatsScrapePoints   map[uint64]*resourcesStatsScrapePoint
-	syscallScrapePointsMu        sync.RWMutex
-	syscallScrapePoints          map[uint64]*syscallScrapePoint
+	containerStatsScrapePointsMu sync.RWMutex
+	containerStatsScrapePoints   map[uint64]*containerStatsScrapePoint
+	nodeScrapePoint              *nodeScrapePoint
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
@@ -178,9 +184,9 @@ func (c *Controller) Run(ctx context.Context) error {
 			return c.runEventsPipeline(ctx)
 		})
 	}
-	if len(c.exporters.ContainerStats) > 0 {
+	if len(c.exporters.Stats) > 0 {
 		errg.Go(func() error {
-			return c.runContainerStatsPipeline(ctx)
+			return c.runStatsPipeline(ctx)
 		})
 	}
 	if len(c.exporters.Netflow) > 0 {
@@ -211,28 +217,13 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 }
 
 func (c *Controller) onDeleteContainer(container *containers.Container) {
-	c.resourcesStatsScrapePointsMu.Lock()
-	delete(c.resourcesStatsScrapePoints, container.CgroupID)
-	c.resourcesStatsScrapePointsMu.Unlock()
-
-	c.syscallScrapePointsMu.Lock()
-	delete(c.syscallScrapePoints, container.CgroupID)
-	c.syscallScrapePointsMu.Unlock()
+	c.containerStatsScrapePointsMu.Lock()
+	delete(c.containerStatsScrapePoints, container.CgroupID)
+	c.containerStatsScrapePointsMu.Unlock()
 
 	c.dnsCache.Remove(container.CgroupID)
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
-}
-
-type resourcesStatsScrapePoint struct {
-	ts       time.Time
-	cpuStat  *cgroup.CPUStat
-	memStats *cgroup.MemoryStat
-	netStats *netstats.InterfaceStats
-}
-
-type syscallScrapePoint struct {
-	syscalls map[ebpftracer.SyscallID]uint64
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

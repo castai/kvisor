@@ -115,8 +115,8 @@ func run(ctx context.Context) error {
 	// TODO: Fix container assert stats once pids are fixed.
 	fmt.Println("🙏waiting for container stats")
 	_ = srv.assertContainerStats
-	srv.containerStatsAsserted = true
-	srv.containerStats = nil
+	srv.statsAsserted = true
+	srv.stats = nil
 
 	fmt.Println("🙏waiting for kube bench")
 	if err := srv.assertKubeBenchReport(ctx); err != nil {
@@ -162,8 +162,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set image.tag=%s \
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
-  --set agent.extraArgs.container-stats-enabled=true \
-  --set agent.extraArgs.container-stats-scrape-interval=5s \
+  --set agent.extraArgs.stats-enabled=true \
+  --set agent.extraArgs.stats-scrape-interval=5s \
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
@@ -207,8 +207,8 @@ type testCASTAIServer struct {
 	testStartTime time.Time
 
 	mu                        sync.Mutex
-	containerStats            []*castaipb.ContainerStatsBatch
-	containerStatsAsserted    bool
+	stats                     []*castaipb.StatsBatch
+	statsAsserted             bool
 	events                    []*castaipb.Event
 	eventsAsserted            bool
 	logs                      []*castaipb.LogEvent
@@ -310,20 +310,20 @@ func (t *testCASTAIServer) UpdateSyncState(ctx context.Context, request *castaip
 	return &castaipb.UpdateSyncStateResponse{}, nil
 }
 
-func (t *testCASTAIServer) ContainerStatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ContainerStatsWriteStreamServer) error {
+func (t *testCASTAIServer) StatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamServer) error {
 	for {
 		msg, err := server.Recv()
 		if err != nil {
 			return err
 		}
-		if t.containerStatsAsserted {
+		if t.statsAsserted {
 			continue
 		}
 		if t.outputReceivedData {
-			fmt.Println("received container stats:", len(msg.Items))
+			fmt.Println("received stats:", len(msg.Items))
 		}
 		t.mu.Lock()
-		t.containerStats = append(t.containerStats, msg)
+		t.stats = append(t.stats, msg)
 		t.mu.Unlock()
 	}
 }
@@ -812,6 +812,10 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 
 func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
+
+	nodeStatsAsserted := false
+	containerStatsAsserted := false
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -820,34 +824,54 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 			return errors.New("timeout waiting for received container stats")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			stats := t.containerStats
+			stats := t.stats
 			t.mu.Unlock()
-			if len(stats) > 0 {
-				sb1 := stats[0]
-				if len(sb1.Items) == 0 {
-					return errors.New("missing stat batch items")
+			if len(stats) == 0 {
+				continue
+			}
+
+			sb1 := stats[0]
+			if len(sb1.Items) == 0 {
+				return errors.New("missing stat batch items")
+			}
+
+			for _, st := range stats {
+				for _, item := range st.Items {
+					cont := item.GetContainer()
+					if cont != nil {
+						if cont.Namespace == "" {
+							return errors.New("missing namespace")
+						}
+						if cont.PodName == "" {
+							return errors.New("missing pod")
+						}
+						if cont.ContainerName == "" {
+							return errors.New("missing container")
+						}
+						if cont.NodeName == "" {
+							return errors.New("missing node")
+						}
+						cpuUsage := cont.CpuStats.TotalUsage
+						memUsage := cont.MemoryStats.Usage.Usage
+						if cpuUsage == 0 && memUsage == 0 {
+							return errors.New("missing cpu or memory usage")
+						}
+						containerStatsAsserted = true
+					}
+					node := item.GetNode()
+					if node != nil {
+						if node.NodeName == "" {
+							return errors.New("missing node name")
+						}
+						if node.MemoryStats.Usage.Usage == 0 {
+							return errors.New("missing node memory usage")
+						}
+						nodeStatsAsserted = true
+					}
 				}
-				i1 := sb1.Items[0]
-				if i1.Namespace == "" {
-					return errors.New("missing namespace")
-				}
-				if i1.PodName == "" {
-					return errors.New("missing pod")
-				}
-				if i1.ContainerName == "" {
-					return errors.New("missing container")
-				}
-				s1 := i1.Stats
-				if len(s1) == 0 {
-					return errors.New("missing stat items")
-				}
-				stat := s1[0]
-				if stat.Group == castaipb.StatsGroup_STATS_GROUP_UNKNOWN {
-					return errors.New("missing stat group")
-				}
-				if stat.Value == 0 {
-					return errors.New("missing stat value")
-				}
+			}
+
+			if containerStatsAsserted && nodeStatsAsserted {
 				return nil
 			}
 		}

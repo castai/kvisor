@@ -124,7 +124,7 @@ func (t testGrpcClient) LogsWriteStream(ctx context.Context, opts ...grpc.CallOp
 	return nil, nil
 }
 
-func (t testGrpcClient) ContainerStatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_ContainerStatsWriteStreamClient, error) {
+func (t testGrpcClient) StatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamClient, error) {
 	return nil, nil
 }
 

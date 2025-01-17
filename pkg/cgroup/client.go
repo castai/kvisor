@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -19,10 +18,7 @@ import (
 )
 
 var (
-	baseCgroupPath = ""
-
-	ErrContainerIDNotFoundInCgroupPath = errors.New("container id not found in cgroup path")
-	ErrCgroupNotFound                  = errors.New("cgroup not found")
+	ErrCgroupNotFound = errors.New("cgroup not found")
 )
 
 type ID = uint64
@@ -101,9 +97,10 @@ type Client struct {
 	cgroupCacheByID    map[ID]func() *Cgroup
 	cgroupMu           sync.RWMutex
 	defaultHierarchyID uint32
+	psiEnabled         bool
 }
 
-func NewClient(log *logging.Logger, root string) (*Client, error) {
+func NewClient(log *logging.Logger, root string, psiEnabled bool) (*Client, error) {
 	version, defaultHierarchyID, err := getDefaultVersionAndHierarchy(log)
 	if err != nil {
 		return nil, fmt.Errorf("getting default cgroups version: %w", err)
@@ -114,6 +111,7 @@ func NewClient(log *logging.Logger, root string) (*Client, error) {
 		cgRoot:             root,
 		cgroupCacheByID:    make(map[uint64]func() *Cgroup),
 		defaultHierarchyID: defaultHierarchyID,
+		psiEnabled:         psiEnabled,
 	}, nil
 }
 
@@ -154,38 +152,12 @@ func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
 func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
 	containerID, containerRuntime := GetContainerIdFromCgroup(cgroupPath)
 
-	cg := &Cgroup{
+	return &Cgroup{
 		Id:               cgroupID,
 		ContainerID:      containerID,
 		ContainerRuntime: containerRuntime,
-		Path:             cgroupPath,
-		cgRoot:           c.cgRoot,
-		subsystems:       map[string]string{},
+		statsGetterFunc:  newCgroupStatsGetterFunc(c.version, c.psiEnabled, c.cgRoot, cgroupPath),
 	}
-
-	switch c.version {
-	case V1:
-		after, _ := strings.CutPrefix(cgroupPath, cg.cgRoot)
-		subpath := strings.SplitN(after, "/", 1)
-		if len(subpath) != 2 {
-			return cg
-		}
-		last := subpath[1]
-		cg.Version = V1
-		cg.subsystems = map[string]string{
-			"cpu":     last,
-			"cpuacct": last,
-			"memory":  last,
-			"blkio":   last,
-		}
-	case V2:
-		after, _ := strings.CutPrefix(cgroupPath, cg.cgRoot)
-		cg.Version = V2
-		cg.subsystems = map[string]string{
-			"": after,
-		}
-	}
-	return cg
 }
 
 func (c *Client) getCgroupSearchBasePath() string {
@@ -314,47 +286,6 @@ func isCgroupV2MountedAndDefault() (bool, error) {
 	return true, nil
 }
 
-func NewFromProcessCgroupFile(filePath string) (*Cgroup, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-	cg := &Cgroup{
-		subsystems: map[string]string{},
-		cgRoot:     baseCgroupPath,
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		parts := strings.SplitN(line, ":", 3)
-		if len(parts) < 3 {
-			continue
-		}
-		for _, cgType := range strings.Split(parts[1], ",") {
-			cg.subsystems[cgType] = path.Join(baseCgroupPath, parts[2])
-		}
-	}
-
-	if p := cg.subsystems["cpu"]; p != "" {
-		cg.Path = p
-		cg.Version = V1
-	} else {
-		cg.Path = cg.subsystems[""]
-		cg.Version = V2
-	}
-
-	if containerID, runtimeType := GetContainerIdFromCgroup(cg.Path); containerID == "" {
-		return nil, ErrContainerIDNotFoundInCgroupPath
-	} else {
-		cg.ContainerID = containerID
-		cg.ContainerRuntime = runtimeType
-	}
-
-	if cg.Id, err = getCgroupIDForPath(cg.Path); err != nil {
-		return nil, err
-	}
-
-	return cg, nil
-}
-
 var (
 	containerIdFromCgroupRegex       = regexp.MustCompile(`^[A-Fa-f0-9]{64}$`)
 	gardenContainerIdFromCgroupRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){4}$`)
@@ -425,15 +356,6 @@ func GetContainerIdFromCgroup(cgroupPath string) (string, ContainerRuntimeID) {
 
 	// cgroup dirs unrelated to containers provides empty (containerId, runtime)
 	return "", UnknownRuntime
-}
-
-func getCgroupIDForPath(path string) (ID, error) {
-	// Lower 32 bits of the cgroup id == inode number of matching cgroupfs entry
-	var stat syscall.Stat_t
-	if err := syscall.Stat(path, &stat); err != nil {
-		return 0, err
-	}
-	return stat.Ino, nil
 }
 
 func (c *Client) LoadCgroup(id ID, path string) {

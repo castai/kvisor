@@ -162,8 +162,7 @@ func buildTestTracer(options ...tracerOption) *Tracer {
 					return &containers.Container{
 						CgroupID: cg,
 						Cgroup: &cgroup.Cgroup{
-							Id:      cg,
-							Version: cgroup.V1,
+							Id: cg,
 						},
 					}, nil
 				},
