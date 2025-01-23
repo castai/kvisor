@@ -105,9 +105,15 @@ func run(ctx context.Context) error {
 	srv.processTreeEventsAsserted = true
 	srv.processTreeEvents = nil
 
-	fmt.Println("🙏waiting for netflows")
-	if err := srv.assertNetflows(ctx); err != nil {
-		return fmt.Errorf("assert netflows: %w", err)
+	fmt.Println("🙏waiting for ipv4 netflows")
+	if err := srv.assertNetflows(ctx, "echo-a-ipv4"); err != nil {
+		return fmt.Errorf("assert ipv4 netflows: %w", err)
+	}
+	srv.netflows = nil
+
+	fmt.Println("🙏waiting for ipv6 netflows")
+	if err := srv.assertNetflows(ctx, "echo-a-ipv6"); err != nil {
+		return fmt.Errorf("assert ipv6 netflows: %w", err)
 	}
 	srv.netflowsAsserted = true
 	srv.netflows = nil
@@ -1001,7 +1007,7 @@ func (t *testCASTAIServer) assertKubeLinter(ctx context.Context) error {
 	}
 }
 
-func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
+func (t *testCASTAIServer) assertNetflows(ctx context.Context, workload string) error {
 	timeout := time.After(15 * time.Second)
 	r := newAssertions()
 
@@ -1017,7 +1023,7 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 			t.mu.Unlock()
 			for _, f1 := range items {
 				for _, d1 := range f1.Destinations {
-					if d1.TxBytes == 0 || d1.RxBytes == 0 {
+					if d1.WorkloadName != workload || d1.TxBytes == 0 || d1.RxBytes == 0 {
 						continue
 					}
 					r.NotEmpty(f1.Timestamp)
@@ -1029,6 +1035,9 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context) error {
 					r.NotEmpty(f1.Destinations)
 					r.NotEmpty(d1.Addr)
 					r.NotEmpty(d1.Port)
+					r.NotEmpty(d1.WorkloadKind)
+					r.NotEmpty(d1.WorkloadName)
+					r.NotEmpty(d1.Namespace)
 					r.NotEmpty(d1.TxBytes + d1.RxBytes)
 					r.NotEmpty(d1.TxPackets + d1.RxPackets)
 					return r.error()

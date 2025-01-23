@@ -176,6 +176,12 @@ rules:
     verbs:
       - get
   - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - create
+  - apiGroups:
       - "coordination.k8s.io"
     resources:
       - leases

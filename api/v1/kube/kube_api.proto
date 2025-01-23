@@ -12,8 +12,8 @@ service KubeAPI {
 
 message GetClusterInfoRequest {}
 message GetClusterInfoResponse {
-  string pods_cidr = 1;
-  string service_cidr = 2;
+  repeated string pods_cidr = 1;
+  repeated string service_cidr = 2;
 }
 
 message GetIPInfoRequest {

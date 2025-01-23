@@ -302,13 +302,19 @@ statfunc bool fill_tuple_from_bpf_sock(struct bpf_sock *sk, tuple_t *tuple)
         case AF_INET:
             tuple->saddr.v4addr = sk->src_ip4;
             tuple->daddr.v4addr = sk->dst_ip4;
-
             break;
         case AF_INET6:
-            __builtin_memcpy(tuple->saddr.u6_addr32, sk->src_ip6, 4);
-            __builtin_memcpy(tuple->daddr.u6_addr32, sk->dst_ip6, 4);
-            break;
+            // __builtin_memcpy is not compatible with bpf_sock so we have to copy the fields
+            tuple->saddr.u6_addr32[0] = sk->src_ip6[0];
+            tuple->saddr.u6_addr32[1] = sk->src_ip6[1];
+            tuple->saddr.u6_addr32[2] = sk->src_ip6[2];
+            tuple->saddr.u6_addr32[3] = sk->src_ip6[3];
 
+            tuple->daddr.u6_addr32[0] = sk->dst_ip6[0];
+            tuple->daddr.u6_addr32[1] = sk->dst_ip6[1];
+            tuple->daddr.u6_addr32[2] = sk->dst_ip6[2];
+            tuple->daddr.u6_addr32[3] = sk->dst_ip6[3];
+            break;
         default:
             return false;
     }
@@ -367,18 +373,18 @@ statfunc bool load_ip_key(struct ip_key *key,
                 case INGRESS:
                     __builtin_memcpy(key->tuple.saddr.u6_addr32,
                                      nethdrs->iphdrs.ipv6hdr.daddr.in6_u.u6_addr32,
-                                     4);
+                                     sizeof(key->tuple.saddr.u6_addr32));
                     __builtin_memcpy(key->tuple.daddr.u6_addr32,
                                      nethdrs->iphdrs.ipv6hdr.saddr.in6_u.u6_addr32,
-                                     4);
+                                     sizeof(key->tuple.daddr.u6_addr32));
                     break;
                 case EGRESS:
                     __builtin_memcpy(key->tuple.saddr.u6_addr32,
                                      nethdrs->iphdrs.ipv6hdr.saddr.in6_u.u6_addr32,
-                                     4);
+                                     sizeof(key->tuple.saddr.u6_addr32));
                     __builtin_memcpy(key->tuple.daddr.u6_addr32,
                                      nethdrs->iphdrs.ipv6hdr.daddr.in6_u.u6_addr32,
-                                     4);
+                                     sizeof(key->tuple.daddr.u6_addr32));
                     break;
             }
             break;

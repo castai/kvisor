@@ -2,7 +2,7 @@ package kube
 
 import (
 	"context"
-	"fmt"
+	"net/netip"
 	"reflect"
 	"sync"
 	"testing"
@@ -23,37 +23,75 @@ func TestClient(t *testing.T) {
 	ctx := context.Background()
 	log := logging.NewTestLog()
 
-	t.Run("call event handlers and listeners", func(t *testing.T) {
-		r := require.New(t)
-		dep1 := newTestDeployment()
-		pod1 := newTestPod()
-		clientset := fake.NewSimpleClientset(dep1, pod1)
-		lis := &mockListener{items: map[types.UID]Object{}}
-		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-		client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
-		client.RegisterHandlers(informersFactory)
-		client.RegisterPodsHandlers(informersFactory)
-		client.RegisterKubernetesChangeListener(lis)
-		informersFactory.Start(ctx.Done())
-		informersFactory.WaitForCacheSync(ctx.Done())
+	clientset := fake.NewClientset()
+	listener := &mockListener{items: map[types.UID]Object{}}
+	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
+	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
+	client.RegisterHandlers(informersFactory)
+	client.RegisterPodsHandlers(informersFactory)
+	client.RegisterKubernetesChangeListener(listener)
+	informersFactory.Start(ctx.Done())
+	informersFactory.WaitForCacheSync(ctx.Done())
 
-		// Assert added deployment.
+	t.Run("add deployment", func(t *testing.T) {
+		r := require.New(t)
+		_, err := clientset.AppsV1().Deployments("default").Create(ctx, newTestDeployment(), metav1.CreateOptions{})
+		r.NoError(err)
+
 		r.Eventually(func() bool {
-			items := lis.getItems()
-			if len(items) == 2 {
-				return true
-			}
-			return false
+			return countObjects[*appsv1.Deployment](listener.getItems()) == 1
+		}, 2*time.Second, 10*time.Millisecond)
+	})
+
+	t.Run("add service", func(t *testing.T) {
+		r := require.New(t)
+		_, err := clientset.CoreV1().Services("default").Create(ctx, newTestService(), metav1.CreateOptions{})
+		r.NoError(err)
+
+		r.Eventually(func() bool {
+			return countObjects[*corev1.Service](listener.getItems()) == 1
 		}, 2*time.Second, 10*time.Millisecond)
 
-		r.NoError(clientset.AppsV1().Deployments(dep1.Namespace).Delete(ctx, dep1.Name, metav1.DeleteOptions{}))
+		t.Run("ipv4 added to index", func(t *testing.T) {
+			ip4 := client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")]
+			r.Equal(ip4.Service.GetName(), "s1")
+		})
 
-		// Assert deployment is deleted.
+		t.Run("ipv6 added to index", func(t *testing.T) {
+			ip6 := client.index.ipsDetails[netip.MustParseAddr("fd01::1")]
+			r.Equal(ip6.Service.GetName(), "s1")
+		})
+	})
+
+	t.Run("add pod", func(t *testing.T) {
+		r := require.New(t)
+		_, err := clientset.CoreV1().Pods("default").Create(ctx, newTestPod(), metav1.CreateOptions{})
+		r.NoError(err)
+
 		r.Eventually(func() bool {
-			items := lis.getItems()
-			if len(items) == 1 {
-				item := items[0]
-				if reflect.TypeOf(item) != reflect.TypeOf(&corev1.Pod{}) {
+			return countObjects[*corev1.Pod](listener.getItems()) == 1
+		}, 2*time.Second, 10*time.Millisecond)
+
+		t.Run("ipv4 added to index", func(t *testing.T) {
+			ip4 := client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")]
+			r.Equal(ip4.PodInfo.Pod.GetName(), "p1")
+		})
+
+		t.Run("ipv6 added to index", func(t *testing.T) {
+			ip6 := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
+			r.Equal(ip6.PodInfo.Pod.GetName(), "p1")
+		})
+	})
+
+	t.Run("delete deployment", func(t *testing.T) {
+		r := require.New(t)
+		err := clientset.AppsV1().Deployments("default").Delete(ctx, "nginx-1", metav1.DeleteOptions{})
+		r.NoError(err)
+
+		r.Eventually(func() bool {
+			items := listener.getItems()
+			if countObjects[*appsv1.Deployment](items) == 0 {
+				if countObjects[*corev1.Pod](listener.getItems()) == 0 {
 					t.Fatal("expected to keep pod after deployment delete")
 				}
 				return true
@@ -61,10 +99,46 @@ func TestClient(t *testing.T) {
 			return false
 		}, 2*time.Second, 10*time.Millisecond)
 	})
-}
 
-func aa(ob Object) {
-	fmt.Println(reflect.TypeOf(ob))
+	t.Run("delete service", func(t *testing.T) {
+		r := require.New(t)
+		err := clientset.CoreV1().Services("default").Delete(ctx, "s1", metav1.DeleteOptions{})
+		r.NoError(err)
+
+		r.Eventually(func() bool {
+			return countObjects[*corev1.Service](listener.getItems()) == 0
+		}, 2*time.Second, 10*time.Millisecond)
+
+		t.Run("ipv4 removed from index", func(t *testing.T) {
+			_, found := client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")]
+			r.False(found)
+		})
+
+		t.Run("ipv6 removed from index", func(t *testing.T) {
+			_, found := client.index.ipsDetails[netip.MustParseAddr("fd01::1")]
+			r.False(found)
+		})
+	})
+
+	t.Run("delete pod", func(t *testing.T) {
+		r := require.New(t)
+		err := clientset.CoreV1().Pods("default").Delete(ctx, "p1", metav1.DeleteOptions{})
+		r.NoError(err)
+
+		r.Eventually(func() bool {
+			return countObjects[*corev1.Pod](listener.getItems()) == 0
+		}, 2*time.Second, 10*time.Millisecond)
+
+		t.Run("ipv4 removed from index", func(t *testing.T) {
+			_, found := client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")]
+			r.False(found)
+		})
+
+		t.Run("ipv6 removed from index", func(t *testing.T) {
+			_, found := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
+			r.False(found)
+		})
+	})
 }
 
 type mockListener struct {
@@ -75,6 +149,7 @@ type mockListener struct {
 func (m *mockListener) RequiredTypes() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(&corev1.Pod{}),
+		reflect.TypeOf(&corev1.Service{}),
 		reflect.TypeOf(&appsv1.Deployment{}),
 	}
 }
@@ -109,7 +184,7 @@ func newTestDeployment() *appsv1.Deployment {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "nginx-1",
 			Namespace: "default",
-			UID:       types.UID("111b56a9-ab5e-4a35-93af-f092e2f63011"),
+			UID:       types.UID("deployment-1"),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					UID:        types.UID("owner"),
@@ -140,12 +215,48 @@ func newTestDeployment() *appsv1.Deployment {
 	}
 }
 
+func newTestService() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s1",
+			Namespace: "default",
+			UID:       types.UID("service-1"),
+		},
+		Spec: corev1.ServiceSpec{
+			Type:       corev1.ServiceTypeClusterIP,
+			ClusterIP:  "10.30.0.36",
+			ClusterIPs: []string{"10.30.0.36", "fd01::1"},
+		},
+	}
+}
+
 func newTestPod() *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "p1",
 			Namespace: "default",
-			UID:       types.UID("111b56a9-ab5e-4a35-93af-f092e2f63022"),
+			UID:       types.UID("pod-1"),
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.10.10.10",
+			PodIPs: []corev1.PodIP{
+				{
+					IP: "10.10.10.10",
+				},
+				{
+					IP: "fd00::1",
+				},
+			},
 		},
 	}
+}
+
+func countObjects[T Object](objects []Object) int {
+	count := 0
+	for _, obj := range objects {
+		if _, ok := obj.(T); ok {
+			count++
+		}
+	}
+	return count
 }

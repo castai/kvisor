@@ -58,8 +58,8 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 }
 
 func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoRequest) (*kubepb.GetClusterInfoResponse, error) {
-	info, err := s.client.GetClusterInfo()
-	if err != nil {
+	info, err := s.client.GetClusterInfo(ctx)
+	if err != nil || info == nil {
 		return nil, status.Errorf(codes.NotFound, "cluster info not found: %v", err)
 	}
 	return &kubepb.GetClusterInfoResponse{
