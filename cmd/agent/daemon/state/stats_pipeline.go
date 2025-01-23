@@ -100,7 +100,7 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 		ContainerName: cont.Name,
 		PodUid:        cont.PodUID,
 		ContainerId:   cont.ID,
-		CpuStats:      getCPUStatsDiff(nil, prevScrape.cpuStat, currScrape.cpuStat),
+		CpuStats:      getCPUStatsDiff(c.log, prevScrape.cpuStat, currScrape.cpuStat),
 		MemoryStats:   getMemoryStatsDiff(prevScrape.memStat, currScrape.memStat),
 		PidsStats:     cgStats.PidsStats,
 		IoStats:       getIOStatsDiff(prevScrape.ioStat, currScrape.ioStat),
