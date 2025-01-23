@@ -1,6 +1,7 @@
 package cgroup
 
 import (
+	"errors"
 	"os"
 	"path"
 	"strings"
@@ -9,6 +10,8 @@ import (
 )
 
 const UnifiedMountpoint = "/sys/fs/cgroup"
+
+var ErrStatsNotFound = errors.New("stats not found")
 
 type Stats struct {
 	CpuStats    *castaipb.CpuStats
@@ -34,7 +37,8 @@ func (cg *Cgroup) GetStats() (Stats, error) {
 	}
 	if err := cg.statsGetterFunc(&res); err != nil {
 		if os.IsNotExist(err) {
-			return res, nil
+			// Most likely container was deleted.
+			return res, ErrStatsNotFound
 		}
 		return res, err
 	}
