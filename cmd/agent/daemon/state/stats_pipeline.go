@@ -8,6 +8,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/logging"
 )
 
 type containerStatsScrapePoint struct {
@@ -99,7 +100,7 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 		ContainerName: cont.Name,
 		PodUid:        cont.PodUID,
 		ContainerId:   cont.ID,
-		CpuStats:      getCPUStatsDiff(prevScrape.cpuStat, currScrape.cpuStat),
+		CpuStats:      getCPUStatsDiff(nil, prevScrape.cpuStat, currScrape.cpuStat),
 		MemoryStats:   getMemoryStatsDiff(prevScrape.memStat, currScrape.memStat),
 		PidsStats:     cgStats.PidsStats,
 		IoStats:       getIOStatsDiff(prevScrape.ioStat, currScrape.ioStat),
@@ -164,7 +165,7 @@ func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
 		batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Node{
 			Node: &castaipb.NodeStats{
 				NodeName:    c.nodeName,
-				CpuStats:    getCPUStatsDiff(c.nodeScrapePoint.cpuStat, currScrape.cpuStat),
+				CpuStats:    getCPUStatsDiff(c.log, c.nodeScrapePoint.cpuStat, currScrape.cpuStat),
 				MemoryStats: getMemoryStatsDiff(c.nodeScrapePoint.memStat, currScrape.memStat),
 				IoStats:     getIOStatsDiff(c.nodeScrapePoint.ioStat, currScrape.ioStat),
 			},
@@ -184,7 +185,10 @@ func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
 	}
 }
 
-func getCPUStatsDiff(prev, curr *castaipb.CpuStats) *castaipb.CpuStats {
+func getCPUStatsDiff(log *logging.Logger, prev, curr *castaipb.CpuStats) *castaipb.CpuStats {
+	if curr.TotalUsage < prev.TotalUsage {
+		log.Warnf("CPU usage %v is less than previous CPU usage %v", curr.TotalUsage, prev.TotalUsage)
+	}
 	return &castaipb.CpuStats{
 		TotalUsage:        curr.TotalUsage - prev.TotalUsage,
 		UsageInKernelmode: curr.UsageInKernelmode - prev.UsageInKernelmode,
