@@ -279,51 +279,51 @@
       "source": "devbox-search",
       "version": "14.0.6"
     },
-    "protobuf@3.19.4": {
-      "last_modified": "2022-09-12T23:24:01Z",
-      "resolved": "github:NixOS/nixpkgs/994df04c3c700fe9edb1b69b82ba3c627e5e04ff#protobuf",
+    "protobuf@3.24.3": {
+      "last_modified": "2023-10-25T20:49:13Z",
+      "resolved": "github:NixOS/nixpkgs/75a52265bda7fd25e06e3a67dee3f0354e73243c#protobuf",
       "source": "devbox-search",
-      "version": "3.19.4",
+      "version": "3.24.3",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/8qz89rx2ddxj010k9ags3a89gklr16q9-protobuf-3.19.4",
+              "path": "/nix/store/1fz6n69fsz72j31w07ah66hyap156zdn-protobuf-3.24.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/8qz89rx2ddxj010k9ags3a89gklr16q9-protobuf-3.19.4"
+          "store_path": "/nix/store/1fz6n69fsz72j31w07ah66hyap156zdn-protobuf-3.24.3"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/85xydl0pfg7687c8fphfd6ajnyv7zq04-protobuf-3.19.4",
+              "path": "/nix/store/5jjzvdcdrsnz9rbijz0l54nvqq0qac4b-protobuf-3.24.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/85xydl0pfg7687c8fphfd6ajnyv7zq04-protobuf-3.19.4"
+          "store_path": "/nix/store/5jjzvdcdrsnz9rbijz0l54nvqq0qac4b-protobuf-3.24.3"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/yigfkxpy8i217bhpqayg347lbr3758nn-protobuf-3.19.4",
+              "path": "/nix/store/a8sg09rq2k1c7hm2586bq6xcg8bn2s0c-protobuf-3.24.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/yigfkxpy8i217bhpqayg347lbr3758nn-protobuf-3.19.4"
+          "store_path": "/nix/store/a8sg09rq2k1c7hm2586bq6xcg8bn2s0c-protobuf-3.24.3"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/6mwh06skrxpwkrmpilzv5wm2bx5n1s5d-protobuf-3.19.4",
+              "path": "/nix/store/5prkzfpsimriksa691j4ip7w90gn4ca7-protobuf-3.24.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/6mwh06skrxpwkrmpilzv5wm2bx5n1s5d-protobuf-3.19.4"
+          "store_path": "/nix/store/5prkzfpsimriksa691j4ip7w90gn4ca7-protobuf-3.24.3"
         }
       }
     },
