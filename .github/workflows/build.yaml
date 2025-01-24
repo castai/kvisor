@@ -86,7 +86,7 @@ jobs:
 
       - name: Docker build and push pr (controller)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6
         with:
           context: .
           file: ./Dockerfile.controller
@@ -96,7 +96,7 @@ jobs:
 
       - name: Docker build and push pr (agent)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6
         with:
           context: .
           file: ./Dockerfile.agent
@@ -106,7 +106,7 @@ jobs:
 
       - name: Docker build and push pr (scanners)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6
         with:
           context: .
           file: ./Dockerfile.scanners
@@ -116,7 +116,7 @@ jobs:
 
       - name: Docker build and push main (controller)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6
         with:
           context: .
           file: ./Dockerfile.controller
@@ -126,7 +126,7 @@ jobs:
 
       - name: Docker build and push main (agent)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6
         with:
           context: .
           file: ./Dockerfile.agent
@@ -136,7 +136,7 @@ jobs:
 
       - name: Docker build and push main (scanners)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6
         with:
           context: .
           file: ./Dockerfile.scanners
