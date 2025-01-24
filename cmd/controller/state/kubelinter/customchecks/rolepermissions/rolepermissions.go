@@ -49,11 +49,10 @@ func init() {
 					if !ok {
 						return nil
 					}
-
 					policyRules = cr.Rules
+				} else {
+					policyRules = rb.Rules
 				}
-				policyRules = rb.Rules
-
 				for _, rule := range policyRules {
 					for _, verb := range rule.Verbs {
 						if slices.Contains(privescVerbs, verb) {

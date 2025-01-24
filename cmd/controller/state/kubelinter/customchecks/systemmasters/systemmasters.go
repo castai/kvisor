@@ -36,8 +36,9 @@ func init() {
 					}
 
 					subjects = crb.Subjects
+				} else {
+					subjects = rb.Subjects
 				}
-				subjects = rb.Subjects
 
 				for _, subject := range subjects {
 					if subject.Kind == "Group" && subject.Name == "system:masters" {
