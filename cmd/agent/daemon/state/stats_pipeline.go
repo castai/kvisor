@@ -2,11 +2,13 @@ package state
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
+	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 )
 
@@ -63,6 +65,9 @@ func (c *Controller) scrapeContainersResourceStats(batch *castaipb.StatsBatch) {
 func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, batch *castaipb.StatsBatch) {
 	cgStats, err := c.containersClient.GetCgroupStats(cont)
 	if err != nil {
+		if errors.Is(err, cgroup.ErrStatsNotFound) {
+			return
+		}
 		if c.log.IsEnabled(slog.LevelDebug) {
 			c.log.Errorf("getting cgroup stats for container %q: %v", cont.Name, err)
 		}
