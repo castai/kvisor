@@ -73,6 +73,7 @@ enum SignatureEventID {
   SIGNATURE_STDIO_VIA_SOCKET = 1;
   SIGNATURE_TTY_DETECTED = 2;
   SIGNATURE_SOCKS5_DETECTED = 3;
+  SIGNATURE_GIT_CLONE_DETECTED = 4;
 }
 
 message SignatureMetadata {
@@ -85,6 +86,7 @@ message SignatureFinding {
     StdioViaSocketFinding stdio_via_socket = 1;
     TtyDetectedFinding tty_detected = 2;
     SOCKS5DetectedFinding socks5_detected = 3;
+    GitCloneDetectedFinding git_clone_detected = 4;
   }
 }
 
@@ -125,6 +127,24 @@ message SSHData {
   string version = 2;
   string comments = 3;
   Tuple tuple = 4;
+}
+
+enum GitCloneRemoteType {
+  GIT_REMOTE_UNKNOWN = 0;
+  GIT_REMOTE_SSH = 1;
+  GIT_REMOTE_GIT = 2;
+  GIT_REMOTE_HTTP = 3;
+  GIT_REMOTE_HTTPS = 4;
+  GIT_REMOTE_FTP = 5;
+  GIT_REMOTE_FTPS = 6;
+  GIT_REMOTE_LOCAL = 7;
+}
+
+message GitCloneDetectedFinding {
+  GitCloneRemoteType type = 1;
+  string full_repo = 2;
+  string server = 3;
+  string repo_path = 4;
 }
 
 enum NetflowProtocol {
