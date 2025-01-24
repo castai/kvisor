@@ -363,11 +363,14 @@ func discoverIPv6ServiceCidr(ctx context.Context, client kubernetes.Interface, n
 	return discoverServiceCidr(ctx, client, "::", namespace)
 }
 
+// discoverServiceCidr returns the service CIDR by creating a service with an invalid IP and parsing the
+// error message returned by the Kubernetes API. This is required because Kubernetes does not implement an API endpoint
+// to retrieve the service CIDR.
+//
+// This is based on https://github.com/submariner-io/submariner-operator/blob/76120c810452c3488e6d56951bb176b35a29d795/pkg/discovery/network/generic.go#L106
 func discoverServiceCidr(ctx context.Context, client kubernetes.Interface, ip, namespace string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	// Try to create a service with invalid IP to get the valid CIDR from the Kubernetes API error message:
-	// The range of valid IPs is 10.45.0.0/16
 	discoveryService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cidr-discovery-svc",
@@ -382,6 +385,7 @@ func discoverServiceCidr(ctx context.Context, client kubernetes.Interface, ip, n
 		return nil, fmt.Errorf("discovery service should not be created")
 	}
 
+	// The error message contains the service CIDR in the format "The range of valid IPs is 10.45.0.0/16"
 	re := regexp.MustCompile(".*valid IPs is (.*)$")
 	match := re.FindStringSubmatch(err.Error())
 	if len(match) == 0 {

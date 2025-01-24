@@ -55,13 +55,14 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	c.log.Info("running netflow pipeline")
 	defer c.log.Info("netflow pipeline done")
 
-	var err error
-	c.clusterInfo, err = c.getClusterInfo(ctx)
+	kubeCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	clusterInfo, err := c.getClusterInfo(kubeCtx)
 	if err != nil {
 		c.log.Errorf("getting cluster info: %v", err)
-	} else {
-		c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", c.clusterInfo.podCidr, c.clusterInfo.serviceCidr)
 	}
+	c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
+	c.clusterInfo = clusterInfo
 
 	ticker := time.NewTicker(c.cfg.NetflowExportInterval)
 	defer func() {

@@ -175,6 +175,7 @@ rules:
       - pods/log
     verbs:
       - get
+  # Controller requires permissions to create services for CIDR discovery
   - apiGroups:
       - ""
     resources:
