@@ -546,7 +546,7 @@ func splitCleanupRequests(now time.Time, requests []cgroupCleanupRequest) ([]cgr
 
 func (t *Tracer) queueCgroupForRemoval(cgroupID cgroup.ID) {
 	t.cgroupCleanupMu.Lock()
-	t.requestedCgroupCleanups = append(t.requestedCgroupCleanups, cgroupCleanupRequest{ // TODO:
+	t.requestedCgroupCleanups = append(t.requestedCgroupCleanups, cgroupCleanupRequest{
 		cgroupID:     cgroupID,
 		cleanupAfter: time.Now().Add(t.cgroupCleanupDelay),
 	})
