@@ -58,7 +58,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	default:
 	}
 
-	container, err := t.cfg.ContainerClient.GetContainerForCgroup(ctx, eventCtx.CgroupID)
+	container, err := t.cfg.ContainerClient.GetOrLoadContainerByCgroupID(ctx, eventCtx.CgroupID)
 	if err != nil {
 		// We ignore any event not belonging to a container for now.
 		if errors.Is(err, containers.ErrContainerNotFound) {

@@ -131,7 +131,7 @@ func (c *MockContainerClient) AddContainerByCgroupID(ctx context.Context, cgroup
 	return nil, nil
 }
 
-func (c *MockContainerClient) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*containers.Container, error) {
+func (c *MockContainerClient) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error) {
 	if c.ContainerGetter == nil {
 		return nil, nil
 	}

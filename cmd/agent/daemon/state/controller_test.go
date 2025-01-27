@@ -296,7 +296,7 @@ func (m *mockContainersClient) ListContainers() []*containers.Container {
 	return m.list
 }
 
-func (m *mockContainersClient) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*containers.Container, error) {
+func (m *mockContainersClient) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error) {
 	for _, v := range m.list {
 		if v.CgroupID == cgroup {
 			return v, nil

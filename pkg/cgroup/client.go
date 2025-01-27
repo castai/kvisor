@@ -129,7 +129,7 @@ func (c *Client) lookupCgroupForIDInCache(id ID) (*Cgroup, bool) {
 	return nil, false
 }
 
-func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
+func (c *Client) GetCgroupByID(cgroupID ID) (*Cgroup, error) {
 	if cg, found := c.lookupCgroupForIDInCache(cgroupID); found {
 		return cg, nil
 	}
@@ -144,6 +144,21 @@ func (c *Client) GetCgroupForID(cgroupID ID) (*Cgroup, error) {
 
 	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
 
+	c.cacheCgroup(cgroup)
+
+	return cgroup, nil
+}
+
+func (c *Client) GetCgroupByContainerID(containerID string) (*Cgroup, error) {
+	cgroupPath, cgroupID := c.findCgroupPathForContainerID(containerID)
+	if cgroupPath == "" {
+		return nil, ErrCgroupNotFound
+	}
+	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
+	if cgroup.ContainerID == "" {
+		return nil, ErrCgroupNotFound
+	}
+	cgroup.ContainerID = containerID
 	c.cacheCgroup(cgroup)
 
 	return cgroup, nil
@@ -204,6 +219,31 @@ func (c *Client) findCgroupPathForID(cgroupId ID) (string, ID) {
 		return "", 0
 	}
 
+	return retPath, cgroupID
+}
+
+func (c *Client) findCgroupPathForContainerID(containerID string) (string, ID) {
+	found := errors.New("found")
+	retPath := ""
+	rootDir := c.getCgroupSearchBasePath()
+	var cgroupID ID
+	_ = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
+		// nolint:nilerr
+		if err != nil || !info.IsDir() {
+			return nil
+		}
+		base := filepath.Base(path)
+		if strings.Contains(base, containerID) {
+			stat, ok := info.Sys().(*syscall.Stat_t)
+			if !ok {
+				return errors.New("unexpected stat")
+			}
+			retPath = path
+			cgroupID = stat.Ino
+			return found
+		}
+		return nil
+	})
 	return retPath, cgroupID
 }
 

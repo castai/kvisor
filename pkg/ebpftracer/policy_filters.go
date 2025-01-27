@@ -2,7 +2,6 @@ package ebpftracer
 
 import (
 	"errors"
-	"log/slog"
 	"net/netip"
 	"time"
 
@@ -154,9 +153,6 @@ func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Du
 			// Cache dns by dns question. Cached records are dropped.
 			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
 			if cache.Contains(cacheKey) {
-				if log.IsEnabled(slog.LevelDebug) {
-					log.WithField("cachekey", string(dns.Questions[0].Name)).Debug("dropping DNS event")
-				}
 				return nil, FilterErrDNSDuplicateDetected
 			}
 			cache.Add(cacheKey, cacheValue{})

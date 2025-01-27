@@ -84,6 +84,7 @@ type Config struct {
 	CRIEndpoint                    string                          `json:"criEndpoint"`
 	EventLabels                    []string                        `json:"eventLabels"`
 	EventAnnotations               []string                        `json:"eventAnnotations"`
+	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
 }
 
 type EnricherConfig struct {
@@ -120,6 +121,8 @@ type App struct {
 }
 
 func (a *App) Run(ctx context.Context) error {
+	start := time.Now()
+
 	cfg := a.cfg
 	logCfg := &logging.Config{
 		Level:     logging.MustParseLevel(a.cfg.LogLevel),
@@ -228,10 +231,6 @@ func (a *App) Run(ctx context.Context) error {
 		return errors.New("no configured exporters")
 	}
 
-	kernelVersion, _ := kernel.CurrentKernelVersion()
-	log.Infof("running kvisor agent, version=%s, kernel_version=%s", a.cfg.Version, kernelVersion)
-	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
-
 	if addr := a.cfg.PyroscopeAddr; addr != "" {
 		withPyroscope(podName, addr)
 	}
@@ -257,7 +256,11 @@ func (a *App) Run(ctx context.Context) error {
 
 	var processTreeCollector processtree.ProcessTreeCollector
 	if cfg.ProcessTree.Enabled {
-		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containersClient)
+		containerProcesses, err := containersClient.LoadContainerTasks(ctx)
+		if err != nil {
+			return err
+		}
+		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containerProcesses)
 		if err != nil {
 			return fmt.Errorf("initialize process tree: %w", err)
 		}
@@ -383,11 +386,51 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
+	// Load initial containers only after ebpf tracer startup. Tracer always listens
+	// to cgroup rmdir event. This reduces the chance of missing container removal events
+	// and leaving dangling cached containers in containers client.
+	// TODO: This sleep can be improved and instead check if at least one event is received from the kernel.
+	// But worst case if only cgroup events are tracked we still need some sleep.
+	sleep(ctx, 3*time.Second)
+	if err := containersClient.LoadContainers(ctx); err != nil {
+		return fmt.Errorf("load containers: %w", err)
+	}
+	go containersRefreshLoop(ctx, cfg.ContainersRefreshInterval, log, containersClient)
+
+	kernelVersion, _ := kernel.CurrentKernelVersion()
+	log.Infof("running kvisor agent, version=%s, kernel_version=%s, init_duration=%v", a.cfg.Version, kernelVersion, time.Since(start))
+	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
+
 	select {
 	case err := <-tracererr:
 		return err
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
+	}
+}
+
+func containersRefreshLoop(ctx context.Context, interval time.Duration, log *logging.Logger, client *containers.Client) {
+	if interval == 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			func() {
+				start := time.Now()
+				if err := client.LoadContainers(ctx); err != nil {
+					log.Warnf("refreshing containers, duration=%v: %v", err, time.Since(start))
+				} else {
+					log.Infof("refreshed containers, duration=%v", time.Since(start))
+				}
+			}()
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -466,8 +509,8 @@ Currently we care only care about dns responses with valid answers.
 	return policy
 }
 
-func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containersClient *containers.Client) (*processtree.ProcessTreeCollectorImpl, error) {
-	processTreeCollector, err := processtree.New(log, procHandler, containersClient)
+func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containerProcesses []containers.ContainerProcess) (*processtree.ProcessTreeCollectorImpl, error) {
+	processTreeCollector, err := processtree.New(log, procHandler, containerProcesses)
 	if err != nil {
 		return nil, err
 	}
@@ -600,5 +643,17 @@ func withPyroscope(podName, addr string) {
 		},
 	}); err != nil {
 		panic(err)
+	}
+}
+
+func sleep(ctx context.Context, duration time.Duration) {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-timer.C:
+		return
 	}
 }

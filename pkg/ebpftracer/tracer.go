@@ -37,7 +37,7 @@ type ActualDestinationGetter interface {
 }
 
 type ContainerClient interface {
-	GetContainerForCgroup(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
+	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
 	AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error)
 	CleanupCgroup(cgroup cgroup.ID)
 }
@@ -546,7 +546,7 @@ func splitCleanupRequests(now time.Time, requests []cgroupCleanupRequest) ([]cgr
 
 func (t *Tracer) queueCgroupForRemoval(cgroupID cgroup.ID) {
 	t.cgroupCleanupMu.Lock()
-	t.requestedCgroupCleanups = append(t.requestedCgroupCleanups, cgroupCleanupRequest{
+	t.requestedCgroupCleanups = append(t.requestedCgroupCleanups, cgroupCleanupRequest{ // TODO:
 		cgroupID:     cgroupID,
 		cleanupAfter: time.Now().Add(t.cgroupCleanupDelay),
 	})
