@@ -23,18 +23,14 @@ func TestInitProcessTree(t *testing.T) {
 		containerID2 := "container-2"
 
 		tree, err := New(logging.New(&logging.Config{}), proc.NewFromFS(fs.(proc.ProcFS)),
-			&dummyContainerClient{
-				loadContainerTaskFn: func(ctx context.Context) ([]containers.ContainerProcess, error) {
-					return []containers.ContainerProcess{
-						{
-							ContainerID: containerID1,
-							PID:         99,
-						},
-						{
-							ContainerID: containerID2,
-							PID:         100,
-						},
-					}, nil
+			[]containers.ContainerProcess{
+				{
+					ContainerID: containerID1,
+					PID:         99,
+				},
+				{
+					ContainerID: containerID2,
+					PID:         100,
 				},
 			})
 		r.NoError(err)
@@ -160,5 +156,3 @@ func (d *dummyContainerClient) LoadContainerTasks(ctx context.Context) ([]contai
 
 	return d.loadContainerTaskFn(ctx)
 }
-
-var _ containerClient = (*dummyContainerClient)(nil)
