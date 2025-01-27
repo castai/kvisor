@@ -16,8 +16,13 @@ castai:
   # CASTAI grpc public api address.
   grpcAddr: "kvisor.prod-master.cast.ai:443"
 
-  # CASTAI Cluster unique identifier.
+  # clusterID and clusterIdSecretKeyRef are mutually exclusive
   clusterID: ""
+  # clusterIdSecretKeyRef -- Name and Key of secret with ClusterID
+  # The referenced secret must provide the ClusterID in .data[<<.Values.castai.clusterIdSecretKeyRef.key>>]
+  clusterIdSecretKeyRef:
+    name: ""
+    key: "CLUSTER_ID"
 
 imagePullSecrets: []
 nameOverride: ""
