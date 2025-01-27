@@ -61,8 +61,10 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	if err != nil {
 		c.log.Errorf("getting cluster info: %v", err)
 	}
-	c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
 	c.clusterInfo = clusterInfo
+	if clusterInfo != nil {
+		c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
+	}
 
 	ticker := time.NewTicker(c.cfg.NetflowExportInterval)
 	defer func() {
