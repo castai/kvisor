@@ -21,6 +21,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+type testAddr struct {
+	expected string
+	raw      [16]byte
+}
+
 func TestController(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -94,65 +99,20 @@ func TestController(t *testing.T) {
 
 	t.Run("netflow pipeline", func(t *testing.T) {
 		r := require.New(t)
-		ctrl := newTestController(
-			customizeMockTracer(func(t *mockEbpfTracer) {
-				t.netflowCollectChan <- map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary{
-					// I know this looks ugly, but there is no nice way to generate the type info for
-					// those nested types with bpf2go (in theory we could create temp globals but I
-					// would rather not).
-					ebpftracer.TrafficKey{
-						ProcessIdentity: struct {
-							Pid          uint32
-							PidStartTime uint64
-							CgroupId     uint64
-							Comm         [16]uint8
-						}{
-							Pid:          1,
-							PidStartTime: 0,
-							CgroupId:     100,
-							Comm:         [16]uint8{},
-						},
-						Tuple: struct {
-							Saddr  struct{ Raw [16]uint8 }
-							Daddr  struct{ Raw [16]uint8 }
-							Sport  uint16
-							Dport  uint16
-							Family uint16
-						}{
-							Saddr: struct{ Raw [16]uint8 }{
-								// 10.10.0.10
-								Raw: [16]byte{0xa, 0xa, 0, 0xa},
-							},
-							Daddr: struct{ Raw [16]uint8 }{
-								// 10.10.0.15
-								Raw: [16]byte{0xa, 0xa, 0, 0xf},
-							},
-							Sport:  34561,
-							Dport:  80,
-							Family: unix.AF_INET,
-						},
-						Proto: unix.IPPROTO_TCP,
-					}: {
-						TxBytes:   10,
-						TxPackets: 5,
-					},
-				}
-			}),
-			customizeMockContainersClient(func(t *mockContainersClient) {
-				t.list = append(t.list, &containers.Container{
-					ID:           "abcd",
-					Name:         "container 1",
-					CgroupID:     100,
-					PodNamespace: "default",
-					PodUID:       "abcd",
-					PodName:      "test-pod",
-					Cgroup: &cgroup.Cgroup{
-						Id: 100,
-					},
-					PIDs: []uint32{1},
-				})
-			}),
-		)
+		ctrl := newTestController(customizeMockContainersClient(func(t *mockContainersClient) {
+			t.list = append(t.list, &containers.Container{
+				ID:           "abcd",
+				Name:         "container-1",
+				CgroupID:     100,
+				PodNamespace: "default",
+				PodUID:       "abcd",
+				PodName:      "test-pod",
+				Cgroup: &cgroup.Cgroup{
+					Id: 100,
+				},
+				PIDs: []uint32{1},
+			})
+		}))
 		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
 		ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
 
@@ -161,23 +121,95 @@ func TestController(t *testing.T) {
 			ctrlerr <- ctrl.Run(ctx)
 		}()
 
-		select {
-		case e := <-exporter.events:
-			r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
-			r.Equal(netip.MustParseAddr("10.10.0.10").AsSlice(), e.Addr)
-			r.Equal(34561, int(e.Port))
-			r.Len(e.Destinations, 1)
-			dest := e.Destinations[0]
-			r.Equal(netip.MustParseAddr("10.10.0.15").AsSlice(), dest.Addr)
-			r.Equal(80, int(dest.Port))
-			r.GreaterOrEqual(int(dest.TxBytes), 10)
-			r.GreaterOrEqual(int(dest.TxPackets), 5)
-		case err := <-ctrlerr:
-			t.Fatal(err)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for data")
+		tc := []struct {
+			name         string
+			family       uint16
+			saddr, daddr testAddr
+		}{
+			{
+				name:   "ipv4",
+				family: uint16(types.AF_INET),
+				saddr: testAddr{
+					"10.0.0.10",
+					[16]byte{0xa, 0, 0, 0xa},
+				},
+				daddr: testAddr{
+					"172.168.0.10",
+					[16]byte{0xac, 0xa8, 0, 0xa},
+				},
+			},
+			{
+				name:   "ipv6",
+				family: uint16(types.AF_INET6),
+				saddr: testAddr{
+					"fd00::1",
+					[16]byte{0xfd, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1},
+				},
+				daddr: testAddr{
+					"fd01::1",
+					[16]byte{0xfd, 0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1},
+				},
+			},
+		}
+
+		for _, tt := range tc {
+			t.Run(tt.name, func(t *testing.T) {
+				ctrl.tracer.(*mockEbpfTracer).sendNetflowTestEvent(tt.saddr.raw, tt.daddr.raw, tt.family)
+				select {
+				case e := <-exporter.events:
+					r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
+					r.Equal(netip.MustParseAddr(tt.saddr.expected).AsSlice(), e.Addr)
+					r.Equal(34561, int(e.Port))
+					r.Len(e.Destinations, 1)
+					dest := e.Destinations[0]
+					r.Equal(netip.MustParseAddr(tt.daddr.expected).AsSlice(), dest.Addr)
+					r.Equal(80, int(dest.Port))
+					r.Equal("test-pod", dest.PodName)
+					r.Equal("default", dest.Namespace)
+					r.Equal("node1", dest.NodeName)
+					r.GreaterOrEqual(int(dest.TxBytes), 10)
+					r.GreaterOrEqual(int(dest.TxPackets), 5)
+				case err := <-ctrlerr:
+					t.Fatal(err)
+				case <-time.After(time.Second):
+					t.Fatal("timed out waiting for data")
+				}
+			})
 		}
 	})
+}
+
+func (m *mockEbpfTracer) sendNetflowTestEvent(saddr, daddr [16]byte, family uint16) {
+	m.netflowCollectChan <- map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary{{
+		ProcessIdentity: struct {
+			Pid          uint32
+			PidStartTime uint64
+			CgroupId     uint64
+			Comm         [16]uint8
+		}{
+			Pid:          1,
+			PidStartTime: 0,
+			CgroupId:     100,
+			Comm:         [16]uint8{},
+		},
+		Tuple: struct {
+			Saddr  struct{ Raw [16]uint8 }
+			Daddr  struct{ Raw [16]uint8 }
+			Sport  uint16
+			Dport  uint16
+			Family uint16
+		}{
+			Saddr:  struct{ Raw [16]uint8 }{Raw: saddr},
+			Daddr:  struct{ Raw [16]uint8 }{Raw: daddr},
+			Sport:  34561,
+			Dport:  80,
+			Family: family,
+		},
+		Proto: unix.IPPROTO_TCP,
+	}: {
+		TxBytes:   10,
+		TxPackets: 5,
+	}}
 }
 
 type customizeMockTracer func(t *mockEbpfTracer)
@@ -199,7 +231,6 @@ func newTestController(opts ...any) *Controller {
 
 	tracer := &mockEbpfTracer{
 		eventsChan:         make(chan *types.Event, 100),
-		netflowEventsChan:  make(chan *types.Event, 100),
 		netflowCollectChan: make(chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, 100),
 	}
 	tracerCustomizer := getOptOr[customizeMockTracer](opts, func(t *mockEbpfTracer) {})
@@ -238,18 +269,6 @@ func (m *mockEventsExporter) Run(ctx context.Context) error {
 }
 
 func (m *mockEventsExporter) Enqueue(e *castaipb.Event) {
-	m.events <- e
-}
-
-type mockContainerStatsExporter struct {
-	events chan *castaipb.StatsBatch
-}
-
-func (m *mockContainerStatsExporter) Run(ctx context.Context) error {
-	return nil
-}
-
-func (m *mockContainerStatsExporter) Enqueue(e *castaipb.StatsBatch) {
 	m.events <- e
 }
 
@@ -329,7 +348,6 @@ var _ ebpfTracer = (*mockEbpfTracer)(nil)
 
 type mockEbpfTracer struct {
 	eventsChan         chan *types.Event
-	netflowEventsChan  chan *types.Event
 	syscallStats       map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
 	netflowCollectChan chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary
 }
@@ -356,10 +374,6 @@ func (m *mockEbpfTracer) ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgrou
 
 func (m *mockEbpfTracer) Events() <-chan *types.Event {
 	return m.eventsChan
-}
-
-func (m *mockEbpfTracer) NetflowEvents() <-chan *types.Event {
-	return m.netflowEventsChan
 }
 
 func (m *mockEbpfTracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
@@ -407,14 +421,23 @@ type mockKubeClient struct {
 
 func (m *mockKubeClient) GetClusterInfo(ctx context.Context, in *kubepb.GetClusterInfoRequest, opts ...grpc.CallOption) (*kubepb.GetClusterInfoResponse, error) {
 	return &kubepb.GetClusterInfoResponse{
-		PodsCidr:    "10.0.0.0/16",
-		ServiceCidr: "172.168.0.0/16",
+		PodsCidr:    []string{"10.0.0.0/16", "fd00::/48"},
+		ServiceCidr: []string{"172.168.0.0/16", "fd01::/48"},
 	}, nil
 }
 
 func (m *mockKubeClient) GetIPInfo(ctx context.Context, in *kubepb.GetIPInfoRequest, opts ...grpc.CallOption) (*kubepb.GetIPInfoResponse, error) {
 	return &kubepb.GetIPInfoResponse{
-		Info: &kubepb.IPInfo{},
+		Info: &kubepb.IPInfo{
+			PodUid:       "abcd",
+			PodName:      "test-pod",
+			Namespace:    "default",
+			WorkloadName: "test-pod",
+			WorkloadKind: "Deployment",
+			WorkloadUid:  "abcd",
+			Zone:         "us-east-1a",
+			NodeName:     "node1",
+		},
 	}, nil
 }
 

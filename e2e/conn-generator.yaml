@@ -1,22 +1,47 @@
+---
+apiVersion: v1
+kind: Service
 metadata:
-  name: echo-a
+  name: echo-a-ipv4
   labels:
     name: echo-a
 spec:
+  type: ClusterIP
+  ipFamilies:
+    - IPv4
+  selector:
+    name: echo-a
   ports:
     - name: http
       port: 8080
-  type: ClusterIP
-  selector:
-    name: echo-a
+---
 apiVersion: v1
 kind: Service
+metadata:
+  name: echo-a-ipv6
+  labels:
+    name: echo-a
+spec:
+  type: ClusterIP
+  ipFamilies:
+    - IPv6
+  selector:
+    name: echo-a
+  ports:
+    - name: http
+      port: 8080
 ---
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: echo-a
   labels:
     name: echo-a
 spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: echo-a
   template:
     metadata:
       annotations:
@@ -59,18 +84,15 @@ spec:
                 - -o
                 - /dev/null
                 - localhost:8080
-  selector:
-    matchLabels:
-      name: echo-a
-  replicas: 2
+--- 
 apiVersion: apps/v1
 kind: Deployment
----
 metadata:
   name: pod-to-a
   labels:
     name: pod-to-a
 spec:
+  replicas: 3
   template:
     metadata:
       labels:
@@ -86,7 +108,12 @@ spec:
           command:
             - /bin/ash
             - -c
-            - while true; do curl echo-a:8080/public; sleep 3; done
+            - |
+              while true; do
+                curl echo-a-ipv4:8080/public
+                curl echo-a-ipv6:8080/public
+                sleep 3
+              done
           readinessProbe:
             timeoutSeconds: 7
             exec:
@@ -98,7 +125,7 @@ spec:
                 - "5"
                 - -o
                 - /dev/null
-                - echo-a:8080/public
+                - echo-a-ipv4:8080/public
           livenessProbe:
             timeoutSeconds: 7
             exec:
@@ -110,10 +137,7 @@ spec:
                 - "5"
                 - -o
                 - /dev/null
-                - echo-a:8080/public
+                - echo-a-ipv6:8080/public
   selector:
     matchLabels:
       name: pod-to-a
-  replicas: 3
-apiVersion: apps/v1
-kind: Deployment

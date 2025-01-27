@@ -31,6 +31,18 @@ You can run tests on your local kind cluster.
 KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh
 ```
 
+You will need IPv6 to be enabled on the host. Most operating systems / distros have IPv6 enabled by default, but you can check on Linux with the following command:
+
+```sh
+sudo sysctl net.ipv6.conf.all.disable_ipv6
+```
+
+You should see:
+
+```sh
+net.ipv6.conf.all.disable_ipv6 = 0
+```
+
 ## Colima
 Colima is a wrapper around Lima for macos and can be used as docker desktop for mac replacement.
 

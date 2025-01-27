@@ -7,12 +7,14 @@ import (
 	"net/netip"
 	"os"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/castai/kvisor/pkg/logging"
+
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -258,11 +260,11 @@ func (c *Client) GetOwnerUID(obj Object) string {
 }
 
 type ClusterInfo struct {
-	PodCidr     string
-	ServiceCidr string
+	PodCidr     []string
+	ServiceCidr []string
 }
 
-func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
+func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.clusterInfo != nil {
@@ -272,57 +274,148 @@ func (c *Client) GetClusterInfo() (*ClusterInfo, error) {
 	var res ClusterInfo
 	// Try to find pods cidr from nodes.
 	for _, node := range c.index.nodesByName {
-		if node.Spec.PodCIDR != "" {
-			subnet, err := netip.ParsePrefix(node.Spec.PodCIDR)
-			if err != nil {
-				return nil, fmt.Errorf("parse node pod cidr: %w", err)
-			}
-			res.PodCidr = netip.PrefixFrom(subnet.Addr(), 16).String()
+		res.PodCidr = getPodCidrFromNodeSpec(node)
+		if len(res.PodCidr) > 0 {
 			break
 		}
 	}
 
-	for _, info := range c.index.ipsDetails {
-		// Find service cidr from clusterIP services.
-		if svc := info.Service; svc != nil && svc.Spec.Type == corev1.ServiceTypeClusterIP {
-			if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != corev1.ClusterIPNone {
-				addr, err := netip.ParseAddr(svc.Spec.ClusterIP)
+	// Find pod cidr from pod if not found from nodes
+	if len(res.PodCidr) == 0 {
+		for _, info := range c.index.ipsDetails {
+			if pod := info.PodInfo; pod != nil && pod.Pod != nil {
+				podCidr, err := getPodCidrFromPodSpec(pod.Pod)
 				if err != nil {
-					return nil, fmt.Errorf("parse service cluster ip: %w", err)
+					return nil, err
 				}
-				cidr, err := addr.Prefix(16)
-				if err != nil {
-					return nil, fmt.Errorf("get cluster ip prefix: %w", err)
-				}
-				res.ServiceCidr = cidr.String()
-				if res.PodCidr != "" {
-					break
-				}
-			}
-		}
-		// Find pod cidr from pod if not found from nodes.
-		if res.PodCidr == "" {
-			if pod := info.PodInfo; pod != nil && pod.Pod != nil && pod.Pod.Status.PodIP != "" {
-				addr, err := netip.ParseAddr(pod.Pod.Status.PodIP)
-				if err != nil {
-					return nil, fmt.Errorf("parse pod addr: %w", err)
-				}
-				cidr, err := addr.Prefix(16)
-				if err != nil {
-					return nil, fmt.Errorf("get pod ip prefix: %w", err)
-				}
-				res.PodCidr = cidr.String()
-				if res.ServiceCidr != "" {
+				if len(res.PodCidr) > 0 {
+					res.PodCidr = podCidr
 					break
 				}
 			}
 		}
 	}
-	if res.PodCidr == "" && res.ServiceCidr == "" {
+
+	// Try to find service cidr from Kubernetes API output
+	serviceCidr, err := getServiceCidr(ctx, c.client, c.kvisorNamespace)
+	if err != nil {
+		return nil, err
+	}
+	res.ServiceCidr = serviceCidr
+
+	if len(res.PodCidr) == 0 && len(res.ServiceCidr) == 0 {
 		return nil, fmt.Errorf("no pod cidr or service cidr found")
 	}
 	c.clusterInfo = &res
 	return &res, nil
+}
+
+func getPodCidrFromNodeSpec(node *corev1.Node) []string {
+	podCidrs := node.Spec.PodCIDRs
+	if len(podCidrs) == 0 && node.Spec.PodCIDR != "" {
+		podCidrs = []string{node.Spec.PodCIDR}
+	}
+	return podCidrs
+}
+
+func getPodCidrFromPodSpec(pod *corev1.Pod) ([]string, error) {
+	var podCidr []string
+	podIPs := pod.Status.PodIPs
+	if len(podIPs) == 0 && pod.Status.PodIP != "" {
+		podIPs = []corev1.PodIP{{IP: pod.Status.PodIP}}
+	}
+	// If dual-stack is enabled we need to parse all pod IPs
+	for _, podIP := range podIPs {
+		cidr, err := parseIP(podIP.IP)
+		if err != nil {
+			return nil, err
+		}
+		podCidr = append(podCidr, cidr)
+	}
+	return podCidr, nil
+}
+
+func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string) ([]string, error) {
+	var serviceCidr []string
+	ipv4Cidr, err := discoverIPv4ServiceCidr(ctx, client, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if ipv4Cidr != nil {
+		serviceCidr = append(serviceCidr, ipv4Cidr...)
+	}
+
+	ipv6Cidr, err := discoverIPv6ServiceCidr(ctx, client, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if ipv6Cidr != nil {
+		serviceCidr = append(serviceCidr, ipv6Cidr...)
+	}
+	return serviceCidr, nil
+}
+
+func discoverIPv4ServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string) ([]string, error) {
+	return discoverServiceCidr(ctx, client, "0.0.0.0", namespace)
+}
+
+func discoverIPv6ServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string) ([]string, error) {
+	return discoverServiceCidr(ctx, client, "::", namespace)
+}
+
+// discoverServiceCidr returns the service CIDR by creating a service with an invalid IP and parsing the
+// error message returned by the Kubernetes API. This is required because Kubernetes does not implement an API endpoint
+// to retrieve the service CIDR.
+//
+// This is based on https://github.com/submariner-io/submariner-operator/blob/76120c810452c3488e6d56951bb176b35a29d795/pkg/discovery/network/generic.go#L106
+func discoverServiceCidr(ctx context.Context, client kubernetes.Interface, ip, namespace string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	discoveryService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cidr-discovery-svc",
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: ip,
+		},
+	}
+
+	_, err := client.CoreV1().Services(namespace).Create(ctx, discoveryService, metav1.CreateOptions{})
+	if err == nil {
+		return nil, fmt.Errorf("discovery service should not be created")
+	}
+
+	// The error message contains the service CIDR in the format "The range of valid IPs is 10.45.0.0/16"
+	re := regexp.MustCompile(".*valid IPs is (.*)$")
+	match := re.FindStringSubmatch(err.Error())
+	if len(match) == 0 {
+		// do not return error if IPv6 or IPv4 is not configured
+		if strings.Contains(err.Error(), "not configured") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return strings.Split(match[1], ","), nil
+}
+
+func parseIP(ip string) (string, error) {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "", fmt.Errorf("parse ip: %w", err)
+	}
+	prefix := prefixLength(addr)
+	cidr, err := addr.Prefix(prefix)
+	if err != nil {
+		return "", fmt.Errorf("get ip prefix: %w", err)
+	}
+	return cidr.String(), nil
+}
+
+func prefixLength(addr netip.Addr) int {
+	if addr.Is6() {
+		return 48
+	}
+	return 16
 }
 
 type ImageDetails struct {

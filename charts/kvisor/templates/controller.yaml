@@ -175,6 +175,13 @@ rules:
       - pods/log
     verbs:
       - get
+  # Controller requires permissions to create services for CIDR discovery
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - create
   - apiGroups:
       - "coordination.k8s.io"
     resources:

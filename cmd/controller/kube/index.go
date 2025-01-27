@@ -41,11 +41,17 @@ func (i *Index) addFromPod(pod *corev1.Pod) {
 	}
 	i.pods[pod.UID] = podInfo
 	if !pod.Spec.HostNetwork {
-		ipInfo := IPInfo{
-			PodInfo: podInfo,
+		// If dual-stack is enabled we need to parse all pod IPs
+		podIPs := pod.Status.PodIPs
+		if len(podIPs) == 0 && pod.Status.PodIP != "" {
+			podIPs = []corev1.PodIP{{IP: pod.Status.PodIP}}
 		}
-		if addr, err := netip.ParseAddr(pod.Status.PodIP); err == nil {
-			i.ipsDetails[addr] = ipInfo
+		for _, p := range podIPs {
+			if addr, err := netip.ParseAddr(p.IP); err == nil {
+				i.ipsDetails[addr] = IPInfo{
+					PodInfo: podInfo,
+				}
+			}
 		}
 	}
 }
@@ -106,11 +112,16 @@ func (i *Index) deleteFromPod(v *corev1.Pod) {
 	delete(i.pods, v.UID)
 
 	if !v.Spec.HostNetwork {
-		addr, err := netip.ParseAddr(v.Status.PodIP)
-		if err != nil {
-			return
+		// If dual-stack is enabled we need to delete all pod IPs
+		podIPs := v.Status.PodIPs
+		if len(podIPs) == 0 && v.Status.PodIP != "" {
+			podIPs = []corev1.PodIP{{IP: v.Status.PodIP}}
 		}
-		delete(i.ipsDetails, addr)
+		for _, p := range podIPs {
+			if addr, err := netip.ParseAddr(p.IP); err == nil {
+				delete(i.ipsDetails, addr)
+			}
+		}
 	}
 }
 
@@ -227,10 +238,11 @@ func findOwner(ref metav1.OwnerReference, refs []metav1.OwnerReference) metav1.O
 func getServiceIPs(svc *corev1.Service) []string {
 	switch svc.Spec.Type { //nolint:exhaustive
 	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
-		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
-			return nil
+		clusterIPs := svc.Spec.ClusterIPs
+		if len(clusterIPs) == 0 && svc.Spec.ClusterIP != corev1.ClusterIPNone && svc.Spec.ClusterIP != "" {
+			clusterIPs = []string{svc.Spec.ClusterIP}
 		}
-		return []string{svc.Spec.ClusterIP}
+		return clusterIPs
 	case corev1.ServiceTypeLoadBalancer:
 		for _, ingress := range svc.Status.LoadBalancer.Ingress {
 			if ip := ingress.IP; ip != "" {
