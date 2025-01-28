@@ -37,7 +37,7 @@ type ActualDestinationGetter interface {
 }
 
 type ContainerClient interface {
-	GetContainerForCgroup(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
+	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
 	AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error)
 	CleanupCgroup(cgroup cgroup.ID)
 }

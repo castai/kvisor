@@ -84,6 +84,7 @@ type Config struct {
 	CRIEndpoint                    string                          `json:"criEndpoint"`
 	EventLabels                    []string                        `json:"eventLabels"`
 	EventAnnotations               []string                        `json:"eventAnnotations"`
+	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
 }
 
 type EnricherConfig struct {
@@ -120,6 +121,8 @@ type App struct {
 }
 
 func (a *App) Run(ctx context.Context) error {
+	start := time.Now()
+
 	cfg := a.cfg
 	logCfg := &logging.Config{
 		Level:     logging.MustParseLevel(a.cfg.LogLevel),
@@ -227,10 +230,6 @@ func (a *App) Run(ctx context.Context) error {
 	if exporters.Empty() {
 		return errors.New("no configured exporters")
 	}
-
-	kernelVersion, _ := kernel.CurrentKernelVersion()
-	log.Infof("running kvisor agent, version=%s, kernel_version=%s", a.cfg.Version, kernelVersion)
-	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
 
 	if addr := a.cfg.PyroscopeAddr; addr != "" {
 		withPyroscope(podName, addr)
@@ -383,11 +382,45 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
+	if err := containersClient.LoadContainers(ctx); err != nil {
+		return fmt.Errorf("load containers: %w", err)
+	}
+	go containersRefreshLoop(ctx, cfg.ContainersRefreshInterval, log, containersClient)
+
+	kernelVersion, _ := kernel.CurrentKernelVersion()
+	log.Infof("running kvisor agent, version=%s, kernel_version=%s, init_duration=%v", a.cfg.Version, kernelVersion, time.Since(start))
+	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
+
 	select {
 	case err := <-tracererr:
 		return err
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
+	}
+}
+
+func containersRefreshLoop(ctx context.Context, interval time.Duration, log *logging.Logger, client *containers.Client) {
+	if interval == 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			func() {
+				start := time.Now()
+				if err := client.LoadContainers(ctx); err != nil {
+					log.Warnf("refreshing containers, duration=%v: %v", err, time.Since(start))
+				} else {
+					log.Infof("refreshed containers, duration=%v", time.Since(start))
+				}
+			}()
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

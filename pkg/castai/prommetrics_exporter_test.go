@@ -50,6 +50,8 @@ func TestPrometheusExporter(t *testing.T) {
 
 	cancel()
 
+	logsExp.mu.Lock()
+	defer logsExp.mu.Unlock()
 	r.Len(logsExp.logs, 2)
 	r.Equal(`kvisor metrics, pod=pod1:
 kvisor_test_counter event_type=exec 10

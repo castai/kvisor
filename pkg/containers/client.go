@@ -12,6 +12,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/containerd/containerd"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -41,7 +42,7 @@ type Container struct {
 // Client is generic container client.
 type Client struct {
 	log                     *logging.Logger
-	containerClient         *containerClient
+	containerdClient        *containerd.Client
 	cgroupClient            *cgroup.Client
 	criRuntimeServiceClient criapi.RuntimeServiceClient
 
@@ -60,14 +61,15 @@ type Client struct {
 
 func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
 	labels, annotations []string) (*Client, error) {
-	contClient, err := newContainerClient(containerdSock)
+
+	containerdClient, err := containerd.New(containerdSock, containerd.WithTimeout(10*time.Second), containerd.WithDefaultNamespace("k8s.io"))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		log:                     log.WithField("component", "cgroups"),
-		containerClient:         contClient,
+		containerdClient:        containerdClient,
 		cgroupClient:            cgroupClient,
 		containersByCgroup:      map[uint64]*Container{},
 		procHandler:             procHandler,
@@ -78,7 +80,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 }
 
 func (c *Client) Close() error {
-	return c.containerClient.client.Close()
+	return c.containerdClient.Close()
 }
 
 type ContainerProcess struct {
@@ -87,7 +89,7 @@ type ContainerProcess struct {
 }
 
 func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, error) {
-	resp, err := c.containerClient.client.TaskService().List(ctx, nil)
+	resp, err := c.containerdClient.TaskService().List(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +116,34 @@ func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, er
 	}
 
 	return result, nil
+}
+
+func (c *Client) LoadContainers(ctx context.Context) error {
+	containersList, err := c.criRuntimeServiceClient.ListContainers(ctx, &criapi.ListContainersRequest{
+		Filter: &criapi.ContainerFilter{
+			State: &criapi.ContainerStateValue{
+				State: criapi.ContainerState_CONTAINER_RUNNING,
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.containersByCgroup = map[uint64]*Container{}
+	c.mu.Unlock()
+
+	var added int
+	for _, container := range containersList.Containers {
+		err = c.addContainer(container)
+		if err != nil {
+			c.log.Warnf("adding container, state=%v %v %v: %v", container.State, container.Id, container.Labels, err)
+			continue
+		}
+		added++
+	}
+	c.log.Debugf("loaded %d containers out of %d", added, len(containersList.Containers))
+	return nil
 }
 
 func (c *Client) ListContainers() []*Container {
@@ -144,7 +174,7 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 		}
 	}()
 
-	cg, err := c.cgroupClient.GetCgroupForID(cgroupID)
+	cg, err := c.cgroupClient.GetCgroupByID(cgroupID)
 	// The found cgroup is not a container.
 	if err != nil || cg.ContainerID == "" {
 		return nil, ErrContainerNotFound
@@ -169,6 +199,18 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 	return c.addContainerWithCgroup(resp.Containers[0], cg)
 }
 
+func (c *Client) addContainer(cont *criapi.Container) error {
+	cg, err := c.cgroupClient.GetCgroupByContainerID(cont.Id)
+	if err != nil || cg.ContainerID == "" {
+		if errors.Is(err, cgroup.ErrCgroupNotFound) {
+			return ErrContainerNotFound
+		}
+		return err
+	}
+	_, err = c.addContainerWithCgroup(cont, cg)
+	return err
+}
+
 func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.Cgroup) (cont *Container, rerrr error) {
 	podNamespace := container.Labels["io.kubernetes.pod.namespace"]
 	containerName := container.Labels["io.kubernetes.container.name"]
@@ -178,7 +220,7 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	// Only containerd is supported right now.
 	// TODO: We also allow docker here, but support only docker shim. If container type docker we assume that it's still uses containerd.
 	if cg.ContainerRuntime != cgroup.ContainerdRuntime && cg.ContainerRuntime != cgroup.DockerRuntime {
-		return nil, ErrContainerNotFound
+		return nil, fmt.Errorf("invalid container runtime %v", cg.ContainerRuntime)
 	}
 
 	cont = &Container{
@@ -254,7 +296,7 @@ func (c *Client) getPodSandbox(ctx context.Context, cont *criapi.Container) (*cr
 	return sandboxResp.Items[0], nil
 }
 
-func (c *Client) GetContainerForCgroup(ctx context.Context, cgroup uint64) (*Container, error) {
+func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*Container, error) {
 	container, found, err := c.LookupContainerForCgroupInCache(cgroup)
 	if err != nil {
 		return nil, err

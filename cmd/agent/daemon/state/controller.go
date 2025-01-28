@@ -31,7 +31,7 @@ type Config struct {
 
 type containersClient interface {
 	ListContainers() []*containers.Container
-	GetContainerForCgroup(ctx context.Context, cgroup uint64) (*containers.Container, error)
+	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error)
 	LookupContainerForCgroupInCache(cgroup uint64) (*containers.Container, bool, error)
 	CleanupCgroup(cgroup cgroup.ID)
 	GetCgroupsInNamespace(namespace string) []uint64

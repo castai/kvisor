@@ -147,7 +147,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		res.Addr = key.Tuple.Saddr.Raw[:]
 	}
 
-	container, err := c.containersClient.GetContainerForCgroup(ctx, key.ProcessIdentity.CgroupId)
+	container, err := c.containersClient.GetOrLoadContainerByCgroupID(ctx, key.ProcessIdentity.CgroupId)
 	if err != nil && !errors.Is(err, containers.ErrContainerNotFound) {
 		return nil, err
 	}
