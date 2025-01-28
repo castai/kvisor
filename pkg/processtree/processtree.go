@@ -83,18 +83,22 @@ type ProcessTreeCollector interface {
 	Events() <-chan ProcessTreeEvent
 }
 
+type containerClient interface {
+	LoadContainerTasks(ctx context.Context) ([]containers.ContainerProcess, error)
+}
+
 type ProcessTreeCollectorImpl struct {
 	log              *logging.Logger
 	proc             *proc.Proc
-	initialProcesses []containers.ContainerProcess
+	containersClient containerClient
 	eventSink        chan ProcessTreeEvent
 }
 
-func New(log *logging.Logger, p *proc.Proc, initialProcesses []containers.ContainerProcess) (*ProcessTreeCollectorImpl, error) {
+func New(log *logging.Logger, p *proc.Proc, containersClient containerClient) (*ProcessTreeCollectorImpl, error) {
 	return &ProcessTreeCollectorImpl{
 		log:              log,
 		proc:             p,
-		initialProcesses: initialProcesses,
+		containersClient: containersClient,
 		eventSink:        make(chan ProcessTreeEvent, 1000),
 	}, nil
 }
@@ -129,7 +133,11 @@ func ToProcessKeyNs(pid proc.PID, startTimeNs uint64) ProcessKey {
 }
 
 func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
-	processes := c.initialProcesses
+	processes, err := c.containersClient.LoadContainerTasks(ctx)
+	if err != nil {
+		return err
+	}
+
 	processTrees := map[string]map[ProcessKey]Process{}
 
 	numProcesses := 0
@@ -241,6 +249,7 @@ func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {
 }
 
 func (c *ProcessTreeCollectorImpl) fireEvent(e ProcessEvent) {
+	c.log.Debugf("fire process tree event: %s", e.String())
 	select {
 	case c.eventSink <- ProcessTreeEvent{
 		Initial: false,

@@ -129,6 +129,10 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c.mu.Lock()
+	c.containersByCgroup = map[uint64]*Container{}
+	c.mu.Unlock()
+
 	var added int
 	for _, container := range containersList.Containers {
 		err = c.addContainer(container)

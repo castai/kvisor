@@ -256,11 +256,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	var processTreeCollector processtree.ProcessTreeCollector
 	if cfg.ProcessTree.Enabled {
-		containerProcesses, err := containersClient.LoadContainerTasks(ctx)
-		if err != nil {
-			return err
-		}
-		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containerProcesses)
+		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containersClient)
 		if err != nil {
 			return fmt.Errorf("initialize process tree: %w", err)
 		}
@@ -386,12 +382,6 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
-	// Load initial containers only after ebpf tracer startup. Tracer always listens
-	// to cgroup rmdir event. This reduces the chance of missing container removal events
-	// and leaving dangling cached containers in containers client.
-	// TODO: This sleep can be improved and instead check if at least one event is received from the kernel.
-	// But worst case if only cgroup events are tracked we still need some sleep.
-	sleep(ctx, 3*time.Second)
 	if err := containersClient.LoadContainers(ctx); err != nil {
 		return fmt.Errorf("load containers: %w", err)
 	}
@@ -509,8 +499,8 @@ Currently we care only care about dns responses with valid answers.
 	return policy
 }
 
-func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containerProcesses []containers.ContainerProcess) (*processtree.ProcessTreeCollectorImpl, error) {
-	processTreeCollector, err := processtree.New(log, procHandler, containerProcesses)
+func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containersClient *containers.Client) (*processtree.ProcessTreeCollectorImpl, error) {
+	processTreeCollector, err := processtree.New(log, procHandler, containersClient)
 	if err != nil {
 		return nil, err
 	}
@@ -643,17 +633,5 @@ func withPyroscope(podName, addr string) {
 		},
 	}); err != nil {
 		panic(err)
-	}
-}
-
-func sleep(ctx context.Context, duration time.Duration) {
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return
-	case <-timer.C:
-		return
 	}
 }
