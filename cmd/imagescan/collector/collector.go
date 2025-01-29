@@ -13,7 +13,7 @@ import (
 
 	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/samber/lo"
@@ -155,13 +155,13 @@ func (c *Collector) Collect(ctx context.Context) error {
 		metadata.Index = indexBytes
 	}
 
-	if err := backoff.RetryNotify(func() error {
-		return c.sendResult(ctx, metadata)
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 3), func(err error, duration time.Duration) {
+	if _, err := backoff.Retry(ctx, func() (any, error) {
+		return nil, c.sendResult(ctx, metadata)
+	}, backoff.WithNotify(func(err error, d time.Duration) {
 		if err != nil {
 			c.log.Errorf("sending result: %v", err)
 		}
-	}); err != nil {
+	})); err != nil {
 		return err
 	}
 

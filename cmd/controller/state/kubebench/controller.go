@@ -15,7 +15,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/cmd/controller/state/kubebench/spec"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
 	jsoniter "github.com/json-iterator/go"
@@ -311,31 +311,31 @@ func (c *Controller) createKubebenchJob(ctx context.Context, node *corev1.Node, 
 	podCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
-	err = backoff.Retry(
-		func() error {
+	_, err = backoff.Retry(podCtx,
+		func() (any, error) {
 			pods, err := c.client.CoreV1().Pods(c.cfg.JobNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: selector.String(),
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if len(pods.Items) < 1 {
-				return fmt.Errorf("pod not found")
+				return nil, fmt.Errorf("pod not found")
 			}
 
 			kubeBenchPod = &pods.Items[0]
 
 			if kubeBenchPod.Status.Phase == corev1.PodFailed {
-				return backoff.Permanent(fmt.Errorf("kube-bench failed: %s", kubeBenchPod.Status.Message))
+				return nil, backoff.Permanent(fmt.Errorf("kube-bench failed: %s", kubeBenchPod.Status.Message))
 			}
 
 			if kubeBenchPod.Status.Phase == corev1.PodSucceeded {
-				return nil
+				return nil, nil
 			}
 
-			return fmt.Errorf("unknown err")
-		}, backoff.WithContext(backoff.NewConstantBackOff(10*time.Second), podCtx))
+			return nil, fmt.Errorf("unknown err")
+		}, backoff.WithBackOff(backoff.NewConstantBackOff(10*time.Second)))
 
 	if err != nil {
 		return nil, err
@@ -354,19 +354,21 @@ func (c *Controller) deleteJob(ctx context.Context, jobName string) error {
 func (c *Controller) waitJobDeleted(ctx context.Context, jobName string) error {
 	deleteCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
-	return backoff.Retry(
-		func() error {
+	_, err := backoff.Retry(deleteCtx,
+		func() (any, error) {
 			_, err := c.client.BatchV1().Jobs(c.cfg.JobNamespace).Get(deleteCtx, jobName, metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
-					return nil
+					return nil, nil
 				}
 
-				return backoff.Permanent(err)
+				return nil, backoff.Permanent(err)
 			}
 
-			return fmt.Errorf("job not yet deleted")
-		}, backoff.WithContext(backoff.NewConstantBackOff(10*time.Second), deleteCtx))
+			return nil, fmt.Errorf("job not yet deleted")
+		}, backoff.WithBackOff(backoff.NewConstantBackOff(10*time.Second)))
+
+	return err
 }
 
 func (c *Controller) getReportFromLogs(ctx context.Context, node *corev1.Node, kubeBenchPodName string) (*castaipb.KubeBenchReport, error) {
