@@ -274,8 +274,12 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	var res ClusterInfo
 	// Try to find pods cidr from nodes.
 	for _, node := range c.index.nodesByName {
-		res.PodCidr = getPodCidrFromNodeSpec(node)
-		if len(res.PodCidr) > 0 {
+		podCidr, err := getPodCidrFromNodeSpec(node)
+		if err != nil {
+			return nil, err
+		}
+		if len(podCidr) > 0 {
+			res.PodCidr = podCidr
 			break
 		}
 	}
@@ -310,12 +314,21 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	return &res, nil
 }
 
-func getPodCidrFromNodeSpec(node *corev1.Node) []string {
-	podCidrs := node.Spec.PodCIDRs
-	if len(podCidrs) == 0 && node.Spec.PodCIDR != "" {
-		podCidrs = []string{node.Spec.PodCIDR}
+func getPodCidrFromNodeSpec(node *corev1.Node) ([]string, error) {
+	nodeCidrs := node.Spec.PodCIDRs
+	if len(nodeCidrs) == 0 && node.Spec.PodCIDR != "" {
+		nodeCidrs = []string{node.Spec.PodCIDR}
 	}
-	return podCidrs
+	var podCidrs []string
+	for _, cidr := range nodeCidrs {
+		subnet, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing pod cidr: %w", err)
+		}
+		prefix := prefixLength(subnet.Addr())
+		podCidrs = append(podCidrs, netip.PrefixFrom(subnet.Addr(), prefix).String())
+	}
+	return podCidrs, nil
 }
 
 func getPodCidrFromPodSpec(pod *corev1.Pod) ([]string, error) {
@@ -395,7 +408,16 @@ func discoverServiceCidr(ctx context.Context, client kubernetes.Interface, ip, n
 		}
 		return nil, err
 	}
-	return strings.Split(match[1], ","), nil
+	var servicesCidr []string
+	for _, cidr := range strings.Split(match[1], ",") {
+		subnet, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing service cidr: %w", err)
+		}
+		prefix := prefixLength(subnet.Addr())
+		servicesCidr = append(servicesCidr, netip.PrefixFrom(subnet.Addr(), prefix).String())
+	}
+	return servicesCidr, nil
 }
 
 func parseIP(ip string) (string, error) {
@@ -411,11 +433,12 @@ func parseIP(ip string) (string, error) {
 	return cidr.String(), nil
 }
 
+// prefixLength returns the absolute CIDR for IPv4 and IPv6 addresses
 func prefixLength(addr netip.Addr) int {
 	if addr.Is6() {
 		return 48
 	}
-	return 16
+	return 14
 }
 
 type ImageDetails struct {
