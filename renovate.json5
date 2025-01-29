@@ -22,6 +22,23 @@
       ],
       "groupName": "all non-major dependencies",
       "groupSlug": "all-minor-patch"
+    },
+    {
+      "matchDatasources": [
+        "docker",
+      ],
+      "matchUpdateTypes": [
+        "digest",
+      ],
+      "groupName": "all image digest updates",
+      "groupSlug": "all-image-digest-updates"
+    }
+    {
+      "matchManagers": [
+        "github-actions",
+      ],
+      "groupName": "github actions",
+      "groupSlug": "github-actions"
     }
   ]
 }
