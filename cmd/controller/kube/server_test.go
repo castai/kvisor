@@ -89,7 +89,7 @@ func TestServer(t *testing.T) {
 		case "0.0.0.0":
 			return true, svc, fmt.Errorf("The range of valid IPs is 10.30.0.0/16")
 		case "::":
-			return true, svc, fmt.Errorf("The range of valid IPs is fd01::/48")
+			return true, svc, fmt.Errorf("The range of valid IPs is fd01::/64")
 		}
 		return false, nil, nil
 	})
@@ -157,7 +157,7 @@ func TestServer(t *testing.T) {
 		r := require.New(t)
 		resp, err := srv.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
 		r.NoError(err)
-		r.ElementsMatch([]string{"10.10.10.0/24", "fd00::/64"}, resp.PodsCidr)
-		r.ElementsMatch([]string{"10.30.0.0/16", "fd01::/48"}, resp.ServiceCidr)
+		r.ElementsMatch([]string{"10.10.10.0/14", "fd00::/48"}, resp.PodsCidr)
+		r.ElementsMatch([]string{"10.30.0.0/14", "fd01::/48"}, resp.ServiceCidr)
 	})
 }
