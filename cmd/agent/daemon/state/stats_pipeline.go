@@ -221,12 +221,16 @@ func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
 	if prev == nil || curr == nil {
 		return nil
 	}
-	return &castaipb.PSIStats{
-		Some: &castaipb.PSIData{
+	res := &castaipb.PSIStats{}
+	if curr.Some != nil && prev.Some != nil {
+		res.Some = &castaipb.PSIData{
 			Total: curr.Some.Total - prev.Some.Total,
-		},
-		Full: &castaipb.PSIData{
-			Total: curr.Full.Total - prev.Full.Total,
-		},
+		}
 	}
+	if curr.Full != nil && prev.Full != nil {
+		res.Full = &castaipb.PSIData{
+			Total: curr.Full.Total - prev.Full.Total,
+		}
+	}
+	return res
 }
