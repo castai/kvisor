@@ -32,13 +32,13 @@
       ],
       "groupName": "all image digest updates",
       "groupSlug": "all-image-digest-updates"
-    }
+    },
     {
       "matchManagers": [
         "github-actions",
       ],
       "groupName": "github actions",
       "groupSlug": "github-actions"
-    }
+    },
   ]
 }
