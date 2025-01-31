@@ -2,6 +2,7 @@ package kubelinter
 
 import (
 	"fmt"
+	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/bindings"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/privescverbs"
 
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/additionalcapabilities"
@@ -133,6 +134,10 @@ func registerCustomChecks(registry checkregistry.CheckRegistry) error {
 		additionalcapabilities.Check(),
 		privescverbs.Check(),
 	}
+	for _, c := range bindings.Checks() {
+		checks = append(checks, c)
+	}
+
 	for _, check := range checks {
 		if err := registry.Register(check); err != nil {
 			return err
