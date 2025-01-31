@@ -202,9 +202,10 @@ func (i *Index) getPodOwner(pod *corev1.Pod) metav1.OwnerReference {
 			if jobOwner.Kind == "CronJob" {
 				return jobOwner
 			}
-
 			return owner
 		}
+	case "DaemonSet", "StatefulSet":
+		return owner
 	}
 	// If the pod is managed by a custom CRD, we fall back to just report pod,
 	// as we do not handle custom CRDs.
