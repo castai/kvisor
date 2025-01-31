@@ -13,6 +13,19 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
+func Checks() []*config.Check {
+	var checks []*config.Check
+	for k, v := range rules {
+		checks = append(checks, &config.Check{
+			Name:        k,
+			Template:    k,
+			Description: v.Name,
+		})
+	}
+
+	return checks
+}
+
 var (
 	rules = map[string]BindingsCheck{
 		"system-masters": {

@@ -1,4 +1,4 @@
-package rolepermissions
+package privescverbs
 
 import (
 	"fmt"
@@ -17,9 +17,9 @@ import (
 
 func Check() *config.Check {
 	return &config.Check{
-		Name:        "bind-impersonate-escalate",
+		Name:        "privesc-verbs",
 		Description: "Use of Bind, Impersonate and Escalate permissions",
-		Template:    "bind-impersonate-escalate",
+		Template:    "privesc-verbs",
 		Params:      map[string]interface{}{},
 	}
 }
@@ -31,7 +31,7 @@ var (
 func init() {
 	templates.Register(check.Template{
 		HumanName: "Use of Bind, Impersonate and Escalate permissions",
-		Key:       "bind-impersonate-escalate",
+		Key:       "privesc-verbs",
 		SupportedObjectKinds: config.ObjectKindsDesc{
 			ObjectKinds: []string{
 				objectkinds.Role,
