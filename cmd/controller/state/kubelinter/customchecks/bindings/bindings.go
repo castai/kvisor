@@ -2,6 +2,7 @@ package bindings
 
 import (
 	"fmt"
+	"golang.stackrox.io/kube-linter/pkg/templates"
 	"strings"
 
 	"golang.stackrox.io/kube-linter/pkg/check"
@@ -13,17 +14,25 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
+const (
+	templateName = "bindings"
+)
+
 func Checks() []*config.Check {
 	var checks []*config.Check
 	for k, v := range rules {
 		checks = append(checks, &config.Check{
 			Name:        k,
-			Template:    k,
+			Template:    templateName,
 			Description: v.Name,
 		})
 	}
 
 	return checks
+}
+
+func init() {
+	templates.Register(roleBindingsTemplate())
 }
 
 var (
@@ -55,10 +64,10 @@ type BindingsCheck struct {
 	ExcludedValues []string
 }
 
-func roleBindingsTemplate(key string, bindingCheck BindingsCheck) check.Template {
+func roleBindingsTemplate() check.Template {
 	template := check.Template{
-		HumanName: bindingCheck.Name,
-		Key:       key,
+		HumanName: "Avoid bindings to certain groups",
+		Key:       templateName,
 		SupportedObjectKinds: config.ObjectKindsDesc{
 			ObjectKinds: []string{
 				objectkinds.RoleBinding,
@@ -67,7 +76,7 @@ func roleBindingsTemplate(key string, bindingCheck BindingsCheck) check.Template
 		},
 		Parameters:             ParamDescs,
 		ParseAndValidateParams: ParseAndValidate,
-		Instantiate: WrapInstantiateFunc(func(_ Params) (check.Func, error) {
+		Instantiate: WrapInstantiateFunc(func(p Params) (check.Func, error) {
 			return func(_ lintcontext.LintContext, object lintcontext.Object) []diagnostic.Diagnostic {
 				var subjects []rbacv1.Subject
 				rb, ok := object.K8sObject.(*rbacv1.RoleBinding)
@@ -83,8 +92,8 @@ func roleBindingsTemplate(key string, bindingCheck BindingsCheck) check.Template
 				}
 
 				for _, subject := range subjects {
-					if subject.Kind == "Group" && listContains(subject.Name, bindingCheck.Values) {
-						if bindingCheck.ExcludedValues == nil || !listContains(subject.Name, bindingCheck.ExcludedValues) {
+					if subject.Kind == "Group" && listContains(subject.Name, p.Values) {
+						if p.ExcludedValues == nil || !listContains(subject.Name, p.ExcludedValues) {
 							return []diagnostic.Diagnostic{{Message: "Binding to system:masters"}}
 						}
 					}
@@ -108,6 +117,8 @@ func listContains(value string, list []string) bool {
 }
 
 type Params struct {
+	Values         []string
+	ExcludedValues []string
 }
 
 var (
