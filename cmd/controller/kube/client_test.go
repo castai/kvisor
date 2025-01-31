@@ -240,7 +240,9 @@ func TestClient(t *testing.T) {
 				_, err := clientset.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 				r.NoError(err)
 				if test.extraObjectsFunc != nil {
+					client.mu.Lock()
 					test.extraObjectsFunc(client.index)
+					client.mu.Unlock()
 				}
 
 				owner := client.index.getPodOwner(pod)
