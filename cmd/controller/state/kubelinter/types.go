@@ -48,6 +48,11 @@ const (
 	NetworkPolicyPerNamespace
 	ContainerdSock
 	AdditionalCapabilities
+	SystemMasters
+	SystemAnonymous
+	SystemAuthenticated
+	SystemUnauthenticated
+	PrivescVerbs
 )
 
 var LinterRuleMap = map[string]LinterRule{
@@ -93,6 +98,11 @@ var LinterRuleMap = map[string]LinterRule{
 	"network-policy-per-namespace":     NetworkPolicyPerNamespace,
 	"containerd-sock":                  ContainerdSock,
 	"additional-capabilities":          AdditionalCapabilities,
+	"system-masters":                   SystemMasters,
+	"system-anonymous":                 SystemAnonymous,
+	"system-authenticated":             SystemAuthenticated,
+	"system-unauthenticated":           SystemUnauthenticated,
+	"privesc-verbs":                    PrivescVerbs,
 }
 
 var HostIsolationBundle = map[string]LinterRule{

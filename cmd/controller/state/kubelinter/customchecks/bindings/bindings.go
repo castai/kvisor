@@ -94,7 +94,7 @@ func roleBindingsTemplate() check.Template {
 				for _, subject := range subjects {
 					if subject.Kind == "Group" && listContains(subject.Name, p.Values) {
 						if p.ExcludedValues == nil || !listContains(subject.Name, p.ExcludedValues) {
-							return []diagnostic.Diagnostic{{Message: "Binding to system:masters"}}
+							return []diagnostic.Diagnostic{{Message: fmt.Sprintf("Binding to %s", subject.Name)}}
 						}
 					}
 				}
