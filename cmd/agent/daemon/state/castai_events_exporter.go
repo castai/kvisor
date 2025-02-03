@@ -10,6 +10,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 func NewCastaiEventsExporter(log *logging.Logger, apiClient *castai.Client, queueSize int) *CastaiEventsExporter {
@@ -38,7 +39,7 @@ func (c *CastaiEventsExporter) Run(ctx context.Context) error {
 	defer c.log.Info("export loop done")
 
 	ws := castai.NewWriteStream[*castpb.Event, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
-		return c.apiClient.GRPC.EventsWriteStream(ctx)
+		return c.apiClient.GRPC.EventsWriteStream(ctx, grpc.UseCompressor(gzip.Name))
 	})
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay

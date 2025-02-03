@@ -9,6 +9,7 @@ import (
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 func NewCastaiNetflowExporter(log *logging.Logger, apiClient *castai.Client, queueSize int) *CastaiNetflowExporter {
@@ -32,7 +33,7 @@ func (c *CastaiNetflowExporter) Run(ctx context.Context) error {
 	defer c.log.Info("export loop done")
 
 	ws := castai.NewWriteStream[*castpb.Netflow, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
-		return c.apiClient.GRPC.NetflowWriteStream(ctx)
+		return c.apiClient.GRPC.NetflowWriteStream(ctx, grpc.UseCompressor(gzip.Name))
 	})
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay
