@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"reflect"
 	"sync"
@@ -138,6 +139,117 @@ func TestClient(t *testing.T) {
 			_, found := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
 			r.False(found)
 		})
+	})
+
+	t.Run("owner mapping", func(t *testing.T) {
+		tests := []struct {
+			name              string
+			ownerReferences   []metav1.OwnerReference
+			expectedOwnerName string
+			expectedOwnerKind string
+			extraObjectsFunc  func(index *Index)
+		}{
+			{
+				name: "pod with StatefulSet",
+				ownerReferences: []metav1.OwnerReference{
+					{
+						Kind: "StatefulSet",
+						Name: "st",
+					},
+				},
+				expectedOwnerName: "st",
+				expectedOwnerKind: "StatefulSet",
+			},
+			{
+				name: "pod with DaemonSet",
+				ownerReferences: []metav1.OwnerReference{
+					{
+						Kind: "DaemonSet",
+						Name: "ds1",
+					},
+				},
+				expectedOwnerName: "ds1",
+				expectedOwnerKind: "DaemonSet",
+			},
+			{
+				name: "pod with Job",
+				ownerReferences: []metav1.OwnerReference{
+					{
+						Kind: "Job",
+						Name: "job1",
+						UID:  "job1",
+					},
+				},
+				expectedOwnerName: "job1",
+				expectedOwnerKind: "Job",
+				extraObjectsFunc: func(index *Index) {
+					client.index.jobs["job1"] = metav1.ObjectMeta{
+						Name: "job1",
+					}
+				},
+			},
+			{
+				name: "pod with ReplicaSet",
+				ownerReferences: []metav1.OwnerReference{
+					{
+						Kind: "ReplicaSet",
+						Name: "rs1",
+						UID:  "rs1",
+					},
+				},
+				expectedOwnerName: "rs1",
+				expectedOwnerKind: "ReplicaSet",
+				extraObjectsFunc: func(index *Index) {
+					client.index.replicaSets["rs1"] = metav1.ObjectMeta{
+						Name: "rs1",
+					}
+				},
+			},
+			{
+				name: "pod with Deployment",
+				ownerReferences: []metav1.OwnerReference{
+					{
+						Kind: "ReplicaSet",
+						Name: "rs1",
+						UID:  "rs1",
+					},
+				},
+				expectedOwnerName: "dep1",
+				expectedOwnerKind: "Deployment",
+				extraObjectsFunc: func(index *Index) {
+					client.index.replicaSets["rs1"] = metav1.ObjectMeta{
+						Name: "rs1",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								Kind: "Deployment",
+								Name: "dep1",
+								UID:  "dep1",
+							},
+						},
+					}
+				},
+			},
+		}
+
+		for i, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				r := require.New(t)
+				pod := newTestPod()
+				pod.Namespace = fmt.Sprintf("pod_owner_ns_%d", i)
+				pod.ObjectMeta.OwnerReferences = test.ownerReferences
+				_, err := clientset.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+				r.NoError(err)
+				if test.extraObjectsFunc != nil {
+					client.mu.Lock()
+					test.extraObjectsFunc(client.index)
+					client.mu.Unlock()
+				}
+
+				owner := client.index.getPodOwner(pod)
+				r.Equal(test.expectedOwnerName, owner.Name)
+				r.Equal(test.expectedOwnerKind, owner.Kind)
+			})
+		}
 	})
 }
 
