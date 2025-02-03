@@ -2,6 +2,7 @@ package kubelinter
 
 import (
 	"context"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"testing"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
@@ -39,6 +40,25 @@ func TestSubscriber(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test_pod",
+				},
+			},
+			&rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test_role_binding",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ClusterRoleBinding",
+					APIVersion: "rbac.authorization.k8s.io/v1",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind: "Group",
+						Name: "system:authenticated",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind: "Role",
+					Name: "testrole",
 				},
 			},
 		}

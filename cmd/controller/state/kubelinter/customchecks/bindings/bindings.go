@@ -84,6 +84,8 @@ func roleBindingsTemplate() check.Template {
 		Instantiate: WrapInstantiateFunc(func(p Params) (check.Func, error) {
 			return func(_ lintcontext.LintContext, object lintcontext.Object) []diagnostic.Diagnostic {
 				var subjects []rbacv1.Subject
+				var roleRef rbacv1.RoleRef
+
 				rb, ok := object.K8sObject.(*rbacv1.RoleBinding)
 				if !ok {
 					crb, ok := object.K8sObject.(*rbacv1.ClusterRoleBinding)
@@ -92,13 +94,15 @@ func roleBindingsTemplate() check.Template {
 					}
 
 					subjects = crb.Subjects
+					roleRef = crb.RoleRef
 				} else {
 					subjects = rb.Subjects
+					roleRef = rb.RoleRef
 				}
 
 				for _, subject := range subjects {
 					if subject.Kind == "Group" && slices.Contains(p.Values, subject.Name) {
-						if p.ExcludedValues == nil || !slices.Contains(p.ExcludedValues, subject.Name) {
+						if p.ExcludedValues == nil || !slices.Contains(p.ExcludedValues, roleRef.Name) {
 							return []diagnostic.Diagnostic{{Message: fmt.Sprintf("Binding to %s", subject.Name)}}
 						}
 					}
