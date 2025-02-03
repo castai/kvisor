@@ -3,6 +3,7 @@ package bindings
 import (
 	"fmt"
 	"golang.stackrox.io/kube-linter/pkg/templates"
+	"slices"
 	"strings"
 
 	"golang.stackrox.io/kube-linter/pkg/check"
@@ -25,6 +26,10 @@ func Checks() []*config.Check {
 			Name:        k,
 			Template:    templateName,
 			Description: v.Name,
+			Params: map[string]interface{}{
+				"Values":         v.Values,
+				"ExcludedValues": v.ExcludedValues,
+			},
 		})
 	}
 
@@ -92,8 +97,8 @@ func roleBindingsTemplate() check.Template {
 				}
 
 				for _, subject := range subjects {
-					if subject.Kind == "Group" && listContains(subject.Name, p.Values) {
-						if p.ExcludedValues == nil || !listContains(subject.Name, p.ExcludedValues) {
+					if subject.Kind == "Group" && slices.Contains(p.Values, subject.Name) {
+						if p.ExcludedValues == nil || !slices.Contains(p.ExcludedValues, subject.Name) {
 							return []diagnostic.Diagnostic{{Message: fmt.Sprintf("Binding to %s", subject.Name)}}
 						}
 					}
@@ -105,15 +110,6 @@ func roleBindingsTemplate() check.Template {
 	}
 
 	return template
-}
-
-func listContains(value string, list []string) bool {
-	for _, v := range list {
-		if v == value {
-			return true
-		}
-	}
-	return false
 }
 
 type Params struct {

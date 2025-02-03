@@ -1,6 +1,7 @@
 package kubelinter
 
 import (
+	rbacv1 "k8s.io/api/rbac/v1"
 	"testing"
 
 	"github.com/samber/lo"
@@ -90,5 +91,38 @@ func TestLinter(t *testing.T) {
 		}})
 		r.NoError(err)
 		r.Contains(checks[0].Failed.Rules(), "additional-capabilities")
+	})
+
+	t.Run("checks for bindings", func(t *testing.T) {
+		r := require.New(t)
+
+		linter, err := New(lo.Keys(LinterRuleMap))
+		r.NoError(err)
+
+		checks, err := linter.Run([]lintcontext.Object{{
+			K8sObject: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test_role_binding",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ClusterRoleBinding",
+					APIVersion: "rbac.authorization.k8s.io/v1",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind: "Group",
+						Name: "system:authenticated",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind: "Role",
+					Name: "testrole",
+				},
+			},
+		}})
+
+		r.NoError(err)
+		r.Len(checks, 1)
+		r.Contains(checks[0].Failed.Rules(), "system-authenticated")
 	})
 }
