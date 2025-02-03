@@ -59,7 +59,7 @@ type blobsCacheStore interface {
 func newMemoryBlobsCacheStore(log *logging.Logger) blobsCacheStore {
 	// One large blob json size is around 16KB, so we should use max 32MB of extra memory.
 	cache, err := lru.NewSynced[string, []byte](2000, func(s string) uint32 {
-		return uint32(xxhash.Sum64String(s))
+		return uint32(xxhash.Sum64String(s)) //nolint:gosec
 	})
 	if err != nil {
 		panic(fmt.Sprintf("creating blobs cache lru: %v", err))

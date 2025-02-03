@@ -64,7 +64,7 @@ func NewController(
 	scannedNodes []string,
 ) *Controller {
 	nodeCache, err := lru.NewSynced[string, struct{}](1000, func(s string) uint32 {
-		return uint32(xxhash.Sum64String(s))
+		return uint32(xxhash.Sum64String(s)) //nolint:gosec
 	})
 	if err != nil {
 		panic(fmt.Sprintf("creating scanned node cache: %v", err))
