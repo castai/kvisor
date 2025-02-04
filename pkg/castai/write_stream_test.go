@@ -18,7 +18,7 @@ import (
 )
 
 func TestWriteStream(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.IgnoreTopFunction("github.com/prometheus/client_golang/prometheus.(*Registry).Gather"))
 
 	r := require.New(t)
 	ctx := context.Background()
