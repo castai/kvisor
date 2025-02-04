@@ -1,10 +1,12 @@
 package blobscache
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/castai/kvisor/pkg/logging"
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/cespare/xxhash/v2"
+	lru "github.com/elastic/go-freelru"
 	"github.com/labstack/echo/v4"
 )
 
@@ -56,7 +58,12 @@ type blobsCacheStore interface {
 
 func newMemoryBlobsCacheStore(log *logging.Logger) blobsCacheStore {
 	// One large blob json size is around 16KB, so we should use max 32MB of extra memory.
-	cache, _ := lru.New[string, []byte](2000)
+	cache, err := lru.NewSynced[string, []byte](2000, func(s string) uint32 {
+		return uint32(xxhash.Sum64String(s)) //nolint:gosec
+	})
+	if err != nil {
+		panic(fmt.Sprintf("creating blobs cache lru: %v", err))
+	}
 	return &memoryBlobsCacheStore{
 		log:   log,
 		cache: cache,
@@ -65,7 +72,7 @@ func newMemoryBlobsCacheStore(log *logging.Logger) blobsCacheStore {
 
 type memoryBlobsCacheStore struct {
 	log   *logging.Logger
-	cache *lru.Cache[string, []byte]
+	cache lru.Cache[string, []byte]
 }
 
 func (c *memoryBlobsCacheStore) putBlob(key string, blob []byte) {

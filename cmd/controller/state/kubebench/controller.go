@@ -16,8 +16,9 @@ import (
 	"github.com/castai/kvisor/cmd/controller/state/kubebench/spec"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/cenkalti/backoff/v5"
+	"github.com/cespare/xxhash/v2"
+	lru "github.com/elastic/go-freelru"
 	"github.com/google/uuid"
-	lru "github.com/hashicorp/golang-lru/v2"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
@@ -62,7 +63,12 @@ func NewController(
 	kubeController kubeController,
 	scannedNodes []string,
 ) *Controller {
-	nodeCache, _ := lru.New[string, struct{}](1000)
+	nodeCache, err := lru.NewSynced[string, struct{}](1000, func(s string) uint32 {
+		return uint32(xxhash.Sum64String(s)) //nolint:gosec
+	})
+	if err != nil {
+		panic(fmt.Sprintf("creating scanned node cache: %v", err))
+	}
 	for _, node := range scannedNodes {
 		nodeCache.Add(node, struct{}{})
 	}
@@ -90,7 +96,7 @@ type Controller struct {
 	logsProvider                  kube.PodLogProvider
 	kubeController                kubeController
 	finishedJobDeleteWaitDuration time.Duration
-	scannedNodes                  *lru.Cache[string, struct{}]
+	scannedNodes                  lru.Cache[string, struct{}]
 	// After job finishes with store report in memory grouped by similar nodes.
 	// This allows to reduce number of jobs since we near identical reports.
 	kubeBenchReportsCache   map[uint64]*castaipb.KubeBenchReport

@@ -45,7 +45,7 @@ func statPidsFromCgroupProcs(dirPath string, stats *Stats) error {
 		return err
 	}
 	pids := strings.Count(contents, "\n")
-	stats.PidsStats.Current = uint64(pids)
+	stats.PidsStats.Current = uint64(pids) //nolint:gosec
 	stats.PidsStats.Limit = 0
 	return nil
 }
