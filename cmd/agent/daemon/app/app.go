@@ -173,7 +173,7 @@ func (a *App) Run(ctx context.Context) error {
 			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 		}
 		if cfg.Netflow.Enabled {
-			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient.GRPC, a.cfg.ExportersQueueSize))
 		}
 		if cfg.ProcessTree.Enabled {
 			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, a.cfg.ExportersQueueSize)

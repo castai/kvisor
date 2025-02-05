@@ -78,7 +78,6 @@ func (s *eventSender) send(e *castpb.Event, retry bool) {
 
 			return
 		}
-
 		s.sendErrorMetric.Inc()
 		return
 	}
