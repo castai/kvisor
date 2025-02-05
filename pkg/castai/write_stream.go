@@ -64,7 +64,9 @@ func (w *WriteStream[T, U]) Close() error {
 
 func (w *WriteStream[T, U]) open() error {
 	if w.wasOpened && w.ReopenDelay != 0 {
-		time.Sleep(w.ReopenDelay)
+		if err := sleep(w.rootCtx, w.ReopenDelay); err != nil {
+			return err
+		}
 	}
 	var err error
 	w.activeStreamCtx, w.activeStreamCtxCancel = context.WithCancel(w.rootCtx)
@@ -85,4 +87,16 @@ func (w *WriteStream[T, U]) close() {
 	}
 	w.activeStreamCtx = nil
 	w.activeStream = nil
+}
+
+func sleep(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

@@ -12,18 +12,22 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 )
 
-func NewCastaiNetflowExporter(log *logging.Logger, apiClient *castai.Client, queueSize int) *CastaiNetflowExporter {
+type castaiNetflowExporterClient interface {
+	NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castpb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error)
+}
+
+func NewCastaiNetflowExporter(log *logging.Logger, apiClient castaiNetflowExporterClient, queueSize int) *CastaiNetflowExporter {
 	return &CastaiNetflowExporter{
 		log:                         log.WithField("component", "castai_netflow_exporter"),
 		apiClient:                   apiClient,
 		queue:                       make(chan *castpb.Netflow, queueSize),
-		writeStreamCreateRetryDelay: 2 * time.Second,
+		writeStreamCreateRetryDelay: 1 * time.Second,
 	}
 }
 
 type CastaiNetflowExporter struct {
 	log                         *logging.Logger
-	apiClient                   *castai.Client
+	apiClient                   castaiNetflowExporterClient
 	queue                       chan *castpb.Netflow
 	writeStreamCreateRetryDelay time.Duration
 }
@@ -33,7 +37,7 @@ func (c *CastaiNetflowExporter) Run(ctx context.Context) error {
 	defer c.log.Info("export loop done")
 
 	ws := castai.NewWriteStream[*castpb.Netflow, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
-		return c.apiClient.GRPC.NetflowWriteStream(ctx, grpc.UseCompressor(gzip.Name))
+		return c.apiClient.NetflowWriteStream(ctx, grpc.UseCompressor(gzip.Name))
 	})
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay
@@ -41,16 +45,23 @@ func (c *CastaiNetflowExporter) Run(ctx context.Context) error {
 	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_netflow")
 	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("castai_netflow")
 
+	sendWithRetry := func(e *castpb.Netflow) {
+		for range 2 {
+			if err := ws.Send(e); err != nil {
+				continue
+			}
+			sendMetric.Inc()
+			return
+		}
+		sendErrorMetric.Inc()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.queue:
-			if err := ws.Send(e); err != nil {
-				sendErrorMetric.Inc()
-				continue
-			}
-			sendMetric.Inc()
+			sendWithRetry(e)
 		}
 	}
 }

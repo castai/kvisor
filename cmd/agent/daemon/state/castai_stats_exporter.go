@@ -17,7 +17,7 @@ func NewCastaiStatsExporter(log *logging.Logger, apiClient *castai.Client, queue
 		log:                         log.WithField("component", "castai_stats_exporter"),
 		apiClient:                   apiClient,
 		queue:                       make(chan *castpb.StatsBatch, queueSize),
-		writeStreamCreateRetryDelay: 2 * time.Second,
+		writeStreamCreateRetryDelay: 1 * time.Second,
 	}
 }
 
@@ -41,16 +41,23 @@ func (c *CastaiStatsExporter) Run(ctx context.Context) error {
 	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_stats")
 	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("castai_stats")
 
+	sendWithRetry := func(e *castpb.StatsBatch) {
+		for range 2 {
+			if err := ws.Send(e); err != nil {
+				continue
+			}
+			sendMetric.Inc()
+			return
+		}
+		sendErrorMetric.Inc()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.queue:
-			if err := ws.Send(e); err != nil {
-				sendErrorMetric.Inc()
-				continue
-			}
-			sendMetric.Inc()
+			sendWithRetry(e)
 		}
 	}
 }
