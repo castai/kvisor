@@ -22,6 +22,7 @@ func NewCastaiNetflowExporter(log *logging.Logger, apiClient castaiNetflowExport
 		apiClient:                   apiClient,
 		queue:                       make(chan *castpb.Netflow, queueSize),
 		writeStreamCreateRetryDelay: 1 * time.Second,
+		drainTimeout:                5 * time.Second,
 	}
 }
 
@@ -30,11 +31,15 @@ type CastaiNetflowExporter struct {
 	apiClient                   castaiNetflowExporterClient
 	queue                       chan *castpb.Netflow
 	writeStreamCreateRetryDelay time.Duration
+	drainTimeout                time.Duration
 }
 
-func (c *CastaiNetflowExporter) Run(ctx context.Context) error {
+func (c *CastaiNetflowExporter) Run(rootCtx context.Context) error {
 	c.log.Info("running export loop")
 	defer c.log.Info("export loop done")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	ws := castai.NewWriteStream[*castpb.Netflow, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
 		return c.apiClient.NetflowWriteStream(ctx, grpc.UseCompressor(gzip.Name))
@@ -56,10 +61,25 @@ func (c *CastaiNetflowExporter) Run(ctx context.Context) error {
 		sendErrorMetric.Inc()
 	}
 
+	// Drain and send remaining data.
+	defer func() {
+		drainCtx, cancel := context.WithTimeout(context.Background(), c.drainTimeout)
+		defer cancel()
+		for len(c.queue) > 0 {
+			select {
+			case <-drainCtx.Done():
+				return
+			default:
+			}
+			sendWithRetry(<-c.queue)
+		}
+		cancel()
+	}()
+
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-rootCtx.Done():
+			return rootCtx.Err()
 		case e := <-c.queue:
 			sendWithRetry(e)
 		}

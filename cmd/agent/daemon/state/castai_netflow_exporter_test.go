@@ -81,6 +81,42 @@ func TestNewCastaiNetflowExporter(t *testing.T) {
 			return true
 		}, 1*time.Second, 10*time.Millisecond)
 	})
+
+	t.Run("drain and send remaining after context cancel", func(t *testing.T) {
+		r := require.New(t)
+
+		netflowStream := &netflowMockStream{}
+		exporter := NewCastaiNetflowExporter(logging.NewTestLog(), netflowStream, 100)
+		exporter.writeStreamCreateRetryDelay = 1 * time.Millisecond
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		exporter.Enqueue(&castaipb.Netflow{PodName: "p1"})
+
+		go func() {
+			if err := exporter.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				panic(err)
+			}
+		}()
+
+		r.Eventually(func() bool {
+			netflowStream.mu.Lock()
+			streams := netflowStream.streams
+			netflowStream.mu.Unlock()
+			if len(streams) != 1 {
+				return false
+			}
+			stream := streams[0]
+			stream.mu.Lock()
+			flows := stream.flows
+			stream.mu.Unlock()
+			if len(flows) != 1 {
+				return false
+			}
+			r.Equal("p1", flows[0].PodName)
+			return true
+		}, 1*time.Second, 10*time.Millisecond)
+	})
 }
 
 type netflowMockStream struct {
