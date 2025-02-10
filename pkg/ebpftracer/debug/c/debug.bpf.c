@@ -17,12 +17,9 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-static volatile const pid_t target_pid SEC(".rodata.target_pid");
-// For whatever reason the compiler doesn't but the bpf_map_fops variable
-// in the .rodata section of the elf binary. This causes the rewrite in the
-// go binary to fail. This can be fixed by forcing section via the SEC
-// annotation.
-static volatile const void *bpf_map_fops SEC(".rodata.bpf_map_fops");
+volatile const pid_t target_pid;
+
+extern void bpf_map_fops __ksym;
 
 struct socket_info {
     tuple_t tuple;
@@ -88,7 +85,7 @@ int iter_maps(struct bpf_iter__task_file *ctx)
     }
 
     // We are only intersted in maps for a specific PID.
-    if (file->f_op != bpf_map_fops || task->pid != target_pid) {
+    if (file->f_op != &bpf_map_fops || task->pid != target_pid) {
         return 0;
     }
 

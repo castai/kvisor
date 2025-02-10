@@ -34,7 +34,6 @@ type tracerGlobalConfigT struct {
 	ExportMetrics                   bool
 	CgroupV1                        bool
 	_                               [5]byte
-	SocketFileOpsAddr               uint64
 }
 
 type tracerIpKey struct {
@@ -115,9 +114,10 @@ func loadTracerObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
 type tracerSpecs struct {
 	tracerProgramSpecs
 	tracerMapSpecs
+	tracerVariableSpecs
 }
 
-// tracerSpecs contains programs before they are loaded into the kernel.
+// tracerProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerProgramSpecs struct {
@@ -209,12 +209,24 @@ type tracerMapSpecs struct {
 	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
 }
 
+// tracerVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type tracerVariableSpecs struct {
+	TRACE_EVENT_FL_TRACEPOINT     *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
+	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
+	GlobalConfig                  *ebpf.VariableSpec `ebpf:"global_config"`
+	IpKeyDummy                    *ebpf.VariableSpec `ebpf:"ip_key_dummy"`
+	TrafficSummaryDummy           *ebpf.VariableSpec `ebpf:"traffic_summary_dummy"`
+}
+
 // tracerObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerObjects struct {
 	tracerPrograms
 	tracerMaps
+	tracerVariables
 }
 
 func (o *tracerObjects) Close() error {
@@ -309,6 +321,17 @@ func (m *tracerMaps) Close() error {
 		m.TaskInfoMap,
 		m.TtyOpenedFiles,
 	)
+}
+
+// tracerVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
+type tracerVariables struct {
+	TRACE_EVENT_FL_TRACEPOINT     *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
+	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
+	GlobalConfig                  *ebpf.Variable `ebpf:"global_config"`
+	IpKeyDummy                    *ebpf.Variable `ebpf:"ip_key_dummy"`
+	TrafficSummaryDummy           *ebpf.Variable `ebpf:"traffic_summary_dummy"`
 }
 
 // tracerPrograms contains all programs after they have been loaded into the kernel.

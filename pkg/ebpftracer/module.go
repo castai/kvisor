@@ -9,8 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/castai/kvisor/pkg/ebpftracer/helpers"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
@@ -56,11 +56,6 @@ func (m *module) load(cfg Config) error {
 		return err
 	}
 
-	ksymAddrs := map[string]uint64{"socket_file_ops": 0}
-	if err := proc.LoadSymbolAddresses(ksymAddrs); err != nil {
-		return fmt.Errorf("error while resolving kallsym addresses: %w", err)
-	}
-
 	var kernelTypes *btf.Spec
 	if cfg.BTFPath != "" {
 		kernelTypes, err = btf.LoadSpec(cfg.BTFPath)
@@ -68,21 +63,18 @@ func (m *module) load(cfg Config) error {
 			return fmt.Errorf("loading custom btf: %w", err)
 		}
 	}
-	if err := spec.RewriteConstants(map[string]interface{}{
-		"global_config": tracerGlobalConfigT{
-			SelfPid:                         uint32(os.Getpid()), // nolint:gosec
-			PidNsId:                         cfg.HomePIDNS,
-			FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
-			FlowGrouping:                    uint64(cfg.NetflowGrouping),
-			TrackSyscallStats:               cfg.TrackSyscallStats,
-			ExportMetrics:                   cfg.MetricsReporting.TracerMetricsEnabled,
-			CgroupV1:                        cfg.DefaultCgroupsVersion == "V1",
-			SocketFileOpsAddr:               ksymAddrs["socket_file_ops"],
-		},
+
+	if err := helpers.SetVariable(spec, "global_config", tracerGlobalConfigT{
+		SelfPid:                         uint32(os.Getpid()), // nolint:gosec
+		PidNsId:                         cfg.HomePIDNS,
+		FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
+		FlowGrouping:                    uint64(cfg.NetflowGrouping),
+		TrackSyscallStats:               cfg.TrackSyscallStats,
+		ExportMetrics:                   cfg.MetricsReporting.TracerMetricsEnabled,
+		CgroupV1:                        cfg.DefaultCgroupsVersion == "V1",
 	}); err != nil {
 		return err
 	}
-
 	mapBufferSpec, found := spec.Maps["network_traffic_buffer_map"]
 	if !found {
 		return fmt.Errorf("error network_traffic_buffer_map map spec not found")
@@ -90,7 +82,7 @@ func (m *module) load(cfg Config) error {
 	m.networkTrafficSummaryMapSpec = mapBufferSpec
 	summaryMapBuffer, err := buildNetworkSummaryBufferMap(mapBufferSpec)
 	if err != nil {
-		return fmt.Errorf("erro while building summary map buffer: %w", err)
+		return fmt.Errorf("error while building summary map buffer: %w", err)
 	}
 
 	spec.Maps["signal_events"].MaxEntries = cfg.SignalEventsRingBufferSize

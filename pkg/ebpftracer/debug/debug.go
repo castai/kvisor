@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/castai/kvisor/pkg/ebpftracer/helpers"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
@@ -107,16 +108,8 @@ func (d *Debug) Load() error {
 
 	var objects debugObjects
 
-	ksymAddrs := map[string]uint64{"bpf_map_fops": 0}
-	if err := proc.LoadSymbolAddresses(ksymAddrs); err != nil {
-		return fmt.Errorf("error while resolving kallsym addresses: %w", err)
-	}
-
-	if err := spec.RewriteConstants(map[string]any{
-		"target_pid":   d.cfg.TargetPID,
-		"bpf_map_fops": ksymAddrs["bpf_map_fops"],
-	}); err != nil {
-		return fmt.Errorf("error while rewriting constants: %w", err)
+	if err := helpers.SetVariable(spec, "target_pid", d.cfg.TargetPID); err != nil {
+		return err
 	}
 
 	if err := spec.LoadAndAssign(&objects, &ebpf.CollectionOptions{

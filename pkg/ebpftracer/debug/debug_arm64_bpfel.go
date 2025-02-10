@@ -94,9 +94,10 @@ func loadDebugObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
 type debugSpecs struct {
 	debugProgramSpecs
 	debugMapSpecs
+	debugVariableSpecs
 }
 
-// debugSpecs contains programs before they are loaded into the kernel.
+// debugProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type debugProgramSpecs struct {
@@ -108,44 +109,20 @@ type debugProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type debugMapSpecs struct {
-	ArgsMap                 *ebpf.MapSpec `ebpf:"args_map"`
-	Bufs                    *ebpf.MapSpec `ebpf:"bufs"`
-	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
-	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
-	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
-	Events                  *ebpf.MapSpec `ebpf:"events"`
-	EventsMap               *ebpf.MapSpec `ebpf:"events_map"`
-	ExistingSocketsMap      *ebpf.MapSpec `ebpf:"existing_sockets_map"`
-	FileModificationMap     *ebpf.MapSpec `ebpf:"file_modification_map"`
-	FileWrites              *ebpf.MapSpec `ebpf:"file_writes"`
-	IgnoredCgroupsMap       *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
-	IoFilePathCacheMap      *ebpf.MapSpec `ebpf:"io_file_path_cache_map"`
-	Logs                    *ebpf.MapSpec `ebpf:"logs"`
-	LogsCount               *ebpf.MapSpec `ebpf:"logs_count"`
-	Metrics                 *ebpf.MapSpec `ebpf:"metrics"`
-	NetHeapSockStateEvent   *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
-	NetTaskctxMap           *ebpf.MapSpec `ebpf:"net_taskctx_map"`
-	NetflowsDataMap         *ebpf.MapSpec `ebpf:"netflows_data_map"`
-	NetworkTrafficBufferMap *ebpf.MapSpec `ebpf:"network_traffic_buffer_map"`
-	OomInfo                 *ebpf.MapSpec `ebpf:"oom_info"`
-	PidOriginalFileFlags    *ebpf.MapSpec `ebpf:"pid_original_file_flags"`
-	ProcInfoMap             *ebpf.MapSpec `ebpf:"proc_info_map"`
-	ProgArray               *ebpf.MapSpec `ebpf:"prog_array"`
-	ProgArrayTp             *ebpf.MapSpec `ebpf:"prog_array_tp"`
-	ScratchMap              *ebpf.MapSpec `ebpf:"scratch_map"`
-	SignalEvents            *ebpf.MapSpec `ebpf:"signal_events"`
-	Signals                 *ebpf.MapSpec `ebpf:"signals"`
-	SkbEvents               *ebpf.MapSpec `ebpf:"skb_events"`
-	Sys32To64Map            *ebpf.MapSpec `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail        *ebpf.MapSpec `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail      *ebpf.MapSpec `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails           *ebpf.MapSpec `ebpf:"sys_enter_tails"`
-	SysExitInitTail         *ebpf.MapSpec `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail       *ebpf.MapSpec `ebpf:"sys_exit_submit_tail"`
-	SysExitTails            *ebpf.MapSpec `ebpf:"sys_exit_tails"`
-	SyscallStatsMap         *ebpf.MapSpec `ebpf:"syscall_stats_map"`
-	TaskInfoMap             *ebpf.MapSpec `ebpf:"task_info_map"`
-	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
+}
+
+// debugVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type debugVariableSpecs struct {
+	TRACE_EVENT_FL_TRACEPOINT     *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
+	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
+	DummyBpfMap                   *ebpf.VariableSpec `ebpf:"dummy_bpf_map"`
+	DummyDebugSocketContext       *ebpf.VariableSpec `ebpf:"dummy_debug_socket_context"`
+	GlobalConfig                  *ebpf.VariableSpec `ebpf:"global_config"`
+	IpKeyDummy                    *ebpf.VariableSpec `ebpf:"ip_key_dummy"`
+	TargetPid                     *ebpf.VariableSpec `ebpf:"target_pid"`
+	TrafficSummaryDummy           *ebpf.VariableSpec `ebpf:"traffic_summary_dummy"`
 }
 
 // debugObjects contains all objects after they have been loaded into the kernel.
@@ -154,6 +131,7 @@ type debugMapSpecs struct {
 type debugObjects struct {
 	debugPrograms
 	debugMaps
+	debugVariables
 }
 
 func (o *debugObjects) Close() error {
@@ -167,87 +145,24 @@ func (o *debugObjects) Close() error {
 //
 // It can be passed to loadDebugObjects or ebpf.CollectionSpec.LoadAndAssign.
 type debugMaps struct {
-	ArgsMap                 *ebpf.Map `ebpf:"args_map"`
-	Bufs                    *ebpf.Map `ebpf:"bufs"`
-	ConfigMap               *ebpf.Map `ebpf:"config_map"`
-	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
-	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
-	Events                  *ebpf.Map `ebpf:"events"`
-	EventsMap               *ebpf.Map `ebpf:"events_map"`
-	ExistingSocketsMap      *ebpf.Map `ebpf:"existing_sockets_map"`
-	FileModificationMap     *ebpf.Map `ebpf:"file_modification_map"`
-	FileWrites              *ebpf.Map `ebpf:"file_writes"`
-	IgnoredCgroupsMap       *ebpf.Map `ebpf:"ignored_cgroups_map"`
-	IoFilePathCacheMap      *ebpf.Map `ebpf:"io_file_path_cache_map"`
-	Logs                    *ebpf.Map `ebpf:"logs"`
-	LogsCount               *ebpf.Map `ebpf:"logs_count"`
-	Metrics                 *ebpf.Map `ebpf:"metrics"`
-	NetHeapSockStateEvent   *ebpf.Map `ebpf:"net_heap_sock_state_event"`
-	NetTaskctxMap           *ebpf.Map `ebpf:"net_taskctx_map"`
-	NetflowsDataMap         *ebpf.Map `ebpf:"netflows_data_map"`
-	NetworkTrafficBufferMap *ebpf.Map `ebpf:"network_traffic_buffer_map"`
-	OomInfo                 *ebpf.Map `ebpf:"oom_info"`
-	PidOriginalFileFlags    *ebpf.Map `ebpf:"pid_original_file_flags"`
-	ProcInfoMap             *ebpf.Map `ebpf:"proc_info_map"`
-	ProgArray               *ebpf.Map `ebpf:"prog_array"`
-	ProgArrayTp             *ebpf.Map `ebpf:"prog_array_tp"`
-	ScratchMap              *ebpf.Map `ebpf:"scratch_map"`
-	SignalEvents            *ebpf.Map `ebpf:"signal_events"`
-	Signals                 *ebpf.Map `ebpf:"signals"`
-	SkbEvents               *ebpf.Map `ebpf:"skb_events"`
-	Sys32To64Map            *ebpf.Map `ebpf:"sys_32_to_64_map"`
-	SysEnterInitTail        *ebpf.Map `ebpf:"sys_enter_init_tail"`
-	SysEnterSubmitTail      *ebpf.Map `ebpf:"sys_enter_submit_tail"`
-	SysEnterTails           *ebpf.Map `ebpf:"sys_enter_tails"`
-	SysExitInitTail         *ebpf.Map `ebpf:"sys_exit_init_tail"`
-	SysExitSubmitTail       *ebpf.Map `ebpf:"sys_exit_submit_tail"`
-	SysExitTails            *ebpf.Map `ebpf:"sys_exit_tails"`
-	SyscallStatsMap         *ebpf.Map `ebpf:"syscall_stats_map"`
-	TaskInfoMap             *ebpf.Map `ebpf:"task_info_map"`
-	TtyOpenedFiles          *ebpf.Map `ebpf:"tty_opened_files"`
 }
 
 func (m *debugMaps) Close() error {
-	return _DebugClose(
-		m.ArgsMap,
-		m.Bufs,
-		m.ConfigMap,
-		m.DroppedBinaryInodes,
-		m.EventDataMap,
-		m.Events,
-		m.EventsMap,
-		m.ExistingSocketsMap,
-		m.FileModificationMap,
-		m.FileWrites,
-		m.IgnoredCgroupsMap,
-		m.IoFilePathCacheMap,
-		m.Logs,
-		m.LogsCount,
-		m.Metrics,
-		m.NetHeapSockStateEvent,
-		m.NetTaskctxMap,
-		m.NetflowsDataMap,
-		m.NetworkTrafficBufferMap,
-		m.OomInfo,
-		m.PidOriginalFileFlags,
-		m.ProcInfoMap,
-		m.ProgArray,
-		m.ProgArrayTp,
-		m.ScratchMap,
-		m.SignalEvents,
-		m.Signals,
-		m.SkbEvents,
-		m.Sys32To64Map,
-		m.SysEnterInitTail,
-		m.SysEnterSubmitTail,
-		m.SysEnterTails,
-		m.SysExitInitTail,
-		m.SysExitSubmitTail,
-		m.SysExitTails,
-		m.SyscallStatsMap,
-		m.TaskInfoMap,
-		m.TtyOpenedFiles,
-	)
+	return _DebugClose()
+}
+
+// debugVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to loadDebugObjects or ebpf.CollectionSpec.LoadAndAssign.
+type debugVariables struct {
+	TRACE_EVENT_FL_TRACEPOINT     *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
+	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
+	DummyBpfMap                   *ebpf.Variable `ebpf:"dummy_bpf_map"`
+	DummyDebugSocketContext       *ebpf.Variable `ebpf:"dummy_debug_socket_context"`
+	GlobalConfig                  *ebpf.Variable `ebpf:"global_config"`
+	IpKeyDummy                    *ebpf.Variable `ebpf:"ip_key_dummy"`
+	TargetPid                     *ebpf.Variable `ebpf:"target_pid"`
+	TrafficSummaryDummy           *ebpf.Variable `ebpf:"traffic_summary_dummy"`
 }
 
 // debugPrograms contains all programs after they have been loaded into the kernel.

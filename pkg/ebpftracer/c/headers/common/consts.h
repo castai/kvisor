@@ -36,9 +36,6 @@ typedef struct {
     bool track_syscall_stats;
     bool export_metrics;
     bool cgroup_v1;
-    // TODO(patrick.pichler): replace this with a `__ksym` defined variable once
-    // this PR gets merged https://github.com/cilium/ebpf/pull/1587
-    u64 socket_file_ops_addr;
 } global_config_t;
 
 volatile const global_config_t global_config;
