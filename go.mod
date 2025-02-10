@@ -9,7 +9,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
-	github.com/cilium/ebpf v0.16.0
+	github.com/cilium/ebpf v0.17.2
 	github.com/containerd/containerd v1.7.24
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
@@ -43,7 +43,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	golang.org/x/net v0.34.0
 	golang.org/x/sync v0.10.0
-	golang.org/x/sys v0.29.0
+	golang.org/x/sys v0.30.0
 	golang.org/x/time v0.8.0
 	golang.stackrox.io/kube-linter v0.7.1
 	google.golang.org/grpc v1.68.0

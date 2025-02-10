@@ -30,6 +30,7 @@
 #include <common/logging.h>
 #include <common/memory.h>
 #include <common/network.h>
+#include <common/netflow.h>
 #include <common/stats.h>
 #include <common/metrics.h>
 #include <common/signatures.h>
@@ -38,6 +39,8 @@
 char LICENSE[] SEC("license") = "GPL";
 
 extern _Bool LINUX_HAS_SYSCALL_WRAPPER __kconfig;
+
+extern void socket_file_ops __ksym;
 
 // trace/events/syscalls.h: TP_PROTO(struct pt_regs *regs, long id)
 // initial entry for sys_enter syscall logic
@@ -1748,7 +1751,6 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
                 return 0;                                                                                                                                                                           \
     }
 
-
 SKB_NET_EVENT_CONTEXT(bucket1, SKB_PAYLOAD_BUCKET1);
 SKB_NET_EVENT_CONTEXT(bucket2, SKB_PAYLOAD_BUCKET2);
 SKB_NET_EVENT_CONTEXT(bucket3, SKB_PAYLOAD_BUCKET3);
@@ -1853,7 +1855,7 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
         return 0;
 
     // // We only care about sockets.
-    if ((u64) file->f_op != global_config.socket_file_ops_addr) {
+    if (file->f_op != &socket_file_ops) {
         return 0;
     }
     net_task_context_t netctx = {0};

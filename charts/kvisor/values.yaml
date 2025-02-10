@@ -82,6 +82,7 @@ agent:
         - BPF
         - PERFMON
         - IPC_LOCK # Needed for mmap.
+        - SYSLOG # Required to resolve /proc/kallsyms.
       drop:
         - ALL
     seccompProfile:
