@@ -12,6 +12,14 @@
 #include <common/context.h>
 #include <common/network.h>
 
+/* BPF_FUNC_bpf_ringbuf_commit, BPF_FUNC_bpf_ringbuf_discard, and
+ * BPF_FUNC_bpf_ringbuf_output flags.
+ */
+enum {
+	BPF_RB_NO_WAKEUP		= (1ULL << 0),
+	BPF_RB_FORCE_WAKEUP		= (1ULL << 1),
+};
+
 // PROTOTYPES
 
 statfunc buf_t *get_buf(int);
@@ -476,10 +484,11 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
     return arg_num;
 }
 
-#define events_ringbuf_submit(p, id, ret)        do_ringbuf_submit(&events, p, id, ret, true, EVENTS_RINGBUF_DISCARD)
-#define signal_events_ringbuf_submit(p, id, ret) do_ringbuf_submit(&signal_events, p, id, ret, true, SIGNAL_EVENTS_RINGBUF_DISCARD)
+#define events_ringbuf_submit(p, id, ret)        do_ringbuf_submit(&events, p, id, ret, true, 0, EVENTS_RINGBUF_DISCARD)
+#define signal_events_ringbuf_submit(p, id, ret) do_ringbuf_submit(&signal_events, p, id, ret, true, 0, SIGNAL_EVENTS_RINGBUF_DISCARD)
+#define skb_events_ringbuf_submit(p, id, ret)    do_ringbuf_submit(&events, p, id, ret, false, BPF_RB_FORCE_WAKEUP, EVENTS_RINGBUF_DISCARD)
 
-statfunc int do_ringbuf_submit(void *target, program_data_t *p, u32 id, long ret, bool init_task_ctx, enum metric m) {
+statfunc int do_ringbuf_submit(void *target, program_data_t *p, u32 id, long ret, bool init_task_ctx, u64 flags, enum metric m) {
 
     p->event->context.eventid = id;
     p->event->context.retval = ret;
@@ -500,7 +509,7 @@ statfunc int do_ringbuf_submit(void *target, program_data_t *p, u32 id, long ret
                  :
                  : [size] "r"(size), [max_size] "i"(MAX_EVENT_SIZE));
 
-    if (bpf_ringbuf_output(target, p->event, size, 0) < 0) {
+    if (bpf_ringbuf_output(target, p->event, size, flags) < 0) {
         metrics_increase(m);
         return 1;
     }

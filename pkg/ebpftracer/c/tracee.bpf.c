@@ -2505,7 +2505,7 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
     save_to_submit_buf(&p.event->args_buf, (void *) &new_state, sizeof(u32), 1);
     save_to_submit_buf(&p.event->args_buf, &tuple, sizeof(tuple), 2);
 
-    do_ringbuf_submit(&events, &p, SOCK_SET_STATE, 0, false, EVENTS_RINGBUF_DISCARD);
+    skb_events_ringbuf_submit(&p, SOCK_SET_STATE, 0);
 
 cleanup:
     free_scratch_buf(e);
