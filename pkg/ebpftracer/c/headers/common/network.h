@@ -325,6 +325,70 @@ statfunc bool fill_tuple_from_bpf_sock(struct bpf_sock *sk, tuple_t *tuple)
     return true;
 }
 
+statfunc bool is_addr_public(const addr_t *addr, __u16 family) {
+    switch (family) {
+        case AF_INET: {
+            __u32 be_addr = bpf_htonl(addr->v4addr); // Convert to network byte order
+
+            // Private IPv4 ranges
+            if ((be_addr >= 0x0A000000 && be_addr <= 0x0AFFFFFF) ||   // 10.0.0.0/8
+                (be_addr >= 0xAC100000 && be_addr <= 0xAC1FFFFF) ||   // 172.16.0.0/12
+                (be_addr >= 0xC0A80000 && be_addr <= 0xC0A8FFFF)) {  // 192.168.0.0/16
+                return false;
+            }
+
+            // Loopback IPv4
+            if (be_addr >= 0x7F000000 && be_addr <= 0x7F0000FF) { // 127.0.0.0/8
+                return false;
+            }
+
+            // Multicast IPv4
+            if (be_addr >= 0xE0000000 && be_addr <= 0xEFFFFFFF) { // 224.0.0.0/4
+                return false;
+            }
+
+            // Link-local IPv4 - 169.254.0.0/16)
+            if (be_addr >= 0xA9FE0000 && be_addr <= 0xA9FEFFFF) {
+                return false;
+            }
+
+            return true; // Public IPv4
+        }
+        case AF_INET6: {
+            // Loopback IPv6 ::1
+            if (addr->u6_addr32[0] == 0 && addr->u6_addr32[1] == 0 &&
+                addr->u6_addr32[2] == 0 && addr->u6_addr32[3] == bpf_htonl(1)) {
+                return false;
+            }
+
+            // Link-local addresses fe80::/10
+            if ((bpf_ntohl(addr->u6_addr32[0]) & 0xffc00000) == 0xfe800000) {
+                return false;
+            }
+
+             // Site-local addresses fec0::/10 (deprecated, but still checked for coverage)
+            if ((bpf_ntohl(addr->u6_addr32[0]) & 0xffc00000) == 0xfec00000) {
+                return false;
+            }
+
+            // Unique local addresses fc00::/7- covers most private IPv6.
+
+            if ((bpf_ntohl(addr->u6_addr32[0]) & 0xfe000000) == 0xfc000000) {
+                 return false;
+            }
+            // Multicast addresses ff00::/8
+            if ((bpf_ntohl(addr->u6_addr32[0]) & 0xff000000) == 0xff000000) {
+                return false;
+            }
+
+            return true; // Public IPv6
+        }
+        default:
+            // Unknown address family, treat as non-public to be safe.
+            return false;
+    }
+}
+
 /*
  * Fills the given ip_key with the provided data. One thing to watch out for is, that the tuple
  * will have the local addr and port filled into the saddr/sport fields and remote will be in
