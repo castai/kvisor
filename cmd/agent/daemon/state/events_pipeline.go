@@ -3,7 +3,6 @@ package state
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/netip"
 	"time"
 
@@ -11,30 +10,76 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
+	"golang.org/x/sync/errgroup"
 )
 
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	c.log.Info("running events pipeline")
 	defer c.log.Info("events pipeline done")
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case e := <-c.tracer.Events():
-			group := c.getOrCreateContainerEventsGroup(ctx, e)
-			group.pushEvent(e)
-		case e := <-c.signatureEngine.Events():
-			group := c.getOrCreateContainerEventsGroup(ctx, e.EbpfEvent)
-			group.pushSignatureEvent(e)
+	numWorkers := 8
+	var errg errgroup.Group
+
+	resync := make(chan uint64, 200)
+	errg.Go(func() error {
+		ticker := time.NewTicker(c.eventsFlushInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				now := c.nowFunc()
+				func() {
+					c.eventsGroupsMu.Lock()
+					defer c.eventsGroupsMu.Unlock()
+
+					for id, g := range c.eventsGroups {
+						if g.flushedAt.Add(g.cfg.flushInterval).Before(now) {
+							select {
+							case resync <- id:
+							default:
+							}
+						}
+					}
+				}()
+			}
 		}
+	})
+
+	for range numWorkers {
+		errg.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case e := <-c.tracer.Events():
+					group := c.getOrCreateContainerEventsGroup(e)
+					group.handleEvent(ctx, e, nil)
+				case e := <-c.signatureEngine.Events():
+					group := c.getOrCreateContainerEventsGroup(e.EbpfEvent)
+					group.handleEvent(ctx, e.EbpfEvent, e.SignatureEvent)
+				case cgroupID := <-resync:
+					func() {
+						c.eventsGroupsMu.Lock()
+						defer c.eventsGroupsMu.Unlock()
+						if group, found := c.eventsGroups[cgroupID]; found {
+							group.handleEvent(ctx, nil, nil)
+						}
+					}()
+				}
+			}
+		})
 	}
+
+	return errg.Wait()
 }
 
-func (c *Controller) getOrCreateContainerEventsGroup(ctx context.Context, e *ebpftypes.Event) *containerEventsGroup {
-	c.eventsGroupsMu.RLock()
+func (c *Controller) getOrCreateContainerEventsGroup(e *ebpftypes.Event) *containerEventsGroup {
+	c.eventsGroupsMu.Lock()
+	defer c.eventsGroupsMu.Unlock()
+
 	group, found := c.eventsGroups[e.Context.CgroupID]
-	c.eventsGroupsMu.RUnlock()
 	if !found {
 		batch := &castpb.ContainerEventsBatch{
 			NodeName:          c.nodeName,
@@ -55,11 +100,9 @@ func (c *Controller) getOrCreateContainerEventsGroup(ctx context.Context, e *ebp
 		}
 		// TODO: Consider adjusting these settings dynamically on each group based on their events rate.
 		cfg := containerEventsGroupConfig{
-			batchSize:           c.eventsBatchSize,
-			flushInterval:       c.eventsFlushInterval,
-			eventsQueueSize:     100,
-			signaturesQueueSize: 100,
-			fingerprintSize:     500,
+			batchSize:       c.eventsBatchSize,
+			flushInterval:   c.eventsFlushInterval,
+			fingerprintSize: 500,
 		}
 		group = newContainerEventsGroup(
 			c.log,
@@ -71,15 +114,7 @@ func (c *Controller) getOrCreateContainerEventsGroup(ctx context.Context, e *ebp
 			c.fillProtoContainerEvent,
 			c.tracer,
 		)
-		c.eventsGroupsMu.Lock()
 		c.eventsGroups[e.Context.CgroupID] = group
-		c.eventsGroupsMu.Unlock()
-		go func() {
-			if err := group.run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				c.log.Errorf("running events group: %v", err)
-				return
-			}
-		}()
 	}
 	return group
 }
