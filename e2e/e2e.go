@@ -16,12 +16,12 @@ import (
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/samber/lo"
+	_ "github.com/castai/kvisor/pkg/grpczstd" // Register zstd grpc compression.
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
-	_ "google.golang.org/grpc/encoding/gzip"
+	_ "google.golang.org/grpc/encoding/gzip" // Register gzip compressor.
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/client-go/kubernetes"
@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	srv := &testCASTAIServer{clientset: clientset, testStartTime: time.Now().UTC()}
+	srv := &testCASTAIServer{clientset: clientset, testStartTime: time.Now().UTC(), outputReceivedData: false}
 	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -99,13 +99,6 @@ func run(ctx context.Context) error {
 	srv.eventsAsserted = true
 	srv.events = nil
 
-	fmt.Println("🙏waiting for process tree events")
-	if err := srv.assertProcessTreeEvents(ctx); err != nil {
-		return fmt.Errorf("assert process tree events: %w", err)
-	}
-	srv.processTreeEventsAsserted = true
-	srv.processTreeEvents = nil
-
 	fmt.Println("🙏waiting for ipv4 netflows")
 	if err := srv.assertNetflows(ctx, "echo-a-ipv4", unix.AF_INET); err != nil {
 		return fmt.Errorf("assert ipv4 netflows: %w", err)
@@ -119,9 +112,10 @@ func run(ctx context.Context) error {
 	srv.netflowsAsserted = true
 	srv.netflows = nil
 
-	// TODO: Fix container assert stats once pids are fixed.
 	fmt.Println("🙏waiting for container stats")
-	_ = srv.assertContainerStats
+	if err := srv.assertContainerStats(ctx); err != nil {
+		return fmt.Errorf("assert container stats: %w", err)
+	}
 	srv.statsAsserted = true
 	srv.stats = nil
 
@@ -177,8 +171,9 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
   --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
+  --set agent.extraArgs.netflow-export-interval=5s \
   --set agent.extraArgs.process-tree-enabled=true \
-  --set agent.extraArgs.ebpf-events-include-pod-labels="name\,app.kubernetes.io/name\,app.kubernetes.io/component" \
+  --set agent.extraArgs.ebpf-events-include-pod-labels="name\,app\,app.kubernetes.io/name\,app.kubernetes.io/component" \
   --set agent.extraArgs.ebpf-events-include-pod-annotations="cast.ai\,checksum/config"  \
   --set controller.extraArgs.castai-server-insecure=true \
   --set controller.extraArgs.log-level=debug \
@@ -213,22 +208,62 @@ type testCASTAIServer struct {
 
 	testStartTime time.Time
 
-	mu                        sync.Mutex
-	stats                     []*castaipb.StatsBatch
-	statsAsserted             bool
-	events                    []*castaipb.Event
-	eventsAsserted            bool
-	logs                      []*castaipb.LogEvent
-	imageMetadatas            []*castaipb.ImageMetadata
-	kubeBenchReports          []*castaipb.KubeBenchReport
-	kubeLinterReports         []*castaipb.KubeLinterReport
-	processTreeEvents         []*castaipb.ProcessTreeEvent
-	processTreeEventsAsserted bool
-	controllerConfig          []byte
-	agentConfig               []byte
-	netflows                  []*castaipb.Netflow
-	netflowsAsserted          bool
-	outputReceivedData        bool
+	mu                     sync.Mutex
+	stats                  []*castaipb.StatsBatch
+	statsAsserted          bool
+	events                 []*castaipb.Event
+	containerEventsBatches []*castaipb.ContainerEventsBatch
+	eventsAsserted         bool
+	logs                   []*castaipb.LogEvent
+	imageMetadatas         []*castaipb.ImageMetadata
+	kubeBenchReports       []*castaipb.KubeBenchReport
+	kubeLinterReports      []*castaipb.KubeLinterReport
+	processTreeEvents      []*castaipb.ProcessTreeEvent
+	controllerConfig       []byte
+	agentConfig            []byte
+	netflows               []*castaipb.Netflow
+	netflowsAsserted       bool
+	outputReceivedData     bool
+}
+
+func (t *testCASTAIServer) ContainerEventsBatchWriteStream(g grpc.ClientStreamingServer[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse]) error {
+	md, ok := metadata.FromIncomingContext(g.Context())
+	if !ok {
+		return errors.New("no metadata")
+	}
+	token := md["authorization"]
+	if len(token) == 0 {
+		return errors.New("no authorization")
+	}
+	if token[0] != "Token "+apiKey {
+		return fmt.Errorf("invalid token %s", token[0])
+	}
+	cluster := md["x-cluster-id"]
+	if len(cluster) == 0 {
+		return errors.New("no x-cluster-id")
+	}
+	if cluster[0] != clusterID {
+		return fmt.Errorf("invalid cluster ID %s", cluster[0])
+	}
+
+	for {
+		event, err := g.Recv()
+		if err != nil {
+			return err
+		}
+		if t.eventsAsserted {
+			continue
+		}
+		data, err := protojson.Marshal(event)
+		if err != nil {
+			fmt.Println("received container events batch(cannot marshall to json):", event)
+		} else if t.outputReceivedData {
+			fmt.Println("received container events batch", string(data))
+		}
+		t.mu.Lock()
+		t.containerEventsBatches = append(t.containerEventsBatches, event)
+		t.mu.Unlock()
+	}
 }
 
 func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
@@ -255,9 +290,6 @@ func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecur
 		event, err := server.Recv()
 		if err != nil {
 			return err
-		}
-		if t.processTreeEventsAsserted {
-			continue
 		}
 		data, err := protojson.Marshal(event)
 		if err != nil {
@@ -365,7 +397,7 @@ func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.G
 		t.agentConfig = v
 	}
 	if t.outputReceivedData {
-		fmt.Printf("received configs:\ncontroller=%v\n agent=%v\n", t.controllerConfig, t.agentConfig)
+		fmt.Printf("received configs:\ncontroller=%v\n agent=%v\n", string(t.controllerConfig), string(t.agentConfig))
 	}
 
 	return &castaipb.GetConfigurationResponse{}, nil
@@ -455,61 +487,6 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 	}
 }
 
-func (t *testCASTAIServer) assertProcessTreeEvents(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
-
-	expectedTypes := map[castaipb.ProcessAction]struct{}{
-		castaipb.ProcessAction_PROCESS_ACTION_FORK: {},
-		castaipb.ProcessAction_PROCESS_ACTION_EXEC: {},
-		castaipb.ProcessAction_PROCESS_ACTION_EXIT: {},
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timeout:
-			var errorMsg strings.Builder
-
-			_, _ = errorMsg.WriteString("not all expected process tree event types found within timeout. missing types:")
-			first := true
-
-			for et := range expectedTypes {
-				if !first {
-					_, _ = errorMsg.WriteString(", ")
-				} else {
-					first = false
-				}
-
-				_, _ = errorMsg.WriteString(et.String())
-			}
-			return errors.New(errorMsg.String())
-		case <-time.After(1 * time.Second):
-			t.mu.Lock()
-			processTreeEvents := t.processTreeEvents
-			t.processTreeEvents = []*castaipb.ProcessTreeEvent{}
-			t.mu.Unlock()
-
-			if len(processTreeEvents) > 0 {
-				for _, event := range processTreeEvents {
-					for _, pe := range event.Events {
-						delete(expectedTypes, pe.Action)
-					}
-
-					// In order to speed things up we will short circuit the when we all expected events have been found.
-					if len(expectedTypes) == 0 {
-						return nil
-					}
-				}
-
-				if len(expectedTypes) == 0 {
-					return nil
-				}
-			}
-		}
-	}
-}
-
 func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
 	panic("should not be called")
 }
@@ -525,295 +502,297 @@ const (
 	ExecDroppedBinary uint32 = 1 << 3
 )
 
-func (t *testCASTAIServer) validateExecEvents() error {
-	var foundExecWithHash bool
-	var foundExecFromUpperLayer bool
-	var foundExecTmpfs bool
-	var foundExecDroppedBinary bool
-
-	for _, e := range t.events {
-		if e.EventType == castaipb.EventType_EVENT_EXEC {
-			if e.GetExec().HashSha256 != nil {
-				foundExecWithHash = true
-			}
-
-			flags := e.GetExec().Flags
-			originalFileFlags := flags >> 16
-
-			if (originalFileFlags | ExecUpperLayer) > 0 {
-				foundExecFromUpperLayer = true
-			}
-
-			if (originalFileFlags | ExecTmpfs) > 0 {
-				foundExecTmpfs = true
-			}
-
-			if (originalFileFlags | ExecDroppedBinary) > 0 {
-				foundExecDroppedBinary = true
-			}
-		}
-	}
-
-	if !foundExecWithHash {
-		return errors.New("expected at least one exec event with hash set")
-	}
-	if !foundExecFromUpperLayer {
-		return errors.New("expected at least one exec event from upper layer")
-	}
-	if !foundExecTmpfs {
-		return errors.New("expected at least one exec event from tmpfs")
-	}
-	if !foundExecDroppedBinary {
-		return errors.New("expected at least one exec event from dropped binary")
-	}
-
-	return nil
+type eventValidator struct {
+	name       string
+	assertions *assertions
+	validate   func(v *eventValidator, batch *castaipb.ContainerEventsBatch) error
+	passed     bool
 }
 
-func (t *testCASTAIServer) validateSignatureEvents(ctx context.Context, timeout time.Duration) error {
-	expectedTypes := map[castaipb.SignatureEventID]struct{}{
-		castaipb.SignatureEventID_SIGNATURE_SOCKS5_DETECTED: {},
+func (v *eventValidator) finish(err error) {
+	if v.passed {
+		return
 	}
-	currentOffset := 0
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(timeout):
-			var errorMsg strings.Builder
-
-			_, _ = errorMsg.WriteString("not all expected event types found within timeout. missing types:")
-			first := true
-
-			for et := range expectedTypes {
-				if !first {
-					_, _ = errorMsg.WriteString(", ")
-				} else {
-					first = false
-				}
-
-				_, _ = errorMsg.WriteString(et.String())
-			}
-
-			return errors.New(errorMsg.String())
-		case <-time.Tick(1 * time.Second):
-			t.mu.Lock()
-			events := t.events
-			t.mu.Unlock()
-
-			if len(events) == 0 {
-				continue
-			}
-
-			for _, event := range events[currentOffset:] {
-				signatureID := event.GetSignature().GetMetadata().GetId()
-				if signatureID == castaipb.SignatureEventID_SIGNATURE_UNKNOWN {
-					continue
-				}
-
-				delete(expectedTypes, signatureID)
-			}
-
-			currentOffset = len(events)
-
-			fmt.Println("missing signature types:", expectedTypes)
-			if len(expectedTypes) == 0 {
-				return nil
-			}
-		}
-	}
+	v.passed = err == nil
 }
 
-type eventValidatorFunc func(e *castaipb.Event) error
+var errValidatorSkipped = errors.New("skipped")
 
 func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Duration) error {
-	eventsValidators := map[castaipb.EventType]eventValidatorFunc{
-		castaipb.EventType_EVENT_EXEC: func(e *castaipb.Event) error {
-			if e.GetExec().Path == "" {
-				return errors.New("missing exec path")
-			}
-			return nil
+	validators := []*eventValidator{
+		{
+			name:       "process tree events",
+			assertions: newAssertions(),
+			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+				defer v.finish(err)
+
+				if batch.WorkloadName != "magic-write-generator" {
+					return errValidatorSkipped
+				}
+
+				var foundExec, foundFork, foundExit bool
+				for _, item := range batch.Items {
+					if item.EventType == castaipb.EventType_EVENT_EXEC {
+						foundExec = true
+					}
+					if item.EventType == castaipb.EventType_EVENT_PROCESS_FORK {
+						foundFork = true
+					}
+					if item.EventType == castaipb.EventType_EVENT_PROCESS_EXIT {
+						foundExit = true
+					}
+				}
+				if !foundExec {
+					return errors.New("no exec")
+				}
+				if !foundFork {
+					return errors.New("no fork")
+				}
+				if !foundExit {
+					return errors.New("no exit")
+				}
+				return nil
+			},
 		},
-		castaipb.EventType_EVENT_DNS: func(e *castaipb.Event) error {
-			if e.GetDns().DNSQuestionDomain == "" {
-				return errors.New("missing dns question domain")
-			}
-			return nil
+		{
+			name:       "dns event + tcp event",
+			assertions: newAssertions(),
+			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+
+				defer v.finish(err)
+				r := v.assertions
+				if batch.WorkloadName != "dns-generator" {
+					return errValidatorSkipped
+				}
+
+				r.NotEmpty(batch.WorkloadUid)
+				r.Equal(castaipb.WorkloadKind_WORKLOAD_KIND_DEPLOYMENT, batch.WorkloadKind)
+				r.Contains(batch.PodName, "dns-generator")
+				r.Equal("dns-generator", batch.ContainerName)
+				r.Equal("kvisor-e2e", batch.Namespace)
+				r.Equal(map[string]string{"cast.ai/e2e": "e2e"}, batch.ObjectAnnotations)
+				r.Equal(map[string]string{"app": "dns-generator"}, batch.ObjectLabels)
+				r.NotEmpty(batch.NodeName)
+				r.NotEmpty(batch.PodUid)
+				r.NotEmpty(batch.ContainerId)
+				r.NotEmpty(batch.CgroupId)
+
+				var foundDNS bool
+				var foundTCP bool
+				for _, item := range batch.Items {
+					if item.EventType == castaipb.EventType_EVENT_DNS {
+						r.NotEmpty(item.Pid)
+						r.NotEmpty(item.Ppid)
+						r.NotEmpty(item.HostPid)
+						r.NotEmpty(item.ProcessStartTime)
+						r.NotEmpty(item.ProcessParentStartTime)
+						r.NotEmpty(item.ProcessName)
+						r.NotEmpty(item.Timestamp)
+						r.Equal("google.com", item.GetDns().DNSQuestionDomain)
+						foundDNS = true
+					}
+					if item.EventType == castaipb.EventType_EVENT_TCP_CONNECT {
+						r.NotEmpty(item.Pid)
+						r.NotEmpty(item.Ppid)
+						r.NotEmpty(item.HostPid)
+						r.NotEmpty(item.ProcessStartTime)
+						r.NotEmpty(item.ProcessParentStartTime)
+						r.NotEmpty(item.ProcessName)
+						r.NotEmpty(item.Timestamp)
+						r.NotEmpty(item.GetTuple().SrcPort)
+						r.NotEmpty(item.GetTuple().SrcIp)
+						r.Equal(443, item.GetTuple().DstPort)
+						r.NotEmpty(item.GetTuple().DstIp)
+						if _, ok := netip.AddrFromSlice(item.GetTuple().SrcIp); !ok {
+							return fmt.Errorf("invalid src address %v", string(item.GetTuple().SrcIp))
+						}
+						if _, ok := netip.AddrFromSlice(item.GetTuple().DstIp); !ok {
+							return fmt.Errorf("invalid dst address %v", string(item.GetTuple().DstIp))
+						}
+						foundTCP = true
+					}
+				}
+				if !foundDNS {
+					return errors.New("missing dns event")
+				}
+				if !foundTCP {
+					return errors.New("missing tcp")
+				}
+				return r.error()
+			},
 		},
-		castaipb.EventType_EVENT_TCP_CONNECT: func(e *castaipb.Event) error {
-			tuple := e.GetTuple()
-			if _, ok := netip.AddrFromSlice(tuple.SrcIp); !ok {
-				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
-			}
-			if _, ok := netip.AddrFromSlice(tuple.DstIp); !ok {
-				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
-			}
-			return nil
+		{
+			name:       "magic write + dropped and executed binary",
+			assertions: newAssertions(),
+			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+				defer v.finish(err)
+
+				if batch.WorkloadName != "magic-write-generator" {
+					return errValidatorSkipped
+				}
+
+				r := v.assertions
+				r.NotEmpty(batch.WorkloadUid)
+				r.Equal(castaipb.WorkloadKind_WORKLOAD_KIND_DEPLOYMENT, batch.WorkloadKind)
+				r.Contains(batch.PodName, "magic-write-generator")
+				r.Equal("magic-write-generator", batch.ContainerName)
+				r.Equal("kvisor-e2e", batch.Namespace)
+				r.Equal(map[string]string{"cast.ai/e2e": "e2e"}, batch.ObjectAnnotations)
+				r.Equal(map[string]string{"app": "magic-write-generator"}, batch.ObjectLabels)
+				r.NotEmpty(batch.NodeName)
+				r.NotEmpty(batch.PodUid)
+				r.NotEmpty(batch.ContainerId)
+				r.NotEmpty(batch.CgroupId)
+
+				var foundExecWithHash bool
+				var foundExecFromUpperLayer bool
+				var foundExecTmpfs bool
+				var foundExecDroppedBinary bool
+				var foundMagicWrite bool
+
+				for _, e := range t.events {
+					if e.EventType == castaipb.EventType_EVENT_EXEC {
+						if e.GetExec().HashSha256 != nil {
+							foundExecWithHash = true
+						}
+
+						flags := e.GetExec().Flags
+						originalFileFlags := flags >> 16
+
+						if (originalFileFlags | ExecUpperLayer) > 0 {
+							foundExecFromUpperLayer = true
+						}
+
+						if (originalFileFlags | ExecTmpfs) > 0 {
+							foundExecTmpfs = true
+						}
+
+						if (originalFileFlags | ExecDroppedBinary) > 0 {
+							foundExecDroppedBinary = true
+						}
+						r.Equal("tar_executable", e.GetExec().Path)
+						r.NotEmpty(e.GetExec().Args)
+					}
+					if e.EventType == castaipb.EventType_EVENT_MAGIC_WRITE {
+						foundMagicWrite = true
+						r.NotEmpty(e.GetFile().Path)
+					}
+				}
+
+				if !foundExecWithHash {
+					return errors.New("expected at least one exec event with hash set")
+				}
+				if !foundExecFromUpperLayer {
+					return errors.New("expected at least one exec event from upper layer")
+				}
+				if !foundExecTmpfs {
+					return errors.New("expected at least one exec event from tmpfs")
+				}
+				if !foundExecDroppedBinary {
+					return errors.New("expected at least one exec event from dropped binary")
+				}
+				if !foundMagicWrite {
+					return errors.New("expected at least on magic write")
+				}
+				return r.error()
+			},
 		},
-		castaipb.EventType_EVENT_TCP_LISTEN: func(e *castaipb.Event) error {
-			tuple := e.GetTuple()
-			if _, ok := netip.AddrFromSlice(tuple.SrcIp); !ok {
-				return fmt.Errorf("invalid address %v", string(tuple.SrcIp))
-			}
-			if tuple.SrcPort == 0 {
-				return fmt.Errorf("invalid port: 0")
-			}
-			return nil
-		},
-		castaipb.EventType_EVENT_MAGIC_WRITE: func(e *castaipb.Event) error {
-			return nil
-		},
-		castaipb.EventType_EVENT_PROCESS_OOM: func(e *castaipb.Event) error {
-			return nil
-		},
-		// TODO(anjmao): Rework syscall tracing.
-		//castaipb.EventType_EVENT_STDIO_VIA_SOCKET: func(e *castaipb.Event) error {
-		//	if _, ok := netip.AddrFromSlice(e.GetStdioViaSocket().Ip); !ok {
-		//		return fmt.Errorf("invalid address %v", string(e.GetStdioViaSocket().Ip))
-		//	}
-		//	if e.GetStdioViaSocket().Port == 0 {
-		//		return fmt.Errorf("empyt port")
-		//	}
-		//	if fd := e.GetStdioViaSocket().Socketfd; fd > 2 {
-		//		return fmt.Errorf("invalid %d fd", fd)
-		//	}
-		//	return nil
-		//},
-		castaipb.EventType_EVENT_TTY_WRITE: func(e *castaipb.Event) error {
-			if e.GetFile().Path == "" {
-				return fmt.Errorf("empyt file path")
-			}
-			return nil
-		},
-		castaipb.EventType_EVENT_SSH: func(e *castaipb.Event) error {
-			return nil
+		{
+			name:       "ssh + socks5",
+			assertions: newAssertions(),
+			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+				if batch.WorkloadName != "ssh-client" {
+					return errValidatorSkipped
+				}
+
+				r := v.assertions
+				r.NotEmpty(batch.WorkloadUid)
+				r.Equal(castaipb.WorkloadKind_WORKLOAD_KIND_DEPLOYMENT, batch.WorkloadKind)
+				r.Contains(batch.PodName, "ssh-client")
+				r.Equal("ssh-client", batch.ContainerName)
+				r.Equal("kvisor-e2e", batch.Namespace)
+				r.Equal(map[string]string{"cast.ai/e2e": "e2e"}, batch.ObjectAnnotations)
+				r.Equal(map[string]string{"name": "ssh-client"}, batch.ObjectLabels)
+				r.NotEmpty(batch.NodeName)
+				r.NotEmpty(batch.PodUid)
+				r.NotEmpty(batch.ContainerId)
+				r.NotEmpty(batch.CgroupId)
+
+				var foundSSH bool
+				var foundSocks5 bool
+
+				for _, e := range t.events {
+					if e.EventType == castaipb.EventType_EVENT_SSH {
+						foundSSH = true
+						r.NotEmpty(e.GetSsh().Tuple.SrcIp)
+						r.NotEmpty(e.GetSsh().Tuple.DstIp)
+					}
+					if e.EventType == castaipb.EventType_EVENT_SIGNATURE {
+						if e.GetSignature().Metadata.Id == castaipb.SignatureEventID_SIGNATURE_SOCKS5_DETECTED {
+							foundSocks5 = true
+							r.NotEmpty(e.GetSignature().Finding.GetSocks5Detected().Address)
+						}
+					}
+				}
+
+				if !foundSSH {
+					return errors.New("expected at least ssh event")
+				}
+				if !foundSocks5 {
+					return errors.New("expected at least socks5 event")
+				}
+				return r.error()
+			},
 		},
 	}
-	expectedTypes := lo.KeyBy(lo.Keys(eventsValidators), func(item castaipb.EventType) castaipb.EventType {
-		return item
-	})
 
-	currentOffset := 0
+	validateAll := func() error {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+
+		var errs []error
+		var passedCount int
+		for _, validator := range validators {
+			passedCount++
+			for _, batch := range t.containerEventsBatches {
+				if err := validator.validate(validator, batch); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+		if passedCount == len(validators) {
+			return nil
+		}
+		if len(errs) > 0 {
+			return errors.Join(errs...)
+		}
+		return errors.New("did not pass all validators")
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(timeout):
-			var errorMsg strings.Builder
-
-			_, _ = errorMsg.WriteString("not all expected event types found within timeout. missing types:")
-			first := true
-
-			for et := range expectedTypes {
-				if !first {
-					_, _ = errorMsg.WriteString(", ")
-				} else {
-					first = false
-				}
-
-				_, _ = errorMsg.WriteString(et.String())
-			}
-
-			return errors.New(errorMsg.String())
+			return validateAll()
 		case <-time.Tick(1 * time.Second):
-			t.mu.Lock()
-			events := t.events
-			t.mu.Unlock()
-
-			if len(events) == 0 {
+			if err := validateAll(); err != nil {
+				fmt.Printf("validators did not pass yet: %v\n", err)
 				continue
 			}
-
-			for _, event := range events[currentOffset:] {
-				if validator, found := eventsValidators[event.EventType]; found {
-					if err := validator(event); err != nil {
-						return err
-					}
-				}
-				delete(expectedTypes, event.EventType)
-			}
-
-			currentOffset = len(events)
-
-			fmt.Println("missing event types:", expectedTypes)
-			if len(expectedTypes) == 0 {
-				return nil
-			}
+			return nil
 		}
 	}
+
 }
 
 func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
-	timeout := time.After(30 * time.Second)
-	if err := func() error {
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-timeout:
-				return errors.New("timeout waiting for received events")
-			case <-time.After(1 * time.Second):
-				t.mu.Lock()
-				events := t.events
-				t.mu.Unlock()
-				fmt.Printf("evaluating %d events\n", len(events))
-				for _, e := range events {
-					ts := time.Unix(int64(e.Timestamp)/1e9, int64(e.Timestamp)%1e9) //nolint:gosec
-					if ts.Before(t.testStartTime) {
-						return fmt.Errorf("broken event timestamp %s, it's before test server start time %s", ts.String(), t.testStartTime.String())
-					}
-					if e.ProcessName == "pause" {
-						continue
-					}
-					if e.EventType == castaipb.EventType_UNKNOWN {
-						return fmt.Errorf("unknown event type: %v", e)
-					}
-					if e.Namespace == "" {
-						return fmt.Errorf("missing namespace: %v", e)
-					}
-					if e.PodName == "" {
-						return fmt.Errorf("missing pod: %v", e)
-					}
-					if e.ContainerName == "" {
-						return fmt.Errorf("missing container: %v", e)
-					}
-					if e.ProcessName == "" {
-						return fmt.Errorf("missing process name: %v", e)
-					}
-					if e.Namespace != "kube-system" {
-						// just our controlled pods
-						if len(e.ObjectLabels) == 0 {
-							return fmt.Errorf("missing object labels: %v", e)
-						}
-						if len(e.ObjectAnnotations) == 0 {
-							return fmt.Errorf("missing object annotations: %v", e)
-						}
-					}
-					return nil
-				}
-			}
-		}
-	}(); err != nil {
-		return err
-	}
-
 	validateTimeout := 30 * time.Second
 	fmt.Printf("🧐validating events (timeout %s)\n", validateTimeout)
 	if err := t.validateEvents(ctx, validateTimeout); err != nil {
 		return fmt.Errorf("validate events: %w", err)
 	}
 
-	fmt.Println("🧐validating exec events")
-	if err := t.validateExecEvents(); err != nil {
-		return fmt.Errorf("validate exec events: %w", err)
-	}
-
-	fmt.Println("🧐validating signature events")
-	if err := t.validateSignatureEvents(ctx, validateTimeout); err != nil {
-		return fmt.Errorf("validate signature events: %w", err)
-	}
 	return nil
 }
 
@@ -856,7 +835,7 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 							return errors.New("missing container")
 						}
 						if cont.NodeName == "" {
-							return errors.New("missing node")
+							return fmt.Errorf("missing node: %+v", cont)
 						}
 						cpuUsage := cont.CpuStats.TotalUsage
 						memUsage := cont.MemoryStats.Usage.Usage

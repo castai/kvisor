@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 KIND_CONTEXT="${KIND_CONTEXT:-kind}"
 GOARCH="$(go env GOARCH)"
@@ -37,25 +37,6 @@ then
   kind load docker-image $name-scanners:local --name $KIND_CONTEXT
 fi
 
-# Deploy e2e resources.
-function printJobLogs() {
-  echo "=========== Jobs: ==========="
-  kubectl get jobs -owide
-  echo "=========== Pods: ==========="
-  kubectl get pods -owide
-  echo "=========== kvisor agent pods: ==========="
-  kubectl describe pod -l app.kubernetes.io/component=agent
-  echo "===========kvisor agent logs: ==========="
-  kubectl logs -l app.kubernetes.io/component=agent
-  echo "=========== kvisor server logs: ==========="
-  kubectl logs -l app.kubernetes.io/component=controller
-  echo "=========== E2E Job pods: ==========="
-  kubectl describe pod -l job-name=e2e
-  echo "=========== E2E Job logs: ==========="
-  kubectl logs -l job-name=e2e --tail=-1
-}
-trap printJobLogs EXIT
-
 ns="$name-e2e"
 kubectl delete ns $ns --force || true
 kubectl create ns $ns || true
@@ -71,23 +52,24 @@ do
     sleep 1
 done
 # Deploy various k8s resources to generate events.
-kubectl apply -f ./e2e/conn-generator.yaml
 kubectl apply -f ./e2e/dns-generator.yaml
 kubectl apply -f ./e2e/magic-write-generator.yaml
 kubectl apply -f ./e2e/oom-generator.yaml
 kubectl apply -f ./e2e/socks5-generator.yaml
 kubectl apply -f ./e2e/nc-server-client.yaml
+kubectl apply -f ./e2e/conn-generator.yaml
 
 echo "Waiting for job to finish"
 
 i=0
 sleep_seconds=5
-retry_count=30
+retry_count=20
 while true; do
   if [ "$i" == "$retry_count" ];
   then
     echo "Timeout waiting for job to complete"
-    exit 1
+    job_result=1
+    break
   fi
 
   if kubectl wait --for=condition=complete --timeout=0s job/e2e 2>/dev/null; then
@@ -101,17 +83,19 @@ while true; do
   fi
 
   sleep $sleep_seconds
-  echo "======"
-  kubectl get pods -A
-  echo "======"
-  kubectl logs -l app.kubernetes.io/component=agent
-  echo "======"
-  kubectl logs -l job-name=e2e --since=5s
-  echo "Job logs:"
   i=$((i+1))
 done
 
 if [[ $job_result -eq 1 ]]; then
+    echo "==================================== All pods ===================================="
+    kubectl get pods -A
+    echo "==================================== Kvisor Controller logs ======================"
+    kubectl logs -l app.kubernetes.io/component=controller
+    echo "==================================== Kvisor Agent logs ==========================="
+    kubectl logs -l app.kubernetes.io/component=agent
+    echo "==================================== E2E logs ===================================="
+    kubectl logs -l job-name=e2e
+
     echo "😞 Job failed! Try to run locally and good luck 🤞: KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh"
     exit 1
 fi

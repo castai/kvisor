@@ -2,23 +2,30 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type testAddr struct {
@@ -30,30 +37,196 @@ func TestController(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	t.Run("events pipeline", func(t *testing.T) {
-		r := require.New(t)
-		ctrl := newTestController()
-		exporter := &mockEventsExporter{events: make(chan *castaipb.Event, 10)}
-		ctrl.exporters.Events = append(ctrl.exporters.Events, exporter)
-		ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
-			Context: &types.EventContext{Ts: 1},
-			Container: &containers.Container{
-				PodName: "p1",
-			},
-		}
-		ctrlerr := make(chan error, 1)
-		go func() {
-			ctrlerr <- ctrl.Run(ctx)
-		}()
+	t.Run("container events pipeline", func(t *testing.T) {
+		t.Run("send after batch size is reached", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.eventsFlushInterval = 5 * time.Second
+			ctrl.eventsBatchSize = 3
+			ctrl.nowFunc = func() time.Time {
+				return time.Now()
+			}
+			exporter := &mockContainerEventsSender{}
+			ctrl.exporters.ContainerEventsSender = exporter
 
-		select {
-		case e := <-exporter.events:
-			r.Equal("p1", e.PodName)
-		case err := <-ctrlerr:
-			t.Fatal(err)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for data")
-		}
+			expectedBatchesCount := 100
+			go func() {
+				for i := range expectedBatchesCount {
+					for range 3 {
+						ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+							Context: &types.EventContext{EventID: events.Write, Ts: 1, CgroupID: uint64(i)},
+							Container: &containers.Container{
+								PodName: "p" + strconv.Itoa(i),
+							},
+						}
+					}
+				}
+			}()
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				exporter.mu.Lock()
+				defer exporter.mu.Unlock()
+				batches := exporter.batches
+				fmt.Println(len(batches))
+				if len(batches) > expectedBatchesCount {
+					t.Fatal("too many batches", len(batches))
+				}
+				if len(batches) != expectedBatchesCount {
+					return false
+				}
+				slices.SortFunc(batches, func(e *castaipb.ContainerEventsBatch, e2 *castaipb.ContainerEventsBatch) int {
+					return strings.Compare(e.PodName, e2.PodName)
+				})
+				b1 := batches[0]
+				r.Equal("p0", b1.PodName)
+				for _, batch := range batches {
+					r.Len(batch.Items, 3)
+				}
+				return true
+			}, 1*time.Second, 10*time.Millisecond)
+		})
+
+		t.Run("send after flush period", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.eventsFlushInterval = 10 * time.Millisecond
+			ctrl.eventsBatchSize = 999
+			ctrl.nowFunc = func() time.Time {
+				return time.Now()
+			}
+			exporter := &mockContainerEventsSender{}
+			ctrl.exporters.ContainerEventsSender = exporter
+
+			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+				Context: &types.EventContext{Ts: 1, CgroupID: 1},
+				Container: &containers.Container{
+					PodName: "p0",
+				},
+				Args: types.SchedProcessExecArgs{
+					Filepath: "/bin/sh",
+					Argv:     []string{"ls"},
+				},
+			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				exporter.mu.Lock()
+				defer exporter.mu.Unlock()
+				batches := exporter.batches
+				if len(batches) > 1 {
+					t.Fatal("expected only one batch")
+				}
+				if len(batches) == 0 {
+					return false
+				}
+				b1 := batches[0]
+				r.Equal("p0", b1.PodName)
+				r.Len(b1.Items, 1)
+				r.Equal("/bin/sh", b1.Items[0].GetExec().GetPath())
+				r.Equal([]string{"ls"}, b1.Items[0].GetExec().GetArgs())
+				return true
+			}, 1*time.Second, 10*time.Millisecond)
+		})
+
+		t.Run("deduplicate dns by fingerprint", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.eventsFlushInterval = 100 * time.Millisecond
+			ctrl.eventsBatchSize = 999
+			ctrl.nowFunc = func() time.Time {
+				return time.Now()
+			}
+			exporter := &mockContainerEventsSender{}
+			ctrl.exporters.ContainerEventsSender = exporter
+
+			for range 2 {
+				ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+					Context: &types.EventContext{Ts: 1, CgroupID: 1},
+					Container: &containers.Container{
+						PodName: "p0",
+					},
+					Args: types.NetPacketDNSBaseArgs{
+						Payload: &castaipb.DNS{
+							DNSQuestionDomain: "domain.com",
+						},
+					},
+				}
+			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				exporter.mu.Lock()
+				defer exporter.mu.Unlock()
+
+				batches := exporter.batches
+				if len(batches) > 1 {
+					t.Fatal("expected only one batch")
+				}
+				if len(batches) == 0 {
+					return false
+				}
+				b1 := batches[0]
+				r.Equal("p0", b1.PodName)
+				r.Len(b1.Items, 1)
+				r.Equal("domain.com", b1.Items[0].GetDns().DNSQuestionDomain)
+				return true
+			}, 1*time.Second, 10*time.Millisecond)
+		})
+
+		t.Run("remove events group on container delete and flush remaining", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			exporter := &mockContainerEventsSender{}
+			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.eventsFlushInterval = 999 * time.Minute
+			ctrl.eventsBatchSize = 999
+			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+				Context: &types.EventContext{Ts: 1, CgroupID: 1},
+				Container: &containers.Container{
+					PodName: "p1",
+				},
+			}
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				ctrl.eventsGroupsMu.RLock()
+				defer ctrl.eventsGroupsMu.RUnlock()
+				_, found := ctrl.eventsGroups[1]
+				return found
+			}, 1*time.Second, 10*time.Millisecond)
+
+			ctrl.onDeleteContainer(&containers.Container{CgroupID: 1})
+
+			r.Eventually(func() bool {
+				ctrl.eventsGroupsMu.RLock()
+				defer ctrl.eventsGroupsMu.RUnlock()
+				_, found := ctrl.eventsGroups[1]
+
+				exporter.mu.Lock()
+				defer exporter.mu.Unlock()
+				batches := exporter.batches
+
+				r.Len(batches, 1)
+
+				return !found
+			}, 1*time.Second, 10*time.Millisecond)
+		})
 	})
 
 	//t.Run("container stats pipeline", func(t *testing.T) {
@@ -230,14 +403,14 @@ func newTestController(opts ...any) *Controller {
 	ctClient := &mockConntrackClient{}
 
 	tracer := &mockEbpfTracer{
-		eventsChan:         make(chan *types.Event, 100),
+		eventsChan:         make(chan *types.Event, 500),
 		netflowCollectChan: make(chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, 100),
 	}
 	tracerCustomizer := getOptOr[customizeMockTracer](opts, func(t *mockEbpfTracer) {})
 	tracerCustomizer(tracer)
 
-	sigEngine := &mockSignatureEngine{eventsChan: make(chan *castaipb.Event, 100)}
-	enrichService := &mockEnrichmentService{eventsChan: make(chan *castaipb.Event, 100)}
+	sigEngine := &mockSignatureEngine{eventsChan: make(chan signature.Event, 100)}
+	enrichService := &mockEnrichmentService{}
 	kubeClient := &mockKubeClient{}
 	processTreeCollector := &mockProcessTreeController{}
 
@@ -252,24 +425,38 @@ func newTestController(opts ...any) *Controller {
 		ctClient,
 		tracer,
 		sigEngine,
-		enrichService,
 		kubeClient,
 		processTreeCollector,
 		procHandler,
+		enrichService,
 	)
 	return ctrl
 }
 
-type mockEventsExporter struct {
-	events chan *castaipb.Event
+type mockContainerEventsSender struct {
+	batches []*castaipb.ContainerEventsBatch
+	mu      sync.Mutex
 }
 
-func (m *mockEventsExporter) Run(ctx context.Context) error {
+func (m *mockContainerEventsSender) Run(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockEventsExporter) Enqueue(e *castaipb.Event) {
-	m.events <- e
+func (m *mockContainerEventsSender) EnqueueAndWait(ctx context.Context, batch *castaipb.ContainerEventsBatch) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Add deep copy because we cleanup batch items after it's sent.
+	pbBytes, err := protojson.Marshal(batch)
+	if err != nil {
+		return err
+	}
+	var res castaipb.ContainerEventsBatch
+	if err := protojson.Unmarshal(pbBytes, &res); err != nil {
+		return err
+	}
+	m.batches = append(m.batches, &res)
+	return nil
 }
 
 type mockNetflowExporter struct {
@@ -352,6 +539,10 @@ type mockEbpfTracer struct {
 	netflowCollectChan chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary
 }
 
+func (m *mockEbpfTracer) GetEventName(id events.ID) string {
+	return strconv.Itoa(int(id))
+}
+
 func (m *mockEbpfTracer) CollectNetworkSummary() (map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, error) {
 	select {
 	case v := <-m.netflowCollectChan:
@@ -397,23 +588,18 @@ func (m *mockEbpfTracer) IsCgroupMuted(cgroup uint64) bool {
 }
 
 type mockSignatureEngine struct {
-	eventsChan chan *castaipb.Event
+	eventsChan chan signature.Event
 }
 
-func (m *mockSignatureEngine) Events() <-chan *castaipb.Event {
+func (m *mockSignatureEngine) Events() <-chan signature.Event {
 	return m.eventsChan
 }
 
 type mockEnrichmentService struct {
-	eventsChan chan *castaipb.Event
 }
 
-func (m *mockEnrichmentService) Events() <-chan *castaipb.Event {
-	return m.eventsChan
-}
-
-func (m *mockEnrichmentService) Enqueue(e *enrichment.EnrichRequest) bool {
-	return false
+func (m *mockEnrichmentService) Enrich(ctx context.Context, in *types.Event, out *castaipb.ContainerEvent) {
+	return
 }
 
 type mockKubeClient struct {

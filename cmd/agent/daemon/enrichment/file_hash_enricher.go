@@ -11,6 +11,7 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
@@ -50,54 +51,53 @@ type fileHashEnricher struct {
 	cache                  freelru.Cache[fileHashCacheKey, []byte]
 }
 
-func (enricher *fileHashEnricher) EventTypes() []castpb.EventType {
-	return []castpb.EventType{
-		castpb.EventType_EVENT_EXEC,
+func (enricher *fileHashEnricher) EventTypes() []events.ID {
+	return []events.ID{
+		events.SchedProcessExec,
 	}
 }
 
-func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichRequest) {
-	e := req.Event
-	exec := e.GetExec()
-	if exec == nil || exec.Path == "" {
-		return
+func (enricher *fileHashEnricher) Enrich(ctx context.Context, in *types.Event, out *castpb.ContainerEvent) error {
+	if in.Context.EventID != events.SchedProcessExec {
+		return nil
 	}
 
-	sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, proc.PID(req.EbpfEvent.Context.NodeHostPid), exec.Path)
+	args, ok := in.Args.(types.SchedProcessExecArgs)
+	if !ok {
+		return nil
+	}
+
+	sha, err := enricher.calcFileHashForPID(in.Container, proc.PID(in.Context.NodeHostPid), args.Filepath)
 	if err != nil {
 		if errors.Is(err, ErrFileDoesNotExist) {
-			return
+			return nil
 		}
 	} else {
-		setExecFileHash(exec, sha)
-		return
+		out.GetExec().HashSha256 = sha
+		return nil
 	}
 
-	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(req.EbpfEvent.Context.MntID)) {
-		if pid == proc.PID(req.EbpfEvent.Context.NodeHostPid) {
+	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(in.Context.MntID)) {
+		if pid == proc.PID(in.Context.NodeHostPid) {
 			// We already tried that PID of the event, skipping.
 			continue
 		}
 
-		sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, pid, exec.Path)
+		sha, err := enricher.calcFileHashForPID(in.Container, pid, args.Filepath)
 		// We search for the first PID we can successfully calculate a filehash for.
 		if err != nil {
 			if errors.Is(err, ErrFileDoesNotExist) {
 				// If the wanted file does not exist in the PID mount namespace, it will also not exist in the mounts of the other.
 				// We can hence simply return, as we will not find the wanted file.
-				return
+				return nil
 			}
 
 			continue
 		}
-
-		setExecFileHash(exec, sha)
-		return
+		out.GetExec().HashSha256 = sha
+		return nil
 	}
-}
-
-func setExecFileHash(exec *castpb.Exec, sha []byte) {
-	exec.HashSha256 = sha
+	return nil
 }
 
 func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container, pid proc.PID, execPath string) ([]byte, error) {

@@ -10,10 +10,13 @@ import (
 	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/grpczstd"
+	_ "github.com/castai/kvisor/pkg/grpczstd"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -43,14 +46,99 @@ func TestClient(t *testing.T) {
 	defer client.Close()
 
 	ctx = metadata.AppendToOutgoingContext(ctx, "x-custom", "1")
-	_, err = client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{})
+	_, err = client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{}, grpc.UseCompressor(grpczstd.Name))
 	r.NoError(err)
 
-	eventsStream, err := client.GRPC.EventsWriteStream(ctx)
+	eventsStream, err := client.GRPC.ContainerEventsBatchWriteStream(ctx, grpc.UseCompressor(grpczstd.Name))
 	r.NoError(err)
-	r.NoError(eventsStream.Send(&castaipb.Event{}))
-	r.NoError(eventsStream.Send(&castaipb.Event{}))
+	r.NoError(eventsStream.Send(&castaipb.ContainerEventsBatch{
+		NodeName: `Lorem Ipsum is simply dummy text of the printing and typesetting industry.
+Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer 
+took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, 
+but also the leap into electronic typesetting, 
+remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets 
+containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker 
+including versions of Lorem Ipsum.`,
+	}))
 	r.NoError(eventsStream.CloseSend())
+	time.Sleep(1 * time.Second)
+}
+
+func BenchmarkClient(b *testing.B) {
+	r := require.New(b)
+	ctx := context.Background()
+
+	// Setup grpc test server which implements castai api.
+	ports, err := allocatePorts(1)
+	r.NoError(err)
+	addr := fmt.Sprintf("localhost:%d", ports[0])
+	lis, err := net.Listen("tcp", addr)
+	r.NoError(err)
+	defer lis.Close()
+	s := grpc.NewServer()
+	srv := &testServer{}
+	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
+	go s.Serve(lis)
+
+	clusterID := uuid.NewString()
+	client, err := NewClient("test", Config{
+		ClusterID:   clusterID,
+		APIKey:      "api-key",
+		APIGrpcAddr: addr,
+	})
+	r.NoError(err)
+	defer client.Close()
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "x-custom", "1")
+	_, err = client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{}, grpc.UseCompressor(grpczstd.Name))
+	r.NoError(err)
+
+	payload := &castaipb.ContainerEventsBatch{
+		Items: []*castaipb.ContainerEvent{
+			{
+				ProcessName: "t is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, ",
+			},
+			{
+				ProcessName: "There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour",
+			},
+			{
+				ProcessName: "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old.",
+			},
+		},
+		NodeName: `Lorem Ipsum is simply dummy text of the printing and typesetting industry.
+Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer 
+took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, 
+but also the leap into electronic typesetting, 
+remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets 
+containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker 
+including versions of Lorem Ipsum.`,
+	}
+
+	b.Run("zstd compression", func(b *testing.B) {
+		r := require.New(b)
+		eventsStream, err := client.GRPC.ContainerEventsBatchWriteStream(ctx, grpc.UseCompressor(grpczstd.Name))
+		r.NoError(err)
+
+		b.ResetTimer()
+		b.ReportAllocs()
+
+		for n := 0; n < b.N; n++ {
+			r.NoError(eventsStream.Send(payload))
+		}
+	})
+
+	b.Run("gzip compression", func(b *testing.B) {
+		r := require.New(b)
+		eventsStream, err := client.GRPC.ContainerEventsBatchWriteStream(ctx, grpc.UseCompressor(gzip.Name))
+		r.NoError(err)
+
+		b.ResetTimer()
+		b.ReportAllocs()
+
+		for n := 0; n < b.N; n++ {
+			r.NoError(eventsStream.Send(payload))
+		}
+	})
 }
 
 func TestRemote(t *testing.T) {
@@ -107,6 +195,15 @@ func TestRemote(t *testing.T) {
 
 type testServer struct {
 	eventsWriteStreamHandler func(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error
+}
+
+func (t *testServer) ContainerEventsBatchWriteStream(g grpc.ClientStreamingServer[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse]) error {
+	for {
+		_, err := g.Recv()
+		if err != nil {
+			return err
+		}
+	}
 }
 
 func (t *testServer) ProcessEventsWriteStream(castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {

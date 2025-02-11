@@ -2,6 +2,7 @@ castai:
   # grpcAddr: "kvisor.dev-master.cast.ai:443"
   apiKey: "test"
   clusterID: "ci"
+  enabled: true
 
 image:
   repository: localhost:5000/kvisor
@@ -10,25 +11,28 @@ image:
 commonLabels:
   team: sec
 
+pyroscope:
+  enabled: true
+
 agent:
   enabled: true
   extraArgs:
     log-level: debug
     prom-metrics-export-interval: 10s
-    pyroscope-addr: http://kvisord-pyroscope:4040
     file-hash-enricher-enabled: true
     signature-socks5-detection-enabled: true
     stats-enabled: true
     stats-scrape-interval: 5s
-    containers-refresh-interval: 10s
+    containers-refresh-interval: "0"
     ebpf-events-enabled: true
     netflow-enabled: true
     netflow-sample-submit-interval-seconds: 1
     netflow-export-interval: 5s
-    ebpf-events-stdio-exporter-enabled: true
     process-tree-enabled: true
     ebpf-events-include-pod-labels: 'helm.sh/chart,app.kubernetes.io/name'
     ebpf-events-include-pod-annotations: 'cast.ai'
+    ebpf-events-policy: "magic_write,sched_process_exec,sock_set_state,net_packet_dns_base" # write,open,close,futex,epoll_wait
+    ignored-namespaces: ""
 
   prometheusScrape:
     enabled: true
@@ -36,18 +40,24 @@ agent:
   containerSecurityContext:
     readOnlyRootFilesystem: false
 
+  resources:
+    requests:
+     cpu: 100m
+     memory: 128Mi
+    limits:
+     memory: 256Mi
+
 controller:
   enabled: true
   replicas: 1
   extraArgs:
     log-level: debug
     prom-metrics-export-interval: 10s
-    image-scan-enabled: true
+    image-scan-enabled: false
     image-scan-interval: 5s
     image-scan-init-delay: 5s
-    kube-linter-enabled: true
+    kube-linter-enabled: false
     kube-linter-scan-interval: 5s
-    pyroscope-addr: http://kvisord-pyroscope:4040
 
   extraEnv:
     SCANNERS_IMAGE: localhost:5000/kvisor-scanners

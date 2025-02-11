@@ -3,10 +3,22 @@
 package ebpftracer
 
 import (
-	"context"
+	"errors"
 
 	"github.com/cilium/ebpf"
 )
-func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) error {
-  return nil
+
+func newRingbufReader(target *ebpf.Map) (*ringbufReader, error) {
+	return &ringbufReader{}, nil
+}
+
+type ringbufReader struct {
+}
+
+func (r *ringbufReader) read(rec *ringbufRecord) error {
+	return errors.New("not implemented")
+}
+
+func (r *ringbufReader) close() error {
+	return errors.New("not implemented")
 }

@@ -110,11 +110,11 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 		MemoryStats:   getMemoryStatsDiff(prevScrape.memStat, currScrape.memStat),
 		PidsStats:     cgStats.PidsStats,
 		IoStats:       getIOStatsDiff(prevScrape.ioStat, currScrape.ioStat),
+		NodeName:      c.nodeName,
 	}
 	if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
-		item.NodeName = podInfo.NodeName
 		item.WorkloadName = podInfo.WorkloadName
-		item.WorkloadKind = podInfo.WorkloadKind
+		item.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
 	}
 	batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Container{Container: item}})
 

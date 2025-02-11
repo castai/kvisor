@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -239,14 +238,14 @@ func TestGenerateConn(t *testing.T) {
 	}
 }
 
-func printSignatureEvent(e *castaipb.Event) {
+func printSignatureEvent(sig signature.Event) {
+	e := sig.EbpfEvent.Context
 	fmt.Printf(
-		"cgroup=%d, pid=%d, proc=%s, event=%s,args=%+v",
-		e.CgroupId,
+		"cgroup=%d, pid=%d, proc=%s,args=%+v",
+		e.CgroupID,
 		e.HostPid,
-		e.ProcessName,
-		e.EventType,
-		e.Data,
+		string(e.Comm[:]),
+		sig.SignatureEvent,
 	)
 	fmt.Print("\n")
 }

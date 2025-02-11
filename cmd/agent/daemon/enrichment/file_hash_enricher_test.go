@@ -3,7 +3,6 @@ package enrichment
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -11,9 +10,12 @@ import (
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/minio/sha256-simd"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,28 +36,23 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, 10),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
-				Exec: &castpb.Exec{
-					Path: filepath.Join(fileName),
-					Args: []string{},
-				},
+		in := &types.Event{
+			Context: &types.EventContext{
+				EventID:     events.SchedProcessExec,
+				NodeHostPid: pid,
+			},
+			Container: &containers.Container{
+				ID: containerID,
+			},
+			Args: types.SchedProcessExecArgs{
+				Filepath: filepath.Join(fileName),
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event: event,
-			EbpfEvent: &types.Event{
-				Context: &types.EventContext{
-					NodeHostPid: pid,
-				},
-				Args: types.SchedProcessExecArgs{},
-			},
-		})
+		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
+		r.NoError(enricher.Enrich(context.TODO(), in, out))
 
-		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
+		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 	})
 
 	t.Run("should ignore missing file", func(t *testing.T) {
@@ -68,26 +65,20 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, 1),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
-				Exec: &castpb.Exec{
-					Path: filepath.Join(fileName),
-					Args: []string{},
-				},
+		in := &types.Event{
+			Context: &types.EventContext{},
+			Container: &containers.Container{
+				ID: containerID,
+			},
+			Args: types.SchedProcessExecArgs{
+				Filepath: filepath.Join(fileName),
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event: event,
-			EbpfEvent: &types.Event{
-				Context: &types.EventContext{},
-				Args:    types.SchedProcessExecArgs{},
-			},
-		})
+		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
+		r.NoError(enricher.Enrich(context.TODO(), in, out))
 
-		r.Empty(event.GetExec().HashSha256)
+		r.Empty(out.GetExec().HashSha256)
 	})
 
 	t.Run("should ignore non exec event", func(t *testing.T) {
@@ -99,20 +90,17 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, 1),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_DNS,
-			ContainerId: containerID,
+		in := &types.Event{
+			Context: &types.EventContext{},
+			Container: &containers.Container{
+				ID: containerID,
+			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event: event,
-			EbpfEvent: &types.Event{
-				Context: &types.EventContext{},
-				Args:    types.SchedProcessExecArgs{},
-			},
-		})
+		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
+		r.NoError(enricher.Enrich(context.TODO(), in, out))
 
-		r.Nil(event.GetExec())
+		r.Nil(out.GetExec().HashSha256)
 	})
 
 	t.Run("should set sha256 hash of file for two same events", func(t *testing.T) {
@@ -131,51 +119,40 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, pid),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
-				Exec: &castpb.Exec{
-					Path: filepath.Join(fileName),
-					Args: []string{},
-				},
+		in := &types.Event{
+			Context: &types.EventContext{
+				EventID:     events.SchedProcessExec,
+				NodeHostPid: pid,
+			},
+			Container: &containers.Container{
+				ID: containerID,
+			},
+			Args: types.SchedProcessExecArgs{
+				Filepath: filepath.Join(fileName),
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event: event,
-			EbpfEvent: &types.Event{
-				Context: &types.EventContext{
-					NodeHostPid: pid,
-				},
-				Args: types.SchedProcessExecArgs{},
+		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
+		r.NoError(enricher.Enrich(context.TODO(), in, out))
+
+		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
+
+		in = &types.Event{
+			Context: &types.EventContext{
+				EventID:     events.SchedProcessExec,
+				NodeHostPid: pid,
 			},
-		})
-
-		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
-
-		event = &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
-				Exec: &castpb.Exec{
-					Path: filepath.Join(fileName),
-					Args: []string{},
-				},
+			Container: &containers.Container{
+				ID: containerID,
+			},
+			Args: types.SchedProcessExecArgs{
+				Filepath: filepath.Join(fileName),
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event: event,
-			EbpfEvent: &types.Event{
-				Context: &types.EventContext{
-					NodeHostPid: pid,
-				},
-				Args: types.SchedProcessExecArgs{},
-			},
-		})
-
-		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
+		out = &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
+		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 	})
 
 	t.Run("should fallback to other pids in mount ns if file is missing", func(t *testing.T) {
@@ -195,28 +172,23 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(mountNSID, pid),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
-				Exec: &castpb.Exec{
-					Path: filepath.Join(fileName),
-					Args: []string{},
-				},
+		in := &types.Event{
+			Context: &types.EventContext{
+				EventID: events.SchedProcessExec,
+				MntID:   uint32(mountNSID),
+			},
+			Container: &containers.Container{
+				ID: containerID,
+			},
+			Args: types.SchedProcessExecArgs{
+				Filepath: filepath.Join(fileName),
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
-			Event: event,
-			EbpfEvent: &types.Event{
-				Context: &types.EventContext{
-					MntID: uint32(mountNSID),
-				},
-				Args: types.SchedProcessExecArgs{},
-			},
-		})
+		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
+		r.NoError(enricher.Enrich(context.TODO(), in, out))
 
-		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
+		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 	})
 }
 

@@ -22,7 +22,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding/gzip"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -242,7 +241,7 @@ func (c *Controller) lintNode(ctx context.Context, node *corev1.Node) (rerr erro
 		return fmt.Errorf("reading kube-bench report from pod logs: %w", err)
 	}
 	c.addReportToCache(node, report)
-	_, err = c.castClient.KubeBenchReportIngest(ctx, report, grpc.UseCompressor(gzip.Name))
+	_, err = c.castClient.KubeBenchReportIngest(ctx, report)
 	if err != nil {
 		return err
 	}

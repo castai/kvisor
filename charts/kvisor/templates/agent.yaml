@@ -89,6 +89,8 @@ spec:
                 name:  {{ include "kvisor.clickhouse.fullname" . }}
         {{- end }}
           env:
+            - name: GOMEMLIMIT
+              value: "100MiB" # Make GC more frequent once reaching this heap size.
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

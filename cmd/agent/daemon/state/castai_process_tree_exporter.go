@@ -11,7 +11,6 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding/gzip"
 )
 
 const (
@@ -52,7 +51,7 @@ func (c *CastaiProcessTreeExporter) Run(ctx context.Context) error {
 	defer c.log.Info("export process tree loop done")
 
 	ws := castai.NewWriteStream[*castpb.ProcessTreeEvent, *castpb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
-		return c.apiClient.GRPC.ProcessEventsWriteStream(ctx, grpc.UseCompressor(gzip.Name))
+		return c.apiClient.GRPC.ProcessEventsWriteStream(ctx, grpc.UseCompressor(c.apiClient.GetCompressionName()))
 	})
 	defer ws.Close()
 	ws.ReopenDelay = c.writeStreamCreateRetryDelay

@@ -73,5 +73,5 @@ spec:
           command:
             - /bin/ash
             - -c
-            - while true; do iperf -c iperf-server; sleep 5; done
+            - while true; do iperf -c iperf-server -b 1M -t 1; done
       terminationGracePeriodSeconds: 0
