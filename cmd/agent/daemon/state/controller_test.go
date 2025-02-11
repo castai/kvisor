@@ -41,8 +41,8 @@ func TestController(t *testing.T) {
 		t.Run("send after batch size is reached", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.eventsFlushInterval = 5 * time.Second
-			ctrl.eventsBatchSize = 3
+			ctrl.cfg.EventsFlushInterval = 5 * time.Second
+			ctrl.cfg.EventsBatchSize = 3
 			ctrl.nowFunc = func() time.Time {
 				return time.Now()
 			}
@@ -94,8 +94,8 @@ func TestController(t *testing.T) {
 		t.Run("send after flush period", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.eventsFlushInterval = 10 * time.Millisecond
-			ctrl.eventsBatchSize = 999
+			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
+			ctrl.cfg.EventsBatchSize = 999
 			ctrl.nowFunc = func() time.Time {
 				return time.Now()
 			}
@@ -137,62 +137,13 @@ func TestController(t *testing.T) {
 			}, 1*time.Second, 10*time.Millisecond)
 		})
 
-		t.Run("deduplicate dns by fingerprint", func(t *testing.T) {
-			r := require.New(t)
-			ctrl := newTestController()
-			ctrl.eventsFlushInterval = 100 * time.Millisecond
-			ctrl.eventsBatchSize = 999
-			ctrl.nowFunc = func() time.Time {
-				return time.Now()
-			}
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
-
-			for range 2 {
-				ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
-					Context: &types.EventContext{Ts: 1, CgroupID: 1},
-					Container: &containers.Container{
-						PodName: "p0",
-					},
-					Args: types.NetPacketDNSBaseArgs{
-						Payload: &castaipb.DNS{
-							DNSQuestionDomain: "domain.com",
-						},
-					},
-				}
-			}
-
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
-
-			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-
-				batches := exporter.batches
-				if len(batches) > 1 {
-					t.Fatal("expected only one batch")
-				}
-				if len(batches) == 0 {
-					return false
-				}
-				b1 := batches[0]
-				r.Equal("p0", b1.PodName)
-				r.Len(b1.Items, 1)
-				r.Equal("domain.com", b1.Items[0].GetDns().DNSQuestionDomain)
-				return true
-			}, 1*time.Second, 10*time.Millisecond)
-		})
-
 		t.Run("remove events group on container delete and flush remaining", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
-			ctrl.eventsFlushInterval = 999 * time.Minute
-			ctrl.eventsBatchSize = 999
+			ctrl.cfg.EventsFlushInterval = 999 * time.Minute
+			ctrl.cfg.EventsBatchSize = 999
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
 				Container: &containers.Container{

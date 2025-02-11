@@ -94,6 +94,9 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
+		eventsBatchSize     = command.Flags().Int("events-batch-size", 500, "Events batch size before exporting")
+		eventsFlushInterval = command.Flags().Duration("events-flush-interval", 5*time.Second, "Events flush interval")
+
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
 		clickhouseAddr     = command.Flags().String("clickhouse-addr", "", "Clickhouse address to send events to")
@@ -146,6 +149,8 @@ func NewRunCommand(version string) *cobra.Command {
 			State: state.Config{
 				StatsScrapeInterval:   *statsScrapeInterval,
 				NetflowExportInterval: *netflowExportInterval,
+				EventsBatchSize:       *eventsBatchSize,
+				EventsFlushInterval:   *eventsFlushInterval,
 			},
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,

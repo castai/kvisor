@@ -263,10 +263,6 @@ func (c *ProcessTreeCollectorImpl) fireEvent(e ProcessEvent) {
 func (c *ProcessTreeCollectorImpl) fireEvents(event ProcessTreeEvent) {
 	if c.log.IsEnabled(slog.LevelDebug) {
 		c.log.Debugf("fire process tree event (initial %t) ---", event.Initial)
-		for _, e := range event.Events {
-			c.log.Debugf("process tree event: %s", e.String())
-		}
-		c.log.Debugf("fire process tree event (initial %t) done ---", event.Initial)
 	}
 	select {
 	case c.eventSink <- event:

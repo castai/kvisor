@@ -28,6 +28,9 @@ type Config struct {
 	StatsScrapeInterval time.Duration `json:"statsScrapeInterval"`
 
 	NetflowExportInterval time.Duration `validate:"required" json:"netflowExportInterval"`
+
+	EventsBatchSize     int           `validate:"required" json:"eventsBatchSize"`
+	EventsFlushInterval time.Duration `validate:"required" json:"eventsFlushInterval"`
 }
 
 type containersClient interface {
@@ -155,10 +158,8 @@ type Controller struct {
 	mutedNamespaces   map[string]struct{}
 
 	// Events pipeline state.
-	eventsGroupsMu      sync.Mutex
-	eventsGroups        map[uint64]*containerEventsGroup
-	eventsFlushInterval time.Duration
-	eventsBatchSize     int
+	eventsGroupsMu sync.Mutex
+	eventsGroups   map[uint64]*containerEventsGroup
 
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient

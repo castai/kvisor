@@ -1,9 +1,13 @@
 package ebpftracer
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"runtime/debug"
+	"time"
 
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
@@ -20,10 +24,37 @@ import (
 var ErrPanic = errors.New("encountered panic")
 
 func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decoder.Decoder) (rerr error) {
+	var eventID events.ID
+
+	// Handle errors and add metrics.
 	defer func() {
 		if perr := recover(); perr != nil {
 			stack := string(debug.Stack())
 			rerr = fmt.Errorf("decode %w: %v, stack=%s", ErrPanic, perr, stack)
+		}
+		if rerr != nil {
+			return
+		}
+		eventName := "unknown"
+		if def, found := t.eventsSet[eventID]; found {
+			eventName = def.name
+		}
+		if errors.Is(rerr, errFoundFingerprint) {
+			// Metric for skipped events by fingerprints are added inside the decoding logic.
+			metrics.AgentSkippedEventsTotal.WithLabelValues(eventName)
+			return
+		}
+
+		if errors.Is(rerr, decoder.ErrTooManyArguments) {
+			data := ebpfMsgDecoder.Buffer()
+			t.log.Errorf("decoding event: too many arguments for event. payload=%s, err=%v", base64.StdEncoding.EncodeToString(data), rerr)
+			metrics.AgentDecodeEventErrorsTotal.WithLabelValues(eventName).Inc()
+			return
+		}
+		if t.cfg.DebugEnabled || errors.Is(rerr, ErrPanic) {
+			t.log.Errorf("decoding event: %v", rerr)
+			metrics.AgentDecodeEventErrorsTotal.WithLabelValues(eventName).Inc()
+			return
 		}
 	}()
 
@@ -36,6 +67,10 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	def := t.eventsSet[eventCtx.EventID]
 	metrics.AgentPulledEventsBytesTotal.WithLabelValues(def.name).Add(float64(ebpfMsgDecoder.BuffLen()))
 	metrics.AgentPulledEventsTotal.WithLabelValues(def.name).Inc()
+
+	if t.dumpEvent {
+		_ = os.WriteFile(fmt.Sprintf("testdata/event_%d_%s_%d.bin", eventCtx.CgroupID, def.name, time.Now().UnixNano()), ebpfMsgDecoder.Buffer(), 0600)
+	}
 
 	// Process special events for cgroup creation and removal.
 	// These are system events which are not send down via events pipeline.
@@ -68,25 +103,14 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		return fmt.Errorf("cannot get container for cgroup %d: %w", eventCtx.CgroupID, err)
 	}
 
-	filterPolicy := t.getFilterPolicy(eventCtx.EventID, eventCtx.CgroupID)
-
-	var parsedArgs types.Args
-	if filterPolicy != nil && filterPolicy.preFilter != nil {
-		parsedArgs, err = filterPolicy.preFilter(&eventCtx, ebpfMsgDecoder)
-		if err != nil {
-			metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
-			return nil
+	parsedArgs, err := t.getEventArgs(ebpfMsgDecoder, eventCtx)
+	if err != nil {
+		if errors.Is(err, errFoundFingerprint) {
+			return errFoundFingerprint
 		}
+		return err
 	}
 
-	if parsedArgs == nil {
-		parsedArgs, err = decoder.ParseArgs(ebpfMsgDecoder, eventId)
-		if err != nil {
-			return fmt.Errorf("parsing event %d args: %w", eventId, err)
-		}
-	}
-
-	//rawEventTime := eventCtx.Ts
 	eventCtx.Ts = t.bootTime + eventCtx.Ts
 	event := &types.Event{
 		Context:   &eventCtx,
@@ -104,26 +128,88 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		t.cfg.SignatureEngine.QueueEvent(event)
 	}
 
-	// Do not process an event we do not have a policy set any further.
-	if _, found := t.eventPoliciesMap[eventId]; !found && t.policy != nil {
-		metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
-		return nil
-	}
-
-	if filterPolicy != nil && filterPolicy.filter != nil {
-		if err := filterPolicy.filter(event); err != nil {
-			metrics.AgentSkippedEventsTotal.WithLabelValues(def.name).Inc()
-			return nil
-		}
-	}
-
 	select {
 	case t.eventsChan <- event:
+		metrics.AgentTracerSentEventsTotal.WithLabelValues(def.name).Inc()
 	default:
 		metrics.AgentDroppedEventsTotal.WithLabelValues(def.name).Inc()
 	}
 
 	return nil
+}
+
+var errFoundFingerprint = errors.New("found fingerprint")
+
+func (t *Tracer) getEventArgs(ebpfMsgDecoder *decoder.Decoder, eventCtx types.EventContext) (types.Args, error) {
+	// Special case for DNS events. We can skip reading the whole event payload.
+	switch eventCtx.EventID {
+	case events.NetPacketDNSBase:
+		return t.getDNSArgs(ebpfMsgDecoder, eventCtx)
+	default:
+	}
+
+	parsedArgs, err := decoder.ParseArgs(ebpfMsgDecoder, eventCtx.EventID)
+	if err != nil {
+		return nil, fmt.Errorf("parsing event %d args: %w", eventCtx.EventID, err)
+	}
+	fingerprint, ok := t.getEventFingerprint(parsedArgs)
+	if ok {
+		key := fingerprintKey{cgroupID: eventCtx.CgroupID, fingerprint: fingerprint}
+		if t.fingerprints.Contains(key) {
+			return nil, errFoundFingerprint
+		}
+		t.fingerprints.Add(key, struct{}{})
+	}
+	return parsedArgs, nil
+}
+
+func (t *Tracer) getDNSArgs(ebpfMsgDecoder *decoder.Decoder, eventCtx types.EventContext) (types.NetPacketDNSBaseArgs, error) {
+	dns, details, err := ebpfMsgDecoder.DecodeDNSAndDetails()
+	if err != nil {
+		return types.NetPacketDNSBaseArgs{}, err
+	}
+
+	fingerprint := t.getDNSEventFingerprint(dns.Questions[0].Name)
+	key := fingerprintKey{cgroupID: eventCtx.CgroupID, fingerprint: fingerprint}
+	if t.fingerprints.Contains(key) {
+		return types.NetPacketDNSBaseArgs{}, errFoundFingerprint
+	}
+	t.fingerprints.Add(key, struct{}{})
+
+	return types.NetPacketDNSBaseArgs{
+		Payload: decoder.ToProtoDNS(&details, dns),
+	}, nil
+}
+
+func (t *Tracer) getDNSEventFingerprint(dnsQuestion []byte) uint64 {
+	t.fingerprintsDigest.Reset()
+
+	_, _ = t.fingerprintsDigest.Write(dnsQuestion)
+	return t.fingerprintsDigest.Sum64()
+}
+
+func (t *Tracer) getEventFingerprint(args types.Args) (uint64, bool) {
+	t.fingerprintsDigest.Reset()
+
+	switch v := args.(type) {
+	case types.SockSetStateArgs:
+		tupleBytes, err := v.Tuple.Dst.MarshalBinary()
+		if err == nil {
+			state := make([]byte, 4)
+			binary.LittleEndian.PutUint32(state, v.OldState)
+			_, _ = t.fingerprintsDigest.Write(state)
+			binary.LittleEndian.PutUint32(state, v.NewState)
+			_, _ = t.fingerprintsDigest.Write(state)
+			_, _ = t.fingerprintsDigest.Write(tupleBytes)
+			return t.fingerprintsDigest.Sum64(), true
+		}
+		return 0, false
+	case types.TtyWriteArgs:
+		_, _ = t.fingerprintsDigest.WriteString(v.Path)
+	case types.MagicWriteArgs:
+		_, _ = t.fingerprintsDigest.WriteString(v.Pathname)
+	}
+	return 0, false
 }
 
 func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs types.Args) error {

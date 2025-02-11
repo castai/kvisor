@@ -64,23 +64,3 @@ type PolicyOutputConfig struct {
 	ParseArgumentsFDs bool
 	EventsSorting     bool
 }
-
-func newCgroupEventPolicy(policy *EventPolicy) *cgroupEventPolicy {
-	result := &cgroupEventPolicy{}
-
-	if policy.PreFilterGenerator != nil {
-		result.preFilter = policy.PreFilterGenerator()
-	}
-
-	if policy.FilterGenerator != nil {
-		result.filter = policy.FilterGenerator()
-	}
-
-	return result
-}
-
-// cgroupEventPolicy is internal structure to work with event policies per cgroups.
-type cgroupEventPolicy struct {
-	preFilter PreEventFilter
-	filter    EventFilter
-}

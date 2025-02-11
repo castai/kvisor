@@ -18,11 +18,14 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	defer c.log.Info("events pipeline done")
 
 	numWorkers := 8
-	var errg errgroup.Group
+	flushQueueSize := 200
 
-	resync := make(chan uint64, 200)
+	var errg errgroup.Group
+	// Flush queue is used to periodically flush aggregated groups events.
+	// This is needed to ensure that events are sent for low rate groups.
+	flushQueue := make(chan uint64, flushQueueSize)
 	errg.Go(func() error {
-		ticker := time.NewTicker(c.eventsFlushInterval)
+		ticker := time.NewTicker(c.cfg.EventsFlushInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -30,14 +33,14 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 				return ctx.Err()
 			case <-ticker.C:
 				now := c.nowFunc()
+				// This func should be fast because it locks the whole groups map.
 				func() {
 					c.eventsGroupsMu.Lock()
 					defer c.eventsGroupsMu.Unlock()
-
 					for id, g := range c.eventsGroups {
-						if g.flushedAt.Add(g.cfg.flushInterval).Before(now) {
+						if g.flushedAt.Load().Add(g.cfg.flushInterval).Before(now) {
 							select {
-							case resync <- id:
+							case flushQueue <- id:
 							default:
 							}
 						}
@@ -47,6 +50,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		}
 	})
 
+	// Process ebpf events, signatures and flush requests in workers.
 	for range numWorkers {
 		errg.Go(func() error {
 			for {
@@ -59,12 +63,13 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 				case e := <-c.signatureEngine.Events():
 					group := c.getOrCreateContainerEventsGroup(e.EbpfEvent)
 					group.handleEvent(ctx, e.EbpfEvent, e.SignatureEvent)
-				case cgroupID := <-resync:
+				case cgroupID := <-flushQueue:
 					func() {
 						c.eventsGroupsMu.Lock()
-						defer c.eventsGroupsMu.Unlock()
-						if group, found := c.eventsGroups[cgroupID]; found {
-							group.handleEvent(ctx, nil, nil)
+						group, found := c.eventsGroups[cgroupID]
+						c.eventsGroupsMu.Unlock()
+						if found {
+							group.sendBatchLocked(ctx)
 						}
 					}()
 				}
@@ -98,11 +103,9 @@ func (c *Controller) getOrCreateContainerEventsGroup(e *ebpftypes.Event) *contai
 			batch.WorkloadUid = podInfo.WorkloadUid
 			batch.NodeName = podInfo.NodeName
 		}
-		// TODO: Consider adjusting these settings dynamically on each group based on their events rate.
 		cfg := containerEventsGroupConfig{
-			batchSize:       c.eventsBatchSize,
-			flushInterval:   c.eventsFlushInterval,
-			fingerprintSize: 500,
+			batchSize:     c.cfg.EventsBatchSize,
+			flushInterval: c.cfg.EventsFlushInterval,
 		}
 		group = newContainerEventsGroup(
 			c.log,

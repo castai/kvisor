@@ -2,7 +2,6 @@ package ebpftracer
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
@@ -22,7 +20,9 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
+	"github.com/cespare/xxhash/v2"
 	"github.com/cilium/ebpf"
+	"github.com/elastic/go-freelru"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
@@ -87,11 +87,17 @@ type Config struct {
 	ProcessTreeCollector               processTreeCollector
 	MetricsReporting                   MetricsReportingConfig
 	PodName                            string
+	FingerprintSize                    uint32
 }
 
 type cgroupCleanupRequest struct {
 	cgroupID     cgroup.ID
 	cleanupAfter time.Time
+}
+
+type fingerprintKey struct {
+	cgroupID    cgroup.ID
+	fingerprint uint64
 }
 
 type Tracer struct {
@@ -103,10 +109,9 @@ type Tracer struct {
 	module    *module
 	eventsSet map[events.ID]definition
 
-	policyMu          sync.Mutex
-	policy            *Policy
-	eventPoliciesMap  map[events.ID]*EventPolicy
-	cgroupEventPolicy map[cgroup.ID]map[events.ID]*cgroupEventPolicy
+	policy   *Policy
+	policyMu sync.Mutex
+
 	signatureEventMap map[events.ID]struct{}
 
 	eventsChan chan *types.Event
@@ -124,6 +129,13 @@ type Tracer struct {
 	metricExportTimerTickRate time.Duration
 
 	currentTracerEbpfMetrics map[string]uint64
+
+	// fingerprints cache is used for events deduplication.
+	fingerprintsDigest *xxhash.Digest
+	fingerprints       freelru.Cache[fingerprintKey, struct{}]
+
+	// dumpEvent is used in playground test to dump event bytes for testing.
+	dumpEvent bool
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
@@ -137,6 +149,17 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 	if cfg.EventsOutputChanSize == 0 {
 		cfg.EventsOutputChanSize = 16384
 	}
+	if cfg.FingerprintSize == 0 {
+		cfg.FingerprintSize = 10000
+	}
+
+	fingerprints, err := freelru.New[fingerprintKey, struct{}](cfg.FingerprintSize, func(k fingerprintKey) uint32 {
+		return uint32(k.fingerprint) // nolint:gosec
+	})
+	if err != nil {
+		panic(err)
+	}
+	fingerprints.SetLifetime(10 * time.Second)
 
 	t := &Tracer{
 		log:                       log,
@@ -145,14 +168,14 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		bootTime:                  uint64(system.GetBootTime().UnixNano()), // nolint:gosec
 		eventsChan:                make(chan *types.Event, cfg.EventsOutputChanSize),
 		removedCgroups:            map[uint64]struct{}{},
-		eventPoliciesMap:          map[events.ID]*EventPolicy{},
-		cgroupEventPolicy:         map[uint64]map[events.ID]*cgroupEventPolicy{},
 		dnsPacketParser:           &layers.DNS{},
 		signatureEventMap:         map[events.ID]struct{}{},
 		cleanupTimerTickRate:      10 * time.Second,
 		cgroupCleanupDelay:        10 * time.Second,
 		metricExportTimerTickRate: 5 * time.Second,
 		currentTracerEbpfMetrics:  map[string]uint64{},
+		fingerprints:              fingerprints,
+		fingerprintsDigest:        xxhash.New(),
 	}
 
 	return t
@@ -263,14 +286,6 @@ func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) err
 		// Reset decoder with new raw sample bytes.
 		ebpfMsgDecoder.Reset(record.buf)
 		if err := t.decodeAndExportEvent(ctx, ebpfMsgDecoder); err != nil {
-			if errors.Is(err, decoder.ErrTooManyArguments) {
-				data := ebpfMsgDecoder.Buffer()
-				t.log.Errorf("decoding event: too many arguments for event. payload=%s, err=%v",
-					base64.StdEncoding.EncodeToString(data), err)
-			} else if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
-				t.log.Errorf("decoding event: %v", err)
-			}
-			metrics.AgentDecodeEventErrorsTotal.Inc()
 			continue
 		}
 	}
@@ -302,16 +317,11 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 	}
 
 	t.policy = policy
-	for _, event := range t.policy.Events {
-		event := event
-		t.eventPoliciesMap[event.ID] = event
-	}
 
 	eventsParams := getParamTypes(t.eventsSet)
 	requiredEventsIDs := make(map[events.ID]struct{})
 	for _, event := range policy.Events {
 		event := event
-		t.eventPoliciesMap[event.ID] = event
 		t.findAllRequiredEvents(event.ID, requiredEventsIDs)
 	}
 	if t.cfg.SignatureEngine != nil {
@@ -478,29 +488,6 @@ func (t *Tracer) initTailCall(tailCall TailCall) error {
 	return nil
 }
 
-func (t *Tracer) getFilterPolicy(eventID events.ID, cgroupID uint64) *cgroupEventPolicy {
-	t.policyMu.Lock()
-	defer t.policyMu.Unlock()
-
-	eventPolicy, found := t.eventPoliciesMap[eventID]
-	if found {
-		cgPolicyMap, found := t.cgroupEventPolicy[cgroupID]
-		if !found {
-			cgPolicyMap = make(map[events.ID]*cgroupEventPolicy)
-			t.cgroupEventPolicy[cgroupID] = cgPolicyMap
-		}
-
-		cgPolicy, found := cgPolicyMap[eventID]
-		if !found {
-			cgPolicy = newCgroupEventPolicy(eventPolicy)
-			t.cgroupEventPolicy[cgroupID][eventID] = cgPolicy
-		}
-		return cgPolicy
-	}
-
-	return nil
-}
-
 func (t *Tracer) cgroupCleanupLoop(ctx context.Context) error {
 	cleanupTimer := time.NewTicker(t.cleanupTimerTickRate)
 	defer func() {
@@ -557,13 +544,10 @@ func (t *Tracer) queueCgroupForRemoval(cgroupID cgroup.ID) {
 }
 
 func (t *Tracer) removeCgroups(cgroupIDs []cgroup.ID) {
-	t.policyMu.Lock()
 	t.removedCgroupsMu.Lock()
 	for _, id := range cgroupIDs {
-		delete(t.cgroupEventPolicy, id)
 		t.removedCgroups[id] = struct{}{}
 	}
-	t.policyMu.Unlock()
 	t.removedCgroupsMu.Unlock()
 
 	for _, id := range cgroupIDs {

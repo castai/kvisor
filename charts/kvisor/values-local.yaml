@@ -31,7 +31,8 @@ agent:
     process-tree-enabled: true
     ebpf-events-include-pod-labels: 'helm.sh/chart,app.kubernetes.io/name'
     ebpf-events-include-pod-annotations: 'cast.ai'
-    ebpf-events-policy: "magic_write,sched_process_exec,sock_set_state,net_packet_dns_base" # write,open,close,futex,epoll_wait
+    # Uncomment if you want to test high frequency events ingestion to mock server.
+    #ebpf-events-policy: "magic_write,sched_process_exec,sock_set_state,net_packet_dns_base,write,open,close,futex,epoll_wait"
     ignored-namespaces: ""
 
   prometheusScrape:

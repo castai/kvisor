@@ -90,7 +90,10 @@ spec:
         {{- end }}
           env:
             - name: GOMEMLIMIT
-              value: "100MiB" # Make GC more frequent once reaching this heap size.
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+                  divisor: '1'
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

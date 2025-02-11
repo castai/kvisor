@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"log/slog"
 	"sync"
@@ -14,17 +13,15 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/cespare/xxhash/v2"
-	"github.com/elastic/go-freelru"
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 )
 
 type containerEventMapper func(res *castpb.ContainerEvent, e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent)
 
 type containerEventsGroupConfig struct {
-	batchSize       int
-	flushInterval   time.Duration
-	fingerprintSize int
+	batchSize     int
+	flushInterval time.Duration
 }
 
 type ebpfEventNameGetter interface {
@@ -41,24 +38,12 @@ func newContainerEventsGroup(
 	containerEventMapper containerEventMapper,
 	ebpfEventNameGetter ebpfEventNameGetter,
 ) *containerEventsGroup {
-	if cfg.fingerprintSize == 0 {
-		cfg.fingerprintSize = 500
-	}
 	if cfg.batchSize == 0 {
 		cfg.batchSize = 500
 	}
 	if cfg.flushInterval == 0 {
 		cfg.flushInterval = 5 * time.Second
 	}
-	fingerprintSize := uint32(cfg.fingerprintSize) // nolint:gosec
-	fingerprints, err := freelru.New[uint64, struct{}](fingerprintSize, func(k uint64) uint32 {
-		return uint32(k) // nolint:gosec
-	})
-	if err != nil {
-		panic(err)
-	}
-	fingerprints.SetLifetime(10 * time.Second)
-
 	batch.Items = make([]*castpb.ContainerEvent, 0, cfg.batchSize)
 
 	return &containerEventsGroup{
@@ -70,10 +55,8 @@ func newContainerEventsGroup(
 		ebpfEventNameGetter:     ebpfEventNameGetter,
 		currentTimeFunc:         nowFunc,
 
-		batch:              batch,
-		fingerprintsDigest: xxhash.New(),
-		fingerprints:       fingerprints,
-		flushedAt:          time.Now(),
+		batch:     batch,
+		flushedAt: atomic.NewTime(nowFunc()),
 	}
 }
 
@@ -86,11 +69,9 @@ type containerEventsGroup struct {
 	ebpfEventNameGetter     ebpfEventNameGetter
 	currentTimeFunc         func() time.Time
 
-	mu                 sync.Mutex
-	batch              *castpb.ContainerEventsBatch
-	fingerprintsDigest *xxhash.Digest
-	fingerprints       freelru.Cache[uint64, struct{}]
-	flushedAt          time.Time
+	mu        sync.Mutex
+	batch     *castpb.ContainerEventsBatch
+	flushedAt *atomic.Time
 }
 
 func (g *containerEventsGroup) handleEvent(ctx context.Context, e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
@@ -98,11 +79,6 @@ func (g *containerEventsGroup) handleEvent(ctx context.Context, e *ebpftypes.Eve
 	defer g.mu.Unlock()
 
 	if e != nil {
-		if !g.shouldAddEvent(e) {
-			metrics.AgentSkippedEventsTotal.WithLabelValues(g.ebpfEventNameGetter.GetEventName(e.Context.EventID)).Inc()
-			return
-		}
-
 		protoContainerEvent := &castpb.ContainerEvent{}
 		// Set fields on final proto event and enrich if needed.
 		g.containerEventMapper(protoContainerEvent, e, signatureEvent)
@@ -116,17 +92,10 @@ func (g *containerEventsGroup) handleEvent(ctx context.Context, e *ebpftypes.Eve
 	}
 }
 
-func (g *containerEventsGroup) shouldAddEvent(e *ebpftypes.Event) bool {
-	fingerprint, ok := g.getEventFingerprint(e)
-	if ok {
-		if g.fingerprints.Contains(fingerprint) {
-			return false
-		}
-		g.fingerprints.Add(fingerprint, struct{}{})
-		return true
-	}
-
-	return true
+func (g *containerEventsGroup) sendBatchLocked(ctx context.Context) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.sendBatch(ctx, g.currentTimeFunc())
 }
 
 func (g *containerEventsGroup) sendBatch(ctx context.Context, now time.Time) {
@@ -145,7 +114,7 @@ func (g *containerEventsGroup) sendBatch(ctx context.Context, now time.Time) {
 			g.log.Debugf("sent batch, size=%d, container=%s(%s)", len(g.batch.Items), g.batch.ContainerName, g.batch.ContainerId)
 		}
 	}
-	g.flushedAt = now
+	g.flushedAt.Store(now)
 	g.batch.Items = g.batch.Items[:0] // Clear items and reuse underlying slice.
 }
 
@@ -159,34 +128,7 @@ func (g *containerEventsGroup) shouldSendBatch(now time.Time) (res bool) {
 		return true
 	}
 	// Send then flush interval is reached.
-	return g.flushedAt.Add(g.cfg.flushInterval).Before(now)
-}
-
-func (g *containerEventsGroup) getEventFingerprint(e *ebpftypes.Event) (uint64, bool) {
-	g.fingerprintsDigest.Reset()
-
-	switch v := e.Args.(type) {
-	case ebpftypes.NetPacketDNSBaseArgs:
-		_, _ = g.fingerprintsDigest.WriteString(v.Payload.DNSQuestionDomain)
-		return g.fingerprintsDigest.Sum64(), true
-	case ebpftypes.SockSetStateArgs:
-		tupleBytes, err := v.Tuple.Dst.MarshalBinary()
-		if err == nil {
-			state := make([]byte, 4)
-			binary.LittleEndian.PutUint32(state, v.OldState)
-			_, _ = g.fingerprintsDigest.Write(state)
-			binary.LittleEndian.PutUint32(state, v.NewState)
-			_, _ = g.fingerprintsDigest.Write(state)
-			_, _ = g.fingerprintsDigest.Write(tupleBytes)
-			return g.fingerprintsDigest.Sum64(), true
-		}
-		return 0, false
-	case ebpftypes.TtyWriteArgs:
-		_, _ = g.fingerprintsDigest.WriteString(v.Path)
-	case ebpftypes.MagicWriteArgs:
-		_, _ = g.fingerprintsDigest.WriteString(v.Pathname)
-	}
-	return 0, false
+	return g.flushedAt.Load().Add(g.cfg.flushInterval).Before(now)
 }
 
 type ContainerEventsSender interface {

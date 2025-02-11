@@ -39,10 +39,15 @@ var (
 		Help: "Counter for tracking dropped events rate",
 	}, []string{EventTypeLabel})
 
-	AgentDecodeEventErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	AgentTracerSentEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_tracer_sent_events_total",
+		Help: "Counter for tracking sent events rate from the tracer",
+	}, []string{EventTypeLabel})
+
+	AgentDecodeEventErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_decode_event_errors_total",
 		Help: "Counter for agent decode events errors rate",
-	})
+	}, []string{EventTypeLabel})
 
 	AgentAnalyzersQueueDroppedEventsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_agent_analyzers_queue_dropped_events_total",
