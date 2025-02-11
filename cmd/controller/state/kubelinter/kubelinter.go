@@ -5,8 +5,10 @@ import (
 
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/additionalcapabilities"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/automount"
+	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/bindings"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/containerdsock"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/networkpolicypernamespace"
+	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/privescverbs"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/securitycontext"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customobjectkinds"
 	"github.com/samber/lo"
@@ -54,6 +56,7 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/nonisolatedpod"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/pdbmaxunavailable"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/pdbminavailable"
+	_ "golang.stackrox.io/kube-linter/pkg/templates/pdbunhealthypodevictionpolicy"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/ports"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/privileged"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/privilegedports"
@@ -76,7 +79,6 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/updateconfig"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
-	_ "golang.stackrox.io/kube-linter/pkg/templates/pdbunhealthypodevictionpolicy"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -130,7 +132,12 @@ func registerCustomChecks(registry checkregistry.CheckRegistry) error {
 		securitycontext.Check(),
 		networkpolicypernamespace.Check(),
 		additionalcapabilities.Check(),
+		privescverbs.Check(),
 	}
+	for _, c := range bindings.Checks() {
+		checks = append(checks, c)
+	}
+
 	for _, check := range checks {
 		if err := registry.Register(check); err != nil {
 			return err
