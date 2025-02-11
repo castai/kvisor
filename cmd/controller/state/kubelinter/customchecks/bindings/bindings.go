@@ -2,21 +2,23 @@ package bindings
 
 import (
 	"fmt"
-	"golang.stackrox.io/kube-linter/pkg/templates"
-	"slices"
-	"strings"
-
 	"golang.stackrox.io/kube-linter/pkg/check"
 	"golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	"golang.stackrox.io/kube-linter/pkg/objectkinds"
+	"golang.stackrox.io/kube-linter/pkg/templates"
 	"golang.stackrox.io/kube-linter/pkg/templates/util"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"slices"
 )
 
 const (
 	templateName = "bindings"
+)
+
+var (
+	ParamDescs = []check.ParameterDesc{}
 )
 
 func Checks() []*config.Check {
@@ -121,19 +123,7 @@ type Params struct {
 	ExcludedValues []string
 }
 
-var (
-	// Use some imports in case they don't get used otherwise.
-	_ = util.MustParseParameterDesc
-	_ = fmt.Sprintf
-
-	ParamDescs = []check.ParameterDesc{}
-)
-
 func (p *Params) Validate() error {
-	var validationErrors []string
-	if len(validationErrors) > 0 {
-		return fmt.Errorf("invalid parameters: %s", strings.Join(validationErrors, ", "))
-	}
 	return nil
 }
 
