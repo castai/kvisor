@@ -569,6 +569,11 @@ int tracepoint__sched__sched_process_fork(struct bpf_raw_tracepoint_args *ctx)
         int parent_ns_pid = get_task_ns_tgid(parent);
         int parent_ns_tid = get_task_ns_pid(parent);
 
+        // ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
+        if (child_ns_pid == parent_ns_pid) {
+            return 0;
+        }
+
         // Parent (might be a thread or a process).
         save_to_submit_buf(&p.event->args_buf, (void *) &parent_tid, sizeof(int), 0);
         save_to_submit_buf(&p.event->args_buf, (void *) &parent_ns_tid, sizeof(int), 1);
@@ -2460,6 +2465,14 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
         return 0;
     }
 
+    tuple_t tuple = {};
+    fill_tuple_from_bpf_sock(sk, &tuple);
+
+    // Right now we care only about public IP address
+    if (!is_addr_public(&tuple.daddr, tuple.family)) {
+        return 0;
+    }
+
     struct net_task_context *netctx = bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0);
     if (!netctx) {
         return 0;
@@ -2487,9 +2500,6 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
     if (!should_trace(&p)) {
         goto cleanup;
     }
-
-    tuple_t tuple = {};
-    fill_tuple_from_bpf_sock(sk, &tuple);
 
     save_to_submit_buf(&p.event->args_buf, (void *) &old_state, sizeof(u32), 0);
     save_to_submit_buf(&p.event->args_buf, (void *) &new_state, sizeof(u32), 1);
