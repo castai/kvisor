@@ -17,6 +17,13 @@ message Exec {
   uint32 flags = 4;
 }
 
+message ProcessFork {
+}
+
+message ProcessExit {
+  int64 exit_code = 1;
+}
+
 message File {
   string path = 1;
 }

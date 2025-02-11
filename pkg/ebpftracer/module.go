@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -106,6 +107,10 @@ func (m *module) load(cfg Config) error {
 		return err
 	}
 
+	// Should reduce allocated memory, see https://github.com/cilium/ebpf/issues/1063
+	btf.FlushKernelSpec()
+	runtime.GC()
+
 	m.objects = &objs
 
 	// Make sure cgroupv2 is mounted. It's required for cgroup networking ebpf programs.
@@ -122,9 +127,6 @@ func (m *module) load(cfg Config) error {
 	m.probes = newProbes(m.objects, cgroupPath)
 
 	m.loaded.Store(true)
-
-	// Should reduce allocated memory, see https://github.com/cilium/ebpf/issues/1063
-	btf.FlushKernelSpec()
 
 	return nil
 }

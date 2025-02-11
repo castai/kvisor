@@ -43,10 +43,21 @@ message GetPodResponse {
   Pod pod = 1;
 }
 
+enum WorkloadKind {
+  WORKLOAD_KIND_UNKNOWN = 0;
+  WORKLOAD_KIND_DEPLOYMENT = 1;
+  WORKLOAD_KIND_REPLICA_SET = 2;
+  WORKLOAD_KIND_STATEFUL_SET = 3;
+  WORKLOAD_KIND_DAEMON_SET = 4;
+  WORKLOAD_KIND_JOB = 5;
+  WORKLOAD_KIND_CRONJOB = 6;
+  WORKLOAD_KIND_POD = 7;
+}
+
 message Pod {
   string workload_uid = 1;
   string workload_name = 2;
-  string workload_kind = 3;
+  WorkloadKind workload_kind = 3;
   string zone = 4;
   string node_name = 5;
 }

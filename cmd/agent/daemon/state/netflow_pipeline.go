@@ -29,7 +29,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 		resp, err := c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
 		if err != nil {
 			c.log.Warnf("getting cluster info: %v", err)
-			sleep(ctx, 2*time.Second)
+			sleep(ctx, 3*time.Second)
 			continue
 		}
 		res := clusterInfo{}
@@ -55,9 +55,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	c.log.Info("running netflow pipeline")
 	defer c.log.Info("netflow pipeline done")
 
-	kubeCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	clusterInfo, err := c.getClusterInfo(kubeCtx)
+	clusterInfo, err := c.getClusterInfo(ctx)
 	if err != nil {
 		c.log.Errorf("getting cluster info: %v", err)
 	}
@@ -160,7 +158,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		ipInfo, found := c.getPodInfo(container.PodUID)
 		if found {
 			res.WorkloadName = ipInfo.WorkloadName
-			res.WorkloadKind = ipInfo.WorkloadKind
+			res.WorkloadKind = workloadKindString(ipInfo.WorkloadKind)
 			res.Zone = ipInfo.Zone
 			res.NodeName = ipInfo.NodeName
 		}
@@ -183,7 +181,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 	}
 	remote := netip.AddrPortFrom(remoteIP, key.Tuple.Dport)
 
-	dns := c.getAddrDnsQuestion(key.ProcessIdentity.CgroupId, remote.Addr())
+	dns := c.getAddrDnsQuestion(remote.Addr())
 
 	if c.clusterInfo != nil && c.clusterInfo.serviceCidrContains(remote.Addr()) {
 		if realDst, found := c.getConntrackDest(local, remote); found {

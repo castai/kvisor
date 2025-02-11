@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
-	"time"
 
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
@@ -13,8 +12,6 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/proc"
-	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/castai/kvisor/pkg/system"
 	"github.com/cilium/ebpf"
 	"golang.org/x/net/context"
 )
@@ -89,7 +86,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		}
 	}
 
-	rawEventTime := eventCtx.Ts
+	//rawEventTime := eventCtx.Ts
 	eventCtx.Ts = t.bootTime + eventCtx.Ts
 	event := &types.Event{
 		Context:   &eventCtx,
@@ -99,13 +96,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 
 	switch eventId {
 	case events.SchedProcessExec:
-		if err := t.handleSchedProcessExecEvent(&eventCtx, parsedArgs, container, rawEventTime); err != nil {
-			return err
-		}
-	case events.SchedProcessExit, events.ProcessOomKilled:
-		t.handleSchedProcessExitEvent(&eventCtx, container, rawEventTime)
-	case events.SchedProcessFork:
-		t.handleSchedProcessForkEvent(parsedArgs, container)
+		t.handleSchedProcessExecEvent(&eventCtx)
 	default:
 	}
 
@@ -166,78 +157,11 @@ func (t *Tracer) handleCgroupRmdirEvent(parsedArgs types.Args) error {
 	return nil
 }
 
-func (t *Tracer) handleSchedProcessExecEvent(eventCtx *types.EventContext, parsedArgs types.Args, container *containers.Container, rawEventTime uint64) error {
+func (t *Tracer) handleSchedProcessExecEvent(eventCtx *types.EventContext) {
 	if eventCtx.Pid == 1 {
 		t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 	} else {
 		t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
-	}
-
-	parentStartTime := time.Duration(0)
-	if eventCtx.Ppid != 0 {
-		// We only set the parent start time, if we know the parent PID comes from the same NS.
-		parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
-	}
-	execArgs, ok := parsedArgs.(types.SchedProcessExecArgs)
-	if !ok {
-		return fmt.Errorf("expected types.SchedProcessExecArgs, but got: %t", parsedArgs)
-	}
-	processStartTime := time.Duration(eventCtx.StartTime) * time.Nanosecond // nolint:gosec
-
-	t.cfg.ProcessTreeCollector.ProcessStarted(
-		system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
-		container.ID,
-		processtree.Process{
-			PID:             proc.PID(eventCtx.Pid),
-			StartTime:       processStartTime.Truncate(time.Second),
-			PPID:            proc.PID(eventCtx.Ppid),
-			ParentStartTime: parentStartTime.Truncate(time.Second),
-			Args:            execArgs.Argv,
-			FilePath:        execArgs.Filepath,
-		},
-	)
-	return nil
-}
-
-func (t *Tracer) handleSchedProcessExitEvent(eventCtx *types.EventContext, container *containers.Container, rawEventTime uint64) {
-	// We only care about process exits and not threads.
-	if eventCtx.HostPid != eventCtx.HostTid {
-		return
-	}
-	parentStartTime := time.Duration(0)
-	if eventCtx.Ppid != 0 {
-		// We only set the parent start time, if we know the parent PID comes from the same NS.
-		parentStartTime = time.Duration(eventCtx.ParentStartTime) * time.Nanosecond // nolint:gosec
-	}
-
-	t.cfg.ProcessTreeCollector.ProcessExited(
-		system.GetBootTime().Add(time.Duration(rawEventTime)), // nolint:gosec
-		container.ID,
-		processtree.ToProcessKeyNs(
-			proc.PID(eventCtx.Pid),
-			eventCtx.StartTime),
-		processtree.ToProcessKey(proc.PID(eventCtx.Ppid), parentStartTime),
-		eventCtx.Ts,
-	)
-}
-
-func (t *Tracer) handleSchedProcessForkEvent(parsedArgs types.Args, container *containers.Container) {
-	forkArgs := parsedArgs.(types.SchedProcessForkArgs)
-
-	// ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
-	if forkArgs.ChildNsPid != forkArgs.ParentNsPid {
-		parentStartTime := uint64(0)
-		if forkArgs.UpParentPid != 0 {
-			parentStartTime = forkArgs.UpParentStartTime
-		}
-
-		t.cfg.ProcessTreeCollector.ProcessForked(
-			// We always assume the child start time as the event timestamp for forks.
-			system.GetBootTime().Add(time.Duration(forkArgs.ChildStartTime)), // nolint:gosec
-			container.ID,
-			processtree.ToProcessKeyNs(proc.PID(forkArgs.ParentNsPid), parentStartTime),        // nolint:gosec
-			processtree.ToProcessKeyNs(proc.PID(forkArgs.ChildNsPid), forkArgs.ChildStartTime), //nolint:gosec
-		)
 	}
 }
 

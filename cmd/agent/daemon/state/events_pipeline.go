@@ -3,16 +3,14 @@ package state
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/netip"
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/cespare/xxhash/v2"
-	"github.com/elastic/go-freelru"
 )
 
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
@@ -24,90 +22,142 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-c.tracer.Events():
-			pbEvent := c.toProtoEvent(e)
-			if c.enrichmentService.Enqueue(&enrichment.EnrichRequest{
-				Event:     pbEvent,
-				EbpfEvent: e,
-			}) {
-				continue
-			}
-			for _, exporter := range c.exporters.Events {
-				exporter.Enqueue(pbEvent)
-			}
+			group := c.getOrCreateContainerEventsGroup(ctx, e)
+			group.pushEvent(e)
 		case e := <-c.signatureEngine.Events():
-			for _, exporter := range c.exporters.Events {
-				if podInfo, found := c.getPodInfo(e.PodUid); found {
-					e.WorkloadKind = podInfo.WorkloadKind
-					e.WorkloadName = podInfo.WorkloadName
-					e.WorkloadUid = podInfo.WorkloadUid
-				}
-				exporter.Enqueue(e)
-			}
-		case e := <-c.enrichmentService.Events():
-			for _, exporter := range c.exporters.Events {
-				exporter.Enqueue(e)
-			}
+			group := c.getOrCreateContainerEventsGroup(ctx, e.EbpfEvent)
+			group.pushSignatureEvent(e)
 		}
 	}
 }
 
-func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
-	event := &castpb.Event{
-		EventType:     0,
-		Timestamp:     e.Context.Ts,
-		ProcessName:   decoder.ProcessNameString(e.Context.Comm[:]),
-		Namespace:     e.Container.PodNamespace,
-		PodUid:        e.Container.PodUID,
-		PodName:       e.Container.PodName,
-		ContainerName: e.Container.Name,
-		ContainerId:   e.Container.ID,
-		CgroupId:      e.Container.CgroupID,
-		HostPid:       e.Context.HostPid,
-		ProcessIdentity: &castpb.ProcessIdentity{
-			Pid:       e.Context.Pid,
-			StartTime: uint64((time.Duration(e.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Nanoseconds()), // nolint:gosec
-		},
-		ObjectLabels:      e.Container.Labels,
-		ObjectAnnotations: e.Container.Annotations,
+func (c *Controller) getOrCreateContainerEventsGroup(ctx context.Context, e *ebpftypes.Event) *containerEventsGroup {
+	c.eventsGroupsMu.RLock()
+	group, found := c.eventsGroups[e.Context.CgroupID]
+	c.eventsGroupsMu.RUnlock()
+	if !found {
+		batch := &castpb.ContainerEventsBatch{
+			NodeName:          c.nodeName,
+			Namespace:         e.Container.PodNamespace,
+			PodName:           e.Container.PodName,
+			ContainerName:     e.Container.Name,
+			ContainerId:       e.Container.ID,
+			PodUid:            e.Container.PodUID,
+			ObjectLabels:      e.Container.Labels,
+			ObjectAnnotations: e.Container.Annotations,
+			CgroupId:          e.Context.CgroupID,
+		}
+		if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
+			batch.WorkloadKind = castpb.WorkloadKind(podInfo.WorkloadKind)
+			batch.WorkloadName = podInfo.WorkloadName
+			batch.WorkloadUid = podInfo.WorkloadUid
+			batch.NodeName = podInfo.NodeName
+		}
+		// TODO: Consider adjusting these settings dynamically on each group based on their events rate.
+		cfg := containerEventsGroupConfig{
+			batchSize:           c.eventsBatchSize,
+			flushInterval:       c.eventsFlushInterval,
+			eventsQueueSize:     100,
+			signaturesQueueSize: 100,
+			fingerprintSize:     500,
+		}
+		group = newContainerEventsGroup(
+			c.log,
+			c.eventsEnrichmentService,
+			c.exporters.ContainerEventsSender,
+			batch,
+			cfg,
+			c.nowFunc,
+			c.fillProtoContainerEvent,
+			c.tracer,
+		)
+		c.eventsGroupsMu.Lock()
+		c.eventsGroups[e.Context.CgroupID] = group
+		c.eventsGroupsMu.Unlock()
+		go func() {
+			if err := group.run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				c.log.Errorf("running events group: %v", err)
+				return
+			}
+		}()
 	}
+	return group
+}
 
-	if podInfo, found := c.getPodInfo(event.PodUid); found {
-		event.WorkloadKind = podInfo.WorkloadKind
-		event.WorkloadName = podInfo.WorkloadName
-		event.WorkloadUid = podInfo.WorkloadUid
-		event.NodeName = podInfo.NodeName
+func (c *Controller) getAddrDnsQuestion(addr netip.Addr) string {
+	if dnsQuestion, found := c.dnsCache.Get(addr.Unmap()); found {
+		return dnsQuestion
+	}
+	return ""
+}
+
+func (c *Controller) cacheDNS(dnsEvent *ebpftypes.ProtoDNS) {
+	for _, answ := range dnsEvent.Answers {
+		if len(answ.Ip) == 0 {
+			continue
+		}
+		addr, ok := netip.AddrFromSlice(answ.Ip)
+		if !ok {
+			continue
+		}
+		c.dnsCache.Add(addr.Unmap(), answ.Name)
+	}
+}
+
+func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
+	res.Timestamp = e.Context.Ts
+	res.ProcessName = decoder.ProcessNameString(e.Context.Comm[:])
+	res.HostPid = e.Context.HostPid
+	res.Pid = e.Context.Pid
+	res.ProcessStartTime = uint64(time.Duration(e.Context.StartTime).Truncate(time.Second).Nanoseconds()) // nolint:gosec,
+	res.Data = nil
+	res.EventType = 0
+	parentStartTime := time.Duration(0)
+	if e.Context.Ppid != 0 {
+		// We only set the parent start time, if we know the parent PID comes from the same NS.
+		parentStartTime = time.Duration(e.Context.ParentStartTime) // nolint:gosec
+	}
+	res.Ppid = e.Context.Ppid
+	res.ProcessParentStartTime = uint64(parentStartTime) // nolint:gosec
+
+	if signatureEvent != nil {
+		res.EventType = castpb.EventType_EVENT_SIGNATURE
+		res.Data = &castpb.ContainerEvent_Signature{
+			Signature: signatureEvent,
+		}
+		return
 	}
 
 	switch args := e.Args.(type) {
 	case ebpftypes.NetPacketDNSBaseArgs:
 		metrics.AgentDNSPacketsTotal.Inc()
-		event.EventType = castpb.EventType_EVENT_DNS
+		res.EventType = castpb.EventType_EVENT_DNS
 
 		dnsEvent := args.Payload
 		dnsEvent.FlowDirection = convertFlowDirection(e.Context.GetFlowDirection())
-		event.Data = &castpb.Event_Dns{
+		res.Data = &castpb.ContainerEvent_Dns{
 			Dns: dnsEvent,
 		}
 
 		// Add dns cache.
-		c.cacheDNS(event, dnsEvent)
+		c.cacheDNS(dnsEvent)
 
 	case ebpftypes.SockSetStateArgs:
 		tpl := args.Tuple
-		event.EventType = findTCPEventType(ebpftypes.TCPSocketState(args.OldState), ebpftypes.TCPSocketState(args.NewState))
+		res.EventType = findTCPEventType(ebpftypes.TCPSocketState(args.OldState), ebpftypes.TCPSocketState(args.NewState))
 		pbTuple := &castpb.Tuple{
 			SrcIp:       tpl.Src.Addr().AsSlice(),
 			DstIp:       tpl.Dst.Addr().AsSlice(),
 			SrcPort:     uint32(tpl.Src.Port()),
 			DstPort:     uint32(tpl.Dst.Port()),
-			DnsQuestion: c.getAddrDnsQuestion(e.Context.CgroupID, tpl.Dst.Addr()),
+			DnsQuestion: c.getAddrDnsQuestion(tpl.Dst.Addr()),
 		}
-		event.Data = &castpb.Event_Tuple{
+		res.Data = &castpb.ContainerEvent_Tuple{
 			Tuple: pbTuple,
 		}
 	case ebpftypes.SchedProcessExecArgs:
-		event.EventType = castpb.EventType_EVENT_EXEC
-		event.Data = &castpb.Event_Exec{
+		res.EventType = castpb.EventType_EVENT_EXEC
+		res.Data = &castpb.ContainerEvent_Exec{
 			Exec: &castpb.Exec{
 				Path:       args.Filepath,
 				Args:       args.Argv,
@@ -115,29 +165,45 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 				Flags:      args.Flags,
 			},
 		}
+	case ebpftypes.SchedProcessForkArgs:
+		res.EventType = castpb.EventType_EVENT_PROCESS_FORK
+		res.Data = &castpb.ContainerEvent_ProcessFork{
+			ProcessFork: &castpb.ProcessFork{},
+		}
+	case ebpftypes.SchedProcessExitArgs:
+		res.EventType = castpb.EventType_EVENT_PROCESS_EXIT
+		res.Data = &castpb.ContainerEvent_ProcessExit{
+			ProcessExit: &castpb.ProcessExit{
+				ExitCode: args.ExitCode,
+			},
+		}
 	case ebpftypes.FileModificationArgs:
-		event.EventType = castpb.EventType_EVENT_FILE_CHANGE
-		event.Data = &castpb.Event_File{
+		res.EventType = castpb.EventType_EVENT_FILE_CHANGE
+		res.Data = &castpb.ContainerEvent_File{
 			File: &castpb.File{
 				Path: args.FilePath,
 			},
 		}
 	case ebpftypes.ProcessOomKilledArgs:
-		event.EventType = castpb.EventType_EVENT_PROCESS_OOM
-		// Nothing to add, sinces we do not have a payload
+		res.EventType = castpb.EventType_EVENT_PROCESS_EXIT
+		res.Data = &castpb.ContainerEvent_ProcessExit{
+			ProcessExit: &castpb.ProcessExit{
+				ExitCode: args.ExitCode,
+			},
+		}
 
 	case ebpftypes.TestEventArgs:
 		// nothing to do here, as this event is solely used by testing
 
 	case ebpftypes.MagicWriteArgs:
-		event.EventType = castpb.EventType_EVENT_MAGIC_WRITE
-		event.Data = &castpb.Event_File{
+		res.EventType = castpb.EventType_EVENT_MAGIC_WRITE
+		res.Data = &castpb.ContainerEvent_File{
 			File: &castpb.File{
 				Path: args.Pathname,
 			},
 		}
 	case ebpftypes.StdioViaSocketArgs:
-		event.EventType = castpb.EventType_EVENT_STDIO_VIA_SOCKET
+		res.EventType = castpb.EventType_EVENT_STDIO_VIA_SOCKET
 		finding := castpb.StdioViaSocketFinding{
 			Socketfd: args.Sockfd,
 		}
@@ -149,70 +215,33 @@ func (c *Controller) toProtoEvent(e *ebpftypes.Event) *castpb.Event {
 			finding.Ip = addr.Addr.Addr().AsSlice()
 			finding.Port = uint32(addr.Addr.Port())
 		}
-		event.Data = &castpb.Event_StdioViaSocket{
+		res.Data = &castpb.ContainerEvent_StdioViaSocket{
 			StdioViaSocket: &finding,
 		}
 	case ebpftypes.TtyWriteArgs:
-		event.EventType = castpb.EventType_EVENT_TTY_WRITE
-		event.Data = &castpb.Event_File{
+		res.EventType = castpb.EventType_EVENT_TTY_WRITE
+		res.Data = &castpb.ContainerEvent_File{
 			File: &castpb.File{Path: args.Path},
 		}
 	case ebpftypes.NetPacketSSHBaseArgs:
-		event.EventType = castpb.EventType_EVENT_SSH
+		res.EventType = castpb.EventType_EVENT_SSH
 		sshEvent := args.Payload
 		sshEvent.FlowDirection = convertFlowDirection(e.Context.GetFlowDirection())
-		event.Data = &castpb.Event_Ssh{
+		res.Data = &castpb.ContainerEvent_Ssh{
 			Ssh: sshEvent,
 		}
 	}
 
-	if event.EventType == 0 {
+	if res.EventType == 0 {
 		data, _ := json.Marshal(e.Args) //nolint:errchkjson
-		event.EventType = castpb.EventType_EVENT_ANY
-		event.Data = &castpb.Event_Any{
+		res.EventType = castpb.EventType_EVENT_ANY
+		res.Data = &castpb.ContainerEvent_Any{
 			Any: &castpb.Any{
 				EventId: uint32(e.Context.EventID),
 				Syscall: uint32(e.Context.Syscall), // nolint:gosec
 				Data:    data,
 			},
 		}
-	}
-	return event
-}
-
-func (c *Controller) getAddrDnsQuestion(cgroupID uint64, addr netip.Addr) string {
-	if cache, found := c.dnsCache.Get(cgroupID); found {
-		if dnsQuestion, found := cache.Get(addr.Unmap()); found {
-			return dnsQuestion
-		}
-	}
-	return ""
-}
-
-func (c *Controller) cacheDNS(e *castpb.Event, dnsEvent *ebpftypes.ProtoDNS) {
-	cacheVal, found := c.dnsCache.Get(e.CgroupId)
-	if !found {
-		var err error
-		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
-			return uint32(xxhash.Sum64(k.AsSlice())) // nolint:gosec
-		})
-		if err != nil {
-			c.log.Errorf("creating dns cache: %v", err)
-			return
-		}
-		c.dnsCache.Add(e.CgroupId, cacheVal)
-	}
-
-	for _, answ := range dnsEvent.Answers {
-		if len(answ.Ip) == 0 {
-			continue
-		}
-		addr, ok := netip.AddrFromSlice(answ.Ip)
-		if !ok {
-			continue
-		}
-
-		cacheVal.Add(addr, answ.Name)
 	}
 }
 

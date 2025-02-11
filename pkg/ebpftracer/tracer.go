@@ -2,6 +2,7 @@ package ebpftracer
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -10,8 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -19,6 +22,7 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
+	"github.com/cilium/ebpf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
@@ -145,8 +149,8 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cgroupEventPolicy:         map[uint64]map[events.ID]*cgroupEventPolicy{},
 		dnsPacketParser:           &layers.DNS{},
 		signatureEventMap:         map[events.ID]struct{}{},
-		cleanupTimerTickRate:      1 * time.Minute,
-		cgroupCleanupDelay:        1 * time.Minute,
+		cleanupTimerTickRate:      10 * time.Second,
+		cgroupCleanupDelay:        10 * time.Second,
 		metricExportTimerTickRate: 5 * time.Second,
 		currentTracerEbpfMetrics:  map[string]uint64{},
 	}
@@ -217,6 +221,59 @@ func (t *Tracer) signalEventsReadLoop(ctx context.Context) error {
 
 func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 	return t.runPerfBufReaderLoop(ctx, t.module.objects.Events)
+}
+
+type ringbufRecord struct {
+	buf []byte
+}
+
+func (t *Tracer) runPerfBufReaderLoop(ctx context.Context, target *ebpf.Map) error {
+	eventsReader, err := newRingbufReader(target)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		<-ctx.Done()
+		if err := eventsReader.close(); err != nil {
+			t.log.Warnf("closing events reader: %v", err)
+		}
+	}()
+
+	// Allocate message decoder and perf record once.
+	// Under the hood per event reader will reuse and grow raw sample backing bytes slice.
+	ebpfMsgDecoder := decoder.NewEventDecoder(t.log, []byte{})
+	var record ringbufRecord
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		err := eventsReader.read(&record)
+		if err != nil {
+			if t.cfg.DebugEnabled {
+				t.log.Warnf("reading event: %v", err)
+			}
+			continue
+		}
+
+		// Reset decoder with new raw sample bytes.
+		ebpfMsgDecoder.Reset(record.buf)
+		if err := t.decodeAndExportEvent(ctx, ebpfMsgDecoder); err != nil {
+			if errors.Is(err, decoder.ErrTooManyArguments) {
+				data := ebpfMsgDecoder.Buffer()
+				t.log.Errorf("decoding event: too many arguments for event. payload=%s, err=%v",
+					base64.StdEncoding.EncodeToString(data), err)
+			} else if t.cfg.DebugEnabled || errors.Is(err, ErrPanic) {
+				t.log.Errorf("decoding event: %v", err)
+			}
+			metrics.AgentDecodeEventErrorsTotal.Inc()
+			continue
+		}
+	}
 }
 
 func (t *Tracer) findAllRequiredEvents(id events.ID, out map[events.ID]struct{}) {

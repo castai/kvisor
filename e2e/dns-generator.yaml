@@ -26,5 +26,4 @@ spec:
             - |-
               sleep 1
               curl google.com
-              curl cast.ai
               sleep 1000000000

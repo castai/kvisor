@@ -40,8 +40,6 @@ var (
 
 	chartVersion = pflag.String("chart-version", "", "Helm chart version")
 
-	pyroscopeAddr = pflag.String("pyroscope-addr", "", "Enable pyroscope tracing")
-
 	cloudProvider = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
@@ -173,7 +171,6 @@ func main() {
 		PodNamespace:              podNs,
 		Version:                   Version,
 		ChartVersion:              *chartVersion,
-		PyroscopeAddr:             *pyroscopeAddr,
 		MetricsHTTPListenPort:     *metricsHTTPListenPort,
 		HTTPListenPort:            *serverHTTPListenPort,
 		KubeServerListenPort:      *kubeServerListenPort,

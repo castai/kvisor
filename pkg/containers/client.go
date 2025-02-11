@@ -130,6 +130,7 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 		return err
 	}
 	c.mu.Lock()
+	currentContainersCount := len(c.containersByCgroup)
 	c.containersByCgroup = map[uint64]*Container{}
 	c.mu.Unlock()
 
@@ -142,7 +143,7 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 		}
 		added++
 	}
-	c.log.Debugf("loaded %d containers out of %d", added, len(containersList.Containers))
+	c.log.Debugf("loaded %d containers out of %d, previous count %d", added, len(containersList.Containers), currentContainersCount)
 	return nil
 }
 

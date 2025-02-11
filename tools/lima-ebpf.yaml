@@ -3,8 +3,8 @@ images:
     arch: "x86_64"
   - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
     arch: "aarch64"
-cpus: 2
-memory: "4GiB"
+cpus: 4
+memory: "8GiB"
 mounts:
   - location: "~"
     writable: false

@@ -2,10 +2,8 @@ package signature
 
 import (
 	"context"
-	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
@@ -24,6 +22,12 @@ type SignatureEngineConfig struct {
 	DefaultSignatureConfig DefaultSignatureConfig `json:"default_signature_config"`
 }
 
+// Event is final signature event with finding.
+type Event struct {
+	EbpfEvent      *types.Event
+	SignatureEvent *castpb.SignatureEvent
+}
+
 type Signature interface {
 	GetMetadata() SignatureMetadata
 
@@ -33,7 +37,7 @@ type Signature interface {
 type SignatureEngine struct {
 	log         *logging.Logger
 	inputEvents chan *types.Event
-	eventsChan  chan *castpb.Event
+	eventsChan  chan Event
 	signatures  []Signature
 	// Map of precalculated singature metadata to reduce object churn in event handling loop
 	signaturesMetadata      map[Signature]*castpb.SignatureMetadata
@@ -46,7 +50,7 @@ func NewEngine(signatures []Signature, log *logging.Logger, cfg SignatureEngineC
 	return &SignatureEngine{
 		log:                     log.WithField("component", "signature_engine"),
 		inputEvents:             make(chan *types.Event, cfg.InputChanSize),
-		eventsChan:              make(chan *castpb.Event, cfg.OutputChanSize),
+		eventsChan:              make(chan Event, cfg.OutputChanSize),
 		signatures:              signatures,
 		eventsSignatureTriggers: eventsSignatureTriggers,
 		signaturesMetadata:      signaturesMetadata,
@@ -86,7 +90,7 @@ func (e *SignatureEngine) EventInput() chan<- *types.Event {
 	return e.inputEvents
 }
 
-func (e *SignatureEngine) Events() <-chan *castpb.Event {
+func (e *SignatureEngine) Events() <-chan Event {
 	return e.eventsChan
 }
 
@@ -117,33 +121,17 @@ func (e *SignatureEngine) handleEvent(event *types.Event) {
 
 	for _, signature := range signatures {
 		finding := signature.OnEvent(event)
-
 		if finding == nil {
 			continue
 		}
 
 		metadata := e.signaturesMetadata[signature]
 
-		e.eventsChan <- &castpb.Event{
-			EventType:     castpb.EventType_EVENT_SIGNATURE,
-			Timestamp:     uint64(time.Now().UTC().UnixNano()), // nolint:gosec
-			ProcessName:   decoder.ProcessNameString(event.Context.Comm[:]),
-			Namespace:     event.Container.PodNamespace,
-			PodName:       event.Container.PodName,
-			ContainerName: event.Container.Name,
-			PodUid:        event.Container.PodUID,
-			ContainerId:   event.Container.ID,
-			CgroupId:      event.Context.CgroupID,
-			HostPid:       event.Context.HostPid,
-			ProcessIdentity: &castpb.ProcessIdentity{
-				Pid:       event.Context.Pid,
-				StartTime: uint64((time.Duration(event.Context.StartTime) * time.Nanosecond).Truncate(time.Second).Nanoseconds()), // nolint:gosec
-			},
-			Data: &castpb.Event_Signature{
-				Signature: &castpb.SignatureEvent{
-					Metadata: metadata,
-					Finding:  finding,
-				},
+		e.eventsChan <- Event{
+			EbpfEvent: event,
+			SignatureEvent: &castpb.SignatureEvent{
+				Metadata: metadata,
+				Finding:  finding,
 			},
 		}
 	}

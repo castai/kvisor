@@ -17,17 +17,17 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       {{- if .Values.controller.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: "{{.Values.controller.httpListenPort}}"
+        prometheus.io/port: "{{.Values.controller.metricsHTTPListenPort}}"
       {{- end }}
       {{- if .Values.pyroscope.enabled }}
         phlare.grafana.com/scrape: "true"
-        phlare.grafana.com/port: "{{ .Values.controller.httpListenPort }}"
+        phlare.grafana.com/port: "{{ .Values.controller.metricsHTTPListenPort }}"
         profiles.grafana.com/memory.scrape: "true"
-        profiles.grafana.com/memory.port: "{{ .Values.controller.httpListenPort }}"
+        profiles.grafana.com/memory.port: "{{ .Values.controller.metricsHTTPListenPort }}"
         profiles.grafana.com/cpu.scrape: "true"
-        profiles.grafana.com/cpu.port: "{{ .Values.controller.httpListenPort }}"
+        profiles.grafana.com/cpu.port: "{{ .Values.controller.metricsHTTPListenPort }}"
         profiles.grafana.com/goroutine.scrape: "true"
-        profiles.grafana.com/goroutine.port: "{{ .Values.controller.httpListenPort }}"
+        profiles.grafana.com/goroutine.port: "{{ .Values.controller.metricsHTTPListenPort }}"
       {{- end }}
       {{- with .Values.controller.podAnnotations }}
         {{- toYaml . | nindent 8 }}
