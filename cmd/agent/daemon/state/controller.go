@@ -155,7 +155,7 @@ type Controller struct {
 	mutedNamespaces   map[string]struct{}
 
 	// Events pipeline state.
-	eventsGroupsMu      sync.RWMutex
+	eventsGroupsMu      sync.Mutex
 	eventsGroups        map[uint64]*containerEventsGroup
 	eventsFlushInterval time.Duration
 	eventsBatchSize     int
@@ -239,7 +239,11 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.eventsGroupsMu.Lock()
 	group := c.eventsGroups[container.CgroupID]
 	if group != nil {
-		go group.close()
+		group.mu.Lock()
+		defer group.mu.Unlock()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		group.sendBatch(ctx, c.nowFunc())
 		delete(c.eventsGroups, container.CgroupID)
 	}
 	c.eventsGroupsMu.Unlock()

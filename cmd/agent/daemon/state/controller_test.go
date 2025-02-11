@@ -205,8 +205,8 @@ func TestController(t *testing.T) {
 			}()
 
 			r.Eventually(func() bool {
-				ctrl.eventsGroupsMu.RLock()
-				defer ctrl.eventsGroupsMu.RUnlock()
+				ctrl.eventsGroupsMu.Lock()
+				defer ctrl.eventsGroupsMu.Unlock()
 				_, found := ctrl.eventsGroups[1]
 				return found
 			}, 1*time.Second, 10*time.Millisecond)
@@ -214,8 +214,8 @@ func TestController(t *testing.T) {
 			ctrl.onDeleteContainer(&containers.Container{CgroupID: 1})
 
 			r.Eventually(func() bool {
-				ctrl.eventsGroupsMu.RLock()
-				defer ctrl.eventsGroupsMu.RUnlock()
+				ctrl.eventsGroupsMu.Lock()
+				defer ctrl.eventsGroupsMu.Unlock()
 				_, found := ctrl.eventsGroups[1]
 
 				exporter.mu.Lock()
