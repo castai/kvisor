@@ -2,6 +2,8 @@ package bindings
 
 import (
 	"fmt"
+	"slices"
+
 	"golang.stackrox.io/kube-linter/pkg/check"
 	"golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
@@ -10,7 +12,6 @@ import (
 	"golang.stackrox.io/kube-linter/pkg/templates"
 	"golang.stackrox.io/kube-linter/pkg/templates/util"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"slices"
 )
 
 const (

@@ -1,13 +1,13 @@
 package kubelinter
 
 import (
-	rbacv1 "k8s.io/api/rbac/v1"
 	"testing"
 
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

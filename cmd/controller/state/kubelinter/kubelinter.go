@@ -2,13 +2,13 @@ package kubelinter
 
 import (
 	"fmt"
-	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/bindings"
-	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/privescverbs"
 
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/additionalcapabilities"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/automount"
+	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/bindings"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/containerdsock"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/networkpolicypernamespace"
+	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/privescverbs"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customchecks/securitycontext"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customobjectkinds"
 	"github.com/samber/lo"

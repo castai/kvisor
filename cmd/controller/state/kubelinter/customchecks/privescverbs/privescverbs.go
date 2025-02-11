@@ -2,8 +2,6 @@ package privescverbs
 
 import (
 	"fmt"
-	"golang.stackrox.io/kube-linter/pkg/objectkinds"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"slices"
 	"strings"
 
@@ -11,8 +9,10 @@ import (
 	"golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
+	"golang.stackrox.io/kube-linter/pkg/objectkinds"
 	"golang.stackrox.io/kube-linter/pkg/templates"
 	"golang.stackrox.io/kube-linter/pkg/templates/util"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 func Check() *config.Check {
