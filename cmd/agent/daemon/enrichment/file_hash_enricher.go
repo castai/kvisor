@@ -57,24 +57,24 @@ func (enricher *fileHashEnricher) EventTypes() []events.ID {
 	}
 }
 
-func (enricher *fileHashEnricher) Enrich(ctx context.Context, in *types.Event, out *castpb.ContainerEvent) error {
+func (enricher *fileHashEnricher) Enrich(ctx context.Context, in *types.Event, out *castpb.ContainerEvent) {
 	if in.Context.EventID != events.SchedProcessExec {
-		return nil
+		return
 	}
 
 	args, ok := in.Args.(types.SchedProcessExecArgs)
 	if !ok {
-		return nil
+		return
 	}
 
 	sha, err := enricher.calcFileHashForPID(in.Container, proc.PID(in.Context.NodeHostPid), args.Filepath)
 	if err != nil {
 		if errors.Is(err, ErrFileDoesNotExist) {
-			return nil
+			return
 		}
 	} else {
 		out.GetExec().HashSha256 = sha
-		return nil
+		return
 	}
 
 	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(in.Context.MntID)) {
@@ -89,15 +89,13 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, in *types.Event, o
 			if errors.Is(err, ErrFileDoesNotExist) {
 				// If the wanted file does not exist in the PID mount namespace, it will also not exist in the mounts of the other.
 				// We can hence simply return, as we will not find the wanted file.
-				return nil
+				return
 			}
-
 			continue
 		}
 		out.GetExec().HashSha256 = sha
-		return nil
+		return
 	}
-	return nil
 }
 
 func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container, pid proc.PID, execPath string) ([]byte, error) {

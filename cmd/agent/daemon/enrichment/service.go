@@ -16,7 +16,7 @@ type EnrichRequest struct {
 
 type EventEnricher interface {
 	// Enrich will add additional data to the provided Event.
-	Enrich(ctx context.Context, in *types.Event, out *castpb.ContainerEvent) error
+	Enrich(ctx context.Context, in *types.Event, out *castpb.ContainerEvent)
 
 	// EventsTypes returns a slice of event types, this enricher reacts to.
 	EventTypes() []events.ID
@@ -61,6 +61,6 @@ func (s *Service) Enrich(ctx context.Context, in *types.Event, out *castpb.Conta
 
 	enrichers := s.eventEnrichers[in.Context.EventID]
 	for _, enricher := range enrichers {
-		_ = enricher.Enrich(ctx, in, out)
+		enricher.Enrich(ctx, in, out)
 	}
 }

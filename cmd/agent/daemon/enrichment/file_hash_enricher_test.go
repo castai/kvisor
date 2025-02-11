@@ -50,7 +50,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
-		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		enricher.Enrich(context.TODO(), in, out)
 
 		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 	})
@@ -76,7 +76,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
-		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		enricher.Enrich(context.TODO(), in, out)
 
 		r.Empty(out.GetExec().HashSha256)
 	})
@@ -98,7 +98,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
-		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		enricher.Enrich(context.TODO(), in, out)
 
 		r.Nil(out.GetExec().HashSha256)
 	})
@@ -133,7 +133,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
-		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		enricher.Enrich(context.TODO(), in, out)
 
 		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 
@@ -151,7 +151,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		out = &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
-		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		enricher.Enrich(context.TODO(), in, out)
 		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 	})
 
@@ -186,7 +186,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		out := &castpb.ContainerEvent{Data: &castpb.ContainerEvent_Exec{Exec: &castpb.Exec{}}}
-		r.NoError(enricher.Enrich(context.TODO(), in, out))
+		enricher.Enrich(context.TODO(), in, out)
 
 		r.Equal(wantedSum[:], out.GetExec().GetHashSha256())
 	})
