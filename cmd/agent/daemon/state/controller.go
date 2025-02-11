@@ -126,8 +126,10 @@ func NewController(
 		procHandler:                procHandler,
 		eventsEnrichmentService:    eventsEnrichmentService,
 
-		eventsGroups: map[uint64]*containerEventsGroup{},
-		nowFunc:      time.Now,
+		eventsGroups:        map[uint64]*containerEventsGroup{},
+		eventsFlushInterval: 5 * time.Second,
+		eventsBatchSize:     500,
+		nowFunc:             time.Now,
 	}
 }
 
