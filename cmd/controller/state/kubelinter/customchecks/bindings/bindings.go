@@ -127,9 +127,6 @@ func (p *Params) Validate() error {
 	return nil
 }
 
-// ParseAndValidate instantiates a Params object out of the passed map[string]interface{},
-// validates it, and returns it.
-// The return type is interface{} to satisfy the type in the Template struct.
 func ParseAndValidate(m map[string]interface{}) (interface{}, error) {
 	var p Params
 	if err := util.DecodeMapStructure(m, &p); err != nil {
