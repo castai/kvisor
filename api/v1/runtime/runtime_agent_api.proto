@@ -124,22 +124,6 @@ message ContainerEventsBatch {
   repeated ContainerEvent items = 13;
 }
 
-message ContainerEventsBatchV2 {
-  string node_name = 1;
-  string namespace = 2;
-  string workload_name = 3;
-  string workload_uid = 4;
-  WorkloadKind workload_kind = 5;
-  string pod_name = 6;
-  string container_name = 7;
-  string container_id = 8;
-  string pod_uid = 9;
-  map<string, string> object_labels = 10;
-  map<string, string> object_annotations = 11;
-  uint64 cgroup_id = 12;
-  bytes data = 13;
-}
-
 message ContainerEvent {
   EventType event_type = 1;
   uint64 timestamp = 2;

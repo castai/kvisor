@@ -17,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -170,8 +171,9 @@ func (s *CastaiContainerEventSender) Run(ctx context.Context) error {
 				if s.log.IsEnabled(slog.LevelDebug) {
 					s.log.Errorf("sending batch, container=%s(%s): %v", req.batch.ContainerName, req.batch.ContainerId, err)
 					if strings.Contains(err.Error(), "string field contains invalid UTF-8") {
-						data, _ := proto.Marshal(req.batch)
-						s.log.Errorf("invalid batch data: %s", base64.StdEncoding.EncodeToString(data))
+						data, err := proto.Marshal(req.batch)
+						dataJSON, jserr := protojson.Marshal(req.batch)
+						s.log.Errorf("invalid batch data: err=%v, data=%s, jsErr=%s, jsData=%s", err, base64.StdEncoding.EncodeToString(data), jserr, base64.StdEncoding.EncodeToString(dataJSON))
 					}
 				}
 				metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_container_events").Inc()
