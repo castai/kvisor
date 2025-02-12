@@ -13,74 +13,99 @@ import (
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
 )
 
-type containerEvents struct {
-	eventIndex int
-	events     *castpb.ContainerEvents
-}
-
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	c.log.Info("running events pipeline")
 	defer c.log.Info("events pipeline done")
 
-	var currentBatchSize int
-	groups := map[uint64]*containerEvents{}
+	var currentEventsCount int
+	lastFlushedAt := c.nowFunc()
+	groups := map[uint64]*castpb.ContainerEvents{}
+
+	ticker := time.NewTicker(c.cfg.EventsFlushInterval)
+	defer ticker.Stop()
+
+	send := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		batch := &castpb.ContainerEventsBatch{}
+		for _, group := range groups {
+			if len(group.Items) > 0 {
+				batch.Items = append(batch.Items, group)
+			}
+		}
+		if len(batch.Items) == 0 {
+			return
+		}
+
+		c.log.Debugf("sending events batch, events=%d, groups=%d", currentEventsCount, len(batch.Items))
+		if err := c.exporters.ContainerEventsSender.Send(ctx, batch); err != nil {
+			c.log.Errorf("sending events batch: %s", err)
+		}
+
+		// Reset state after data is sent.
+		for _, group := range groups {
+			group.Items = group.Items[:0]
+		}
+		lastFlushedAt = c.nowFunc()
+		currentEventsCount = 0
+	}
+
+	addEvent := func(e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
+		group, found := groups[e.Context.CgroupID]
+		if !found {
+			group = c.newContainerEventsGroup(e)
+			groups[e.Context.CgroupID] = group
+		}
+		pbEvent := &castpb.ContainerEvent{}
+		c.fillProtoContainerEvent(pbEvent, e, signatureEvent)
+		c.eventsEnrichmentService.Enrich(ctx, e, pbEvent)
+		group.Items = append(group.Items, pbEvent)
+		currentEventsCount++
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
+			send()
 			return ctx.Err()
+		// Handle eBPF events.
 		case e := <-c.tracer.Events():
-			group, found := groups[e.Context.CgroupID]
-			if !found {
-				group = c.newContainerEventsGroup(e)
-				groups[e.Context.CgroupID] = group
+			addEvent(e, nil)
+			if currentEventsCount >= c.cfg.EventsBatchSize {
+				send()
 			}
-			pbEvent := &castpb.ContainerEvent{}
-			c.fillProtoContainerEvent(pbEvent, e, nil)
-			c.eventsEnrichmentService.Enrich(ctx, e, pbEvent)
-			group.events.Items = append(group.events.Items, pbEvent)
-			group.eventIndex++
-			currentBatchSize++
-
-			if currentBatchSize >= c.cfg.EventsBatchSize {
-				c.log.Debugf("sending events batch, size=%d, groups=%d", currentBatchSize, len(groups))
-				batch := &castpb.ContainerEventsBatch{}
-				for _, events := range groups {
-					batch.Items = append(batch.Items, events.events)
-				}
-				currentBatchSize = 0
-				if err := c.exporters.ContainerEventsSender.Send(ctx, batch); err != nil {
-					c.log.Errorf("sending events batch: %s", err)
-				}
-				for _, events := range groups {
-					events.eventIndex = -1
-					events.events.Items = events.events.Items[:0]
-				}
+		// Handle signature events.
+		case e := <-c.signatureEngine.Events():
+			addEvent(e.EbpfEvent, e.SignatureEvent)
+			if currentEventsCount >= c.cfg.EventsBatchSize {
+				send()
 			}
-
+		// Periodically flush collected data in case batch size is not reached (low events rate).
+		case <-ticker.C:
+			if lastFlushedAt.Add(c.cfg.EventsFlushInterval).Before(c.nowFunc()) {
+				send()
+			}
+		// Handle deleted containers.
 		case cgroupID := <-c.deletedContainersQueue:
 			group, found := groups[cgroupID]
 			if !found {
 				continue
 			}
-			if group.eventIndex == -1 {
+			if len(group.Items) == 0 {
+				delete(groups, cgroupID)
 				continue
 			}
-			if err := c.exporters.ContainerEventsSender.Send(ctx, &castpb.ContainerEventsBatch{Items: []*castpb.ContainerEvents{group.events}}); err != nil {
+			if err := c.exporters.ContainerEventsSender.Send(ctx, &castpb.ContainerEventsBatch{Items: []*castpb.ContainerEvents{group}}); err != nil {
 				c.log.Errorf("sending events batch for deletet container: %s", err)
 			}
 			delete(groups, cgroupID)
-
-			// TODO: Add signatures
-			//case e := <-c.signatureEngine.Events():
-			//	group := c.getOrCreateContainerEventsGroup(e.EbpfEvent)
-			//	group.handleEvent(ctx, e.EbpfEvent, e.SignatureEvent)
 		}
 	}
 }
 
-func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEvents {
-	batch := &castpb.ContainerEvents{
+func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *castpb.ContainerEvents {
+	group := &castpb.ContainerEvents{
 		NodeName:          c.nodeName,
 		Namespace:         e.Container.PodNamespace,
 		PodName:           e.Container.PodName,
@@ -92,12 +117,12 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEvent
 		CgroupId:          e.Context.CgroupID,
 	}
 	if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
-		batch.WorkloadKind = castpb.WorkloadKind(podInfo.WorkloadKind)
-		batch.WorkloadName = podInfo.WorkloadName
-		batch.WorkloadUid = podInfo.WorkloadUid
-		batch.NodeName = podInfo.NodeName
+		group.WorkloadKind = castpb.WorkloadKind(podInfo.WorkloadKind)
+		group.WorkloadName = podInfo.WorkloadName
+		group.WorkloadUid = podInfo.WorkloadUid
+		group.NodeName = podInfo.NodeName
 	}
-	return &containerEvents{events: batch}
+	return group
 }
 
 func (c *Controller) getAddrDnsQuestion(addr netip.Addr) string {
