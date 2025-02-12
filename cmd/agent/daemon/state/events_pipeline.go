@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/netip"
+	"strings"
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
@@ -144,7 +145,7 @@ func (c *Controller) cacheDNS(dnsEvent *ebpftypes.ProtoDNS) {
 
 func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
 	res.Timestamp = e.Context.Ts
-	res.ProcessName = decoder.ProcessNameString(e.Context.Comm[:])
+	res.ProcessName = strings.ToValidUTF8(decoder.ProcessNameString(e.Context.Comm[:]), "")
 	res.HostPid = e.Context.HostPid
 	res.Pid = e.Context.Pid
 	res.ProcessStartTime = uint64(time.Duration(e.Context.StartTime).Truncate(time.Second).Nanoseconds()) // nolint:gosec,
@@ -173,6 +174,10 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 
 		dnsEvent := args.Payload
 		dnsEvent.FlowDirection = convertFlowDirection(e.Context.GetFlowDirection())
+		dnsEvent.DNSQuestionDomain = strings.ToValidUTF8(dnsEvent.DNSQuestionDomain, "")
+		for _, answer := range dnsEvent.Answers {
+			answer.Name = strings.ToValidUTF8(answer.Name, "")
+		}
 		res.Data = &castpb.ContainerEvent_Dns{
 			Dns: dnsEvent,
 		}
@@ -194,10 +199,13 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 			Tuple: pbTuple,
 		}
 	case ebpftypes.SchedProcessExecArgs:
+		for i, arg := range args.Argv {
+			args.Argv[i] = strings.ToValidUTF8(arg, "")
+		}
 		res.EventType = castpb.EventType_EVENT_EXEC
 		res.Data = &castpb.ContainerEvent_Exec{
 			Exec: &castpb.Exec{
-				Path:       args.Filepath,
+				Path:       strings.ToValidUTF8(args.Filepath, ""),
 				Args:       args.Argv,
 				HashSha256: nil, // Hash is filled inside enrichment.
 				Flags:      args.Flags,
@@ -219,7 +227,7 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 		res.EventType = castpb.EventType_EVENT_FILE_CHANGE
 		res.Data = &castpb.ContainerEvent_File{
 			File: &castpb.File{
-				Path: args.FilePath,
+				Path: strings.ToValidUTF8(args.FilePath, ""),
 			},
 		}
 	case ebpftypes.ProcessOomKilledArgs:
@@ -259,12 +267,14 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 	case ebpftypes.TtyWriteArgs:
 		res.EventType = castpb.EventType_EVENT_TTY_WRITE
 		res.Data = &castpb.ContainerEvent_File{
-			File: &castpb.File{Path: args.Path},
+			File: &castpb.File{Path: strings.ToValidUTF8(args.Path, "")},
 		}
 	case ebpftypes.NetPacketSSHBaseArgs:
 		res.EventType = castpb.EventType_EVENT_SSH
 		sshEvent := args.Payload
 		sshEvent.FlowDirection = convertFlowDirection(e.Context.GetFlowDirection())
+		sshEvent.Version = strings.ToValidUTF8(sshEvent.Version, "v")
+		sshEvent.Comments = strings.ToValidUTF8(sshEvent.Comments, "v")
 		res.Data = &castpb.ContainerEvent_Ssh{
 			Ssh: sshEvent,
 		}
