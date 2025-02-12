@@ -2,8 +2,10 @@ package state
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 type containerEventMapper func(res *castpb.ContainerEvent, e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent)
@@ -166,6 +169,10 @@ func (s *CastaiContainerEventSender) Run(ctx context.Context) error {
 			if err != nil {
 				if s.log.IsEnabled(slog.LevelDebug) {
 					s.log.Errorf("sending batch, container=%s(%s): %v", req.batch.ContainerName, req.batch.ContainerId, err)
+					if strings.Contains(err.Error(), "string field contains invalid UTF-8") {
+						data, _ := proto.Marshal(req.batch)
+						s.log.Errorf("invalid batch data: %s", base64.StdEncoding.EncodeToString(data))
+					}
 				}
 				metrics.AgentExporterSendErrorsTotal.WithLabelValues("castai_container_events").Inc()
 			}
