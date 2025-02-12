@@ -505,7 +505,7 @@ const (
 type eventValidator struct {
 	name       string
 	assertions *assertions
-	validate   func(v *eventValidator, batch *castaipb.ContainerEventsBatch) error
+	validate   func(v *eventValidator, batch *castaipb.ContainerEvents) error
 	passed     bool
 }
 
@@ -523,7 +523,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		{
 			name:       "process tree events",
 			assertions: newAssertions(),
-			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+			validate: func(v *eventValidator, batch *castaipb.ContainerEvents) (err error) {
 				defer v.finish(err)
 
 				if batch.WorkloadName != "magic-write-generator" {
@@ -557,7 +557,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		{
 			name:       "dns event + tcp event",
 			assertions: newAssertions(),
-			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+			validate: func(v *eventValidator, batch *castaipb.ContainerEvents) (err error) {
 
 				defer v.finish(err)
 				r := v.assertions
@@ -624,7 +624,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		{
 			name:       "magic write + dropped and executed binary",
 			assertions: newAssertions(),
-			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+			validate: func(v *eventValidator, batch *castaipb.ContainerEvents) (err error) {
 				defer v.finish(err)
 
 				if batch.WorkloadName != "magic-write-generator" {
@@ -700,7 +700,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		{
 			name:       "ssh + socks5",
 			assertions: newAssertions(),
-			validate: func(v *eventValidator, batch *castaipb.ContainerEventsBatch) (err error) {
+			validate: func(v *eventValidator, batch *castaipb.ContainerEvents) (err error) {
 				if batch.WorkloadName != "ssh-client" {
 					return errValidatorSkipped
 				}
@@ -755,8 +755,10 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		for _, validator := range validators {
 			passedCount++
 			for _, batch := range t.containerEventsBatches {
-				if err := validator.validate(validator, batch); err != nil {
-					errs = append(errs, err)
+				for _, item := range batch.Items {
+					if err := validator.validate(validator, item); err != nil {
+						errs = append(errs, err)
+					}
 				}
 			}
 		}

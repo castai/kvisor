@@ -128,9 +128,8 @@ func NewController(
 		processTreeCollector:       processTreeCollector,
 		procHandler:                procHandler,
 		eventsEnrichmentService:    eventsEnrichmentService,
-
-		eventsGroups: map[uint64]*containerEventsGroup{},
-		nowFunc:      time.Now,
+		deletedContainersQueue:     make(chan uint64, 200),
+		nowFunc:                    time.Now,
 	}
 }
 
@@ -157,15 +156,13 @@ type Controller struct {
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
 
-	// Events pipeline state.
-	eventsGroupsMu sync.Mutex
-	eventsGroups   map[uint64]*containerEventsGroup
-
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient
 	dnsCache       *freelru.SyncedLRU[netip.Addr, string]
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
+
+	deletedContainersQueue chan uint64
 
 	nowFunc func() time.Time
 }
@@ -237,17 +234,11 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	delete(c.containerStatsScrapePoints, container.CgroupID)
 	c.containerStatsScrapePointsMu.Unlock()
 
-	c.eventsGroupsMu.Lock()
-	group := c.eventsGroups[container.CgroupID]
-	if group != nil {
-		group.mu.Lock()
-		defer group.mu.Unlock()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		group.sendBatch(ctx, c.nowFunc())
-		delete(c.eventsGroups, container.CgroupID)
+	select {
+	case c.deletedContainersQueue <- container.CgroupID:
+	default:
+		c.log.Warnf("dropping deleted container queue event for cgroup %d", container.CgroupID)
 	}
-	c.eventsGroupsMu.Unlock()
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }

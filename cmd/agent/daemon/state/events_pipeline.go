@@ -11,116 +11,93 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
-	"golang.org/x/sync/errgroup"
 )
+
+type containerEvents struct {
+	eventIndex int
+	events     *castpb.ContainerEvents
+}
 
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	c.log.Info("running events pipeline")
 	defer c.log.Info("events pipeline done")
 
-	numWorkers := 8
-	flushQueueSize := 200
+	var currentBatchSize int
+	groups := map[uint64]*containerEvents{}
 
-	var errg errgroup.Group
-	// Flush queue is used to periodically flush aggregated groups events.
-	// This is needed to ensure that events are sent for low rate groups.
-	flushQueue := make(chan uint64, flushQueueSize)
-	errg.Go(func() error {
-		ticker := time.NewTicker(c.cfg.EventsFlushInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker.C:
-				now := c.nowFunc()
-				// This func should be fast because it locks the whole groups map.
-				func() {
-					c.eventsGroupsMu.Lock()
-					defer c.eventsGroupsMu.Unlock()
-					for id, g := range c.eventsGroups {
-						if g.flushedAt.Load().Add(g.cfg.flushInterval).Before(now) {
-							select {
-							case flushQueue <- id:
-							default:
-							}
-						}
-					}
-				}()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case e := <-c.tracer.Events():
+			group, found := groups[e.Context.CgroupID]
+			if !found {
+				group = c.newContainerEventsGroup(e)
+				groups[e.Context.CgroupID] = group
 			}
-		}
-	})
+			pbEvent := &castpb.ContainerEvent{}
+			c.fillProtoContainerEvent(pbEvent, e, nil)
+			c.eventsEnrichmentService.Enrich(ctx, e, pbEvent)
+			group.events.Items = append(group.events.Items, pbEvent)
+			group.eventIndex++
+			currentBatchSize++
 
-	// Process ebpf events, signatures and flush requests in workers.
-	for range numWorkers {
-		errg.Go(func() error {
-			for {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case e := <-c.tracer.Events():
-					group := c.getOrCreateContainerEventsGroup(e)
-					group.handleEvent(ctx, e, nil)
-				case e := <-c.signatureEngine.Events():
-					group := c.getOrCreateContainerEventsGroup(e.EbpfEvent)
-					group.handleEvent(ctx, e.EbpfEvent, e.SignatureEvent)
-				case cgroupID := <-flushQueue:
-					func() {
-						c.eventsGroupsMu.Lock()
-						group, found := c.eventsGroups[cgroupID]
-						c.eventsGroupsMu.Unlock()
-						if found {
-							group.sendBatchLocked(ctx)
-						}
-					}()
+			if currentBatchSize >= c.cfg.EventsBatchSize {
+				c.log.Debugf("sending events batch, size=%d, groups=%d", currentBatchSize, len(groups))
+				batch := &castpb.ContainerEventsBatch{}
+				for _, events := range groups {
+					batch.Items = append(batch.Items, events.events)
+				}
+				currentBatchSize = 0
+				if err := c.exporters.ContainerEventsSender.Send(ctx, batch); err != nil {
+					c.log.Errorf("sending events batch: %s", err)
+				}
+				for _, events := range groups {
+					events.eventIndex = -1
+					events.events.Items = events.events.Items[:0]
 				}
 			}
-		})
-	}
 
-	return errg.Wait()
+		case cgroupID := <-c.deletedContainersQueue:
+			group, found := groups[cgroupID]
+			if !found {
+				continue
+			}
+			if group.eventIndex == -1 {
+				continue
+			}
+			if err := c.exporters.ContainerEventsSender.Send(ctx, &castpb.ContainerEventsBatch{Items: []*castpb.ContainerEvents{group.events}}); err != nil {
+				c.log.Errorf("sending events batch for deletet container: %s", err)
+			}
+			delete(groups, cgroupID)
+
+			// TODO: Add signatures
+			//case e := <-c.signatureEngine.Events():
+			//	group := c.getOrCreateContainerEventsGroup(e.EbpfEvent)
+			//	group.handleEvent(ctx, e.EbpfEvent, e.SignatureEvent)
+		}
+	}
 }
 
-func (c *Controller) getOrCreateContainerEventsGroup(e *ebpftypes.Event) *containerEventsGroup {
-	c.eventsGroupsMu.Lock()
-	defer c.eventsGroupsMu.Unlock()
-
-	group, found := c.eventsGroups[e.Context.CgroupID]
-	if !found {
-		batch := &castpb.ContainerEventsBatch{
-			NodeName:          c.nodeName,
-			Namespace:         e.Container.PodNamespace,
-			PodName:           e.Container.PodName,
-			ContainerName:     e.Container.Name,
-			ContainerId:       e.Container.ID,
-			PodUid:            e.Container.PodUID,
-			ObjectLabels:      e.Container.Labels,
-			ObjectAnnotations: e.Container.Annotations,
-			CgroupId:          e.Context.CgroupID,
-		}
-		if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
-			batch.WorkloadKind = castpb.WorkloadKind(podInfo.WorkloadKind)
-			batch.WorkloadName = podInfo.WorkloadName
-			batch.WorkloadUid = podInfo.WorkloadUid
-			batch.NodeName = podInfo.NodeName
-		}
-		cfg := containerEventsGroupConfig{
-			batchSize:     c.cfg.EventsBatchSize,
-			flushInterval: c.cfg.EventsFlushInterval,
-		}
-		group = newContainerEventsGroup(
-			c.log,
-			c.eventsEnrichmentService,
-			c.exporters.ContainerEventsSender,
-			batch,
-			cfg,
-			c.nowFunc,
-			c.fillProtoContainerEvent,
-			c.tracer,
-		)
-		c.eventsGroups[e.Context.CgroupID] = group
+func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEvents {
+	batch := &castpb.ContainerEvents{
+		NodeName:          c.nodeName,
+		Namespace:         e.Container.PodNamespace,
+		PodName:           e.Container.PodName,
+		ContainerName:     e.Container.Name,
+		ContainerId:       e.Container.ID,
+		PodUid:            e.Container.PodUID,
+		ObjectLabels:      e.Container.Labels,
+		ObjectAnnotations: e.Container.Annotations,
+		CgroupId:          e.Context.CgroupID,
 	}
-	return group
+	if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
+		batch.WorkloadKind = castpb.WorkloadKind(podInfo.WorkloadKind)
+		batch.WorkloadName = podInfo.WorkloadName
+		batch.WorkloadUid = podInfo.WorkloadUid
+		batch.NodeName = podInfo.NodeName
+	}
+	return &containerEvents{events: batch}
 }
 
 func (c *Controller) getAddrDnsQuestion(addr netip.Addr) string {

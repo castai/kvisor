@@ -64,16 +64,9 @@ func (m *MockServer) ContainerEventsBatchWriteStream(server grpc.ClientStreaming
 		if err != nil {
 			return err
 		}
-		//for _, item := range event.Items {
-		//	json, err := protojson.Marshal(item)
-		//	if err != nil {
-		//		m.log.Errorf("container_event: cannot parse process event: %v\n%v", err, item)
-		//		continue
-		//	}
-		//
-		//}
-		m.log.Debugf("container_event: ns=%s, pod=%s, cont=%s, data=%+v", event.NodeName, event.PodName, event.ContainerName, len(event.Items))
-
+		for _, event := range event.Items {
+			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, data=%+v", event.NodeName, event.PodName, event.ContainerName, len(event.Items))
+		}
 	}
 }
 

@@ -33,11 +33,6 @@ func (e *Exporters) Run(ctx context.Context) error {
 	defer e.log.Infof("stopping")
 
 	errg, ctx := errgroup.WithContext(ctx)
-	if e.ContainerEventsSender != nil {
-		errg.Go(func() error {
-			return e.ContainerEventsSender.Run(ctx)
-		})
-	}
 	for _, exp := range e.Stats {
 		exp := exp
 		errg.Go(func() error {
