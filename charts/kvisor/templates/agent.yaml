@@ -89,11 +89,7 @@ spec:
                 name:  {{ include "kvisor.clickhouse.fullname" . }}
         {{- end }}
           env:
-            - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.memory
-                  divisor: '1'
+            {{- include "GOMEMLIMITEnv" .Values.agent.resources.limits.memory | nindent 12 }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

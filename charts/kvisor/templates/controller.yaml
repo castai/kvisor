@@ -66,6 +66,7 @@ spec:
           resources:
             {{- toYaml .Values.controller.resources | nindent 12 }}
           env:
+            {{- include "GOMEMLIMITEnv" .Values.controller.resources.limits.memory | nindent 12 }}
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
