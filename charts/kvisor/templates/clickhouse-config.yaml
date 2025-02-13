@@ -16,6 +16,7 @@ data:
             <default>
                 <async_insert_max_data_size>10000000</async_insert_max_data_size>
                 <async_insert_busy_timeout_ms>5000</async_insert_busy_timeout_ms>
+                <max_final_threads>1</max_final_threads>
             </default>
         </profiles>
     </clickhouse>
