@@ -15,7 +15,6 @@ agent:
   extraArgs:
     log-level: debug
     prom-metrics-export-interval: 10s
-    pyroscope-addr: http://kvisord-pyroscope:4040
     file-hash-enricher-enabled: true
     signature-socks5-detection-enabled: true
     stats-enabled: true
@@ -47,7 +46,6 @@ controller:
     image-scan-init-delay: 5s
     kube-linter-enabled: true
     kube-linter-scan-interval: 5s
-    pyroscope-addr: http://kvisord-pyroscope:4040
 
   extraEnv:
     SCANNERS_IMAGE: localhost:5000/kvisor-scanners
@@ -81,3 +79,6 @@ clickhouse:
     database: "kvisor"
     username: "kvisor"
     password: "kvisor"
+
+pyroscope:
+  enabled: false

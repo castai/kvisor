@@ -21,7 +21,6 @@ import (
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/go-playground/validator/v10"
-	"github.com/grafana/pyroscope-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
@@ -55,9 +54,6 @@ type Config struct {
 	HTTPListenPort        int `validate:"required" json:"HTTPListenPort"`
 	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
 	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
-
-	// PyroscopeAddr is optional pyroscope addr to send traces.
-	PyroscopeAddr string `json:"pyroscopeAddr"`
 
 	CastaiController state.CastaiConfig      `json:"castaiController"`
 	CastaiEnv        castai.Config           `json:"castaiEnv"`
@@ -128,10 +124,6 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	log.Infof("running kvisor-controller, cluster_id=%s, grpc_addr=%s, version=%s", cfg.CastaiEnv.ClusterID, cfg.CastaiEnv.APIGrpcAddr, cfg.Version)
-
-	if cfg.PyroscopeAddr != "" {
-		withPyroscope(cfg.PyroscopeAddr)
-	}
 
 	// Setup kubernetes client and watcher.
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
@@ -323,21 +315,4 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 		return err
 	}
 	return nil
-}
-
-func withPyroscope(addr string) {
-	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisor-controller",
-		ServerAddress:   addr,
-		ProfileTypes: []pyroscope.ProfileType{
-			pyroscope.ProfileCPU,
-			pyroscope.ProfileAllocObjects,
-			pyroscope.ProfileAllocSpace,
-			pyroscope.ProfileInuseObjects,
-			pyroscope.ProfileInuseSpace,
-			pyroscope.ProfileGoroutines,
-		},
-	}); err != nil {
-		panic(err)
-	}
 }

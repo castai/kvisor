@@ -33,7 +33,6 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/go-playground/validator/v10"
-	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
@@ -57,7 +56,6 @@ type Config struct {
 	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
 	Version                        string                          `json:"version"`
 	BTFPath                        string                          `json:"BTFPath"`
-	PyroscopeAddr                  string                          `json:"pyroscopeAddr"`
 	ContainerdSockPath             string                          `json:"containerdSockPath"`
 	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
 	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
@@ -229,10 +227,6 @@ func (a *App) Run(ctx context.Context) error {
 
 	if exporters.Empty() {
 		return errors.New("no configured exporters")
-	}
-
-	if addr := a.cfg.PyroscopeAddr; addr != "" {
-		withPyroscope(podName, addr)
 	}
 
 	procHandler := proc.New()
@@ -613,25 +607,5 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 		return errors.New("timeout waiting for shutdown") // TODO(anjmao): Getting this error on tilt.
 	case err := <-errc:
 		return err
-	}
-}
-
-func withPyroscope(podName, addr string) {
-	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisor-agent",
-		ServerAddress:   addr,
-		Tags: map[string]string{
-			"pod": podName,
-		},
-		ProfileTypes: []pyroscope.ProfileType{
-			pyroscope.ProfileCPU,
-			pyroscope.ProfileAllocObjects,
-			pyroscope.ProfileAllocSpace,
-			pyroscope.ProfileInuseObjects,
-			pyroscope.ProfileInuseSpace,
-			pyroscope.ProfileGoroutines,
-		},
-	}); err != nil {
-		panic(err)
 	}
 }

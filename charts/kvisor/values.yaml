@@ -131,7 +131,6 @@ agent:
   # Extra args for egressd collector container.
   extraArgs:
     log-level: info
-    #pyroscope-addr: http://kvisord-pyroscope:4040
 
   prometheusScrape:
     enabled: true
@@ -196,7 +195,6 @@ controller:
   # Extra args for server container.
   extraArgs:
     log-level: info
-    #pyroscope-addr: http://kvisord-pyroscope.kvisord-trace:4040
 
   prometheusScrape:
     enabled: true

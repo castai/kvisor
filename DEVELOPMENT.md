@@ -66,13 +66,13 @@ limactl start ./tools/lima-ebpf.yaml
 You can use kind or any other local k8s cluster. Kind is recommended.
 
 ```sh
-kind create cluster
-kubectl cluster-info --context kind-kind
+kind create cluster --name=kvisor --config ./e2e/kind-config.yaml
+kubectl cluster-info --context kind-kvisor
 ```
 
 ### 3. Start tilt
 ```sh
-tilt up
+tilt up --context kind-kvisor
 ```
 
 ### 4. Port-forward server api
@@ -431,22 +431,34 @@ eksctl delete cluster <your-cluster-name> --region=us-east-1
 ```
 
 
-## Local Grafana and Pyroscope
+## Local Prometheus, Pyroscope and Grafana
 
-Install
+Install the different components
 ```sh
+./tools/localenv/prometheus.sh
 ./tools/localenv/pyroscope.sh
 ./tools/localenv/grafana.sh
 ```
 
-Port-forward local grafana
+Enable pyroscope and clickhouse in kvisor chart `charts/kvisor/values-local.yaml`:
+
+```yaml
+clickhouse:
+  enabled: true
+
+pyroscope:
+  enabled: true
 ```
-k port-forward svc/grafana 8080:80 -n metrics
+
+Port-forward local grafana
+```sh
+kubectl port-forward svc/grafana 8080:80 -n metrics
 ```
 
 Enable prom metrics scape (only if you use prometheus operator)
 
-```
+```yaml
+kubectl apply -n -f - <<EOF
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -465,4 +477,5 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: castai-kvisor-agent
+EOF
 ```

@@ -50,7 +50,6 @@ func NewRunCommand(version string) *cobra.Command {
 		sendLogLevel          = command.Flags().String("send-logs-level", "", "send logs level")
 		containerdSockPath    = command.Flags().String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
 		metricsHTTPListenPort = command.Flags().Int("metrics-http-listen-port", 6060, "metrics http listen port")
-		pyroscopeAddr         = command.Flags().String("pyroscope-addr", "", "Enable pyroscope tracing")
 		hostCgroupsDir        = command.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 
 		statsEnabled        = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
@@ -149,7 +148,6 @@ func NewRunCommand(version string) *cobra.Command {
 			PromMetricsExportInterval: *promMetricsExportInterval,
 			Version:                   version,
 			BTFPath:                   *btfPath,
-			PyroscopeAddr:             *pyroscopeAddr,
 			ContainerdSockPath:        *containerdSockPath,
 			HostCgroupsDir:            *hostCgroupsDir,
 			MetricsHTTPListenPort:     *metricsHTTPListenPort,
