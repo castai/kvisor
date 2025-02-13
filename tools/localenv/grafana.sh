@@ -1,5 +1,5 @@
 helm upgrade --install --repo https://grafana.github.io/helm-charts \
   grafana grafana \
   --create-namespace -n metrics \
-  --version 6.50.7 \
+  --version 8.9.0 \
   -f ./tools/localenv/grafana-values.yaml
