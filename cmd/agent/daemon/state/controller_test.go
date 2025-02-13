@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/netip"
 	"strconv"
 	"sync"
@@ -36,6 +37,9 @@ func TestController(t *testing.T) {
 	defer cancel()
 
 	t.Run("container events pipeline", func(t *testing.T) {
+		const flushIntervalNever = time.Second * math.MaxInt32
+		const batchSizeNever = math.MaxInt
+
 		t.Run("send after batch size is reached with growing containers size", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
@@ -84,7 +88,7 @@ func TestController(t *testing.T) {
 		t.Run("send after batch size is reached fixed with containers size", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.cfg.EventsFlushInterval = 5 * time.Second
+			ctrl.cfg.EventsFlushInterval = flushIntervalNever
 			ctrl.cfg.EventsBatchSize = 10
 			ctrl.nowFunc = func() time.Time {
 				return time.Now()
@@ -118,8 +122,6 @@ func TestController(t *testing.T) {
 				defer exporter.mu.Unlock()
 				batches := exporter.batches
 
-				fmt.Println(len(batches))
-
 				if len(batches) == 30 {
 					return true
 				}
@@ -132,7 +134,7 @@ func TestController(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
 			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
-			ctrl.cfg.EventsBatchSize = 999
+			ctrl.cfg.EventsBatchSize = batchSizeNever
 			ctrl.nowFunc = func() time.Time {
 				return time.Now()
 			}
@@ -170,6 +172,52 @@ func TestController(t *testing.T) {
 				r.Len(b1.Items, 1)
 				r.Equal("/bin/sh", b1.Items[0].GetExec().GetPath())
 				r.Equal([]string{"ls"}, b1.Items[0].GetExec().GetArgs())
+				return true
+			}, 1*time.Second, 10*time.Millisecond)
+		})
+
+		t.Run("send after context cancel", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.cfg.EventsFlushInterval = flushIntervalNever
+			ctrl.cfg.EventsBatchSize = batchSizeNever
+			ctrl.nowFunc = func() time.Time {
+				return time.Now()
+			}
+			exporter := &mockContainerEventsSender{}
+			ctrl.exporters.ContainerEventsSender = exporter
+
+			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+				Context: &types.EventContext{Ts: 1, CgroupID: 1},
+				Container: &containers.Container{
+					PodName: "p0",
+				},
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				return len(ctrl.tracer.(*mockEbpfTracer).eventsChan) == 0
+			}, 2*time.Second, 10*time.Millisecond)
+			cancel()
+
+			r.Eventually(func() bool {
+				exporter.mu.Lock()
+				defer exporter.mu.Unlock()
+				batches := exporter.batches
+				if len(batches) > 1 {
+					t.Fatal("expected only one batch")
+				}
+				if len(batches) == 0 {
+					return false
+				}
+				b1 := batches[0].Items[0]
+				r.Equal("p0", b1.PodName)
 				return true
 			}, 1*time.Second, 10*time.Millisecond)
 		})
@@ -231,11 +279,6 @@ func TestController(t *testing.T) {
 			ctrl.exporters.ContainerEventsSender = exporter
 			ctrl.cfg.EventsFlushInterval = 999 * time.Minute
 			ctrl.cfg.EventsBatchSize = 999
-			ctrl.tracer.(*mockEbpfTracer).eventsChan = make(chan *types.Event)
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -244,6 +287,23 @@ func TestController(t *testing.T) {
 				},
 			}
 
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				return len(ctrl.tracer.(*mockEbpfTracer).eventsChan) == 0
+			}, 2*time.Second, 10*time.Millisecond)
+
+			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+				Context: &types.EventContext{Ts: 1, CgroupID: 1},
+				Container: &containers.Container{
+					PodName: "p999",
+				},
+			}
+
+			//time.Sleep(100 * time.Millisecond)
 			ctrl.onDeleteContainer(&containers.Container{CgroupID: 1})
 
 			r.Eventually(func() bool {

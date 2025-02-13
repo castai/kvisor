@@ -64,7 +64,42 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		currentEventsCount++
 	}
 
+	// Since we have multiple channels with different priority reading from the channel is split into
+	// multiple non-blocking selects. Except the last one. It's important to keep the last select blocking
+	// otherwise it will consume CPU resources.
 	for {
+		// Top priority, handle context cancel and flush remaining data.
+		select {
+		case <-ctx.Done():
+			send()
+			return ctx.Err()
+		default:
+		}
+
+		// High priority, handle deleted first containers.
+		select {
+		case cgroupID := <-c.deletedContainersQueue:
+			group, found := groups[cgroupID]
+			if !found {
+				continue
+			}
+			if len(group.Items) == 0 {
+				delete(groups, cgroupID)
+				continue
+			}
+			// Send data only from this container.
+			func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := c.exporters.ContainerEventsSender.Send(ctx, &castpb.ContainerEventsBatch{Items: []*castpb.ContainerEvents{group}}); err != nil {
+					c.log.Errorf("sending events batch for deletet container: %s", err)
+				}
+			}()
+			delete(groups, cgroupID)
+		default:
+		}
+
+		// Normal priority. Here we are fine to read all channels randomly.
 		select {
 		case <-ctx.Done():
 			send()
@@ -86,20 +121,6 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			if lastFlushedAt.Add(c.cfg.EventsFlushInterval).Before(c.nowFunc()) {
 				send()
 			}
-		// Handle deleted containers.
-		case cgroupID := <-c.deletedContainersQueue:
-			group, found := groups[cgroupID]
-			if !found {
-				continue
-			}
-			if len(group.Items) == 0 {
-				delete(groups, cgroupID)
-				continue
-			}
-			if err := c.exporters.ContainerEventsSender.Send(ctx, &castpb.ContainerEventsBatch{Items: []*castpb.ContainerEvents{group}}); err != nil {
-				c.log.Errorf("sending events batch for deletet container: %s", err)
-			}
-			delete(groups, cgroupID)
 		}
 	}
 }
