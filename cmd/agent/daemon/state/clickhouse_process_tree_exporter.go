@@ -2,14 +2,12 @@ package state
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/samber/lo"
 )
 
 const (
@@ -62,13 +60,6 @@ func (c *ClickhouseProcessTreeExporter) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case event := <-c.queue:
-			if event.Initial {
-				err := c.generateExitEvents(ctx, event.Events)
-				if err != nil {
-					return err
-				}
-			}
-
 			for _, e := range event.Events {
 				if err := c.asyncWrite(ctx, true, e); err != nil {
 					sendErrorMetric.Inc()
@@ -78,90 +69,6 @@ func (c *ClickhouseProcessTreeExporter) Run(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-func (c *ClickhouseProcessTreeExporter) generateExitEvents(ctx context.Context, processTree []processtree.ProcessEvent) error {
-	lookup := map[string]map[processtree.ProcessKey]struct{}{}
-	for _, pe := range processTree {
-		containerMap := lookup[pe.ContainerID]
-		if containerMap == nil {
-			containerMap = map[processtree.ProcessKey]struct{}{}
-			lookup[pe.ContainerID] = containerMap
-		}
-
-		containerMap[processtree.ProcessKey{
-			PID:       pe.Process.PID,
-			StartTime: pe.Process.StartTime,
-		}] = struct{}{}
-	}
-
-	containerIds := lo.MapToSlice(lookup, func(key string, value map[processtree.ProcessKey]struct{}) any {
-		return key
-	})
-
-	rows, err := c.conn.Query(ctx, selectRunningProcessesQuery,
-		clickhouse.Named("container_ids", containerIds),
-	)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	var exitEvents []processtree.ProcessEvent
-	now := time.Now()
-
-	for rows.Next() {
-		var containerID string
-		var pid uint32
-		var rawStartTime uint64
-		var ppid uint32
-		var rawParentStartTime uint64
-
-		err := rows.Scan(&containerID, &pid, &rawStartTime, &ppid, &rawParentStartTime)
-		if err != nil {
-			return err
-		}
-
-		startTime := time.Duration(rawStartTime) * time.Second             // nolint:gosec
-		parentStartTime := time.Duration(rawParentStartTime) * time.Second // nolint:gosec
-
-		if processes, found := lookup[containerID]; found {
-			key := processtree.ProcessKey{
-				PID:       pid,
-				StartTime: startTime,
-			}
-			if _, found := processes[key]; !found {
-				exitEvents = append(exitEvents, processtree.ProcessEvent{
-					Timestamp:   now,
-					ContainerID: containerID,
-					Process: processtree.Process{
-						PID:             pid,
-						StartTime:       startTime,
-						PPID:            ppid,
-						ParentStartTime: parentStartTime,
-						ExitTime:        uint64(now.UnixNano()), // nolint:gosec
-					},
-					Action: processtree.ProcessExit,
-				})
-			}
-		}
-	}
-
-	if c.log.IsEnabled(slog.LevelDebug) {
-		for _, pe := range exitEvents {
-			c.log.Debugf("generated exit event: containerID: %s PID: %d StartTime: %v PPID: %d ParentStartTime: %v", pe.ContainerID, pe.Process.PID,
-				pe.Process.StartTime, pe.Process.PPID, pe.Process.ParentStartTime)
-		}
-	}
-
-	for _, pe := range exitEvents {
-		err := c.asyncWrite(ctx, true, pe)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *ClickhouseProcessTreeExporter) asyncWrite(ctx context.Context, wait bool, e processtree.ProcessEvent) error {
@@ -179,20 +86,6 @@ func (c *ClickhouseProcessTreeExporter) asyncWrite(ctx context.Context, wait boo
 		clickhouse.Named("exit_time", e.Process.ExitTime),
 	)
 }
-
-var selectRunningProcessesQuery = `
-select
-  container_id,
-  pid,
-  start_time,
-  last_value(ppid),
-  last_value(parent_start_time),
-from processes
-where  1 = 1
-and container_id in @container_ids
-group by container_id, pid, start_time
-having exit_time = 0
-`
 
 func ClickhouseProcessTreeSchema() string {
 	return `

@@ -12,7 +12,6 @@ import (
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding/gzip"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -149,10 +148,10 @@ func (c *Controller) lintObjects(ctx context.Context, objects []kube.Object) (re
 		Checks: lo.Map(checks, func(item LinterCheck, index int) *castaipb.KubeLinterCheck {
 			var passed, failed uint64
 			if item.Passed != nil {
-        passed = uint64(*item.Passed) // nolint:gosec
+				passed = uint64(*item.Passed) // nolint:gosec
 			}
 			if item.Failed != nil {
-        failed = uint64(*item.Failed) // nolint:gosec
+				failed = uint64(*item.Failed) // nolint:gosec
 			}
 			return &castaipb.KubeLinterCheck{
 				ResourceUid: item.ResourceID,
@@ -162,7 +161,7 @@ func (c *Controller) lintObjects(ctx context.Context, objects []kube.Object) (re
 		}),
 	}
 
-	if _, err := c.client.KubeLinterReportIngest(ctx, pbReport, grpc.UseCompressor(gzip.Name)); err != nil {
+	if _, err := c.client.KubeLinterReportIngest(ctx, pbReport); err != nil {
 		return fmt.Errorf("can not send kubelinter checks: %w", err)
 	}
 

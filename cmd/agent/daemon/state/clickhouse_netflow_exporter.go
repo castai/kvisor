@@ -141,7 +141,7 @@ func ClickhouseNetflowSchema() string {
 CREATE TABLE IF NOT EXISTS netflows
 (
 	ts DateTime('UTC'),
-	protocol Enum('tcp' = 1, 'udp' = 2),
+	protocol Enum('tcp' = 1, 'udp' = 2, 'unknown' = 3),
 	process LowCardinality(String),
 	container_name LowCardinality(String),
 	pod_name LowCardinality(String),

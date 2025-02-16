@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"regexp"
 	"syscall"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 func lookupConfigVariable(name string) (string, error) {
@@ -50,7 +50,6 @@ func NewRunCommand(version string) *cobra.Command {
 		sendLogLevel          = command.Flags().String("send-logs-level", "", "send logs level")
 		containerdSockPath    = command.Flags().String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
 		metricsHTTPListenPort = command.Flags().Int("metrics-http-listen-port", 6060, "metrics http listen port")
-		pyroscopeAddr         = command.Flags().String("pyroscope-addr", "", "Enable pyroscope tracing")
 		hostCgroupsDir        = command.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 
 		statsEnabled        = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
@@ -95,13 +94,17 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
+		eventsBatchSize     = command.Flags().Int("events-batch-size", 500, "Events batch size before exporting")
+		eventsFlushInterval = command.Flags().Duration("events-flush-interval", 5*time.Second, "Events flush interval")
+
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
 		clickhouseAddr     = command.Flags().String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = command.Flags().String("clickhouse-database", "", "Clickhouse database name")
 		clickhouseUsername = command.Flags().String("clickhouse-username", "", "Clickhouse username")
 
-		castaiServerInsecure = command.Flags().Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
+		castaiServerInsecure  = command.Flags().Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
+		castaiCompressionName = command.Flags().String("castai-compression-name", gzip.Name, "CASTAI gRPC compression name")
 
 		kubeAPIServiceAddr = command.Flags().String("kube-api-service-addr", "", "Custom kube API service grpc address")
 
@@ -109,13 +112,12 @@ func NewRunCommand(version string) *cobra.Command {
 
 		automountCgroupv2 = command.Flags().Bool("automount-cgroupv2", true, "Automount cgroupv2 if not mounted")
 
-		redactSensitiveValuesRegexStr = command.Flags().String("redact-sensitive-values-regex", "", "Regex which will be used to detect sensitive values in process exec args")
-
 		criEndpoint          = command.Flags().String("cri-endpoint", "unix:///run/containerd/containerd.sock", "CRI endpoint")
 		ebpfEventLabels      = command.Flags().StringSlice("ebpf-events-include-pod-labels", []string{}, "List of label keys to be sent with eBPF events, separated by comma")
 		ebpfEventAnnotations = command.Flags().StringSlice("ebpf-events-include-pod-annotations", []string{}, "List of annotation keys to be sent with eBPF events, separated by comma")
 
-		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 5*time.Minute, "Containers refresh interval")
+		// TODO: Enable containers refresh once perf issue is fixed.
+		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 0, "Containers refresh interval")
 	)
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
@@ -129,16 +131,7 @@ func NewRunCommand(version string) *cobra.Command {
 		if err != nil {
 			slog.Warn(fmt.Errorf("skipping CAST AI integration: %w", err).Error())
 		}
-
-		var redactSensitiveValuesRegex *regexp.Regexp
-		if *redactSensitiveValuesRegexStr != "" {
-			var err error
-			redactSensitiveValuesRegex, err = regexp.Compile(*redactSensitiveValuesRegexStr)
-			if err != nil {
-				slog.With("error", err).Error(`"redact-sensitive-values-regex" must be a valid regex expression`)
-				os.Exit(1)
-			}
-		}
+		castaiClientCfg.CompressionName = *castaiCompressionName
 
 		if err := app.New(&app.Config{
 			LogLevel:                  *logLevel,
@@ -149,7 +142,6 @@ func NewRunCommand(version string) *cobra.Command {
 			PromMetricsExportInterval: *promMetricsExportInterval,
 			Version:                   version,
 			BTFPath:                   *btfPath,
-			PyroscopeAddr:             *pyroscopeAddr,
 			ContainerdSockPath:        *containerdSockPath,
 			HostCgroupsDir:            *hostCgroupsDir,
 			MetricsHTTPListenPort:     *metricsHTTPListenPort,
@@ -157,6 +149,8 @@ func NewRunCommand(version string) *cobra.Command {
 			State: state.Config{
 				StatsScrapeInterval:   *statsScrapeInterval,
 				NetflowExportInterval: *netflowExportInterval,
+				EventsBatchSize:       *eventsBatchSize,
+				EventsFlushInterval:   *eventsFlushInterval,
 			},
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
@@ -182,8 +176,7 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			Castai: castaiClientCfg,
 			EnricherConfig: app.EnricherConfig{
-				EnableFileHashEnricher:     *fileHashEnrichedEnabled,
-				RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
+				EnableFileHashEnricher: *fileHashEnrichedEnabled,
 			},
 			Netflow: app.NetflowConfig{
 				Enabled:                     *netflowEnabled,

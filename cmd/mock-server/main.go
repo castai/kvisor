@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"os/signal"
@@ -23,7 +24,7 @@ func main() {
 	})
 
 	// nolint:gosec
-	lis, err := net.Listen("tcp", "0.0.0.0:8443")
+	lis, err := net.Listen("tcp", ":8443")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -35,10 +36,10 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		log.Info("shutting down grpc ingestor server")
-		srv.GracefulStop()
+		srv.Stop()
 	}()
 
-	println("listening at 0.0.0.0:8443")
+	fmt.Println("listening at :8443")
 	if err := srv.Serve(lis); err != nil {
 		log.Fatal(err.Error())
 	}
@@ -54,6 +55,18 @@ func NewMockServer(log *logging.Logger) *MockServer {
 
 type MockServer struct {
 	log *logging.Logger
+}
+
+func (m *MockServer) ContainerEventsBatchWriteStream(server grpc.ClientStreamingServer[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse]) error {
+	for {
+		event, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		for _, event := range event.Items {
+			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, data=%+v", event.NodeName, event.PodName, event.ContainerName, len(event.Items))
+		}
+	}
 }
 
 func (m *MockServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {

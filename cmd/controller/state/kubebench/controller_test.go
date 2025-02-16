@@ -263,6 +263,10 @@ type mockCastaiClient struct {
 	reports []*castaipb.KubeBenchReport
 }
 
+func (m *mockCastaiClient) GetCompressionName() string {
+	return "gzip"
+}
+
 func (m *mockCastaiClient) KubeBenchReportIngest(ctx context.Context, in *castaipb.KubeBenchReport, opts ...grpc.CallOption) (*castaipb.KubeBenchReportIngestResponse, error) {
 	m.reports = append(m.reports, in)
 	return &castaipb.KubeBenchReportIngestResponse{}, nil

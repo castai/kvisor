@@ -36,6 +36,10 @@ func (a ProcessAction) String() string {
 	return "Unknown"
 }
 
+type ProcessTreeCollector interface {
+	Events() <-chan ProcessTreeEvent
+}
+
 type ProcessTreeEvent struct {
 	Initial bool
 	Events  []ProcessEvent
@@ -76,13 +80,6 @@ func (p Process) Exited() bool {
 	return p.ExitTime > 0
 }
 
-type ProcessTreeCollector interface {
-	ProcessStarted(eventTime time.Time, containerID string, p Process)
-	ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey)
-	ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, parentProcessKey ProcessKey, exitTime uint64)
-	Events() <-chan ProcessTreeEvent
-}
-
 type containerClient interface {
 	LoadContainerTasks(ctx context.Context) ([]containers.ContainerProcess, error)
 }
@@ -99,7 +96,7 @@ func New(log *logging.Logger, p *proc.Proc, containersClient containerClient) (*
 		log:              log,
 		proc:             p,
 		containersClient: containersClient,
-		eventSink:        make(chan ProcessTreeEvent, 1000),
+		eventSink:        make(chan ProcessTreeEvent, 100),
 	}, nil
 }
 
@@ -122,13 +119,6 @@ func ToProcessKey(pid proc.PID, startTime time.Duration) ProcessKey {
 	return ProcessKey{
 		PID:       pid,
 		StartTime: startTime.Truncate(time.Second),
-	}
-}
-
-func ToProcessKeyNs(pid proc.PID, startTimeNs uint64) ProcessKey {
-	return ProcessKey{
-		PID:       pid,
-		StartTime: time.Duration(startTimeNs).Truncate(time.Second), // nolint:gosec
 	}
 }
 
@@ -202,71 +192,13 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 	return nil
 }
 
-func (c *ProcessTreeCollectorImpl) ProcessStarted(eventTime time.Time, containerID string, p Process) {
-	c.fireEvent(ProcessEvent{
-		Timestamp:   eventTime,
-		ContainerID: containerID,
-		Process:     p,
-		Action:      ProcessExec,
-	})
-}
-
-func (c *ProcessTreeCollectorImpl) ProcessForked(eventTime time.Time, containerID string, parent ProcessKey, processKey ProcessKey) {
-	var process Process
-
-	process = Process{
-		PID:             processKey.PID,
-		StartTime:       processKey.StartTime,
-		PPID:            parent.PID,
-		ParentStartTime: parent.StartTime,
-	}
-
-	c.fireEvent(ProcessEvent{
-		Timestamp:   eventTime,
-		ContainerID: containerID,
-		Process:     process,
-		Action:      ProcessFork,
-	})
-}
-
-func (c *ProcessTreeCollectorImpl) ProcessExited(eventTime time.Time, containerID string, processKey ProcessKey, parentProcessKey ProcessKey, exitTime uint64) {
-	c.fireEvent(ProcessEvent{
-		Timestamp:   eventTime,
-		ContainerID: containerID,
-		Process: Process{
-			PID:             processKey.PID,
-			StartTime:       processKey.StartTime,
-			PPID:            parentProcessKey.PID,
-			ParentStartTime: parentProcessKey.StartTime,
-			ExitTime:        exitTime,
-		},
-		Action: ProcessExit,
-	})
-}
-
 func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {
 	return c.eventSink
-}
-
-func (c *ProcessTreeCollectorImpl) fireEvent(e ProcessEvent) {
-	c.log.Debugf("fire process tree event: %s", e.String())
-	select {
-	case c.eventSink <- ProcessTreeEvent{
-		Initial: false,
-		Events:  []ProcessEvent{e},
-	}:
-	default:
-		metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: "process_tree"}).Inc()
-	}
 }
 
 func (c *ProcessTreeCollectorImpl) fireEvents(event ProcessTreeEvent) {
 	if c.log.IsEnabled(slog.LevelDebug) {
 		c.log.Debugf("fire process tree event (initial %t) ---", event.Initial)
-		for _, e := range event.Events {
-			c.log.Debugf("process tree event: %s", e.String())
-		}
-		c.log.Debugf("fire process tree event (initial %t) done ---", event.Initial)
 	}
 	select {
 	case c.eventSink <- event:

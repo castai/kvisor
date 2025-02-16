@@ -104,7 +104,7 @@ func TestServer(t *testing.T) {
 		r.NoError(err)
 		r.Equal("st1", resp.Pod.WorkloadUid)
 		r.Equal("st1-name", resp.Pod.WorkloadName)
-		r.Equal("StatefulSet", resp.Pod.WorkloadKind)
+		r.Equal(kubepb.WorkloadKind_WORKLOAD_KIND_STATEFUL_SET, resp.Pod.WorkloadKind)
 		r.Equal("us-east-1a", resp.Pod.Zone)
 		r.Equal("n1", resp.Pod.NodeName)
 	})

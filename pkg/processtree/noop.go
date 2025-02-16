@@ -24,5 +24,3 @@ func (d *NoopProcessTreeCollector) ProcessForked(eventTime time.Time, containerI
 
 func (d *NoopProcessTreeCollector) ProcessStarted(eventTime time.Time, containerID string, p Process) {
 }
-
-var _ ProcessTreeCollector = (*NoopProcessTreeCollector)(nil)

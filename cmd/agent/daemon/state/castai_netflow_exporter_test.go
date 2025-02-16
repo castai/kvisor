@@ -125,6 +125,10 @@ type netflowMockStream struct {
 	firstSendError bool
 }
 
+func (n *netflowMockStream) GetCompressionName() string {
+	return "gzip"
+}
+
 func (n *netflowMockStream) NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()

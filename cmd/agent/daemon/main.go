@@ -19,7 +19,7 @@ func main() {
 	root.AddCommand(
 		NewRunCommand(Version),
 		NewClickhouseInitCommand(),
-    NewDebugCommand(),
+		NewDebugCommand(),
 	)
 
 	if err := root.Execute(); err != nil {

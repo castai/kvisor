@@ -227,6 +227,11 @@ func (c *Client) findCgroupPathForContainerID(containerID string) (string, ID) {
 	retPath := ""
 	rootDir := c.getCgroupSearchBasePath()
 	var cgroupID ID
+	// TODO(anjmao): This is can be really slow and expensive. We should consider another approach:
+	// 1. During cgroup mkdir find cgroup file from /proc/<pid>/cgroup
+	// 2. This file already points to a cgroup file in /sys/fs/cgroup.
+	// 3. In all places use containerID as a cache key instead of cgroupID.
+	// 4. By implementing 3 point it's also safer because there are much less chances to have collisions.
 	_ = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
 		// nolint:nilerr
 		if err != nil || !info.IsDir() {
