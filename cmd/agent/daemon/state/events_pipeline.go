@@ -8,9 +8,12 @@ import (
 	"time"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/cespare/xxhash/v2"
+	"github.com/elastic/go-freelru"
 )
 
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
@@ -51,7 +54,27 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		currentEventsCount = 0
 	}
 
-	addEvent := func(e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
+	handleEvent := func(e *ebpftypes.Event) {
+		group, found := groups[e.Context.CgroupID]
+		if !found {
+			group = c.newContainerEventsGroup(e)
+			groups[e.Context.CgroupID] = group
+		}
+		pbEvent := &castpb.ContainerEvent{}
+		c.fillProtoContainerEvent(pbEvent, e, nil)
+
+		if c.enrichmentService.Enqueue(&enrichment.EnrichedContainerEvent{
+			Event:     pbEvent,
+			EbpfEvent: e,
+		}) {
+			return
+		}
+
+		group.Items = append(group.Items, pbEvent)
+		currentEventsCount++
+	}
+
+	handleSignatureEvent := func(e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
 		group, found := groups[e.Context.CgroupID]
 		if !found {
 			group = c.newContainerEventsGroup(e)
@@ -59,8 +82,19 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		}
 		pbEvent := &castpb.ContainerEvent{}
 		c.fillProtoContainerEvent(pbEvent, e, signatureEvent)
-		c.eventsEnrichmentService.Enrich(ctx, e, pbEvent)
+
 		group.Items = append(group.Items, pbEvent)
+		currentEventsCount++
+	}
+
+	handleEnrichedEvent := func(e *enrichment.EnrichedContainerEvent) {
+		group, found := groups[e.EbpfEvent.Context.CgroupID]
+		if !found {
+			// If enriched event is not found here most likely container was removed.
+			return
+		}
+
+		group.Items = append(group.Items, e.Event)
 		currentEventsCount++
 	}
 
@@ -106,13 +140,18 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			return ctx.Err()
 		// Handle eBPF events.
 		case e := <-c.tracer.Events():
-			addEvent(e, nil)
+			handleEvent(e)
 			if currentEventsCount >= c.cfg.EventsBatchSize {
 				send()
 			}
 		// Handle signature events.
 		case e := <-c.signatureEngine.Events():
-			addEvent(e.EbpfEvent, e.SignatureEvent)
+			handleSignatureEvent(e.EbpfEvent, e.SignatureEvent)
+			if currentEventsCount >= c.cfg.EventsBatchSize {
+				send()
+			}
+		case e := <-c.enrichmentService.Events():
+			handleEnrichedEvent(e)
 			if currentEventsCount >= c.cfg.EventsBatchSize {
 				send()
 			}
@@ -144,26 +183,6 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *castpb.Contain
 		group.NodeName = podInfo.NodeName
 	}
 	return group
-}
-
-func (c *Controller) getAddrDnsQuestion(addr netip.Addr) string {
-	if dnsQuestion, found := c.dnsCache.Get(addr.Unmap()); found {
-		return dnsQuestion
-	}
-	return ""
-}
-
-func (c *Controller) cacheDNS(dnsEvent *ebpftypes.ProtoDNS) {
-	for _, answ := range dnsEvent.Answers {
-		if len(answ.Ip) == 0 {
-			continue
-		}
-		addr, ok := netip.AddrFromSlice(answ.Ip)
-		if !ok {
-			continue
-		}
-		c.dnsCache.Add(addr.Unmap(), answ.Name)
-	}
 }
 
 func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpftypes.Event, signatureEvent *castpb.SignatureEvent) {
@@ -206,7 +225,7 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 		}
 
 		// Add dns cache.
-		c.cacheDNS(dnsEvent)
+		c.cacheDNS(e.Context.CgroupID, dnsEvent)
 
 	case ebpftypes.SockSetStateArgs:
 		tpl := args.Tuple
@@ -216,7 +235,7 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 			DstIp:       tpl.Dst.Addr().AsSlice(),
 			SrcPort:     uint32(tpl.Src.Port()),
 			DstPort:     uint32(tpl.Dst.Port()),
-			DnsQuestion: c.getAddrDnsQuestion(tpl.Dst.Addr()),
+			DnsQuestion: c.getAddrDnsQuestion(e.Context.CgroupID, tpl.Dst.Addr()),
 		}
 		res.Data = &castpb.ContainerEvent_Tuple{
 			Tuple: pbTuple,
@@ -313,6 +332,42 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 				Data:    data,
 			},
 		}
+	}
+}
+
+func (c *Controller) getAddrDnsQuestion(cgroupID uint64, addr netip.Addr) string {
+	if cache, found := c.dnsCache.Get(cgroupID); found {
+		if dnsQuestion, found := cache.Get(addr.Unmap()); found {
+			return dnsQuestion
+		}
+	}
+	return ""
+}
+
+func (c *Controller) cacheDNS(cgroupID uint64, dnsEvent *ebpftypes.ProtoDNS) {
+	cacheVal, found := c.dnsCache.Get(cgroupID)
+	if !found {
+		var err error
+		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
+			return uint32(xxhash.Sum64(k.AsSlice())) // nolint:gosec
+		})
+		if err != nil {
+			c.log.Errorf("creating dns cache: %v", err)
+			return
+		}
+		c.dnsCache.Add(cgroupID, cacheVal)
+	}
+
+	for _, answ := range dnsEvent.Answers {
+		if len(answ.Ip) == 0 {
+			continue
+		}
+		addr, ok := netip.AddrFromSlice(answ.Ip)
+		if !ok {
+			continue
+		}
+
+		cacheVal.Add(addr, answ.Name)
 	}
 }
 

@@ -53,10 +53,10 @@ func TestSensitiveValueRedactor(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			req := &EnrichRequest{
-				Event: &castpb.Event{
+			req := &EnrichedContainerEvent{
+				Event: &castpb.ContainerEvent{
 					EventType: castpb.EventType_EVENT_EXEC,
-					Data: &castpb.Event_Exec{
+					Data: &castpb.ContainerEvent_Exec{
 						Exec: &castpb.Exec{
 							Args: testCase.args,
 						},

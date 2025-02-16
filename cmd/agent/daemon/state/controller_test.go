@@ -12,6 +12,7 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -694,6 +695,14 @@ func (m *mockSignatureEngine) Events() <-chan signature.Event {
 }
 
 type mockEnrichmentService struct {
+}
+
+func (m *mockEnrichmentService) Enqueue(e *enrichment.EnrichedContainerEvent) bool {
+	return false
+}
+
+func (m *mockEnrichmentService) Events() <-chan *enrichment.EnrichedContainerEvent {
+	return nil
 }
 
 func (m *mockEnrichmentService) Enrich(ctx context.Context, in *types.Event, out *castaipb.ContainerEvent) {

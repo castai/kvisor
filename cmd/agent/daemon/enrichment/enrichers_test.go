@@ -20,7 +20,6 @@ import (
 func TestFileHashEnricher(t *testing.T) {
 	t.Run("should set sha256 hash of file", func(t *testing.T) {
 		r := require.New(t)
-		containerID := "12354"
 		fileName := "test"
 		pid := uint32(22)
 		testFile := generateExecutableTestMapFile(2048)
@@ -34,10 +33,9 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, 10),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
+		event := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_EXEC,
+			Data: &castpb.ContainerEvent_Exec{
 				Exec: &castpb.Exec{
 					Path: filepath.Join(fileName),
 					Args: []string{},
@@ -45,7 +43,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
 			Event: event,
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{
@@ -60,7 +58,6 @@ func TestFileHashEnricher(t *testing.T) {
 
 	t.Run("should ignore missing file", func(t *testing.T) {
 		r := require.New(t)
-		containerID := "12354"
 		fileName := "test"
 		fsys := fstest.MapFS{}
 
@@ -68,10 +65,9 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, 1),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
+		event := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_EXEC,
+			Data: &castpb.ContainerEvent_Exec{
 				Exec: &castpb.Exec{
 					Path: filepath.Join(fileName),
 					Args: []string{},
@@ -79,7 +75,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
 			Event: event,
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{},
@@ -92,19 +88,17 @@ func TestFileHashEnricher(t *testing.T) {
 
 	t.Run("should ignore non exec event", func(t *testing.T) {
 		r := require.New(t)
-		containerID := "12354"
 		fsys := fstest.MapFS{}
 
 		enricher := EnrichWithFileHash(logging.New(&logging.Config{}),
 			createDummyMntNSPIDStore(0, 1),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_DNS,
-			ContainerId: containerID,
+		event := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_DNS,
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
 			Event: event,
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{},
@@ -117,7 +111,6 @@ func TestFileHashEnricher(t *testing.T) {
 
 	t.Run("should set sha256 hash of file for two same events", func(t *testing.T) {
 		r := require.New(t)
-		containerID := "12354"
 		fileName := "test"
 		pid := proc.PID(22)
 		testFile := generateExecutableTestMapFile(2048)
@@ -131,10 +124,9 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(0, pid),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
+		event := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_EXEC,
+			Data: &castpb.ContainerEvent_Exec{
 				Exec: &castpb.Exec{
 					Path: filepath.Join(fileName),
 					Args: []string{},
@@ -142,7 +134,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
 			Event: event,
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{
@@ -154,10 +146,9 @@ func TestFileHashEnricher(t *testing.T) {
 
 		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
 
-		event = &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
+		event = &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_EXEC,
+			Data: &castpb.ContainerEvent_Exec{
 				Exec: &castpb.Exec{
 					Path: filepath.Join(fileName),
 					Args: []string{},
@@ -165,7 +156,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
 			Event: event,
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{
@@ -180,7 +171,6 @@ func TestFileHashEnricher(t *testing.T) {
 
 	t.Run("should fallback to other pids in mount ns if file is missing", func(t *testing.T) {
 		r := require.New(t)
-		containerID := "12354"
 		fileName := "test"
 		pid := proc.PID(22)
 		mountNSID := proc.NamespaceID(10)
@@ -195,10 +185,9 @@ func TestFileHashEnricher(t *testing.T) {
 			createDummyMntNSPIDStore(mountNSID, pid),
 			fsys)
 
-		event := &castpb.Event{
-			EventType:   castpb.EventType_EVENT_EXEC,
-			ContainerId: containerID,
-			Data: &castpb.Event_Exec{
+		event := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_EXEC,
+			Data: &castpb.ContainerEvent_Exec{
 				Exec: &castpb.Exec{
 					Path: filepath.Join(fileName),
 					Args: []string{},
@@ -206,7 +195,7 @@ func TestFileHashEnricher(t *testing.T) {
 			},
 		}
 
-		enricher.Enrich(context.TODO(), &EnrichRequest{
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
 			Event: event,
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{

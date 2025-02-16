@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"regexp"
+	"runtime"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -84,7 +86,8 @@ type Config struct {
 }
 
 type EnricherConfig struct {
-	EnableFileHashEnricher bool `json:"enableFileHashEnricher"`
+	EnableFileHashEnricher     bool           `json:"enableFileHashEnricher"`
+	RedactSensitiveValuesRegex *regexp.Regexp `json:"redactSensitiveValuesRegex"`
 }
 
 type NetflowConfig struct {
@@ -269,6 +272,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	enrichmentService := enrichment.NewService(log, enrichment.Config{
+		WorkerCount:    runtime.NumCPU(),
 		EventEnrichers: getActiveEnrichers(a.cfg.EnricherConfig, log, mountNamespacePIDStore),
 	})
 
@@ -347,6 +351,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	errg.Go(func() error {
 		return ctrl.Run(ctx)
+	})
+
+	errg.Go(func() error {
+		return enrichmentService.Run(ctx)
 	})
 
 	// Tracer should not run in err group because it can block event if context is canceled
@@ -523,12 +531,15 @@ func getActiveEnrichers(cfg EnricherConfig, log *logging.Logger, mountNamespaceP
 	if cfg.EnableFileHashEnricher {
 		result = append(result, enrichment.EnrichWithFileHash(log, mountNamespacePIDStore, proc.GetFS()))
 	}
+	if cfg.RedactSensitiveValuesRegex != nil {
+		result = append(result, enrichment.NewSensitiveValueRedactor(cfg.RedactSensitiveValuesRegex))
+	}
 
 	return result
 }
 
 func getInitializedMountNamespaceStore(procHandler *proc.Proc) (*types.PIDsPerNamespace, error) {
-	mountNamespacePIDStore, err := types.NewPIDsPerNamespaceCache(1024, 5)
+	mountNamespacePIDStore, err := types.NewPIDsPerNamespaceCache(2048, 5)
 	if err != nil {
 		return nil, err
 	}

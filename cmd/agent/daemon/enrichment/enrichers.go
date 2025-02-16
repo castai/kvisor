@@ -56,7 +56,7 @@ func (enricher *fileHashEnricher) EventTypes() []castpb.EventType {
 	}
 }
 
-func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichRequest) {
+func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedContainerEvent) {
 	e := req.Event
 	exec := e.GetExec()
 	if exec == nil || exec.Path == "" {

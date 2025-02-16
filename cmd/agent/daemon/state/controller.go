@@ -10,6 +10,7 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -78,8 +79,9 @@ type procHandler interface {
 	GetMeminfoStats() (*castaipb.MemoryStats, error)
 }
 
-type eventsEnrichmentService interface {
-	Enrich(ctx context.Context, in *types.Event, out *castaipb.ContainerEvent)
+type enrichmentService interface {
+	Enqueue(e *enrichment.EnrichedContainerEvent) bool
+	Events() <-chan *enrichment.EnrichedContainerEvent
 }
 
 func NewController(
@@ -94,11 +96,10 @@ func NewController(
 	kubeClient kubepb.KubeAPIClient,
 	processTreeCollector processTreeCollector,
 	procHandler procHandler,
-	eventsEnrichmentService eventsEnrichmentService,
+	enrichmentService enrichmentService,
 ) *Controller {
-	dnsCache, err := freelru.NewSynced[netip.Addr, string](1024, func(addr netip.Addr) uint32 {
-		data, _ := addr.Unmap().MarshalBinary()
-		return uint32(xxhash.Sum64(data)) // nolint:gosec
+	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
+		return uint32(k) // nolint:gosec
 	})
 	if err != nil {
 		panic(err)
@@ -127,24 +128,24 @@ func NewController(
 		podCache:                   podCache,
 		processTreeCollector:       processTreeCollector,
 		procHandler:                procHandler,
-		eventsEnrichmentService:    eventsEnrichmentService,
-		deletedContainersQueue:     make(chan uint64, 200),
+		enrichmentService:          enrichmentService,
+		deletedContainersQueue:     make(chan uint64, 300),
 		nowFunc:                    time.Now,
 	}
 }
 
 type Controller struct {
-	log                     *logging.Logger
-	cfg                     Config
-	containersClient        containersClient
-	netStatsReader          netStatsReader
-	ct                      conntrackClient
-	tracer                  ebpfTracer
-	signatureEngine         signatureEngine
-	processTreeCollector    processTreeCollector
-	exporters               *Exporters
-	procHandler             procHandler
-	eventsEnrichmentService eventsEnrichmentService
+	log                  *logging.Logger
+	cfg                  Config
+	containersClient     containersClient
+	netStatsReader       netStatsReader
+	ct                   conntrackClient
+	tracer               ebpfTracer
+	signatureEngine      signatureEngine
+	processTreeCollector processTreeCollector
+	exporters            *Exporters
+	procHandler          procHandler
+	enrichmentService    enrichmentService
 
 	nodeName string
 
@@ -158,7 +159,7 @@ type Controller struct {
 
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient
-	dnsCache       *freelru.SyncedLRU[netip.Addr, string]
+	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
@@ -234,11 +235,9 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	delete(c.containerStatsScrapePoints, container.CgroupID)
 	c.containerStatsScrapePointsMu.Unlock()
 
-	select {
-	case c.deletedContainersQueue <- container.CgroupID:
-	default:
-		c.log.Warnf("dropping deleted container queue event for cgroup %d", container.CgroupID)
-	}
+	c.dnsCache.Remove(container.CgroupID)
+
+	c.deletedContainersQueue <- container.CgroupID
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }

@@ -10,14 +10,14 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 )
 
-type EnrichRequest struct {
-	Event     *castpb.Event
+type EnrichedContainerEvent struct {
+	Event     *castpb.ContainerEvent
 	EbpfEvent *types.Event
 }
 
 type EventEnricher interface {
 	// Enrich will add additional data to the provided Event.
-	Enrich(context.Context, *EnrichRequest)
+	Enrich(context.Context, *EnrichedContainerEvent)
 
 	// EventsTypes returns a slice of event types, this enricher reacts to.
 	EventTypes() []castpb.EventType
@@ -31,8 +31,8 @@ type Config struct {
 func NewService(log *logging.Logger, cfg Config) *Service {
 	return &Service{
 		log:            log.WithField("component", "enrichment"),
-		eventsQueue:    make(chan *EnrichRequest, 1000),
-		outQueue:       make(chan *castpb.Event, 1000),
+		eventsQueue:    make(chan *EnrichedContainerEvent, 1000),
+		outQueue:       make(chan *EnrichedContainerEvent, 1000),
 		cfg:            cfg,
 		eventEnrichers: groupEventEnrichers(cfg.EventEnrichers),
 	}
@@ -53,17 +53,17 @@ func groupEventEnrichers(enrichers []EventEnricher) map[castpb.EventType][]Event
 type Service struct {
 	log         *logging.Logger
 	cfg         Config
-	eventsQueue chan *EnrichRequest
-	outQueue    chan *castpb.Event
+	eventsQueue chan *EnrichedContainerEvent
+	outQueue    chan *EnrichedContainerEvent
 
 	eventEnrichers map[castpb.EventType][]EventEnricher
 }
 
-func (s *Service) Events() <-chan *castpb.Event {
+func (s *Service) Events() <-chan *EnrichedContainerEvent {
 	return s.outQueue
 }
 
-func (s *Service) Enqueue(e *EnrichRequest) bool {
+func (s *Service) Enqueue(e *EnrichedContainerEvent) bool {
 	if _, found := s.eventEnrichers[e.Event.EventType]; !found {
 		return false
 	}
@@ -103,7 +103,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Service) processEvent(ctx context.Context, e *EnrichRequest) {
+func (s *Service) processEvent(ctx context.Context, e *EnrichedContainerEvent) {
 	defer func() {
 		if perr := recover(); perr != nil {
 			stack := string(debug.Stack())
@@ -117,5 +117,5 @@ func (s *Service) processEvent(ctx context.Context, e *EnrichRequest) {
 		enricher.Enrich(ctx, e)
 	}
 
-	s.outQueue <- e.Event
+	s.outQueue <- e
 }
