@@ -1806,9 +1806,9 @@ statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_conte
 #define retval_hasflag(flag) (neteventctx->eventctx.retval & flag) == flag
 
 SEC("cgroup/sock_create")
-int cgroup_sock_create(struct bpf_sock *ctx)
+int cgroup_sock_create(struct bpf_sock *sk)
 {
-    u32 family = ctx->family;
+    u32 family = sk->family;
     switch (family) {
         case PF_INET:
         case PF_INET6:
@@ -1817,7 +1817,7 @@ int cgroup_sock_create(struct bpf_sock *ctx)
             return 1; // not supported
     }
 
-    u32 protocol = ctx->protocol;
+    u32 protocol = sk->protocol;
     switch (protocol) {
         case IPPROTO_IP:
         case IPPROTO_IPV6:
@@ -1831,7 +1831,7 @@ int cgroup_sock_create(struct bpf_sock *ctx)
     }
 
     program_data_t p = {};
-    if (!init_program_data(&p, ctx)) {
+    if (!init_program_data(&p, sk)) {
         return 1;
     }
 
@@ -1843,7 +1843,7 @@ int cgroup_sock_create(struct bpf_sock *ctx)
     set_net_task_context(&p, &netctx);
 
     // Populate socket map with network task context.
-    bpf_sk_storage_get(&net_taskctx_map, ctx, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+    bpf_sk_storage_get(&net_taskctx_map, sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
 
     return 1;
 }
@@ -1917,7 +1917,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         return 1;
 
     net_task_context_t *netctx =
-        bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0); // obtain event context
+        bpf_sk_storage_get(&net_taskctx_map, sk, NULL, 0); // obtain event context
     if (!netctx) {
         net_task_context_t *existing_netctx = NULL;
 
@@ -1946,16 +1946,15 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         //
         // NOTE: this will not work for nested cgroups, but it is an accepted limitation for now.
         if (!existing_netctx) {
-            net_task_context_t cgroup_context = {0};
-            cgroup_context.taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
-            existing_netctx = &cgroup_context;
+            existing_netctx = NULL;
         }
 
-        netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_SK_STORAGE_GET_F_CREATE);
+        netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         if (!netctx) {
             // This should never happen, but if it does there is nothing we can do.
             return 1;
         }
+        netctx->taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
     }
 
     // Skip if cgroup is muted.
@@ -2473,7 +2472,7 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
         return 0;
     }
 
-    struct net_task_context *netctx = bpf_sk_storage_get(&net_taskctx_map, sk, 0, 0);
+    struct net_task_context *netctx = bpf_sk_storage_get(&net_taskctx_map, sk, NULL, 0);
     if (!netctx) {
         return 0;
     }
