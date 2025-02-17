@@ -64,9 +64,6 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
-          {{- if .Values.castai.enabled }}
-            - "--send-logs-level=WARN"
-          {{- end }}
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
