@@ -174,3 +174,21 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ include "kvisor.labels" . }}
 {{- end }}
 
+
+{{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}
+{{- define "GOMEMLIMITEnv" -}}
+{{- $memory := . -}}
+{{- if $memory -}}
+- name: GOMEMLIMIT
+  {{- $value := regexFind "^\\d*\\.?\\d+" $memory | float64 -}}
+  {{- $unit := regexFind "[A-Za-z]+" $memory -}}
+  {{- $valueMi := 0.0 -}}
+  {{- if eq $unit "Gi" -}}
+    {{- $valueMi = mulf $value 1024 -}}
+  {{- else if eq $unit "Mi" -}}
+    {{- $valueMi = $value -}}
+  {{- end -}}
+  {{- $percentageValue := int (mulf $valueMi 0.9) }}
+  value: {{ printf "%dMiB" $percentageValue -}}
+{{- end -}}
+{{- end -}}

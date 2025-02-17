@@ -94,17 +94,11 @@ agent:
       type: spc_t
     readOnlyRootFilesystem: true
 
-  resources: {}
-    # We usually recommend not to specify default resources and to leave this as a conscious
-    # choice for the user. This also increases chances charts run on environments with little
-    # resources, such as Minikube. If you do want to specify resources, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  resources:
+    requests:
+      memory: 64Mi
+    limits:
+      memory: 512Mi
 
   nodeSelector: {}
 
@@ -234,7 +228,7 @@ clickhouse:
   image:
     repository: clickhouse/clickhouse-server
     pullPolicy: IfNotPresent
-    tag: "24.12.3.47-alpine@sha256:c82aa62f94cf435297ef03ab9f626051104985a643cbffa8e9bf5e75534a6638"
+    tag: "24.8.12.28-alpine"
 
   nodeSelector: {}
   tolerations: []
