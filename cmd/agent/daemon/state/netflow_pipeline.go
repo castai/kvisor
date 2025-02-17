@@ -55,6 +55,9 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	c.log.Info("running netflow pipeline")
 	defer c.log.Info("netflow pipeline done")
 
+	// TODO: Now this call will block until error or result is returned.
+	// Instead we should consider having periodic refresh loop to call with timeout and
+	// refresh. It may also be the case that cluster info changes.
 	clusterInfo, err := c.getClusterInfo(ctx)
 	if err != nil {
 		c.log.Errorf("getting cluster info: %v", err)

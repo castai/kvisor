@@ -100,8 +100,10 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		currentEventsCount++
 	}
 
-	// Since we have multiple channels with different priority reading from the channel is split into
-	// multiple non-blocking selects. Except the last one. It's important to keep the last select blocking
+	// Go select works by randomly selects from any channel. If we have many ebpf events in the queue and container deletion burst
+	// it may lag to handle container delete events. In such case ebpf events may pick from group since we have a grouping key by cgroupID.
+	//
+	// NOTE: It's important to keep the last select blocking
 	// otherwise it will consume CPU resources.
 	for {
 		// Top priority, handle context cancel and flush remaining data.
