@@ -265,8 +265,7 @@ helm upgrade -i castai-kvisor ./charts/kvisor/ -n castai-agent --create-namespac
     --set image.tag=<your-pr-image-tag> \
     --set castai.enabled=false \
     --set agent.enabled=true \
-    --set agent.extraArgs.ebpf-events-enabled=true \
-    --set agent.extraArgs.ebpf-events-stdio-exporter-enabled=true
+    --set agent.extraArgs.ebpf-events-enabled=true
 ```
 
 ## Testing netflow
@@ -429,4 +428,41 @@ To delete cluster
 
 ```
 eksctl delete cluster <your-cluster-name> --region=us-east-1
+```
+
+
+## Local Grafana and Pyroscope
+
+Install
+```sh
+./tools/localenv/pyroscope.sh
+./tools/localenv/grafana.sh
+```
+
+Port-forward local grafana
+```
+k port-forward svc/grafana 8080:80 -n metrics
+```
+
+Enable prom metrics scape (only if you use prometheus operator)
+
+```
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: castai-kvisor-agent
+  namespace: castai-agent
+spec:
+  namespaceSelector:
+    matchNames:
+    - castai-agent
+  podMetricsEndpoints:
+  - honorLabels: true
+    path: /metrics
+    port: metrics
+    scheme: http
+    scrapeTimeout: 30s
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: castai-kvisor-agent
 ```

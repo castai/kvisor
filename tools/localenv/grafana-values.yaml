@@ -42,10 +42,14 @@ datasources:
           tlsSkipVerify: true
         secureJsonData:
           password: kvisor
-      - name: Prometheus
+      - name: prometheus
         type: prometheus
         url: http://prometheus-server.metrics.svc.cluster.local.
         access: proxy
+      - name: Pyroscope
+        type: grafana-pyroscope-datasource
+        uid: pyroscope
+        url: http://pyroscope.metrics.svc.cluster.local.:4040/
 #      - name: Loki
 #        type: loki
 #        url: http://kvisor-loki.kvisor-trace.svc.cluster.local.:3100

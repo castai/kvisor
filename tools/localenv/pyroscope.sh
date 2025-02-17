@@ -1,5 +1,5 @@
 helm upgrade --install --repo https://grafana.github.io/helm-charts \
-  grafana grafana \
+  pyroscope pyroscope \
   --create-namespace -n metrics \
-  --version 8.9.0 \
-  -f ./tools/localenv/grafana-values.yaml
+  --version 1.12.0 \
+  -f ./tools/localenv/pyroscope-values.yaml
