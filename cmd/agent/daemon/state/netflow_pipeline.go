@@ -29,7 +29,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 		resp, err := c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
 		if err != nil {
 			c.log.Warnf("getting cluster info: %v", err)
-			sleep(ctx, 3*time.Second)
+			sleep(ctx, 2*time.Second)
 			continue
 		}
 		res := clusterInfo{}

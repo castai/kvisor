@@ -21,13 +21,17 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	defer c.log.Info("events pipeline done")
 
 	var currentEventsCount int
-	lastFlushedAt := c.nowFunc()
+	lastFlushedAt := time.Now()
 	groups := map[uint64]*castpb.ContainerEvents{}
 
 	ticker := time.NewTicker(c.cfg.EventsFlushInterval)
 	defer ticker.Stop()
 
 	send := func() {
+		if currentEventsCount == 0 {
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -36,9 +40,6 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			if len(group.Items) > 0 {
 				batch.Items = append(batch.Items, group)
 			}
-		}
-		if len(batch.Items) == 0 {
-			return
 		}
 
 		c.log.Debugf("sending events batch, events=%d, groups=%d", currentEventsCount, len(batch.Items))
@@ -50,7 +51,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		for _, group := range groups {
 			group.Items = group.Items[:0]
 		}
-		lastFlushedAt = c.nowFunc()
+		lastFlushedAt = time.Now()
 		currentEventsCount = 0
 	}
 
@@ -91,6 +92,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		group, found := groups[e.EbpfEvent.Context.CgroupID]
 		if !found {
 			// If enriched event is not found here most likely container was removed.
+			c.log.Warnf("group not found for enriched event, cgroup_id=%d, event_type=%s", e.EbpfEvent.Context.CgroupID, e.Event.EventType.String())
 			return
 		}
 
@@ -157,7 +159,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			}
 		// Periodically flush collected data in case batch size is not reached (low events rate).
 		case <-ticker.C:
-			if lastFlushedAt.Add(c.cfg.EventsFlushInterval).Before(c.nowFunc()) {
+			if lastFlushedAt.Add(c.cfg.EventsFlushInterval).Before(time.Now()) {
 				send()
 			}
 		}
@@ -175,6 +177,7 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *castpb.Contain
 		ObjectLabels:      e.Container.Labels,
 		ObjectAnnotations: e.Container.Annotations,
 		CgroupId:          e.Context.CgroupID,
+		Items:             make([]*castpb.ContainerEvent, 0, 100), // Preallocate to reduce memory allocations.
 	}
 	if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
 		group.WorkloadKind = castpb.WorkloadKind(podInfo.WorkloadKind)

@@ -46,9 +46,6 @@ func TestController(t *testing.T) {
 			ctrl := newTestController()
 			ctrl.cfg.EventsFlushInterval = 5 * time.Second
 			ctrl.cfg.EventsBatchSize = 3
-			ctrl.nowFunc = func() time.Time {
-				return time.Now()
-			}
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
 
@@ -91,9 +88,6 @@ func TestController(t *testing.T) {
 			ctrl := newTestController()
 			ctrl.cfg.EventsFlushInterval = flushIntervalNever
 			ctrl.cfg.EventsBatchSize = 10
-			ctrl.nowFunc = func() time.Time {
-				return time.Now()
-			}
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
 
@@ -136,9 +130,6 @@ func TestController(t *testing.T) {
 			ctrl := newTestController()
 			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
 			ctrl.cfg.EventsBatchSize = batchSizeNever
-			ctrl.nowFunc = func() time.Time {
-				return time.Now()
-			}
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
 
@@ -182,9 +173,6 @@ func TestController(t *testing.T) {
 			ctrl := newTestController()
 			ctrl.cfg.EventsFlushInterval = flushIntervalNever
 			ctrl.cfg.EventsBatchSize = batchSizeNever
-			ctrl.nowFunc = func() time.Time {
-				return time.Now()
-			}
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
 
@@ -227,10 +215,7 @@ func TestController(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
 			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
-			ctrl.cfg.EventsBatchSize = 999
-			ctrl.nowFunc = func() time.Time {
-				return time.Now()
-			}
+			ctrl.cfg.EventsBatchSize = batchSizeNever
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
 			ctrl.signatureEngine.(*mockSignatureEngine).eventsChan <- signature.Event{
@@ -273,13 +258,74 @@ func TestController(t *testing.T) {
 			}, 1*time.Second, 10*time.Millisecond)
 		})
 
+		t.Run("send enriched events", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
+			ctrl.cfg.EventsBatchSize = batchSizeNever
+			exporter := &mockContainerEventsSender{}
+			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.enrichmentService = &mockEnrichmentService{
+				out: make(chan *enrichment.EnrichedContainerEvent, 10),
+				enrichFuncs: []func(*enrichment.EnrichedContainerEvent) bool{
+					func(e *enrichment.EnrichedContainerEvent) bool {
+						if e.EbpfEvent.Context.EventID == events.SchedProcessExec {
+							e.Event.GetExec().HashSha256 = []byte("enriched-file-hash")
+							return true
+						}
+						return false
+					},
+				},
+			}
+			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+				Context: &types.EventContext{
+					EventID:  events.SchedProcessExec,
+					Ts:       1,
+					CgroupID: 1,
+				},
+				Container: &containers.Container{
+					PodName: "curl",
+				},
+				Args: types.SchedProcessExecArgs{
+					Filepath: "/bin/curl",
+					Argv:     []string{"--help"},
+				},
+			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			r.Eventually(func() bool {
+				exporter.mu.Lock()
+				defer exporter.mu.Unlock()
+				batches := exporter.batches
+				if len(batches) > 1 {
+					t.Fatal("expected only one batch")
+				}
+				if len(batches) == 0 {
+					return false
+				}
+				// Should have only one container events batch with one event.
+				r.Len(batches[0].Items, 1)
+				r.Len(batches[0].Items[0].Items, 1)
+				b1 := batches[0].Items[0]
+				r.Equal("curl", b1.PodName)
+				r.Equal("/bin/curl", b1.Items[0].GetExec().GetPath())
+				r.Equal([]string{"--help"}, b1.Items[0].GetExec().GetArgs())
+				r.Equal([]byte("enriched-file-hash"), b1.Items[0].GetExec().GetHashSha256())
+				return true
+			}, 1*time.Second, 50*time.Millisecond)
+		})
+
 		t.Run("remove events group on container delete and flush remaining", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
 			exporter := &mockContainerEventsSender{}
 			ctrl.exporters.ContainerEventsSender = exporter
-			ctrl.cfg.EventsFlushInterval = 999 * time.Minute
-			ctrl.cfg.EventsBatchSize = 999
+			ctrl.cfg.EventsFlushInterval = flushIntervalNever
+			ctrl.cfg.EventsBatchSize = batchSizeNever
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -695,18 +741,27 @@ func (m *mockSignatureEngine) Events() <-chan signature.Event {
 }
 
 type mockEnrichmentService struct {
+	out         chan *enrichment.EnrichedContainerEvent
+	enrichFuncs []func(*enrichment.EnrichedContainerEvent) bool
 }
 
 func (m *mockEnrichmentService) Enqueue(e *enrichment.EnrichedContainerEvent) bool {
-	return false
+	if m.out == nil {
+		return false
+	}
+
+	var enriched bool
+	for _, enrichFunc := range m.enrichFuncs {
+		if enrichFunc(e) {
+			enriched = true
+			m.out <- e
+		}
+	}
+	return enriched
 }
 
 func (m *mockEnrichmentService) Events() <-chan *enrichment.EnrichedContainerEvent {
-	return nil
-}
-
-func (m *mockEnrichmentService) Enrich(ctx context.Context, in *types.Event, out *castaipb.ContainerEvent) {
-	return
+	return m.out
 }
 
 type mockKubeClient struct {

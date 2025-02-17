@@ -130,7 +130,6 @@ func NewController(
 		procHandler:                procHandler,
 		enrichmentService:          enrichmentService,
 		deletedContainersQueue:     make(chan uint64, 300),
-		nowFunc:                    time.Now,
 	}
 }
 
@@ -164,8 +163,6 @@ type Controller struct {
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
 	deletedContainersQueue chan uint64
-
-	nowFunc func() time.Time
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -206,11 +203,6 @@ func (c *Controller) Run(ctx context.Context) error {
 
 		errg.Go(func() error {
 			return c.runNetflowPipeline(ctx)
-		})
-	}
-	if len(c.exporters.ProcessTree) > 0 {
-		errg.Go(func() error {
-			return c.runProcessTreePipeline(ctx)
 		})
 	}
 	return errg.Wait()

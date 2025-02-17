@@ -196,6 +196,8 @@ func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {
 	return c.eventSink
 }
 
+// TODO: As we now send process tree events via container events stream
+// for initial process tree data we can send it once directly from init without the need for channels and exporters.
 func (c *ProcessTreeCollectorImpl) fireEvents(event ProcessTreeEvent) {
 	if c.log.IsEnabled(slog.LevelDebug) {
 		c.log.Debugf("fire process tree event (initial %t) ---", event.Initial)
