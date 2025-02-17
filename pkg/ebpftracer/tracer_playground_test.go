@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -239,16 +238,15 @@ func TestGenerateConn(t *testing.T) {
 	}
 }
 
-func printSignatureEvent(e *castaipb.Event) {
+func printSignatureEvent(e signature.Event) {
 	fmt.Printf(
-		"cgroup=%d, pid=%d, proc=%s, event=%s,args=%+v",
-		e.CgroupId,
-		e.HostPid,
-		e.ProcessName,
-		e.EventType,
-		e.Data,
+		"cgroup=%d, pid=%d, proc=%s, event=%d,args=%+v\n",
+		e.EbpfEvent.Context.CgroupID,
+		e.EbpfEvent.Context.HostPid,
+		e.EbpfEvent.Context.Comm,
+		e.EbpfEvent.Context.EventID,
+		e.SignatureEvent,
 	)
-	fmt.Print("\n")
 }
 
 func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPerNamespace {

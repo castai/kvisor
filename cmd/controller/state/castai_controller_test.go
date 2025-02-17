@@ -75,6 +75,10 @@ type testGrpcClient struct {
 	getConfigurationResponse func() (*castaipb.GetConfigurationResponse, error)
 }
 
+func (t testGrpcClient) ContainerEventsBatchWriteStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse], error) {
+	return nil, nil
+}
+
 var _ castaipb.RuntimeSecurityAgentAPIClient = testGrpcClient{}
 
 func (t testGrpcClient) ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error) {

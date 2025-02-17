@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	_ "net/http/pprof" //nolint:gosec // TODO: Fix this, should not use default pprof.
 	"time"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/go-playground/validator/v10"
-	"github.com/grafana/pyroscope-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
@@ -55,9 +55,6 @@ type Config struct {
 	HTTPListenPort        int `validate:"required" json:"HTTPListenPort"`
 	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
 	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
-
-	// PyroscopeAddr is optional pyroscope addr to send traces.
-	PyroscopeAddr string `json:"pyroscopeAddr"`
 
 	CastaiController state.CastaiConfig      `json:"castaiController"`
 	CastaiEnv        castai.Config           `json:"castaiEnv"`
@@ -128,10 +125,6 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	log.Infof("running kvisor-controller, cluster_id=%s, grpc_addr=%s, version=%s", cfg.CastaiEnv.ClusterID, cfg.CastaiEnv.APIGrpcAddr, cfg.Version)
-
-	if cfg.PyroscopeAddr != "" {
-		withPyroscope(cfg.PyroscopeAddr)
-	}
 
 	// Setup kubernetes client and watcher.
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
@@ -296,48 +289,38 @@ func (a *App) runKubeServer(ctx context.Context, log *logging.Logger, client *ku
 }
 
 func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) error {
-	e := echo.New()
-	e.HideBanner = true
-	e.Debug = false
+	log.Info("running http server")
+	defer log.Info("stopping http server")
 
-	e.Use(middleware.Recover())
-	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	e.GET("/debug/pprof/*item", echo.WrapHandler(http.DefaultServeMux))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	srv := http.Server{
 		Addr:         fmt.Sprintf(":%d", a.cfg.MetricsHTTPListenPort),
-		Handler:      e,
-		ReadTimeout:  10 * time.Second,
+		Handler:      mux,
+		ReadTimeout:  1 * time.Minute,
 		WriteTimeout: 1 * time.Minute,
 	}
+
 	go func() {
 		<-ctx.Done()
-		log.Info("shutting metrics down http server")
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
 			log.Error(err.Error())
 		}
 	}()
-	log.Infof("running metrics server, port=%d", a.cfg.MetricsHTTPListenPort)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-	return nil
-}
 
-func withPyroscope(addr string) {
-	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisor-controller",
-		ServerAddress:   addr,
-		ProfileTypes: []pyroscope.ProfileType{
-			pyroscope.ProfileCPU,
-			pyroscope.ProfileAllocObjects,
-			pyroscope.ProfileAllocSpace,
-			pyroscope.ProfileInuseObjects,
-			pyroscope.ProfileInuseSpace,
-			pyroscope.ProfileGoroutines,
-		},
-	}); err != nil {
-		panic(err)
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("http serve: %w", err)
 	}
+
+	return nil
 }

@@ -11,6 +11,7 @@ option go_package = "github.com/castai/kvisord/api/runtime/v1";
 service RuntimeSecurityAgentAPI {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
   rpc EventsWriteStream(stream Event) returns (WriteStreamResponse) {}
+  rpc ContainerEventsBatchWriteStream(stream ContainerEventsBatch) returns (WriteStreamResponse) {}
   rpc LogsWriteStream(stream LogEvent) returns (WriteStreamResponse) {}
   rpc StatsWriteStream(stream StatsBatch) returns (WriteStreamResponse) {}
   rpc NetflowWriteStream(stream Netflow) returns (WriteStreamResponse) {}
@@ -55,6 +56,8 @@ enum EventType {
   EVENT_TTY_WRITE = 10;
   EVENT_STDIO_VIA_SOCKET = 11;
   EVENT_SSH = 12;
+  EVENT_PROCESS_FORK = 13;
+  EVENT_PROCESS_EXIT = 14;
 
   EVENT_ANY = 999;
 }
@@ -93,6 +96,60 @@ message Event {
 message ProcessIdentity {
   uint32 pid = 1;
   uint64 start_time = 2;
+}
+
+enum WorkloadKind {
+  WORKLOAD_KIND_UNKNOWN = 0;
+  WORKLOAD_KIND_DEPLOYMENT = 1;
+  WORKLOAD_KIND_REPLICA_SET = 2;
+  WORKLOAD_KIND_STATEFUL_SET = 3;
+  WORKLOAD_KIND_JOB = 4;
+  WORKLOAD_KIND_CRONJOB = 5;
+  WORKLOAD_KIND_POD = 6;
+}
+
+message ContainerEventsBatch {
+  repeated ContainerEvents items = 1;
+}
+
+message ContainerEvents {
+  string node_name = 1;
+  string namespace = 2;
+  string workload_name = 3;
+  string workload_uid = 4;
+  WorkloadKind workload_kind = 5;
+  string pod_name = 6;
+  string container_name = 7;
+  string container_id = 8;
+  string pod_uid = 9;
+  map<string, string> object_labels = 10;
+  map<string, string> object_annotations = 11;
+  uint64 cgroup_id = 12;
+  repeated ContainerEvent items = 13;
+}
+
+message ContainerEvent {
+  EventType event_type = 1;
+  uint64 timestamp = 2;
+  uint64 process_start_time = 4;
+  uint32 host_pid = 5;
+  uint32 pid = 6;
+  uint32 ppid = 7;
+  uint64 process_parent_start_time = 8;
+  string process_name = 9;
+
+  oneof data {
+    v1.Exec exec = 21;
+    v1.DNS dns = 22;
+    v1.File file = 23;
+    v1.Tuple tuple = 24;
+    v1.SignatureEvent signature = 25;
+    v1.Any any = 26;
+    v1.StdioViaSocketFinding stdio_via_socket = 27;
+    v1.SSHData ssh = 28;
+    v1.ProcessFork process_fork = 29;
+    v1.ProcessExit process_exit = 30;
+  }
 }
 
 message WriteStreamResponse {}

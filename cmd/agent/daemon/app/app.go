@@ -33,7 +33,6 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/go-playground/validator/v10"
-	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
@@ -57,7 +56,6 @@ type Config struct {
 	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
 	Version                        string                          `json:"version"`
 	BTFPath                        string                          `json:"BTFPath"`
-	PyroscopeAddr                  string                          `json:"pyroscopeAddr"`
 	ContainerdSockPath             string                          `json:"containerdSockPath"`
 	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
 	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
@@ -167,13 +165,13 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		exporters = state.NewExporters(log)
 		if cfg.EBPFEventsEnabled {
-			exporters.Events = append(exporters.Events, state.NewCastaiEventsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+			exporters.ContainerEventsSender = state.NewCastaiContainerEventSender(ctx, log, castaiClient)
 		}
 		if cfg.StatsEnabled {
 			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 		}
 		if cfg.Netflow.Enabled {
-			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient.GRPC, a.cfg.ExportersQueueSize))
+			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, a.cfg.ExportersQueueSize))
 		}
 		if cfg.ProcessTree.Enabled {
 			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, a.cfg.ExportersQueueSize)
@@ -223,16 +221,8 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
-	if cfg.EBPFEventsStdioExporterEnabled {
-		exporters.Events = append(exporters.Events, state.NewStdioEventsExporter(log))
-	}
-
 	if exporters.Empty() {
 		return errors.New("no configured exporters")
-	}
-
-	if addr := a.cfg.PyroscopeAddr; addr != "" {
-		withPyroscope(podName, addr)
 	}
 
 	procHandler := proc.New()
@@ -312,7 +302,6 @@ func (a *App) Run(ctx context.Context) error {
 		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    a.cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.StatsEnabled,
-		ProcessTreeCollector:               processTreeCollector,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
@@ -341,10 +330,10 @@ func (a *App) Run(ctx context.Context) error {
 		ct,
 		tracer,
 		signatureEngine,
-		enrichmentService,
 		kubeAPIServerClient,
 		processTreeCollector,
 		procHandler,
+		enrichmentService,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
@@ -465,15 +454,14 @@ Currently we care only care about dns responses with valid answers.
 		}...)
 	}
 
-	if len(exporters.Events) > 0 {
+	if exporters.ContainerEventsSender != nil {
 		policy.SignatureEvents = signatureEngine.TargetEvents()
 
 		for _, enabledEvent := range cfg.EBPFEventsPolicyConfig.EnabledEvents {
 			switch enabledEvent {
 			case events.SockSetState:
 				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-					ID:              events.SockSetState,
-					FilterGenerator: ebpftracer.SkipPrivateIP(), // TODO: Move private ip skip to kernel side.
+					ID: events.SockSetState,
 				})
 			case events.NetPacketDNSBase:
 				policy.Events = append(policy.Events, dnsEventPolicy)
@@ -492,7 +480,7 @@ Currently we care only care about dns responses with valid answers.
 		dnsEnabled := lo.ContainsBy(cfg.EBPFEventsPolicyConfig.EnabledEvents, func(item events.ID) bool {
 			return item == events.NetPacketDNSBase
 		})
-		if len(exporters.Events) == 0 && dnsEnabled {
+		if exporters.ContainerEventsSender == nil && dnsEnabled {
 			policy.Events = append(policy.Events, dnsEventPolicy)
 		}
 	}
@@ -585,7 +573,7 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 	srv := http.Server{
 		Addr:         fmt.Sprintf(":%d", a.cfg.MetricsHTTPListenPort),
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
+		ReadTimeout:  1 * time.Minute,
 		WriteTimeout: 1 * time.Minute,
 	}
 
@@ -593,7 +581,9 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 		<-ctx.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(ctx)
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error(err.Error())
+		}
 	}()
 
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -613,25 +603,5 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 		return errors.New("timeout waiting for shutdown") // TODO(anjmao): Getting this error on tilt.
 	case err := <-errc:
 		return err
-	}
-}
-
-func withPyroscope(podName, addr string) {
-	if _, err := pyroscope.Start(pyroscope.Config{
-		ApplicationName: "kvisor-agent",
-		ServerAddress:   addr,
-		Tags: map[string]string{
-			"pod": podName,
-		},
-		ProfileTypes: []pyroscope.ProfileType{
-			pyroscope.ProfileCPU,
-			pyroscope.ProfileAllocObjects,
-			pyroscope.ProfileAllocSpace,
-			pyroscope.ProfileInuseObjects,
-			pyroscope.ProfileInuseSpace,
-			pyroscope.ProfileGoroutines,
-		},
-	}); err != nil {
-		panic(err)
 	}
 }

@@ -227,6 +227,10 @@ func (c *Client) findCgroupPathForContainerID(containerID string) (string, ID) {
 	retPath := ""
 	rootDir := c.getCgroupSearchBasePath()
 	var cgroupID ID
+	// TODO(anjmao): This is can be really slow and expensive. We should consider another approach:
+	// 1. Find cgroup file from /proc/<pid>/cgroup by container pid. Containerd knows about container pids.
+	// We have this data during initial process tree init. Ideally it can be reused.
+	// 2. This file already points to actual cgroup file in /sys/fs/cgroup. However this file is doesn't contain actual cgroup inode.
 	_ = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
 		// nolint:nilerr
 		if err != nil || !info.IsDir() {

@@ -14,17 +14,13 @@ import (
 func TestEnrichmentService(t *testing.T) {
 	t.Run("should enrich event", func(t *testing.T) {
 		r := require.New(t)
-		wantedPodUID := "pod-uid-1"
-		wantedPodName := "this-is-pod-1"
+		var wantedPID uint32 = 99
 
 		svc := NewService(logging.New(&logging.Config{}), Config{
 			WorkerCount: 1,
 			EventEnrichers: []EventEnricher{
-				enricherFrom(func(ctx context.Context, req *EnrichRequest) {
-					req.Event.PodName = wantedPodName
-				}, castpb.EventType_UNKNOWN),
-				enricherFrom(func(ctx context.Context, req *EnrichRequest) {
-					req.Event.PodUid = wantedPodUID
+				enricherFrom(func(ctx context.Context, req *EnrichedContainerEvent) {
+					req.Event.Pid = wantedPID
 				}, castpb.EventType_UNKNOWN),
 			},
 		})
@@ -39,12 +35,11 @@ func TestEnrichmentService(t *testing.T) {
 			done <- struct{}{}
 		}()
 
-		event := &castpb.Event{
+		event := &castpb.ContainerEvent{
 			EventType: castpb.EventType_UNKNOWN,
-			PodUid:    "uid-1",
-			PodName:   "pod-1",
+			Pid:       99,
 		}
-		enqueued := svc.Enqueue(&EnrichRequest{
+		enqueued := svc.Enqueue(&EnrichedContainerEvent{
 			Event:     event,
 			EbpfEvent: &types.Event{},
 		})
@@ -52,8 +47,7 @@ func TestEnrichmentService(t *testing.T) {
 
 		select {
 		case event := <-svc.Events():
-			r.Equal(wantedPodUID, event.PodUid)
-			r.Equal(wantedPodName, event.PodName)
+			r.Equal(wantedPID, event.Event.Pid)
 
 		case <-ctx.Done():
 			r.FailNow("timed out waiting for event")
@@ -69,7 +63,7 @@ func TestEnrichmentService(t *testing.T) {
 	})
 }
 
-func enricherFrom(f func(context.Context, *EnrichRequest), eventTypes ...castpb.EventType) EventEnricher {
+func enricherFrom(f func(context.Context, *EnrichedContainerEvent), eventTypes ...castpb.EventType) EventEnricher {
 	return &functionEnricher{
 		f:          f,
 		eventTypes: eventTypes,
@@ -77,11 +71,11 @@ func enricherFrom(f func(context.Context, *EnrichRequest), eventTypes ...castpb.
 }
 
 type functionEnricher struct {
-	f          func(context.Context, *EnrichRequest)
+	f          func(context.Context, *EnrichedContainerEvent)
 	eventTypes []castpb.EventType
 }
 
-func (e *functionEnricher) Enrich(ctx context.Context, req *EnrichRequest) {
+func (e *functionEnricher) Enrich(ctx context.Context, req *EnrichedContainerEvent) {
 	e.f(ctx, req)
 }
 

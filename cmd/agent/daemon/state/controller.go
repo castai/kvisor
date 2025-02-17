@@ -15,6 +15,8 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
@@ -27,6 +29,9 @@ type Config struct {
 	StatsScrapeInterval time.Duration `json:"statsScrapeInterval"`
 
 	NetflowExportInterval time.Duration `validate:"required" json:"netflowExportInterval"`
+
+	EventsBatchSize     int           `validate:"required" json:"eventsBatchSize"`
+	EventsFlushInterval time.Duration `validate:"required" json:"eventsFlushInterval"`
 }
 
 type containersClient interface {
@@ -53,15 +58,11 @@ type ebpfTracer interface {
 	IsCgroupMuted(cgroup uint64) bool
 	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
 	CollectNetworkSummary() (map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, error)
+	GetEventName(id events.ID) string
 }
 
 type signatureEngine interface {
-	Events() <-chan *castaipb.Event
-}
-
-type enrichmentService interface {
-	Enqueue(e *enrichment.EnrichRequest) bool
-	Events() <-chan *castaipb.Event
+	Events() <-chan signature.Event
 }
 
 type conntrackClient interface {
@@ -78,6 +79,11 @@ type procHandler interface {
 	GetMeminfoStats() (*castaipb.MemoryStats, error)
 }
 
+type enrichmentService interface {
+	Enqueue(e *enrichment.EnrichedContainerEvent) bool
+	Events() <-chan *enrichment.EnrichedContainerEvent
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
@@ -87,10 +93,10 @@ func NewController(
 	ct conntrackClient,
 	tracer ebpfTracer,
 	signatureEngine signatureEngine,
-	enrichmentService enrichmentService,
 	kubeClient kubepb.KubeAPIClient,
 	processTreeCollector processTreeCollector,
 	procHandler procHandler,
+	enrichmentService enrichmentService,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -105,20 +111,6 @@ func NewController(
 		panic(err)
 	}
 
-	// Conntrack cache is used only in netflow pipeline.
-	// It's safe to use non synced lru since it's accessed form on goroutine.
-	conntrackCacheKey := xxhash.New()
-	conntrackCache, err := freelru.New[types.AddrTuple, netip.AddrPort](1024, func(k types.AddrTuple) uint32 {
-		conntrackCacheKey.Reset()
-		src, _ := k.Src.MarshalBinary()
-		dst, _ := k.Dst.MarshalBinary()
-		_, _ = conntrackCacheKey.Write(src)
-		_, _ = conntrackCacheKey.Write(dst)
-		return uint32(conntrackCacheKey.Sum64()) // nolint:gosec
-	})
-	if err != nil {
-		panic(err)
-	}
 	return &Controller{
 		log:                        log.WithField("component", "ctrl"),
 		cfg:                        cfg,
@@ -128,16 +120,16 @@ func NewController(
 		ct:                         ct,
 		tracer:                     tracer,
 		signatureEngine:            signatureEngine,
-		enrichmentService:          enrichmentService,
 		kubeClient:                 kubeClient,
 		nodeName:                   os.Getenv("NODE_NAME"),
 		containerStatsScrapePoints: map[uint64]*containerStatsScrapePoint{},
 		mutedNamespaces:            map[string]struct{}{},
 		dnsCache:                   dnsCache,
 		podCache:                   podCache,
-		conntrackCache:             conntrackCache,
 		processTreeCollector:       processTreeCollector,
 		procHandler:                procHandler,
+		enrichmentService:          enrichmentService,
+		deletedContainersQueue:     make(chan uint64, 300),
 	}
 }
 
@@ -149,10 +141,10 @@ type Controller struct {
 	ct                   conntrackClient
 	tracer               ebpfTracer
 	signatureEngine      signatureEngine
-	enrichmentService    enrichmentService
 	processTreeCollector processTreeCollector
 	exporters            *Exporters
 	procHandler          procHandler
+	enrichmentService    enrichmentService
 
 	nodeName string
 
@@ -169,6 +161,8 @@ type Controller struct {
 	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
+
+	deletedContainersQueue chan uint64
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -179,7 +173,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.containersClient.RegisterContainerDeletedListener(c.onDeleteContainer)
 
 	errg, ctx := errgroup.WithContext(ctx)
-	if len(c.exporters.Events) > 0 {
+	if c.exporters.ContainerEventsSender != nil {
 		errg.Go(func() error {
 			return c.runEventsPipeline(ctx)
 		})
@@ -190,13 +184,25 @@ func (c *Controller) Run(ctx context.Context) error {
 		})
 	}
 	if len(c.exporters.Netflow) > 0 {
+		// Conntrack cache is used only in netflow pipeline.
+		// It's safe to use non synced lru since it's accessed form one goroutine.
+		conntrackCacheKey := xxhash.New()
+		conntrackCache, err := freelru.New[types.AddrTuple, netip.AddrPort](1024, func(k types.AddrTuple) uint32 {
+			conntrackCacheKey.Reset()
+			src, _ := k.Src.MarshalBinary()
+			dst, _ := k.Dst.MarshalBinary()
+			_, _ = conntrackCacheKey.Write(src)
+			_, _ = conntrackCacheKey.Write(dst)
+			return uint32(conntrackCacheKey.Sum64()) // nolint:gosec
+		})
+		// TODO(anjmao): All lru caches should export metrics. We may have too large or too small sizes.
+		if err != nil {
+			panic(err)
+		}
+		c.conntrackCache = conntrackCache
+
 		errg.Go(func() error {
 			return c.runNetflowPipeline(ctx)
-		})
-	}
-	if len(c.exporters.ProcessTree) > 0 {
-		errg.Go(func() error {
-			return c.runProcessTreePipeline(ctx)
 		})
 	}
 	return errg.Wait()
@@ -222,6 +228,8 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.containerStatsScrapePointsMu.Unlock()
 
 	c.dnsCache.Remove(container.CgroupID)
+
+	c.deletedContainersQueue <- container.CgroupID
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }
@@ -278,4 +286,25 @@ func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
 		c.podCache.Add(podID, pod)
 	}
 	return pod, true
+}
+
+func workloadKindString(kind kubepb.WorkloadKind) string {
+	switch kind {
+	case kubepb.WorkloadKind_WORKLOAD_KIND_DEPLOYMENT:
+		return "Deployment"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_REPLICA_SET:
+		return "ReplicaSet"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_DAEMON_SET:
+		return "DaemonSet"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_STATEFUL_SET:
+		return "StatefulSet"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_JOB:
+		return "Job"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_CRONJOB:
+		return "CronJob"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_POD:
+		return "Pod"
+	default:
+		return "Unknown"
+	}
 }

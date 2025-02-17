@@ -20,7 +20,7 @@ func NewSensitiveValueRedactor(sensitiveValueRegex *regexp.Regexp) *SensitiveVal
 }
 
 // Enrich will add additional data to the provided Event.
-func (r *SensitiveValueRedactor) Enrich(ctx context.Context, req *EnrichRequest) {
+func (r *SensitiveValueRedactor) Enrich(ctx context.Context, req *EnrichedContainerEvent) {
 	r.redactArgs(req.Event.GetExec().GetArgs())
 }
 

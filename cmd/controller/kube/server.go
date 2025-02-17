@@ -77,9 +77,29 @@ func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb
 		Pod: &kubepb.Pod{
 			WorkloadUid:  string(info.Owner.UID),
 			WorkloadName: info.Owner.Name,
-			WorkloadKind: info.Owner.Kind,
+			WorkloadKind: toProtoWorkloadKind(info.Owner.Kind),
 			Zone:         info.Zone,
 			NodeName:     info.Pod.Spec.NodeName,
 		},
 	}, nil
+}
+
+func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {
+	switch kind {
+	case "Deployment":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_DEPLOYMENT
+	case "ReplicaSet":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_REPLICA_SET
+	case "DaemonSet":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_DAEMON_SET
+	case "StatefulSet":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_STATEFUL_SET
+	case "Job":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_JOB
+	case "CronJob":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_CRONJOB
+	case "Pod":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_POD
+	}
+	return kubepb.WorkloadKind_WORKLOAD_KIND_UNKNOWN
 }

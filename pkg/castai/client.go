@@ -9,6 +9,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
+	_ "google.golang.org/grpc/encoding/gzip" // Register gzip compressor.
 	"google.golang.org/grpc/metadata"
 )
 
@@ -17,6 +19,8 @@ type Config struct {
 	APIKey      string `json:"-"`
 	APIGrpcAddr string `json:"APIGrpcAddr"`
 	Insecure    bool   `json:"insecure"`
+
+	CompressionName string `json:"compression"`
 }
 
 func (c Config) Valid() bool {
@@ -38,23 +42,36 @@ func NewClient(userAgent string, cfg Config) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("castai grpc server dial: %w", err)
 	}
+	if cfg.CompressionName == "" {
+		cfg.CompressionName = gzip.Name
+	}
 
 	client := &Client{
-		GRPC:     castaipb.NewRuntimeSecurityAgentAPIClient(grpcConn),
-		grpcConn: grpcConn,
+		GRPC:            castaipb.NewRuntimeSecurityAgentAPIClient(grpcConn),
+		grpcConn:        grpcConn,
+		compressionName: cfg.CompressionName,
 	}
 	return client, nil
 }
 
 type Client struct {
-	GRPC     castaipb.RuntimeSecurityAgentAPIClient
-	grpcConn *grpc.ClientConn
+	GRPC            castaipb.RuntimeSecurityAgentAPIClient
+	grpcConn        *grpc.ClientConn
+	compressionName string
+}
+
+func (c *Client) NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error) {
+	return c.GRPC.NetflowWriteStream(ctx, opts...)
 }
 
 func (c *Client) Close() {
 	if c.grpcConn != nil {
 		_ = c.grpcConn.Close()
 	}
+}
+
+func (c *Client) GetCompressionName() string {
+	return c.compressionName
 }
 
 func newCastaiGrpcUnaryMetadataInterceptor(cfg Config) grpc.UnaryClientInterceptor {
