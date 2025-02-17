@@ -1946,15 +1946,17 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         //
         // NOTE: this will not work for nested cgroups, but it is an accepted limitation for now.
         if (!existing_netctx) {
-            existing_netctx = NULL;
+            net_task_context_t cgroup_context = {0};
+            cgroup_context.taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
+            netctx = bpf_sk_storage_get(&net_taskctx_map, sk, &cgroup_context, BPF_LOCAL_STORAGE_GET_F_CREATE);
+        } else {
+            netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         }
 
-        netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         if (!netctx) {
             // This should never happen, but if it does there is nothing we can do.
             return 1;
         }
-        netctx->taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
     }
 
     // Skip if cgroup is muted.
