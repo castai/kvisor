@@ -95,7 +95,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
-		eventsBatchSize     = command.Flags().Int("events-batch-size", 500, "Events batch size before exporting")
+		eventsBatchSize     = command.Flags().Int("events-batch-size", 1000, "Events batch size before exporting")
 		eventsFlushInterval = command.Flags().Duration("events-flush-interval", 5*time.Second, "Events flush interval")
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")

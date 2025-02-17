@@ -27,7 +27,10 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	ticker := time.NewTicker(c.cfg.EventsFlushInterval)
 	defer ticker.Stop()
 
+	batch := &castpb.ContainerEventsBatch{}
+
 	send := func() {
+		batch.Items = batch.Items[:0]
 		if currentEventsCount == 0 {
 			return
 		}
@@ -35,7 +38,6 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		batch := &castpb.ContainerEventsBatch{}
 		for _, group := range groups {
 			if len(group.Items) > 0 {
 				batch.Items = append(batch.Items, group)
