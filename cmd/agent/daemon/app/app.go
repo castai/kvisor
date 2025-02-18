@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -272,7 +273,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	enrichmentService := enrichment.NewService(log, enrichment.Config{
-		WorkerCount:    runtime.NumCPU(),
+		WorkerCount:    int(math.Min(float64(runtime.NumCPU()), 4)), // Cap to max 4 enrichment goroutines.
 		EventEnrichers: getActiveEnrichers(a.cfg.EnricherConfig, log, mountNamespacePIDStore),
 	})
 
