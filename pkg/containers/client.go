@@ -155,7 +155,6 @@ func (c *Client) ListContainers(filter func(c *Container) bool) []*Container {
 		if filter(cont) {
 			res = append(res, cont)
 		}
-		res = append(res, cont)
 	}
 	return res
 }
