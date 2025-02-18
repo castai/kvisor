@@ -19,6 +19,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/cri"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/castai"
@@ -375,6 +376,7 @@ func (a *App) Run(ctx context.Context) error {
 		return fmt.Errorf("load containers: %w", err)
 	}
 	go containersRefreshLoop(ctx, cfg.ContainersRefreshInterval, log, containersClient)
+	go containersMetrics(ctx, containersClient)
 
 	kernelVersion, _ := kernel.CurrentKernelVersion()
 	log.Infof("running kvisor agent, version=%s, kernel_version=%s, init_duration=%v", a.cfg.Version, kernelVersion, time.Since(start))
@@ -385,6 +387,20 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 		return waitWithTimeout(errg, 10*time.Second)
+	}
+}
+
+func containersMetrics(ctx context.Context, client *containers.Client) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(15 * time.Second):
+			conts := client.ListContainers(func(c *containers.Container) bool {
+				return true
+			})
+			metrics.AgentContainersCount.Set(float64(len(conts)))
+		}
 	}
 }
 
