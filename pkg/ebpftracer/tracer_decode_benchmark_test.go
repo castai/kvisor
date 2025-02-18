@@ -44,3 +44,37 @@ func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkModuleLoad(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		mo := newModule(logging.NewTestLog())
+		if err := mo.load(Config{
+			BTFPath:                            "/sys/kernel/btf/vmlinux",
+			SignalEventsRingBufferSize:         4096,
+			EventsRingBufferSize:               4096,
+			SkbEventsRingBufferSize:            4096,
+			EventsOutputChanSize:               4096,
+			DefaultCgroupsVersion:              "",
+			DebugEnabled:                       false,
+			AutomountCgroupv2:                  false,
+			ContainerClient:                    nil,
+			CgroupClient:                       &MockCgroupClient{},
+			SignatureEngine:                    nil,
+			MountNamespacePIDStore:             nil,
+			HomePIDNS:                          0,
+			AllowAnyEvent:                      false,
+			NetflowSampleSubmitIntervalSeconds: 0,
+			NetflowGrouping:                    0,
+			TrackSyscallStats:                  false,
+			ProcessTreeCollector:               nil,
+			MetricsReporting:                   MetricsReportingConfig{},
+			PodName:                            "",
+		}); err != nil {
+			b.Fatal(err)
+		}
+		mo.close()
+	}
+}
