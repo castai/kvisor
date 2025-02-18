@@ -56,7 +56,7 @@ func AKS(nodeName, jobName string) *batchv1.Job {
 								"--config-dir", "/etc/kubebench-rules/",
 								"run",
 								"--targets", "node",
-								"--benchmark", "aks-1.4",
+								"--benchmark", "aks-1.4.0",
 								"--json",
 							},
 							VolumeMounts: []corev1.VolumeMount{
