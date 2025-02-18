@@ -12,8 +12,6 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	ebpftypes "github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/cespare/xxhash/v2"
-	"github.com/elastic/go-freelru"
 )
 
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
@@ -231,9 +229,6 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 			Dns: dnsEvent,
 		}
 
-		// Add dns cache.
-		c.cacheDNS(e.Context.CgroupID, dnsEvent)
-
 	case ebpftypes.SockSetStateArgs:
 		tpl := args.Tuple
 		res.EventType = findTCPEventType(ebpftypes.TCPSocketState(args.OldState), ebpftypes.TCPSocketState(args.NewState))
@@ -343,39 +338,11 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 }
 
 func (c *Controller) getAddrDnsQuestion(cgroupID uint64, addr netip.Addr) string {
-	if cache, found := c.dnsCache.Get(cgroupID); found {
-		if dnsQuestion, found := cache.Get(addr.Unmap()); found {
-			return dnsQuestion
-		}
+	key := c.dnsCache.CalcKey(cgroupID, addr)
+	if dnsQuestion, found := c.dnsCache.Get(key); found {
+		return dnsQuestion
 	}
 	return ""
-}
-
-func (c *Controller) cacheDNS(cgroupID uint64, dnsEvent *ebpftypes.ProtoDNS) {
-	cacheVal, found := c.dnsCache.Get(cgroupID)
-	if !found {
-		var err error
-		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
-			return uint32(xxhash.Sum64(k.AsSlice())) // nolint:gosec
-		})
-		if err != nil {
-			c.log.Errorf("creating dns cache: %v", err)
-			return
-		}
-		c.dnsCache.Add(cgroupID, cacheVal)
-	}
-
-	for _, answ := range dnsEvent.Answers {
-		if len(answ.Ip) == 0 {
-			continue
-		}
-		addr, ok := netip.AddrFromSlice(answ.Ip)
-		if !ok {
-			continue
-		}
-
-		cacheVal.Add(addr, answ.Name)
-	}
 }
 
 func convertFlowDirection(flowDir ebpftypes.FlowDirection) castpb.FlowDirection {

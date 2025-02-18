@@ -3,14 +3,12 @@ package ebpftracer
 import (
 	"errors"
 	"net/netip"
-	"time"
 
+	"github.com/castai/kvisor/pkg/dnscache"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/cespare/xxhash/v2"
-	"github.com/elastic/go-freelru"
 	"github.com/samber/lo"
 	"golang.org/x/time/rate"
 )
@@ -125,21 +123,8 @@ func newRateLimiter(spec RateLimitPolicy) *rate.Limiter {
 }
 
 // DeduplicateDNSEventsPreFilter skips sending dns events which are already in the local per cgroup cache.
-func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Duration) PreEventFilterGenerator {
-	type cacheValue struct{}
-
+func DeduplicateDNSEventsPreFilter(log *logging.Logger, dnsCache *dnscache.Cache) PreEventFilterGenerator {
 	return func() PreEventFilter {
-		cache, err := freelru.New[uint64, cacheValue](size, func(key uint64) uint32 {
-			return uint32(key) //nolint:gosec
-		})
-		// err is only ever returned on configuration issues. There is nothing we can really do here, besides
-		// panicing and surfacing the error to the user.
-		if err != nil {
-			panic(err)
-		}
-
-		cache.SetLifetime(ttl)
-
 		return func(ctx *types.EventContext, dec *decoder.Decoder) (types.Args, error) {
 			if ctx.EventID != events.NetPacketDNSBase {
 				return nil, FilterPass
@@ -150,12 +135,31 @@ func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Du
 				return nil, err
 			}
 
-			// Cache dns by dns question. Cached records are dropped.
-			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
-			if cache.Contains(cacheKey) {
+			var question string
+			var totalIPsFound, totalCachesFound int
+			for _, answer := range dns.Answers {
+				if len(answer.IP) == 0 {
+					continue
+				}
+				ip, ok := netip.AddrFromSlice(answer.IP)
+				if !ok {
+					continue
+				}
+				totalIPsFound++
+				key := dnsCache.CalcKey(ctx.CgroupID, ip)
+				if _, found := dnsCache.Get(key); found {
+					totalCachesFound++
+				} else {
+					// Since we need to make a copy of dns question, make it once only here if record is not found in the cache.
+					if question == "" {
+						question = string(dns.Questions[0].Name)
+					}
+					dnsCache.Add(key, question)
+				}
+			}
+			if totalIPsFound == totalCachesFound && totalCachesFound != 0 {
 				return nil, FilterErrDNSDuplicateDetected
 			}
-			cache.Add(cacheKey, cacheValue{})
 
 			return types.NetPacketDNSBaseArgs{
 				Payload: decoder.ToProtoDNS(&details, dns),

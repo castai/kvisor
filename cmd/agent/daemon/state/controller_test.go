@@ -16,6 +16,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/dnscache"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
@@ -564,6 +565,7 @@ func newTestController(opts ...any) *Controller {
 	processTreeCollector := &mockProcessTreeController{}
 
 	procHandler := &mockProcHandler{}
+	dnsCahce := dnscache.New(100, 60*time.Second)
 
 	ctrl := NewController(
 		log,
@@ -578,6 +580,7 @@ func newTestController(opts ...any) *Controller {
 		processTreeCollector,
 		procHandler,
 		enrichService,
+		dnsCahce,
 	)
 	return ctrl
 }
