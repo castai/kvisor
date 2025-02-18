@@ -58,10 +58,19 @@ func (m *module) load(cfg Config) error {
 	}
 
 	var kernelTypes *btf.Spec
-	if cfg.BTFPath != "" {
+
+	// If the given `BTFPath` points to the kernels, we also want to load
+	// it via the `btf.LoadKernelSpec` function, as otherwise the kernel
+	// BTF will get parsed twice, causing quite the memory churn.
+	if cfg.BTFPath != "" && cfg.BTFPath != "/sys/kernel/btf/vmlinux" {
 		kernelTypes, err = btf.LoadSpec(cfg.BTFPath)
 		if err != nil {
 			return fmt.Errorf("loading custom btf: %w", err)
+		}
+	} else {
+		kernelTypes, err = btf.LoadKernelSpec()
+		if err != nil {
+			return fmt.Errorf("loading kernel btf: %w", err)
 		}
 	}
 
