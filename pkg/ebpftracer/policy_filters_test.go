@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castai/kvisor/pkg/dnscache"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -71,7 +72,7 @@ func TestFilterAnd(t *testing.T) {
 func TestDNSPolicyFilter(t *testing.T) {
 	r := require.New(t)
 	log := logging.NewTestLog()
-	f := DeduplicateDNSEventsPreFilter(log, 2, 1*time.Hour)
+	f := DeduplicateDNSEventsPreFilter(log, dnscache.New(10, time.Hour))
 	g := f()
 
 	// Pass non dns event.

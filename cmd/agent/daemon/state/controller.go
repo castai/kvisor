@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/dnscache"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
@@ -97,13 +98,8 @@ func NewController(
 	processTreeCollector processTreeCollector,
 	procHandler procHandler,
 	enrichmentService enrichmentService,
+	dnsCache *dnscache.Cache,
 ) *Controller {
-	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
-		return uint32(k) // nolint:gosec
-	})
-	if err != nil {
-		panic(err)
-	}
 	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
 	})
@@ -158,7 +154,7 @@ type Controller struct {
 
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient
-	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
+	dnsCache       *dnscache.Cache
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
@@ -226,8 +222,6 @@ func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.containerStatsScrapePointsMu.Lock()
 	delete(c.containerStatsScrapePoints, container.CgroupID)
 	c.containerStatsScrapePointsMu.Unlock()
-
-	c.dnsCache.Remove(container.CgroupID)
 
 	c.deletedContainersQueue <- container.CgroupID
 
