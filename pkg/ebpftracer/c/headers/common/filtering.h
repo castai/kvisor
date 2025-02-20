@@ -32,6 +32,11 @@ statfunc bool should_trace(program_data_t *p)
     return true;
 }
 
+statfunc bool should_skip_cgroup(u64 cgroup_id)
+{
+    return !!bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id);
+}
+
 statfunc bool should_submit(u32 event_id, event_data_t *event)
 {
     event_config_t *event_config = bpf_map_lookup_elem(&events_map, &event_id);

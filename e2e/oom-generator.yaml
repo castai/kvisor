@@ -19,7 +19,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
         - name: memory-demo-ctr
-          image: colinianking/stress-ng:16f29ebf40c39560676bea3cd465bdc62cc03dd9
+          image: colinianking/stress-ng
           resources:
             requests:
               memory: "10Mi"

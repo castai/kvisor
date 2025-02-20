@@ -90,11 +90,11 @@ if [[ $job_result -eq 1 ]]; then
     echo "==================================== All pods ===================================="
     kubectl get pods -A
     echo "==================================== Kvisor Controller logs ======================"
-    kubectl logs -l app.kubernetes.io/component=controller
+    kubectl logs -l app.kubernetes.io/component=controller --tail=-1
     echo "==================================== Kvisor Agent logs ==========================="
-    kubectl logs -l app.kubernetes.io/component=agent
+    kubectl logs -l app.kubernetes.io/component=agent --tail=-1
     echo "==================================== E2E logs ===================================="
-    kubectl logs -l job-name=e2e
+    kubectl logs -l job-name=e2e --tail=-1
 
     echo "😞 Job failed! Try to run locally and good luck 🤞: KIND_CONTEXT=tilt IMAGE_TAG=local ./e2e/run.sh"
     exit 1
