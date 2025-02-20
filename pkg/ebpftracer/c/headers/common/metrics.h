@@ -4,6 +4,7 @@
 #include "common/common.h"
 #include "common/consts.h"
 #include "types.h"
+#include "maps.h"
 
 statfunc void metrics_increase(enum metric m)
 {

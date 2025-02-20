@@ -32,6 +32,8 @@ const (
 	signalEventsRingbufDiscard
 	eventsRingbufDiscard
 	skbEventsRingbufDiscard
+	skbCtxCgroupFallback
+	skbMissingExistingCtx
 )
 
 func (m eBPFMetric) String() string {
@@ -48,6 +50,10 @@ func (m eBPFMetric) String() string {
 		return "events_ringbuf_discard"
 	case skbEventsRingbufDiscard:
 		return "skb_events_ringbuf_discard"
+	case skbCtxCgroupFallback:
+		return "skb_ctx_cgroup_fallback"
+	case skbMissingExistingCtx:
+		return "skb_missing_existing_ctx"
 	default:
 		return "unknown"
 	}
