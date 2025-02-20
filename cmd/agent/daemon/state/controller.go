@@ -35,7 +35,7 @@ type Config struct {
 }
 
 type containersClient interface {
-	ListContainers() []*containers.Container
+	ListContainers(filter func(c *containers.Container) bool) []*containers.Container
 	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error)
 	LookupContainerForCgroupInCache(cgroup uint64) (*containers.Container, bool, error)
 	CleanupCgroup(cgroup cgroup.ID)
@@ -209,16 +209,14 @@ func (c *Controller) Run(ctx context.Context) error {
 }
 
 func (c *Controller) onNewContainer(container *containers.Container) {
-	if !c.IsMutedNamespace(container.PodNamespace) {
-		return
-	}
-
-	// We explicitly mute cgroups of new containers in muted namespaces, as otherwise
-	// there could be a timing issue, where we want to mute a namespace before the cgroup mkdir
-	// event has been handled.
-	err := c.tracer.MuteEventsFromCgroup(container.CgroupID, fmt.Sprintf("new container for muted namespsace %q", container.PodNamespace))
-	if err != nil {
-		c.log.Warnf("cannot mute cgroup %d: %v", container.CgroupID, err)
+	if c.IsMutedNamespace(container.PodNamespace) {
+		// We explicitly mute cgroups of new containers in muted namespaces, as otherwise
+		// there could be a timing issue, where we want to mute a namespace before the cgroup mkdir
+		// event has been handled.
+		err := c.tracer.MuteEventsFromCgroup(container.CgroupID, fmt.Sprintf("new container for muted namespsace %q", container.PodNamespace))
+		if err != nil {
+			c.log.Warnf("cannot mute cgroup %d: %v", container.CgroupID, err)
+		}
 	}
 }
 
