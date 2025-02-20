@@ -1916,6 +1916,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
     if (!sk)
         return 1;
 
+    bool fallback_netctx_init = false;
     net_task_context_t *netctx =
         bpf_sk_storage_get(&net_taskctx_map, sk, NULL, 0); // obtain event context
     if (!netctx) {
@@ -1949,11 +1950,14 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
             net_task_context_t cgroup_context = {0};
             cgroup_context.taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
             netctx = bpf_sk_storage_get(&net_taskctx_map, sk, &cgroup_context, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            fallback_netctx_init = true;
         } else {
             netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         }
 
         if (!netctx) {
+            metrics_increase(SKB_MISSING_EXISTING_CTX);
+
             // This should never happen, but if it does there is nothing we can do.
             return 1;
         }
@@ -1963,6 +1967,11 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
     u64 cgroup_id = netctx->taskctx.cgroup_id;
     if (bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id)) {
         return 1;
+    }
+
+    // We only care about non muted netctx misses.
+    if(fallback_netctx_init) {
+        metrics_increase(SKB_CTX_CGROUP_FALLBACK);
     }
 
     event_context_t neteventctx_val = {0};
