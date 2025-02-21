@@ -65,7 +65,7 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx)
         cgroup_id = bpf_get_current_cgroup_id();
     }
     // Skip if cgroup is muted
-    if (bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id) != NULL) {
+    if (should_skip_cgroup(cgroup_id)) {
         return 0;
     }
     // Update containers syscall stats.
@@ -201,7 +201,7 @@ int tracepoint__raw_syscalls__sys_exit(struct bpf_raw_tracepoint_args *ctx)
     } else {
         cgroup_id = bpf_get_current_cgroup_id();
     }
-    if (bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id) != NULL) {
+    if (should_skip_cgroup(cgroup_id)) {
         return 0;
     }
 
@@ -1835,7 +1835,8 @@ int cgroup_sock_create(struct bpf_sock *sk)
         return 1;
     }
 
-    if (!should_trace(&p)) {
+    u64 cgroup_id = p.event->context.task.cgroup_id;
+    if (should_skip_cgroup(cgroup_id)) {
         return 1;
     }
 
@@ -1955,7 +1956,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
             netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         }
 
-        if (!netctx) {
+        if (unlikely(netctx == NULL)) {
             metrics_increase(SKB_MISSING_EXISTING_CTX);
 
             // This should never happen, but if it does there is nothing we can do.
@@ -1965,12 +1966,12 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
 
     // Skip if cgroup is muted.
     u64 cgroup_id = netctx->taskctx.cgroup_id;
-    if (bpf_map_lookup_elem(&ignored_cgroups_map, &cgroup_id)) {
+    if (should_skip_cgroup(cgroup_id)) {
         return 1;
     }
 
     // We only care about non muted netctx misses.
-    if(fallback_netctx_init) {
+    if (unlikely(fallback_netctx_init)) {
         metrics_increase(SKB_CTX_CGROUP_FALLBACK);
     }
 
