@@ -1956,7 +1956,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
             netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         }
 
-        if (!netctx) {
+        if (unlikely(netctx == NULL)) {
             metrics_increase(SKB_MISSING_EXISTING_CTX);
 
             // This should never happen, but if it does there is nothing we can do.
@@ -1971,7 +1971,7 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
     }
 
     // We only care about non muted netctx misses.
-    if(fallback_netctx_init) {
+    if (unlikely(fallback_netctx_init)) {
         metrics_increase(SKB_CTX_CGROUP_FALLBACK);
     }
 
