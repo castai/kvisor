@@ -90,7 +90,6 @@ func TestTracer(t *testing.T) {
 						ContainerRuntime: cgroup.ContainerdRuntime,
 						ContainerID:      dummyContainerID,
 					},
-					PIDs: []uint32{},
 				}, nil
 			},
 		},

@@ -432,7 +432,6 @@ func TestController(t *testing.T) {
 				Cgroup: &cgroup.Cgroup{
 					Id: 100,
 				},
-				PIDs: []uint32{1},
 			})
 		}))
 		exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}

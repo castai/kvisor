@@ -169,7 +169,7 @@ func TestFileHashEnricher(t *testing.T) {
 		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
 	})
 
-	t.Run("should fallback to other pids in mount ns if file is missing", func(t *testing.T) {
+	t.Run("should fallback to other pids in mount ns if proc folder is missing", func(t *testing.T) {
 		r := require.New(t)
 		fileName := "test"
 		pid := proc.PID(22)
@@ -200,6 +200,48 @@ func TestFileHashEnricher(t *testing.T) {
 			EbpfEvent: &types.Event{
 				Context: &types.EventContext{
 					MntID: uint32(mountNSID),
+				},
+				Args: types.SchedProcessExecArgs{},
+			},
+		})
+
+		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
+	})
+
+	t.Run("should fallback to other pids in mount ns if exec path is missing", func(t *testing.T) {
+		r := require.New(t)
+		fileName := "test"
+		rootPid := proc.PID(21)
+		pid := proc.PID(22)
+		mountNSID := proc.NamespaceID(10)
+		testFile := generateExecutableTestMapFile(2048)
+		wantedSum := sha256.Sum256(testFile.Data)
+		fsys := fstest.MapFS{
+			filepath.Join(strconv.Itoa(int(rootPid)), "root", fileName): testFile,
+			filepath.Join(strconv.Itoa(int(pid)), "root"):               testFile,
+		}
+
+		enricher := EnrichWithFileHash(
+			logging.New(&logging.Config{}),
+			createDummyMntNSPIDStore(mountNSID, rootPid, pid),
+			fsys)
+
+		event := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_EXEC,
+			Data: &castpb.ContainerEvent_Exec{
+				Exec: &castpb.Exec{
+					Path: filepath.Join(fileName),
+					Args: []string{},
+				},
+			},
+		}
+
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
+			Event: event,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{
+					NodeHostPid: pid,
+					MntID:       uint32(mountNSID),
 				},
 				Args: types.SchedProcessExecArgs{},
 			},

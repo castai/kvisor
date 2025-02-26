@@ -8,9 +8,13 @@ import (
 const (
 	EventTypeLabel   string = "event_type"
 	ExporterName     string = "exporter"
+	EnricherName     string = "enricher"
 	MetricLabel      string = "metric"
 	EBPFProgramLabel string = "program"
 	StatsKind        string = "kind"
+	PodName          string = "pod"
+	PodNamespace     string = "pod_namespace"
+	PodUID           string = "pod_uid"
 )
 
 var (
@@ -78,6 +82,21 @@ var (
 		Name: "kvisor_agent_exporter_queue_dropped_total",
 		Help: "Dropped exporter events",
 	}, []string{ExporterName})
+
+	AgentEnricherEventsTotalEnriched = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_enricher_events_total_enriched",
+		Help: "Enriched events",
+	}, []string{EnricherName, PodName, PodNamespace, PodUID})
+
+	AgentEnricherEventsTotalErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_enricher_events_total_errors",
+		Help: "Enricher errors",
+	}, []string{EnricherName, PodName, PodNamespace, PodUID})
+
+	AgentFileHashEnricherProcMissingTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_file_hash_enricher_proc_missing_total",
+		Help: "Counter for tracking process files missing during file hash enrichment",
+	}, []string{PodName, PodNamespace, PodUID})
 
 	AgentFetchKubeIPInfoErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_agent_fetch_kube_ip_info_errors_total",
