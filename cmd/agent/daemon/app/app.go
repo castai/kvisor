@@ -211,6 +211,10 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		defer storageConn.Close()
 
+		if cfg.EBPFEventsEnabled {
+			exporters.ContainerEventsSender = state.NewClickhouseContainerEventsExporter(log, storageConn)
+		}
+
 		if cfg.Netflow.Enabled {
 			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
 			exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
