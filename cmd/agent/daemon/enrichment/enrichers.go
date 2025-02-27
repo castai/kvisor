@@ -68,10 +68,9 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 		return
 	}
 
-	metricLabels := metricLabelsFromContainer(req.EbpfEvent.Container)
-	enrichMetric := metrics.AgentEnricherEventsTotalEnriched.WithLabelValues(metricLabels...)
-	enrichProcMissingMetric := metrics.AgentFileHashEnricherProcMissingTotal.WithLabelValues(metricLabels[1:]...)
-	enrichErrorMetric := metrics.AgentEnricherEventsTotalErrors.WithLabelValues(metricLabels...)
+	enrichMetric := metrics.AgentEnricherEventsTotalEnriched.WithLabelValues(fileHashEnricherName)
+	enrichProcMissingMetric := metrics.AgentFileHashEnricherProcMissingTotal
+	enrichErrorMetric := metrics.AgentEnricherEventsTotalErrors.WithLabelValues(fileHashEnricherName)
 
 	sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, proc.PID(req.EbpfEvent.Context.NodeHostPid), exec.Path)
 	if err == nil {
@@ -97,16 +96,6 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 		return
 	}
 	enrichErrorMetric.Inc()
-}
-
-func metricLabelsFromContainer(c *containers.Container) []string {
-	labels := []string{fileHashEnricherName, "", "", ""}
-	if c != nil {
-		labels[1] = c.PodName
-		labels[2] = c.PodNamespace
-		labels[3] = c.PodUID
-	}
-	return labels
 }
 
 func setExecFileHash(exec *castpb.Exec, sha []byte) {
