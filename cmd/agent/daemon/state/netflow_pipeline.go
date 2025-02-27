@@ -141,6 +141,9 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		// for already existing sockets.
 		Port: uint32(key.Tuple.Sport),
 	}
+	if res.ProcessName == "" {
+		c.log.Warnf("flow with missing process name: %+v, proc_string=%s", key, string(key.ProcessIdentity.Comm[:]))
+	}
 
 	if key.Tuple.Family == unix.AF_INET {
 		res.Addr = key.Tuple.Saddr.Raw[:4]
