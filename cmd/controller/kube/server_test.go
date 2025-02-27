@@ -153,11 +153,31 @@ func TestServer(t *testing.T) {
 		r.Equal(codes.NotFound, st.Code())
 	})
 
-	t.Run("get cluster info", func(t *testing.T) {
+	t.Run("get cluster info from node cidr", func(t *testing.T) {
 		r := require.New(t)
 		resp, err := srv.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
 		r.NoError(err)
 		r.ElementsMatch([]string{"10.10.10.0/14", "fd00::/48"}, resp.PodsCidr)
+		r.ElementsMatch([]string{"10.30.0.0/14", "fd01::/48"}, resp.ServiceCidr)
+	})
+
+	t.Run("get cluster info from cluster pods", func(t *testing.T) {
+		r := require.New(t)
+
+		// restore original spec when test is done to avoid side effects with other tests
+		spec := client.index.nodesByName["n1"].Spec
+		defer func() {
+			client.index.nodesByName["n1"].Spec = spec
+			client.clusterInfo = nil
+		}()
+
+		// remove spec from node to force the client to use the pods CIDR
+		client.index.nodesByName["n1"].Spec = corev1.NodeSpec{}
+		client.clusterInfo = nil
+
+		resp, err := srv.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
+		r.NoError(err)
+		r.ElementsMatch([]string{"10.8.0.0/14", "fd00::/48"}, resp.PodsCidr)
 		r.ElementsMatch([]string{"10.30.0.0/14", "fd01::/48"}, resp.ServiceCidr)
 	})
 }

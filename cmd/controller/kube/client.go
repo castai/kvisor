@@ -292,7 +292,7 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 				if err != nil {
 					return nil, err
 				}
-				if len(res.PodCidr) > 0 {
+				if len(podCidr) > 0 {
 					res.PodCidr = podCidr
 					break
 				}
@@ -307,7 +307,7 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	}
 	res.ServiceCidr = serviceCidr
 
-	if len(res.PodCidr) == 0 && len(res.ServiceCidr) == 0 {
+	if len(res.PodCidr) == 0 || len(res.ServiceCidr) == 0 {
 		return nil, fmt.Errorf("no pod cidr or service cidr found")
 	}
 	c.clusterInfo = &res
