@@ -1835,11 +1835,6 @@ int cgroup_sock_create(struct bpf_sock *sk)
         return 1;
     }
 
-    u64 cgroup_id = p.event->context.task.cgroup_id;
-    if (should_skip_cgroup(cgroup_id)) {
-        return 1;
-    }
-
     net_task_context_t netctx = {0};
     set_net_task_context(&p, &netctx);
 
@@ -1884,12 +1879,15 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
         if (!sock) {
             return 0;
         }
-
         bpf_map_update_elem(&existing_sockets_map, &sock, &netctx, BPF_ANY);
     } else {
         struct socket *sock = bpf_sock_from_file(file);
         if (sock) {
-            bpf_sk_storage_get(&net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            struct net_task_context *sknetctx = bpf_sk_storage_get(&net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            // Empty pid means that sk storage map entry was created inside skb fallback with cgroup_id only.
+            if (sknetctx && sknetctx->taskctx.pid == 0) {
+                __builtin_memcpy(sknetctx, &netctx, sizeof(net_task_context_t));
+            }
         }
     }
 
@@ -1964,9 +1962,10 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         }
     }
 
-    // Skip if cgroup is muted.
+    // Skip if cgroup is muted and netflow is not enabled.
+    // If netflow is enabled we want to collect metrics from all containers.
     u64 cgroup_id = netctx->taskctx.cgroup_id;
-    if (should_skip_cgroup(cgroup_id)) {
+    if (should_skip_cgroup(cgroup_id) && !should_submit_event(NET_FLOW_BASE)) {
         return 1;
     }
 
@@ -2111,6 +2110,11 @@ CGROUP_SKB_HANDLE_FUNCTION(proto)
 
     if (should_submit_event(NET_FLOW_BASE)) {
         record_netflow(ctx, &neteventctx->task, nethdrs, flow_direction);
+    }
+
+    // Skip is cgroup is muted.
+    if (should_skip_cgroup(neteventctx->task.cgroup_id)) {
+        return 1;
     }
 
     // size == 0 means protocol we do not have any specific handling logic for. We still want

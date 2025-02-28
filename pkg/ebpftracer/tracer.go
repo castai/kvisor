@@ -319,6 +319,14 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 		eventsBpfMapConfig[id] = eventConfigVal
 	}
 
+	if initializeExistingSockets {
+		// Load existing sockets before attaching probes.
+		err := t.module.InitializeExistingSockets()
+		if err != nil {
+			t.log.Warnf("failed to load existing sockets: %v", err)
+		}
+	}
+
 	// Attach selected probes.
 	for handle, required := range probesToAttach {
 		if err := t.module.attachProbe(handle); err != nil {
@@ -346,9 +354,8 @@ func (t *Tracer) ApplyPolicy(policy *Policy) error {
 	}
 
 	if initializeExistingSockets {
-		// In case initialized sockets are required, we run the initialization logic after the
-		// eBPF handlers are in place, to prevent race conditions/timing issues where the are
-		// sockets created between running the iterator and registering the eBPF programs.
+		// After probes are attached we need to reload existing socket
+		// in case new sockets there created during probes attachment.
 		err := t.module.InitializeExistingSockets()
 		if err != nil {
 			t.log.Warnf("failed to load existing sockets: %v", err)
