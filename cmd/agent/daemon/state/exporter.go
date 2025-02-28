@@ -18,14 +18,14 @@ func NewExporters(log *logging.Logger) *Exporters {
 type Exporters struct {
 	log *logging.Logger
 
-	ContainerEventsSender ContainerEventsSender
-	Stats                 []StatsExporter
-	Netflow               []NetflowExporter
-	ProcessTree           []ProcessTreeExporter
+	ContainerEvents []ContainerEventsSender
+	Stats           []StatsExporter
+	Netflow         []NetflowExporter
+	ProcessTree     []ProcessTreeExporter
 }
 
 func (e *Exporters) Empty() bool {
-	return e.ContainerEventsSender == nil && len(e.Stats) == 0 && len(e.Netflow) == 0 && len(e.ProcessTree) == 0
+	return len(e.ContainerEvents) == 0 && len(e.Stats) == 0 && len(e.Netflow) == 0 && len(e.ProcessTree) == 0
 }
 
 func (e *Exporters) Run(ctx context.Context) error {
