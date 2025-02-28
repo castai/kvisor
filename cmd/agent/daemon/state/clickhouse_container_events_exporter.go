@@ -214,7 +214,7 @@ func ClickhouseContainerEventsSchema() string {
 		)
 		ENGINE = ReplacingMergeTree()
 		ORDER BY (ts)
-		TTL toDateTime(ts) + INTERVAL 1 HOUR;
+		TTL toDateTime(ts) + INTERVAL 24 HOUR;
 	`
 }
 
