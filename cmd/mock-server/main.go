@@ -64,7 +64,7 @@ func (m *MockServer) ContainerEventsBatchWriteStream(server grpc.ClientStreaming
 			return err
 		}
 		for _, event := range event.Items {
-			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, data=%+v", event.NodeName, event.PodName, event.ContainerName, len(event.Items))
+			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, items=%+v", event.NodeName, event.PodName, event.ContainerName, len(event.Items))
 		}
 	}
 }

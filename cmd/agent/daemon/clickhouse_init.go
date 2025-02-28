@@ -47,6 +47,9 @@ func NewClickhouseInitCommand() *cobra.Command {
 				}
 				defer conn.Close()
 
+				if err := conn.Exec(ctx, state.ClickhouseContainerEventsSchema()); err != nil {
+					return fmt.Errorf("creating clickhouse container events schema: %w", err)
+				}
 				if err := conn.Exec(ctx, state.ClickhouseNetflowSchema()); err != nil {
 					return fmt.Errorf("creating clickhouse netflow schema: %w", err)
 				}
