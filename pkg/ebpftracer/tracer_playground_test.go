@@ -129,6 +129,7 @@ func TestTracer(t *testing.T) {
 			{ID: events.TtyWrite},
 			{ID: events.NetPacketSSHBase},
 			{ID: events.NetPacketDNSBase},
+			{ID: events.NetFlowBase},
 		},
 		SignatureEvents: signatureEngine.TargetEvents(),
 	}
@@ -267,19 +268,9 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 	return mountNamespacePIDStore
 }
 
-var ingoredProcesses = map[string]struct{}{
-	"sshd":     {},
-	"coredns":  {},
-	"kubelet":  {},
-	"iptables": {},
-}
-
 func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	eventName := tr.GetEventName(e.Context.EventID)
 	procName := decoder.ProcessNameString(e.Context.Comm[:])
-	if _, ignored := ingoredProcesses[procName]; ignored {
-		return
-	}
 
 	fmt.Printf(
 		"ts=%d  event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s ",
