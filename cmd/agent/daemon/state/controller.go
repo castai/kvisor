@@ -173,7 +173,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.containersClient.RegisterContainerDeletedListener(c.onDeleteContainer)
 
 	errg, ctx := errgroup.WithContext(ctx)
-	if c.exporters.ContainerEventsSender != nil {
+	if len(c.exporters.ContainerEvents) > 0 {
 		errg.Go(func() error {
 			return c.runEventsPipeline(ctx)
 		})

@@ -47,7 +47,7 @@ func TestController(t *testing.T) {
 			ctrl.cfg.EventsFlushInterval = 5 * time.Second
 			ctrl.cfg.EventsBatchSize = 3
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 
 			expectedBatchesCount := 100
 			go func() {
@@ -89,7 +89,7 @@ func TestController(t *testing.T) {
 			ctrl.cfg.EventsFlushInterval = flushIntervalNever
 			ctrl.cfg.EventsBatchSize = 10
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 
 			go func() {
 				for i := range 3 {
@@ -131,7 +131,7 @@ func TestController(t *testing.T) {
 			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
 			ctrl.cfg.EventsBatchSize = batchSizeNever
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -174,7 +174,7 @@ func TestController(t *testing.T) {
 			ctrl.cfg.EventsFlushInterval = flushIntervalNever
 			ctrl.cfg.EventsBatchSize = batchSizeNever
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -217,7 +217,7 @@ func TestController(t *testing.T) {
 			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
 			ctrl.cfg.EventsBatchSize = batchSizeNever
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 			ctrl.signatureEngine.(*mockSignatureEngine).eventsChan <- signature.Event{
 				EbpfEvent: &types.Event{
 					Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -264,7 +264,7 @@ func TestController(t *testing.T) {
 			ctrl.cfg.EventsFlushInterval = 10 * time.Millisecond
 			ctrl.cfg.EventsBatchSize = batchSizeNever
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 			ctrl.enrichmentService = &mockEnrichmentService{
 				out: make(chan *enrichment.EnrichedContainerEvent, 10),
 				enrichFuncs: []func(*enrichment.EnrichedContainerEvent) bool{
@@ -323,7 +323,7 @@ func TestController(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
 			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEventsSender = exporter
+			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
 			ctrl.cfg.EventsFlushInterval = flushIntervalNever
 			ctrl.cfg.EventsBatchSize = batchSizeNever
 
