@@ -88,9 +88,16 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 		}
 
 		sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, pid, exec.Path)
+		// We search for the first PID we can successfully calculate a filehash for.
 		if err != nil {
+			if errors.Is(err, ErrFileDoesNotExist) {
+				// If the wanted file does not exist in the PID mount namespace, it will also not exist in the mounts of the other.
+				// We can hence simply return, as we will not find the wanted file.
+				break
+			}
 			continue
 		}
+
 		setExecFileHash(exec, sha)
 		enrichMetric.Inc()
 		return
