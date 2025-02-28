@@ -139,7 +139,8 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		// one. I tried using `sk->state == 0xa`, but this is not working as expected. One way would be
 		// to trace the full lifecycle of a socket, but this is rather expensive and would not fully work
 		// for already existing sockets.
-		Port: uint32(key.Tuple.Sport),
+		Port:     uint32(key.Tuple.Sport),
+		NodeName: c.nodeName,
 	}
 
 	if key.Tuple.Family == unix.AF_INET {
