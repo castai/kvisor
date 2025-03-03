@@ -69,11 +69,18 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 	}
 
 	enrichMetric := metrics.AgentEnricherEventsTotalEnriched.WithLabelValues(fileHashEnricherName)
+	enrichFileDeletedMetric := metrics.AgentFileHashEnricherFileDeletedTotal
 	enrichProcMissingMetric := metrics.AgentFileHashEnricherProcMissingTotal
 	enrichErrorMetric := metrics.AgentEnricherEventsTotalErrors.WithLabelValues(fileHashEnricherName)
 
 	sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, proc.PID(req.EbpfEvent.Context.NodeHostPid), exec.Path)
-	if err == nil {
+	if err != nil {
+		if errors.Is(err, ErrFileDeleted) {
+			// If the file was deleted we can't calculate the hash from this or any other PID in the same mount namespace
+			enrichFileDeletedMetric.Inc()
+			return
+		}
+	} else {
 		setExecFileHash(exec, sha)
 		enrichMetric.Inc()
 		return
@@ -93,7 +100,8 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 			if errors.Is(err, ErrFileDoesNotExist) {
 				// If the wanted file does not exist in the PID mount namespace, it will also not exist in the mounts of the other.
 				// We can hence simply return, as we will not find the wanted file.
-				break
+				enrichErrorMetric.Inc()
+				return
 			}
 			continue
 		}
@@ -121,7 +129,12 @@ func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container,
 	path := filepath.Join(pidString, "root", execPath)
 	info, err := enricher.procFS.Stat(path)
 	if err != nil {
-		// If the wanted file does not exist inside the mount namespace, there is also nothing we can do.
+		_, pathErr := enricher.procFS.Stat(pidString)
+		if pathErr == nil {
+			// If the /proc/<pid> folder exists, but the wanted file does not, we can assume it was deleted
+			return nil, ErrFileDeleted
+		}
+		// If the file exec path doesn't exist, there is nothing we can do
 		return nil, ErrFileDoesNotExist
 	}
 
@@ -151,6 +164,7 @@ var (
 	ErrCannotGetInode         = errors.New("cannot get inode for path")
 	ErrProcFolderDoesNotExist = errors.New("/proc/<pid> folder does not exist")
 	ErrFileDoesNotExist       = errors.New("wanted file does not exist")
+	ErrFileDeleted            = errors.New("wanted file has been deleted")
 )
 
 func (enricher *fileHashEnricher) buildCacheKey(cont *containers.Container, info fs.FileInfo) fileHashCacheKey {
