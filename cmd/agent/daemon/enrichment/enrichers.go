@@ -69,25 +69,19 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 	}
 
 	enrichMetric := metrics.AgentEnricherEventsTotalEnriched.WithLabelValues(fileHashEnricherName)
-	enrichFileDeletedMetric := metrics.AgentFileHashEnricherFileDeletedTotal
 	enrichProcMissingMetric := metrics.AgentFileHashEnricherProcMissingTotal
 	enrichErrorMetric := metrics.AgentEnricherEventsTotalErrors.WithLabelValues(fileHashEnricherName)
 
 	sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, proc.PID(req.EbpfEvent.Context.NodeHostPid), exec.Path)
-	if err != nil {
-		if errors.Is(err, ErrFileDoesNotExist) && enricher.pidFolderExists(proc.PID(req.EbpfEvent.Context.NodeHostPid)) {
-			// If the file was deleted we can't calculate the hash from this or any other PID in the same mount namespace
-			enrichFileDeletedMetric.Inc()
-			return
-		}
-	} else {
+	if err == nil {
 		setExecFileHash(exec, sha)
 		enrichMetric.Inc()
 		return
 	}
 	enrichProcMissingMetric.Inc()
 
-	// If we can't find the file hash from the event PID, we try to find it from other PIDs in the same mount namespace
+	// We always fall back to find the file in the other PIDs of the same mount namespace when the file is not found
+	// in the PID of the event, this helps reducing the amount of empty hashes for short-lived processes
 	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(req.EbpfEvent.Context.MntID)) {
 		if pid == proc.PID(req.EbpfEvent.Context.NodeHostPid) {
 			// We already tried that PID of the event, skipping.
@@ -153,11 +147,6 @@ func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container,
 	enricher.cacheHash(key, hash)
 
 	return hash, nil
-}
-
-func (enricher *fileHashEnricher) pidFolderExists(pid proc.PID) bool {
-	_, err := enricher.procFS.Stat(strconv.Itoa(int(pid)))
-	return err == nil
 }
 
 var (

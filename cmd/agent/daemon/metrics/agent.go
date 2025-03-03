@@ -95,11 +95,6 @@ var (
 		Help: "Counter for tracking process files missing during file hash enrichment",
 	})
 
-	AgentFileHashEnricherFileDeletedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kvisor_agent_file_hash_enricher_file_deleted_total",
-		Help: "Counter for tracking process files deleted during file hash enrichment",
-	})
-
 	AgentFetchKubeIPInfoErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kvisor_agent_fetch_kube_ip_info_errors_total",
 		Help: "Counter for tracking kube info calls errors",
