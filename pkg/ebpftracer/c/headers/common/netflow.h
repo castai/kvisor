@@ -31,8 +31,7 @@ statfunc void record_netflow(struct __sk_buff *ctx,
                              enum flow_direction direction)
 {
     process_identity_t identity = {
-        .pid = task_ctx->pid,
-        .pid_start_time = task_ctx->start_time,
+        .host_pid = task_ctx->host_pid,
         .cgroup_id = task_ctx->cgroup_id,
     };
 

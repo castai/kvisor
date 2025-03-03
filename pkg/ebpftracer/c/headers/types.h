@@ -341,8 +341,7 @@ union addr {
 } __attribute__((__packed__));
 
 typedef struct process_identity {
-    __u32 pid;
-    __u64 pid_start_time;
+    __u32 host_pid;
     __u64 cgroup_id;
     // TODO(patrick.pichler): In the future we might want to get rid of comm and move it
     // to an enrichment stage in userspace. If we do this, we could probably also get rid

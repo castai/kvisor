@@ -38,10 +38,9 @@ type tracerGlobalConfigT struct {
 
 type tracerIpKey struct {
 	ProcessIdentity struct {
-		Pid          uint32
-		PidStartTime uint64
-		CgroupId     uint64
-		Comm         [16]uint8
+		HostPid  uint32
+		CgroupId uint64
+		Comm     [16]uint8
 	}
 	Tuple struct {
 		Saddr  struct{ Raw [16]uint8 }
