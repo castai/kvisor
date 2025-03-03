@@ -1,0 +1,18 @@
+alertmanager:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+server:
+  global:
+    scrape_interval: 5s
+    scrape_timeout: 5s
+  statefulSet:
+    enabled: true
+  persistentVolume:
+    size: 5Gi
+  retention: 1h

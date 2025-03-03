@@ -33,8 +33,6 @@ type Container struct {
 	Cgroup       *cgroup.Cgroup
 	Err          error
 
-	PIDs []uint32
-
 	Labels      map[string]string
 	Annotations map[string]string
 }
