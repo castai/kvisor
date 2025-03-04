@@ -197,7 +197,7 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 	res.ProcessName = strings.ToValidUTF8(decoder.ProcessNameString(e.Context.Comm[:]), "")
 	res.HostPid = e.Context.HostPid
 	res.Pid = e.Context.Pid
-	res.ProcessStartTime = uint64(time.Duration(e.Context.StartTime).Truncate(time.Second).Nanoseconds()) // nolint:gosec,
+	res.ProcessStartTime = uint64(time.Duration(e.Context.LeaderStartTime).Truncate(time.Second).Nanoseconds()) // nolint:gosec,
 	res.Data = nil
 	res.EventType = 0
 	parentStartTime := time.Duration(0)
