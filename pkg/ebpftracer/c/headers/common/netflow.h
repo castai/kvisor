@@ -32,7 +32,7 @@ statfunc void record_netflow(struct __sk_buff *ctx,
 {
     process_identity_t identity = {
         .pid = task_ctx->pid,
-        .pid_start_time = task_ctx->start_time,
+        .pid_start_time = task_ctx->leader_start_time,
         .cgroup_id = task_ctx->cgroup_id,
     };
 

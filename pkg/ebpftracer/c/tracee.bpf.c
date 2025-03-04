@@ -1730,8 +1730,11 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
                 }                                                                                                                                                                                   \
                 __builtin_memcpy(&e->eventctx, neteventctx, sizeof(event_context_t));                                                                                                               \
                                                                                                                                                                                                     \
-                u32 read_len = size;                                                                                                                                                                \
+                u32 read_len = 0;                                                                                                                                                                   \
                                                                                                                                                                                                     \
+                asm volatile("%[len] = %[size]"                                                                                                                                                     \
+                 : [len] "=r"(read_len)                                                                                                                                                             \
+                 : [size] "r"(size));                                                                                                                                                               \
                 asm goto("if %[size] < 1 goto %l[out]" ::[size] "r"(read_len)::out);                                                                                                                \
                 asm goto("if %[size] > %[max] goto %l[out]"                                                                                                                                         \
                             :                                                                                                                                                                       \
