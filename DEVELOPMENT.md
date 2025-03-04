@@ -66,13 +66,13 @@ limactl start ./tools/lima-ebpf.yaml
 You can use kind or any other local k8s cluster. Kind is recommended.
 
 ```sh
-kind create cluster
-kubectl cluster-info --context kind-kind
+kind create cluster --name=kvisor --config ./e2e/kind-config.yaml
+kubectl cluster-info --context kind-kvisor
 ```
 
 ### 3. Start tilt
 ```sh
-tilt up
+tilt up --context kind-kvisor
 ```
 
 ### 4. Port-forward server api
@@ -431,10 +431,11 @@ eksctl delete cluster <your-cluster-name> --region=us-east-1
 ```
 
 
-## Local Grafana and Pyroscope
+## Local Observability Stack
 
-Install
+Install the different components
 ```sh
+./tools/localenv/prometheus.sh
 ./tools/localenv/pyroscope.sh
 ./tools/localenv/grafana.sh
 ```

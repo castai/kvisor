@@ -166,7 +166,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		exporters = state.NewExporters(log)
 		if cfg.EBPFEventsEnabled {
-			exporters.ContainerEventsSender = state.NewCastaiContainerEventSender(ctx, log, castaiClient)
+			exporters.ContainerEvents = append(exporters.ContainerEvents, state.NewCastaiContainerEventSender(ctx, log, castaiClient))
 		}
 		if cfg.StatsEnabled {
 			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
@@ -210,6 +210,10 @@ func (a *App) Run(ctx context.Context) error {
 			return err
 		}
 		defer storageConn.Close()
+
+		if cfg.EBPFEventsEnabled {
+			exporters.ContainerEvents = append(exporters.ContainerEvents, state.NewClickhouseContainerEventsExporter(log, storageConn))
+		}
 
 		if cfg.Netflow.Enabled {
 			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
@@ -455,7 +459,7 @@ Currently we care only care about dns responses with valid answers.
 		}...)
 	}
 
-	if exporters.ContainerEventsSender != nil {
+	if len(exporters.ContainerEvents) > 0 {
 		policy.SignatureEvents = signatureEngine.TargetEvents()
 
 		for _, enabledEvent := range cfg.EBPFEventsPolicyConfig.EnabledEvents {
@@ -481,7 +485,7 @@ Currently we care only care about dns responses with valid answers.
 		dnsEnabled := lo.ContainsBy(cfg.EBPFEventsPolicyConfig.EnabledEvents, func(item events.ID) bool {
 			return item == events.NetPacketDNSBase
 		})
-		if exporters.ContainerEventsSender == nil && dnsEnabled {
+		if len(exporters.ContainerEvents) == 0 && dnsEnabled {
 			policy.Events = append(policy.Events, dnsEventPolicy)
 		}
 	}

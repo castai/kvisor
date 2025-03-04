@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
@@ -17,6 +18,10 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 	"github.com/minio/sha256-simd"
+)
+
+const (
+	fileHashEnricherName = "file_hash"
 )
 
 type fileHashCacheKey string
@@ -63,16 +68,20 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 		return
 	}
 
+	enrichMetric := metrics.AgentEnricherEventsTotalEnriched.WithLabelValues(fileHashEnricherName)
+	enrichProcMissingMetric := metrics.AgentFileHashEnricherProcMissingTotal
+	enrichErrorMetric := metrics.AgentEnricherEventsTotalErrors.WithLabelValues(fileHashEnricherName)
+
 	sha, err := enricher.calcFileHashForPID(req.EbpfEvent.Container, proc.PID(req.EbpfEvent.Context.NodeHostPid), exec.Path)
-	if err != nil {
-		if errors.Is(err, ErrFileDoesNotExist) {
-			return
-		}
-	} else {
+	if err == nil {
 		setExecFileHash(exec, sha)
+		enrichMetric.Inc()
 		return
 	}
+	enrichProcMissingMetric.Inc()
 
+	// We always fall back to find the file in the other PIDs of the same mount namespace when the file is not found
+	// in the PID of the event, this helps reducing the amount of empty hashes for short-lived processes
 	for _, pid := range enricher.mountNamespacePIDStore.GetBucket(proc.NamespaceID(req.EbpfEvent.Context.MntID)) {
 		if pid == proc.PID(req.EbpfEvent.Context.NodeHostPid) {
 			// We already tried that PID of the event, skipping.
@@ -85,15 +94,17 @@ func (enricher *fileHashEnricher) Enrich(ctx context.Context, req *EnrichedConta
 			if errors.Is(err, ErrFileDoesNotExist) {
 				// If the wanted file does not exist in the PID mount namespace, it will also not exist in the mounts of the other.
 				// We can hence simply return, as we will not find the wanted file.
+				enrichErrorMetric.Inc()
 				return
 			}
-
 			continue
 		}
 
 		setExecFileHash(exec, sha)
+		enrichMetric.Inc()
 		return
 	}
+	enrichErrorMetric.Inc()
 }
 
 func setExecFileHash(exec *castpb.Exec, sha []byte) {
@@ -112,7 +123,7 @@ func (enricher *fileHashEnricher) calcFileHashForPID(cont *containers.Container,
 	path := filepath.Join(pidString, "root", execPath)
 	info, err := enricher.procFS.Stat(path)
 	if err != nil {
-		// If the wanted file does not exist inside the mount namespace, there is also nothing we can do.
+		// If the file exec path doesn't exist, there is nothing we can do
 		return nil, ErrFileDoesNotExist
 	}
 

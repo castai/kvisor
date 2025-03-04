@@ -45,8 +45,10 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		}
 
 		c.log.Debugf("sending events batch, events=%d, groups=%d", currentEventsCount, len(batch.Items))
-		if err := c.exporters.ContainerEventsSender.Send(ctx, batch); err != nil {
-			c.log.Errorf("sending events batch: %s", err)
+		for _, exp := range c.exporters.ContainerEvents {
+			if err := exp.Send(ctx, batch); err != nil {
+				c.log.Errorf("sending events batch: %s", err)
+			}
 		}
 
 		// Reset state after data is sent.
@@ -131,8 +133,13 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				if err := c.exporters.ContainerEventsSender.Send(ctx, &castpb.ContainerEventsBatch{Items: []*castpb.ContainerEvents{group}}); err != nil {
-					c.log.Errorf("sending events batch for deletet container: %s", err)
+				batch := &castpb.ContainerEventsBatch{
+					Items: []*castpb.ContainerEvents{group},
+				}
+				for _, exp := range c.exporters.ContainerEvents {
+					if err := exp.Send(ctx, batch); err != nil {
+						c.log.Errorf("sending events batch for deleted container: %s", err)
+					}
 				}
 			}()
 			delete(groups, cgroupID)

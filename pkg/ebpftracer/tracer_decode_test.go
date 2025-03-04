@@ -194,7 +194,6 @@ func newMockContainersClient() *MockContainerClient {
 					ContainerRuntime: cgroup.ContainerdRuntime,
 					ContainerID:      dummyContainerID,
 				},
-				PIDs: []uint32{},
 			}, nil
 		},
 	}
