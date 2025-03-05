@@ -89,6 +89,7 @@ func NewRunCommand(version string) *cobra.Command {
 		signatureEngineOutputEventChanSize = command.Flags().Int("signature-engine-output-queue-size", 1000, "Output queue size for the signature engine")
 		socks5DetectionSignatureEnabled    = command.Flags().Bool("signature-socks5-detection-enabled", false, "Enables the socks5 detection signature")
 		socks5DetectionSignatureCacheSize  = command.Flags().Uint32("signature-socks5-detection-cache-size", 1024, "Configures the amount of state machine cache entries to detect socks5 information")
+		gitCloneDetectionSignatureEnabled  = command.Flags().Bool("signature-git-clone-detection-enabled", false, "Enables the git clone detection signature")
 
 		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
@@ -185,6 +186,7 @@ func NewRunCommand(version string) *cobra.Command {
 					SOCKS5DetectedSignatureConfig: signature.SOCKS5DetectionSignatureConfig{
 						CacheSize: *socks5DetectionSignatureCacheSize,
 					},
+					GitCloneDetectedSignatureEnabled: *gitCloneDetectionSignatureEnabled,
 				},
 			},
 			Castai: castaiClientCfg,
