@@ -1,15 +1,17 @@
 package bucketcache
 
 import (
+	"slices"
+
 	"github.com/elastic/go-freelru"
 )
 
-type BucketCache[K comparable, V any] struct {
+type BucketCache[K comparable, V comparable] struct {
 	cache         freelru.Cache[K, []V]
 	maxBucketSize int
 }
 
-func New[K comparable, V any](cacheSize uint32, maxBucketSize uint32, hash freelru.HashKeyCallback[K]) (*BucketCache[K, V], error) {
+func New[K comparable, V comparable](cacheSize uint32, maxBucketSize uint32, hash freelru.HashKeyCallback[K]) (*BucketCache[K, V], error) {
 	cache, err := freelru.NewSynced[K, []V](cacheSize, hash)
 	if err != nil {
 		return nil, err
@@ -23,6 +25,24 @@ func New[K comparable, V any](cacheSize uint32, maxBucketSize uint32, hash freel
 
 func (b *BucketCache[K, V]) AddToBucket(k K, val V) bool {
 	return b.addToCache(k, val, false)
+}
+
+func (b *BucketCache[K, V]) RemoveFromBucket(k K, val V) bool {
+	bucket, found := b.cache.Get(k)
+	if !found {
+		return false
+	}
+
+	newBucket := slices.DeleteFunc(bucket, func(v V) bool {
+		return v == val
+	})
+
+	if len(newBucket) == 0 {
+		return b.cache.Remove(k)
+	}
+
+	b.cache.Add(k, newBucket)
+	return true
 }
 
 func (b *BucketCache[K, V]) ForceAddToBucket(k K, val V) {
@@ -54,4 +74,8 @@ func (b *BucketCache[K, V]) addToCache(k K, val V, force bool) bool {
 func (b *BucketCache[K, V]) GetBucket(k K) []V {
 	res, _ := b.cache.Get(k)
 	return res
+}
+
+func (b *BucketCache[K, V]) RemoveBucket(k K) bool {
+	return b.cache.Remove(k)
 }

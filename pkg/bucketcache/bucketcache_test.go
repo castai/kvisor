@@ -115,4 +115,32 @@ func TestBucketCache(t *testing.T) {
 		result = cache.GetBucket(key3)
 		r.Equal([]int{3}, result)
 	})
+
+	t.Run("delete bucket", func(t *testing.T) {
+		r := require.New(t)
+
+		key := 10
+		vals := []int{1, 2, 3, 4, 5}
+
+		cache, err := New[int, int](5, 5, intHash)
+		r.NoError(err)
+
+		for _, val := range vals {
+			added := cache.AddToBucket(key, val)
+			r.True(added)
+		}
+
+		result := cache.GetBucket(key)
+		r.Equal(vals, result)
+
+		removed := cache.RemoveFromBucket(key, 3)
+		r.True(removed)
+		result = cache.GetBucket(key)
+		r.Equal([]int{1, 2, 4, 5}, result)
+
+		removed = cache.RemoveBucket(key)
+		r.True(removed)
+		result = cache.GetBucket(key)
+		r.Nil(result)
+	})
 }

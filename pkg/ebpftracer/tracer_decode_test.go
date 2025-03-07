@@ -1,10 +1,8 @@
 package ebpftracer
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -17,6 +15,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,7 +54,7 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 
 	r := require.New(t)
 
-	testEventDataPath := filepath.Join("decoder", "testdata", "event.bin")
+	testEventDataPath := filepath.Join("decoder", "testdata", "magic_write_event.bin")
 	testEventData, err := os.ReadFile(testEventDataPath)
 	r.NoError(err)
 
@@ -148,9 +147,9 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 	}
 }
 
-func TestDecodeAndExport(t *testing.T) {
+func TestDecodeMagicWriteEvent(t *testing.T) {
 	r := require.New(t)
-	path := filepath.Join("decoder", "testdata", "event.bin")
+	path := filepath.Join("decoder", "testdata", "magic_write_event.bin")
 	data, err := os.ReadFile(path)
 	r.NoError(err)
 
@@ -178,6 +177,95 @@ func TestDecodeAndExport(t *testing.T) {
 	r.EqualValues(0x403f00, magicArgs.Inode)
 }
 
+func TestDecodeSchedProcessExecEvent(t *testing.T) {
+	r := require.New(t)
+
+	mountNamespacePIDStore, err := types.NewPIDsPerNamespaceCache(1, 1)
+	r.NoError(err)
+
+	tr := &Tracer{
+		eventsChan: make(chan *types.Event),
+		cfg: Config{
+			ContainerClient:        newMockContainersClient(),
+			MountNamespacePIDStore: mountNamespacePIDStore,
+		},
+	}
+
+	t.Run("add PID to the bucket", func(t *testing.T) {
+		eventCtx, err := schedProcessExecTestEvent().Encode()
+		r.NoError(err)
+
+		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
+
+		go func() {
+			err = tr.decodeAndExportEvent(context.Background(), dec)
+			r.NoError(err)
+		}()
+
+		e := <-tr.eventsChan
+
+		r.EqualValues(events.SchedProcessExec, e.Context.EventID)
+		bucket := mountNamespacePIDStore.GetBucket(proc.NamespaceID(testTaskContext().MntId))
+		r.Equal([]proc.PID{testTaskContext().NodeHostPid}, bucket)
+	})
+}
+
+func TestDecodeSchedProcessExitEvent(t *testing.T) {
+	r := require.New(t)
+
+	mountNamespacePIDStore, err := types.NewPIDsPerNamespaceCache(1, 3)
+	r.NoError(err)
+
+	// Add some PIDs to the bucket to simulate SchedProcessExec events
+	mountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(testTaskContext().MntId), proc.PID(1))
+	mountNamespacePIDStore.AddToBucket(proc.NamespaceID(testTaskContext().MntId), proc.PID(2))
+	mountNamespacePIDStore.AddToBucket(proc.NamespaceID(testTaskContext().MntId), testTaskContext().NodeHostPid)
+
+	tr := &Tracer{
+		eventsChan: make(chan *types.Event),
+		cfg: Config{
+			ContainerClient:        newMockContainersClient(),
+			MountNamespacePIDStore: mountNamespacePIDStore,
+		},
+	}
+
+	t.Run("remove PID from the bucket", func(t *testing.T) {
+		eventCtx, err := schedProcessExitTestEvent().Encode()
+		r.NoError(err)
+
+		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
+
+		go func() {
+			err = tr.decodeAndExportEvent(context.Background(), dec)
+			r.NoError(err)
+		}()
+		e := <-tr.eventsChan
+
+		r.EqualValues(events.SchedProcessExit, e.Context.EventID)
+		bucket := mountNamespacePIDStore.GetBucket(proc.NamespaceID(testTaskContext().MntId))
+		r.Equal([]proc.PID{1, 2}, bucket)
+	})
+
+	t.Run("bucket is empty after removing PID 1", func(t *testing.T) {
+		event := schedProcessExitTestEvent()
+		event.Task.Pid = 1
+		eventCtx, err := event.Encode()
+		r.NoError(err)
+
+		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
+
+		go func() {
+			err = tr.decodeAndExportEvent(context.Background(), dec)
+			r.NoError(err)
+		}()
+		e := <-tr.eventsChan
+
+		r.EqualValues(events.SchedProcessExit, e.Context.EventID)
+		bucket := mountNamespacePIDStore.GetBucket(proc.NamespaceID(testTaskContext().MntId))
+		r.Empty(bucket)
+	})
+}
+
 func newMockContainersClient() *MockContainerClient {
 	return &MockContainerClient{
 		ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {
@@ -199,34 +287,35 @@ func newMockContainersClient() *MockContainerClient {
 	}
 }
 
-func buildTestEventData(t *testing.T) []byte {
-	ctx := TracerEventContextT{
-		Ts: 11,
-		Task: tracerTaskContextT{
-			CgroupId:    22,
-			Pid:         543,
-			Tid:         77,
-			Ppid:        4567,
-			HostPid:     5430,
-			HostTid:     124,
-			HostPpid:    555,
-			NodeHostPid: 21345,
-			Uid:         98123,
-			MntId:       1357,
-			PidId:       3758,
-			Comm:        [16]int8{0x48},
-		},
-		Eventid: uint32(events.ProcessOomKilled),
+func testTaskContext() tracerTaskContextT {
+	return tracerTaskContextT{
+		CgroupId:    22,
+		Pid:         543,
+		Tid:         77,
+		Ppid:        4567,
+		HostPid:     5430,
+		HostTid:     124,
+		HostPpid:    555,
+		NodeHostPid: 21345,
+		Uid:         98123,
+		MntId:       1357,
+		PidId:       3758,
+		Comm:        [16]int8{0x48},
 	}
+}
 
-	dataBuf := &bytes.Buffer{}
+func schedProcessExecTestEvent() *TracerEventContextT {
+	return &TracerEventContextT{
+		Ts:      10,
+		Eventid: uint32(events.SchedProcessExec),
+		Task:    testTaskContext(),
+	}
+}
 
-	err := binary.Write(dataBuf, binary.LittleEndian, ctx)
-	require.NoError(t, err)
-
-	// writes argument length
-	err = binary.Write(dataBuf, binary.LittleEndian, uint8(0))
-	require.NoError(t, err)
-
-	return dataBuf.Bytes()
+func schedProcessExitTestEvent() *TracerEventContextT {
+	return &TracerEventContextT{
+		Ts:      10,
+		Eventid: uint32(events.SchedProcessExit),
+		Task:    testTaskContext(),
+	}
 }
