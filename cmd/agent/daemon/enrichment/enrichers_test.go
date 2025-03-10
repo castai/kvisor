@@ -54,6 +54,27 @@ func TestFileHashEnricher(t *testing.T) {
 		})
 
 		r.Equal(wantedSum[:], event.GetExec().GetHashSha256())
+
+		event1 := &castpb.ContainerEvent{
+			EventType: castpb.EventType_EVENT_MAGIC_WRITE,
+			Data: &castpb.ContainerEvent_File{
+				File: &castpb.File{
+					Path: filepath.Join(fileName),
+				},
+			},
+		}
+
+		enricher.Enrich(context.TODO(), &EnrichedContainerEvent{
+			Event: event1,
+			EbpfEvent: &types.Event{
+				Context: &types.EventContext{
+					NodeHostPid: pid,
+				},
+				Args: types.MagicWriteArgs{},
+			},
+		})
+
+		r.Equal(wantedSum[:], event1.GetFile().GetHashSha256())
 	})
 
 	t.Run("should ignore missing file", func(t *testing.T) {

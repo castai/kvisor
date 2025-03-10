@@ -26,6 +26,7 @@ message ProcessExit {
 
 message File {
   string path = 1;
+  bytes hash_sha256 = 2;
 }
 
 message Tuple {
