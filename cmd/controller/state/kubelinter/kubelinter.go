@@ -79,6 +79,7 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/updateconfig"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
+	_ "golang.stackrox.io/kube-linter/pkg/templates/restartpolicy"
 	"k8s.io/apimachinery/pkg/types"
 )
 
