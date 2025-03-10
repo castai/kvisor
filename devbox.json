@@ -1,17 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetpack-io/devbox/0.10.4/.schema/devbox.schema.json",
   "packages": [
-    "go@1.22",
-    "llvm_14@latest",
-    "clang_14@latest",
+    "go@1.24.0",
+    "llvm_14@14.0.6",
+    "clang_14@14.0.6",
     "protobuf@29.3",
-    "protoc-gen-go@1.36.4",
+    "protoc-gen-go@1.36.5",
     "protoc-gen-go-grpc@1.5.1",
-    "tilt@0.33.10",
-    "bpftrace@latest",
-    "bpftool@latest",
-    "kind@0.22.0",
-    "kubectl@1.30.2"
+    "tilt@0.33.21",
+    "bpftrace@0.22.1",
+    "bpftool@5.19.12",
+    "kind@0.27.0",
+    "kubectl@1.32.2"
   ],
   "shell": {
     "init_hook": [
