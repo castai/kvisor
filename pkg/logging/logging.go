@@ -100,11 +100,11 @@ func (l *Logger) Error(msg string) {
 }
 
 func (l *Logger) Errorf(format string, a ...any) {
-	l.doLog(slog.LevelError, format, a...)
+	l.doLog(slog.LevelError, fmt.Sprintf(format, a...))
 }
 
 func (l *Logger) Infof(format string, a ...any) {
-	l.doLog(slog.LevelInfo, format, a...)
+	l.doLog(slog.LevelInfo, fmt.Sprintf(format, a...))
 }
 
 func (l *Logger) Info(msg string) {
@@ -116,7 +116,7 @@ func (l *Logger) Debug(msg string) {
 }
 
 func (l *Logger) Debugf(format string, a ...any) {
-	l.doLog(slog.LevelDebug, format, a...)
+	l.doLog(slog.LevelDebug, fmt.Sprintf(format, a...))
 }
 
 func (l *Logger) Warn(msg string) {
@@ -124,7 +124,7 @@ func (l *Logger) Warn(msg string) {
 }
 
 func (l *Logger) Warnf(format string, a ...any) {
-	l.doLog(slog.LevelWarn, format, a...)
+	l.doLog(slog.LevelWarn, fmt.Sprintf(format, a...))
 }
 
 func (l *Logger) Fatal(msg string) {
@@ -137,20 +137,15 @@ func (l *Logger) IsEnabled(lvl slog.Level) bool {
 	return l.log.Handler().Enabled(ctx, lvl)
 }
 
-func (l *Logger) doLog(lvl slog.Level, msg string, args ...any) {
+func (l *Logger) doLog(lvl slog.Level, msg string) {
 	ctx := context.Background()
 	if !l.log.Handler().Enabled(ctx, lvl) {
 		return
 	}
 	var pcs [1]uintptr
 	runtime.Callers(3, pcs[:])
-	if len(args) > 0 {
-		r := slog.NewRecord(time.Now(), lvl, fmt.Sprintf(msg, args...), pcs[0])
-		_ = l.log.Handler().Handle(ctx, r) //nolint:contextcheck
-	} else {
-		r := slog.NewRecord(time.Now(), lvl, msg, pcs[0])
-		_ = l.log.Handler().Handle(ctx, r) //nolint:contextcheck
-	}
+	r := slog.NewRecord(time.Now(), lvl, msg, pcs[0])
+	_ = l.log.Handler().Handle(ctx, r) //nolint:contextcheck
 }
 
 func (l *Logger) With(args ...any) *Logger {
