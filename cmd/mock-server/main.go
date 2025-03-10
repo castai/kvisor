@@ -64,7 +64,14 @@ func (m *MockServer) ContainerEventsBatchWriteStream(server grpc.ClientStreaming
 			return err
 		}
 		for _, event := range event.Items {
-			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, items=%+v", event.NodeName, event.PodName, event.ContainerName, len(event.Items))
+			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, item_count=%+v",
+				event.NodeName, event.PodName, event.ContainerName, len(event.Items))
+			data, err := protojson.Marshal(event)
+			if err != nil {
+				m.log.Debugf("error while dumping event json: %v", err)
+				continue
+			}
+			m.log.WithField("event", string(data)).Debug("processed event")
 		}
 	}
 }
