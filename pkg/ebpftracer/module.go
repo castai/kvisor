@@ -24,7 +24,7 @@ import (
 
 type TracerEventContextT = tracerEventContextT
 
-func (t *TracerEventContextT) Encode() ([]byte, error) {
+func (t TracerEventContextT) Encode() ([]byte, error) {
 	buf := &bytes.Buffer{}
 
 	err := binary.Write(buf, binary.LittleEndian, t)

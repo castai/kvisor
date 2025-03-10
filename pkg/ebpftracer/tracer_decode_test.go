@@ -192,7 +192,11 @@ func TestDecodeSchedProcessExecEvent(t *testing.T) {
 	}
 
 	t.Run("add PID to the bucket", func(t *testing.T) {
-		eventCtx, err := schedProcessExecTestEvent().Encode()
+		eventCtx, err := TracerEventContextT{
+			Ts:      10,
+			Eventid: uint32(events.SchedProcessExec),
+			Task:    testTaskContext(),
+		}.Encode()
 		r.NoError(err)
 
 		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
@@ -229,8 +233,14 @@ func TestDecodeSchedProcessExitEvent(t *testing.T) {
 		},
 	}
 
+	exitEvent := TracerEventContextT{
+		Ts:      10,
+		Eventid: uint32(events.SchedProcessExit),
+		Task:    testTaskContext(),
+	}
+
 	t.Run("remove PID from the bucket", func(t *testing.T) {
-		eventCtx, err := schedProcessExitTestEvent().Encode()
+		eventCtx, err := exitEvent.Encode()
 		r.NoError(err)
 
 		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
@@ -247,9 +257,8 @@ func TestDecodeSchedProcessExitEvent(t *testing.T) {
 	})
 
 	t.Run("bucket is empty after removing PID 1", func(t *testing.T) {
-		event := schedProcessExitTestEvent()
-		event.Task.Pid = 1
-		eventCtx, err := event.Encode()
+		exitEvent.Task.Pid = 1
+		eventCtx, err := exitEvent.Encode()
 		r.NoError(err)
 
 		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
@@ -301,21 +310,5 @@ func testTaskContext() tracerTaskContextT {
 		MntId:       1357,
 		PidId:       3758,
 		Comm:        [16]int8{0x48},
-	}
-}
-
-func schedProcessExecTestEvent() *TracerEventContextT {
-	return &TracerEventContextT{
-		Ts:      10,
-		Eventid: uint32(events.SchedProcessExec),
-		Task:    testTaskContext(),
-	}
-}
-
-func schedProcessExitTestEvent() *TracerEventContextT {
-	return &TracerEventContextT{
-		Ts:      10,
-		Eventid: uint32(events.SchedProcessExit),
-		Task:    testTaskContext(),
 	}
 }

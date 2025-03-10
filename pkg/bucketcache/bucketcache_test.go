@@ -2,6 +2,7 @@ package bucketcache
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -116,13 +117,13 @@ func TestBucketCache(t *testing.T) {
 		r.Equal([]int{3}, result)
 	})
 
-	t.Run("delete bucket", func(t *testing.T) {
+	t.Run("remove values from bucket", func(t *testing.T) {
 		r := require.New(t)
 
 		key := 10
 		vals := []int{1, 2, 3, 4, 5}
 
-		cache, err := New[int, int](5, 5, intHash)
+		cache, err := New[int, int](1, 5, intHash)
 		r.NoError(err)
 
 		for _, val := range vals {
@@ -133,14 +134,68 @@ func TestBucketCache(t *testing.T) {
 		result := cache.GetBucket(key)
 		r.Equal(vals, result)
 
-		removed := cache.RemoveFromBucket(key, 3)
-		r.True(removed)
-		result = cache.GetBucket(key)
-		r.Equal([]int{1, 2, 4, 5}, result)
+		t.Run("remove value", func(t *testing.T) {
+			removed := cache.RemoveFromBucket(key, 3)
+			r.True(removed)
+			result = cache.GetBucket(key)
+			r.Equal([]int{1, 2, 4, 5}, result)
+		})
 
-		removed = cache.RemoveBucket(key)
-		r.True(removed)
-		result = cache.GetBucket(key)
-		r.Nil(result)
+		t.Run("remove non-existing value", func(t *testing.T) {
+			removed := cache.RemoveFromBucket(key, 6)
+			r.False(removed)
+			result = cache.GetBucket(key)
+			r.Equal([]int{1, 2, 4, 5}, result)
+		})
+
+		t.Run("remove bucket", func(t *testing.T) {
+			removed := cache.RemoveBucket(key)
+			r.True(removed)
+			result = cache.GetBucket(key)
+			r.Empty(result)
+		})
+	})
+
+	t.Run("should add and remove values concurrently", func(t *testing.T) {
+		r := require.New(t)
+
+		var (
+			key     = 1
+			workers = 10
+			size    = 100
+		)
+
+		cache, err := New[int, int](1, uint32(workers*size), intHash)
+		r.NoError(err)
+
+		t.Run("add values", func(t *testing.T) {
+			for i := range workers {
+				go func() {
+					for j := range size {
+						added := cache.AddToBucket(key, i*size+j)
+						r.True(added)
+					}
+				}()
+			}
+			r.Eventually(func() bool {
+				return len(cache.GetBucket(key)) == workers*size
+			}, 2*time.Second, 10*time.Millisecond,
+				"expected %d values in the bucket, got %d", workers*size, len(cache.GetBucket(key)))
+		})
+
+		t.Run("remove values", func(t *testing.T) {
+			for i := range workers {
+				go func() {
+					for j := range size {
+						removed := cache.RemoveFromBucket(key, i*size+j)
+						r.True(removed)
+					}
+				}()
+			}
+			r.Eventually(func() bool {
+				return len(cache.GetBucket(key)) == 0
+			}, 2*time.Second, 10*time.Millisecond,
+				"expected 0 values in the bucket, got %d", len(cache.GetBucket(key)))
+		})
 	})
 }

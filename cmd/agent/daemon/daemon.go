@@ -62,6 +62,7 @@ func NewRunCommand(version string) *cobra.Command {
 			EnabledEvents: []events.ID{
 				events.SockSetState,
 				events.SchedProcessExec,
+				events.SchedProcessExit,
 				events.NetPacketDNSBase,
 				events.MagicWrite,
 				events.ProcessOomKilled,
