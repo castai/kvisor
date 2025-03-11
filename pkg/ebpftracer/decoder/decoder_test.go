@@ -726,7 +726,7 @@ func TestDecodeDns(t *testing.T) {
 func TestDecodeContext(t *testing.T) {
 	r := require.New(t)
 
-	path := filepath.Join("testdata", "event.bin")
+	path := filepath.Join("testdata", "magic_write_event.bin")
 	data, err := os.ReadFile(path)
 	r.NoError(err)
 

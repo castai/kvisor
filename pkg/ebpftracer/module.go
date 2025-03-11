@@ -2,6 +2,8 @@ package ebpftracer
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -21,6 +23,22 @@ import (
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 
 type TracerEventContextT = tracerEventContextT
+
+func (t TracerEventContextT) Encode() ([]byte, error) {
+	buf := &bytes.Buffer{}
+
+	err := binary.Write(buf, binary.LittleEndian, t)
+	if err != nil {
+		return nil, err
+	}
+
+	// writes argument length
+	err = binary.Write(buf, binary.LittleEndian, uint8(0))
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
 
 func newModule(log *logging.Logger) *module {
 	return &module{

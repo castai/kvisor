@@ -96,6 +96,8 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	switch eventId {
 	case events.SchedProcessExec:
 		t.handleSchedProcessExecEvent(&eventCtx)
+	case events.SchedProcessExit:
+		t.handleSchedProcessExitEvent(&eventCtx)
 	default:
 	}
 
@@ -161,6 +163,14 @@ func (t *Tracer) handleSchedProcessExecEvent(eventCtx *types.EventContext) {
 		t.cfg.MountNamespacePIDStore.ForceAddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 	} else {
 		t.cfg.MountNamespacePIDStore.AddToBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
+	}
+}
+
+func (t *Tracer) handleSchedProcessExitEvent(eventCtx *types.EventContext) {
+	if eventCtx.Pid == 1 {
+		t.cfg.MountNamespacePIDStore.RemoveBucket(proc.NamespaceID(eventCtx.MntID))
+	} else {
+		t.cfg.MountNamespacePIDStore.RemoveFromBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 	}
 }
 
