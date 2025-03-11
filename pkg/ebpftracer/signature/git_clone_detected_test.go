@@ -74,6 +74,12 @@ func TestFindCloneAndRepository(t *testing.T) {
 			expectedRepo:       "https://repo.com",
 			expectedCloneFound: true,
 		},
+		{
+			name:               "complex git clone just branch",
+			args:               []string{"clone", "--branch", "v1.57.0", "--single-branch", "--depth", "1", "-c", "advice.detachedHead=false", "-q", "https://github.com/golangci/golangci-lint.git"},
+			expectedRepo:       "https://github.com/golangci/golangci-lint.git",
+			expectedCloneFound: true,
+		},
 	}
 
 	for _, test := range testCases {
