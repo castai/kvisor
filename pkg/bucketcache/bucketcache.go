@@ -82,10 +82,21 @@ func (b *BucketCache[K, V]) addToCache(k K, val V, force bool) bool {
 }
 
 func (b *BucketCache[K, V]) GetBucket(k K) []V {
-	res, _ := b.cache.Get(k)
-	return res
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	res, found := b.cache.Get(k)
+	if !found {
+		return nil
+	}
+
+	// clone to avoid accidental mutation
+	return slices.Clone(res)
 }
 
 func (b *BucketCache[K, V]) RemoveBucket(k K) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	return b.cache.Remove(k)
 }
