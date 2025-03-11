@@ -6,6 +6,7 @@ type DefaultSignatureConfig struct {
 	SOCKS5DetectedSignatureEnabled   bool                           `json:"SOCKS5DetectedSignatureEnabled"`
 	SOCKS5DetectedSignatureConfig    SOCKS5DetectionSignatureConfig `json:"SOCKS5DetectedSignatureConfig"`
 	GitCloneDetectedSignatureEnabled bool                           `json:"GitCloneSignatureEnabled"`
+	GitCloneDetectedSignatureConfig  GitCloneSignatureConfig        `json:"GitCloneSignatureConfig"`
 }
 
 func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signature, error) {
@@ -19,7 +20,7 @@ func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signat
 	}
 
 	if cfg.DefaultSignatureConfig.GitCloneDetectedSignatureEnabled {
-		result = append(result, NewGitCloneDetectedSignature(log))
+		result = append(result, NewGitCloneDetectedSignature(log, cfg.DefaultSignatureConfig.GitCloneDetectedSignatureConfig))
 	}
 
 	return result, nil
