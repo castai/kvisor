@@ -13,12 +13,18 @@ import (
 var _ Signature = (*GitCloneDetected)(nil)
 
 type GitCloneDetected struct {
-	log *logging.Logger
+	log             *logging.Logger
+	redactPasswords bool
 }
 
-func NewGitCloneDetectedSignature(log *logging.Logger) *GitCloneDetected {
+type GitCloneSignatureConfig struct {
+	RedactPasswords bool
+}
+
+func NewGitCloneDetectedSignature(log *logging.Logger, cfg GitCloneSignatureConfig) *GitCloneDetected {
 	return &GitCloneDetected{
-		log: log,
+		log:             log,
+		redactPasswords: cfg.RedactPasswords,
 	}
 }
 
@@ -49,6 +55,10 @@ func (s *GitCloneDetected) OnEvent(event *types.Event) *v1.SignatureFinding {
 		return nil
 	}
 
+	if s.redactPasswords {
+		repo = redactPasswords(repo)
+	}
+
 	finding := &v1.GitCloneDetectedFinding{
 		FullRepo: repo,
 	}
@@ -67,6 +77,18 @@ func (s *GitCloneDetected) OnEvent(event *types.Event) *v1.SignatureFinding {
 			GitCloneDetected: finding,
 		},
 	}
+}
+
+func redactPasswords(repo string) string {
+	u, err := url.Parse(repo)
+	if err == nil && u.User != nil {
+		// We only want to redact the password.
+		if _, found := u.User.Password(); found {
+			u.User = url.UserPassword(u.User.Username(), "redacted")
+			repo = u.String()
+		}
+	}
+	return repo
 }
 
 func parseRepo(repo string) (v1.GitCloneRemoteType, string, string, bool) {

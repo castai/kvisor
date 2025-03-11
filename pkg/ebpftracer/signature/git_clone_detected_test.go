@@ -308,7 +308,9 @@ func TestGitCloneDetectedSignature(t *testing.T) {
 		t.Run(test.title, func(t *testing.T) {
 			r := require.New(t)
 
-			signature := NewGitCloneDetectedSignature(log)
+			signature := NewGitCloneDetectedSignature(log, GitCloneSignatureConfig{
+				RedactPasswords: true,
+			})
 
 			for i, e := range test.events {
 				result := signature.OnEvent(&e.event)
@@ -319,6 +321,44 @@ func TestGitCloneDetectedSignature(t *testing.T) {
 				}
 				r.Equal(e.expectedFinding, result, "match finding for event nr. %d: %d", i, e.event.Context.EventID)
 			}
+		})
+	}
+}
+
+func Test_redactPasswords(t *testing.T) {
+	tests := []struct {
+		name string
+		repo string
+		want string
+	}{
+		{
+			name: "url with username",
+			repo: "https://user@repo.com",
+			want: "https://user@repo.com",
+		},
+		{
+			name: "url with username and password",
+			repo: "https://user:password@repo.com",
+			want: "https://user:redacted@repo.com",
+		},
+		{
+			name: "clone local repo with relative path",
+			repo: "./repo",
+			want: "./repo",
+		},
+		{
+			name: "clone local repo with absolute path",
+			repo: "/repo",
+			want: "/repo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+
+			got := redactPasswords(tt.repo)
+
+			r.Equal(tt.want, got)
 		})
 	}
 }
