@@ -146,41 +146,42 @@ func (a *App) Run(ctx context.Context) error {
 		if err := a.syncRemoteConfig(ctx, castaiClient); err != nil {
 			return fmt.Errorf("sync remote config: %w", err)
 		}
-		if a.cfg.SendLogsLevel != "" && a.cfg.Castai.Valid() {
+		if cfg.SendLogsLevel != "" {
 			castaiLogsExporter := castai.NewLogsExporter(castaiClient)
 			go castaiLogsExporter.Run(ctx) //nolint:errcheck
 
-			if a.cfg.PromMetricsExportEnabled {
+			if cfg.PromMetricsExportEnabled {
 				castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
 					PodName:        podName,
-					ExportInterval: a.cfg.PromMetricsExportInterval,
+					ExportInterval: cfg.PromMetricsExportInterval,
 				})
 				go castaiMetricsExporter.Run(ctx) //nolint:errcheck
 			}
 
 			logCfg.Export = logging.ExportConfig{
 				ExportFunc: castaiLogsExporter.ExportFunc(),
-				MinLevel:   logging.MustParseLevel(a.cfg.SendLogsLevel),
+				MinLevel:   logging.MustParseLevel(cfg.SendLogsLevel),
 			}
-			log = logging.New(logCfg)
 		}
+		log = logging.New(logCfg)
 		exporters = state.NewExporters(log)
 		if cfg.EBPFEventsEnabled {
 			exporters.ContainerEvents = append(exporters.ContainerEvents, state.NewCastaiContainerEventSender(ctx, log, castaiClient))
 		}
 		if cfg.StatsEnabled {
-			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, cfg.ExportersQueueSize))
 		}
 		if cfg.Netflow.Enabled {
-			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, a.cfg.ExportersQueueSize))
+			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, cfg.ExportersQueueSize))
 		}
 		if cfg.ProcessTree.Enabled {
-			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, a.cfg.ExportersQueueSize)
+			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, cfg.ExportersQueueSize)
 			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
 		}
 	} else {
 		log = logging.New(logCfg)
 		exporters = state.NewExporters(log)
+		log.Warn("castai config is not set or it is invalid, running agent in standalone mode")
 	}
 
 	kubeAPIServiceConn, err := grpc.NewClient(
@@ -216,12 +217,12 @@ func (a *App) Run(ctx context.Context) error {
 		}
 
 		if cfg.Netflow.Enabled {
-			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, a.cfg.ExportersQueueSize)
+			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, cfg.ExportersQueueSize)
 			exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
 		}
 
 		if cfg.ProcessTree.Enabled {
-			exporter := state.NewClickhouseProcessTreeExporter(log, storageConn, a.cfg.ExportersQueueSize)
+			exporter := state.NewClickhouseProcessTreeExporter(log, storageConn, cfg.ExportersQueueSize)
 			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
 		}
 	}
@@ -232,7 +233,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	procHandler := proc.New()
 
-	cgroupClient, err := cgroup.NewClient(log, a.cfg.HostCgroupsDir, procHandler.PSIEnabled())
+	cgroupClient, err := cgroup.NewClient(log, cfg.HostCgroupsDir, procHandler.PSIEnabled())
 	if err != nil {
 		return err
 	}
@@ -243,7 +244,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer criCloseFn() //nolint:errcheck
 
-	containersClient, err := containers.NewClient(log, cgroupClient, a.cfg.ContainerdSockPath, procHandler, criClient, a.cfg.EventLabels, a.cfg.EventAnnotations)
+	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
 	if err != nil {
 		return err
 	}
@@ -265,11 +266,11 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer ct.Close()
 
-	activeSignatures, err := signature.DefaultSignatures(log, a.cfg.SignatureEngineConfig)
+	activeSignatures, err := signature.DefaultSignatures(log, cfg.SignatureEngineConfig)
 	if err != nil {
 		return fmt.Errorf("error while configuring signatures: %w", err)
 	}
-	signatureEngine := signature.NewEngine(activeSignatures, log, a.cfg.SignatureEngineConfig)
+	signatureEngine := signature.NewEngine(activeSignatures, log, cfg.SignatureEngineConfig)
 
 	mountNamespacePIDStore, err := getInitializedMountNamespaceStore(procHandler)
 	if err != nil {
@@ -278,7 +279,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	enrichmentService := enrichment.NewService(log, enrichment.Config{
 		WorkerCount:    int(math.Min(float64(runtime.NumCPU()), 4)), // Cap to max 4 enrichment goroutines.
-		EventEnrichers: getActiveEnrichers(a.cfg.EnricherConfig, log, mountNamespacePIDStore),
+		EventEnrichers: getActiveEnrichers(cfg.EnricherConfig, log, mountNamespacePIDStore),
 	})
 
 	pidNSID, err := procHandler.GetCurrentPIDNSID()
@@ -292,20 +293,20 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
-		BTFPath:                            a.cfg.BTFPath,
-		SignalEventsRingBufferSize:         a.cfg.EBPFSignalEventsRingBufferSize,
-		EventsRingBufferSize:               a.cfg.EBPFEventsRingBufferSize,
-		SkbEventsRingBufferSize:            a.cfg.EBPFSkbEventsRingBufferSize,
-		EventsOutputChanSize:               a.cfg.EBPFEventsOutputChanSize,
+		BTFPath:                            cfg.BTFPath,
+		SignalEventsRingBufferSize:         cfg.EBPFSignalEventsRingBufferSize,
+		EventsRingBufferSize:               cfg.EBPFEventsRingBufferSize,
+		SkbEventsRingBufferSize:            cfg.EBPFSkbEventsRingBufferSize,
+		EventsOutputChanSize:               cfg.EBPFEventsOutputChanSize,
 		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
 		ContainerClient:                    containersClient,
 		CgroupClient:                       cgroupClient,
-		AutomountCgroupv2:                  a.cfg.AutomountCgroupv2,
+		AutomountCgroupv2:                  cfg.AutomountCgroupv2,
 		SignatureEngine:                    signatureEngine,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
-		NetflowSampleSubmitIntervalSeconds: a.cfg.Netflow.SampleSubmitIntervalSeconds,
-		NetflowGrouping:                    a.cfg.Netflow.Grouping,
+		NetflowSampleSubmitIntervalSeconds: cfg.Netflow.SampleSubmitIntervalSeconds,
+		NetflowGrouping:                    cfg.Netflow.Grouping,
 		TrackSyscallStats:                  cfg.StatsEnabled,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
@@ -328,7 +329,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	ctrl := state.NewController(
 		log,
-		a.cfg.State,
+		cfg.State,
 		exporters,
 		containersClient,
 		netStatsReader,
@@ -369,7 +370,7 @@ func (a *App) Run(ctx context.Context) error {
 		tracererr <- tracer.Run(ctx)
 	}()
 
-	for _, namespace := range a.cfg.MutedNamespaces {
+	for _, namespace := range cfg.MutedNamespaces {
 		err := ctrl.MuteNamespace(namespace)
 		if err != nil {
 			log.Warnf("error while muting namespace: %v", err)
@@ -382,8 +383,8 @@ func (a *App) Run(ctx context.Context) error {
 	go containersRefreshLoop(ctx, cfg.ContainersRefreshInterval, log, containersClient)
 
 	kernelVersion, _ := kernel.CurrentKernelVersion()
-	log.Infof("running kvisor agent, version=%s, kernel_version=%s, init_duration=%v", a.cfg.Version, kernelVersion, time.Since(start))
-	defer log.Infof("stopping kvisor agent, version=%s", a.cfg.Version)
+	log.Infof("running kvisor agent, version=%s, kernel_version=%s, init_duration=%v", cfg.Version, kernelVersion, time.Since(start))
+	defer log.Infof("stopping kvisor agent, version=%s", cfg.Version)
 
 	select {
 	case err := <-tracererr:
