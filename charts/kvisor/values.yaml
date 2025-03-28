@@ -133,6 +133,9 @@ agent:
   debug:
     ebpf: false
 
+  # Additional environment variables for the agent container.
+  additionalEnv: {}
+
 controller:
   enabled: true
 
@@ -194,6 +197,12 @@ controller:
 
   prometheusScrape:
     enabled: true
+
+  # Additional environment variables for the controller container.
+  additionalEnv: {}
+
+  # Deprecated: use additionalEnv instead.
+  extraEnv: {}
 
 eventGenerator:
   enabled: false

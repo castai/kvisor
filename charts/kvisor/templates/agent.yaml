@@ -126,6 +126,10 @@ spec:
             - name: KVISOR_EBPF_DEBUG
               value: "1"
           {{- end }}
+          {{- range $k, $v := .Values.agent.additionalEnv }}
+            - name: {{ $k }}
+              value: "{{ $v }}"
+          {{- end }}
           ports:
             - containerPort: {{.Values.agent.metricsHTTPListenPort}}
               name: metrics

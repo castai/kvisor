@@ -81,7 +81,7 @@ spec:
                      {{- else -}}
                        {{ .Values.castai.grpcAddr | quote }}
                      {{- end }}
-        {{- if .Values.castai.clusterIdSecretKeyRef.name }}
+          {{- if .Values.castai.clusterIdSecretKeyRef.name }}
           {{- if ne .Values.castai.clusterID "" }}
           {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
           {{- end }}
@@ -99,15 +99,19 @@ spec:
               value: {{ .Values.castai.clusterID | quote }}
           {{- end }}
           {{- end }}
-        {{- range $key, $value := .Values.controller.extraEnv }}
+          {{- range $k, $v := .Values.controller.additionalEnv }}
+            - name: {{ $k }}
+              value: "{{ $v }}"
+          {{- end }}
+          {{- range $key, $value := .Values.controller.extraEnv }}
             - name: {{ $key }}
               value: {{ $value }}
-        {{- end }}
-        {{- if .Values.castai.enabled }}
+          {{- end }}
+          {{- if .Values.castai.enabled }}
           envFrom:
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}
-        {{- end }}
+          {{- end }}
           ports:
             - name: http-server
               containerPort: {{ .Values.controller.httpListenPort }}
