@@ -1180,6 +1180,30 @@ int BPF_KPROBE(trace_security_socket_connect)
     return 0;
 }
 
+SEC("kprobe/cap_capable")
+int BPF_KPROBE(trace_cap_capable)
+{
+    struct task_struct *task = (struct task_struct *) bpf_get_current_task();
+
+    // Skip if cgroup is muted.
+    u64 cgroup_id = 0;
+    if (global_config.cgroup_v1) {
+        cgroup_id = get_cgroup_v1_subsys0_id(task);
+    } else {
+        cgroup_id = bpf_get_current_cgroup_id();
+    }
+    if (should_skip_cgroup(cgroup_id)) {
+        return 0;
+    }
+
+    caps_t caps_value = {};
+
+    bpf_map_update_elem(&capabilities_cache, &cgroup_id, &caps_value, BPF_ANY);
+
+    bpf_printk("capability read from cgroup %lld\n", cgroup_id);
+    return 0;
+}
+
 enum bin_type_e {
     SEND_VFS_WRITE = 1,
     SEND_MPROTECT,

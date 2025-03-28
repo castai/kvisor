@@ -137,6 +137,7 @@ type tracerProgramSpecs struct {
 	SysExitSubmit                   *ebpf.ProgramSpec `ebpf:"sys_exit_submit"`
 	SyscallExecve                   *ebpf.ProgramSpec `ebpf:"syscall__execve"`
 	SyscallExecveat                 *ebpf.ProgramSpec `ebpf:"syscall__execveat"`
+	TraceCapCapable                 *ebpf.ProgramSpec `ebpf:"trace_cap_capable"`
 	TraceExecBinprm                 *ebpf.ProgramSpec `ebpf:"trace_exec_binprm"`
 	TraceFdInstall                  *ebpf.ProgramSpec `ebpf:"trace_fd_install"`
 	TraceFileModified               *ebpf.ProgramSpec `ebpf:"trace_file_modified"`
@@ -172,6 +173,7 @@ type tracerProgramSpecs struct {
 type tracerMapSpecs struct {
 	ArgsMap                 *ebpf.MapSpec `ebpf:"args_map"`
 	Bufs                    *ebpf.MapSpec `ebpf:"bufs"`
+	CapabilitiesCache       *ebpf.MapSpec `ebpf:"capabilities_cache"`
 	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
 	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
 	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
@@ -243,6 +245,7 @@ func (o *tracerObjects) Close() error {
 type tracerMaps struct {
 	ArgsMap                 *ebpf.Map `ebpf:"args_map"`
 	Bufs                    *ebpf.Map `ebpf:"bufs"`
+	CapabilitiesCache       *ebpf.Map `ebpf:"capabilities_cache"`
 	ConfigMap               *ebpf.Map `ebpf:"config_map"`
 	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
 	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
@@ -285,6 +288,7 @@ func (m *tracerMaps) Close() error {
 	return _TracerClose(
 		m.ArgsMap,
 		m.Bufs,
+		m.CapabilitiesCache,
 		m.ConfigMap,
 		m.DroppedBinaryInodes,
 		m.EventDataMap,
@@ -355,6 +359,7 @@ type tracerPrograms struct {
 	SysExitSubmit                   *ebpf.Program `ebpf:"sys_exit_submit"`
 	SyscallExecve                   *ebpf.Program `ebpf:"syscall__execve"`
 	SyscallExecveat                 *ebpf.Program `ebpf:"syscall__execveat"`
+	TraceCapCapable                 *ebpf.Program `ebpf:"trace_cap_capable"`
 	TraceExecBinprm                 *ebpf.Program `ebpf:"trace_exec_binprm"`
 	TraceFdInstall                  *ebpf.Program `ebpf:"trace_fd_install"`
 	TraceFileModified               *ebpf.Program `ebpf:"trace_file_modified"`
@@ -402,6 +407,7 @@ func (p *tracerPrograms) Close() error {
 		p.SysExitSubmit,
 		p.SyscallExecve,
 		p.SyscallExecveat,
+		p.TraceCapCapable,
 		p.TraceExecBinprm,
 		p.TraceFdInstall,
 		p.TraceFileModified,

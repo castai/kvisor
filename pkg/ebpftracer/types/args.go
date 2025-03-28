@@ -3567,6 +3567,12 @@ type ProcFdLinkResolvedArgs struct {
   Fd string
 }
 
+type CapCapableArgs struct {
+  internalArgs
+
+  Cap int32
+}
+
 type TestEventArgs struct {
   internalArgs
 }
