@@ -69,6 +69,7 @@ enum event_id_e {
     TTY_WRITE,
     STDIO_VIA_SOCKET,
     PROC_FD_LINK_RESOLVED,
+    CAP_CAPABLE,
     MAX_EVENT_ID,
 };
 
@@ -446,5 +447,16 @@ typedef struct net_task_context {
 // layer 7 parsing related constants
 #define socks5_min_len 4
 #define ssh_min_len    4 // the initial SSH messages always send `SSH-`
+
+// TODO(samu): Get size from CAP_LAST_CAP
+// https://elixir.bootlin.com/linux/v5.10/source/include/uapi/linux/capability.h#L420
+#define CAP_LAST_CAP 40
+
+#define CAP_TO_INDEX(x)     ((x) >> 5)        /* 1 << 5 == bits in __u32 */
+#define CAP_TO_MASK(x)      (1 << ((x) & 31)) /* mask for indexed __u32 */
+
+typedef struct caps {
+    u32 used[CAP_TO_INDEX(CAP_LAST_CAP) + 1];
+} __attribute__((__packed__)) caps_t;
 
 #endif

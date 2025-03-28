@@ -104,6 +104,10 @@ func NewRunCommand(version string) *cobra.Command {
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
+		workloadProfileEnabled        = command.Flags().Bool("workload-profile-enabled", false, "Enables workload profile tracking")
+		workloadProfileScrapeInterval = command.Flags().Duration("workload-profile-scrape-interval", 30*time.Second, "Workload profile scrape interval")
+		workloadProfileCacheSize      = command.Flags().Uint32("workload-profile-cache-size", 10240, "Workload profile cache size")
+
 		clickhouseAddr     = command.Flags().String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = command.Flags().String("clickhouse-database", "", "Clickhouse database name")
 		clickhouseUsername = command.Flags().String("clickhouse-username", "", "Clickhouse username")
@@ -215,6 +219,11 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			ProcessTree: app.ProcessTreeConfig{
 				Enabled: *processTreeEnabled,
+			},
+			WorkloadProfile: app.WorkloadProfileConfig{
+				Enabled:        *workloadProfileEnabled,
+				ScrapeInterval: *workloadProfileScrapeInterval,
+				CacheSize:      *workloadProfileCacheSize,
 			},
 			KubeAPIServiceAddr:        *kubeAPIServiceAddr,
 			ExportersQueueSize:        *exportersQueueSize,

@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -type caps_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -type caps_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 
 type TracerEventContextT = tracerEventContextT
 
@@ -103,11 +103,13 @@ func (m *module) load(cfg Config) error {
 	}); err != nil {
 		return err
 	}
+
 	mapBufferSpec, found := spec.Maps["network_traffic_buffer_map"]
 	if !found {
 		return fmt.Errorf("error network_traffic_buffer_map map spec not found")
 	}
 	m.networkTrafficSummaryMapSpec = mapBufferSpec
+
 	summaryMapBuffer, err := buildNetworkSummaryBufferMap(mapBufferSpec)
 	if err != nil {
 		return fmt.Errorf("error while building summary map buffer: %w", err)
@@ -116,6 +118,7 @@ func (m *module) load(cfg Config) error {
 	spec.Maps["signal_events"].MaxEntries = cfg.SignalEventsRingBufferSize
 	spec.Maps["events"].MaxEntries = cfg.EventsRingBufferSize
 	spec.Maps["skb_events"].MaxEntries = cfg.SkbEventsRingBufferSize
+	spec.Maps["cgroup_caps_cache"].MaxEntries = cfg.WorkloadProfileConfig.CacheSize
 
 	if err := spec.LoadAndAssign(&objs, &ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{},

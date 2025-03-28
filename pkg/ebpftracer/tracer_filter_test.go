@@ -123,20 +123,24 @@ func (m MockCgroupClient) LoadCgroup(id cgroup.ID, path string) {
 }
 
 type MockContainerClient struct {
-	ContainerGetter func(ctx context.Context, cgroup uint64) (*containers.Container, error)
-	CgroupCleaner   func(cgroup uint64)
+	ContainerGetter func(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
+	CgroupCleaner   func(cgroup cgroup.ID)
 }
 
 func (c *MockContainerClient) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error) {
 	return nil, nil
 }
 
-func (c *MockContainerClient) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error) {
+func (c *MockContainerClient) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error) {
 	if c.ContainerGetter == nil {
 		return nil, nil
 	}
 
 	return c.ContainerGetter(ctx, cgroup)
+}
+
+func (c *MockContainerClient) GetCgroupContainersSnapshot() map[cgroup.ID]*containers.Container {
+	return nil
 }
 
 func (c *MockContainerClient) CleanupCgroup(cgroup uint64) {

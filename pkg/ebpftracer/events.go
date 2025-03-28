@@ -5728,6 +5728,20 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 		},
 
+		events.CapCapable: {
+			ID:      events.CapCapable,
+			id32Bit: events.Sys32Undefined,
+			name:    "cap_capable",
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeCapCapable, required: true},
+				},
+			},
+			params: []argMeta{
+				{Type: "int", Name: "cap"},
+			},
+		},
+
 		// Event used for testing in unit tests
 		events.TestEvent: {
 			ID:       events.TestEvent,

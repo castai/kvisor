@@ -8,7 +8,7 @@ const (
 
 type ID uint32
 
-// NOTE: Events should match defined values in ebpf code.
+// NOTE: Events should match defined values in ebpf code (event_id_e in headers/types.h)
 
 // Common events (used by all architectures).
 const (
@@ -43,6 +43,7 @@ const (
 	TtyWrite
 	StdioViaSocket
 	ProcFdLinkResolved
+	CapCapable
 	MaxCommonID
 )
 

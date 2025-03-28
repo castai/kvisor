@@ -19,6 +19,7 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
+	"github.com/cilium/ebpf"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
@@ -33,6 +34,7 @@ type ActualDestinationGetter interface {
 
 type ContainerClient interface {
 	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
+	GetCgroupContainersSnapshot() map[cgroup.ID]*containers.Container
 	AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error)
 	CleanupCgroup(cgroup cgroup.ID)
 }
@@ -82,7 +84,13 @@ type Config struct {
 	TrackSyscallStats                  bool
 	ProcessTreeCollector               processTreeCollector
 	MetricsReporting                   MetricsReportingConfig
+	WorkloadProfileConfig              WorkloadProfileConfig
 	PodName                            string
+}
+
+type WorkloadProfileConfig struct {
+	ScrapeInterval time.Duration
+	CacheSize      uint32
 }
 
 type cgroupCleanupRequest struct {
@@ -184,6 +192,9 @@ func (t *Tracer) Run(ctx context.Context) error {
 		return t.skbEventsReadLoop(ctx)
 	})
 	errg.Go(func() error {
+		return t.workloadProfilesReadLoop(ctx)
+	})
+	errg.Go(func() error {
 		return t.cgroupCleanupLoop(ctx)
 	})
 
@@ -217,6 +228,61 @@ func (t *Tracer) signalEventsReadLoop(ctx context.Context) error {
 
 func (t *Tracer) eventsReadLoop(ctx context.Context) error {
 	return t.runPerfBufReaderLoop(ctx, t.module.objects.Events)
+}
+
+func (t *Tracer) workloadProfilesReadLoop(ctx context.Context) error {
+	return t.runWorkloadProfileReaderLoop(ctx, t.module.objects.CgroupCapsCache)
+}
+
+func (t *Tracer) runWorkloadProfileReaderLoop(ctx context.Context, capabilitiesMap *ebpf.Map) error {
+	ticker := time.NewTicker(t.cfg.WorkloadProfileConfig.ScrapeInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			for cgroup, container := range t.cfg.ContainerClient.GetCgroupContainersSnapshot() {
+				caps, err := getEffectiveCapsForCgroup(capabilitiesMap, cgroup)
+				if err != nil {
+					t.log.Errorf("failed to get effective capabilities for cgroup %d: %v", cgroup, err)
+					continue
+				}
+				if len(caps) > 0 {
+					// TODO(samu): send capabilities to exporter using deltas instead of lazy printing
+					t.log.Infof("capabilities scraped, pod_name=%s, pod_namespace=%s, capabilities=%v", container.PodName, container.PodNamespace, caps)
+				}
+			}
+		}
+	}
+}
+
+func getEffectiveCapsForCgroup(capabilitiesMap *ebpf.Map, cgroupID uint64) ([]uint32, error) {
+	var caps tracerCapsT
+	err := capabilitiesMap.Lookup(cgroupID, &caps)
+	if err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		return nil, fmt.Errorf("looking up cgroup capabilities: %w", err)
+	}
+	var effectiveCaps []uint32
+
+	// Process each capabilities word
+	for i := range len(caps.Used) {
+		// Skip if no capabilities are set in this word
+		if caps.Used[i] == 0 {
+			continue
+		}
+
+		// Check each bit in the word
+		for bit := uint32(0); bit < 32; bit++ {
+			// If the bit is set, add the capability to the list
+			if (caps.Used[i] & (1 << bit)) != 0 {
+				capabilityID := uint32(i)*32 + bit
+				effectiveCaps = append(effectiveCaps, capabilityID)
+			}
+		}
+	}
+
+	return effectiveCaps, nil
 }
 
 func (t *Tracer) findAllRequiredEvents(id events.ID, out map[events.ID]struct{}) {

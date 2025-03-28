@@ -627,7 +627,7 @@ func (m *mockContainersClient) ListContainers(filter func(c *containers.Containe
 	return m.list
 }
 
-func (m *mockContainersClient) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error) {
+func (m *mockContainersClient) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error) {
 	for _, v := range m.list {
 		if v.CgroupID == cgroup {
 			return v, nil
@@ -636,7 +636,7 @@ func (m *mockContainersClient) GetOrLoadContainerByCgroupID(ctx context.Context,
 	return nil, containers.ErrContainerNotFound
 }
 
-func (m *mockContainersClient) LookupContainerForCgroupInCache(cgroup uint64) (*containers.Container, bool, error) {
+func (m *mockContainersClient) LookupContainerForCgroupInCache(cgroup cgroup.ID) (*containers.Container, bool, error) {
 	for _, v := range m.list {
 		if v.CgroupID == cgroup {
 			return v, true, nil
@@ -649,8 +649,8 @@ func (m *mockContainersClient) CleanupCgroup(cgroup cgroup.ID) {
 	return
 }
 
-func (m *mockContainersClient) GetCgroupsInNamespace(namespace string) []uint64 {
-	return []uint64{}
+func (m *mockContainersClient) GetCgroupsInNamespace(namespace string) []cgroup.ID {
+	return []cgroup.ID{}
 }
 
 func (m *mockContainersClient) RegisterContainerCreatedListener(l containers.ContainerCreatedListener) {

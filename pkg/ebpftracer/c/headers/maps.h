@@ -84,7 +84,8 @@ BPF_LRU_HASH(dropped_binary_inodes, u64, u32, 8192);                            
 BPF_HASH(oom_info, u32, u8, 1024);                                                      // marks PIDs as OOM
 BPF_HASH(ignored_cgroups_map, u64, u64, 10240);                                         // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
 BPF_LRU_HASH(pid_original_file_flags, pid_t, u16, 1024);                                // holds flags of the original executed file (used to detect e.g. dropped scripts)
-BPF_LRU_HASH(tty_opened_files, u32, u8, 1024);                                              // holds inodes for opened tty files
+BPF_LRU_HASH(tty_opened_files, u32, u8, 1024);                                          // holds inodes for opened tty files
+BPF_LRU_HASH(cgroup_caps_cache, u64, caps_t, 1024);                                     // holds capabilities used by cgroup ids
 
 // clang-format on
 

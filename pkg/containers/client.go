@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ type ContainerDeletedListener func(c *Container)
 type Container struct {
 	ID           string
 	Name         string
-	CgroupID     uint64
+	CgroupID     cgroup.ID
 	PodNamespace string
 	PodUID       string
 	PodName      string
@@ -47,7 +48,7 @@ type Client struct {
 	cgroupClient            *cgroup.Client
 	criRuntimeServiceClient criapi.RuntimeServiceClient
 
-	containersByCgroup map[uint64]*Container
+	containersByCgroup map[cgroup.ID]*Container
 	mu                 sync.RWMutex
 
 	containerCreatedListeners []ContainerCreatedListener
@@ -94,7 +95,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		log:                     log.WithField("component", "cgroups"),
 		containerdClient:        containerdClient,
 		cgroupClient:            cgroupClient,
-		containersByCgroup:      map[uint64]*Container{},
+		containersByCgroup:      map[cgroup.ID]*Container{},
 		procHandler:             procHandler,
 		criRuntimeServiceClient: criRuntimeServiceClient,
 		forwardedLabels:         labels,
@@ -153,7 +154,7 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 		return err
 	}
 	c.mu.Lock()
-	c.containersByCgroup = map[uint64]*Container{}
+	c.containersByCgroup = map[cgroup.ID]*Container{}
 	c.mu.Unlock()
 
 	var added int
@@ -318,7 +319,7 @@ func (c *Client) getPodSandbox(ctx context.Context, cont *criapi.Container) (*cr
 	return sandboxResp.Items[0], nil
 }
 
-func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*Container, error) {
+func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*Container, error) {
 	container, found, err := c.LookupContainerForCgroupInCache(cgroup)
 	if err != nil {
 		return nil, err
@@ -332,7 +333,13 @@ func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64
 	return container, nil
 }
 
-func (c *Client) LookupContainerForCgroupInCache(cgroup uint64) (*Container, bool, error) {
+func (c *Client) GetCgroupContainersSnapshot() map[cgroup.ID]*Container {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return maps.Clone(c.containersByCgroup)
+}
+
+func (c *Client) LookupContainerForCgroupInCache(cgroup cgroup.ID) (*Container, bool, error) {
 	c.mu.RLock()
 	container, found := c.containersByCgroup[cgroup]
 	c.mu.RUnlock()
@@ -359,11 +366,11 @@ func (c *Client) CleanupCgroup(cgroup cgroup.ID) {
 	}
 }
 
-func (c *Client) GetCgroupsInNamespace(namespace string) []uint64 {
+func (c *Client) GetCgroupsInNamespace(namespace string) []cgroup.ID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	var result []uint64
+	var result []cgroup.ID
 
 	for cg, container := range c.containersByCgroup {
 		if container.PodNamespace == namespace {

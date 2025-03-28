@@ -1180,6 +1180,45 @@ int BPF_KPROBE(trace_security_socket_connect)
     return 0;
 }
 
+SEC("kprobe/cap_capable")
+int BPF_KPROBE(trace_cap_capable,
+    struct cred *cred,
+    struct user_namespace *targ_ns,
+    int cap,
+    int cap_opt)
+{
+    struct task_struct *task = (struct task_struct *) bpf_get_current_task();
+
+    // Skip if cgroup is muted.
+    u64 cgroup_id = 0;
+    if (global_config.cgroup_v1) {
+        cgroup_id = get_cgroup_v1_subsys0_id(task);
+    } else {
+        cgroup_id = bpf_get_current_cgroup_id();
+    }
+    if (should_skip_cgroup(cgroup_id)) {
+        return 0;
+    }
+
+    // Make sure index is in valid range to make the ebpf verifier happy
+    u8 cap_index = CAP_TO_INDEX(cap);
+    if (cap_index > (sizeof(caps_t) / sizeof(u32) - 1)) {
+        bpf_printk("capability %d out of bounds for cgroup %llu\n", cap, cgroup_id);
+        return 0;
+    }
+
+    caps_t *existing_caps = bpf_map_lookup_elem(&cgroup_caps_cache, &cgroup_id);
+    if (existing_caps == NULL) {
+        caps_t new_caps = {};
+        new_caps.used[cap_index] = CAP_TO_MASK(cap);
+        bpf_map_update_elem(&cgroup_caps_cache, &cgroup_id, &new_caps, BPF_NOEXIST);
+    } else {
+        existing_caps->used[cap_index] |= CAP_TO_MASK(cap);
+    }
+
+    return 0;
+}
+
 enum bin_type_e {
     SEND_VFS_WRITE = 1,
     SEND_MPROTECT,
@@ -2575,7 +2614,7 @@ int cgroup_sockops(struct bpf_sock_ops *skops)
 SEC("raw_tracepoint/oom/mark_victim")
 int oom_mark_victim(struct bpf_raw_tracepoint_args *ctx)
 {
-    __u32 pid = ctx->args[0];
+    u32 pid = ctx->args[0];
 
     u8 one = 1;
     bpf_map_update_elem(&oom_info, &pid, &one, BPF_ANY);

@@ -77,6 +77,7 @@ type Config struct {
 	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
 	Netflow                        NetflowConfig                   `json:"netflow"`
 	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
+	WorkloadProfile                WorkloadProfileConfig           `json:"workloadProfile"`
 	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
 	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
@@ -107,6 +108,12 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool `json:"enabled"`
+}
+
+type WorkloadProfileConfig struct {
+	Enabled        bool          `json:"enabled"`
+	ScrapeInterval time.Duration `json:"scrapeInterval"`
+	CacheSize      uint32        `json:"cacheSize"`
 }
 
 func New(cfg *Config) *App {
@@ -313,6 +320,10 @@ func (a *App) Run(ctx context.Context) error {
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
 		},
+		WorkloadProfileConfig: ebpftracer.WorkloadProfileConfig{
+			ScrapeInterval: cfg.WorkloadProfile.ScrapeInterval,
+			CacheSize:      cfg.WorkloadProfile.CacheSize,
+		},
 		PodName: podName,
 	})
 	if err := tracer.Load(); err != nil {
@@ -474,6 +485,12 @@ Currently we care only care about dns responses with valid answers.
 			events.SchedProcessExit,
 			events.SchedProcessFork,
 		}...)
+	}
+
+	if cfg.WorkloadProfile.Enabled {
+		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+			ID: events.CapCapable,
+		})
 	}
 
 	if len(exporters.ContainerEvents) > 0 {
