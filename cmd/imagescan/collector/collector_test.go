@@ -11,6 +11,7 @@ import (
 	"path"
 	"runtime"
 	"runtime/pprof"
+	"slices"
 	"testing"
 	"time"
 
@@ -94,6 +95,68 @@ func TestCollector(t *testing.T) {
 		// This test was matching the concrete packages before, but this was incredibly brittle and breaking with
 		// every upgrade of trivy. Hence we now only test if the len of the packages match.
 		r.Len(actualPackages, len(expectedPackages))
+	})
+}
+
+func TestCollectorWithIngressNginx(t *testing.T) {
+	t.Run("collects right ingress nginx version", func(t *testing.T) {
+		// This is for local testing only. The whole underlying logic is a huge hack.
+		t.Skip()
+
+		imgID := "registry.k8s.io/ingress-nginx/controller:v1.11.0@sha256:a886e56d532d1388c77c8340261149d974370edca1093af4c97a96fb1467cb39" //nolint:gosec
+		imgName := imgID
+
+		r := require.New(t)
+		ctx := context.Background()
+		log := logrus.New()
+		log.SetLevel(logrus.DebugLevel)
+
+		mockCache := mockblobcache.MockClient{}
+
+		ingestClient := &mockIngestClient{}
+
+		c := New(
+			log,
+			config.Config{
+				ImageID:           imgID,
+				ImageName:         imgName,
+				Timeout:           5 * time.Minute,
+				Mode:              config.ModeRemote,
+				Runtime:           config.RuntimeContainerd,
+				Parallel:          1,
+				ImageLocalTarPath: "ingress-controller.tar",
+				DisabledAnalyzers: []string{"secret"},
+			},
+			ingestClient,
+			mockCache,
+			nil,
+		)
+
+		r.NoError(c.Collect(ctx))
+
+		receivedMetadataJson, err := protojson.Marshal(ingestClient.receivedMeta)
+		r.NoError(err)
+		var actual castaipb.ImageMetadata
+		r.NoError(protojson.Unmarshal(receivedMetadataJson, &actual))
+
+		var actualPackages []types.BlobInfo
+		r.NoError(json.Unmarshal(actual.Packages, &actualPackages))
+
+		var ingressVersion string
+
+		for _, bi := range slices.Backward(actualPackages) {
+			for _, a := range bi.Applications {
+				for _, p := range a.Packages {
+					if p.Name == "k8s.io/ingress-nginx" {
+						ingressVersion = p.Version
+						goto out
+					}
+				}
+			}
+		}
+
+	out:
+		r.Equal("v1.11.0", ingressVersion)
 	})
 }
 

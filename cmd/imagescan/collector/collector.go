@@ -27,7 +27,12 @@ import (
 	"github.com/castai/image-analyzer/image/hostfs"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/imagescan/config"
+	"github.com/castai/kvisor/cmd/imagescan/trivy/golang/analyzer/binary"
 )
+
+func init() {
+	binary.Register()
+}
 
 type ingestClient interface {
 	ImageMetadataIngest(ctx context.Context, in *castaipb.ImageMetadata, opts ...grpc.CallOption) (*castaipb.ImageMetadataIngestResponse, error)
