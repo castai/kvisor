@@ -13,6 +13,9 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/containerd/containerd"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials/insecure"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -60,9 +63,31 @@ type Client struct {
 func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
 	labels, annotations []string) (*Client, error) {
 
-	containerdClient, err := containerd.New(containerdSock, containerd.WithTimeout(10*time.Second), containerd.WithDefaultNamespace("k8s.io"))
+	backoffConfig := backoff.DefaultConfig
+	backoffConfig.MaxDelay = 3 * time.Second
+	connParams := grpc.ConnectParams{
+		Backoff: backoffConfig,
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithConnectParams(connParams),
+		grpc.WithNoProxy(),
+	}
+	containerdClient, err := containerd.New(
+		containerdSock,
+		containerd.WithTimeout(10*time.Second),
+		containerd.WithDefaultNamespace("k8s.io"),
+		containerd.WithDialOpts(dialOpts),
+	)
 	if err != nil {
 		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := containerdClient.Version(ctx); err != nil {
+		return nil, fmt.Errorf("failed connecting to containerd client: %w", err)
 	}
 
 	return &Client{

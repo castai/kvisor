@@ -21,6 +21,12 @@ func NewRuntimeClient(ctx context.Context, endpoint string) (criapi.RuntimeServi
 
 	conn, err := grpc.NewClient(endpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		// Some customers may have HTTPS_PROXY set on all workloads.
+		// We should disable it for unix socket based connections.
+		// See https://github.com/grpc/grpc-go/issues/8207
+		//
+		// Note that this is ignored if WithDialer or WithContextDialer are used.
+		grpc.WithNoProxy(),
 	)
 
 	if err != nil {
