@@ -623,7 +623,7 @@ func (m *mockContainersClient) GetCgroupStats(c *containers.Container) (cgroup.S
 	return cgroup.Stats{}, nil
 }
 
-func (m *mockContainersClient) ListContainers() []*containers.Container {
+func (m *mockContainersClient) ListContainers(filter func(c *containers.Container) bool) []*containers.Container {
 	return m.list
 }
 
