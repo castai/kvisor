@@ -62,10 +62,11 @@ jobs:
         # You may pin to the exact commit or the version.
         # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
-        uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6.5.2
+        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
         with:
           args: -v --timeout=5m
-          version: v1.64.6
+          version: v2.0.2
+          only-new-issues: true
 
       - name: Test
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}

@@ -11,7 +11,8 @@
     "bpftrace@0.22.1",
     "bpftool@5.19.12",
     "kind@0.27.0",
-    "kubectl@1.32.2"
+    "kubectl@1.32.2",
+    "golangci-lint@2.0.0"
   ],
   "env": {
     "GOROOT": "$PWD/.devbox/nix/profile/default/share/go"
