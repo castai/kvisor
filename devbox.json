@@ -13,6 +13,9 @@
     "kind@0.27.0",
     "kubectl@1.32.2"
   ],
+  "env": {
+    "GOROOT": "$PWD/.devbox/nix/profile/default/share/go"
+  },
   "shell": {
     "init_hook": [
       "echo 'Welcome to devbox!' > /dev/null"
