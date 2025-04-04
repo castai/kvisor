@@ -42,6 +42,7 @@ const (
 	TtyOpen
 	TtyWrite
 	StdioViaSocket
+	ProcFdLinkResolved
 	MaxCommonID
 )
 

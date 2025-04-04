@@ -75,6 +75,7 @@ enum SignatureEventID {
   SIGNATURE_TTY_DETECTED = 2;
   SIGNATURE_SOCKS5_DETECTED = 3;
   SIGNATURE_GIT_CLONE_DETECTED = 4;
+  SIGNATURE_INGRESS_NIGHTMARE_EXPLOIT_DETECTED = 5;
 }
 
 message SignatureMetadata {
@@ -88,6 +89,7 @@ message SignatureFinding {
     TtyDetectedFinding tty_detected = 2;
     SOCKS5DetectedFinding socks5_detected = 3;
     GitCloneDetectedFinding git_clone_detected = 4;
+    IngressNightmareExploitDetectedFinding ingress_nightmare_exploit_detected = 5;
   }
 }
 
@@ -146,6 +148,9 @@ message GitCloneDetectedFinding {
   string full_repo = 2;
   string server = 3;
   string repo_path = 4;
+}
+
+message IngressNightmareExploitDetectedFinding {
 }
 
 enum NetflowProtocol {

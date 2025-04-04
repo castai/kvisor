@@ -145,6 +145,7 @@ type tracerProgramSpecs struct {
 	TraceRetFileModified            *ebpf.ProgramSpec `ebpf:"trace_ret_file_modified"`
 	TraceRetFileUpdateTime          *ebpf.ProgramSpec `ebpf:"trace_ret_file_update_time"`
 	TraceSecurityBprmCheck          *ebpf.ProgramSpec `ebpf:"trace_security_bprm_check"`
+	TraceSecurityInodeFollowLink    *ebpf.ProgramSpec `ebpf:"trace_security_inode_follow_link"`
 	TraceSecuritySocketConnect      *ebpf.ProgramSpec `ebpf:"trace_security_socket_connect"`
 	TraceSysEnter                   *ebpf.ProgramSpec `ebpf:"trace_sys_enter"`
 	TraceSysExit                    *ebpf.ProgramSpec `ebpf:"trace_sys_exit"`
@@ -362,6 +363,7 @@ type tracerPrograms struct {
 	TraceRetFileModified            *ebpf.Program `ebpf:"trace_ret_file_modified"`
 	TraceRetFileUpdateTime          *ebpf.Program `ebpf:"trace_ret_file_update_time"`
 	TraceSecurityBprmCheck          *ebpf.Program `ebpf:"trace_security_bprm_check"`
+	TraceSecurityInodeFollowLink    *ebpf.Program `ebpf:"trace_security_inode_follow_link"`
 	TraceSecuritySocketConnect      *ebpf.Program `ebpf:"trace_security_socket_connect"`
 	TraceSysEnter                   *ebpf.Program `ebpf:"trace_sys_enter"`
 	TraceSysExit                    *ebpf.Program `ebpf:"trace_sys_exit"`
@@ -408,6 +410,7 @@ func (p *tracerPrograms) Close() error {
 		p.TraceRetFileModified,
 		p.TraceRetFileUpdateTime,
 		p.TraceSecurityBprmCheck,
+		p.TraceSecurityInodeFollowLink,
 		p.TraceSecuritySocketConnect,
 		p.TraceSysEnter,
 		p.TraceSysExit,

@@ -17933,6 +17933,42 @@ func ParseStdioViaSocketArgs(decoder *Decoder) (types.StdioViaSocketArgs, error)
   return result, nil
 }
 
+func ParseProcFdLinkResolvedArgs(decoder *Decoder) (types.ProcFdLinkResolvedArgs, error) {
+  var result types.ProcFdLinkResolvedArgs
+  var err error
+
+  var numArgs uint8
+  err = decoder.DecodeUint8(&numArgs)
+  if err != nil {
+    return types.ProcFdLinkResolvedArgs{}, err
+  }
+  if numArgs > 2 {
+    return types.ProcFdLinkResolvedArgs{}, ErrTooManyArguments
+  }
+
+  for arg := 0; arg < int(numArgs); arg++ {
+    var currArg uint8
+    err = decoder.DecodeUint8(&currArg)
+    if err != nil {
+      return types.ProcFdLinkResolvedArgs{}, err
+    }
+
+    switch currArg {
+    case 0:
+      result.Pid, err = decoder.ReadStringFromBuff()
+      if err != nil {
+        return types.ProcFdLinkResolvedArgs{}, err
+      }
+    case 1:
+      result.Fd, err = decoder.ReadStringFromBuff()
+      if err != nil {
+        return types.ProcFdLinkResolvedArgs{}, err
+      }
+    }
+  }
+  return result, nil
+}
+
 func ParseTestEventArgs(decoder *Decoder) (types.TestEventArgs, error) {
   return types.TestEventArgs{}, nil
 }
@@ -18887,6 +18923,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseNetFlowBaseArgs(decoder)
   case events.StdioViaSocket:
     return ParseStdioViaSocketArgs(decoder)
+  case events.ProcFdLinkResolved:
+    return ParseProcFdLinkResolvedArgs(decoder)
   case events.TestEvent:
     return ParseTestEventArgs(decoder)
   }

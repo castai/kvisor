@@ -3560,6 +3560,13 @@ type StdioViaSocketArgs struct {
   Addr Sockaddr
 }
 
+type ProcFdLinkResolvedArgs struct {
+  internalArgs
+
+  Pid string
+  Fd string
+}
+
 type TestEventArgs struct {
   internalArgs
 }
