@@ -569,7 +569,8 @@ int tracepoint__sched__sched_process_fork(struct bpf_raw_tracepoint_args *ctx)
         int parent_ns_pid = get_task_ns_tgid(parent);
         int parent_ns_tid = get_task_ns_pid(parent);
 
-        // ChildPID equals ParentPID indicates that the child is probably a thread. We do not care about threads.
+        // ChildPID equals ParentPID indicates that the child is probably a thread. We do not care
+        // about threads.
         if (child_ns_pid == parent_ns_pid) {
             return 0;
         }
@@ -1675,7 +1676,6 @@ statfunc bool should_submit_net_event(event_context_t *neteventctx, net_packet_t
 
 #pragma clang diagnostic pop // -Waddress-of-packed-member
 
-
 //
 // Protocol parsing functions
 //
@@ -1696,67 +1696,72 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 
-#define CGROUP_SKB_HANDLE(name) cgroup_skb_handle_##name(ctx, md, neteventctx, nethdrs, flow_direction);
+#define CGROUP_SKB_HANDLE(name)                                                                    \
+    cgroup_skb_handle_##name(ctx, md, neteventctx, nethdrs, flow_direction);
 
 //
 // Network submission functions
 //
 
-#define SKB_PAYLOAD_BUCKET1 128
-#define SKB_PAYLOAD_BUCKET2 256
-#define SKB_PAYLOAD_BUCKET3 512
-#define SKB_PAYLOAD_BUCKET4 1024
-#define SKB_PAYLOAD_BUCKET5 2048
-#define SKB_PAYLOAD_BUCKET6 4096
-#define SKB_PAYLOAD_BUCKET7 8192
+#define SKB_PAYLOAD_BUCKET1  128
+#define SKB_PAYLOAD_BUCKET2  256
+#define SKB_PAYLOAD_BUCKET3  512
+#define SKB_PAYLOAD_BUCKET4  1024
+#define SKB_PAYLOAD_BUCKET5  2048
+#define SKB_PAYLOAD_BUCKET6  4096
+#define SKB_PAYLOAD_BUCKET7  8192
 #define SKB_MAX_PAYLOAD_SIZE SKB_PAYLOAD_SIZE7
 
-#define SKB_NET_EVENT_CONTEXT(name, payload_size)                                                                                                                                                   \
-    typedef struct skb_event_context_##name {                                                                                                                                                       \
-        event_context_t eventctx;                                                                                                                                                                   \
-        u8 argnum;                                                                                                                                                                                  \
-        struct {                                                                                                                                                                                    \
-            u8 index0;                                                                                                                                                                              \
-            u32 bytes;                                                                                                                                                                              \
-        } __attribute__((__packed__));                                                                                                                                                              \
-        u8 payload[payload_size];                                                                                                                                                                   \
-    } __attribute__((__packed__)) skb_event_context_##name##_t;                                                                                                                                     \
-                                                                                                                                                                                                    \
-    static __always_inline u32 cgroup_skb_submit_via_ringbuf_##name(void *map, struct __sk_buff *ctx, net_event_contextmd_t md, event_context_t *neteventctx, u32 event_type, u32 size) {           \
-                skb_event_context_##name##_t *e = bpf_ringbuf_reserve(map, sizeof(skb_event_context_##name##_t), 0);                                                                                \
-                if (!e) {                                                                                                                                                                           \
-                    metrics_increase(SKB_EVENTS_RINGBUF_DISCARD);                                                                                                                                   \
-                    return 1;                                                                                                                                                                       \
-                }                                                                                                                                                                                   \
-                __builtin_memcpy(&e->eventctx, neteventctx, sizeof(event_context_t));                                                                                                               \
-                                                                                                                                                                                                    \
-                u32 read_len = 0;                                                                                                                                                                   \
-                                                                                                                                                                                                    \
-                asm volatile("%[len] = %[size]"                                                                                                                                                     \
-                 : [len] "=r"(read_len)                                                                                                                                                             \
-                 : [size] "r"(size));                                                                                                                                                               \
-                asm goto("if %[size] < 1 goto %l[out]" ::[size] "r"(read_len)::out);                                                                                                                \
-                asm goto("if %[size] > %[max] goto %l[out]"                                                                                                                                         \
-                            :                                                                                                                                                                       \
-                            :[size] "r"(read_len)                                                                                                                                                   \
-                            ,[max] "i"(payload_size)::out);                                                                                                                                         \
-                                                                                                                                                                                                    \
-                if (bpf_skb_load_bytes(ctx, 0, &e->payload, read_len)) {                                                                                                                            \
-                    bpf_ringbuf_discard(e, 0);                                                                                                                                                      \
-                    return 1;                                                                                                                                                                       \
-                }                                                                                                                                                                                   \
-                                                                                                                                                                                                    \
-                e->argnum = 1;                                                                                                                                                                      \
-                e->index0 = 0;                                                                                                                                                                      \
-                e->bytes = size;                                                                                                                                                                    \
-                e->eventctx.eventid = event_type;                                                                                                                                                   \
-                                                                                                                                                                                                    \
-                bpf_ringbuf_submit(e, 0);                                                                                                                                                           \
-                return 0;                                                                                                                                                                           \
-                                                                                                                                                                                                    \
-            out:                                                                                                                                                                                    \
-                bpf_ringbuf_discard(e, 0);                                                                                                                                                          \
-                return 0;                                                                                                                                                                           \
+#define SKB_NET_EVENT_CONTEXT(name, payload_size)                                                  \
+    typedef struct skb_event_context_##name {                                                      \
+        event_context_t eventctx;                                                                  \
+        u8 argnum;                                                                                 \
+        struct {                                                                                   \
+            u8 index0;                                                                             \
+            u32 bytes;                                                                             \
+        } __attribute__((__packed__));                                                             \
+        u8 payload[payload_size];                                                                  \
+    } __attribute__((__packed__)) skb_event_context_##name##_t;                                    \
+                                                                                                   \
+    static __always_inline u32 cgroup_skb_submit_via_ringbuf_##name(void *map,                     \
+                                                                    struct __sk_buff *ctx,         \
+                                                                    net_event_contextmd_t md,      \
+                                                                    event_context_t *neteventctx,  \
+                                                                    u32 event_type,                \
+                                                                    u32 size)                      \
+    {                                                                                              \
+        skb_event_context_##name##_t *e =                                                          \
+            bpf_ringbuf_reserve(map, sizeof(skb_event_context_##name##_t), 0);                     \
+        if (!e) {                                                                                  \
+            metrics_increase(SKB_EVENTS_RINGBUF_DISCARD);                                          \
+            return 1;                                                                              \
+        }                                                                                          \
+        __builtin_memcpy(&e->eventctx, neteventctx, sizeof(event_context_t));                      \
+                                                                                                   \
+        u32 read_len = 0;                                                                          \
+                                                                                                   \
+        asm volatile("%[len] = %[size]" : [len] "=r"(read_len) : [size] "r"(size));                \
+        asm goto("if %[size] < 1 goto %l[out]" ::[size] "r"(read_len)::out);                       \
+        asm goto("if %[size] > %[max] goto %l[out]"                                                \
+                 :                                                                                 \
+                 : [size] "r"(read_len), [max] "i"(payload_size)::out);                            \
+                                                                                                   \
+        if (bpf_skb_load_bytes(ctx, 0, &e->payload, read_len)) {                                   \
+            bpf_ringbuf_discard(e, 0);                                                             \
+            return 1;                                                                              \
+        }                                                                                          \
+                                                                                                   \
+        e->argnum = 1;                                                                             \
+        e->index0 = 0;                                                                             \
+        e->bytes = size;                                                                           \
+        e->eventctx.eventid = event_type;                                                          \
+                                                                                                   \
+        bpf_ringbuf_submit(e, 0);                                                                  \
+        return 0;                                                                                  \
+                                                                                                   \
+    out:                                                                                           \
+        bpf_ringbuf_discard(e, 0);                                                                 \
+        return 0;                                                                                  \
     }
 
 SKB_NET_EVENT_CONTEXT(bucket1, SKB_PAYLOAD_BUCKET1);
@@ -1768,7 +1773,12 @@ SKB_NET_EVENT_CONTEXT(bucket6, SKB_PAYLOAD_BUCKET6);
 SKB_NET_EVENT_CONTEXT(bucket7, SKB_PAYLOAD_BUCKET7);
 
 // Submit a network event (packet, capture, flow) to userland.
-statfunc u32 cgroup_skb_submit(void *map, struct __sk_buff *ctx, net_event_contextmd_t md, event_context_t *neteventctx, u32 event_type, u32 size)
+statfunc u32 cgroup_skb_submit(void *map,
+                               struct __sk_buff *ctx,
+                               net_event_contextmd_t md,
+                               event_context_t *neteventctx,
+                               u32 event_type,
+                               u32 size)
 {
     size = size > FULL ? FULL : size;
     switch (size) {
@@ -1886,8 +1896,10 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
     } else {
         struct socket *sock = bpf_sock_from_file(file);
         if (sock) {
-            struct net_task_context *sknetctx = bpf_sk_storage_get(&net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
-            // Empty pid means that sk storage map entry was created inside skb fallback with cgroup_id only.
+            struct net_task_context *sknetctx = bpf_sk_storage_get(
+                &net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            // Empty pid means that sk storage map entry was created inside skb fallback with
+            // cgroup_id only.
             if (sknetctx && sknetctx->taskctx.pid == 0) {
                 __builtin_memcpy(sknetctx, &netctx, sizeof(net_task_context_t));
             }
@@ -1951,10 +1963,12 @@ statfunc u32 cgroup_skb_generic(struct __sk_buff *ctx, enum flow_direction flow_
         if (!existing_netctx) {
             net_task_context_t cgroup_context = {0};
             cgroup_context.taskctx.cgroup_id = bpf_sk_cgroup_id(sk);
-            netctx = bpf_sk_storage_get(&net_taskctx_map, sk, &cgroup_context, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            netctx = bpf_sk_storage_get(
+                &net_taskctx_map, sk, &cgroup_context, BPF_LOCAL_STORAGE_GET_F_CREATE);
             fallback_netctx_init = true;
         } else {
-            netctx = bpf_sk_storage_get(&net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            netctx = bpf_sk_storage_get(
+                &net_taskctx_map, sk, existing_netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
         }
 
         if (unlikely(netctx == NULL)) {
@@ -2395,7 +2409,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns)
 {
     // Skip the 2-byte length prefix for dns over tcp.
     if (net_l7_empty_dns_answer(ctx, md.header_size + 2)) {
-       return 1;
+        return 1;
     }
 
     // submit DNS base event if needed (full packet)
@@ -2408,7 +2422,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns)
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns)
 {
     if (net_l7_empty_dns_answer(ctx, md.header_size)) {
-       return 1;
+        return 1;
     }
 
     // submit DNS base event if needed (full packet)
@@ -2464,15 +2478,17 @@ statfunc bool should_trace_sock_set_state(int old_state, int new_state)
     return false;
 }
 
-statfunc int bpf_sock_ops_establish_cb(struct bpf_sock_ops *skops) {
-	if (skops == NULL || !(skops->family == AF_INET || skops->family == AF_INET6))
-		return 0;
+statfunc int bpf_sock_ops_establish_cb(struct bpf_sock_ops *skops)
+{
+    if (skops == NULL || !(skops->family == AF_INET || skops->family == AF_INET6))
+        return 0;
 
-	bpf_sock_ops_cb_flags_set(skops,  BPF_SOCK_OPS_STATE_CB_FLAG);
-	return 0;
+    bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
+    return 0;
 }
 
-statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state, int new_state) {
+statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state, int new_state)
+{
     // TODO(patrick.pichler): add logic for handling listening sockets
     if (!should_trace_sock_set_state(old_state, new_state)) {
         return 0;
@@ -2509,7 +2525,8 @@ statfunc int handle_sock_state_change(struct bpf_sock_ops *skops, int old_state,
     p.event = e;
     p.event->args_buf.offset = 0;
     p.event->args_buf.argnum = 0;
-    p.event->context.ts = bpf_ktime_get_ns();;
+    p.event->context.ts = bpf_ktime_get_ns();
+    ;
     p.event->context.eventid = SOCK_SET_STATE;
 
     // Copy task context from correct user space thread.
@@ -2531,29 +2548,28 @@ cleanup:
 }
 
 SEC("sockops")
-int cgroup_sockops(struct bpf_sock_ops *skops) {
-	u32 op = skops->op;
+int cgroup_sockops(struct bpf_sock_ops *skops)
+{
+    u32 op = skops->op;
 
-	switch (op) {
-	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-	case BPF_SOCK_OPS_TCP_CONNECT_CB:
-	    return bpf_sock_ops_establish_cb(skops);
-	case BPF_SOCK_OPS_TCP_LISTEN_CB:
-        {
+    switch (op) {
+        case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+        case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+        case BPF_SOCK_OPS_TCP_CONNECT_CB:
+            return bpf_sock_ops_establish_cb(skops);
+        case BPF_SOCK_OPS_TCP_LISTEN_CB: {
             // For listen we should handle the callback directly because it's
             // the first state will not work with bpf_sock_ops_cb_flags_set.
             return handle_sock_state_change(skops, TCP_CLOSE, TCP_LISTEN);
         }
-	case BPF_SOCK_OPS_STATE_CB:
-        {
+        case BPF_SOCK_OPS_STATE_CB: {
             int old_state = skops->args[0];
             int new_state = skops->args[1];
             return handle_sock_state_change(skops, old_state, new_state);
         }
-	}
+    }
 
-	return 0;
+    return 0;
 }
 
 SEC("raw_tracepoint/oom/mark_victim")
@@ -2630,4 +2646,79 @@ int BPF_KPROBE(tty_write, struct kiocb *iocb, struct iov_iter *from)
     }
 
     return 0;
+}
+
+SEC("kprobe/security_inode_follow_link")
+int BPF_KPROBE(trace_security_inode_follow_link,
+               struct dentry *dentry,
+               struct inode *inode,
+               bool rcu)
+{
+    // The idea here is to detect any resolves of /proc/*/fd/* files. For that we simply check
+    // if the super block magic of the inode is from proc and the parent name is fd.
+
+    u64 magic = 0;
+    BPF_CORE_READ_INTO(&magic, inode, i_sb, s_magic);
+
+    if (magic != PROC_SUPER_MAGIC) {
+        return 0;
+    }
+
+    char buf[20];
+    __builtin_memset(&buf, 0, sizeof(buf));
+    int read_len = 0;
+
+    // TODO(patrick.pichler): figure out why BPF_CORE_READ_STR_INTO doens't work here
+    // and produce giberish.
+    struct qstr str = {0};
+    BPF_CORE_READ_INTO(&str, dentry, d_parent, d_name);
+
+    read_len = bpf_core_read_str(&buf, sizeof(buf), str.name);
+
+    // We are only interested in files with parent fd, that means the length is 3, as
+    // the read_str helper also reports the read \0.
+    if (read_len != 3) {
+        return 0;
+    }
+
+    // We found our .
+    if (buf[0] != 'f' || buf[1] != 'd' || buf[2] != '\0') {
+        return 0;
+    }
+
+    struct dentry *parent_parent_parent;
+    struct dentry *parent_parent_parent_parent;
+    BPF_CORE_READ_INTO(&parent_parent_parent, dentry, d_parent, d_parent, d_parent);
+    if (parent_parent_parent == NULL) {
+        return 0;
+    }
+
+    BPF_CORE_READ_INTO(&parent_parent_parent_parent, parent_parent_parent, d_parent);
+    if (parent_parent_parent_parent == NULL) {
+        return 0;
+    }
+
+    // Check that we have reached the root and not are resolving some deeper nested file. The path
+    // should look like the following: /proc/<pid>/fd/<fd>. We know we reached the top, if we check
+    // that the parent of <pid> is the same as the parent of the parent of <pid>.
+    if (parent_parent_parent != parent_parent_parent_parent) {
+        return 0;
+    }
+
+    program_data_t p = {};
+    if (!init_program_data(&p, ctx)) {
+        return 0;
+    }
+
+    if (!should_trace((&p))) {
+        return 0;
+    }
+
+    char *fd_name = (void *) BPF_CORE_READ(dentry, d_name.name);
+    char *pid_name = (void *) BPF_CORE_READ(dentry, d_parent, d_parent, d_name.name);
+
+    save_str_to_buf(&p.event->args_buf, pid_name, 0);
+    save_str_to_buf(&p.event->args_buf, fd_name, 1);
+
+    return events_ringbuf_submit(&p, PROC_FD_LINK_RESOLVED, 0);
 }

@@ -5713,6 +5713,21 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 		},
 
+		events.ProcFdLinkResolved: {
+			ID:      events.StdioViaSocket,
+			id32Bit: events.Sys32Undefined,
+			name:    "proc_fd_link_resolved",
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeSecurityInodeFollowLink, required: true},
+				},
+			},
+			params: []argMeta{
+				{Type: "const char*", Name: "pid"},
+				{Type: "const char*", Name: "fd"},
+			},
+		},
+
 		// Event used for testing in unit tests
 		events.TestEvent: {
 			ID:       events.TestEvent,
