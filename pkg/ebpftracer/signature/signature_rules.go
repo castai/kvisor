@@ -3,10 +3,12 @@ package signature
 import "github.com/castai/kvisor/pkg/logging"
 
 type DefaultSignatureConfig struct {
-	SOCKS5DetectedSignatureEnabled   bool                           `json:"SOCKS5DetectedSignatureEnabled"`
-	SOCKS5DetectedSignatureConfig    SOCKS5DetectionSignatureConfig `json:"SOCKS5DetectedSignatureConfig"`
-	GitCloneDetectedSignatureEnabled bool                           `json:"GitCloneSignatureEnabled"`
-	GitCloneDetectedSignatureConfig  GitCloneSignatureConfig        `json:"GitCloneSignatureConfig"`
+	SOCKS5DetectedSignatureEnabled          bool                           `json:"SOCKS5DetectedSignatureEnabled"`
+	SOCKS5DetectedSignatureConfig           SOCKS5DetectionSignatureConfig `json:"SOCKS5DetectedSignatureConfig"`
+	GitCloneDetectedSignatureEnabled        bool                           `json:"GitCloneSignatureEnabled"`
+	GitCloneDetectedSignatureConfig         GitCloneSignatureConfig        `json:"GitCloneSignatureConfig"`
+	IngressNightmareExploitSignatureEnabled bool                           `json:"IngressNightmareExploitSignatureEnabled"`
+	IngressNightmareExploitSignatureConfig  IngressNightmareDetectedConfig `json:"IngressNightmareExploitSignatureConfig"`
 }
 
 func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signature, error) {
@@ -21,6 +23,10 @@ func DefaultSignatures(log *logging.Logger, cfg SignatureEngineConfig) ([]Signat
 
 	if cfg.DefaultSignatureConfig.GitCloneDetectedSignatureEnabled {
 		result = append(result, NewGitCloneDetectedSignature(log, cfg.DefaultSignatureConfig.GitCloneDetectedSignatureConfig))
+	}
+
+	if cfg.DefaultSignatureConfig.IngressNightmareExploitSignatureEnabled {
+		result = append(result, NewIngressNightmareDetectedSignature(log, cfg.DefaultSignatureConfig.IngressNightmareExploitSignatureConfig))
 	}
 
 	return result, nil
