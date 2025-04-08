@@ -92,7 +92,7 @@ func NewRunCommand(version string) *cobra.Command {
 		socks5DetectionSignatureCacheSize                = command.Flags().Uint32("signature-socks5-detection-cache-size", 1024, "Configures the amount of state machine cache entries to detect socks5 information")
 		gitCloneDetectionSignatureEnabled                = command.Flags().Bool("signature-git-clone-detection-enabled", false, "Enables the git clone detection signature")
 		gitCloneDetectionSignatureRedactPasswords        = command.Flags().Bool("signature-git-clone-detection-redact-password", true, "If enabled, any password passed via the URL gets redacted")
-		ingressNightmareExploitDetectionSignatureEnabled = command.Flags().Bool("signature-ingress-nightmare-exploit-detection-enabled", false, "Enables the detection signature to detect exploits of ingress nightmare")
+		ingressNightmareExploitDetectionSignatureEnabled = command.Flags().Bool("signature-ingress-nightmare-exploit-detection-enabled", true, "Enables the detection signature to detect exploits of ingress nightmare")
 
 		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
