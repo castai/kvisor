@@ -118,4 +118,8 @@ var (
 		Name: "kvisor_agent_stats_scrape_errors_total",
 		Help: "Stats scrape errors",
 	}, []string{StatsKind})
+
+	AgentContainersCount = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "kvisor_agent_containers_count",
+	})
 )

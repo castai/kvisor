@@ -57,7 +57,9 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 }
 
 func (c *Controller) scrapeContainersResourceStats(batch *castaipb.StatsBatch) {
-	conts := c.containersClient.ListContainers()
+	conts := c.containersClient.ListContainers(func(cont *containers.Container) bool {
+		return cont.Err == nil && cont.Cgroup != nil && cont.Name != ""
+	})
 	c.log.Debugf("scraping resource stats from %d containers", len(conts))
 	for _, cont := range conts {
 		c.scrapeContainerResourcesStats(cont, batch)

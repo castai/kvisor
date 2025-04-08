@@ -169,16 +169,15 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) ListContainers() []*Container {
+func (c *Client) ListContainers(filter func(c *Container) bool) []*Container {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	var res []*Container
 	for _, cont := range c.containersByCgroup {
-		if cont.Err != nil || cont.Cgroup == nil || cont.Name == "" {
-			continue
+		if filter(cont) {
+			res = append(res, cont)
 		}
-		res = append(res, cont)
 	}
 	return res
 }
