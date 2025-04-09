@@ -1,6 +1,8 @@
 package signature
 
 import (
+	"strconv"
+
 	v1 "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -35,12 +37,21 @@ func (*IngressNightmareDetected) GetMetadata() SignatureMetadata {
 }
 
 func (s *IngressNightmareDetected) OnEvent(event *types.Event) *v1.SignatureFinding {
-	// TODO(patrick.pichler): figure out if we want to do something with the event data.
+	args, ok := event.Args.(types.ProcFdLinkResolvedArgs)
+	if !ok {
+		return nil
+	}
 
-	// args, ok := event.Args.(types.ProcFdLinkResolvedArgs)
-	// if !ok {
-	// 	return nil
-	// }
+	fd, err := strconv.ParseInt(args.Fd, 10, 64)
+	if err != nil {
+		s.log.Warnf("failed to parse FD: %s", args.Fd)
+		return nil
+	}
+
+	if fd < 3 {
+		// It is fine to access STDIN/STDOUT/STDERR
+		return nil
+	}
 
 	if unix.ByteSliceToString(event.Context.Comm[:]) != "nginx" {
 		return nil
