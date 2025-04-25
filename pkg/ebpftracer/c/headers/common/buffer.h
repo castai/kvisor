@@ -476,8 +476,9 @@ statfunc int save_args_to_submit_buf(event_data_t *event, args_t *args)
     return arg_num;
 }
 
-#define events_ringbuf_submit(p, id, ret)        do_ringbuf_submit(&events, p, id, ret, true, EVENTS_RINGBUF_DISCARD)
-#define signal_events_ringbuf_submit(p, id, ret) do_ringbuf_submit(&signal_events, p, id, ret, true, SIGNAL_EVENTS_RINGBUF_DISCARD)
+#define events_ringbuf_submit(p, id, ret)          do_ringbuf_submit(&events, p, id, ret, true, EVENTS_RINGBUF_DISCARD)
+#define signal_events_ringbuf_submit(p, id, ret)   do_ringbuf_submit(&signal_events, p, id, ret, true, SIGNAL_EVENTS_RINGBUF_DISCARD)
+#define workload_profile_events_submit(p, id, ret) do_ringbuf_submit(&workload_profile_events, p, id, ret, true, WORKLOAD_PROFILE_EVENTS_RINGBUF_DISCARD)
 
 statfunc int do_ringbuf_submit(void *target, program_data_t *p, u32 id, long ret, bool init_task_ctx, enum metric m) {
 

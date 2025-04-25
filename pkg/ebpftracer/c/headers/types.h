@@ -69,8 +69,11 @@ enum event_id_e {
     TTY_WRITE,
     STDIO_VIA_SOCKET,
     PROC_FD_LINK_RESOLVED,
-    CAP_CAPABLE,
     MAX_EVENT_ID,
+    // Workload profile events
+    WORKLOAD_PROFILE_BASE = 1000,
+    WORKLOAD_PROFILE_NEW_CAPABILITY,
+    MAX_WORKLOAD_PROFILE_EVENT_ID,
 };
 
 typedef struct args {
@@ -307,6 +310,7 @@ enum metric {
     SIGNAL_EVENTS_RINGBUF_DISCARD,
     EVENTS_RINGBUF_DISCARD,
     SKB_EVENTS_RINGBUF_DISCARD,
+    WORKLOAD_PROFILE_EVENTS_RINGBUF_DISCARD,
 
     SKB_CTX_CGROUP_FALLBACK,
     SKB_MISSING_EXISTING_CTX,
@@ -452,11 +456,11 @@ typedef struct net_task_context {
 // https://elixir.bootlin.com/linux/v5.10/source/include/uapi/linux/capability.h#L420
 #define CAP_LAST_CAP 40
 
-#define CAP_TO_INDEX(x)     ((x) >> 5)        /* 1 << 5 == bits in __u32 */
-#define CAP_TO_MASK(x)      (1 << ((x) & 31)) /* mask for indexed __u32 */
+#define CAP_TO_INDEX(x)     ((x) >> 6)           /* 1 << 6 == bits in __u64 */
+#define CAP_TO_MASK(x)      (1ULL << ((x) & 63)) /* mask for indexed __u64 */
 
 typedef struct caps {
-    u32 used[CAP_TO_INDEX(CAP_LAST_CAP) + 1];
-} __attribute__((__packed__)) caps_t;
+    u64 used[CAP_TO_INDEX(CAP_LAST_CAP) + 1];
+} caps_t;
 
 #endif

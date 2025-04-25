@@ -17,6 +17,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
+	workloadprofile "github.com/castai/kvisor/pkg/ebpftracer/workload_profile"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/encoding/gzip"
 )
@@ -76,9 +77,10 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfTracerMetricsEnabled       = command.Flags().Bool("ebpf-tracer-metrics-enabled", true, "Enables the export of tracer related metrics from eBPF")
 		ebpfProgramMetricsEnabled      = command.Flags().Bool("ebpf-program-metrics-enabled", false, "Enables the export of metrics about eBPF programs")
 
-		EBPFSignalEventsRingBufferSize = command.Flags().Uint32("ebpf-signal-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for priority events. Should be power of 2")
-		EBPFEventsRingBufferSize       = command.Flags().Uint32("ebpf-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for events. Should be power of 2")
-		EBPFSkbEventsRingBufferSize    = command.Flags().Uint32("ebpf-skb-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for skb network events. Should be power of 2")
+		EBPFSignalEventsRingBufferSize    = command.Flags().Uint32("ebpf-signal-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for priority events. Should be power of 2")
+		EBPFEventsRingBufferSize          = command.Flags().Uint32("ebpf-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for events. Should be power of 2")
+		EBPFSkbEventsRingBufferSize       = command.Flags().Uint32("ebpf-skb-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for skb network events. Should be power of 2")
+		EBPFWorkloadProfileRingBufferSize = command.Flags().Uint32("ebpf-workload-profile-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for workload profile events. Should be power of 2")
 
 		mutedNamespaces = command.Flags().StringSlice("ignored-namespaces", []string{"kube-system", "calico", "calico-system"},
 			"List of namespaces to ignore tracing events for. To ignore multiple namespaces, separate by comma or pass flag multiple times."+
@@ -104,9 +106,8 @@ func NewRunCommand(version string) *cobra.Command {
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
-		workloadProfileEnabled        = command.Flags().Bool("workload-profile-enabled", false, "Enables workload profile tracking")
-		workloadProfileScrapeInterval = command.Flags().Duration("workload-profile-scrape-interval", 30*time.Second, "Workload profile scrape interval")
-		workloadProfileCacheSize      = command.Flags().Uint32("workload-profile-cache-size", 10240, "Workload profile cache size")
+		workloadProfileEnabled                  = command.Flags().Bool("workload-profile-enabled", false, "Enables workload profile tracking")
+		workloadProfileEngineInputEventChanSize = command.Flags().Int("workload-profile-engine-input-queue-size", 1000, "Input queue size for the workload profile engine")
 
 		clickhouseAddr     = command.Flags().String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = command.Flags().String("clickhouse-database", "", "Clickhouse database name")
@@ -201,6 +202,9 @@ func NewRunCommand(version string) *cobra.Command {
 					IngressNightmareExploitSignatureConfig:  signature.IngressNightmareDetectedConfig{},
 				},
 			},
+			WorkloadProfileConfig: workloadprofile.WorkloadProfileEngineConfig{
+				InputChanSize: *workloadProfileEngineInputEventChanSize,
+			},
 			Castai: castaiClientCfg,
 			EnricherConfig: app.EnricherConfig{
 				EnableFileHashEnricher:     *fileHashEnrichedEnabled,
@@ -222,8 +226,7 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			WorkloadProfile: app.WorkloadProfileConfig{
 				Enabled:        *workloadProfileEnabled,
-				ScrapeInterval: *workloadProfileScrapeInterval,
-				CacheSize:      *workloadProfileCacheSize,
+				RingBufferSize: *EBPFWorkloadProfileRingBufferSize,
 			},
 			KubeAPIServiceAddr:        *kubeAPIServiceAddr,
 			ExportersQueueSize:        *exportersQueueSize,

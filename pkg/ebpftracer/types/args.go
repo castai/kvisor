@@ -3567,7 +3567,7 @@ type ProcFdLinkResolvedArgs struct {
   Fd string
 }
 
-type CapCapableArgs struct {
+type WorkloadProfileNewCapabilityArgs struct {
   internalArgs
 
   Cap int32

@@ -12,8 +12,6 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type tracerCapsT struct{ Used [2]uint32 }
-
 type tracerConfigT struct{ SummaryMapIndex int32 }
 
 type tracerEventContextT struct {
@@ -212,6 +210,7 @@ type tracerMapSpecs struct {
 	SyscallStatsMap         *ebpf.MapSpec `ebpf:"syscall_stats_map"`
 	TaskInfoMap             *ebpf.MapSpec `ebpf:"task_info_map"`
 	TtyOpenedFiles          *ebpf.MapSpec `ebpf:"tty_opened_files"`
+	WorkloadProfileEvents   *ebpf.MapSpec `ebpf:"workload_profile_events"`
 }
 
 // tracerVariableSpecs contains global variables before they are loaded into the kernel.
@@ -284,6 +283,7 @@ type tracerMaps struct {
 	SyscallStatsMap         *ebpf.Map `ebpf:"syscall_stats_map"`
 	TaskInfoMap             *ebpf.Map `ebpf:"task_info_map"`
 	TtyOpenedFiles          *ebpf.Map `ebpf:"tty_opened_files"`
+	WorkloadProfileEvents   *ebpf.Map `ebpf:"workload_profile_events"`
 }
 
 func (m *tracerMaps) Close() error {
@@ -327,6 +327,7 @@ func (m *tracerMaps) Close() error {
 		m.SyscallStatsMap,
 		m.TaskInfoMap,
 		m.TtyOpenedFiles,
+		m.WorkloadProfileEvents,
 	)
 }
 

@@ -101,6 +101,11 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 	default:
 	}
 
+	if eventId == events.WorkloadProfileNewCapability {
+		t.cfg.WorkloadProfileEngine.QueueEvent(event)
+		return nil
+	}
+
 	if _, found := t.signatureEventMap[eventId]; found {
 		t.cfg.SignatureEngine.QueueEvent(event)
 	}

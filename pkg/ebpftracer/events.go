@@ -5728,10 +5728,11 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			},
 		},
 
-		events.CapCapable: {
-			ID:      events.CapCapable,
+		// Workload profile events
+		events.WorkloadProfileNewCapability: {
+			ID:      events.WorkloadProfileNewCapability,
 			id32Bit: events.Sys32Undefined,
-			name:    "cap_capable",
+			name:    "workload_profile_new_capability",
 			dependencies: dependencies{
 				probes: []EventProbe{
 					{handle: ProbeCapCapable, required: true},

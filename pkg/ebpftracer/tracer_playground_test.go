@@ -20,6 +20,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	workloadprofile "github.com/castai/kvisor/pkg/ebpftracer/workload_profile"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
@@ -64,17 +65,28 @@ func TestTracer(t *testing.T) {
 		sigerr <- signatureEngine.Run(ctx)
 	}()
 
+	workloadProfileEngine := workloadprofile.NewEngine(log, workloadprofile.WorkloadProfileEngineConfig{
+		InputChanSize: 100,
+	})
+	go func() {
+		if err := workloadProfileEngine.Run(ctx); err != nil {
+			sigerr <- err
+		}
+	}()
+
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
-		EventsOutputChanSize:       10000,
-		SignalEventsRingBufferSize: 1 << 22,
-		EventsRingBufferSize:       1 << 22,
-		SkbEventsRingBufferSize:    1 << 22,
+		EventsOutputChanSize:                10000,
+		SignalEventsRingBufferSize:          1 << 22,
+		EventsRingBufferSize:                1 << 22,
+		SkbEventsRingBufferSize:             1 << 22,
+		WorkloadProfileEventsRingBufferSize: 1 << 22,
 
 		DefaultCgroupsVersion: "V2",
 		DebugEnabled:          true,
 		AllowAnyEvent:         true,
 		SignatureEngine:       signatureEngine,
+		WorkloadProfileEngine: workloadProfileEngine,
 		ContainerClient: &ebpftracer.MockContainerClient{
 			ContainerGetter: func(ctx context.Context, cgroupID uint64) (*containers.Container, error) {
 				dummyContainerID := fmt.Sprint(cgroupID)
@@ -130,7 +142,7 @@ func TestTracer(t *testing.T) {
 			// {ID: events.NetPacketSSHBase},
 			// {ID: events.NetPacketDNSBase},
 			// {ID: events.NetFlowBase},
-			{ID: events.CapCapable},
+			{ID: events.WorkloadProfileNewCapability},
 		},
 		SignatureEvents: signatureEngine.TargetEvents(),
 	}

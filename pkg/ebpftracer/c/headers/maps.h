@@ -112,6 +112,11 @@ struct {
 	__uint(max_entries, 1); // Actual size is set in user space before loading.
 } skb_events SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1); // Actual size is set in user space before loading.
+} workload_profile_events SEC(".maps");
+
 // Network Maps
 
 #define MAX_NETFLOWS 65535

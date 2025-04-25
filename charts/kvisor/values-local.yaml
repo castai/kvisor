@@ -30,7 +30,6 @@ agent:
     netflow-export-interval: 5s
     process-tree-enabled: true
     workload-profile-enabled: true
-    workload-profile-scrape-interval: 5s
     ebpf-events-include-pod-labels: 'helm.sh/chart,app.kubernetes.io/name'
     ebpf-events-include-pod-annotations: 'cast.ai'
     # Uncomment if you want to test high frequency events ingestion to mock server.

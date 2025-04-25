@@ -1187,33 +1187,47 @@ int BPF_KPROBE(trace_cap_capable,
     int cap,
     int cap_opt)
 {
-    struct task_struct *task = (struct task_struct *) bpf_get_current_task();
+    program_data_t p = {};
+    if (!init_program_data(&p, ctx))
+        return 0;
 
-    // Skip if cgroup is muted.
-    u64 cgroup_id = 0;
-    if (global_config.cgroup_v1) {
-        cgroup_id = get_cgroup_v1_subsys0_id(task);
-    } else {
-        cgroup_id = bpf_get_current_cgroup_id();
-    }
+    u64 cgroup_id = p.event->context.task.cgroup_id;
     if (should_skip_cgroup(cgroup_id)) {
+        return 0;
+    }
+
+    if (!should_submit(WORKLOAD_PROFILE_NEW_CAPABILITY, p.event)) {
         return 0;
     }
 
     // Make sure index is in valid range to make the ebpf verifier happy
     u8 cap_index = CAP_TO_INDEX(cap);
-    if (cap_index > (sizeof(caps_t) / sizeof(u32) - 1)) {
+    if (cap_index > (sizeof(caps_t) / sizeof(u64) - 1)) {
         bpf_printk("capability %d out of bounds for cgroup %llu\n", cap, cgroup_id);
         return 0;
     }
+    u64 cap_mask = CAP_TO_MASK(cap);
+
+    bool cap_is_already_set = false;
 
     caps_t *existing_caps = bpf_map_lookup_elem(&cgroup_caps_cache, &cgroup_id);
     if (existing_caps == NULL) {
         caps_t new_caps = {};
-        new_caps.used[cap_index] = CAP_TO_MASK(cap);
+        new_caps.used[cap_index] = cap_mask;
         bpf_map_update_elem(&cgroup_caps_cache, &cgroup_id, &new_caps, BPF_NOEXIST);
     } else {
-        existing_caps->used[cap_index] |= CAP_TO_MASK(cap);
+        cap_is_already_set = existing_caps->used[cap_index] & cap_mask;
+        if (cap_is_already_set) {
+            return 0;
+        }
+        // TODO(samu): use __sync_fetch_and_or for atomicity, it was introduced in 5.12 kernel version
+        // https://elixir.bootlin.com/linux/v5.12/source/include/uapi/linux/bpf.h#L22
+        existing_caps->used[cap_index] |= cap_mask;
+    }
+
+    if (!cap_is_already_set) {
+        save_to_submit_buf(&p.event->args_buf, &cap, sizeof(int), 0);
+        workload_profile_events_submit(&p, WORKLOAD_PROFILE_NEW_CAPABILITY, 0);
     }
 
     return 0;

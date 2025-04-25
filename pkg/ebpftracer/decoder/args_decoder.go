@@ -17969,31 +17969,31 @@ func ParseProcFdLinkResolvedArgs(decoder *Decoder) (types.ProcFdLinkResolvedArgs
   return result, nil
 }
 
-func ParseCapCapableArgs(decoder *Decoder) (types.CapCapableArgs, error) {
-  var result types.CapCapableArgs
+func ParseWorkloadProfileNewCapabilityArgs(decoder *Decoder) (types.WorkloadProfileNewCapabilityArgs, error) {
+  var result types.WorkloadProfileNewCapabilityArgs
   var err error
 
   var numArgs uint8
   err = decoder.DecodeUint8(&numArgs)
   if err != nil {
-    return types.CapCapableArgs{}, err
+    return types.WorkloadProfileNewCapabilityArgs{}, err
   }
   if numArgs > 1 {
-    return types.CapCapableArgs{}, ErrTooManyArguments
+    return types.WorkloadProfileNewCapabilityArgs{}, ErrTooManyArguments
   }
 
   for arg := 0; arg < int(numArgs); arg++ {
     var currArg uint8
     err = decoder.DecodeUint8(&currArg)
     if err != nil {
-      return types.CapCapableArgs{}, err
+      return types.WorkloadProfileNewCapabilityArgs{}, err
     }
 
     switch currArg {
     case 0:
       err = decoder.DecodeInt32(&result.Cap)
       if err != nil {
-        return types.CapCapableArgs{}, err
+        return types.WorkloadProfileNewCapabilityArgs{}, err
       }
     }
   }
@@ -18956,8 +18956,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
     return ParseStdioViaSocketArgs(decoder)
   case events.ProcFdLinkResolved:
     return ParseProcFdLinkResolvedArgs(decoder)
-  case events.CapCapable:
-    return ParseCapCapableArgs(decoder)
+  case events.WorkloadProfileNewCapability:
+    return ParseWorkloadProfileNewCapabilityArgs(decoder)
   case events.TestEvent:
     return ParseTestEventArgs(decoder)
   }

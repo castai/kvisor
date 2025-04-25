@@ -12,6 +12,7 @@ type ID uint32
 
 // Common events (used by all architectures).
 const (
+	// Net events IDs
 	NetPacketBase ID = iota + 700
 	NetPacketIPBase
 	NetPacketTCPBase
@@ -24,6 +25,7 @@ const (
 	NetFlowBase
 	MaxNetID // network base events go ABOVE this item
 
+	// Common event IDs
 	SysEnter
 	SysExit
 	SchedProcessFork
@@ -45,6 +47,13 @@ const (
 	ProcFdLinkResolved
 	CapCapable
 	MaxCommonID
+)
+
+// Workload profile events
+const (
+	WorkloadProfileBase ID = iota + 1000
+	WorkloadProfileNewCapability
+	MaxWorkloadProfileEventID
 )
 
 // Special events for stats aggregations and metrics.

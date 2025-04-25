@@ -30,6 +30,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	workloadprofile "github.com/castai/kvisor/pkg/ebpftracer/workload_profile"
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
@@ -50,42 +51,43 @@ type EBPFMetricsConfig struct {
 }
 
 type Config struct {
-	LogLevel                       string                          `json:"logLevel"`
-	LogRateInterval                time.Duration                   `json:"logRateInterval"`
-	LogRateBurst                   int                             `json:"logRateBurst"`
-	SendLogsLevel                  string                          `json:"sendLogsLevel"`
-	PromMetricsExportEnabled       bool                            `json:"promMetricsExportEnabled"`
-	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
-	Version                        string                          `json:"version"`
-	BTFPath                        string                          `json:"BTFPath"`
-	ContainerdSockPath             string                          `json:"containerdSockPath"`
-	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
-	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
-	State                          state.Config                    `json:"state"`
-	StatsEnabled                   bool                            `json:"statsEnabled"`
-	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
-	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
-	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
-	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
-	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
-	EBPFSignalEventsRingBufferSize uint32                          `json:"EBPFSignalEventsRingBufferSize"`
-	EBPFEventsRingBufferSize       uint32                          `json:"EBPFEventsRingBufferSize"`
-	EBPFSkbEventsRingBufferSize    uint32                          `json:"EBPFSkbEventsRingBufferSize"`
-	MutedNamespaces                []string                        `json:"mutedNamespaces"`
-	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
-	Castai                         castai.Config                   `json:"castai"`
-	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
-	Netflow                        NetflowConfig                   `json:"netflow"`
-	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
-	WorkloadProfile                WorkloadProfileConfig           `json:"workloadProfile"`
-	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
-	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
-	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
-	AutomountCgroupv2              bool                            `json:"automountCgroupv2"`
-	CRIEndpoint                    string                          `json:"criEndpoint"`
-	EventLabels                    []string                        `json:"eventLabels"`
-	EventAnnotations               []string                        `json:"eventAnnotations"`
-	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
+	LogLevel                       string                                      `json:"logLevel"`
+	LogRateInterval                time.Duration                               `json:"logRateInterval"`
+	LogRateBurst                   int                                         `json:"logRateBurst"`
+	SendLogsLevel                  string                                      `json:"sendLogsLevel"`
+	PromMetricsExportEnabled       bool                                        `json:"promMetricsExportEnabled"`
+	PromMetricsExportInterval      time.Duration                               `json:"promMetricsExportInterval"`
+	Version                        string                                      `json:"version"`
+	BTFPath                        string                                      `json:"BTFPath"`
+	ContainerdSockPath             string                                      `json:"containerdSockPath"`
+	HostCgroupsDir                 string                                      `json:"hostCgroupsDir"`
+	MetricsHTTPListenPort          int                                         `json:"metricsHTTPListenPort"`
+	State                          state.Config                                `json:"state"`
+	StatsEnabled                   bool                                        `json:"statsEnabled"`
+	EBPFEventsEnabled              bool                                        `json:"EBPFEventsEnabled"`
+	EBPFEventsOutputChanSize       int                                         `validate:"required" json:"EBPFEventsOutputChanSize"`
+	EBPFEventsStdioExporterEnabled bool                                        `json:"EBPFEventsStdioExporterEnabled"`
+	EBPFMetrics                    EBPFMetricsConfig                           `json:"EBPFMetrics"`
+	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig               `json:"EBPFEventsPolicyConfig"`
+	EBPFSignalEventsRingBufferSize uint32                                      `json:"EBPFSignalEventsRingBufferSize"`
+	EBPFEventsRingBufferSize       uint32                                      `json:"EBPFEventsRingBufferSize"`
+	EBPFSkbEventsRingBufferSize    uint32                                      `json:"EBPFSkbEventsRingBufferSize"`
+	MutedNamespaces                []string                                    `json:"mutedNamespaces"`
+	SignatureEngineConfig          signature.SignatureEngineConfig             `json:"signatureEngineConfig"`
+	WorkloadProfileConfig          workloadprofile.WorkloadProfileEngineConfig `json:"workloadProfileConfig"`
+	Castai                         castai.Config                               `json:"castai"`
+	EnricherConfig                 EnricherConfig                              `json:"enricherConfig"`
+	Netflow                        NetflowConfig                               `json:"netflow"`
+	ProcessTree                    ProcessTreeConfig                           `json:"processTree"`
+	WorkloadProfile                WorkloadProfileConfig                       `json:"workloadProfile"`
+	Clickhouse                     ClickhouseConfig                            `json:"clickhouse"`
+	KubeAPIServiceAddr             string                                      `json:"kubeAPIServiceAddr"`
+	ExportersQueueSize             int                                         `validate:"required" json:"exportersQueueSize"`
+	AutomountCgroupv2              bool                                        `json:"automountCgroupv2"`
+	CRIEndpoint                    string                                      `json:"criEndpoint"`
+	EventLabels                    []string                                    `json:"eventLabels"`
+	EventAnnotations               []string                                    `json:"eventAnnotations"`
+	ContainersRefreshInterval      time.Duration                               `json:"containersRefreshInterval"`
 }
 
 type EnricherConfig struct {
@@ -111,9 +113,8 @@ type ProcessTreeConfig struct {
 }
 
 type WorkloadProfileConfig struct {
-	Enabled        bool          `json:"enabled"`
-	ScrapeInterval time.Duration `json:"scrapeInterval"`
-	CacheSize      uint32        `json:"cacheSize"`
+	Enabled        bool   `json:"enabled"`
+	RingBufferSize uint32 `json:"ringBufferSize"`
 }
 
 func New(cfg *Config) *App {
@@ -280,6 +281,8 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	signatureEngine := signature.NewEngine(activeSignatures, log, cfg.SignatureEngineConfig)
 
+	workloadProfileEngine := workloadprofile.NewEngine(log, cfg.WorkloadProfileConfig)
+
 	mountNamespacePIDStore, err := getInitializedMountNamespaceStore(procHandler)
 	if err != nil {
 		return fmt.Errorf("mount namespace PID store: %w", err)
@@ -301,28 +304,26 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
-		BTFPath:                            cfg.BTFPath,
-		SignalEventsRingBufferSize:         cfg.EBPFSignalEventsRingBufferSize,
-		EventsRingBufferSize:               cfg.EBPFEventsRingBufferSize,
-		SkbEventsRingBufferSize:            cfg.EBPFSkbEventsRingBufferSize,
-		EventsOutputChanSize:               cfg.EBPFEventsOutputChanSize,
-		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
-		ContainerClient:                    containersClient,
-		CgroupClient:                       cgroupClient,
-		AutomountCgroupv2:                  cfg.AutomountCgroupv2,
-		SignatureEngine:                    signatureEngine,
-		MountNamespacePIDStore:             mountNamespacePIDStore,
-		HomePIDNS:                          pidNSID,
-		NetflowSampleSubmitIntervalSeconds: cfg.Netflow.SampleSubmitIntervalSeconds,
-		NetflowGrouping:                    cfg.Netflow.Grouping,
-		TrackSyscallStats:                  cfg.StatsEnabled,
+		BTFPath:                             cfg.BTFPath,
+		SignalEventsRingBufferSize:          cfg.EBPFSignalEventsRingBufferSize,
+		EventsRingBufferSize:                cfg.EBPFEventsRingBufferSize,
+		SkbEventsRingBufferSize:             cfg.EBPFSkbEventsRingBufferSize,
+		WorkloadProfileEventsRingBufferSize: cfg.WorkloadProfile.RingBufferSize,
+		EventsOutputChanSize:                cfg.EBPFEventsOutputChanSize,
+		DefaultCgroupsVersion:               cgroupClient.DefaultCgroupVersion().String(),
+		ContainerClient:                     containersClient,
+		CgroupClient:                        cgroupClient,
+		AutomountCgroupv2:                   cfg.AutomountCgroupv2,
+		SignatureEngine:                     signatureEngine,
+		WorkloadProfileEngine:               workloadProfileEngine,
+		MountNamespacePIDStore:              mountNamespacePIDStore,
+		HomePIDNS:                           pidNSID,
+		NetflowSampleSubmitIntervalSeconds:  cfg.Netflow.SampleSubmitIntervalSeconds,
+		NetflowGrouping:                     cfg.Netflow.Grouping,
+		TrackSyscallStats:                   cfg.StatsEnabled,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
-		},
-		WorkloadProfileConfig: ebpftracer.WorkloadProfileConfig{
-			ScrapeInterval: cfg.WorkloadProfile.ScrapeInterval,
-			CacheSize:      cfg.WorkloadProfile.CacheSize,
 		},
 		PodName: podName,
 	})
@@ -365,6 +366,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	errg.Go(func() error {
 		return signatureEngine.Run(ctx)
+	})
+
+	errg.Go(func() error {
+		return workloadProfileEngine.Run(ctx)
 	})
 
 	errg.Go(func() error {
@@ -489,7 +494,7 @@ Currently we care only care about dns responses with valid answers.
 
 	if cfg.WorkloadProfile.Enabled {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-			ID: events.CapCapable,
+			ID: events.WorkloadProfileNewCapability,
 		})
 	}
 
