@@ -23,6 +23,23 @@ limactl shell lima-ebpf
 curl google.com
 ```
 
+### Testing cgroupv1
+
+Local lima and images will use cgroups v2. If you need to test cgroups v1 logic you can downgrade it and reinstall kind cluster.
+
+Disable cgroup v2.
+```sh
+limactl shell lima-ebpf
+sudo sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="systemd.unified_cgroup_hierarchy=0 /' /etc/default/grub
+sudo update-grub
+sudo reboot
+```
+
+Install kind cluster.
+```sh
+./tools/localenv/kind.sh
+```
+
 ## Run E2E tests locally
 
 You can run tests on your local kind cluster.

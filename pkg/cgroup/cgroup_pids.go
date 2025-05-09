@@ -42,6 +42,9 @@ func statPidsFromCgroupProcs(dirPath string, stats *Stats) error {
 		contents, err = readCgroupFile(dirPath, "cgroup.threads")
 	}
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	pids := strings.Count(contents, "\n")

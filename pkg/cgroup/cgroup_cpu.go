@@ -2,7 +2,7 @@ package cgroup
 
 import (
 	"bufio"
-	"os"
+	"path"
 )
 
 func statCpuV2(dirPath string, stats *Stats) error {
@@ -15,7 +15,11 @@ func statCpuV2(dirPath string, stats *Stats) error {
 
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		t, v, err := parseKeyValue(sc.Text())
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
+		t, v, err := parseKeyValue(line)
 		if err != nil {
 			return &parseError{Path: dirPath, File: file, Err: err}
 		}
@@ -42,30 +46,19 @@ func statCpuV2(dirPath string, stats *Stats) error {
 	return nil
 }
 
-func statCpuV1(dirPath string, stats *Stats) error {
-	const file = "cpu.stat"
-	f, err := openFile(dirPath, file)
+func statCpuV1(cpuFile string, cpuAcctBasePath string, stats *Stats) error {
+	throttling, err := readVariablesFromFile(path.Join(cpuFile, "cpu.stat"))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return err
 	}
-	defer f.Close()
+	stats.CpuStats.ThrottledPeriods = throttling["nr_throttled"]
+	stats.CpuStats.ThrottledTime = throttling["throttled_time"]
 
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		t, v, err := parseKeyValue(sc.Text())
-		if err != nil {
-			return &parseError{Path: dirPath, File: file, Err: err}
-		}
-		switch t {
-		case "nr_throttled":
-			stats.CpuStats.ThrottledPeriods = v
-
-		case "throttled_time":
-			stats.CpuStats.ThrottledTime = v
-		}
+	usageNs, err := readIntFromFile(path.Join(cpuAcctBasePath, "cpuacct.usage"))
+	if err != nil {
+		return err
 	}
+	stats.CpuStats.TotalUsage = uint64(usageNs) // nolint:gosec
+
 	return nil
 }
