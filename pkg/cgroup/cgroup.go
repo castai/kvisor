@@ -45,25 +45,24 @@ func (cg *Cgroup) GetStats() (Stats, error) {
 	return res, nil
 }
 
+// newCgroupStatsGetterFunc returns a function that reads cgroup stats.
+//
+// This function should be called only once during initial cgroup insertion into our cache.
+// It allows to cache some more expensive file paths join operations once.
 func newCgroupStatsGetterFunc(version Version, psiEnabled bool, cgRootfsPath, cgPath string) func(stats *Stats) error {
 	switch version {
 	case V1:
-		after, _ := strings.CutPrefix(cgPath, cgRootfsPath)
-		subpath := strings.SplitN(after, "/", 1)
-		if len(subpath) != 2 {
-			return func(stats *Stats) error {
-				return nil
-			}
-		}
-		last := subpath[1]
-		memBasePath := path.Join(cgRootfsPath, "memory", last)
-		cpuBasePath := path.Join(cgRootfsPath, "cpu", last)
-		pidsBasePath := path.Join(cgRootfsPath, "pids", last)
+		rest := getCgroupV1Path(cgRootfsPath, cgPath)
+		memBasePath := path.Join(cgRootfsPath, "memory", rest)
+		cpuBasePath := path.Join(cgRootfsPath, "cpu", rest)
+		cpuAcctBasePath := path.Join(cgRootfsPath, "cpuacct", rest)
+		pidsBasePath := path.Join(cgRootfsPath, "pids", rest)
+
 		return func(stats *Stats) error {
 			if err := statMemoryV1(memBasePath, stats); err != nil {
 				return err
 			}
-			if err := statCpuV1(cpuBasePath, stats); err != nil {
+			if err := statCpuV1(cpuBasePath, cpuAcctBasePath, stats); err != nil {
 				return err
 			}
 			if err := statPidsV1(pidsBasePath, stats); err != nil {
@@ -100,4 +99,20 @@ func newCgroupStatsGetterFunc(version Version, psiEnabled bool, cgRootfsPath, cg
 	return func(stats *Stats) error {
 		return nil
 	}
+}
+
+// getCgroupV1Path returns the cgroup path without root cgroup path and subsystem.
+// During metrics scrape actual subsystems are added back to the full path.
+func getCgroupV1Path(cgRootfsPath, cgPath string) string {
+	cgPath, _ = strings.CutPrefix(cgPath, cgRootfsPath)
+	var sepCount int
+	for i, c := range cgPath {
+		if c == '/' {
+			sepCount++
+		}
+		if sepCount == 2 {
+			return cgPath[i+1:]
+		}
+	}
+	return ""
 }
