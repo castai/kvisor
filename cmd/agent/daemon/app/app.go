@@ -185,6 +185,9 @@ func (a *App) Run(ctx context.Context) error {
 		log.Warn("castai config is not set or it is invalid, running agent in standalone mode")
 	}
 
+	kernelVersion, _ := kernel.CurrentKernelVersion()
+	log.Infof("starting kvisor agent, version=%s, kernel_version=%s", cfg.Version, kernelVersion)
+
 	kubeAPIServiceConn, err := grpc.NewClient(
 		cfg.KubeAPIServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -384,7 +387,6 @@ func (a *App) Run(ctx context.Context) error {
 	go containersRefreshLoop(ctx, cfg.ContainersRefreshInterval, log, containersClient)
 	go containersMetrics(ctx, containersClient)
 
-	kernelVersion, _ := kernel.CurrentKernelVersion()
 	log.Infof("running kvisor agent, version=%s, kernel_version=%s, init_duration=%v", cfg.Version, kernelVersion, time.Since(start))
 	defer log.Infof("stopping kvisor agent, version=%s", cfg.Version)
 

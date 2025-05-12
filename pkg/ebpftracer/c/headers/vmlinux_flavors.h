@@ -100,6 +100,10 @@ struct inode___older_v66 {
     struct timespec64 i_ctime;
 };
 
+struct inode___older_v611 {
+    struct timespec64 __i_ctime;
+};
+
 ///////////////////
 
 #pragma clang attribute pop

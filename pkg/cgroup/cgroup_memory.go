@@ -19,6 +19,10 @@ func statMemoryV2(dirPath string, stats *Stats) error {
 
 	sc := bufio.NewScanner(statsFile)
 	for sc.Scan() {
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
 		t, v, err := parseKeyValue(sc.Text())
 		if err != nil {
 			return &parseError{Path: dirPath, File: file, Err: err}
@@ -92,7 +96,11 @@ func statMemoryV1(dirPath string, stats *Stats) error {
 
 	sc := bufio.NewScanner(statsFile)
 	for sc.Scan() {
-		t, v, err := parseKeyValue(sc.Text())
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
+		t, v, err := parseKeyValue(line)
 		if err != nil {
 			return &parseError{Path: dirPath, File: file, Err: err}
 		}
