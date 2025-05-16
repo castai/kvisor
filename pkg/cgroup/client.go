@@ -129,7 +129,7 @@ func (c *Client) lookupCgroupForIDInCache(id ID) (*Cgroup, bool) {
 	return nil, false
 }
 
-func (c *Client) GetCgroupByID(cgroupID ID) (*Cgroup, error) {
+func (c *Client) LoadCgroupByID(cgroupID ID) (*Cgroup, error) {
 	if cg, found := c.lookupCgroupForIDInCache(cgroupID); found {
 		return cg, nil
 	}
@@ -142,19 +142,19 @@ func (c *Client) GetCgroupByID(cgroupID ID) (*Cgroup, error) {
 		return nil, ErrCgroupNotFound
 	}
 
-	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
+	cgroup := c.loadCgroupForIDAndPath(cgroupID, cgroupPath)
 
 	c.cacheCgroup(cgroup)
 
 	return cgroup, nil
 }
 
-func (c *Client) GetCgroupByContainerID(containerID string) (*Cgroup, error) {
+func (c *Client) LoadCgroupByContainerID(containerID string) (*Cgroup, error) {
 	cgroupPath, cgroupID := c.findCgroupPathForContainerID(containerID)
 	if cgroupPath == "" {
 		return nil, ErrCgroupNotFound
 	}
-	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
+	cgroup := c.loadCgroupForIDAndPath(cgroupID, cgroupPath)
 	if cgroup.ContainerID == "" {
 		return nil, ErrCgroupNotFound
 	}
@@ -164,8 +164,14 @@ func (c *Client) GetCgroupByContainerID(containerID string) (*Cgroup, error) {
 	return cgroup, nil
 }
 
-func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
+func (c *Client) loadCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
 	containerID, containerRuntime := GetContainerIdFromCgroup(cgroupPath)
+
+	// If cgroup is loaded by received eBPF cgroup mkdir event it's path may not always point to full cgroup path on the filesystem.
+	// We always need to have full path since it's used for container stats scraping.
+	if !strings.HasPrefix(cgroupPath, c.cgRoot) {
+		cgroupPath = filepath.Join(c.cgRoot, cgroupPath)
+	}
 
 	return &Cgroup{
 		Id:               cgroupID,
@@ -408,7 +414,7 @@ func (c *Client) LoadCgroup(id ID, path string) {
 	defer c.cgroupMu.Unlock()
 
 	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
-		cgroup := c.getCgroupForIDAndPath(id, path)
+		cgroup := c.loadCgroupForIDAndPath(id, path)
 		return cgroup
 	})
 }
