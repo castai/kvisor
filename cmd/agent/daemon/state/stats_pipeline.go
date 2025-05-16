@@ -70,7 +70,11 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 	cgStats, err := c.containersClient.GetCgroupStats(cont)
 	if err != nil {
 		if c.log.IsEnabled(slog.LevelDebug) {
-			c.log.Errorf("getting cgroup stats, container=%s(%s), cgroup_path=%s: %v", cont.Name, cont.ID, err)
+			var cgPath string
+			if cont.Cgroup != nil {
+				cgPath = cont.Cgroup.Path
+			}
+			c.log.Warnf("getting cgroup stats, container=%s(%s), cgroup_path=%s: %v", cont.Name, cont.ID, cgPath, err)
 		}
 		if !errors.Is(err, cgroup.ErrStatsNotFound) {
 			metrics.AgentStatsScrapeErrorsTotal.WithLabelValues("container").Inc()
