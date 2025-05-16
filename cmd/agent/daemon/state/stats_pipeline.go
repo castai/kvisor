@@ -69,13 +69,12 @@ func (c *Controller) scrapeContainersResourceStats(batch *castaipb.StatsBatch) {
 func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, batch *castaipb.StatsBatch) {
 	cgStats, err := c.containersClient.GetCgroupStats(cont)
 	if err != nil {
-		if errors.Is(err, cgroup.ErrStatsNotFound) {
-			return
-		}
 		if c.log.IsEnabled(slog.LevelDebug) {
-			c.log.Errorf("getting cgroup stats for container %q: %v", cont.Name, err)
+			c.log.Errorf("getting cgroup stats, container=%s(%s), cgroup_path=%s: %v", cont.Name, cont.ID, err)
 		}
-		metrics.AgentStatsScrapeErrorsTotal.WithLabelValues("container").Inc()
+		if !errors.Is(err, cgroup.ErrStatsNotFound) {
+			metrics.AgentStatsScrapeErrorsTotal.WithLabelValues("container").Inc()
+		}
 		return
 	}
 

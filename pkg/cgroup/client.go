@@ -171,6 +171,7 @@ func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
 		Id:               cgroupID,
 		ContainerID:      containerID,
 		ContainerRuntime: containerRuntime,
+		Path:             cgroupPath,
 		statsGetterFunc:  newCgroupStatsGetterFunc(c.version, c.psiEnabled, c.cgRoot, cgroupPath),
 	}
 }
