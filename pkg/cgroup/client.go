@@ -167,12 +167,6 @@ func (c *Client) LoadCgroupByContainerID(containerID string) (*Cgroup, error) {
 func (c *Client) loadCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
 	containerID, containerRuntime := GetContainerIdFromCgroup(cgroupPath)
 
-	// If cgroup is loaded by received eBPF cgroup mkdir event it's path may not always point to full cgroup path on the filesystem.
-	// We always need to have full path since it's used for container stats scraping.
-	if !strings.HasPrefix(cgroupPath, c.cgRoot) {
-		cgroupPath = filepath.Join(c.cgRoot, cgroupPath)
-	}
-
 	return &Cgroup{
 		Id:               cgroupID,
 		ContainerID:      containerID,
@@ -407,16 +401,6 @@ func GetContainerIdFromCgroup(cgroupPath string) (string, ContainerRuntimeID) {
 
 	// cgroup dirs unrelated to containers provides empty (containerId, runtime)
 	return "", UnknownRuntime
-}
-
-func (c *Client) LoadCgroup(id ID, path string) {
-	c.cgroupMu.Lock()
-	defer c.cgroupMu.Unlock()
-
-	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
-		cgroup := c.loadCgroupForIDAndPath(id, path)
-		return cgroup
-	})
 }
 
 func (c *Client) cacheCgroup(cgroup *Cgroup) {
