@@ -196,7 +196,7 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 		}
 	}()
 
-	cg, err := c.cgroupClient.GetCgroupByID(cgroupID)
+	cg, err := c.cgroupClient.LoadCgroupByID(cgroupID)
 	// The found cgroup is not a container.
 	if err != nil || cg.ContainerID == "" {
 		return nil, ErrContainerNotFound
@@ -222,7 +222,7 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 }
 
 func (c *Client) addContainer(cont *criapi.Container) error {
-	cg, err := c.cgroupClient.GetCgroupByContainerID(cont.Id)
+	cg, err := c.cgroupClient.LoadCgroupByContainerID(cont.Id)
 	if err != nil || cg.ContainerID == "" {
 		if errors.Is(err, cgroup.ErrCgroupNotFound) {
 			return ErrContainerNotFound

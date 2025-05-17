@@ -24,6 +24,7 @@ type Cgroup struct {
 	Id               uint64
 	ContainerRuntime ContainerRuntimeID
 	ContainerID      string
+	Path             string
 
 	statsGetterFunc func(stats *Stats) error
 }
