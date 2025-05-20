@@ -154,6 +154,11 @@ spec:
             failureThreshold: 12
             periodSeconds: 10
           volumeMounts:
+            {{- if eq (get .Values.agent.extraArgs "netflow-enabled") "true" }}
+            - mountPath: /sys/fs/bpf
+              mountPropagation: HostToContainer
+              name: cilium-bpf-maps
+            {{- end }}
             - name: cgroups
               mountPath: /cgroups
               readOnly: true
@@ -197,6 +202,12 @@ spec:
           hostPath:
             path: /run/containerd/containerd.sock
             type: Socket
+        {{- if eq (get .Values.agent.extraArgs "netflow-enabled") "true" }}
+        - name: cilium-bpf-maps
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        {{- end }}
 {{- end }}
 ---
 {{- if .Values.agent.serviceAccount.create -}}
