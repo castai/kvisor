@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"regexp"
 	"runtime"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/cri"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
@@ -44,72 +44,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type EBPFMetricsConfig struct {
-	TracerMetricsEnabled  bool `json:"TracerMetricsEnabled"`
-	ProgramMetricsEnabled bool `json:"ProgramMetricsEnabled"`
-}
-
-type Config struct {
-	LogLevel                       string                          `json:"logLevel"`
-	LogRateInterval                time.Duration                   `json:"logRateInterval"`
-	LogRateBurst                   int                             `json:"logRateBurst"`
-	SendLogsLevel                  string                          `json:"sendLogsLevel"`
-	PromMetricsExportEnabled       bool                            `json:"promMetricsExportEnabled"`
-	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
-	Version                        string                          `json:"version"`
-	BTFPath                        string                          `json:"BTFPath"`
-	ContainerdSockPath             string                          `json:"containerdSockPath"`
-	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
-	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
-	State                          state.Config                    `json:"state"`
-	StatsEnabled                   bool                            `json:"statsEnabled"`
-	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
-	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
-	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
-	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
-	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
-	EBPFSignalEventsRingBufferSize uint32                          `json:"EBPFSignalEventsRingBufferSize"`
-	EBPFEventsRingBufferSize       uint32                          `json:"EBPFEventsRingBufferSize"`
-	EBPFSkbEventsRingBufferSize    uint32                          `json:"EBPFSkbEventsRingBufferSize"`
-	MutedNamespaces                []string                        `json:"mutedNamespaces"`
-	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
-	Castai                         castai.Config                   `json:"castai"`
-	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
-	Netflow                        NetflowConfig                   `json:"netflow"`
-	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
-	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
-	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
-	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
-	AutomountCgroupv2              bool                            `json:"automountCgroupv2"`
-	CRIEndpoint                    string                          `json:"criEndpoint"`
-	EventLabels                    []string                        `json:"eventLabels"`
-	EventAnnotations               []string                        `json:"eventAnnotations"`
-	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
-}
-
-type EnricherConfig struct {
-	EnableFileHashEnricher     bool           `json:"enableFileHashEnricher"`
-	RedactSensitiveValuesRegex *regexp.Regexp `json:"redactSensitiveValuesRegex"`
-}
-
-type NetflowConfig struct {
-	Enabled                     bool                       `json:"enabled"`
-	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
-	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
-}
-
-type ClickhouseConfig struct {
-	Addr     string `json:"addr"`
-	Database string `json:"database"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type ProcessTreeConfig struct {
-	Enabled bool `json:"enabled"`
-}
-
-func New(cfg *Config) *App {
+func New(cfg *config.Config) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
@@ -117,7 +52,7 @@ func New(cfg *Config) *App {
 }
 
 type App struct {
-	cfg *Config
+	cfg *config.Config
 }
 
 func (a *App) Run(ctx context.Context) error {
@@ -437,7 +372,7 @@ func containersRefreshLoop(ctx context.Context, interval time.Duration, log *log
 	}
 }
 
-func enableBPFStats(cfg *Config, log *logging.Logger) func() {
+func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	cleanup, err := ebpftracer.EnabledBPFStats(log)
 	if err != nil {
 		// In case we cannot enable bpf stats, there is no need to have the metrics export for them enabled.
@@ -448,7 +383,7 @@ func enableBPFStats(cfg *Config, log *logging.Logger) func() {
 	return cleanup
 }
 
-func buildEBPFPolicy(log *logging.Logger, cfg *Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
+func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
 	policy := &ebpftracer.Policy{
 		SystemEvents: []events.ID{
 			events.CgroupMkdir,
@@ -549,7 +484,7 @@ func (a *App) syncRemoteConfig(ctx context.Context, client *castai.Client) error
 	}
 }
 
-func getActiveEnrichers(cfg EnricherConfig, log *logging.Logger, mountNamespacePIDStore *types.PIDsPerNamespace) []enrichment.EventEnricher {
+func getActiveEnrichers(cfg config.EnricherConfig, log *logging.Logger, mountNamespacePIDStore *types.PIDsPerNamespace) []enrichment.EventEnricher {
 	var result []enrichment.EventEnricher
 
 	if cfg.EnableFileHashEnricher {

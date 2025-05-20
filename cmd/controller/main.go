@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/castai/kvisor/cmd/controller/config"
 	"github.com/castai/kvisor/cmd/controller/state/imagescan"
 	"github.com/castai/kvisor/cmd/controller/state/kubebench"
 	"github.com/castai/kvisor/cmd/controller/state/kubelinter"
@@ -161,7 +162,7 @@ func main() {
 	if podName == "" {
 		podName = "localenv"
 	}
-	appInstance := app.New(app.Config{
+	appInstance := app.New(config.Config{
 		LogLevel:                  *logLevel,
 		LogRateInterval:           *logRateInterval,
 		LogRateBurst:              *logRateBurst,
@@ -221,7 +222,7 @@ func main() {
 			CleanupJobAge:   *jobsCleanupJobAge,
 			Namespace:       podNs,
 		},
-		AgentConfig: app.AgentConfig{
+		AgentConfig: config.AgentConfig{
 			Enabled: *agentEnabled,
 		},
 	},

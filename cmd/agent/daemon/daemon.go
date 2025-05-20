@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/cmd/agent/daemon/app"
+	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -150,7 +151,7 @@ func NewRunCommand(version string) *cobra.Command {
 			}
 		}
 
-		if err := app.New(&app.Config{
+		if err := app.New(&config.Config{
 			LogLevel:                  *logLevel,
 			LogRateInterval:           *logRateInterval,
 			LogRateBurst:              *logRateBurst,
@@ -172,7 +173,7 @@ func NewRunCommand(version string) *cobra.Command {
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
 			EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
-			EBPFMetrics: app.EBPFMetricsConfig{
+			EBPFMetrics: config.EBPFMetricsConfig{
 				TracerMetricsEnabled:  *ebpfTracerMetricsEnabled,
 				ProgramMetricsEnabled: *ebpfProgramMetricsEnabled,
 			},
@@ -198,22 +199,22 @@ func NewRunCommand(version string) *cobra.Command {
 				},
 			},
 			Castai: castaiClientCfg,
-			EnricherConfig: app.EnricherConfig{
+			EnricherConfig: config.EnricherConfig{
 				EnableFileHashEnricher:     *fileHashEnrichedEnabled,
 				RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
 			},
-			Netflow: app.NetflowConfig{
+			Netflow: config.NetflowConfig{
 				Enabled:                     *netflowEnabled,
 				SampleSubmitIntervalSeconds: *netflowSampleSubmitIntervalSeconds,
 				Grouping:                    netflowGrouping,
 			},
-			Clickhouse: app.ClickhouseConfig{
+			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,
 				Database: *clickhouseDatabase,
 				Username: *clickhouseUsername,
 				Password: os.Getenv("CLICKHOUSE_PASSWORD"),
 			},
-			ProcessTree: app.ProcessTreeConfig{
+			ProcessTree: config.ProcessTreeConfig{
 				Enabled: *processTreeEnabled,
 			},
 			KubeAPIServiceAddr:        *kubeAPIServiceAddr,
