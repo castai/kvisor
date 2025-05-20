@@ -129,7 +129,7 @@ func (c *Client) lookupCgroupForIDInCache(id ID) (*Cgroup, bool) {
 	return nil, false
 }
 
-func (c *Client) GetCgroupByID(cgroupID ID) (*Cgroup, error) {
+func (c *Client) LoadCgroupByID(cgroupID ID) (*Cgroup, error) {
 	if cg, found := c.lookupCgroupForIDInCache(cgroupID); found {
 		return cg, nil
 	}
@@ -142,19 +142,19 @@ func (c *Client) GetCgroupByID(cgroupID ID) (*Cgroup, error) {
 		return nil, ErrCgroupNotFound
 	}
 
-	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
+	cgroup := c.loadCgroupForIDAndPath(cgroupID, cgroupPath)
 
 	c.cacheCgroup(cgroup)
 
 	return cgroup, nil
 }
 
-func (c *Client) GetCgroupByContainerID(containerID string) (*Cgroup, error) {
+func (c *Client) LoadCgroupByContainerID(containerID string) (*Cgroup, error) {
 	cgroupPath, cgroupID := c.findCgroupPathForContainerID(containerID)
 	if cgroupPath == "" {
 		return nil, ErrCgroupNotFound
 	}
-	cgroup := c.getCgroupForIDAndPath(cgroupID, cgroupPath)
+	cgroup := c.loadCgroupForIDAndPath(cgroupID, cgroupPath)
 	if cgroup.ContainerID == "" {
 		return nil, ErrCgroupNotFound
 	}
@@ -164,13 +164,28 @@ func (c *Client) GetCgroupByContainerID(containerID string) (*Cgroup, error) {
 	return cgroup, nil
 }
 
-func (c *Client) getCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
+func (c *Client) LoadCgroup(id ID, path string) {
+	c.cgroupMu.Lock()
+	defer c.cgroupMu.Unlock()
+
+	if !strings.HasPrefix(path, c.cgRoot) {
+		path = filepath.Join(c.cgRoot, path)
+	}
+
+	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
+		cgroup := c.loadCgroupForIDAndPath(id, path)
+		return cgroup
+	})
+}
+
+func (c *Client) loadCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
 	containerID, containerRuntime := GetContainerIdFromCgroup(cgroupPath)
 
 	return &Cgroup{
 		Id:               cgroupID,
 		ContainerID:      containerID,
 		ContainerRuntime: containerRuntime,
+		Path:             cgroupPath,
 		statsGetterFunc:  newCgroupStatsGetterFunc(c.version, c.psiEnabled, c.cgRoot, cgroupPath),
 	}
 }
@@ -400,16 +415,6 @@ func GetContainerIdFromCgroup(cgroupPath string) (string, ContainerRuntimeID) {
 
 	// cgroup dirs unrelated to containers provides empty (containerId, runtime)
 	return "", UnknownRuntime
-}
-
-func (c *Client) LoadCgroup(id ID, path string) {
-	c.cgroupMu.Lock()
-	defer c.cgroupMu.Unlock()
-
-	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
-		cgroup := c.getCgroupForIDAndPath(id, path)
-		return cgroup
-	})
 }
 
 func (c *Client) cacheCgroup(cgroup *Cgroup) {

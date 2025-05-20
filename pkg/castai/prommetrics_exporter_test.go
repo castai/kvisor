@@ -37,7 +37,7 @@ func TestPrometheusExporter(t *testing.T) {
 	exp := NewPromMetricsExporter(log, logsExp, prometheus.DefaultGatherer, PromMetricsExporterConfig{
 		MetricsPrefix:  "kvisor_test",
 		PodName:        "pod1",
-		ExportInterval: time.Millisecond,
+		ExportInterval: 10 * time.Millisecond,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	go exp.Run(ctx)
@@ -46,7 +46,7 @@ func TestPrometheusExporter(t *testing.T) {
 		logsExp.mu.Lock()
 		defer logsExp.mu.Unlock()
 		return len(logsExp.logs) == 2
-	}, time.Second, time.Millisecond)
+	}, time.Second, 1*time.Millisecond)
 
 	cancel()
 
