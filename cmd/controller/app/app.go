@@ -13,6 +13,7 @@ import (
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/cmd/controller/config"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/cmd/controller/state"
 	"github.com/castai/kvisor/cmd/controller/state/imagescan"
@@ -34,42 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type Config struct {
-	// Logging configuration.
-	LogLevel        string        `json:"logLevel"`
-	LogRateInterval time.Duration `json:"logRateInterval"`
-	LogRateBurst    int           `json:"logRateBurst"`
-
-	PromMetricsExportEnabled  bool          `json:"promMetricsExportEnabled"`
-	PromMetricsExportInterval time.Duration `json:"promMetricsExportInterval"`
-
-	// Built binary version.
-	Version      string `json:"version"`
-	ChartVersion string `json:"chartVersion"`
-
-	// Current running pod metadata.
-	PodNamespace string `validate:"required" json:"podNamespace"`
-	PodName      string `validate:"required" json:"podName"`
-
-	// HTTPListenPort is internal http servers listen port.
-	HTTPListenPort        int `validate:"required" json:"HTTPListenPort"`
-	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
-	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
-
-	CastaiController state.CastaiConfig      `json:"castaiController"`
-	CastaiEnv        castai.Config           `json:"castaiEnv"`
-	ImageScan        imagescan.Config        `json:"imageScan"`
-	Linter           kubelinter.Config       `json:"linter"`
-	KubeBench        kubebench.Config        `json:"kubeBench"`
-	JobsCleanup      state.JobsCleanupConfig `json:"jobsCleanup"`
-	AgentConfig      AgentConfig             `json:"agentConfig"`
-}
-
-type AgentConfig struct {
-	Enabled bool `json:"enabled"`
-}
-
-func New(cfg Config, clientset kubernetes.Interface) *App {
+func New(cfg config.Config, clientset kubernetes.Interface) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
@@ -77,7 +43,7 @@ func New(cfg Config, clientset kubernetes.Interface) *App {
 }
 
 type App struct {
-	cfg Config
+	cfg config.Config
 
 	kubeClient kubernetes.Interface
 }
