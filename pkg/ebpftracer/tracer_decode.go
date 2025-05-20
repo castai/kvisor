@@ -133,8 +133,8 @@ func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs
 	if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
 		return nil
 	}
-	t.log.Infof("handling cgroup mkdir event for cgroup=%d, path=%s", args.CgroupId, args.CgroupPath)
 
+	t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
 	if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
 		if errors.Is(err, containers.ErrContainerNotFound) {
 			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, "container not found during cgroup mkdir event")

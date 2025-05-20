@@ -164,6 +164,20 @@ func (c *Client) LoadCgroupByContainerID(containerID string) (*Cgroup, error) {
 	return cgroup, nil
 }
 
+func (c *Client) LoadCgroup(id ID, path string) {
+	c.cgroupMu.Lock()
+	defer c.cgroupMu.Unlock()
+
+	if !strings.HasPrefix(path, c.cgRoot) {
+		path = filepath.Join(c.cgRoot, path)
+	}
+
+	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
+		cgroup := c.loadCgroupForIDAndPath(id, path)
+		return cgroup
+	})
+}
+
 func (c *Client) loadCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {
 	containerID, containerRuntime := GetContainerIdFromCgroup(cgroupPath)
 
