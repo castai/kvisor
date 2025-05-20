@@ -15,6 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aquasecurity/testdocker/auth"
+	"github.com/aquasecurity/testdocker/engine"
+	"github.com/aquasecurity/testdocker/registry"
+	"github.com/aquasecurity/testdocker/tarfile"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -96,6 +100,81 @@ func TestCollector(t *testing.T) {
 		// every upgrade of trivy. Hence we now only test if the len of the packages match.
 		r.Len(actualPackages, len(expectedPackages))
 	})
+}
+
+func TestCollectorPackageAnalyzers(t *testing.T) {
+
+	tests := []struct {
+		name  string
+		image string
+	}{
+		{
+			name:  "analyze apk packages",
+			image: "alpine:3.21",
+		},
+		{
+			name:  "analyze deb packages",
+			image: "debian:trixie-slim",
+		},
+		{
+			name:  "analyze rpm packages",
+			image: "ubi-minimal:8.10",
+		},
+	}
+
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	mockCache := mockblobcache.MockClient{}
+
+	ingestClient := &mockIngestClient{}
+
+	te, tr := setupEngineAndRegistry(t)
+	defer func() {
+		te.Close()
+		tr.Close()
+	}()
+	serverAddr := tr.Listener.Addr().String()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := require.New(t)
+			c := New(
+				log,
+				config.Config{
+					ImageID:           test.image,
+					ImageName:         fmt.Sprintf("%s/%s", serverAddr, test.image),
+					Timeout:           5 * time.Minute,
+					Mode:              config.ModeRemote,
+					Runtime:           config.RuntimeDocker,
+					Parallel:          1,
+					DisabledAnalyzers: []string{"secret"},
+				},
+				ingestClient,
+				mockCache,
+				nil,
+			)
+
+			r.NoError(c.Collect(ctx))
+
+			receivedMetadataJson, err := protojson.Marshal(ingestClient.receivedMeta)
+			r.NoError(err)
+			var actual castaipb.ImageMetadata
+			r.NoError(protojson.Unmarshal(receivedMetadataJson, &actual))
+
+			var actualPackages []types.BlobInfo
+			r.NoError(json.Unmarshal(actual.Packages, &actualPackages))
+
+			// verify that files installed per package are included in the scan result
+			r.Len(actualPackages, 1)
+			r.Len(actualPackages[0].PackageInfos, 1)
+			pkgs := actualPackages[0].PackageInfos[0].Packages
+			r.NotEmpty(pkgs)
+			r.NotEmpty(pkgs[0].InstalledFiles)
+		})
+	}
+
 }
 
 func TestCollectorWithIngressNginx(t *testing.T) {
@@ -465,4 +544,37 @@ type mockIngestClient struct {
 func (m *mockIngestClient) ImageMetadataIngest(ctx context.Context, in *castaipb.ImageMetadata, opts ...grpc.CallOption) (*castaipb.ImageMetadataIngestResponse, error) {
 	m.receivedMeta = in
 	return &castaipb.ImageMetadataIngestResponse{}, nil
+}
+
+func setupEngineAndRegistry(t *testing.T) (*httptest.Server, *httptest.Server) {
+	t.Helper()
+	imagePaths := map[string]string{
+		"alpine:3.21":        "testdata/images/alpine-3-21.tar.gz",
+		"debian:trixie-slim": "testdata/images/debian-13-trixie.tar.gz",
+		"ubi-minimal:8.10":   "testdata/images/ubi8-minimal-8-10.tar.gz",
+	}
+	opt := engine.Option{
+		APIVersion: "1.38",
+		ImagePaths: imagePaths,
+	}
+	te := engine.NewDockerEngine(opt)
+
+	images := map[string]v1.Image{
+		"v2/alpine:3.21":        mustImageFromPath(t, "testdata/images/alpine-3-21.tar.gz"),
+		"v2/debian:trixie-slim": mustImageFromPath(t, "testdata/images/debian-13-trixie.tar.gz"),
+		"v2/ubi-minimal:8.10":   mustImageFromPath(t, "testdata/images/ubi8-minimal-8-10.tar.gz"),
+	}
+	tr := registry.NewDockerRegistry(registry.Option{
+		Images: images,
+		Auth:   auth.Auth{},
+	})
+
+	t.Setenv("DOCKER_HOST", fmt.Sprintf("tcp://%s", te.Listener.Addr().String()))
+	return te, tr
+}
+
+func mustImageFromPath(t *testing.T, filePath string) v1.Image {
+	img, err := tarfile.ImageFromPath(filePath)
+	require.NoError(t, err)
+	return img
 }
