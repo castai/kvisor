@@ -2,13 +2,13 @@ package ebpftracer
 
 import (
 	"errors"
-	"net/netip"
 	"time"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/net/iputil"
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 	"github.com/samber/lo"
@@ -79,7 +79,7 @@ func RateLimitPrivateIP(spec RateLimitPolicy) EventFilterGenerator {
 			if !ok {
 				return ErrFilterPass
 			}
-			if !isPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
+			if !iputil.IsPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
 				return ErrFilterPass
 			}
 
@@ -99,7 +99,7 @@ func SkipPrivateIP() EventFilterGenerator {
 			if !ok {
 				return ErrFilterPass
 			}
-			if !isPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
+			if !iputil.IsPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
 				return ErrFilterPass
 			}
 			return ErrFilterRateLimit
@@ -162,13 +162,4 @@ func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Du
 			}, ErrFilterPass
 		}
 	}
-}
-
-func isPrivateNetwork(ip netip.Addr) bool {
-	return ip.IsPrivate() ||
-		ip.IsLoopback() ||
-		ip.IsMulticast() ||
-		ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() ||
-		ip.IsInterfaceLocalMulticast()
 }

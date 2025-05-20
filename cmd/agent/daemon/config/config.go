@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
@@ -27,8 +26,8 @@ type Config struct {
 	ContainerdSockPath             string                          `json:"containerdSockPath"`
 	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
 	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
-	State                          state.Config                    `json:"state"`
-	StatsEnabled                   bool                            `json:"statsEnabled"`
+	Stats                          StatsConfig                     `json:"stats"`
+	Events                         EventsConfig                    `json:"events"`
 	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
 	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
 	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
@@ -53,6 +52,16 @@ type Config struct {
 	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
 }
 
+type StatsConfig struct {
+	Enabled        bool          `json:"enabled"`
+	ScrapeInterval time.Duration `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
+}
+
+type EventsConfig struct {
+	BatchSize     int           `validate:"required" json:"batchSize"`
+	FlushInterval time.Duration `validate:"required" json:"flushInterval"`
+}
+
 type EnricherConfig struct {
 	EnableFileHashEnricher     bool           `json:"enableFileHashEnricher"`
 	RedactSensitiveValuesRegex *regexp.Regexp `json:"redactSensitiveValuesRegex"`
@@ -61,7 +70,9 @@ type EnricherConfig struct {
 type NetflowConfig struct {
 	Enabled                     bool                       `json:"enabled"`
 	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
+	ExportInterval              time.Duration              `json:"exportInterval"`
 	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
+	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
 }
 
 type ClickhouseConfig struct {

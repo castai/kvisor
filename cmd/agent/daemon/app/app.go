@@ -104,7 +104,7 @@ func (a *App) Run(ctx context.Context) error {
 		if cfg.EBPFEventsEnabled {
 			exporters.ContainerEvents = append(exporters.ContainerEvents, state.NewCastaiContainerEventSender(ctx, log, castaiClient))
 		}
-		if cfg.StatsEnabled {
+		if cfg.Stats.Enabled {
 			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, cfg.ExportersQueueSize))
 		}
 		if cfg.Netflow.Enabled {
@@ -246,7 +246,6 @@ func (a *App) Run(ctx context.Context) error {
 		HomePIDNS:                          pidNSID,
 		NetflowSampleSubmitIntervalSeconds: cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    cfg.Netflow.Grouping,
-		TrackSyscallStats:                  cfg.StatsEnabled,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
@@ -268,7 +267,11 @@ func (a *App) Run(ctx context.Context) error {
 
 	ctrl := state.NewController(
 		log,
-		cfg.State,
+		state.Config{
+			Netflow: cfg.Netflow,
+			Events:  cfg.Events,
+			Stats:   cfg.Stats,
+		},
 		exporters,
 		containersClient,
 		netStatsReader,

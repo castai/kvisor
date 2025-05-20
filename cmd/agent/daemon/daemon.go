@@ -13,7 +13,6 @@ import (
 
 	"github.com/castai/kvisor/cmd/agent/daemon/app"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
-	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
@@ -98,6 +97,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
+		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", 10, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
 		eventsBatchSize     = command.Flags().Int("events-batch-size", 1000, "Events batch size before exporting")
@@ -163,12 +163,13 @@ func NewRunCommand(version string) *cobra.Command {
 			ContainerdSockPath:        *containerdSockPath,
 			HostCgroupsDir:            *hostCgroupsDir,
 			MetricsHTTPListenPort:     *metricsHTTPListenPort,
-			StatsEnabled:              *statsEnabled,
-			State: state.Config{
-				StatsScrapeInterval:   *statsScrapeInterval,
-				NetflowExportInterval: *netflowExportInterval,
-				EventsBatchSize:       *eventsBatchSize,
-				EventsFlushInterval:   *eventsFlushInterval,
+			Stats: config.StatsConfig{
+				Enabled:        *statsEnabled,
+				ScrapeInterval: *statsScrapeInterval,
+			},
+			Events: config.EventsConfig{
+				BatchSize:     *eventsBatchSize,
+				FlushInterval: *eventsFlushInterval,
 			},
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
@@ -207,6 +208,8 @@ func NewRunCommand(version string) *cobra.Command {
 				Enabled:                     *netflowEnabled,
 				SampleSubmitIntervalSeconds: *netflowSampleSubmitIntervalSeconds,
 				Grouping:                    netflowGrouping,
+				ExportInterval:              *netflowExportInterval,
+				MaxPublicIPs:                *netflowMaxPublicIPsBucket,
 			},
 			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,

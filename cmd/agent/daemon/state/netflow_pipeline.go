@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/net/iputil"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
@@ -67,7 +68,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
 	}
 
-	ticker := time.NewTicker(c.cfg.NetflowExportInterval)
+	ticker := time.NewTicker(c.cfg.Netflow.ExportInterval)
 	defer func() {
 		ticker.Stop()
 	}()
@@ -89,14 +90,21 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		}
 	})
 	return errg.Wait()
+
+}
+
+type netflowVal struct {
+	pb              *castpb.Netflow
+	mergeThreshold  int
+	mergedDestIndex int
 }
 
 func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
 	start := time.Now()
 	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
-	type cgroupID = uint64
 
-	netflows := map[cgroupID]*castpb.Netflow{}
+	type cgroupID = uint64
+	netflows := map[cgroupID]*netflowVal{}
 
 	for i, key := range keys {
 		summary := vals[i]
@@ -107,26 +115,73 @@ func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebp
 				c.log.Errorf("error while parsing netflow destination: %v", err)
 				continue
 			}
-
-			netflows[key.ProcessIdentity.CgroupId] = d
-			netflow = d
+			val := &netflowVal{pb: d}
+			netflows[key.ProcessIdentity.CgroupId] = val
+			netflow = val
 		}
 
-		dest, err := c.toNetflowDestination(key, summary, podsByIPCache)
+		dest, isPublicDest, err := c.toNetflowDestination(key, summary, podsByIPCache)
 		if err != nil {
 			c.log.Errorf("cannot parse netflow destination: %v", err)
 			continue
 		}
 
-		netflow.Destinations = append(netflow.Destinations, dest)
+		c.addNetflowDestination(netflow, dest, isPublicDest)
 	}
 
 	for _, n := range netflows {
 		// Enqueue to exporters.
 		for _, exp := range c.exporters.Netflow {
-			exp.Enqueue(n)
+			exp.Enqueue(n.pb)
 		}
 	}
+}
+
+func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castpb.NetflowDestination, isPublicDest bool) {
+	// To reduce cardinality we merge destinations to 0.0.0.0 range if
+	// it's a public ip and doesn't have dns domain.
+	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, c.cfg.Netflow.MaxPublicIPs)
+	if maybeMerge && netflow.mergeThreshold >= int(c.cfg.Netflow.MaxPublicIPs) {
+		if netflow.mergedDestIndex == 0 {
+			netflow.pb.Destinations = append(netflow.pb.Destinations, &castpb.NetflowDestination{
+				Addr:      []byte{0, 0, 0, 0},
+				TxBytes:   dest.TxBytes,
+				TxPackets: dest.TxPackets,
+				RxBytes:   dest.RxBytes,
+				RxPackets: dest.RxPackets,
+			})
+			netflow.mergedDestIndex = len(netflow.pb.Destinations) - 1
+		} else {
+			destForMerge := netflow.pb.Destinations[netflow.mergedDestIndex]
+			destForMerge.TxBytes += dest.TxBytes
+			destForMerge.TxPackets += dest.TxPackets
+			destForMerge.RxBytes += dest.RxBytes
+			destForMerge.RxPackets += dest.RxPackets
+		}
+		return
+	}
+
+	// No merge, just append to destinations list.
+	netflow.pb.Destinations = append(netflow.pb.Destinations, dest)
+	if maybeMerge {
+		netflow.mergeThreshold++
+	}
+}
+
+func isNetflowDestCandidateForMerge(dest *castpb.NetflowDestination, isPublic bool, maxPublicIPs int16) bool {
+	// No merge for private destinations.
+	if !isPublic {
+		return false
+	}
+	// Not merge if there is destination dns context.
+	if dest.DnsQuestion != "" {
+		return false
+	}
+	// Not merge if it's disabled.
+	if maxPublicIPs == -1 {
+		return false
+	}
+	return true
 }
 
 func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t time.Time) (*castpb.Netflow, error) {
@@ -172,17 +227,16 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 	return res, nil
 }
 
-func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary,
-	podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castpb.NetflowDestination, error) {
+func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castpb.NetflowDestination, bool, error) {
 	localIP := parseAddr(key.Tuple.Saddr.Raw, key.Tuple.Family)
 	if !localIP.IsValid() {
-		return nil, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
+		return nil, false, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
 	}
 	local := netip.AddrPortFrom(localIP, key.Tuple.Sport)
 
 	remoteIP := parseAddr(key.Tuple.Daddr.Raw, key.Tuple.Family)
 	if !remoteIP.IsValid() {
-		return nil, fmt.Errorf("got invalid remote addr `%v`", key.Tuple.Daddr.Raw)
+		return nil, false, fmt.Errorf("got invalid remote addr `%v`", key.Tuple.Daddr.Raw)
 	}
 	remote := netip.AddrPortFrom(remoteIP, key.Tuple.Dport)
 
@@ -215,7 +269,10 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 			destination.NodeName = ipInfo.NodeName
 		}
 	}
-	return destination, nil
+
+	isPublicDst := !iputil.IsPrivateNetwork(remote.Addr())
+
+	return destination, isPublicDst, nil
 }
 
 func parseAddr(data [16]byte, family uint16) netip.Addr {
