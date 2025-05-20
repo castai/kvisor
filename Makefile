@@ -20,9 +20,9 @@ ifeq ($(UNAME_M),aarch64)
 endif
 
 ifeq ($(UNAME_M),arm64)
-   ARCH = arm64
-   LINUX_ARCH = arm64
-   GO_ARCH = arm64
+   ARCH = x86_64
+   LINUX_ARCH = x86
+   GO_ARCH = amd64
 endif
 
 LAST_GIT_TAG ?= $(shell $(CMD_GIT) describe --tags --match 'v*' 2>/dev/null)
@@ -188,7 +188,7 @@ kvisor-agent-docker:
 
 .PHONY: kvisor-agent-docker-image
 kvisor-agent-docker-image: clean-kvisor-agent kvisor-agent-docker
-	docker build -t $(IMAGE_REPO)-agent:$(IMAGE_TAG) . -f Dockerfile.agent
+	docker build --build-arg TARGETARCH=$(GO_ARCH) -t $(IMAGE_REPO)-agent:$(IMAGE_TAG) . -f Dockerfile.agent
 
 .PHONY: kvisor-agent-push-deploy
 kvisor-agent-push-deploy: kvisor-agent-docker-image
@@ -212,7 +212,7 @@ $(OUTPUT_DIR_BIN)/kvisor-controller-$(GO_ARCH):
 
 .PHONY: kvisor-controller-docker-image
 kvisor-controller-docker-image: clean-kvisor-controller kvisor-controller
-	docker build -t $(IMAGE_REPO)-controller:$(IMAGE_TAG) . -f Dockerfile.controller
+	docker build --build-arg TARGETARCH=$(GO_ARCH) -t $(IMAGE_REPO)-controller:$(IMAGE_TAG) . -f Dockerfile.controller
 
 .PHONY: kvisor-controller-push-deploy
 kvisor-controller-push-deploy: kvisor-controller-docker-image
