@@ -151,26 +151,25 @@ func NewRunCommand(version string) *cobra.Command {
 			}
 		}
 
-		_ = state.Config{
-			StatsScrapeInterval:   *statsScrapeInterval,
-			NetflowExportInterval: *netflowExportInterval,
-			EventsBatchSize:       *eventsBatchSize,
-			EventsFlushInterval:   *eventsFlushInterval,
-		}
-
 		if err := app.New(&config.Config{
-			LogLevel:                       *logLevel,
-			LogRateInterval:                *logRateInterval,
-			LogRateBurst:                   *logRateBurst,
-			SendLogsLevel:                  *sendLogLevel,
-			PromMetricsExportEnabled:       *promMetricsExportEnabled,
-			PromMetricsExportInterval:      *promMetricsExportInterval,
-			Version:                        version,
-			BTFPath:                        *btfPath,
-			ContainerdSockPath:             *containerdSockPath,
-			HostCgroupsDir:                 *hostCgroupsDir,
-			MetricsHTTPListenPort:          *metricsHTTPListenPort,
-			StatsEnabled:                   *statsEnabled,
+			LogLevel:                  *logLevel,
+			LogRateInterval:           *logRateInterval,
+			LogRateBurst:              *logRateBurst,
+			SendLogsLevel:             *sendLogLevel,
+			PromMetricsExportEnabled:  *promMetricsExportEnabled,
+			PromMetricsExportInterval: *promMetricsExportInterval,
+			Version:                   version,
+			BTFPath:                   *btfPath,
+			ContainerdSockPath:        *containerdSockPath,
+			HostCgroupsDir:            *hostCgroupsDir,
+			MetricsHTTPListenPort:     *metricsHTTPListenPort,
+			StatsEnabled:              *statsEnabled,
+			State: state.Config{
+				StatsScrapeInterval:   *statsScrapeInterval,
+				NetflowExportInterval: *netflowExportInterval,
+				EventsBatchSize:       *eventsBatchSize,
+				EventsFlushInterval:   *eventsFlushInterval,
+			},
 			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
 			EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
