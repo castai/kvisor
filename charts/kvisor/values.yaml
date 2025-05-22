@@ -137,6 +137,9 @@ agent:
   # Additional environment variables for the agent container.
   additionalEnv: {}
 
+  # Additional environment variables for the agent container via configMaps or secrets.
+  envFrom: []
+
 controller:
   enabled: true
 
@@ -201,6 +204,9 @@ controller:
 
   # Additional environment variables for the controller container.
   additionalEnv: {}
+
+  # Additional environment variables for the controller container via configMaps or secrets.
+  envFrom: []
 
   # Deprecated: use additionalEnv instead.
   extraEnv: {}
