@@ -107,8 +107,11 @@ spec:
             - name: {{ $key }}
               value: {{ $value }}
           {{- end }}
-          {{- if .Values.castai.enabled }}
           envFrom:
+          {{- with .Values.controller.envFrom }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.castai.enabled }}
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}
           {{- end }}

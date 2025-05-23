@@ -72,18 +72,21 @@ spec:
             - "--clickhouse-username={{.Values.clickhouse.auth.username}}"
           {{- end }}
             - "--kube-api-service-addr={{ include "kvisor.controller.fullname" .}}.{{.Release.Namespace}}:{{ .Values.controller.kubeAPIListenPort }}"
-        {{- range $key, $value := .Values.agent.extraArgs }}
+          {{- range $key, $value := .Values.agent.extraArgs }}
             - "--{{ $key }}={{ $value }}"
-        {{- end }}
+          {{- end }}
           envFrom:
-        {{- if .Values.castai.enabled }}
+          {{- with .Values.agent.envFrom }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.castai.enabled }}
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}
-        {{- end }}
-        {{- if.Values.clickhouse.enabled }}
+          {{- end }}
+          {{- if.Values.clickhouse.enabled }}
             - secretRef:
                 name:  {{ include "kvisor.clickhouse.fullname" . }}
-        {{- end }}
+          {{- end }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.agent.resources.limits.memory | nindent 12 }}
             - name: NODE_NAME
