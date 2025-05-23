@@ -3,57 +3,57 @@ module github.com/castai/kvisor
 go 1.24.1
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.32.2
+	github.com/ClickHouse/clickhouse-go/v2 v2.35.0
 	github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c
-	github.com/aquasecurity/trivy v0.61.0
+	github.com/aquasecurity/trivy v0.62.1
 	github.com/castai/image-analyzer v0.8.0
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/cilium v1.17.0-pre.2
-	github.com/cilium/ebpf v0.17.3
+	github.com/cilium/cilium v1.17.4
+	github.com/cilium/ebpf v0.18.0
 	github.com/containerd/containerd v1.7.27
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
 	github.com/fatih/color v1.18.0
 	github.com/florianl/go-conntrack v0.4.0
 	github.com/go-playground/validator/v10 v10.26.0
-	github.com/golang/glog v1.2.4
-	github.com/google/go-containerregistry v0.20.3
+	github.com/golang/glog v1.2.5
+	github.com/google/go-containerregistry v0.20.5
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/labstack/echo/v4 v4.13.3
-	github.com/magiconair/properties v1.8.9
+	github.com/labstack/echo/v4 v4.13.4
+	github.com/magiconair/properties v1.8.10
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/ginkgo v1.16.5
-	github.com/prometheus/client_golang v1.21.1
-	github.com/redis/go-redis/v9 v9.7.3
-	github.com/samber/lo v1.49.1
+	github.com/prometheus/client_golang v1.22.0
+	github.com/redis/go-redis/v9 v9.8.0
+	github.com/samber/lo v1.50.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	github.com/testcontainers/testcontainers-go v0.35.0
+	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/tklauser/go-sysconf v0.3.15
 	github.com/vishvananda/netns v0.0.5
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/net v0.38.0
-	golang.org/x/sync v0.13.0
-	golang.org/x/sys v0.32.0
+	golang.org/x/net v0.40.0
+	golang.org/x/sync v0.14.0
+	golang.org/x/sys v0.33.0
 	golang.org/x/time v0.11.0
 	golang.stackrox.io/kube-linter v0.7.3-0.20250507172404-3f4b9037f56f
-	google.golang.org/grpc v1.71.1
+	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/client-go v0.32.3
-	k8s.io/cri-api v0.32.2
+	k8s.io/api v0.33.1
+	k8s.io/apimachinery v0.33.1
+	k8s.io/client-go v0.33.1
+	k8s.io/cri-api v0.33.1
 )
 
 require (
