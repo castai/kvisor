@@ -169,18 +169,19 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			data, err := t.CollectNetworkSummary()
+			keys, vals, err := t.CollectNetworkSummary()
 			if err != nil {
 				log.Errorf("error while collecting network traffic summary: %v", err)
 				continue
 			}
 
 			fmt.Println("=== Network Summary")
-			for tk, ts := range data {
+			for i, tk := range keys {
 				var (
 					daddr netip.Addr
 					saddr netip.Addr
 				)
+				ts := vals[i]
 
 				switch tk.Tuple.Family {
 				case uint16(types.AF_INET):
