@@ -158,7 +158,7 @@ require (
 	github.com/in-toto/in-toto-golang v0.9.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
-	github.com/kedacore/keda/v2 v2.17.0 // indirect
+	github.com/kedacore/keda/v2 v2.17.1 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/knqyf263/go-rpm-version v0.0.0-20220614171824-631e686d1075 // indirect
@@ -430,3 +430,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+// Needed by keda https://github.com/kedacore/keda/blob/main/go.mod#L140
+replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.54.0
