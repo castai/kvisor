@@ -97,7 +97,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
-		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", 10, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
+		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
 		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
 		eventsBatchSize     = command.Flags().Int("events-batch-size", 1000, "Events batch size before exporting")
