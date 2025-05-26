@@ -50,6 +50,10 @@ spec:
       securityContext:
         {{- toYaml .Values.agent.securityContext | nindent 8 }}
       priorityClassName: {{ .Values.agent.priorityClass }}
+      {{- with .Values.agent.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: kvisor
           securityContext:
