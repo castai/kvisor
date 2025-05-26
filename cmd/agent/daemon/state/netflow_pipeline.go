@@ -79,26 +79,27 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
-				networkSummary, err := c.tracer.CollectNetworkSummary()
+				keys, vals, err := c.tracer.CollectNetworkSummary()
 				if err != nil {
 					c.log.Errorf("error while collecting network traffic summary: %v", err)
 					continue
 				}
-				c.enqueueNetworkSummayExport(ctx, networkSummary)
+				c.enqueueNetworkSummaryExport(ctx, keys, vals)
 			}
 		}
 	})
 	return errg.Wait()
 }
 
-func (c *Controller) enqueueNetworkSummayExport(ctx context.Context, summary map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary) {
+func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
 	start := time.Now()
 	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
 	type cgroupID = uint64
 
 	netflows := map[cgroupID]*castpb.Netflow{}
 
-	for key, summary := range summary {
+	for i, key := range keys {
+		summary := vals[i]
 		netflow, found := netflows[key.ProcessIdentity.CgroupId]
 		if !found {
 			d, err := c.toNetflow(ctx, key, start)
