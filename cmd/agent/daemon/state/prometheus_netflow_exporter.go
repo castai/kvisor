@@ -3,8 +3,6 @@ package state
 import (
 	"context"
 	"net/netip"
-	"sync"
-	"time"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
@@ -14,46 +12,72 @@ import (
 )
 
 var (
-	netflowBytesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "kvisor_netflow_bytes_total",
-		Help: "Total number of bytes transferred in netflow connections",
-	}, []string{"direction", "namespace", "pod_name", "container_name", "workload_name", "workload_kind", "protocol", "dst_namespace", "dst_pod_name"})
+	// egressd-compatible metrics
+	egressdTransmitBytesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "egressd_transmit_bytes_total",
+		Help: "Total number of bytes transmitted",
+	}, []string{
+		"cross_zone",
+		"dst_dns_name",
+		"dst_ip",
+		"dst_ip_type",
+		"dst_namespace",
+		"dst_node",
+		"dst_pod",
+		"dst_zone",
+		"proto",
+		"src_ip",
+		"src_namespace",
+		"src_node",
+		"src_pod",
+		"src_zone",
+	})
 
-	netflowPacketsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "kvisor_netflow_packets_total",
-		Help: "Total number of packets transferred in netflow connections",
-	}, []string{"direction", "namespace", "pod_name", "container_name", "workload_name", "workload_kind", "protocol", "dst_namespace", "dst_pod_name"})
-
-	activeConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "kvisor_netflow_active_connections",
-		Help: "Number of active netflow connections",
-	}, []string{"namespace", "pod_name", "container_name", "workload_name", "workload_kind", "protocol"})
+	egressdReceivedBytesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "egressd_received_bytes_total",
+		Help: "Total number of bytes received",
+	}, []string{
+		"cross_zone",
+		"dst_dns_name",
+		"dst_ip",
+		"dst_ip_type",
+		"dst_namespace",
+		"dst_node",
+		"dst_pod",
+		"dst_zone",
+		"proto",
+		"src_ip",
+		"src_namespace",
+		"src_node",
+		"src_pod",
+		"src_zone",
+	})
 )
 
-func NewPrometheusNetflowExporter(log *logging.Logger, queueSize int, cleanupInterval time.Duration) *PrometheusNetflowExporter {
-	return &PrometheusNetflowExporter{
-		log:             log.WithField("component", "prometheus_netflow_exporter"),
-		queue:           make(chan *castaipb.Netflow, queueSize),
-		cleanupInterval: cleanupInterval,
-		activeConns:     make(map[string]time.Time),
-		activeConnMutex: &sync.RWMutex{},
-	}
+type PrometheusNetflowExporter struct {
+	log         *logging.Logger
+	queue       chan *castaipb.Netflow
+	customCIDRs []netip.Prefix
 }
 
-type PrometheusNetflowExporter struct {
-	log             *logging.Logger
-	queue           chan *castaipb.Netflow
-	cleanupInterval time.Duration
-	activeConns     map[string]time.Time
-	activeConnMutex *sync.RWMutex
+func NewPrometheusNetflowExporter(log *logging.Logger, queueSize int, customPrivateCIDRs []string) *PrometheusNetflowExporter {
+	cidrs := make([]netip.Prefix, 0, len(customPrivateCIDRs))
+	for _, cidrStr := range customPrivateCIDRs {
+		if prefix, err := netip.ParsePrefix(cidrStr); err == nil {
+			cidrs = append(cidrs, prefix)
+		}
+	}
+
+	return &PrometheusNetflowExporter{
+		log:         log.WithField("component", "prometheus_netflow_exporter"),
+		queue:       make(chan *castaipb.Netflow, queueSize),
+		customCIDRs: cidrs,
+	}
 }
 
 func (p *PrometheusNetflowExporter) Run(ctx context.Context) error {
 	p.log.Info("running export loop")
 	defer p.log.Info("export loop done")
-
-	cleanupTicker := time.NewTicker(p.cleanupInterval)
-	defer cleanupTicker.Stop()
 
 	sendErrorMetric := metrics.AgentExporterSendErrorsTotal.WithLabelValues("prometheus_netflow")
 	sendMetric := metrics.AgentExporterSendTotal.WithLabelValues("prometheus_netflow")
@@ -62,8 +86,6 @@ func (p *PrometheusNetflowExporter) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-cleanupTicker.C:
-			p.cleanupStaleConnections()
 		case e := <-p.queue:
 			if err := p.exportMetrics(e); err != nil {
 				p.log.Errorf("failed to export metrics: %v", err)
@@ -85,61 +107,88 @@ func (p *PrometheusNetflowExporter) Enqueue(e *castaipb.Netflow) {
 
 func (p *PrometheusNetflowExporter) exportMetrics(e *castaipb.Netflow) error {
 	protocol := toDBProtocol(e.Protocol)
-	labels := []string{
-		e.Namespace,
-		e.PodName,
-		e.ContainerName,
-		e.WorkloadName,
-		e.WorkloadKind,
-		protocol,
+	srcIP, _ := netip.AddrFromSlice(e.Addr)
+	srcIPStr := "unknown"
+	if srcIP.IsValid() {
+		srcIPStr = srcIP.String()
 	}
 
-	activeConnections.WithLabelValues(labels...).Inc()
-	p.updateActiveConnection(e)
-
 	for _, dst := range e.Destinations {
-		netflowLabels := append([]string{"tx"},
-			e.Namespace,
-			e.PodName,
-			e.ContainerName,
-			e.WorkloadName,
-			e.WorkloadKind,
-			protocol,
-			dst.Namespace,
-			dst.PodName,
-		)
-		netflowBytesTotal.WithLabelValues(netflowLabels...).Add(float64(dst.TxBytes))
-		netflowPacketsTotal.WithLabelValues(netflowLabels...).Add(float64(dst.TxPackets))
+		dstIP, _ := netip.AddrFromSlice(dst.Addr)
+		dstIPStr := "unknown"
+		if dstIP.IsValid() {
+			dstIPStr = dstIP.String()
+		}
 
-		// RX metrics
-		netflowLabels[0] = "rx"
-		netflowBytesTotal.WithLabelValues(netflowLabels...).Add(float64(dst.RxBytes))
-		netflowPacketsTotal.WithLabelValues(netflowLabels...).Add(float64(dst.RxPackets))
+		dstIPType := "public"
+		if isPrivateIP(dstIP, p.customCIDRs...) {
+			dstIPType = "private"
+		}
+
+		crossZoneValue := "false"
+		if e.Zone != dst.Zone && e.Zone != "" && dst.Zone != "" {
+			crossZoneValue = "true"
+		}
+
+		// TX metrics
+		egressdLabels := []string{
+			crossZoneValue,
+			dst.DnsQuestion,
+			dstIPStr,
+			dstIPType,
+			dst.Namespace,
+			dst.NodeName, // Node name from destination pod info
+			dst.PodName,
+			dst.Zone,
+			protocol,
+			srcIPStr,
+			e.Namespace,
+			e.NodeName, // Node name from source
+			e.PodName,
+			e.Zone,
+		}
+		egressdTransmitBytesTotal.WithLabelValues(egressdLabels...).Add(float64(dst.TxBytes))
+
+		// RX metrics (swapped source and destination)
+		egressdRxLabels := []string{
+			crossZoneValue,
+			"", // src DNS name becomes dst DNS name
+			srcIPStr,
+			dstIPType,
+			e.Namespace,
+			e.NodeName, // Node name from source for RX metrics
+			e.PodName,
+			e.Zone,
+			protocol,
+			dstIPStr,
+			dst.Namespace,
+			dst.NodeName, // Node name from destination for RX metrics
+			dst.PodName,
+			dst.Zone,
+		}
+		egressdReceivedBytesTotal.WithLabelValues(egressdRxLabels...).Add(float64(dst.RxBytes))
 	}
 
 	return nil
 }
 
-func (p *PrometheusNetflowExporter) updateActiveConnection(e *castaipb.Netflow) {
-	p.activeConnMutex.Lock()
-	defer p.activeConnMutex.Unlock()
+// isPrivateIP checks if the given IP is a private address considering both standard private ranges
+// and any custom CIDR ranges provided
+func isPrivateIP(ip netip.Addr, customCIDRs ...netip.Prefix) bool {
+	if !ip.IsValid() {
+		return false
+	}
 
-	// Create a unique connection identifier
-	addr, _ := netip.AddrFromSlice(e.Addr)
-	connID := addr.String()
-	p.activeConns[connID] = time.Now()
-}
+	// Check standard private ranges first
+	if ip.IsPrivate() {
+		return true
+	}
 
-func (p *PrometheusNetflowExporter) cleanupStaleConnections() {
-	p.activeConnMutex.Lock()
-	defer p.activeConnMutex.Unlock()
-
-	threshold := time.Now().Add(-p.cleanupInterval)
-	for connID, lastSeen := range p.activeConns {
-		if lastSeen.Before(threshold) {
-			delete(p.activeConns, connID)
-			// Decrement the active connections gauge for the connection that's no longer active
-			activeConnections.DeleteLabelValues(connID)
+	// Then check custom CIDR ranges
+	for _, cidr := range customCIDRs {
+		if cidr.Contains(ip) {
+			return true
 		}
 	}
+	return false
 }

@@ -166,9 +166,12 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
-	if cfg.Netflow.Enabled {
-		prometheusNetflowExporter := state.NewPrometheusNetflowExporter(log, cfg.ExportersQueueSize, cfg.PromMetricsExportInterval)
-		exporters.Netflow = append(exporters.Netflow, prometheusNetflowExporter)
+	if cfg.PromMetricsExportEnabled {
+
+		if cfg.Netflow.Enabled {
+			prometheusNetflowExporter := state.NewPrometheusNetflowExporter(log, cfg.ExportersQueueSize, []string{}) // TODO: Add custom private CIDRs from config.
+			exporters.Netflow = append(exporters.Netflow, prometheusNetflowExporter)
+		}
 	}
 
 	if exporters.Empty() {
