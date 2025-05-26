@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/encoding/gzip"
-	_ "google.golang.org/grpc/encoding/gzip" // Register gzip compressor.
 	"google.golang.org/grpc/metadata"
 )
 

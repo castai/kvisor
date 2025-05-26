@@ -139,6 +139,7 @@ func (c *Client) RegisterPodsHandlers(factory informers.SharedInformerFactory) {
 }
 
 func (c *Client) Run(ctx context.Context) error {
+	// nolint: staticcheck
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

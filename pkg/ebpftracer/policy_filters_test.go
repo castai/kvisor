@@ -18,7 +18,7 @@ func TestFilterAnd(t *testing.T) {
 
 	filterPass := GlobalEventFilterGenerator(
 		func(event *types.Event) error {
-			return FilterPass
+			return ErrFilterPass
 		},
 	)
 
@@ -38,7 +38,7 @@ func TestFilterAnd(t *testing.T) {
 		{
 			name:     "multiple filters all returning true should produce true",
 			filters:  []EventFilterGenerator{filterPass, filterPass, filterPass},
-			expected: FilterPass,
+			expected: ErrFilterPass,
 		},
 		{
 			name:     "multiple filter one returning false should produce false",
@@ -48,7 +48,7 @@ func TestFilterAnd(t *testing.T) {
 		{
 			name:     "single true filter should return true",
 			filters:  []EventFilterGenerator{filterPass},
-			expected: FilterPass,
+			expected: ErrFilterPass,
 		},
 		{
 			name:     "single false filter should return false",
@@ -115,7 +115,7 @@ func TestDNSPolicyFilter(t *testing.T) {
 
 	// Should not pass since this is duplicate.
 	args, err = g(&types.EventContext{EventID: events.NetPacketDNSBase}, decoder.NewEventDecoder(log, dnsPacket))
-	r.ErrorIs(err, FilterErrDNSDuplicateDetected)
+	r.ErrorIs(err, ErrErrDNSDuplicateDetected)
 }
 
 func TestRateLimitPrivateIP(t *testing.T) {
@@ -146,5 +146,5 @@ func TestRateLimitPrivateIP(t *testing.T) {
 	for range 10 {
 		err = g(e)
 	}
-	require.ErrorIs(t, err, FilterErrRateLimit)
+	require.ErrorIs(t, err, ErrFilterRateLimit)
 }

@@ -85,7 +85,7 @@ func (t *Tracer) exportMetricsLoop(ctx context.Context) error {
 }
 
 func (t *Tracer) exportEBPFTracerMetrics() error {
-	iter := t.module.objects.tracerMaps.Metrics.Iterate()
+	iter := t.module.objects.Metrics.Iterate()
 	metric := uint32(0)
 	counter := uint64(0)
 

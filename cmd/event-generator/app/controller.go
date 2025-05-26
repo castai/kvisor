@@ -88,7 +88,7 @@ func (c *controller) injectRunnerContainer(ctx context.Context) error {
 		},
 	})
 
-	dep.ObjectMeta.Annotations["kvisor-anomaly-runner"] = "true"
+	dep.Annotations["kvisor-anomaly-runner"] = "true"
 	if _, err := c.client.AppsV1().Deployments(dep.Namespace).Update(ctx, dep, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
@@ -107,11 +107,11 @@ func (c *controller) removeRunnerContainer(ctx context.Context) error {
 
 	for _, item := range list.Items {
 		item := item
-		if _, found := item.ObjectMeta.Annotations["kvisor-anomaly-runner"]; found {
+		if _, found := item.Annotations["kvisor-anomaly-runner"]; found {
 			item.Spec.Template.Spec.InitContainers = lo.Filter(item.Spec.Template.Spec.InitContainers, func(item corev1.Container, index int) bool {
 				return item.Name != "kvisor-anomaly-runner"
 			})
-			delete(item.ObjectMeta.Annotations, "kvisor-anomaly-runner")
+			delete(item.Annotations, "kvisor-anomaly-runner")
 			if _, err := c.client.AppsV1().Deployments(item.Namespace).Update(ctx, &item, metav1.UpdateOptions{}); err != nil {
 				return err
 			}

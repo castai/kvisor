@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	FilterPass                    error = nil
-	FilterErrRateLimit                  = errors.New("rate limit")
-	FilterErrEmptyDNSResponse           = errors.New("empty dns response")
-	FilterErrDNSDuplicateDetected       = errors.New("dns duplicate detected")
+	ErrFilterPass              error = nil
+	ErrFilterRateLimit               = errors.New("rate limit")
+	ErrErrEmptyDNSResponse           = errors.New("empty dns response")
+	ErrErrDNSDuplicateDetected       = errors.New("dns duplicate detected")
 )
 
 // GlobalPreEventFilterGenerator always returns the given filter on each generator invocation. This is useful,
@@ -51,7 +51,7 @@ func FilterAnd(filtersGenerators ...EventFilterGenerator) EventFilterGenerator {
 				}
 			}
 
-			return FilterPass
+			return ErrFilterPass
 		}
 	}
 }
@@ -62,10 +62,10 @@ func RateLimit(spec RateLimitPolicy) EventFilterGenerator {
 
 		return func(event *types.Event) error {
 			if rateLimiter.Allow() {
-				return FilterPass
+				return ErrFilterPass
 			}
 
-			return FilterErrRateLimit
+			return ErrFilterRateLimit
 		}
 	}
 }
@@ -77,17 +77,17 @@ func RateLimitPrivateIP(spec RateLimitPolicy) EventFilterGenerator {
 		return func(event *types.Event) error {
 			tcpArgs, ok := event.Args.(types.SockSetStateArgs)
 			if !ok {
-				return FilterPass
+				return ErrFilterPass
 			}
 			if !isPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
-				return FilterPass
+				return ErrFilterPass
 			}
 
 			if rateLimiter.Allow() {
-				return FilterPass
+				return ErrFilterPass
 			}
 
-			return FilterErrRateLimit
+			return ErrFilterRateLimit
 		}
 	}
 }
@@ -97,12 +97,12 @@ func SkipPrivateIP() EventFilterGenerator {
 		return func(event *types.Event) error {
 			tcpArgs, ok := event.Args.(types.SockSetStateArgs)
 			if !ok {
-				return FilterPass
+				return ErrFilterPass
 			}
 			if !isPrivateNetwork(tcpArgs.Tuple.Dst.Addr()) {
-				return FilterPass
+				return ErrFilterPass
 			}
-			return FilterErrRateLimit
+			return ErrFilterRateLimit
 		}
 	}
 }
@@ -142,7 +142,7 @@ func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Du
 
 		return func(ctx *types.EventContext, dec *decoder.Decoder) (types.Args, error) {
 			if ctx.EventID != events.NetPacketDNSBase {
-				return nil, FilterPass
+				return nil, ErrFilterPass
 			}
 
 			dns, details, err := dec.DecodeDNSAndDetails()
@@ -153,13 +153,13 @@ func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Du
 			// Cache dns by dns question. Cached records are dropped.
 			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
 			if cache.Contains(cacheKey) {
-				return nil, FilterErrDNSDuplicateDetected
+				return nil, ErrErrDNSDuplicateDetected
 			}
 			cache.Add(cacheKey, cacheValue{})
 
 			return types.NetPacketDNSBaseArgs{
 				Payload: decoder.ToProtoDNS(&details, dns),
-			}, FilterPass
+			}, ErrFilterPass
 		}
 	}
 }

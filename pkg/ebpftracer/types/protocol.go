@@ -74,10 +74,7 @@ func (ctx *EventContext) GetNetflowType() NetflowType {
 }
 
 func (ctx *EventContext) IsSourceInitiator() bool {
-	if ctx.Retval&FlagFlowSrcInitiator > 0 {
-		return true
-	}
-	return false
+	return ctx.Retval&FlagFlowSrcInitiator > 0
 }
 
 const (

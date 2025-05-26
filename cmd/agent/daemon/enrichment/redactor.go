@@ -54,6 +54,6 @@ func (r *SensitiveValueRedactor) redactArgs(args []string) {
 			continue
 		}
 
-		args[i] = strings.Replace(arg, matches[0], "<redacted>", -1)
+		args[i] = strings.ReplaceAll(arg, matches[0], "<redacted>")
 	}
 }
