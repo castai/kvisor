@@ -66,7 +66,7 @@ jobs:
         with:
           args: -v --timeout=5m
           version: v2.0.2
-          only-new-issues: true
+          only-new-issues: false
 
       - name: Test
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
