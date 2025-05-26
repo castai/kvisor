@@ -20,9 +20,9 @@ ifeq ($(UNAME_M),aarch64)
 endif
 
 ifeq ($(UNAME_M),arm64)
-   ARCH = x86_64
-   LINUX_ARCH = x86
-   GO_ARCH = amd64
+   ARCH = arm64
+   LINUX_ARCH = arm64
+   GO_ARCH = arm64
 endif
 
 LAST_GIT_TAG ?= $(shell $(CMD_GIT) describe --tags --match 'v*' 2>/dev/null)
