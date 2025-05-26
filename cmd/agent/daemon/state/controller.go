@@ -57,7 +57,7 @@ type ebpfTracer interface {
 	UnmuteEventsFromCgroups(cgroups []uint64) error
 	IsCgroupMuted(cgroup uint64) bool
 	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
-	CollectNetworkSummary() (map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, error)
+	CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
 	GetEventName(id events.ID) string
 }
 

@@ -501,36 +501,41 @@ func TestController(t *testing.T) {
 }
 
 func (m *mockEbpfTracer) sendNetflowTestEvent(saddr, daddr [16]byte, family uint16) {
-	m.netflowCollectChan <- map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary{{
-		ProcessIdentity: struct {
-			Pid          uint32
-			PidStartTime uint64
-			CgroupId     uint64
-			Comm         [16]uint8
-		}{
-			Pid:          1,
-			PidStartTime: 0,
-			CgroupId:     100,
-			Comm:         [16]uint8{},
+	m.netflowCollectChan <- netflowKeyValList{
+		keys: []ebpftracer.TrafficKey{
+			{
+				ProcessIdentity: struct {
+					Pid          uint32
+					PidStartTime uint64
+					CgroupId     uint64
+					Comm         [16]uint8
+				}{
+					Pid:          1,
+					PidStartTime: 0,
+					CgroupId:     100,
+					Comm:         [16]uint8{},
+				},
+				Tuple: struct {
+					Saddr  struct{ Raw [16]uint8 }
+					Daddr  struct{ Raw [16]uint8 }
+					Sport  uint16
+					Dport  uint16
+					Family uint16
+				}{
+					Saddr:  struct{ Raw [16]uint8 }{Raw: saddr},
+					Daddr:  struct{ Raw [16]uint8 }{Raw: daddr},
+					Sport:  34561,
+					Dport:  80,
+					Family: family,
+				},
+				Proto: unix.IPPROTO_TCP,
+			},
 		},
-		Tuple: struct {
-			Saddr  struct{ Raw [16]uint8 }
-			Daddr  struct{ Raw [16]uint8 }
-			Sport  uint16
-			Dport  uint16
-			Family uint16
-		}{
-			Saddr:  struct{ Raw [16]uint8 }{Raw: saddr},
-			Daddr:  struct{ Raw [16]uint8 }{Raw: daddr},
-			Sport:  34561,
-			Dport:  80,
-			Family: family,
-		},
-		Proto: unix.IPPROTO_TCP,
-	}: {
-		TxBytes:   10,
-		TxPackets: 5,
-	}}
+		vals: []ebpftracer.TrafficSummary{{
+			TxBytes:   10,
+			TxPackets: 5,
+		}},
+	}
 }
 
 type customizeMockTracer func(t *mockEbpfTracer)
@@ -552,7 +557,7 @@ func newTestController(opts ...any) *Controller {
 
 	tracer := &mockEbpfTracer{
 		eventsChan:         make(chan *types.Event, 500),
-		netflowCollectChan: make(chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, 100),
+		netflowCollectChan: make(chan netflowKeyValList, 100),
 	}
 	tracerCustomizer := getOptOr[customizeMockTracer](opts, func(t *mockEbpfTracer) {})
 	tracerCustomizer(tracer)
@@ -680,19 +685,24 @@ var _ ebpfTracer = (*mockEbpfTracer)(nil)
 type mockEbpfTracer struct {
 	eventsChan         chan *types.Event
 	syscallStats       map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
-	netflowCollectChan chan map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary
+	netflowCollectChan chan netflowKeyValList
+}
+
+type netflowKeyValList struct {
+	keys []ebpftracer.TrafficKey
+	vals []ebpftracer.TrafficSummary
 }
 
 func (m *mockEbpfTracer) GetEventName(id events.ID) string {
 	return strconv.Itoa(int(id))
 }
 
-func (m *mockEbpfTracer) CollectNetworkSummary() (map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary, error) {
+func (m *mockEbpfTracer) CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
 	select {
 	case v := <-m.netflowCollectChan:
-		return v, nil
+		return v.keys, v.vals, nil
 	default:
-		return map[ebpftracer.TrafficKey]ebpftracer.TrafficSummary{}, nil
+		return nil, nil, nil
 
 	}
 }
