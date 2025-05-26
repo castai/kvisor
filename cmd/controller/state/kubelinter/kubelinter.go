@@ -14,7 +14,6 @@ import (
 	"github.com/samber/lo"
 	"golang.stackrox.io/kube-linter/pkg/builtinchecks"
 	"golang.stackrox.io/kube-linter/pkg/checkregistry"
-	"golang.stackrox.io/kube-linter/pkg/config"
 	kubelinterconfig "golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/configresolver"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
@@ -68,6 +67,7 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/replicas"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/requiredannotation"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/requiredlabel"
+	_ "golang.stackrox.io/kube-linter/pkg/templates/restartpolicy"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/runasnonroot"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/sccdenypriv"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/serviceaccount"
@@ -79,7 +79,6 @@ import (
 	_ "golang.stackrox.io/kube-linter/pkg/templates/updateconfig"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/wildcardinrules"
 	_ "golang.stackrox.io/kube-linter/pkg/templates/writablehostmount"
-	_ "golang.stackrox.io/kube-linter/pkg/templates/restartpolicy"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -127,7 +126,7 @@ func New(checks []string) (*Linter, error) {
 }
 
 func registerCustomChecks(registry checkregistry.CheckRegistry) error {
-	checks := []*config.Check{
+	checks := []*kubelinterconfig.Check{
 		automount.Check(),
 		containerdsock.Check(),
 		securitycontext.Check(),
@@ -135,9 +134,7 @@ func registerCustomChecks(registry checkregistry.CheckRegistry) error {
 		additionalcapabilities.Check(),
 		privescverbs.Check(),
 	}
-	for _, c := range bindings.Checks() {
-		checks = append(checks, c)
-	}
+	checks = append(checks, bindings.Checks()...)
 
 	for _, check := range checks {
 		if err := registry.Register(check); err != nil {

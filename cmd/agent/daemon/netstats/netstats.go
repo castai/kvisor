@@ -68,7 +68,7 @@ func scanInterfaceStats(netStatsFile string) ([]InterfaceStats, error) {
 	var stats []InterfaceStats
 	for scanner.Scan() {
 		line := scanner.Text()
-		line = strings.Replace(line, ":", "", -1)
+		line = strings.ReplaceAll(line, ":", "")
 
 		fields := strings.Fields(line)
 		// If the format of the  line is invalid then don't trust any of the stats

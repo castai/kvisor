@@ -95,6 +95,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}()
 	}
 
+	// nolint:staticcheck
 	for {
 		select {
 		case <-ctx.Done():

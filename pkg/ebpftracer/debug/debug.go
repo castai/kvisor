@@ -124,7 +124,7 @@ func (d *Debug) Load() error {
 		return fmt.Errorf("error while loading ebpf programs: %w", err)
 	}
 
-	targetMap, err := findTargetMap(d.log, objects.debugPrograms.IterMaps)
+	targetMap, err := findTargetMap(d.log, objects.IterMaps)
 	if err != nil {
 		return fmt.Errorf("error while searching for target map: %w", err)
 	}

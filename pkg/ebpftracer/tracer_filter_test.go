@@ -29,7 +29,7 @@ func TestAllowedByPolicyShouldBePerCgroup(t *testing.T) {
 		return func(c int) EventFilter {
 			return func(event *types.Event) error {
 				callerMap[c] = struct{}{}
-				return FilterPass
+				return ErrFilterPass
 			}
 		}(counter)
 	}
@@ -65,7 +65,7 @@ func TestAllowedByPrePolicyShouldBePerCgroup(t *testing.T) {
 		return func(c int) PreEventFilter {
 			return func(ctx *types.EventContext, dec *decoder.Decoder) (types.Args, error) {
 				callerMap[c] = struct{}{}
-				return nil, FilterPass
+				return nil, ErrFilterPass
 			}
 		}(counter)
 	}

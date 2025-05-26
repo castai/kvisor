@@ -180,7 +180,7 @@ func isStandalonePod(pod *corev1.Pod) bool {
 	}
 
 	// Static pod.
-	return strings.HasSuffix(pod.ObjectMeta.Name, pod.Spec.NodeName)
+	return strings.HasSuffix(pod.Name, pod.Spec.NodeName)
 }
 
 func isStandaloneJob(job *batchv1.Job) bool {

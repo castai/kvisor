@@ -29,7 +29,7 @@ var (
 	)
 	eventFilterPass EventFilterGenerator = GlobalEventFilterGenerator(
 		func(event *types.Event) error {
-			return FilterPass
+			return ErrFilterPass
 		},
 	)
 

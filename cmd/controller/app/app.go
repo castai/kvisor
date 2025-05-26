@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	_ "net/http/pprof" //nolint:gosec // TODO: Fix this, should not use default pprof.
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
@@ -176,10 +175,8 @@ func (a *App) Run(ctx context.Context) error {
 	informersFactory.Start(ctx.Done())
 	informersFactory.WaitForCacheSync(ctx.Done())
 
-	select {
-	case <-ctx.Done():
-		return waitWithTimeout(errg, 60*time.Second)
-	}
+	<-ctx.Done()
+	return waitWithTimeout(errg, 60*time.Second)
 }
 
 func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {

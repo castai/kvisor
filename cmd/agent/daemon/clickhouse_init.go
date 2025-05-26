@@ -67,9 +67,7 @@ func NewClickhouseInitCommand() *cobra.Command {
 					continue
 				}
 
-				select {
-				case <-ctx.Done():
-				}
+				<-ctx.Done()
 			}
 
 			log.Fatal("init failed after 10 attempts")

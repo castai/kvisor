@@ -258,7 +258,7 @@ func getZone(n *corev1.Node) string {
 	if n == nil {
 		return ""
 	}
-	zone, _ := n.Labels["topology.kubernetes.io/zone"]
+	zone := n.Labels["topology.kubernetes.io/zone"]
 	return zone
 }
 
