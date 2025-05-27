@@ -78,9 +78,22 @@ func (c *Collector) Collect(ctx context.Context) error {
 	defer cleanup()
 
 	disabledAnalyzers := []fanalyzer.Type{
+		// License
 		fanalyzer.TypeLicenseFile,
 		fanalyzer.TypeDpkgLicense,
+
+		// Structured config
+		fanalyzer.TypeAzureARM,
+		fanalyzer.TypeCloudFormation,
+		fanalyzer.TypeDockerfile,
 		fanalyzer.TypeHelm,
+		fanalyzer.TypeKubernetes,
+		fanalyzer.TypeTerraform,
+		fanalyzer.TypeTerraformPlanJSON,
+		fanalyzer.TypeTerraformPlanSnapshot,
+
+		// Java
+		fanalyzer.TypeJar, // Jar analyzer needs trivy-java-db, disable it until it is implemented in kvisor
 	}
 
 	for _, a := range c.cfg.DisabledAnalyzers {
