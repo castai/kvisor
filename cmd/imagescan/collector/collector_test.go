@@ -174,7 +174,6 @@ func TestCollectorPackageAnalyzers(t *testing.T) {
 			r.NotEmpty(pkgs[0].InstalledFiles)
 		})
 	}
-
 }
 
 func TestCollectorWithIngressNginx(t *testing.T) {
