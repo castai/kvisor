@@ -17,6 +17,8 @@ import (
 	"github.com/castai/kvisor/pkg/net/iputil"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
@@ -101,7 +103,7 @@ type netflowVal struct {
 
 func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
 	start := time.Now()
-	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
+	ipCache := map[netip.Addr]*kubepb.IPInfo{}
 
 	type cgroupID = uint64
 	netflows := map[cgroupID]*netflowVal{}
@@ -120,7 +122,7 @@ func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebp
 			netflow = val
 		}
 
-		dest, isPublicDest, err := c.toNetflowDestination(key, summary, podsByIPCache)
+		dest, isPublicDest, err := c.toNetflowDestination(key, summary, ipCache)
 		if err != nil {
 			c.log.Errorf("cannot parse netflow destination: %v", err)
 			continue
@@ -227,7 +229,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 	return res, nil
 }
 
-func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castpb.NetflowDestination, bool, error) {
+func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, ipCache map[netip.Addr]*kubepb.IPInfo) (*castpb.NetflowDestination, bool, error) {
 	localIP := parseAddr(key.Tuple.Saddr.Raw, key.Tuple.Family)
 	if !localIP.IsValid() {
 		return nil, false, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
@@ -258,21 +260,38 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		RxPackets:   summary.RxPackets,
 	}
 
-	if c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(remote.Addr()) || c.clusterInfo.podCidrContains(remote.Addr())) {
-		ipInfo, found := c.getIPInfo(podsByIPCache, remote.Addr())
-		if found {
-			destination.PodName = ipInfo.PodName
-			destination.Namespace = ipInfo.Namespace
-			destination.WorkloadName = ipInfo.WorkloadName
-			destination.WorkloadKind = ipInfo.WorkloadKind
-			destination.Zone = ipInfo.Zone
-			destination.NodeName = ipInfo.NodeName
+	isPublicDst := !iputil.IsPrivateNetwork(remote.Addr())
+
+	c.enrichNetflowDestinationWithKubeContext(ipCache, destination, remote.Addr(), isPublicDst)
+
+	return destination, isPublicDst, nil
+}
+
+func (c *Controller) enrichNetflowDestinationWithKubeContext(ipCache map[netip.Addr]*kubepb.IPInfo, destination *castpb.NetflowDestination, dstAddr netip.Addr, isPublicDst bool) {
+	// We do not enrich public destinations.
+	if isPublicDst {
+		return
+	}
+
+	// Check if destination is part of k8s services or pods cidr.
+	if !c.cfg.Netflow.SkipPrivateDestinationCidrCheck {
+		if c.clusterInfo == nil {
+			return
+		}
+		if !c.clusterInfo.serviceCidrContains(dstAddr) && !c.clusterInfo.podCidrContains(dstAddr) {
+			return
 		}
 	}
 
-	isPublicDst := !iputil.IsPrivateNetwork(remote.Addr())
-
-	return destination, isPublicDst, nil
+	ipInfo, found := c.getIPInfo(ipCache, dstAddr)
+	if found && ipInfo != nil {
+		destination.PodName = ipInfo.PodName
+		destination.Namespace = ipInfo.Namespace
+		destination.WorkloadName = ipInfo.WorkloadName
+		destination.WorkloadKind = ipInfo.WorkloadKind
+		destination.Zone = ipInfo.Zone
+		destination.NodeName = ipInfo.NodeName
+	}
 }
 
 func parseAddr(data [16]byte, family uint16) netip.Addr {
@@ -286,18 +305,24 @@ func parseAddr(data [16]byte, family uint16) netip.Addr {
 	return netip.Addr{}
 }
 
-func (c *Controller) getIPInfo(podsByIPCache map[netip.Addr]*kubepb.IPInfo, addr netip.Addr) (*kubepb.IPInfo, bool) {
-	ipInfo, found := podsByIPCache[addr]
+func (c *Controller) getIPInfo(ipCache map[netip.Addr]*kubepb.IPInfo, addr netip.Addr) (*kubepb.IPInfo, bool) {
+	ipInfo, found := ipCache[addr]
 	if !found {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		resp, err := c.kubeClient.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{Ip: addr.Unmap().AsSlice()})
 		if err != nil {
+			// In case we can't find ip info in controller we should still add it to the cache.
+			// This is needed to prevent calls to kvisor controller for some unknown ips.
+			if status.Code(err) == codes.NotFound {
+				ipCache[addr] = nil
+				return nil, true
+			}
 			metrics.AgentFetchKubeIPInfoErrorsTotal.Inc()
 			return nil, false
 		}
 		ipInfo = resp.Info
-		podsByIPCache[addr] = ipInfo
+		ipCache[addr] = ipInfo
 	}
 	return ipInfo, true
 }

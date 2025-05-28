@@ -68,11 +68,12 @@ type EnricherConfig struct {
 }
 
 type NetflowConfig struct {
-	Enabled                     bool                       `json:"enabled"`
-	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
-	ExportInterval              time.Duration              `json:"exportInterval"`
-	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
-	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
+	Enabled                         bool                       `json:"enabled"`
+	SampleSubmitIntervalSeconds     uint64                     `json:"sampleSubmitIntervalSeconds"`
+	ExportInterval                  time.Duration              `json:"exportInterval"`
+	Grouping                        ebpftracer.NetflowGrouping `json:"grouping"`
+	MaxPublicIPs                    int16                      `json:"maxPublicIPs"`
+	SkipPrivateDestinationCidrCheck bool                       `json:"skipPrivateDestinationCidrCheck"`
 }
 
 type ClickhouseConfig struct {
