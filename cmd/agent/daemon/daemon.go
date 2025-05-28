@@ -94,11 +94,12 @@ func NewRunCommand(version string) *cobra.Command {
 		gitCloneDetectionSignatureRedactPasswords        = command.Flags().Bool("signature-git-clone-detection-redact-password", true, "If enabled, any password passed via the URL gets redacted")
 		ingressNightmareExploitDetectionSignatureEnabled = command.Flags().Bool("signature-ingress-nightmare-exploit-detection-enabled", true, "Enables the detection signature to detect exploits of ingress nightmare")
 
-		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
-		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
-		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
-		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
-		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
+		netflowEnabled                         = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
+		netflowSampleSubmitIntervalSeconds     = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
+		netflowExportInterval                  = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
+		netflowMaxPublicIPsBucket              = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
+		netflowSkipPrivateDestinationCidrCheck = command.Flags().Bool("netflow-skip-dest-cidr-check", false, "Skip checking private destination CIDR before enriching with Kubernetes context")
+		netflowGrouping                        = ebpftracer.NetflowGroupingDropSrcPort
 
 		eventsBatchSize     = command.Flags().Int("events-batch-size", 1000, "Events batch size before exporting")
 		eventsFlushInterval = command.Flags().Duration("events-flush-interval", 5*time.Second, "Events flush interval")
@@ -205,11 +206,12 @@ func NewRunCommand(version string) *cobra.Command {
 				RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
 			},
 			Netflow: config.NetflowConfig{
-				Enabled:                     *netflowEnabled,
-				SampleSubmitIntervalSeconds: *netflowSampleSubmitIntervalSeconds,
-				Grouping:                    netflowGrouping,
-				ExportInterval:              *netflowExportInterval,
-				MaxPublicIPs:                *netflowMaxPublicIPsBucket,
+				Enabled:                         *netflowEnabled,
+				SampleSubmitIntervalSeconds:     *netflowSampleSubmitIntervalSeconds,
+				Grouping:                        netflowGrouping,
+				ExportInterval:                  *netflowExportInterval,
+				MaxPublicIPs:                    *netflowMaxPublicIPsBucket,
+				SkipPrivateDestinationCidrCheck: *netflowSkipPrivateDestinationCidrCheck,
 			},
 			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,
