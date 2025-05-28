@@ -28,7 +28,7 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 	c.log.Info("running stats pipeline")
 	defer c.log.Info("stats pipeline done")
 
-	ticker := time.NewTicker(c.cfg.StatsScrapeInterval)
+	ticker := time.NewTicker(c.cfg.Stats.ScrapeInterval)
 	defer ticker.Stop()
 
 	// Initial scrape to populate initial points for diffs.
@@ -197,6 +197,9 @@ func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
 }
 
 func getCPUStatsDiff(prev, curr *castaipb.CpuStats) *castaipb.CpuStats {
+	if prev == nil || curr == nil {
+		return &castaipb.CpuStats{}
+	}
 	return &castaipb.CpuStats{
 		TotalUsage:        curr.TotalUsage - prev.TotalUsage,
 		UsageInKernelmode: curr.UsageInKernelmode - prev.UsageInKernelmode,
@@ -208,6 +211,9 @@ func getCPUStatsDiff(prev, curr *castaipb.CpuStats) *castaipb.CpuStats {
 }
 
 func getMemoryStatsDiff(prev, curr *castaipb.MemoryStats) *castaipb.MemoryStats {
+	if prev == nil || curr == nil {
+		return &castaipb.MemoryStats{}
+	}
 	return &castaipb.MemoryStats{
 		Cache:         curr.Cache,
 		Usage:         curr.Usage,
@@ -217,6 +223,9 @@ func getMemoryStatsDiff(prev, curr *castaipb.MemoryStats) *castaipb.MemoryStats 
 }
 
 func getIOStatsDiff(prev, curr *castaipb.IOStats) *castaipb.IOStats {
+	if prev == nil || curr == nil {
+		return &castaipb.IOStats{}
+	}
 	return &castaipb.IOStats{
 		Psi: getPSIStatsDiff(prev.Psi, curr.Psi),
 	}

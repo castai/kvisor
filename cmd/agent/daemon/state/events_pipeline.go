@@ -24,7 +24,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	lastFlushedAt := time.Now()
 	groups := map[uint64]*castpb.ContainerEvents{}
 
-	ticker := time.NewTicker(c.cfg.EventsFlushInterval)
+	ticker := time.NewTicker(c.cfg.Events.FlushInterval)
 	defer ticker.Stop()
 
 	batch := &castpb.ContainerEventsBatch{}
@@ -154,23 +154,23 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		// Handle eBPF events.
 		case e := <-c.tracer.Events():
 			handleEvent(e)
-			if currentEventsCount >= c.cfg.EventsBatchSize {
+			if currentEventsCount >= c.cfg.Events.BatchSize {
 				send()
 			}
 		// Handle signature events.
 		case e := <-c.signatureEngine.Events():
 			handleSignatureEvent(e.EbpfEvent, e.SignatureEvent)
-			if currentEventsCount >= c.cfg.EventsBatchSize {
+			if currentEventsCount >= c.cfg.Events.BatchSize {
 				send()
 			}
 		case e := <-c.enrichmentService.Events():
 			handleEnrichedEvent(e)
-			if currentEventsCount >= c.cfg.EventsBatchSize {
+			if currentEventsCount >= c.cfg.Events.BatchSize {
 				send()
 			}
 		// Periodically flush collected data in case batch size is not reached (low events rate).
 		case <-ticker.C:
-			if lastFlushedAt.Add(c.cfg.EventsFlushInterval).Before(time.Now()) {
+			if lastFlushedAt.Add(c.cfg.Events.FlushInterval).Before(time.Now()) {
 				send()
 			}
 		}

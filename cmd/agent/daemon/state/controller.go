@@ -10,6 +10,7 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
@@ -26,12 +27,10 @@ import (
 )
 
 type Config struct {
-	StatsScrapeInterval time.Duration `json:"statsScrapeInterval"`
+	Netflow config.NetflowConfig `validate:"required"`
 
-	NetflowExportInterval time.Duration `validate:"required" json:"netflowExportInterval"`
-
-	EventsBatchSize     int           `validate:"required" json:"eventsBatchSize"`
-	EventsFlushInterval time.Duration `validate:"required" json:"eventsFlushInterval"`
+	Events config.EventsConfig `validate:"required"`
+	Stats  config.StatsConfig  `validate:"required"`
 }
 
 type containersClient interface {
