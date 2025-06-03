@@ -211,6 +211,11 @@ func (t *testServer) ImageMetadataIngest(ctx context.Context, imageMetadata *cas
 	panic("implement me")
 }
 
+func (t *testServer) ImageManifestIngest(ctx context.Context, request *castaipb.ImageManifestIngestRequest) (*castaipb.ImageManifestIngestResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t *testServer) GetSyncState(ctx context.Context, request *castaipb.GetSyncStateRequest) (*castaipb.GetSyncStateResponse, error) {
 	//TODO implement me
 	panic("implement me")

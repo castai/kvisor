@@ -31,6 +31,7 @@ const (
 	RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngest_FullMethodName      = "/runtime.v1.RuntimeSecurityAgentAPI/KubernetesDeltaBatchIngest"
 	RuntimeSecurityAgentAPI_KubernetesDeltaIngest_FullMethodName           = "/runtime.v1.RuntimeSecurityAgentAPI/KubernetesDeltaIngest"
 	RuntimeSecurityAgentAPI_ImageMetadataIngest_FullMethodName             = "/runtime.v1.RuntimeSecurityAgentAPI/ImageMetadataIngest"
+	RuntimeSecurityAgentAPI_ImageManifestIngest_FullMethodName             = "/runtime.v1.RuntimeSecurityAgentAPI/ImageManifestIngest"
 	RuntimeSecurityAgentAPI_KubeBenchReportIngest_FullMethodName           = "/runtime.v1.RuntimeSecurityAgentAPI/KubeBenchReportIngest"
 	RuntimeSecurityAgentAPI_KubeLinterReportIngest_FullMethodName          = "/runtime.v1.RuntimeSecurityAgentAPI/KubeLinterReportIngest"
 )
@@ -54,6 +55,7 @@ type RuntimeSecurityAgentAPIClient interface {
 	// Deprecated. Should use KubernetesDeltaBatchIngest.
 	KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[KubernetesDeltaItem, KubernetesDeltaIngestResponse], error)
 	ImageMetadataIngest(ctx context.Context, in *ImageMetadata, opts ...grpc.CallOption) (*ImageMetadataIngestResponse, error)
+	ImageManifestIngest(ctx context.Context, in *ImageManifestIngestRequest, opts ...grpc.CallOption) (*ImageManifestIngestResponse, error)
 	KubeBenchReportIngest(ctx context.Context, in *KubeBenchReport, opts ...grpc.CallOption) (*KubeBenchReportIngestResponse, error)
 	KubeLinterReportIngest(ctx context.Context, in *KubeLinterReport, opts ...grpc.CallOption) (*KubeLinterReportIngestResponse, error)
 }
@@ -210,6 +212,16 @@ func (c *runtimeSecurityAgentAPIClient) ImageMetadataIngest(ctx context.Context,
 	return out, nil
 }
 
+func (c *runtimeSecurityAgentAPIClient) ImageManifestIngest(ctx context.Context, in *ImageManifestIngestRequest, opts ...grpc.CallOption) (*ImageManifestIngestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImageManifestIngestResponse)
+	err := c.cc.Invoke(ctx, RuntimeSecurityAgentAPI_ImageManifestIngest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *runtimeSecurityAgentAPIClient) KubeBenchReportIngest(ctx context.Context, in *KubeBenchReport, opts ...grpc.CallOption) (*KubeBenchReportIngestResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(KubeBenchReportIngestResponse)
@@ -249,6 +261,7 @@ type RuntimeSecurityAgentAPIServer interface {
 	// Deprecated. Should use KubernetesDeltaBatchIngest.
 	KubernetesDeltaIngest(grpc.BidiStreamingServer[KubernetesDeltaItem, KubernetesDeltaIngestResponse]) error
 	ImageMetadataIngest(context.Context, *ImageMetadata) (*ImageMetadataIngestResponse, error)
+	ImageManifestIngest(context.Context, *ImageManifestIngestRequest) (*ImageManifestIngestResponse, error)
 	KubeBenchReportIngest(context.Context, *KubeBenchReport) (*KubeBenchReportIngestResponse, error)
 	KubeLinterReportIngest(context.Context, *KubeLinterReport) (*KubeLinterReportIngestResponse, error)
 }
@@ -295,6 +308,9 @@ func (UnimplementedRuntimeSecurityAgentAPIServer) KubernetesDeltaIngest(grpc.Bid
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) ImageMetadataIngest(context.Context, *ImageMetadata) (*ImageMetadataIngestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ImageMetadataIngest not implemented")
+}
+func (UnimplementedRuntimeSecurityAgentAPIServer) ImageManifestIngest(context.Context, *ImageManifestIngestRequest) (*ImageManifestIngestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ImageManifestIngest not implemented")
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) KubeBenchReportIngest(context.Context, *KubeBenchReport) (*KubeBenchReportIngestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KubeBenchReportIngest not implemented")
@@ -450,6 +466,24 @@ func _RuntimeSecurityAgentAPI_ImageMetadataIngest_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RuntimeSecurityAgentAPI_ImageManifestIngest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImageManifestIngestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RuntimeSecurityAgentAPIServer).ImageManifestIngest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RuntimeSecurityAgentAPI_ImageManifestIngest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RuntimeSecurityAgentAPIServer).ImageManifestIngest(ctx, req.(*ImageManifestIngestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RuntimeSecurityAgentAPI_KubeBenchReportIngest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(KubeBenchReport)
 	if err := dec(in); err != nil {
@@ -508,6 +542,10 @@ var RuntimeSecurityAgentAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ImageMetadataIngest",
 			Handler:    _RuntimeSecurityAgentAPI_ImageMetadataIngest_Handler,
+		},
+		{
+			MethodName: "ImageManifestIngest",
+			Handler:    _RuntimeSecurityAgentAPI_ImageManifestIngest_Handler,
 		},
 		{
 			MethodName: "KubeBenchReportIngest",

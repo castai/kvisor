@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -25,6 +26,7 @@ import (
 	analyzer "github.com/castai/image-analyzer"
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
+	itypes "github.com/castai/image-analyzer/image/types"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/imagescan/config"
 	"github.com/castai/kvisor/cmd/imagescan/trivy/golang/analyzer/binary"
@@ -36,6 +38,7 @@ func init() {
 
 type ingestClient interface {
 	ImageMetadataIngest(ctx context.Context, in *castaipb.ImageMetadata, opts ...grpc.CallOption) (*castaipb.ImageMetadataIngestResponse, error)
+	ImageManifestIngest(ctx context.Context, in *castaipb.ImageManifestIngestRequest, opts ...grpc.CallOption) (*castaipb.ImageManifestIngestResponse, error)
 }
 
 func New(
@@ -117,6 +120,16 @@ func (c *Collector) Collect(ctx context.Context) error {
 		return fmt.Errorf("inspecting an artifact: %w", err)
 	}
 
+	index, err := img.IndexManifest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index manifest: %w", err)
+	}
+
+	indexDigest, err := img.IndexDigest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index digest: %w", err)
+	}
+
 	manifest, err := img.Manifest()
 	if err != nil {
 		return fmt.Errorf("extracting manifest from an artifact: %w", err)
@@ -124,7 +137,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 
 	digest, err := img.Digest()
 	if err != nil {
-		return fmt.Errorf("extract manifest digest: %w", err)
+		return fmt.Errorf("extracting manifest digest: %w", err)
 	}
 
 	arch := arRef.ConfigFile.Architecture
@@ -141,17 +154,24 @@ func (c *Collector) Collect(ctx context.Context) error {
 		Architecture: arch,
 		ResourceIds:  strings.Split(c.cfg.ResourceIDs, ","),
 	}
+
 	if arRef.OsInfo != nil {
 		metadata.OsName = arRef.OsInfo.Name
 	}
 	if arRef.ArtifactInfo != nil {
 		metadata.CreatedAt = timestamppb.New(arRef.ArtifactInfo.Created)
 	}
-	packagesBytes, err := json.Marshal(arRef.BlobsInfo)
+	blobsInfoBytes, err := json.Marshal(arRef.BlobsInfo)
 	if err != nil {
 		return fmt.Errorf("marshalling blobs info: %w", err)
 	}
-	metadata.Packages = packagesBytes
+	metadata.Packages = blobsInfoBytes
+
+	indexBytes, err := json.Marshal(index)
+	if err != nil {
+		return fmt.Errorf("marshalling index: %w", err)
+	}
+	metadata.Index = indexBytes
 
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
@@ -165,16 +185,39 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	metadata.ConfigFile = configFileBytes
 
-	if index := img.Index(); index != nil {
-		indexBytes, err := json.Marshal(index)
+	if _, err := backoff.Retry(ctx, func() (any, error) {
+		return nil, c.sendImageMetadata(ctx, metadata)
+	}, backoff.WithNotify(func(err error, d time.Duration) {
 		if err != nil {
-			return fmt.Errorf("marshalling index: %w", err)
+			c.log.Errorf("sending result: %v", err)
 		}
-		metadata.Index = indexBytes
+	})); err != nil {
+		return err
+	}
+
+	req := &castaipb.ImageManifestIngestRequest{
+		ImageName: c.cfg.ImageName,
+		ImageManifests: []*castaipb.ImageManifest{{
+			Digest: digest.String(),
+			Platform: &castaipb.ImagePlatform{
+				Architecture: arch,
+				Os:           metadata.OsName,
+			},
+			Manifest:       manifestBytes,
+			ConfigFile:     configFileBytes,
+			TrivyBlobsInfo: blobsInfoBytes,
+		}},
+	}
+
+	if index != nil {
+		req.ImageIndex = &castaipb.ImageIndex{
+			Digest: indexDigest.String(),
+			Index:  indexBytes,
+		}
 	}
 
 	if _, err := backoff.Retry(ctx, func() (any, error) {
-		return nil, c.sendResult(ctx, metadata)
+		return nil, c.sendImageManifestIngestRequest(ctx, req)
 	}, backoff.WithNotify(func(err error, d time.Duration) {
 		if err != nil {
 			c.log.Errorf("sending result: %v", err)
@@ -186,7 +229,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
+func (c *Collector) getImage(ctx context.Context) (itypes.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing image reference: %w", err)
@@ -259,10 +302,19 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 	return nil, nil, fmt.Errorf("unknown mode %q", c.cfg.Mode)
 }
 
-func (c *Collector) sendResult(ctx context.Context, imageMetadata *castaipb.ImageMetadata) error {
+func (c *Collector) sendImageMetadata(ctx context.Context, imageMetadata *castaipb.ImageMetadata) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if _, err := c.ingestClient.ImageMetadataIngest(ctx, imageMetadata); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Collector) sendImageManifestIngestRequest(ctx context.Context, req *castaipb.ImageManifestIngestRequest) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := c.ingestClient.ImageManifestIngest(ctx, req); err != nil {
 		return err
 	}
 	return nil

@@ -24,6 +24,7 @@ service RuntimeSecurityAgentAPI {
   // Deprecated. Should use KubernetesDeltaBatchIngest.
   rpc KubernetesDeltaIngest(stream KubernetesDeltaItem) returns (stream KubernetesDeltaIngestResponse) {}
   rpc ImageMetadataIngest(ImageMetadata) returns (ImageMetadataIngestResponse) {}
+  rpc ImageManifestIngest(ImageManifestIngestRequest) returns (ImageManifestIngestResponse) {}
   rpc KubeBenchReportIngest(KubeBenchReport) returns (KubeBenchReportIngestResponse) {}
   rpc KubeLinterReportIngest(KubeLinterReport) returns (KubeLinterReportIngestResponse) {}
 }
@@ -239,6 +240,45 @@ message ImageMetadata {
 }
 
 message ImageMetadataIngestResponse {}
+
+message ImageManifestIngestRequest {
+  // Image name is the full image name, including registry and tag. For example: "registry.example.com/my-image:latest".
+  string image_name = 1;
+  // Image index is a higher-level manifest which points to specific image manifests for one or more platforms.
+  ImageIndex image_index = 2;
+  // Image manifests is the list of manifests for specific platforms.
+  repeated ImageManifest image_manifests = 3;
+}
+
+message ImageManifestIngestResponse {}
+
+message ImageIndex {
+  // Digest of the image index, also known as the image index digest.
+  string digest = 1;
+  // JSON containing github.com/google/go-containerregistry/pkg/v1.IndexManifest type.
+  bytes index = 2;
+}
+
+message ImageManifest {
+  // Digest of the image manifest, also known as the image manifest digest.
+  string digest = 1;
+  // Platform for which the image manifest is valid.
+  ImagePlatform platform = 2;
+
+  // JSON containing https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#Manifest type.
+  bytes manifest = 10;
+  // JSON containing https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#ConfigFile type.
+  bytes config_file = 11;
+  // JSON containing an array of https://pkg.go.dev/github.com/aquasecurity/trivy/pkg/fanal/types#BlobInfo type.
+  bytes trivy_blobs_info = 12;
+}
+
+message ImagePlatform {
+  // Architecture field specifies the CPU architecture, for example `amd64` or `ppc64le`.
+  string architecture = 1;
+  // OS specifies the operating system, for example `linux` or `windows`.
+  string os = 2;
+}
 
 message GetSyncStateRequest {
   repeated string image_ids = 1;

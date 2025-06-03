@@ -105,6 +105,10 @@ func (t testGrpcClient) ImageMetadataIngest(ctx context.Context, in *castaipb.Im
 	return nil, nil
 }
 
+func (t testGrpcClient) ImageManifestIngest(ctx context.Context, in *castaipb.ImageManifestIngestRequest, opts ...grpc.CallOption) (*castaipb.ImageManifestIngestResponse, error) {
+	return nil, nil
+}
+
 func (t testGrpcClient) GetSyncState(ctx context.Context, in *castaipb.GetSyncStateRequest, opts ...grpc.CallOption) (*castaipb.GetSyncStateResponse, error) {
 	return nil, nil
 }

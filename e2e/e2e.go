@@ -215,6 +215,7 @@ type testCASTAIServer struct {
 	eventsAsserted         bool
 	logs                   []*castaipb.LogEvent
 	imageMetadatas         []*castaipb.ImageMetadata
+	imageManifests         []*castaipb.ImageManifest
 	kubeBenchReports       []*castaipb.KubeBenchReport
 	kubeLinterReports      []*castaipb.KubeLinterReport
 	processTreeEvents      []*castaipb.ProcessTreeEvent
@@ -338,6 +339,21 @@ func (t *testCASTAIServer) ImageMetadataIngest(ctx context.Context, imageMetadat
 	t.imageMetadatas = append(t.imageMetadatas, imageMetadata)
 
 	return &castaipb.ImageMetadataIngestResponse{}, nil
+}
+
+func (t *testCASTAIServer) ImageManifestIngest(ctx context.Context, request *castaipb.ImageManifestIngestRequest) (*castaipb.ImageManifestIngestResponse, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if len(request.GetImageManifests()) == 0 {
+		return &castaipb.ImageManifestIngestResponse{}, nil
+	}
+
+	imageManifest := request.GetImageManifests()[0]
+	fmt.Printf("received image manifest, image_name=%s, image_manifest_digest=%s\n", request.ImageName, imageManifest.Digest)
+	t.imageManifests = append(t.imageManifests, imageManifest)
+
+	return &castaipb.ImageManifestIngestResponse{}, nil
 }
 
 func (t *testCASTAIServer) GetSyncState(ctx context.Context, request *castaipb.GetSyncStateRequest) (*castaipb.GetSyncStateResponse, error) {

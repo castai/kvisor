@@ -2140,6 +2140,294 @@ func (*ImageMetadataIngestResponse) Descriptor() ([]byte, []int) {
 	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{19}
 }
 
+type ImageManifestIngestRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Image name is the full image name, including registry and tag. For example: "registry.example.com/my-image:latest".
+	ImageName string `protobuf:"bytes,1,opt,name=image_name,json=imageName,proto3" json:"image_name,omitempty"`
+	// Image index is a higher-level manifest which points to specific image manifests for one or more platforms.
+	ImageIndex *ImageIndex `protobuf:"bytes,2,opt,name=image_index,json=imageIndex,proto3" json:"image_index,omitempty"`
+	// Image manifests is the list of manifests for specific platforms.
+	ImageManifests []*ImageManifest `protobuf:"bytes,3,rep,name=image_manifests,json=imageManifests,proto3" json:"image_manifests,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ImageManifestIngestRequest) Reset() {
+	*x = ImageManifestIngestRequest{}
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageManifestIngestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageManifestIngestRequest) ProtoMessage() {}
+
+func (x *ImageManifestIngestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageManifestIngestRequest.ProtoReflect.Descriptor instead.
+func (*ImageManifestIngestRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ImageManifestIngestRequest) GetImageName() string {
+	if x != nil {
+		return x.ImageName
+	}
+	return ""
+}
+
+func (x *ImageManifestIngestRequest) GetImageIndex() *ImageIndex {
+	if x != nil {
+		return x.ImageIndex
+	}
+	return nil
+}
+
+func (x *ImageManifestIngestRequest) GetImageManifests() []*ImageManifest {
+	if x != nil {
+		return x.ImageManifests
+	}
+	return nil
+}
+
+type ImageManifestIngestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImageManifestIngestResponse) Reset() {
+	*x = ImageManifestIngestResponse{}
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageManifestIngestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageManifestIngestResponse) ProtoMessage() {}
+
+func (x *ImageManifestIngestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageManifestIngestResponse.ProtoReflect.Descriptor instead.
+func (*ImageManifestIngestResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{21}
+}
+
+type ImageIndex struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Digest of the image index, also known as the image index digest.
+	Digest string `protobuf:"bytes,1,opt,name=digest,proto3" json:"digest,omitempty"`
+	// JSON containing github.com/google/go-containerregistry/pkg/v1.IndexManifest type.
+	Index         []byte `protobuf:"bytes,2,opt,name=index,proto3" json:"index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImageIndex) Reset() {
+	*x = ImageIndex{}
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageIndex) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageIndex) ProtoMessage() {}
+
+func (x *ImageIndex) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageIndex.ProtoReflect.Descriptor instead.
+func (*ImageIndex) Descriptor() ([]byte, []int) {
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ImageIndex) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *ImageIndex) GetIndex() []byte {
+	if x != nil {
+		return x.Index
+	}
+	return nil
+}
+
+type ImageManifest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Digest of the image manifest, also known as the image manifest digest.
+	Digest string `protobuf:"bytes,1,opt,name=digest,proto3" json:"digest,omitempty"`
+	// Platform for which the image manifest is valid.
+	Platform *ImagePlatform `protobuf:"bytes,2,opt,name=platform,proto3" json:"platform,omitempty"`
+	// JSON containing https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#Manifest type.
+	Manifest []byte `protobuf:"bytes,10,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	// JSON containing https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#ConfigFile type.
+	ConfigFile []byte `protobuf:"bytes,11,opt,name=config_file,json=configFile,proto3" json:"config_file,omitempty"`
+	// JSON containing an array of https://pkg.go.dev/github.com/aquasecurity/trivy/pkg/fanal/types#BlobInfo type.
+	TrivyBlobsInfo []byte `protobuf:"bytes,12,opt,name=trivy_blobs_info,json=trivyBlobsInfo,proto3" json:"trivy_blobs_info,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ImageManifest) Reset() {
+	*x = ImageManifest{}
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageManifest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageManifest) ProtoMessage() {}
+
+func (x *ImageManifest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageManifest.ProtoReflect.Descriptor instead.
+func (*ImageManifest) Descriptor() ([]byte, []int) {
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ImageManifest) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *ImageManifest) GetPlatform() *ImagePlatform {
+	if x != nil {
+		return x.Platform
+	}
+	return nil
+}
+
+func (x *ImageManifest) GetManifest() []byte {
+	if x != nil {
+		return x.Manifest
+	}
+	return nil
+}
+
+func (x *ImageManifest) GetConfigFile() []byte {
+	if x != nil {
+		return x.ConfigFile
+	}
+	return nil
+}
+
+func (x *ImageManifest) GetTrivyBlobsInfo() []byte {
+	if x != nil {
+		return x.TrivyBlobsInfo
+	}
+	return nil
+}
+
+type ImagePlatform struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Architecture field specifies the CPU architecture, for example `amd64` or `ppc64le`.
+	Architecture string `protobuf:"bytes,1,opt,name=architecture,proto3" json:"architecture,omitempty"`
+	// OS specifies the operating system, for example `linux` or `windows`.
+	Os            string `protobuf:"bytes,2,opt,name=os,proto3" json:"os,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImagePlatform) Reset() {
+	*x = ImagePlatform{}
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImagePlatform) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImagePlatform) ProtoMessage() {}
+
+func (x *ImagePlatform) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImagePlatform.ProtoReflect.Descriptor instead.
+func (*ImagePlatform) Descriptor() ([]byte, []int) {
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ImagePlatform) GetArchitecture() string {
+	if x != nil {
+		return x.Architecture
+	}
+	return ""
+}
+
+func (x *ImagePlatform) GetOs() string {
+	if x != nil {
+		return x.Os
+	}
+	return ""
+}
+
 type GetSyncStateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ImageIds      []string               `protobuf:"bytes,1,rep,name=image_ids,json=imageIds,proto3" json:"image_ids,omitempty"`
@@ -2149,7 +2437,7 @@ type GetSyncStateRequest struct {
 
 func (x *GetSyncStateRequest) Reset() {
 	*x = GetSyncStateRequest{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[20]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2161,7 +2449,7 @@ func (x *GetSyncStateRequest) String() string {
 func (*GetSyncStateRequest) ProtoMessage() {}
 
 func (x *GetSyncStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[20]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2174,7 +2462,7 @@ func (x *GetSyncStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStateRequest.ProtoReflect.Descriptor instead.
 func (*GetSyncStateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{20}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetSyncStateRequest) GetImageIds() []string {
@@ -2193,7 +2481,7 @@ type GetSyncStateResponse struct {
 
 func (x *GetSyncStateResponse) Reset() {
 	*x = GetSyncStateResponse{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[21]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2205,7 +2493,7 @@ func (x *GetSyncStateResponse) String() string {
 func (*GetSyncStateResponse) ProtoMessage() {}
 
 func (x *GetSyncStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[21]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2218,7 +2506,7 @@ func (x *GetSyncStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStateResponse.ProtoReflect.Descriptor instead.
 func (*GetSyncStateResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{21}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetSyncStateResponse) GetImages() *ImagesSyncState {
@@ -2238,7 +2526,7 @@ type ImagesSyncState struct {
 
 func (x *ImagesSyncState) Reset() {
 	*x = ImagesSyncState{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[22]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2250,7 +2538,7 @@ func (x *ImagesSyncState) String() string {
 func (*ImagesSyncState) ProtoMessage() {}
 
 func (x *ImagesSyncState) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[22]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2263,7 +2551,7 @@ func (x *ImagesSyncState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImagesSyncState.ProtoReflect.Descriptor instead.
 func (*ImagesSyncState) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{22}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ImagesSyncState) GetFullResyncRequired() bool {
@@ -2294,7 +2582,7 @@ type Image struct {
 
 func (x *Image) Reset() {
 	*x = Image{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[23]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2306,7 +2594,7 @@ func (x *Image) String() string {
 func (*Image) ProtoMessage() {}
 
 func (x *Image) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[23]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2319,7 +2607,7 @@ func (x *Image) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Image.ProtoReflect.Descriptor instead.
 func (*Image) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{23}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Image) GetId() string {
@@ -2374,7 +2662,7 @@ type UpdateSyncStateRequest struct {
 
 func (x *UpdateSyncStateRequest) Reset() {
 	*x = UpdateSyncStateRequest{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[24]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2386,7 +2674,7 @@ func (x *UpdateSyncStateRequest) String() string {
 func (*UpdateSyncStateRequest) ProtoMessage() {}
 
 func (x *UpdateSyncStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[24]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2399,7 +2687,7 @@ func (x *UpdateSyncStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSyncStateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSyncStateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{24}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *UpdateSyncStateRequest) GetFullSnapshot() bool {
@@ -2424,7 +2712,7 @@ type UpdateSyncStateResponse struct {
 
 func (x *UpdateSyncStateResponse) Reset() {
 	*x = UpdateSyncStateResponse{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[25]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2436,7 +2724,7 @@ func (x *UpdateSyncStateResponse) String() string {
 func (*UpdateSyncStateResponse) ProtoMessage() {}
 
 func (x *UpdateSyncStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[25]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2449,7 +2737,7 @@ func (x *UpdateSyncStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSyncStateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSyncStateResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{25}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{30}
 }
 
 type KubeBenchReport struct {
@@ -2462,7 +2750,7 @@ type KubeBenchReport struct {
 
 func (x *KubeBenchReport) Reset() {
 	*x = KubeBenchReport{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[26]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2474,7 +2762,7 @@ func (x *KubeBenchReport) String() string {
 func (*KubeBenchReport) ProtoMessage() {}
 
 func (x *KubeBenchReport) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[26]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2487,7 +2775,7 @@ func (x *KubeBenchReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeBenchReport.ProtoReflect.Descriptor instead.
 func (*KubeBenchReport) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{26}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *KubeBenchReport) GetControls() []*KubeBenchControls {
@@ -2512,7 +2800,7 @@ type KubeBenchReportIngestResponse struct {
 
 func (x *KubeBenchReportIngestResponse) Reset() {
 	*x = KubeBenchReportIngestResponse{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[27]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2524,7 +2812,7 @@ func (x *KubeBenchReportIngestResponse) String() string {
 func (*KubeBenchReportIngestResponse) ProtoMessage() {}
 
 func (x *KubeBenchReportIngestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[27]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2537,7 +2825,7 @@ func (x *KubeBenchReportIngestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeBenchReportIngestResponse.ProtoReflect.Descriptor instead.
 func (*KubeBenchReportIngestResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{27}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{32}
 }
 
 type KubeBenchNode struct {
@@ -2550,7 +2838,7 @@ type KubeBenchNode struct {
 
 func (x *KubeBenchNode) Reset() {
 	*x = KubeBenchNode{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[28]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2562,7 +2850,7 @@ func (x *KubeBenchNode) String() string {
 func (*KubeBenchNode) ProtoMessage() {}
 
 func (x *KubeBenchNode) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[28]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2575,7 +2863,7 @@ func (x *KubeBenchNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeBenchNode.ProtoReflect.Descriptor instead.
 func (*KubeBenchNode) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{28}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *KubeBenchNode) GetNodeName() string {
@@ -2602,7 +2890,7 @@ type KubeBenchControls struct {
 
 func (x *KubeBenchControls) Reset() {
 	*x = KubeBenchControls{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[29]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2614,7 +2902,7 @@ func (x *KubeBenchControls) String() string {
 func (*KubeBenchControls) ProtoMessage() {}
 
 func (x *KubeBenchControls) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[29]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2627,7 +2915,7 @@ func (x *KubeBenchControls) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeBenchControls.ProtoReflect.Descriptor instead.
 func (*KubeBenchControls) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{29}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *KubeBenchControls) GetVersion() string {
@@ -2653,7 +2941,7 @@ type KubeBenchGroup struct {
 
 func (x *KubeBenchGroup) Reset() {
 	*x = KubeBenchGroup{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[30]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2665,7 +2953,7 @@ func (x *KubeBenchGroup) String() string {
 func (*KubeBenchGroup) ProtoMessage() {}
 
 func (x *KubeBenchGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[30]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2678,7 +2966,7 @@ func (x *KubeBenchGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeBenchGroup.ProtoReflect.Descriptor instead.
 func (*KubeBenchGroup) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{30}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *KubeBenchGroup) GetChecks() []*KubeBenchCheck {
@@ -2700,7 +2988,7 @@ type KubeBenchCheck struct {
 
 func (x *KubeBenchCheck) Reset() {
 	*x = KubeBenchCheck{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[31]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2712,7 +3000,7 @@ func (x *KubeBenchCheck) String() string {
 func (*KubeBenchCheck) ProtoMessage() {}
 
 func (x *KubeBenchCheck) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[31]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2725,7 +3013,7 @@ func (x *KubeBenchCheck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeBenchCheck.ProtoReflect.Descriptor instead.
 func (*KubeBenchCheck) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{31}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *KubeBenchCheck) GetId() string {
@@ -2765,7 +3053,7 @@ type KubeLinterReport struct {
 
 func (x *KubeLinterReport) Reset() {
 	*x = KubeLinterReport{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[32]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2777,7 +3065,7 @@ func (x *KubeLinterReport) String() string {
 func (*KubeLinterReport) ProtoMessage() {}
 
 func (x *KubeLinterReport) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[32]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2790,7 +3078,7 @@ func (x *KubeLinterReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeLinterReport.ProtoReflect.Descriptor instead.
 func (*KubeLinterReport) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{32}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *KubeLinterReport) GetChecks() []*KubeLinterCheck {
@@ -2808,7 +3096,7 @@ type KubeLinterReportIngestResponse struct {
 
 func (x *KubeLinterReportIngestResponse) Reset() {
 	*x = KubeLinterReportIngestResponse{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[33]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2820,7 +3108,7 @@ func (x *KubeLinterReportIngestResponse) String() string {
 func (*KubeLinterReportIngestResponse) ProtoMessage() {}
 
 func (x *KubeLinterReportIngestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[33]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2833,7 +3121,7 @@ func (x *KubeLinterReportIngestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeLinterReportIngestResponse.ProtoReflect.Descriptor instead.
 func (*KubeLinterReportIngestResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{33}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{38}
 }
 
 type KubeLinterCheck struct {
@@ -2847,7 +3135,7 @@ type KubeLinterCheck struct {
 
 func (x *KubeLinterCheck) Reset() {
 	*x = KubeLinterCheck{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[34]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2859,7 +3147,7 @@ func (x *KubeLinterCheck) String() string {
 func (*KubeLinterCheck) ProtoMessage() {}
 
 func (x *KubeLinterCheck) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[34]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2872,7 +3160,7 @@ func (x *KubeLinterCheck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeLinterCheck.ProtoReflect.Descriptor instead.
 func (*KubeLinterCheck) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *KubeLinterCheck) GetResourceUid() string {
@@ -2911,7 +3199,7 @@ type Process struct {
 
 func (x *Process) Reset() {
 	*x = Process{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[35]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2923,7 +3211,7 @@ func (x *Process) String() string {
 func (*Process) ProtoMessage() {}
 
 func (x *Process) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[35]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2936,7 +3224,7 @@ func (x *Process) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Process.ProtoReflect.Descriptor instead.
 func (*Process) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{35}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *Process) GetPid() uint32 {
@@ -3000,7 +3288,7 @@ type ProcessEvent struct {
 
 func (x *ProcessEvent) Reset() {
 	*x = ProcessEvent{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[36]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3012,7 +3300,7 @@ func (x *ProcessEvent) String() string {
 func (*ProcessEvent) ProtoMessage() {}
 
 func (x *ProcessEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[36]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3025,7 +3313,7 @@ func (x *ProcessEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessEvent.ProtoReflect.Descriptor instead.
 func (*ProcessEvent) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{36}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ProcessEvent) GetTimestamp() uint64 {
@@ -3066,7 +3354,7 @@ type ProcessTreeEvent struct {
 
 func (x *ProcessTreeEvent) Reset() {
 	*x = ProcessTreeEvent{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[37]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3078,7 +3366,7 @@ func (x *ProcessTreeEvent) String() string {
 func (*ProcessTreeEvent) ProtoMessage() {}
 
 func (x *ProcessTreeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[37]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3091,7 +3379,7 @@ func (x *ProcessTreeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessTreeEvent.ProtoReflect.Descriptor instead.
 func (*ProcessTreeEvent) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{37}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ProcessTreeEvent) GetInitial() bool {
@@ -3282,7 +3570,29 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\x05index\x18\v \x01(\fR\x05index\x12\x1f\n" +
 	"\vconfig_file\x18\f \x01(\fR\n" +
 	"configFile\"\x1d\n" +
-	"\x1bImageMetadataIngestResponse\"2\n" +
+	"\x1bImageMetadataIngestResponse\"\xb8\x01\n" +
+	"\x1aImageManifestIngestRequest\x12\x1d\n" +
+	"\n" +
+	"image_name\x18\x01 \x01(\tR\timageName\x127\n" +
+	"\vimage_index\x18\x02 \x01(\v2\x16.runtime.v1.ImageIndexR\n" +
+	"imageIndex\x12B\n" +
+	"\x0fimage_manifests\x18\x03 \x03(\v2\x19.runtime.v1.ImageManifestR\x0eimageManifests\"\x1d\n" +
+	"\x1bImageManifestIngestResponse\":\n" +
+	"\n" +
+	"ImageIndex\x12\x16\n" +
+	"\x06digest\x18\x01 \x01(\tR\x06digest\x12\x14\n" +
+	"\x05index\x18\x02 \x01(\fR\x05index\"\xc5\x01\n" +
+	"\rImageManifest\x12\x16\n" +
+	"\x06digest\x18\x01 \x01(\tR\x06digest\x125\n" +
+	"\bplatform\x18\x02 \x01(\v2\x19.runtime.v1.ImagePlatformR\bplatform\x12\x1a\n" +
+	"\bmanifest\x18\n" +
+	" \x01(\fR\bmanifest\x12\x1f\n" +
+	"\vconfig_file\x18\v \x01(\fR\n" +
+	"configFile\x12(\n" +
+	"\x10trivy_blobs_info\x18\f \x01(\fR\x0etrivyBlobsInfo\"C\n" +
+	"\rImagePlatform\x12\"\n" +
+	"\farchitecture\x18\x01 \x01(\tR\farchitecture\x12\x0e\n" +
+	"\x02os\x18\x02 \x01(\tR\x02os\"2\n" +
 	"\x13GetSyncStateRequest\x12\x1b\n" +
 	"\timage_ids\x18\x01 \x03(\tR\bimageIds\"K\n" +
 	"\x14GetSyncStateResponse\x123\n" +
@@ -3384,8 +3694,7 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\x16PROCESS_ACTION_UNKNOWN\x10\x00\x12\x17\n" +
 	"\x13PROCESS_ACTION_EXEC\x10\x01\x12\x17\n" +
 	"\x13PROCESS_ACTION_FORK\x10\x02\x12\x17\n" +
-	"\x13PROCESS_ACTION_EXIT\x10\x032\xb4\n" +
-	"\n" +
+	"\x13PROCESS_ACTION_EXIT\x10\x032\x9e\v\n" +
 	"\x17RuntimeSecurityAgentAPI\x12_\n" +
 	"\x10GetConfiguration\x12#.runtime.v1.GetConfigurationRequest\x1a$.runtime.v1.GetConfigurationResponse\"\x00\x12K\n" +
 	"\x11EventsWriteStream\x12\x11.runtime.v1.Event\x1a\x1f.runtime.v1.WriteStreamResponse\"\x00(\x01\x12h\n" +
@@ -3398,7 +3707,8 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\x0fUpdateSyncState\x12\".runtime.v1.UpdateSyncStateRequest\x1a#.runtime.v1.UpdateSyncStateResponse\"\x00\x12o\n" +
 	"\x1aKubernetesDeltaBatchIngest\x12 .runtime.v1.KubernetesDeltaBatch\x1a).runtime.v1.KubernetesDeltaIngestResponse\"\x00(\x010\x01\x12i\n" +
 	"\x15KubernetesDeltaIngest\x12\x1f.runtime.v1.KubernetesDeltaItem\x1a).runtime.v1.KubernetesDeltaIngestResponse\"\x00(\x010\x01\x12[\n" +
-	"\x13ImageMetadataIngest\x12\x19.runtime.v1.ImageMetadata\x1a'.runtime.v1.ImageMetadataIngestResponse\"\x00\x12a\n" +
+	"\x13ImageMetadataIngest\x12\x19.runtime.v1.ImageMetadata\x1a'.runtime.v1.ImageMetadataIngestResponse\"\x00\x12h\n" +
+	"\x13ImageManifestIngest\x12&.runtime.v1.ImageManifestIngestRequest\x1a'.runtime.v1.ImageManifestIngestResponse\"\x00\x12a\n" +
 	"\x15KubeBenchReportIngest\x12\x1b.runtime.v1.KubeBenchReport\x1a).runtime.v1.KubeBenchReportIngestResponse\"\x00\x12d\n" +
 	"\x16KubeLinterReportIngest\x12\x1c.runtime.v1.KubeLinterReport\x1a*.runtime.v1.KubeLinterReportIngestResponse\"\x00B*Z(github.com/castai/kvisord/api/runtime/v1b\x06proto3"
 
@@ -3415,7 +3725,7 @@ func file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP() []byte {
 }
 
 var file_api_v1_runtime_runtime_agent_api_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_v1_runtime_runtime_agent_api_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
+var file_api_v1_runtime_runtime_agent_api_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_api_v1_runtime_runtime_agent_api_proto_goTypes = []any{
 	(EventType)(0),                         // 0: runtime.v1.EventType
 	(WorkloadKind)(0),                      // 1: runtime.v1.WorkloadKind
@@ -3442,140 +3752,150 @@ var file_api_v1_runtime_runtime_agent_api_proto_goTypes = []any{
 	(*KubernetesDeltaIngestResponse)(nil),  // 22: runtime.v1.KubernetesDeltaIngestResponse
 	(*ImageMetadata)(nil),                  // 23: runtime.v1.ImageMetadata
 	(*ImageMetadataIngestResponse)(nil),    // 24: runtime.v1.ImageMetadataIngestResponse
-	(*GetSyncStateRequest)(nil),            // 25: runtime.v1.GetSyncStateRequest
-	(*GetSyncStateResponse)(nil),           // 26: runtime.v1.GetSyncStateResponse
-	(*ImagesSyncState)(nil),                // 27: runtime.v1.ImagesSyncState
-	(*Image)(nil),                          // 28: runtime.v1.Image
-	(*UpdateSyncStateRequest)(nil),         // 29: runtime.v1.UpdateSyncStateRequest
-	(*UpdateSyncStateResponse)(nil),        // 30: runtime.v1.UpdateSyncStateResponse
-	(*KubeBenchReport)(nil),                // 31: runtime.v1.KubeBenchReport
-	(*KubeBenchReportIngestResponse)(nil),  // 32: runtime.v1.KubeBenchReportIngestResponse
-	(*KubeBenchNode)(nil),                  // 33: runtime.v1.KubeBenchNode
-	(*KubeBenchControls)(nil),              // 34: runtime.v1.KubeBenchControls
-	(*KubeBenchGroup)(nil),                 // 35: runtime.v1.KubeBenchGroup
-	(*KubeBenchCheck)(nil),                 // 36: runtime.v1.KubeBenchCheck
-	(*KubeLinterReport)(nil),               // 37: runtime.v1.KubeLinterReport
-	(*KubeLinterReportIngestResponse)(nil), // 38: runtime.v1.KubeLinterReportIngestResponse
-	(*KubeLinterCheck)(nil),                // 39: runtime.v1.KubeLinterCheck
-	(*Process)(nil),                        // 40: runtime.v1.Process
-	(*ProcessEvent)(nil),                   // 41: runtime.v1.ProcessEvent
-	(*ProcessTreeEvent)(nil),               // 42: runtime.v1.ProcessTreeEvent
-	nil,                                    // 43: runtime.v1.Event.ObjectLabelsEntry
-	nil,                                    // 44: runtime.v1.Event.ObjectAnnotationsEntry
-	nil,                                    // 45: runtime.v1.ContainerEvents.ObjectLabelsEntry
-	nil,                                    // 46: runtime.v1.ContainerEvents.ObjectAnnotationsEntry
-	nil,                                    // 47: runtime.v1.KubernetesDeltaItem.ObjectLabelsEntry
-	nil,                                    // 48: runtime.v1.KubernetesDeltaItem.ObjectAnnotationsEntry
-	(*Exec)(nil),                           // 49: runtime.v1.Exec
-	(*DNS)(nil),                            // 50: runtime.v1.DNS
-	(*File)(nil),                           // 51: runtime.v1.File
-	(*Tuple)(nil),                          // 52: runtime.v1.Tuple
-	(*SignatureEvent)(nil),                 // 53: runtime.v1.SignatureEvent
-	(*Any)(nil),                            // 54: runtime.v1.Any
-	(*StdioViaSocketFinding)(nil),          // 55: runtime.v1.StdioViaSocketFinding
-	(*SSHData)(nil),                        // 56: runtime.v1.SSHData
-	(*ProcessFork)(nil),                    // 57: runtime.v1.ProcessFork
-	(*ProcessExit)(nil),                    // 58: runtime.v1.ProcessExit
-	(*CpuStats)(nil),                       // 59: runtime.v1.CpuStats
-	(*MemoryStats)(nil),                    // 60: runtime.v1.MemoryStats
-	(*PidsStats)(nil),                      // 61: runtime.v1.PidsStats
-	(*IOStats)(nil),                        // 62: runtime.v1.IOStats
-	(*timestamppb.Timestamp)(nil),          // 63: google.protobuf.Timestamp
-	(*LogEvent)(nil),                       // 64: runtime.v1.LogEvent
-	(*Netflow)(nil),                        // 65: runtime.v1.Netflow
+	(*ImageManifestIngestRequest)(nil),     // 25: runtime.v1.ImageManifestIngestRequest
+	(*ImageManifestIngestResponse)(nil),    // 26: runtime.v1.ImageManifestIngestResponse
+	(*ImageIndex)(nil),                     // 27: runtime.v1.ImageIndex
+	(*ImageManifest)(nil),                  // 28: runtime.v1.ImageManifest
+	(*ImagePlatform)(nil),                  // 29: runtime.v1.ImagePlatform
+	(*GetSyncStateRequest)(nil),            // 30: runtime.v1.GetSyncStateRequest
+	(*GetSyncStateResponse)(nil),           // 31: runtime.v1.GetSyncStateResponse
+	(*ImagesSyncState)(nil),                // 32: runtime.v1.ImagesSyncState
+	(*Image)(nil),                          // 33: runtime.v1.Image
+	(*UpdateSyncStateRequest)(nil),         // 34: runtime.v1.UpdateSyncStateRequest
+	(*UpdateSyncStateResponse)(nil),        // 35: runtime.v1.UpdateSyncStateResponse
+	(*KubeBenchReport)(nil),                // 36: runtime.v1.KubeBenchReport
+	(*KubeBenchReportIngestResponse)(nil),  // 37: runtime.v1.KubeBenchReportIngestResponse
+	(*KubeBenchNode)(nil),                  // 38: runtime.v1.KubeBenchNode
+	(*KubeBenchControls)(nil),              // 39: runtime.v1.KubeBenchControls
+	(*KubeBenchGroup)(nil),                 // 40: runtime.v1.KubeBenchGroup
+	(*KubeBenchCheck)(nil),                 // 41: runtime.v1.KubeBenchCheck
+	(*KubeLinterReport)(nil),               // 42: runtime.v1.KubeLinterReport
+	(*KubeLinterReportIngestResponse)(nil), // 43: runtime.v1.KubeLinterReportIngestResponse
+	(*KubeLinterCheck)(nil),                // 44: runtime.v1.KubeLinterCheck
+	(*Process)(nil),                        // 45: runtime.v1.Process
+	(*ProcessEvent)(nil),                   // 46: runtime.v1.ProcessEvent
+	(*ProcessTreeEvent)(nil),               // 47: runtime.v1.ProcessTreeEvent
+	nil,                                    // 48: runtime.v1.Event.ObjectLabelsEntry
+	nil,                                    // 49: runtime.v1.Event.ObjectAnnotationsEntry
+	nil,                                    // 50: runtime.v1.ContainerEvents.ObjectLabelsEntry
+	nil,                                    // 51: runtime.v1.ContainerEvents.ObjectAnnotationsEntry
+	nil,                                    // 52: runtime.v1.KubernetesDeltaItem.ObjectLabelsEntry
+	nil,                                    // 53: runtime.v1.KubernetesDeltaItem.ObjectAnnotationsEntry
+	(*Exec)(nil),                           // 54: runtime.v1.Exec
+	(*DNS)(nil),                            // 55: runtime.v1.DNS
+	(*File)(nil),                           // 56: runtime.v1.File
+	(*Tuple)(nil),                          // 57: runtime.v1.Tuple
+	(*SignatureEvent)(nil),                 // 58: runtime.v1.SignatureEvent
+	(*Any)(nil),                            // 59: runtime.v1.Any
+	(*StdioViaSocketFinding)(nil),          // 60: runtime.v1.StdioViaSocketFinding
+	(*SSHData)(nil),                        // 61: runtime.v1.SSHData
+	(*ProcessFork)(nil),                    // 62: runtime.v1.ProcessFork
+	(*ProcessExit)(nil),                    // 63: runtime.v1.ProcessExit
+	(*CpuStats)(nil),                       // 64: runtime.v1.CpuStats
+	(*MemoryStats)(nil),                    // 65: runtime.v1.MemoryStats
+	(*PidsStats)(nil),                      // 66: runtime.v1.PidsStats
+	(*IOStats)(nil),                        // 67: runtime.v1.IOStats
+	(*timestamppb.Timestamp)(nil),          // 68: google.protobuf.Timestamp
+	(*LogEvent)(nil),                       // 69: runtime.v1.LogEvent
+	(*Netflow)(nil),                        // 70: runtime.v1.Netflow
 }
 var file_api_v1_runtime_runtime_agent_api_proto_depIdxs = []int32{
 	7,  // 0: runtime.v1.GetConfigurationResponse.config:type_name -> runtime.v1.Configuration
 	0,  // 1: runtime.v1.Event.event_type:type_name -> runtime.v1.EventType
-	43, // 2: runtime.v1.Event.object_labels:type_name -> runtime.v1.Event.ObjectLabelsEntry
-	44, // 3: runtime.v1.Event.object_annotations:type_name -> runtime.v1.Event.ObjectAnnotationsEntry
+	48, // 2: runtime.v1.Event.object_labels:type_name -> runtime.v1.Event.ObjectLabelsEntry
+	49, // 3: runtime.v1.Event.object_annotations:type_name -> runtime.v1.Event.ObjectAnnotationsEntry
 	9,  // 4: runtime.v1.Event.process_identity:type_name -> runtime.v1.ProcessIdentity
-	49, // 5: runtime.v1.Event.exec:type_name -> runtime.v1.Exec
-	50, // 6: runtime.v1.Event.dns:type_name -> runtime.v1.DNS
-	51, // 7: runtime.v1.Event.file:type_name -> runtime.v1.File
-	52, // 8: runtime.v1.Event.tuple:type_name -> runtime.v1.Tuple
-	53, // 9: runtime.v1.Event.signature:type_name -> runtime.v1.SignatureEvent
-	54, // 10: runtime.v1.Event.any:type_name -> runtime.v1.Any
-	55, // 11: runtime.v1.Event.stdio_via_socket:type_name -> runtime.v1.StdioViaSocketFinding
-	56, // 12: runtime.v1.Event.ssh:type_name -> runtime.v1.SSHData
+	54, // 5: runtime.v1.Event.exec:type_name -> runtime.v1.Exec
+	55, // 6: runtime.v1.Event.dns:type_name -> runtime.v1.DNS
+	56, // 7: runtime.v1.Event.file:type_name -> runtime.v1.File
+	57, // 8: runtime.v1.Event.tuple:type_name -> runtime.v1.Tuple
+	58, // 9: runtime.v1.Event.signature:type_name -> runtime.v1.SignatureEvent
+	59, // 10: runtime.v1.Event.any:type_name -> runtime.v1.Any
+	60, // 11: runtime.v1.Event.stdio_via_socket:type_name -> runtime.v1.StdioViaSocketFinding
+	61, // 12: runtime.v1.Event.ssh:type_name -> runtime.v1.SSHData
 	11, // 13: runtime.v1.ContainerEventsBatch.items:type_name -> runtime.v1.ContainerEvents
 	1,  // 14: runtime.v1.ContainerEvents.workload_kind:type_name -> runtime.v1.WorkloadKind
-	45, // 15: runtime.v1.ContainerEvents.object_labels:type_name -> runtime.v1.ContainerEvents.ObjectLabelsEntry
-	46, // 16: runtime.v1.ContainerEvents.object_annotations:type_name -> runtime.v1.ContainerEvents.ObjectAnnotationsEntry
+	50, // 15: runtime.v1.ContainerEvents.object_labels:type_name -> runtime.v1.ContainerEvents.ObjectLabelsEntry
+	51, // 16: runtime.v1.ContainerEvents.object_annotations:type_name -> runtime.v1.ContainerEvents.ObjectAnnotationsEntry
 	12, // 17: runtime.v1.ContainerEvents.items:type_name -> runtime.v1.ContainerEvent
 	0,  // 18: runtime.v1.ContainerEvent.event_type:type_name -> runtime.v1.EventType
-	49, // 19: runtime.v1.ContainerEvent.exec:type_name -> runtime.v1.Exec
-	50, // 20: runtime.v1.ContainerEvent.dns:type_name -> runtime.v1.DNS
-	51, // 21: runtime.v1.ContainerEvent.file:type_name -> runtime.v1.File
-	52, // 22: runtime.v1.ContainerEvent.tuple:type_name -> runtime.v1.Tuple
-	53, // 23: runtime.v1.ContainerEvent.signature:type_name -> runtime.v1.SignatureEvent
-	54, // 24: runtime.v1.ContainerEvent.any:type_name -> runtime.v1.Any
-	55, // 25: runtime.v1.ContainerEvent.stdio_via_socket:type_name -> runtime.v1.StdioViaSocketFinding
-	56, // 26: runtime.v1.ContainerEvent.ssh:type_name -> runtime.v1.SSHData
-	57, // 27: runtime.v1.ContainerEvent.process_fork:type_name -> runtime.v1.ProcessFork
-	58, // 28: runtime.v1.ContainerEvent.process_exit:type_name -> runtime.v1.ProcessExit
+	54, // 19: runtime.v1.ContainerEvent.exec:type_name -> runtime.v1.Exec
+	55, // 20: runtime.v1.ContainerEvent.dns:type_name -> runtime.v1.DNS
+	56, // 21: runtime.v1.ContainerEvent.file:type_name -> runtime.v1.File
+	57, // 22: runtime.v1.ContainerEvent.tuple:type_name -> runtime.v1.Tuple
+	58, // 23: runtime.v1.ContainerEvent.signature:type_name -> runtime.v1.SignatureEvent
+	59, // 24: runtime.v1.ContainerEvent.any:type_name -> runtime.v1.Any
+	60, // 25: runtime.v1.ContainerEvent.stdio_via_socket:type_name -> runtime.v1.StdioViaSocketFinding
+	61, // 26: runtime.v1.ContainerEvent.ssh:type_name -> runtime.v1.SSHData
+	62, // 27: runtime.v1.ContainerEvent.process_fork:type_name -> runtime.v1.ProcessFork
+	63, // 28: runtime.v1.ContainerEvent.process_exit:type_name -> runtime.v1.ProcessExit
 	16, // 29: runtime.v1.StatsBatch.items:type_name -> runtime.v1.StatsItem
 	17, // 30: runtime.v1.StatsItem.container:type_name -> runtime.v1.ContainerStats
 	18, // 31: runtime.v1.StatsItem.node:type_name -> runtime.v1.NodeStats
-	59, // 32: runtime.v1.ContainerStats.cpu_stats:type_name -> runtime.v1.CpuStats
-	60, // 33: runtime.v1.ContainerStats.memory_stats:type_name -> runtime.v1.MemoryStats
-	61, // 34: runtime.v1.ContainerStats.pids_stats:type_name -> runtime.v1.PidsStats
-	62, // 35: runtime.v1.ContainerStats.io_stats:type_name -> runtime.v1.IOStats
-	59, // 36: runtime.v1.NodeStats.cpu_stats:type_name -> runtime.v1.CpuStats
-	60, // 37: runtime.v1.NodeStats.memory_stats:type_name -> runtime.v1.MemoryStats
-	62, // 38: runtime.v1.NodeStats.io_stats:type_name -> runtime.v1.IOStats
+	64, // 32: runtime.v1.ContainerStats.cpu_stats:type_name -> runtime.v1.CpuStats
+	65, // 33: runtime.v1.ContainerStats.memory_stats:type_name -> runtime.v1.MemoryStats
+	66, // 34: runtime.v1.ContainerStats.pids_stats:type_name -> runtime.v1.PidsStats
+	67, // 35: runtime.v1.ContainerStats.io_stats:type_name -> runtime.v1.IOStats
+	64, // 36: runtime.v1.NodeStats.cpu_stats:type_name -> runtime.v1.CpuStats
+	65, // 37: runtime.v1.NodeStats.memory_stats:type_name -> runtime.v1.MemoryStats
+	67, // 38: runtime.v1.NodeStats.io_stats:type_name -> runtime.v1.IOStats
 	2,  // 39: runtime.v1.KubernetesDeltaItem.event:type_name -> runtime.v1.KubernetesDeltaItemEvent
-	63, // 40: runtime.v1.KubernetesDeltaItem.object_created_at:type_name -> google.protobuf.Timestamp
+	68, // 40: runtime.v1.KubernetesDeltaItem.object_created_at:type_name -> google.protobuf.Timestamp
 	21, // 41: runtime.v1.KubernetesDeltaItem.object_containers:type_name -> runtime.v1.Container
-	47, // 42: runtime.v1.KubernetesDeltaItem.object_labels:type_name -> runtime.v1.KubernetesDeltaItem.ObjectLabelsEntry
-	48, // 43: runtime.v1.KubernetesDeltaItem.object_annotations:type_name -> runtime.v1.KubernetesDeltaItem.ObjectAnnotationsEntry
+	52, // 42: runtime.v1.KubernetesDeltaItem.object_labels:type_name -> runtime.v1.KubernetesDeltaItem.ObjectLabelsEntry
+	53, // 43: runtime.v1.KubernetesDeltaItem.object_annotations:type_name -> runtime.v1.KubernetesDeltaItem.ObjectAnnotationsEntry
 	19, // 44: runtime.v1.KubernetesDeltaBatch.items:type_name -> runtime.v1.KubernetesDeltaItem
-	63, // 45: runtime.v1.ImageMetadata.created_at:type_name -> google.protobuf.Timestamp
-	27, // 46: runtime.v1.GetSyncStateResponse.images:type_name -> runtime.v1.ImagesSyncState
-	28, // 47: runtime.v1.ImagesSyncState.images:type_name -> runtime.v1.Image
-	3,  // 48: runtime.v1.Image.scan_status:type_name -> runtime.v1.ImageScanStatus
-	28, // 49: runtime.v1.UpdateSyncStateRequest.images:type_name -> runtime.v1.Image
-	34, // 50: runtime.v1.KubeBenchReport.controls:type_name -> runtime.v1.KubeBenchControls
-	33, // 51: runtime.v1.KubeBenchReport.node:type_name -> runtime.v1.KubeBenchNode
-	35, // 52: runtime.v1.KubeBenchControls.groups:type_name -> runtime.v1.KubeBenchGroup
-	36, // 53: runtime.v1.KubeBenchGroup.checks:type_name -> runtime.v1.KubeBenchCheck
-	39, // 54: runtime.v1.KubeLinterReport.checks:type_name -> runtime.v1.KubeLinterCheck
-	40, // 55: runtime.v1.ProcessEvent.process:type_name -> runtime.v1.Process
-	4,  // 56: runtime.v1.ProcessEvent.action:type_name -> runtime.v1.ProcessAction
-	41, // 57: runtime.v1.ProcessTreeEvent.events:type_name -> runtime.v1.ProcessEvent
-	5,  // 58: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:input_type -> runtime.v1.GetConfigurationRequest
-	8,  // 59: runtime.v1.RuntimeSecurityAgentAPI.EventsWriteStream:input_type -> runtime.v1.Event
-	10, // 60: runtime.v1.RuntimeSecurityAgentAPI.ContainerEventsBatchWriteStream:input_type -> runtime.v1.ContainerEventsBatch
-	64, // 61: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:input_type -> runtime.v1.LogEvent
-	15, // 62: runtime.v1.RuntimeSecurityAgentAPI.StatsWriteStream:input_type -> runtime.v1.StatsBatch
-	65, // 63: runtime.v1.RuntimeSecurityAgentAPI.NetflowWriteStream:input_type -> runtime.v1.Netflow
-	42, // 64: runtime.v1.RuntimeSecurityAgentAPI.ProcessEventsWriteStream:input_type -> runtime.v1.ProcessTreeEvent
-	25, // 65: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:input_type -> runtime.v1.GetSyncStateRequest
-	29, // 66: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:input_type -> runtime.v1.UpdateSyncStateRequest
-	20, // 67: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaBatchIngest:input_type -> runtime.v1.KubernetesDeltaBatch
-	19, // 68: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaIngest:input_type -> runtime.v1.KubernetesDeltaItem
-	23, // 69: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:input_type -> runtime.v1.ImageMetadata
-	31, // 70: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:input_type -> runtime.v1.KubeBenchReport
-	37, // 71: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:input_type -> runtime.v1.KubeLinterReport
-	6,  // 72: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:output_type -> runtime.v1.GetConfigurationResponse
-	13, // 73: runtime.v1.RuntimeSecurityAgentAPI.EventsWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	13, // 74: runtime.v1.RuntimeSecurityAgentAPI.ContainerEventsBatchWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	13, // 75: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	13, // 76: runtime.v1.RuntimeSecurityAgentAPI.StatsWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	13, // 77: runtime.v1.RuntimeSecurityAgentAPI.NetflowWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	13, // 78: runtime.v1.RuntimeSecurityAgentAPI.ProcessEventsWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	26, // 79: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:output_type -> runtime.v1.GetSyncStateResponse
-	30, // 80: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:output_type -> runtime.v1.UpdateSyncStateResponse
-	22, // 81: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaBatchIngest:output_type -> runtime.v1.KubernetesDeltaIngestResponse
-	22, // 82: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaIngest:output_type -> runtime.v1.KubernetesDeltaIngestResponse
-	24, // 83: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:output_type -> runtime.v1.ImageMetadataIngestResponse
-	32, // 84: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:output_type -> runtime.v1.KubeBenchReportIngestResponse
-	38, // 85: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:output_type -> runtime.v1.KubeLinterReportIngestResponse
-	72, // [72:86] is the sub-list for method output_type
-	58, // [58:72] is the sub-list for method input_type
-	58, // [58:58] is the sub-list for extension type_name
-	58, // [58:58] is the sub-list for extension extendee
-	0,  // [0:58] is the sub-list for field type_name
+	68, // 45: runtime.v1.ImageMetadata.created_at:type_name -> google.protobuf.Timestamp
+	27, // 46: runtime.v1.ImageManifestIngestRequest.image_index:type_name -> runtime.v1.ImageIndex
+	28, // 47: runtime.v1.ImageManifestIngestRequest.image_manifests:type_name -> runtime.v1.ImageManifest
+	29, // 48: runtime.v1.ImageManifest.platform:type_name -> runtime.v1.ImagePlatform
+	32, // 49: runtime.v1.GetSyncStateResponse.images:type_name -> runtime.v1.ImagesSyncState
+	33, // 50: runtime.v1.ImagesSyncState.images:type_name -> runtime.v1.Image
+	3,  // 51: runtime.v1.Image.scan_status:type_name -> runtime.v1.ImageScanStatus
+	33, // 52: runtime.v1.UpdateSyncStateRequest.images:type_name -> runtime.v1.Image
+	39, // 53: runtime.v1.KubeBenchReport.controls:type_name -> runtime.v1.KubeBenchControls
+	38, // 54: runtime.v1.KubeBenchReport.node:type_name -> runtime.v1.KubeBenchNode
+	40, // 55: runtime.v1.KubeBenchControls.groups:type_name -> runtime.v1.KubeBenchGroup
+	41, // 56: runtime.v1.KubeBenchGroup.checks:type_name -> runtime.v1.KubeBenchCheck
+	44, // 57: runtime.v1.KubeLinterReport.checks:type_name -> runtime.v1.KubeLinterCheck
+	45, // 58: runtime.v1.ProcessEvent.process:type_name -> runtime.v1.Process
+	4,  // 59: runtime.v1.ProcessEvent.action:type_name -> runtime.v1.ProcessAction
+	46, // 60: runtime.v1.ProcessTreeEvent.events:type_name -> runtime.v1.ProcessEvent
+	5,  // 61: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:input_type -> runtime.v1.GetConfigurationRequest
+	8,  // 62: runtime.v1.RuntimeSecurityAgentAPI.EventsWriteStream:input_type -> runtime.v1.Event
+	10, // 63: runtime.v1.RuntimeSecurityAgentAPI.ContainerEventsBatchWriteStream:input_type -> runtime.v1.ContainerEventsBatch
+	69, // 64: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:input_type -> runtime.v1.LogEvent
+	15, // 65: runtime.v1.RuntimeSecurityAgentAPI.StatsWriteStream:input_type -> runtime.v1.StatsBatch
+	70, // 66: runtime.v1.RuntimeSecurityAgentAPI.NetflowWriteStream:input_type -> runtime.v1.Netflow
+	47, // 67: runtime.v1.RuntimeSecurityAgentAPI.ProcessEventsWriteStream:input_type -> runtime.v1.ProcessTreeEvent
+	30, // 68: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:input_type -> runtime.v1.GetSyncStateRequest
+	34, // 69: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:input_type -> runtime.v1.UpdateSyncStateRequest
+	20, // 70: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaBatchIngest:input_type -> runtime.v1.KubernetesDeltaBatch
+	19, // 71: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaIngest:input_type -> runtime.v1.KubernetesDeltaItem
+	23, // 72: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:input_type -> runtime.v1.ImageMetadata
+	25, // 73: runtime.v1.RuntimeSecurityAgentAPI.ImageManifestIngest:input_type -> runtime.v1.ImageManifestIngestRequest
+	36, // 74: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:input_type -> runtime.v1.KubeBenchReport
+	42, // 75: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:input_type -> runtime.v1.KubeLinterReport
+	6,  // 76: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:output_type -> runtime.v1.GetConfigurationResponse
+	13, // 77: runtime.v1.RuntimeSecurityAgentAPI.EventsWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	13, // 78: runtime.v1.RuntimeSecurityAgentAPI.ContainerEventsBatchWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	13, // 79: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	13, // 80: runtime.v1.RuntimeSecurityAgentAPI.StatsWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	13, // 81: runtime.v1.RuntimeSecurityAgentAPI.NetflowWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	13, // 82: runtime.v1.RuntimeSecurityAgentAPI.ProcessEventsWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	31, // 83: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:output_type -> runtime.v1.GetSyncStateResponse
+	35, // 84: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:output_type -> runtime.v1.UpdateSyncStateResponse
+	22, // 85: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaBatchIngest:output_type -> runtime.v1.KubernetesDeltaIngestResponse
+	22, // 86: runtime.v1.RuntimeSecurityAgentAPI.KubernetesDeltaIngest:output_type -> runtime.v1.KubernetesDeltaIngestResponse
+	24, // 87: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:output_type -> runtime.v1.ImageMetadataIngestResponse
+	26, // 88: runtime.v1.RuntimeSecurityAgentAPI.ImageManifestIngest:output_type -> runtime.v1.ImageManifestIngestResponse
+	37, // 89: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:output_type -> runtime.v1.KubeBenchReportIngestResponse
+	43, // 90: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:output_type -> runtime.v1.KubeLinterReportIngestResponse
+	76, // [76:91] is the sub-list for method output_type
+	61, // [61:76] is the sub-list for method input_type
+	61, // [61:61] is the sub-list for extension type_name
+	61, // [61:61] is the sub-list for extension extendee
+	0,  // [0:61] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_runtime_runtime_agent_api_proto_init() }
@@ -3620,7 +3940,7 @@ func file_api_v1_runtime_runtime_agent_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_runtime_runtime_agent_api_proto_rawDesc), len(file_api_v1_runtime_runtime_agent_api_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   44,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
