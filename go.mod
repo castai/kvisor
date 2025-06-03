@@ -4,9 +4,8 @@ go 1.24.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.32.2
-	github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c
-	github.com/aquasecurity/trivy v0.61.0
-	github.com/castai/image-analyzer v0.8.0
+	github.com/aquasecurity/trivy v0.61.1
+	github.com/castai/image-analyzer v0.8.1-0.20250602093319-73949089b380
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
@@ -85,7 +84,8 @@ require (
 	github.com/aquasecurity/go-version v0.0.1 // indirect
 	github.com/aquasecurity/iamgo v0.0.10 // indirect
 	github.com/aquasecurity/jfather v0.0.8 // indirect
-	github.com/aquasecurity/trivy-checks v1.8.0 // indirect
+	github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c // indirect
+	github.com/aquasecurity/trivy-checks v1.8.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.13 // indirect

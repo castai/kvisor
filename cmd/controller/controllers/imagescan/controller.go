@@ -96,7 +96,6 @@ type Controller struct {
 	timeGetter     func() time.Time
 
 	initialScansDelay time.Duration
-	fullSnapshotSent  bool
 }
 
 func (c *Controller) RequiredTypes() []reflect.Type {
@@ -157,11 +156,8 @@ func (c *Controller) OnDelete(obj kube.Object) {
 
 func (c *Controller) scheduleScans(ctx context.Context) (rerr error) {
 	c.syncFromRemoteState(ctx)
-
 	images := c.delta.GetImagesCopy()
-	if err := c.updateImageStatuses(ctx, images); err != nil {
-		c.log.Errorf("sending images resources changes: %v", err)
-	}
+
 	// Scan pending images.
 	pendingImages := c.findPendingImages(images)
 	concurrentScans := int(c.cfg.MaxConcurrentScans)
@@ -276,47 +272,6 @@ func (c *Controller) scanImage(ctx context.Context, img *image) (rerr error) {
 	})
 }
 
-func (c *Controller) updateImageStatuses(ctx context.Context, images []*image) error {
-	if c.fullSnapshotSent {
-		images = lo.Filter(images, func(item *image, index int) bool {
-			return item.ownerChangedAt.After(item.resourcesUpdatedAt)
-		})
-	}
-	if len(images) == 0 {
-		return nil
-	}
-	now := c.timeGetter()
-	var imagesChanges []*castaipb.Image
-	for _, img := range images {
-		resourceIds := lo.Keys(img.owners)
-
-		var updatedStatus castaipb.ImageScanStatus
-		if isImagePending(img, now) {
-			updatedStatus = castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_PENDING
-		}
-		imagesChanges = append(imagesChanges, &castaipb.Image{
-			Id:           img.id,
-			Architecture: img.architecture,
-			ResourceIds:  resourceIds,
-			Name:         img.name,
-			ScanStatus:   updatedStatus,
-		})
-	}
-
-	c.log.Info("sending images sync state")
-	report := &castaipb.UpdateSyncStateRequest{
-		FullSnapshot: !c.fullSnapshotSent,
-		Images:       imagesChanges,
-	}
-	_, err := c.client.UpdateSyncState(ctx, report)
-	if err != nil {
-		return err
-	}
-	c.delta.SetResourcesUpdatedAt(images, now)
-	c.fullSnapshotSent = true
-	return nil
-}
-
 func (c *Controller) updateImageStatusAsFailed(ctx context.Context, image *image, scanJobError error) error {
 	if image == nil {
 		return errors.New("image is missing")
@@ -373,11 +328,7 @@ func (c *Controller) syncFromRemoteState(ctx context.Context) {
 	// Set images as scanned from remote response.
 	c.delta.SetScannedImages(resp.Images.Images)
 
-	// If full resources resync is required it will be sent during next scheduled scan.
-	if resp.Images.FullResyncRequired {
-		c.fullSnapshotSent = false
-	}
-	c.log.Infof("images updated from remote state, full_resync=%v, scanned_images=%d", resp.Images.FullResyncRequired, len(resp.Images.Images))
+	c.log.Infof("images synced from remote state, scanned_images=%d", len(resp.Images.Images))
 }
 
 func isImagePending(v *image, now time.Time) bool {

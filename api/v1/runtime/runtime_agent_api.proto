@@ -7,7 +7,7 @@ import "api/v1/runtime/common.proto";
 
 option go_package = "github.com/castai/kvisord/api/runtime/v1";
 
-// RuntimeSecurityAgentAPI is used in kvisord. Should be mirrored.
+// RuntimeSecurityAgentAPI is used in kvisor. Should be mirrored.
 service RuntimeSecurityAgentAPI {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
   rpc EventsWriteStream(stream Event) returns (WriteStreamResponse) {}
@@ -24,12 +24,13 @@ service RuntimeSecurityAgentAPI {
   // Deprecated. Should use KubernetesDeltaBatchIngest.
   rpc KubernetesDeltaIngest(stream KubernetesDeltaItem) returns (stream KubernetesDeltaIngestResponse) {}
   rpc ImageMetadataIngest(ImageMetadata) returns (ImageMetadataIngestResponse) {}
+  rpc ImageManifestIngest(ImageManifestIngestRequest) returns (ImageManifestIngestResponse) {}
   rpc KubeBenchReportIngest(KubeBenchReport) returns (KubeBenchReportIngestResponse) {}
   rpc KubeLinterReportIngest(KubeLinterReport) returns (KubeLinterReportIngestResponse) {}
 }
 
 message GetConfigurationRequest {
-  reserved 1, 2; // Previously configs there strongly typed.
+  reserved 1, 2;  // Previously configs there strongly typed.
   oneof current_config {
     bytes controller = 3;
     bytes agent = 4;
@@ -65,7 +66,7 @@ enum EventType {
 
 message Event {
   EventType event_type = 1;
-  uint64 timestamp = 2; // Stored as unix timestamp in nanoseconds.
+  uint64 timestamp = 2;  // Stored as unix timestamp in nanoseconds.
   string process_name = 3;
   string namespace = 4;
   string pod_name = 5;
@@ -228,18 +229,48 @@ message ImageMetadata {
   string image_name = 1;
   string image_id = 2;
   string image_digest = 3;
-  string architecture = 5; // used as fallback, in case image manifest doesn't have architecture set
+  string architecture = 5;  // used as fallback, in case image manifest doesn't have architecture set
   string os_name = 6;
   google.protobuf.Timestamp created_at = 7;
   repeated string resource_ids = 8;
 
-  bytes packages = 9; // JSON containing []github.com/aquasecurity/trivy/pkg/fanal/types.BlobInfo type.
-  bytes manifest = 10; // JSON containing github.com/google/go-containerregistry/pkg/v1.Manifest type.
-  bytes index = 11; // JSON containing github.com/google/go-containerregistry/pkg/v1.IndexManifest type.
-  bytes config_file = 12; // JSON containing github.com/google/go-containerregistry/pkg/v1.ConfigFile type.
+  bytes packages = 9;                    // JSON containing []github.com/aquasecurity/trivy/pkg/fanal/types.BlobInfo type.
+  bytes manifest = 10;                   // JSON containing github.com/google/go-containerregistry/pkg/v1.Manifest type.
+  bytes index = 11 [deprecated = true];  // JSON containing github.com/google/go-containerregistry/pkg/v1.IndexManifest type.
+  bytes config_file = 12;                // JSON containing github.com/google/go-containerregistry/pkg/v1.ConfigFile type.
 }
 
 message ImageMetadataIngestResponse {}
+
+message ImageManifestIngestRequest {
+  // Image name is the full image name, including registry and tag. For example: "registry.example.com/my-image:latest".
+  string image_name = 1;
+  // Image index is a higher-level manifest which points to specific image manifests for one or more platforms.
+  ImageIndex image_index = 2;
+  // Image manifests is the list of manifests for specific platforms.
+  repeated ImageManifest image_manifests = 3;
+}
+
+message ImageManifestIngestResponse {}
+
+message ImageIndex {
+  // Digest of the image index, also known as the image index digest.
+  string digest = 1;
+  // JSON containing github.com/google/go-containerregistry/pkg/v1.IndexManifest type.
+  bytes index = 2;
+}
+
+message ImageManifest {
+  // Digest of the image manifest, also known as the image manifest digest.
+  string digest = 1;
+
+  // JSON containing https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#Manifest type.
+  bytes manifest = 10;
+  // JSON containing https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#ConfigFile type.
+  bytes config_file = 11;
+  // JSON containing an array of https://pkg.go.dev/github.com/aquasecurity/trivy/pkg/fanal/types#BlobInfo type.
+  bytes trivy_blobs_info = 12;
+}
 
 message GetSyncStateRequest {
   repeated string image_ids = 1;
@@ -310,8 +341,8 @@ message KubeLinterReportIngestResponse {}
 
 message KubeLinterCheck {
   string resource_uid = 1;
-  uint64 passed = 2; // Represented as bitmasks of passed checks.
-  uint64 failed = 3; // Represented as bitmasks of failed checks.
+  uint64 passed = 2;  // Represented as bitmasks of passed checks.
+  uint64 failed = 3;  // Represented as bitmasks of failed checks.
 }
 
 message Process {
@@ -332,7 +363,7 @@ enum ProcessAction {
 }
 
 message ProcessEvent {
-  uint64 timestamp = 1; // Stored as unix timestamp in nanoseconds.
+  uint64 timestamp = 1;  // Stored as unix timestamp in nanoseconds.
   string container_id = 2;
   Process process = 3;
   ProcessAction action = 4;
