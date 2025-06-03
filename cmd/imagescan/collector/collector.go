@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -26,6 +27,7 @@ import (
 	analyzer "github.com/castai/image-analyzer"
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
+	itypes "github.com/castai/image-analyzer/image/types"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/imagescan/config"
 	"github.com/castai/kvisor/cmd/imagescan/trivy/golang/analyzer/binary"
@@ -166,13 +168,15 @@ func (c *Collector) Collect(ctx context.Context) error {
 	}
 	metadata.ConfigFile = configFileBytes
 
-	if index := img.Index(); index != nil {
-		indexBytes, err := json.Marshal(index)
-		if err != nil {
-			return fmt.Errorf("marshalling index: %w", err)
-		}
-		metadata.Index = indexBytes
+	index, err := img.IndexManifest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index manifest: %w", err)
 	}
+	indexBytes, err := json.Marshal(index)
+	if err != nil {
+		return fmt.Errorf("marshalling index: %w", err)
+	}
+	metadata.Index = indexBytes
 
 	if _, err := backoff.Retry(ctx, func() (any, error) {
 		return nil, c.sendResult(ctx, metadata)
@@ -187,7 +191,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
+func (c *Collector) getImage(ctx context.Context) (itypes.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing image reference: %w", err)
