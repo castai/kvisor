@@ -603,8 +603,7 @@ func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, er
 }
 
 type mockCastaiClient struct {
-	mu    sync.Mutex
-	metas []*castaipb.ImageMetadata
+	mu sync.Mutex
 
 	imagesResourcesChanges []*castaipb.UpdateSyncStateRequest
 
