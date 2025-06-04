@@ -1,0 +1,3 @@
+**/go.sum -diff linguist-generated
+**/testdata/** -diff linguist-generated
+api/**/*.pb.go -diff linguist-generated
