@@ -81,23 +81,19 @@ spec:
                      {{- else -}}
                        {{ .Values.castai.grpcAddr | quote }}
                      {{- end }}
-          {{- if .Values.castai.clusterIdSecretKeyRef.name }}
-          {{- if ne .Values.castai.clusterID "" }}
-          {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
-          {{- end }}
+          {{- if and .Values.castai.clusterID .Values.castai.clusterIdSecretKeyRef.name }}
+            {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
+          {{- else if .Values.castai.clusterID }}
+            - name: CASTAI_CLUSTER_ID
+              value: {{ .Values.castai.clusterID | quote }}
+          {{- else if .Values.castai.clusterIdSecretKeyRef.name }}
             - name: CASTAI_CLUSTER_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "clusterID or clusterIdSecretKeyRef must be provided" .Values.castai.clusterIdSecretKeyRef.name }}
+                  name: {{ .Values.castai.clusterIdSecretKeyRef.name }}
                   key: {{ .Values.castai.clusterIdSecretKeyRef.key }}
-          {{- else }}
-          {{- if not .Values.castai.clusterID }}
-          {{- fail "either clusterID or clusterIdSecretKeyRef must be provided" }}
-          {{- end }}
-          {{- if .Values.castai.clusterID }}
-            - name: CASTAI_CLUSTER_ID
-              value: {{ .Values.castai.clusterID | quote }}
-          {{- end }}
+          {{- else if not .Values.controller.envFrom }}
+            {{- fail "castai.clusterID or castai.clusterIdSecretKeyRef must be provided" }}
           {{- end }}
           {{- range $k, $v := .Values.controller.additionalEnv }}
             - name: {{ $k }}
@@ -112,8 +108,12 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- if .Values.castai.enabled }}
+          {{- if or .Values.castai.apiKey .Values.castai.apiKeySecretRef }}
             - secretRef:
                 name: {{ include "kvisor.castaiSecretName" . }}
+          {{- else if not .Values.controller.envFrom }}
+            {{- fail "castai.apiKey or castai.apiKeySecretRef must be provided" }}
+          {{- end }}
           {{- end }}
           ports:
             - name: http-server
