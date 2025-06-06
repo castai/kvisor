@@ -80,8 +80,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- if .Values.castai.enabled }}
-            - secretRef:
-                name: {{ include "kvisor.castaiSecretName" . }}
+          {{- include "kvisor.apiKeyEnvFrom" (set (deepCopy .) "envFrom" .Values.agent.envFrom) | nindent 12 }}
           {{- end }}
           {{- if.Values.clickhouse.enabled }}
             - secretRef:
@@ -107,24 +106,7 @@ spec:
                      {{- else -}}
                        {{ .Values.castai.grpcAddr | quote }}
                      {{- end }}
-          {{- if .Values.castai.clusterIdSecretKeyRef.name }}
-          {{- if ne .Values.castai.clusterID "" }}
-          {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
-          {{- end }}
-            - name: CASTAI_CLUSTER_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ required "clusterID or clusterIdSecretKeyRef must be provided" .Values.castai.clusterIdSecretKeyRef.name }}
-                  key: {{ .Values.castai.clusterIdSecretKeyRef.key }}
-          {{- else }}
-          {{- if not .Values.castai.clusterID }}
-          {{- fail "either clusterID or clusterIdSecretKeyRef must be provided" }}
-          {{- end }}
-          {{- if .Values.castai.clusterID }}
-            - name: CASTAI_CLUSTER_ID
-              value: {{ .Values.castai.clusterID | quote }}
-          {{- end }}
-          {{- end }}
+          {{- include "kvisor.clusterIDEnv" (set (deepCopy .) "envFrom" .Values.agent.envFrom) | nindent 12 }}
           {{- if .Values.agent.debug.ebpf }}
             - name: KVISOR_EBPF_DEBUG
               value: "1"
