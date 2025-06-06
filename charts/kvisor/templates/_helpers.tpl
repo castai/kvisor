@@ -39,6 +39,39 @@ Create chart name and version as used by the chart label.
 {{- end }}
 {{- end }}
 
+{{- define "kvisor.apiKeyEnvFrom" -}}
+{{- $envFrom := .envFrom -}}
+{{- if and .Values.castai.apiKey .Values.castai.apiKeySecretRef }}
+  {{- fail "apiKey and apiKeySecretRef are mutually exclusive" }}
+{{- else if .Values.castai.apiKey }}
+- secretRef:
+    name: {{ .Release.Name }}
+{{- else if .Values.castai.apiKeySecretRef }}
+- secretRef:
+    name: {{ .Values.castai.apiKeySecretRef }}
+{{- else if not $envFrom }}
+  {{- fail "castai.apiKey or castai.apiKeySecretRef must be provided" }}
+{{- end }}
+{{- end }}
+
+{{- define "kvisor.clusterIDEnv" -}}
+{{- $envFrom := .envFrom -}}
+{{- if and .Values.castai.clusterID .Values.castai.clusterIdSecretKeyRef.name }}
+  {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
+{{- else if .Values.castai.clusterID }}
+- name: CASTAI_CLUSTER_ID
+  value: {{ .Values.castai.clusterID | quote }}
+{{- else if .Values.castai.clusterIdSecretKeyRef.name }}
+- name: CASTAI_CLUSTER_ID
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.castai.clusterIdSecretKeyRef.name }}
+      key: {{ .Values.castai.clusterIdSecretKeyRef.key }}
+{{- else if not $envFrom }}
+  {{- fail "castai.clusterID or castai.clusterIdSecretKeyRef must be provided" }}
+{{- end }}
+{{- end }}
+
 {{/*
 Common labels
 */}}
