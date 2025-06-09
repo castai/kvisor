@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.32.2
-	github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c
+	github.com/aquasecurity/testdocker v0.0.0-20250604115748-1b460a8efd69
 	github.com/aquasecurity/trivy v0.61.0
 	github.com/castai/image-analyzer v0.8.0
 	github.com/cenkalti/backoff/v5 v5.0.2
