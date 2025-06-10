@@ -439,6 +439,8 @@ func scanJobSpec(
 	tolerations []corev1.Toleration,
 ) *batchv1.Job {
 	podLabels := map[string]string{}
+	podLabels["reports.cast.ai/name"] = "castai-imgscan"
+	
 	if cfg.CloudProvider == "aks" {
 		podLabels["azure.workload.identity/use"] = "true"
 	}
