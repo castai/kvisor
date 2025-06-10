@@ -31,12 +31,13 @@ func TestScanner(t *testing.T) {
 			{
 				cloudProvider: "aks",
 				podLabels: map[string]string{
+					"reports.cast.ai/name":        "castai-imgscan",
 					"azure.workload.identity/use": "true",
 				},
 			},
 			{
 				cloudProvider: "eks",
-				podLabels:     map[string]string{},
+				podLabels:     map[string]string{"reports.cast.ai/name": "castai-imgscan"},
 			},
 		} {
 			t.Run(fmt.Sprintf("in %s", testCase.cloudProvider), func(t *testing.T) {
