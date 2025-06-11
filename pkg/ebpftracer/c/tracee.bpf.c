@@ -2595,7 +2595,7 @@ int BPF_KPROBE(tty_open, struct inode *inode, struct file *filep)
         return 0;
     }
 
-    if (should_submit(TTY_WRITE, p.event)) {
+    if (should_submit(TTY_OPEN, p.event)) {
         unsigned long ino = BPF_CORE_READ(inode, i_ino);
         u8 one = 1;
         bpf_map_update_elem(&tty_opened_files, &ino, &one, BPF_ANY);
@@ -2721,4 +2721,28 @@ int BPF_KPROBE(trace_security_inode_follow_link,
     save_str_to_buf(&p.event->args_buf, fd_name, 1);
 
     return events_ringbuf_submit(&p, PROC_FD_LINK_RESOLVED, 0);
+}
+
+SEC("kprobe/security_file_open")
+int BPF_KPROBE(security_file_open)
+{
+    program_data_t p = {};
+    if (!init_program_data(&p, ctx)) {
+        return 0;
+    }
+
+    if (!should_trace((&p))) {
+        return 0;
+    }
+
+    if (!should_submit(SECURITY_FILE_OPEN, p.event)) {
+        return 0;
+    }
+
+    // TODO: Allow to configure white list patterns from user space.
+
+    struct file *file = (struct file *) PT_REGS_PARM1(ctx);
+    void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
+    save_str_to_buf(&p.event->args_buf, file_path, 0);
+    return events_ringbuf_submit(&p, SECURITY_FILE_OPEN, 0);
 }

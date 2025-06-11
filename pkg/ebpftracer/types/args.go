@@ -3,7 +3,7 @@
 package types
 
 type Args interface {
-  args()
+	args()
 }
 
 // internalArgs is a marker type to distinguish Args interface from basically any
@@ -12,3561 +12,3567 @@ type internalArgs struct{}
 func (c internalArgs) args() {}
 
 type ReadArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Buf uintptr
-  Count uint64
+	Fd    int32
+	Buf   uintptr
+	Count uint64
 }
 
 type WriteArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Buf uintptr
-  Count uint64
+	Fd    int32
+	Buf   uintptr
+	Count uint64
 }
 
 type OpenArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Flags int32
-  Mode uint32
+	Pathname string
+	Flags    int32
+	Mode     uint32
 }
 
 type CloseArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
+	Fd int32
 }
 
 type StatArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Statbuf uintptr
+	Pathname string
+	Statbuf  uintptr
 }
 
 type FstatArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Statbuf uintptr
+	Fd      int32
+	Statbuf uintptr
 }
 
 type LstatArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Statbuf uintptr
+	Pathname string
+	Statbuf  uintptr
 }
 
 type PollArgs struct {
-  internalArgs
+	internalArgs
 
-  Fds uintptr
-  Nfds uint32
-  Timeout int32
+	Fds     uintptr
+	Nfds    uint32
+	Timeout int32
 }
 
 type LseekArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Offset uint64
-  Whence uint32
+	Fd     int32
+	Offset uint64
+	Whence uint32
 }
 
 type MmapArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Length uint64
-  Prot int32
-  Flags int32
-  Fd int32
-  Off uint64
+	Addr   uintptr
+	Length uint64
+	Prot   int32
+	Flags  int32
+	Fd     int32
+	Off    uint64
 }
 
 type MprotectArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Len uint64
-  Prot int32
+	Addr uintptr
+	Len  uint64
+	Prot int32
 }
 
 type MunmapArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Length uint64
+	Addr   uintptr
+	Length uint64
 }
 
 type BrkArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
+	Addr uintptr
 }
 
 type RtSigactionArgs struct {
-  internalArgs
+	internalArgs
 
-  Signum int32
-  Act uintptr
-  Oldact uintptr
-  Sigsetsize uint64
+	Signum     int32
+	Act        uintptr
+	Oldact     uintptr
+	Sigsetsize uint64
 }
 
 type RtSigprocmaskArgs struct {
-  internalArgs
+	internalArgs
 
-  How int32
-  Set uintptr
-  Oldset uintptr
-  Sigsetsize uint64
+	How        int32
+	Set        uintptr
+	Oldset     uintptr
+	Sigsetsize uint64
 }
 
 type RtSigreturnArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type IoctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Request uint64
-  Arg uint64
+	Fd      int32
+	Request uint64
+	Arg     uint64
 }
 
 type Pread64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Buf uintptr
-  Count uint64
-  Offset uint64
+	Fd     int32
+	Buf    uintptr
+	Count  uint64
+	Offset uint64
 }
 
 type Pwrite64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Buf uintptr
-  Count uint64
-  Offset uint64
+	Fd     int32
+	Buf    uintptr
+	Count  uint64
+	Offset uint64
 }
 
 type ReadvArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  Iovcnt int32
+	Fd     int32
+	Iov    uintptr
+	Iovcnt int32
 }
 
 type WritevArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  Iovcnt int32
+	Fd     int32
+	Iov    uintptr
+	Iovcnt int32
 }
 
 type AccessArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Mode int32
+	Pathname string
+	Mode     int32
 }
 
 type PipeArgs struct {
-  internalArgs
+	internalArgs
 
-  Pipefd [2]int32
+	Pipefd [2]int32
 }
 
 type SelectArgs struct {
-  internalArgs
+	internalArgs
 
-  Nfds int32
-  Readfds uintptr
-  Writefds uintptr
-  Exceptfds uintptr
-  Timeout uintptr
+	Nfds      int32
+	Readfds   uintptr
+	Writefds  uintptr
+	Exceptfds uintptr
+	Timeout   uintptr
 }
 
 type SchedYieldArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type MremapArgs struct {
-  internalArgs
+	internalArgs
 
-  OldAddress uintptr
-  OldSize uint64
-  NewSize uint64
-  Flags int32
-  NewAddress uintptr
+	OldAddress uintptr
+	OldSize    uint64
+	NewSize    uint64
+	Flags      int32
+	NewAddress uintptr
 }
 
 type MsyncArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Length uint64
-  Flags int32
+	Addr   uintptr
+	Length uint64
+	Flags  int32
 }
 
 type MincoreArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Length uint64
-  Vec uintptr
+	Addr   uintptr
+	Length uint64
+	Vec    uintptr
 }
 
 type MadviseArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Length uint64
-  Advice int32
+	Addr   uintptr
+	Length uint64
+	Advice int32
 }
 
 type ShmgetArgs struct {
-  internalArgs
+	internalArgs
 
-  Key int32
-  Size uint64
-  Shmflg int32
+	Key    int32
+	Size   uint64
+	Shmflg int32
 }
 
 type ShmatArgs struct {
-  internalArgs
+	internalArgs
 
-  Shmid int32
-  Shmaddr uintptr
-  Shmflg int32
+	Shmid   int32
+	Shmaddr uintptr
+	Shmflg  int32
 }
 
 type ShmctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Shmid int32
-  Cmd int32
-  Buf uintptr
+	Shmid int32
+	Cmd   int32
+	Buf   uintptr
 }
 
 type DupArgs struct {
-  internalArgs
+	internalArgs
 
-  Oldfd int32
+	Oldfd int32
 }
 
 type Dup2Args struct {
-  internalArgs
+	internalArgs
 
-  Oldfd int32
-  Newfd int32
+	Oldfd int32
+	Newfd int32
 }
 
 type PauseArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type NanosleepArgs struct {
-  internalArgs
+	internalArgs
 
-  Req float64
-  Rem float64
+	Req float64
+	Rem float64
 }
 
 type GetitimerArgs struct {
-  internalArgs
+	internalArgs
 
-  Which int32
-  CurrValue uintptr
+	Which     int32
+	CurrValue uintptr
 }
 
 type AlarmArgs struct {
-  internalArgs
+	internalArgs
 
-  Seconds uint32
+	Seconds uint32
 }
 
 type SetitimerArgs struct {
-  internalArgs
+	internalArgs
 
-  Which int32
-  NewValue uintptr
-  OldValue uintptr
+	Which    int32
+	NewValue uintptr
+	OldValue uintptr
 }
 
 type GetpidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SendfileArgs struct {
-  internalArgs
+	internalArgs
 
-  OutFd int32
-  InFd int32
-  Offset uintptr
-  Count uint64
+	OutFd  int32
+	InFd   int32
+	Offset uintptr
+	Count  uint64
 }
 
 type SocketArgs struct {
-  internalArgs
+	internalArgs
 
-  Domain int32
-  Type int32
-  Protocol int32
+	Domain   int32
+	Type     int32
+	Protocol int32
 }
 
 type ConnectArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
-  Addrlen int32
+	Sockfd  int32
+	Addr    Sockaddr
+	Addrlen int32
 }
 
 type AcceptArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
-  Addrlen uintptr
+	Sockfd  int32
+	Addr    Sockaddr
+	Addrlen uintptr
 }
 
 type SendtoArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Buf uintptr
-  Len uint64
-  Flags int32
-  DestAddr Sockaddr
-  Addrlen int32
+	Sockfd   int32
+	Buf      uintptr
+	Len      uint64
+	Flags    int32
+	DestAddr Sockaddr
+	Addrlen  int32
 }
 
 type RecvfromArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Buf uintptr
-  Len uint64
-  Flags int32
-  SrcAddr Sockaddr
-  Addrlen uintptr
+	Sockfd  int32
+	Buf     uintptr
+	Len     uint64
+	Flags   int32
+	SrcAddr Sockaddr
+	Addrlen uintptr
 }
 
 type SendmsgArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Msg uintptr
-  Flags int32
+	Sockfd int32
+	Msg    uintptr
+	Flags  int32
 }
 
 type RecvmsgArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Msg uintptr
-  Flags int32
+	Sockfd int32
+	Msg    uintptr
+	Flags  int32
 }
 
 type ShutdownArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  How int32
+	Sockfd int32
+	How    int32
 }
 
 type BindArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
-  Addrlen int32
+	Sockfd  int32
+	Addr    Sockaddr
+	Addrlen int32
 }
 
 type ListenArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Backlog int32
+	Sockfd  int32
+	Backlog int32
 }
 
 type GetsocknameArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
-  Addrlen uintptr
+	Sockfd  int32
+	Addr    Sockaddr
+	Addrlen uintptr
 }
 
 type GetpeernameArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
-  Addrlen uintptr
+	Sockfd  int32
+	Addr    Sockaddr
+	Addrlen uintptr
 }
 
 type SocketpairArgs struct {
-  internalArgs
+	internalArgs
 
-  Domain int32
-  Type int32
-  Protocol int32
-  Sv [2]int32
+	Domain   int32
+	Type     int32
+	Protocol int32
+	Sv       [2]int32
 }
 
 type SetsockoptArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Level int32
-  Optname int32
-  Optval uintptr
-  Optlen int32
+	Sockfd  int32
+	Level   int32
+	Optname int32
+	Optval  uintptr
+	Optlen  int32
 }
 
 type GetsockoptArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Level int32
-  Optname int32
-  Optval uintptr
-  Optlen uintptr
+	Sockfd  int32
+	Level   int32
+	Optname int32
+	Optval  uintptr
+	Optlen  uintptr
 }
 
 type CloneArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags uint64
-  Stack uintptr
-  ParentTid uintptr
-  ChildTid uintptr
-  Tls uint64
+	Flags     uint64
+	Stack     uintptr
+	ParentTid uintptr
+	ChildTid  uintptr
+	Tls       uint64
 }
 
 type ForkArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type VforkArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type ExecveArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Argv []string
+	Pathname string
+	Argv     []string
 }
 
 type ExitArgs struct {
-  internalArgs
+	internalArgs
 
-  Status int32
+	Status int32
 }
 
 type Wait4Args struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Wstatus uintptr
-  Options int32
-  Rusage uintptr
+	Pid     int32
+	Wstatus uintptr
+	Options int32
+	Rusage  uintptr
 }
 
 type KillArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Sig int32
+	Pid int32
+	Sig int32
 }
 
 type UnameArgs struct {
-  internalArgs
+	internalArgs
 
-  Buf uintptr
+	Buf uintptr
 }
 
 type SemgetArgs struct {
-  internalArgs
+	internalArgs
 
-  Key int32
-  Nsems int32
-  Semflg int32
+	Key    int32
+	Nsems  int32
+	Semflg int32
 }
 
 type SemopArgs struct {
-  internalArgs
+	internalArgs
 
-  Semid int32
-  Sops uintptr
-  Nsops uint64
+	Semid int32
+	Sops  uintptr
+	Nsops uint64
 }
 
 type SemctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Semid int32
-  Semnum int32
-  Cmd int32
-  Arg uint64
+	Semid  int32
+	Semnum int32
+	Cmd    int32
+	Arg    uint64
 }
 
 type ShmdtArgs struct {
-  internalArgs
+	internalArgs
 
-  Shmaddr uintptr
+	Shmaddr uintptr
 }
 
 type MsggetArgs struct {
-  internalArgs
+	internalArgs
 
-  Key int32
-  Msgflg int32
+	Key    int32
+	Msgflg int32
 }
 
 type MsgsndArgs struct {
-  internalArgs
+	internalArgs
 
-  Msqid int32
-  Msgp uintptr
-  Msgsz uint64
-  Msgflg int32
+	Msqid  int32
+	Msgp   uintptr
+	Msgsz  uint64
+	Msgflg int32
 }
 
 type MsgrcvArgs struct {
-  internalArgs
+	internalArgs
 
-  Msqid int32
-  Msgp uintptr
-  Msgsz uint64
-  Msgtyp int64
-  Msgflg int32
+	Msqid  int32
+	Msgp   uintptr
+	Msgsz  uint64
+	Msgtyp int64
+	Msgflg int32
 }
 
 type MsgctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Msqid int32
-  Cmd int32
-  Buf uintptr
+	Msqid int32
+	Cmd   int32
+	Buf   uintptr
 }
 
 type FcntlArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Cmd int32
-  Arg uint64
+	Fd  int32
+	Cmd int32
+	Arg uint64
 }
 
 type FlockArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Operation int32
+	Fd        int32
+	Operation int32
 }
 
 type FsyncArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
+	Fd int32
 }
 
 type FdatasyncArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
+	Fd int32
 }
 
 type TruncateArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Length uint64
+	Path   string
+	Length uint64
 }
 
 type FtruncateArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Length uint64
+	Fd     int32
+	Length uint64
 }
 
 type GetdentsArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Dirp uintptr
-  Count uint32
+	Fd    int32
+	Dirp  uintptr
+	Count uint32
 }
 
 type GetcwdArgs struct {
-  internalArgs
+	internalArgs
 
-  Buf string
-  Size uint64
+	Buf  string
+	Size uint64
 }
 
 type ChdirArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
+	Path string
 }
 
 type FchdirArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
+	Fd int32
 }
 
 type RenameArgs struct {
-  internalArgs
+	internalArgs
 
-  Oldpath string
-  Newpath string
+	Oldpath string
+	Newpath string
 }
 
 type MkdirArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Mode uint32
+	Pathname string
+	Mode     uint32
 }
 
 type RmdirArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
+	Pathname string
 }
 
 type CreatArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Mode uint32
+	Pathname string
+	Mode     uint32
 }
 
 type LinkArgs struct {
-  internalArgs
+	internalArgs
 
-  Oldpath string
-  Newpath string
+	Oldpath string
+	Newpath string
 }
 
 type UnlinkArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
+	Pathname string
 }
 
 type SymlinkArgs struct {
-  internalArgs
+	internalArgs
 
-  Target string
-  Linkpath string
+	Target   string
+	Linkpath string
 }
 
 type ReadlinkArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Buf string
-  Bufsiz uint64
+	Pathname string
+	Buf      string
+	Bufsiz   uint64
 }
 
 type ChmodArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Mode uint32
+	Pathname string
+	Mode     uint32
 }
 
 type FchmodArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Mode uint32
+	Fd   int32
+	Mode uint32
 }
 
 type ChownArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Owner int32
-  Group int32
+	Pathname string
+	Owner    int32
+	Group    int32
 }
 
 type FchownArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Owner int32
-  Group int32
+	Fd    int32
+	Owner int32
+	Group int32
 }
 
 type LchownArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Owner int32
-  Group int32
+	Pathname string
+	Owner    int32
+	Group    int32
 }
 
 type UmaskArgs struct {
-  internalArgs
+	internalArgs
 
-  Mask uint32
+	Mask uint32
 }
 
 type GettimeofdayArgs struct {
-  internalArgs
+	internalArgs
 
-  Tv uintptr
-  Tz uintptr
+	Tv uintptr
+	Tz uintptr
 }
 
 type GetrlimitArgs struct {
-  internalArgs
+	internalArgs
 
-  Resource int32
-  Rlim uintptr
+	Resource int32
+	Rlim     uintptr
 }
 
 type GetrusageArgs struct {
-  internalArgs
+	internalArgs
 
-  Who int32
-  Usage uintptr
+	Who   int32
+	Usage uintptr
 }
 
 type SysinfoArgs struct {
-  internalArgs
+	internalArgs
 
-  Info uintptr
+	Info uintptr
 }
 
 type TimesArgs struct {
-  internalArgs
+	internalArgs
 
-  Buf uintptr
+	Buf uintptr
 }
 
 type PtraceArgs struct {
-  internalArgs
+	internalArgs
 
-  Request int64
-  Pid int32
-  Addr uintptr
-  Data uintptr
+	Request int64
+	Pid     int32
+	Addr    uintptr
+	Data    uintptr
 }
 
 type GetuidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SyslogArgs struct {
-  internalArgs
+	internalArgs
 
-  Type int32
-  Bufp string
-  Len int32
+	Type int32
+	Bufp string
+	Len  int32
 }
 
 type GetgidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SetuidArgs struct {
-  internalArgs
+	internalArgs
 
-  Uid int32
+	Uid int32
 }
 
 type SetgidArgs struct {
-  internalArgs
+	internalArgs
 
-  Gid int32
+	Gid int32
 }
 
 type GeteuidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type GetegidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SetpgidArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Pgid int32
+	Pid  int32
+	Pgid int32
 }
 
 type GetppidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type GetpgrpArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SetsidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SetreuidArgs struct {
-  internalArgs
+	internalArgs
 
-  Ruid int32
-  Euid int32
+	Ruid int32
+	Euid int32
 }
 
 type SetregidArgs struct {
-  internalArgs
+	internalArgs
 
-  Rgid int32
-  Egid int32
+	Rgid int32
+	Egid int32
 }
 
 type GetgroupsArgs struct {
-  internalArgs
+	internalArgs
 
-  Size int32
-  List uintptr
+	Size int32
+	List uintptr
 }
 
 type SetgroupsArgs struct {
-  internalArgs
+	internalArgs
 
-  Size int32
-  List uintptr
+	Size int32
+	List uintptr
 }
 
 type SetresuidArgs struct {
-  internalArgs
+	internalArgs
 
-  Ruid int32
-  Euid int32
-  Suid int32
+	Ruid int32
+	Euid int32
+	Suid int32
 }
 
 type GetresuidArgs struct {
-  internalArgs
+	internalArgs
 
-  Ruid uintptr
-  Euid uintptr
-  Suid uintptr
+	Ruid uintptr
+	Euid uintptr
+	Suid uintptr
 }
 
 type SetresgidArgs struct {
-  internalArgs
+	internalArgs
 
-  Rgid int32
-  Egid int32
-  Sgid int32
+	Rgid int32
+	Egid int32
+	Sgid int32
 }
 
 type GetresgidArgs struct {
-  internalArgs
+	internalArgs
 
-  Rgid uintptr
-  Egid uintptr
-  Sgid uintptr
+	Rgid uintptr
+	Egid uintptr
+	Sgid uintptr
 }
 
 type GetpgidArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
+	Pid int32
 }
 
 type SetfsuidArgs struct {
-  internalArgs
+	internalArgs
 
-  Fsuid int32
+	Fsuid int32
 }
 
 type SetfsgidArgs struct {
-  internalArgs
+	internalArgs
 
-  Fsgid int32
+	Fsgid int32
 }
 
 type GetsidArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
+	Pid int32
 }
 
 type CapgetArgs struct {
-  internalArgs
+	internalArgs
 
-  Hdrp uintptr
-  Datap uintptr
+	Hdrp  uintptr
+	Datap uintptr
 }
 
 type CapsetArgs struct {
-  internalArgs
+	internalArgs
 
-  Hdrp uintptr
-  Datap uintptr
+	Hdrp  uintptr
+	Datap uintptr
 }
 
 type RtSigpendingArgs struct {
-  internalArgs
+	internalArgs
 
-  Set uintptr
-  Sigsetsize uint64
+	Set        uintptr
+	Sigsetsize uint64
 }
 
 type RtSigtimedwaitArgs struct {
-  internalArgs
+	internalArgs
 
-  Set uintptr
-  Info uintptr
-  Timeout float64
-  Sigsetsize uint64
+	Set        uintptr
+	Info       uintptr
+	Timeout    float64
+	Sigsetsize uint64
 }
 
 type RtSigqueueinfoArgs struct {
-  internalArgs
+	internalArgs
 
-  Tgid int32
-  Sig int32
-  Info uintptr
+	Tgid int32
+	Sig  int32
+	Info uintptr
 }
 
 type RtSigsuspendArgs struct {
-  internalArgs
+	internalArgs
 
-  Mask uintptr
-  Sigsetsize uint64
+	Mask       uintptr
+	Sigsetsize uint64
 }
 
 type SigaltstackArgs struct {
-  internalArgs
+	internalArgs
 
-  Ss uintptr
-  OldSs uintptr
+	Ss    uintptr
+	OldSs uintptr
 }
 
 type UtimeArgs struct {
-  internalArgs
+	internalArgs
 
-  Filename string
-  Times uintptr
+	Filename string
+	Times    uintptr
 }
 
 type MknodArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Mode uint32
-  Dev uint32
+	Pathname string
+	Mode     uint32
+	Dev      uint32
 }
 
 type UselibArgs struct {
-  internalArgs
+	internalArgs
 
-  Library string
+	Library string
 }
 
 type PersonalityArgs struct {
-  internalArgs
+	internalArgs
 
-  Persona uint64
+	Persona uint64
 }
 
 type UstatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dev uint32
-  Ubuf uintptr
+	Dev  uint32
+	Ubuf uintptr
 }
 
 type StatfsArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Buf uintptr
+	Path string
+	Buf  uintptr
 }
 
 type FstatfsArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Buf uintptr
+	Fd  int32
+	Buf uintptr
 }
 
 type SysfsArgs struct {
-  internalArgs
+	internalArgs
 
-  Option int32
+	Option int32
 }
 
 type GetpriorityArgs struct {
-  internalArgs
+	internalArgs
 
-  Which int32
-  Who int32
+	Which int32
+	Who   int32
 }
 
 type SetpriorityArgs struct {
-  internalArgs
+	internalArgs
 
-  Which int32
-  Who int32
-  Prio int32
+	Which int32
+	Who   int32
+	Prio  int32
 }
 
 type SchedSetparamArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Param uintptr
+	Pid   int32
+	Param uintptr
 }
 
 type SchedGetparamArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Param uintptr
+	Pid   int32
+	Param uintptr
 }
 
 type SchedSetschedulerArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Policy int32
-  Param uintptr
+	Pid    int32
+	Policy int32
+	Param  uintptr
 }
 
 type SchedGetschedulerArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
+	Pid int32
 }
 
 type SchedGetPriorityMaxArgs struct {
-  internalArgs
+	internalArgs
 
-  Policy int32
+	Policy int32
 }
 
 type SchedGetPriorityMinArgs struct {
-  internalArgs
+	internalArgs
 
-  Policy int32
+	Policy int32
 }
 
 type SchedRrGetIntervalArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Tp float64
+	Pid int32
+	Tp  float64
 }
 
 type MlockArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Len uint64
+	Addr uintptr
+	Len  uint64
 }
 
 type MunlockArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Len uint64
+	Addr uintptr
+	Len  uint64
 }
 
 type MlockallArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags int32
+	Flags int32
 }
 
 type MunlockallArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type VhangupArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type ModifyLdtArgs struct {
-  internalArgs
+	internalArgs
 
-  Func int32
-  Ptr uintptr
-  Bytecount uint64
+	Func      int32
+	Ptr       uintptr
+	Bytecount uint64
 }
 
 type PivotRootArgs struct {
-  internalArgs
+	internalArgs
 
-  NewRoot string
-  PutOld string
+	NewRoot string
+	PutOld  string
 }
 
 type SysctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Args uintptr
+	Args uintptr
 }
 
 type PrctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Option int32
-  Arg2 uint64
-  Arg3 uint64
-  Arg4 uint64
-  Arg5 uint64
+	Option int32
+	Arg2   uint64
+	Arg3   uint64
+	Arg4   uint64
+	Arg5   uint64
 }
 
 type ArchPrctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Option int32
-  Addr uint64
+	Option int32
+	Addr   uint64
 }
 
 type AdjtimexArgs struct {
-  internalArgs
+	internalArgs
 
-  Buf uintptr
+	Buf uintptr
 }
 
 type SetrlimitArgs struct {
-  internalArgs
+	internalArgs
 
-  Resource int32
-  Rlim uintptr
+	Resource int32
+	Rlim     uintptr
 }
 
 type ChrootArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
+	Path string
 }
 
 type SyncArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type AcctArgs struct {
-  internalArgs
+	internalArgs
 
-  Filename string
+	Filename string
 }
 
 type SettimeofdayArgs struct {
-  internalArgs
+	internalArgs
 
-  Tv uintptr
-  Tz uintptr
+	Tv uintptr
+	Tz uintptr
 }
 
 type MountArgs struct {
-  internalArgs
+	internalArgs
 
-  Source string
-  Target string
-  Filesystemtype string
-  Mountflags uint64
-  Data uintptr
+	Source         string
+	Target         string
+	Filesystemtype string
+	Mountflags     uint64
+	Data           uintptr
 }
 
 type Umount2Args struct {
-  internalArgs
+	internalArgs
 
-  Target string
-  Flags int32
+	Target string
+	Flags  int32
 }
 
 type SwaponArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Swapflags int32
+	Path      string
+	Swapflags int32
 }
 
 type SwapoffArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
+	Path string
 }
 
 type RebootArgs struct {
-  internalArgs
+	internalArgs
 
-  Magic int32
-  Magic2 int32
-  Cmd int32
-  Arg uintptr
+	Magic  int32
+	Magic2 int32
+	Cmd    int32
+	Arg    uintptr
 }
 
 type SethostnameArgs struct {
-  internalArgs
+	internalArgs
 
-  Name string
-  Len uint64
+	Name string
+	Len  uint64
 }
 
 type SetdomainnameArgs struct {
-  internalArgs
+	internalArgs
 
-  Name string
-  Len uint64
+	Name string
+	Len  uint64
 }
 
 type IoplArgs struct {
-  internalArgs
+	internalArgs
 
-  Level int32
+	Level int32
 }
 
 type IopermArgs struct {
-  internalArgs
+	internalArgs
 
-  From uint64
-  Num uint64
-  TurnOn int32
+	From   uint64
+	Num    uint64
+	TurnOn int32
 }
 
 type CreateModuleArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type InitModuleArgs struct {
-  internalArgs
+	internalArgs
 
-  ModuleImage uintptr
-  Len uint64
-  ParamValues string
+	ModuleImage uintptr
+	Len         uint64
+	ParamValues string
 }
 
 type DeleteModuleArgs struct {
-  internalArgs
+	internalArgs
 
-  Name string
-  Flags int32
+	Name  string
+	Flags int32
 }
 
 type GetKernelSymsArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type QueryModuleArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type QuotactlArgs struct {
-  internalArgs
+	internalArgs
 
-  Cmd int32
-  Special string
-  Id int32
-  Addr uintptr
+	Cmd     int32
+	Special string
+	Id      int32
+	Addr    uintptr
 }
 
 type NfsservctlArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type GetpmsgArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type PutpmsgArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type AfsArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type TuxcallArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SecurityArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type GettidArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type ReadaheadArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Offset uint64
-  Count uint64
+	Fd     int32
+	Offset uint64
+	Count  uint64
 }
 
 type SetxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Name string
-  Value uintptr
-  Size uint64
-  Flags int32
+	Path  string
+	Name  string
+	Value uintptr
+	Size  uint64
+	Flags int32
 }
 
 type LsetxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Name string
-  Value uintptr
-  Size uint64
-  Flags int32
+	Path  string
+	Name  string
+	Value uintptr
+	Size  uint64
+	Flags int32
 }
 
 type FsetxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Name string
-  Value uintptr
-  Size uint64
-  Flags int32
+	Fd    int32
+	Name  string
+	Value uintptr
+	Size  uint64
+	Flags int32
 }
 
 type GetxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Name string
-  Value uintptr
-  Size uint64
+	Path  string
+	Name  string
+	Value uintptr
+	Size  uint64
 }
 
 type LgetxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Name string
-  Value uintptr
-  Size uint64
+	Path  string
+	Name  string
+	Value uintptr
+	Size  uint64
 }
 
 type FgetxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Name string
-  Value uintptr
-  Size uint64
+	Fd    int32
+	Name  string
+	Value uintptr
+	Size  uint64
 }
 
 type ListxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  List string
-  Size uint64
+	Path string
+	List string
+	Size uint64
 }
 
 type LlistxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  List string
-  Size uint64
+	Path string
+	List string
+	Size uint64
 }
 
 type FlistxattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  List string
-  Size uint64
+	Fd   int32
+	List string
+	Size uint64
 }
 
 type RemovexattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Name string
+	Path string
+	Name string
 }
 
 type LremovexattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Name string
+	Path string
+	Name string
 }
 
 type FremovexattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Name string
+	Fd   int32
+	Name string
 }
 
 type TkillArgs struct {
-  internalArgs
+	internalArgs
 
-  Tid int32
-  Sig int32
+	Tid int32
+	Sig int32
 }
 
 type TimeArgs struct {
-  internalArgs
+	internalArgs
 
-  Tloc uintptr
+	Tloc uintptr
 }
 
 type FutexArgs struct {
-  internalArgs
+	internalArgs
 
-  Uaddr uintptr
-  FutexOp int32
-  Val int32
-  Timeout float64
-  Uaddr2 uintptr
-  Val3 int32
+	Uaddr   uintptr
+	FutexOp int32
+	Val     int32
+	Timeout float64
+	Uaddr2  uintptr
+	Val3    int32
 }
 
 type SchedSetaffinityArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Cpusetsize uint64
-  Mask uintptr
+	Pid        int32
+	Cpusetsize uint64
+	Mask       uintptr
 }
 
 type SchedGetaffinityArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Cpusetsize uint64
-  Mask uintptr
+	Pid        int32
+	Cpusetsize uint64
+	Mask       uintptr
 }
 
 type SetThreadAreaArgs struct {
-  internalArgs
+	internalArgs
 
-  UInfo uintptr
+	UInfo uintptr
 }
 
 type IoSetupArgs struct {
-  internalArgs
+	internalArgs
 
-  NrEvents uint32
-  CtxIdp uintptr
+	NrEvents uint32
+	CtxIdp   uintptr
 }
 
 type IoDestroyArgs struct {
-  internalArgs
+	internalArgs
 
-  CtxId uintptr
+	CtxId uintptr
 }
 
 type IoGeteventsArgs struct {
-  internalArgs
+	internalArgs
 
-  CtxId uintptr
-  MinNr int64
-  Nr int64
-  Events uintptr
-  Timeout float64
+	CtxId   uintptr
+	MinNr   int64
+	Nr      int64
+	Events  uintptr
+	Timeout float64
 }
 
 type IoSubmitArgs struct {
-  internalArgs
+	internalArgs
 
-  CtxId uintptr
-  Nr int64
-  Iocbpp uintptr
+	CtxId  uintptr
+	Nr     int64
+	Iocbpp uintptr
 }
 
 type IoCancelArgs struct {
-  internalArgs
+	internalArgs
 
-  CtxId uintptr
-  Iocb uintptr
-  Result uintptr
+	CtxId  uintptr
+	Iocb   uintptr
+	Result uintptr
 }
 
 type GetThreadAreaArgs struct {
-  internalArgs
+	internalArgs
 
-  UInfo uintptr
+	UInfo uintptr
 }
 
 type LookupDcookieArgs struct {
-  internalArgs
+	internalArgs
 
-  Cookie uint64
-  Buffer string
-  Len uint64
+	Cookie uint64
+	Buffer string
+	Len    uint64
 }
 
 type EpollCreateArgs struct {
-  internalArgs
+	internalArgs
 
-  Size int32
+	Size int32
 }
 
 type EpollCtlOldArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type EpollWaitOldArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type RemapFilePagesArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Size uint64
-  Prot int32
-  Pgoff uint64
-  Flags int32
+	Addr  uintptr
+	Size  uint64
+	Prot  int32
+	Pgoff uint64
+	Flags int32
 }
 
 type Getdents64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  Dirp uintptr
-  Count uint32
+	Fd    uint32
+	Dirp  uintptr
+	Count uint32
 }
 
 type SetTidAddressArgs struct {
-  internalArgs
+	internalArgs
 
-  Tidptr uintptr
+	Tidptr uintptr
 }
 
 type RestartSyscallArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SemtimedopArgs struct {
-  internalArgs
+	internalArgs
 
-  Semid int32
-  Sops uintptr
-  Nsops uint64
-  Timeout float64
+	Semid   int32
+	Sops    uintptr
+	Nsops   uint64
+	Timeout float64
 }
 
 type Fadvise64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Offset uint64
-  Len uint64
-  Advice int32
+	Fd     int32
+	Offset uint64
+	Len    uint64
+	Advice int32
 }
 
 type TimerCreateArgs struct {
-  internalArgs
+	internalArgs
 
-  Clockid int32
-  Sevp uintptr
-  TimerId uintptr
+	Clockid int32
+	Sevp    uintptr
+	TimerId uintptr
 }
 
 type TimerSettimeArgs struct {
-  internalArgs
+	internalArgs
 
-  TimerId int32
-  Flags int32
-  NewValue uintptr
-  OldValue uintptr
+	TimerId  int32
+	Flags    int32
+	NewValue uintptr
+	OldValue uintptr
 }
 
 type TimerGettimeArgs struct {
-  internalArgs
+	internalArgs
 
-  TimerId int32
-  CurrValue uintptr
+	TimerId   int32
+	CurrValue uintptr
 }
 
 type TimerGetoverrunArgs struct {
-  internalArgs
+	internalArgs
 
-  TimerId int32
+	TimerId int32
 }
 
 type TimerDeleteArgs struct {
-  internalArgs
+	internalArgs
 
-  TimerId int32
+	TimerId int32
 }
 
 type ClockSettimeArgs struct {
-  internalArgs
+	internalArgs
 
-  Clockid int32
-  Tp float64
+	Clockid int32
+	Tp      float64
 }
 
 type ClockGettimeArgs struct {
-  internalArgs
+	internalArgs
 
-  Clockid int32
-  Tp float64
+	Clockid int32
+	Tp      float64
 }
 
 type ClockGetresArgs struct {
-  internalArgs
+	internalArgs
 
-  Clockid int32
-  Res float64
+	Clockid int32
+	Res     float64
 }
 
 type ClockNanosleepArgs struct {
-  internalArgs
+	internalArgs
 
-  Clockid int32
-  Flags int32
-  Request float64
-  Remain float64
+	Clockid int32
+	Flags   int32
+	Request float64
+	Remain  float64
 }
 
 type ExitGroupArgs struct {
-  internalArgs
+	internalArgs
 
-  Status int32
+	Status int32
 }
 
 type EpollWaitArgs struct {
-  internalArgs
+	internalArgs
 
-  Epfd int32
-  Events uintptr
-  Maxevents int32
-  Timeout int32
+	Epfd      int32
+	Events    uintptr
+	Maxevents int32
+	Timeout   int32
 }
 
 type EpollCtlArgs struct {
-  internalArgs
+	internalArgs
 
-  Epfd int32
-  Op int32
-  Fd int32
-  Event uintptr
+	Epfd  int32
+	Op    int32
+	Fd    int32
+	Event uintptr
 }
 
 type TgkillArgs struct {
-  internalArgs
+	internalArgs
 
-  Tgid int32
-  Tid int32
-  Sig int32
+	Tgid int32
+	Tid  int32
+	Sig  int32
 }
 
 type UtimesArgs struct {
-  internalArgs
+	internalArgs
 
-  Filename string
-  Times uintptr
+	Filename string
+	Times    uintptr
 }
 
 type VserverArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type MbindArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Len uint64
-  Mode int32
-  Nodemask uintptr
-  Maxnode uint64
-  Flags uint32
+	Addr     uintptr
+	Len      uint64
+	Mode     int32
+	Nodemask uintptr
+	Maxnode  uint64
+	Flags    uint32
 }
 
 type SetMempolicyArgs struct {
-  internalArgs
+	internalArgs
 
-  Mode int32
-  Nodemask uintptr
-  Maxnode uint64
+	Mode     int32
+	Nodemask uintptr
+	Maxnode  uint64
 }
 
 type GetMempolicyArgs struct {
-  internalArgs
+	internalArgs
 
-  Mode uintptr
-  Nodemask uintptr
-  Maxnode uint64
-  Addr uintptr
-  Flags uint64
+	Mode     uintptr
+	Nodemask uintptr
+	Maxnode  uint64
+	Addr     uintptr
+	Flags    uint64
 }
 
 type MqOpenArgs struct {
-  internalArgs
+	internalArgs
 
-  Name string
-  Oflag int32
-  Mode uint32
-  Attr uintptr
+	Name  string
+	Oflag int32
+	Mode  uint32
+	Attr  uintptr
 }
 
 type MqUnlinkArgs struct {
-  internalArgs
+	internalArgs
 
-  Name string
+	Name string
 }
 
 type MqTimedsendArgs struct {
-  internalArgs
+	internalArgs
 
-  Mqdes int32
-  MsgPtr string
-  MsgLen uint64
-  MsgPrio uint32
-  AbsTimeout float64
+	Mqdes      int32
+	MsgPtr     string
+	MsgLen     uint64
+	MsgPrio    uint32
+	AbsTimeout float64
 }
 
 type MqTimedreceiveArgs struct {
-  internalArgs
+	internalArgs
 
-  Mqdes int32
-  MsgPtr string
-  MsgLen uint64
-  MsgPrio uintptr
-  AbsTimeout float64
+	Mqdes      int32
+	MsgPtr     string
+	MsgLen     uint64
+	MsgPrio    uintptr
+	AbsTimeout float64
 }
 
 type MqNotifyArgs struct {
-  internalArgs
+	internalArgs
 
-  Mqdes int32
-  Sevp uintptr
+	Mqdes int32
+	Sevp  uintptr
 }
 
 type MqGetsetattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Mqdes int32
-  Newattr uintptr
-  Oldattr uintptr
+	Mqdes   int32
+	Newattr uintptr
+	Oldattr uintptr
 }
 
 type KexecLoadArgs struct {
-  internalArgs
+	internalArgs
 
-  Entry uint64
-  NrSegments uint64
-  Segments uintptr
-  Flags uint64
+	Entry      uint64
+	NrSegments uint64
+	Segments   uintptr
+	Flags      uint64
 }
 
 type WaitidArgs struct {
-  internalArgs
+	internalArgs
 
-  Idtype int32
-  Id int32
-  Infop uintptr
-  Options int32
-  Rusage uintptr
+	Idtype  int32
+	Id      int32
+	Infop   uintptr
+	Options int32
+	Rusage  uintptr
 }
 
 type AddKeyArgs struct {
-  internalArgs
+	internalArgs
 
-  Type string
-  Description string
-  Payload uintptr
-  Plen uint64
-  Keyring int32
+	Type        string
+	Description string
+	Payload     uintptr
+	Plen        uint64
+	Keyring     int32
 }
 
 type RequestKeyArgs struct {
-  internalArgs
+	internalArgs
 
-  Type string
-  Description string
-  CalloutInfo string
-  DestKeyring int32
+	Type        string
+	Description string
+	CalloutInfo string
+	DestKeyring int32
 }
 
 type KeyctlArgs struct {
-  internalArgs
+	internalArgs
 
-  Operation int32
-  Arg2 uint64
-  Arg3 uint64
-  Arg4 uint64
-  Arg5 uint64
+	Operation int32
+	Arg2      uint64
+	Arg3      uint64
+	Arg4      uint64
+	Arg5      uint64
 }
 
 type IoprioSetArgs struct {
-  internalArgs
+	internalArgs
 
-  Which int32
-  Who int32
-  Ioprio int32
+	Which  int32
+	Who    int32
+	Ioprio int32
 }
 
 type IoprioGetArgs struct {
-  internalArgs
+	internalArgs
 
-  Which int32
-  Who int32
+	Which int32
+	Who   int32
 }
 
 type InotifyInitArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type InotifyAddWatchArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Pathname string
-  Mask uint32
+	Fd       int32
+	Pathname string
+	Mask     uint32
 }
 
 type InotifyRmWatchArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Wd int32
+	Fd int32
+	Wd int32
 }
 
 type MigratePagesArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Maxnode uint64
-  OldNodes uintptr
-  NewNodes uintptr
+	Pid      int32
+	Maxnode  uint64
+	OldNodes uintptr
+	NewNodes uintptr
 }
 
 type OpenatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Flags int32
-  Mode uint32
+	Dirfd    int32
+	Pathname string
+	Flags    int32
+	Mode     uint32
 }
 
 type MkdiratArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Mode uint32
+	Dirfd    int32
+	Pathname string
+	Mode     uint32
 }
 
 type MknodatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Mode uint32
-  Dev uint32
+	Dirfd    int32
+	Pathname string
+	Mode     uint32
+	Dev      uint32
 }
 
 type FchownatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Owner int32
-  Group int32
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Owner    int32
+	Group    int32
+	Flags    int32
 }
 
 type FutimesatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Times uintptr
+	Dirfd    int32
+	Pathname string
+	Times    uintptr
 }
 
 type NewfstatatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Statbuf uintptr
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Statbuf  uintptr
+	Flags    int32
 }
 
 type UnlinkatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Flags    int32
 }
 
 type RenameatArgs struct {
-  internalArgs
+	internalArgs
 
-  Olddirfd int32
-  Oldpath string
-  Newdirfd int32
-  Newpath string
+	Olddirfd int32
+	Oldpath  string
+	Newdirfd int32
+	Newpath  string
 }
 
 type LinkatArgs struct {
-  internalArgs
+	internalArgs
 
-  Olddirfd int32
-  Oldpath string
-  Newdirfd int32
-  Newpath string
-  Flags uint32
+	Olddirfd int32
+	Oldpath  string
+	Newdirfd int32
+	Newpath  string
+	Flags    uint32
 }
 
 type SymlinkatArgs struct {
-  internalArgs
+	internalArgs
 
-  Target string
-  Newdirfd int32
-  Linkpath string
+	Target   string
+	Newdirfd int32
+	Linkpath string
 }
 
 type ReadlinkatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Buf string
-  Bufsiz int32
+	Dirfd    int32
+	Pathname string
+	Buf      string
+	Bufsiz   int32
 }
 
 type FchmodatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Mode uint32
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Mode     uint32
+	Flags    int32
 }
 
 type FaccessatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Mode int32
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Mode     int32
+	Flags    int32
 }
 
 type Pselect6Args struct {
-  internalArgs
+	internalArgs
 
-  Nfds int32
-  Readfds uintptr
-  Writefds uintptr
-  Exceptfds uintptr
-  Timeout float64
-  Sigmask uintptr
+	Nfds      int32
+	Readfds   uintptr
+	Writefds  uintptr
+	Exceptfds uintptr
+	Timeout   float64
+	Sigmask   uintptr
 }
 
 type PpollArgs struct {
-  internalArgs
+	internalArgs
 
-  Fds uintptr
-  Nfds uint32
-  TmoP float64
-  Sigmask uintptr
-  Sigsetsize uint64
+	Fds        uintptr
+	Nfds       uint32
+	TmoP       float64
+	Sigmask    uintptr
+	Sigsetsize uint64
 }
 
 type UnshareArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags int32
+	Flags int32
 }
 
 type SetRobustListArgs struct {
-  internalArgs
+	internalArgs
 
-  Head uintptr
-  Len uint64
+	Head uintptr
+	Len  uint64
 }
 
 type GetRobustListArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  HeadPtr uintptr
-  LenPtr uintptr
+	Pid     int32
+	HeadPtr uintptr
+	LenPtr  uintptr
 }
 
 type SpliceArgs struct {
-  internalArgs
+	internalArgs
 
-  FdIn int32
-  OffIn uintptr
-  FdOut int32
-  OffOut uintptr
-  Len uint64
-  Flags uint32
+	FdIn   int32
+	OffIn  uintptr
+	FdOut  int32
+	OffOut uintptr
+	Len    uint64
+	Flags  uint32
 }
 
 type TeeArgs struct {
-  internalArgs
+	internalArgs
 
-  FdIn int32
-  FdOut int32
-  Len uint64
-  Flags uint32
+	FdIn  int32
+	FdOut int32
+	Len   uint64
+	Flags uint32
 }
 
 type SyncFileRangeArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Offset uint64
-  Nbytes uint64
-  Flags uint32
+	Fd     int32
+	Offset uint64
+	Nbytes uint64
+	Flags  uint32
 }
 
 type VmspliceArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  NrSegs uint64
-  Flags uint32
+	Fd     int32
+	Iov    uintptr
+	NrSegs uint64
+	Flags  uint32
 }
 
 type MovePagesArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Count uint64
-  Pages uintptr
-  Nodes uintptr
-  Status uintptr
-  Flags int32
+	Pid    int32
+	Count  uint64
+	Pages  uintptr
+	Nodes  uintptr
+	Status uintptr
+	Flags  int32
 }
 
 type UtimensatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Times float64
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Times    float64
+	Flags    int32
 }
 
 type EpollPwaitArgs struct {
-  internalArgs
+	internalArgs
 
-  Epfd int32
-  Events uintptr
-  Maxevents int32
-  Timeout int32
-  Sigmask uintptr
-  Sigsetsize uint64
+	Epfd       int32
+	Events     uintptr
+	Maxevents  int32
+	Timeout    int32
+	Sigmask    uintptr
+	Sigsetsize uint64
 }
 
 type SignalfdArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Mask uintptr
-  Flags int32
+	Fd    int32
+	Mask  uintptr
+	Flags int32
 }
 
 type TimerfdCreateArgs struct {
-  internalArgs
+	internalArgs
 
-  Clockid int32
-  Flags int32
+	Clockid int32
+	Flags   int32
 }
 
 type EventfdArgs struct {
-  internalArgs
+	internalArgs
 
-  Initval uint32
-  Flags int32
+	Initval uint32
+	Flags   int32
 }
 
 type FallocateArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Mode int32
-  Offset uint64
-  Len uint64
+	Fd     int32
+	Mode   int32
+	Offset uint64
+	Len    uint64
 }
 
 type TimerfdSettimeArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Flags int32
-  NewValue uintptr
-  OldValue uintptr
+	Fd       int32
+	Flags    int32
+	NewValue uintptr
+	OldValue uintptr
 }
 
 type TimerfdGettimeArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  CurrValue uintptr
+	Fd        int32
+	CurrValue uintptr
 }
 
 type Accept4Args struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
-  Addrlen uintptr
-  Flags int32
+	Sockfd  int32
+	Addr    Sockaddr
+	Addrlen uintptr
+	Flags   int32
 }
 
 type Signalfd4Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Mask uintptr
-  Sizemask uint64
-  Flags int32
+	Fd       int32
+	Mask     uintptr
+	Sizemask uint64
+	Flags    int32
 }
 
 type Eventfd2Args struct {
-  internalArgs
+	internalArgs
 
-  Initval uint32
-  Flags int32
+	Initval uint32
+	Flags   int32
 }
 
 type EpollCreate1Args struct {
-  internalArgs
+	internalArgs
 
-  Flags int32
+	Flags int32
 }
 
 type Dup3Args struct {
-  internalArgs
+	internalArgs
 
-  Oldfd int32
-  Newfd int32
-  Flags int32
+	Oldfd int32
+	Newfd int32
+	Flags int32
 }
 
 type Pipe2Args struct {
-  internalArgs
+	internalArgs
 
-  Pipefd [2]int32
-  Flags int32
+	Pipefd [2]int32
+	Flags  int32
 }
 
 type InotifyInit1Args struct {
-  internalArgs
+	internalArgs
 
-  Flags int32
+	Flags int32
 }
 
 type PreadvArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  Iovcnt uint64
-  PosL uint64
-  PosH uint64
+	Fd     int32
+	Iov    uintptr
+	Iovcnt uint64
+	PosL   uint64
+	PosH   uint64
 }
 
 type PwritevArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  Iovcnt uint64
-  PosL uint64
-  PosH uint64
+	Fd     int32
+	Iov    uintptr
+	Iovcnt uint64
+	PosL   uint64
+	PosH   uint64
 }
 
 type RtTgsigqueueinfoArgs struct {
-  internalArgs
+	internalArgs
 
-  Tgid int32
-  Tid int32
-  Sig int32
-  Info uintptr
+	Tgid int32
+	Tid  int32
+	Sig  int32
+	Info uintptr
 }
 
 type PerfEventOpenArgs struct {
-  internalArgs
+	internalArgs
 
-  Attr uintptr
-  Pid int32
-  Cpu int32
-  GroupFd int32
-  Flags uint64
+	Attr    uintptr
+	Pid     int32
+	Cpu     int32
+	GroupFd int32
+	Flags   uint64
 }
 
 type RecvmmsgArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Msgvec uintptr
-  Vlen uint32
-  Flags int32
-  Timeout float64
+	Sockfd  int32
+	Msgvec  uintptr
+	Vlen    uint32
+	Flags   int32
+	Timeout float64
 }
 
 type FanotifyInitArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags uint32
-  EventFFlags uint32
+	Flags       uint32
+	EventFFlags uint32
 }
 
 type FanotifyMarkArgs struct {
-  internalArgs
+	internalArgs
 
-  FanotifyFd int32
-  Flags uint32
-  Mask uint64
-  Dirfd int32
-  Pathname string
+	FanotifyFd int32
+	Flags      uint32
+	Mask       uint64
+	Dirfd      int32
+	Pathname   string
 }
 
 type Prlimit64Args struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Resource int32
-  NewLimit uintptr
-  OldLimit uintptr
+	Pid      int32
+	Resource int32
+	NewLimit uintptr
+	OldLimit uintptr
 }
 
 type NameToHandleAtArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Handle uintptr
-  MountId uintptr
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Handle   uintptr
+	MountId  uintptr
+	Flags    int32
 }
 
 type OpenByHandleAtArgs struct {
-  internalArgs
+	internalArgs
 
-  MountFd int32
-  Handle uintptr
-  Flags int32
+	MountFd int32
+	Handle  uintptr
+	Flags   int32
 }
 
 type ClockAdjtimeArgs struct {
-  internalArgs
+	internalArgs
 
-  ClkId int32
-  Buf uintptr
+	ClkId int32
+	Buf   uintptr
 }
 
 type SyncfsArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
+	Fd int32
 }
 
 type SendmmsgArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Msgvec uintptr
-  Vlen uint32
-  Flags int32
+	Sockfd int32
+	Msgvec uintptr
+	Vlen   uint32
+	Flags  int32
 }
 
 type SetnsArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Nstype int32
+	Fd     int32
+	Nstype int32
 }
 
 type GetcpuArgs struct {
-  internalArgs
+	internalArgs
 
-  Cpu uintptr
-  Node uintptr
-  Tcache uintptr
+	Cpu    uintptr
+	Node   uintptr
+	Tcache uintptr
 }
 
 type ProcessVmReadvArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  LocalIov uintptr
-  Liovcnt uint64
-  RemoteIov uintptr
-  Riovcnt uint64
-  Flags uint64
+	Pid       int32
+	LocalIov  uintptr
+	Liovcnt   uint64
+	RemoteIov uintptr
+	Riovcnt   uint64
+	Flags     uint64
 }
 
 type ProcessVmWritevArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  LocalIov uintptr
-  Liovcnt uint64
-  RemoteIov uintptr
-  Riovcnt uint64
-  Flags uint64
+	Pid       int32
+	LocalIov  uintptr
+	Liovcnt   uint64
+	RemoteIov uintptr
+	Riovcnt   uint64
+	Flags     uint64
 }
 
 type KcmpArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid1 int32
-  Pid2 int32
-  Type int32
-  Idx1 uint64
-  Idx2 uint64
+	Pid1 int32
+	Pid2 int32
+	Type int32
+	Idx1 uint64
+	Idx2 uint64
 }
 
 type FinitModuleArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  ParamValues string
-  Flags int32
+	Fd          int32
+	ParamValues string
+	Flags       int32
 }
 
 type SchedSetattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Attr uintptr
-  Flags uint32
+	Pid   int32
+	Attr  uintptr
+	Flags uint32
 }
 
 type SchedGetattrArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Attr uintptr
-  Size uint32
-  Flags uint32
+	Pid   int32
+	Attr  uintptr
+	Size  uint32
+	Flags uint32
 }
 
 type Renameat2Args struct {
-  internalArgs
+	internalArgs
 
-  Olddirfd int32
-  Oldpath string
-  Newdirfd int32
-  Newpath string
-  Flags uint32
+	Olddirfd int32
+	Oldpath  string
+	Newdirfd int32
+	Newpath  string
+	Flags    uint32
 }
 
 type SeccompArgs struct {
-  internalArgs
+	internalArgs
 
-  Operation uint32
-  Flags uint32
-  Args uintptr
+	Operation uint32
+	Flags     uint32
+	Args      uintptr
 }
 
 type GetrandomArgs struct {
-  internalArgs
+	internalArgs
 
-  Buf uintptr
-  Buflen uint64
-  Flags uint32
+	Buf    uintptr
+	Buflen uint64
+	Flags  uint32
 }
 
 type MemfdCreateArgs struct {
-  internalArgs
+	internalArgs
 
-  Name string
-  Flags uint32
+	Name  string
+	Flags uint32
 }
 
 type KexecFileLoadArgs struct {
-  internalArgs
+	internalArgs
 
-  KernelFd int32
-  InitrdFd int32
-  CmdlineLen uint64
-  Cmdline string
-  Flags uint64
+	KernelFd   int32
+	InitrdFd   int32
+	CmdlineLen uint64
+	Cmdline    string
+	Flags      uint64
 }
 
 type BpfArgs struct {
-  internalArgs
+	internalArgs
 
-  Cmd int32
-  Attr uintptr
-  Size uint32
+	Cmd  int32
+	Attr uintptr
+	Size uint32
 }
 
 type ExecveatArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Argv []string
-  Flags int32
+	Dirfd    int32
+	Pathname string
+	Argv     []string
+	Flags    int32
 }
 
 type UserfaultfdArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags int32
+	Flags int32
 }
 
 type MembarrierArgs struct {
-  internalArgs
+	internalArgs
 
-  Cmd int32
-  Flags int32
+	Cmd   int32
+	Flags int32
 }
 
 type Mlock2Args struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Len uint64
-  Flags int32
+	Addr  uintptr
+	Len   uint64
+	Flags int32
 }
 
 type CopyFileRangeArgs struct {
-  internalArgs
+	internalArgs
 
-  FdIn int32
-  OffIn uintptr
-  FdOut int32
-  OffOut uintptr
-  Len uint64
-  Flags uint32
+	FdIn   int32
+	OffIn  uintptr
+	FdOut  int32
+	OffOut uintptr
+	Len    uint64
+	Flags  uint32
 }
 
 type Preadv2Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  Iovcnt uint64
-  PosL uint64
-  PosH uint64
-  Flags int32
+	Fd     int32
+	Iov    uintptr
+	Iovcnt uint64
+	PosL   uint64
+	PosH   uint64
+	Flags  int32
 }
 
 type Pwritev2Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Iov uintptr
-  Iovcnt uint64
-  PosL uint64
-  PosH uint64
-  Flags int32
+	Fd     int32
+	Iov    uintptr
+	Iovcnt uint64
+	PosL   uint64
+	PosH   uint64
+	Flags  int32
 }
 
 type PkeyMprotectArgs struct {
-  internalArgs
+	internalArgs
 
-  Addr uintptr
-  Len uint64
-  Prot int32
-  Pkey int32
+	Addr uintptr
+	Len  uint64
+	Prot int32
+	Pkey int32
 }
 
 type PkeyAllocArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags uint32
-  AccessRights uint64
+	Flags        uint32
+	AccessRights uint64
 }
 
 type PkeyFreeArgs struct {
-  internalArgs
+	internalArgs
 
-  Pkey int32
+	Pkey int32
 }
 
 type StatxArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Flags int32
-  Mask uint32
-  Statxbuf uintptr
+	Dirfd    int32
+	Pathname string
+	Flags    int32
+	Mask     uint32
+	Statxbuf uintptr
 }
 
 type IoPgeteventsArgs struct {
-  internalArgs
+	internalArgs
 
-  CtxId uintptr
-  MinNr int64
-  Nr int64
-  Events uintptr
-  Timeout float64
-  Usig uintptr
+	CtxId   uintptr
+	MinNr   int64
+	Nr      int64
+	Events  uintptr
+	Timeout float64
+	Usig    uintptr
 }
 
 type RseqArgs struct {
-  internalArgs
+	internalArgs
 
-  Rseq uintptr
-  RseqLen uint32
-  Flags int32
-  Sig uint32
+	Rseq    uintptr
+	RseqLen uint32
+	Flags   int32
+	Sig     uint32
 }
 
 type PidfdSendSignalArgs struct {
-  internalArgs
+	internalArgs
 
-  Pidfd int32
-  Sig int32
-  Info uintptr
-  Flags uint32
+	Pidfd int32
+	Sig   int32
+	Info  uintptr
+	Flags uint32
 }
 
 type IoUringSetupArgs struct {
-  internalArgs
+	internalArgs
 
-  Entries uint32
-  P uintptr
+	Entries uint32
+	P       uintptr
 }
 
 type IoUringEnterArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  ToSubmit uint32
-  MinComplete uint32
-  Flags uint32
-  Sig uintptr
+	Fd          uint32
+	ToSubmit    uint32
+	MinComplete uint32
+	Flags       uint32
+	Sig         uintptr
 }
 
 type IoUringRegisterArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  Opcode uint32
-  Arg uintptr
-  NrArgs uint32
+	Fd     uint32
+	Opcode uint32
+	Arg    uintptr
+	NrArgs uint32
 }
 
 type OpenTreeArgs struct {
-  internalArgs
+	internalArgs
 
-  Dfd int32
-  Filename string
-  Flags uint32
+	Dfd      int32
+	Filename string
+	Flags    uint32
 }
 
 type MoveMountArgs struct {
-  internalArgs
+	internalArgs
 
-  FromDfd int32
-  FromPath string
-  ToDfd int32
-  ToPath string
-  Flags uint32
+	FromDfd  int32
+	FromPath string
+	ToDfd    int32
+	ToPath   string
+	Flags    uint32
 }
 
 type FsopenArgs struct {
-  internalArgs
+	internalArgs
 
-  Fsname string
-  Flags uint32
+	Fsname string
+	Flags  uint32
 }
 
 type FsconfigArgs struct {
-  internalArgs
+	internalArgs
 
-  FsFd uintptr
-  Cmd uint32
-  Key string
-  Value uintptr
-  Aux int32
+	FsFd  uintptr
+	Cmd   uint32
+	Key   string
+	Value uintptr
+	Aux   int32
 }
 
 type FsmountArgs struct {
-  internalArgs
+	internalArgs
 
-  Fsfd int32
-  Flags uint32
-  MsFlags uint32
+	Fsfd    int32
+	Flags   uint32
+	MsFlags uint32
 }
 
 type FspickArgs struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  Flags uint32
+	Dirfd    int32
+	Pathname string
+	Flags    uint32
 }
 
 type PidfdOpenArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Flags uint32
+	Pid   int32
+	Flags uint32
 }
 
 type Clone3Args struct {
-  internalArgs
+	internalArgs
 
-  ClArgs uintptr
-  Size uint64
+	ClArgs uintptr
+	Size   uint64
 }
 
 type CloseRangeArgs struct {
-  internalArgs
+	internalArgs
 
-  First uint32
-  Last uint32
+	First uint32
+	Last  uint32
 }
 
 type Openat2Args struct {
-  internalArgs
+	internalArgs
 
-  Dirfd int32
-  Pathname string
-  How uintptr
-  Size uint64
+	Dirfd    int32
+	Pathname string
+	How      uintptr
+	Size     uint64
 }
 
 type PidfdGetfdArgs struct {
-  internalArgs
+	internalArgs
 
-  Pidfd int32
-  Targetfd int32
-  Flags uint32
+	Pidfd    int32
+	Targetfd int32
+	Flags    uint32
 }
 
 type Faccessat2Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Path string
-  Mode int32
-  Flag int32
+	Fd   int32
+	Path string
+	Mode int32
+	Flag int32
 }
 
 type ProcessMadviseArgs struct {
-  internalArgs
+	internalArgs
 
-  Pidfd int32
-  Addr uintptr
-  Length uint64
-  Advice int32
-  Flags uint64
+	Pidfd  int32
+	Addr   uintptr
+	Length uint64
+	Advice int32
+	Flags  uint64
 }
 
 type EpollPwait2Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Events uintptr
-  Maxevents int32
-  Timeout float64
-  Sigset uintptr
+	Fd        int32
+	Events    uintptr
+	Maxevents int32
+	Timeout   float64
+	Sigset    uintptr
 }
 
 type MountSetattArgs struct {
-  internalArgs
+	internalArgs
 
-  Dfd int32
-  Path string
-  Flags uint32
-  Uattr uintptr
-  Usize uint64
+	Dfd   int32
+	Path  string
+	Flags uint32
+	Uattr uintptr
+	Usize uint64
 }
 
 type QuotactlFdArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  Cmd uint32
-  Id uintptr
-  Addr uintptr
+	Fd   uint32
+	Cmd  uint32
+	Id   uintptr
+	Addr uintptr
 }
 
 type LandlockCreateRulesetArgs struct {
-  internalArgs
+	internalArgs
 
-  Attr uintptr
-  Size uint64
-  Flags uint32
+	Attr  uintptr
+	Size  uint64
+	Flags uint32
 }
 
 type LandlockAddRuleArgs struct {
-  internalArgs
+	internalArgs
 
-  RulesetFd int32
-  RuleType uintptr
-  RuleAttr uintptr
-  Flags uint32
+	RulesetFd int32
+	RuleType  uintptr
+	RuleAttr  uintptr
+	Flags     uint32
 }
 
 type LandloclRestrictSetArgs struct {
-  internalArgs
+	internalArgs
 
-  RulesetFd int32
-  Flags uint32
+	RulesetFd int32
+	Flags     uint32
 }
 
 type MemfdSecretArgs struct {
-  internalArgs
+	internalArgs
 
-  Flags uint32
+	Flags uint32
 }
 
 type ProcessMreleaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Pidfd int32
-  Flags uint32
+	Pidfd int32
+	Flags uint32
 }
 
 type WaitpidArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Status uintptr
-  Options int32
+	Pid     int32
+	Status  uintptr
+	Options int32
 }
 
 type OldfstatArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type BreakArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type OldstatArgs struct {
-  internalArgs
+	internalArgs
 
-  Filename string
-  Statbuf uintptr
+	Filename string
+	Statbuf  uintptr
 }
 
 type UmountArgs struct {
-  internalArgs
+	internalArgs
 
-  Target string
+	Target string
 }
 
 type StimeArgs struct {
-  internalArgs
+	internalArgs
 
-  T uintptr
+	T uintptr
 }
 
 type SttyArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type GttyArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type NiceArgs struct {
-  internalArgs
+	internalArgs
 
-  Inc int32
+	Inc int32
 }
 
 type FtimeArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type ProfArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SignalArgs struct {
-  internalArgs
+	internalArgs
 
-  Signum int32
-  Handler uintptr
+	Signum  int32
+	Handler uintptr
 }
 
 type LockArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type MpxArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type UlimitArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type OldoldunameArgs struct {
-  internalArgs
+	internalArgs
 
-  Name uintptr
+	Name uintptr
 }
 
 type SigactionArgs struct {
-  internalArgs
+	internalArgs
 
-  Sig int32
-  Act uintptr
-  Oact uintptr
+	Sig  int32
+	Act  uintptr
+	Oact uintptr
 }
 
 type SgetmaskArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SsetmaskArgs struct {
-  internalArgs
+	internalArgs
 
-  Newmask int64
+	Newmask int64
 }
 
 type SigsuspendArgs struct {
-  internalArgs
+	internalArgs
 
-  Mask uintptr
+	Mask uintptr
 }
 
 type SigpendingArgs struct {
-  internalArgs
+	internalArgs
 
-  Set uintptr
+	Set uintptr
 }
 
 type OldlstatArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Statbuf uintptr
+	Pathname string
+	Statbuf  uintptr
 }
 
 type ReaddirArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  Dirp uintptr
-  Count uint32
+	Fd    uint32
+	Dirp  uintptr
+	Count uint32
 }
 
 type ProfilArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SocketcallArgs struct {
-  internalArgs
+	internalArgs
 
-  Call int32
-  Args uintptr
+	Call int32
+	Args uintptr
 }
 
 type OldunameArgs struct {
-  internalArgs
+	internalArgs
 
-  Buf uintptr
+	Buf uintptr
 }
 
 type IdleArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type Vm86oldArgs struct {
-  internalArgs
+	internalArgs
 
-  Info uintptr
+	Info uintptr
 }
 
 type IpcArgs struct {
-  internalArgs
+	internalArgs
 
-  Call uint32
-  First int32
-  Second uint64
-  Third uint64
-  Ptr uintptr
-  Fifth int64
+	Call   uint32
+	First  int32
+	Second uint64
+	Third  uint64
+	Ptr    uintptr
+	Fifth  int64
 }
 
 type SigreturnArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type SigprocmaskArgs struct {
-  internalArgs
+	internalArgs
 
-  How int32
-  Set uintptr
-  Oldset uintptr
+	How    int32
+	Set    uintptr
+	Oldset uintptr
 }
 
 type BdflushArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type Afs_syscallArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type LlseekArgs struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  OffsetHigh uint64
-  OffsetLow uint64
-  Result uintptr
-  Whence uint32
+	Fd         uint32
+	OffsetHigh uint64
+	OffsetLow  uint64
+	Result     uintptr
+	Whence     uint32
 }
 
 type OldSelectArgs struct {
-  internalArgs
+	internalArgs
 
-  Nfds int32
-  Readfds uintptr
-  Writefds uintptr
-  Exceptfds uintptr
-  Timeout uintptr
+	Nfds      int32
+	Readfds   uintptr
+	Writefds  uintptr
+	Exceptfds uintptr
+	Timeout   uintptr
 }
 
 type Vm86Args struct {
-  internalArgs
+	internalArgs
 
-  Fn uint64
-  V86 uintptr
+	Fn  uint64
+	V86 uintptr
 }
 
 type OldGetrlimitArgs struct {
-  internalArgs
+	internalArgs
 
-  Resource int32
-  Rlim uintptr
+	Resource int32
+	Rlim     uintptr
 }
 
 type Mmap2Args struct {
-  internalArgs
+	internalArgs
 
-  Addr uint64
-  Length uint64
-  Prot uint64
-  Flags uint64
-  Fd uint64
-  Pgoffset uint64
+	Addr     uint64
+	Length   uint64
+	Prot     uint64
+	Flags    uint64
+	Fd       uint64
+	Pgoffset uint64
 }
 
 type Truncate64Args struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Length uint64
+	Path   string
+	Length uint64
 }
 
 type Ftruncate64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Length uint64
+	Fd     int32
+	Length uint64
 }
 
 type Stat64Args struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Statbuf uintptr
+	Pathname string
+	Statbuf  uintptr
 }
 
 type Lstat64Args struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Statbuf uintptr
+	Pathname string
+	Statbuf  uintptr
 }
 
 type Fstat64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Statbuf uintptr
+	Fd      int32
+	Statbuf uintptr
 }
 
 type Lchown16Args struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Owner uintptr
-  Group uintptr
+	Pathname string
+	Owner    uintptr
+	Group    uintptr
 }
 
 type Getuid16Args struct {
-  internalArgs
+	internalArgs
 }
 
 type Getgid16Args struct {
-  internalArgs
+	internalArgs
 }
 
 type Geteuid16Args struct {
-  internalArgs
+	internalArgs
 }
 
 type Getegid16Args struct {
-  internalArgs
+	internalArgs
 }
 
 type Setreuid16Args struct {
-  internalArgs
+	internalArgs
 
-  Ruid uintptr
-  Euid uintptr
+	Ruid uintptr
+	Euid uintptr
 }
 
 type Setregid16Args struct {
-  internalArgs
+	internalArgs
 
-  Rgid uintptr
-  Egid uintptr
+	Rgid uintptr
+	Egid uintptr
 }
 
 type Getgroups16Args struct {
-  internalArgs
+	internalArgs
 
-  Size int32
-  List uintptr
+	Size int32
+	List uintptr
 }
 
 type Setgroups16Args struct {
-  internalArgs
+	internalArgs
 
-  Size uint64
-  List uintptr
+	Size uint64
+	List uintptr
 }
 
 type Fchown16Args struct {
-  internalArgs
+	internalArgs
 
-  Fd uint32
-  User uintptr
-  Group uintptr
+	Fd    uint32
+	User  uintptr
+	Group uintptr
 }
 
 type Setresuid16Args struct {
-  internalArgs
+	internalArgs
 
-  Ruid uintptr
-  Euid uintptr
-  Suid uintptr
+	Ruid uintptr
+	Euid uintptr
+	Suid uintptr
 }
 
 type Getresuid16Args struct {
-  internalArgs
+	internalArgs
 
-  Ruid uintptr
-  Euid uintptr
-  Suid uintptr
+	Ruid uintptr
+	Euid uintptr
+	Suid uintptr
 }
 
 type Setresgid16Args struct {
-  internalArgs
+	internalArgs
 
-  Rgid uintptr
-  Euid uintptr
-  Suid uintptr
+	Rgid uintptr
+	Euid uintptr
+	Suid uintptr
 }
 
 type Getresgid16Args struct {
-  internalArgs
+	internalArgs
 
-  Rgid uintptr
-  Egid uintptr
-  Sgid uintptr
+	Rgid uintptr
+	Egid uintptr
+	Sgid uintptr
 }
 
 type Chown16Args struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Owner uintptr
-  Group uintptr
+	Pathname string
+	Owner    uintptr
+	Group    uintptr
 }
 
 type Setuid16Args struct {
-  internalArgs
+	internalArgs
 
-  Uid uintptr
+	Uid uintptr
 }
 
 type Setgid16Args struct {
-  internalArgs
+	internalArgs
 
-  Gid uintptr
+	Gid uintptr
 }
 
 type Setfsuid16Args struct {
-  internalArgs
+	internalArgs
 
-  Fsuid uintptr
+	Fsuid uintptr
 }
 
 type Setfsgid16Args struct {
-  internalArgs
+	internalArgs
 
-  Fsgid uintptr
+	Fsgid uintptr
 }
 
 type Fcntl64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Cmd int32
-  Arg uint64
+	Fd  int32
+	Cmd int32
+	Arg uint64
 }
 
 type Sendfile32Args struct {
-  internalArgs
+	internalArgs
 
-  OutFd int32
-  InFd int32
-  Offset uintptr
-  Count uint64
+	OutFd  int32
+	InFd   int32
+	Offset uintptr
+	Count  uint64
 }
 
 type Statfs64Args struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Sz uint64
-  Buf uintptr
+	Path string
+	Sz   uint64
+	Buf  uintptr
 }
 
 type Fstatfs64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Sz uint64
-  Buf uintptr
+	Fd  int32
+	Sz  uint64
+	Buf uintptr
 }
 
 type Fadvise64_64Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Offset uint64
-  Len uint64
-  Advice int32
+	Fd     int32
+	Offset uint64
+	Len    uint64
+	Advice int32
 }
 
 type ClockGettime32Args struct {
-  internalArgs
+	internalArgs
 
-  WhichClock int32
-  Tp uintptr
+	WhichClock int32
+	Tp         uintptr
 }
 
 type ClockSettime32Args struct {
-  internalArgs
+	internalArgs
 
-  WhichClock int32
-  Tp uintptr
+	WhichClock int32
+	Tp         uintptr
 }
 
 type ClockAdjtime64Args struct {
-  internalArgs
+	internalArgs
 }
 
 type ClockGetresTime32Args struct {
-  internalArgs
+	internalArgs
 
-  WhichClock int32
-  Tp uintptr
+	WhichClock int32
+	Tp         uintptr
 }
 
 type ClockNanosleepTime32Args struct {
-  internalArgs
+	internalArgs
 
-  WhichClock int32
-  Flags int32
-  Rqtp uintptr
-  Rmtp uintptr
+	WhichClock int32
+	Flags      int32
+	Rqtp       uintptr
+	Rmtp       uintptr
 }
 
 type TimerGettime32Args struct {
-  internalArgs
+	internalArgs
 
-  TimerId int32
-  Setting uintptr
+	TimerId int32
+	Setting uintptr
 }
 
 type TimerSettime32Args struct {
-  internalArgs
+	internalArgs
 
-  TimerId int32
-  Flags int32
-  New uintptr
-  Old uintptr
+	TimerId int32
+	Flags   int32
+	New     uintptr
+	Old     uintptr
 }
 
 type TimerfdGettime32Args struct {
-  internalArgs
+	internalArgs
 
-  Ufd int32
-  Otmr uintptr
+	Ufd  int32
+	Otmr uintptr
 }
 
 type TimerfdSettime32Args struct {
-  internalArgs
+	internalArgs
 
-  Ufd int32
-  Flags int32
-  Utmr uintptr
-  Otmr uintptr
+	Ufd   int32
+	Flags int32
+	Utmr  uintptr
+	Otmr  uintptr
 }
 
 type UtimensatTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Dfd uint32
-  Filename string
-  T uintptr
-  Flags int32
+	Dfd      uint32
+	Filename string
+	T        uintptr
+	Flags    int32
 }
 
 type Pselect6Time32Args struct {
-  internalArgs
+	internalArgs
 
-  N int32
-  Inp uintptr
-  Outp uintptr
-  Exp uintptr
-  Tsp uintptr
-  Sig uintptr
+	N    int32
+	Inp  uintptr
+	Outp uintptr
+	Exp  uintptr
+	Tsp  uintptr
+	Sig  uintptr
 }
 
 type PpollTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Ufds uintptr
-  Nfds uint32
-  Tsp uintptr
-  Sigmask uintptr
-  Sigsetsize uint64
+	Ufds       uintptr
+	Nfds       uint32
+	Tsp        uintptr
+	Sigmask    uintptr
+	Sigsetsize uint64
 }
 
 type IoPgeteventsTime32Args struct {
-  internalArgs
+	internalArgs
 }
 
 type RecvmmsgTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Fd int32
-  Mmsg uintptr
-  Vlen uint32
-  Flags uint32
-  Timeout uintptr
+	Fd      int32
+	Mmsg    uintptr
+	Vlen    uint32
+	Flags   uint32
+	Timeout uintptr
 }
 
 type MqTimedsendTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Mqdes int32
-  UMsgPtr string
-  MsgLen uint32
-  MsgPrio uint32
-  UAbsTimeout uintptr
+	Mqdes       int32
+	UMsgPtr     string
+	MsgLen      uint32
+	MsgPrio     uint32
+	UAbsTimeout uintptr
 }
 
 type MqTimedreceiveTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Mqdes int32
-  UMsgPtr string
-  MsgLen uint32
-  UMsgPrio uintptr
-  UAbsTimeout uintptr
+	Mqdes       int32
+	UMsgPtr     string
+	MsgLen      uint32
+	UMsgPrio    uintptr
+	UAbsTimeout uintptr
 }
 
 type RtSigtimedwaitTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Uthese uintptr
-  Uinfo uintptr
-  Uts uintptr
-  Sigsetsize uint64
+	Uthese     uintptr
+	Uinfo      uintptr
+	Uts        uintptr
+	Sigsetsize uint64
 }
 
 type FutexTime32Args struct {
-  internalArgs
+	internalArgs
 
-  Uaddr uintptr
-  Op int32
-  Val uint32
-  Utime uintptr
-  Uaddr2 uintptr
-  Val3 uint32
+	Uaddr  uintptr
+	Op     int32
+	Val    uint32
+	Utime  uintptr
+	Uaddr2 uintptr
+	Val3   uint32
 }
 
 type SchedRrGetInterval32Args struct {
-  internalArgs
+	internalArgs
 
-  Pid int32
-  Interval uintptr
+	Pid      int32
+	Interval uintptr
 }
 
 type SysEnterArgs struct {
-  internalArgs
+	internalArgs
 
-  Syscall int32
+	Syscall int32
 }
 
 type SysExitArgs struct {
-  internalArgs
+	internalArgs
 
-  Syscall int32
+	Syscall int32
 }
 
 type SchedProcessForkArgs struct {
-  internalArgs
+	internalArgs
 
-  ParentTid int32
-  ParentNsTid int32
-  ParentPid int32
-  ParentNsPid int32
-  ParentStartTime uint64
-  ChildTid int32
-  ChildNsTid int32
-  ChildPid int32
-  ChildNsPid int32
-  ChildStartTime uint64
-  UpParentTid int32
-  UpParentNsTid int32
-  UpParentPid int32
-  UpParentNsPid int32
-  UpParentStartTime uint64
-  LeaderTid int32
-  LeaderNsTid int32
-  LeaderPid int32
-  LeaderNsPid int32
-  LeaderStartTime uint64
+	ParentTid         int32
+	ParentNsTid       int32
+	ParentPid         int32
+	ParentNsPid       int32
+	ParentStartTime   uint64
+	ChildTid          int32
+	ChildNsTid        int32
+	ChildPid          int32
+	ChildNsPid        int32
+	ChildStartTime    uint64
+	UpParentTid       int32
+	UpParentNsTid     int32
+	UpParentPid       int32
+	UpParentNsPid     int32
+	UpParentStartTime uint64
+	LeaderTid         int32
+	LeaderNsTid       int32
+	LeaderPid         int32
+	LeaderNsPid       int32
+	LeaderStartTime   uint64
 }
 
 type SchedProcessExecArgs struct {
-  internalArgs
+	internalArgs
 
-  Filename string
-  Filepath string
-  Dev uint32
-  Inode uint64
-  Ctime uint64
-  InodeMode uint16
-  InterpreterPathname string
-  InterpreterDev uint32
-  InterpreterInode uint64
-  InterpreterCtime uint64
-  Argv []string
-  Interp string
-  StdinType uint16
-  StdinPath string
-  InvokedFromKernel int32
-  Flags uint32
+	Filename            string
+	Filepath            string
+	Dev                 uint32
+	Inode               uint64
+	Ctime               uint64
+	InodeMode           uint16
+	InterpreterPathname string
+	InterpreterDev      uint32
+	InterpreterInode    uint64
+	InterpreterCtime    uint64
+	Argv                []string
+	Interp              string
+	StdinType           uint16
+	StdinPath           string
+	InvokedFromKernel   int32
+	Flags               uint32
 }
 
 type SchedProcessExitArgs struct {
-  internalArgs
+	internalArgs
 
-  ExitCode int64
-  ProcessGroupExit bool
+	ExitCode         int64
+	ProcessGroupExit bool
 }
 
 type SchedSwitchArgs struct {
-  internalArgs
+	internalArgs
 
-  Cpu int32
-  PrevTid int32
-  PrevComm string
-  NextTid int32
-  NextComm string
+	Cpu      int32
+	PrevTid  int32
+	PrevComm string
+	NextTid  int32
+	NextComm string
 }
 
 type ProcessOomKilledArgs struct {
-  internalArgs
+	internalArgs
 
-  ExitCode int64
-  ProcessGroupExit bool
+	ExitCode         int64
+	ProcessGroupExit bool
 }
 
 type MagicWriteArgs struct {
-  internalArgs
+	internalArgs
 
-  Pathname string
-  Bytes []byte
-  Dev uint32
-  Inode uint64
+	Pathname string
+	Bytes    []byte
+	Dev      uint32
+	Inode    uint64
 }
 
 type CgroupMkdirArgs struct {
-  internalArgs
+	internalArgs
 
-  CgroupId uint64
-  CgroupPath string
-  HierarchyId uint32
+	CgroupId    uint64
+	CgroupPath  string
+	HierarchyId uint32
 }
 
 type CgroupRmdirArgs struct {
-  internalArgs
+	internalArgs
 
-  CgroupId uint64
-  CgroupPath string
-  HierarchyId uint32
+	CgroupId    uint64
+	CgroupPath  string
+	HierarchyId uint32
 }
 
 type SecuritySocketConnectArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Type int32
-  RemoteAddr Sockaddr
+	Sockfd     int32
+	Type       int32
+	RemoteAddr Sockaddr
 }
 
 type SocketDupArgs struct {
-  internalArgs
+	internalArgs
 
-  Oldfd int32
-  Newfd int32
-  RemoteAddr Sockaddr
+	Oldfd      int32
+	Newfd      int32
+	RemoteAddr Sockaddr
 }
 
 type FileModificationArgs struct {
-  internalArgs
+	internalArgs
 
-  FilePath string
-  Dev uint32
-  Inode uint64
-  OldCtime uint64
-  NewCtime uint64
+	FilePath string
+	Dev      uint32
+	Inode    uint64
+	OldCtime uint64
+	NewCtime uint64
 }
 
 type TtyOpenArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Inode uint64
-  InodeMode uint16
-  Dev uint32
+	Path      string
+	Inode     uint64
+	InodeMode uint16
+	Dev       uint32
 }
 
 type TtyWriteArgs struct {
-  internalArgs
+	internalArgs
 
-  Path string
-  Inode uint64
+	Path  string
+	Inode uint64
 }
 
 type NetPacketBaseArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type NetPacketIPBaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload []byte
+	Payload []byte
 }
 
 type NetPacketTCPBaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload []byte
+	Payload []byte
 }
 
 type NetPacketUDPBaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload []byte
+	Payload []byte
 }
 
 type NetPacketICMPBaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload []byte
+	Payload []byte
 }
 
 type NetPacketICMPv6BaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload []byte
+	Payload []byte
 }
 
 type NetPacketDNSBaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload *ProtoDNS
+	Payload *ProtoDNS
 }
 
 type NetPacketSOCKS5BaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload []byte
+	Payload []byte
 }
 
 type NetPacketSSHBaseArgs struct {
-  internalArgs
+	internalArgs
 
-  Payload *ProtoSSH
+	Payload *ProtoSSH
 }
 
 type SockSetStateArgs struct {
-  internalArgs
+	internalArgs
 
-  OldState uint32
-  NewState uint32
-  Tuple AddrTuple
+	OldState uint32
+	NewState uint32
+	Tuple    AddrTuple
 }
 
 type TrackSyscallStatsArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type NetFlowBaseArgs struct {
-  internalArgs
+	internalArgs
 }
 
 type StdioViaSocketArgs struct {
-  internalArgs
+	internalArgs
 
-  Sockfd int32
-  Addr Sockaddr
+	Sockfd int32
+	Addr   Sockaddr
 }
 
 type ProcFdLinkResolvedArgs struct {
-  internalArgs
+	internalArgs
 
-  Pid string
-  Fd string
+	Pid string
+	Fd  string
+}
+
+type SecurityFileOpenArgs struct {
+	internalArgs
+
+	Path string
 }
 
 type TestEventArgs struct {
-  internalArgs
+	internalArgs
 }
