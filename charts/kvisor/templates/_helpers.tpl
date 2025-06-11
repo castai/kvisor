@@ -59,10 +59,10 @@ Create chart name and version as used by the chart label.
 {{- if and .Values.castai.clusterID .Values.castai.clusterIdSecretKeyRef.name }}
   {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
 {{- else if .Values.castai.clusterID }}
-- name: CASTAI_CLUSTER_ID
+- name: CLUSTER_ID
   value: {{ .Values.castai.clusterID | quote }}
 {{- else if .Values.castai.clusterIdSecretKeyRef.name }}
-- name: CASTAI_CLUSTER_ID
+- name: CLUSTER_ID
   valueFrom:
     secretKeyRef:
       name: {{ .Values.castai.clusterIdSecretKeyRef.name }}
@@ -71,6 +71,7 @@ Create chart name and version as used by the chart label.
   {{- fail "castai.clusterID or castai.clusterIdSecretKeyRef must be provided" }}
 {{- end }}
 {{- end }}
+
 
 {{/*
 Common labels
