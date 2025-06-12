@@ -45,12 +45,11 @@ func run(ctx context.Context, log *logrus.Logger, version string) error {
 
 	blobsCache := blobscache.NewRemoteBlobsCacheClient(cfg.BlobsCacheURL)
 
-	ingestClient, err := castai.NewClient(fmt.Sprintf("kvisor-imagescan/%s", version), castai.Config{
-		ClusterID:   cfg.CastaiClusterID,
-		APIKey:      cfg.CastaiAPIKey,
-		APIGrpcAddr: cfg.CastaiAPIGrpcAddr,
-		Insecure:    cfg.CastaiGRPCInsecure,
-	})
+	castaiClientCfg, err := castai.NewConfigFromEnv(cfg.CastaiGRPCInsecure)
+	if err != nil {
+		return fmt.Errorf("failed to initialize CAST AI client config: %w", err)
+	}
+	ingestClient, err := castai.NewClient(fmt.Sprintf("kvisor-imagescan/%s", version), castaiClientCfg)
 	if err != nil {
 		return err
 	}

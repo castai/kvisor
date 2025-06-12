@@ -204,7 +204,7 @@ func TestScanner(t *testing.T) {
 												Value: "api.cast.ai:443",
 											},
 											{
-												Name:  "CASTAI_CLUSTER_ID",
+												Name:  "CLUSTER_ID",
 												Value: "abcd",
 											},
 											{

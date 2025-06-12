@@ -36,6 +36,7 @@ import (
 
 func TestCollector(t *testing.T) {
 	t.Run("collect and sends metadata", func(t *testing.T) {
+		t.Setenv("CASTAI_GRPC_INSECURE", "true")
 		imgName := "notused"
 		imgID := "gke.gcr.io/phpmyadmin@sha256:b0d9c54760b35edd1854e5710c1a62a28ad2d2b070c801da3e30a3e59c19e7e3" //nolint:gosec
 
@@ -268,7 +269,6 @@ func TestCollectorLargeImageDockerTar(t *testing.T) {
 	ingestClient := &mockIngestClient{}
 
 	c := New(log, config.Config{
-		CastaiAPIGrpcAddr: srv.URL,
 		ImageID:           imgID,
 		ImageName:         imgName,
 		Timeout:           5 * time.Minute,

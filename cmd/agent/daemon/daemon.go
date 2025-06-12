@@ -21,20 +21,6 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 )
 
-func lookupConfigVariable(name string) (string, error) {
-	key, found := os.LookupEnv("CASTAI_" + name)
-	if found {
-		return key, nil
-	}
-
-	key, found = os.LookupEnv(name)
-	if found {
-		return key, nil
-	}
-
-	return "", fmt.Errorf("environment variable missing: please provide either `CAST_%s` or `%s`", name, name)
-}
-
 func NewRunCommand(version string) *cobra.Command {
 	command := &cobra.Command{
 		Use: "run",
@@ -135,9 +121,9 @@ func NewRunCommand(version string) *cobra.Command {
 		ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
-		castaiClientCfg, err := resolveCastaiConfig(*castaiServerInsecure)
+		castaiClientCfg, err := castai.NewConfigFromEnv(*castaiServerInsecure)
 		if err != nil {
-			slog.Warn(fmt.Errorf("skipping CAST AI integration: %w", err).Error())
+			slog.Warn(fmt.Errorf("failed to initialize CAST AI client config: %w", err).Error())
 		}
 		castaiClientCfg.CompressionName = *castaiCompressionName
 
@@ -234,27 +220,4 @@ func NewRunCommand(version string) *cobra.Command {
 	}
 
 	return command
-}
-
-func resolveCastaiConfig(castaiServerInsecure bool) (castai.Config, error) {
-	castaiGRPCAddress, found := os.LookupEnv("CASTAI_API_GRPC_ADDR")
-	if !found {
-		return castai.Config{}, fmt.Errorf("missing environment variable: CASTAI_API_GRPC_ADDR")
-	}
-	castaiClusterID, found := os.LookupEnv("CASTAI_CLUSTER_ID")
-	if !found {
-		return castai.Config{}, fmt.Errorf("missing environment variable: CASTAI_CLUSTER_ID")
-	}
-
-	apiKey, err := lookupConfigVariable("API_KEY")
-	if err != nil {
-		return castai.Config{}, err
-	}
-
-	return castai.Config{
-		APIKey:      apiKey,
-		APIGrpcAddr: castaiGRPCAddress,
-		ClusterID:   castaiClusterID,
-		Insecure:    castaiServerInsecure,
-	}, nil
 }

@@ -213,7 +213,7 @@ func (s *Scanner) ScanImage(ctx context.Context, params ScanImageParams) (rerr e
 			Value: s.cfg.CastaiGRPCAddress,
 		},
 		{
-			Name:  "CASTAI_CLUSTER_ID",
+			Name:  "CLUSTER_ID",
 			Value: s.cfg.CastaiClusterID,
 		},
 		{
@@ -440,7 +440,7 @@ func scanJobSpec(
 ) *batchv1.Job {
 	podLabels := map[string]string{}
 	podLabels["reports.cast.ai/name"] = "castai-imgscan"
-	
+
 	if cfg.CloudProvider == "aks" {
 		podLabels["azure.workload.identity/use"] = "true"
 	}
