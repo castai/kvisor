@@ -910,6 +910,8 @@ github.com/aquasecurity/table v1.8.0 h1:9ntpSwrUfjrM6/YviArlx/ZBGd6ix8W+MtojQcM7
 github.com/aquasecurity/table v1.8.0/go.mod h1:eqOmvjjB7AhXFgFqpJUEE/ietg7RrMSJZXyTN8E/wZw=
 github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c h1:KqiwblDXntw4iGfFWyD0HZdqaKBNuT/7XXx92fxCwGM=
 github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c/go.mod h1:Cs/W/mn1mG6aoDnmp6LoLHn97RiphFEqqedRVv7ze8o=
+github.com/aquasecurity/testdocker v0.0.0-20250604115748-1b460a8efd69 h1:sJlELtSNeY1nDK/LtGpkKE/pWBsaygvJi9eY5emzlKU=
+github.com/aquasecurity/testdocker v0.0.0-20250604115748-1b460a8efd69/go.mod h1:Cs/W/mn1mG6aoDnmp6LoLHn97RiphFEqqedRVv7ze8o=
 github.com/aquasecurity/tml v0.6.1 h1:y2ZlGSfrhnn7t4ZJ/0rotuH+v5Jgv6BDDO5jB6A9gwo=
 github.com/aquasecurity/tml v0.6.1/go.mod h1:OnYMWY5lvI9ejU7yH9LCberWaaTBW7hBFsITiIMY2yY=
 github.com/aquasecurity/trivy v0.61.0 h1:FPRAQ9w6tyAXSNsc6encybNfNoRh4l89oPNmkJm+sgM=
