@@ -84,52 +84,15 @@ var (
 	agentEnabled = pflag.Bool("agent-enabled", false, "Whether kvisor-agent is enabled (used for reporting; does not enable agent)")
 )
 
-func lookupConfigVariable(name string) (string, error) {
-	key, found := os.LookupEnv("CASTAI_" + name)
-	if found {
-		return key, nil
-	}
-
-	key, found = os.LookupEnv(name)
-	if found {
-		return key, nil
-	}
-
-	return "", fmt.Errorf("environment variable missing: please provide either `CAST_%s` or `%s`", name, name)
-}
-
-func resolveCastaiConfig(castaiServerInsecure bool) (castai.Config, error) {
-	castaiGRPCAddress, found := os.LookupEnv("CASTAI_API_GRPC_ADDR")
-	if !found {
-		return castai.Config{}, fmt.Errorf("missing environment variable: CASTAI_API_GRPC_ADDR")
-	}
-	castaiClusterID, found := os.LookupEnv("CASTAI_CLUSTER_ID")
-	if !found {
-		return castai.Config{}, fmt.Errorf("missing environment variable: CASTAI_CLUSTER_ID")
-	}
-
-	apiKey, err := lookupConfigVariable("API_KEY")
-	if err != nil {
-		return castai.Config{}, err
-	}
-
-	return castai.Config{
-		APIKey:      apiKey,
-		APIGrpcAddr: castaiGRPCAddress,
-		ClusterID:   castaiClusterID,
-		Insecure:    castaiServerInsecure,
-	}, nil
-}
-
 func main() {
 	pflag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	castaiClientCfg, err := resolveCastaiConfig(*castaiServerInsecure)
+	castaiClientCfg, err := castai.NewConfigFromEnv(*castaiServerInsecure)
 	if err != nil {
-		slog.Warn(fmt.Errorf("skipping CAST AI integration: %w", err).Error())
+		slog.Warn(fmt.Errorf("failed to initialize CAST AI client config: %w", err).Error())
 	}
 
 	kubeConfig, err := getKubeConfig(*kubeconfigPath)

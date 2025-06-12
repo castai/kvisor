@@ -13,19 +13,6 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type Config struct {
-	ClusterID   string `json:"clusterID"`
-	APIKey      string `json:"-"`
-	APIGrpcAddr string `json:"APIGrpcAddr"`
-	Insecure    bool   `json:"insecure"`
-
-	CompressionName string `json:"compression"`
-}
-
-func (c Config) Valid() bool {
-	return c.ClusterID != "" && c.APIKey != "" && c.APIGrpcAddr != ""
-}
-
 func NewClient(userAgent string, cfg Config) (*Client, error) {
 	tls := credentials.NewTLS(nil)
 	if strings.HasPrefix(cfg.APIGrpcAddr, "localhost") || cfg.Insecure {
