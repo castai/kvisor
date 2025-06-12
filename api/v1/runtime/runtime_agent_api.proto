@@ -58,6 +58,7 @@ enum EventType {
   EVENT_SSH = 12;
   EVENT_PROCESS_FORK = 13;
   EVENT_PROCESS_EXIT = 14;
+  EVENT_FILE_OPEN = 15;
 
   EVENT_ANY = 999;
 }

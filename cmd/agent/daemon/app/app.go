@@ -387,6 +387,7 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 }
 
 func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
+	// TODO: Allow to build these policies on the fly from the control plane. Ideally we should be able to disable, enable policies and change rate limits dynamically.
 	policy := &ebpftracer.Policy{
 		SystemEvents: []events.ID{
 			events.CgroupMkdir,
@@ -424,6 +425,15 @@ Currently we care only care about dns responses with valid answers.
 			case events.SockSetState:
 				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 					ID: events.SockSetState,
+				})
+			case events.SecurityFileOpen:
+				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+					ID: events.SecurityFileOpen,
+					FilterGenerator: ebpftracer.RateLimit(ebpftracer.RateLimitPolicy{
+						Rate:  1000,
+						Burst: 100,
+					}),
+					KernelFilters: nil,
 				})
 			case events.NetPacketDNSBase:
 				policy.Events = append(policy.Events, dnsEventPolicy)

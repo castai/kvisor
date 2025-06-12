@@ -43,6 +43,7 @@ const (
 	TtyWrite
 	StdioViaSocket
 	ProcFdLinkResolved
+	SecurityFileOpen
 	MaxCommonID
 )
 

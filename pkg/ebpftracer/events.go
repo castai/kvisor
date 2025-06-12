@@ -5727,7 +5727,20 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 				{Type: "const char*", Name: "fd"},
 			},
 		},
-
+		events.SecurityFileOpen: {
+			ID:      events.SecurityFileOpen,
+			id32Bit: events.Sys32Undefined,
+			name:    "security_file_open",
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeSecurityFileOpen, required: true},
+				},
+			},
+			sets: []string{},
+			params: []argMeta{
+				{Type: "char*", Name: "path"},
+			},
+		},
 		// Event used for testing in unit tests
 		events.TestEvent: {
 			ID:       events.TestEvent,

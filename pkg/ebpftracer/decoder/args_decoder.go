@@ -3,18931 +3,18964 @@
 package decoder
 
 import (
-  "github.com/castai/kvisor/pkg/ebpftracer/events"
-  "github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/types"
 )
 
 func ParseReadArgs(decoder *Decoder) (types.ReadArgs, error) {
-  var result types.ReadArgs
-  var err error
+	var result types.ReadArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ReadArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ReadArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ReadArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ReadArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ReadArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ReadArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.ReadArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.ReadArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 2:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.ReadArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.ReadArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.ReadArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 2:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.ReadArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseWriteArgs(decoder *Decoder) (types.WriteArgs, error) {
-  var result types.WriteArgs
-  var err error
+	var result types.WriteArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.WriteArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.WriteArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.WriteArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.WriteArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.WriteArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.WriteArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.WriteArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.WriteArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 2:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.WriteArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.WriteArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.WriteArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 2:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.WriteArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseOpenArgs(decoder *Decoder) (types.OpenArgs, error) {
-  var result types.OpenArgs
-  var err error
+	var result types.OpenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OpenArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.OpenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OpenArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.OpenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OpenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OpenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.OpenArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.OpenArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.OpenArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.OpenArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.OpenArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.OpenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCloseArgs(decoder *Decoder) (types.CloseArgs, error) {
-  var result types.CloseArgs
-  var err error
+	var result types.CloseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CloseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.CloseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CloseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.CloseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CloseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CloseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.CloseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.CloseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseStatArgs(decoder *Decoder) (types.StatArgs, error) {
-  var result types.StatArgs
-  var err error
+	var result types.StatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.StatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.StatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.StatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.StatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.StatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.StatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.StatArgs{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.StatArgs{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.StatArgs{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.StatArgs{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseFstatArgs(decoder *Decoder) (types.FstatArgs, error) {
-  var result types.FstatArgs
-  var err error
+	var result types.FstatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FstatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FstatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FstatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FstatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FstatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FstatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FstatArgs{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.FstatArgs{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FstatArgs{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.FstatArgs{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseLstatArgs(decoder *Decoder) (types.LstatArgs, error) {
-  var result types.LstatArgs
-  var err error
+	var result types.LstatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LstatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.LstatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LstatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.LstatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LstatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LstatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LstatArgs{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.LstatArgs{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LstatArgs{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.LstatArgs{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParsePollArgs(decoder *Decoder) (types.PollArgs, error) {
-  var result types.PollArgs
-  var err error
+	var result types.PollArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PollArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.PollArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PollArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.PollArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PollArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PollArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataFds uint64
-      err = decoder.DecodeUint64(&dataFds)
-      if err != nil {
-        return types.PollArgs{}, err
-      }
-      result.Fds = uintptr(dataFds)
-    case 1:
-      err = decoder.DecodeUint32(&result.Nfds)
-      if err != nil {
-        return types.PollArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Timeout)
-      if err != nil {
-        return types.PollArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataFds uint64
+			err = decoder.DecodeUint64(&dataFds)
+			if err != nil {
+				return types.PollArgs{}, err
+			}
+			result.Fds = uintptr(dataFds)
+		case 1:
+			err = decoder.DecodeUint32(&result.Nfds)
+			if err != nil {
+				return types.PollArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Timeout)
+			if err != nil {
+				return types.PollArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLseekArgs(decoder *Decoder) (types.LseekArgs, error) {
-  var result types.LseekArgs
-  var err error
+	var result types.LseekArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LseekArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.LseekArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LseekArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.LseekArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LseekArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LseekArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.LseekArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.LseekArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Whence)
-      if err != nil {
-        return types.LseekArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.LseekArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.LseekArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Whence)
+			if err != nil {
+				return types.LseekArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMmapArgs(decoder *Decoder) (types.MmapArgs, error) {
-  var result types.MmapArgs
-  var err error
+	var result types.MmapArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MmapArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.MmapArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MmapArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.MmapArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MmapArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MmapArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MmapArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.MmapArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Prot)
-      if err != nil {
-        return types.MmapArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.MmapArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.MmapArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint64(&result.Off)
-      if err != nil {
-        return types.MmapArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MmapArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.MmapArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Prot)
+			if err != nil {
+				return types.MmapArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.MmapArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.MmapArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint64(&result.Off)
+			if err != nil {
+				return types.MmapArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMprotectArgs(decoder *Decoder) (types.MprotectArgs, error) {
-  var result types.MprotectArgs
-  var err error
+	var result types.MprotectArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MprotectArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MprotectArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MprotectArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MprotectArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MprotectArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MprotectArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MprotectArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.MprotectArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Prot)
-      if err != nil {
-        return types.MprotectArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MprotectArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.MprotectArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Prot)
+			if err != nil {
+				return types.MprotectArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMunmapArgs(decoder *Decoder) (types.MunmapArgs, error) {
-  var result types.MunmapArgs
-  var err error
+	var result types.MunmapArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MunmapArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MunmapArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MunmapArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MunmapArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MunmapArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MunmapArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MunmapArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.MunmapArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MunmapArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.MunmapArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseBrkArgs(decoder *Decoder) (types.BrkArgs, error) {
-  var result types.BrkArgs
-  var err error
+	var result types.BrkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.BrkArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.BrkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.BrkArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.BrkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.BrkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.BrkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.BrkArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.BrkArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigactionArgs(decoder *Decoder) (types.RtSigactionArgs, error) {
-  var result types.RtSigactionArgs
-  var err error
+	var result types.RtSigactionArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigactionArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RtSigactionArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigactionArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RtSigactionArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigactionArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigactionArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Signum)
-      if err != nil {
-        return types.RtSigactionArgs{}, err
-      }
-    case 1:
-      var dataAct uint64
-      err = decoder.DecodeUint64(&dataAct)
-      if err != nil {
-        return types.RtSigactionArgs{}, err
-      }
-      result.Act = uintptr(dataAct)
-    case 2:
-      var dataOldact uint64
-      err = decoder.DecodeUint64(&dataOldact)
-      if err != nil {
-        return types.RtSigactionArgs{}, err
-      }
-      result.Oldact = uintptr(dataOldact)
-    case 3:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.RtSigactionArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Signum)
+			if err != nil {
+				return types.RtSigactionArgs{}, err
+			}
+		case 1:
+			var dataAct uint64
+			err = decoder.DecodeUint64(&dataAct)
+			if err != nil {
+				return types.RtSigactionArgs{}, err
+			}
+			result.Act = uintptr(dataAct)
+		case 2:
+			var dataOldact uint64
+			err = decoder.DecodeUint64(&dataOldact)
+			if err != nil {
+				return types.RtSigactionArgs{}, err
+			}
+			result.Oldact = uintptr(dataOldact)
+		case 3:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.RtSigactionArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigprocmaskArgs(decoder *Decoder) (types.RtSigprocmaskArgs, error) {
-  var result types.RtSigprocmaskArgs
-  var err error
+	var result types.RtSigprocmaskArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigprocmaskArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RtSigprocmaskArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigprocmaskArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RtSigprocmaskArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigprocmaskArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigprocmaskArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.How)
-      if err != nil {
-        return types.RtSigprocmaskArgs{}, err
-      }
-    case 1:
-      var dataSet uint64
-      err = decoder.DecodeUint64(&dataSet)
-      if err != nil {
-        return types.RtSigprocmaskArgs{}, err
-      }
-      result.Set = uintptr(dataSet)
-    case 2:
-      var dataOldset uint64
-      err = decoder.DecodeUint64(&dataOldset)
-      if err != nil {
-        return types.RtSigprocmaskArgs{}, err
-      }
-      result.Oldset = uintptr(dataOldset)
-    case 3:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.RtSigprocmaskArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.How)
+			if err != nil {
+				return types.RtSigprocmaskArgs{}, err
+			}
+		case 1:
+			var dataSet uint64
+			err = decoder.DecodeUint64(&dataSet)
+			if err != nil {
+				return types.RtSigprocmaskArgs{}, err
+			}
+			result.Set = uintptr(dataSet)
+		case 2:
+			var dataOldset uint64
+			err = decoder.DecodeUint64(&dataOldset)
+			if err != nil {
+				return types.RtSigprocmaskArgs{}, err
+			}
+			result.Oldset = uintptr(dataOldset)
+		case 3:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.RtSigprocmaskArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigreturnArgs(decoder *Decoder) (types.RtSigreturnArgs, error) {
-  return types.RtSigreturnArgs{}, nil
+	return types.RtSigreturnArgs{}, nil
 }
 
 func ParseIoctlArgs(decoder *Decoder) (types.IoctlArgs, error) {
-  var result types.IoctlArgs
-  var err error
+	var result types.IoctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoctlArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.IoctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoctlArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.IoctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.IoctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Request)
-      if err != nil {
-        return types.IoctlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Arg)
-      if err != nil {
-        return types.IoctlArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.IoctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Request)
+			if err != nil {
+				return types.IoctlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Arg)
+			if err != nil {
+				return types.IoctlArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePread64Args(decoder *Decoder) (types.Pread64Args, error) {
-  var result types.Pread64Args
-  var err error
+	var result types.Pread64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Pread64Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Pread64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Pread64Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Pread64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Pread64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Pread64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Pread64Args{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.Pread64Args{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 2:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.Pread64Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.Pread64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Pread64Args{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.Pread64Args{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 2:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.Pread64Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.Pread64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePwrite64Args(decoder *Decoder) (types.Pwrite64Args, error) {
-  var result types.Pwrite64Args
-  var err error
+	var result types.Pwrite64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Pwrite64Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Pwrite64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Pwrite64Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Pwrite64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Pwrite64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Pwrite64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Pwrite64Args{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.Pwrite64Args{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 2:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.Pwrite64Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.Pwrite64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Pwrite64Args{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.Pwrite64Args{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 2:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.Pwrite64Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.Pwrite64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseReadvArgs(decoder *Decoder) (types.ReadvArgs, error) {
-  var result types.ReadvArgs
-  var err error
+	var result types.ReadvArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ReadvArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ReadvArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ReadvArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ReadvArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ReadvArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ReadvArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.ReadvArgs{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.ReadvArgs{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeInt32(&result.Iovcnt)
-      if err != nil {
-        return types.ReadvArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.ReadvArgs{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.ReadvArgs{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeInt32(&result.Iovcnt)
+			if err != nil {
+				return types.ReadvArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseWritevArgs(decoder *Decoder) (types.WritevArgs, error) {
-  var result types.WritevArgs
-  var err error
+	var result types.WritevArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.WritevArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.WritevArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.WritevArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.WritevArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.WritevArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.WritevArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.WritevArgs{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.WritevArgs{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeInt32(&result.Iovcnt)
-      if err != nil {
-        return types.WritevArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.WritevArgs{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.WritevArgs{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeInt32(&result.Iovcnt)
+			if err != nil {
+				return types.WritevArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseAccessArgs(decoder *Decoder) (types.AccessArgs, error) {
-  var result types.AccessArgs
-  var err error
+	var result types.AccessArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.AccessArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.AccessArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.AccessArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.AccessArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.AccessArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.AccessArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.AccessArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Mode)
-      if err != nil {
-        return types.AccessArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.AccessArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Mode)
+			if err != nil {
+				return types.AccessArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePipeArgs(decoder *Decoder) (types.PipeArgs, error) {
-  var result types.PipeArgs
-  var err error
+	var result types.PipeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PipeArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.PipeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PipeArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.PipeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PipeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PipeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeIntArray(result.Pipefd[:], 2)
-      if err != nil {
-        return types.PipeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeIntArray(result.Pipefd[:], 2)
+			if err != nil {
+				return types.PipeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSelectArgs(decoder *Decoder) (types.SelectArgs, error) {
-  var result types.SelectArgs
-  var err error
+	var result types.SelectArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SelectArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.SelectArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SelectArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.SelectArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SelectArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SelectArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Nfds)
-      if err != nil {
-        return types.SelectArgs{}, err
-      }
-    case 1:
-      var dataReadfds uint64
-      err = decoder.DecodeUint64(&dataReadfds)
-      if err != nil {
-        return types.SelectArgs{}, err
-      }
-      result.Readfds = uintptr(dataReadfds)
-    case 2:
-      var dataWritefds uint64
-      err = decoder.DecodeUint64(&dataWritefds)
-      if err != nil {
-        return types.SelectArgs{}, err
-      }
-      result.Writefds = uintptr(dataWritefds)
-    case 3:
-      var dataExceptfds uint64
-      err = decoder.DecodeUint64(&dataExceptfds)
-      if err != nil {
-        return types.SelectArgs{}, err
-      }
-      result.Exceptfds = uintptr(dataExceptfds)
-    case 4:
-      var dataTimeout uint64
-      err = decoder.DecodeUint64(&dataTimeout)
-      if err != nil {
-        return types.SelectArgs{}, err
-      }
-      result.Timeout = uintptr(dataTimeout)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Nfds)
+			if err != nil {
+				return types.SelectArgs{}, err
+			}
+		case 1:
+			var dataReadfds uint64
+			err = decoder.DecodeUint64(&dataReadfds)
+			if err != nil {
+				return types.SelectArgs{}, err
+			}
+			result.Readfds = uintptr(dataReadfds)
+		case 2:
+			var dataWritefds uint64
+			err = decoder.DecodeUint64(&dataWritefds)
+			if err != nil {
+				return types.SelectArgs{}, err
+			}
+			result.Writefds = uintptr(dataWritefds)
+		case 3:
+			var dataExceptfds uint64
+			err = decoder.DecodeUint64(&dataExceptfds)
+			if err != nil {
+				return types.SelectArgs{}, err
+			}
+			result.Exceptfds = uintptr(dataExceptfds)
+		case 4:
+			var dataTimeout uint64
+			err = decoder.DecodeUint64(&dataTimeout)
+			if err != nil {
+				return types.SelectArgs{}, err
+			}
+			result.Timeout = uintptr(dataTimeout)
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedYieldArgs(decoder *Decoder) (types.SchedYieldArgs, error) {
-  return types.SchedYieldArgs{}, nil
+	return types.SchedYieldArgs{}, nil
 }
 
 func ParseMremapArgs(decoder *Decoder) (types.MremapArgs, error) {
-  var result types.MremapArgs
-  var err error
+	var result types.MremapArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MremapArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MremapArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MremapArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MremapArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MremapArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MremapArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataOldAddress uint64
-      err = decoder.DecodeUint64(&dataOldAddress)
-      if err != nil {
-        return types.MremapArgs{}, err
-      }
-      result.OldAddress = uintptr(dataOldAddress)
-    case 1:
-      err = decoder.DecodeUint64(&result.OldSize)
-      if err != nil {
-        return types.MremapArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.NewSize)
-      if err != nil {
-        return types.MremapArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.MremapArgs{}, err
-      }
-    case 4:
-      var dataNewAddress uint64
-      err = decoder.DecodeUint64(&dataNewAddress)
-      if err != nil {
-        return types.MremapArgs{}, err
-      }
-      result.NewAddress = uintptr(dataNewAddress)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataOldAddress uint64
+			err = decoder.DecodeUint64(&dataOldAddress)
+			if err != nil {
+				return types.MremapArgs{}, err
+			}
+			result.OldAddress = uintptr(dataOldAddress)
+		case 1:
+			err = decoder.DecodeUint64(&result.OldSize)
+			if err != nil {
+				return types.MremapArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.NewSize)
+			if err != nil {
+				return types.MremapArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.MremapArgs{}, err
+			}
+		case 4:
+			var dataNewAddress uint64
+			err = decoder.DecodeUint64(&dataNewAddress)
+			if err != nil {
+				return types.MremapArgs{}, err
+			}
+			result.NewAddress = uintptr(dataNewAddress)
+		}
+	}
+	return result, nil
 }
 
 func ParseMsyncArgs(decoder *Decoder) (types.MsyncArgs, error) {
-  var result types.MsyncArgs
-  var err error
+	var result types.MsyncArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MsyncArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MsyncArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MsyncArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MsyncArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MsyncArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MsyncArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MsyncArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.MsyncArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.MsyncArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MsyncArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.MsyncArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.MsyncArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMincoreArgs(decoder *Decoder) (types.MincoreArgs, error) {
-  var result types.MincoreArgs
-  var err error
+	var result types.MincoreArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MincoreArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MincoreArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MincoreArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MincoreArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MincoreArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MincoreArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MincoreArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.MincoreArgs{}, err
-      }
-    case 2:
-      var dataVec uint64
-      err = decoder.DecodeUint64(&dataVec)
-      if err != nil {
-        return types.MincoreArgs{}, err
-      }
-      result.Vec = uintptr(dataVec)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MincoreArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.MincoreArgs{}, err
+			}
+		case 2:
+			var dataVec uint64
+			err = decoder.DecodeUint64(&dataVec)
+			if err != nil {
+				return types.MincoreArgs{}, err
+			}
+			result.Vec = uintptr(dataVec)
+		}
+	}
+	return result, nil
 }
 
 func ParseMadviseArgs(decoder *Decoder) (types.MadviseArgs, error) {
-  var result types.MadviseArgs
-  var err error
+	var result types.MadviseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MadviseArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MadviseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MadviseArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MadviseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MadviseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MadviseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MadviseArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.MadviseArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Advice)
-      if err != nil {
-        return types.MadviseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MadviseArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.MadviseArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Advice)
+			if err != nil {
+				return types.MadviseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseShmgetArgs(decoder *Decoder) (types.ShmgetArgs, error) {
-  var result types.ShmgetArgs
-  var err error
+	var result types.ShmgetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ShmgetArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ShmgetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ShmgetArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ShmgetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ShmgetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ShmgetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Key)
-      if err != nil {
-        return types.ShmgetArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.ShmgetArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Shmflg)
-      if err != nil {
-        return types.ShmgetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Key)
+			if err != nil {
+				return types.ShmgetArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.ShmgetArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Shmflg)
+			if err != nil {
+				return types.ShmgetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseShmatArgs(decoder *Decoder) (types.ShmatArgs, error) {
-  var result types.ShmatArgs
-  var err error
+	var result types.ShmatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ShmatArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ShmatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ShmatArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ShmatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ShmatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ShmatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Shmid)
-      if err != nil {
-        return types.ShmatArgs{}, err
-      }
-    case 1:
-      var dataShmaddr uint64
-      err = decoder.DecodeUint64(&dataShmaddr)
-      if err != nil {
-        return types.ShmatArgs{}, err
-      }
-      result.Shmaddr = uintptr(dataShmaddr)
-    case 2:
-      err = decoder.DecodeInt32(&result.Shmflg)
-      if err != nil {
-        return types.ShmatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Shmid)
+			if err != nil {
+				return types.ShmatArgs{}, err
+			}
+		case 1:
+			var dataShmaddr uint64
+			err = decoder.DecodeUint64(&dataShmaddr)
+			if err != nil {
+				return types.ShmatArgs{}, err
+			}
+			result.Shmaddr = uintptr(dataShmaddr)
+		case 2:
+			err = decoder.DecodeInt32(&result.Shmflg)
+			if err != nil {
+				return types.ShmatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseShmctlArgs(decoder *Decoder) (types.ShmctlArgs, error) {
-  var result types.ShmctlArgs
-  var err error
+	var result types.ShmctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ShmctlArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ShmctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ShmctlArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ShmctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ShmctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ShmctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Shmid)
-      if err != nil {
-        return types.ShmctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.ShmctlArgs{}, err
-      }
-    case 2:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.ShmctlArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Shmid)
+			if err != nil {
+				return types.ShmctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.ShmctlArgs{}, err
+			}
+		case 2:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.ShmctlArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseDupArgs(decoder *Decoder) (types.DupArgs, error) {
-  var result types.DupArgs
-  var err error
+	var result types.DupArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.DupArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.DupArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.DupArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.DupArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.DupArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.DupArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Oldfd)
-      if err != nil {
-        return types.DupArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Oldfd)
+			if err != nil {
+				return types.DupArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseDup2Args(decoder *Decoder) (types.Dup2Args, error) {
-  var result types.Dup2Args
-  var err error
+	var result types.Dup2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Dup2Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Dup2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Dup2Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Dup2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Dup2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Dup2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Oldfd)
-      if err != nil {
-        return types.Dup2Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Newfd)
-      if err != nil {
-        return types.Dup2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Oldfd)
+			if err != nil {
+				return types.Dup2Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Newfd)
+			if err != nil {
+				return types.Dup2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePauseArgs(decoder *Decoder) (types.PauseArgs, error) {
-  return types.PauseArgs{}, nil
+	return types.PauseArgs{}, nil
 }
 
 func ParseNanosleepArgs(decoder *Decoder) (types.NanosleepArgs, error) {
-  var result types.NanosleepArgs
-  var err error
+	var result types.NanosleepArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NanosleepArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.NanosleepArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NanosleepArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.NanosleepArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NanosleepArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NanosleepArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Req, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.NanosleepArgs{}, err
-      }
-    case 1:
-      result.Rem, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.NanosleepArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Req, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.NanosleepArgs{}, err
+			}
+		case 1:
+			result.Rem, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.NanosleepArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetitimerArgs(decoder *Decoder) (types.GetitimerArgs, error) {
-  var result types.GetitimerArgs
-  var err error
+	var result types.GetitimerArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetitimerArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GetitimerArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetitimerArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GetitimerArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetitimerArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetitimerArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Which)
-      if err != nil {
-        return types.GetitimerArgs{}, err
-      }
-    case 1:
-      var dataCurrValue uint64
-      err = decoder.DecodeUint64(&dataCurrValue)
-      if err != nil {
-        return types.GetitimerArgs{}, err
-      }
-      result.CurrValue = uintptr(dataCurrValue)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Which)
+			if err != nil {
+				return types.GetitimerArgs{}, err
+			}
+		case 1:
+			var dataCurrValue uint64
+			err = decoder.DecodeUint64(&dataCurrValue)
+			if err != nil {
+				return types.GetitimerArgs{}, err
+			}
+			result.CurrValue = uintptr(dataCurrValue)
+		}
+	}
+	return result, nil
 }
 
 func ParseAlarmArgs(decoder *Decoder) (types.AlarmArgs, error) {
-  var result types.AlarmArgs
-  var err error
+	var result types.AlarmArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.AlarmArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.AlarmArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.AlarmArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.AlarmArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.AlarmArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.AlarmArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Seconds)
-      if err != nil {
-        return types.AlarmArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Seconds)
+			if err != nil {
+				return types.AlarmArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetitimerArgs(decoder *Decoder) (types.SetitimerArgs, error) {
-  var result types.SetitimerArgs
-  var err error
+	var result types.SetitimerArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetitimerArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SetitimerArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetitimerArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SetitimerArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetitimerArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetitimerArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Which)
-      if err != nil {
-        return types.SetitimerArgs{}, err
-      }
-    case 1:
-      var dataNewValue uint64
-      err = decoder.DecodeUint64(&dataNewValue)
-      if err != nil {
-        return types.SetitimerArgs{}, err
-      }
-      result.NewValue = uintptr(dataNewValue)
-    case 2:
-      var dataOldValue uint64
-      err = decoder.DecodeUint64(&dataOldValue)
-      if err != nil {
-        return types.SetitimerArgs{}, err
-      }
-      result.OldValue = uintptr(dataOldValue)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Which)
+			if err != nil {
+				return types.SetitimerArgs{}, err
+			}
+		case 1:
+			var dataNewValue uint64
+			err = decoder.DecodeUint64(&dataNewValue)
+			if err != nil {
+				return types.SetitimerArgs{}, err
+			}
+			result.NewValue = uintptr(dataNewValue)
+		case 2:
+			var dataOldValue uint64
+			err = decoder.DecodeUint64(&dataOldValue)
+			if err != nil {
+				return types.SetitimerArgs{}, err
+			}
+			result.OldValue = uintptr(dataOldValue)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetpidArgs(decoder *Decoder) (types.GetpidArgs, error) {
-  return types.GetpidArgs{}, nil
+	return types.GetpidArgs{}, nil
 }
 
 func ParseSendfileArgs(decoder *Decoder) (types.SendfileArgs, error) {
-  var result types.SendfileArgs
-  var err error
+	var result types.SendfileArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SendfileArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SendfileArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SendfileArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SendfileArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SendfileArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SendfileArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.OutFd)
-      if err != nil {
-        return types.SendfileArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.InFd)
-      if err != nil {
-        return types.SendfileArgs{}, err
-      }
-    case 2:
-      var dataOffset uint64
-      err = decoder.DecodeUint64(&dataOffset)
-      if err != nil {
-        return types.SendfileArgs{}, err
-      }
-      result.Offset = uintptr(dataOffset)
-    case 3:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.SendfileArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.OutFd)
+			if err != nil {
+				return types.SendfileArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.InFd)
+			if err != nil {
+				return types.SendfileArgs{}, err
+			}
+		case 2:
+			var dataOffset uint64
+			err = decoder.DecodeUint64(&dataOffset)
+			if err != nil {
+				return types.SendfileArgs{}, err
+			}
+			result.Offset = uintptr(dataOffset)
+		case 3:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.SendfileArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSocketArgs(decoder *Decoder) (types.SocketArgs, error) {
-  var result types.SocketArgs
-  var err error
+	var result types.SocketArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SocketArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SocketArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SocketArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SocketArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SocketArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SocketArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Domain)
-      if err != nil {
-        return types.SocketArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Type)
-      if err != nil {
-        return types.SocketArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Protocol)
-      if err != nil {
-        return types.SocketArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Domain)
+			if err != nil {
+				return types.SocketArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Type)
+			if err != nil {
+				return types.SocketArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Protocol)
+			if err != nil {
+				return types.SocketArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseConnectArgs(decoder *Decoder) (types.ConnectArgs, error) {
-  var result types.ConnectArgs
-  var err error
+	var result types.ConnectArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ConnectArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ConnectArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ConnectArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ConnectArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ConnectArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ConnectArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.ConnectArgs{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.ConnectArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Addrlen)
-      if err != nil {
-        return types.ConnectArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.ConnectArgs{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.ConnectArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Addrlen)
+			if err != nil {
+				return types.ConnectArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseAcceptArgs(decoder *Decoder) (types.AcceptArgs, error) {
-  var result types.AcceptArgs
-  var err error
+	var result types.AcceptArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.AcceptArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.AcceptArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.AcceptArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.AcceptArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.AcceptArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.AcceptArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.AcceptArgs{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.AcceptArgs{}, err
-      }
-    case 2:
-      var dataAddrlen uint64
-      err = decoder.DecodeUint64(&dataAddrlen)
-      if err != nil {
-        return types.AcceptArgs{}, err
-      }
-      result.Addrlen = uintptr(dataAddrlen)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.AcceptArgs{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.AcceptArgs{}, err
+			}
+		case 2:
+			var dataAddrlen uint64
+			err = decoder.DecodeUint64(&dataAddrlen)
+			if err != nil {
+				return types.AcceptArgs{}, err
+			}
+			result.Addrlen = uintptr(dataAddrlen)
+		}
+	}
+	return result, nil
 }
 
 func ParseSendtoArgs(decoder *Decoder) (types.SendtoArgs, error) {
-  var result types.SendtoArgs
-  var err error
+	var result types.SendtoArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SendtoArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.SendtoArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SendtoArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.SendtoArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SendtoArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SendtoArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.SendtoArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.SendtoArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 2:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.SendtoArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.SendtoArgs{}, err
-      }
-    case 4:
-      result.DestAddr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.SendtoArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeInt32(&result.Addrlen)
-      if err != nil {
-        return types.SendtoArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.SendtoArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.SendtoArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 2:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.SendtoArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.SendtoArgs{}, err
+			}
+		case 4:
+			result.DestAddr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.SendtoArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeInt32(&result.Addrlen)
+			if err != nil {
+				return types.SendtoArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRecvfromArgs(decoder *Decoder) (types.RecvfromArgs, error) {
-  var result types.RecvfromArgs
-  var err error
+	var result types.RecvfromArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RecvfromArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.RecvfromArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RecvfromArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.RecvfromArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RecvfromArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RecvfromArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.RecvfromArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.RecvfromArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 2:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.RecvfromArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.RecvfromArgs{}, err
-      }
-    case 4:
-      result.SrcAddr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.RecvfromArgs{}, err
-      }
-    case 5:
-      var dataAddrlen uint64
-      err = decoder.DecodeUint64(&dataAddrlen)
-      if err != nil {
-        return types.RecvfromArgs{}, err
-      }
-      result.Addrlen = uintptr(dataAddrlen)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.RecvfromArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.RecvfromArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 2:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.RecvfromArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.RecvfromArgs{}, err
+			}
+		case 4:
+			result.SrcAddr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.RecvfromArgs{}, err
+			}
+		case 5:
+			var dataAddrlen uint64
+			err = decoder.DecodeUint64(&dataAddrlen)
+			if err != nil {
+				return types.RecvfromArgs{}, err
+			}
+			result.Addrlen = uintptr(dataAddrlen)
+		}
+	}
+	return result, nil
 }
 
 func ParseSendmsgArgs(decoder *Decoder) (types.SendmsgArgs, error) {
-  var result types.SendmsgArgs
-  var err error
+	var result types.SendmsgArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SendmsgArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SendmsgArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SendmsgArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SendmsgArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SendmsgArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SendmsgArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.SendmsgArgs{}, err
-      }
-    case 1:
-      var dataMsg uint64
-      err = decoder.DecodeUint64(&dataMsg)
-      if err != nil {
-        return types.SendmsgArgs{}, err
-      }
-      result.Msg = uintptr(dataMsg)
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.SendmsgArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.SendmsgArgs{}, err
+			}
+		case 1:
+			var dataMsg uint64
+			err = decoder.DecodeUint64(&dataMsg)
+			if err != nil {
+				return types.SendmsgArgs{}, err
+			}
+			result.Msg = uintptr(dataMsg)
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.SendmsgArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRecvmsgArgs(decoder *Decoder) (types.RecvmsgArgs, error) {
-  var result types.RecvmsgArgs
-  var err error
+	var result types.RecvmsgArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RecvmsgArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.RecvmsgArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RecvmsgArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.RecvmsgArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RecvmsgArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RecvmsgArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.RecvmsgArgs{}, err
-      }
-    case 1:
-      var dataMsg uint64
-      err = decoder.DecodeUint64(&dataMsg)
-      if err != nil {
-        return types.RecvmsgArgs{}, err
-      }
-      result.Msg = uintptr(dataMsg)
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.RecvmsgArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.RecvmsgArgs{}, err
+			}
+		case 1:
+			var dataMsg uint64
+			err = decoder.DecodeUint64(&dataMsg)
+			if err != nil {
+				return types.RecvmsgArgs{}, err
+			}
+			result.Msg = uintptr(dataMsg)
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.RecvmsgArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseShutdownArgs(decoder *Decoder) (types.ShutdownArgs, error) {
-  var result types.ShutdownArgs
-  var err error
+	var result types.ShutdownArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ShutdownArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ShutdownArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ShutdownArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ShutdownArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ShutdownArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ShutdownArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.ShutdownArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.How)
-      if err != nil {
-        return types.ShutdownArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.ShutdownArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.How)
+			if err != nil {
+				return types.ShutdownArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseBindArgs(decoder *Decoder) (types.BindArgs, error) {
-  var result types.BindArgs
-  var err error
+	var result types.BindArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.BindArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.BindArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.BindArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.BindArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.BindArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.BindArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.BindArgs{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.BindArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Addrlen)
-      if err != nil {
-        return types.BindArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.BindArgs{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.BindArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Addrlen)
+			if err != nil {
+				return types.BindArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseListenArgs(decoder *Decoder) (types.ListenArgs, error) {
-  var result types.ListenArgs
-  var err error
+	var result types.ListenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ListenArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ListenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ListenArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ListenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ListenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ListenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.ListenArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Backlog)
-      if err != nil {
-        return types.ListenArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.ListenArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Backlog)
+			if err != nil {
+				return types.ListenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetsocknameArgs(decoder *Decoder) (types.GetsocknameArgs, error) {
-  var result types.GetsocknameArgs
-  var err error
+	var result types.GetsocknameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetsocknameArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetsocknameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetsocknameArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetsocknameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetsocknameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetsocknameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.GetsocknameArgs{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.GetsocknameArgs{}, err
-      }
-    case 2:
-      var dataAddrlen uint64
-      err = decoder.DecodeUint64(&dataAddrlen)
-      if err != nil {
-        return types.GetsocknameArgs{}, err
-      }
-      result.Addrlen = uintptr(dataAddrlen)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.GetsocknameArgs{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.GetsocknameArgs{}, err
+			}
+		case 2:
+			var dataAddrlen uint64
+			err = decoder.DecodeUint64(&dataAddrlen)
+			if err != nil {
+				return types.GetsocknameArgs{}, err
+			}
+			result.Addrlen = uintptr(dataAddrlen)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetpeernameArgs(decoder *Decoder) (types.GetpeernameArgs, error) {
-  var result types.GetpeernameArgs
-  var err error
+	var result types.GetpeernameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetpeernameArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetpeernameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetpeernameArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetpeernameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetpeernameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetpeernameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.GetpeernameArgs{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.GetpeernameArgs{}, err
-      }
-    case 2:
-      var dataAddrlen uint64
-      err = decoder.DecodeUint64(&dataAddrlen)
-      if err != nil {
-        return types.GetpeernameArgs{}, err
-      }
-      result.Addrlen = uintptr(dataAddrlen)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.GetpeernameArgs{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.GetpeernameArgs{}, err
+			}
+		case 2:
+			var dataAddrlen uint64
+			err = decoder.DecodeUint64(&dataAddrlen)
+			if err != nil {
+				return types.GetpeernameArgs{}, err
+			}
+			result.Addrlen = uintptr(dataAddrlen)
+		}
+	}
+	return result, nil
 }
 
 func ParseSocketpairArgs(decoder *Decoder) (types.SocketpairArgs, error) {
-  var result types.SocketpairArgs
-  var err error
+	var result types.SocketpairArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SocketpairArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SocketpairArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SocketpairArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SocketpairArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SocketpairArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SocketpairArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Domain)
-      if err != nil {
-        return types.SocketpairArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Type)
-      if err != nil {
-        return types.SocketpairArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Protocol)
-      if err != nil {
-        return types.SocketpairArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeIntArray(result.Sv[:], 2)
-      if err != nil {
-        return types.SocketpairArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Domain)
+			if err != nil {
+				return types.SocketpairArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Type)
+			if err != nil {
+				return types.SocketpairArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Protocol)
+			if err != nil {
+				return types.SocketpairArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeIntArray(result.Sv[:], 2)
+			if err != nil {
+				return types.SocketpairArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetsockoptArgs(decoder *Decoder) (types.SetsockoptArgs, error) {
-  var result types.SetsockoptArgs
-  var err error
+	var result types.SetsockoptArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetsockoptArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.SetsockoptArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetsockoptArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.SetsockoptArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetsockoptArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetsockoptArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.SetsockoptArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Level)
-      if err != nil {
-        return types.SetsockoptArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Optname)
-      if err != nil {
-        return types.SetsockoptArgs{}, err
-      }
-    case 3:
-      var dataOptval uint64
-      err = decoder.DecodeUint64(&dataOptval)
-      if err != nil {
-        return types.SetsockoptArgs{}, err
-      }
-      result.Optval = uintptr(dataOptval)
-    case 4:
-      err = decoder.DecodeInt32(&result.Optlen)
-      if err != nil {
-        return types.SetsockoptArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.SetsockoptArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Level)
+			if err != nil {
+				return types.SetsockoptArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Optname)
+			if err != nil {
+				return types.SetsockoptArgs{}, err
+			}
+		case 3:
+			var dataOptval uint64
+			err = decoder.DecodeUint64(&dataOptval)
+			if err != nil {
+				return types.SetsockoptArgs{}, err
+			}
+			result.Optval = uintptr(dataOptval)
+		case 4:
+			err = decoder.DecodeInt32(&result.Optlen)
+			if err != nil {
+				return types.SetsockoptArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetsockoptArgs(decoder *Decoder) (types.GetsockoptArgs, error) {
-  var result types.GetsockoptArgs
-  var err error
+	var result types.GetsockoptArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetsockoptArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.GetsockoptArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetsockoptArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.GetsockoptArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetsockoptArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetsockoptArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.GetsockoptArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Level)
-      if err != nil {
-        return types.GetsockoptArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Optname)
-      if err != nil {
-        return types.GetsockoptArgs{}, err
-      }
-    case 3:
-      var dataOptval uint64
-      err = decoder.DecodeUint64(&dataOptval)
-      if err != nil {
-        return types.GetsockoptArgs{}, err
-      }
-      result.Optval = uintptr(dataOptval)
-    case 4:
-      var dataOptlen uint64
-      err = decoder.DecodeUint64(&dataOptlen)
-      if err != nil {
-        return types.GetsockoptArgs{}, err
-      }
-      result.Optlen = uintptr(dataOptlen)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.GetsockoptArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Level)
+			if err != nil {
+				return types.GetsockoptArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Optname)
+			if err != nil {
+				return types.GetsockoptArgs{}, err
+			}
+		case 3:
+			var dataOptval uint64
+			err = decoder.DecodeUint64(&dataOptval)
+			if err != nil {
+				return types.GetsockoptArgs{}, err
+			}
+			result.Optval = uintptr(dataOptval)
+		case 4:
+			var dataOptlen uint64
+			err = decoder.DecodeUint64(&dataOptlen)
+			if err != nil {
+				return types.GetsockoptArgs{}, err
+			}
+			result.Optlen = uintptr(dataOptlen)
+		}
+	}
+	return result, nil
 }
 
 func ParseCloneArgs(decoder *Decoder) (types.CloneArgs, error) {
-  var result types.CloneArgs
-  var err error
+	var result types.CloneArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CloneArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.CloneArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CloneArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.CloneArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CloneArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CloneArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.CloneArgs{}, err
-      }
-    case 1:
-      var dataStack uint64
-      err = decoder.DecodeUint64(&dataStack)
-      if err != nil {
-        return types.CloneArgs{}, err
-      }
-      result.Stack = uintptr(dataStack)
-    case 2:
-      var dataParentTid uint64
-      err = decoder.DecodeUint64(&dataParentTid)
-      if err != nil {
-        return types.CloneArgs{}, err
-      }
-      result.ParentTid = uintptr(dataParentTid)
-    case 3:
-      var dataChildTid uint64
-      err = decoder.DecodeUint64(&dataChildTid)
-      if err != nil {
-        return types.CloneArgs{}, err
-      }
-      result.ChildTid = uintptr(dataChildTid)
-    case 4:
-      err = decoder.DecodeUint64(&result.Tls)
-      if err != nil {
-        return types.CloneArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.CloneArgs{}, err
+			}
+		case 1:
+			var dataStack uint64
+			err = decoder.DecodeUint64(&dataStack)
+			if err != nil {
+				return types.CloneArgs{}, err
+			}
+			result.Stack = uintptr(dataStack)
+		case 2:
+			var dataParentTid uint64
+			err = decoder.DecodeUint64(&dataParentTid)
+			if err != nil {
+				return types.CloneArgs{}, err
+			}
+			result.ParentTid = uintptr(dataParentTid)
+		case 3:
+			var dataChildTid uint64
+			err = decoder.DecodeUint64(&dataChildTid)
+			if err != nil {
+				return types.CloneArgs{}, err
+			}
+			result.ChildTid = uintptr(dataChildTid)
+		case 4:
+			err = decoder.DecodeUint64(&result.Tls)
+			if err != nil {
+				return types.CloneArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseForkArgs(decoder *Decoder) (types.ForkArgs, error) {
-  return types.ForkArgs{}, nil
+	return types.ForkArgs{}, nil
 }
 
 func ParseVforkArgs(decoder *Decoder) (types.VforkArgs, error) {
-  return types.VforkArgs{}, nil
+	return types.VforkArgs{}, nil
 }
 
 func ParseExecveArgs(decoder *Decoder) (types.ExecveArgs, error) {
-  var result types.ExecveArgs
-  var err error
+	var result types.ExecveArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ExecveArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ExecveArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ExecveArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ExecveArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ExecveArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ExecveArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ExecveArgs{}, err
-      }
-    case 1:
-      result.Argv, err = decoder.ReadStringArrayFromBuff()
-      if err != nil {
-        return types.ExecveArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ExecveArgs{}, err
+			}
+		case 1:
+			result.Argv, err = decoder.ReadStringArrayFromBuff()
+			if err != nil {
+				return types.ExecveArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseExitArgs(decoder *Decoder) (types.ExitArgs, error) {
-  var result types.ExitArgs
-  var err error
+	var result types.ExitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ExitArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.ExitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ExitArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.ExitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ExitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ExitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Status)
-      if err != nil {
-        return types.ExitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Status)
+			if err != nil {
+				return types.ExitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseWait4Args(decoder *Decoder) (types.Wait4Args, error) {
-  var result types.Wait4Args
-  var err error
+	var result types.Wait4Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Wait4Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Wait4Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Wait4Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Wait4Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Wait4Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Wait4Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.Wait4Args{}, err
-      }
-    case 1:
-      var dataWstatus uint64
-      err = decoder.DecodeUint64(&dataWstatus)
-      if err != nil {
-        return types.Wait4Args{}, err
-      }
-      result.Wstatus = uintptr(dataWstatus)
-    case 2:
-      err = decoder.DecodeInt32(&result.Options)
-      if err != nil {
-        return types.Wait4Args{}, err
-      }
-    case 3:
-      var dataRusage uint64
-      err = decoder.DecodeUint64(&dataRusage)
-      if err != nil {
-        return types.Wait4Args{}, err
-      }
-      result.Rusage = uintptr(dataRusage)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.Wait4Args{}, err
+			}
+		case 1:
+			var dataWstatus uint64
+			err = decoder.DecodeUint64(&dataWstatus)
+			if err != nil {
+				return types.Wait4Args{}, err
+			}
+			result.Wstatus = uintptr(dataWstatus)
+		case 2:
+			err = decoder.DecodeInt32(&result.Options)
+			if err != nil {
+				return types.Wait4Args{}, err
+			}
+		case 3:
+			var dataRusage uint64
+			err = decoder.DecodeUint64(&dataRusage)
+			if err != nil {
+				return types.Wait4Args{}, err
+			}
+			result.Rusage = uintptr(dataRusage)
+		}
+	}
+	return result, nil
 }
 
 func ParseKillArgs(decoder *Decoder) (types.KillArgs, error) {
-  var result types.KillArgs
-  var err error
+	var result types.KillArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.KillArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.KillArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.KillArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.KillArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.KillArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.KillArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.KillArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.KillArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.KillArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.KillArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUnameArgs(decoder *Decoder) (types.UnameArgs, error) {
-  var result types.UnameArgs
-  var err error
+	var result types.UnameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UnameArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UnameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UnameArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UnameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UnameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UnameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.UnameArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.UnameArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseSemgetArgs(decoder *Decoder) (types.SemgetArgs, error) {
-  var result types.SemgetArgs
-  var err error
+	var result types.SemgetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SemgetArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SemgetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SemgetArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SemgetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SemgetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SemgetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Key)
-      if err != nil {
-        return types.SemgetArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Nsems)
-      if err != nil {
-        return types.SemgetArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Semflg)
-      if err != nil {
-        return types.SemgetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Key)
+			if err != nil {
+				return types.SemgetArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Nsems)
+			if err != nil {
+				return types.SemgetArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Semflg)
+			if err != nil {
+				return types.SemgetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSemopArgs(decoder *Decoder) (types.SemopArgs, error) {
-  var result types.SemopArgs
-  var err error
+	var result types.SemopArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SemopArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SemopArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SemopArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SemopArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SemopArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SemopArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Semid)
-      if err != nil {
-        return types.SemopArgs{}, err
-      }
-    case 1:
-      var dataSops uint64
-      err = decoder.DecodeUint64(&dataSops)
-      if err != nil {
-        return types.SemopArgs{}, err
-      }
-      result.Sops = uintptr(dataSops)
-    case 2:
-      err = decoder.DecodeUint64(&result.Nsops)
-      if err != nil {
-        return types.SemopArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Semid)
+			if err != nil {
+				return types.SemopArgs{}, err
+			}
+		case 1:
+			var dataSops uint64
+			err = decoder.DecodeUint64(&dataSops)
+			if err != nil {
+				return types.SemopArgs{}, err
+			}
+			result.Sops = uintptr(dataSops)
+		case 2:
+			err = decoder.DecodeUint64(&result.Nsops)
+			if err != nil {
+				return types.SemopArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSemctlArgs(decoder *Decoder) (types.SemctlArgs, error) {
-  var result types.SemctlArgs
-  var err error
+	var result types.SemctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SemctlArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SemctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SemctlArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SemctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SemctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SemctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Semid)
-      if err != nil {
-        return types.SemctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Semnum)
-      if err != nil {
-        return types.SemctlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.SemctlArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Arg)
-      if err != nil {
-        return types.SemctlArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Semid)
+			if err != nil {
+				return types.SemctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Semnum)
+			if err != nil {
+				return types.SemctlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.SemctlArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Arg)
+			if err != nil {
+				return types.SemctlArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseShmdtArgs(decoder *Decoder) (types.ShmdtArgs, error) {
-  var result types.ShmdtArgs
-  var err error
+	var result types.ShmdtArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ShmdtArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.ShmdtArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ShmdtArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.ShmdtArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ShmdtArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ShmdtArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataShmaddr uint64
-      err = decoder.DecodeUint64(&dataShmaddr)
-      if err != nil {
-        return types.ShmdtArgs{}, err
-      }
-      result.Shmaddr = uintptr(dataShmaddr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataShmaddr uint64
+			err = decoder.DecodeUint64(&dataShmaddr)
+			if err != nil {
+				return types.ShmdtArgs{}, err
+			}
+			result.Shmaddr = uintptr(dataShmaddr)
+		}
+	}
+	return result, nil
 }
 
 func ParseMsggetArgs(decoder *Decoder) (types.MsggetArgs, error) {
-  var result types.MsggetArgs
-  var err error
+	var result types.MsggetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MsggetArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MsggetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MsggetArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MsggetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MsggetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MsggetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Key)
-      if err != nil {
-        return types.MsggetArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Msgflg)
-      if err != nil {
-        return types.MsggetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Key)
+			if err != nil {
+				return types.MsggetArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Msgflg)
+			if err != nil {
+				return types.MsggetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMsgsndArgs(decoder *Decoder) (types.MsgsndArgs, error) {
-  var result types.MsgsndArgs
-  var err error
+	var result types.MsgsndArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MsgsndArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.MsgsndArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MsgsndArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.MsgsndArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MsgsndArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MsgsndArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Msqid)
-      if err != nil {
-        return types.MsgsndArgs{}, err
-      }
-    case 1:
-      var dataMsgp uint64
-      err = decoder.DecodeUint64(&dataMsgp)
-      if err != nil {
-        return types.MsgsndArgs{}, err
-      }
-      result.Msgp = uintptr(dataMsgp)
-    case 2:
-      err = decoder.DecodeUint64(&result.Msgsz)
-      if err != nil {
-        return types.MsgsndArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Msgflg)
-      if err != nil {
-        return types.MsgsndArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Msqid)
+			if err != nil {
+				return types.MsgsndArgs{}, err
+			}
+		case 1:
+			var dataMsgp uint64
+			err = decoder.DecodeUint64(&dataMsgp)
+			if err != nil {
+				return types.MsgsndArgs{}, err
+			}
+			result.Msgp = uintptr(dataMsgp)
+		case 2:
+			err = decoder.DecodeUint64(&result.Msgsz)
+			if err != nil {
+				return types.MsgsndArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Msgflg)
+			if err != nil {
+				return types.MsgsndArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMsgrcvArgs(decoder *Decoder) (types.MsgrcvArgs, error) {
-  var result types.MsgrcvArgs
-  var err error
+	var result types.MsgrcvArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MsgrcvArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MsgrcvArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MsgrcvArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MsgrcvArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MsgrcvArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MsgrcvArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Msqid)
-      if err != nil {
-        return types.MsgrcvArgs{}, err
-      }
-    case 1:
-      var dataMsgp uint64
-      err = decoder.DecodeUint64(&dataMsgp)
-      if err != nil {
-        return types.MsgrcvArgs{}, err
-      }
-      result.Msgp = uintptr(dataMsgp)
-    case 2:
-      err = decoder.DecodeUint64(&result.Msgsz)
-      if err != nil {
-        return types.MsgrcvArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt64(&result.Msgtyp)
-      if err != nil {
-        return types.MsgrcvArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Msgflg)
-      if err != nil {
-        return types.MsgrcvArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Msqid)
+			if err != nil {
+				return types.MsgrcvArgs{}, err
+			}
+		case 1:
+			var dataMsgp uint64
+			err = decoder.DecodeUint64(&dataMsgp)
+			if err != nil {
+				return types.MsgrcvArgs{}, err
+			}
+			result.Msgp = uintptr(dataMsgp)
+		case 2:
+			err = decoder.DecodeUint64(&result.Msgsz)
+			if err != nil {
+				return types.MsgrcvArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt64(&result.Msgtyp)
+			if err != nil {
+				return types.MsgrcvArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Msgflg)
+			if err != nil {
+				return types.MsgrcvArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMsgctlArgs(decoder *Decoder) (types.MsgctlArgs, error) {
-  var result types.MsgctlArgs
-  var err error
+	var result types.MsgctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MsgctlArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MsgctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MsgctlArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MsgctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MsgctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MsgctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Msqid)
-      if err != nil {
-        return types.MsgctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.MsgctlArgs{}, err
-      }
-    case 2:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.MsgctlArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Msqid)
+			if err != nil {
+				return types.MsgctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.MsgctlArgs{}, err
+			}
+		case 2:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.MsgctlArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseFcntlArgs(decoder *Decoder) (types.FcntlArgs, error) {
-  var result types.FcntlArgs
-  var err error
+	var result types.FcntlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FcntlArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FcntlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FcntlArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FcntlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FcntlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FcntlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FcntlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.FcntlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Arg)
-      if err != nil {
-        return types.FcntlArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FcntlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.FcntlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Arg)
+			if err != nil {
+				return types.FcntlArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFlockArgs(decoder *Decoder) (types.FlockArgs, error) {
-  var result types.FlockArgs
-  var err error
+	var result types.FlockArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FlockArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FlockArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FlockArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FlockArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FlockArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FlockArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FlockArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Operation)
-      if err != nil {
-        return types.FlockArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FlockArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Operation)
+			if err != nil {
+				return types.FlockArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFsyncArgs(decoder *Decoder) (types.FsyncArgs, error) {
-  var result types.FsyncArgs
-  var err error
+	var result types.FsyncArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FsyncArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.FsyncArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FsyncArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.FsyncArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FsyncArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FsyncArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FsyncArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FsyncArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFdatasyncArgs(decoder *Decoder) (types.FdatasyncArgs, error) {
-  var result types.FdatasyncArgs
-  var err error
+	var result types.FdatasyncArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FdatasyncArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.FdatasyncArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FdatasyncArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.FdatasyncArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FdatasyncArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FdatasyncArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FdatasyncArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FdatasyncArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTruncateArgs(decoder *Decoder) (types.TruncateArgs, error) {
-  var result types.TruncateArgs
-  var err error
+	var result types.TruncateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TruncateArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.TruncateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TruncateArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.TruncateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TruncateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TruncateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.TruncateArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.TruncateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.TruncateArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.TruncateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFtruncateArgs(decoder *Decoder) (types.FtruncateArgs, error) {
-  var result types.FtruncateArgs
-  var err error
+	var result types.FtruncateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FtruncateArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FtruncateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FtruncateArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FtruncateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FtruncateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FtruncateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FtruncateArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.FtruncateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FtruncateArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.FtruncateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetdentsArgs(decoder *Decoder) (types.GetdentsArgs, error) {
-  var result types.GetdentsArgs
-  var err error
+	var result types.GetdentsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetdentsArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetdentsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetdentsArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetdentsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetdentsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetdentsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.GetdentsArgs{}, err
-      }
-    case 1:
-      var dataDirp uint64
-      err = decoder.DecodeUint64(&dataDirp)
-      if err != nil {
-        return types.GetdentsArgs{}, err
-      }
-      result.Dirp = uintptr(dataDirp)
-    case 2:
-      err = decoder.DecodeUint32(&result.Count)
-      if err != nil {
-        return types.GetdentsArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.GetdentsArgs{}, err
+			}
+		case 1:
+			var dataDirp uint64
+			err = decoder.DecodeUint64(&dataDirp)
+			if err != nil {
+				return types.GetdentsArgs{}, err
+			}
+			result.Dirp = uintptr(dataDirp)
+		case 2:
+			err = decoder.DecodeUint32(&result.Count)
+			if err != nil {
+				return types.GetdentsArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetcwdArgs(decoder *Decoder) (types.GetcwdArgs, error) {
-  var result types.GetcwdArgs
-  var err error
+	var result types.GetcwdArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetcwdArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GetcwdArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetcwdArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GetcwdArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetcwdArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetcwdArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Buf, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.GetcwdArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.GetcwdArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Buf, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.GetcwdArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.GetcwdArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseChdirArgs(decoder *Decoder) (types.ChdirArgs, error) {
-  var result types.ChdirArgs
-  var err error
+	var result types.ChdirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ChdirArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.ChdirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ChdirArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.ChdirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ChdirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ChdirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ChdirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ChdirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFchdirArgs(decoder *Decoder) (types.FchdirArgs, error) {
-  var result types.FchdirArgs
-  var err error
+	var result types.FchdirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FchdirArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.FchdirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FchdirArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.FchdirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FchdirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FchdirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FchdirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FchdirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRenameArgs(decoder *Decoder) (types.RenameArgs, error) {
-  var result types.RenameArgs
-  var err error
+	var result types.RenameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RenameArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.RenameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RenameArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.RenameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RenameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RenameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Oldpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RenameArgs{}, err
-      }
-    case 1:
-      result.Newpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RenameArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Oldpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RenameArgs{}, err
+			}
+		case 1:
+			result.Newpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RenameArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMkdirArgs(decoder *Decoder) (types.MkdirArgs, error) {
-  var result types.MkdirArgs
-  var err error
+	var result types.MkdirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MkdirArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MkdirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MkdirArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MkdirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MkdirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MkdirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MkdirArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.MkdirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MkdirArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.MkdirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRmdirArgs(decoder *Decoder) (types.RmdirArgs, error) {
-  var result types.RmdirArgs
-  var err error
+	var result types.RmdirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RmdirArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.RmdirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RmdirArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.RmdirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RmdirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RmdirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RmdirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RmdirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCreatArgs(decoder *Decoder) (types.CreatArgs, error) {
-  var result types.CreatArgs
-  var err error
+	var result types.CreatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CreatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.CreatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CreatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.CreatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CreatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CreatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.CreatArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.CreatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.CreatArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.CreatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLinkArgs(decoder *Decoder) (types.LinkArgs, error) {
-  var result types.LinkArgs
-  var err error
+	var result types.LinkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LinkArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.LinkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LinkArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.LinkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LinkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LinkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Oldpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LinkArgs{}, err
-      }
-    case 1:
-      result.Newpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LinkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Oldpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LinkArgs{}, err
+			}
+		case 1:
+			result.Newpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LinkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUnlinkArgs(decoder *Decoder) (types.UnlinkArgs, error) {
-  var result types.UnlinkArgs
-  var err error
+	var result types.UnlinkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UnlinkArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UnlinkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UnlinkArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UnlinkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UnlinkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UnlinkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UnlinkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UnlinkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSymlinkArgs(decoder *Decoder) (types.SymlinkArgs, error) {
-  var result types.SymlinkArgs
-  var err error
+	var result types.SymlinkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SymlinkArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SymlinkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SymlinkArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SymlinkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SymlinkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SymlinkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Target, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SymlinkArgs{}, err
-      }
-    case 1:
-      result.Linkpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SymlinkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Target, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SymlinkArgs{}, err
+			}
+		case 1:
+			result.Linkpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SymlinkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseReadlinkArgs(decoder *Decoder) (types.ReadlinkArgs, error) {
-  var result types.ReadlinkArgs
-  var err error
+	var result types.ReadlinkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ReadlinkArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ReadlinkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ReadlinkArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ReadlinkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ReadlinkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ReadlinkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ReadlinkArgs{}, err
-      }
-    case 1:
-      result.Buf, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ReadlinkArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Bufsiz)
-      if err != nil {
-        return types.ReadlinkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ReadlinkArgs{}, err
+			}
+		case 1:
+			result.Buf, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ReadlinkArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Bufsiz)
+			if err != nil {
+				return types.ReadlinkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseChmodArgs(decoder *Decoder) (types.ChmodArgs, error) {
-  var result types.ChmodArgs
-  var err error
+	var result types.ChmodArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ChmodArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ChmodArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ChmodArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ChmodArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ChmodArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ChmodArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ChmodArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.ChmodArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ChmodArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.ChmodArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFchmodArgs(decoder *Decoder) (types.FchmodArgs, error) {
-  var result types.FchmodArgs
-  var err error
+	var result types.FchmodArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FchmodArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FchmodArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FchmodArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FchmodArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FchmodArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FchmodArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FchmodArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.FchmodArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FchmodArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.FchmodArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseChownArgs(decoder *Decoder) (types.ChownArgs, error) {
-  var result types.ChownArgs
-  var err error
+	var result types.ChownArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ChownArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ChownArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ChownArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ChownArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ChownArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ChownArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ChownArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Owner)
-      if err != nil {
-        return types.ChownArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Group)
-      if err != nil {
-        return types.ChownArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ChownArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Owner)
+			if err != nil {
+				return types.ChownArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Group)
+			if err != nil {
+				return types.ChownArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFchownArgs(decoder *Decoder) (types.FchownArgs, error) {
-  var result types.FchownArgs
-  var err error
+	var result types.FchownArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FchownArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FchownArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FchownArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FchownArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FchownArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FchownArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FchownArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Owner)
-      if err != nil {
-        return types.FchownArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Group)
-      if err != nil {
-        return types.FchownArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FchownArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Owner)
+			if err != nil {
+				return types.FchownArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Group)
+			if err != nil {
+				return types.FchownArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLchownArgs(decoder *Decoder) (types.LchownArgs, error) {
-  var result types.LchownArgs
-  var err error
+	var result types.LchownArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LchownArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.LchownArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LchownArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.LchownArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LchownArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LchownArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LchownArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Owner)
-      if err != nil {
-        return types.LchownArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Group)
-      if err != nil {
-        return types.LchownArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LchownArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Owner)
+			if err != nil {
+				return types.LchownArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Group)
+			if err != nil {
+				return types.LchownArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUmaskArgs(decoder *Decoder) (types.UmaskArgs, error) {
-  var result types.UmaskArgs
-  var err error
+	var result types.UmaskArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UmaskArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UmaskArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UmaskArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UmaskArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UmaskArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UmaskArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Mask)
-      if err != nil {
-        return types.UmaskArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Mask)
+			if err != nil {
+				return types.UmaskArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGettimeofdayArgs(decoder *Decoder) (types.GettimeofdayArgs, error) {
-  var result types.GettimeofdayArgs
-  var err error
+	var result types.GettimeofdayArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GettimeofdayArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GettimeofdayArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GettimeofdayArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GettimeofdayArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GettimeofdayArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GettimeofdayArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataTv uint64
-      err = decoder.DecodeUint64(&dataTv)
-      if err != nil {
-        return types.GettimeofdayArgs{}, err
-      }
-      result.Tv = uintptr(dataTv)
-    case 1:
-      var dataTz uint64
-      err = decoder.DecodeUint64(&dataTz)
-      if err != nil {
-        return types.GettimeofdayArgs{}, err
-      }
-      result.Tz = uintptr(dataTz)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataTv uint64
+			err = decoder.DecodeUint64(&dataTv)
+			if err != nil {
+				return types.GettimeofdayArgs{}, err
+			}
+			result.Tv = uintptr(dataTv)
+		case 1:
+			var dataTz uint64
+			err = decoder.DecodeUint64(&dataTz)
+			if err != nil {
+				return types.GettimeofdayArgs{}, err
+			}
+			result.Tz = uintptr(dataTz)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetrlimitArgs(decoder *Decoder) (types.GetrlimitArgs, error) {
-  var result types.GetrlimitArgs
-  var err error
+	var result types.GetrlimitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetrlimitArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GetrlimitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetrlimitArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GetrlimitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetrlimitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetrlimitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Resource)
-      if err != nil {
-        return types.GetrlimitArgs{}, err
-      }
-    case 1:
-      var dataRlim uint64
-      err = decoder.DecodeUint64(&dataRlim)
-      if err != nil {
-        return types.GetrlimitArgs{}, err
-      }
-      result.Rlim = uintptr(dataRlim)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Resource)
+			if err != nil {
+				return types.GetrlimitArgs{}, err
+			}
+		case 1:
+			var dataRlim uint64
+			err = decoder.DecodeUint64(&dataRlim)
+			if err != nil {
+				return types.GetrlimitArgs{}, err
+			}
+			result.Rlim = uintptr(dataRlim)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetrusageArgs(decoder *Decoder) (types.GetrusageArgs, error) {
-  var result types.GetrusageArgs
-  var err error
+	var result types.GetrusageArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetrusageArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GetrusageArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetrusageArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GetrusageArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetrusageArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetrusageArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Who)
-      if err != nil {
-        return types.GetrusageArgs{}, err
-      }
-    case 1:
-      var dataUsage uint64
-      err = decoder.DecodeUint64(&dataUsage)
-      if err != nil {
-        return types.GetrusageArgs{}, err
-      }
-      result.Usage = uintptr(dataUsage)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Who)
+			if err != nil {
+				return types.GetrusageArgs{}, err
+			}
+		case 1:
+			var dataUsage uint64
+			err = decoder.DecodeUint64(&dataUsage)
+			if err != nil {
+				return types.GetrusageArgs{}, err
+			}
+			result.Usage = uintptr(dataUsage)
+		}
+	}
+	return result, nil
 }
 
 func ParseSysinfoArgs(decoder *Decoder) (types.SysinfoArgs, error) {
-  var result types.SysinfoArgs
-  var err error
+	var result types.SysinfoArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SysinfoArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SysinfoArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SysinfoArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SysinfoArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SysinfoArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SysinfoArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataInfo uint64
-      err = decoder.DecodeUint64(&dataInfo)
-      if err != nil {
-        return types.SysinfoArgs{}, err
-      }
-      result.Info = uintptr(dataInfo)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataInfo uint64
+			err = decoder.DecodeUint64(&dataInfo)
+			if err != nil {
+				return types.SysinfoArgs{}, err
+			}
+			result.Info = uintptr(dataInfo)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimesArgs(decoder *Decoder) (types.TimesArgs, error) {
-  var result types.TimesArgs
-  var err error
+	var result types.TimesArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimesArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.TimesArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimesArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.TimesArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimesArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimesArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.TimesArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.TimesArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParsePtraceArgs(decoder *Decoder) (types.PtraceArgs, error) {
-  var result types.PtraceArgs
-  var err error
+	var result types.PtraceArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PtraceArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.PtraceArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PtraceArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.PtraceArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PtraceArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PtraceArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt64(&result.Request)
-      if err != nil {
-        return types.PtraceArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.PtraceArgs{}, err
-      }
-    case 2:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.PtraceArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 3:
-      var dataData uint64
-      err = decoder.DecodeUint64(&dataData)
-      if err != nil {
-        return types.PtraceArgs{}, err
-      }
-      result.Data = uintptr(dataData)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt64(&result.Request)
+			if err != nil {
+				return types.PtraceArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.PtraceArgs{}, err
+			}
+		case 2:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.PtraceArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 3:
+			var dataData uint64
+			err = decoder.DecodeUint64(&dataData)
+			if err != nil {
+				return types.PtraceArgs{}, err
+			}
+			result.Data = uintptr(dataData)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetuidArgs(decoder *Decoder) (types.GetuidArgs, error) {
-  return types.GetuidArgs{}, nil
+	return types.GetuidArgs{}, nil
 }
 
 func ParseSyslogArgs(decoder *Decoder) (types.SyslogArgs, error) {
-  var result types.SyslogArgs
-  var err error
+	var result types.SyslogArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SyslogArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SyslogArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SyslogArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SyslogArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SyslogArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SyslogArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Type)
-      if err != nil {
-        return types.SyslogArgs{}, err
-      }
-    case 1:
-      result.Bufp, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SyslogArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Len)
-      if err != nil {
-        return types.SyslogArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Type)
+			if err != nil {
+				return types.SyslogArgs{}, err
+			}
+		case 1:
+			result.Bufp, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SyslogArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Len)
+			if err != nil {
+				return types.SyslogArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetgidArgs(decoder *Decoder) (types.GetgidArgs, error) {
-  return types.GetgidArgs{}, nil
+	return types.GetgidArgs{}, nil
 }
 
 func ParseSetuidArgs(decoder *Decoder) (types.SetuidArgs, error) {
-  var result types.SetuidArgs
-  var err error
+	var result types.SetuidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetuidArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SetuidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetuidArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SetuidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetuidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetuidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Uid)
-      if err != nil {
-        return types.SetuidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Uid)
+			if err != nil {
+				return types.SetuidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetgidArgs(decoder *Decoder) (types.SetgidArgs, error) {
-  var result types.SetgidArgs
-  var err error
+	var result types.SetgidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetgidArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SetgidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetgidArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SetgidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetgidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetgidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Gid)
-      if err != nil {
-        return types.SetgidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Gid)
+			if err != nil {
+				return types.SetgidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGeteuidArgs(decoder *Decoder) (types.GeteuidArgs, error) {
-  return types.GeteuidArgs{}, nil
+	return types.GeteuidArgs{}, nil
 }
 
 func ParseGetegidArgs(decoder *Decoder) (types.GetegidArgs, error) {
-  return types.GetegidArgs{}, nil
+	return types.GetegidArgs{}, nil
 }
 
 func ParseSetpgidArgs(decoder *Decoder) (types.SetpgidArgs, error) {
-  var result types.SetpgidArgs
-  var err error
+	var result types.SetpgidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetpgidArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetpgidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetpgidArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetpgidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetpgidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetpgidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SetpgidArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Pgid)
-      if err != nil {
-        return types.SetpgidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SetpgidArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Pgid)
+			if err != nil {
+				return types.SetpgidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetppidArgs(decoder *Decoder) (types.GetppidArgs, error) {
-  return types.GetppidArgs{}, nil
+	return types.GetppidArgs{}, nil
 }
 
 func ParseGetpgrpArgs(decoder *Decoder) (types.GetpgrpArgs, error) {
-  return types.GetpgrpArgs{}, nil
+	return types.GetpgrpArgs{}, nil
 }
 
 func ParseSetsidArgs(decoder *Decoder) (types.SetsidArgs, error) {
-  return types.SetsidArgs{}, nil
+	return types.SetsidArgs{}, nil
 }
 
 func ParseSetreuidArgs(decoder *Decoder) (types.SetreuidArgs, error) {
-  var result types.SetreuidArgs
-  var err error
+	var result types.SetreuidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetreuidArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetreuidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetreuidArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetreuidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetreuidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetreuidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Ruid)
-      if err != nil {
-        return types.SetreuidArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Euid)
-      if err != nil {
-        return types.SetreuidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Ruid)
+			if err != nil {
+				return types.SetreuidArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Euid)
+			if err != nil {
+				return types.SetreuidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetregidArgs(decoder *Decoder) (types.SetregidArgs, error) {
-  var result types.SetregidArgs
-  var err error
+	var result types.SetregidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetregidArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetregidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetregidArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetregidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetregidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetregidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Rgid)
-      if err != nil {
-        return types.SetregidArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Egid)
-      if err != nil {
-        return types.SetregidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Rgid)
+			if err != nil {
+				return types.SetregidArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Egid)
+			if err != nil {
+				return types.SetregidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetgroupsArgs(decoder *Decoder) (types.GetgroupsArgs, error) {
-  var result types.GetgroupsArgs
-  var err error
+	var result types.GetgroupsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetgroupsArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GetgroupsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetgroupsArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GetgroupsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetgroupsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetgroupsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Size)
-      if err != nil {
-        return types.GetgroupsArgs{}, err
-      }
-    case 1:
-      var dataList uint64
-      err = decoder.DecodeUint64(&dataList)
-      if err != nil {
-        return types.GetgroupsArgs{}, err
-      }
-      result.List = uintptr(dataList)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Size)
+			if err != nil {
+				return types.GetgroupsArgs{}, err
+			}
+		case 1:
+			var dataList uint64
+			err = decoder.DecodeUint64(&dataList)
+			if err != nil {
+				return types.GetgroupsArgs{}, err
+			}
+			result.List = uintptr(dataList)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetgroupsArgs(decoder *Decoder) (types.SetgroupsArgs, error) {
-  var result types.SetgroupsArgs
-  var err error
+	var result types.SetgroupsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetgroupsArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetgroupsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetgroupsArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetgroupsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetgroupsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetgroupsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Size)
-      if err != nil {
-        return types.SetgroupsArgs{}, err
-      }
-    case 1:
-      var dataList uint64
-      err = decoder.DecodeUint64(&dataList)
-      if err != nil {
-        return types.SetgroupsArgs{}, err
-      }
-      result.List = uintptr(dataList)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Size)
+			if err != nil {
+				return types.SetgroupsArgs{}, err
+			}
+		case 1:
+			var dataList uint64
+			err = decoder.DecodeUint64(&dataList)
+			if err != nil {
+				return types.SetgroupsArgs{}, err
+			}
+			result.List = uintptr(dataList)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetresuidArgs(decoder *Decoder) (types.SetresuidArgs, error) {
-  var result types.SetresuidArgs
-  var err error
+	var result types.SetresuidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetresuidArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SetresuidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetresuidArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SetresuidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetresuidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetresuidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Ruid)
-      if err != nil {
-        return types.SetresuidArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Euid)
-      if err != nil {
-        return types.SetresuidArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Suid)
-      if err != nil {
-        return types.SetresuidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Ruid)
+			if err != nil {
+				return types.SetresuidArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Euid)
+			if err != nil {
+				return types.SetresuidArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Suid)
+			if err != nil {
+				return types.SetresuidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetresuidArgs(decoder *Decoder) (types.GetresuidArgs, error) {
-  var result types.GetresuidArgs
-  var err error
+	var result types.GetresuidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetresuidArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetresuidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetresuidArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetresuidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetresuidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetresuidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRuid uint64
-      err = decoder.DecodeUint64(&dataRuid)
-      if err != nil {
-        return types.GetresuidArgs{}, err
-      }
-      result.Ruid = uintptr(dataRuid)
-    case 1:
-      var dataEuid uint64
-      err = decoder.DecodeUint64(&dataEuid)
-      if err != nil {
-        return types.GetresuidArgs{}, err
-      }
-      result.Euid = uintptr(dataEuid)
-    case 2:
-      var dataSuid uint64
-      err = decoder.DecodeUint64(&dataSuid)
-      if err != nil {
-        return types.GetresuidArgs{}, err
-      }
-      result.Suid = uintptr(dataSuid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRuid uint64
+			err = decoder.DecodeUint64(&dataRuid)
+			if err != nil {
+				return types.GetresuidArgs{}, err
+			}
+			result.Ruid = uintptr(dataRuid)
+		case 1:
+			var dataEuid uint64
+			err = decoder.DecodeUint64(&dataEuid)
+			if err != nil {
+				return types.GetresuidArgs{}, err
+			}
+			result.Euid = uintptr(dataEuid)
+		case 2:
+			var dataSuid uint64
+			err = decoder.DecodeUint64(&dataSuid)
+			if err != nil {
+				return types.GetresuidArgs{}, err
+			}
+			result.Suid = uintptr(dataSuid)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetresgidArgs(decoder *Decoder) (types.SetresgidArgs, error) {
-  var result types.SetresgidArgs
-  var err error
+	var result types.SetresgidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetresgidArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SetresgidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetresgidArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SetresgidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetresgidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetresgidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Rgid)
-      if err != nil {
-        return types.SetresgidArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Egid)
-      if err != nil {
-        return types.SetresgidArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Sgid)
-      if err != nil {
-        return types.SetresgidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Rgid)
+			if err != nil {
+				return types.SetresgidArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Egid)
+			if err != nil {
+				return types.SetresgidArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Sgid)
+			if err != nil {
+				return types.SetresgidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetresgidArgs(decoder *Decoder) (types.GetresgidArgs, error) {
-  var result types.GetresgidArgs
-  var err error
+	var result types.GetresgidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetresgidArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetresgidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetresgidArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetresgidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetresgidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetresgidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRgid uint64
-      err = decoder.DecodeUint64(&dataRgid)
-      if err != nil {
-        return types.GetresgidArgs{}, err
-      }
-      result.Rgid = uintptr(dataRgid)
-    case 1:
-      var dataEgid uint64
-      err = decoder.DecodeUint64(&dataEgid)
-      if err != nil {
-        return types.GetresgidArgs{}, err
-      }
-      result.Egid = uintptr(dataEgid)
-    case 2:
-      var dataSgid uint64
-      err = decoder.DecodeUint64(&dataSgid)
-      if err != nil {
-        return types.GetresgidArgs{}, err
-      }
-      result.Sgid = uintptr(dataSgid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRgid uint64
+			err = decoder.DecodeUint64(&dataRgid)
+			if err != nil {
+				return types.GetresgidArgs{}, err
+			}
+			result.Rgid = uintptr(dataRgid)
+		case 1:
+			var dataEgid uint64
+			err = decoder.DecodeUint64(&dataEgid)
+			if err != nil {
+				return types.GetresgidArgs{}, err
+			}
+			result.Egid = uintptr(dataEgid)
+		case 2:
+			var dataSgid uint64
+			err = decoder.DecodeUint64(&dataSgid)
+			if err != nil {
+				return types.GetresgidArgs{}, err
+			}
+			result.Sgid = uintptr(dataSgid)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetpgidArgs(decoder *Decoder) (types.GetpgidArgs, error) {
-  var result types.GetpgidArgs
-  var err error
+	var result types.GetpgidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetpgidArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.GetpgidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetpgidArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.GetpgidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetpgidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetpgidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.GetpgidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.GetpgidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetfsuidArgs(decoder *Decoder) (types.SetfsuidArgs, error) {
-  var result types.SetfsuidArgs
-  var err error
+	var result types.SetfsuidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetfsuidArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SetfsuidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetfsuidArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SetfsuidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetfsuidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetfsuidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fsuid)
-      if err != nil {
-        return types.SetfsuidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fsuid)
+			if err != nil {
+				return types.SetfsuidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetfsgidArgs(decoder *Decoder) (types.SetfsgidArgs, error) {
-  var result types.SetfsgidArgs
-  var err error
+	var result types.SetfsgidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetfsgidArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SetfsgidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetfsgidArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SetfsgidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetfsgidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetfsgidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fsgid)
-      if err != nil {
-        return types.SetfsgidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fsgid)
+			if err != nil {
+				return types.SetfsgidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetsidArgs(decoder *Decoder) (types.GetsidArgs, error) {
-  var result types.GetsidArgs
-  var err error
+	var result types.GetsidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetsidArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.GetsidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetsidArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.GetsidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetsidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetsidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.GetsidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.GetsidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCapgetArgs(decoder *Decoder) (types.CapgetArgs, error) {
-  var result types.CapgetArgs
-  var err error
+	var result types.CapgetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CapgetArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.CapgetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CapgetArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.CapgetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CapgetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CapgetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataHdrp uint64
-      err = decoder.DecodeUint64(&dataHdrp)
-      if err != nil {
-        return types.CapgetArgs{}, err
-      }
-      result.Hdrp = uintptr(dataHdrp)
-    case 1:
-      var dataDatap uint64
-      err = decoder.DecodeUint64(&dataDatap)
-      if err != nil {
-        return types.CapgetArgs{}, err
-      }
-      result.Datap = uintptr(dataDatap)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataHdrp uint64
+			err = decoder.DecodeUint64(&dataHdrp)
+			if err != nil {
+				return types.CapgetArgs{}, err
+			}
+			result.Hdrp = uintptr(dataHdrp)
+		case 1:
+			var dataDatap uint64
+			err = decoder.DecodeUint64(&dataDatap)
+			if err != nil {
+				return types.CapgetArgs{}, err
+			}
+			result.Datap = uintptr(dataDatap)
+		}
+	}
+	return result, nil
 }
 
 func ParseCapsetArgs(decoder *Decoder) (types.CapsetArgs, error) {
-  var result types.CapsetArgs
-  var err error
+	var result types.CapsetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CapsetArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.CapsetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CapsetArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.CapsetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CapsetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CapsetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataHdrp uint64
-      err = decoder.DecodeUint64(&dataHdrp)
-      if err != nil {
-        return types.CapsetArgs{}, err
-      }
-      result.Hdrp = uintptr(dataHdrp)
-    case 1:
-      var dataDatap uint64
-      err = decoder.DecodeUint64(&dataDatap)
-      if err != nil {
-        return types.CapsetArgs{}, err
-      }
-      result.Datap = uintptr(dataDatap)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataHdrp uint64
+			err = decoder.DecodeUint64(&dataHdrp)
+			if err != nil {
+				return types.CapsetArgs{}, err
+			}
+			result.Hdrp = uintptr(dataHdrp)
+		case 1:
+			var dataDatap uint64
+			err = decoder.DecodeUint64(&dataDatap)
+			if err != nil {
+				return types.CapsetArgs{}, err
+			}
+			result.Datap = uintptr(dataDatap)
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigpendingArgs(decoder *Decoder) (types.RtSigpendingArgs, error) {
-  var result types.RtSigpendingArgs
-  var err error
+	var result types.RtSigpendingArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigpendingArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.RtSigpendingArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigpendingArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.RtSigpendingArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigpendingArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigpendingArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataSet uint64
-      err = decoder.DecodeUint64(&dataSet)
-      if err != nil {
-        return types.RtSigpendingArgs{}, err
-      }
-      result.Set = uintptr(dataSet)
-    case 1:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.RtSigpendingArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataSet uint64
+			err = decoder.DecodeUint64(&dataSet)
+			if err != nil {
+				return types.RtSigpendingArgs{}, err
+			}
+			result.Set = uintptr(dataSet)
+		case 1:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.RtSigpendingArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigtimedwaitArgs(decoder *Decoder) (types.RtSigtimedwaitArgs, error) {
-  var result types.RtSigtimedwaitArgs
-  var err error
+	var result types.RtSigtimedwaitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigtimedwaitArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RtSigtimedwaitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigtimedwaitArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RtSigtimedwaitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigtimedwaitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigtimedwaitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataSet uint64
-      err = decoder.DecodeUint64(&dataSet)
-      if err != nil {
-        return types.RtSigtimedwaitArgs{}, err
-      }
-      result.Set = uintptr(dataSet)
-    case 1:
-      var dataInfo uint64
-      err = decoder.DecodeUint64(&dataInfo)
-      if err != nil {
-        return types.RtSigtimedwaitArgs{}, err
-      }
-      result.Info = uintptr(dataInfo)
-    case 2:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.RtSigtimedwaitArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.RtSigtimedwaitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataSet uint64
+			err = decoder.DecodeUint64(&dataSet)
+			if err != nil {
+				return types.RtSigtimedwaitArgs{}, err
+			}
+			result.Set = uintptr(dataSet)
+		case 1:
+			var dataInfo uint64
+			err = decoder.DecodeUint64(&dataInfo)
+			if err != nil {
+				return types.RtSigtimedwaitArgs{}, err
+			}
+			result.Info = uintptr(dataInfo)
+		case 2:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.RtSigtimedwaitArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.RtSigtimedwaitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigqueueinfoArgs(decoder *Decoder) (types.RtSigqueueinfoArgs, error) {
-  var result types.RtSigqueueinfoArgs
-  var err error
+	var result types.RtSigqueueinfoArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigqueueinfoArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.RtSigqueueinfoArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigqueueinfoArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.RtSigqueueinfoArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigqueueinfoArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigqueueinfoArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Tgid)
-      if err != nil {
-        return types.RtSigqueueinfoArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.RtSigqueueinfoArgs{}, err
-      }
-    case 2:
-      var dataInfo uint64
-      err = decoder.DecodeUint64(&dataInfo)
-      if err != nil {
-        return types.RtSigqueueinfoArgs{}, err
-      }
-      result.Info = uintptr(dataInfo)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Tgid)
+			if err != nil {
+				return types.RtSigqueueinfoArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.RtSigqueueinfoArgs{}, err
+			}
+		case 2:
+			var dataInfo uint64
+			err = decoder.DecodeUint64(&dataInfo)
+			if err != nil {
+				return types.RtSigqueueinfoArgs{}, err
+			}
+			result.Info = uintptr(dataInfo)
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigsuspendArgs(decoder *Decoder) (types.RtSigsuspendArgs, error) {
-  var result types.RtSigsuspendArgs
-  var err error
+	var result types.RtSigsuspendArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigsuspendArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.RtSigsuspendArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigsuspendArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.RtSigsuspendArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigsuspendArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigsuspendArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataMask uint64
-      err = decoder.DecodeUint64(&dataMask)
-      if err != nil {
-        return types.RtSigsuspendArgs{}, err
-      }
-      result.Mask = uintptr(dataMask)
-    case 1:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.RtSigsuspendArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataMask uint64
+			err = decoder.DecodeUint64(&dataMask)
+			if err != nil {
+				return types.RtSigsuspendArgs{}, err
+			}
+			result.Mask = uintptr(dataMask)
+		case 1:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.RtSigsuspendArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSigaltstackArgs(decoder *Decoder) (types.SigaltstackArgs, error) {
-  var result types.SigaltstackArgs
-  var err error
+	var result types.SigaltstackArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SigaltstackArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SigaltstackArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SigaltstackArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SigaltstackArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SigaltstackArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SigaltstackArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataSs uint64
-      err = decoder.DecodeUint64(&dataSs)
-      if err != nil {
-        return types.SigaltstackArgs{}, err
-      }
-      result.Ss = uintptr(dataSs)
-    case 1:
-      var dataOldSs uint64
-      err = decoder.DecodeUint64(&dataOldSs)
-      if err != nil {
-        return types.SigaltstackArgs{}, err
-      }
-      result.OldSs = uintptr(dataOldSs)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataSs uint64
+			err = decoder.DecodeUint64(&dataSs)
+			if err != nil {
+				return types.SigaltstackArgs{}, err
+			}
+			result.Ss = uintptr(dataSs)
+		case 1:
+			var dataOldSs uint64
+			err = decoder.DecodeUint64(&dataOldSs)
+			if err != nil {
+				return types.SigaltstackArgs{}, err
+			}
+			result.OldSs = uintptr(dataOldSs)
+		}
+	}
+	return result, nil
 }
 
 func ParseUtimeArgs(decoder *Decoder) (types.UtimeArgs, error) {
-  var result types.UtimeArgs
-  var err error
+	var result types.UtimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UtimeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.UtimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UtimeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.UtimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UtimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UtimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UtimeArgs{}, err
-      }
-    case 1:
-      var dataTimes uint64
-      err = decoder.DecodeUint64(&dataTimes)
-      if err != nil {
-        return types.UtimeArgs{}, err
-      }
-      result.Times = uintptr(dataTimes)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UtimeArgs{}, err
+			}
+		case 1:
+			var dataTimes uint64
+			err = decoder.DecodeUint64(&dataTimes)
+			if err != nil {
+				return types.UtimeArgs{}, err
+			}
+			result.Times = uintptr(dataTimes)
+		}
+	}
+	return result, nil
 }
 
 func ParseMknodArgs(decoder *Decoder) (types.MknodArgs, error) {
-  var result types.MknodArgs
-  var err error
+	var result types.MknodArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MknodArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MknodArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MknodArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MknodArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MknodArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MknodArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MknodArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.MknodArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.MknodArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MknodArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.MknodArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.MknodArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUselibArgs(decoder *Decoder) (types.UselibArgs, error) {
-  var result types.UselibArgs
-  var err error
+	var result types.UselibArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UselibArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UselibArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UselibArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UselibArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UselibArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UselibArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Library, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UselibArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Library, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UselibArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePersonalityArgs(decoder *Decoder) (types.PersonalityArgs, error) {
-  var result types.PersonalityArgs
-  var err error
+	var result types.PersonalityArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PersonalityArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.PersonalityArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PersonalityArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.PersonalityArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PersonalityArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PersonalityArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Persona)
-      if err != nil {
-        return types.PersonalityArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Persona)
+			if err != nil {
+				return types.PersonalityArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUstatArgs(decoder *Decoder) (types.UstatArgs, error) {
-  var result types.UstatArgs
-  var err error
+	var result types.UstatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UstatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.UstatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UstatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.UstatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UstatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UstatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.UstatArgs{}, err
-      }
-    case 1:
-      var dataUbuf uint64
-      err = decoder.DecodeUint64(&dataUbuf)
-      if err != nil {
-        return types.UstatArgs{}, err
-      }
-      result.Ubuf = uintptr(dataUbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.UstatArgs{}, err
+			}
+		case 1:
+			var dataUbuf uint64
+			err = decoder.DecodeUint64(&dataUbuf)
+			if err != nil {
+				return types.UstatArgs{}, err
+			}
+			result.Ubuf = uintptr(dataUbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseStatfsArgs(decoder *Decoder) (types.StatfsArgs, error) {
-  var result types.StatfsArgs
-  var err error
+	var result types.StatfsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.StatfsArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.StatfsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.StatfsArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.StatfsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.StatfsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.StatfsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.StatfsArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.StatfsArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.StatfsArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.StatfsArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseFstatfsArgs(decoder *Decoder) (types.FstatfsArgs, error) {
-  var result types.FstatfsArgs
-  var err error
+	var result types.FstatfsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FstatfsArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FstatfsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FstatfsArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FstatfsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FstatfsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FstatfsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FstatfsArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.FstatfsArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FstatfsArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.FstatfsArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseSysfsArgs(decoder *Decoder) (types.SysfsArgs, error) {
-  var result types.SysfsArgs
-  var err error
+	var result types.SysfsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SysfsArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SysfsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SysfsArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SysfsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SysfsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SysfsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Option)
-      if err != nil {
-        return types.SysfsArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Option)
+			if err != nil {
+				return types.SysfsArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetpriorityArgs(decoder *Decoder) (types.GetpriorityArgs, error) {
-  var result types.GetpriorityArgs
-  var err error
+	var result types.GetpriorityArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetpriorityArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.GetpriorityArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetpriorityArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.GetpriorityArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetpriorityArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetpriorityArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Which)
-      if err != nil {
-        return types.GetpriorityArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Who)
-      if err != nil {
-        return types.GetpriorityArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Which)
+			if err != nil {
+				return types.GetpriorityArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Who)
+			if err != nil {
+				return types.GetpriorityArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetpriorityArgs(decoder *Decoder) (types.SetpriorityArgs, error) {
-  var result types.SetpriorityArgs
-  var err error
+	var result types.SetpriorityArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetpriorityArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SetpriorityArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetpriorityArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SetpriorityArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetpriorityArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetpriorityArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Which)
-      if err != nil {
-        return types.SetpriorityArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Who)
-      if err != nil {
-        return types.SetpriorityArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Prio)
-      if err != nil {
-        return types.SetpriorityArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Which)
+			if err != nil {
+				return types.SetpriorityArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Who)
+			if err != nil {
+				return types.SetpriorityArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Prio)
+			if err != nil {
+				return types.SetpriorityArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedSetparamArgs(decoder *Decoder) (types.SchedSetparamArgs, error) {
-  var result types.SchedSetparamArgs
-  var err error
+	var result types.SchedSetparamArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedSetparamArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SchedSetparamArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedSetparamArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SchedSetparamArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedSetparamArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedSetparamArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedSetparamArgs{}, err
-      }
-    case 1:
-      var dataParam uint64
-      err = decoder.DecodeUint64(&dataParam)
-      if err != nil {
-        return types.SchedSetparamArgs{}, err
-      }
-      result.Param = uintptr(dataParam)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedSetparamArgs{}, err
+			}
+		case 1:
+			var dataParam uint64
+			err = decoder.DecodeUint64(&dataParam)
+			if err != nil {
+				return types.SchedSetparamArgs{}, err
+			}
+			result.Param = uintptr(dataParam)
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedGetparamArgs(decoder *Decoder) (types.SchedGetparamArgs, error) {
-  var result types.SchedGetparamArgs
-  var err error
+	var result types.SchedGetparamArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedGetparamArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SchedGetparamArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedGetparamArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SchedGetparamArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedGetparamArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedGetparamArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedGetparamArgs{}, err
-      }
-    case 1:
-      var dataParam uint64
-      err = decoder.DecodeUint64(&dataParam)
-      if err != nil {
-        return types.SchedGetparamArgs{}, err
-      }
-      result.Param = uintptr(dataParam)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedGetparamArgs{}, err
+			}
+		case 1:
+			var dataParam uint64
+			err = decoder.DecodeUint64(&dataParam)
+			if err != nil {
+				return types.SchedGetparamArgs{}, err
+			}
+			result.Param = uintptr(dataParam)
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedSetschedulerArgs(decoder *Decoder) (types.SchedSetschedulerArgs, error) {
-  var result types.SchedSetschedulerArgs
-  var err error
+	var result types.SchedSetschedulerArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedSetschedulerArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SchedSetschedulerArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedSetschedulerArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SchedSetschedulerArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedSetschedulerArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedSetschedulerArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedSetschedulerArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Policy)
-      if err != nil {
-        return types.SchedSetschedulerArgs{}, err
-      }
-    case 2:
-      var dataParam uint64
-      err = decoder.DecodeUint64(&dataParam)
-      if err != nil {
-        return types.SchedSetschedulerArgs{}, err
-      }
-      result.Param = uintptr(dataParam)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedSetschedulerArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Policy)
+			if err != nil {
+				return types.SchedSetschedulerArgs{}, err
+			}
+		case 2:
+			var dataParam uint64
+			err = decoder.DecodeUint64(&dataParam)
+			if err != nil {
+				return types.SchedSetschedulerArgs{}, err
+			}
+			result.Param = uintptr(dataParam)
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedGetschedulerArgs(decoder *Decoder) (types.SchedGetschedulerArgs, error) {
-  var result types.SchedGetschedulerArgs
-  var err error
+	var result types.SchedGetschedulerArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedGetschedulerArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SchedGetschedulerArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedGetschedulerArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SchedGetschedulerArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedGetschedulerArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedGetschedulerArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedGetschedulerArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedGetschedulerArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedGetPriorityMaxArgs(decoder *Decoder) (types.SchedGetPriorityMaxArgs, error) {
-  var result types.SchedGetPriorityMaxArgs
-  var err error
+	var result types.SchedGetPriorityMaxArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedGetPriorityMaxArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SchedGetPriorityMaxArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedGetPriorityMaxArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SchedGetPriorityMaxArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedGetPriorityMaxArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedGetPriorityMaxArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Policy)
-      if err != nil {
-        return types.SchedGetPriorityMaxArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Policy)
+			if err != nil {
+				return types.SchedGetPriorityMaxArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedGetPriorityMinArgs(decoder *Decoder) (types.SchedGetPriorityMinArgs, error) {
-  var result types.SchedGetPriorityMinArgs
-  var err error
+	var result types.SchedGetPriorityMinArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedGetPriorityMinArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SchedGetPriorityMinArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedGetPriorityMinArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SchedGetPriorityMinArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedGetPriorityMinArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedGetPriorityMinArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Policy)
-      if err != nil {
-        return types.SchedGetPriorityMinArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Policy)
+			if err != nil {
+				return types.SchedGetPriorityMinArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedRrGetIntervalArgs(decoder *Decoder) (types.SchedRrGetIntervalArgs, error) {
-  var result types.SchedRrGetIntervalArgs
-  var err error
+	var result types.SchedRrGetIntervalArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedRrGetIntervalArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SchedRrGetIntervalArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedRrGetIntervalArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SchedRrGetIntervalArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedRrGetIntervalArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedRrGetIntervalArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedRrGetIntervalArgs{}, err
-      }
-    case 1:
-      result.Tp, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.SchedRrGetIntervalArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedRrGetIntervalArgs{}, err
+			}
+		case 1:
+			result.Tp, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.SchedRrGetIntervalArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMlockArgs(decoder *Decoder) (types.MlockArgs, error) {
-  var result types.MlockArgs
-  var err error
+	var result types.MlockArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MlockArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MlockArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MlockArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MlockArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MlockArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MlockArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MlockArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.MlockArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MlockArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.MlockArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMunlockArgs(decoder *Decoder) (types.MunlockArgs, error) {
-  var result types.MunlockArgs
-  var err error
+	var result types.MunlockArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MunlockArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MunlockArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MunlockArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MunlockArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MunlockArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MunlockArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MunlockArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.MunlockArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MunlockArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.MunlockArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMlockallArgs(decoder *Decoder) (types.MlockallArgs, error) {
-  var result types.MlockallArgs
-  var err error
+	var result types.MlockallArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MlockallArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.MlockallArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MlockallArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.MlockallArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MlockallArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MlockallArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.MlockallArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.MlockallArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMunlockallArgs(decoder *Decoder) (types.MunlockallArgs, error) {
-  return types.MunlockallArgs{}, nil
+	return types.MunlockallArgs{}, nil
 }
 
 func ParseVhangupArgs(decoder *Decoder) (types.VhangupArgs, error) {
-  return types.VhangupArgs{}, nil
+	return types.VhangupArgs{}, nil
 }
 
 func ParseModifyLdtArgs(decoder *Decoder) (types.ModifyLdtArgs, error) {
-  var result types.ModifyLdtArgs
-  var err error
+	var result types.ModifyLdtArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ModifyLdtArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ModifyLdtArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ModifyLdtArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ModifyLdtArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ModifyLdtArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ModifyLdtArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Func)
-      if err != nil {
-        return types.ModifyLdtArgs{}, err
-      }
-    case 1:
-      var dataPtr uint64
-      err = decoder.DecodeUint64(&dataPtr)
-      if err != nil {
-        return types.ModifyLdtArgs{}, err
-      }
-      result.Ptr = uintptr(dataPtr)
-    case 2:
-      err = decoder.DecodeUint64(&result.Bytecount)
-      if err != nil {
-        return types.ModifyLdtArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Func)
+			if err != nil {
+				return types.ModifyLdtArgs{}, err
+			}
+		case 1:
+			var dataPtr uint64
+			err = decoder.DecodeUint64(&dataPtr)
+			if err != nil {
+				return types.ModifyLdtArgs{}, err
+			}
+			result.Ptr = uintptr(dataPtr)
+		case 2:
+			err = decoder.DecodeUint64(&result.Bytecount)
+			if err != nil {
+				return types.ModifyLdtArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePivotRootArgs(decoder *Decoder) (types.PivotRootArgs, error) {
-  var result types.PivotRootArgs
-  var err error
+	var result types.PivotRootArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PivotRootArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.PivotRootArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PivotRootArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.PivotRootArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PivotRootArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PivotRootArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.NewRoot, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.PivotRootArgs{}, err
-      }
-    case 1:
-      result.PutOld, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.PivotRootArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.NewRoot, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.PivotRootArgs{}, err
+			}
+		case 1:
+			result.PutOld, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.PivotRootArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSysctlArgs(decoder *Decoder) (types.SysctlArgs, error) {
-  var result types.SysctlArgs
-  var err error
+	var result types.SysctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SysctlArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SysctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SysctlArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SysctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SysctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SysctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataArgs uint64
-      err = decoder.DecodeUint64(&dataArgs)
-      if err != nil {
-        return types.SysctlArgs{}, err
-      }
-      result.Args = uintptr(dataArgs)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataArgs uint64
+			err = decoder.DecodeUint64(&dataArgs)
+			if err != nil {
+				return types.SysctlArgs{}, err
+			}
+			result.Args = uintptr(dataArgs)
+		}
+	}
+	return result, nil
 }
 
 func ParsePrctlArgs(decoder *Decoder) (types.PrctlArgs, error) {
-  var result types.PrctlArgs
-  var err error
+	var result types.PrctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PrctlArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.PrctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PrctlArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.PrctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PrctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PrctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Option)
-      if err != nil {
-        return types.PrctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Arg2)
-      if err != nil {
-        return types.PrctlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Arg3)
-      if err != nil {
-        return types.PrctlArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Arg4)
-      if err != nil {
-        return types.PrctlArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Arg5)
-      if err != nil {
-        return types.PrctlArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Option)
+			if err != nil {
+				return types.PrctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Arg2)
+			if err != nil {
+				return types.PrctlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Arg3)
+			if err != nil {
+				return types.PrctlArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Arg4)
+			if err != nil {
+				return types.PrctlArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Arg5)
+			if err != nil {
+				return types.PrctlArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseArchPrctlArgs(decoder *Decoder) (types.ArchPrctlArgs, error) {
-  var result types.ArchPrctlArgs
-  var err error
+	var result types.ArchPrctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ArchPrctlArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ArchPrctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ArchPrctlArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ArchPrctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ArchPrctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ArchPrctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Option)
-      if err != nil {
-        return types.ArchPrctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Addr)
-      if err != nil {
-        return types.ArchPrctlArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Option)
+			if err != nil {
+				return types.ArchPrctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Addr)
+			if err != nil {
+				return types.ArchPrctlArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseAdjtimexArgs(decoder *Decoder) (types.AdjtimexArgs, error) {
-  var result types.AdjtimexArgs
-  var err error
+	var result types.AdjtimexArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.AdjtimexArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.AdjtimexArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.AdjtimexArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.AdjtimexArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.AdjtimexArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.AdjtimexArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.AdjtimexArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.AdjtimexArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetrlimitArgs(decoder *Decoder) (types.SetrlimitArgs, error) {
-  var result types.SetrlimitArgs
-  var err error
+	var result types.SetrlimitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetrlimitArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetrlimitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetrlimitArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetrlimitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetrlimitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetrlimitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Resource)
-      if err != nil {
-        return types.SetrlimitArgs{}, err
-      }
-    case 1:
-      var dataRlim uint64
-      err = decoder.DecodeUint64(&dataRlim)
-      if err != nil {
-        return types.SetrlimitArgs{}, err
-      }
-      result.Rlim = uintptr(dataRlim)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Resource)
+			if err != nil {
+				return types.SetrlimitArgs{}, err
+			}
+		case 1:
+			var dataRlim uint64
+			err = decoder.DecodeUint64(&dataRlim)
+			if err != nil {
+				return types.SetrlimitArgs{}, err
+			}
+			result.Rlim = uintptr(dataRlim)
+		}
+	}
+	return result, nil
 }
 
 func ParseChrootArgs(decoder *Decoder) (types.ChrootArgs, error) {
-  var result types.ChrootArgs
-  var err error
+	var result types.ChrootArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ChrootArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.ChrootArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ChrootArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.ChrootArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ChrootArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ChrootArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ChrootArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ChrootArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSyncArgs(decoder *Decoder) (types.SyncArgs, error) {
-  return types.SyncArgs{}, nil
+	return types.SyncArgs{}, nil
 }
 
 func ParseAcctArgs(decoder *Decoder) (types.AcctArgs, error) {
-  var result types.AcctArgs
-  var err error
+	var result types.AcctArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.AcctArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.AcctArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.AcctArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.AcctArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.AcctArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.AcctArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.AcctArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.AcctArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSettimeofdayArgs(decoder *Decoder) (types.SettimeofdayArgs, error) {
-  var result types.SettimeofdayArgs
-  var err error
+	var result types.SettimeofdayArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SettimeofdayArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SettimeofdayArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SettimeofdayArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SettimeofdayArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SettimeofdayArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SettimeofdayArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataTv uint64
-      err = decoder.DecodeUint64(&dataTv)
-      if err != nil {
-        return types.SettimeofdayArgs{}, err
-      }
-      result.Tv = uintptr(dataTv)
-    case 1:
-      var dataTz uint64
-      err = decoder.DecodeUint64(&dataTz)
-      if err != nil {
-        return types.SettimeofdayArgs{}, err
-      }
-      result.Tz = uintptr(dataTz)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataTv uint64
+			err = decoder.DecodeUint64(&dataTv)
+			if err != nil {
+				return types.SettimeofdayArgs{}, err
+			}
+			result.Tv = uintptr(dataTv)
+		case 1:
+			var dataTz uint64
+			err = decoder.DecodeUint64(&dataTz)
+			if err != nil {
+				return types.SettimeofdayArgs{}, err
+			}
+			result.Tz = uintptr(dataTz)
+		}
+	}
+	return result, nil
 }
 
 func ParseMountArgs(decoder *Decoder) (types.MountArgs, error) {
-  var result types.MountArgs
-  var err error
+	var result types.MountArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MountArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MountArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MountArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MountArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MountArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MountArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Source, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MountArgs{}, err
-      }
-    case 1:
-      result.Target, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MountArgs{}, err
-      }
-    case 2:
-      result.Filesystemtype, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MountArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Mountflags)
-      if err != nil {
-        return types.MountArgs{}, err
-      }
-    case 4:
-      var dataData uint64
-      err = decoder.DecodeUint64(&dataData)
-      if err != nil {
-        return types.MountArgs{}, err
-      }
-      result.Data = uintptr(dataData)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Source, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MountArgs{}, err
+			}
+		case 1:
+			result.Target, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MountArgs{}, err
+			}
+		case 2:
+			result.Filesystemtype, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MountArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Mountflags)
+			if err != nil {
+				return types.MountArgs{}, err
+			}
+		case 4:
+			var dataData uint64
+			err = decoder.DecodeUint64(&dataData)
+			if err != nil {
+				return types.MountArgs{}, err
+			}
+			result.Data = uintptr(dataData)
+		}
+	}
+	return result, nil
 }
 
 func ParseUmount2Args(decoder *Decoder) (types.Umount2Args, error) {
-  var result types.Umount2Args
-  var err error
+	var result types.Umount2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Umount2Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Umount2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Umount2Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Umount2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Umount2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Umount2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Target, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Umount2Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Umount2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Target, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Umount2Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Umount2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSwaponArgs(decoder *Decoder) (types.SwaponArgs, error) {
-  var result types.SwaponArgs
-  var err error
+	var result types.SwaponArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SwaponArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SwaponArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SwaponArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SwaponArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SwaponArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SwaponArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SwaponArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Swapflags)
-      if err != nil {
-        return types.SwaponArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SwaponArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Swapflags)
+			if err != nil {
+				return types.SwaponArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSwapoffArgs(decoder *Decoder) (types.SwapoffArgs, error) {
-  var result types.SwapoffArgs
-  var err error
+	var result types.SwapoffArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SwapoffArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SwapoffArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SwapoffArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SwapoffArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SwapoffArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SwapoffArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SwapoffArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SwapoffArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRebootArgs(decoder *Decoder) (types.RebootArgs, error) {
-  var result types.RebootArgs
-  var err error
+	var result types.RebootArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RebootArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RebootArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RebootArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RebootArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RebootArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RebootArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Magic)
-      if err != nil {
-        return types.RebootArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Magic2)
-      if err != nil {
-        return types.RebootArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.RebootArgs{}, err
-      }
-    case 3:
-      var dataArg uint64
-      err = decoder.DecodeUint64(&dataArg)
-      if err != nil {
-        return types.RebootArgs{}, err
-      }
-      result.Arg = uintptr(dataArg)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Magic)
+			if err != nil {
+				return types.RebootArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Magic2)
+			if err != nil {
+				return types.RebootArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.RebootArgs{}, err
+			}
+		case 3:
+			var dataArg uint64
+			err = decoder.DecodeUint64(&dataArg)
+			if err != nil {
+				return types.RebootArgs{}, err
+			}
+			result.Arg = uintptr(dataArg)
+		}
+	}
+	return result, nil
 }
 
 func ParseSethostnameArgs(decoder *Decoder) (types.SethostnameArgs, error) {
-  var result types.SethostnameArgs
-  var err error
+	var result types.SethostnameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SethostnameArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SethostnameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SethostnameArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SethostnameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SethostnameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SethostnameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SethostnameArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.SethostnameArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SethostnameArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.SethostnameArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetdomainnameArgs(decoder *Decoder) (types.SetdomainnameArgs, error) {
-  var result types.SetdomainnameArgs
-  var err error
+	var result types.SetdomainnameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetdomainnameArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetdomainnameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetdomainnameArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetdomainnameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetdomainnameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetdomainnameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SetdomainnameArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.SetdomainnameArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SetdomainnameArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.SetdomainnameArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIoplArgs(decoder *Decoder) (types.IoplArgs, error) {
-  var result types.IoplArgs
-  var err error
+	var result types.IoplArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoplArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.IoplArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoplArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.IoplArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoplArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoplArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Level)
-      if err != nil {
-        return types.IoplArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Level)
+			if err != nil {
+				return types.IoplArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIopermArgs(decoder *Decoder) (types.IopermArgs, error) {
-  var result types.IopermArgs
-  var err error
+	var result types.IopermArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IopermArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.IopermArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IopermArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.IopermArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IopermArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IopermArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.From)
-      if err != nil {
-        return types.IopermArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Num)
-      if err != nil {
-        return types.IopermArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.TurnOn)
-      if err != nil {
-        return types.IopermArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.From)
+			if err != nil {
+				return types.IopermArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Num)
+			if err != nil {
+				return types.IopermArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.TurnOn)
+			if err != nil {
+				return types.IopermArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCreateModuleArgs(decoder *Decoder) (types.CreateModuleArgs, error) {
-  return types.CreateModuleArgs{}, nil
+	return types.CreateModuleArgs{}, nil
 }
 
 func ParseInitModuleArgs(decoder *Decoder) (types.InitModuleArgs, error) {
-  var result types.InitModuleArgs
-  var err error
+	var result types.InitModuleArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.InitModuleArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.InitModuleArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.InitModuleArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.InitModuleArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.InitModuleArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.InitModuleArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataModuleImage uint64
-      err = decoder.DecodeUint64(&dataModuleImage)
-      if err != nil {
-        return types.InitModuleArgs{}, err
-      }
-      result.ModuleImage = uintptr(dataModuleImage)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.InitModuleArgs{}, err
-      }
-    case 2:
-      result.ParamValues, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.InitModuleArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataModuleImage uint64
+			err = decoder.DecodeUint64(&dataModuleImage)
+			if err != nil {
+				return types.InitModuleArgs{}, err
+			}
+			result.ModuleImage = uintptr(dataModuleImage)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.InitModuleArgs{}, err
+			}
+		case 2:
+			result.ParamValues, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.InitModuleArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseDeleteModuleArgs(decoder *Decoder) (types.DeleteModuleArgs, error) {
-  var result types.DeleteModuleArgs
-  var err error
+	var result types.DeleteModuleArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.DeleteModuleArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.DeleteModuleArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.DeleteModuleArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.DeleteModuleArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.DeleteModuleArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.DeleteModuleArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.DeleteModuleArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.DeleteModuleArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.DeleteModuleArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.DeleteModuleArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetKernelSymsArgs(decoder *Decoder) (types.GetKernelSymsArgs, error) {
-  return types.GetKernelSymsArgs{}, nil
+	return types.GetKernelSymsArgs{}, nil
 }
 
 func ParseQueryModuleArgs(decoder *Decoder) (types.QueryModuleArgs, error) {
-  return types.QueryModuleArgs{}, nil
+	return types.QueryModuleArgs{}, nil
 }
 
 func ParseQuotactlArgs(decoder *Decoder) (types.QuotactlArgs, error) {
-  var result types.QuotactlArgs
-  var err error
+	var result types.QuotactlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.QuotactlArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.QuotactlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.QuotactlArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.QuotactlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.QuotactlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.QuotactlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.QuotactlArgs{}, err
-      }
-    case 1:
-      result.Special, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.QuotactlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Id)
-      if err != nil {
-        return types.QuotactlArgs{}, err
-      }
-    case 3:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.QuotactlArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.QuotactlArgs{}, err
+			}
+		case 1:
+			result.Special, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.QuotactlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Id)
+			if err != nil {
+				return types.QuotactlArgs{}, err
+			}
+		case 3:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.QuotactlArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		}
+	}
+	return result, nil
 }
 
 func ParseNfsservctlArgs(decoder *Decoder) (types.NfsservctlArgs, error) {
-  return types.NfsservctlArgs{}, nil
+	return types.NfsservctlArgs{}, nil
 }
 
 func ParseGetpmsgArgs(decoder *Decoder) (types.GetpmsgArgs, error) {
-  return types.GetpmsgArgs{}, nil
+	return types.GetpmsgArgs{}, nil
 }
 
 func ParsePutpmsgArgs(decoder *Decoder) (types.PutpmsgArgs, error) {
-  return types.PutpmsgArgs{}, nil
+	return types.PutpmsgArgs{}, nil
 }
 
 func ParseAfsArgs(decoder *Decoder) (types.AfsArgs, error) {
-  return types.AfsArgs{}, nil
+	return types.AfsArgs{}, nil
 }
 
 func ParseTuxcallArgs(decoder *Decoder) (types.TuxcallArgs, error) {
-  return types.TuxcallArgs{}, nil
+	return types.TuxcallArgs{}, nil
 }
 
 func ParseSecurityArgs(decoder *Decoder) (types.SecurityArgs, error) {
-  return types.SecurityArgs{}, nil
+	return types.SecurityArgs{}, nil
 }
 
 func ParseGettidArgs(decoder *Decoder) (types.GettidArgs, error) {
-  return types.GettidArgs{}, nil
+	return types.GettidArgs{}, nil
 }
 
 func ParseReadaheadArgs(decoder *Decoder) (types.ReadaheadArgs, error) {
-  var result types.ReadaheadArgs
-  var err error
+	var result types.ReadaheadArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ReadaheadArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ReadaheadArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ReadaheadArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ReadaheadArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ReadaheadArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ReadaheadArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.ReadaheadArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.ReadaheadArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.ReadaheadArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.ReadaheadArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.ReadaheadArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.ReadaheadArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetxattrArgs(decoder *Decoder) (types.SetxattrArgs, error) {
-  var result types.SetxattrArgs
-  var err error
+	var result types.SetxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetxattrArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.SetxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetxattrArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.SetxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SetxattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SetxattrArgs{}, err
-      }
-    case 2:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.SetxattrArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.SetxattrArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.SetxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SetxattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SetxattrArgs{}, err
+			}
+		case 2:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.SetxattrArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.SetxattrArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.SetxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLsetxattrArgs(decoder *Decoder) (types.LsetxattrArgs, error) {
-  var result types.LsetxattrArgs
-  var err error
+	var result types.LsetxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LsetxattrArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.LsetxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LsetxattrArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.LsetxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LsetxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LsetxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LsetxattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LsetxattrArgs{}, err
-      }
-    case 2:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.LsetxattrArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.LsetxattrArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.LsetxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LsetxattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LsetxattrArgs{}, err
+			}
+		case 2:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.LsetxattrArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.LsetxattrArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.LsetxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFsetxattrArgs(decoder *Decoder) (types.FsetxattrArgs, error) {
-  var result types.FsetxattrArgs
-  var err error
+	var result types.FsetxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FsetxattrArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.FsetxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FsetxattrArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.FsetxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FsetxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FsetxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FsetxattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FsetxattrArgs{}, err
-      }
-    case 2:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.FsetxattrArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.FsetxattrArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.FsetxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FsetxattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FsetxattrArgs{}, err
+			}
+		case 2:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.FsetxattrArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.FsetxattrArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.FsetxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetxattrArgs(decoder *Decoder) (types.GetxattrArgs, error) {
-  var result types.GetxattrArgs
-  var err error
+	var result types.GetxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetxattrArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.GetxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetxattrArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.GetxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.GetxattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.GetxattrArgs{}, err
-      }
-    case 2:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.GetxattrArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.GetxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.GetxattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.GetxattrArgs{}, err
+			}
+		case 2:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.GetxattrArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.GetxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLgetxattrArgs(decoder *Decoder) (types.LgetxattrArgs, error) {
-  var result types.LgetxattrArgs
-  var err error
+	var result types.LgetxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LgetxattrArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.LgetxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LgetxattrArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.LgetxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LgetxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LgetxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LgetxattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LgetxattrArgs{}, err
-      }
-    case 2:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.LgetxattrArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.LgetxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LgetxattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LgetxattrArgs{}, err
+			}
+		case 2:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.LgetxattrArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.LgetxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFgetxattrArgs(decoder *Decoder) (types.FgetxattrArgs, error) {
-  var result types.FgetxattrArgs
-  var err error
+	var result types.FgetxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FgetxattrArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.FgetxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FgetxattrArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.FgetxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FgetxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FgetxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FgetxattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FgetxattrArgs{}, err
-      }
-    case 2:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.FgetxattrArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.FgetxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FgetxattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FgetxattrArgs{}, err
+			}
+		case 2:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.FgetxattrArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.FgetxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseListxattrArgs(decoder *Decoder) (types.ListxattrArgs, error) {
-  var result types.ListxattrArgs
-  var err error
+	var result types.ListxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ListxattrArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ListxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ListxattrArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ListxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ListxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ListxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ListxattrArgs{}, err
-      }
-    case 1:
-      result.List, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ListxattrArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.ListxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ListxattrArgs{}, err
+			}
+		case 1:
+			result.List, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ListxattrArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.ListxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLlistxattrArgs(decoder *Decoder) (types.LlistxattrArgs, error) {
-  var result types.LlistxattrArgs
-  var err error
+	var result types.LlistxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LlistxattrArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.LlistxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LlistxattrArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.LlistxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LlistxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LlistxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LlistxattrArgs{}, err
-      }
-    case 1:
-      result.List, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LlistxattrArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.LlistxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LlistxattrArgs{}, err
+			}
+		case 1:
+			result.List, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LlistxattrArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.LlistxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFlistxattrArgs(decoder *Decoder) (types.FlistxattrArgs, error) {
-  var result types.FlistxattrArgs
-  var err error
+	var result types.FlistxattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FlistxattrArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FlistxattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FlistxattrArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FlistxattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FlistxattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FlistxattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FlistxattrArgs{}, err
-      }
-    case 1:
-      result.List, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FlistxattrArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.FlistxattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FlistxattrArgs{}, err
+			}
+		case 1:
+			result.List, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FlistxattrArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.FlistxattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRemovexattrArgs(decoder *Decoder) (types.RemovexattrArgs, error) {
-  var result types.RemovexattrArgs
-  var err error
+	var result types.RemovexattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RemovexattrArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.RemovexattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RemovexattrArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.RemovexattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RemovexattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RemovexattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RemovexattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RemovexattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RemovexattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RemovexattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLremovexattrArgs(decoder *Decoder) (types.LremovexattrArgs, error) {
-  var result types.LremovexattrArgs
-  var err error
+	var result types.LremovexattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LremovexattrArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.LremovexattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LremovexattrArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.LremovexattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LremovexattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LremovexattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LremovexattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LremovexattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LremovexattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LremovexattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFremovexattrArgs(decoder *Decoder) (types.FremovexattrArgs, error) {
-  var result types.FremovexattrArgs
-  var err error
+	var result types.FremovexattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FremovexattrArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FremovexattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FremovexattrArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FremovexattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FremovexattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FremovexattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FremovexattrArgs{}, err
-      }
-    case 1:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FremovexattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FremovexattrArgs{}, err
+			}
+		case 1:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FremovexattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTkillArgs(decoder *Decoder) (types.TkillArgs, error) {
-  var result types.TkillArgs
-  var err error
+	var result types.TkillArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TkillArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.TkillArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TkillArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.TkillArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TkillArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TkillArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Tid)
-      if err != nil {
-        return types.TkillArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.TkillArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Tid)
+			if err != nil {
+				return types.TkillArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.TkillArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTimeArgs(decoder *Decoder) (types.TimeArgs, error) {
-  var result types.TimeArgs
-  var err error
+	var result types.TimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimeArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.TimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimeArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.TimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataTloc uint64
-      err = decoder.DecodeUint64(&dataTloc)
-      if err != nil {
-        return types.TimeArgs{}, err
-      }
-      result.Tloc = uintptr(dataTloc)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataTloc uint64
+			err = decoder.DecodeUint64(&dataTloc)
+			if err != nil {
+				return types.TimeArgs{}, err
+			}
+			result.Tloc = uintptr(dataTloc)
+		}
+	}
+	return result, nil
 }
 
 func ParseFutexArgs(decoder *Decoder) (types.FutexArgs, error) {
-  var result types.FutexArgs
-  var err error
+	var result types.FutexArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FutexArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.FutexArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FutexArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.FutexArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FutexArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FutexArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUaddr uint64
-      err = decoder.DecodeUint64(&dataUaddr)
-      if err != nil {
-        return types.FutexArgs{}, err
-      }
-      result.Uaddr = uintptr(dataUaddr)
-    case 1:
-      err = decoder.DecodeInt32(&result.FutexOp)
-      if err != nil {
-        return types.FutexArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Val)
-      if err != nil {
-        return types.FutexArgs{}, err
-      }
-    case 3:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.FutexArgs{}, err
-      }
-    case 4:
-      var dataUaddr2 uint64
-      err = decoder.DecodeUint64(&dataUaddr2)
-      if err != nil {
-        return types.FutexArgs{}, err
-      }
-      result.Uaddr2 = uintptr(dataUaddr2)
-    case 5:
-      err = decoder.DecodeInt32(&result.Val3)
-      if err != nil {
-        return types.FutexArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUaddr uint64
+			err = decoder.DecodeUint64(&dataUaddr)
+			if err != nil {
+				return types.FutexArgs{}, err
+			}
+			result.Uaddr = uintptr(dataUaddr)
+		case 1:
+			err = decoder.DecodeInt32(&result.FutexOp)
+			if err != nil {
+				return types.FutexArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Val)
+			if err != nil {
+				return types.FutexArgs{}, err
+			}
+		case 3:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.FutexArgs{}, err
+			}
+		case 4:
+			var dataUaddr2 uint64
+			err = decoder.DecodeUint64(&dataUaddr2)
+			if err != nil {
+				return types.FutexArgs{}, err
+			}
+			result.Uaddr2 = uintptr(dataUaddr2)
+		case 5:
+			err = decoder.DecodeInt32(&result.Val3)
+			if err != nil {
+				return types.FutexArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedSetaffinityArgs(decoder *Decoder) (types.SchedSetaffinityArgs, error) {
-  var result types.SchedSetaffinityArgs
-  var err error
+	var result types.SchedSetaffinityArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedSetaffinityArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SchedSetaffinityArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedSetaffinityArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SchedSetaffinityArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedSetaffinityArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedSetaffinityArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedSetaffinityArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Cpusetsize)
-      if err != nil {
-        return types.SchedSetaffinityArgs{}, err
-      }
-    case 2:
-      var dataMask uint64
-      err = decoder.DecodeUint64(&dataMask)
-      if err != nil {
-        return types.SchedSetaffinityArgs{}, err
-      }
-      result.Mask = uintptr(dataMask)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedSetaffinityArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Cpusetsize)
+			if err != nil {
+				return types.SchedSetaffinityArgs{}, err
+			}
+		case 2:
+			var dataMask uint64
+			err = decoder.DecodeUint64(&dataMask)
+			if err != nil {
+				return types.SchedSetaffinityArgs{}, err
+			}
+			result.Mask = uintptr(dataMask)
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedGetaffinityArgs(decoder *Decoder) (types.SchedGetaffinityArgs, error) {
-  var result types.SchedGetaffinityArgs
-  var err error
+	var result types.SchedGetaffinityArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedGetaffinityArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SchedGetaffinityArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedGetaffinityArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SchedGetaffinityArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedGetaffinityArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedGetaffinityArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedGetaffinityArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Cpusetsize)
-      if err != nil {
-        return types.SchedGetaffinityArgs{}, err
-      }
-    case 2:
-      var dataMask uint64
-      err = decoder.DecodeUint64(&dataMask)
-      if err != nil {
-        return types.SchedGetaffinityArgs{}, err
-      }
-      result.Mask = uintptr(dataMask)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedGetaffinityArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Cpusetsize)
+			if err != nil {
+				return types.SchedGetaffinityArgs{}, err
+			}
+		case 2:
+			var dataMask uint64
+			err = decoder.DecodeUint64(&dataMask)
+			if err != nil {
+				return types.SchedGetaffinityArgs{}, err
+			}
+			result.Mask = uintptr(dataMask)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetThreadAreaArgs(decoder *Decoder) (types.SetThreadAreaArgs, error) {
-  var result types.SetThreadAreaArgs
-  var err error
+	var result types.SetThreadAreaArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetThreadAreaArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SetThreadAreaArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetThreadAreaArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SetThreadAreaArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetThreadAreaArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetThreadAreaArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUInfo uint64
-      err = decoder.DecodeUint64(&dataUInfo)
-      if err != nil {
-        return types.SetThreadAreaArgs{}, err
-      }
-      result.UInfo = uintptr(dataUInfo)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUInfo uint64
+			err = decoder.DecodeUint64(&dataUInfo)
+			if err != nil {
+				return types.SetThreadAreaArgs{}, err
+			}
+			result.UInfo = uintptr(dataUInfo)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoSetupArgs(decoder *Decoder) (types.IoSetupArgs, error) {
-  var result types.IoSetupArgs
-  var err error
+	var result types.IoSetupArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoSetupArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.IoSetupArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoSetupArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.IoSetupArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoSetupArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoSetupArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.NrEvents)
-      if err != nil {
-        return types.IoSetupArgs{}, err
-      }
-    case 1:
-      var dataCtxIdp uint64
-      err = decoder.DecodeUint64(&dataCtxIdp)
-      if err != nil {
-        return types.IoSetupArgs{}, err
-      }
-      result.CtxIdp = uintptr(dataCtxIdp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.NrEvents)
+			if err != nil {
+				return types.IoSetupArgs{}, err
+			}
+		case 1:
+			var dataCtxIdp uint64
+			err = decoder.DecodeUint64(&dataCtxIdp)
+			if err != nil {
+				return types.IoSetupArgs{}, err
+			}
+			result.CtxIdp = uintptr(dataCtxIdp)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoDestroyArgs(decoder *Decoder) (types.IoDestroyArgs, error) {
-  var result types.IoDestroyArgs
-  var err error
+	var result types.IoDestroyArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoDestroyArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.IoDestroyArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoDestroyArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.IoDestroyArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoDestroyArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoDestroyArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataCtxId uint64
-      err = decoder.DecodeUint64(&dataCtxId)
-      if err != nil {
-        return types.IoDestroyArgs{}, err
-      }
-      result.CtxId = uintptr(dataCtxId)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataCtxId uint64
+			err = decoder.DecodeUint64(&dataCtxId)
+			if err != nil {
+				return types.IoDestroyArgs{}, err
+			}
+			result.CtxId = uintptr(dataCtxId)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoGeteventsArgs(decoder *Decoder) (types.IoGeteventsArgs, error) {
-  var result types.IoGeteventsArgs
-  var err error
+	var result types.IoGeteventsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoGeteventsArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.IoGeteventsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoGeteventsArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.IoGeteventsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoGeteventsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoGeteventsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataCtxId uint64
-      err = decoder.DecodeUint64(&dataCtxId)
-      if err != nil {
-        return types.IoGeteventsArgs{}, err
-      }
-      result.CtxId = uintptr(dataCtxId)
-    case 1:
-      err = decoder.DecodeInt64(&result.MinNr)
-      if err != nil {
-        return types.IoGeteventsArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt64(&result.Nr)
-      if err != nil {
-        return types.IoGeteventsArgs{}, err
-      }
-    case 3:
-      var dataEvents uint64
-      err = decoder.DecodeUint64(&dataEvents)
-      if err != nil {
-        return types.IoGeteventsArgs{}, err
-      }
-      result.Events = uintptr(dataEvents)
-    case 4:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.IoGeteventsArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataCtxId uint64
+			err = decoder.DecodeUint64(&dataCtxId)
+			if err != nil {
+				return types.IoGeteventsArgs{}, err
+			}
+			result.CtxId = uintptr(dataCtxId)
+		case 1:
+			err = decoder.DecodeInt64(&result.MinNr)
+			if err != nil {
+				return types.IoGeteventsArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt64(&result.Nr)
+			if err != nil {
+				return types.IoGeteventsArgs{}, err
+			}
+		case 3:
+			var dataEvents uint64
+			err = decoder.DecodeUint64(&dataEvents)
+			if err != nil {
+				return types.IoGeteventsArgs{}, err
+			}
+			result.Events = uintptr(dataEvents)
+		case 4:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.IoGeteventsArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIoSubmitArgs(decoder *Decoder) (types.IoSubmitArgs, error) {
-  var result types.IoSubmitArgs
-  var err error
+	var result types.IoSubmitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoSubmitArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.IoSubmitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoSubmitArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.IoSubmitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoSubmitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoSubmitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataCtxId uint64
-      err = decoder.DecodeUint64(&dataCtxId)
-      if err != nil {
-        return types.IoSubmitArgs{}, err
-      }
-      result.CtxId = uintptr(dataCtxId)
-    case 1:
-      err = decoder.DecodeInt64(&result.Nr)
-      if err != nil {
-        return types.IoSubmitArgs{}, err
-      }
-    case 2:
-      var dataIocbpp uint64
-      err = decoder.DecodeUint64(&dataIocbpp)
-      if err != nil {
-        return types.IoSubmitArgs{}, err
-      }
-      result.Iocbpp = uintptr(dataIocbpp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataCtxId uint64
+			err = decoder.DecodeUint64(&dataCtxId)
+			if err != nil {
+				return types.IoSubmitArgs{}, err
+			}
+			result.CtxId = uintptr(dataCtxId)
+		case 1:
+			err = decoder.DecodeInt64(&result.Nr)
+			if err != nil {
+				return types.IoSubmitArgs{}, err
+			}
+		case 2:
+			var dataIocbpp uint64
+			err = decoder.DecodeUint64(&dataIocbpp)
+			if err != nil {
+				return types.IoSubmitArgs{}, err
+			}
+			result.Iocbpp = uintptr(dataIocbpp)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoCancelArgs(decoder *Decoder) (types.IoCancelArgs, error) {
-  var result types.IoCancelArgs
-  var err error
+	var result types.IoCancelArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoCancelArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.IoCancelArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoCancelArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.IoCancelArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoCancelArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoCancelArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataCtxId uint64
-      err = decoder.DecodeUint64(&dataCtxId)
-      if err != nil {
-        return types.IoCancelArgs{}, err
-      }
-      result.CtxId = uintptr(dataCtxId)
-    case 1:
-      var dataIocb uint64
-      err = decoder.DecodeUint64(&dataIocb)
-      if err != nil {
-        return types.IoCancelArgs{}, err
-      }
-      result.Iocb = uintptr(dataIocb)
-    case 2:
-      var dataResult uint64
-      err = decoder.DecodeUint64(&dataResult)
-      if err != nil {
-        return types.IoCancelArgs{}, err
-      }
-      result.Result = uintptr(dataResult)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataCtxId uint64
+			err = decoder.DecodeUint64(&dataCtxId)
+			if err != nil {
+				return types.IoCancelArgs{}, err
+			}
+			result.CtxId = uintptr(dataCtxId)
+		case 1:
+			var dataIocb uint64
+			err = decoder.DecodeUint64(&dataIocb)
+			if err != nil {
+				return types.IoCancelArgs{}, err
+			}
+			result.Iocb = uintptr(dataIocb)
+		case 2:
+			var dataResult uint64
+			err = decoder.DecodeUint64(&dataResult)
+			if err != nil {
+				return types.IoCancelArgs{}, err
+			}
+			result.Result = uintptr(dataResult)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetThreadAreaArgs(decoder *Decoder) (types.GetThreadAreaArgs, error) {
-  var result types.GetThreadAreaArgs
-  var err error
+	var result types.GetThreadAreaArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetThreadAreaArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.GetThreadAreaArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetThreadAreaArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.GetThreadAreaArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetThreadAreaArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetThreadAreaArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUInfo uint64
-      err = decoder.DecodeUint64(&dataUInfo)
-      if err != nil {
-        return types.GetThreadAreaArgs{}, err
-      }
-      result.UInfo = uintptr(dataUInfo)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUInfo uint64
+			err = decoder.DecodeUint64(&dataUInfo)
+			if err != nil {
+				return types.GetThreadAreaArgs{}, err
+			}
+			result.UInfo = uintptr(dataUInfo)
+		}
+	}
+	return result, nil
 }
 
 func ParseLookupDcookieArgs(decoder *Decoder) (types.LookupDcookieArgs, error) {
-  var result types.LookupDcookieArgs
-  var err error
+	var result types.LookupDcookieArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LookupDcookieArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.LookupDcookieArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LookupDcookieArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.LookupDcookieArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LookupDcookieArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LookupDcookieArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Cookie)
-      if err != nil {
-        return types.LookupDcookieArgs{}, err
-      }
-    case 1:
-      result.Buffer, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LookupDcookieArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.LookupDcookieArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Cookie)
+			if err != nil {
+				return types.LookupDcookieArgs{}, err
+			}
+		case 1:
+			result.Buffer, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LookupDcookieArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.LookupDcookieArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollCreateArgs(decoder *Decoder) (types.EpollCreateArgs, error) {
-  var result types.EpollCreateArgs
-  var err error
+	var result types.EpollCreateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EpollCreateArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.EpollCreateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EpollCreateArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.EpollCreateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EpollCreateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EpollCreateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Size)
-      if err != nil {
-        return types.EpollCreateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Size)
+			if err != nil {
+				return types.EpollCreateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollCtlOldArgs(decoder *Decoder) (types.EpollCtlOldArgs, error) {
-  return types.EpollCtlOldArgs{}, nil
+	return types.EpollCtlOldArgs{}, nil
 }
 
 func ParseEpollWaitOldArgs(decoder *Decoder) (types.EpollWaitOldArgs, error) {
-  return types.EpollWaitOldArgs{}, nil
+	return types.EpollWaitOldArgs{}, nil
 }
 
 func ParseRemapFilePagesArgs(decoder *Decoder) (types.RemapFilePagesArgs, error) {
-  var result types.RemapFilePagesArgs
-  var err error
+	var result types.RemapFilePagesArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RemapFilePagesArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.RemapFilePagesArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RemapFilePagesArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.RemapFilePagesArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RemapFilePagesArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RemapFilePagesArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.RemapFilePagesArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.RemapFilePagesArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Prot)
-      if err != nil {
-        return types.RemapFilePagesArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Pgoff)
-      if err != nil {
-        return types.RemapFilePagesArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.RemapFilePagesArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.RemapFilePagesArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.RemapFilePagesArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Prot)
+			if err != nil {
+				return types.RemapFilePagesArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Pgoff)
+			if err != nil {
+				return types.RemapFilePagesArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.RemapFilePagesArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetdents64Args(decoder *Decoder) (types.Getdents64Args, error) {
-  var result types.Getdents64Args
-  var err error
+	var result types.Getdents64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Getdents64Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Getdents64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Getdents64Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Getdents64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Getdents64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Getdents64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.Getdents64Args{}, err
-      }
-    case 1:
-      var dataDirp uint64
-      err = decoder.DecodeUint64(&dataDirp)
-      if err != nil {
-        return types.Getdents64Args{}, err
-      }
-      result.Dirp = uintptr(dataDirp)
-    case 2:
-      err = decoder.DecodeUint32(&result.Count)
-      if err != nil {
-        return types.Getdents64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.Getdents64Args{}, err
+			}
+		case 1:
+			var dataDirp uint64
+			err = decoder.DecodeUint64(&dataDirp)
+			if err != nil {
+				return types.Getdents64Args{}, err
+			}
+			result.Dirp = uintptr(dataDirp)
+		case 2:
+			err = decoder.DecodeUint32(&result.Count)
+			if err != nil {
+				return types.Getdents64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetTidAddressArgs(decoder *Decoder) (types.SetTidAddressArgs, error) {
-  var result types.SetTidAddressArgs
-  var err error
+	var result types.SetTidAddressArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetTidAddressArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SetTidAddressArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetTidAddressArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SetTidAddressArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetTidAddressArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetTidAddressArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataTidptr uint64
-      err = decoder.DecodeUint64(&dataTidptr)
-      if err != nil {
-        return types.SetTidAddressArgs{}, err
-      }
-      result.Tidptr = uintptr(dataTidptr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataTidptr uint64
+			err = decoder.DecodeUint64(&dataTidptr)
+			if err != nil {
+				return types.SetTidAddressArgs{}, err
+			}
+			result.Tidptr = uintptr(dataTidptr)
+		}
+	}
+	return result, nil
 }
 
 func ParseRestartSyscallArgs(decoder *Decoder) (types.RestartSyscallArgs, error) {
-  return types.RestartSyscallArgs{}, nil
+	return types.RestartSyscallArgs{}, nil
 }
 
 func ParseSemtimedopArgs(decoder *Decoder) (types.SemtimedopArgs, error) {
-  var result types.SemtimedopArgs
-  var err error
+	var result types.SemtimedopArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SemtimedopArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SemtimedopArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SemtimedopArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SemtimedopArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SemtimedopArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SemtimedopArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Semid)
-      if err != nil {
-        return types.SemtimedopArgs{}, err
-      }
-    case 1:
-      var dataSops uint64
-      err = decoder.DecodeUint64(&dataSops)
-      if err != nil {
-        return types.SemtimedopArgs{}, err
-      }
-      result.Sops = uintptr(dataSops)
-    case 2:
-      err = decoder.DecodeUint64(&result.Nsops)
-      if err != nil {
-        return types.SemtimedopArgs{}, err
-      }
-    case 3:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.SemtimedopArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Semid)
+			if err != nil {
+				return types.SemtimedopArgs{}, err
+			}
+		case 1:
+			var dataSops uint64
+			err = decoder.DecodeUint64(&dataSops)
+			if err != nil {
+				return types.SemtimedopArgs{}, err
+			}
+			result.Sops = uintptr(dataSops)
+		case 2:
+			err = decoder.DecodeUint64(&result.Nsops)
+			if err != nil {
+				return types.SemtimedopArgs{}, err
+			}
+		case 3:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.SemtimedopArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFadvise64Args(decoder *Decoder) (types.Fadvise64Args, error) {
-  var result types.Fadvise64Args
-  var err error
+	var result types.Fadvise64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Fadvise64Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Fadvise64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Fadvise64Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Fadvise64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Fadvise64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Fadvise64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Fadvise64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.Fadvise64Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.Fadvise64Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Advice)
-      if err != nil {
-        return types.Fadvise64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Fadvise64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.Fadvise64Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.Fadvise64Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Advice)
+			if err != nil {
+				return types.Fadvise64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerCreateArgs(decoder *Decoder) (types.TimerCreateArgs, error) {
-  var result types.TimerCreateArgs
-  var err error
+	var result types.TimerCreateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerCreateArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.TimerCreateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerCreateArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.TimerCreateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerCreateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerCreateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Clockid)
-      if err != nil {
-        return types.TimerCreateArgs{}, err
-      }
-    case 1:
-      var dataSevp uint64
-      err = decoder.DecodeUint64(&dataSevp)
-      if err != nil {
-        return types.TimerCreateArgs{}, err
-      }
-      result.Sevp = uintptr(dataSevp)
-    case 2:
-      var dataTimerId uint64
-      err = decoder.DecodeUint64(&dataTimerId)
-      if err != nil {
-        return types.TimerCreateArgs{}, err
-      }
-      result.TimerId = uintptr(dataTimerId)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Clockid)
+			if err != nil {
+				return types.TimerCreateArgs{}, err
+			}
+		case 1:
+			var dataSevp uint64
+			err = decoder.DecodeUint64(&dataSevp)
+			if err != nil {
+				return types.TimerCreateArgs{}, err
+			}
+			result.Sevp = uintptr(dataSevp)
+		case 2:
+			var dataTimerId uint64
+			err = decoder.DecodeUint64(&dataTimerId)
+			if err != nil {
+				return types.TimerCreateArgs{}, err
+			}
+			result.TimerId = uintptr(dataTimerId)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerSettimeArgs(decoder *Decoder) (types.TimerSettimeArgs, error) {
-  var result types.TimerSettimeArgs
-  var err error
+	var result types.TimerSettimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerSettimeArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.TimerSettimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerSettimeArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.TimerSettimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerSettimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerSettimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.TimerId)
-      if err != nil {
-        return types.TimerSettimeArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.TimerSettimeArgs{}, err
-      }
-    case 2:
-      var dataNewValue uint64
-      err = decoder.DecodeUint64(&dataNewValue)
-      if err != nil {
-        return types.TimerSettimeArgs{}, err
-      }
-      result.NewValue = uintptr(dataNewValue)
-    case 3:
-      var dataOldValue uint64
-      err = decoder.DecodeUint64(&dataOldValue)
-      if err != nil {
-        return types.TimerSettimeArgs{}, err
-      }
-      result.OldValue = uintptr(dataOldValue)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.TimerId)
+			if err != nil {
+				return types.TimerSettimeArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.TimerSettimeArgs{}, err
+			}
+		case 2:
+			var dataNewValue uint64
+			err = decoder.DecodeUint64(&dataNewValue)
+			if err != nil {
+				return types.TimerSettimeArgs{}, err
+			}
+			result.NewValue = uintptr(dataNewValue)
+		case 3:
+			var dataOldValue uint64
+			err = decoder.DecodeUint64(&dataOldValue)
+			if err != nil {
+				return types.TimerSettimeArgs{}, err
+			}
+			result.OldValue = uintptr(dataOldValue)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerGettimeArgs(decoder *Decoder) (types.TimerGettimeArgs, error) {
-  var result types.TimerGettimeArgs
-  var err error
+	var result types.TimerGettimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerGettimeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.TimerGettimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerGettimeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.TimerGettimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerGettimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerGettimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.TimerId)
-      if err != nil {
-        return types.TimerGettimeArgs{}, err
-      }
-    case 1:
-      var dataCurrValue uint64
-      err = decoder.DecodeUint64(&dataCurrValue)
-      if err != nil {
-        return types.TimerGettimeArgs{}, err
-      }
-      result.CurrValue = uintptr(dataCurrValue)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.TimerId)
+			if err != nil {
+				return types.TimerGettimeArgs{}, err
+			}
+		case 1:
+			var dataCurrValue uint64
+			err = decoder.DecodeUint64(&dataCurrValue)
+			if err != nil {
+				return types.TimerGettimeArgs{}, err
+			}
+			result.CurrValue = uintptr(dataCurrValue)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerGetoverrunArgs(decoder *Decoder) (types.TimerGetoverrunArgs, error) {
-  var result types.TimerGetoverrunArgs
-  var err error
+	var result types.TimerGetoverrunArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerGetoverrunArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.TimerGetoverrunArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerGetoverrunArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.TimerGetoverrunArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerGetoverrunArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerGetoverrunArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.TimerId)
-      if err != nil {
-        return types.TimerGetoverrunArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.TimerId)
+			if err != nil {
+				return types.TimerGetoverrunArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerDeleteArgs(decoder *Decoder) (types.TimerDeleteArgs, error) {
-  var result types.TimerDeleteArgs
-  var err error
+	var result types.TimerDeleteArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerDeleteArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.TimerDeleteArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerDeleteArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.TimerDeleteArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerDeleteArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerDeleteArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.TimerId)
-      if err != nil {
-        return types.TimerDeleteArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.TimerId)
+			if err != nil {
+				return types.TimerDeleteArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClockSettimeArgs(decoder *Decoder) (types.ClockSettimeArgs, error) {
-  var result types.ClockSettimeArgs
-  var err error
+	var result types.ClockSettimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockSettimeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockSettimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockSettimeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockSettimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockSettimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockSettimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Clockid)
-      if err != nil {
-        return types.ClockSettimeArgs{}, err
-      }
-    case 1:
-      result.Tp, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.ClockSettimeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Clockid)
+			if err != nil {
+				return types.ClockSettimeArgs{}, err
+			}
+		case 1:
+			result.Tp, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.ClockSettimeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClockGettimeArgs(decoder *Decoder) (types.ClockGettimeArgs, error) {
-  var result types.ClockGettimeArgs
-  var err error
+	var result types.ClockGettimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockGettimeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockGettimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockGettimeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockGettimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockGettimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockGettimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Clockid)
-      if err != nil {
-        return types.ClockGettimeArgs{}, err
-      }
-    case 1:
-      result.Tp, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.ClockGettimeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Clockid)
+			if err != nil {
+				return types.ClockGettimeArgs{}, err
+			}
+		case 1:
+			result.Tp, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.ClockGettimeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClockGetresArgs(decoder *Decoder) (types.ClockGetresArgs, error) {
-  var result types.ClockGetresArgs
-  var err error
+	var result types.ClockGetresArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockGetresArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockGetresArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockGetresArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockGetresArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockGetresArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockGetresArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Clockid)
-      if err != nil {
-        return types.ClockGetresArgs{}, err
-      }
-    case 1:
-      result.Res, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.ClockGetresArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Clockid)
+			if err != nil {
+				return types.ClockGetresArgs{}, err
+			}
+		case 1:
+			result.Res, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.ClockGetresArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClockNanosleepArgs(decoder *Decoder) (types.ClockNanosleepArgs, error) {
-  var result types.ClockNanosleepArgs
-  var err error
+	var result types.ClockNanosleepArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockNanosleepArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.ClockNanosleepArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockNanosleepArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.ClockNanosleepArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockNanosleepArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockNanosleepArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Clockid)
-      if err != nil {
-        return types.ClockNanosleepArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.ClockNanosleepArgs{}, err
-      }
-    case 2:
-      result.Request, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.ClockNanosleepArgs{}, err
-      }
-    case 3:
-      result.Remain, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.ClockNanosleepArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Clockid)
+			if err != nil {
+				return types.ClockNanosleepArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.ClockNanosleepArgs{}, err
+			}
+		case 2:
+			result.Request, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.ClockNanosleepArgs{}, err
+			}
+		case 3:
+			result.Remain, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.ClockNanosleepArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseExitGroupArgs(decoder *Decoder) (types.ExitGroupArgs, error) {
-  var result types.ExitGroupArgs
-  var err error
+	var result types.ExitGroupArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ExitGroupArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.ExitGroupArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ExitGroupArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.ExitGroupArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ExitGroupArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ExitGroupArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Status)
-      if err != nil {
-        return types.ExitGroupArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Status)
+			if err != nil {
+				return types.ExitGroupArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollWaitArgs(decoder *Decoder) (types.EpollWaitArgs, error) {
-  var result types.EpollWaitArgs
-  var err error
+	var result types.EpollWaitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EpollWaitArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.EpollWaitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EpollWaitArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.EpollWaitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EpollWaitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EpollWaitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Epfd)
-      if err != nil {
-        return types.EpollWaitArgs{}, err
-      }
-    case 1:
-      var dataEvents uint64
-      err = decoder.DecodeUint64(&dataEvents)
-      if err != nil {
-        return types.EpollWaitArgs{}, err
-      }
-      result.Events = uintptr(dataEvents)
-    case 2:
-      err = decoder.DecodeInt32(&result.Maxevents)
-      if err != nil {
-        return types.EpollWaitArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Timeout)
-      if err != nil {
-        return types.EpollWaitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Epfd)
+			if err != nil {
+				return types.EpollWaitArgs{}, err
+			}
+		case 1:
+			var dataEvents uint64
+			err = decoder.DecodeUint64(&dataEvents)
+			if err != nil {
+				return types.EpollWaitArgs{}, err
+			}
+			result.Events = uintptr(dataEvents)
+		case 2:
+			err = decoder.DecodeInt32(&result.Maxevents)
+			if err != nil {
+				return types.EpollWaitArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Timeout)
+			if err != nil {
+				return types.EpollWaitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollCtlArgs(decoder *Decoder) (types.EpollCtlArgs, error) {
-  var result types.EpollCtlArgs
-  var err error
+	var result types.EpollCtlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EpollCtlArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.EpollCtlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EpollCtlArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.EpollCtlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EpollCtlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EpollCtlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Epfd)
-      if err != nil {
-        return types.EpollCtlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Op)
-      if err != nil {
-        return types.EpollCtlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.EpollCtlArgs{}, err
-      }
-    case 3:
-      var dataEvent uint64
-      err = decoder.DecodeUint64(&dataEvent)
-      if err != nil {
-        return types.EpollCtlArgs{}, err
-      }
-      result.Event = uintptr(dataEvent)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Epfd)
+			if err != nil {
+				return types.EpollCtlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Op)
+			if err != nil {
+				return types.EpollCtlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.EpollCtlArgs{}, err
+			}
+		case 3:
+			var dataEvent uint64
+			err = decoder.DecodeUint64(&dataEvent)
+			if err != nil {
+				return types.EpollCtlArgs{}, err
+			}
+			result.Event = uintptr(dataEvent)
+		}
+	}
+	return result, nil
 }
 
 func ParseTgkillArgs(decoder *Decoder) (types.TgkillArgs, error) {
-  var result types.TgkillArgs
-  var err error
+	var result types.TgkillArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TgkillArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.TgkillArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TgkillArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.TgkillArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TgkillArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TgkillArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Tgid)
-      if err != nil {
-        return types.TgkillArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Tid)
-      if err != nil {
-        return types.TgkillArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.TgkillArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Tgid)
+			if err != nil {
+				return types.TgkillArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Tid)
+			if err != nil {
+				return types.TgkillArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.TgkillArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUtimesArgs(decoder *Decoder) (types.UtimesArgs, error) {
-  var result types.UtimesArgs
-  var err error
+	var result types.UtimesArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UtimesArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.UtimesArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UtimesArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.UtimesArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UtimesArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UtimesArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UtimesArgs{}, err
-      }
-    case 1:
-      var dataTimes uint64
-      err = decoder.DecodeUint64(&dataTimes)
-      if err != nil {
-        return types.UtimesArgs{}, err
-      }
-      result.Times = uintptr(dataTimes)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UtimesArgs{}, err
+			}
+		case 1:
+			var dataTimes uint64
+			err = decoder.DecodeUint64(&dataTimes)
+			if err != nil {
+				return types.UtimesArgs{}, err
+			}
+			result.Times = uintptr(dataTimes)
+		}
+	}
+	return result, nil
 }
 
 func ParseVserverArgs(decoder *Decoder) (types.VserverArgs, error) {
-  return types.VserverArgs{}, nil
+	return types.VserverArgs{}, nil
 }
 
 func ParseMbindArgs(decoder *Decoder) (types.MbindArgs, error) {
-  var result types.MbindArgs
-  var err error
+	var result types.MbindArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MbindArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.MbindArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MbindArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.MbindArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MbindArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MbindArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.MbindArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.MbindArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Mode)
-      if err != nil {
-        return types.MbindArgs{}, err
-      }
-    case 3:
-      var dataNodemask uint64
-      err = decoder.DecodeUint64(&dataNodemask)
-      if err != nil {
-        return types.MbindArgs{}, err
-      }
-      result.Nodemask = uintptr(dataNodemask)
-    case 4:
-      err = decoder.DecodeUint64(&result.Maxnode)
-      if err != nil {
-        return types.MbindArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.MbindArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.MbindArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.MbindArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Mode)
+			if err != nil {
+				return types.MbindArgs{}, err
+			}
+		case 3:
+			var dataNodemask uint64
+			err = decoder.DecodeUint64(&dataNodemask)
+			if err != nil {
+				return types.MbindArgs{}, err
+			}
+			result.Nodemask = uintptr(dataNodemask)
+		case 4:
+			err = decoder.DecodeUint64(&result.Maxnode)
+			if err != nil {
+				return types.MbindArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.MbindArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetMempolicyArgs(decoder *Decoder) (types.SetMempolicyArgs, error) {
-  var result types.SetMempolicyArgs
-  var err error
+	var result types.SetMempolicyArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetMempolicyArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SetMempolicyArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetMempolicyArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SetMempolicyArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetMempolicyArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetMempolicyArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mode)
-      if err != nil {
-        return types.SetMempolicyArgs{}, err
-      }
-    case 1:
-      var dataNodemask uint64
-      err = decoder.DecodeUint64(&dataNodemask)
-      if err != nil {
-        return types.SetMempolicyArgs{}, err
-      }
-      result.Nodemask = uintptr(dataNodemask)
-    case 2:
-      err = decoder.DecodeUint64(&result.Maxnode)
-      if err != nil {
-        return types.SetMempolicyArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mode)
+			if err != nil {
+				return types.SetMempolicyArgs{}, err
+			}
+		case 1:
+			var dataNodemask uint64
+			err = decoder.DecodeUint64(&dataNodemask)
+			if err != nil {
+				return types.SetMempolicyArgs{}, err
+			}
+			result.Nodemask = uintptr(dataNodemask)
+		case 2:
+			err = decoder.DecodeUint64(&result.Maxnode)
+			if err != nil {
+				return types.SetMempolicyArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetMempolicyArgs(decoder *Decoder) (types.GetMempolicyArgs, error) {
-  var result types.GetMempolicyArgs
-  var err error
+	var result types.GetMempolicyArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetMempolicyArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.GetMempolicyArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetMempolicyArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.GetMempolicyArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetMempolicyArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetMempolicyArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataMode uint64
-      err = decoder.DecodeUint64(&dataMode)
-      if err != nil {
-        return types.GetMempolicyArgs{}, err
-      }
-      result.Mode = uintptr(dataMode)
-    case 1:
-      var dataNodemask uint64
-      err = decoder.DecodeUint64(&dataNodemask)
-      if err != nil {
-        return types.GetMempolicyArgs{}, err
-      }
-      result.Nodemask = uintptr(dataNodemask)
-    case 2:
-      err = decoder.DecodeUint64(&result.Maxnode)
-      if err != nil {
-        return types.GetMempolicyArgs{}, err
-      }
-    case 3:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.GetMempolicyArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 4:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.GetMempolicyArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataMode uint64
+			err = decoder.DecodeUint64(&dataMode)
+			if err != nil {
+				return types.GetMempolicyArgs{}, err
+			}
+			result.Mode = uintptr(dataMode)
+		case 1:
+			var dataNodemask uint64
+			err = decoder.DecodeUint64(&dataNodemask)
+			if err != nil {
+				return types.GetMempolicyArgs{}, err
+			}
+			result.Nodemask = uintptr(dataNodemask)
+		case 2:
+			err = decoder.DecodeUint64(&result.Maxnode)
+			if err != nil {
+				return types.GetMempolicyArgs{}, err
+			}
+		case 3:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.GetMempolicyArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 4:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.GetMempolicyArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMqOpenArgs(decoder *Decoder) (types.MqOpenArgs, error) {
-  var result types.MqOpenArgs
-  var err error
+	var result types.MqOpenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqOpenArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.MqOpenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqOpenArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.MqOpenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqOpenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqOpenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MqOpenArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Oflag)
-      if err != nil {
-        return types.MqOpenArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.MqOpenArgs{}, err
-      }
-    case 3:
-      var dataAttr uint64
-      err = decoder.DecodeUint64(&dataAttr)
-      if err != nil {
-        return types.MqOpenArgs{}, err
-      }
-      result.Attr = uintptr(dataAttr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MqOpenArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Oflag)
+			if err != nil {
+				return types.MqOpenArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.MqOpenArgs{}, err
+			}
+		case 3:
+			var dataAttr uint64
+			err = decoder.DecodeUint64(&dataAttr)
+			if err != nil {
+				return types.MqOpenArgs{}, err
+			}
+			result.Attr = uintptr(dataAttr)
+		}
+	}
+	return result, nil
 }
 
 func ParseMqUnlinkArgs(decoder *Decoder) (types.MqUnlinkArgs, error) {
-  var result types.MqUnlinkArgs
-  var err error
+	var result types.MqUnlinkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqUnlinkArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.MqUnlinkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqUnlinkArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.MqUnlinkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqUnlinkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqUnlinkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MqUnlinkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MqUnlinkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMqTimedsendArgs(decoder *Decoder) (types.MqTimedsendArgs, error) {
-  var result types.MqTimedsendArgs
-  var err error
+	var result types.MqTimedsendArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqTimedsendArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MqTimedsendArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqTimedsendArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MqTimedsendArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqTimedsendArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqTimedsendArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mqdes)
-      if err != nil {
-        return types.MqTimedsendArgs{}, err
-      }
-    case 1:
-      result.MsgPtr, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MqTimedsendArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.MsgLen)
-      if err != nil {
-        return types.MqTimedsendArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.MsgPrio)
-      if err != nil {
-        return types.MqTimedsendArgs{}, err
-      }
-    case 4:
-      result.AbsTimeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.MqTimedsendArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mqdes)
+			if err != nil {
+				return types.MqTimedsendArgs{}, err
+			}
+		case 1:
+			result.MsgPtr, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MqTimedsendArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.MsgLen)
+			if err != nil {
+				return types.MqTimedsendArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.MsgPrio)
+			if err != nil {
+				return types.MqTimedsendArgs{}, err
+			}
+		case 4:
+			result.AbsTimeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.MqTimedsendArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMqTimedreceiveArgs(decoder *Decoder) (types.MqTimedreceiveArgs, error) {
-  var result types.MqTimedreceiveArgs
-  var err error
+	var result types.MqTimedreceiveArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqTimedreceiveArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MqTimedreceiveArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqTimedreceiveArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MqTimedreceiveArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqTimedreceiveArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqTimedreceiveArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mqdes)
-      if err != nil {
-        return types.MqTimedreceiveArgs{}, err
-      }
-    case 1:
-      result.MsgPtr, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MqTimedreceiveArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.MsgLen)
-      if err != nil {
-        return types.MqTimedreceiveArgs{}, err
-      }
-    case 3:
-      var dataMsgPrio uint64
-      err = decoder.DecodeUint64(&dataMsgPrio)
-      if err != nil {
-        return types.MqTimedreceiveArgs{}, err
-      }
-      result.MsgPrio = uintptr(dataMsgPrio)
-    case 4:
-      result.AbsTimeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.MqTimedreceiveArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mqdes)
+			if err != nil {
+				return types.MqTimedreceiveArgs{}, err
+			}
+		case 1:
+			result.MsgPtr, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MqTimedreceiveArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.MsgLen)
+			if err != nil {
+				return types.MqTimedreceiveArgs{}, err
+			}
+		case 3:
+			var dataMsgPrio uint64
+			err = decoder.DecodeUint64(&dataMsgPrio)
+			if err != nil {
+				return types.MqTimedreceiveArgs{}, err
+			}
+			result.MsgPrio = uintptr(dataMsgPrio)
+		case 4:
+			result.AbsTimeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.MqTimedreceiveArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMqNotifyArgs(decoder *Decoder) (types.MqNotifyArgs, error) {
-  var result types.MqNotifyArgs
-  var err error
+	var result types.MqNotifyArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqNotifyArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MqNotifyArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqNotifyArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MqNotifyArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqNotifyArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqNotifyArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mqdes)
-      if err != nil {
-        return types.MqNotifyArgs{}, err
-      }
-    case 1:
-      var dataSevp uint64
-      err = decoder.DecodeUint64(&dataSevp)
-      if err != nil {
-        return types.MqNotifyArgs{}, err
-      }
-      result.Sevp = uintptr(dataSevp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mqdes)
+			if err != nil {
+				return types.MqNotifyArgs{}, err
+			}
+		case 1:
+			var dataSevp uint64
+			err = decoder.DecodeUint64(&dataSevp)
+			if err != nil {
+				return types.MqNotifyArgs{}, err
+			}
+			result.Sevp = uintptr(dataSevp)
+		}
+	}
+	return result, nil
 }
 
 func ParseMqGetsetattrArgs(decoder *Decoder) (types.MqGetsetattrArgs, error) {
-  var result types.MqGetsetattrArgs
-  var err error
+	var result types.MqGetsetattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqGetsetattrArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MqGetsetattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqGetsetattrArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MqGetsetattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqGetsetattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqGetsetattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mqdes)
-      if err != nil {
-        return types.MqGetsetattrArgs{}, err
-      }
-    case 1:
-      var dataNewattr uint64
-      err = decoder.DecodeUint64(&dataNewattr)
-      if err != nil {
-        return types.MqGetsetattrArgs{}, err
-      }
-      result.Newattr = uintptr(dataNewattr)
-    case 2:
-      var dataOldattr uint64
-      err = decoder.DecodeUint64(&dataOldattr)
-      if err != nil {
-        return types.MqGetsetattrArgs{}, err
-      }
-      result.Oldattr = uintptr(dataOldattr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mqdes)
+			if err != nil {
+				return types.MqGetsetattrArgs{}, err
+			}
+		case 1:
+			var dataNewattr uint64
+			err = decoder.DecodeUint64(&dataNewattr)
+			if err != nil {
+				return types.MqGetsetattrArgs{}, err
+			}
+			result.Newattr = uintptr(dataNewattr)
+		case 2:
+			var dataOldattr uint64
+			err = decoder.DecodeUint64(&dataOldattr)
+			if err != nil {
+				return types.MqGetsetattrArgs{}, err
+			}
+			result.Oldattr = uintptr(dataOldattr)
+		}
+	}
+	return result, nil
 }
 
 func ParseKexecLoadArgs(decoder *Decoder) (types.KexecLoadArgs, error) {
-  var result types.KexecLoadArgs
-  var err error
+	var result types.KexecLoadArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.KexecLoadArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.KexecLoadArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.KexecLoadArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.KexecLoadArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.KexecLoadArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.KexecLoadArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Entry)
-      if err != nil {
-        return types.KexecLoadArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.NrSegments)
-      if err != nil {
-        return types.KexecLoadArgs{}, err
-      }
-    case 2:
-      var dataSegments uint64
-      err = decoder.DecodeUint64(&dataSegments)
-      if err != nil {
-        return types.KexecLoadArgs{}, err
-      }
-      result.Segments = uintptr(dataSegments)
-    case 3:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.KexecLoadArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Entry)
+			if err != nil {
+				return types.KexecLoadArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.NrSegments)
+			if err != nil {
+				return types.KexecLoadArgs{}, err
+			}
+		case 2:
+			var dataSegments uint64
+			err = decoder.DecodeUint64(&dataSegments)
+			if err != nil {
+				return types.KexecLoadArgs{}, err
+			}
+			result.Segments = uintptr(dataSegments)
+		case 3:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.KexecLoadArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseWaitidArgs(decoder *Decoder) (types.WaitidArgs, error) {
-  var result types.WaitidArgs
-  var err error
+	var result types.WaitidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.WaitidArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.WaitidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.WaitidArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.WaitidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.WaitidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.WaitidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Idtype)
-      if err != nil {
-        return types.WaitidArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Id)
-      if err != nil {
-        return types.WaitidArgs{}, err
-      }
-    case 2:
-      var dataInfop uint64
-      err = decoder.DecodeUint64(&dataInfop)
-      if err != nil {
-        return types.WaitidArgs{}, err
-      }
-      result.Infop = uintptr(dataInfop)
-    case 3:
-      err = decoder.DecodeInt32(&result.Options)
-      if err != nil {
-        return types.WaitidArgs{}, err
-      }
-    case 4:
-      var dataRusage uint64
-      err = decoder.DecodeUint64(&dataRusage)
-      if err != nil {
-        return types.WaitidArgs{}, err
-      }
-      result.Rusage = uintptr(dataRusage)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Idtype)
+			if err != nil {
+				return types.WaitidArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Id)
+			if err != nil {
+				return types.WaitidArgs{}, err
+			}
+		case 2:
+			var dataInfop uint64
+			err = decoder.DecodeUint64(&dataInfop)
+			if err != nil {
+				return types.WaitidArgs{}, err
+			}
+			result.Infop = uintptr(dataInfop)
+		case 3:
+			err = decoder.DecodeInt32(&result.Options)
+			if err != nil {
+				return types.WaitidArgs{}, err
+			}
+		case 4:
+			var dataRusage uint64
+			err = decoder.DecodeUint64(&dataRusage)
+			if err != nil {
+				return types.WaitidArgs{}, err
+			}
+			result.Rusage = uintptr(dataRusage)
+		}
+	}
+	return result, nil
 }
 
 func ParseAddKeyArgs(decoder *Decoder) (types.AddKeyArgs, error) {
-  var result types.AddKeyArgs
-  var err error
+	var result types.AddKeyArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.AddKeyArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.AddKeyArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.AddKeyArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.AddKeyArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.AddKeyArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.AddKeyArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Type, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.AddKeyArgs{}, err
-      }
-    case 1:
-      result.Description, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.AddKeyArgs{}, err
-      }
-    case 2:
-      var dataPayload uint64
-      err = decoder.DecodeUint64(&dataPayload)
-      if err != nil {
-        return types.AddKeyArgs{}, err
-      }
-      result.Payload = uintptr(dataPayload)
-    case 3:
-      err = decoder.DecodeUint64(&result.Plen)
-      if err != nil {
-        return types.AddKeyArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Keyring)
-      if err != nil {
-        return types.AddKeyArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Type, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.AddKeyArgs{}, err
+			}
+		case 1:
+			result.Description, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.AddKeyArgs{}, err
+			}
+		case 2:
+			var dataPayload uint64
+			err = decoder.DecodeUint64(&dataPayload)
+			if err != nil {
+				return types.AddKeyArgs{}, err
+			}
+			result.Payload = uintptr(dataPayload)
+		case 3:
+			err = decoder.DecodeUint64(&result.Plen)
+			if err != nil {
+				return types.AddKeyArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Keyring)
+			if err != nil {
+				return types.AddKeyArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRequestKeyArgs(decoder *Decoder) (types.RequestKeyArgs, error) {
-  var result types.RequestKeyArgs
-  var err error
+	var result types.RequestKeyArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RequestKeyArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RequestKeyArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RequestKeyArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RequestKeyArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RequestKeyArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RequestKeyArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Type, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RequestKeyArgs{}, err
-      }
-    case 1:
-      result.Description, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RequestKeyArgs{}, err
-      }
-    case 2:
-      result.CalloutInfo, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RequestKeyArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.DestKeyring)
-      if err != nil {
-        return types.RequestKeyArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Type, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RequestKeyArgs{}, err
+			}
+		case 1:
+			result.Description, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RequestKeyArgs{}, err
+			}
+		case 2:
+			result.CalloutInfo, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RequestKeyArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.DestKeyring)
+			if err != nil {
+				return types.RequestKeyArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseKeyctlArgs(decoder *Decoder) (types.KeyctlArgs, error) {
-  var result types.KeyctlArgs
-  var err error
+	var result types.KeyctlArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.KeyctlArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.KeyctlArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.KeyctlArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.KeyctlArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.KeyctlArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.KeyctlArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Operation)
-      if err != nil {
-        return types.KeyctlArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Arg2)
-      if err != nil {
-        return types.KeyctlArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Arg3)
-      if err != nil {
-        return types.KeyctlArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Arg4)
-      if err != nil {
-        return types.KeyctlArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Arg5)
-      if err != nil {
-        return types.KeyctlArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Operation)
+			if err != nil {
+				return types.KeyctlArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Arg2)
+			if err != nil {
+				return types.KeyctlArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Arg3)
+			if err != nil {
+				return types.KeyctlArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Arg4)
+			if err != nil {
+				return types.KeyctlArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Arg5)
+			if err != nil {
+				return types.KeyctlArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIoprioSetArgs(decoder *Decoder) (types.IoprioSetArgs, error) {
-  var result types.IoprioSetArgs
-  var err error
+	var result types.IoprioSetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoprioSetArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.IoprioSetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoprioSetArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.IoprioSetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoprioSetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoprioSetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Which)
-      if err != nil {
-        return types.IoprioSetArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Who)
-      if err != nil {
-        return types.IoprioSetArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Ioprio)
-      if err != nil {
-        return types.IoprioSetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Which)
+			if err != nil {
+				return types.IoprioSetArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Who)
+			if err != nil {
+				return types.IoprioSetArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Ioprio)
+			if err != nil {
+				return types.IoprioSetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIoprioGetArgs(decoder *Decoder) (types.IoprioGetArgs, error) {
-  var result types.IoprioGetArgs
-  var err error
+	var result types.IoprioGetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoprioGetArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.IoprioGetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoprioGetArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.IoprioGetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoprioGetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoprioGetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Which)
-      if err != nil {
-        return types.IoprioGetArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Who)
-      if err != nil {
-        return types.IoprioGetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Which)
+			if err != nil {
+				return types.IoprioGetArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Who)
+			if err != nil {
+				return types.IoprioGetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseInotifyInitArgs(decoder *Decoder) (types.InotifyInitArgs, error) {
-  return types.InotifyInitArgs{}, nil
+	return types.InotifyInitArgs{}, nil
 }
 
 func ParseInotifyAddWatchArgs(decoder *Decoder) (types.InotifyAddWatchArgs, error) {
-  var result types.InotifyAddWatchArgs
-  var err error
+	var result types.InotifyAddWatchArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.InotifyAddWatchArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.InotifyAddWatchArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.InotifyAddWatchArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.InotifyAddWatchArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.InotifyAddWatchArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.InotifyAddWatchArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.InotifyAddWatchArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.InotifyAddWatchArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Mask)
-      if err != nil {
-        return types.InotifyAddWatchArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.InotifyAddWatchArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.InotifyAddWatchArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Mask)
+			if err != nil {
+				return types.InotifyAddWatchArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseInotifyRmWatchArgs(decoder *Decoder) (types.InotifyRmWatchArgs, error) {
-  var result types.InotifyRmWatchArgs
-  var err error
+	var result types.InotifyRmWatchArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.InotifyRmWatchArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.InotifyRmWatchArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.InotifyRmWatchArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.InotifyRmWatchArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.InotifyRmWatchArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.InotifyRmWatchArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.InotifyRmWatchArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Wd)
-      if err != nil {
-        return types.InotifyRmWatchArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.InotifyRmWatchArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Wd)
+			if err != nil {
+				return types.InotifyRmWatchArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMigratePagesArgs(decoder *Decoder) (types.MigratePagesArgs, error) {
-  var result types.MigratePagesArgs
-  var err error
+	var result types.MigratePagesArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MigratePagesArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.MigratePagesArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MigratePagesArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.MigratePagesArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MigratePagesArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MigratePagesArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.MigratePagesArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Maxnode)
-      if err != nil {
-        return types.MigratePagesArgs{}, err
-      }
-    case 2:
-      var dataOldNodes uint64
-      err = decoder.DecodeUint64(&dataOldNodes)
-      if err != nil {
-        return types.MigratePagesArgs{}, err
-      }
-      result.OldNodes = uintptr(dataOldNodes)
-    case 3:
-      var dataNewNodes uint64
-      err = decoder.DecodeUint64(&dataNewNodes)
-      if err != nil {
-        return types.MigratePagesArgs{}, err
-      }
-      result.NewNodes = uintptr(dataNewNodes)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.MigratePagesArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Maxnode)
+			if err != nil {
+				return types.MigratePagesArgs{}, err
+			}
+		case 2:
+			var dataOldNodes uint64
+			err = decoder.DecodeUint64(&dataOldNodes)
+			if err != nil {
+				return types.MigratePagesArgs{}, err
+			}
+			result.OldNodes = uintptr(dataOldNodes)
+		case 3:
+			var dataNewNodes uint64
+			err = decoder.DecodeUint64(&dataNewNodes)
+			if err != nil {
+				return types.MigratePagesArgs{}, err
+			}
+			result.NewNodes = uintptr(dataNewNodes)
+		}
+	}
+	return result, nil
 }
 
 func ParseOpenatArgs(decoder *Decoder) (types.OpenatArgs, error) {
-  var result types.OpenatArgs
-  var err error
+	var result types.OpenatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OpenatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.OpenatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OpenatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.OpenatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OpenatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OpenatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.OpenatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.OpenatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.OpenatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.OpenatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.OpenatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.OpenatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.OpenatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.OpenatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMkdiratArgs(decoder *Decoder) (types.MkdiratArgs, error) {
-  var result types.MkdiratArgs
-  var err error
+	var result types.MkdiratArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MkdiratArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.MkdiratArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MkdiratArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.MkdiratArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MkdiratArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MkdiratArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.MkdiratArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MkdiratArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.MkdiratArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.MkdiratArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MkdiratArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.MkdiratArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMknodatArgs(decoder *Decoder) (types.MknodatArgs, error) {
-  var result types.MknodatArgs
-  var err error
+	var result types.MknodatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MknodatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.MknodatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MknodatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.MknodatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MknodatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MknodatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.MknodatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MknodatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.MknodatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.MknodatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.MknodatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MknodatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.MknodatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.MknodatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFchownatArgs(decoder *Decoder) (types.FchownatArgs, error) {
-  var result types.FchownatArgs
-  var err error
+	var result types.FchownatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FchownatArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.FchownatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FchownatArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.FchownatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FchownatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FchownatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.FchownatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FchownatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Owner)
-      if err != nil {
-        return types.FchownatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Group)
-      if err != nil {
-        return types.FchownatArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.FchownatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.FchownatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FchownatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Owner)
+			if err != nil {
+				return types.FchownatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Group)
+			if err != nil {
+				return types.FchownatArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.FchownatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFutimesatArgs(decoder *Decoder) (types.FutimesatArgs, error) {
-  var result types.FutimesatArgs
-  var err error
+	var result types.FutimesatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FutimesatArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FutimesatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FutimesatArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FutimesatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FutimesatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FutimesatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.FutimesatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FutimesatArgs{}, err
-      }
-    case 2:
-      var dataTimes uint64
-      err = decoder.DecodeUint64(&dataTimes)
-      if err != nil {
-        return types.FutimesatArgs{}, err
-      }
-      result.Times = uintptr(dataTimes)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.FutimesatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FutimesatArgs{}, err
+			}
+		case 2:
+			var dataTimes uint64
+			err = decoder.DecodeUint64(&dataTimes)
+			if err != nil {
+				return types.FutimesatArgs{}, err
+			}
+			result.Times = uintptr(dataTimes)
+		}
+	}
+	return result, nil
 }
 
 func ParseNewfstatatArgs(decoder *Decoder) (types.NewfstatatArgs, error) {
-  var result types.NewfstatatArgs
-  var err error
+	var result types.NewfstatatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NewfstatatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.NewfstatatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NewfstatatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.NewfstatatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NewfstatatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NewfstatatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.NewfstatatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.NewfstatatArgs{}, err
-      }
-    case 2:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.NewfstatatArgs{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.NewfstatatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.NewfstatatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.NewfstatatArgs{}, err
+			}
+		case 2:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.NewfstatatArgs{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.NewfstatatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUnlinkatArgs(decoder *Decoder) (types.UnlinkatArgs, error) {
-  var result types.UnlinkatArgs
-  var err error
+	var result types.UnlinkatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UnlinkatArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.UnlinkatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UnlinkatArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.UnlinkatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UnlinkatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UnlinkatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.UnlinkatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UnlinkatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.UnlinkatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.UnlinkatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UnlinkatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.UnlinkatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRenameatArgs(decoder *Decoder) (types.RenameatArgs, error) {
-  var result types.RenameatArgs
-  var err error
+	var result types.RenameatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RenameatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RenameatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RenameatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RenameatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RenameatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RenameatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Olddirfd)
-      if err != nil {
-        return types.RenameatArgs{}, err
-      }
-    case 1:
-      result.Oldpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RenameatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Newdirfd)
-      if err != nil {
-        return types.RenameatArgs{}, err
-      }
-    case 3:
-      result.Newpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.RenameatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Olddirfd)
+			if err != nil {
+				return types.RenameatArgs{}, err
+			}
+		case 1:
+			result.Oldpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RenameatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Newdirfd)
+			if err != nil {
+				return types.RenameatArgs{}, err
+			}
+		case 3:
+			result.Newpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.RenameatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLinkatArgs(decoder *Decoder) (types.LinkatArgs, error) {
-  var result types.LinkatArgs
-  var err error
+	var result types.LinkatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LinkatArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.LinkatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LinkatArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.LinkatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LinkatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LinkatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Olddirfd)
-      if err != nil {
-        return types.LinkatArgs{}, err
-      }
-    case 1:
-      result.Oldpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LinkatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Newdirfd)
-      if err != nil {
-        return types.LinkatArgs{}, err
-      }
-    case 3:
-      result.Newpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.LinkatArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.LinkatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Olddirfd)
+			if err != nil {
+				return types.LinkatArgs{}, err
+			}
+		case 1:
+			result.Oldpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LinkatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Newdirfd)
+			if err != nil {
+				return types.LinkatArgs{}, err
+			}
+		case 3:
+			result.Newpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.LinkatArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.LinkatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSymlinkatArgs(decoder *Decoder) (types.SymlinkatArgs, error) {
-  var result types.SymlinkatArgs
-  var err error
+	var result types.SymlinkatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SymlinkatArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SymlinkatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SymlinkatArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SymlinkatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SymlinkatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SymlinkatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Target, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SymlinkatArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Newdirfd)
-      if err != nil {
-        return types.SymlinkatArgs{}, err
-      }
-    case 2:
-      result.Linkpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SymlinkatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Target, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SymlinkatArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Newdirfd)
+			if err != nil {
+				return types.SymlinkatArgs{}, err
+			}
+		case 2:
+			result.Linkpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SymlinkatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseReadlinkatArgs(decoder *Decoder) (types.ReadlinkatArgs, error) {
-  var result types.ReadlinkatArgs
-  var err error
+	var result types.ReadlinkatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ReadlinkatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.ReadlinkatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ReadlinkatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.ReadlinkatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ReadlinkatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ReadlinkatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.ReadlinkatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ReadlinkatArgs{}, err
-      }
-    case 2:
-      result.Buf, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ReadlinkatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Bufsiz)
-      if err != nil {
-        return types.ReadlinkatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.ReadlinkatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ReadlinkatArgs{}, err
+			}
+		case 2:
+			result.Buf, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ReadlinkatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Bufsiz)
+			if err != nil {
+				return types.ReadlinkatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFchmodatArgs(decoder *Decoder) (types.FchmodatArgs, error) {
-  var result types.FchmodatArgs
-  var err error
+	var result types.FchmodatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FchmodatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.FchmodatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FchmodatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.FchmodatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FchmodatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FchmodatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.FchmodatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FchmodatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Mode)
-      if err != nil {
-        return types.FchmodatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.FchmodatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.FchmodatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FchmodatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Mode)
+			if err != nil {
+				return types.FchmodatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.FchmodatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFaccessatArgs(decoder *Decoder) (types.FaccessatArgs, error) {
-  var result types.FaccessatArgs
-  var err error
+	var result types.FaccessatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FaccessatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.FaccessatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FaccessatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.FaccessatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FaccessatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FaccessatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.FaccessatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FaccessatArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Mode)
-      if err != nil {
-        return types.FaccessatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.FaccessatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.FaccessatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FaccessatArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Mode)
+			if err != nil {
+				return types.FaccessatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.FaccessatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePselect6Args(decoder *Decoder) (types.Pselect6Args, error) {
-  var result types.Pselect6Args
-  var err error
+	var result types.Pselect6Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Pselect6Args{}, err
-  }
-  if numArgs > 6 {
-    return types.Pselect6Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Pselect6Args{}, err
+	}
+	if numArgs > 6 {
+		return types.Pselect6Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Pselect6Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Pselect6Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Nfds)
-      if err != nil {
-        return types.Pselect6Args{}, err
-      }
-    case 1:
-      var dataReadfds uint64
-      err = decoder.DecodeUint64(&dataReadfds)
-      if err != nil {
-        return types.Pselect6Args{}, err
-      }
-      result.Readfds = uintptr(dataReadfds)
-    case 2:
-      var dataWritefds uint64
-      err = decoder.DecodeUint64(&dataWritefds)
-      if err != nil {
-        return types.Pselect6Args{}, err
-      }
-      result.Writefds = uintptr(dataWritefds)
-    case 3:
-      var dataExceptfds uint64
-      err = decoder.DecodeUint64(&dataExceptfds)
-      if err != nil {
-        return types.Pselect6Args{}, err
-      }
-      result.Exceptfds = uintptr(dataExceptfds)
-    case 4:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.Pselect6Args{}, err
-      }
-    case 5:
-      var dataSigmask uint64
-      err = decoder.DecodeUint64(&dataSigmask)
-      if err != nil {
-        return types.Pselect6Args{}, err
-      }
-      result.Sigmask = uintptr(dataSigmask)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Nfds)
+			if err != nil {
+				return types.Pselect6Args{}, err
+			}
+		case 1:
+			var dataReadfds uint64
+			err = decoder.DecodeUint64(&dataReadfds)
+			if err != nil {
+				return types.Pselect6Args{}, err
+			}
+			result.Readfds = uintptr(dataReadfds)
+		case 2:
+			var dataWritefds uint64
+			err = decoder.DecodeUint64(&dataWritefds)
+			if err != nil {
+				return types.Pselect6Args{}, err
+			}
+			result.Writefds = uintptr(dataWritefds)
+		case 3:
+			var dataExceptfds uint64
+			err = decoder.DecodeUint64(&dataExceptfds)
+			if err != nil {
+				return types.Pselect6Args{}, err
+			}
+			result.Exceptfds = uintptr(dataExceptfds)
+		case 4:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.Pselect6Args{}, err
+			}
+		case 5:
+			var dataSigmask uint64
+			err = decoder.DecodeUint64(&dataSigmask)
+			if err != nil {
+				return types.Pselect6Args{}, err
+			}
+			result.Sigmask = uintptr(dataSigmask)
+		}
+	}
+	return result, nil
 }
 
 func ParsePpollArgs(decoder *Decoder) (types.PpollArgs, error) {
-  var result types.PpollArgs
-  var err error
+	var result types.PpollArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PpollArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.PpollArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PpollArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.PpollArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PpollArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PpollArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataFds uint64
-      err = decoder.DecodeUint64(&dataFds)
-      if err != nil {
-        return types.PpollArgs{}, err
-      }
-      result.Fds = uintptr(dataFds)
-    case 1:
-      err = decoder.DecodeUint32(&result.Nfds)
-      if err != nil {
-        return types.PpollArgs{}, err
-      }
-    case 2:
-      result.TmoP, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.PpollArgs{}, err
-      }
-    case 3:
-      var dataSigmask uint64
-      err = decoder.DecodeUint64(&dataSigmask)
-      if err != nil {
-        return types.PpollArgs{}, err
-      }
-      result.Sigmask = uintptr(dataSigmask)
-    case 4:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.PpollArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataFds uint64
+			err = decoder.DecodeUint64(&dataFds)
+			if err != nil {
+				return types.PpollArgs{}, err
+			}
+			result.Fds = uintptr(dataFds)
+		case 1:
+			err = decoder.DecodeUint32(&result.Nfds)
+			if err != nil {
+				return types.PpollArgs{}, err
+			}
+		case 2:
+			result.TmoP, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.PpollArgs{}, err
+			}
+		case 3:
+			var dataSigmask uint64
+			err = decoder.DecodeUint64(&dataSigmask)
+			if err != nil {
+				return types.PpollArgs{}, err
+			}
+			result.Sigmask = uintptr(dataSigmask)
+		case 4:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.PpollArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUnshareArgs(decoder *Decoder) (types.UnshareArgs, error) {
-  var result types.UnshareArgs
-  var err error
+	var result types.UnshareArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UnshareArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UnshareArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UnshareArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UnshareArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UnshareArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UnshareArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.UnshareArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.UnshareArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetRobustListArgs(decoder *Decoder) (types.SetRobustListArgs, error) {
-  var result types.SetRobustListArgs
-  var err error
+	var result types.SetRobustListArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetRobustListArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetRobustListArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetRobustListArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetRobustListArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetRobustListArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetRobustListArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataHead uint64
-      err = decoder.DecodeUint64(&dataHead)
-      if err != nil {
-        return types.SetRobustListArgs{}, err
-      }
-      result.Head = uintptr(dataHead)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.SetRobustListArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataHead uint64
+			err = decoder.DecodeUint64(&dataHead)
+			if err != nil {
+				return types.SetRobustListArgs{}, err
+			}
+			result.Head = uintptr(dataHead)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.SetRobustListArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetRobustListArgs(decoder *Decoder) (types.GetRobustListArgs, error) {
-  var result types.GetRobustListArgs
-  var err error
+	var result types.GetRobustListArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetRobustListArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetRobustListArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetRobustListArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetRobustListArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetRobustListArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetRobustListArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.GetRobustListArgs{}, err
-      }
-    case 1:
-      var dataHeadPtr uint64
-      err = decoder.DecodeUint64(&dataHeadPtr)
-      if err != nil {
-        return types.GetRobustListArgs{}, err
-      }
-      result.HeadPtr = uintptr(dataHeadPtr)
-    case 2:
-      var dataLenPtr uint64
-      err = decoder.DecodeUint64(&dataLenPtr)
-      if err != nil {
-        return types.GetRobustListArgs{}, err
-      }
-      result.LenPtr = uintptr(dataLenPtr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.GetRobustListArgs{}, err
+			}
+		case 1:
+			var dataHeadPtr uint64
+			err = decoder.DecodeUint64(&dataHeadPtr)
+			if err != nil {
+				return types.GetRobustListArgs{}, err
+			}
+			result.HeadPtr = uintptr(dataHeadPtr)
+		case 2:
+			var dataLenPtr uint64
+			err = decoder.DecodeUint64(&dataLenPtr)
+			if err != nil {
+				return types.GetRobustListArgs{}, err
+			}
+			result.LenPtr = uintptr(dataLenPtr)
+		}
+	}
+	return result, nil
 }
 
 func ParseSpliceArgs(decoder *Decoder) (types.SpliceArgs, error) {
-  var result types.SpliceArgs
-  var err error
+	var result types.SpliceArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SpliceArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.SpliceArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SpliceArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.SpliceArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SpliceArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SpliceArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.FdIn)
-      if err != nil {
-        return types.SpliceArgs{}, err
-      }
-    case 1:
-      var dataOffIn uint64
-      err = decoder.DecodeUint64(&dataOffIn)
-      if err != nil {
-        return types.SpliceArgs{}, err
-      }
-      result.OffIn = uintptr(dataOffIn)
-    case 2:
-      err = decoder.DecodeInt32(&result.FdOut)
-      if err != nil {
-        return types.SpliceArgs{}, err
-      }
-    case 3:
-      var dataOffOut uint64
-      err = decoder.DecodeUint64(&dataOffOut)
-      if err != nil {
-        return types.SpliceArgs{}, err
-      }
-      result.OffOut = uintptr(dataOffOut)
-    case 4:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.SpliceArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.SpliceArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.FdIn)
+			if err != nil {
+				return types.SpliceArgs{}, err
+			}
+		case 1:
+			var dataOffIn uint64
+			err = decoder.DecodeUint64(&dataOffIn)
+			if err != nil {
+				return types.SpliceArgs{}, err
+			}
+			result.OffIn = uintptr(dataOffIn)
+		case 2:
+			err = decoder.DecodeInt32(&result.FdOut)
+			if err != nil {
+				return types.SpliceArgs{}, err
+			}
+		case 3:
+			var dataOffOut uint64
+			err = decoder.DecodeUint64(&dataOffOut)
+			if err != nil {
+				return types.SpliceArgs{}, err
+			}
+			result.OffOut = uintptr(dataOffOut)
+		case 4:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.SpliceArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.SpliceArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTeeArgs(decoder *Decoder) (types.TeeArgs, error) {
-  var result types.TeeArgs
-  var err error
+	var result types.TeeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TeeArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.TeeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TeeArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.TeeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TeeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TeeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.FdIn)
-      if err != nil {
-        return types.TeeArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.FdOut)
-      if err != nil {
-        return types.TeeArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.TeeArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.TeeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.FdIn)
+			if err != nil {
+				return types.TeeArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.FdOut)
+			if err != nil {
+				return types.TeeArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.TeeArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.TeeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSyncFileRangeArgs(decoder *Decoder) (types.SyncFileRangeArgs, error) {
-  var result types.SyncFileRangeArgs
-  var err error
+	var result types.SyncFileRangeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SyncFileRangeArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SyncFileRangeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SyncFileRangeArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SyncFileRangeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SyncFileRangeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SyncFileRangeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.SyncFileRangeArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.SyncFileRangeArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Nbytes)
-      if err != nil {
-        return types.SyncFileRangeArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.SyncFileRangeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.SyncFileRangeArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.SyncFileRangeArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Nbytes)
+			if err != nil {
+				return types.SyncFileRangeArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.SyncFileRangeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseVmspliceArgs(decoder *Decoder) (types.VmspliceArgs, error) {
-  var result types.VmspliceArgs
-  var err error
+	var result types.VmspliceArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.VmspliceArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.VmspliceArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.VmspliceArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.VmspliceArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.VmspliceArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.VmspliceArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.VmspliceArgs{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.VmspliceArgs{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.NrSegs)
-      if err != nil {
-        return types.VmspliceArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.VmspliceArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.VmspliceArgs{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.VmspliceArgs{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.NrSegs)
+			if err != nil {
+				return types.VmspliceArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.VmspliceArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMovePagesArgs(decoder *Decoder) (types.MovePagesArgs, error) {
-  var result types.MovePagesArgs
-  var err error
+	var result types.MovePagesArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MovePagesArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.MovePagesArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MovePagesArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.MovePagesArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MovePagesArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MovePagesArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.MovePagesArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.MovePagesArgs{}, err
-      }
-    case 2:
-      var dataPages uint64
-      err = decoder.DecodeUint64(&dataPages)
-      if err != nil {
-        return types.MovePagesArgs{}, err
-      }
-      result.Pages = uintptr(dataPages)
-    case 3:
-      var dataNodes uint64
-      err = decoder.DecodeUint64(&dataNodes)
-      if err != nil {
-        return types.MovePagesArgs{}, err
-      }
-      result.Nodes = uintptr(dataNodes)
-    case 4:
-      var dataStatus uint64
-      err = decoder.DecodeUint64(&dataStatus)
-      if err != nil {
-        return types.MovePagesArgs{}, err
-      }
-      result.Status = uintptr(dataStatus)
-    case 5:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.MovePagesArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.MovePagesArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.MovePagesArgs{}, err
+			}
+		case 2:
+			var dataPages uint64
+			err = decoder.DecodeUint64(&dataPages)
+			if err != nil {
+				return types.MovePagesArgs{}, err
+			}
+			result.Pages = uintptr(dataPages)
+		case 3:
+			var dataNodes uint64
+			err = decoder.DecodeUint64(&dataNodes)
+			if err != nil {
+				return types.MovePagesArgs{}, err
+			}
+			result.Nodes = uintptr(dataNodes)
+		case 4:
+			var dataStatus uint64
+			err = decoder.DecodeUint64(&dataStatus)
+			if err != nil {
+				return types.MovePagesArgs{}, err
+			}
+			result.Status = uintptr(dataStatus)
+		case 5:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.MovePagesArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUtimensatArgs(decoder *Decoder) (types.UtimensatArgs, error) {
-  var result types.UtimensatArgs
-  var err error
+	var result types.UtimensatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UtimensatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.UtimensatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UtimensatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.UtimensatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UtimensatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UtimensatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.UtimensatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UtimensatArgs{}, err
-      }
-    case 2:
-      result.Times, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.UtimensatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.UtimensatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.UtimensatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UtimensatArgs{}, err
+			}
+		case 2:
+			result.Times, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.UtimensatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.UtimensatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollPwaitArgs(decoder *Decoder) (types.EpollPwaitArgs, error) {
-  var result types.EpollPwaitArgs
-  var err error
+	var result types.EpollPwaitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EpollPwaitArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.EpollPwaitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EpollPwaitArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.EpollPwaitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EpollPwaitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EpollPwaitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Epfd)
-      if err != nil {
-        return types.EpollPwaitArgs{}, err
-      }
-    case 1:
-      var dataEvents uint64
-      err = decoder.DecodeUint64(&dataEvents)
-      if err != nil {
-        return types.EpollPwaitArgs{}, err
-      }
-      result.Events = uintptr(dataEvents)
-    case 2:
-      err = decoder.DecodeInt32(&result.Maxevents)
-      if err != nil {
-        return types.EpollPwaitArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Timeout)
-      if err != nil {
-        return types.EpollPwaitArgs{}, err
-      }
-    case 4:
-      var dataSigmask uint64
-      err = decoder.DecodeUint64(&dataSigmask)
-      if err != nil {
-        return types.EpollPwaitArgs{}, err
-      }
-      result.Sigmask = uintptr(dataSigmask)
-    case 5:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.EpollPwaitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Epfd)
+			if err != nil {
+				return types.EpollPwaitArgs{}, err
+			}
+		case 1:
+			var dataEvents uint64
+			err = decoder.DecodeUint64(&dataEvents)
+			if err != nil {
+				return types.EpollPwaitArgs{}, err
+			}
+			result.Events = uintptr(dataEvents)
+		case 2:
+			err = decoder.DecodeInt32(&result.Maxevents)
+			if err != nil {
+				return types.EpollPwaitArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Timeout)
+			if err != nil {
+				return types.EpollPwaitArgs{}, err
+			}
+		case 4:
+			var dataSigmask uint64
+			err = decoder.DecodeUint64(&dataSigmask)
+			if err != nil {
+				return types.EpollPwaitArgs{}, err
+			}
+			result.Sigmask = uintptr(dataSigmask)
+		case 5:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.EpollPwaitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSignalfdArgs(decoder *Decoder) (types.SignalfdArgs, error) {
-  var result types.SignalfdArgs
-  var err error
+	var result types.SignalfdArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SignalfdArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SignalfdArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SignalfdArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SignalfdArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SignalfdArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SignalfdArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.SignalfdArgs{}, err
-      }
-    case 1:
-      var dataMask uint64
-      err = decoder.DecodeUint64(&dataMask)
-      if err != nil {
-        return types.SignalfdArgs{}, err
-      }
-      result.Mask = uintptr(dataMask)
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.SignalfdArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.SignalfdArgs{}, err
+			}
+		case 1:
+			var dataMask uint64
+			err = decoder.DecodeUint64(&dataMask)
+			if err != nil {
+				return types.SignalfdArgs{}, err
+			}
+			result.Mask = uintptr(dataMask)
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.SignalfdArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerfdCreateArgs(decoder *Decoder) (types.TimerfdCreateArgs, error) {
-  var result types.TimerfdCreateArgs
-  var err error
+	var result types.TimerfdCreateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerfdCreateArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.TimerfdCreateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerfdCreateArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.TimerfdCreateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerfdCreateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerfdCreateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Clockid)
-      if err != nil {
-        return types.TimerfdCreateArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.TimerfdCreateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Clockid)
+			if err != nil {
+				return types.TimerfdCreateArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.TimerfdCreateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEventfdArgs(decoder *Decoder) (types.EventfdArgs, error) {
-  var result types.EventfdArgs
-  var err error
+	var result types.EventfdArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EventfdArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.EventfdArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EventfdArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.EventfdArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EventfdArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EventfdArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Initval)
-      if err != nil {
-        return types.EventfdArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.EventfdArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Initval)
+			if err != nil {
+				return types.EventfdArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.EventfdArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFallocateArgs(decoder *Decoder) (types.FallocateArgs, error) {
-  var result types.FallocateArgs
-  var err error
+	var result types.FallocateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FallocateArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.FallocateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FallocateArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.FallocateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FallocateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FallocateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FallocateArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Mode)
-      if err != nil {
-        return types.FallocateArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.FallocateArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.FallocateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FallocateArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Mode)
+			if err != nil {
+				return types.FallocateArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.FallocateArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.FallocateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerfdSettimeArgs(decoder *Decoder) (types.TimerfdSettimeArgs, error) {
-  var result types.TimerfdSettimeArgs
-  var err error
+	var result types.TimerfdSettimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerfdSettimeArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.TimerfdSettimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerfdSettimeArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.TimerfdSettimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerfdSettimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerfdSettimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.TimerfdSettimeArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.TimerfdSettimeArgs{}, err
-      }
-    case 2:
-      var dataNewValue uint64
-      err = decoder.DecodeUint64(&dataNewValue)
-      if err != nil {
-        return types.TimerfdSettimeArgs{}, err
-      }
-      result.NewValue = uintptr(dataNewValue)
-    case 3:
-      var dataOldValue uint64
-      err = decoder.DecodeUint64(&dataOldValue)
-      if err != nil {
-        return types.TimerfdSettimeArgs{}, err
-      }
-      result.OldValue = uintptr(dataOldValue)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.TimerfdSettimeArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.TimerfdSettimeArgs{}, err
+			}
+		case 2:
+			var dataNewValue uint64
+			err = decoder.DecodeUint64(&dataNewValue)
+			if err != nil {
+				return types.TimerfdSettimeArgs{}, err
+			}
+			result.NewValue = uintptr(dataNewValue)
+		case 3:
+			var dataOldValue uint64
+			err = decoder.DecodeUint64(&dataOldValue)
+			if err != nil {
+				return types.TimerfdSettimeArgs{}, err
+			}
+			result.OldValue = uintptr(dataOldValue)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerfdGettimeArgs(decoder *Decoder) (types.TimerfdGettimeArgs, error) {
-  var result types.TimerfdGettimeArgs
-  var err error
+	var result types.TimerfdGettimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerfdGettimeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.TimerfdGettimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerfdGettimeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.TimerfdGettimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerfdGettimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerfdGettimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.TimerfdGettimeArgs{}, err
-      }
-    case 1:
-      var dataCurrValue uint64
-      err = decoder.DecodeUint64(&dataCurrValue)
-      if err != nil {
-        return types.TimerfdGettimeArgs{}, err
-      }
-      result.CurrValue = uintptr(dataCurrValue)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.TimerfdGettimeArgs{}, err
+			}
+		case 1:
+			var dataCurrValue uint64
+			err = decoder.DecodeUint64(&dataCurrValue)
+			if err != nil {
+				return types.TimerfdGettimeArgs{}, err
+			}
+			result.CurrValue = uintptr(dataCurrValue)
+		}
+	}
+	return result, nil
 }
 
 func ParseAccept4Args(decoder *Decoder) (types.Accept4Args, error) {
-  var result types.Accept4Args
-  var err error
+	var result types.Accept4Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Accept4Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Accept4Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Accept4Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Accept4Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Accept4Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Accept4Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.Accept4Args{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.Accept4Args{}, err
-      }
-    case 2:
-      var dataAddrlen uint64
-      err = decoder.DecodeUint64(&dataAddrlen)
-      if err != nil {
-        return types.Accept4Args{}, err
-      }
-      result.Addrlen = uintptr(dataAddrlen)
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Accept4Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.Accept4Args{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.Accept4Args{}, err
+			}
+		case 2:
+			var dataAddrlen uint64
+			err = decoder.DecodeUint64(&dataAddrlen)
+			if err != nil {
+				return types.Accept4Args{}, err
+			}
+			result.Addrlen = uintptr(dataAddrlen)
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Accept4Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSignalfd4Args(decoder *Decoder) (types.Signalfd4Args, error) {
-  var result types.Signalfd4Args
-  var err error
+	var result types.Signalfd4Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Signalfd4Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Signalfd4Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Signalfd4Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Signalfd4Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Signalfd4Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Signalfd4Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Signalfd4Args{}, err
-      }
-    case 1:
-      var dataMask uint64
-      err = decoder.DecodeUint64(&dataMask)
-      if err != nil {
-        return types.Signalfd4Args{}, err
-      }
-      result.Mask = uintptr(dataMask)
-    case 2:
-      err = decoder.DecodeUint64(&result.Sizemask)
-      if err != nil {
-        return types.Signalfd4Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Signalfd4Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Signalfd4Args{}, err
+			}
+		case 1:
+			var dataMask uint64
+			err = decoder.DecodeUint64(&dataMask)
+			if err != nil {
+				return types.Signalfd4Args{}, err
+			}
+			result.Mask = uintptr(dataMask)
+		case 2:
+			err = decoder.DecodeUint64(&result.Sizemask)
+			if err != nil {
+				return types.Signalfd4Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Signalfd4Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEventfd2Args(decoder *Decoder) (types.Eventfd2Args, error) {
-  var result types.Eventfd2Args
-  var err error
+	var result types.Eventfd2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Eventfd2Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Eventfd2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Eventfd2Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Eventfd2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Eventfd2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Eventfd2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Initval)
-      if err != nil {
-        return types.Eventfd2Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Eventfd2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Initval)
+			if err != nil {
+				return types.Eventfd2Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Eventfd2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollCreate1Args(decoder *Decoder) (types.EpollCreate1Args, error) {
-  var result types.EpollCreate1Args
-  var err error
+	var result types.EpollCreate1Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EpollCreate1Args{}, err
-  }
-  if numArgs > 1 {
-    return types.EpollCreate1Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EpollCreate1Args{}, err
+	}
+	if numArgs > 1 {
+		return types.EpollCreate1Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EpollCreate1Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EpollCreate1Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.EpollCreate1Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.EpollCreate1Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseDup3Args(decoder *Decoder) (types.Dup3Args, error) {
-  var result types.Dup3Args
-  var err error
+	var result types.Dup3Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Dup3Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Dup3Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Dup3Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Dup3Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Dup3Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Dup3Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Oldfd)
-      if err != nil {
-        return types.Dup3Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Newfd)
-      if err != nil {
-        return types.Dup3Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Dup3Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Oldfd)
+			if err != nil {
+				return types.Dup3Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Newfd)
+			if err != nil {
+				return types.Dup3Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Dup3Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePipe2Args(decoder *Decoder) (types.Pipe2Args, error) {
-  var result types.Pipe2Args
-  var err error
+	var result types.Pipe2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Pipe2Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Pipe2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Pipe2Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Pipe2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Pipe2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Pipe2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeIntArray(result.Pipefd[:], 2)
-      if err != nil {
-        return types.Pipe2Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Pipe2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeIntArray(result.Pipefd[:], 2)
+			if err != nil {
+				return types.Pipe2Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Pipe2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseInotifyInit1Args(decoder *Decoder) (types.InotifyInit1Args, error) {
-  var result types.InotifyInit1Args
-  var err error
+	var result types.InotifyInit1Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.InotifyInit1Args{}, err
-  }
-  if numArgs > 1 {
-    return types.InotifyInit1Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.InotifyInit1Args{}, err
+	}
+	if numArgs > 1 {
+		return types.InotifyInit1Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.InotifyInit1Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.InotifyInit1Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.InotifyInit1Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.InotifyInit1Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePreadvArgs(decoder *Decoder) (types.PreadvArgs, error) {
-  var result types.PreadvArgs
-  var err error
+	var result types.PreadvArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PreadvArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.PreadvArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PreadvArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.PreadvArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PreadvArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PreadvArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.PreadvArgs{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.PreadvArgs{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.Iovcnt)
-      if err != nil {
-        return types.PreadvArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.PosL)
-      if err != nil {
-        return types.PreadvArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.PosH)
-      if err != nil {
-        return types.PreadvArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.PreadvArgs{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.PreadvArgs{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.Iovcnt)
+			if err != nil {
+				return types.PreadvArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.PosL)
+			if err != nil {
+				return types.PreadvArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.PosH)
+			if err != nil {
+				return types.PreadvArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePwritevArgs(decoder *Decoder) (types.PwritevArgs, error) {
-  var result types.PwritevArgs
-  var err error
+	var result types.PwritevArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PwritevArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.PwritevArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PwritevArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.PwritevArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PwritevArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PwritevArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.PwritevArgs{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.PwritevArgs{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.Iovcnt)
-      if err != nil {
-        return types.PwritevArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.PosL)
-      if err != nil {
-        return types.PwritevArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.PosH)
-      if err != nil {
-        return types.PwritevArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.PwritevArgs{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.PwritevArgs{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.Iovcnt)
+			if err != nil {
+				return types.PwritevArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.PosL)
+			if err != nil {
+				return types.PwritevArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.PosH)
+			if err != nil {
+				return types.PwritevArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRtTgsigqueueinfoArgs(decoder *Decoder) (types.RtTgsigqueueinfoArgs, error) {
-  var result types.RtTgsigqueueinfoArgs
-  var err error
+	var result types.RtTgsigqueueinfoArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtTgsigqueueinfoArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RtTgsigqueueinfoArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtTgsigqueueinfoArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RtTgsigqueueinfoArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtTgsigqueueinfoArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtTgsigqueueinfoArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Tgid)
-      if err != nil {
-        return types.RtTgsigqueueinfoArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Tid)
-      if err != nil {
-        return types.RtTgsigqueueinfoArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.RtTgsigqueueinfoArgs{}, err
-      }
-    case 3:
-      var dataInfo uint64
-      err = decoder.DecodeUint64(&dataInfo)
-      if err != nil {
-        return types.RtTgsigqueueinfoArgs{}, err
-      }
-      result.Info = uintptr(dataInfo)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Tgid)
+			if err != nil {
+				return types.RtTgsigqueueinfoArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Tid)
+			if err != nil {
+				return types.RtTgsigqueueinfoArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.RtTgsigqueueinfoArgs{}, err
+			}
+		case 3:
+			var dataInfo uint64
+			err = decoder.DecodeUint64(&dataInfo)
+			if err != nil {
+				return types.RtTgsigqueueinfoArgs{}, err
+			}
+			result.Info = uintptr(dataInfo)
+		}
+	}
+	return result, nil
 }
 
 func ParsePerfEventOpenArgs(decoder *Decoder) (types.PerfEventOpenArgs, error) {
-  var result types.PerfEventOpenArgs
-  var err error
+	var result types.PerfEventOpenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PerfEventOpenArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.PerfEventOpenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PerfEventOpenArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.PerfEventOpenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PerfEventOpenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PerfEventOpenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAttr uint64
-      err = decoder.DecodeUint64(&dataAttr)
-      if err != nil {
-        return types.PerfEventOpenArgs{}, err
-      }
-      result.Attr = uintptr(dataAttr)
-    case 1:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.PerfEventOpenArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Cpu)
-      if err != nil {
-        return types.PerfEventOpenArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.GroupFd)
-      if err != nil {
-        return types.PerfEventOpenArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.PerfEventOpenArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAttr uint64
+			err = decoder.DecodeUint64(&dataAttr)
+			if err != nil {
+				return types.PerfEventOpenArgs{}, err
+			}
+			result.Attr = uintptr(dataAttr)
+		case 1:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.PerfEventOpenArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Cpu)
+			if err != nil {
+				return types.PerfEventOpenArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.GroupFd)
+			if err != nil {
+				return types.PerfEventOpenArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.PerfEventOpenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRecvmmsgArgs(decoder *Decoder) (types.RecvmmsgArgs, error) {
-  var result types.RecvmmsgArgs
-  var err error
+	var result types.RecvmmsgArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RecvmmsgArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.RecvmmsgArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RecvmmsgArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.RecvmmsgArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RecvmmsgArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RecvmmsgArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.RecvmmsgArgs{}, err
-      }
-    case 1:
-      var dataMsgvec uint64
-      err = decoder.DecodeUint64(&dataMsgvec)
-      if err != nil {
-        return types.RecvmmsgArgs{}, err
-      }
-      result.Msgvec = uintptr(dataMsgvec)
-    case 2:
-      err = decoder.DecodeUint32(&result.Vlen)
-      if err != nil {
-        return types.RecvmmsgArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.RecvmmsgArgs{}, err
-      }
-    case 4:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.RecvmmsgArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.RecvmmsgArgs{}, err
+			}
+		case 1:
+			var dataMsgvec uint64
+			err = decoder.DecodeUint64(&dataMsgvec)
+			if err != nil {
+				return types.RecvmmsgArgs{}, err
+			}
+			result.Msgvec = uintptr(dataMsgvec)
+		case 2:
+			err = decoder.DecodeUint32(&result.Vlen)
+			if err != nil {
+				return types.RecvmmsgArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.RecvmmsgArgs{}, err
+			}
+		case 4:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.RecvmmsgArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFanotifyInitArgs(decoder *Decoder) (types.FanotifyInitArgs, error) {
-  var result types.FanotifyInitArgs
-  var err error
+	var result types.FanotifyInitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FanotifyInitArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FanotifyInitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FanotifyInitArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FanotifyInitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FanotifyInitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FanotifyInitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.FanotifyInitArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.EventFFlags)
-      if err != nil {
-        return types.FanotifyInitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.FanotifyInitArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.EventFFlags)
+			if err != nil {
+				return types.FanotifyInitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFanotifyMarkArgs(decoder *Decoder) (types.FanotifyMarkArgs, error) {
-  var result types.FanotifyMarkArgs
-  var err error
+	var result types.FanotifyMarkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FanotifyMarkArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.FanotifyMarkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FanotifyMarkArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.FanotifyMarkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FanotifyMarkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FanotifyMarkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.FanotifyFd)
-      if err != nil {
-        return types.FanotifyMarkArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.FanotifyMarkArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Mask)
-      if err != nil {
-        return types.FanotifyMarkArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.FanotifyMarkArgs{}, err
-      }
-    case 4:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FanotifyMarkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.FanotifyFd)
+			if err != nil {
+				return types.FanotifyMarkArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.FanotifyMarkArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Mask)
+			if err != nil {
+				return types.FanotifyMarkArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.FanotifyMarkArgs{}, err
+			}
+		case 4:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FanotifyMarkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePrlimit64Args(decoder *Decoder) (types.Prlimit64Args, error) {
-  var result types.Prlimit64Args
-  var err error
+	var result types.Prlimit64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Prlimit64Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Prlimit64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Prlimit64Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Prlimit64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Prlimit64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Prlimit64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.Prlimit64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Resource)
-      if err != nil {
-        return types.Prlimit64Args{}, err
-      }
-    case 2:
-      var dataNewLimit uint64
-      err = decoder.DecodeUint64(&dataNewLimit)
-      if err != nil {
-        return types.Prlimit64Args{}, err
-      }
-      result.NewLimit = uintptr(dataNewLimit)
-    case 3:
-      var dataOldLimit uint64
-      err = decoder.DecodeUint64(&dataOldLimit)
-      if err != nil {
-        return types.Prlimit64Args{}, err
-      }
-      result.OldLimit = uintptr(dataOldLimit)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.Prlimit64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Resource)
+			if err != nil {
+				return types.Prlimit64Args{}, err
+			}
+		case 2:
+			var dataNewLimit uint64
+			err = decoder.DecodeUint64(&dataNewLimit)
+			if err != nil {
+				return types.Prlimit64Args{}, err
+			}
+			result.NewLimit = uintptr(dataNewLimit)
+		case 3:
+			var dataOldLimit uint64
+			err = decoder.DecodeUint64(&dataOldLimit)
+			if err != nil {
+				return types.Prlimit64Args{}, err
+			}
+			result.OldLimit = uintptr(dataOldLimit)
+		}
+	}
+	return result, nil
 }
 
 func ParseNameToHandleAtArgs(decoder *Decoder) (types.NameToHandleAtArgs, error) {
-  var result types.NameToHandleAtArgs
-  var err error
+	var result types.NameToHandleAtArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NameToHandleAtArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.NameToHandleAtArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NameToHandleAtArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.NameToHandleAtArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NameToHandleAtArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NameToHandleAtArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.NameToHandleAtArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.NameToHandleAtArgs{}, err
-      }
-    case 2:
-      var dataHandle uint64
-      err = decoder.DecodeUint64(&dataHandle)
-      if err != nil {
-        return types.NameToHandleAtArgs{}, err
-      }
-      result.Handle = uintptr(dataHandle)
-    case 3:
-      var dataMountId uint64
-      err = decoder.DecodeUint64(&dataMountId)
-      if err != nil {
-        return types.NameToHandleAtArgs{}, err
-      }
-      result.MountId = uintptr(dataMountId)
-    case 4:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.NameToHandleAtArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.NameToHandleAtArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.NameToHandleAtArgs{}, err
+			}
+		case 2:
+			var dataHandle uint64
+			err = decoder.DecodeUint64(&dataHandle)
+			if err != nil {
+				return types.NameToHandleAtArgs{}, err
+			}
+			result.Handle = uintptr(dataHandle)
+		case 3:
+			var dataMountId uint64
+			err = decoder.DecodeUint64(&dataMountId)
+			if err != nil {
+				return types.NameToHandleAtArgs{}, err
+			}
+			result.MountId = uintptr(dataMountId)
+		case 4:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.NameToHandleAtArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseOpenByHandleAtArgs(decoder *Decoder) (types.OpenByHandleAtArgs, error) {
-  var result types.OpenByHandleAtArgs
-  var err error
+	var result types.OpenByHandleAtArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OpenByHandleAtArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.OpenByHandleAtArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OpenByHandleAtArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.OpenByHandleAtArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OpenByHandleAtArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OpenByHandleAtArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.MountFd)
-      if err != nil {
-        return types.OpenByHandleAtArgs{}, err
-      }
-    case 1:
-      var dataHandle uint64
-      err = decoder.DecodeUint64(&dataHandle)
-      if err != nil {
-        return types.OpenByHandleAtArgs{}, err
-      }
-      result.Handle = uintptr(dataHandle)
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.OpenByHandleAtArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.MountFd)
+			if err != nil {
+				return types.OpenByHandleAtArgs{}, err
+			}
+		case 1:
+			var dataHandle uint64
+			err = decoder.DecodeUint64(&dataHandle)
+			if err != nil {
+				return types.OpenByHandleAtArgs{}, err
+			}
+			result.Handle = uintptr(dataHandle)
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.OpenByHandleAtArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClockAdjtimeArgs(decoder *Decoder) (types.ClockAdjtimeArgs, error) {
-  var result types.ClockAdjtimeArgs
-  var err error
+	var result types.ClockAdjtimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockAdjtimeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockAdjtimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockAdjtimeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockAdjtimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockAdjtimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockAdjtimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.ClkId)
-      if err != nil {
-        return types.ClockAdjtimeArgs{}, err
-      }
-    case 1:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.ClockAdjtimeArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.ClkId)
+			if err != nil {
+				return types.ClockAdjtimeArgs{}, err
+			}
+		case 1:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.ClockAdjtimeArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseSyncfsArgs(decoder *Decoder) (types.SyncfsArgs, error) {
-  var result types.SyncfsArgs
-  var err error
+	var result types.SyncfsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SyncfsArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SyncfsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SyncfsArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SyncfsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SyncfsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SyncfsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.SyncfsArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.SyncfsArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSendmmsgArgs(decoder *Decoder) (types.SendmmsgArgs, error) {
-  var result types.SendmmsgArgs
-  var err error
+	var result types.SendmmsgArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SendmmsgArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SendmmsgArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SendmmsgArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SendmmsgArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SendmmsgArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SendmmsgArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.SendmmsgArgs{}, err
-      }
-    case 1:
-      var dataMsgvec uint64
-      err = decoder.DecodeUint64(&dataMsgvec)
-      if err != nil {
-        return types.SendmmsgArgs{}, err
-      }
-      result.Msgvec = uintptr(dataMsgvec)
-    case 2:
-      err = decoder.DecodeUint32(&result.Vlen)
-      if err != nil {
-        return types.SendmmsgArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.SendmmsgArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.SendmmsgArgs{}, err
+			}
+		case 1:
+			var dataMsgvec uint64
+			err = decoder.DecodeUint64(&dataMsgvec)
+			if err != nil {
+				return types.SendmmsgArgs{}, err
+			}
+			result.Msgvec = uintptr(dataMsgvec)
+		case 2:
+			err = decoder.DecodeUint32(&result.Vlen)
+			if err != nil {
+				return types.SendmmsgArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.SendmmsgArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSetnsArgs(decoder *Decoder) (types.SetnsArgs, error) {
-  var result types.SetnsArgs
-  var err error
+	var result types.SetnsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SetnsArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SetnsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SetnsArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SetnsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SetnsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SetnsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.SetnsArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Nstype)
-      if err != nil {
-        return types.SetnsArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.SetnsArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Nstype)
+			if err != nil {
+				return types.SetnsArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseGetcpuArgs(decoder *Decoder) (types.GetcpuArgs, error) {
-  var result types.GetcpuArgs
-  var err error
+	var result types.GetcpuArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetcpuArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetcpuArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetcpuArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetcpuArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetcpuArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetcpuArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataCpu uint64
-      err = decoder.DecodeUint64(&dataCpu)
-      if err != nil {
-        return types.GetcpuArgs{}, err
-      }
-      result.Cpu = uintptr(dataCpu)
-    case 1:
-      var dataNode uint64
-      err = decoder.DecodeUint64(&dataNode)
-      if err != nil {
-        return types.GetcpuArgs{}, err
-      }
-      result.Node = uintptr(dataNode)
-    case 2:
-      var dataTcache uint64
-      err = decoder.DecodeUint64(&dataTcache)
-      if err != nil {
-        return types.GetcpuArgs{}, err
-      }
-      result.Tcache = uintptr(dataTcache)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataCpu uint64
+			err = decoder.DecodeUint64(&dataCpu)
+			if err != nil {
+				return types.GetcpuArgs{}, err
+			}
+			result.Cpu = uintptr(dataCpu)
+		case 1:
+			var dataNode uint64
+			err = decoder.DecodeUint64(&dataNode)
+			if err != nil {
+				return types.GetcpuArgs{}, err
+			}
+			result.Node = uintptr(dataNode)
+		case 2:
+			var dataTcache uint64
+			err = decoder.DecodeUint64(&dataTcache)
+			if err != nil {
+				return types.GetcpuArgs{}, err
+			}
+			result.Tcache = uintptr(dataTcache)
+		}
+	}
+	return result, nil
 }
 
 func ParseProcessVmReadvArgs(decoder *Decoder) (types.ProcessVmReadvArgs, error) {
-  var result types.ProcessVmReadvArgs
-  var err error
+	var result types.ProcessVmReadvArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ProcessVmReadvArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.ProcessVmReadvArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ProcessVmReadvArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.ProcessVmReadvArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ProcessVmReadvArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ProcessVmReadvArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.ProcessVmReadvArgs{}, err
-      }
-    case 1:
-      var dataLocalIov uint64
-      err = decoder.DecodeUint64(&dataLocalIov)
-      if err != nil {
-        return types.ProcessVmReadvArgs{}, err
-      }
-      result.LocalIov = uintptr(dataLocalIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.Liovcnt)
-      if err != nil {
-        return types.ProcessVmReadvArgs{}, err
-      }
-    case 3:
-      var dataRemoteIov uint64
-      err = decoder.DecodeUint64(&dataRemoteIov)
-      if err != nil {
-        return types.ProcessVmReadvArgs{}, err
-      }
-      result.RemoteIov = uintptr(dataRemoteIov)
-    case 4:
-      err = decoder.DecodeUint64(&result.Riovcnt)
-      if err != nil {
-        return types.ProcessVmReadvArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.ProcessVmReadvArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.ProcessVmReadvArgs{}, err
+			}
+		case 1:
+			var dataLocalIov uint64
+			err = decoder.DecodeUint64(&dataLocalIov)
+			if err != nil {
+				return types.ProcessVmReadvArgs{}, err
+			}
+			result.LocalIov = uintptr(dataLocalIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.Liovcnt)
+			if err != nil {
+				return types.ProcessVmReadvArgs{}, err
+			}
+		case 3:
+			var dataRemoteIov uint64
+			err = decoder.DecodeUint64(&dataRemoteIov)
+			if err != nil {
+				return types.ProcessVmReadvArgs{}, err
+			}
+			result.RemoteIov = uintptr(dataRemoteIov)
+		case 4:
+			err = decoder.DecodeUint64(&result.Riovcnt)
+			if err != nil {
+				return types.ProcessVmReadvArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.ProcessVmReadvArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseProcessVmWritevArgs(decoder *Decoder) (types.ProcessVmWritevArgs, error) {
-  var result types.ProcessVmWritevArgs
-  var err error
+	var result types.ProcessVmWritevArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ProcessVmWritevArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.ProcessVmWritevArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ProcessVmWritevArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.ProcessVmWritevArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ProcessVmWritevArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ProcessVmWritevArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.ProcessVmWritevArgs{}, err
-      }
-    case 1:
-      var dataLocalIov uint64
-      err = decoder.DecodeUint64(&dataLocalIov)
-      if err != nil {
-        return types.ProcessVmWritevArgs{}, err
-      }
-      result.LocalIov = uintptr(dataLocalIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.Liovcnt)
-      if err != nil {
-        return types.ProcessVmWritevArgs{}, err
-      }
-    case 3:
-      var dataRemoteIov uint64
-      err = decoder.DecodeUint64(&dataRemoteIov)
-      if err != nil {
-        return types.ProcessVmWritevArgs{}, err
-      }
-      result.RemoteIov = uintptr(dataRemoteIov)
-    case 4:
-      err = decoder.DecodeUint64(&result.Riovcnt)
-      if err != nil {
-        return types.ProcessVmWritevArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.ProcessVmWritevArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.ProcessVmWritevArgs{}, err
+			}
+		case 1:
+			var dataLocalIov uint64
+			err = decoder.DecodeUint64(&dataLocalIov)
+			if err != nil {
+				return types.ProcessVmWritevArgs{}, err
+			}
+			result.LocalIov = uintptr(dataLocalIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.Liovcnt)
+			if err != nil {
+				return types.ProcessVmWritevArgs{}, err
+			}
+		case 3:
+			var dataRemoteIov uint64
+			err = decoder.DecodeUint64(&dataRemoteIov)
+			if err != nil {
+				return types.ProcessVmWritevArgs{}, err
+			}
+			result.RemoteIov = uintptr(dataRemoteIov)
+		case 4:
+			err = decoder.DecodeUint64(&result.Riovcnt)
+			if err != nil {
+				return types.ProcessVmWritevArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.ProcessVmWritevArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseKcmpArgs(decoder *Decoder) (types.KcmpArgs, error) {
-  var result types.KcmpArgs
-  var err error
+	var result types.KcmpArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.KcmpArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.KcmpArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.KcmpArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.KcmpArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.KcmpArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.KcmpArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid1)
-      if err != nil {
-        return types.KcmpArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Pid2)
-      if err != nil {
-        return types.KcmpArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Type)
-      if err != nil {
-        return types.KcmpArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Idx1)
-      if err != nil {
-        return types.KcmpArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Idx2)
-      if err != nil {
-        return types.KcmpArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid1)
+			if err != nil {
+				return types.KcmpArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Pid2)
+			if err != nil {
+				return types.KcmpArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Type)
+			if err != nil {
+				return types.KcmpArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Idx1)
+			if err != nil {
+				return types.KcmpArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Idx2)
+			if err != nil {
+				return types.KcmpArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFinitModuleArgs(decoder *Decoder) (types.FinitModuleArgs, error) {
-  var result types.FinitModuleArgs
-  var err error
+	var result types.FinitModuleArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FinitModuleArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FinitModuleArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FinitModuleArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FinitModuleArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FinitModuleArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FinitModuleArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.FinitModuleArgs{}, err
-      }
-    case 1:
-      result.ParamValues, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FinitModuleArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.FinitModuleArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.FinitModuleArgs{}, err
+			}
+		case 1:
+			result.ParamValues, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FinitModuleArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.FinitModuleArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedSetattrArgs(decoder *Decoder) (types.SchedSetattrArgs, error) {
-  var result types.SchedSetattrArgs
-  var err error
+	var result types.SchedSetattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedSetattrArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SchedSetattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedSetattrArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SchedSetattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedSetattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedSetattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedSetattrArgs{}, err
-      }
-    case 1:
-      var dataAttr uint64
-      err = decoder.DecodeUint64(&dataAttr)
-      if err != nil {
-        return types.SchedSetattrArgs{}, err
-      }
-      result.Attr = uintptr(dataAttr)
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.SchedSetattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedSetattrArgs{}, err
+			}
+		case 1:
+			var dataAttr uint64
+			err = decoder.DecodeUint64(&dataAttr)
+			if err != nil {
+				return types.SchedSetattrArgs{}, err
+			}
+			result.Attr = uintptr(dataAttr)
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.SchedSetattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedGetattrArgs(decoder *Decoder) (types.SchedGetattrArgs, error) {
-  var result types.SchedGetattrArgs
-  var err error
+	var result types.SchedGetattrArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedGetattrArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.SchedGetattrArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedGetattrArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.SchedGetattrArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedGetattrArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedGetattrArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedGetattrArgs{}, err
-      }
-    case 1:
-      var dataAttr uint64
-      err = decoder.DecodeUint64(&dataAttr)
-      if err != nil {
-        return types.SchedGetattrArgs{}, err
-      }
-      result.Attr = uintptr(dataAttr)
-    case 2:
-      err = decoder.DecodeUint32(&result.Size)
-      if err != nil {
-        return types.SchedGetattrArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.SchedGetattrArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedGetattrArgs{}, err
+			}
+		case 1:
+			var dataAttr uint64
+			err = decoder.DecodeUint64(&dataAttr)
+			if err != nil {
+				return types.SchedGetattrArgs{}, err
+			}
+			result.Attr = uintptr(dataAttr)
+		case 2:
+			err = decoder.DecodeUint32(&result.Size)
+			if err != nil {
+				return types.SchedGetattrArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.SchedGetattrArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseRenameat2Args(decoder *Decoder) (types.Renameat2Args, error) {
-  var result types.Renameat2Args
-  var err error
+	var result types.Renameat2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Renameat2Args{}, err
-  }
-  if numArgs > 5 {
-    return types.Renameat2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Renameat2Args{}, err
+	}
+	if numArgs > 5 {
+		return types.Renameat2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Renameat2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Renameat2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Olddirfd)
-      if err != nil {
-        return types.Renameat2Args{}, err
-      }
-    case 1:
-      result.Oldpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Renameat2Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Newdirfd)
-      if err != nil {
-        return types.Renameat2Args{}, err
-      }
-    case 3:
-      result.Newpath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Renameat2Args{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.Renameat2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Olddirfd)
+			if err != nil {
+				return types.Renameat2Args{}, err
+			}
+		case 1:
+			result.Oldpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Renameat2Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Newdirfd)
+			if err != nil {
+				return types.Renameat2Args{}, err
+			}
+		case 3:
+			result.Newpath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Renameat2Args{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.Renameat2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSeccompArgs(decoder *Decoder) (types.SeccompArgs, error) {
-  var result types.SeccompArgs
-  var err error
+	var result types.SeccompArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SeccompArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SeccompArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SeccompArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SeccompArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SeccompArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SeccompArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Operation)
-      if err != nil {
-        return types.SeccompArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.SeccompArgs{}, err
-      }
-    case 2:
-      var dataArgs uint64
-      err = decoder.DecodeUint64(&dataArgs)
-      if err != nil {
-        return types.SeccompArgs{}, err
-      }
-      result.Args = uintptr(dataArgs)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Operation)
+			if err != nil {
+				return types.SeccompArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.SeccompArgs{}, err
+			}
+		case 2:
+			var dataArgs uint64
+			err = decoder.DecodeUint64(&dataArgs)
+			if err != nil {
+				return types.SeccompArgs{}, err
+			}
+			result.Args = uintptr(dataArgs)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetrandomArgs(decoder *Decoder) (types.GetrandomArgs, error) {
-  var result types.GetrandomArgs
-  var err error
+	var result types.GetrandomArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.GetrandomArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.GetrandomArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.GetrandomArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.GetrandomArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.GetrandomArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.GetrandomArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.GetrandomArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    case 1:
-      err = decoder.DecodeUint64(&result.Buflen)
-      if err != nil {
-        return types.GetrandomArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.GetrandomArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.GetrandomArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		case 1:
+			err = decoder.DecodeUint64(&result.Buflen)
+			if err != nil {
+				return types.GetrandomArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.GetrandomArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMemfdCreateArgs(decoder *Decoder) (types.MemfdCreateArgs, error) {
-  var result types.MemfdCreateArgs
-  var err error
+	var result types.MemfdCreateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MemfdCreateArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MemfdCreateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MemfdCreateArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MemfdCreateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MemfdCreateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MemfdCreateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Name, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MemfdCreateArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.MemfdCreateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Name, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MemfdCreateArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.MemfdCreateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseKexecFileLoadArgs(decoder *Decoder) (types.KexecFileLoadArgs, error) {
-  var result types.KexecFileLoadArgs
-  var err error
+	var result types.KexecFileLoadArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.KexecFileLoadArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.KexecFileLoadArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.KexecFileLoadArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.KexecFileLoadArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.KexecFileLoadArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.KexecFileLoadArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.KernelFd)
-      if err != nil {
-        return types.KexecFileLoadArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.InitrdFd)
-      if err != nil {
-        return types.KexecFileLoadArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.CmdlineLen)
-      if err != nil {
-        return types.KexecFileLoadArgs{}, err
-      }
-    case 3:
-      result.Cmdline, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.KexecFileLoadArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.KexecFileLoadArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.KernelFd)
+			if err != nil {
+				return types.KexecFileLoadArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.InitrdFd)
+			if err != nil {
+				return types.KexecFileLoadArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.CmdlineLen)
+			if err != nil {
+				return types.KexecFileLoadArgs{}, err
+			}
+		case 3:
+			result.Cmdline, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.KexecFileLoadArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.KexecFileLoadArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseBpfArgs(decoder *Decoder) (types.BpfArgs, error) {
-  var result types.BpfArgs
-  var err error
+	var result types.BpfArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.BpfArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.BpfArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.BpfArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.BpfArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.BpfArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.BpfArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.BpfArgs{}, err
-      }
-    case 1:
-      var dataAttr uint64
-      err = decoder.DecodeUint64(&dataAttr)
-      if err != nil {
-        return types.BpfArgs{}, err
-      }
-      result.Attr = uintptr(dataAttr)
-    case 2:
-      err = decoder.DecodeUint32(&result.Size)
-      if err != nil {
-        return types.BpfArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.BpfArgs{}, err
+			}
+		case 1:
+			var dataAttr uint64
+			err = decoder.DecodeUint64(&dataAttr)
+			if err != nil {
+				return types.BpfArgs{}, err
+			}
+			result.Attr = uintptr(dataAttr)
+		case 2:
+			err = decoder.DecodeUint32(&result.Size)
+			if err != nil {
+				return types.BpfArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseExecveatArgs(decoder *Decoder) (types.ExecveatArgs, error) {
-  var result types.ExecveatArgs
-  var err error
+	var result types.ExecveatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ExecveatArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.ExecveatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ExecveatArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.ExecveatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ExecveatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ExecveatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.ExecveatArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ExecveatArgs{}, err
-      }
-    case 2:
-      result.Argv, err = decoder.ReadStringArrayFromBuff()
-      if err != nil {
-        return types.ExecveatArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.ExecveatArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.ExecveatArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ExecveatArgs{}, err
+			}
+		case 2:
+			result.Argv, err = decoder.ReadStringArrayFromBuff()
+			if err != nil {
+				return types.ExecveatArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.ExecveatArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseUserfaultfdArgs(decoder *Decoder) (types.UserfaultfdArgs, error) {
-  var result types.UserfaultfdArgs
-  var err error
+	var result types.UserfaultfdArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UserfaultfdArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UserfaultfdArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UserfaultfdArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UserfaultfdArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UserfaultfdArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UserfaultfdArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.UserfaultfdArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.UserfaultfdArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMembarrierArgs(decoder *Decoder) (types.MembarrierArgs, error) {
-  var result types.MembarrierArgs
-  var err error
+	var result types.MembarrierArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MembarrierArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.MembarrierArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MembarrierArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.MembarrierArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MembarrierArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MembarrierArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.MembarrierArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.MembarrierArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.MembarrierArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.MembarrierArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMlock2Args(decoder *Decoder) (types.Mlock2Args, error) {
-  var result types.Mlock2Args
-  var err error
+	var result types.Mlock2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Mlock2Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Mlock2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Mlock2Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Mlock2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Mlock2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Mlock2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.Mlock2Args{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.Mlock2Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Mlock2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.Mlock2Args{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.Mlock2Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Mlock2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCopyFileRangeArgs(decoder *Decoder) (types.CopyFileRangeArgs, error) {
-  var result types.CopyFileRangeArgs
-  var err error
+	var result types.CopyFileRangeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CopyFileRangeArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.CopyFileRangeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CopyFileRangeArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.CopyFileRangeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CopyFileRangeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CopyFileRangeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.FdIn)
-      if err != nil {
-        return types.CopyFileRangeArgs{}, err
-      }
-    case 1:
-      var dataOffIn uint64
-      err = decoder.DecodeUint64(&dataOffIn)
-      if err != nil {
-        return types.CopyFileRangeArgs{}, err
-      }
-      result.OffIn = uintptr(dataOffIn)
-    case 2:
-      err = decoder.DecodeInt32(&result.FdOut)
-      if err != nil {
-        return types.CopyFileRangeArgs{}, err
-      }
-    case 3:
-      var dataOffOut uint64
-      err = decoder.DecodeUint64(&dataOffOut)
-      if err != nil {
-        return types.CopyFileRangeArgs{}, err
-      }
-      result.OffOut = uintptr(dataOffOut)
-    case 4:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.CopyFileRangeArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.CopyFileRangeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.FdIn)
+			if err != nil {
+				return types.CopyFileRangeArgs{}, err
+			}
+		case 1:
+			var dataOffIn uint64
+			err = decoder.DecodeUint64(&dataOffIn)
+			if err != nil {
+				return types.CopyFileRangeArgs{}, err
+			}
+			result.OffIn = uintptr(dataOffIn)
+		case 2:
+			err = decoder.DecodeInt32(&result.FdOut)
+			if err != nil {
+				return types.CopyFileRangeArgs{}, err
+			}
+		case 3:
+			var dataOffOut uint64
+			err = decoder.DecodeUint64(&dataOffOut)
+			if err != nil {
+				return types.CopyFileRangeArgs{}, err
+			}
+			result.OffOut = uintptr(dataOffOut)
+		case 4:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.CopyFileRangeArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.CopyFileRangeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePreadv2Args(decoder *Decoder) (types.Preadv2Args, error) {
-  var result types.Preadv2Args
-  var err error
+	var result types.Preadv2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Preadv2Args{}, err
-  }
-  if numArgs > 6 {
-    return types.Preadv2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Preadv2Args{}, err
+	}
+	if numArgs > 6 {
+		return types.Preadv2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Preadv2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Preadv2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Preadv2Args{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.Preadv2Args{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.Iovcnt)
-      if err != nil {
-        return types.Preadv2Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.PosL)
-      if err != nil {
-        return types.Preadv2Args{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.PosH)
-      if err != nil {
-        return types.Preadv2Args{}, err
-      }
-    case 5:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Preadv2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Preadv2Args{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.Preadv2Args{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.Iovcnt)
+			if err != nil {
+				return types.Preadv2Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.PosL)
+			if err != nil {
+				return types.Preadv2Args{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.PosH)
+			if err != nil {
+				return types.Preadv2Args{}, err
+			}
+		case 5:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Preadv2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePwritev2Args(decoder *Decoder) (types.Pwritev2Args, error) {
-  var result types.Pwritev2Args
-  var err error
+	var result types.Pwritev2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Pwritev2Args{}, err
-  }
-  if numArgs > 6 {
-    return types.Pwritev2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Pwritev2Args{}, err
+	}
+	if numArgs > 6 {
+		return types.Pwritev2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Pwritev2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Pwritev2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Pwritev2Args{}, err
-      }
-    case 1:
-      var dataIov uint64
-      err = decoder.DecodeUint64(&dataIov)
-      if err != nil {
-        return types.Pwritev2Args{}, err
-      }
-      result.Iov = uintptr(dataIov)
-    case 2:
-      err = decoder.DecodeUint64(&result.Iovcnt)
-      if err != nil {
-        return types.Pwritev2Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.PosL)
-      if err != nil {
-        return types.Pwritev2Args{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.PosH)
-      if err != nil {
-        return types.Pwritev2Args{}, err
-      }
-    case 5:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.Pwritev2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Pwritev2Args{}, err
+			}
+		case 1:
+			var dataIov uint64
+			err = decoder.DecodeUint64(&dataIov)
+			if err != nil {
+				return types.Pwritev2Args{}, err
+			}
+			result.Iov = uintptr(dataIov)
+		case 2:
+			err = decoder.DecodeUint64(&result.Iovcnt)
+			if err != nil {
+				return types.Pwritev2Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.PosL)
+			if err != nil {
+				return types.Pwritev2Args{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.PosH)
+			if err != nil {
+				return types.Pwritev2Args{}, err
+			}
+		case 5:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.Pwritev2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePkeyMprotectArgs(decoder *Decoder) (types.PkeyMprotectArgs, error) {
-  var result types.PkeyMprotectArgs
-  var err error
+	var result types.PkeyMprotectArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PkeyMprotectArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.PkeyMprotectArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PkeyMprotectArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.PkeyMprotectArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PkeyMprotectArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PkeyMprotectArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.PkeyMprotectArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.PkeyMprotectArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Prot)
-      if err != nil {
-        return types.PkeyMprotectArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Pkey)
-      if err != nil {
-        return types.PkeyMprotectArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.PkeyMprotectArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.PkeyMprotectArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Prot)
+			if err != nil {
+				return types.PkeyMprotectArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Pkey)
+			if err != nil {
+				return types.PkeyMprotectArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePkeyAllocArgs(decoder *Decoder) (types.PkeyAllocArgs, error) {
-  var result types.PkeyAllocArgs
-  var err error
+	var result types.PkeyAllocArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PkeyAllocArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.PkeyAllocArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PkeyAllocArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.PkeyAllocArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PkeyAllocArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PkeyAllocArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.PkeyAllocArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.AccessRights)
-      if err != nil {
-        return types.PkeyAllocArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.PkeyAllocArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.AccessRights)
+			if err != nil {
+				return types.PkeyAllocArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePkeyFreeArgs(decoder *Decoder) (types.PkeyFreeArgs, error) {
-  var result types.PkeyFreeArgs
-  var err error
+	var result types.PkeyFreeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PkeyFreeArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.PkeyFreeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PkeyFreeArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.PkeyFreeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PkeyFreeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PkeyFreeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pkey)
-      if err != nil {
-        return types.PkeyFreeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pkey)
+			if err != nil {
+				return types.PkeyFreeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseStatxArgs(decoder *Decoder) (types.StatxArgs, error) {
-  var result types.StatxArgs
-  var err error
+	var result types.StatxArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.StatxArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.StatxArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.StatxArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.StatxArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.StatxArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.StatxArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.StatxArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.StatxArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.StatxArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Mask)
-      if err != nil {
-        return types.StatxArgs{}, err
-      }
-    case 4:
-      var dataStatxbuf uint64
-      err = decoder.DecodeUint64(&dataStatxbuf)
-      if err != nil {
-        return types.StatxArgs{}, err
-      }
-      result.Statxbuf = uintptr(dataStatxbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.StatxArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.StatxArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.StatxArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Mask)
+			if err != nil {
+				return types.StatxArgs{}, err
+			}
+		case 4:
+			var dataStatxbuf uint64
+			err = decoder.DecodeUint64(&dataStatxbuf)
+			if err != nil {
+				return types.StatxArgs{}, err
+			}
+			result.Statxbuf = uintptr(dataStatxbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoPgeteventsArgs(decoder *Decoder) (types.IoPgeteventsArgs, error) {
-  var result types.IoPgeteventsArgs
-  var err error
+	var result types.IoPgeteventsArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoPgeteventsArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.IoPgeteventsArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoPgeteventsArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.IoPgeteventsArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoPgeteventsArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoPgeteventsArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataCtxId uint64
-      err = decoder.DecodeUint64(&dataCtxId)
-      if err != nil {
-        return types.IoPgeteventsArgs{}, err
-      }
-      result.CtxId = uintptr(dataCtxId)
-    case 1:
-      err = decoder.DecodeInt64(&result.MinNr)
-      if err != nil {
-        return types.IoPgeteventsArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt64(&result.Nr)
-      if err != nil {
-        return types.IoPgeteventsArgs{}, err
-      }
-    case 3:
-      var dataEvents uint64
-      err = decoder.DecodeUint64(&dataEvents)
-      if err != nil {
-        return types.IoPgeteventsArgs{}, err
-      }
-      result.Events = uintptr(dataEvents)
-    case 4:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.IoPgeteventsArgs{}, err
-      }
-    case 5:
-      var dataUsig uint64
-      err = decoder.DecodeUint64(&dataUsig)
-      if err != nil {
-        return types.IoPgeteventsArgs{}, err
-      }
-      result.Usig = uintptr(dataUsig)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataCtxId uint64
+			err = decoder.DecodeUint64(&dataCtxId)
+			if err != nil {
+				return types.IoPgeteventsArgs{}, err
+			}
+			result.CtxId = uintptr(dataCtxId)
+		case 1:
+			err = decoder.DecodeInt64(&result.MinNr)
+			if err != nil {
+				return types.IoPgeteventsArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt64(&result.Nr)
+			if err != nil {
+				return types.IoPgeteventsArgs{}, err
+			}
+		case 3:
+			var dataEvents uint64
+			err = decoder.DecodeUint64(&dataEvents)
+			if err != nil {
+				return types.IoPgeteventsArgs{}, err
+			}
+			result.Events = uintptr(dataEvents)
+		case 4:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.IoPgeteventsArgs{}, err
+			}
+		case 5:
+			var dataUsig uint64
+			err = decoder.DecodeUint64(&dataUsig)
+			if err != nil {
+				return types.IoPgeteventsArgs{}, err
+			}
+			result.Usig = uintptr(dataUsig)
+		}
+	}
+	return result, nil
 }
 
 func ParseRseqArgs(decoder *Decoder) (types.RseqArgs, error) {
-  var result types.RseqArgs
-  var err error
+	var result types.RseqArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RseqArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.RseqArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RseqArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.RseqArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RseqArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RseqArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRseq uint64
-      err = decoder.DecodeUint64(&dataRseq)
-      if err != nil {
-        return types.RseqArgs{}, err
-      }
-      result.Rseq = uintptr(dataRseq)
-    case 1:
-      err = decoder.DecodeUint32(&result.RseqLen)
-      if err != nil {
-        return types.RseqArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.RseqArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Sig)
-      if err != nil {
-        return types.RseqArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRseq uint64
+			err = decoder.DecodeUint64(&dataRseq)
+			if err != nil {
+				return types.RseqArgs{}, err
+			}
+			result.Rseq = uintptr(dataRseq)
+		case 1:
+			err = decoder.DecodeUint32(&result.RseqLen)
+			if err != nil {
+				return types.RseqArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.RseqArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Sig)
+			if err != nil {
+				return types.RseqArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePidfdSendSignalArgs(decoder *Decoder) (types.PidfdSendSignalArgs, error) {
-  var result types.PidfdSendSignalArgs
-  var err error
+	var result types.PidfdSendSignalArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PidfdSendSignalArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.PidfdSendSignalArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PidfdSendSignalArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.PidfdSendSignalArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PidfdSendSignalArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PidfdSendSignalArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pidfd)
-      if err != nil {
-        return types.PidfdSendSignalArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.PidfdSendSignalArgs{}, err
-      }
-    case 2:
-      var dataInfo uint64
-      err = decoder.DecodeUint64(&dataInfo)
-      if err != nil {
-        return types.PidfdSendSignalArgs{}, err
-      }
-      result.Info = uintptr(dataInfo)
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.PidfdSendSignalArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pidfd)
+			if err != nil {
+				return types.PidfdSendSignalArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.PidfdSendSignalArgs{}, err
+			}
+		case 2:
+			var dataInfo uint64
+			err = decoder.DecodeUint64(&dataInfo)
+			if err != nil {
+				return types.PidfdSendSignalArgs{}, err
+			}
+			result.Info = uintptr(dataInfo)
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.PidfdSendSignalArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIoUringSetupArgs(decoder *Decoder) (types.IoUringSetupArgs, error) {
-  var result types.IoUringSetupArgs
-  var err error
+	var result types.IoUringSetupArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoUringSetupArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.IoUringSetupArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoUringSetupArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.IoUringSetupArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoUringSetupArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoUringSetupArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Entries)
-      if err != nil {
-        return types.IoUringSetupArgs{}, err
-      }
-    case 1:
-      var dataP uint64
-      err = decoder.DecodeUint64(&dataP)
-      if err != nil {
-        return types.IoUringSetupArgs{}, err
-      }
-      result.P = uintptr(dataP)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Entries)
+			if err != nil {
+				return types.IoUringSetupArgs{}, err
+			}
+		case 1:
+			var dataP uint64
+			err = decoder.DecodeUint64(&dataP)
+			if err != nil {
+				return types.IoUringSetupArgs{}, err
+			}
+			result.P = uintptr(dataP)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoUringEnterArgs(decoder *Decoder) (types.IoUringEnterArgs, error) {
-  var result types.IoUringEnterArgs
-  var err error
+	var result types.IoUringEnterArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoUringEnterArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.IoUringEnterArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoUringEnterArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.IoUringEnterArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoUringEnterArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoUringEnterArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.IoUringEnterArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.ToSubmit)
-      if err != nil {
-        return types.IoUringEnterArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.MinComplete)
-      if err != nil {
-        return types.IoUringEnterArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.IoUringEnterArgs{}, err
-      }
-    case 4:
-      var dataSig uint64
-      err = decoder.DecodeUint64(&dataSig)
-      if err != nil {
-        return types.IoUringEnterArgs{}, err
-      }
-      result.Sig = uintptr(dataSig)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.IoUringEnterArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.ToSubmit)
+			if err != nil {
+				return types.IoUringEnterArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.MinComplete)
+			if err != nil {
+				return types.IoUringEnterArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.IoUringEnterArgs{}, err
+			}
+		case 4:
+			var dataSig uint64
+			err = decoder.DecodeUint64(&dataSig)
+			if err != nil {
+				return types.IoUringEnterArgs{}, err
+			}
+			result.Sig = uintptr(dataSig)
+		}
+	}
+	return result, nil
 }
 
 func ParseIoUringRegisterArgs(decoder *Decoder) (types.IoUringRegisterArgs, error) {
-  var result types.IoUringRegisterArgs
-  var err error
+	var result types.IoUringRegisterArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IoUringRegisterArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.IoUringRegisterArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IoUringRegisterArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.IoUringRegisterArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IoUringRegisterArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IoUringRegisterArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.IoUringRegisterArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Opcode)
-      if err != nil {
-        return types.IoUringRegisterArgs{}, err
-      }
-    case 2:
-      var dataArg uint64
-      err = decoder.DecodeUint64(&dataArg)
-      if err != nil {
-        return types.IoUringRegisterArgs{}, err
-      }
-      result.Arg = uintptr(dataArg)
-    case 3:
-      err = decoder.DecodeUint32(&result.NrArgs)
-      if err != nil {
-        return types.IoUringRegisterArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.IoUringRegisterArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Opcode)
+			if err != nil {
+				return types.IoUringRegisterArgs{}, err
+			}
+		case 2:
+			var dataArg uint64
+			err = decoder.DecodeUint64(&dataArg)
+			if err != nil {
+				return types.IoUringRegisterArgs{}, err
+			}
+			result.Arg = uintptr(dataArg)
+		case 3:
+			err = decoder.DecodeUint32(&result.NrArgs)
+			if err != nil {
+				return types.IoUringRegisterArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseOpenTreeArgs(decoder *Decoder) (types.OpenTreeArgs, error) {
-  var result types.OpenTreeArgs
-  var err error
+	var result types.OpenTreeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OpenTreeArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.OpenTreeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OpenTreeArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.OpenTreeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OpenTreeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OpenTreeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dfd)
-      if err != nil {
-        return types.OpenTreeArgs{}, err
-      }
-    case 1:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.OpenTreeArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.OpenTreeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dfd)
+			if err != nil {
+				return types.OpenTreeArgs{}, err
+			}
+		case 1:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.OpenTreeArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.OpenTreeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMoveMountArgs(decoder *Decoder) (types.MoveMountArgs, error) {
-  var result types.MoveMountArgs
-  var err error
+	var result types.MoveMountArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MoveMountArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MoveMountArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MoveMountArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MoveMountArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MoveMountArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MoveMountArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.FromDfd)
-      if err != nil {
-        return types.MoveMountArgs{}, err
-      }
-    case 1:
-      result.FromPath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MoveMountArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.ToDfd)
-      if err != nil {
-        return types.MoveMountArgs{}, err
-      }
-    case 3:
-      result.ToPath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MoveMountArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.MoveMountArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.FromDfd)
+			if err != nil {
+				return types.MoveMountArgs{}, err
+			}
+		case 1:
+			result.FromPath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MoveMountArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.ToDfd)
+			if err != nil {
+				return types.MoveMountArgs{}, err
+			}
+		case 3:
+			result.ToPath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MoveMountArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.MoveMountArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFsopenArgs(decoder *Decoder) (types.FsopenArgs, error) {
-  var result types.FsopenArgs
-  var err error
+	var result types.FsopenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FsopenArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.FsopenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FsopenArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.FsopenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FsopenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FsopenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Fsname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FsopenArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.FsopenArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Fsname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FsopenArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.FsopenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFsconfigArgs(decoder *Decoder) (types.FsconfigArgs, error) {
-  var result types.FsconfigArgs
-  var err error
+	var result types.FsconfigArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FsconfigArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.FsconfigArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FsconfigArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.FsconfigArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FsconfigArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FsconfigArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataFsFd uint64
-      err = decoder.DecodeUint64(&dataFsFd)
-      if err != nil {
-        return types.FsconfigArgs{}, err
-      }
-      result.FsFd = uintptr(dataFsFd)
-    case 1:
-      err = decoder.DecodeUint32(&result.Cmd)
-      if err != nil {
-        return types.FsconfigArgs{}, err
-      }
-    case 2:
-      result.Key, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FsconfigArgs{}, err
-      }
-    case 3:
-      var dataValue uint64
-      err = decoder.DecodeUint64(&dataValue)
-      if err != nil {
-        return types.FsconfigArgs{}, err
-      }
-      result.Value = uintptr(dataValue)
-    case 4:
-      err = decoder.DecodeInt32(&result.Aux)
-      if err != nil {
-        return types.FsconfigArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataFsFd uint64
+			err = decoder.DecodeUint64(&dataFsFd)
+			if err != nil {
+				return types.FsconfigArgs{}, err
+			}
+			result.FsFd = uintptr(dataFsFd)
+		case 1:
+			err = decoder.DecodeUint32(&result.Cmd)
+			if err != nil {
+				return types.FsconfigArgs{}, err
+			}
+		case 2:
+			result.Key, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FsconfigArgs{}, err
+			}
+		case 3:
+			var dataValue uint64
+			err = decoder.DecodeUint64(&dataValue)
+			if err != nil {
+				return types.FsconfigArgs{}, err
+			}
+			result.Value = uintptr(dataValue)
+		case 4:
+			err = decoder.DecodeInt32(&result.Aux)
+			if err != nil {
+				return types.FsconfigArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFsmountArgs(decoder *Decoder) (types.FsmountArgs, error) {
-  var result types.FsmountArgs
-  var err error
+	var result types.FsmountArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FsmountArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FsmountArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FsmountArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FsmountArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FsmountArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FsmountArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fsfd)
-      if err != nil {
-        return types.FsmountArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.FsmountArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.MsFlags)
-      if err != nil {
-        return types.FsmountArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fsfd)
+			if err != nil {
+				return types.FsmountArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.FsmountArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.MsFlags)
+			if err != nil {
+				return types.FsmountArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFspickArgs(decoder *Decoder) (types.FspickArgs, error) {
-  var result types.FspickArgs
-  var err error
+	var result types.FspickArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FspickArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.FspickArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FspickArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.FspickArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FspickArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FspickArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.FspickArgs{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FspickArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.FspickArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.FspickArgs{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FspickArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.FspickArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePidfdOpenArgs(decoder *Decoder) (types.PidfdOpenArgs, error) {
-  var result types.PidfdOpenArgs
-  var err error
+	var result types.PidfdOpenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PidfdOpenArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.PidfdOpenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PidfdOpenArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.PidfdOpenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PidfdOpenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PidfdOpenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.PidfdOpenArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.PidfdOpenArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.PidfdOpenArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.PidfdOpenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClone3Args(decoder *Decoder) (types.Clone3Args, error) {
-  var result types.Clone3Args
-  var err error
+	var result types.Clone3Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Clone3Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Clone3Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Clone3Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Clone3Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Clone3Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Clone3Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataClArgs uint64
-      err = decoder.DecodeUint64(&dataClArgs)
-      if err != nil {
-        return types.Clone3Args{}, err
-      }
-      result.ClArgs = uintptr(dataClArgs)
-    case 1:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.Clone3Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataClArgs uint64
+			err = decoder.DecodeUint64(&dataClArgs)
+			if err != nil {
+				return types.Clone3Args{}, err
+			}
+			result.ClArgs = uintptr(dataClArgs)
+		case 1:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.Clone3Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCloseRangeArgs(decoder *Decoder) (types.CloseRangeArgs, error) {
-  var result types.CloseRangeArgs
-  var err error
+	var result types.CloseRangeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CloseRangeArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.CloseRangeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CloseRangeArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.CloseRangeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CloseRangeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CloseRangeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.First)
-      if err != nil {
-        return types.CloseRangeArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Last)
-      if err != nil {
-        return types.CloseRangeArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.First)
+			if err != nil {
+				return types.CloseRangeArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Last)
+			if err != nil {
+				return types.CloseRangeArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseOpenat2Args(decoder *Decoder) (types.Openat2Args, error) {
-  var result types.Openat2Args
-  var err error
+	var result types.Openat2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Openat2Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Openat2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Openat2Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Openat2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Openat2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Openat2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dirfd)
-      if err != nil {
-        return types.Openat2Args{}, err
-      }
-    case 1:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Openat2Args{}, err
-      }
-    case 2:
-      var dataHow uint64
-      err = decoder.DecodeUint64(&dataHow)
-      if err != nil {
-        return types.Openat2Args{}, err
-      }
-      result.How = uintptr(dataHow)
-    case 3:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.Openat2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dirfd)
+			if err != nil {
+				return types.Openat2Args{}, err
+			}
+		case 1:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Openat2Args{}, err
+			}
+		case 2:
+			var dataHow uint64
+			err = decoder.DecodeUint64(&dataHow)
+			if err != nil {
+				return types.Openat2Args{}, err
+			}
+			result.How = uintptr(dataHow)
+		case 3:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.Openat2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePidfdGetfdArgs(decoder *Decoder) (types.PidfdGetfdArgs, error) {
-  var result types.PidfdGetfdArgs
-  var err error
+	var result types.PidfdGetfdArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PidfdGetfdArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.PidfdGetfdArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PidfdGetfdArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.PidfdGetfdArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PidfdGetfdArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PidfdGetfdArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pidfd)
-      if err != nil {
-        return types.PidfdGetfdArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Targetfd)
-      if err != nil {
-        return types.PidfdGetfdArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.PidfdGetfdArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pidfd)
+			if err != nil {
+				return types.PidfdGetfdArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Targetfd)
+			if err != nil {
+				return types.PidfdGetfdArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.PidfdGetfdArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFaccessat2Args(decoder *Decoder) (types.Faccessat2Args, error) {
-  var result types.Faccessat2Args
-  var err error
+	var result types.Faccessat2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Faccessat2Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Faccessat2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Faccessat2Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Faccessat2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Faccessat2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Faccessat2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Faccessat2Args{}, err
-      }
-    case 1:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Faccessat2Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.Mode)
-      if err != nil {
-        return types.Faccessat2Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Flag)
-      if err != nil {
-        return types.Faccessat2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Faccessat2Args{}, err
+			}
+		case 1:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Faccessat2Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.Mode)
+			if err != nil {
+				return types.Faccessat2Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Flag)
+			if err != nil {
+				return types.Faccessat2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseProcessMadviseArgs(decoder *Decoder) (types.ProcessMadviseArgs, error) {
-  var result types.ProcessMadviseArgs
-  var err error
+	var result types.ProcessMadviseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ProcessMadviseArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.ProcessMadviseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ProcessMadviseArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.ProcessMadviseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ProcessMadviseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ProcessMadviseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pidfd)
-      if err != nil {
-        return types.ProcessMadviseArgs{}, err
-      }
-    case 1:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.ProcessMadviseArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    case 2:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.ProcessMadviseArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Advice)
-      if err != nil {
-        return types.ProcessMadviseArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.ProcessMadviseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pidfd)
+			if err != nil {
+				return types.ProcessMadviseArgs{}, err
+			}
+		case 1:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.ProcessMadviseArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		case 2:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.ProcessMadviseArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Advice)
+			if err != nil {
+				return types.ProcessMadviseArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.ProcessMadviseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseEpollPwait2Args(decoder *Decoder) (types.EpollPwait2Args, error) {
-  var result types.EpollPwait2Args
-  var err error
+	var result types.EpollPwait2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.EpollPwait2Args{}, err
-  }
-  if numArgs > 5 {
-    return types.EpollPwait2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.EpollPwait2Args{}, err
+	}
+	if numArgs > 5 {
+		return types.EpollPwait2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.EpollPwait2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.EpollPwait2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.EpollPwait2Args{}, err
-      }
-    case 1:
-      var dataEvents uint64
-      err = decoder.DecodeUint64(&dataEvents)
-      if err != nil {
-        return types.EpollPwait2Args{}, err
-      }
-      result.Events = uintptr(dataEvents)
-    case 2:
-      err = decoder.DecodeInt32(&result.Maxevents)
-      if err != nil {
-        return types.EpollPwait2Args{}, err
-      }
-    case 3:
-      result.Timeout, err = decoder.ReadTimespec()
-      if err != nil {
-        return types.EpollPwait2Args{}, err
-      }
-    case 4:
-      var dataSigset uint64
-      err = decoder.DecodeUint64(&dataSigset)
-      if err != nil {
-        return types.EpollPwait2Args{}, err
-      }
-      result.Sigset = uintptr(dataSigset)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.EpollPwait2Args{}, err
+			}
+		case 1:
+			var dataEvents uint64
+			err = decoder.DecodeUint64(&dataEvents)
+			if err != nil {
+				return types.EpollPwait2Args{}, err
+			}
+			result.Events = uintptr(dataEvents)
+		case 2:
+			err = decoder.DecodeInt32(&result.Maxevents)
+			if err != nil {
+				return types.EpollPwait2Args{}, err
+			}
+		case 3:
+			result.Timeout, err = decoder.ReadTimespec()
+			if err != nil {
+				return types.EpollPwait2Args{}, err
+			}
+		case 4:
+			var dataSigset uint64
+			err = decoder.DecodeUint64(&dataSigset)
+			if err != nil {
+				return types.EpollPwait2Args{}, err
+			}
+			result.Sigset = uintptr(dataSigset)
+		}
+	}
+	return result, nil
 }
 
 func ParseMountSetattArgs(decoder *Decoder) (types.MountSetattArgs, error) {
-  var result types.MountSetattArgs
-  var err error
+	var result types.MountSetattArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MountSetattArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.MountSetattArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MountSetattArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.MountSetattArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MountSetattArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MountSetattArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Dfd)
-      if err != nil {
-        return types.MountSetattArgs{}, err
-      }
-    case 1:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MountSetattArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.MountSetattArgs{}, err
-      }
-    case 3:
-      var dataUattr uint64
-      err = decoder.DecodeUint64(&dataUattr)
-      if err != nil {
-        return types.MountSetattArgs{}, err
-      }
-      result.Uattr = uintptr(dataUattr)
-    case 4:
-      err = decoder.DecodeUint64(&result.Usize)
-      if err != nil {
-        return types.MountSetattArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Dfd)
+			if err != nil {
+				return types.MountSetattArgs{}, err
+			}
+		case 1:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MountSetattArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.MountSetattArgs{}, err
+			}
+		case 3:
+			var dataUattr uint64
+			err = decoder.DecodeUint64(&dataUattr)
+			if err != nil {
+				return types.MountSetattArgs{}, err
+			}
+			result.Uattr = uintptr(dataUattr)
+		case 4:
+			err = decoder.DecodeUint64(&result.Usize)
+			if err != nil {
+				return types.MountSetattArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseQuotactlFdArgs(decoder *Decoder) (types.QuotactlFdArgs, error) {
-  var result types.QuotactlFdArgs
-  var err error
+	var result types.QuotactlFdArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.QuotactlFdArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.QuotactlFdArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.QuotactlFdArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.QuotactlFdArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.QuotactlFdArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.QuotactlFdArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.QuotactlFdArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Cmd)
-      if err != nil {
-        return types.QuotactlFdArgs{}, err
-      }
-    case 2:
-      var dataId uint64
-      err = decoder.DecodeUint64(&dataId)
-      if err != nil {
-        return types.QuotactlFdArgs{}, err
-      }
-      result.Id = uintptr(dataId)
-    case 3:
-      var dataAddr uint64
-      err = decoder.DecodeUint64(&dataAddr)
-      if err != nil {
-        return types.QuotactlFdArgs{}, err
-      }
-      result.Addr = uintptr(dataAddr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.QuotactlFdArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Cmd)
+			if err != nil {
+				return types.QuotactlFdArgs{}, err
+			}
+		case 2:
+			var dataId uint64
+			err = decoder.DecodeUint64(&dataId)
+			if err != nil {
+				return types.QuotactlFdArgs{}, err
+			}
+			result.Id = uintptr(dataId)
+		case 3:
+			var dataAddr uint64
+			err = decoder.DecodeUint64(&dataAddr)
+			if err != nil {
+				return types.QuotactlFdArgs{}, err
+			}
+			result.Addr = uintptr(dataAddr)
+		}
+	}
+	return result, nil
 }
 
 func ParseLandlockCreateRulesetArgs(decoder *Decoder) (types.LandlockCreateRulesetArgs, error) {
-  var result types.LandlockCreateRulesetArgs
-  var err error
+	var result types.LandlockCreateRulesetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LandlockCreateRulesetArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.LandlockCreateRulesetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LandlockCreateRulesetArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.LandlockCreateRulesetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LandlockCreateRulesetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LandlockCreateRulesetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataAttr uint64
-      err = decoder.DecodeUint64(&dataAttr)
-      if err != nil {
-        return types.LandlockCreateRulesetArgs{}, err
-      }
-      result.Attr = uintptr(dataAttr)
-    case 1:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.LandlockCreateRulesetArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.LandlockCreateRulesetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataAttr uint64
+			err = decoder.DecodeUint64(&dataAttr)
+			if err != nil {
+				return types.LandlockCreateRulesetArgs{}, err
+			}
+			result.Attr = uintptr(dataAttr)
+		case 1:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.LandlockCreateRulesetArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.LandlockCreateRulesetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLandlockAddRuleArgs(decoder *Decoder) (types.LandlockAddRuleArgs, error) {
-  var result types.LandlockAddRuleArgs
-  var err error
+	var result types.LandlockAddRuleArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LandlockAddRuleArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.LandlockAddRuleArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LandlockAddRuleArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.LandlockAddRuleArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LandlockAddRuleArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LandlockAddRuleArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.RulesetFd)
-      if err != nil {
-        return types.LandlockAddRuleArgs{}, err
-      }
-    case 1:
-      var dataRuleType uint64
-      err = decoder.DecodeUint64(&dataRuleType)
-      if err != nil {
-        return types.LandlockAddRuleArgs{}, err
-      }
-      result.RuleType = uintptr(dataRuleType)
-    case 2:
-      var dataRuleAttr uint64
-      err = decoder.DecodeUint64(&dataRuleAttr)
-      if err != nil {
-        return types.LandlockAddRuleArgs{}, err
-      }
-      result.RuleAttr = uintptr(dataRuleAttr)
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.LandlockAddRuleArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.RulesetFd)
+			if err != nil {
+				return types.LandlockAddRuleArgs{}, err
+			}
+		case 1:
+			var dataRuleType uint64
+			err = decoder.DecodeUint64(&dataRuleType)
+			if err != nil {
+				return types.LandlockAddRuleArgs{}, err
+			}
+			result.RuleType = uintptr(dataRuleType)
+		case 2:
+			var dataRuleAttr uint64
+			err = decoder.DecodeUint64(&dataRuleAttr)
+			if err != nil {
+				return types.LandlockAddRuleArgs{}, err
+			}
+			result.RuleAttr = uintptr(dataRuleAttr)
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.LandlockAddRuleArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseLandloclRestrictSetArgs(decoder *Decoder) (types.LandloclRestrictSetArgs, error) {
-  var result types.LandloclRestrictSetArgs
-  var err error
+	var result types.LandloclRestrictSetArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LandloclRestrictSetArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.LandloclRestrictSetArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LandloclRestrictSetArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.LandloclRestrictSetArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LandloclRestrictSetArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LandloclRestrictSetArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.RulesetFd)
-      if err != nil {
-        return types.LandloclRestrictSetArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.LandloclRestrictSetArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.RulesetFd)
+			if err != nil {
+				return types.LandloclRestrictSetArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.LandloclRestrictSetArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMemfdSecretArgs(decoder *Decoder) (types.MemfdSecretArgs, error) {
-  var result types.MemfdSecretArgs
-  var err error
+	var result types.MemfdSecretArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MemfdSecretArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.MemfdSecretArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MemfdSecretArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.MemfdSecretArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MemfdSecretArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MemfdSecretArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.MemfdSecretArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.MemfdSecretArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseProcessMreleaseArgs(decoder *Decoder) (types.ProcessMreleaseArgs, error) {
-  var result types.ProcessMreleaseArgs
-  var err error
+	var result types.ProcessMreleaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ProcessMreleaseArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ProcessMreleaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ProcessMreleaseArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ProcessMreleaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ProcessMreleaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ProcessMreleaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pidfd)
-      if err != nil {
-        return types.ProcessMreleaseArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.ProcessMreleaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pidfd)
+			if err != nil {
+				return types.ProcessMreleaseArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.ProcessMreleaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseWaitpidArgs(decoder *Decoder) (types.WaitpidArgs, error) {
-  var result types.WaitpidArgs
-  var err error
+	var result types.WaitpidArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.WaitpidArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.WaitpidArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.WaitpidArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.WaitpidArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.WaitpidArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.WaitpidArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.WaitpidArgs{}, err
-      }
-    case 1:
-      var dataStatus uint64
-      err = decoder.DecodeUint64(&dataStatus)
-      if err != nil {
-        return types.WaitpidArgs{}, err
-      }
-      result.Status = uintptr(dataStatus)
-    case 2:
-      err = decoder.DecodeInt32(&result.Options)
-      if err != nil {
-        return types.WaitpidArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.WaitpidArgs{}, err
+			}
+		case 1:
+			var dataStatus uint64
+			err = decoder.DecodeUint64(&dataStatus)
+			if err != nil {
+				return types.WaitpidArgs{}, err
+			}
+			result.Status = uintptr(dataStatus)
+		case 2:
+			err = decoder.DecodeInt32(&result.Options)
+			if err != nil {
+				return types.WaitpidArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseOldfstatArgs(decoder *Decoder) (types.OldfstatArgs, error) {
-  return types.OldfstatArgs{}, nil
+	return types.OldfstatArgs{}, nil
 }
 
 func ParseBreakArgs(decoder *Decoder) (types.BreakArgs, error) {
-  return types.BreakArgs{}, nil
+	return types.BreakArgs{}, nil
 }
 
 func ParseOldstatArgs(decoder *Decoder) (types.OldstatArgs, error) {
-  var result types.OldstatArgs
-  var err error
+	var result types.OldstatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OldstatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.OldstatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OldstatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.OldstatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OldstatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OldstatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.OldstatArgs{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.OldstatArgs{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.OldstatArgs{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.OldstatArgs{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseUmountArgs(decoder *Decoder) (types.UmountArgs, error) {
-  var result types.UmountArgs
-  var err error
+	var result types.UmountArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UmountArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.UmountArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UmountArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.UmountArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UmountArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UmountArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Target, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UmountArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Target, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UmountArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseStimeArgs(decoder *Decoder) (types.StimeArgs, error) {
-  var result types.StimeArgs
-  var err error
+	var result types.StimeArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.StimeArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.StimeArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.StimeArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.StimeArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.StimeArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.StimeArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataT uint64
-      err = decoder.DecodeUint64(&dataT)
-      if err != nil {
-        return types.StimeArgs{}, err
-      }
-      result.T = uintptr(dataT)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataT uint64
+			err = decoder.DecodeUint64(&dataT)
+			if err != nil {
+				return types.StimeArgs{}, err
+			}
+			result.T = uintptr(dataT)
+		}
+	}
+	return result, nil
 }
 
 func ParseSttyArgs(decoder *Decoder) (types.SttyArgs, error) {
-  return types.SttyArgs{}, nil
+	return types.SttyArgs{}, nil
 }
 
 func ParseGttyArgs(decoder *Decoder) (types.GttyArgs, error) {
-  return types.GttyArgs{}, nil
+	return types.GttyArgs{}, nil
 }
 
 func ParseNiceArgs(decoder *Decoder) (types.NiceArgs, error) {
-  var result types.NiceArgs
-  var err error
+	var result types.NiceArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NiceArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NiceArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NiceArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NiceArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NiceArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NiceArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Inc)
-      if err != nil {
-        return types.NiceArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Inc)
+			if err != nil {
+				return types.NiceArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFtimeArgs(decoder *Decoder) (types.FtimeArgs, error) {
-  return types.FtimeArgs{}, nil
+	return types.FtimeArgs{}, nil
 }
 
 func ParseProfArgs(decoder *Decoder) (types.ProfArgs, error) {
-  return types.ProfArgs{}, nil
+	return types.ProfArgs{}, nil
 }
 
 func ParseSignalArgs(decoder *Decoder) (types.SignalArgs, error) {
-  var result types.SignalArgs
-  var err error
+	var result types.SignalArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SignalArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SignalArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SignalArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SignalArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SignalArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SignalArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Signum)
-      if err != nil {
-        return types.SignalArgs{}, err
-      }
-    case 1:
-      var dataHandler uint64
-      err = decoder.DecodeUint64(&dataHandler)
-      if err != nil {
-        return types.SignalArgs{}, err
-      }
-      result.Handler = uintptr(dataHandler)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Signum)
+			if err != nil {
+				return types.SignalArgs{}, err
+			}
+		case 1:
+			var dataHandler uint64
+			err = decoder.DecodeUint64(&dataHandler)
+			if err != nil {
+				return types.SignalArgs{}, err
+			}
+			result.Handler = uintptr(dataHandler)
+		}
+	}
+	return result, nil
 }
 
 func ParseLockArgs(decoder *Decoder) (types.LockArgs, error) {
-  return types.LockArgs{}, nil
+	return types.LockArgs{}, nil
 }
 
 func ParseMpxArgs(decoder *Decoder) (types.MpxArgs, error) {
-  return types.MpxArgs{}, nil
+	return types.MpxArgs{}, nil
 }
 
 func ParseUlimitArgs(decoder *Decoder) (types.UlimitArgs, error) {
-  return types.UlimitArgs{}, nil
+	return types.UlimitArgs{}, nil
 }
 
 func ParseOldoldunameArgs(decoder *Decoder) (types.OldoldunameArgs, error) {
-  var result types.OldoldunameArgs
-  var err error
+	var result types.OldoldunameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OldoldunameArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.OldoldunameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OldoldunameArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.OldoldunameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OldoldunameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OldoldunameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataName uint64
-      err = decoder.DecodeUint64(&dataName)
-      if err != nil {
-        return types.OldoldunameArgs{}, err
-      }
-      result.Name = uintptr(dataName)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataName uint64
+			err = decoder.DecodeUint64(&dataName)
+			if err != nil {
+				return types.OldoldunameArgs{}, err
+			}
+			result.Name = uintptr(dataName)
+		}
+	}
+	return result, nil
 }
 
 func ParseSigactionArgs(decoder *Decoder) (types.SigactionArgs, error) {
-  var result types.SigactionArgs
-  var err error
+	var result types.SigactionArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SigactionArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SigactionArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SigactionArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SigactionArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SigactionArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SigactionArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sig)
-      if err != nil {
-        return types.SigactionArgs{}, err
-      }
-    case 1:
-      var dataAct uint64
-      err = decoder.DecodeUint64(&dataAct)
-      if err != nil {
-        return types.SigactionArgs{}, err
-      }
-      result.Act = uintptr(dataAct)
-    case 2:
-      var dataOact uint64
-      err = decoder.DecodeUint64(&dataOact)
-      if err != nil {
-        return types.SigactionArgs{}, err
-      }
-      result.Oact = uintptr(dataOact)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sig)
+			if err != nil {
+				return types.SigactionArgs{}, err
+			}
+		case 1:
+			var dataAct uint64
+			err = decoder.DecodeUint64(&dataAct)
+			if err != nil {
+				return types.SigactionArgs{}, err
+			}
+			result.Act = uintptr(dataAct)
+		case 2:
+			var dataOact uint64
+			err = decoder.DecodeUint64(&dataOact)
+			if err != nil {
+				return types.SigactionArgs{}, err
+			}
+			result.Oact = uintptr(dataOact)
+		}
+	}
+	return result, nil
 }
 
 func ParseSgetmaskArgs(decoder *Decoder) (types.SgetmaskArgs, error) {
-  return types.SgetmaskArgs{}, nil
+	return types.SgetmaskArgs{}, nil
 }
 
 func ParseSsetmaskArgs(decoder *Decoder) (types.SsetmaskArgs, error) {
-  var result types.SsetmaskArgs
-  var err error
+	var result types.SsetmaskArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SsetmaskArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SsetmaskArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SsetmaskArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SsetmaskArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SsetmaskArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SsetmaskArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt64(&result.Newmask)
-      if err != nil {
-        return types.SsetmaskArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt64(&result.Newmask)
+			if err != nil {
+				return types.SsetmaskArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSigsuspendArgs(decoder *Decoder) (types.SigsuspendArgs, error) {
-  var result types.SigsuspendArgs
-  var err error
+	var result types.SigsuspendArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SigsuspendArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SigsuspendArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SigsuspendArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SigsuspendArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SigsuspendArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SigsuspendArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataMask uint64
-      err = decoder.DecodeUint64(&dataMask)
-      if err != nil {
-        return types.SigsuspendArgs{}, err
-      }
-      result.Mask = uintptr(dataMask)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataMask uint64
+			err = decoder.DecodeUint64(&dataMask)
+			if err != nil {
+				return types.SigsuspendArgs{}, err
+			}
+			result.Mask = uintptr(dataMask)
+		}
+	}
+	return result, nil
 }
 
 func ParseSigpendingArgs(decoder *Decoder) (types.SigpendingArgs, error) {
-  var result types.SigpendingArgs
-  var err error
+	var result types.SigpendingArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SigpendingArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SigpendingArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SigpendingArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SigpendingArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SigpendingArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SigpendingArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataSet uint64
-      err = decoder.DecodeUint64(&dataSet)
-      if err != nil {
-        return types.SigpendingArgs{}, err
-      }
-      result.Set = uintptr(dataSet)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataSet uint64
+			err = decoder.DecodeUint64(&dataSet)
+			if err != nil {
+				return types.SigpendingArgs{}, err
+			}
+			result.Set = uintptr(dataSet)
+		}
+	}
+	return result, nil
 }
 
 func ParseOldlstatArgs(decoder *Decoder) (types.OldlstatArgs, error) {
-  var result types.OldlstatArgs
-  var err error
+	var result types.OldlstatArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OldlstatArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.OldlstatArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OldlstatArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.OldlstatArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OldlstatArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OldlstatArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.OldlstatArgs{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.OldlstatArgs{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.OldlstatArgs{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.OldlstatArgs{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseReaddirArgs(decoder *Decoder) (types.ReaddirArgs, error) {
-  var result types.ReaddirArgs
-  var err error
+	var result types.ReaddirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ReaddirArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.ReaddirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ReaddirArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.ReaddirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ReaddirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ReaddirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.ReaddirArgs{}, err
-      }
-    case 1:
-      var dataDirp uint64
-      err = decoder.DecodeUint64(&dataDirp)
-      if err != nil {
-        return types.ReaddirArgs{}, err
-      }
-      result.Dirp = uintptr(dataDirp)
-    case 2:
-      err = decoder.DecodeUint32(&result.Count)
-      if err != nil {
-        return types.ReaddirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.ReaddirArgs{}, err
+			}
+		case 1:
+			var dataDirp uint64
+			err = decoder.DecodeUint64(&dataDirp)
+			if err != nil {
+				return types.ReaddirArgs{}, err
+			}
+			result.Dirp = uintptr(dataDirp)
+		case 2:
+			err = decoder.DecodeUint32(&result.Count)
+			if err != nil {
+				return types.ReaddirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseProfilArgs(decoder *Decoder) (types.ProfilArgs, error) {
-  return types.ProfilArgs{}, nil
+	return types.ProfilArgs{}, nil
 }
 
 func ParseSocketcallArgs(decoder *Decoder) (types.SocketcallArgs, error) {
-  var result types.SocketcallArgs
-  var err error
+	var result types.SocketcallArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SocketcallArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SocketcallArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SocketcallArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SocketcallArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SocketcallArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SocketcallArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Call)
-      if err != nil {
-        return types.SocketcallArgs{}, err
-      }
-    case 1:
-      var dataArgs uint64
-      err = decoder.DecodeUint64(&dataArgs)
-      if err != nil {
-        return types.SocketcallArgs{}, err
-      }
-      result.Args = uintptr(dataArgs)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Call)
+			if err != nil {
+				return types.SocketcallArgs{}, err
+			}
+		case 1:
+			var dataArgs uint64
+			err = decoder.DecodeUint64(&dataArgs)
+			if err != nil {
+				return types.SocketcallArgs{}, err
+			}
+			result.Args = uintptr(dataArgs)
+		}
+	}
+	return result, nil
 }
 
 func ParseOldunameArgs(decoder *Decoder) (types.OldunameArgs, error) {
-  var result types.OldunameArgs
-  var err error
+	var result types.OldunameArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OldunameArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.OldunameArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OldunameArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.OldunameArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OldunameArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OldunameArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.OldunameArgs{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.OldunameArgs{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseIdleArgs(decoder *Decoder) (types.IdleArgs, error) {
-  return types.IdleArgs{}, nil
+	return types.IdleArgs{}, nil
 }
 
 func ParseVm86oldArgs(decoder *Decoder) (types.Vm86oldArgs, error) {
-  var result types.Vm86oldArgs
-  var err error
+	var result types.Vm86oldArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Vm86oldArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.Vm86oldArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Vm86oldArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.Vm86oldArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Vm86oldArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Vm86oldArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataInfo uint64
-      err = decoder.DecodeUint64(&dataInfo)
-      if err != nil {
-        return types.Vm86oldArgs{}, err
-      }
-      result.Info = uintptr(dataInfo)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataInfo uint64
+			err = decoder.DecodeUint64(&dataInfo)
+			if err != nil {
+				return types.Vm86oldArgs{}, err
+			}
+			result.Info = uintptr(dataInfo)
+		}
+	}
+	return result, nil
 }
 
 func ParseIpcArgs(decoder *Decoder) (types.IpcArgs, error) {
-  var result types.IpcArgs
-  var err error
+	var result types.IpcArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.IpcArgs{}, err
-  }
-  if numArgs > 6 {
-    return types.IpcArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.IpcArgs{}, err
+	}
+	if numArgs > 6 {
+		return types.IpcArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.IpcArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.IpcArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Call)
-      if err != nil {
-        return types.IpcArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.First)
-      if err != nil {
-        return types.IpcArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Second)
-      if err != nil {
-        return types.IpcArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Third)
-      if err != nil {
-        return types.IpcArgs{}, err
-      }
-    case 4:
-      var dataPtr uint64
-      err = decoder.DecodeUint64(&dataPtr)
-      if err != nil {
-        return types.IpcArgs{}, err
-      }
-      result.Ptr = uintptr(dataPtr)
-    case 5:
-      err = decoder.DecodeInt64(&result.Fifth)
-      if err != nil {
-        return types.IpcArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Call)
+			if err != nil {
+				return types.IpcArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.First)
+			if err != nil {
+				return types.IpcArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Second)
+			if err != nil {
+				return types.IpcArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Third)
+			if err != nil {
+				return types.IpcArgs{}, err
+			}
+		case 4:
+			var dataPtr uint64
+			err = decoder.DecodeUint64(&dataPtr)
+			if err != nil {
+				return types.IpcArgs{}, err
+			}
+			result.Ptr = uintptr(dataPtr)
+		case 5:
+			err = decoder.DecodeInt64(&result.Fifth)
+			if err != nil {
+				return types.IpcArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSigreturnArgs(decoder *Decoder) (types.SigreturnArgs, error) {
-  return types.SigreturnArgs{}, nil
+	return types.SigreturnArgs{}, nil
 }
 
 func ParseSigprocmaskArgs(decoder *Decoder) (types.SigprocmaskArgs, error) {
-  var result types.SigprocmaskArgs
-  var err error
+	var result types.SigprocmaskArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SigprocmaskArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SigprocmaskArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SigprocmaskArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SigprocmaskArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SigprocmaskArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SigprocmaskArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.How)
-      if err != nil {
-        return types.SigprocmaskArgs{}, err
-      }
-    case 1:
-      var dataSet uint64
-      err = decoder.DecodeUint64(&dataSet)
-      if err != nil {
-        return types.SigprocmaskArgs{}, err
-      }
-      result.Set = uintptr(dataSet)
-    case 2:
-      var dataOldset uint64
-      err = decoder.DecodeUint64(&dataOldset)
-      if err != nil {
-        return types.SigprocmaskArgs{}, err
-      }
-      result.Oldset = uintptr(dataOldset)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.How)
+			if err != nil {
+				return types.SigprocmaskArgs{}, err
+			}
+		case 1:
+			var dataSet uint64
+			err = decoder.DecodeUint64(&dataSet)
+			if err != nil {
+				return types.SigprocmaskArgs{}, err
+			}
+			result.Set = uintptr(dataSet)
+		case 2:
+			var dataOldset uint64
+			err = decoder.DecodeUint64(&dataOldset)
+			if err != nil {
+				return types.SigprocmaskArgs{}, err
+			}
+			result.Oldset = uintptr(dataOldset)
+		}
+	}
+	return result, nil
 }
 
 func ParseBdflushArgs(decoder *Decoder) (types.BdflushArgs, error) {
-  return types.BdflushArgs{}, nil
+	return types.BdflushArgs{}, nil
 }
 
 func ParseAfs_syscallArgs(decoder *Decoder) (types.Afs_syscallArgs, error) {
-  return types.Afs_syscallArgs{}, nil
+	return types.Afs_syscallArgs{}, nil
 }
 
 func ParseLlseekArgs(decoder *Decoder) (types.LlseekArgs, error) {
-  var result types.LlseekArgs
-  var err error
+	var result types.LlseekArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.LlseekArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.LlseekArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.LlseekArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.LlseekArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.LlseekArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.LlseekArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.LlseekArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.OffsetHigh)
-      if err != nil {
-        return types.LlseekArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.OffsetLow)
-      if err != nil {
-        return types.LlseekArgs{}, err
-      }
-    case 3:
-      var dataResult uint64
-      err = decoder.DecodeUint64(&dataResult)
-      if err != nil {
-        return types.LlseekArgs{}, err
-      }
-      result.Result = uintptr(dataResult)
-    case 4:
-      err = decoder.DecodeUint32(&result.Whence)
-      if err != nil {
-        return types.LlseekArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.LlseekArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.OffsetHigh)
+			if err != nil {
+				return types.LlseekArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.OffsetLow)
+			if err != nil {
+				return types.LlseekArgs{}, err
+			}
+		case 3:
+			var dataResult uint64
+			err = decoder.DecodeUint64(&dataResult)
+			if err != nil {
+				return types.LlseekArgs{}, err
+			}
+			result.Result = uintptr(dataResult)
+		case 4:
+			err = decoder.DecodeUint32(&result.Whence)
+			if err != nil {
+				return types.LlseekArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseOldSelectArgs(decoder *Decoder) (types.OldSelectArgs, error) {
-  var result types.OldSelectArgs
-  var err error
+	var result types.OldSelectArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OldSelectArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.OldSelectArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OldSelectArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.OldSelectArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OldSelectArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OldSelectArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Nfds)
-      if err != nil {
-        return types.OldSelectArgs{}, err
-      }
-    case 1:
-      var dataReadfds uint64
-      err = decoder.DecodeUint64(&dataReadfds)
-      if err != nil {
-        return types.OldSelectArgs{}, err
-      }
-      result.Readfds = uintptr(dataReadfds)
-    case 2:
-      var dataWritefds uint64
-      err = decoder.DecodeUint64(&dataWritefds)
-      if err != nil {
-        return types.OldSelectArgs{}, err
-      }
-      result.Writefds = uintptr(dataWritefds)
-    case 3:
-      var dataExceptfds uint64
-      err = decoder.DecodeUint64(&dataExceptfds)
-      if err != nil {
-        return types.OldSelectArgs{}, err
-      }
-      result.Exceptfds = uintptr(dataExceptfds)
-    case 4:
-      var dataTimeout uint64
-      err = decoder.DecodeUint64(&dataTimeout)
-      if err != nil {
-        return types.OldSelectArgs{}, err
-      }
-      result.Timeout = uintptr(dataTimeout)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Nfds)
+			if err != nil {
+				return types.OldSelectArgs{}, err
+			}
+		case 1:
+			var dataReadfds uint64
+			err = decoder.DecodeUint64(&dataReadfds)
+			if err != nil {
+				return types.OldSelectArgs{}, err
+			}
+			result.Readfds = uintptr(dataReadfds)
+		case 2:
+			var dataWritefds uint64
+			err = decoder.DecodeUint64(&dataWritefds)
+			if err != nil {
+				return types.OldSelectArgs{}, err
+			}
+			result.Writefds = uintptr(dataWritefds)
+		case 3:
+			var dataExceptfds uint64
+			err = decoder.DecodeUint64(&dataExceptfds)
+			if err != nil {
+				return types.OldSelectArgs{}, err
+			}
+			result.Exceptfds = uintptr(dataExceptfds)
+		case 4:
+			var dataTimeout uint64
+			err = decoder.DecodeUint64(&dataTimeout)
+			if err != nil {
+				return types.OldSelectArgs{}, err
+			}
+			result.Timeout = uintptr(dataTimeout)
+		}
+	}
+	return result, nil
 }
 
 func ParseVm86Args(decoder *Decoder) (types.Vm86Args, error) {
-  var result types.Vm86Args
-  var err error
+	var result types.Vm86Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Vm86Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Vm86Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Vm86Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Vm86Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Vm86Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Vm86Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Fn)
-      if err != nil {
-        return types.Vm86Args{}, err
-      }
-    case 1:
-      var dataV86 uint64
-      err = decoder.DecodeUint64(&dataV86)
-      if err != nil {
-        return types.Vm86Args{}, err
-      }
-      result.V86 = uintptr(dataV86)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Fn)
+			if err != nil {
+				return types.Vm86Args{}, err
+			}
+		case 1:
+			var dataV86 uint64
+			err = decoder.DecodeUint64(&dataV86)
+			if err != nil {
+				return types.Vm86Args{}, err
+			}
+			result.V86 = uintptr(dataV86)
+		}
+	}
+	return result, nil
 }
 
 func ParseOldGetrlimitArgs(decoder *Decoder) (types.OldGetrlimitArgs, error) {
-  var result types.OldGetrlimitArgs
-  var err error
+	var result types.OldGetrlimitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.OldGetrlimitArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.OldGetrlimitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.OldGetrlimitArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.OldGetrlimitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.OldGetrlimitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.OldGetrlimitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Resource)
-      if err != nil {
-        return types.OldGetrlimitArgs{}, err
-      }
-    case 1:
-      var dataRlim uint64
-      err = decoder.DecodeUint64(&dataRlim)
-      if err != nil {
-        return types.OldGetrlimitArgs{}, err
-      }
-      result.Rlim = uintptr(dataRlim)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Resource)
+			if err != nil {
+				return types.OldGetrlimitArgs{}, err
+			}
+		case 1:
+			var dataRlim uint64
+			err = decoder.DecodeUint64(&dataRlim)
+			if err != nil {
+				return types.OldGetrlimitArgs{}, err
+			}
+			result.Rlim = uintptr(dataRlim)
+		}
+	}
+	return result, nil
 }
 
 func ParseMmap2Args(decoder *Decoder) (types.Mmap2Args, error) {
-  var result types.Mmap2Args
-  var err error
+	var result types.Mmap2Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Mmap2Args{}, err
-  }
-  if numArgs > 6 {
-    return types.Mmap2Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Mmap2Args{}, err
+	}
+	if numArgs > 6 {
+		return types.Mmap2Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Mmap2Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Mmap2Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Addr)
-      if err != nil {
-        return types.Mmap2Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.Mmap2Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Prot)
-      if err != nil {
-        return types.Mmap2Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Flags)
-      if err != nil {
-        return types.Mmap2Args{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Fd)
-      if err != nil {
-        return types.Mmap2Args{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint64(&result.Pgoffset)
-      if err != nil {
-        return types.Mmap2Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Addr)
+			if err != nil {
+				return types.Mmap2Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.Mmap2Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Prot)
+			if err != nil {
+				return types.Mmap2Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Flags)
+			if err != nil {
+				return types.Mmap2Args{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Fd)
+			if err != nil {
+				return types.Mmap2Args{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint64(&result.Pgoffset)
+			if err != nil {
+				return types.Mmap2Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTruncate64Args(decoder *Decoder) (types.Truncate64Args, error) {
-  var result types.Truncate64Args
-  var err error
+	var result types.Truncate64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Truncate64Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Truncate64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Truncate64Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Truncate64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Truncate64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Truncate64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Truncate64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.Truncate64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Truncate64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.Truncate64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFtruncate64Args(decoder *Decoder) (types.Ftruncate64Args, error) {
-  var result types.Ftruncate64Args
-  var err error
+	var result types.Ftruncate64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Ftruncate64Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Ftruncate64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Ftruncate64Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Ftruncate64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Ftruncate64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Ftruncate64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Ftruncate64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Length)
-      if err != nil {
-        return types.Ftruncate64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Ftruncate64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Length)
+			if err != nil {
+				return types.Ftruncate64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseStat64Args(decoder *Decoder) (types.Stat64Args, error) {
-  var result types.Stat64Args
-  var err error
+	var result types.Stat64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Stat64Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Stat64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Stat64Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Stat64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Stat64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Stat64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Stat64Args{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.Stat64Args{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Stat64Args{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.Stat64Args{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseLstat64Args(decoder *Decoder) (types.Lstat64Args, error) {
-  var result types.Lstat64Args
-  var err error
+	var result types.Lstat64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Lstat64Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Lstat64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Lstat64Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Lstat64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Lstat64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Lstat64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Lstat64Args{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.Lstat64Args{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Lstat64Args{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.Lstat64Args{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseFstat64Args(decoder *Decoder) (types.Fstat64Args, error) {
-  var result types.Fstat64Args
-  var err error
+	var result types.Fstat64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Fstat64Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Fstat64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Fstat64Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Fstat64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Fstat64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Fstat64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Fstat64Args{}, err
-      }
-    case 1:
-      var dataStatbuf uint64
-      err = decoder.DecodeUint64(&dataStatbuf)
-      if err != nil {
-        return types.Fstat64Args{}, err
-      }
-      result.Statbuf = uintptr(dataStatbuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Fstat64Args{}, err
+			}
+		case 1:
+			var dataStatbuf uint64
+			err = decoder.DecodeUint64(&dataStatbuf)
+			if err != nil {
+				return types.Fstat64Args{}, err
+			}
+			result.Statbuf = uintptr(dataStatbuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseLchown16Args(decoder *Decoder) (types.Lchown16Args, error) {
-  var result types.Lchown16Args
-  var err error
+	var result types.Lchown16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Lchown16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Lchown16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Lchown16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Lchown16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Lchown16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Lchown16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Lchown16Args{}, err
-      }
-    case 1:
-      var dataOwner uint64
-      err = decoder.DecodeUint64(&dataOwner)
-      if err != nil {
-        return types.Lchown16Args{}, err
-      }
-      result.Owner = uintptr(dataOwner)
-    case 2:
-      var dataGroup uint64
-      err = decoder.DecodeUint64(&dataGroup)
-      if err != nil {
-        return types.Lchown16Args{}, err
-      }
-      result.Group = uintptr(dataGroup)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Lchown16Args{}, err
+			}
+		case 1:
+			var dataOwner uint64
+			err = decoder.DecodeUint64(&dataOwner)
+			if err != nil {
+				return types.Lchown16Args{}, err
+			}
+			result.Owner = uintptr(dataOwner)
+		case 2:
+			var dataGroup uint64
+			err = decoder.DecodeUint64(&dataGroup)
+			if err != nil {
+				return types.Lchown16Args{}, err
+			}
+			result.Group = uintptr(dataGroup)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetuid16Args(decoder *Decoder) (types.Getuid16Args, error) {
-  return types.Getuid16Args{}, nil
+	return types.Getuid16Args{}, nil
 }
 
 func ParseGetgid16Args(decoder *Decoder) (types.Getgid16Args, error) {
-  return types.Getgid16Args{}, nil
+	return types.Getgid16Args{}, nil
 }
 
 func ParseGeteuid16Args(decoder *Decoder) (types.Geteuid16Args, error) {
-  return types.Geteuid16Args{}, nil
+	return types.Geteuid16Args{}, nil
 }
 
 func ParseGetegid16Args(decoder *Decoder) (types.Getegid16Args, error) {
-  return types.Getegid16Args{}, nil
+	return types.Getegid16Args{}, nil
 }
 
 func ParseSetreuid16Args(decoder *Decoder) (types.Setreuid16Args, error) {
-  var result types.Setreuid16Args
-  var err error
+	var result types.Setreuid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setreuid16Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Setreuid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setreuid16Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Setreuid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setreuid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setreuid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRuid uint64
-      err = decoder.DecodeUint64(&dataRuid)
-      if err != nil {
-        return types.Setreuid16Args{}, err
-      }
-      result.Ruid = uintptr(dataRuid)
-    case 1:
-      var dataEuid uint64
-      err = decoder.DecodeUint64(&dataEuid)
-      if err != nil {
-        return types.Setreuid16Args{}, err
-      }
-      result.Euid = uintptr(dataEuid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRuid uint64
+			err = decoder.DecodeUint64(&dataRuid)
+			if err != nil {
+				return types.Setreuid16Args{}, err
+			}
+			result.Ruid = uintptr(dataRuid)
+		case 1:
+			var dataEuid uint64
+			err = decoder.DecodeUint64(&dataEuid)
+			if err != nil {
+				return types.Setreuid16Args{}, err
+			}
+			result.Euid = uintptr(dataEuid)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetregid16Args(decoder *Decoder) (types.Setregid16Args, error) {
-  var result types.Setregid16Args
-  var err error
+	var result types.Setregid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setregid16Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Setregid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setregid16Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Setregid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setregid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setregid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRgid uint64
-      err = decoder.DecodeUint64(&dataRgid)
-      if err != nil {
-        return types.Setregid16Args{}, err
-      }
-      result.Rgid = uintptr(dataRgid)
-    case 1:
-      var dataEgid uint64
-      err = decoder.DecodeUint64(&dataEgid)
-      if err != nil {
-        return types.Setregid16Args{}, err
-      }
-      result.Egid = uintptr(dataEgid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRgid uint64
+			err = decoder.DecodeUint64(&dataRgid)
+			if err != nil {
+				return types.Setregid16Args{}, err
+			}
+			result.Rgid = uintptr(dataRgid)
+		case 1:
+			var dataEgid uint64
+			err = decoder.DecodeUint64(&dataEgid)
+			if err != nil {
+				return types.Setregid16Args{}, err
+			}
+			result.Egid = uintptr(dataEgid)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetgroups16Args(decoder *Decoder) (types.Getgroups16Args, error) {
-  var result types.Getgroups16Args
-  var err error
+	var result types.Getgroups16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Getgroups16Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Getgroups16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Getgroups16Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Getgroups16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Getgroups16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Getgroups16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Size)
-      if err != nil {
-        return types.Getgroups16Args{}, err
-      }
-    case 1:
-      var dataList uint64
-      err = decoder.DecodeUint64(&dataList)
-      if err != nil {
-        return types.Getgroups16Args{}, err
-      }
-      result.List = uintptr(dataList)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Size)
+			if err != nil {
+				return types.Getgroups16Args{}, err
+			}
+		case 1:
+			var dataList uint64
+			err = decoder.DecodeUint64(&dataList)
+			if err != nil {
+				return types.Getgroups16Args{}, err
+			}
+			result.List = uintptr(dataList)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetgroups16Args(decoder *Decoder) (types.Setgroups16Args, error) {
-  var result types.Setgroups16Args
-  var err error
+	var result types.Setgroups16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setgroups16Args{}, err
-  }
-  if numArgs > 2 {
-    return types.Setgroups16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setgroups16Args{}, err
+	}
+	if numArgs > 2 {
+		return types.Setgroups16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setgroups16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setgroups16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.Size)
-      if err != nil {
-        return types.Setgroups16Args{}, err
-      }
-    case 1:
-      var dataList uint64
-      err = decoder.DecodeUint64(&dataList)
-      if err != nil {
-        return types.Setgroups16Args{}, err
-      }
-      result.List = uintptr(dataList)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.Size)
+			if err != nil {
+				return types.Setgroups16Args{}, err
+			}
+		case 1:
+			var dataList uint64
+			err = decoder.DecodeUint64(&dataList)
+			if err != nil {
+				return types.Setgroups16Args{}, err
+			}
+			result.List = uintptr(dataList)
+		}
+	}
+	return result, nil
 }
 
 func ParseFchown16Args(decoder *Decoder) (types.Fchown16Args, error) {
-  var result types.Fchown16Args
-  var err error
+	var result types.Fchown16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Fchown16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Fchown16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Fchown16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Fchown16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Fchown16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Fchown16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Fd)
-      if err != nil {
-        return types.Fchown16Args{}, err
-      }
-    case 1:
-      var dataUser uint64
-      err = decoder.DecodeUint64(&dataUser)
-      if err != nil {
-        return types.Fchown16Args{}, err
-      }
-      result.User = uintptr(dataUser)
-    case 2:
-      var dataGroup uint64
-      err = decoder.DecodeUint64(&dataGroup)
-      if err != nil {
-        return types.Fchown16Args{}, err
-      }
-      result.Group = uintptr(dataGroup)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Fd)
+			if err != nil {
+				return types.Fchown16Args{}, err
+			}
+		case 1:
+			var dataUser uint64
+			err = decoder.DecodeUint64(&dataUser)
+			if err != nil {
+				return types.Fchown16Args{}, err
+			}
+			result.User = uintptr(dataUser)
+		case 2:
+			var dataGroup uint64
+			err = decoder.DecodeUint64(&dataGroup)
+			if err != nil {
+				return types.Fchown16Args{}, err
+			}
+			result.Group = uintptr(dataGroup)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetresuid16Args(decoder *Decoder) (types.Setresuid16Args, error) {
-  var result types.Setresuid16Args
-  var err error
+	var result types.Setresuid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setresuid16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Setresuid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setresuid16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Setresuid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setresuid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setresuid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRuid uint64
-      err = decoder.DecodeUint64(&dataRuid)
-      if err != nil {
-        return types.Setresuid16Args{}, err
-      }
-      result.Ruid = uintptr(dataRuid)
-    case 1:
-      var dataEuid uint64
-      err = decoder.DecodeUint64(&dataEuid)
-      if err != nil {
-        return types.Setresuid16Args{}, err
-      }
-      result.Euid = uintptr(dataEuid)
-    case 2:
-      var dataSuid uint64
-      err = decoder.DecodeUint64(&dataSuid)
-      if err != nil {
-        return types.Setresuid16Args{}, err
-      }
-      result.Suid = uintptr(dataSuid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRuid uint64
+			err = decoder.DecodeUint64(&dataRuid)
+			if err != nil {
+				return types.Setresuid16Args{}, err
+			}
+			result.Ruid = uintptr(dataRuid)
+		case 1:
+			var dataEuid uint64
+			err = decoder.DecodeUint64(&dataEuid)
+			if err != nil {
+				return types.Setresuid16Args{}, err
+			}
+			result.Euid = uintptr(dataEuid)
+		case 2:
+			var dataSuid uint64
+			err = decoder.DecodeUint64(&dataSuid)
+			if err != nil {
+				return types.Setresuid16Args{}, err
+			}
+			result.Suid = uintptr(dataSuid)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetresuid16Args(decoder *Decoder) (types.Getresuid16Args, error) {
-  var result types.Getresuid16Args
-  var err error
+	var result types.Getresuid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Getresuid16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Getresuid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Getresuid16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Getresuid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Getresuid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Getresuid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRuid uint64
-      err = decoder.DecodeUint64(&dataRuid)
-      if err != nil {
-        return types.Getresuid16Args{}, err
-      }
-      result.Ruid = uintptr(dataRuid)
-    case 1:
-      var dataEuid uint64
-      err = decoder.DecodeUint64(&dataEuid)
-      if err != nil {
-        return types.Getresuid16Args{}, err
-      }
-      result.Euid = uintptr(dataEuid)
-    case 2:
-      var dataSuid uint64
-      err = decoder.DecodeUint64(&dataSuid)
-      if err != nil {
-        return types.Getresuid16Args{}, err
-      }
-      result.Suid = uintptr(dataSuid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRuid uint64
+			err = decoder.DecodeUint64(&dataRuid)
+			if err != nil {
+				return types.Getresuid16Args{}, err
+			}
+			result.Ruid = uintptr(dataRuid)
+		case 1:
+			var dataEuid uint64
+			err = decoder.DecodeUint64(&dataEuid)
+			if err != nil {
+				return types.Getresuid16Args{}, err
+			}
+			result.Euid = uintptr(dataEuid)
+		case 2:
+			var dataSuid uint64
+			err = decoder.DecodeUint64(&dataSuid)
+			if err != nil {
+				return types.Getresuid16Args{}, err
+			}
+			result.Suid = uintptr(dataSuid)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetresgid16Args(decoder *Decoder) (types.Setresgid16Args, error) {
-  var result types.Setresgid16Args
-  var err error
+	var result types.Setresgid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setresgid16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Setresgid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setresgid16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Setresgid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setresgid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setresgid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRgid uint64
-      err = decoder.DecodeUint64(&dataRgid)
-      if err != nil {
-        return types.Setresgid16Args{}, err
-      }
-      result.Rgid = uintptr(dataRgid)
-    case 1:
-      var dataEuid uint64
-      err = decoder.DecodeUint64(&dataEuid)
-      if err != nil {
-        return types.Setresgid16Args{}, err
-      }
-      result.Euid = uintptr(dataEuid)
-    case 2:
-      var dataSuid uint64
-      err = decoder.DecodeUint64(&dataSuid)
-      if err != nil {
-        return types.Setresgid16Args{}, err
-      }
-      result.Suid = uintptr(dataSuid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRgid uint64
+			err = decoder.DecodeUint64(&dataRgid)
+			if err != nil {
+				return types.Setresgid16Args{}, err
+			}
+			result.Rgid = uintptr(dataRgid)
+		case 1:
+			var dataEuid uint64
+			err = decoder.DecodeUint64(&dataEuid)
+			if err != nil {
+				return types.Setresgid16Args{}, err
+			}
+			result.Euid = uintptr(dataEuid)
+		case 2:
+			var dataSuid uint64
+			err = decoder.DecodeUint64(&dataSuid)
+			if err != nil {
+				return types.Setresgid16Args{}, err
+			}
+			result.Suid = uintptr(dataSuid)
+		}
+	}
+	return result, nil
 }
 
 func ParseGetresgid16Args(decoder *Decoder) (types.Getresgid16Args, error) {
-  var result types.Getresgid16Args
-  var err error
+	var result types.Getresgid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Getresgid16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Getresgid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Getresgid16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Getresgid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Getresgid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Getresgid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataRgid uint64
-      err = decoder.DecodeUint64(&dataRgid)
-      if err != nil {
-        return types.Getresgid16Args{}, err
-      }
-      result.Rgid = uintptr(dataRgid)
-    case 1:
-      var dataEgid uint64
-      err = decoder.DecodeUint64(&dataEgid)
-      if err != nil {
-        return types.Getresgid16Args{}, err
-      }
-      result.Egid = uintptr(dataEgid)
-    case 2:
-      var dataSgid uint64
-      err = decoder.DecodeUint64(&dataSgid)
-      if err != nil {
-        return types.Getresgid16Args{}, err
-      }
-      result.Sgid = uintptr(dataSgid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataRgid uint64
+			err = decoder.DecodeUint64(&dataRgid)
+			if err != nil {
+				return types.Getresgid16Args{}, err
+			}
+			result.Rgid = uintptr(dataRgid)
+		case 1:
+			var dataEgid uint64
+			err = decoder.DecodeUint64(&dataEgid)
+			if err != nil {
+				return types.Getresgid16Args{}, err
+			}
+			result.Egid = uintptr(dataEgid)
+		case 2:
+			var dataSgid uint64
+			err = decoder.DecodeUint64(&dataSgid)
+			if err != nil {
+				return types.Getresgid16Args{}, err
+			}
+			result.Sgid = uintptr(dataSgid)
+		}
+	}
+	return result, nil
 }
 
 func ParseChown16Args(decoder *Decoder) (types.Chown16Args, error) {
-  var result types.Chown16Args
-  var err error
+	var result types.Chown16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Chown16Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Chown16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Chown16Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Chown16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Chown16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Chown16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Chown16Args{}, err
-      }
-    case 1:
-      var dataOwner uint64
-      err = decoder.DecodeUint64(&dataOwner)
-      if err != nil {
-        return types.Chown16Args{}, err
-      }
-      result.Owner = uintptr(dataOwner)
-    case 2:
-      var dataGroup uint64
-      err = decoder.DecodeUint64(&dataGroup)
-      if err != nil {
-        return types.Chown16Args{}, err
-      }
-      result.Group = uintptr(dataGroup)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Chown16Args{}, err
+			}
+		case 1:
+			var dataOwner uint64
+			err = decoder.DecodeUint64(&dataOwner)
+			if err != nil {
+				return types.Chown16Args{}, err
+			}
+			result.Owner = uintptr(dataOwner)
+		case 2:
+			var dataGroup uint64
+			err = decoder.DecodeUint64(&dataGroup)
+			if err != nil {
+				return types.Chown16Args{}, err
+			}
+			result.Group = uintptr(dataGroup)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetuid16Args(decoder *Decoder) (types.Setuid16Args, error) {
-  var result types.Setuid16Args
-  var err error
+	var result types.Setuid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setuid16Args{}, err
-  }
-  if numArgs > 1 {
-    return types.Setuid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setuid16Args{}, err
+	}
+	if numArgs > 1 {
+		return types.Setuid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setuid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setuid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUid uint64
-      err = decoder.DecodeUint64(&dataUid)
-      if err != nil {
-        return types.Setuid16Args{}, err
-      }
-      result.Uid = uintptr(dataUid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUid uint64
+			err = decoder.DecodeUint64(&dataUid)
+			if err != nil {
+				return types.Setuid16Args{}, err
+			}
+			result.Uid = uintptr(dataUid)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetgid16Args(decoder *Decoder) (types.Setgid16Args, error) {
-  var result types.Setgid16Args
-  var err error
+	var result types.Setgid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setgid16Args{}, err
-  }
-  if numArgs > 1 {
-    return types.Setgid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setgid16Args{}, err
+	}
+	if numArgs > 1 {
+		return types.Setgid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setgid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setgid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataGid uint64
-      err = decoder.DecodeUint64(&dataGid)
-      if err != nil {
-        return types.Setgid16Args{}, err
-      }
-      result.Gid = uintptr(dataGid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataGid uint64
+			err = decoder.DecodeUint64(&dataGid)
+			if err != nil {
+				return types.Setgid16Args{}, err
+			}
+			result.Gid = uintptr(dataGid)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetfsuid16Args(decoder *Decoder) (types.Setfsuid16Args, error) {
-  var result types.Setfsuid16Args
-  var err error
+	var result types.Setfsuid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setfsuid16Args{}, err
-  }
-  if numArgs > 1 {
-    return types.Setfsuid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setfsuid16Args{}, err
+	}
+	if numArgs > 1 {
+		return types.Setfsuid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setfsuid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setfsuid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataFsuid uint64
-      err = decoder.DecodeUint64(&dataFsuid)
-      if err != nil {
-        return types.Setfsuid16Args{}, err
-      }
-      result.Fsuid = uintptr(dataFsuid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataFsuid uint64
+			err = decoder.DecodeUint64(&dataFsuid)
+			if err != nil {
+				return types.Setfsuid16Args{}, err
+			}
+			result.Fsuid = uintptr(dataFsuid)
+		}
+	}
+	return result, nil
 }
 
 func ParseSetfsgid16Args(decoder *Decoder) (types.Setfsgid16Args, error) {
-  var result types.Setfsgid16Args
-  var err error
+	var result types.Setfsgid16Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Setfsgid16Args{}, err
-  }
-  if numArgs > 1 {
-    return types.Setfsgid16Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Setfsgid16Args{}, err
+	}
+	if numArgs > 1 {
+		return types.Setfsgid16Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Setfsgid16Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Setfsgid16Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataFsgid uint64
-      err = decoder.DecodeUint64(&dataFsgid)
-      if err != nil {
-        return types.Setfsgid16Args{}, err
-      }
-      result.Fsgid = uintptr(dataFsgid)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataFsgid uint64
+			err = decoder.DecodeUint64(&dataFsgid)
+			if err != nil {
+				return types.Setfsgid16Args{}, err
+			}
+			result.Fsgid = uintptr(dataFsgid)
+		}
+	}
+	return result, nil
 }
 
 func ParseFcntl64Args(decoder *Decoder) (types.Fcntl64Args, error) {
-  var result types.Fcntl64Args
-  var err error
+	var result types.Fcntl64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Fcntl64Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Fcntl64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Fcntl64Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Fcntl64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Fcntl64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Fcntl64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Fcntl64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Cmd)
-      if err != nil {
-        return types.Fcntl64Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Arg)
-      if err != nil {
-        return types.Fcntl64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Fcntl64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Cmd)
+			if err != nil {
+				return types.Fcntl64Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Arg)
+			if err != nil {
+				return types.Fcntl64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSendfile32Args(decoder *Decoder) (types.Sendfile32Args, error) {
-  var result types.Sendfile32Args
-  var err error
+	var result types.Sendfile32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Sendfile32Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Sendfile32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Sendfile32Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Sendfile32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Sendfile32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Sendfile32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.OutFd)
-      if err != nil {
-        return types.Sendfile32Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.InFd)
-      if err != nil {
-        return types.Sendfile32Args{}, err
-      }
-    case 2:
-      var dataOffset uint64
-      err = decoder.DecodeUint64(&dataOffset)
-      if err != nil {
-        return types.Sendfile32Args{}, err
-      }
-      result.Offset = uintptr(dataOffset)
-    case 3:
-      err = decoder.DecodeUint64(&result.Count)
-      if err != nil {
-        return types.Sendfile32Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.OutFd)
+			if err != nil {
+				return types.Sendfile32Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.InFd)
+			if err != nil {
+				return types.Sendfile32Args{}, err
+			}
+		case 2:
+			var dataOffset uint64
+			err = decoder.DecodeUint64(&dataOffset)
+			if err != nil {
+				return types.Sendfile32Args{}, err
+			}
+			result.Offset = uintptr(dataOffset)
+		case 3:
+			err = decoder.DecodeUint64(&result.Count)
+			if err != nil {
+				return types.Sendfile32Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseStatfs64Args(decoder *Decoder) (types.Statfs64Args, error) {
-  var result types.Statfs64Args
-  var err error
+	var result types.Statfs64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Statfs64Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Statfs64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Statfs64Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Statfs64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Statfs64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Statfs64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.Statfs64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Sz)
-      if err != nil {
-        return types.Statfs64Args{}, err
-      }
-    case 2:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.Statfs64Args{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.Statfs64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Sz)
+			if err != nil {
+				return types.Statfs64Args{}, err
+			}
+		case 2:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.Statfs64Args{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseFstatfs64Args(decoder *Decoder) (types.Fstatfs64Args, error) {
-  var result types.Fstatfs64Args
-  var err error
+	var result types.Fstatfs64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Fstatfs64Args{}, err
-  }
-  if numArgs > 3 {
-    return types.Fstatfs64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Fstatfs64Args{}, err
+	}
+	if numArgs > 3 {
+		return types.Fstatfs64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Fstatfs64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Fstatfs64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Fstatfs64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Sz)
-      if err != nil {
-        return types.Fstatfs64Args{}, err
-      }
-    case 2:
-      var dataBuf uint64
-      err = decoder.DecodeUint64(&dataBuf)
-      if err != nil {
-        return types.Fstatfs64Args{}, err
-      }
-      result.Buf = uintptr(dataBuf)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Fstatfs64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Sz)
+			if err != nil {
+				return types.Fstatfs64Args{}, err
+			}
+		case 2:
+			var dataBuf uint64
+			err = decoder.DecodeUint64(&dataBuf)
+			if err != nil {
+				return types.Fstatfs64Args{}, err
+			}
+			result.Buf = uintptr(dataBuf)
+		}
+	}
+	return result, nil
 }
 
 func ParseFadvise64_64Args(decoder *Decoder) (types.Fadvise64_64Args, error) {
-  var result types.Fadvise64_64Args
-  var err error
+	var result types.Fadvise64_64Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Fadvise64_64Args{}, err
-  }
-  if numArgs > 4 {
-    return types.Fadvise64_64Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Fadvise64_64Args{}, err
+	}
+	if numArgs > 4 {
+		return types.Fadvise64_64Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Fadvise64_64Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Fadvise64_64Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.Fadvise64_64Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Offset)
-      if err != nil {
-        return types.Fadvise64_64Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Len)
-      if err != nil {
-        return types.Fadvise64_64Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.Advice)
-      if err != nil {
-        return types.Fadvise64_64Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.Fadvise64_64Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Offset)
+			if err != nil {
+				return types.Fadvise64_64Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Len)
+			if err != nil {
+				return types.Fadvise64_64Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.Advice)
+			if err != nil {
+				return types.Fadvise64_64Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseClockGettime32Args(decoder *Decoder) (types.ClockGettime32Args, error) {
-  var result types.ClockGettime32Args
-  var err error
+	var result types.ClockGettime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockGettime32Args{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockGettime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockGettime32Args{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockGettime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockGettime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockGettime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.WhichClock)
-      if err != nil {
-        return types.ClockGettime32Args{}, err
-      }
-    case 1:
-      var dataTp uint64
-      err = decoder.DecodeUint64(&dataTp)
-      if err != nil {
-        return types.ClockGettime32Args{}, err
-      }
-      result.Tp = uintptr(dataTp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.WhichClock)
+			if err != nil {
+				return types.ClockGettime32Args{}, err
+			}
+		case 1:
+			var dataTp uint64
+			err = decoder.DecodeUint64(&dataTp)
+			if err != nil {
+				return types.ClockGettime32Args{}, err
+			}
+			result.Tp = uintptr(dataTp)
+		}
+	}
+	return result, nil
 }
 
 func ParseClockSettime32Args(decoder *Decoder) (types.ClockSettime32Args, error) {
-  var result types.ClockSettime32Args
-  var err error
+	var result types.ClockSettime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockSettime32Args{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockSettime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockSettime32Args{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockSettime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockSettime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockSettime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.WhichClock)
-      if err != nil {
-        return types.ClockSettime32Args{}, err
-      }
-    case 1:
-      var dataTp uint64
-      err = decoder.DecodeUint64(&dataTp)
-      if err != nil {
-        return types.ClockSettime32Args{}, err
-      }
-      result.Tp = uintptr(dataTp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.WhichClock)
+			if err != nil {
+				return types.ClockSettime32Args{}, err
+			}
+		case 1:
+			var dataTp uint64
+			err = decoder.DecodeUint64(&dataTp)
+			if err != nil {
+				return types.ClockSettime32Args{}, err
+			}
+			result.Tp = uintptr(dataTp)
+		}
+	}
+	return result, nil
 }
 
 func ParseClockAdjtime64Args(decoder *Decoder) (types.ClockAdjtime64Args, error) {
-  return types.ClockAdjtime64Args{}, nil
+	return types.ClockAdjtime64Args{}, nil
 }
 
 func ParseClockGetresTime32Args(decoder *Decoder) (types.ClockGetresTime32Args, error) {
-  var result types.ClockGetresTime32Args
-  var err error
+	var result types.ClockGetresTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockGetresTime32Args{}, err
-  }
-  if numArgs > 2 {
-    return types.ClockGetresTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockGetresTime32Args{}, err
+	}
+	if numArgs > 2 {
+		return types.ClockGetresTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockGetresTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockGetresTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.WhichClock)
-      if err != nil {
-        return types.ClockGetresTime32Args{}, err
-      }
-    case 1:
-      var dataTp uint64
-      err = decoder.DecodeUint64(&dataTp)
-      if err != nil {
-        return types.ClockGetresTime32Args{}, err
-      }
-      result.Tp = uintptr(dataTp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.WhichClock)
+			if err != nil {
+				return types.ClockGetresTime32Args{}, err
+			}
+		case 1:
+			var dataTp uint64
+			err = decoder.DecodeUint64(&dataTp)
+			if err != nil {
+				return types.ClockGetresTime32Args{}, err
+			}
+			result.Tp = uintptr(dataTp)
+		}
+	}
+	return result, nil
 }
 
 func ParseClockNanosleepTime32Args(decoder *Decoder) (types.ClockNanosleepTime32Args, error) {
-  var result types.ClockNanosleepTime32Args
-  var err error
+	var result types.ClockNanosleepTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ClockNanosleepTime32Args{}, err
-  }
-  if numArgs > 4 {
-    return types.ClockNanosleepTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ClockNanosleepTime32Args{}, err
+	}
+	if numArgs > 4 {
+		return types.ClockNanosleepTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ClockNanosleepTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ClockNanosleepTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.WhichClock)
-      if err != nil {
-        return types.ClockNanosleepTime32Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.ClockNanosleepTime32Args{}, err
-      }
-    case 2:
-      var dataRqtp uint64
-      err = decoder.DecodeUint64(&dataRqtp)
-      if err != nil {
-        return types.ClockNanosleepTime32Args{}, err
-      }
-      result.Rqtp = uintptr(dataRqtp)
-    case 3:
-      var dataRmtp uint64
-      err = decoder.DecodeUint64(&dataRmtp)
-      if err != nil {
-        return types.ClockNanosleepTime32Args{}, err
-      }
-      result.Rmtp = uintptr(dataRmtp)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.WhichClock)
+			if err != nil {
+				return types.ClockNanosleepTime32Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.ClockNanosleepTime32Args{}, err
+			}
+		case 2:
+			var dataRqtp uint64
+			err = decoder.DecodeUint64(&dataRqtp)
+			if err != nil {
+				return types.ClockNanosleepTime32Args{}, err
+			}
+			result.Rqtp = uintptr(dataRqtp)
+		case 3:
+			var dataRmtp uint64
+			err = decoder.DecodeUint64(&dataRmtp)
+			if err != nil {
+				return types.ClockNanosleepTime32Args{}, err
+			}
+			result.Rmtp = uintptr(dataRmtp)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerGettime32Args(decoder *Decoder) (types.TimerGettime32Args, error) {
-  var result types.TimerGettime32Args
-  var err error
+	var result types.TimerGettime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerGettime32Args{}, err
-  }
-  if numArgs > 2 {
-    return types.TimerGettime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerGettime32Args{}, err
+	}
+	if numArgs > 2 {
+		return types.TimerGettime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerGettime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerGettime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.TimerId)
-      if err != nil {
-        return types.TimerGettime32Args{}, err
-      }
-    case 1:
-      var dataSetting uint64
-      err = decoder.DecodeUint64(&dataSetting)
-      if err != nil {
-        return types.TimerGettime32Args{}, err
-      }
-      result.Setting = uintptr(dataSetting)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.TimerId)
+			if err != nil {
+				return types.TimerGettime32Args{}, err
+			}
+		case 1:
+			var dataSetting uint64
+			err = decoder.DecodeUint64(&dataSetting)
+			if err != nil {
+				return types.TimerGettime32Args{}, err
+			}
+			result.Setting = uintptr(dataSetting)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerSettime32Args(decoder *Decoder) (types.TimerSettime32Args, error) {
-  var result types.TimerSettime32Args
-  var err error
+	var result types.TimerSettime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerSettime32Args{}, err
-  }
-  if numArgs > 4 {
-    return types.TimerSettime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerSettime32Args{}, err
+	}
+	if numArgs > 4 {
+		return types.TimerSettime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerSettime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerSettime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.TimerId)
-      if err != nil {
-        return types.TimerSettime32Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.TimerSettime32Args{}, err
-      }
-    case 2:
-      var dataNew uint64
-      err = decoder.DecodeUint64(&dataNew)
-      if err != nil {
-        return types.TimerSettime32Args{}, err
-      }
-      result.New = uintptr(dataNew)
-    case 3:
-      var dataOld uint64
-      err = decoder.DecodeUint64(&dataOld)
-      if err != nil {
-        return types.TimerSettime32Args{}, err
-      }
-      result.Old = uintptr(dataOld)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.TimerId)
+			if err != nil {
+				return types.TimerSettime32Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.TimerSettime32Args{}, err
+			}
+		case 2:
+			var dataNew uint64
+			err = decoder.DecodeUint64(&dataNew)
+			if err != nil {
+				return types.TimerSettime32Args{}, err
+			}
+			result.New = uintptr(dataNew)
+		case 3:
+			var dataOld uint64
+			err = decoder.DecodeUint64(&dataOld)
+			if err != nil {
+				return types.TimerSettime32Args{}, err
+			}
+			result.Old = uintptr(dataOld)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerfdGettime32Args(decoder *Decoder) (types.TimerfdGettime32Args, error) {
-  var result types.TimerfdGettime32Args
-  var err error
+	var result types.TimerfdGettime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerfdGettime32Args{}, err
-  }
-  if numArgs > 2 {
-    return types.TimerfdGettime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerfdGettime32Args{}, err
+	}
+	if numArgs > 2 {
+		return types.TimerfdGettime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerfdGettime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerfdGettime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Ufd)
-      if err != nil {
-        return types.TimerfdGettime32Args{}, err
-      }
-    case 1:
-      var dataOtmr uint64
-      err = decoder.DecodeUint64(&dataOtmr)
-      if err != nil {
-        return types.TimerfdGettime32Args{}, err
-      }
-      result.Otmr = uintptr(dataOtmr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Ufd)
+			if err != nil {
+				return types.TimerfdGettime32Args{}, err
+			}
+		case 1:
+			var dataOtmr uint64
+			err = decoder.DecodeUint64(&dataOtmr)
+			if err != nil {
+				return types.TimerfdGettime32Args{}, err
+			}
+			result.Otmr = uintptr(dataOtmr)
+		}
+	}
+	return result, nil
 }
 
 func ParseTimerfdSettime32Args(decoder *Decoder) (types.TimerfdSettime32Args, error) {
-  var result types.TimerfdSettime32Args
-  var err error
+	var result types.TimerfdSettime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TimerfdSettime32Args{}, err
-  }
-  if numArgs > 4 {
-    return types.TimerfdSettime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TimerfdSettime32Args{}, err
+	}
+	if numArgs > 4 {
+		return types.TimerfdSettime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TimerfdSettime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TimerfdSettime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Ufd)
-      if err != nil {
-        return types.TimerfdSettime32Args{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.TimerfdSettime32Args{}, err
-      }
-    case 2:
-      var dataUtmr uint64
-      err = decoder.DecodeUint64(&dataUtmr)
-      if err != nil {
-        return types.TimerfdSettime32Args{}, err
-      }
-      result.Utmr = uintptr(dataUtmr)
-    case 3:
-      var dataOtmr uint64
-      err = decoder.DecodeUint64(&dataOtmr)
-      if err != nil {
-        return types.TimerfdSettime32Args{}, err
-      }
-      result.Otmr = uintptr(dataOtmr)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Ufd)
+			if err != nil {
+				return types.TimerfdSettime32Args{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.TimerfdSettime32Args{}, err
+			}
+		case 2:
+			var dataUtmr uint64
+			err = decoder.DecodeUint64(&dataUtmr)
+			if err != nil {
+				return types.TimerfdSettime32Args{}, err
+			}
+			result.Utmr = uintptr(dataUtmr)
+		case 3:
+			var dataOtmr uint64
+			err = decoder.DecodeUint64(&dataOtmr)
+			if err != nil {
+				return types.TimerfdSettime32Args{}, err
+			}
+			result.Otmr = uintptr(dataOtmr)
+		}
+	}
+	return result, nil
 }
 
 func ParseUtimensatTime32Args(decoder *Decoder) (types.UtimensatTime32Args, error) {
-  var result types.UtimensatTime32Args
-  var err error
+	var result types.UtimensatTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.UtimensatTime32Args{}, err
-  }
-  if numArgs > 4 {
-    return types.UtimensatTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.UtimensatTime32Args{}, err
+	}
+	if numArgs > 4 {
+		return types.UtimensatTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.UtimensatTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.UtimensatTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.Dfd)
-      if err != nil {
-        return types.UtimensatTime32Args{}, err
-      }
-    case 1:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.UtimensatTime32Args{}, err
-      }
-    case 2:
-      var dataT uint64
-      err = decoder.DecodeUint64(&dataT)
-      if err != nil {
-        return types.UtimensatTime32Args{}, err
-      }
-      result.T = uintptr(dataT)
-    case 3:
-      err = decoder.DecodeInt32(&result.Flags)
-      if err != nil {
-        return types.UtimensatTime32Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.Dfd)
+			if err != nil {
+				return types.UtimensatTime32Args{}, err
+			}
+		case 1:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.UtimensatTime32Args{}, err
+			}
+		case 2:
+			var dataT uint64
+			err = decoder.DecodeUint64(&dataT)
+			if err != nil {
+				return types.UtimensatTime32Args{}, err
+			}
+			result.T = uintptr(dataT)
+		case 3:
+			err = decoder.DecodeInt32(&result.Flags)
+			if err != nil {
+				return types.UtimensatTime32Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParsePselect6Time32Args(decoder *Decoder) (types.Pselect6Time32Args, error) {
-  var result types.Pselect6Time32Args
-  var err error
+	var result types.Pselect6Time32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.Pselect6Time32Args{}, err
-  }
-  if numArgs > 6 {
-    return types.Pselect6Time32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.Pselect6Time32Args{}, err
+	}
+	if numArgs > 6 {
+		return types.Pselect6Time32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.Pselect6Time32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.Pselect6Time32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.N)
-      if err != nil {
-        return types.Pselect6Time32Args{}, err
-      }
-    case 1:
-      var dataInp uint64
-      err = decoder.DecodeUint64(&dataInp)
-      if err != nil {
-        return types.Pselect6Time32Args{}, err
-      }
-      result.Inp = uintptr(dataInp)
-    case 2:
-      var dataOutp uint64
-      err = decoder.DecodeUint64(&dataOutp)
-      if err != nil {
-        return types.Pselect6Time32Args{}, err
-      }
-      result.Outp = uintptr(dataOutp)
-    case 3:
-      var dataExp uint64
-      err = decoder.DecodeUint64(&dataExp)
-      if err != nil {
-        return types.Pselect6Time32Args{}, err
-      }
-      result.Exp = uintptr(dataExp)
-    case 4:
-      var dataTsp uint64
-      err = decoder.DecodeUint64(&dataTsp)
-      if err != nil {
-        return types.Pselect6Time32Args{}, err
-      }
-      result.Tsp = uintptr(dataTsp)
-    case 5:
-      var dataSig uint64
-      err = decoder.DecodeUint64(&dataSig)
-      if err != nil {
-        return types.Pselect6Time32Args{}, err
-      }
-      result.Sig = uintptr(dataSig)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.N)
+			if err != nil {
+				return types.Pselect6Time32Args{}, err
+			}
+		case 1:
+			var dataInp uint64
+			err = decoder.DecodeUint64(&dataInp)
+			if err != nil {
+				return types.Pselect6Time32Args{}, err
+			}
+			result.Inp = uintptr(dataInp)
+		case 2:
+			var dataOutp uint64
+			err = decoder.DecodeUint64(&dataOutp)
+			if err != nil {
+				return types.Pselect6Time32Args{}, err
+			}
+			result.Outp = uintptr(dataOutp)
+		case 3:
+			var dataExp uint64
+			err = decoder.DecodeUint64(&dataExp)
+			if err != nil {
+				return types.Pselect6Time32Args{}, err
+			}
+			result.Exp = uintptr(dataExp)
+		case 4:
+			var dataTsp uint64
+			err = decoder.DecodeUint64(&dataTsp)
+			if err != nil {
+				return types.Pselect6Time32Args{}, err
+			}
+			result.Tsp = uintptr(dataTsp)
+		case 5:
+			var dataSig uint64
+			err = decoder.DecodeUint64(&dataSig)
+			if err != nil {
+				return types.Pselect6Time32Args{}, err
+			}
+			result.Sig = uintptr(dataSig)
+		}
+	}
+	return result, nil
 }
 
 func ParsePpollTime32Args(decoder *Decoder) (types.PpollTime32Args, error) {
-  var result types.PpollTime32Args
-  var err error
+	var result types.PpollTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.PpollTime32Args{}, err
-  }
-  if numArgs > 5 {
-    return types.PpollTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.PpollTime32Args{}, err
+	}
+	if numArgs > 5 {
+		return types.PpollTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.PpollTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.PpollTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUfds uint64
-      err = decoder.DecodeUint64(&dataUfds)
-      if err != nil {
-        return types.PpollTime32Args{}, err
-      }
-      result.Ufds = uintptr(dataUfds)
-    case 1:
-      err = decoder.DecodeUint32(&result.Nfds)
-      if err != nil {
-        return types.PpollTime32Args{}, err
-      }
-    case 2:
-      var dataTsp uint64
-      err = decoder.DecodeUint64(&dataTsp)
-      if err != nil {
-        return types.PpollTime32Args{}, err
-      }
-      result.Tsp = uintptr(dataTsp)
-    case 3:
-      var dataSigmask uint64
-      err = decoder.DecodeUint64(&dataSigmask)
-      if err != nil {
-        return types.PpollTime32Args{}, err
-      }
-      result.Sigmask = uintptr(dataSigmask)
-    case 4:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.PpollTime32Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUfds uint64
+			err = decoder.DecodeUint64(&dataUfds)
+			if err != nil {
+				return types.PpollTime32Args{}, err
+			}
+			result.Ufds = uintptr(dataUfds)
+		case 1:
+			err = decoder.DecodeUint32(&result.Nfds)
+			if err != nil {
+				return types.PpollTime32Args{}, err
+			}
+		case 2:
+			var dataTsp uint64
+			err = decoder.DecodeUint64(&dataTsp)
+			if err != nil {
+				return types.PpollTime32Args{}, err
+			}
+			result.Tsp = uintptr(dataTsp)
+		case 3:
+			var dataSigmask uint64
+			err = decoder.DecodeUint64(&dataSigmask)
+			if err != nil {
+				return types.PpollTime32Args{}, err
+			}
+			result.Sigmask = uintptr(dataSigmask)
+		case 4:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.PpollTime32Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseIoPgeteventsTime32Args(decoder *Decoder) (types.IoPgeteventsTime32Args, error) {
-  return types.IoPgeteventsTime32Args{}, nil
+	return types.IoPgeteventsTime32Args{}, nil
 }
 
 func ParseRecvmmsgTime32Args(decoder *Decoder) (types.RecvmmsgTime32Args, error) {
-  var result types.RecvmmsgTime32Args
-  var err error
+	var result types.RecvmmsgTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RecvmmsgTime32Args{}, err
-  }
-  if numArgs > 5 {
-    return types.RecvmmsgTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RecvmmsgTime32Args{}, err
+	}
+	if numArgs > 5 {
+		return types.RecvmmsgTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RecvmmsgTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RecvmmsgTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Fd)
-      if err != nil {
-        return types.RecvmmsgTime32Args{}, err
-      }
-    case 1:
-      var dataMmsg uint64
-      err = decoder.DecodeUint64(&dataMmsg)
-      if err != nil {
-        return types.RecvmmsgTime32Args{}, err
-      }
-      result.Mmsg = uintptr(dataMmsg)
-    case 2:
-      err = decoder.DecodeUint32(&result.Vlen)
-      if err != nil {
-        return types.RecvmmsgTime32Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.RecvmmsgTime32Args{}, err
-      }
-    case 4:
-      var dataTimeout uint64
-      err = decoder.DecodeUint64(&dataTimeout)
-      if err != nil {
-        return types.RecvmmsgTime32Args{}, err
-      }
-      result.Timeout = uintptr(dataTimeout)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Fd)
+			if err != nil {
+				return types.RecvmmsgTime32Args{}, err
+			}
+		case 1:
+			var dataMmsg uint64
+			err = decoder.DecodeUint64(&dataMmsg)
+			if err != nil {
+				return types.RecvmmsgTime32Args{}, err
+			}
+			result.Mmsg = uintptr(dataMmsg)
+		case 2:
+			err = decoder.DecodeUint32(&result.Vlen)
+			if err != nil {
+				return types.RecvmmsgTime32Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.RecvmmsgTime32Args{}, err
+			}
+		case 4:
+			var dataTimeout uint64
+			err = decoder.DecodeUint64(&dataTimeout)
+			if err != nil {
+				return types.RecvmmsgTime32Args{}, err
+			}
+			result.Timeout = uintptr(dataTimeout)
+		}
+	}
+	return result, nil
 }
 
 func ParseMqTimedsendTime32Args(decoder *Decoder) (types.MqTimedsendTime32Args, error) {
-  var result types.MqTimedsendTime32Args
-  var err error
+	var result types.MqTimedsendTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqTimedsendTime32Args{}, err
-  }
-  if numArgs > 5 {
-    return types.MqTimedsendTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqTimedsendTime32Args{}, err
+	}
+	if numArgs > 5 {
+		return types.MqTimedsendTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqTimedsendTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqTimedsendTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mqdes)
-      if err != nil {
-        return types.MqTimedsendTime32Args{}, err
-      }
-    case 1:
-      result.UMsgPtr, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MqTimedsendTime32Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.MsgLen)
-      if err != nil {
-        return types.MqTimedsendTime32Args{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.MsgPrio)
-      if err != nil {
-        return types.MqTimedsendTime32Args{}, err
-      }
-    case 4:
-      var dataUAbsTimeout uint64
-      err = decoder.DecodeUint64(&dataUAbsTimeout)
-      if err != nil {
-        return types.MqTimedsendTime32Args{}, err
-      }
-      result.UAbsTimeout = uintptr(dataUAbsTimeout)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mqdes)
+			if err != nil {
+				return types.MqTimedsendTime32Args{}, err
+			}
+		case 1:
+			result.UMsgPtr, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MqTimedsendTime32Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.MsgLen)
+			if err != nil {
+				return types.MqTimedsendTime32Args{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.MsgPrio)
+			if err != nil {
+				return types.MqTimedsendTime32Args{}, err
+			}
+		case 4:
+			var dataUAbsTimeout uint64
+			err = decoder.DecodeUint64(&dataUAbsTimeout)
+			if err != nil {
+				return types.MqTimedsendTime32Args{}, err
+			}
+			result.UAbsTimeout = uintptr(dataUAbsTimeout)
+		}
+	}
+	return result, nil
 }
 
 func ParseMqTimedreceiveTime32Args(decoder *Decoder) (types.MqTimedreceiveTime32Args, error) {
-  var result types.MqTimedreceiveTime32Args
-  var err error
+	var result types.MqTimedreceiveTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MqTimedreceiveTime32Args{}, err
-  }
-  if numArgs > 5 {
-    return types.MqTimedreceiveTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MqTimedreceiveTime32Args{}, err
+	}
+	if numArgs > 5 {
+		return types.MqTimedreceiveTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MqTimedreceiveTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MqTimedreceiveTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Mqdes)
-      if err != nil {
-        return types.MqTimedreceiveTime32Args{}, err
-      }
-    case 1:
-      result.UMsgPtr, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MqTimedreceiveTime32Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.MsgLen)
-      if err != nil {
-        return types.MqTimedreceiveTime32Args{}, err
-      }
-    case 3:
-      var dataUMsgPrio uint64
-      err = decoder.DecodeUint64(&dataUMsgPrio)
-      if err != nil {
-        return types.MqTimedreceiveTime32Args{}, err
-      }
-      result.UMsgPrio = uintptr(dataUMsgPrio)
-    case 4:
-      var dataUAbsTimeout uint64
-      err = decoder.DecodeUint64(&dataUAbsTimeout)
-      if err != nil {
-        return types.MqTimedreceiveTime32Args{}, err
-      }
-      result.UAbsTimeout = uintptr(dataUAbsTimeout)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Mqdes)
+			if err != nil {
+				return types.MqTimedreceiveTime32Args{}, err
+			}
+		case 1:
+			result.UMsgPtr, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MqTimedreceiveTime32Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.MsgLen)
+			if err != nil {
+				return types.MqTimedreceiveTime32Args{}, err
+			}
+		case 3:
+			var dataUMsgPrio uint64
+			err = decoder.DecodeUint64(&dataUMsgPrio)
+			if err != nil {
+				return types.MqTimedreceiveTime32Args{}, err
+			}
+			result.UMsgPrio = uintptr(dataUMsgPrio)
+		case 4:
+			var dataUAbsTimeout uint64
+			err = decoder.DecodeUint64(&dataUAbsTimeout)
+			if err != nil {
+				return types.MqTimedreceiveTime32Args{}, err
+			}
+			result.UAbsTimeout = uintptr(dataUAbsTimeout)
+		}
+	}
+	return result, nil
 }
 
 func ParseRtSigtimedwaitTime32Args(decoder *Decoder) (types.RtSigtimedwaitTime32Args, error) {
-  var result types.RtSigtimedwaitTime32Args
-  var err error
+	var result types.RtSigtimedwaitTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.RtSigtimedwaitTime32Args{}, err
-  }
-  if numArgs > 4 {
-    return types.RtSigtimedwaitTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.RtSigtimedwaitTime32Args{}, err
+	}
+	if numArgs > 4 {
+		return types.RtSigtimedwaitTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.RtSigtimedwaitTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.RtSigtimedwaitTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUthese uint64
-      err = decoder.DecodeUint64(&dataUthese)
-      if err != nil {
-        return types.RtSigtimedwaitTime32Args{}, err
-      }
-      result.Uthese = uintptr(dataUthese)
-    case 1:
-      var dataUinfo uint64
-      err = decoder.DecodeUint64(&dataUinfo)
-      if err != nil {
-        return types.RtSigtimedwaitTime32Args{}, err
-      }
-      result.Uinfo = uintptr(dataUinfo)
-    case 2:
-      var dataUts uint64
-      err = decoder.DecodeUint64(&dataUts)
-      if err != nil {
-        return types.RtSigtimedwaitTime32Args{}, err
-      }
-      result.Uts = uintptr(dataUts)
-    case 3:
-      err = decoder.DecodeUint64(&result.Sigsetsize)
-      if err != nil {
-        return types.RtSigtimedwaitTime32Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUthese uint64
+			err = decoder.DecodeUint64(&dataUthese)
+			if err != nil {
+				return types.RtSigtimedwaitTime32Args{}, err
+			}
+			result.Uthese = uintptr(dataUthese)
+		case 1:
+			var dataUinfo uint64
+			err = decoder.DecodeUint64(&dataUinfo)
+			if err != nil {
+				return types.RtSigtimedwaitTime32Args{}, err
+			}
+			result.Uinfo = uintptr(dataUinfo)
+		case 2:
+			var dataUts uint64
+			err = decoder.DecodeUint64(&dataUts)
+			if err != nil {
+				return types.RtSigtimedwaitTime32Args{}, err
+			}
+			result.Uts = uintptr(dataUts)
+		case 3:
+			err = decoder.DecodeUint64(&result.Sigsetsize)
+			if err != nil {
+				return types.RtSigtimedwaitTime32Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFutexTime32Args(decoder *Decoder) (types.FutexTime32Args, error) {
-  var result types.FutexTime32Args
-  var err error
+	var result types.FutexTime32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FutexTime32Args{}, err
-  }
-  if numArgs > 6 {
-    return types.FutexTime32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FutexTime32Args{}, err
+	}
+	if numArgs > 6 {
+		return types.FutexTime32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FutexTime32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FutexTime32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      var dataUaddr uint64
-      err = decoder.DecodeUint64(&dataUaddr)
-      if err != nil {
-        return types.FutexTime32Args{}, err
-      }
-      result.Uaddr = uintptr(dataUaddr)
-    case 1:
-      err = decoder.DecodeInt32(&result.Op)
-      if err != nil {
-        return types.FutexTime32Args{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Val)
-      if err != nil {
-        return types.FutexTime32Args{}, err
-      }
-    case 3:
-      var dataUtime uint64
-      err = decoder.DecodeUint64(&dataUtime)
-      if err != nil {
-        return types.FutexTime32Args{}, err
-      }
-      result.Utime = uintptr(dataUtime)
-    case 4:
-      var dataUaddr2 uint64
-      err = decoder.DecodeUint64(&dataUaddr2)
-      if err != nil {
-        return types.FutexTime32Args{}, err
-      }
-      result.Uaddr2 = uintptr(dataUaddr2)
-    case 5:
-      err = decoder.DecodeUint32(&result.Val3)
-      if err != nil {
-        return types.FutexTime32Args{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			var dataUaddr uint64
+			err = decoder.DecodeUint64(&dataUaddr)
+			if err != nil {
+				return types.FutexTime32Args{}, err
+			}
+			result.Uaddr = uintptr(dataUaddr)
+		case 1:
+			err = decoder.DecodeInt32(&result.Op)
+			if err != nil {
+				return types.FutexTime32Args{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Val)
+			if err != nil {
+				return types.FutexTime32Args{}, err
+			}
+		case 3:
+			var dataUtime uint64
+			err = decoder.DecodeUint64(&dataUtime)
+			if err != nil {
+				return types.FutexTime32Args{}, err
+			}
+			result.Utime = uintptr(dataUtime)
+		case 4:
+			var dataUaddr2 uint64
+			err = decoder.DecodeUint64(&dataUaddr2)
+			if err != nil {
+				return types.FutexTime32Args{}, err
+			}
+			result.Uaddr2 = uintptr(dataUaddr2)
+		case 5:
+			err = decoder.DecodeUint32(&result.Val3)
+			if err != nil {
+				return types.FutexTime32Args{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedRrGetInterval32Args(decoder *Decoder) (types.SchedRrGetInterval32Args, error) {
-  var result types.SchedRrGetInterval32Args
-  var err error
+	var result types.SchedRrGetInterval32Args
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedRrGetInterval32Args{}, err
-  }
-  if numArgs > 2 {
-    return types.SchedRrGetInterval32Args{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedRrGetInterval32Args{}, err
+	}
+	if numArgs > 2 {
+		return types.SchedRrGetInterval32Args{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedRrGetInterval32Args{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedRrGetInterval32Args{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Pid)
-      if err != nil {
-        return types.SchedRrGetInterval32Args{}, err
-      }
-    case 1:
-      var dataInterval uint64
-      err = decoder.DecodeUint64(&dataInterval)
-      if err != nil {
-        return types.SchedRrGetInterval32Args{}, err
-      }
-      result.Interval = uintptr(dataInterval)
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Pid)
+			if err != nil {
+				return types.SchedRrGetInterval32Args{}, err
+			}
+		case 1:
+			var dataInterval uint64
+			err = decoder.DecodeUint64(&dataInterval)
+			if err != nil {
+				return types.SchedRrGetInterval32Args{}, err
+			}
+			result.Interval = uintptr(dataInterval)
+		}
+	}
+	return result, nil
 }
 
 func ParseSysEnterArgs(decoder *Decoder) (types.SysEnterArgs, error) {
-  var result types.SysEnterArgs
-  var err error
+	var result types.SysEnterArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SysEnterArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SysEnterArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SysEnterArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SysEnterArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SysEnterArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SysEnterArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Syscall)
-      if err != nil {
-        return types.SysEnterArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Syscall)
+			if err != nil {
+				return types.SysEnterArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSysExitArgs(decoder *Decoder) (types.SysExitArgs, error) {
-  var result types.SysExitArgs
-  var err error
+	var result types.SysExitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SysExitArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.SysExitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SysExitArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SysExitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SysExitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SysExitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Syscall)
-      if err != nil {
-        return types.SysExitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Syscall)
+			if err != nil {
+				return types.SysExitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedProcessForkArgs(decoder *Decoder) (types.SchedProcessForkArgs, error) {
-  var result types.SchedProcessForkArgs
-  var err error
+	var result types.SchedProcessForkArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedProcessForkArgs{}, err
-  }
-  if numArgs > 20 {
-    return types.SchedProcessForkArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedProcessForkArgs{}, err
+	}
+	if numArgs > 20 {
+		return types.SchedProcessForkArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedProcessForkArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedProcessForkArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.ParentTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.ParentNsTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeInt32(&result.ParentPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.ParentNsPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.ParentStartTime)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeInt32(&result.ChildTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 6:
-      err = decoder.DecodeInt32(&result.ChildNsTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 7:
-      err = decoder.DecodeInt32(&result.ChildPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 8:
-      err = decoder.DecodeInt32(&result.ChildNsPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 9:
-      err = decoder.DecodeUint64(&result.ChildStartTime)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 10:
-      err = decoder.DecodeInt32(&result.UpParentTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 11:
-      err = decoder.DecodeInt32(&result.UpParentNsTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 12:
-      err = decoder.DecodeInt32(&result.UpParentPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 13:
-      err = decoder.DecodeInt32(&result.UpParentNsPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 14:
-      err = decoder.DecodeUint64(&result.UpParentStartTime)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 15:
-      err = decoder.DecodeInt32(&result.LeaderTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 16:
-      err = decoder.DecodeInt32(&result.LeaderNsTid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 17:
-      err = decoder.DecodeInt32(&result.LeaderPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 18:
-      err = decoder.DecodeInt32(&result.LeaderNsPid)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    case 19:
-      err = decoder.DecodeUint64(&result.LeaderStartTime)
-      if err != nil {
-        return types.SchedProcessForkArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.ParentTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.ParentNsTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeInt32(&result.ParentPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.ParentNsPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.ParentStartTime)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeInt32(&result.ChildTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 6:
+			err = decoder.DecodeInt32(&result.ChildNsTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 7:
+			err = decoder.DecodeInt32(&result.ChildPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 8:
+			err = decoder.DecodeInt32(&result.ChildNsPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 9:
+			err = decoder.DecodeUint64(&result.ChildStartTime)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 10:
+			err = decoder.DecodeInt32(&result.UpParentTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 11:
+			err = decoder.DecodeInt32(&result.UpParentNsTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 12:
+			err = decoder.DecodeInt32(&result.UpParentPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 13:
+			err = decoder.DecodeInt32(&result.UpParentNsPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 14:
+			err = decoder.DecodeUint64(&result.UpParentStartTime)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 15:
+			err = decoder.DecodeInt32(&result.LeaderTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 16:
+			err = decoder.DecodeInt32(&result.LeaderNsTid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 17:
+			err = decoder.DecodeInt32(&result.LeaderPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 18:
+			err = decoder.DecodeInt32(&result.LeaderNsPid)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		case 19:
+			err = decoder.DecodeUint64(&result.LeaderStartTime)
+			if err != nil {
+				return types.SchedProcessForkArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedProcessExecArgs(decoder *Decoder) (types.SchedProcessExecArgs, error) {
-  var result types.SchedProcessExecArgs
-  var err error
+	var result types.SchedProcessExecArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedProcessExecArgs{}, err
-  }
-  if numArgs > 16 {
-    return types.SchedProcessExecArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedProcessExecArgs{}, err
+	}
+	if numArgs > 16 {
+		return types.SchedProcessExecArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedProcessExecArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedProcessExecArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Filename, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 1:
-      result.Filepath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Inode)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.Ctime)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 5:
-      err = decoder.DecodeUint16(&result.InodeMode)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 6:
-      result.InterpreterPathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 7:
-      err = decoder.DecodeUint32(&result.InterpreterDev)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 8:
-      err = decoder.DecodeUint64(&result.InterpreterInode)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 9:
-      err = decoder.DecodeUint64(&result.InterpreterCtime)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 10:
-      result.Argv, err = decoder.ReadArgsArrayFromBuff()
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 11:
-      result.Interp, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 12:
-      err = decoder.DecodeUint16(&result.StdinType)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 13:
-      result.StdinPath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 14:
-      err = decoder.DecodeInt32(&result.InvokedFromKernel)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    case 15:
-      err = decoder.DecodeUint32(&result.Flags)
-      if err != nil {
-        return types.SchedProcessExecArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Filename, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 1:
+			result.Filepath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Inode)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.Ctime)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 5:
+			err = decoder.DecodeUint16(&result.InodeMode)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 6:
+			result.InterpreterPathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 7:
+			err = decoder.DecodeUint32(&result.InterpreterDev)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 8:
+			err = decoder.DecodeUint64(&result.InterpreterInode)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 9:
+			err = decoder.DecodeUint64(&result.InterpreterCtime)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 10:
+			result.Argv, err = decoder.ReadArgsArrayFromBuff()
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 11:
+			result.Interp, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 12:
+			err = decoder.DecodeUint16(&result.StdinType)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 13:
+			result.StdinPath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 14:
+			err = decoder.DecodeInt32(&result.InvokedFromKernel)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		case 15:
+			err = decoder.DecodeUint32(&result.Flags)
+			if err != nil {
+				return types.SchedProcessExecArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedProcessExitArgs(decoder *Decoder) (types.SchedProcessExitArgs, error) {
-  var result types.SchedProcessExitArgs
-  var err error
+	var result types.SchedProcessExitArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedProcessExitArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.SchedProcessExitArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedProcessExitArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.SchedProcessExitArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedProcessExitArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedProcessExitArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt64(&result.ExitCode)
-      if err != nil {
-        return types.SchedProcessExitArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeBool(&result.ProcessGroupExit)
-      if err != nil {
-        return types.SchedProcessExitArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt64(&result.ExitCode)
+			if err != nil {
+				return types.SchedProcessExitArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeBool(&result.ProcessGroupExit)
+			if err != nil {
+				return types.SchedProcessExitArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSchedSwitchArgs(decoder *Decoder) (types.SchedSwitchArgs, error) {
-  var result types.SchedSwitchArgs
-  var err error
+	var result types.SchedSwitchArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SchedSwitchArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.SchedSwitchArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SchedSwitchArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.SchedSwitchArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SchedSwitchArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SchedSwitchArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Cpu)
-      if err != nil {
-        return types.SchedSwitchArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.PrevTid)
-      if err != nil {
-        return types.SchedSwitchArgs{}, err
-      }
-    case 2:
-      result.PrevComm, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedSwitchArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeInt32(&result.NextTid)
-      if err != nil {
-        return types.SchedSwitchArgs{}, err
-      }
-    case 4:
-      result.NextComm, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.SchedSwitchArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Cpu)
+			if err != nil {
+				return types.SchedSwitchArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.PrevTid)
+			if err != nil {
+				return types.SchedSwitchArgs{}, err
+			}
+		case 2:
+			result.PrevComm, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedSwitchArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeInt32(&result.NextTid)
+			if err != nil {
+				return types.SchedSwitchArgs{}, err
+			}
+		case 4:
+			result.NextComm, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SchedSwitchArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseProcessOomKilledArgs(decoder *Decoder) (types.ProcessOomKilledArgs, error) {
-  var result types.ProcessOomKilledArgs
-  var err error
+	var result types.ProcessOomKilledArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ProcessOomKilledArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ProcessOomKilledArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ProcessOomKilledArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ProcessOomKilledArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ProcessOomKilledArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ProcessOomKilledArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt64(&result.ExitCode)
-      if err != nil {
-        return types.ProcessOomKilledArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeBool(&result.ProcessGroupExit)
-      if err != nil {
-        return types.ProcessOomKilledArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt64(&result.ExitCode)
+			if err != nil {
+				return types.ProcessOomKilledArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeBool(&result.ProcessGroupExit)
+			if err != nil {
+				return types.ProcessOomKilledArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseMagicWriteArgs(decoder *Decoder) (types.MagicWriteArgs, error) {
-  var result types.MagicWriteArgs
-  var err error
+	var result types.MagicWriteArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.MagicWriteArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.MagicWriteArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.MagicWriteArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.MagicWriteArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.MagicWriteArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.MagicWriteArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pathname, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.MagicWriteArgs{}, err
-      }
-    case 1:
-      result.Bytes, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.MagicWrite))
-      if err != nil {
-        return types.MagicWriteArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.MagicWriteArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.Inode)
-      if err != nil {
-        return types.MagicWriteArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pathname, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.MagicWriteArgs{}, err
+			}
+		case 1:
+			result.Bytes, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.MagicWrite))
+			if err != nil {
+				return types.MagicWriteArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.MagicWriteArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.Inode)
+			if err != nil {
+				return types.MagicWriteArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCgroupMkdirArgs(decoder *Decoder) (types.CgroupMkdirArgs, error) {
-  var result types.CgroupMkdirArgs
-  var err error
+	var result types.CgroupMkdirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CgroupMkdirArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.CgroupMkdirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CgroupMkdirArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.CgroupMkdirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CgroupMkdirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CgroupMkdirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.CgroupId)
-      if err != nil {
-        return types.CgroupMkdirArgs{}, err
-      }
-    case 1:
-      result.CgroupPath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.CgroupMkdirArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.HierarchyId)
-      if err != nil {
-        return types.CgroupMkdirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.CgroupId)
+			if err != nil {
+				return types.CgroupMkdirArgs{}, err
+			}
+		case 1:
+			result.CgroupPath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.CgroupMkdirArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.HierarchyId)
+			if err != nil {
+				return types.CgroupMkdirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseCgroupRmdirArgs(decoder *Decoder) (types.CgroupRmdirArgs, error) {
-  var result types.CgroupRmdirArgs
-  var err error
+	var result types.CgroupRmdirArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.CgroupRmdirArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.CgroupRmdirArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.CgroupRmdirArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.CgroupRmdirArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.CgroupRmdirArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.CgroupRmdirArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint64(&result.CgroupId)
-      if err != nil {
-        return types.CgroupRmdirArgs{}, err
-      }
-    case 1:
-      result.CgroupPath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.CgroupRmdirArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint32(&result.HierarchyId)
-      if err != nil {
-        return types.CgroupRmdirArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint64(&result.CgroupId)
+			if err != nil {
+				return types.CgroupRmdirArgs{}, err
+			}
+		case 1:
+			result.CgroupPath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.CgroupRmdirArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.HierarchyId)
+			if err != nil {
+				return types.CgroupRmdirArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSecuritySocketConnectArgs(decoder *Decoder) (types.SecuritySocketConnectArgs, error) {
-  var result types.SecuritySocketConnectArgs
-  var err error
+	var result types.SecuritySocketConnectArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SecuritySocketConnectArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SecuritySocketConnectArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SecuritySocketConnectArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SecuritySocketConnectArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SecuritySocketConnectArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SecuritySocketConnectArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.SecuritySocketConnectArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Type)
-      if err != nil {
-        return types.SecuritySocketConnectArgs{}, err
-      }
-    case 2:
-      result.RemoteAddr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.SecuritySocketConnectArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.SecuritySocketConnectArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Type)
+			if err != nil {
+				return types.SecuritySocketConnectArgs{}, err
+			}
+		case 2:
+			result.RemoteAddr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.SecuritySocketConnectArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSocketDupArgs(decoder *Decoder) (types.SocketDupArgs, error) {
-  var result types.SocketDupArgs
-  var err error
+	var result types.SocketDupArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SocketDupArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SocketDupArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SocketDupArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SocketDupArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SocketDupArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SocketDupArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Oldfd)
-      if err != nil {
-        return types.SocketDupArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeInt32(&result.Newfd)
-      if err != nil {
-        return types.SocketDupArgs{}, err
-      }
-    case 2:
-      result.RemoteAddr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.SocketDupArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Oldfd)
+			if err != nil {
+				return types.SocketDupArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeInt32(&result.Newfd)
+			if err != nil {
+				return types.SocketDupArgs{}, err
+			}
+		case 2:
+			result.RemoteAddr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.SocketDupArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseFileModificationArgs(decoder *Decoder) (types.FileModificationArgs, error) {
-  var result types.FileModificationArgs
-  var err error
+	var result types.FileModificationArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.FileModificationArgs{}, err
-  }
-  if numArgs > 5 {
-    return types.FileModificationArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.FileModificationArgs{}, err
+	}
+	if numArgs > 5 {
+		return types.FileModificationArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.FileModificationArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.FileModificationArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.FilePath, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.FileModificationArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.FileModificationArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint64(&result.Inode)
-      if err != nil {
-        return types.FileModificationArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint64(&result.OldCtime)
-      if err != nil {
-        return types.FileModificationArgs{}, err
-      }
-    case 4:
-      err = decoder.DecodeUint64(&result.NewCtime)
-      if err != nil {
-        return types.FileModificationArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.FilePath, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.FileModificationArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.FileModificationArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint64(&result.Inode)
+			if err != nil {
+				return types.FileModificationArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint64(&result.OldCtime)
+			if err != nil {
+				return types.FileModificationArgs{}, err
+			}
+		case 4:
+			err = decoder.DecodeUint64(&result.NewCtime)
+			if err != nil {
+				return types.FileModificationArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTtyOpenArgs(decoder *Decoder) (types.TtyOpenArgs, error) {
-  var result types.TtyOpenArgs
-  var err error
+	var result types.TtyOpenArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TtyOpenArgs{}, err
-  }
-  if numArgs > 4 {
-    return types.TtyOpenArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TtyOpenArgs{}, err
+	}
+	if numArgs > 4 {
+		return types.TtyOpenArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TtyOpenArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TtyOpenArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.TtyOpenArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Inode)
-      if err != nil {
-        return types.TtyOpenArgs{}, err
-      }
-    case 2:
-      err = decoder.DecodeUint16(&result.InodeMode)
-      if err != nil {
-        return types.TtyOpenArgs{}, err
-      }
-    case 3:
-      err = decoder.DecodeUint32(&result.Dev)
-      if err != nil {
-        return types.TtyOpenArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.TtyOpenArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Inode)
+			if err != nil {
+				return types.TtyOpenArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint16(&result.InodeMode)
+			if err != nil {
+				return types.TtyOpenArgs{}, err
+			}
+		case 3:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.TtyOpenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTtyWriteArgs(decoder *Decoder) (types.TtyWriteArgs, error) {
-  var result types.TtyWriteArgs
-  var err error
+	var result types.TtyWriteArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.TtyWriteArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.TtyWriteArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.TtyWriteArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.TtyWriteArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.TtyWriteArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.TtyWriteArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Path, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.TtyWriteArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint64(&result.Inode)
-      if err != nil {
-        return types.TtyWriteArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.TtyWriteArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Inode)
+			if err != nil {
+				return types.TtyWriteArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketBaseArgs(decoder *Decoder) (types.NetPacketBaseArgs, error) {
-  return types.NetPacketBaseArgs{}, nil
+	return types.NetPacketBaseArgs{}, nil
 }
 
 func ParseNetPacketIPBaseArgs(decoder *Decoder) (types.NetPacketIPBaseArgs, error) {
-  var result types.NetPacketIPBaseArgs
-  var err error
+	var result types.NetPacketIPBaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketIPBaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketIPBaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketIPBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketIPBaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketIPBaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketIPBaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketIPBase))
-      if err != nil {
-        return types.NetPacketIPBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketIPBase))
+			if err != nil {
+				return types.NetPacketIPBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketTCPBaseArgs(decoder *Decoder) (types.NetPacketTCPBaseArgs, error) {
-  var result types.NetPacketTCPBaseArgs
-  var err error
+	var result types.NetPacketTCPBaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketTCPBaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketTCPBaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketTCPBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketTCPBaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketTCPBaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketTCPBaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketTCPBase))
-      if err != nil {
-        return types.NetPacketTCPBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketTCPBase))
+			if err != nil {
+				return types.NetPacketTCPBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketUDPBaseArgs(decoder *Decoder) (types.NetPacketUDPBaseArgs, error) {
-  var result types.NetPacketUDPBaseArgs
-  var err error
+	var result types.NetPacketUDPBaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketUDPBaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketUDPBaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketUDPBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketUDPBaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketUDPBaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketUDPBaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketUDPBase))
-      if err != nil {
-        return types.NetPacketUDPBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketUDPBase))
+			if err != nil {
+				return types.NetPacketUDPBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketICMPBaseArgs(decoder *Decoder) (types.NetPacketICMPBaseArgs, error) {
-  var result types.NetPacketICMPBaseArgs
-  var err error
+	var result types.NetPacketICMPBaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketICMPBaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketICMPBaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketICMPBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketICMPBaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketICMPBaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketICMPBaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketICMPBase))
-      if err != nil {
-        return types.NetPacketICMPBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketICMPBase))
+			if err != nil {
+				return types.NetPacketICMPBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketICMPv6BaseArgs(decoder *Decoder) (types.NetPacketICMPv6BaseArgs, error) {
-  var result types.NetPacketICMPv6BaseArgs
-  var err error
+	var result types.NetPacketICMPv6BaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketICMPv6BaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketICMPv6BaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketICMPv6BaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketICMPv6BaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketICMPv6BaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketICMPv6BaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketICMPv6Base))
-      if err != nil {
-        return types.NetPacketICMPv6BaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketICMPv6Base))
+			if err != nil {
+				return types.NetPacketICMPv6BaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketDNSBaseArgs(decoder *Decoder) (types.NetPacketDNSBaseArgs, error) {
-  var result types.NetPacketDNSBaseArgs
-  var err error
+	var result types.NetPacketDNSBaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketDNSBaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketDNSBaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketDNSBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketDNSBaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketDNSBaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketDNSBaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadProtoDNS()
-      if err != nil {
-        return types.NetPacketDNSBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadProtoDNS()
+			if err != nil {
+				return types.NetPacketDNSBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketSOCKS5BaseArgs(decoder *Decoder) (types.NetPacketSOCKS5BaseArgs, error) {
-  var result types.NetPacketSOCKS5BaseArgs
-  var err error
+	var result types.NetPacketSOCKS5BaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketSOCKS5BaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketSOCKS5BaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketSOCKS5BaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketSOCKS5BaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketSOCKS5BaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketSOCKS5BaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketSOCKS5Base))
-      if err != nil {
-        return types.NetPacketSOCKS5BaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketSOCKS5Base))
+			if err != nil {
+				return types.NetPacketSOCKS5BaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseNetPacketSSHBaseArgs(decoder *Decoder) (types.NetPacketSSHBaseArgs, error) {
-  var result types.NetPacketSSHBaseArgs
-  var err error
+	var result types.NetPacketSSHBaseArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.NetPacketSSHBaseArgs{}, err
-  }
-  if numArgs > 1 {
-    return types.NetPacketSSHBaseArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketSSHBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketSSHBaseArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.NetPacketSSHBaseArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketSSHBaseArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Payload, err = decoder.ReadProtoSSH()
-      if err != nil {
-        return types.NetPacketSSHBaseArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadProtoSSH()
+			if err != nil {
+				return types.NetPacketSSHBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseSockSetStateArgs(decoder *Decoder) (types.SockSetStateArgs, error) {
-  var result types.SockSetStateArgs
-  var err error
+	var result types.SockSetStateArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.SockSetStateArgs{}, err
-  }
-  if numArgs > 3 {
-    return types.SockSetStateArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SockSetStateArgs{}, err
+	}
+	if numArgs > 3 {
+		return types.SockSetStateArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.SockSetStateArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SockSetStateArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeUint32(&result.OldState)
-      if err != nil {
-        return types.SockSetStateArgs{}, err
-      }
-    case 1:
-      err = decoder.DecodeUint32(&result.NewState)
-      if err != nil {
-        return types.SockSetStateArgs{}, err
-      }
-    case 2:
-      result.Tuple, err = decoder.ReadAddrTuple()
-      if err != nil {
-        return types.SockSetStateArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeUint32(&result.OldState)
+			if err != nil {
+				return types.SockSetStateArgs{}, err
+			}
+		case 1:
+			err = decoder.DecodeUint32(&result.NewState)
+			if err != nil {
+				return types.SockSetStateArgs{}, err
+			}
+		case 2:
+			result.Tuple, err = decoder.ReadAddrTuple()
+			if err != nil {
+				return types.SockSetStateArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTrackSyscallStatsArgs(decoder *Decoder) (types.TrackSyscallStatsArgs, error) {
-  return types.TrackSyscallStatsArgs{}, nil
+	return types.TrackSyscallStatsArgs{}, nil
 }
 
 func ParseNetFlowBaseArgs(decoder *Decoder) (types.NetFlowBaseArgs, error) {
-  return types.NetFlowBaseArgs{}, nil
+	return types.NetFlowBaseArgs{}, nil
 }
 
 func ParseStdioViaSocketArgs(decoder *Decoder) (types.StdioViaSocketArgs, error) {
-  var result types.StdioViaSocketArgs
-  var err error
+	var result types.StdioViaSocketArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.StdioViaSocketArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.StdioViaSocketArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.StdioViaSocketArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.StdioViaSocketArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.StdioViaSocketArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.StdioViaSocketArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      err = decoder.DecodeInt32(&result.Sockfd)
-      if err != nil {
-        return types.StdioViaSocketArgs{}, err
-      }
-    case 1:
-      result.Addr, err = decoder.ReadSockaddrFromBuff()
-      if err != nil {
-        return types.StdioViaSocketArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			err = decoder.DecodeInt32(&result.Sockfd)
+			if err != nil {
+				return types.StdioViaSocketArgs{}, err
+			}
+		case 1:
+			result.Addr, err = decoder.ReadSockaddrFromBuff()
+			if err != nil {
+				return types.StdioViaSocketArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseProcFdLinkResolvedArgs(decoder *Decoder) (types.ProcFdLinkResolvedArgs, error) {
-  var result types.ProcFdLinkResolvedArgs
-  var err error
+	var result types.ProcFdLinkResolvedArgs
+	var err error
 
-  var numArgs uint8
-  err = decoder.DecodeUint8(&numArgs)
-  if err != nil {
-    return types.ProcFdLinkResolvedArgs{}, err
-  }
-  if numArgs > 2 {
-    return types.ProcFdLinkResolvedArgs{}, ErrTooManyArguments
-  }
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.ProcFdLinkResolvedArgs{}, err
+	}
+	if numArgs > 2 {
+		return types.ProcFdLinkResolvedArgs{}, ErrTooManyArguments
+	}
 
-  for arg := 0; arg < int(numArgs); arg++ {
-    var currArg uint8
-    err = decoder.DecodeUint8(&currArg)
-    if err != nil {
-      return types.ProcFdLinkResolvedArgs{}, err
-    }
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.ProcFdLinkResolvedArgs{}, err
+		}
 
-    switch currArg {
-    case 0:
-      result.Pid, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ProcFdLinkResolvedArgs{}, err
-      }
-    case 1:
-      result.Fd, err = decoder.ReadStringFromBuff()
-      if err != nil {
-        return types.ProcFdLinkResolvedArgs{}, err
-      }
-    }
-  }
-  return result, nil
+		switch currArg {
+		case 0:
+			result.Pid, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ProcFdLinkResolvedArgs{}, err
+			}
+		case 1:
+			result.Fd, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.ProcFdLinkResolvedArgs{}, err
+			}
+		}
+	}
+	return result, nil
+}
+
+func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, error) {
+	var result types.SecurityFileOpenArgs
+	var err error
+
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.SecurityFileOpenArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.SecurityFileOpenArgs{}, ErrTooManyArguments
+	}
+
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.SecurityFileOpenArgs{}, err
+		}
+
+		switch currArg {
+		case 0:
+			result.Path, err = decoder.ReadStringFromBuff()
+			if err != nil {
+				return types.SecurityFileOpenArgs{}, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func ParseTestEventArgs(decoder *Decoder) (types.TestEventArgs, error) {
-  return types.TestEventArgs{}, nil
+	return types.TestEventArgs{}, nil
 }
 
 func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
-  switch event {
-  case events.Read:
-    return ParseReadArgs(decoder)
-  case events.Write:
-    return ParseWriteArgs(decoder)
-  case events.Open:
-    return ParseOpenArgs(decoder)
-  case events.Close:
-    return ParseCloseArgs(decoder)
-  case events.Stat:
-    return ParseStatArgs(decoder)
-  case events.Fstat:
-    return ParseFstatArgs(decoder)
-  case events.Lstat:
-    return ParseLstatArgs(decoder)
-  case events.Poll:
-    return ParsePollArgs(decoder)
-  case events.Lseek:
-    return ParseLseekArgs(decoder)
-  case events.Mmap:
-    return ParseMmapArgs(decoder)
-  case events.Mprotect:
-    return ParseMprotectArgs(decoder)
-  case events.Munmap:
-    return ParseMunmapArgs(decoder)
-  case events.Brk:
-    return ParseBrkArgs(decoder)
-  case events.RtSigaction:
-    return ParseRtSigactionArgs(decoder)
-  case events.RtSigprocmask:
-    return ParseRtSigprocmaskArgs(decoder)
-  case events.RtSigreturn:
-    return ParseRtSigreturnArgs(decoder)
-  case events.Ioctl:
-    return ParseIoctlArgs(decoder)
-  case events.Pread64:
-    return ParsePread64Args(decoder)
-  case events.Pwrite64:
-    return ParsePwrite64Args(decoder)
-  case events.Readv:
-    return ParseReadvArgs(decoder)
-  case events.Writev:
-    return ParseWritevArgs(decoder)
-  case events.Access:
-    return ParseAccessArgs(decoder)
-  case events.Pipe:
-    return ParsePipeArgs(decoder)
-  case events.Select:
-    return ParseSelectArgs(decoder)
-  case events.SchedYield:
-    return ParseSchedYieldArgs(decoder)
-  case events.Mremap:
-    return ParseMremapArgs(decoder)
-  case events.Msync:
-    return ParseMsyncArgs(decoder)
-  case events.Mincore:
-    return ParseMincoreArgs(decoder)
-  case events.Madvise:
-    return ParseMadviseArgs(decoder)
-  case events.Shmget:
-    return ParseShmgetArgs(decoder)
-  case events.Shmat:
-    return ParseShmatArgs(decoder)
-  case events.Shmctl:
-    return ParseShmctlArgs(decoder)
-  case events.Dup:
-    return ParseDupArgs(decoder)
-  case events.Dup2:
-    return ParseDup2Args(decoder)
-  case events.Pause:
-    return ParsePauseArgs(decoder)
-  case events.Nanosleep:
-    return ParseNanosleepArgs(decoder)
-  case events.Getitimer:
-    return ParseGetitimerArgs(decoder)
-  case events.Alarm:
-    return ParseAlarmArgs(decoder)
-  case events.Setitimer:
-    return ParseSetitimerArgs(decoder)
-  case events.Getpid:
-    return ParseGetpidArgs(decoder)
-  case events.Sendfile:
-    return ParseSendfileArgs(decoder)
-  case events.Socket:
-    return ParseSocketArgs(decoder)
-  case events.Connect:
-    return ParseConnectArgs(decoder)
-  case events.Accept:
-    return ParseAcceptArgs(decoder)
-  case events.Sendto:
-    return ParseSendtoArgs(decoder)
-  case events.Recvfrom:
-    return ParseRecvfromArgs(decoder)
-  case events.Sendmsg:
-    return ParseSendmsgArgs(decoder)
-  case events.Recvmsg:
-    return ParseRecvmsgArgs(decoder)
-  case events.Shutdown:
-    return ParseShutdownArgs(decoder)
-  case events.Bind:
-    return ParseBindArgs(decoder)
-  case events.Listen:
-    return ParseListenArgs(decoder)
-  case events.Getsockname:
-    return ParseGetsocknameArgs(decoder)
-  case events.Getpeername:
-    return ParseGetpeernameArgs(decoder)
-  case events.Socketpair:
-    return ParseSocketpairArgs(decoder)
-  case events.Setsockopt:
-    return ParseSetsockoptArgs(decoder)
-  case events.Getsockopt:
-    return ParseGetsockoptArgs(decoder)
-  case events.Clone:
-    return ParseCloneArgs(decoder)
-  case events.Fork:
-    return ParseForkArgs(decoder)
-  case events.Vfork:
-    return ParseVforkArgs(decoder)
-  case events.Execve:
-    return ParseExecveArgs(decoder)
-  case events.Exit:
-    return ParseExitArgs(decoder)
-  case events.Wait4:
-    return ParseWait4Args(decoder)
-  case events.Kill:
-    return ParseKillArgs(decoder)
-  case events.Uname:
-    return ParseUnameArgs(decoder)
-  case events.Semget:
-    return ParseSemgetArgs(decoder)
-  case events.Semop:
-    return ParseSemopArgs(decoder)
-  case events.Semctl:
-    return ParseSemctlArgs(decoder)
-  case events.Shmdt:
-    return ParseShmdtArgs(decoder)
-  case events.Msgget:
-    return ParseMsggetArgs(decoder)
-  case events.Msgsnd:
-    return ParseMsgsndArgs(decoder)
-  case events.Msgrcv:
-    return ParseMsgrcvArgs(decoder)
-  case events.Msgctl:
-    return ParseMsgctlArgs(decoder)
-  case events.Fcntl:
-    return ParseFcntlArgs(decoder)
-  case events.Flock:
-    return ParseFlockArgs(decoder)
-  case events.Fsync:
-    return ParseFsyncArgs(decoder)
-  case events.Fdatasync:
-    return ParseFdatasyncArgs(decoder)
-  case events.Truncate:
-    return ParseTruncateArgs(decoder)
-  case events.Ftruncate:
-    return ParseFtruncateArgs(decoder)
-  case events.Getdents:
-    return ParseGetdentsArgs(decoder)
-  case events.Getcwd:
-    return ParseGetcwdArgs(decoder)
-  case events.Chdir:
-    return ParseChdirArgs(decoder)
-  case events.Fchdir:
-    return ParseFchdirArgs(decoder)
-  case events.Rename:
-    return ParseRenameArgs(decoder)
-  case events.Mkdir:
-    return ParseMkdirArgs(decoder)
-  case events.Rmdir:
-    return ParseRmdirArgs(decoder)
-  case events.Creat:
-    return ParseCreatArgs(decoder)
-  case events.Link:
-    return ParseLinkArgs(decoder)
-  case events.Unlink:
-    return ParseUnlinkArgs(decoder)
-  case events.Symlink:
-    return ParseSymlinkArgs(decoder)
-  case events.Readlink:
-    return ParseReadlinkArgs(decoder)
-  case events.Chmod:
-    return ParseChmodArgs(decoder)
-  case events.Fchmod:
-    return ParseFchmodArgs(decoder)
-  case events.Chown:
-    return ParseChownArgs(decoder)
-  case events.Fchown:
-    return ParseFchownArgs(decoder)
-  case events.Lchown:
-    return ParseLchownArgs(decoder)
-  case events.Umask:
-    return ParseUmaskArgs(decoder)
-  case events.Gettimeofday:
-    return ParseGettimeofdayArgs(decoder)
-  case events.Getrlimit:
-    return ParseGetrlimitArgs(decoder)
-  case events.Getrusage:
-    return ParseGetrusageArgs(decoder)
-  case events.Sysinfo:
-    return ParseSysinfoArgs(decoder)
-  case events.Times:
-    return ParseTimesArgs(decoder)
-  case events.Ptrace:
-    return ParsePtraceArgs(decoder)
-  case events.Getuid:
-    return ParseGetuidArgs(decoder)
-  case events.Syslog:
-    return ParseSyslogArgs(decoder)
-  case events.Getgid:
-    return ParseGetgidArgs(decoder)
-  case events.Setuid:
-    return ParseSetuidArgs(decoder)
-  case events.Setgid:
-    return ParseSetgidArgs(decoder)
-  case events.Geteuid:
-    return ParseGeteuidArgs(decoder)
-  case events.Getegid:
-    return ParseGetegidArgs(decoder)
-  case events.Setpgid:
-    return ParseSetpgidArgs(decoder)
-  case events.Getppid:
-    return ParseGetppidArgs(decoder)
-  case events.Getpgrp:
-    return ParseGetpgrpArgs(decoder)
-  case events.Setsid:
-    return ParseSetsidArgs(decoder)
-  case events.Setreuid:
-    return ParseSetreuidArgs(decoder)
-  case events.Setregid:
-    return ParseSetregidArgs(decoder)
-  case events.Getgroups:
-    return ParseGetgroupsArgs(decoder)
-  case events.Setgroups:
-    return ParseSetgroupsArgs(decoder)
-  case events.Setresuid:
-    return ParseSetresuidArgs(decoder)
-  case events.Getresuid:
-    return ParseGetresuidArgs(decoder)
-  case events.Setresgid:
-    return ParseSetresgidArgs(decoder)
-  case events.Getresgid:
-    return ParseGetresgidArgs(decoder)
-  case events.Getpgid:
-    return ParseGetpgidArgs(decoder)
-  case events.Setfsuid:
-    return ParseSetfsuidArgs(decoder)
-  case events.Setfsgid:
-    return ParseSetfsgidArgs(decoder)
-  case events.Getsid:
-    return ParseGetsidArgs(decoder)
-  case events.Capget:
-    return ParseCapgetArgs(decoder)
-  case events.Capset:
-    return ParseCapsetArgs(decoder)
-  case events.RtSigpending:
-    return ParseRtSigpendingArgs(decoder)
-  case events.RtSigtimedwait:
-    return ParseRtSigtimedwaitArgs(decoder)
-  case events.RtSigqueueinfo:
-    return ParseRtSigqueueinfoArgs(decoder)
-  case events.RtSigsuspend:
-    return ParseRtSigsuspendArgs(decoder)
-  case events.Sigaltstack:
-    return ParseSigaltstackArgs(decoder)
-  case events.Utime:
-    return ParseUtimeArgs(decoder)
-  case events.Mknod:
-    return ParseMknodArgs(decoder)
-  case events.Uselib:
-    return ParseUselibArgs(decoder)
-  case events.Personality:
-    return ParsePersonalityArgs(decoder)
-  case events.Ustat:
-    return ParseUstatArgs(decoder)
-  case events.Statfs:
-    return ParseStatfsArgs(decoder)
-  case events.Fstatfs:
-    return ParseFstatfsArgs(decoder)
-  case events.Sysfs:
-    return ParseSysfsArgs(decoder)
-  case events.Getpriority:
-    return ParseGetpriorityArgs(decoder)
-  case events.Setpriority:
-    return ParseSetpriorityArgs(decoder)
-  case events.SchedSetparam:
-    return ParseSchedSetparamArgs(decoder)
-  case events.SchedGetparam:
-    return ParseSchedGetparamArgs(decoder)
-  case events.SchedSetscheduler:
-    return ParseSchedSetschedulerArgs(decoder)
-  case events.SchedGetscheduler:
-    return ParseSchedGetschedulerArgs(decoder)
-  case events.SchedGetPriorityMax:
-    return ParseSchedGetPriorityMaxArgs(decoder)
-  case events.SchedGetPriorityMin:
-    return ParseSchedGetPriorityMinArgs(decoder)
-  case events.SchedRrGetInterval:
-    return ParseSchedRrGetIntervalArgs(decoder)
-  case events.Mlock:
-    return ParseMlockArgs(decoder)
-  case events.Munlock:
-    return ParseMunlockArgs(decoder)
-  case events.Mlockall:
-    return ParseMlockallArgs(decoder)
-  case events.Munlockall:
-    return ParseMunlockallArgs(decoder)
-  case events.Vhangup:
-    return ParseVhangupArgs(decoder)
-  case events.ModifyLdt:
-    return ParseModifyLdtArgs(decoder)
-  case events.PivotRoot:
-    return ParsePivotRootArgs(decoder)
-  case events.Sysctl:
-    return ParseSysctlArgs(decoder)
-  case events.Prctl:
-    return ParsePrctlArgs(decoder)
-  case events.ArchPrctl:
-    return ParseArchPrctlArgs(decoder)
-  case events.Adjtimex:
-    return ParseAdjtimexArgs(decoder)
-  case events.Setrlimit:
-    return ParseSetrlimitArgs(decoder)
-  case events.Chroot:
-    return ParseChrootArgs(decoder)
-  case events.Sync:
-    return ParseSyncArgs(decoder)
-  case events.Acct:
-    return ParseAcctArgs(decoder)
-  case events.Settimeofday:
-    return ParseSettimeofdayArgs(decoder)
-  case events.Mount:
-    return ParseMountArgs(decoder)
-  case events.Umount2:
-    return ParseUmount2Args(decoder)
-  case events.Swapon:
-    return ParseSwaponArgs(decoder)
-  case events.Swapoff:
-    return ParseSwapoffArgs(decoder)
-  case events.Reboot:
-    return ParseRebootArgs(decoder)
-  case events.Sethostname:
-    return ParseSethostnameArgs(decoder)
-  case events.Setdomainname:
-    return ParseSetdomainnameArgs(decoder)
-  case events.Iopl:
-    return ParseIoplArgs(decoder)
-  case events.Ioperm:
-    return ParseIopermArgs(decoder)
-  case events.CreateModule:
-    return ParseCreateModuleArgs(decoder)
-  case events.InitModule:
-    return ParseInitModuleArgs(decoder)
-  case events.DeleteModule:
-    return ParseDeleteModuleArgs(decoder)
-  case events.GetKernelSyms:
-    return ParseGetKernelSymsArgs(decoder)
-  case events.QueryModule:
-    return ParseQueryModuleArgs(decoder)
-  case events.Quotactl:
-    return ParseQuotactlArgs(decoder)
-  case events.Nfsservctl:
-    return ParseNfsservctlArgs(decoder)
-  case events.Getpmsg:
-    return ParseGetpmsgArgs(decoder)
-  case events.Putpmsg:
-    return ParsePutpmsgArgs(decoder)
-  case events.Afs:
-    return ParseAfsArgs(decoder)
-  case events.Tuxcall:
-    return ParseTuxcallArgs(decoder)
-  case events.Security:
-    return ParseSecurityArgs(decoder)
-  case events.Gettid:
-    return ParseGettidArgs(decoder)
-  case events.Readahead:
-    return ParseReadaheadArgs(decoder)
-  case events.Setxattr:
-    return ParseSetxattrArgs(decoder)
-  case events.Lsetxattr:
-    return ParseLsetxattrArgs(decoder)
-  case events.Fsetxattr:
-    return ParseFsetxattrArgs(decoder)
-  case events.Getxattr:
-    return ParseGetxattrArgs(decoder)
-  case events.Lgetxattr:
-    return ParseLgetxattrArgs(decoder)
-  case events.Fgetxattr:
-    return ParseFgetxattrArgs(decoder)
-  case events.Listxattr:
-    return ParseListxattrArgs(decoder)
-  case events.Llistxattr:
-    return ParseLlistxattrArgs(decoder)
-  case events.Flistxattr:
-    return ParseFlistxattrArgs(decoder)
-  case events.Removexattr:
-    return ParseRemovexattrArgs(decoder)
-  case events.Lremovexattr:
-    return ParseLremovexattrArgs(decoder)
-  case events.Fremovexattr:
-    return ParseFremovexattrArgs(decoder)
-  case events.Tkill:
-    return ParseTkillArgs(decoder)
-  case events.Time:
-    return ParseTimeArgs(decoder)
-  case events.Futex:
-    return ParseFutexArgs(decoder)
-  case events.SchedSetaffinity:
-    return ParseSchedSetaffinityArgs(decoder)
-  case events.SchedGetaffinity:
-    return ParseSchedGetaffinityArgs(decoder)
-  case events.SetThreadArea:
-    return ParseSetThreadAreaArgs(decoder)
-  case events.IoSetup:
-    return ParseIoSetupArgs(decoder)
-  case events.IoDestroy:
-    return ParseIoDestroyArgs(decoder)
-  case events.IoGetevents:
-    return ParseIoGeteventsArgs(decoder)
-  case events.IoSubmit:
-    return ParseIoSubmitArgs(decoder)
-  case events.IoCancel:
-    return ParseIoCancelArgs(decoder)
-  case events.GetThreadArea:
-    return ParseGetThreadAreaArgs(decoder)
-  case events.LookupDcookie:
-    return ParseLookupDcookieArgs(decoder)
-  case events.EpollCreate:
-    return ParseEpollCreateArgs(decoder)
-  case events.EpollCtlOld:
-    return ParseEpollCtlOldArgs(decoder)
-  case events.EpollWaitOld:
-    return ParseEpollWaitOldArgs(decoder)
-  case events.RemapFilePages:
-    return ParseRemapFilePagesArgs(decoder)
-  case events.Getdents64:
-    return ParseGetdents64Args(decoder)
-  case events.SetTidAddress:
-    return ParseSetTidAddressArgs(decoder)
-  case events.RestartSyscall:
-    return ParseRestartSyscallArgs(decoder)
-  case events.Semtimedop:
-    return ParseSemtimedopArgs(decoder)
-  case events.Fadvise64:
-    return ParseFadvise64Args(decoder)
-  case events.TimerCreate:
-    return ParseTimerCreateArgs(decoder)
-  case events.TimerSettime:
-    return ParseTimerSettimeArgs(decoder)
-  case events.TimerGettime:
-    return ParseTimerGettimeArgs(decoder)
-  case events.TimerGetoverrun:
-    return ParseTimerGetoverrunArgs(decoder)
-  case events.TimerDelete:
-    return ParseTimerDeleteArgs(decoder)
-  case events.ClockSettime:
-    return ParseClockSettimeArgs(decoder)
-  case events.ClockGettime:
-    return ParseClockGettimeArgs(decoder)
-  case events.ClockGetres:
-    return ParseClockGetresArgs(decoder)
-  case events.ClockNanosleep:
-    return ParseClockNanosleepArgs(decoder)
-  case events.ExitGroup:
-    return ParseExitGroupArgs(decoder)
-  case events.EpollWait:
-    return ParseEpollWaitArgs(decoder)
-  case events.EpollCtl:
-    return ParseEpollCtlArgs(decoder)
-  case events.Tgkill:
-    return ParseTgkillArgs(decoder)
-  case events.Utimes:
-    return ParseUtimesArgs(decoder)
-  case events.Vserver:
-    return ParseVserverArgs(decoder)
-  case events.Mbind:
-    return ParseMbindArgs(decoder)
-  case events.SetMempolicy:
-    return ParseSetMempolicyArgs(decoder)
-  case events.GetMempolicy:
-    return ParseGetMempolicyArgs(decoder)
-  case events.MqOpen:
-    return ParseMqOpenArgs(decoder)
-  case events.MqUnlink:
-    return ParseMqUnlinkArgs(decoder)
-  case events.MqTimedsend:
-    return ParseMqTimedsendArgs(decoder)
-  case events.MqTimedreceive:
-    return ParseMqTimedreceiveArgs(decoder)
-  case events.MqNotify:
-    return ParseMqNotifyArgs(decoder)
-  case events.MqGetsetattr:
-    return ParseMqGetsetattrArgs(decoder)
-  case events.KexecLoad:
-    return ParseKexecLoadArgs(decoder)
-  case events.Waitid:
-    return ParseWaitidArgs(decoder)
-  case events.AddKey:
-    return ParseAddKeyArgs(decoder)
-  case events.RequestKey:
-    return ParseRequestKeyArgs(decoder)
-  case events.Keyctl:
-    return ParseKeyctlArgs(decoder)
-  case events.IoprioSet:
-    return ParseIoprioSetArgs(decoder)
-  case events.IoprioGet:
-    return ParseIoprioGetArgs(decoder)
-  case events.InotifyInit:
-    return ParseInotifyInitArgs(decoder)
-  case events.InotifyAddWatch:
-    return ParseInotifyAddWatchArgs(decoder)
-  case events.InotifyRmWatch:
-    return ParseInotifyRmWatchArgs(decoder)
-  case events.MigratePages:
-    return ParseMigratePagesArgs(decoder)
-  case events.Openat:
-    return ParseOpenatArgs(decoder)
-  case events.Mkdirat:
-    return ParseMkdiratArgs(decoder)
-  case events.Mknodat:
-    return ParseMknodatArgs(decoder)
-  case events.Fchownat:
-    return ParseFchownatArgs(decoder)
-  case events.Futimesat:
-    return ParseFutimesatArgs(decoder)
-  case events.Newfstatat:
-    return ParseNewfstatatArgs(decoder)
-  case events.Unlinkat:
-    return ParseUnlinkatArgs(decoder)
-  case events.Renameat:
-    return ParseRenameatArgs(decoder)
-  case events.Linkat:
-    return ParseLinkatArgs(decoder)
-  case events.Symlinkat:
-    return ParseSymlinkatArgs(decoder)
-  case events.Readlinkat:
-    return ParseReadlinkatArgs(decoder)
-  case events.Fchmodat:
-    return ParseFchmodatArgs(decoder)
-  case events.Faccessat:
-    return ParseFaccessatArgs(decoder)
-  case events.Pselect6:
-    return ParsePselect6Args(decoder)
-  case events.Ppoll:
-    return ParsePpollArgs(decoder)
-  case events.Unshare:
-    return ParseUnshareArgs(decoder)
-  case events.SetRobustList:
-    return ParseSetRobustListArgs(decoder)
-  case events.GetRobustList:
-    return ParseGetRobustListArgs(decoder)
-  case events.Splice:
-    return ParseSpliceArgs(decoder)
-  case events.Tee:
-    return ParseTeeArgs(decoder)
-  case events.SyncFileRange:
-    return ParseSyncFileRangeArgs(decoder)
-  case events.Vmsplice:
-    return ParseVmspliceArgs(decoder)
-  case events.MovePages:
-    return ParseMovePagesArgs(decoder)
-  case events.Utimensat:
-    return ParseUtimensatArgs(decoder)
-  case events.EpollPwait:
-    return ParseEpollPwaitArgs(decoder)
-  case events.Signalfd:
-    return ParseSignalfdArgs(decoder)
-  case events.TimerfdCreate:
-    return ParseTimerfdCreateArgs(decoder)
-  case events.Eventfd:
-    return ParseEventfdArgs(decoder)
-  case events.Fallocate:
-    return ParseFallocateArgs(decoder)
-  case events.TimerfdSettime:
-    return ParseTimerfdSettimeArgs(decoder)
-  case events.TimerfdGettime:
-    return ParseTimerfdGettimeArgs(decoder)
-  case events.Accept4:
-    return ParseAccept4Args(decoder)
-  case events.Signalfd4:
-    return ParseSignalfd4Args(decoder)
-  case events.Eventfd2:
-    return ParseEventfd2Args(decoder)
-  case events.EpollCreate1:
-    return ParseEpollCreate1Args(decoder)
-  case events.Dup3:
-    return ParseDup3Args(decoder)
-  case events.Pipe2:
-    return ParsePipe2Args(decoder)
-  case events.InotifyInit1:
-    return ParseInotifyInit1Args(decoder)
-  case events.Preadv:
-    return ParsePreadvArgs(decoder)
-  case events.Pwritev:
-    return ParsePwritevArgs(decoder)
-  case events.RtTgsigqueueinfo:
-    return ParseRtTgsigqueueinfoArgs(decoder)
-  case events.PerfEventOpen:
-    return ParsePerfEventOpenArgs(decoder)
-  case events.Recvmmsg:
-    return ParseRecvmmsgArgs(decoder)
-  case events.FanotifyInit:
-    return ParseFanotifyInitArgs(decoder)
-  case events.FanotifyMark:
-    return ParseFanotifyMarkArgs(decoder)
-  case events.Prlimit64:
-    return ParsePrlimit64Args(decoder)
-  case events.NameToHandleAt:
-    return ParseNameToHandleAtArgs(decoder)
-  case events.OpenByHandleAt:
-    return ParseOpenByHandleAtArgs(decoder)
-  case events.ClockAdjtime:
-    return ParseClockAdjtimeArgs(decoder)
-  case events.Syncfs:
-    return ParseSyncfsArgs(decoder)
-  case events.Sendmmsg:
-    return ParseSendmmsgArgs(decoder)
-  case events.Setns:
-    return ParseSetnsArgs(decoder)
-  case events.Getcpu:
-    return ParseGetcpuArgs(decoder)
-  case events.ProcessVmReadv:
-    return ParseProcessVmReadvArgs(decoder)
-  case events.ProcessVmWritev:
-    return ParseProcessVmWritevArgs(decoder)
-  case events.Kcmp:
-    return ParseKcmpArgs(decoder)
-  case events.FinitModule:
-    return ParseFinitModuleArgs(decoder)
-  case events.SchedSetattr:
-    return ParseSchedSetattrArgs(decoder)
-  case events.SchedGetattr:
-    return ParseSchedGetattrArgs(decoder)
-  case events.Renameat2:
-    return ParseRenameat2Args(decoder)
-  case events.Seccomp:
-    return ParseSeccompArgs(decoder)
-  case events.Getrandom:
-    return ParseGetrandomArgs(decoder)
-  case events.MemfdCreate:
-    return ParseMemfdCreateArgs(decoder)
-  case events.KexecFileLoad:
-    return ParseKexecFileLoadArgs(decoder)
-  case events.Bpf:
-    return ParseBpfArgs(decoder)
-  case events.Execveat:
-    return ParseExecveatArgs(decoder)
-  case events.Userfaultfd:
-    return ParseUserfaultfdArgs(decoder)
-  case events.Membarrier:
-    return ParseMembarrierArgs(decoder)
-  case events.Mlock2:
-    return ParseMlock2Args(decoder)
-  case events.CopyFileRange:
-    return ParseCopyFileRangeArgs(decoder)
-  case events.Preadv2:
-    return ParsePreadv2Args(decoder)
-  case events.Pwritev2:
-    return ParsePwritev2Args(decoder)
-  case events.PkeyMprotect:
-    return ParsePkeyMprotectArgs(decoder)
-  case events.PkeyAlloc:
-    return ParsePkeyAllocArgs(decoder)
-  case events.PkeyFree:
-    return ParsePkeyFreeArgs(decoder)
-  case events.Statx:
-    return ParseStatxArgs(decoder)
-  case events.IoPgetevents:
-    return ParseIoPgeteventsArgs(decoder)
-  case events.Rseq:
-    return ParseRseqArgs(decoder)
-  case events.PidfdSendSignal:
-    return ParsePidfdSendSignalArgs(decoder)
-  case events.IoUringSetup:
-    return ParseIoUringSetupArgs(decoder)
-  case events.IoUringEnter:
-    return ParseIoUringEnterArgs(decoder)
-  case events.IoUringRegister:
-    return ParseIoUringRegisterArgs(decoder)
-  case events.OpenTree:
-    return ParseOpenTreeArgs(decoder)
-  case events.MoveMount:
-    return ParseMoveMountArgs(decoder)
-  case events.Fsopen:
-    return ParseFsopenArgs(decoder)
-  case events.Fsconfig:
-    return ParseFsconfigArgs(decoder)
-  case events.Fsmount:
-    return ParseFsmountArgs(decoder)
-  case events.Fspick:
-    return ParseFspickArgs(decoder)
-  case events.PidfdOpen:
-    return ParsePidfdOpenArgs(decoder)
-  case events.Clone3:
-    return ParseClone3Args(decoder)
-  case events.CloseRange:
-    return ParseCloseRangeArgs(decoder)
-  case events.Openat2:
-    return ParseOpenat2Args(decoder)
-  case events.PidfdGetfd:
-    return ParsePidfdGetfdArgs(decoder)
-  case events.Faccessat2:
-    return ParseFaccessat2Args(decoder)
-  case events.ProcessMadvise:
-    return ParseProcessMadviseArgs(decoder)
-  case events.EpollPwait2:
-    return ParseEpollPwait2Args(decoder)
-  case events.MountSetatt:
-    return ParseMountSetattArgs(decoder)
-  case events.QuotactlFd:
-    return ParseQuotactlFdArgs(decoder)
-  case events.LandlockCreateRuleset:
-    return ParseLandlockCreateRulesetArgs(decoder)
-  case events.LandlockAddRule:
-    return ParseLandlockAddRuleArgs(decoder)
-  case events.LandloclRestrictSet:
-    return ParseLandloclRestrictSetArgs(decoder)
-  case events.MemfdSecret:
-    return ParseMemfdSecretArgs(decoder)
-  case events.ProcessMrelease:
-    return ParseProcessMreleaseArgs(decoder)
-  case events.Waitpid:
-    return ParseWaitpidArgs(decoder)
-  case events.Oldfstat:
-    return ParseOldfstatArgs(decoder)
-  case events.Break:
-    return ParseBreakArgs(decoder)
-  case events.Oldstat:
-    return ParseOldstatArgs(decoder)
-  case events.Umount:
-    return ParseUmountArgs(decoder)
-  case events.Stime:
-    return ParseStimeArgs(decoder)
-  case events.Stty:
-    return ParseSttyArgs(decoder)
-  case events.Gtty:
-    return ParseGttyArgs(decoder)
-  case events.Nice:
-    return ParseNiceArgs(decoder)
-  case events.Ftime:
-    return ParseFtimeArgs(decoder)
-  case events.Prof:
-    return ParseProfArgs(decoder)
-  case events.Signal:
-    return ParseSignalArgs(decoder)
-  case events.Lock:
-    return ParseLockArgs(decoder)
-  case events.Mpx:
-    return ParseMpxArgs(decoder)
-  case events.Ulimit:
-    return ParseUlimitArgs(decoder)
-  case events.Oldolduname:
-    return ParseOldoldunameArgs(decoder)
-  case events.Sigaction:
-    return ParseSigactionArgs(decoder)
-  case events.Sgetmask:
-    return ParseSgetmaskArgs(decoder)
-  case events.Ssetmask:
-    return ParseSsetmaskArgs(decoder)
-  case events.Sigsuspend:
-    return ParseSigsuspendArgs(decoder)
-  case events.Sigpending:
-    return ParseSigpendingArgs(decoder)
-  case events.Oldlstat:
-    return ParseOldlstatArgs(decoder)
-  case events.Readdir:
-    return ParseReaddirArgs(decoder)
-  case events.Profil:
-    return ParseProfilArgs(decoder)
-  case events.Socketcall:
-    return ParseSocketcallArgs(decoder)
-  case events.Olduname:
-    return ParseOldunameArgs(decoder)
-  case events.Idle:
-    return ParseIdleArgs(decoder)
-  case events.Vm86old:
-    return ParseVm86oldArgs(decoder)
-  case events.Ipc:
-    return ParseIpcArgs(decoder)
-  case events.Sigreturn:
-    return ParseSigreturnArgs(decoder)
-  case events.Sigprocmask:
-    return ParseSigprocmaskArgs(decoder)
-  case events.Bdflush:
-    return ParseBdflushArgs(decoder)
-  case events.Afs_syscall:
-    return ParseAfs_syscallArgs(decoder)
-  case events.Llseek:
-    return ParseLlseekArgs(decoder)
-  case events.OldSelect:
-    return ParseOldSelectArgs(decoder)
-  case events.Vm86:
-    return ParseVm86Args(decoder)
-  case events.OldGetrlimit:
-    return ParseOldGetrlimitArgs(decoder)
-  case events.Mmap2:
-    return ParseMmap2Args(decoder)
-  case events.Truncate64:
-    return ParseTruncate64Args(decoder)
-  case events.Ftruncate64:
-    return ParseFtruncate64Args(decoder)
-  case events.Stat64:
-    return ParseStat64Args(decoder)
-  case events.Lstat64:
-    return ParseLstat64Args(decoder)
-  case events.Fstat64:
-    return ParseFstat64Args(decoder)
-  case events.Lchown16:
-    return ParseLchown16Args(decoder)
-  case events.Getuid16:
-    return ParseGetuid16Args(decoder)
-  case events.Getgid16:
-    return ParseGetgid16Args(decoder)
-  case events.Geteuid16:
-    return ParseGeteuid16Args(decoder)
-  case events.Getegid16:
-    return ParseGetegid16Args(decoder)
-  case events.Setreuid16:
-    return ParseSetreuid16Args(decoder)
-  case events.Setregid16:
-    return ParseSetregid16Args(decoder)
-  case events.Getgroups16:
-    return ParseGetgroups16Args(decoder)
-  case events.Setgroups16:
-    return ParseSetgroups16Args(decoder)
-  case events.Fchown16:
-    return ParseFchown16Args(decoder)
-  case events.Setresuid16:
-    return ParseSetresuid16Args(decoder)
-  case events.Getresuid16:
-    return ParseGetresuid16Args(decoder)
-  case events.Setresgid16:
-    return ParseSetresgid16Args(decoder)
-  case events.Getresgid16:
-    return ParseGetresgid16Args(decoder)
-  case events.Chown16:
-    return ParseChown16Args(decoder)
-  case events.Setuid16:
-    return ParseSetuid16Args(decoder)
-  case events.Setgid16:
-    return ParseSetgid16Args(decoder)
-  case events.Setfsuid16:
-    return ParseSetfsuid16Args(decoder)
-  case events.Setfsgid16:
-    return ParseSetfsgid16Args(decoder)
-  case events.Fcntl64:
-    return ParseFcntl64Args(decoder)
-  case events.Sendfile32:
-    return ParseSendfile32Args(decoder)
-  case events.Statfs64:
-    return ParseStatfs64Args(decoder)
-  case events.Fstatfs64:
-    return ParseFstatfs64Args(decoder)
-  case events.Fadvise64_64:
-    return ParseFadvise64_64Args(decoder)
-  case events.ClockGettime32:
-    return ParseClockGettime32Args(decoder)
-  case events.ClockSettime32:
-    return ParseClockSettime32Args(decoder)
-  case events.ClockAdjtime64:
-    return ParseClockAdjtime64Args(decoder)
-  case events.ClockGetresTime32:
-    return ParseClockGetresTime32Args(decoder)
-  case events.ClockNanosleepTime32:
-    return ParseClockNanosleepTime32Args(decoder)
-  case events.TimerGettime32:
-    return ParseTimerGettime32Args(decoder)
-  case events.TimerSettime32:
-    return ParseTimerSettime32Args(decoder)
-  case events.TimerfdGettime32:
-    return ParseTimerfdGettime32Args(decoder)
-  case events.TimerfdSettime32:
-    return ParseTimerfdSettime32Args(decoder)
-  case events.UtimensatTime32:
-    return ParseUtimensatTime32Args(decoder)
-  case events.Pselect6Time32:
-    return ParsePselect6Time32Args(decoder)
-  case events.PpollTime32:
-    return ParsePpollTime32Args(decoder)
-  case events.IoPgeteventsTime32:
-    return ParseIoPgeteventsTime32Args(decoder)
-  case events.RecvmmsgTime32:
-    return ParseRecvmmsgTime32Args(decoder)
-  case events.MqTimedsendTime32:
-    return ParseMqTimedsendTime32Args(decoder)
-  case events.MqTimedreceiveTime32:
-    return ParseMqTimedreceiveTime32Args(decoder)
-  case events.RtSigtimedwaitTime32:
-    return ParseRtSigtimedwaitTime32Args(decoder)
-  case events.FutexTime32:
-    return ParseFutexTime32Args(decoder)
-  case events.SchedRrGetInterval32:
-    return ParseSchedRrGetInterval32Args(decoder)
-  case events.SysEnter:
-    return ParseSysEnterArgs(decoder)
-  case events.SysExit:
-    return ParseSysExitArgs(decoder)
-  case events.SchedProcessFork:
-    return ParseSchedProcessForkArgs(decoder)
-  case events.SchedProcessExec:
-    return ParseSchedProcessExecArgs(decoder)
-  case events.SchedProcessExit:
-    return ParseSchedProcessExitArgs(decoder)
-  case events.SchedSwitch:
-    return ParseSchedSwitchArgs(decoder)
-  case events.ProcessOomKilled:
-    return ParseProcessOomKilledArgs(decoder)
-  case events.MagicWrite:
-    return ParseMagicWriteArgs(decoder)
-  case events.CgroupMkdir:
-    return ParseCgroupMkdirArgs(decoder)
-  case events.CgroupRmdir:
-    return ParseCgroupRmdirArgs(decoder)
-  case events.SecuritySocketConnect:
-    return ParseSecuritySocketConnectArgs(decoder)
-  case events.SocketDup:
-    return ParseSocketDupArgs(decoder)
-  case events.FileModification:
-    return ParseFileModificationArgs(decoder)
-  case events.TtyOpen:
-    return ParseTtyOpenArgs(decoder)
-  case events.TtyWrite:
-    return ParseTtyWriteArgs(decoder)
-  case events.NetPacketBase:
-    return ParseNetPacketBaseArgs(decoder)
-  case events.NetPacketIPBase:
-    return ParseNetPacketIPBaseArgs(decoder)
-  case events.NetPacketTCPBase:
-    return ParseNetPacketTCPBaseArgs(decoder)
-  case events.NetPacketUDPBase:
-    return ParseNetPacketUDPBaseArgs(decoder)
-  case events.NetPacketICMPBase:
-    return ParseNetPacketICMPBaseArgs(decoder)
-  case events.NetPacketICMPv6Base:
-    return ParseNetPacketICMPv6BaseArgs(decoder)
-  case events.NetPacketDNSBase:
-    return ParseNetPacketDNSBaseArgs(decoder)
-  case events.NetPacketSOCKS5Base:
-    return ParseNetPacketSOCKS5BaseArgs(decoder)
-  case events.NetPacketSSHBase:
-    return ParseNetPacketSSHBaseArgs(decoder)
-  case events.SockSetState:
-    return ParseSockSetStateArgs(decoder)
-  case events.TrackSyscallStats:
-    return ParseTrackSyscallStatsArgs(decoder)
-  case events.NetFlowBase:
-    return ParseNetFlowBaseArgs(decoder)
-  case events.StdioViaSocket:
-    return ParseStdioViaSocketArgs(decoder)
-  case events.ProcFdLinkResolved:
-    return ParseProcFdLinkResolvedArgs(decoder)
-  case events.TestEvent:
-    return ParseTestEventArgs(decoder)
-  }
+	switch event {
+	case events.Read:
+		return ParseReadArgs(decoder)
+	case events.Write:
+		return ParseWriteArgs(decoder)
+	case events.Open:
+		return ParseOpenArgs(decoder)
+	case events.Close:
+		return ParseCloseArgs(decoder)
+	case events.Stat:
+		return ParseStatArgs(decoder)
+	case events.Fstat:
+		return ParseFstatArgs(decoder)
+	case events.Lstat:
+		return ParseLstatArgs(decoder)
+	case events.Poll:
+		return ParsePollArgs(decoder)
+	case events.Lseek:
+		return ParseLseekArgs(decoder)
+	case events.Mmap:
+		return ParseMmapArgs(decoder)
+	case events.Mprotect:
+		return ParseMprotectArgs(decoder)
+	case events.Munmap:
+		return ParseMunmapArgs(decoder)
+	case events.Brk:
+		return ParseBrkArgs(decoder)
+	case events.RtSigaction:
+		return ParseRtSigactionArgs(decoder)
+	case events.RtSigprocmask:
+		return ParseRtSigprocmaskArgs(decoder)
+	case events.RtSigreturn:
+		return ParseRtSigreturnArgs(decoder)
+	case events.Ioctl:
+		return ParseIoctlArgs(decoder)
+	case events.Pread64:
+		return ParsePread64Args(decoder)
+	case events.Pwrite64:
+		return ParsePwrite64Args(decoder)
+	case events.Readv:
+		return ParseReadvArgs(decoder)
+	case events.Writev:
+		return ParseWritevArgs(decoder)
+	case events.Access:
+		return ParseAccessArgs(decoder)
+	case events.Pipe:
+		return ParsePipeArgs(decoder)
+	case events.Select:
+		return ParseSelectArgs(decoder)
+	case events.SchedYield:
+		return ParseSchedYieldArgs(decoder)
+	case events.Mremap:
+		return ParseMremapArgs(decoder)
+	case events.Msync:
+		return ParseMsyncArgs(decoder)
+	case events.Mincore:
+		return ParseMincoreArgs(decoder)
+	case events.Madvise:
+		return ParseMadviseArgs(decoder)
+	case events.Shmget:
+		return ParseShmgetArgs(decoder)
+	case events.Shmat:
+		return ParseShmatArgs(decoder)
+	case events.Shmctl:
+		return ParseShmctlArgs(decoder)
+	case events.Dup:
+		return ParseDupArgs(decoder)
+	case events.Dup2:
+		return ParseDup2Args(decoder)
+	case events.Pause:
+		return ParsePauseArgs(decoder)
+	case events.Nanosleep:
+		return ParseNanosleepArgs(decoder)
+	case events.Getitimer:
+		return ParseGetitimerArgs(decoder)
+	case events.Alarm:
+		return ParseAlarmArgs(decoder)
+	case events.Setitimer:
+		return ParseSetitimerArgs(decoder)
+	case events.Getpid:
+		return ParseGetpidArgs(decoder)
+	case events.Sendfile:
+		return ParseSendfileArgs(decoder)
+	case events.Socket:
+		return ParseSocketArgs(decoder)
+	case events.Connect:
+		return ParseConnectArgs(decoder)
+	case events.Accept:
+		return ParseAcceptArgs(decoder)
+	case events.Sendto:
+		return ParseSendtoArgs(decoder)
+	case events.Recvfrom:
+		return ParseRecvfromArgs(decoder)
+	case events.Sendmsg:
+		return ParseSendmsgArgs(decoder)
+	case events.Recvmsg:
+		return ParseRecvmsgArgs(decoder)
+	case events.Shutdown:
+		return ParseShutdownArgs(decoder)
+	case events.Bind:
+		return ParseBindArgs(decoder)
+	case events.Listen:
+		return ParseListenArgs(decoder)
+	case events.Getsockname:
+		return ParseGetsocknameArgs(decoder)
+	case events.Getpeername:
+		return ParseGetpeernameArgs(decoder)
+	case events.Socketpair:
+		return ParseSocketpairArgs(decoder)
+	case events.Setsockopt:
+		return ParseSetsockoptArgs(decoder)
+	case events.Getsockopt:
+		return ParseGetsockoptArgs(decoder)
+	case events.Clone:
+		return ParseCloneArgs(decoder)
+	case events.Fork:
+		return ParseForkArgs(decoder)
+	case events.Vfork:
+		return ParseVforkArgs(decoder)
+	case events.Execve:
+		return ParseExecveArgs(decoder)
+	case events.Exit:
+		return ParseExitArgs(decoder)
+	case events.Wait4:
+		return ParseWait4Args(decoder)
+	case events.Kill:
+		return ParseKillArgs(decoder)
+	case events.Uname:
+		return ParseUnameArgs(decoder)
+	case events.Semget:
+		return ParseSemgetArgs(decoder)
+	case events.Semop:
+		return ParseSemopArgs(decoder)
+	case events.Semctl:
+		return ParseSemctlArgs(decoder)
+	case events.Shmdt:
+		return ParseShmdtArgs(decoder)
+	case events.Msgget:
+		return ParseMsggetArgs(decoder)
+	case events.Msgsnd:
+		return ParseMsgsndArgs(decoder)
+	case events.Msgrcv:
+		return ParseMsgrcvArgs(decoder)
+	case events.Msgctl:
+		return ParseMsgctlArgs(decoder)
+	case events.Fcntl:
+		return ParseFcntlArgs(decoder)
+	case events.Flock:
+		return ParseFlockArgs(decoder)
+	case events.Fsync:
+		return ParseFsyncArgs(decoder)
+	case events.Fdatasync:
+		return ParseFdatasyncArgs(decoder)
+	case events.Truncate:
+		return ParseTruncateArgs(decoder)
+	case events.Ftruncate:
+		return ParseFtruncateArgs(decoder)
+	case events.Getdents:
+		return ParseGetdentsArgs(decoder)
+	case events.Getcwd:
+		return ParseGetcwdArgs(decoder)
+	case events.Chdir:
+		return ParseChdirArgs(decoder)
+	case events.Fchdir:
+		return ParseFchdirArgs(decoder)
+	case events.Rename:
+		return ParseRenameArgs(decoder)
+	case events.Mkdir:
+		return ParseMkdirArgs(decoder)
+	case events.Rmdir:
+		return ParseRmdirArgs(decoder)
+	case events.Creat:
+		return ParseCreatArgs(decoder)
+	case events.Link:
+		return ParseLinkArgs(decoder)
+	case events.Unlink:
+		return ParseUnlinkArgs(decoder)
+	case events.Symlink:
+		return ParseSymlinkArgs(decoder)
+	case events.Readlink:
+		return ParseReadlinkArgs(decoder)
+	case events.Chmod:
+		return ParseChmodArgs(decoder)
+	case events.Fchmod:
+		return ParseFchmodArgs(decoder)
+	case events.Chown:
+		return ParseChownArgs(decoder)
+	case events.Fchown:
+		return ParseFchownArgs(decoder)
+	case events.Lchown:
+		return ParseLchownArgs(decoder)
+	case events.Umask:
+		return ParseUmaskArgs(decoder)
+	case events.Gettimeofday:
+		return ParseGettimeofdayArgs(decoder)
+	case events.Getrlimit:
+		return ParseGetrlimitArgs(decoder)
+	case events.Getrusage:
+		return ParseGetrusageArgs(decoder)
+	case events.Sysinfo:
+		return ParseSysinfoArgs(decoder)
+	case events.Times:
+		return ParseTimesArgs(decoder)
+	case events.Ptrace:
+		return ParsePtraceArgs(decoder)
+	case events.Getuid:
+		return ParseGetuidArgs(decoder)
+	case events.Syslog:
+		return ParseSyslogArgs(decoder)
+	case events.Getgid:
+		return ParseGetgidArgs(decoder)
+	case events.Setuid:
+		return ParseSetuidArgs(decoder)
+	case events.Setgid:
+		return ParseSetgidArgs(decoder)
+	case events.Geteuid:
+		return ParseGeteuidArgs(decoder)
+	case events.Getegid:
+		return ParseGetegidArgs(decoder)
+	case events.Setpgid:
+		return ParseSetpgidArgs(decoder)
+	case events.Getppid:
+		return ParseGetppidArgs(decoder)
+	case events.Getpgrp:
+		return ParseGetpgrpArgs(decoder)
+	case events.Setsid:
+		return ParseSetsidArgs(decoder)
+	case events.Setreuid:
+		return ParseSetreuidArgs(decoder)
+	case events.Setregid:
+		return ParseSetregidArgs(decoder)
+	case events.Getgroups:
+		return ParseGetgroupsArgs(decoder)
+	case events.Setgroups:
+		return ParseSetgroupsArgs(decoder)
+	case events.Setresuid:
+		return ParseSetresuidArgs(decoder)
+	case events.Getresuid:
+		return ParseGetresuidArgs(decoder)
+	case events.Setresgid:
+		return ParseSetresgidArgs(decoder)
+	case events.Getresgid:
+		return ParseGetresgidArgs(decoder)
+	case events.Getpgid:
+		return ParseGetpgidArgs(decoder)
+	case events.Setfsuid:
+		return ParseSetfsuidArgs(decoder)
+	case events.Setfsgid:
+		return ParseSetfsgidArgs(decoder)
+	case events.Getsid:
+		return ParseGetsidArgs(decoder)
+	case events.Capget:
+		return ParseCapgetArgs(decoder)
+	case events.Capset:
+		return ParseCapsetArgs(decoder)
+	case events.RtSigpending:
+		return ParseRtSigpendingArgs(decoder)
+	case events.RtSigtimedwait:
+		return ParseRtSigtimedwaitArgs(decoder)
+	case events.RtSigqueueinfo:
+		return ParseRtSigqueueinfoArgs(decoder)
+	case events.RtSigsuspend:
+		return ParseRtSigsuspendArgs(decoder)
+	case events.Sigaltstack:
+		return ParseSigaltstackArgs(decoder)
+	case events.Utime:
+		return ParseUtimeArgs(decoder)
+	case events.Mknod:
+		return ParseMknodArgs(decoder)
+	case events.Uselib:
+		return ParseUselibArgs(decoder)
+	case events.Personality:
+		return ParsePersonalityArgs(decoder)
+	case events.Ustat:
+		return ParseUstatArgs(decoder)
+	case events.Statfs:
+		return ParseStatfsArgs(decoder)
+	case events.Fstatfs:
+		return ParseFstatfsArgs(decoder)
+	case events.Sysfs:
+		return ParseSysfsArgs(decoder)
+	case events.Getpriority:
+		return ParseGetpriorityArgs(decoder)
+	case events.Setpriority:
+		return ParseSetpriorityArgs(decoder)
+	case events.SchedSetparam:
+		return ParseSchedSetparamArgs(decoder)
+	case events.SchedGetparam:
+		return ParseSchedGetparamArgs(decoder)
+	case events.SchedSetscheduler:
+		return ParseSchedSetschedulerArgs(decoder)
+	case events.SchedGetscheduler:
+		return ParseSchedGetschedulerArgs(decoder)
+	case events.SchedGetPriorityMax:
+		return ParseSchedGetPriorityMaxArgs(decoder)
+	case events.SchedGetPriorityMin:
+		return ParseSchedGetPriorityMinArgs(decoder)
+	case events.SchedRrGetInterval:
+		return ParseSchedRrGetIntervalArgs(decoder)
+	case events.Mlock:
+		return ParseMlockArgs(decoder)
+	case events.Munlock:
+		return ParseMunlockArgs(decoder)
+	case events.Mlockall:
+		return ParseMlockallArgs(decoder)
+	case events.Munlockall:
+		return ParseMunlockallArgs(decoder)
+	case events.Vhangup:
+		return ParseVhangupArgs(decoder)
+	case events.ModifyLdt:
+		return ParseModifyLdtArgs(decoder)
+	case events.PivotRoot:
+		return ParsePivotRootArgs(decoder)
+	case events.Sysctl:
+		return ParseSysctlArgs(decoder)
+	case events.Prctl:
+		return ParsePrctlArgs(decoder)
+	case events.ArchPrctl:
+		return ParseArchPrctlArgs(decoder)
+	case events.Adjtimex:
+		return ParseAdjtimexArgs(decoder)
+	case events.Setrlimit:
+		return ParseSetrlimitArgs(decoder)
+	case events.Chroot:
+		return ParseChrootArgs(decoder)
+	case events.Sync:
+		return ParseSyncArgs(decoder)
+	case events.Acct:
+		return ParseAcctArgs(decoder)
+	case events.Settimeofday:
+		return ParseSettimeofdayArgs(decoder)
+	case events.Mount:
+		return ParseMountArgs(decoder)
+	case events.Umount2:
+		return ParseUmount2Args(decoder)
+	case events.Swapon:
+		return ParseSwaponArgs(decoder)
+	case events.Swapoff:
+		return ParseSwapoffArgs(decoder)
+	case events.Reboot:
+		return ParseRebootArgs(decoder)
+	case events.Sethostname:
+		return ParseSethostnameArgs(decoder)
+	case events.Setdomainname:
+		return ParseSetdomainnameArgs(decoder)
+	case events.Iopl:
+		return ParseIoplArgs(decoder)
+	case events.Ioperm:
+		return ParseIopermArgs(decoder)
+	case events.CreateModule:
+		return ParseCreateModuleArgs(decoder)
+	case events.InitModule:
+		return ParseInitModuleArgs(decoder)
+	case events.DeleteModule:
+		return ParseDeleteModuleArgs(decoder)
+	case events.GetKernelSyms:
+		return ParseGetKernelSymsArgs(decoder)
+	case events.QueryModule:
+		return ParseQueryModuleArgs(decoder)
+	case events.Quotactl:
+		return ParseQuotactlArgs(decoder)
+	case events.Nfsservctl:
+		return ParseNfsservctlArgs(decoder)
+	case events.Getpmsg:
+		return ParseGetpmsgArgs(decoder)
+	case events.Putpmsg:
+		return ParsePutpmsgArgs(decoder)
+	case events.Afs:
+		return ParseAfsArgs(decoder)
+	case events.Tuxcall:
+		return ParseTuxcallArgs(decoder)
+	case events.Security:
+		return ParseSecurityArgs(decoder)
+	case events.Gettid:
+		return ParseGettidArgs(decoder)
+	case events.Readahead:
+		return ParseReadaheadArgs(decoder)
+	case events.Setxattr:
+		return ParseSetxattrArgs(decoder)
+	case events.Lsetxattr:
+		return ParseLsetxattrArgs(decoder)
+	case events.Fsetxattr:
+		return ParseFsetxattrArgs(decoder)
+	case events.Getxattr:
+		return ParseGetxattrArgs(decoder)
+	case events.Lgetxattr:
+		return ParseLgetxattrArgs(decoder)
+	case events.Fgetxattr:
+		return ParseFgetxattrArgs(decoder)
+	case events.Listxattr:
+		return ParseListxattrArgs(decoder)
+	case events.Llistxattr:
+		return ParseLlistxattrArgs(decoder)
+	case events.Flistxattr:
+		return ParseFlistxattrArgs(decoder)
+	case events.Removexattr:
+		return ParseRemovexattrArgs(decoder)
+	case events.Lremovexattr:
+		return ParseLremovexattrArgs(decoder)
+	case events.Fremovexattr:
+		return ParseFremovexattrArgs(decoder)
+	case events.Tkill:
+		return ParseTkillArgs(decoder)
+	case events.Time:
+		return ParseTimeArgs(decoder)
+	case events.Futex:
+		return ParseFutexArgs(decoder)
+	case events.SchedSetaffinity:
+		return ParseSchedSetaffinityArgs(decoder)
+	case events.SchedGetaffinity:
+		return ParseSchedGetaffinityArgs(decoder)
+	case events.SetThreadArea:
+		return ParseSetThreadAreaArgs(decoder)
+	case events.IoSetup:
+		return ParseIoSetupArgs(decoder)
+	case events.IoDestroy:
+		return ParseIoDestroyArgs(decoder)
+	case events.IoGetevents:
+		return ParseIoGeteventsArgs(decoder)
+	case events.IoSubmit:
+		return ParseIoSubmitArgs(decoder)
+	case events.IoCancel:
+		return ParseIoCancelArgs(decoder)
+	case events.GetThreadArea:
+		return ParseGetThreadAreaArgs(decoder)
+	case events.LookupDcookie:
+		return ParseLookupDcookieArgs(decoder)
+	case events.EpollCreate:
+		return ParseEpollCreateArgs(decoder)
+	case events.EpollCtlOld:
+		return ParseEpollCtlOldArgs(decoder)
+	case events.EpollWaitOld:
+		return ParseEpollWaitOldArgs(decoder)
+	case events.RemapFilePages:
+		return ParseRemapFilePagesArgs(decoder)
+	case events.Getdents64:
+		return ParseGetdents64Args(decoder)
+	case events.SetTidAddress:
+		return ParseSetTidAddressArgs(decoder)
+	case events.RestartSyscall:
+		return ParseRestartSyscallArgs(decoder)
+	case events.Semtimedop:
+		return ParseSemtimedopArgs(decoder)
+	case events.Fadvise64:
+		return ParseFadvise64Args(decoder)
+	case events.TimerCreate:
+		return ParseTimerCreateArgs(decoder)
+	case events.TimerSettime:
+		return ParseTimerSettimeArgs(decoder)
+	case events.TimerGettime:
+		return ParseTimerGettimeArgs(decoder)
+	case events.TimerGetoverrun:
+		return ParseTimerGetoverrunArgs(decoder)
+	case events.TimerDelete:
+		return ParseTimerDeleteArgs(decoder)
+	case events.ClockSettime:
+		return ParseClockSettimeArgs(decoder)
+	case events.ClockGettime:
+		return ParseClockGettimeArgs(decoder)
+	case events.ClockGetres:
+		return ParseClockGetresArgs(decoder)
+	case events.ClockNanosleep:
+		return ParseClockNanosleepArgs(decoder)
+	case events.ExitGroup:
+		return ParseExitGroupArgs(decoder)
+	case events.EpollWait:
+		return ParseEpollWaitArgs(decoder)
+	case events.EpollCtl:
+		return ParseEpollCtlArgs(decoder)
+	case events.Tgkill:
+		return ParseTgkillArgs(decoder)
+	case events.Utimes:
+		return ParseUtimesArgs(decoder)
+	case events.Vserver:
+		return ParseVserverArgs(decoder)
+	case events.Mbind:
+		return ParseMbindArgs(decoder)
+	case events.SetMempolicy:
+		return ParseSetMempolicyArgs(decoder)
+	case events.GetMempolicy:
+		return ParseGetMempolicyArgs(decoder)
+	case events.MqOpen:
+		return ParseMqOpenArgs(decoder)
+	case events.MqUnlink:
+		return ParseMqUnlinkArgs(decoder)
+	case events.MqTimedsend:
+		return ParseMqTimedsendArgs(decoder)
+	case events.MqTimedreceive:
+		return ParseMqTimedreceiveArgs(decoder)
+	case events.MqNotify:
+		return ParseMqNotifyArgs(decoder)
+	case events.MqGetsetattr:
+		return ParseMqGetsetattrArgs(decoder)
+	case events.KexecLoad:
+		return ParseKexecLoadArgs(decoder)
+	case events.Waitid:
+		return ParseWaitidArgs(decoder)
+	case events.AddKey:
+		return ParseAddKeyArgs(decoder)
+	case events.RequestKey:
+		return ParseRequestKeyArgs(decoder)
+	case events.Keyctl:
+		return ParseKeyctlArgs(decoder)
+	case events.IoprioSet:
+		return ParseIoprioSetArgs(decoder)
+	case events.IoprioGet:
+		return ParseIoprioGetArgs(decoder)
+	case events.InotifyInit:
+		return ParseInotifyInitArgs(decoder)
+	case events.InotifyAddWatch:
+		return ParseInotifyAddWatchArgs(decoder)
+	case events.InotifyRmWatch:
+		return ParseInotifyRmWatchArgs(decoder)
+	case events.MigratePages:
+		return ParseMigratePagesArgs(decoder)
+	case events.Openat:
+		return ParseOpenatArgs(decoder)
+	case events.Mkdirat:
+		return ParseMkdiratArgs(decoder)
+	case events.Mknodat:
+		return ParseMknodatArgs(decoder)
+	case events.Fchownat:
+		return ParseFchownatArgs(decoder)
+	case events.Futimesat:
+		return ParseFutimesatArgs(decoder)
+	case events.Newfstatat:
+		return ParseNewfstatatArgs(decoder)
+	case events.Unlinkat:
+		return ParseUnlinkatArgs(decoder)
+	case events.Renameat:
+		return ParseRenameatArgs(decoder)
+	case events.Linkat:
+		return ParseLinkatArgs(decoder)
+	case events.Symlinkat:
+		return ParseSymlinkatArgs(decoder)
+	case events.Readlinkat:
+		return ParseReadlinkatArgs(decoder)
+	case events.Fchmodat:
+		return ParseFchmodatArgs(decoder)
+	case events.Faccessat:
+		return ParseFaccessatArgs(decoder)
+	case events.Pselect6:
+		return ParsePselect6Args(decoder)
+	case events.Ppoll:
+		return ParsePpollArgs(decoder)
+	case events.Unshare:
+		return ParseUnshareArgs(decoder)
+	case events.SetRobustList:
+		return ParseSetRobustListArgs(decoder)
+	case events.GetRobustList:
+		return ParseGetRobustListArgs(decoder)
+	case events.Splice:
+		return ParseSpliceArgs(decoder)
+	case events.Tee:
+		return ParseTeeArgs(decoder)
+	case events.SyncFileRange:
+		return ParseSyncFileRangeArgs(decoder)
+	case events.Vmsplice:
+		return ParseVmspliceArgs(decoder)
+	case events.MovePages:
+		return ParseMovePagesArgs(decoder)
+	case events.Utimensat:
+		return ParseUtimensatArgs(decoder)
+	case events.EpollPwait:
+		return ParseEpollPwaitArgs(decoder)
+	case events.Signalfd:
+		return ParseSignalfdArgs(decoder)
+	case events.TimerfdCreate:
+		return ParseTimerfdCreateArgs(decoder)
+	case events.Eventfd:
+		return ParseEventfdArgs(decoder)
+	case events.Fallocate:
+		return ParseFallocateArgs(decoder)
+	case events.TimerfdSettime:
+		return ParseTimerfdSettimeArgs(decoder)
+	case events.TimerfdGettime:
+		return ParseTimerfdGettimeArgs(decoder)
+	case events.Accept4:
+		return ParseAccept4Args(decoder)
+	case events.Signalfd4:
+		return ParseSignalfd4Args(decoder)
+	case events.Eventfd2:
+		return ParseEventfd2Args(decoder)
+	case events.EpollCreate1:
+		return ParseEpollCreate1Args(decoder)
+	case events.Dup3:
+		return ParseDup3Args(decoder)
+	case events.Pipe2:
+		return ParsePipe2Args(decoder)
+	case events.InotifyInit1:
+		return ParseInotifyInit1Args(decoder)
+	case events.Preadv:
+		return ParsePreadvArgs(decoder)
+	case events.Pwritev:
+		return ParsePwritevArgs(decoder)
+	case events.RtTgsigqueueinfo:
+		return ParseRtTgsigqueueinfoArgs(decoder)
+	case events.PerfEventOpen:
+		return ParsePerfEventOpenArgs(decoder)
+	case events.Recvmmsg:
+		return ParseRecvmmsgArgs(decoder)
+	case events.FanotifyInit:
+		return ParseFanotifyInitArgs(decoder)
+	case events.FanotifyMark:
+		return ParseFanotifyMarkArgs(decoder)
+	case events.Prlimit64:
+		return ParsePrlimit64Args(decoder)
+	case events.NameToHandleAt:
+		return ParseNameToHandleAtArgs(decoder)
+	case events.OpenByHandleAt:
+		return ParseOpenByHandleAtArgs(decoder)
+	case events.ClockAdjtime:
+		return ParseClockAdjtimeArgs(decoder)
+	case events.Syncfs:
+		return ParseSyncfsArgs(decoder)
+	case events.Sendmmsg:
+		return ParseSendmmsgArgs(decoder)
+	case events.Setns:
+		return ParseSetnsArgs(decoder)
+	case events.Getcpu:
+		return ParseGetcpuArgs(decoder)
+	case events.ProcessVmReadv:
+		return ParseProcessVmReadvArgs(decoder)
+	case events.ProcessVmWritev:
+		return ParseProcessVmWritevArgs(decoder)
+	case events.Kcmp:
+		return ParseKcmpArgs(decoder)
+	case events.FinitModule:
+		return ParseFinitModuleArgs(decoder)
+	case events.SchedSetattr:
+		return ParseSchedSetattrArgs(decoder)
+	case events.SchedGetattr:
+		return ParseSchedGetattrArgs(decoder)
+	case events.Renameat2:
+		return ParseRenameat2Args(decoder)
+	case events.Seccomp:
+		return ParseSeccompArgs(decoder)
+	case events.Getrandom:
+		return ParseGetrandomArgs(decoder)
+	case events.MemfdCreate:
+		return ParseMemfdCreateArgs(decoder)
+	case events.KexecFileLoad:
+		return ParseKexecFileLoadArgs(decoder)
+	case events.Bpf:
+		return ParseBpfArgs(decoder)
+	case events.Execveat:
+		return ParseExecveatArgs(decoder)
+	case events.Userfaultfd:
+		return ParseUserfaultfdArgs(decoder)
+	case events.Membarrier:
+		return ParseMembarrierArgs(decoder)
+	case events.Mlock2:
+		return ParseMlock2Args(decoder)
+	case events.CopyFileRange:
+		return ParseCopyFileRangeArgs(decoder)
+	case events.Preadv2:
+		return ParsePreadv2Args(decoder)
+	case events.Pwritev2:
+		return ParsePwritev2Args(decoder)
+	case events.PkeyMprotect:
+		return ParsePkeyMprotectArgs(decoder)
+	case events.PkeyAlloc:
+		return ParsePkeyAllocArgs(decoder)
+	case events.PkeyFree:
+		return ParsePkeyFreeArgs(decoder)
+	case events.Statx:
+		return ParseStatxArgs(decoder)
+	case events.IoPgetevents:
+		return ParseIoPgeteventsArgs(decoder)
+	case events.Rseq:
+		return ParseRseqArgs(decoder)
+	case events.PidfdSendSignal:
+		return ParsePidfdSendSignalArgs(decoder)
+	case events.IoUringSetup:
+		return ParseIoUringSetupArgs(decoder)
+	case events.IoUringEnter:
+		return ParseIoUringEnterArgs(decoder)
+	case events.IoUringRegister:
+		return ParseIoUringRegisterArgs(decoder)
+	case events.OpenTree:
+		return ParseOpenTreeArgs(decoder)
+	case events.MoveMount:
+		return ParseMoveMountArgs(decoder)
+	case events.Fsopen:
+		return ParseFsopenArgs(decoder)
+	case events.Fsconfig:
+		return ParseFsconfigArgs(decoder)
+	case events.Fsmount:
+		return ParseFsmountArgs(decoder)
+	case events.Fspick:
+		return ParseFspickArgs(decoder)
+	case events.PidfdOpen:
+		return ParsePidfdOpenArgs(decoder)
+	case events.Clone3:
+		return ParseClone3Args(decoder)
+	case events.CloseRange:
+		return ParseCloseRangeArgs(decoder)
+	case events.Openat2:
+		return ParseOpenat2Args(decoder)
+	case events.PidfdGetfd:
+		return ParsePidfdGetfdArgs(decoder)
+	case events.Faccessat2:
+		return ParseFaccessat2Args(decoder)
+	case events.ProcessMadvise:
+		return ParseProcessMadviseArgs(decoder)
+	case events.EpollPwait2:
+		return ParseEpollPwait2Args(decoder)
+	case events.MountSetatt:
+		return ParseMountSetattArgs(decoder)
+	case events.QuotactlFd:
+		return ParseQuotactlFdArgs(decoder)
+	case events.LandlockCreateRuleset:
+		return ParseLandlockCreateRulesetArgs(decoder)
+	case events.LandlockAddRule:
+		return ParseLandlockAddRuleArgs(decoder)
+	case events.LandloclRestrictSet:
+		return ParseLandloclRestrictSetArgs(decoder)
+	case events.MemfdSecret:
+		return ParseMemfdSecretArgs(decoder)
+	case events.ProcessMrelease:
+		return ParseProcessMreleaseArgs(decoder)
+	case events.Waitpid:
+		return ParseWaitpidArgs(decoder)
+	case events.Oldfstat:
+		return ParseOldfstatArgs(decoder)
+	case events.Break:
+		return ParseBreakArgs(decoder)
+	case events.Oldstat:
+		return ParseOldstatArgs(decoder)
+	case events.Umount:
+		return ParseUmountArgs(decoder)
+	case events.Stime:
+		return ParseStimeArgs(decoder)
+	case events.Stty:
+		return ParseSttyArgs(decoder)
+	case events.Gtty:
+		return ParseGttyArgs(decoder)
+	case events.Nice:
+		return ParseNiceArgs(decoder)
+	case events.Ftime:
+		return ParseFtimeArgs(decoder)
+	case events.Prof:
+		return ParseProfArgs(decoder)
+	case events.Signal:
+		return ParseSignalArgs(decoder)
+	case events.Lock:
+		return ParseLockArgs(decoder)
+	case events.Mpx:
+		return ParseMpxArgs(decoder)
+	case events.Ulimit:
+		return ParseUlimitArgs(decoder)
+	case events.Oldolduname:
+		return ParseOldoldunameArgs(decoder)
+	case events.Sigaction:
+		return ParseSigactionArgs(decoder)
+	case events.Sgetmask:
+		return ParseSgetmaskArgs(decoder)
+	case events.Ssetmask:
+		return ParseSsetmaskArgs(decoder)
+	case events.Sigsuspend:
+		return ParseSigsuspendArgs(decoder)
+	case events.Sigpending:
+		return ParseSigpendingArgs(decoder)
+	case events.Oldlstat:
+		return ParseOldlstatArgs(decoder)
+	case events.Readdir:
+		return ParseReaddirArgs(decoder)
+	case events.Profil:
+		return ParseProfilArgs(decoder)
+	case events.Socketcall:
+		return ParseSocketcallArgs(decoder)
+	case events.Olduname:
+		return ParseOldunameArgs(decoder)
+	case events.Idle:
+		return ParseIdleArgs(decoder)
+	case events.Vm86old:
+		return ParseVm86oldArgs(decoder)
+	case events.Ipc:
+		return ParseIpcArgs(decoder)
+	case events.Sigreturn:
+		return ParseSigreturnArgs(decoder)
+	case events.Sigprocmask:
+		return ParseSigprocmaskArgs(decoder)
+	case events.Bdflush:
+		return ParseBdflushArgs(decoder)
+	case events.Afs_syscall:
+		return ParseAfs_syscallArgs(decoder)
+	case events.Llseek:
+		return ParseLlseekArgs(decoder)
+	case events.OldSelect:
+		return ParseOldSelectArgs(decoder)
+	case events.Vm86:
+		return ParseVm86Args(decoder)
+	case events.OldGetrlimit:
+		return ParseOldGetrlimitArgs(decoder)
+	case events.Mmap2:
+		return ParseMmap2Args(decoder)
+	case events.Truncate64:
+		return ParseTruncate64Args(decoder)
+	case events.Ftruncate64:
+		return ParseFtruncate64Args(decoder)
+	case events.Stat64:
+		return ParseStat64Args(decoder)
+	case events.Lstat64:
+		return ParseLstat64Args(decoder)
+	case events.Fstat64:
+		return ParseFstat64Args(decoder)
+	case events.Lchown16:
+		return ParseLchown16Args(decoder)
+	case events.Getuid16:
+		return ParseGetuid16Args(decoder)
+	case events.Getgid16:
+		return ParseGetgid16Args(decoder)
+	case events.Geteuid16:
+		return ParseGeteuid16Args(decoder)
+	case events.Getegid16:
+		return ParseGetegid16Args(decoder)
+	case events.Setreuid16:
+		return ParseSetreuid16Args(decoder)
+	case events.Setregid16:
+		return ParseSetregid16Args(decoder)
+	case events.Getgroups16:
+		return ParseGetgroups16Args(decoder)
+	case events.Setgroups16:
+		return ParseSetgroups16Args(decoder)
+	case events.Fchown16:
+		return ParseFchown16Args(decoder)
+	case events.Setresuid16:
+		return ParseSetresuid16Args(decoder)
+	case events.Getresuid16:
+		return ParseGetresuid16Args(decoder)
+	case events.Setresgid16:
+		return ParseSetresgid16Args(decoder)
+	case events.Getresgid16:
+		return ParseGetresgid16Args(decoder)
+	case events.Chown16:
+		return ParseChown16Args(decoder)
+	case events.Setuid16:
+		return ParseSetuid16Args(decoder)
+	case events.Setgid16:
+		return ParseSetgid16Args(decoder)
+	case events.Setfsuid16:
+		return ParseSetfsuid16Args(decoder)
+	case events.Setfsgid16:
+		return ParseSetfsgid16Args(decoder)
+	case events.Fcntl64:
+		return ParseFcntl64Args(decoder)
+	case events.Sendfile32:
+		return ParseSendfile32Args(decoder)
+	case events.Statfs64:
+		return ParseStatfs64Args(decoder)
+	case events.Fstatfs64:
+		return ParseFstatfs64Args(decoder)
+	case events.Fadvise64_64:
+		return ParseFadvise64_64Args(decoder)
+	case events.ClockGettime32:
+		return ParseClockGettime32Args(decoder)
+	case events.ClockSettime32:
+		return ParseClockSettime32Args(decoder)
+	case events.ClockAdjtime64:
+		return ParseClockAdjtime64Args(decoder)
+	case events.ClockGetresTime32:
+		return ParseClockGetresTime32Args(decoder)
+	case events.ClockNanosleepTime32:
+		return ParseClockNanosleepTime32Args(decoder)
+	case events.TimerGettime32:
+		return ParseTimerGettime32Args(decoder)
+	case events.TimerSettime32:
+		return ParseTimerSettime32Args(decoder)
+	case events.TimerfdGettime32:
+		return ParseTimerfdGettime32Args(decoder)
+	case events.TimerfdSettime32:
+		return ParseTimerfdSettime32Args(decoder)
+	case events.UtimensatTime32:
+		return ParseUtimensatTime32Args(decoder)
+	case events.Pselect6Time32:
+		return ParsePselect6Time32Args(decoder)
+	case events.PpollTime32:
+		return ParsePpollTime32Args(decoder)
+	case events.IoPgeteventsTime32:
+		return ParseIoPgeteventsTime32Args(decoder)
+	case events.RecvmmsgTime32:
+		return ParseRecvmmsgTime32Args(decoder)
+	case events.MqTimedsendTime32:
+		return ParseMqTimedsendTime32Args(decoder)
+	case events.MqTimedreceiveTime32:
+		return ParseMqTimedreceiveTime32Args(decoder)
+	case events.RtSigtimedwaitTime32:
+		return ParseRtSigtimedwaitTime32Args(decoder)
+	case events.FutexTime32:
+		return ParseFutexTime32Args(decoder)
+	case events.SchedRrGetInterval32:
+		return ParseSchedRrGetInterval32Args(decoder)
+	case events.SysEnter:
+		return ParseSysEnterArgs(decoder)
+	case events.SysExit:
+		return ParseSysExitArgs(decoder)
+	case events.SchedProcessFork:
+		return ParseSchedProcessForkArgs(decoder)
+	case events.SchedProcessExec:
+		return ParseSchedProcessExecArgs(decoder)
+	case events.SchedProcessExit:
+		return ParseSchedProcessExitArgs(decoder)
+	case events.SchedSwitch:
+		return ParseSchedSwitchArgs(decoder)
+	case events.ProcessOomKilled:
+		return ParseProcessOomKilledArgs(decoder)
+	case events.MagicWrite:
+		return ParseMagicWriteArgs(decoder)
+	case events.CgroupMkdir:
+		return ParseCgroupMkdirArgs(decoder)
+	case events.CgroupRmdir:
+		return ParseCgroupRmdirArgs(decoder)
+	case events.SecuritySocketConnect:
+		return ParseSecuritySocketConnectArgs(decoder)
+	case events.SocketDup:
+		return ParseSocketDupArgs(decoder)
+	case events.FileModification:
+		return ParseFileModificationArgs(decoder)
+	case events.TtyOpen:
+		return ParseTtyOpenArgs(decoder)
+	case events.TtyWrite:
+		return ParseTtyWriteArgs(decoder)
+	case events.NetPacketBase:
+		return ParseNetPacketBaseArgs(decoder)
+	case events.NetPacketIPBase:
+		return ParseNetPacketIPBaseArgs(decoder)
+	case events.NetPacketTCPBase:
+		return ParseNetPacketTCPBaseArgs(decoder)
+	case events.NetPacketUDPBase:
+		return ParseNetPacketUDPBaseArgs(decoder)
+	case events.NetPacketICMPBase:
+		return ParseNetPacketICMPBaseArgs(decoder)
+	case events.NetPacketICMPv6Base:
+		return ParseNetPacketICMPv6BaseArgs(decoder)
+	case events.NetPacketDNSBase:
+		return ParseNetPacketDNSBaseArgs(decoder)
+	case events.NetPacketSOCKS5Base:
+		return ParseNetPacketSOCKS5BaseArgs(decoder)
+	case events.NetPacketSSHBase:
+		return ParseNetPacketSSHBaseArgs(decoder)
+	case events.SockSetState:
+		return ParseSockSetStateArgs(decoder)
+	case events.TrackSyscallStats:
+		return ParseTrackSyscallStatsArgs(decoder)
+	case events.NetFlowBase:
+		return ParseNetFlowBaseArgs(decoder)
+	case events.StdioViaSocket:
+		return ParseStdioViaSocketArgs(decoder)
+	case events.ProcFdLinkResolved:
+		return ParseProcFdLinkResolvedArgs(decoder)
+	case events.SecurityFileOpen:
+		return ParseSecurityFileOpenArgs(decoder)
+	case events.TestEvent:
+		return ParseTestEventArgs(decoder)
+	}
 
-  return nil, ErrUnknownArgsType
+	return nil, ErrUnknownArgsType
 }

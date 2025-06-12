@@ -14,6 +14,8 @@ func (e EventType) HumanString() string {
 		return "DNS"
 	case EventFileChange:
 		return "File Change"
+	case EventFileOpen:
+		return "File Open"
 	case EventTCPPacket:
 		return "TCP Packet Transmission"
 	case EventTCPAccept:
@@ -63,6 +65,7 @@ const (
 	EventExec              EventType = "exec"
 	EventDNS               EventType = "dns"
 	EventFileChange        EventType = "file_change"
+	EventFileOpen          EventType = "file_open"
 	EventTCPPacket         EventType = "tcp_packet"
 	EventTCPAccept         EventType = "tcp_accept"
 	EventTCPConnect        EventType = "tcp_connect"

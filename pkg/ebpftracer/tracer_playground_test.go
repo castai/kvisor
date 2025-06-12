@@ -124,7 +124,7 @@ func TestTracer(t *testing.T) {
 			// {ID: events.SockSetState},
 			// {ID: events.SchedProcessExec},
 			// {ID: events.MagicWrite},
-			{ID: events.ProcFdLinkResolved},
+			{ID: events.SecurityFileOpen},
 			// {ID: events.ProcessOomKilled},
 			// {ID: events.TtyWrite},
 			// {ID: events.NetPacketSSHBase},

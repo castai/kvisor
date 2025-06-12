@@ -334,6 +334,13 @@ func (c *Controller) fillProtoContainerEvent(res *castpb.ContainerEvent, e *ebpf
 		res.Data = &castpb.ContainerEvent_Ssh{
 			Ssh: sshEvent,
 		}
+	case ebpftypes.SecurityFileOpenArgs:
+		res.EventType = castpb.EventType_EVENT_FILE_OPEN
+		res.Data = &castpb.ContainerEvent_File{
+			File: &castpb.File{
+				Path: args.Path,
+			},
+		}
 	}
 
 	if res.EventType == 0 {

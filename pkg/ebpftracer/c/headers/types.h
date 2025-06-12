@@ -69,6 +69,7 @@ enum event_id_e {
     TTY_WRITE,
     STDIO_VIA_SOCKET,
     PROC_FD_LINK_RESOLVED,
+    SECURITY_FILE_OPEN,
     MAX_EVENT_ID,
 };
 
