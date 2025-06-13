@@ -26,7 +26,7 @@ type tracerEventContextT struct {
 
 type tracerGlobalConfigT struct {
 	SelfPid                         uint32
-	_                               [4]byte
+	SecurityFileOpenInitialBurst    uint32
 	PidNsId                         uint64
 	FlowSampleSubmitIntervalSeconds uint64
 	FlowGrouping                    uint64
@@ -173,6 +173,7 @@ type tracerProgramSpecs struct {
 type tracerMapSpecs struct {
 	ArgsMap                 *ebpf.MapSpec `ebpf:"args_map"`
 	Bufs                    *ebpf.MapSpec `ebpf:"bufs"`
+	CgroupFileOpensStatsMap *ebpf.MapSpec `ebpf:"cgroup_file_opens_stats_map"`
 	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
 	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
 	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
@@ -244,6 +245,7 @@ func (o *tracerObjects) Close() error {
 type tracerMaps struct {
 	ArgsMap                 *ebpf.Map `ebpf:"args_map"`
 	Bufs                    *ebpf.Map `ebpf:"bufs"`
+	CgroupFileOpensStatsMap *ebpf.Map `ebpf:"cgroup_file_opens_stats_map"`
 	ConfigMap               *ebpf.Map `ebpf:"config_map"`
 	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
 	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
@@ -286,6 +288,7 @@ func (m *tracerMaps) Close() error {
 	return _TracerClose(
 		m.ArgsMap,
 		m.Bufs,
+		m.CgroupFileOpensStatsMap,
 		m.ConfigMap,
 		m.DroppedBinaryInodes,
 		m.EventDataMap,

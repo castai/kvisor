@@ -296,6 +296,18 @@ typedef struct syscall_stats_key {
     u64 id;
 } syscall_stats_key_t;
 
+typedef struct rate_limiter {
+    u64 last_refill_time;
+    u64 current_tokens;
+    u32 rps;
+    u32 burst;
+} rate_limiter_t;
+
+typedef struct cgroup_file_opens_stats {
+    u64 total;
+    rate_limiter_t rate_limiter;
+} cgroup_file_opens_stats_t;
+
 // Must be kept in sync with `EBPFMetrics` defined in metrics.go.
 enum metric {
     UNKNOWN_METRIC = 0,

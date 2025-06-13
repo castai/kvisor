@@ -30,6 +30,7 @@ enum buf_idx_e
 
 typedef struct {
     u32 self_pid;
+    u32 security_file_open_initial_burst;
     u64 pid_ns_id; // id of the pid namespace the node host PID will be translated to.
     u64 flow_sample_submit_interval_seconds;
     u64 flow_grouping;
