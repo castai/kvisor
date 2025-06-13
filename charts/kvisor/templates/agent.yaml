@@ -45,7 +45,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
       hostPID: true
       securityContext:
         {{- toYaml .Values.agent.securityContext | nindent 8 }}
@@ -165,7 +165,61 @@ spec:
             - name: debugfs
               mountPath: /sys/kernel/debug
             - name: containerd-sock
-              mountPath: /run/containerd/containerd.sock
+              mountPath: /var/run/docker.sock
+              readOnly: true
+        # Kepler sidecar container for energy monitoring
+        - name: kepler
+          image: "quay.io/sustainable_computing_io/kepler:latest"
+          imagePullPolicy: Always
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - SYS_ADMIN
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          command:
+            - /usr/bin/kepler
+          args:
+            - -enable-gpu=true
+            - -v=1
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KEPLER_LOG_LEVEL
+              value: "1"
+          ports:
+            - containerPort: 8888
+              name: kepler-metrics
+              protocol: TCP
+          volumeMounts:
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: usr-src
+              mountPath: /usr/src
+              readOnly: true
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: proc
+              mountPath: /proc
+              readOnly: true
+            - name: cgroups
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            - name: debugfs
+              mountPath: /sys/kernel/debug
+            - name: containerd-sock
+              mountPath: /var/run/docker.sock
               readOnly: true
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
@@ -195,8 +249,21 @@ spec:
           emptyDir: {}
         - name: containerd-sock
           hostPath:
-            path: /run/containerd/containerd.sock
+            path: /var/run/docker.sock
             type: Socket
+        # Kepler
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: usr-src
+          hostPath:
+            path: /usr/src
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: proc
+          hostPath:
+            path: /proc
 {{- end }}
 ---
 {{- if .Values.agent.serviceAccount.create -}}
