@@ -68,6 +68,8 @@ agent:
 
   podAnnotations: {}
 
+  podLabels: {}
+
   securityContext: {}
 
   containerSecurityContext:
@@ -155,6 +157,8 @@ controller:
     name: ""
 
   podAnnotations: {}
+
+  podLabels: {}
 
   # Allow to set priority class like system-cluster-critical.
   priorityClass: "system-cluster-critical"
