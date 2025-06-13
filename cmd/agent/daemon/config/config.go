@@ -51,6 +51,7 @@ type Config struct {
 	EventLabels                    []string                        `json:"eventLabels"`
 	EventAnnotations               []string                        `json:"eventAnnotations"`
 	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
+	Sustainability                 SustainabilityConfig            `json:"sustainability"`
 }
 
 type EnricherConfig struct {
@@ -73,4 +74,10 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool `json:"enabled"`
+}
+
+type SustainabilityConfig struct {
+	Enabled        bool          `json:"enabled"`
+	KeplerEndpoint string        `json:"keplerEndpoint"`
+	ScrapeInterval time.Duration `json:"scrapeInterval"`
 }

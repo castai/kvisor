@@ -126,6 +126,10 @@ func NewRunCommand(version string) *cobra.Command {
 
 		// TODO: Enable containers refresh once perf issue is fixed.
 		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 0, "Containers refresh interval")
+
+		sustainabilityEnabled        = command.Flags().Bool("sustainability-enabled", false, "Enable sustainability metrics scraping from Kepler")
+		sustainabilityKeplerEndpoint = command.Flags().String("sustainability-kepler-endpoint", "http://localhost:8888/metrics", "Kepler metrics endpoint")
+		sustainabilityScrapeInterval = command.Flags().Duration("sustainability-scrape-interval", 30*time.Second, "Sustainability metrics scrape interval")
 	)
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
@@ -224,6 +228,11 @@ func NewRunCommand(version string) *cobra.Command {
 			EventLabels:               *ebpfEventLabels,
 			EventAnnotations:          *ebpfEventAnnotations,
 			ContainersRefreshInterval: *containersRefreshInterval,
+			Sustainability: config.SustainabilityConfig{
+				Enabled:        *sustainabilityEnabled,
+				KeplerEndpoint: *sustainabilityKeplerEndpoint,
+				ScrapeInterval: *sustainabilityScrapeInterval,
+			},
 		}).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error(err.Error())
 			os.Exit(1)

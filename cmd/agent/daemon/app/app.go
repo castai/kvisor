@@ -23,6 +23,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/state"
+	"github.com/castai/kvisor/cmd/agent/daemon/sustainability"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -281,6 +282,29 @@ func (a *App) Run(ctx context.Context) error {
 		enrichmentService,
 	)
 
+	// Initialize sustainability scraper if enabled
+	var sustainabilityScraper *sustainability.Scraper
+	if cfg.Sustainability.Enabled {
+		nodeName := os.Getenv("NODE_NAME")
+		if nodeName == "" {
+			log.Warn("NODE_NAME environment variable not set, using hostname for sustainability metrics")
+			if hostname, err := os.Hostname(); err == nil {
+				nodeName = hostname
+			} else {
+				nodeName = "unknown"
+			}
+		}
+
+		sustainabilityConfig := &sustainability.Config{
+			Enabled:        cfg.Sustainability.Enabled,
+			KeplerEndpoint: cfg.Sustainability.KeplerEndpoint,
+			ScrapeInterval: cfg.Sustainability.ScrapeInterval,
+			NodeName:       nodeName,
+		}
+
+		sustainabilityScraper = sustainability.NewScraper(log, sustainabilityConfig, prometheus.DefaultRegisterer)
+	}
+
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return a.runHTTPServer(ctx, log)
@@ -301,6 +325,17 @@ func (a *App) Run(ctx context.Context) error {
 	errg.Go(func() error {
 		return enrichmentService.Run(ctx)
 	})
+
+	if sustainabilityScraper != nil {
+		errg.Go(func() error {
+			if err := sustainabilityScraper.Start(ctx); err != nil {
+				return err
+			}
+			<-ctx.Done()
+			sustainabilityScraper.Stop()
+			return nil
+		})
+	}
 
 	// Tracer should not run in err group because it can block event if context is canceled
 	// during event read.

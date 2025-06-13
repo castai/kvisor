@@ -21,6 +21,7 @@ import (
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/sustainability"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -151,6 +152,23 @@ func (a *App) Run(ctx context.Context) error {
 				return kubeBenchCtrl.Run(ctx)
 			})
 		}
+	}
+
+	// Start sustainability controller
+	sustainabilityCtrl, err := sustainability.NewController(
+		log,
+		clientset,
+		informersFactory,
+		prometheus.DefaultRegisterer,
+		"", // Use default config path
+	)
+	if err != nil {
+		log.Warnf("Failed to create sustainability controller: %v", err)
+	} else {
+		sustainabilityCtrl.GetAggregator().SetKubeClient(kubeClient)
+		errg.Go(func() error {
+			return sustainabilityCtrl.Start(ctx)
+		})
 	}
 
 	errg.Go(func() error {
