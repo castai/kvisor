@@ -3,10 +3,10 @@ package config
 import (
 	"time"
 
-	"github.com/castai/kvisor/cmd/controller/state"
-	"github.com/castai/kvisor/cmd/controller/state/imagescan"
-	"github.com/castai/kvisor/cmd/controller/state/kubebench"
-	"github.com/castai/kvisor/cmd/controller/state/kubelinter"
+	"github.com/castai/kvisor/cmd/controller/controllers"
+	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/pkg/castai"
 )
 
@@ -32,13 +32,13 @@ type Config struct {
 	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
 	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
 
-	CastaiController state.CastaiConfig      `json:"castaiController"`
-	CastaiEnv        castai.Config           `json:"castaiEnv"`
-	ImageScan        imagescan.Config        `json:"imageScan"`
-	Linter           kubelinter.Config       `json:"linter"`
-	KubeBench        kubebench.Config        `json:"kubeBench"`
-	JobsCleanup      state.JobsCleanupConfig `json:"jobsCleanup"`
-	AgentConfig      AgentConfig             `json:"agentConfig"`
+	CastaiController controllers.CastaiConfig      `json:"castaiController"`
+	CastaiEnv        castai.Config                 `json:"castaiEnv"`
+	ImageScan        imagescan.Config              `json:"imageScan"`
+	Linter           kubelinter.Config             `json:"linter"`
+	KubeBench        kubebench.Config              `json:"kubeBench"`
+	JobsCleanup      controllers.JobsCleanupConfig `json:"jobsCleanup"`
+	AgentConfig      AgentConfig                   `json:"agentConfig"`
 }
 
 type AgentConfig struct {

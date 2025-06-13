@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/cmd/controller/config"
-	"github.com/castai/kvisor/cmd/controller/state/imagescan"
-	"github.com/castai/kvisor/cmd/controller/state/kubebench"
-	"github.com/castai/kvisor/cmd/controller/state/kubelinter"
+	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 
 	"github.com/castai/kvisor/cmd/controller/app"
-	"github.com/castai/kvisor/cmd/controller/state"
+	"github.com/castai/kvisor/cmd/controller/controllers"
 )
 
 var (
@@ -139,7 +139,7 @@ func main() {
 		HTTPListenPort:            *serverHTTPListenPort,
 		KubeServerListenPort:      *kubeServerListenPort,
 		CastaiEnv:                 castaiClientCfg,
-		CastaiController: state.CastaiConfig{
+		CastaiController: controllers.CastaiConfig{
 			RemoteConfigSyncDuration: *castaiConfigSyncDuration,
 		},
 		ImageScan: imagescan.Config{
@@ -180,7 +180,7 @@ func main() {
 			CloudProvider:      cloudProviderVal,
 			JobNamespace:       podNs,
 		},
-		JobsCleanup: state.JobsCleanupConfig{
+		JobsCleanup: controllers.JobsCleanupConfig{
 			CleanupInterval: *jobsCleanupInterval,
 			CleanupJobAge:   *jobsCleanupJobAge,
 			Namespace:       podNs,

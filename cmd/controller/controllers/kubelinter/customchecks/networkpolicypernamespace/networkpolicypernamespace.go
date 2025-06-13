@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/castai/kvisor/cmd/controller/state/kubelinter/customobjectkinds"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter/customobjectkinds"
 	"golang.stackrox.io/kube-linter/pkg/check"
 	"golang.stackrox.io/kube-linter/pkg/config"
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
