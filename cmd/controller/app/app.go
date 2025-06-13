@@ -13,11 +13,11 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/cmd/controller/config"
+	"github.com/castai/kvisor/cmd/controller/controllers"
+	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/cmd/controller/state"
-	"github.com/castai/kvisor/cmd/controller/state/imagescan"
-	"github.com/castai/kvisor/cmd/controller/state/kubebench"
-	"github.com/castai/kvisor/cmd/controller/state/kubelinter"
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
@@ -113,12 +113,12 @@ func (a *App) Run(ctx context.Context) error {
 				return fmt.Errorf("marshaling config: %w", err)
 			}
 
-			castaiCtrl := state.NewCastaiController(log, cfg.CastaiController, jsonConfig, kubeClient, castaiClient)
+			castaiCtrl := controllers.NewCastaiController(log, cfg.CastaiController, jsonConfig, kubeClient, castaiClient)
 			return castaiCtrl.Run(ctx)
 		})
 
 		errg.Go(func() error {
-			jobsCleanupCtrl := state.NewJobsCleanupController(log, clientset, cfg.JobsCleanup)
+			jobsCleanupCtrl := controllers.NewJobsCleanupController(log, clientset, cfg.JobsCleanup)
 			return jobsCleanupCtrl.Run(ctx)
 		})
 

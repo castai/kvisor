@@ -22,7 +22,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
-	"github.com/castai/kvisor/cmd/agent/daemon/state"
+	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -72,7 +72,7 @@ func (a *App) Run(ctx context.Context) error {
 	podName := os.Getenv("POD_NAME")
 
 	var log *logging.Logger
-	var exporters *state.Exporters
+	var exporters *pipeline.Exporters
 	// Castai specific spetup if config is valid.
 	if cfg.Castai.Valid() {
 		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.Castai)
@@ -100,23 +100,23 @@ func (a *App) Run(ctx context.Context) error {
 			}
 		}
 		log = logging.New(logCfg)
-		exporters = state.NewExporters(log)
+		exporters = pipeline.NewExporters(log)
 		if cfg.EBPFEventsEnabled {
-			exporters.ContainerEvents = append(exporters.ContainerEvents, state.NewCastaiContainerEventSender(ctx, log, castaiClient))
+			exporters.ContainerEvents = append(exporters.ContainerEvents, pipeline.NewCastaiContainerEventSender(ctx, log, castaiClient))
 		}
 		if cfg.Stats.Enabled {
-			exporters.Stats = append(exporters.Stats, state.NewCastaiStatsExporter(log, castaiClient, cfg.ExportersQueueSize))
+			exporters.Stats = append(exporters.Stats, pipeline.NewCastaiStatsExporter(log, castaiClient, cfg.ExportersQueueSize))
 		}
 		if cfg.Netflow.Enabled {
-			exporters.Netflow = append(exporters.Netflow, state.NewCastaiNetflowExporter(log, castaiClient, cfg.ExportersQueueSize))
+			exporters.Netflow = append(exporters.Netflow, pipeline.NewCastaiNetflowExporter(log, castaiClient, cfg.ExportersQueueSize))
 		}
 		if cfg.ProcessTree.Enabled {
-			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, cfg.ExportersQueueSize)
+			exporter := pipeline.NewCastaiProcessTreeExporter(log, castaiClient, cfg.ExportersQueueSize)
 			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
 		}
 	} else {
 		log = logging.New(logCfg)
-		exporters = state.NewExporters(log)
+		exporters = pipeline.NewExporters(log)
 		log.Warn("castai config is not set or it is invalid, running agent in standalone mode")
 	}
 
@@ -152,16 +152,16 @@ func (a *App) Run(ctx context.Context) error {
 		defer storageConn.Close()
 
 		if cfg.EBPFEventsEnabled {
-			exporters.ContainerEvents = append(exporters.ContainerEvents, state.NewClickhouseContainerEventsExporter(log, storageConn))
+			exporters.ContainerEvents = append(exporters.ContainerEvents, pipeline.NewClickhouseContainerEventsExporter(log, storageConn))
 		}
 
 		if cfg.Netflow.Enabled {
-			clickhouseNetflowExporter := state.NewClickhouseNetflowExporter(log, storageConn, cfg.ExportersQueueSize)
+			clickhouseNetflowExporter := pipeline.NewClickhouseNetflowExporter(log, storageConn, cfg.ExportersQueueSize)
 			exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
 		}
 
 		if cfg.ProcessTree.Enabled {
-			exporter := state.NewClickhouseProcessTreeExporter(log, storageConn, cfg.ExportersQueueSize)
+			exporter := pipeline.NewClickhouseProcessTreeExporter(log, storageConn, cfg.ExportersQueueSize)
 			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
 		}
 	}
@@ -265,9 +265,9 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(proc.Path)
 
-	ctrl := state.NewController(
+	ctrl := pipeline.NewController(
 		log,
-		state.Config{
+		pipeline.Config{
 			Netflow: cfg.Netflow,
 			Events:  cfg.Events,
 			Stats:   cfg.Stats,
@@ -386,7 +386,7 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	return cleanup
 }
 
-func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, exporters *state.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
+func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, exporters *pipeline.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
 	// TODO: Allow to build these policies on the fly from the control plane. Ideally we should be able to disable, enable policies and change rate limits dynamically.
 	policy := &ebpftracer.Policy{
 		SystemEvents: []events.ID{
