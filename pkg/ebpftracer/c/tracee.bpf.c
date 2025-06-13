@@ -2723,6 +2723,40 @@ int BPF_KPROBE(trace_security_inode_follow_link,
     return events_ringbuf_submit(&p, PROC_FD_LINK_RESOLVED, 0);
 }
 
+statfunc rate_limiter_t new_rate_limiter(u32 rps, u32 burst)
+{
+    rate_limiter_t limiter = {
+        .last_refill_time = bpf_ktime_get_ns(),
+        .current_tokens = burst,
+        .rps = rps,
+        .burst = burst,
+    };
+    return limiter;
+}
+
+statfunc bool rate_limiter_allow(rate_limiter_t *rt, u64 tokens_needed) {
+    u64 current_time = bpf_ktime_get_ns();
+    u64 time_delta_ns = current_time - rt->last_refill_time;
+
+    // Refill tokens.
+    u64 tokens_to_add = (time_delta_ns * rt->rps) / 1000000000ULL; // NS per second.
+    rt->current_tokens += tokens_to_add;
+
+    // Cap tokens at burst size.
+    if (rt->current_tokens > rt->burst) {
+        rt->current_tokens = rt->burst;
+    }
+
+    rt->last_refill_time = current_time;
+
+    if (rt->current_tokens >= tokens_needed) {
+        rt->current_tokens -= tokens_needed;
+        return true;
+    } else {
+        return false;
+    }
+}
+
 SEC("kprobe/security_file_open")
 int BPF_KPROBE(security_file_open)
 {
@@ -2739,7 +2773,34 @@ int BPF_KPROBE(security_file_open)
         return 0;
     }
 
-    // TODO: Allow to configure white list patterns from user space.
+    u64 cgroup_id = p.event->context.task.cgroup_id;
+    if (should_skip_cgroup(cgroup_id)) {
+        return 0;
+    }
+
+    const u64 initial_burst = 1000;
+
+    cgroup_file_opens_stats_t *stats = bpf_map_lookup_elem(&cgroup_file_opens_stats_map, &cgroup_id);
+    if (!stats) {
+        cgroup_file_opens_stats_t new_stats = {0};
+        new_stats.total = 1;
+        new_stats.rate_limiter = new_rate_limiter(1, initial_burst);
+        bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, &new_stats, BPF_ANY);
+        stats = &new_stats;
+    } else {
+        __sync_fetch_and_add(&stats->total, 1);
+    }
+
+    if (stats->total > initial_burst) {
+         stats->rate_limiter.rps = 1;
+         stats->rate_limiter.burst = 1;
+    }
+
+    bool allow_submit = rate_limiter_allow(&stats->rate_limiter, 1);
+    bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, stats, BPF_ANY);
+    if (!allow_submit) {
+        return 0;
+    }
 
     struct file *file = (struct file *) PT_REGS_PARM1(ctx);
     void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));

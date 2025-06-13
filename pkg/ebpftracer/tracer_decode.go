@@ -156,6 +156,7 @@ func (t *Tracer) handleCgroupRmdirEvent(parsedArgs types.Args) error {
 	if err != nil {
 		return fmt.Errorf("cannot remove cgroup %d from mute map: %w", args.CgroupId, err)
 	}
+	_ = t.module.objects.CgroupFileOpensStatsMap.Delete(args.CgroupId)
 	return nil
 }
 

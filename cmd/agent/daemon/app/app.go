@@ -250,7 +250,8 @@ func (a *App) Run(ctx context.Context) error {
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
 		},
-		PodName: podName,
+		PodName:                      podName,
+		SecurityFileOpenInitialBurst: cfg.EBPFSecurityFileOpenInitialBurst,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)

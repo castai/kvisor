@@ -62,9 +62,10 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfTracerMetricsEnabled       = command.Flags().Bool("ebpf-tracer-metrics-enabled", true, "Enables the export of tracer related metrics from eBPF")
 		ebpfProgramMetricsEnabled      = command.Flags().Bool("ebpf-program-metrics-enabled", false, "Enables the export of metrics about eBPF programs")
 
-		EBPFSignalEventsRingBufferSize = command.Flags().Uint32("ebpf-signal-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for priority events. Should be power of 2")
-		EBPFEventsRingBufferSize       = command.Flags().Uint32("ebpf-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for events. Should be power of 2")
-		EBPFSkbEventsRingBufferSize    = command.Flags().Uint32("ebpf-skb-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for skb network events. Should be power of 2")
+		EBPFSignalEventsRingBufferSize   = command.Flags().Uint32("ebpf-signal-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for priority events. Should be power of 2")
+		EBPFEventsRingBufferSize         = command.Flags().Uint32("ebpf-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for events. Should be power of 2")
+		EBPFSkbEventsRingBufferSize      = command.Flags().Uint32("ebpf-skb-events-ring-buffer-size", 1<<20, "Ebpf ring buffer size in bytes for skb network events. Should be power of 2")
+		EBPFSecurityFileOpenInitialBurst = command.Flags().Uint32("ebpf-security-file-open-initial-burst", 1000, "Initial burst size for file opens")
 
 		mutedNamespaces = command.Flags().StringSlice("ignored-namespaces", []string{"kube-system", "calico", "calico-system"},
 			"List of namespaces to ignore tracing events for. To ignore multiple namespaces, separate by comma or pass flag multiple times."+
@@ -164,11 +165,12 @@ func NewRunCommand(version string) *cobra.Command {
 				TracerMetricsEnabled:  *ebpfTracerMetricsEnabled,
 				ProgramMetricsEnabled: *ebpfProgramMetricsEnabled,
 			},
-			EBPFEventsPolicyConfig:         ebpfEventsPolicy,
-			EBPFSignalEventsRingBufferSize: *EBPFSignalEventsRingBufferSize,
-			EBPFEventsRingBufferSize:       *EBPFEventsRingBufferSize,
-			EBPFSkbEventsRingBufferSize:    *EBPFSkbEventsRingBufferSize,
-			MutedNamespaces:                *mutedNamespaces,
+			EBPFEventsPolicyConfig:           ebpfEventsPolicy,
+			EBPFSignalEventsRingBufferSize:   *EBPFSignalEventsRingBufferSize,
+			EBPFEventsRingBufferSize:         *EBPFEventsRingBufferSize,
+			EBPFSkbEventsRingBufferSize:      *EBPFSkbEventsRingBufferSize,
+			EBPFSecurityFileOpenInitialBurst: *EBPFSecurityFileOpenInitialBurst,
+			MutedNamespaces:                  *mutedNamespaces,
 			SignatureEngineConfig: signature.SignatureEngineConfig{
 				InputChanSize:  *signatureEngineInputEventChanSize,
 				OutputChanSize: *signatureEngineOutputEventChanSize,
