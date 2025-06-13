@@ -35,9 +35,9 @@ spec:
       labels:
         {{- include "kvisor.controller.selectorLabels" . | nindent 8 }}
         {{- include "kvisor.commonLabels" . | nindent 8 }}
-        {{- with .Values.controller.podLabels }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
+      {{- with .Values.controller.podLabels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
