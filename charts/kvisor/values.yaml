@@ -49,6 +49,17 @@ pyroscope:
 agent:
   enabled: false
 
+  # Configuration for init containers
+  initContainers: []
+  # - name: set-kernel-param
+  #   image: busybox
+  #   command:
+  #     - /bin/sh
+  #     - -c
+  #     - sysctl -w kernel.kptr_restrict=1
+  #   securityContext:
+  #     privileged: true
+
   serviceAccount:
     # Specifies whether a service account should be created
     create: true
