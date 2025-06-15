@@ -51,8 +51,8 @@ kepler_container_joules_total{container_id="789ghi",container_namespace="default
 	// Create test Prometheus registry
 	registry := prometheus.NewRegistry()
 
-	// Create scraper instance
-	scraper := NewScraper(log, cfg, registry)
+	// Create scraper instance with nil channel for testing
+	scraper := NewScraper(log, cfg, registry, nil)
 
 	// Create context with timeout for test
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -177,7 +177,7 @@ some_other_metric{label="value"} 123
 	}
 
 	registry := prometheus.NewRegistry()
-	scraper := NewScraper(log, cfg, registry)
+	scraper := NewScraper(log, cfg, registry, nil)
 
 	// Perform single scrape
 	ctx := context.Background()
@@ -208,7 +208,7 @@ func TestScraper_HandlesKeplerServerError(t *testing.T) {
 	}
 
 	registry := prometheus.NewRegistry()
-	scraper := NewScraper(log, cfg, registry)
+	scraper := NewScraper(log, cfg, registry, nil)
 
 	// Perform single scrape
 	ctx := context.Background()
@@ -232,7 +232,7 @@ func TestScraper_DisabledConfiguration(t *testing.T) {
 	}
 
 	registry := prometheus.NewRegistry()
-	scraper := NewScraper(log, cfg, registry)
+	scraper := NewScraper(log, cfg, registry, nil)
 
 	ctx := context.Background()
 	err := scraper.Start(ctx)
@@ -287,7 +287,7 @@ kepler_container_joules_total{container_namespace="prod",pod_name="test",missing
 	}
 
 	registry := prometheus.NewRegistry()
-	scraper := NewScraper(log, cfg, registry)
+	scraper := NewScraper(log, cfg, registry, nil)
 
 	// Perform single scrape
 	ctx := context.Background()

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/castai/kvisor/cmd/agent/daemon/state"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -48,6 +49,9 @@ type Scraper struct {
 	stopCh chan struct{}
 	wg     sync.WaitGroup
 
+	// Channel for sending data to the pipeline
+	metricsChan chan<- *state.SustainabilityMetricData
+
 	// Prometheus metrics using promauto pattern
 	containerEnergyJoules *prometheus.GaugeVec
 
@@ -58,14 +62,15 @@ type Scraper struct {
 }
 
 // NewScraper creates a new sustainability scraper following kvisor patterns
-func NewScraper(log *logging.Logger, cfg *Config, registry prometheus.Registerer) *Scraper {
+func NewScraper(log *logging.Logger, cfg *Config, registry prometheus.Registerer, metricsChan chan<- *state.SustainabilityMetricData) *Scraper {
 	factory := promauto.With(registry)
 
 	return &Scraper{
-		log:    log.WithField("component", "sustainability"),
-		cfg:    cfg,
-		client: &http.Client{Timeout: ScrapeTimeout},
-		stopCh: make(chan struct{}),
+		log:         log.WithField("component", "sustainability"),
+		cfg:         cfg,
+		client:      &http.Client{Timeout: ScrapeTimeout},
+		stopCh:      make(chan struct{}),
+		metricsChan: metricsChan,
 
 		// Main sustainability metric
 		containerEnergyJoules: factory.NewGaugeVec(
@@ -281,15 +286,37 @@ func (s *Scraper) findLabelValue(labels []*dto.LabelPair, labelName string) (str
 	return "", fmt.Errorf("missing %s label", labelName)
 }
 
-// updateMetrics updates Prometheus metrics with scraped data
+// updateMetrics updates Prometheus metrics and sends data to pipeline
 func (s *Scraper) updateMetrics(metrics []*KeplerMetric) {
+	timestamp := time.Now().Unix()
+
 	for _, metric := range metrics {
+		// Update Prometheus metrics
 		s.containerEnergyJoules.WithLabelValues(
 			metric.NodeName,
 			metric.ContainerNamespace,
 			metric.PodName,
 			metric.ContainerName,
 		).Set(metric.Value)
+
+		// Send data to pipeline if channel is available
+		if s.metricsChan != nil {
+			pipelineMetric := &state.SustainabilityMetricData{
+				Timestamp:     timestamp,
+				NodeName:      metric.NodeName,
+				Namespace:     metric.ContainerNamespace,
+				PodName:       metric.PodName,
+				ContainerName: metric.ContainerName,
+				EnergyJoules:  metric.Value,
+			}
+
+			// Non-blocking send to avoid hanging scraper if pipeline is slow
+			select {
+			case s.metricsChan <- pipelineMetric:
+			default:
+				s.log.Warn("Pipeline metrics channel full, dropping metric")
+			}
+		}
 	}
 }
 

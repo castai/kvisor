@@ -282,8 +282,8 @@ func (a *App) Run(ctx context.Context) error {
 		enrichmentService,
 	)
 
-	// Initialize sustainability scraper if enabled
 	var sustainabilityScraper *sustainability.Scraper
+	var sustainabilityMetricsChan chan *state.SustainabilityMetricData
 	if cfg.Sustainability.Enabled {
 		nodeName := os.Getenv("NODE_NAME")
 		if nodeName == "" {
@@ -302,7 +302,15 @@ func (a *App) Run(ctx context.Context) error {
 			NodeName:       nodeName,
 		}
 
-		sustainabilityScraper = sustainability.NewScraper(log, sustainabilityConfig, prometheus.DefaultRegisterer)
+		// Create channel for sustainability metrics pipeline
+		sustainabilityMetricsChan = make(chan *state.SustainabilityMetricData, 1000)
+
+		// Add sustainability exporter for printing metrics
+		stdioSustainabilityExporter := state.NewStdioSustainabilityExporter(log, cfg.ExportersQueueSize)
+		exporters.Sustainability = append(exporters.Sustainability, stdioSustainabilityExporter)
+
+		// Create scraper with channel
+		sustainabilityScraper = sustainability.NewScraper(log, sustainabilityConfig, prometheus.DefaultRegisterer, sustainabilityMetricsChan)
 	}
 
 	errg, ctx := errgroup.WithContext(ctx)
@@ -334,6 +342,11 @@ func (a *App) Run(ctx context.Context) error {
 			<-ctx.Done()
 			sustainabilityScraper.Stop()
 			return nil
+		})
+
+		// Start sustainability pipeline
+		errg.Go(func() error {
+			return ctrl.RunSustainabilityPipeline(ctx, sustainabilityMetricsChan)
 		})
 	}
 
