@@ -2778,7 +2778,7 @@ int BPF_KPROBE(security_file_open)
         return 0;
     }
 
-    const u64 initial_burst = 1000;
+    const u64 initial_burst = global_config.security_file_open_initial_burst;
 
     cgroup_file_opens_stats_t *stats = bpf_map_lookup_elem(&cgroup_file_opens_stats_map, &cgroup_id);
     if (!stats) {
@@ -2791,9 +2791,9 @@ int BPF_KPROBE(security_file_open)
         __sync_fetch_and_add(&stats->total, 1);
     }
 
-    if (stats->total > initial_burst) {
-         stats->rate_limiter.rps = 1;
-         stats->rate_limiter.burst = 1;
+    // After initial burst lower to 1 event per second (sampling).
+    if (stats->total > initial_burst && stats->rate_limiter.burst > 1) {
+         stats->rate_limiter = new_rate_limiter(1, 1);
     }
 
     bool allow_submit = rate_limiter_allow(&stats->rate_limiter, 1);
