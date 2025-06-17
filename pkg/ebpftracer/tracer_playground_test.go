@@ -66,10 +66,11 @@ func TestTracer(t *testing.T) {
 
 	tr := ebpftracer.New(log, ebpftracer.Config{
 		//BTFPath:              fmt.Sprintf("./testdata/5.10.0-0.deb10.24-cloud-%s.btf", runtime.GOARCH),
-		EventsOutputChanSize:       10000,
-		SignalEventsRingBufferSize: 1 << 22,
-		EventsRingBufferSize:       1 << 22,
-		SkbEventsRingBufferSize:    1 << 22,
+		EventsOutputChanSize:         10000,
+		SignalEventsRingBufferSize:   1 << 22,
+		EventsRingBufferSize:         1 << 22,
+		SkbEventsRingBufferSize:      1 << 22,
+		SecurityFileOpenInitialBurst: 10,
 
 		DefaultCgroupsVersion: "V2",
 		DebugEnabled:          true,
@@ -139,7 +140,7 @@ func TestTracer(t *testing.T) {
 	}
 
 	//go printSyscallStatsLoop(ctx, tr, log)
-
+	lastts := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
@@ -149,7 +150,8 @@ func TestTracer(t *testing.T) {
 		case s := <-signatureEngine.Events():
 			printSignatureEvent(s)
 		case e := <-tr.Events():
-			printEvent(tr, e)
+			printEvent(tr, e, lastts)
+			lastts = time.Now()
 		case err := <-errc:
 			if err != nil {
 				t.Fatal(err)
@@ -269,13 +271,14 @@ func getInitializedMountNamespacePIDStore(procHandler *proc.Proc) *types.PIDsPer
 	return mountNamespacePIDStore
 }
 
-func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
+func printEvent(tr *ebpftracer.Tracer, e *types.Event, lastts time.Time) {
 	eventName := tr.GetEventName(e.Context.EventID)
 	procName := decoder.ProcessNameString(e.Context.Comm[:])
 
 	fmt.Printf(
-		"ts=%d  event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s ",
+		"ts=%d (%s)  event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s ",
 		e.Context.Ts,
+		time.Since(lastts).String(),
 		eventName,
 		e.Context.CgroupID,
 		e.Context.HostPid,

@@ -427,15 +427,6 @@ Currently we care only care about dns responses with valid answers.
 				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 					ID: events.SockSetState,
 				})
-			case events.SecurityFileOpen:
-				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-					ID: events.SecurityFileOpen,
-					FilterGenerator: ebpftracer.RateLimit(ebpftracer.RateLimitPolicy{
-						Rate:  1000,
-						Burst: 100,
-					}),
-					KernelFilters: nil,
-				})
 			case events.NetPacketDNSBase:
 				policy.Events = append(policy.Events, dnsEventPolicy)
 			default:
