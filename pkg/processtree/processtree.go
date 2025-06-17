@@ -135,7 +135,8 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 	for _, p := range processes {
 		procProcesses, err := c.proc.SnapshotProcessTree(p.PID)
 		if err != nil {
-			return err
+			c.log.Warnf("cannot snapshot process tree for PID %d: %v", p.PID, err)
+			continue
 		}
 
 		processesMap := make(map[ProcessKey]Process)
