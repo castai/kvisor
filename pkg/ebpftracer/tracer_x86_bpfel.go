@@ -216,6 +216,7 @@ type tracerMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tracerVariableSpecs struct {
+	SCALE_FACTOR_NS               *ebpf.VariableSpec `ebpf:"SCALE_FACTOR_NS"`
 	TRACE_EVENT_FL_TRACEPOINT     *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
 	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
 	GlobalConfig                  *ebpf.VariableSpec `ebpf:"global_config"`
@@ -332,6 +333,7 @@ func (m *tracerMaps) Close() error {
 //
 // It can be passed to loadTracerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tracerVariables struct {
+	SCALE_FACTOR_NS               *ebpf.Variable `ebpf:"SCALE_FACTOR_NS"`
 	TRACE_EVENT_FL_TRACEPOINT     *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
 	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
 	GlobalConfig                  *ebpf.Variable `ebpf:"global_config"`
