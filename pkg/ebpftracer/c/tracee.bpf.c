@@ -2754,7 +2754,7 @@ int BPF_KPROBE(security_file_open)
         bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, &new_stats, BPF_ANY);
         stats = &new_stats;
     } else {
-        __sync_fetch_and_add(&stats->total, 1);
+        stats->total += 1;
     }
 
     // After initial burst lower to 1 event per second (sampling).
