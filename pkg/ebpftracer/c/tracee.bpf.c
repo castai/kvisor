@@ -2748,13 +2748,18 @@ int BPF_KPROBE(security_file_open)
 
     cgroup_file_opens_stats_t *stats = bpf_map_lookup_elem(&cgroup_file_opens_stats_map, &cgroup_id);
     if (!stats) {
-        cgroup_file_opens_stats_t new_stats = {0};
-        new_stats.total = 1;
-        new_stats.rate_limiter = new_rate_limiter(1, initial_burst);
+        cgroup_file_opens_stats_t new_stats = {
+            .total = 1,
+            .rate_limiter = new_rate_limiter(1, initial_burst),
+        };
         bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, &new_stats, BPF_ANY);
         stats = &new_stats;
+        stats = bpf_map_lookup_elem(&cgroup_file_opens_stats_map, &cgroup_id);
+        if (!stats) {
+            return 0; // Should not happen.
+        }
     } else {
-        stats->total += 1;
+        __sync_fetch_and_add(&stats->total, 1);
     }
 
     // After initial burst lower to 1 event per second (sampling).
@@ -2763,9 +2768,9 @@ int BPF_KPROBE(security_file_open)
     }
 
     bool allow_submit = rate_limiter_allow(&stats->rate_limiter, 1);
-    bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, stats, BPF_ANY);
+    bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, stats, BPF_ANY)
     if (!allow_submit) {
-        return 0;
+       return 0;
     }
 
     struct file *file = (struct file *) PT_REGS_PARM1(ctx);
