@@ -2768,7 +2768,7 @@ int BPF_KPROBE(security_file_open)
     }
 
     bool allow_submit = rate_limiter_allow(&stats->rate_limiter, 1);
-    bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, stats, BPF_ANY)
+    bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, stats, BPF_ANY);
     if (!allow_submit) {
        return 0;
     }

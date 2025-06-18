@@ -300,7 +300,7 @@ typedef struct syscall_stats_key {
 typedef struct cgroup_file_opens_stats {
     u64 total;
     rate_limiter_t rate_limiter;
-} cgroup_file_opens_stats_t;
+} __attribute__((packed)) cgroup_file_opens_stats_t;
 
 // Must be kept in sync with `EBPFMetrics` defined in metrics.go.
 enum metric {
