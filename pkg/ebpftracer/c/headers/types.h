@@ -189,10 +189,6 @@ typedef struct event_data {
     u64 in_use;
 } event_data_t;
 
-typedef struct config {
-    int summary_map_index;
-} config_t;
-
 #define MAX_EVENT_SIZE sizeof(event_context_t) + sizeof(u8) + ARGS_BUF_SIZE
 
 #define BPF_MAX_LOG_FILE_LEN 72
@@ -342,110 +338,5 @@ union addr {
     __be32 ipv4;
 } __attribute__((__packed__));
 
-typedef struct process_identity {
-    __u32 pid;
-    __u64 pid_start_time;
-    __u64 cgroup_id;
-    // TODO(patrick.pichler): In the future we might want to get rid of comm and move it
-    // to an enrichment stage in userspace. If we do this, we could probably also get rid
-    // of it for event context.
-    __u8 comm[TASK_COMM_LEN];
-} __attribute__((__packed__)) process_identity_t;
-
-struct traffic_summary {
-    __u64 rx_packets;
-    __u64 rx_bytes;
-
-    __u64 tx_packets;
-    __u64 tx_bytes;
-
-    __u64 last_packet_ts;
-    // In order for BTF to be generated for this struct, a dummy variable needs to
-    // be created.
-} __attribute__((__packed__)) traffic_summary_dummy;
-
-struct ip_key {
-    struct process_identity process_identity;
-
-    tuple_t tuple;
-    __u8 proto;
-
-    // In order for BTF to be generated for this struct, a dummy variable needs to
-    // be created.
-} __attribute__((__packed__)) ip_key_dummy;
-
-enum flow_direction {
-    INGRESS,
-    EGRESS,
-};
-
-// NOTE: proto header structs need full type in vmlinux.h (for correct skb copy)
-
-typedef union protohdrs_t {
-    struct tcphdr tcphdr;
-    struct udphdr udphdr;
-    struct icmphdr icmphdr;
-    struct icmp6hdr icmp6hdr;
-    union {
-        u8 tcp_extra[40]; // data offset might set it up to 60 bytes
-    };
-} protohdrs;
-
-typedef struct nethdrs_t {
-    iphdrs iphdrs;
-    protohdrs protohdrs;
-} nethdrs;
-
-// cgroupctxmap
-
-typedef enum net_packet {
-    // Layer 3
-    SUB_NET_PACKET_IP = 1 << 1,
-    // Layer 4
-    SUB_NET_PACKET_TCP = 1 << 2,
-    SUB_NET_PACKET_UDP = 1 << 3,
-    SUB_NET_PACKET_ICMP = 1 << 4,
-    SUB_NET_PACKET_ICMPV6 = 1 << 5,
-    // Layer 7
-    SUB_NET_PACKET_DNS = 1 << 6,
-    SUB_NET_PACKET_SOCKS5 = 1 << 8,
-    SUB_NET_PACKET_SSH = 1 << 9,
-} net_packet_t;
-
-typedef struct net_event_contextmd {
-    u32 header_size;
-    u8 captured; // packet has already been captured
-} __attribute__((__packed__)) net_event_contextmd_t;
-
-// network related maps
-
-typedef struct net_task_context {
-    task_context_t taskctx;
-} net_task_context_t;
-
-// CONSTANTS
-// Network return value (retval) codes
-
-// Packet Direction (ingress/egress) Flag
-#define packet_ingress (1 << 4)
-#define packet_egress  (1 << 5)
-// Flows (begin/end) Flags per Protocol
-#define flow_tcp_begin  (1 << 6) // syn+ack flag or first flow packet
-#define flow_tcp_sample (1 << 7) // sample with statistics after first flow
-#define flow_tcp_end    (1 << 8) // fin flag or last flow packet
-
-// payload size: full packets, only headers
-#define FULL    65536 // 1 << 16
-#define HEADERS 0     // no payload
-
-// when guessing by src/dst ports, declare at network.h
-#define TCP_PORT_SSH    22
-#define UDP_PORT_DNS    53
-#define TCP_PORT_DNS    53
-#define TCP_PORT_SOCKS5 1080
-
-// layer 7 parsing related constants
-#define socks5_min_len 4
-#define ssh_min_len    4 // the initial SSH messages always send `SSH-`
 
 #endif

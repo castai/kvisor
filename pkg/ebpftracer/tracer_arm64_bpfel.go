@@ -12,8 +12,6 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type tracerConfigT struct{ SummaryMapIndex int32 }
-
 type tracerEventContextT struct {
 	Ts          uint64
 	Task        tracerTaskContextT
@@ -22,6 +20,23 @@ type tracerEventContextT struct {
 	Retval      int64
 	ProcessorId uint16
 	_           [6]byte
+}
+
+type tracerFileAccessConfigT struct{ MapIndex int32 }
+
+type tracerFileAccessKey struct {
+	CgroupId     uint64
+	Inode        uint64
+	PidStartTime uint64
+	Pid          uint32
+	HostPid      uint32
+	Dev          uint32
+}
+
+type tracerFileAccessStats struct {
+	Reads    uint64
+	Filepath [512]uint8
+	Comm     [16]uint8
 }
 
 type tracerGlobalConfigT struct {
@@ -52,6 +67,8 @@ type tracerIpKey struct {
 	}
 	Proto uint8
 }
+
+type tracerNetflowConfigT struct{ MapIndex int32 }
 
 type tracerTaskContextT struct {
 	StartTime       uint64
@@ -173,12 +190,13 @@ type tracerProgramSpecs struct {
 type tracerMapSpecs struct {
 	ArgsMap                 *ebpf.MapSpec `ebpf:"args_map"`
 	Bufs                    *ebpf.MapSpec `ebpf:"bufs"`
-	ConfigMap               *ebpf.MapSpec `ebpf:"config_map"`
 	DroppedBinaryInodes     *ebpf.MapSpec `ebpf:"dropped_binary_inodes"`
 	EventDataMap            *ebpf.MapSpec `ebpf:"event_data_map"`
 	Events                  *ebpf.MapSpec `ebpf:"events"`
 	EventsMap               *ebpf.MapSpec `ebpf:"events_map"`
 	ExistingSocketsMap      *ebpf.MapSpec `ebpf:"existing_sockets_map"`
+	FileAccessConfigMap     *ebpf.MapSpec `ebpf:"file_access_config_map"`
+	FileAccessStatsMap      *ebpf.MapSpec `ebpf:"file_access_stats_map"`
 	FileModificationMap     *ebpf.MapSpec `ebpf:"file_modification_map"`
 	FileWrites              *ebpf.MapSpec `ebpf:"file_writes"`
 	IgnoredCgroupsMap       *ebpf.MapSpec `ebpf:"ignored_cgroups_map"`
@@ -188,6 +206,7 @@ type tracerMapSpecs struct {
 	Metrics                 *ebpf.MapSpec `ebpf:"metrics"`
 	NetHeapSockStateEvent   *ebpf.MapSpec `ebpf:"net_heap_sock_state_event"`
 	NetTaskctxMap           *ebpf.MapSpec `ebpf:"net_taskctx_map"`
+	NetflowConfigMap        *ebpf.MapSpec `ebpf:"netflow_config_map"`
 	NetflowsDataMap         *ebpf.MapSpec `ebpf:"netflows_data_map"`
 	NetworkTrafficBufferMap *ebpf.MapSpec `ebpf:"network_traffic_buffer_map"`
 	OomInfo                 *ebpf.MapSpec `ebpf:"oom_info"`
@@ -217,6 +236,8 @@ type tracerMapSpecs struct {
 type tracerVariableSpecs struct {
 	TRACE_EVENT_FL_TRACEPOINT     *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
 	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.VariableSpec `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
+	FileAccessKeyDummy            *ebpf.VariableSpec `ebpf:"file_access_key_dummy"`
+	FileAccessStatsDummy          *ebpf.VariableSpec `ebpf:"file_access_stats_dummy"`
 	GlobalConfig                  *ebpf.VariableSpec `ebpf:"global_config"`
 	IpKeyDummy                    *ebpf.VariableSpec `ebpf:"ip_key_dummy"`
 	TrafficSummaryDummy           *ebpf.VariableSpec `ebpf:"traffic_summary_dummy"`
@@ -244,12 +265,13 @@ func (o *tracerObjects) Close() error {
 type tracerMaps struct {
 	ArgsMap                 *ebpf.Map `ebpf:"args_map"`
 	Bufs                    *ebpf.Map `ebpf:"bufs"`
-	ConfigMap               *ebpf.Map `ebpf:"config_map"`
 	DroppedBinaryInodes     *ebpf.Map `ebpf:"dropped_binary_inodes"`
 	EventDataMap            *ebpf.Map `ebpf:"event_data_map"`
 	Events                  *ebpf.Map `ebpf:"events"`
 	EventsMap               *ebpf.Map `ebpf:"events_map"`
 	ExistingSocketsMap      *ebpf.Map `ebpf:"existing_sockets_map"`
+	FileAccessConfigMap     *ebpf.Map `ebpf:"file_access_config_map"`
+	FileAccessStatsMap      *ebpf.Map `ebpf:"file_access_stats_map"`
 	FileModificationMap     *ebpf.Map `ebpf:"file_modification_map"`
 	FileWrites              *ebpf.Map `ebpf:"file_writes"`
 	IgnoredCgroupsMap       *ebpf.Map `ebpf:"ignored_cgroups_map"`
@@ -259,6 +281,7 @@ type tracerMaps struct {
 	Metrics                 *ebpf.Map `ebpf:"metrics"`
 	NetHeapSockStateEvent   *ebpf.Map `ebpf:"net_heap_sock_state_event"`
 	NetTaskctxMap           *ebpf.Map `ebpf:"net_taskctx_map"`
+	NetflowConfigMap        *ebpf.Map `ebpf:"netflow_config_map"`
 	NetflowsDataMap         *ebpf.Map `ebpf:"netflows_data_map"`
 	NetworkTrafficBufferMap *ebpf.Map `ebpf:"network_traffic_buffer_map"`
 	OomInfo                 *ebpf.Map `ebpf:"oom_info"`
@@ -286,12 +309,13 @@ func (m *tracerMaps) Close() error {
 	return _TracerClose(
 		m.ArgsMap,
 		m.Bufs,
-		m.ConfigMap,
 		m.DroppedBinaryInodes,
 		m.EventDataMap,
 		m.Events,
 		m.EventsMap,
 		m.ExistingSocketsMap,
+		m.FileAccessConfigMap,
+		m.FileAccessStatsMap,
 		m.FileModificationMap,
 		m.FileWrites,
 		m.IgnoredCgroupsMap,
@@ -301,6 +325,7 @@ func (m *tracerMaps) Close() error {
 		m.Metrics,
 		m.NetHeapSockStateEvent,
 		m.NetTaskctxMap,
+		m.NetflowConfigMap,
 		m.NetflowsDataMap,
 		m.NetworkTrafficBufferMap,
 		m.OomInfo,
@@ -331,6 +356,8 @@ func (m *tracerMaps) Close() error {
 type tracerVariables struct {
 	TRACE_EVENT_FL_TRACEPOINT     *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT"`
 	TRACE_EVENT_FL_TRACEPOINT_BIT *ebpf.Variable `ebpf:"TRACE_EVENT_FL_TRACEPOINT_BIT"`
+	FileAccessKeyDummy            *ebpf.Variable `ebpf:"file_access_key_dummy"`
+	FileAccessStatsDummy          *ebpf.Variable `ebpf:"file_access_stats_dummy"`
 	GlobalConfig                  *ebpf.Variable `ebpf:"global_config"`
 	IpKeyDummy                    *ebpf.Variable `ebpf:"ip_key_dummy"`
 	TrafficSummaryDummy           *ebpf.Variable `ebpf:"traffic_summary_dummy"`

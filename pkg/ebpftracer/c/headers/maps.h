@@ -9,6 +9,7 @@
 
 #define SCRATCH_MAP_SIZE 4 // amount of scratch items to store per cpu
 
+// TODO:(anjmao): Remove all these small helpers and use standard map definitions.
 #define BPF_MAP(_name, _type, _key_type, _value_type, _max_entries)                                \
     struct {                                                                                       \
         __uint(type, _type);                                                                       \
@@ -82,14 +83,13 @@ BPF_HASH(events_map, u32, event_config_t, MAX_EVENT_ID);                        
 BPF_LRU_HASH(syscall_stats_map, syscall_stats_key_t, u64, 1);                           // holds syscalls stats per cgroup. TODO: It was disabled due perf issues, hence for now size is set to 1.
 BPF_LRU_HASH(dropped_binary_inodes, u64, u32, 8192);                                    // holds inodes of binaries that have been identified as dropped
 BPF_HASH(oom_info, u32, u8, 1024);                                                      // marks PIDs as OOM
-BPF_HASH(ignored_cgroups_map, u64, u64, 10240);                                         // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
+BPF_HASH(ignored_cgroups_map, u64, u64, 1024);                                          // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
 BPF_LRU_HASH(pid_original_file_flags, pid_t, u16, 1024);                                // holds flags of the original executed file (used to detect e.g. dropped scripts)
-BPF_LRU_HASH(tty_opened_files, u32, u8, 1024);                                              // holds inodes for opened tty files
+BPF_LRU_HASH(tty_opened_files, u32, u8, 1024);                                          // holds inodes for opened tty files
 
 // clang-format on
 
 BPF_ARRAY(metrics, u64, MAX_METRIC); // map containing different metric counters
-BPF_ARRAY(config_map, config_t, 1);
 
 // TODO(patrick.pichler): think about maybe removing this
 BPF_PERF_OUTPUT(logs, 1024);          // logs submission
@@ -111,44 +111,5 @@ struct {
 	__uint(max_entries, 1); // Actual size is set in user space before loading.
 } skb_events SEC(".maps");
 
-// Network Maps
-
-#define MAX_NETFLOWS 65535
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
-    __uint(max_entries, 2);
-    __type(key, int);
-    __array(
-        values, struct {
-            __uint(type, BPF_MAP_TYPE_LRU_HASH);
-            __uint(max_entries, MAX_NETFLOWS);
-            __type(key, struct ip_key);
-            __type(value, struct traffic_summary);
-        });
-} network_traffic_buffer_map SEC(".maps");
-
-// Sockets task context. Used to get user space task context for network related events.
-struct {
-    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
-    __uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_CLONE);
-    __type(key, int);
-    __type(value, struct net_task_context);
-} net_taskctx_map SEC(".maps");
-
-// We sadly need this second map to store context for existing sockets, as we cannot access the
-// `sk_sock_storage` from an iterator without the help of the `bpf_sock_from_file` helper, which
-// only is available starting from `5.11`.
-//
-// The idea of the socket_key is borrowed from inspektor-gadget. There are potential problems with
-// it though, as it is based on the assumption that port+proto+network ns is unique, which is not
-// always the case, as there is SO_REUSEPORT. Overall it should be good enough for our case though,
-// as we currenlty cannot handle such cases anyway.
-//
-// TODO(patrick.pichler): replace this map with `bpf_sock_from_file` once we up our min kernel
-// version to at least 5.11
-BPF_HASH(existing_sockets_map, struct sock*, struct net_task_context, MAX_NETFLOWS);
-
-BPF_PERCPU_ARRAY(net_heap_sock_state_event, event_data_t, SCRATCH_MAP_SIZE);
 
 #endif /* __MAPS_H__ */
