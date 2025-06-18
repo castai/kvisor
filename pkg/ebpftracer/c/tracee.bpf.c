@@ -16,6 +16,8 @@
 #include <bpf/bpf_tracing.h>
 #include <maps.h>
 #include <types.h>
+#include <network_capture.h>
+#include <file_access.h>
 
 #include <common/arch.h>
 #include <common/arguments.h>
@@ -30,7 +32,6 @@
 #include <common/logging.h>
 #include <common/memory.h>
 #include <common/network.h>
-#include <common/netflow.h>
 #include <common/stats.h>
 #include <common/metrics.h>
 #include <common/signatures.h>
@@ -2739,10 +2740,13 @@ int BPF_KPROBE(security_file_open)
         return 0;
     }
 
-    // TODO: Allow to configure white list patterns from user space.
+    u64 cgroup_id = p.event->context.task.cgroup_id;
+    if (should_skip_cgroup(cgroup_id)) {
+        return 0;
+    }
 
     struct file *file = (struct file *) PT_REGS_PARM1(ctx);
-    void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
-    save_str_to_buf(&p.event->args_buf, file_path, 0);
-    return events_ringbuf_submit(&p, SECURITY_FILE_OPEN, 0);
+    init_task_context(&p.event->context.task, p.task);
+    record_file_access(&p.event->context.task, file);
+    return 0;
 }
