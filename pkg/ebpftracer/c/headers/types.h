@@ -5,6 +5,7 @@
 #include <vmlinux_missing.h>
 
 #include <common/consts.h>
+#include <common/rate_limit.h>
 
 #define PATH_MAX          4096
 #define MAX_BIN_PATH_SIZE 256
@@ -295,6 +296,11 @@ typedef struct syscall_stats_key {
     u64 cgroup_id;
     u64 id;
 } syscall_stats_key_t;
+
+typedef struct cgroup_file_opens_stats {
+    u64 total;
+    rate_limiter_t rate_limiter;
+} __attribute__((packed)) cgroup_file_opens_stats_t;
 
 // Must be kept in sync with `EBPFMetrics` defined in metrics.go.
 enum metric {

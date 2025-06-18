@@ -15,41 +15,42 @@ type EBPFMetricsConfig struct {
 }
 
 type Config struct {
-	LogLevel                       string                          `json:"logLevel"`
-	LogRateInterval                time.Duration                   `json:"logRateInterval"`
-	LogRateBurst                   int                             `json:"logRateBurst"`
-	SendLogsLevel                  string                          `json:"sendLogsLevel"`
-	PromMetricsExportEnabled       bool                            `json:"promMetricsExportEnabled"`
-	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
-	Version                        string                          `json:"version"`
-	BTFPath                        string                          `json:"BTFPath"`
-	ContainerdSockPath             string                          `json:"containerdSockPath"`
-	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
-	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
-	Stats                          StatsConfig                     `json:"stats"`
-	Events                         EventsConfig                    `json:"events"`
-	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
-	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
-	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
-	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
-	EBPFEventsPolicyConfig         ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
-	EBPFSignalEventsRingBufferSize uint32                          `json:"EBPFSignalEventsRingBufferSize"`
-	EBPFEventsRingBufferSize       uint32                          `json:"EBPFEventsRingBufferSize"`
-	EBPFSkbEventsRingBufferSize    uint32                          `json:"EBPFSkbEventsRingBufferSize"`
-	MutedNamespaces                []string                        `json:"mutedNamespaces"`
-	SignatureEngineConfig          signature.SignatureEngineConfig `json:"signatureEngineConfig"`
-	Castai                         castai.Config                   `json:"castai"`
-	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
-	Netflow                        NetflowConfig                   `json:"netflow"`
-	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
-	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
-	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
-	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
-	AutomountCgroupv2              bool                            `json:"automountCgroupv2"`
-	CRIEndpoint                    string                          `json:"criEndpoint"`
-	EventLabels                    []string                        `json:"eventLabels"`
-	EventAnnotations               []string                        `json:"eventAnnotations"`
-	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
+	LogLevel                         string                          `json:"logLevel"`
+	LogRateInterval                  time.Duration                   `json:"logRateInterval"`
+	LogRateBurst                     int                             `json:"logRateBurst"`
+	SendLogsLevel                    string                          `json:"sendLogsLevel"`
+	PromMetricsExportEnabled         bool                            `json:"promMetricsExportEnabled"`
+	PromMetricsExportInterval        time.Duration                   `json:"promMetricsExportInterval"`
+	Version                          string                          `json:"version"`
+	BTFPath                          string                          `json:"BTFPath"`
+	ContainerdSockPath               string                          `json:"containerdSockPath"`
+	HostCgroupsDir                   string                          `json:"hostCgroupsDir"`
+	MetricsHTTPListenPort            int                             `json:"metricsHTTPListenPort"`
+	Stats                            StatsConfig                     `json:"stats"`
+	Events                           EventsConfig                    `json:"events"`
+	EBPFEventsEnabled                bool                            `json:"EBPFEventsEnabled"`
+	EBPFEventsOutputChanSize         int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
+	EBPFEventsStdioExporterEnabled   bool                            `json:"EBPFEventsStdioExporterEnabled"`
+	EBPFMetrics                      EBPFMetricsConfig               `json:"EBPFMetrics"`
+	EBPFEventsPolicyConfig           ebpftracer.EventsPolicyConfig   `json:"EBPFEventsPolicyConfig"`
+	EBPFSignalEventsRingBufferSize   uint32                          `json:"EBPFSignalEventsRingBufferSize"`
+	EBPFEventsRingBufferSize         uint32                          `json:"EBPFEventsRingBufferSize"`
+	EBPFSkbEventsRingBufferSize      uint32                          `json:"EBPFSkbEventsRingBufferSize"`
+	EBPFSecurityFileOpenInitialBurst uint32                          `json:"EBPFSecurityFileOpenInitialBurst"`
+	MutedNamespaces                  []string                        `json:"mutedNamespaces"`
+	SignatureEngineConfig            signature.SignatureEngineConfig `json:"signatureEngineConfig"`
+	Castai                           castai.Config                   `json:"castai"`
+	EnricherConfig                   EnricherConfig                  `json:"enricherConfig"`
+	Netflow                          NetflowConfig                   `json:"netflow"`
+	ProcessTree                      ProcessTreeConfig               `json:"processTree"`
+	Clickhouse                       ClickhouseConfig                `json:"clickhouse"`
+	KubeAPIServiceAddr               string                          `json:"kubeAPIServiceAddr"`
+	ExportersQueueSize               int                             `validate:"required" json:"exportersQueueSize"`
+	AutomountCgroupv2                bool                            `json:"automountCgroupv2"`
+	CRIEndpoint                      string                          `json:"criEndpoint"`
+	EventLabels                      []string                        `json:"eventLabels"`
+	EventAnnotations                 []string                        `json:"eventAnnotations"`
+	ContainersRefreshInterval        time.Duration                   `json:"containersRefreshInterval"`
 }
 
 type StatsConfig struct {

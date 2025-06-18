@@ -250,7 +250,8 @@ func (a *App) Run(ctx context.Context) error {
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
 		},
-		PodName: podName,
+		PodName:                      podName,
+		SecurityFileOpenInitialBurst: cfg.EBPFSecurityFileOpenInitialBurst,
 	})
 	if err := tracer.Load(); err != nil {
 		return fmt.Errorf("loading tracer: %w", err)
@@ -425,15 +426,6 @@ Currently we care only care about dns responses with valid answers.
 			case events.SockSetState:
 				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 					ID: events.SockSetState,
-				})
-			case events.SecurityFileOpen:
-				policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
-					ID: events.SecurityFileOpen,
-					FilterGenerator: ebpftracer.RateLimit(ebpftracer.RateLimitPolicy{
-						Rate:  1000,
-						Burst: 100,
-					}),
-					KernelFilters: nil,
 				})
 			case events.NetPacketDNSBase:
 				policy.Events = append(policy.Events, dnsEventPolicy)

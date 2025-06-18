@@ -2739,7 +2739,39 @@ int BPF_KPROBE(security_file_open)
         return 0;
     }
 
-    // TODO: Allow to configure white list patterns from user space.
+    u64 cgroup_id = p.event->context.task.cgroup_id;
+    if (should_skip_cgroup(cgroup_id)) {
+        return 0;
+    }
+
+    const u64 initial_burst = global_config.security_file_open_initial_burst;
+
+    cgroup_file_opens_stats_t *stats = bpf_map_lookup_elem(&cgroup_file_opens_stats_map, &cgroup_id);
+    if (!stats) {
+        cgroup_file_opens_stats_t new_stats = {
+            .total = 1,
+            .rate_limiter = new_rate_limiter(1, initial_burst),
+        };
+        bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, &new_stats, BPF_ANY);
+        stats = &new_stats;
+        stats = bpf_map_lookup_elem(&cgroup_file_opens_stats_map, &cgroup_id);
+        if (!stats) {
+            return 0; // Should not happen.
+        }
+    } else {
+        __sync_fetch_and_add(&stats->total, 1);
+    }
+
+    // After initial burst lower to 1 event per second (sampling).
+    if (stats->total > initial_burst && stats->rate_limiter.burst > 1) {
+         stats->rate_limiter = new_rate_limiter(1, 1);
+    }
+
+    bool allow_submit = rate_limiter_allow(&stats->rate_limiter, 1);
+    bpf_map_update_elem(&cgroup_file_opens_stats_map, &cgroup_id, stats, BPF_ANY);
+    if (!allow_submit) {
+       return 0;
+    }
 
     struct file *file = (struct file *) PT_REGS_PARM1(ctx);
     void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));

@@ -94,6 +94,7 @@ func (m *module) load(cfg Config) error {
 
 	if err := helpers.SetVariable(spec, "global_config", tracerGlobalConfigT{
 		SelfPid:                         uint32(os.Getpid()), // nolint:gosec
+		SecurityFileOpenInitialBurst:    cfg.SecurityFileOpenInitialBurst,
 		PidNsId:                         cfg.HomePIDNS,
 		FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
 		FlowGrouping:                    uint64(cfg.NetflowGrouping),

@@ -83,6 +83,7 @@ type Config struct {
 	ProcessTreeCollector               processTreeCollector
 	MetricsReporting                   MetricsReportingConfig
 	PodName                            string
+	SecurityFileOpenInitialBurst       uint32 `validate:"required"`
 }
 
 type cgroupCleanupRequest struct {
