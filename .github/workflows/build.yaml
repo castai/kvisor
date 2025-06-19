@@ -91,7 +91,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.controller
-          platforms: linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }}
 
@@ -101,7 +101,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.agent
-          platforms: linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }}
 
@@ -111,7 +111,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.scanners
-          platforms: linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }}
 
@@ -121,7 +121,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.controller
-          platforms: linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-controller:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-controller:latest
 
@@ -131,7 +131,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.agent
-          platforms: linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-agent:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-agent:latest
 
@@ -141,7 +141,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.scanners
-          platforms: linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-scanners:latest
 
