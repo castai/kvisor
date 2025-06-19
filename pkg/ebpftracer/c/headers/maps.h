@@ -79,7 +79,7 @@ BPF_PERCPU_ARRAY(scratch_map, scratch_t, 2);                                    
 BPF_LRU_HASH(file_modification_map, file_mod_key_t, int, 10240);                        // hold file data to decide if should submit file modification event
 BPF_LRU_HASH(io_file_path_cache_map, file_id_t, path_buf_t, 5);                         // store cache for IO operations path
 BPF_HASH(events_map, u32, event_config_t, MAX_EVENT_ID);                                // map to persist event configuration data
-BPF_LRU_HASH(syscall_stats_map, syscall_stats_key_t, u64, 65536);                       // holds syscalls stats per cgroup
+BPF_LRU_HASH(syscall_stats_map, syscall_stats_key_t, u64, 1);                           // holds syscalls stats per cgroup. TODO: It was disabled due perf issues, hence for now size is set to 1.
 BPF_LRU_HASH(dropped_binary_inodes, u64, u32, 8192);                                    // holds inodes of binaries that have been identified as dropped
 BPF_HASH(oom_info, u32, u8, 1024);                                                      // marks PIDs as OOM
 BPF_HASH(ignored_cgroups_map, u64, u64, 10240);                                         // marks cgroup ids as ignored, causing no more events to be emited for actions in those cgroups
