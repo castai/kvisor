@@ -27,6 +27,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 )
 
 func TestTracer(t *testing.T) {
@@ -119,6 +120,10 @@ func TestTracer(t *testing.T) {
 		//errc <- printNetworkTracerSummary(ctx, log, tr)
 	}()
 
+	go func() {
+		//errc <- printFileAccessStats(ctx, log, tr)
+	}()
+
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.SockSetState},
@@ -139,7 +144,6 @@ func TestTracer(t *testing.T) {
 	}
 
 	//go printSyscallStatsLoop(ctx, tr, log)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -212,6 +216,35 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 	}
 }
 
+func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftracer.Tracer) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer func() {
+		ticker.Stop()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			keys, vals, err := t.CollectFileAccessStats()
+			if err != nil {
+				log.Errorf("error while collecting file access stats: %v", err)
+				continue
+			}
+
+			fmt.Println("=== File access stats")
+			for i, key := range keys {
+				val := vals[i]
+				fmt.Printf("comm=%s cgroup=%d host_pid=%d pid=%d pid_start=%d inode=%d dev=%d reads=%d, path=%s\n",
+					string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]), key.CgroupId, key.HostPid, key.Pid, key.PidStartTime, key.Inode, key.Dev, val.Reads, string(unix.ByteSliceToString(val.Filepath[:])),
+				)
+			}
+			fmt.Printf("total=%d\n", len(keys))
+		}
+	}
+}
+
 // Start server: nc -lk 8000
 // Send data: NC_ADDR=localhost:8000 go test -v -count=1 . -run=TestGenerateConn
 func TestGenerateConn(t *testing.T) {
@@ -274,7 +307,7 @@ func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 	procName := decoder.ProcessNameString(e.Context.Comm[:])
 
 	fmt.Printf(
-		"ts=%d  event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s ",
+		"ts=%d event=%s cgroup=%d host_pid=%d pid=%d ppid=%d proc=%s cpu=%d ",
 		e.Context.Ts,
 		eventName,
 		e.Context.CgroupID,
@@ -282,6 +315,7 @@ func printEvent(tr *ebpftracer.Tracer, e *types.Event) {
 		e.Context.Pid,
 		e.Context.Ppid,
 		procName,
+		e.Context.ProcessorId,
 	)
 
 	switch e.Context.EventID {

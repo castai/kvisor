@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type netflow_config_t -type file_access_key -type file_access_stats -type file_access_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target arm64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type global_config_t -type event_context_t -type task_context_t -type ip_key -type traffic_summary -type netflow_config_t -type file_access_key -type file_access_stats -type file_access_config_t -no-global-types -cc clang-14 -strip=llvm-strip -target amd64 tracer ./c/tracee.bpf.c -- -I./c/headers -Wno-address-of-packed-member -O2
 
 type TracerEventContextT = tracerEventContextT
 
@@ -54,6 +54,7 @@ type module struct {
 	objects *tracerObjects
 
 	networkTrafficSummaryMapSpec *ebpf.MapSpec
+	fileAccessMapSpec            *ebpf.MapSpec
 
 	loaded *atomic.Bool
 
@@ -108,9 +109,19 @@ func (m *module) load(cfg Config) error {
 		return fmt.Errorf("error network_traffic_buffer_map map spec not found")
 	}
 	m.networkTrafficSummaryMapSpec = mapBufferSpec
-	summaryMapBuffer, err := buildNetworkSummaryBufferMap(mapBufferSpec)
+	summaryMapBuffer, err := buildSummaryBufferMap(mapBufferSpec)
 	if err != nil {
 		return fmt.Errorf("error while building summary map buffer: %w", err)
+	}
+
+	fileAccessMapBufferSpec, found := spec.Maps["file_access_stats_map"]
+	if !found {
+		return fmt.Errorf("error file_access_stats_map map spec not found")
+	}
+	m.fileAccessMapSpec = fileAccessMapBufferSpec
+	fileAccessMapBuffer, err := buildSummaryBufferMap(fileAccessMapBufferSpec)
+	if err != nil {
+		return fmt.Errorf("error while building file access map buffer: %w", err)
 	}
 
 	spec.Maps["signal_events"].MaxEntries = cfg.SignalEventsRingBufferSize
@@ -125,6 +136,7 @@ func (m *module) load(cfg Config) error {
 		},
 		MapReplacements: map[string]*ebpf.Map{
 			"network_traffic_buffer_map": summaryMapBuffer,
+			"file_access_stats_map":      fileAccessMapBuffer,
 		},
 	}); err != nil {
 		var ve *ebpf.VerifierError

@@ -5328,7 +5328,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 		events.ProcessOomKilled: {
 			ID:      events.ProcessOomKilled,
 			id32Bit: events.Sys32Undefined,
-			name:    "sched_process_exit",
+			name:    "process_oom_killed",
 			dependencies: dependencies{
 				probes: []EventProbe{
 					{handle: ProbeSchedProcessExit, required: true},
