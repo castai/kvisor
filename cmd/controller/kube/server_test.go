@@ -205,7 +205,7 @@ func TestServer(t *testing.T) {
 		client.index.ipsDetails[netip.MustParseAddr("fd00::1")] = IPInfo{
 			Service: &corev1.Service{
 				Spec: corev1.ServiceSpec{
-					ClusterIPs: []string{"10.10.10.10"},
+					ClusterIPs: []string{"10.10.10.10", "fd00::1"},
 				},
 			},
 		}
@@ -223,6 +223,6 @@ func TestServer(t *testing.T) {
 		srv := NewServer(client)
 		resp, err := srv.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
 		r.NoError(err)
-		r.Equal([]string{"10.10.0.0/16"}, resp.ServiceCidr)
+		r.Equal([]string{"10.8.0.0/14", "fd00::/48"}, resp.ServiceCidr)
 	})
 }

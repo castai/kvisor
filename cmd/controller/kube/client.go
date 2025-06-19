@@ -340,7 +340,7 @@ func getPodCidrFromPod(pod *corev1.Pod) ([]string, error) {
 	}
 	// If dual-stack is enabled we need to parse all pod IPs
 	for _, podIP := range podIPs {
-		cidr, err := parseIP(podIP.IP)
+		cidr, err := parseIPToCidr(podIP.IP)
 		if err != nil {
 			return nil, err
 		}
@@ -394,15 +394,11 @@ func getServiceCidrFromServicesSpec(ipDetails map[netip.Addr]IPInfo) ([]string, 
 		}
 		var res []string
 		for _, clusterIP := range clusterIPs {
-			addr, err := netip.ParseAddr(clusterIP)
+			cidr, err := parseIPToCidr(clusterIP)
 			if err != nil {
-				return nil, fmt.Errorf("parsing service cidr from cluster IP: %w", err)
+				return nil, err
 			}
-			cidr, err := addr.Prefix(16)
-			if err != nil {
-				return nil, fmt.Errorf("get cluster ip prefix: %w", err)
-			}
-			res = append(res, cidr.String())
+			res = append(res, cidr)
 		}
 		return res, nil
 	}
@@ -461,7 +457,7 @@ func discoverServiceCidr(ctx context.Context, client kubernetes.Interface, ip, n
 	return servicesCidr, nil
 }
 
-func parseIP(ip string) (string, error) {
+func parseIPToCidr(ip string) (string, error) {
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
 		return "", fmt.Errorf("parse ip: %w", err)
