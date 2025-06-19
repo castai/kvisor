@@ -35,7 +35,7 @@ type tracerFileAccessKey struct {
 
 type tracerFileAccessStats struct {
 	Reads    uint64
-	Filename [4096]uint8
+	Filepath [512]uint8
 	Comm     [16]uint8
 }
 

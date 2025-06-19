@@ -237,7 +237,7 @@ func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftrace
 			for i, key := range keys {
 				val := vals[i]
 				fmt.Printf("comm=%s cgroup=%d host_pid=%d pid=%d pid_start=%d inode=%d dev=%d reads=%d, path=%s\n",
-					string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]), key.CgroupId, key.HostPid, key.Pid, key.PidStartTime, key.Inode, key.Dev, val.Reads, string(unix.ByteSliceToString(val.Filename[:])),
+					string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]), key.CgroupId, key.HostPid, key.Pid, key.PidStartTime, key.Inode, key.Dev, val.Reads, string(unix.ByteSliceToString(val.Filepath[:])),
 				)
 			}
 			fmt.Printf("total=%d\n", len(keys))

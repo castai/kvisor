@@ -8,7 +8,10 @@
 #include <common/filesystem.h>
 
 #define MAX_FILE_ACCESS_ENTRIES 65535
-#define PATH_MAX_LEN	4096
+// Max path len is limited to 4096 bytes, see https://github.com/torvalds/linux/blob/master/include/uapi/linux/limits.h#L13
+// But in most cases it's a waste of memory as file paths are not that long.
+// We can make this configurable in the feature if needed.
+#define PATH_MAX_LEN	512
 
 typedef struct file_access_config {
     int map_index;
@@ -28,7 +31,7 @@ struct file_access_key {
 
 struct file_access_stats {
     u64 reads;
-    u8 filename[PATH_MAX_LEN];
+    u8 filepath[PATH_MAX_LEN];
     u8 comm[TASK_COMM_LEN];
     // In order for BTF to be generated for this struct, a dummy variable needs to
     // be created.
@@ -90,7 +93,7 @@ statfunc void record_file_access(task_context_t *task_ctx, struct file *file)
 
         bpf_get_current_comm(&stats->comm, sizeof(stats->comm));
         void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
-        bpf_probe_read_kernel_str(&stats->filename, PATH_MAX_LEN, file_path);
+        bpf_probe_read_kernel_str(&stats->filepath, PATH_MAX_LEN, file_path);
     }
 
     // Update stats.
