@@ -309,6 +309,6 @@ func testTaskContext() tracerTaskContextT {
 		Uid:         98123,
 		MntId:       1357,
 		PidId:       3758,
-		Comm:        [16]int8{0x48},
+		Comm:        [16]uint8{0x48},
 	}
 }
