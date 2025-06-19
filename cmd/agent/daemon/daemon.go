@@ -81,6 +81,7 @@ func NewRunCommand(version string) *cobra.Command {
 		ingressNightmareExploitDetectionSignatureEnabled = command.Flags().Bool("signature-ingress-nightmare-exploit-detection-enabled", true, "Enables the detection signature to detect exploits of ingress nightmare")
 
 		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
+		netflowCheckClusterNetworkRanges   = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
 		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
 		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
@@ -196,6 +197,7 @@ func NewRunCommand(version string) *cobra.Command {
 				Grouping:                    netflowGrouping,
 				ExportInterval:              *netflowExportInterval,
 				MaxPublicIPs:                *netflowMaxPublicIPsBucket,
+				CheckClusterNetworkRanges:   *netflowCheckClusterNetworkRanges,
 			},
 			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,

@@ -73,6 +73,7 @@ type NetflowConfig struct {
 	ExportInterval              time.Duration              `json:"exportInterval"`
 	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
 	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
+	CheckClusterNetworkRanges   bool                       `json:"checkClusterNetworkRanges"`
 }
 
 type ClickhouseConfig struct {

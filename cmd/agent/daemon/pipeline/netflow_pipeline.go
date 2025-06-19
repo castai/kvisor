@@ -56,16 +56,17 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	c.log.Info("running netflow pipeline")
 	defer c.log.Info("netflow pipeline done")
 
-	// TODO: Now this call will block until error or result is returned.
-	// Instead we should consider having periodic refresh loop to call with timeout and
-	// refresh. It may also be the case that cluster info changes.
-	clusterInfo, err := c.getClusterInfo(ctx)
-	if err != nil {
-		c.log.Errorf("getting cluster info: %v", err)
-	}
-	c.clusterInfo = clusterInfo
-	if clusterInfo != nil {
-		c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
+	if c.cfg.Netflow.CheckClusterNetworkRanges {
+		clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, time.Second*60)
+		defer clusterInfoCancel()
+		clusterInfo, err := c.getClusterInfo(clusterInfoCtx)
+		if err != nil {
+			c.log.Errorf("getting cluster info: %v", err)
+		}
+		c.clusterInfo = clusterInfo
+		if clusterInfo != nil {
+			c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
+		}
 	}
 
 	ticker := time.NewTicker(c.cfg.Netflow.ExportInterval)
@@ -242,7 +243,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 
 	dns := c.getAddrDnsQuestion(key.ProcessIdentity.CgroupId, remote.Addr())
 
-	if c.clusterInfo != nil && c.clusterInfo.serviceCidrContains(remote.Addr()) {
+	if (c.clusterInfo != nil && c.clusterInfo.serviceCidrContains(remote.Addr())) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 		if realDst, found := c.getConntrackDest(local, remote); found {
 			remote = realDst
 		}
@@ -258,7 +259,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		RxPackets:   summary.RxPackets,
 	}
 
-	if c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(remote.Addr()) || c.clusterInfo.podCidrContains(remote.Addr())) {
+	if (c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(remote.Addr()) || c.clusterInfo.podCidrContains(remote.Addr()))) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 		ipInfo, found := c.getIPInfo(podsByIPCache, remote.Addr())
 		if found {
 			destination.PodName = ipInfo.PodName

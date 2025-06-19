@@ -289,7 +289,7 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	if len(res.PodCidr) == 0 {
 		for _, info := range c.index.ipsDetails {
 			if pod := info.PodInfo; pod != nil && pod.Pod != nil {
-				podCidr, err := getPodCidrFromPodSpec(pod.Pod)
+				podCidr, err := getPodCidrFromPod(pod.Pod)
 				if err != nil {
 					return nil, err
 				}
@@ -302,14 +302,14 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	}
 
 	// Try to find service cidr from Kubernetes API output
-	serviceCidr, err := getServiceCidr(ctx, c.client, c.kvisorNamespace)
+	serviceCidr, err := getServiceCidr(ctx, c.client, c.kvisorNamespace, c.index.ipsDetails)
 	if err != nil {
 		return nil, err
 	}
 	res.ServiceCidr = serviceCidr
 
 	if len(res.PodCidr) == 0 || len(res.ServiceCidr) == 0 {
-		return nil, fmt.Errorf("no pod cidr or service cidr found")
+		return nil, fmt.Errorf("no pod cidr or service cidr found, pod_cidrs=%d, service_cidrs=%d", len(res.PodCidr), len(res.ServiceCidr))
 	}
 	c.clusterInfo = &res
 	return &res, nil
@@ -332,7 +332,7 @@ func getPodCidrFromNodeSpec(node *corev1.Node) ([]string, error) {
 	return podCidrs, nil
 }
 
-func getPodCidrFromPodSpec(pod *corev1.Pod) ([]string, error) {
+func getPodCidrFromPod(pod *corev1.Pod) ([]string, error) {
 	var podCidr []string
 	podIPs := pod.Status.PodIPs
 	if len(podIPs) == 0 && pod.Status.PodIP != "" {
@@ -349,7 +349,21 @@ func getPodCidrFromPodSpec(pod *corev1.Pod) ([]string, error) {
 	return podCidr, nil
 }
 
-func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string) ([]string, error) {
+func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string, ipDetails map[netip.Addr]IPInfo) ([]string, error) {
+	res, err := getServiceCidrFromServiceCreation(ctx, client, namespace)
+	if err == nil {
+		return res, nil
+	}
+	allErrs := []error{err}
+	res, err = getServiceCidrFromServicesSpec(ipDetails)
+	if err != nil {
+		allErrs = append(allErrs, err)
+		return nil, errors.Join(allErrs...)
+	}
+	return res, nil
+}
+
+func getServiceCidrFromServiceCreation(ctx context.Context, client kubernetes.Interface, namespace string) ([]string, error) {
 	var serviceCidr []string
 	ipv4Cidr, err := discoverIPv4ServiceCidr(ctx, client, namespace)
 	if err != nil {
@@ -367,6 +381,32 @@ func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace 
 		serviceCidr = append(serviceCidr, ipv6Cidr...)
 	}
 	return serviceCidr, nil
+}
+
+func getServiceCidrFromServicesSpec(ipDetails map[netip.Addr]IPInfo) ([]string, error) {
+	for _, details := range ipDetails {
+		if details.Service == nil {
+			continue
+		}
+		clusterIPs := details.Service.Spec.ClusterIPs
+		if len(clusterIPs) == 0 {
+			continue
+		}
+		var res []string
+		for _, clusterIP := range clusterIPs {
+			addr, err := netip.ParseAddr(clusterIP)
+			if err != nil {
+				return nil, fmt.Errorf("parsing service cidr from cluster IP: %w", err)
+			}
+			cidr, err := addr.Prefix(16)
+			if err != nil {
+				return nil, fmt.Errorf("get cluster ip prefix: %w", err)
+			}
+			res = append(res, cidr.String())
+		}
+		return res, nil
+	}
+	return nil, errors.New("no service cidr found")
 }
 
 func discoverIPv4ServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string) ([]string, error) {
