@@ -5,7 +5,6 @@
 #include <vmlinux_missing.h>
 
 #include <common/consts.h>
-#include <common/rate_limit.h>
 
 #define PATH_MAX          4096
 #define MAX_BIN_PATH_SIZE 256

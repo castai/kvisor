@@ -75,11 +75,6 @@ type NetflowConfig struct {
 	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
 }
 
-type FileAccessConfig struct {
-	Enabled        bool          `json:"enabled"`
-	ExportInterval time.Duration `json:"exportInterval"`
-}
-
 type ClickhouseConfig struct {
 	Addr     string `json:"addr"`
 	Database string `json:"database"`
