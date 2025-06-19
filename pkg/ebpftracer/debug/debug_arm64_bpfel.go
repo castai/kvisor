@@ -46,7 +46,7 @@ type debugTaskContext struct {
 	Uid             uint32
 	MntId           uint32
 	PidId           uint32
-	Comm            [16]int8
+	Comm            [16]uint8
 	LeaderStartTime uint64
 	ParentStartTime uint64
 }

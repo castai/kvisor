@@ -1,4 +1,4 @@
-package main
+package debug
 
 import (
 	"fmt"
@@ -13,17 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func NewDebugCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "debug",
-	}
-
-	cmd.AddCommand(newSocketDebugCommand())
-
-	return cmd
-}
-
-func newSocketDebugCommand() *cobra.Command {
+func NewSocketDebugCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "sockets",
 	}
@@ -71,7 +61,7 @@ func newSocketDebugCommand() *cobra.Command {
 				d.Netctx.Taskctx.CgroupId,
 				d.Netctx.Taskctx.Pid,
 				d.Netctx.Taskctx.HostPid,
-				toComm(d.Netctx.Taskctx.Comm[:]),
+				string(d.Netctx.Taskctx.Comm[:]),
 				formatProto(d.SockInfo.Proto),
 				formatAddr(d.SockInfo.Tuple.Saddr.Raw, d.SockInfo.Tuple.Sport, d.SockInfo.Family),
 				formatAddr(d.SockInfo.Tuple.Daddr.Raw, d.SockInfo.Tuple.Dport, d.SockInfo.Family),
@@ -141,20 +131,6 @@ func formatProto(proto uint8) string {
 	}
 
 	return strconv.FormatUint(uint64(proto), 10)
-}
-
-func toComm(data []int8) string {
-	result := make([]byte, len(data))
-	b := 0
-	for i, v := range data {
-		if v == 0 {
-			b = i
-			break
-		}
-		result[i] = byte(v)
-	}
-
-	return string(result[:b])
 }
 
 func formatAddr(addr [16]byte, port uint16, family uint16) string {
