@@ -180,4 +180,49 @@ func TestServer(t *testing.T) {
 		r.ElementsMatch([]string{"10.8.0.0/14", "fd00::/48"}, resp.PodsCidr)
 		r.ElementsMatch([]string{"10.30.0.0/14", "fd01::/48"}, resp.ServiceCidr)
 	})
+
+	t.Run("get service cidr from fallback", func(t *testing.T) {
+		r := require.New(t)
+		clientset := fake.NewClientset()
+		client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
+		client.index = NewIndex()
+
+		client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = IPInfo{
+			PodInfo: &PodInfo{
+				Pod: &corev1.Pod{
+					Status: corev1.PodStatus{
+						PodIP: "10.10.10.10",
+						PodIPs: []corev1.PodIP{
+							{
+								IP: "10.10.10.10",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		client.index.ipsDetails[netip.MustParseAddr("fd00::1")] = IPInfo{
+			Service: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					ClusterIPs: []string{"10.10.10.10", "fd00::1"},
+				},
+			},
+		}
+		clientset.PrependReactor("create", "services", func(action kubetesting.Action) (bool, runtime.Object, error) {
+			svc := action.(kubetesting.CreateAction).GetObject().(*corev1.Service)
+			switch svc.Spec.ClusterIP {
+			case "0.0.0.0":
+				return true, svc, fmt.Errorf("bad")
+			case "::":
+				return true, svc, fmt.Errorf("bad")
+			}
+			return false, nil, nil
+		})
+
+		srv := NewServer(client)
+		resp, err := srv.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
+		r.NoError(err)
+		r.Equal([]string{"10.8.0.0/14", "fd00::/48"}, resp.ServiceCidr)
+	})
 }
