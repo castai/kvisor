@@ -129,11 +129,11 @@ func run(ctx context.Context) error {
 	}
 	srv.kubeLinterReports = nil
 
-	fmt.Println("🙏waiting for image metadata")
-	if err := srv.assertImageMetadata(ctx); err != nil {
-		return fmt.Errorf("assert image metadata: %w", err)
+	fmt.Println("🙏waiting for image manifest ingestion")
+	if err := srv.assertImageManifestIngestion(ctx); err != nil {
+		return fmt.Errorf("assert image manifest ingestion: %w", err)
 	}
-	srv.imageMetadatas = nil
+	srv.manifestIngestRequests = nil
 
 	fmt.Println("🙏waiting for flogs")
 	if err := srv.assertLogs(ctx); err != nil {
@@ -214,7 +214,7 @@ type testCASTAIServer struct {
 	containerEventsBatches []*castaipb.ContainerEventsBatch
 	eventsAsserted         bool
 	logs                   []*castaipb.LogEvent
-	imageMetadatas         []*castaipb.ImageMetadata
+	manifestIngestRequests []*castaipb.ImageManifestIngestRequest
 	kubeBenchReports       []*castaipb.KubeBenchReport
 	kubeLinterReports      []*castaipb.KubeLinterReport
 	processTreeEvents      []*castaipb.ProcessTreeEvent
@@ -331,13 +331,22 @@ func (t *testCASTAIServer) KubeLinterReportIngest(ctx context.Context, report *c
 }
 
 func (t *testCASTAIServer) ImageMetadataIngest(ctx context.Context, imageMetadata *castaipb.ImageMetadata) (*castaipb.ImageMetadataIngestResponse, error) {
+	return &castaipb.ImageMetadataIngestResponse{}, nil
+}
+
+func (t *testCASTAIServer) ImageManifestIngest(ctx context.Context, req *castaipb.ImageManifestIngestRequest) (*castaipb.ImageManifestIngestResponse, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	fmt.Printf("received image metadata, image_name=%s\n", imageMetadata.ImageName)
-	t.imageMetadatas = append(t.imageMetadatas, imageMetadata)
+	if len(req.GetImageManifests()) == 0 {
+		return &castaipb.ImageManifestIngestResponse{}, nil
+	}
 
-	return &castaipb.ImageMetadataIngestResponse{}, nil
+	manifest := req.GetImageManifests()[0]
+	fmt.Printf("received image manifest, image_name=%s, image_manifest_digest=%s\n", req.ImageName, manifest.Digest)
+	t.manifestIngestRequests = append(t.manifestIngestRequests, req)
+
+	return &castaipb.ImageManifestIngestResponse{}, nil
 }
 
 func (t *testCASTAIServer) GetSyncState(ctx context.Context, request *castaipb.GetSyncStateRequest) (*castaipb.GetSyncStateResponse, error) {
@@ -907,7 +916,7 @@ func (t *testCASTAIServer) assertConfig(ctx context.Context) error {
 	}
 }
 
-func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
+func (t *testCASTAIServer) assertImageManifestIngestion(ctx context.Context) error {
 	timeout := time.After(30 * time.Second)
 	r := newAssertions()
 	for {
@@ -915,18 +924,21 @@ func (t *testCASTAIServer) assertImageMetadata(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeout:
-			return errors.New("timeout waiting for received image metadata")
+			return errors.New("timeout waiting for received image manifest ingestion requests")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			md := t.imageMetadatas
+			reqs := t.manifestIngestRequests
 			t.mu.Unlock()
-			if len(md) > 0 {
-				l1 := md[0]
-				fmt.Printf("asserting image metadata:\n%v\n", l1)
-				r.NotEmpty(l1.ImageId, "missing image id")
-				r.NotEmpty(l1.ImageName, "missing image name")
-				r.NotEmpty(l1.ConfigFile, "missing image config")
-				r.NotEmpty(l1.Packages, "missing image packages")
+			if len(reqs) > 0 {
+				req := reqs[0]
+				r.NotEmpty(req.GetImageName(), "missing image name")
+				r.NotEmpty(req.GetImageManifests(), "missing image manifests")
+
+				m := req.GetImageManifests()[0]
+				r.NotEmpty(m.GetManifest(), "missing image manifest")
+				r.NotEmpty(m.GetDigest(), "missing image digest")
+				r.NotEmpty(m.GetConfigFile(), "missing image config file")
+				r.NotEmpty(m.GetTrivyBlobsInfo(), "missing image packages")
 				return r.error()
 			}
 		}

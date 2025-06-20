@@ -17,8 +17,7 @@ message Exec {
   uint32 flags = 4;
 }
 
-message ProcessFork {
-}
+message ProcessFork {}
 
 message ProcessExit {
   int64 exit_code = 1;
@@ -150,8 +149,7 @@ message GitCloneDetectedFinding {
   string repo_path = 4;
 }
 
-message IngressNightmareExploitDetectedFinding {
-}
+message IngressNightmareExploitDetectedFinding {}
 
 enum NetflowProtocol {
   NETFLOW_PROTOCOL_UNKNOWN = 0;
@@ -160,7 +158,7 @@ enum NetflowProtocol {
 }
 
 message Netflow {
-  uint64 timestamp = 1; // Stored as unix timestamp in nanoseconds.
+  uint64 timestamp = 1;  // Stored as unix timestamp in nanoseconds.
   string process_name = 2;
   string namespace = 3;
   string pod_name = 4;

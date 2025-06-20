@@ -142,6 +142,11 @@ func (m *MockServer) ImageMetadataIngest(ctx context.Context, in *castaipb.Image
 	return &castaipb.ImageMetadataIngestResponse{}, nil
 }
 
+func (m *MockServer) ImageManifestIngest(ctx context.Context, in *castaipb.ImageManifestIngestRequest) (*castaipb.ImageManifestIngestResponse, error) {
+	m.log.Debugf("ImageManifestIngest: %v", in)
+	return &castaipb.ImageManifestIngestResponse{}, nil
+}
+
 func (m *MockServer) UpdateSyncState(ctx context.Context, in *castaipb.UpdateSyncStateRequest) (*castaipb.UpdateSyncStateResponse, error) {
 	m.log.Debugf("UpdateSyncState: %v", in)
 	return &castaipb.UpdateSyncStateResponse{}, nil
