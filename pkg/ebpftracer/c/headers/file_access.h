@@ -59,61 +59,6 @@ struct {
 
 static struct file_access_stats zero_file_stats = {};
 
-#define MAX_SEGMENT_LEN 64
-
-statfunc void generalize_path(unsigned char *path) {
-int seg_start = 0;
-
-    #pragma unroll
-    for (int i = 0; i < PATH_MAX_LEN; i++) {
-        if (path[i] == '\0') {
-            break;
-        }
-
-        if (path[i] == '/') {
-            int seg_len = i - seg_start;
-
-            if (seg_len > 12 && seg_len < MAX_SEGMENT_LEN) {
-                int digits = 0;
-                int alnum = 0;
-
-                #pragma unroll
-                for (int j = 0; j < MAX_SEGMENT_LEN; j++) {
-                    if ((seg_start + j) >= i) {
-                        break;
-                    }
-
-                    char c = path[seg_start + j];
-
-                    if (c >= '0' && c <= '9') {
-                        digits++;
-                    }
-
-                    if ((c >= 'a' && c <= 'z') ||
-                        (c >= 'A' && c <= 'Z') ||
-                        (c >= '0' && c <= '9')) {
-                        alnum++;
-                    }
-                }
-
-                if ((digits * 100 / seg_len > 80) || (alnum == seg_len)) {
-                    path[seg_start] = '*';
-
-                    #pragma unroll
-                    for (int k = 1; k < MAX_SEGMENT_LEN; k++) {
-                        if ((seg_start + k) >= i) {
-                            break;
-                        }
-                        path[seg_start + k] = '\0';
-                    }
-                }
-            }
-
-            seg_start = i + 1;
-        }
-    }
-}
-
 statfunc void record_file_access(task_context_t *task_ctx, struct file *file)
 {
     int zero = 0;
@@ -149,7 +94,6 @@ statfunc void record_file_access(task_context_t *task_ctx, struct file *file)
         bpf_get_current_comm(&stats->comm, sizeof(stats->comm));
         void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
         bpf_probe_read_kernel_str(&stats->filepath, PATH_MAX_LEN, file_path);
-        generalize_path(stats->filepath);
     }
 
     // Update stats.
