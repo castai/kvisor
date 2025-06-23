@@ -44,7 +44,8 @@ func NewRunCommand(version string) *cobra.Command {
 
 		btfPath           = command.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled = command.Flags().Bool("ebpf-events-enabled", false, "Enable ebpf events")
-		ebpfEventsPolicy  = ebpftracer.EventsPolicyConfig{
+		// Default events are sock_set_state,sched_process_exec,sched_process_exit,net_packet_dns_base,magic_write,process_oom_killed,net_packet_ssh_base
+		ebpfEventsPolicy = ebpftracer.EventsPolicyConfig{
 			EnabledEvents: []events.ID{
 				events.SockSetState,
 				events.SchedProcessExec,
@@ -52,8 +53,6 @@ func NewRunCommand(version string) *cobra.Command {
 				events.NetPacketDNSBase,
 				events.MagicWrite,
 				events.ProcessOomKilled,
-				// events.StdioViaSocket, // TODO(anjmao): Tracing this event via syscall hooks is very expensive. Rework the whole syscall tracing.
-				events.TtyWrite,
 				events.NetPacketSSHBase,
 			},
 		}
