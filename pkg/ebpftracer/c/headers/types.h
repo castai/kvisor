@@ -22,7 +22,7 @@ typedef struct task_context {
     u32 uid;
     u32 mnt_id;
     u32 pid_id;
-    char comm[TASK_COMM_LEN];
+    unsigned char comm[TASK_COMM_LEN];
     u64 leader_start_time; // task leader's monotonic start time
     u64 parent_start_time; // parent process task leader's monotonic start time
 } task_context_t;
