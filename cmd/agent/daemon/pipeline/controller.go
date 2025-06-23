@@ -12,6 +12,8 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
+	"github.com/castai/kvisor/cmd/agent/daemon/export"
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -24,13 +26,15 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 )
 
 type Config struct {
-	Netflow config.NetflowConfig `validate:"required"`
-
-	Events config.EventsConfig `validate:"required"`
-	Stats  config.StatsConfig  `validate:"required"`
+	DataBatch   config.DataBatchConfig   `validate:"required"`
+	Netflow     config.NetflowConfig     `validate:"required"`
+	Events      config.EventsConfig      `validate:"required"`
+	Stats       config.StatsConfig       `validate:"required"`
+	ProcessTree config.ProcessTreeConfig `validate:"required"`
 }
 
 type containersClient interface {
@@ -69,7 +73,7 @@ type conntrackClient interface {
 }
 
 type processTreeCollector interface {
-	Events() <-chan processtree.ProcessTreeEvent
+	GetCurrentProcesses(ctx context.Context) ([]processtree.ProcessEvent, error)
 }
 
 type procHandler interface {
@@ -86,7 +90,7 @@ type enrichmentService interface {
 func NewController(
 	log *logging.Logger,
 	cfg Config,
-	exporters *Exporters,
+	exporters []export.DataBatchWriter,
 	containersClient containersClient,
 	netStatsReader netStatsReader,
 	ct conntrackClient,
@@ -111,24 +115,26 @@ func NewController(
 	}
 
 	return &Controller{
-		log:                        log.WithField("component", "ctrl"),
-		cfg:                        cfg,
-		exporters:                  exporters,
-		containersClient:           containersClient,
-		netStatsReader:             netStatsReader,
-		ct:                         ct,
-		tracer:                     tracer,
-		signatureEngine:            signatureEngine,
-		kubeClient:                 kubeClient,
-		nodeName:                   os.Getenv("NODE_NAME"),
-		containerStatsScrapePoints: map[uint64]*containerStatsScrapePoint{},
-		mutedNamespaces:            map[string]struct{}{},
-		dnsCache:                   dnsCache,
-		podCache:                   podCache,
-		processTreeCollector:       processTreeCollector,
-		procHandler:                procHandler,
-		enrichmentService:          enrichmentService,
-		deletedContainersQueue:     make(chan uint64, 300),
+		log:                                  log.WithField("component", "ctrl"),
+		cfg:                                  cfg,
+		exporters:                            exporters,
+		containersClient:                     containersClient,
+		netStatsReader:                       netStatsReader,
+		ct:                                   ct,
+		tracer:                               tracer,
+		signatureEngine:                      signatureEngine,
+		kubeClient:                           kubeClient,
+		nodeName:                             os.Getenv("NODE_NAME"),
+		mutedNamespaces:                      map[string]struct{}{},
+		dnsCache:                             dnsCache,
+		podCache:                             podCache,
+		processTreeCollector:                 processTreeCollector,
+		procHandler:                          procHandler,
+		enrichmentService:                    enrichmentService,
+		deletedContainersEventsQueue:         make(chan uint64, 100),
+		deletedContainersNetflowsQueue:       make(chan uint64, 100),
+		deletedContainersContainerStatsQueue: make(chan uint64, 100),
+		maxCachedNetflowsPerContainer:        5,
 	}
 }
 
@@ -141,16 +147,11 @@ type Controller struct {
 	tracer               ebpfTracer
 	signatureEngine      signatureEngine
 	processTreeCollector processTreeCollector
-	exporters            *Exporters
+	exporters            []export.DataBatchWriter
 	procHandler          procHandler
 	enrichmentService    enrichmentService
 
 	nodeName string
-
-	// Scrape points are used to calculate deltas between scrapes.
-	containerStatsScrapePointsMu sync.RWMutex
-	containerStatsScrapePoints   map[uint64]*containerStatsScrapePoint
-	nodeScrapePoint              *nodeScrapePoint
 
 	mutedNamespacesMu sync.RWMutex
 	mutedNamespaces   map[string]struct{}
@@ -161,7 +162,11 @@ type Controller struct {
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
-	deletedContainersQueue chan uint64
+	deletedContainersEventsQueue         chan uint64
+	deletedContainersNetflowsQueue       chan uint64
+	deletedContainersContainerStatsQueue chan uint64
+
+	maxCachedNetflowsPerContainer int
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -172,17 +177,17 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.containersClient.RegisterContainerDeletedListener(c.onDeleteContainer)
 
 	errg, ctx := errgroup.WithContext(ctx)
-	if len(c.exporters.ContainerEvents) > 0 {
+	if c.cfg.Events.Enabled {
 		errg.Go(func() error {
 			return c.runEventsPipeline(ctx)
 		})
 	}
-	if len(c.exporters.Stats) > 0 {
+	if c.cfg.Stats.Enabled {
 		errg.Go(func() error {
 			return c.runStatsPipeline(ctx)
 		})
 	}
-	if len(c.exporters.Netflow) > 0 {
+	if c.cfg.Netflow.Enabled {
 		// Conntrack cache is used only in netflow pipeline.
 		// It's safe to use non synced lru since it's accessed form one goroutine.
 		conntrackCacheKey := xxhash.New()
@@ -204,7 +209,83 @@ func (c *Controller) Run(ctx context.Context) error {
 			return c.runNetflowPipeline(ctx)
 		})
 	}
+
+	if c.cfg.ProcessTree.Enabled {
+		errg.Go(func() error {
+			if err := c.collectInitialProcessTree(ctx); err != nil {
+				c.log.Errorf("collecting initial process tree: %v", err)
+			}
+			return nil
+		})
+	}
+
 	return errg.Wait()
+}
+
+func (c *Controller) sendDataBatch(reason, pipeline string, items []*castaipb.DataBatchItem) {
+	start := time.Now()
+	var g sync.WaitGroup
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req := &castaipb.WriteDataBatchRequest{
+		Items: items,
+	}
+	size := proto.Size(req)
+
+	for _, exp := range c.exporters {
+		g.Add(1)
+		go func() {
+			defer g.Done()
+			if err := exp.Write(ctx, req); err != nil {
+				// Only log error. Exporter should handle retries.
+				c.log.Errorf("data batch export to %s failed: %v", exp.Name(), err)
+				metrics.AgentDataBatchExporterErrorsTotal.WithLabelValues(exp.Name()).Inc()
+				return
+			}
+			metrics.AgentDataBatchExportCallsTotal.WithLabelValues(exp.Name()).Inc()
+		}()
+	}
+
+	g.Wait()
+	c.log.Infof("data batch exported, items=%d, size_bytes=%d, duration=%v, reason=%s", len(items), size, time.Since(start), reason)
+	metrics.AgentDataBatchItemsSentTotal.WithLabelValues(pipeline).Add(float64(len(items)))
+	metrics.AgentDataBatchBytesSentTotal.WithLabelValues(pipeline).Add(float64(size))
+}
+
+func (c *Controller) collectInitialProcessTree(ctx context.Context) error {
+	processes, err := c.processTreeCollector.GetCurrentProcesses(ctx)
+	if err != nil {
+		return err
+	}
+	processEvents := make([]*castaipb.ProcessEvent, 0, len(processes))
+	for _, pe := range processes {
+		processEvents = append(processEvents, &castaipb.ProcessEvent{
+			Timestamp:   uint64(pe.Timestamp.UnixNano()), // nolint:gosec
+			ContainerId: pe.ContainerID,
+			Process: &castaipb.Process{
+				Pid:             pe.Process.PID,
+				StartTime:       uint64(pe.Process.StartTime), // nolint:gosec
+				Ppid:            pe.Process.PPID,
+				ParentStartTime: uint64(pe.Process.ParentStartTime), // nolint:gosec
+				Args:            pe.Process.Args,
+				Filepath:        pe.Process.FilePath,
+				ExitTime:        pe.Process.ExitTime,
+			},
+			Action: toProtoProcessAction(pe.Action),
+		})
+	}
+	c.sendDataBatch("initial process tree", metrics.PipelineInitialProcessTree, []*castaipb.DataBatchItem{
+		{
+			Data: &castaipb.DataBatchItem_ProcessTree{
+				ProcessTree: &castaipb.ProcessTreeEvent{
+					Initial: true,
+					Events:  processEvents,
+				},
+			},
+		},
+	})
+	return nil
 }
 
 func (c *Controller) onNewContainer(container *containers.Container) {
@@ -220,13 +301,11 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 }
 
 func (c *Controller) onDeleteContainer(container *containers.Container) {
-	c.containerStatsScrapePointsMu.Lock()
-	delete(c.containerStatsScrapePoints, container.CgroupID)
-	c.containerStatsScrapePointsMu.Unlock()
-
 	c.dnsCache.Remove(container.CgroupID)
 
-	c.deletedContainersQueue <- container.CgroupID
+	c.deletedContainersEventsQueue <- container.CgroupID
+	c.deletedContainersNetflowsQueue <- container.CgroupID
+	c.deletedContainersContainerStatsQueue <- container.CgroupID
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }
@@ -304,4 +383,16 @@ func workloadKindString(kind kubepb.WorkloadKind) string {
 	default:
 		return "Unknown"
 	}
+}
+
+func toProtoProcessAction(action processtree.ProcessAction) castaipb.ProcessAction {
+	switch action {
+	case processtree.ProcessExec:
+		return castaipb.ProcessAction_PROCESS_ACTION_EXEC
+	case processtree.ProcessFork:
+		return castaipb.ProcessAction_PROCESS_ACTION_FORK
+	case processtree.ProcessExit:
+		return castaipb.ProcessAction_PROCESS_ACTION_EXIT
+	}
+	return castaipb.ProcessAction_PROCESS_ACTION_UNKNOWN
 }

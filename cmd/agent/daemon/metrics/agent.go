@@ -12,6 +12,11 @@ const (
 	MetricLabel      string = "metric"
 	EBPFProgramLabel string = "program"
 	StatsKind        string = "kind"
+
+	PipelineEBPFEvents         string = "ebpf_events"
+	PipelineNetflows           string = "netflows"
+	PipelineStats              string = "stats"
+	PipelineInitialProcessTree string = "initial_process_tree"
 )
 
 var (
@@ -28,11 +33,6 @@ var (
 	AgentSkippedEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvisor_agent_skipped_events_total",
 		Help: "Counter for tracking skipped events rate",
-	}, []string{EventTypeLabel})
-
-	AgentExportedEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "kvisor_agent_exported_events_total",
-		Help: "Counter for tracking exported events rate",
 	}, []string{EventTypeLabel})
 
 	AgentDroppedEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -122,4 +122,20 @@ var (
 	AgentContainersCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "kvisor_agent_containers_count",
 	})
+
+	AgentDataBatchBytesSentTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_data_batch_bytes_sent_total",
+	}, []string{"pipeline"})
+
+	AgentDataBatchItemsSentTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_data_batch_items_sent_total",
+	}, []string{"pipeline"})
+
+	AgentDataBatchExporterErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_data_batch_exporter_errors_total",
+	}, []string{"exporter"})
+
+	AgentDataBatchExportCallsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvisor_agent_data_batch_export_calls_total",
+	}, []string{"exporter"})
 )

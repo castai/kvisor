@@ -4,15 +4,12 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"log/slog"
 	"slices"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type ProcessAction int
@@ -88,16 +85,14 @@ type ProcessTreeCollectorImpl struct {
 	log              *logging.Logger
 	proc             *proc.Proc
 	containersClient containerClient
-	eventSink        chan ProcessTreeEvent
 }
 
-func New(log *logging.Logger, p *proc.Proc, containersClient containerClient) (*ProcessTreeCollectorImpl, error) {
+func New(log *logging.Logger, p *proc.Proc, containersClient containerClient) *ProcessTreeCollectorImpl {
 	return &ProcessTreeCollectorImpl{
 		log:              log,
 		proc:             p,
 		containersClient: containersClient,
-		eventSink:        make(chan ProcessTreeEvent, 100),
-	}, nil
+	}
 }
 
 type ProcessKey struct {
@@ -122,10 +117,10 @@ func ToProcessKey(pid proc.PID, startTime time.Duration) ProcessKey {
 	}
 }
 
-func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
+func (c *ProcessTreeCollectorImpl) GetCurrentProcesses(ctx context.Context) ([]ProcessEvent, error) {
 	processes, err := c.containersClient.LoadContainerTasks(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	processTrees := map[string]map[ProcessKey]Process{}
@@ -166,7 +161,7 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 		processTrees[p.ContainerID] = processesMap
 	}
 
-	eventsToFire := make([]ProcessEvent, numProcesses)
+	events := make([]ProcessEvent, numProcesses)
 	now := time.Now().UTC()
 
 	i := 0
@@ -174,7 +169,7 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 	// each process we encountered in proc.
 	for container, processes := range processTrees {
 		for _, process := range processes {
-			eventsToFire[i] = ProcessEvent{
+			events[i] = ProcessEvent{
 				// We take the current time for the init event timestamp to indicate that this comes from an event update.
 				Timestamp:   now,
 				ContainerID: container,
@@ -184,28 +179,5 @@ func (c *ProcessTreeCollectorImpl) Init(ctx context.Context) error {
 			i++
 		}
 	}
-
-	c.fireEvents(ProcessTreeEvent{
-		Initial: true,
-		Events:  eventsToFire,
-	})
-
-	return nil
-}
-
-func (c *ProcessTreeCollectorImpl) Events() <-chan ProcessTreeEvent {
-	return c.eventSink
-}
-
-// TODO: As we now send process tree events via container events stream
-// for initial process tree data we can send it once directly from init without the need for channels and exporters.
-func (c *ProcessTreeCollectorImpl) fireEvents(event ProcessTreeEvent) {
-	if c.log.IsEnabled(slog.LevelDebug) {
-		c.log.Debugf("fire process tree event (initial %t) ---", event.Initial)
-	}
-	select {
-	case c.eventSink <- event:
-	default:
-		metrics.AgentDroppedEventsTotal.With(prometheus.Labels{metrics.EventTypeLabel: "process_tree"}).Inc()
-	}
+	return events, nil
 }

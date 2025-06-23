@@ -16,6 +16,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
+	"github.com/castai/kvisor/cmd/agent/daemon/export"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -25,7 +26,6 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
@@ -45,55 +45,12 @@ func TestController(t *testing.T) {
 		const flushIntervalNever = time.Second * math.MaxInt32
 		const batchSizeNever = math.MaxInt
 
-		t.Run("send after batch size is reached with growing containers size", func(t *testing.T) {
+		t.Run("enqueue after batch size is reached", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.cfg.Events.FlushInterval = 5 * time.Second
-			ctrl.cfg.Events.BatchSize = 3
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
-
-			expectedBatchesCount := 100
-			go func() {
-				for i := range expectedBatchesCount {
-					for range 3 {
-						ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
-							Context: &types.EventContext{EventID: events.Write, Ts: 1, CgroupID: uint64(i)},
-							Container: &containers.Container{
-								PodName: "p" + strconv.Itoa(i),
-							},
-						}
-					}
-				}
-			}()
-
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
-
-			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
-				fmt.Println(len(batches))
-				if len(batches) > expectedBatchesCount {
-					t.Fatal("too many batches", len(batches))
-				}
-				if len(batches) != expectedBatchesCount {
-					return false
-				}
-				return true
-			}, 1*time.Second, 10*time.Millisecond)
-		})
-
-		t.Run("send after batch size is reached fixed with containers size", func(t *testing.T) {
-			r := require.New(t)
-			ctrl := newTestController()
-			ctrl.cfg.Events.FlushInterval = flushIntervalNever
-			ctrl.cfg.Events.BatchSize = 10
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = flushIntervalNever
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = 4096
 
 			go func() {
 				for i := range 3 {
@@ -116,12 +73,12 @@ func TestController(t *testing.T) {
 				ctrlerr <- ctrl.Run(ctx)
 			}()
 
-			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
+			exp := getTestDataBatchExporter(ctrl)
 
-				if len(batches) == 30 {
+			r.Eventually(func() bool {
+				batches := exp.getEvents()
+
+				if len(batches) > 0 {
 					return true
 				}
 
@@ -129,13 +86,12 @@ func TestController(t *testing.T) {
 			}, 1*time.Second, 10*time.Millisecond)
 		})
 
-		t.Run("send after flush period", func(t *testing.T) {
+		t.Run("enqueue after flush period", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.cfg.Events.FlushInterval = 10 * time.Millisecond
-			ctrl.cfg.Events.BatchSize = batchSizeNever
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = 10 * time.Millisecond
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = batchSizeNever
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -153,17 +109,17 @@ func TestController(t *testing.T) {
 				ctrlerr <- ctrl.Run(ctx)
 			}()
 
+			exp := getTestDataBatchExporter(ctrl)
+
 			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
+				batches := exp.getEvents()
 				if len(batches) > 1 {
 					t.Fatal("expected only one batch")
 				}
 				if len(batches) == 0 {
 					return false
 				}
-				b1 := batches[0].Items[0]
+				b1 := batches[0]
 				r.Equal("p0", b1.PodName)
 				r.Len(b1.Items, 1)
 				r.Equal("/bin/sh", b1.Items[0].GetExec().GetPath())
@@ -172,13 +128,12 @@ func TestController(t *testing.T) {
 			}, 1*time.Second, 10*time.Millisecond)
 		})
 
-		t.Run("send after context cancel", func(t *testing.T) {
+		t.Run("enqueue after context cancel", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.cfg.Events.FlushInterval = flushIntervalNever
-			ctrl.cfg.Events.BatchSize = batchSizeNever
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = flushIntervalNever
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = 1
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -199,29 +154,28 @@ func TestController(t *testing.T) {
 			}, 2*time.Second, 10*time.Millisecond)
 			cancel()
 
+			exp := getTestDataBatchExporter(ctrl)
+
 			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
+				batches := exp.getEvents()
 				if len(batches) > 1 {
 					t.Fatal("expected only one batch")
 				}
 				if len(batches) == 0 {
 					return false
 				}
-				b1 := batches[0].Items[0]
+				b1 := batches[0]
 				r.Equal("p0", b1.PodName)
 				return true
 			}, 1*time.Second, 10*time.Millisecond)
 		})
 
-		t.Run("send signature events", func(t *testing.T) {
+		t.Run("enqueue signature events", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.cfg.Events.FlushInterval = 10 * time.Millisecond
-			ctrl.cfg.Events.BatchSize = batchSizeNever
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = 10 * time.Millisecond
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = batchSizeNever
 			ctrl.signatureEngine.(*mockSignatureEngine).eventsChan <- signature.Event{
 				EbpfEvent: &types.Event{
 					Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -245,30 +199,29 @@ func TestController(t *testing.T) {
 				ctrlerr <- ctrl.Run(ctx)
 			}()
 
+			exp := getTestDataBatchExporter(ctrl)
+
 			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
+				batches := exp.getEvents()
 				if len(batches) > 1 {
 					t.Fatal("expected only one batch")
 				}
 				if len(batches) == 0 {
 					return false
 				}
-				b1 := batches[0].Items[0]
+				b1 := batches[0]
 				r.Equal("signature", b1.PodName)
 				r.Equal("v1", b1.Items[0].GetSignature().GetMetadata().Version)
 				return true
 			}, 1*time.Second, 10*time.Millisecond)
 		})
 
-		t.Run("send enriched events", func(t *testing.T) {
+		t.Run("enqueue enriched events", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			ctrl.cfg.Events.FlushInterval = 10 * time.Millisecond
-			ctrl.cfg.Events.BatchSize = batchSizeNever
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = 10 * time.Millisecond
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = batchSizeNever
 			ctrl.enrichmentService = &mockEnrichmentService{
 				out: make(chan *enrichment.EnrichedContainerEvent, 10),
 				enrichFuncs: []func(*enrichment.EnrichedContainerEvent) bool{
@@ -301,10 +254,10 @@ func TestController(t *testing.T) {
 				ctrlerr <- ctrl.Run(ctx)
 			}()
 
+			exp := getTestDataBatchExporter(ctrl)
+
 			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
+				batches := exp.getEvents()
 				if len(batches) > 1 {
 					t.Fatal("expected only one batch")
 				}
@@ -313,8 +266,7 @@ func TestController(t *testing.T) {
 				}
 				// Should have only one container events batch with one event.
 				r.Len(batches[0].Items, 1)
-				r.Len(batches[0].Items[0].Items, 1)
-				b1 := batches[0].Items[0]
+				b1 := batches[0]
 				r.Equal("curl", b1.PodName)
 				r.Equal("/bin/curl", b1.Items[0].GetExec().GetPath())
 				r.Equal([]string{"--help"}, b1.Items[0].GetExec().GetArgs())
@@ -323,13 +275,73 @@ func TestController(t *testing.T) {
 			}, 1*time.Second, 50*time.Millisecond)
 		})
 
+		t.Run("reset event groups items after export", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = flushIntervalNever
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = 1
+
+			go func() {
+				for i := range 3 {
+					i := i
+					time.Sleep(100 * time.Millisecond)
+					ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+						Context: &types.EventContext{Ts: 1, CgroupID: 1},
+						Container: &containers.Container{
+							PodName: "p0",
+						},
+						Args: types.SchedProcessExecArgs{
+							Filepath: fmt.Sprintf("/bin/sh/%d", i),
+						},
+					}
+				}
+			}()
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			exp := getTestDataBatchExporter(ctrl)
+
+			errc := make(chan error, 1)
+			receivedFilePaths := make(chan []string, 1)
+			go func() {
+				for {
+					batches := exp.getEvents()
+					if len(batches) == 0 {
+						continue
+					}
+					var filePaths []string
+					for _, b := range batches {
+						for _, item := range b.Items {
+							filePaths = append(filePaths, item.GetExec().GetPath())
+							if len(filePaths) == 3 {
+								receivedFilePaths <- filePaths
+								return
+							}
+						}
+					}
+				}
+			}()
+
+			select {
+			case filePaths := <-receivedFilePaths:
+				r.Equal([]string{"/bin/sh/0", "/bin/sh/1", "/bin/sh/2"}, filePaths)
+			case err := <-errc:
+				t.Fatal(err)
+			case <-time.After(1 * time.Second):
+				t.Fatal("timeout")
+			}
+		})
+
 		t.Run("remove events group on container delete and flush remaining", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()
-			exporter := &mockContainerEventsSender{}
-			ctrl.exporters.ContainerEvents = []ContainerEventsSender{exporter}
-			ctrl.cfg.Events.FlushInterval = flushIntervalNever
-			ctrl.cfg.Events.BatchSize = batchSizeNever
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = flushIntervalNever
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = batchSizeNever
 
 			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
 				Context: &types.EventContext{Ts: 1, CgroupID: 1},
@@ -365,18 +377,14 @@ func TestController(t *testing.T) {
 				},
 			}
 
+			exp := getTestDataBatchExporter(ctrl)
+
 			r.Eventually(func() bool {
-				exporter.mu.Lock()
-				defer exporter.mu.Unlock()
-				batches := exporter.batches
-				if len(batches) > 1 {
-					t.Fatal("expected only one batch")
-				}
-				if len(batches) == 0 {
+				batch := exp.getEvents()
+				if len(batch) == 0 {
 					return false
 				}
-				r.Len(batches[0].Items, 1)
-				r.Equal("p999", batches[0].Items[0].PodName)
+				r.Equal("p999", batch[0].PodName)
 				return true
 			}, 2*time.Second, 10*time.Millisecond)
 		})
@@ -385,8 +393,7 @@ func TestController(t *testing.T) {
 	t.Run("container stats pipeline", func(t *testing.T) {
 		r := require.New(t)
 		ctrl := newTestController()
-		exporter := &mockContainerStatsExporter{stats: make(chan *castaipb.StatsBatch)}
-		ctrl.exporters.Stats = append(ctrl.exporters.Stats, exporter)
+		ctrl.cfg.Stats.Enabled = true
 		var nodePSIScrapes int
 		ctrl.procHandler = &mockProcHandler{
 			psiEnabled: true,
@@ -461,55 +468,29 @@ func TestController(t *testing.T) {
 			ctrlerr <- ctrl.Run(ctx)
 		}()
 
-		select {
-		case e := <-exporter.stats:
-			r.Len(e.Items, 2)
-			nodeStats, found := lo.Find(e.Items, func(item *castaipb.StatsItem) bool {
-				return item.GetNode() != nil
-			})
-			r.True(found)
-			r.Equal(10, int(nodeStats.GetNode().CpuStats.Psi.Some.Total))
+		exp := getTestDataBatchExporter(ctrl)
 
-			contStats, found := lo.Find(e.Items, func(item *castaipb.StatsItem) bool {
-				return item.GetContainer() != nil
-			})
-			r.True(found)
+		r.Eventually(func() bool {
+			if len(exp.getContainerStats()) == 0 {
+				return false
+			}
+
+			nodeStats := exp.getNodeStats()
+			r.Equal(10, int(nodeStats[0].CpuStats.Psi.Some.Total))
+
+			contStats := exp.getContainerStats()
 			// Cpu should return diff between scrapes.
-			r.Equal(1, int(contStats.GetContainer().CpuStats.TotalUsage))
-			r.Equal(2, int(contStats.GetContainer().CpuStats.Psi.Some.Total))
+			r.Equal(1, int(contStats[0].CpuStats.TotalUsage))
+			r.Equal(2, int(contStats[0].CpuStats.Psi.Some.Total))
 			// Memory always returns latest value.
-			r.Equal(20, int(contStats.GetContainer().MemoryStats.Usage.Usage))
+			r.Equal(20, int(contStats[0].MemoryStats.Usage.Usage))
 
-		case err := <-ctrlerr:
-			t.Fatal(err)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for data")
-		}
+			return true
+		}, 3*time.Second, 1*time.Millisecond)
 	})
 
 	t.Run("netflow pipeline", func(t *testing.T) {
 		t.Run("collect and export netflow", func(t *testing.T) {
-			ctrl := newTestController(customizeMockContainersClient(func(t *mockContainersClient) {
-				t.list = append(t.list, &containers.Container{
-					ID:           "abcd",
-					Name:         "container-1",
-					CgroupID:     100,
-					PodNamespace: "default",
-					PodUID:       "abcd",
-					PodName:      "test-pod",
-					Cgroup: &cgroup.Cgroup{
-						Id: 100,
-					},
-				})
-			}))
-			exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
-			ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
-
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
-
 			tc := []struct {
 				name         string
 				family       uint16
@@ -544,6 +525,26 @@ func TestController(t *testing.T) {
 			for _, tt := range tc {
 				t.Run(tt.name, func(t *testing.T) {
 					r := require.New(t)
+					ctrl := newTestController(customizeMockContainersClient(func(t *mockContainersClient) {
+						t.list = append(t.list, &containers.Container{
+							ID:           "abcd",
+							Name:         "container-1",
+							CgroupID:     100,
+							PodNamespace: "default",
+							PodUID:       "abcd",
+							PodName:      "test-pod",
+							Cgroup: &cgroup.Cgroup{
+								Id: 100,
+							},
+						})
+					}))
+					ctrl.cfg.Netflow.Enabled = true
+
+					ctrlerr := make(chan error, 1)
+					go func() {
+						ctrlerr <- ctrl.Run(ctx)
+					}()
+
 					ctrl.tracer.(*mockEbpfTracer).sendNetflowTestEvent(netflowList{
 						keys: []ebpftracer.TrafficKey{
 							newEbpfTrafficKey(trafficKey{saddr: tt.saddr.raw, daddr: tt.daddr.raw, family: tt.family}),
@@ -557,8 +558,16 @@ func TestController(t *testing.T) {
 							},
 						},
 					})
-					select {
-					case e := <-exporter.events:
+
+					exp := getTestDataBatchExporter(ctrl)
+
+					r.Eventually(func() bool {
+						flows := exp.getNetflows()
+						if len(flows) == 0 {
+							return false
+						}
+						r.Len(flows, 1)
+						e := flows[0]
 						r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
 						r.Equal(netip.MustParseAddr(tt.saddr.expected).AsSlice(), e.Addr)
 						r.Equal(34561, int(e.Port))
@@ -573,11 +582,8 @@ func TestController(t *testing.T) {
 						r.Equal(int(dest.TxPackets), 5)
 						r.Equal(int(dest.RxBytes), 11)
 						r.Equal(int(dest.RxPackets), 12)
-					case err := <-ctrlerr:
-						t.Fatal(err)
-					case <-time.After(time.Second):
-						t.Fatal("timed out waiting for data")
-					}
+						return true
+					}, 3*time.Second, 1*time.Millisecond)
 				})
 			}
 		})
@@ -597,9 +603,8 @@ func TestController(t *testing.T) {
 					},
 				})
 			}))
+			ctrl.cfg.Netflow.Enabled = true
 			ctrl.cfg.Netflow.MaxPublicIPs = 1
-			exporter := &mockNetflowExporter{events: make(chan *castaipb.Netflow, 10)}
-			ctrl.exporters.Netflow = append(ctrl.exporters.Netflow, exporter)
 
 			ctrlerr := make(chan error, 1)
 			go func() {
@@ -627,8 +632,15 @@ func TestController(t *testing.T) {
 					{TxBytes: 4, TxPackets: 5, RxBytes: 6, RxPackets: 7},
 				},
 			})
-			select {
-			case e := <-exporter.events:
+
+			exp := getTestDataBatchExporter(ctrl)
+			r.Eventually(func() bool {
+				flows := exp.getNetflows()
+				if len(flows) == 0 {
+					return false
+				}
+				r.Len(flows, 1)
+				e := flows[0]
 				r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
 				r.Len(e.Destinations, 4)
 				var actual []string
@@ -647,11 +659,9 @@ func TestController(t *testing.T) {
 				for i := range expected {
 					r.Equal(expected[i], actual[i])
 				}
-			case err := <-ctrlerr:
-				t.Fatal(err)
-			case <-time.After(time.Second):
-				t.Fatal("timed out waiting for data")
-			}
+				return true
+			}, 3*time.Second, 1*time.Millisecond)
+
 		})
 	})
 }
@@ -707,10 +717,19 @@ func newTestController(opts ...any) *Controller {
 			ScrapeInterval: time.Millisecond,
 		},
 		Netflow: config.NetflowConfig{
+			Enabled:        false,
 			ExportInterval: time.Millisecond,
 		},
+		Events: config.EventsConfig{
+			Enabled: false,
+		},
+		DataBatch: config.DataBatchConfig{
+			MaxBatchSizeBytes: 1 << 20,
+			FlushInterval:     time.Millisecond,
+			ExportTimeout:     2 * time.Millisecond,
+		},
 	}
-	exporters := NewExporters(log)
+	exporters := []export.DataBatchWriter{newMockDataBatchExporter()}
 	contClient := &mockContainersClient{}
 	contClientCustomizer := getOptOr[customizeMockContainersClient](opts, func(t *mockContainersClient) {})
 	contClientCustomizer(contClient)
@@ -749,38 +768,87 @@ func newTestController(opts ...any) *Controller {
 	return ctrl
 }
 
-type mockContainerEventsSender struct {
-	batches []*castaipb.ContainerEventsBatch
-	mu      sync.Mutex
+func getTestDataBatchExporter(ctrl *Controller) *mockDataBatchExporter {
+	exp := ctrl.exporters[0]
+	return exp.(*mockDataBatchExporter)
 }
 
-func (m *mockContainerEventsSender) Send(ctx context.Context, batch *castaipb.ContainerEventsBatch) error {
+func newMockDataBatchExporter() *mockDataBatchExporter {
+	return &mockDataBatchExporter{}
+}
+
+type mockDataBatchExporter struct {
+	mu    sync.Mutex
+	items []*castaipb.DataBatchItem
+}
+
+func (m *mockDataBatchExporter) Write(ctx context.Context, req *castaipb.WriteDataBatchRequest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Add deep copy because we cleanup batch items after it's sent.
-	pbBytes, err := protojson.Marshal(batch)
+	pbBytes, err := protojson.Marshal(req)
 	if err != nil {
 		return err
 	}
-	var res castaipb.ContainerEventsBatch
+	var res castaipb.WriteDataBatchRequest
 	if err := protojson.Unmarshal(pbBytes, &res); err != nil {
 		return err
 	}
-	m.batches = append(m.batches, &res)
+	m.items = append(m.items, res.Items...)
 	return nil
 }
 
-type mockNetflowExporter struct {
-	events chan *castaipb.Netflow
+func (m *mockDataBatchExporter) Name() string {
+	return "test"
 }
 
-func (m *mockNetflowExporter) Run(ctx context.Context) error {
-	return nil
+func (m *mockDataBatchExporter) getEvents() []*castaipb.ContainerEvents {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var res []*castaipb.ContainerEvents
+	for _, item := range m.items {
+		if v := item.GetContainerEvents(); v != nil {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
-func (m *mockNetflowExporter) Enqueue(e *castaipb.Netflow) {
-	m.events <- e
+func (m *mockDataBatchExporter) getNetflows() []*castaipb.Netflow {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var res []*castaipb.Netflow
+	for _, item := range m.items {
+		if v := item.GetNetflow(); v != nil {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func (m *mockDataBatchExporter) getContainerStats() []*castaipb.ContainerStats {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var res []*castaipb.ContainerStats
+	for _, item := range m.items {
+		if v := item.GetContainerStats(); v != nil {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func (m *mockDataBatchExporter) getNodeStats() []*castaipb.NodeStats {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var res []*castaipb.NodeStats
+	for _, item := range m.items {
+		if v := item.GetNodeStats(); v != nil {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
 type mockContainersClient struct {
@@ -971,11 +1039,10 @@ func (m *mockKubeClient) GetPod(ctx context.Context, in *kubepb.GetPodRequest, o
 }
 
 type mockProcessTreeController struct {
-	eventsChan chan processtree.ProcessTreeEvent
 }
 
-func (m *mockProcessTreeController) Events() <-chan processtree.ProcessTreeEvent {
-	return m.eventsChan
+func (m *mockProcessTreeController) GetCurrentProcesses(ctx context.Context) ([]processtree.ProcessEvent, error) {
+	return []processtree.ProcessEvent{}, nil
 }
 
 func getOptOr[T any](opts []any, or T) T {
@@ -1007,21 +1074,4 @@ func (m mockProcHandler) GetPSIStats(file string) (*castaipb.PSIStats, error) {
 
 func (m mockProcHandler) GetMeminfoStats() (*castaipb.MemoryStats, error) {
 	return &castaipb.MemoryStats{}, nil
-}
-
-type mockContainerStatsExporter struct {
-	stats chan *castaipb.StatsBatch
-}
-
-func (m *mockContainerStatsExporter) Run(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (m *mockContainerStatsExporter) Enqueue(e *castaipb.StatsBatch) {
-	m.stats <- e
 }

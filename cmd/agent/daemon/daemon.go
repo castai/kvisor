@@ -79,24 +79,25 @@ func NewRunCommand(version string) *cobra.Command {
 		gitCloneDetectionSignatureRedactPasswords        = command.Flags().Bool("signature-git-clone-detection-redact-password", true, "If enabled, any password passed via the URL gets redacted")
 		ingressNightmareExploitDetectionSignatureEnabled = command.Flags().Bool("signature-ingress-nightmare-exploit-detection-enabled", true, "Enables the detection signature to detect exploits of ingress nightmare")
 
-		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
-		netflowCheckClusterNetworkRanges   = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
-		netflowSampleSubmitIntervalSeconds = command.Flags().Uint64("netflow-sample-submit-interval-seconds", 15, "Netflow sample submit interval")
-		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
-		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
-		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
-
-		eventsBatchSize     = command.Flags().Int("events-batch-size", 1000, "Events batch size before exporting")
-		eventsFlushInterval = command.Flags().Duration("events-flush-interval", 5*time.Second, "Events flush interval")
+		netflowEnabled                   = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
+		netflowCheckClusterNetworkRanges = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
+		netflowExportInterval            = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
+		netflowMaxPublicIPsBucket        = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
+		netflowGrouping                  = ebpftracer.NetflowGroupingDropSrcPort
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
+
+		dataBatchMaxSize       = command.Flags().Uint32("data-batch-max-size", 524288, "Data batch max size")
+		dataBatchFlushInterval = command.Flags().Duration("data-batch-flush-interval", 15*time.Second, "Data batch flush interval")
+		dataBatchExportTimeout = command.Flags().Duration("data-batch-export-timeout", 10*time.Second, "Data batch export timeout")
 
 		clickhouseAddr     = command.Flags().String("clickhouse-addr", "", "Clickhouse address to send events to")
 		clickhouseDatabase = command.Flags().String("clickhouse-database", "", "Clickhouse database name")
 		clickhouseUsername = command.Flags().String("clickhouse-username", "", "Clickhouse username")
 
-		castaiServerInsecure  = command.Flags().Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
-		castaiCompressionName = command.Flags().String("castai-compression-name", gzip.Name, "CASTAI gRPC compression name")
+		castaiServerInsecure        = command.Flags().Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
+		castaiCompressionName       = command.Flags().String("castai-compression-name", gzip.Name, "CASTAI gRPC compression name")
+		castaiDatabatchWriteTimeout = command.Flags().Duration("castai-databatch-write-timeout", 10*time.Second, "CASTAI data batch write timeout")
 
 		kubeAPIServiceAddr = command.Flags().String("kube-api-service-addr", "", "Custom kube API service grpc address")
 
@@ -126,6 +127,7 @@ func NewRunCommand(version string) *cobra.Command {
 			slog.Warn(fmt.Errorf("failed to initialize CAST AI client config: %w", err).Error())
 		}
 		castaiClientCfg.CompressionName = *castaiCompressionName
+		castaiClientCfg.DataBatchWriteTimeout = *castaiDatabatchWriteTimeout
 
 		var redactSensitiveValuesRegex *regexp.Regexp
 		if *redactSensitiveValuesRegexStr != "" {
@@ -149,15 +151,18 @@ func NewRunCommand(version string) *cobra.Command {
 			ContainerdSockPath:        *containerdSockPath,
 			HostCgroupsDir:            *hostCgroupsDir,
 			MetricsHTTPListenPort:     *metricsHTTPListenPort,
+			DataBatch: config.DataBatchConfig{
+				MaxBatchSizeBytes: int(*dataBatchMaxSize),
+				FlushInterval:     *dataBatchFlushInterval,
+				ExportTimeout:     *dataBatchExportTimeout,
+			},
 			Stats: config.StatsConfig{
 				Enabled:        *statsEnabled,
 				ScrapeInterval: *statsScrapeInterval,
 			},
 			Events: config.EventsConfig{
-				BatchSize:     *eventsBatchSize,
-				FlushInterval: *eventsFlushInterval,
+				Enabled: *ebpfEventsEnabled,
 			},
-			EBPFEventsEnabled:              *ebpfEventsEnabled,
 			EBPFEventsStdioExporterEnabled: *ebpfEventsStdioExporterEnabled,
 			EBPFEventsOutputChanSize:       *ebpfEventsOutputChanSize,
 			EBPFMetrics: config.EBPFMetricsConfig{
@@ -191,12 +196,11 @@ func NewRunCommand(version string) *cobra.Command {
 				RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
 			},
 			Netflow: config.NetflowConfig{
-				Enabled:                     *netflowEnabled,
-				SampleSubmitIntervalSeconds: *netflowSampleSubmitIntervalSeconds,
-				Grouping:                    netflowGrouping,
-				ExportInterval:              *netflowExportInterval,
-				MaxPublicIPs:                *netflowMaxPublicIPsBucket,
-				CheckClusterNetworkRanges:   *netflowCheckClusterNetworkRanges,
+				Enabled:                   *netflowEnabled,
+				Grouping:                  netflowGrouping,
+				ExportInterval:            *netflowExportInterval,
+				MaxPublicIPs:              *netflowMaxPublicIPsBucket,
+				CheckClusterNetworkRanges: *netflowCheckClusterNetworkRanges,
 			},
 			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,

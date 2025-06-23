@@ -37,7 +37,7 @@ sudo reboot
 
 Install kind cluster.
 ```sh
-./tools/localenv/kind.sh
+CLUSTER_NAME=tilt ./tools/localenv/kind.sh
 ```
 
 ## Run E2E tests locally

@@ -20,6 +20,9 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/conntrack"
 	"github.com/castai/kvisor/cmd/agent/daemon/cri"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
+	"github.com/castai/kvisor/cmd/agent/daemon/export"
+	castaiexport "github.com/castai/kvisor/cmd/agent/daemon/export/castai"
+	clickhouseexport "github.com/castai/kvisor/cmd/agent/daemon/export/clickhouse"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
@@ -72,7 +75,7 @@ func (a *App) Run(ctx context.Context) error {
 	podName := os.Getenv("POD_NAME")
 
 	var log *logging.Logger
-	var exporters *pipeline.Exporters
+	var exporters []export.DataBatchWriter
 	// Castai specific spetup if config is valid.
 	if cfg.Castai.Valid() {
 		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.Castai)
@@ -100,23 +103,13 @@ func (a *App) Run(ctx context.Context) error {
 			}
 		}
 		log = logging.New(logCfg)
-		exporters = pipeline.NewExporters(log)
-		if cfg.EBPFEventsEnabled {
-			exporters.ContainerEvents = append(exporters.ContainerEvents, pipeline.NewCastaiContainerEventSender(ctx, log, castaiClient))
-		}
-		if cfg.Stats.Enabled {
-			exporters.Stats = append(exporters.Stats, pipeline.NewCastaiStatsExporter(log, castaiClient, cfg.ExportersQueueSize))
-		}
-		if cfg.Netflow.Enabled {
-			exporters.Netflow = append(exporters.Netflow, pipeline.NewCastaiNetflowExporter(log, castaiClient, cfg.ExportersQueueSize))
-		}
-		if cfg.ProcessTree.Enabled {
-			exporter := pipeline.NewCastaiProcessTreeExporter(log, castaiClient, cfg.ExportersQueueSize)
-			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
-		}
+
+		exporters = append(exporters, castaiexport.NewDataBatchWriter(castaiexport.Config{
+			WriteTimeout: a.cfg.Castai.DataBatchWriteTimeout,
+		}, castaiClient, log))
+
 	} else {
 		log = logging.New(logCfg)
-		exporters = pipeline.NewExporters(log)
 		log.Warn("castai config is not set or it is invalid, running agent in standalone mode")
 	}
 
@@ -151,22 +144,10 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		defer storageConn.Close()
 
-		if cfg.EBPFEventsEnabled {
-			exporters.ContainerEvents = append(exporters.ContainerEvents, pipeline.NewClickhouseContainerEventsExporter(log, storageConn))
-		}
-
-		if cfg.Netflow.Enabled {
-			clickhouseNetflowExporter := pipeline.NewClickhouseNetflowExporter(log, storageConn, cfg.ExportersQueueSize)
-			exporters.Netflow = append(exporters.Netflow, clickhouseNetflowExporter)
-		}
-
-		if cfg.ProcessTree.Enabled {
-			exporter := pipeline.NewClickhouseProcessTreeExporter(log, storageConn, cfg.ExportersQueueSize)
-			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
-		}
+		exporters = append(exporters, clickhouseexport.NewDataBatchWriter(storageConn))
 	}
 
-	if exporters.Empty() {
+	if len(exporters) == 0 {
 		return errors.New("no configured exporters")
 	}
 
@@ -189,15 +170,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer containersClient.Close()
 
-	var processTreeCollector processtree.ProcessTreeCollector
-	if cfg.ProcessTree.Enabled {
-		processTreeCollector, err = initializeProcessTree(ctx, log, procHandler, containersClient)
-		if err != nil {
-			return fmt.Errorf("initialize process tree: %w", err)
-		}
-	} else {
-		processTreeCollector = processtree.NewNoop()
-	}
+	processTreeCollector := processtree.New(log, procHandler, containersClient)
 
 	ct, err := conntrack.NewClient(log)
 	if err != nil {
@@ -246,7 +219,6 @@ func (a *App) Run(ctx context.Context) error {
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
 		NetflowsEnabled:                    cfg.Netflow.Enabled,
-		NetflowSampleSubmitIntervalSeconds: cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    cfg.Netflow.Grouping,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
@@ -259,7 +231,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer tracer.Close()
 
-	policy := buildEBPFPolicy(log, cfg, exporters, signatureEngine)
+	policy := buildEBPFPolicy(log, cfg, signatureEngine)
 	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
 	if err := tracer.ApplyPolicy(policy); err != nil {
 		return fmt.Errorf("apply policy: %w", err)
@@ -270,9 +242,11 @@ func (a *App) Run(ctx context.Context) error {
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
-			Netflow: cfg.Netflow,
-			Events:  cfg.Events,
-			Stats:   cfg.Stats,
+			Netflow:     cfg.Netflow,
+			Events:      cfg.Events,
+			Stats:       cfg.Stats,
+			ProcessTree: cfg.ProcessTree,
+			DataBatch:   cfg.DataBatch,
 		},
 		exporters,
 		containersClient,
@@ -289,10 +263,6 @@ func (a *App) Run(ctx context.Context) error {
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return a.runHTTPServer(ctx, log)
-	})
-
-	errg.Go(func() error {
-		return exporters.Run(ctx)
 	})
 
 	errg.Go(func() error {
@@ -388,7 +358,7 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	return cleanup
 }
 
-func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, exporters *pipeline.Exporters, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
+func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
 	// TODO: Allow to build these policies on the fly from the control plane. Ideally we should be able to disable, enable policies and change rate limits dynamically.
 	policy := &ebpftracer.Policy{
 		SystemEvents: []events.ID{
@@ -419,7 +389,7 @@ Currently we care only care about dns responses with valid answers.
 		}...)
 	}
 
-	if len(exporters.ContainerEvents) > 0 {
+	if cfg.Events.Enabled {
 		policy.SignatureEvents = signatureEngine.TargetEvents()
 
 		for _, enabledEvent := range cfg.EBPFEventsPolicyConfig.EnabledEvents {
@@ -436,7 +406,7 @@ Currently we care only care about dns responses with valid answers.
 		}
 	}
 
-	if len(exporters.Netflow) > 0 {
+	if cfg.Netflow.Enabled {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 			ID: events.NetFlowBase,
 		})
@@ -445,23 +415,11 @@ Currently we care only care about dns responses with valid answers.
 		dnsEnabled := lo.ContainsBy(cfg.EBPFEventsPolicyConfig.EnabledEvents, func(item events.ID) bool {
 			return item == events.NetPacketDNSBase
 		})
-		if len(exporters.ContainerEvents) == 0 && dnsEnabled {
+		if !cfg.Events.Enabled && dnsEnabled {
 			policy.Events = append(policy.Events, dnsEventPolicy)
 		}
 	}
 	return policy
-}
-
-func initializeProcessTree(ctx context.Context, log *logging.Logger, procHandler *proc.Proc, containersClient *containers.Client) (*processtree.ProcessTreeCollectorImpl, error) {
-	processTreeCollector, err := processtree.New(log, procHandler, containersClient)
-	if err != nil {
-		return nil, err
-	}
-	err = processTreeCollector.Init(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return processTreeCollector, nil
 }
 
 func (a *App) syncRemoteConfig(ctx context.Context, client *castai.Client) error {
