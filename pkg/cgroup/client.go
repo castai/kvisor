@@ -168,14 +168,27 @@ func (c *Client) LoadCgroup(id ID, path string) {
 	c.cgroupMu.Lock()
 	defer c.cgroupMu.Unlock()
 
-	if !strings.HasPrefix(path, c.cgRoot) {
-		path = filepath.Join(c.cgRoot, path)
-	}
+	path = c.fixCgroupPath(path)
 
 	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
 		cgroup := c.loadCgroupForIDAndPath(id, path)
 		return cgroup
 	})
+}
+
+var systemSliceRegexp = regexp.MustCompile(`^/system\.slice/docker-[a-f0-9]+\.scope/`)
+
+func (c *Client) fixCgroupPath(path string) string {
+	// Kind clusters runs inside a container. eBPF mkdir events returns full path of the kernel view,
+	// but we mount /sys/fs/cgroups from the kind node (aka docker in docker).
+	// This is a simple fix for local kind clusters.
+	if strings.HasPrefix(path, "/system.slice/docker-") {
+		path = systemSliceRegexp.ReplaceAllString(path, "/")
+	}
+	if !strings.HasPrefix(path, c.cgRoot) {
+		path = filepath.Join(c.cgRoot, path)
+	}
+	return path
 }
 
 func (c *Client) loadCgroupForIDAndPath(cgroupID ID, cgroupPath string) *Cgroup {

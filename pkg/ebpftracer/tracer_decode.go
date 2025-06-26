@@ -137,7 +137,7 @@ func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs
 	t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
 	if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
 		if errors.Is(err, containers.ErrContainerNotFound) {
-			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, "container not found during cgroup mkdir event")
+			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, fmt.Sprintf("container not found during mkdir, path=%s", args.CgroupPath))
 			if err != nil {
 				return fmt.Errorf("cannot mute events for cgroup %d: %w", eventCtx.CgroupID, err)
 			}
