@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContainerByCgroup(t *testing.T) {
@@ -45,6 +46,42 @@ func TestContainerByCgroup(t *testing.T) {
 	id, typ = GetContainerIdFromCgroup("/system.slice/containerd.service/kubepods-burstable-pod4ed02c0b_0df8_4d14_a30e_fd589ee4143a.slice:cri-containerd:d4a9f9195eaf7e4a729f24151101e1de61f1398677e7b82acfb936dff0b4ce55")
 	as.Equal(ContainerdRuntime, typ)
 	as.Equal("d4a9f9195eaf7e4a729f24151101e1de61f1398677e7b82acfb936dff0b4ce55", id)
+}
+
+func TestClientFixPath(t *testing.T) {
+	c := newTestClient()
+	c.cgRoot = "/cgroups"
+
+	tests := []struct {
+		name         string
+		path         string
+		expectedPath string
+	}{
+		{
+			name:         "fix system slice path",
+			path:         "/system.slice/docker-4cc818a75eb691c5efb9c943b0c3a26ec8e0a05acb60bef4717315e65d671774.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod12fdc709_933e_41d0_917f_cd84de9afa94.slice/cri-containerd-c46bafd57b2ef55a23c1319893c8aa5bfca24872bd95258700a51059941fb69e.scope",
+			expectedPath: "/cgroups/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod12fdc709_933e_41d0_917f_cd84de9afa94.slice/cri-containerd-c46bafd57b2ef55a23c1319893c8aa5bfca24872bd95258700a51059941fb69e.scope",
+		},
+		{
+			name:         "add root cgroup prefix",
+			path:         "/file.scope",
+			expectedPath: "/cgroups/file.scope",
+		},
+		{
+			name:         "no changes for valid path",
+			path:         "/cgroups/file.scope",
+			expectedPath: "/cgroups/file.scope",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+			actualPath := c.fixCgroupPath(tt.path)
+			r.Equal(tt.expectedPath, actualPath)
+		})
+	}
+
 }
 
 func newTestClient() *Client {
