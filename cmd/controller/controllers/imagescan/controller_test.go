@@ -243,12 +243,6 @@ func TestSubscriber(t *testing.T) {
 					ImagePullSecrets: nil,
 				},
 			}, ngnxImage)
-			r.Len(client.getImagesResourcesChanges(), 1)
-			r.Len(client.getImagesResourcesChanges()[0].Images, 3)
-			r.Equal(castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_PENDING, client.getImagesResourcesChanges()[0].Images[0].ScanStatus)
-			r.Equal(castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_PENDING, client.getImagesResourcesChanges()[0].Images[1].ScanStatus)
-			r.Equal(castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_PENDING, client.getImagesResourcesChanges()[0].Images[2].ScanStatus)
-
 			return true
 		})
 
@@ -310,15 +304,10 @@ func TestSubscriber(t *testing.T) {
 			img = delta.images[img.key]
 			r.False(img.nextScan.IsZero())
 
-			r.Len(client.getImagesResourcesChanges(), 2)
-			// first scan update is pending
+			r.Len(client.getImagesResourcesChanges(), 1)
 			r.Len(client.getImagesResourcesChanges()[0].Images, 1)
-			r.Equal(castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_PENDING, client.getImagesResourcesChanges()[0].Images[0].ScanStatus)
-			r.Empty(client.getImagesResourcesChanges()[0].Images[0].ScanError)
-			// second scan update is error
-			r.Len(client.getImagesResourcesChanges()[1].Images, 1)
-			r.Equal(castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_SCAN_ERROR, client.getImagesResourcesChanges()[1].Images[0].ScanStatus)
-			r.Equal(expectedErr.Error(), client.getImagesResourcesChanges()[1].Images[0].ScanError)
+			r.Equal(castaipb.ImageScanStatus_IMAGE_SCAN_STATUS_SCAN_ERROR, client.getImagesResourcesChanges()[0].Images[0].ScanStatus)
+			r.Equal(expectedErr.Error(), client.getImagesResourcesChanges()[0].Images[0].ScanError)
 			return true
 		})
 	})
@@ -429,58 +418,6 @@ func TestSubscriber(t *testing.T) {
 
 			r.Len(imgs, 1)
 			r.Equal(string(imgcollectorconfig.ModeRemote), imgs[0].Mode)
-			return true
-		})
-	})
-
-	t.Run("send changed resource owners", func(t *testing.T) {
-		r := require.New(t)
-
-		cfg := Config{
-			ScanInterval: 1 * time.Millisecond,
-		}
-
-		client := &mockCastaiClient{}
-		sub := newTestController(log, cfg)
-		sub.client = client
-		sub.initialScansDelay = 1 * time.Millisecond
-		sub.timeGetter = func() time.Time {
-			return time.Now().UTC().Add(time.Hour)
-		}
-		delta := sub.delta
-		img := newImage()
-		img.name = "img"
-		img.id = "img1"
-		img.key = "img1amd64img"
-		img.architecture = "amd64"
-		img.owners = map[string]*imageOwner{
-			"r1": {},
-		}
-		delta.images[img.key] = img
-
-		ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
-		defer cancel()
-
-		errc := make(chan error, 1)
-		go func() {
-			errc <- sub.Run(ctx)
-		}()
-
-		assertLoop(errc, func() bool {
-			changes := client.getImagesResourcesChanges()
-			if len(changes) == 0 {
-				return false
-			}
-
-			// Should have only 1 call to api because there are no delta updates
-			r.Len(changes, 1)
-
-			// First api call. Initial full resync.
-			change1Img1 := changes[0].Images[0]
-			r.Equal("img1", change1Img1.Id)
-			r.Equal("amd64", change1Img1.Architecture)
-			r.Equal([]string{"r1"}, change1Img1.ResourceIds)
-
 			return true
 		})
 	})
@@ -603,8 +540,7 @@ func (m *mockKubeController) GetKvisorAgentImageDetails() (kube.ImageDetails, er
 }
 
 type mockCastaiClient struct {
-	mu    sync.Mutex
-	metas []*castaipb.ImageMetadata
+	mu sync.Mutex
 
 	imagesResourcesChanges []*castaipb.UpdateSyncStateRequest
 

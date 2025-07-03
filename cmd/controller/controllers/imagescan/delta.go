@@ -105,17 +105,6 @@ func (d *deltaState) SetImageScanError(imgKey string, err error) {
 	img.nextScan = time.Now().UTC().Add(img.retryBackoff.Step())
 }
 
-func (d *deltaState) SetResourcesUpdatedAt(images []*image, now time.Time) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	for _, img := range images {
-		if deltaImg, ok := d.images[img.key]; ok {
-			deltaImg.resourcesUpdatedAt = now
-		}
-	}
-}
-
 func (d *deltaState) SetImageScanned(imgKey string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -315,7 +304,6 @@ type image struct {
 	retryBackoff wait.Backoff // Retry state for failed images.
 	nextScan     time.Time    // Set based on retry backoff.
 
-	lastRemoteSyncAt   time.Time // Time then image state was synced from remote.
-	ownerChangedAt     time.Time // Time when new image owner was added
-	resourcesUpdatedAt time.Time // Time when image was synced with backend
+	lastRemoteSyncAt time.Time // Time then image state was synced from remote.
+	ownerChangedAt   time.Time // Time when new image owner was added
 }
