@@ -222,14 +222,18 @@ func (c *Client) findCgroupPathForID(cgroupId ID) (string, ID) {
 
 	rootDir := c.getCgroupSearchBasePath()
 
-	_ = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
+	_ = filepath.WalkDir(rootDir, func(path string, info fs.DirEntry, err error) error {
 		// nolint:nilerr
 		if err != nil || !info.IsDir() {
 			return nil
 		}
 
-		stat, ok := info.Sys().(*syscall.Stat_t)
+		fileInfo, err := info.Info()
+		if err != nil {
+			return err
+		}
 
+		stat, ok := fileInfo.Sys().(*syscall.Stat_t)
 		if !ok {
 			return errors.New("unexpected stat")
 		}
@@ -255,18 +259,18 @@ func (c *Client) findCgroupPathForContainerID(containerID string) (string, ID) {
 	retPath := ""
 	rootDir := c.getCgroupSearchBasePath()
 	var cgroupID ID
-	// TODO(anjmao): This is can be really slow and expensive. We should consider another approach:
-	// 1. Find cgroup file from /proc/<pid>/cgroup by container pid. Containerd knows about container pids.
-	// We have this data during initial process tree init. Ideally it can be reused.
-	// 2. This file already points to actual cgroup file in /sys/fs/cgroup. However this file is doesn't contain actual cgroup inode.
-	_ = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
+	_ = filepath.WalkDir(rootDir, func(path string, info fs.DirEntry, err error) error {
 		// nolint:nilerr
 		if err != nil || !info.IsDir() {
 			return nil
 		}
 		base := filepath.Base(path)
 		if strings.Contains(base, containerID) {
-			stat, ok := info.Sys().(*syscall.Stat_t)
+			fileInfo, err := info.Info()
+			if err != nil {
+				return err
+			}
+			stat, ok := fileInfo.Sys().(*syscall.Stat_t)
 			if !ok {
 				return errors.New("unexpected stat")
 			}
