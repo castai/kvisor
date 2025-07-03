@@ -77,6 +77,8 @@ type Config struct {
 	// All PIPs reported from ebpf will be normalized to this PID namespace
 	HomePIDNS                          proc.NamespaceID
 	AllowAnyEvent                      bool
+	FileAccessEnabled                  bool
+	NetflowsEnabled                    bool
 	NetflowSampleSubmitIntervalSeconds uint64
 	NetflowGrouping                    NetflowGrouping
 	TrackSyscallStats                  bool

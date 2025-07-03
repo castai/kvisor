@@ -41,6 +41,7 @@ type Config struct {
 	Castai                         castai.Config                   `json:"castai"`
 	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
 	Netflow                        NetflowConfig                   `json:"netflow"`
+	FileAccess                     FileAccessConfig                `json:"fileAccess"`
 	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
 	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
@@ -74,6 +75,10 @@ type NetflowConfig struct {
 	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
 	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
 	CheckClusterNetworkRanges   bool                       `json:"checkClusterNetworkRanges"`
+}
+
+type FileAccessConfig struct {
+	Enabled bool `json:"enabled"`
 }
 
 type ClickhouseConfig struct {

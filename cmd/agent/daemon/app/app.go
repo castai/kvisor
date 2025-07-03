@@ -232,6 +232,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
+		FileAccessEnabled:                  cfg.FileAccess.Enabled,
 		BTFPath:                            cfg.BTFPath,
 		SignalEventsRingBufferSize:         cfg.EBPFSignalEventsRingBufferSize,
 		EventsRingBufferSize:               cfg.EBPFEventsRingBufferSize,
@@ -244,6 +245,7 @@ func (a *App) Run(ctx context.Context) error {
 		SignatureEngine:                    signatureEngine,
 		MountNamespacePIDStore:             mountNamespacePIDStore,
 		HomePIDNS:                          pidNSID,
+		NetflowsEnabled:                    cfg.Netflow.Enabled,
 		NetflowSampleSubmitIntervalSeconds: cfg.Netflow.SampleSubmitIntervalSeconds,
 		NetflowGrouping:                    cfg.Netflow.Grouping,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
