@@ -14,8 +14,11 @@ import (
 )
 
 type containerStatsGroup struct {
-	pb      *castaipb.ContainerStats
-	changed bool
+	pb          *castaipb.ContainerStats
+	prevCpuStat *castaipb.CpuStats
+	prevMemStat *castaipb.MemoryStats
+	prevIOStat  *castaipb.IOStats
+	changed     bool
 }
 
 type nodeScrapePoint struct {
@@ -23,6 +26,10 @@ type nodeScrapePoint struct {
 	cpuStat  *castaipb.CpuStats
 	memStat  *castaipb.MemoryStats
 	ioStat   *castaipb.IOStats
+
+	prevCpuStat *castaipb.CpuStats
+	prevMemStat *castaipb.MemoryStats
+	prevIOStat  *castaipb.IOStats
 }
 
 func (c *Controller) runStatsPipeline(ctx context.Context) error {
@@ -37,10 +44,6 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 	}
 	containerStatsGroups := map[uint64]*containerStatsGroup{}
 	stats := newDataBatchStats()
-
-	// Initial scrape to populate initial points for diffs.
-	c.scrapeNodeStats(nodeStats, stats)
-	c.scrapeContainersResourceStats(containerStatsGroups, stats)
 
 	send := func() {
 		items := make([]*castaipb.DataBatchItem, 0, stats.totalItems)
@@ -72,6 +75,10 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			group.changed = false
 		}
 	}
+
+	// Initial scrape to populate initial points for diffs.
+	c.scrapeNodeStats(nodeStats, stats)
+	c.scrapeContainersResourceStats(containerStatsGroups, stats)
 
 	for {
 		select {
@@ -128,13 +135,13 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 				ContainerName: cont.Name,
 				PodUid:        cont.PodUID,
 				ContainerId:   cont.ID,
-				CpuStats:      cgStats.CpuStats,
-				MemoryStats:   cgStats.MemoryStats,
 				PidsStats:     cgStats.PidsStats,
-				IoStats:       cgStats.IOStats,
 				NodeName:      c.nodeName,
 			},
 		}
+		group.prevCpuStat = cgStats.CpuStats
+		group.prevMemStat = cgStats.MemoryStats
+		group.prevIOStat = cgStats.IOStats
 		if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
 			group.pb.WorkloadName = podInfo.WorkloadName
 			group.pb.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
@@ -144,12 +151,15 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 	}
 
 	group.changed = true
-	group.pb.CpuStats = getCPUStatsDiff(group.pb.CpuStats, cgStats.CpuStats)
-	group.pb.MemoryStats = getMemoryStatsDiff(group.pb.MemoryStats, cgStats.MemoryStats)
-	group.pb.IoStats = getIOStatsDiff(group.pb.IoStats, cgStats.IOStats)
+	group.pb.CpuStats = getCPUStatsDiff(group.prevCpuStat, cgStats.CpuStats)
+	group.pb.MemoryStats = getMemoryStatsDiff(group.prevMemStat, cgStats.MemoryStats)
+	group.pb.IoStats = getIOStatsDiff(group.prevIOStat, cgStats.IOStats)
 	group.pb.PidsStats = cgStats.PidsStats
 	stats.sizeBytes += proto.Size(group.pb)
 	stats.totalItems++
+	group.prevCpuStat = cgStats.CpuStats
+	group.prevMemStat = cgStats.MemoryStats
+	group.prevIOStat = cgStats.IOStats
 }
 
 func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatchStats) {
@@ -158,6 +168,7 @@ func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatc
 		if !c.procHandler.PSIEnabled() {
 			return nil
 		}
+		c.log.Debug("scraping node stats")
 
 		cpuPSI, err := c.procHandler.GetPSIStats("cpu")
 		if err != nil {
@@ -176,27 +187,30 @@ func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatc
 			return err
 		}
 
-		// We need at least 2 scrapes to calculate diffs.
-		// Diffs are needed for always increasing counters only because we store them as deltas.
-		// This includes cpu usage and psi total value.
-		if nodeStats.cpuStat == nil {
-			nodeStats.cpuStat = &castaipb.CpuStats{Psi: cpuPSI}
-			nodeStats.memStat = &castaipb.MemoryStats{
-				Usage:         memStats.Usage,
-				SwapOnlyUsage: memStats.SwapOnlyUsage,
-				Psi:           memoryPSI,
-			}
-			nodeStats.ioStat = &castaipb.IOStats{Psi: ioPSI}
-			return nil
-		}
-
-		nodeStats.cpuStat = getCPUStatsDiff(nodeStats.cpuStat, &castaipb.CpuStats{Psi: cpuPSI})
-		nodeStats.memStat = getMemoryStatsDiff(nodeStats.memStat, &castaipb.MemoryStats{
+		currCPU := &castaipb.CpuStats{Psi: cpuPSI}
+		currMem := &castaipb.MemoryStats{
 			Usage:         memStats.Usage,
 			SwapOnlyUsage: memStats.SwapOnlyUsage,
 			Psi:           memoryPSI,
-		})
-		nodeStats.ioStat = getIOStatsDiff(nodeStats.ioStat, &castaipb.IOStats{Psi: ioPSI})
+		}
+		currIO := &castaipb.IOStats{Psi: ioPSI}
+
+		// We need at least 2 scrapes to calculate diffs.
+		// Diffs are needed for always increasing counters only because we store them as deltas.
+		// This includes cpu usage and psi total value.
+		if nodeStats.prevCpuStat == nil {
+			nodeStats.prevCpuStat = currCPU
+			nodeStats.prevMemStat = currMem
+			nodeStats.prevIOStat = currIO
+			return nil
+		}
+
+		nodeStats.cpuStat = getCPUStatsDiff(nodeStats.prevCpuStat, currCPU)
+		nodeStats.memStat = getMemoryStatsDiff(nodeStats.prevMemStat, currMem)
+		nodeStats.ioStat = getIOStatsDiff(nodeStats.prevIOStat, currIO)
+		nodeStats.prevCpuStat = currCPU
+		nodeStats.prevMemStat = currMem
+		nodeStats.prevIOStat = currIO
 		stats.totalItems++
 
 		return nil

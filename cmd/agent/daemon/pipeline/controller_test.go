@@ -390,24 +390,21 @@ func TestController(t *testing.T) {
 		})
 	})
 
-	t.Run("container stats pipeline", func(t *testing.T) {
+	t.Run("stats pipeline", func(t *testing.T) {
 		r := require.New(t)
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
 		ctrl := newTestController()
 		ctrl.cfg.Stats.Enabled = true
-		var nodePSIScrapes int
+		var nodeCpuPSIUsage uint64 = 1_000_000_000
 		ctrl.procHandler = &mockProcHandler{
 			psiEnabled: true,
 			psiStatsFunc: func(file string) (*castaipb.PSIStats, error) {
-				nodePSIScrapes++
 				if file == "cpu" {
-					if nodePSIScrapes > 1 {
-						return &castaipb.PSIStats{
-							Some: &castaipb.PSIData{Total: 20},
-							Full: nil,
-						}, nil
-					}
+					nodeCpuPSIUsage += 1_000
 					return &castaipb.PSIStats{
-						Some: &castaipb.PSIData{Total: 10},
+						Some: &castaipb.PSIData{Total: nodeCpuPSIUsage},
 						Full: nil,
 					}, nil
 				}
@@ -427,32 +424,19 @@ func TestController(t *testing.T) {
 			},
 		}
 
-		var contStatsScrapes int
+		var contCpuUsage uint64 = 3_000_000_000
+		var contCpuPSI uint64 = 1_000_000_000
 		ctrl.containersClient.(*mockContainersClient).getCgroupStatsFunc = func(c *containers.Container) (cgroup.Stats, error) {
-			contStatsScrapes++
 			if c.CgroupID != 1 {
 				return cgroup.Stats{}, cgroup.ErrStatsNotFound
 			}
-			if contStatsScrapes > 1 {
-				return cgroup.Stats{
-					CpuStats: &castaipb.CpuStats{
-						TotalUsage: 11,
-						Psi: &castaipb.PSIStats{
-							Some: &castaipb.PSIData{Total: 14},
-						},
-					},
-					MemoryStats: &castaipb.MemoryStats{
-						Usage: &castaipb.MemoryData{
-							Usage: 20,
-						},
-					},
-				}, nil
-			}
+			contCpuUsage += 1_000
+			contCpuPSI += 2_000
 			return cgroup.Stats{
 				CpuStats: &castaipb.CpuStats{
-					TotalUsage: 10,
+					TotalUsage: contCpuUsage,
 					Psi: &castaipb.PSIStats{
-						Some: &castaipb.PSIData{Total: 12},
+						Some: &castaipb.PSIData{Total: contCpuPSI},
 					},
 				},
 				MemoryStats: &castaipb.MemoryStats{
@@ -471,22 +455,23 @@ func TestController(t *testing.T) {
 		exp := getTestDataBatchExporter(ctrl)
 
 		r.Eventually(func() bool {
-			if len(exp.getContainerStats()) == 0 {
+			// Wait for at least 10 different scrapes.
+			if len(exp.getContainerStats()) < 10 {
 				return false
 			}
 
 			nodeStats := exp.getNodeStats()
-			r.Equal(10, int(nodeStats[0].CpuStats.Psi.Some.Total))
+			r.Equal(1_000, int(nodeStats[9].CpuStats.Psi.Some.Total))
 
 			contStats := exp.getContainerStats()
 			// Cpu should return diff between scrapes.
-			r.Equal(1, int(contStats[0].CpuStats.TotalUsage))
-			r.Equal(2, int(contStats[0].CpuStats.Psi.Some.Total))
+			r.Equal(1_000, int(contStats[9].CpuStats.TotalUsage))
+			r.Equal(2_000, int(contStats[9].CpuStats.Psi.Some.Total))
 			// Memory always returns latest value.
-			r.Equal(20, int(contStats[0].MemoryStats.Usage.Usage))
+			r.Equal(15, int(contStats[9].MemoryStats.Usage.Usage))
 
 			return true
-		}, 3*time.Second, 1*time.Millisecond)
+		}, 1*time.Second, 1*time.Millisecond)
 	})
 
 	t.Run("netflow pipeline", func(t *testing.T) {

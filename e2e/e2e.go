@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -113,6 +114,11 @@ func run(ctx context.Context) error {
 	fmt.Println("🙏waiting for container stats")
 	if err := srv.assertContainerStats(ctx); err != nil {
 		return fmt.Errorf("assert container stats: %w", err)
+	}
+
+	fmt.Println("🙏waiting for kvisor components resource usage")
+	if err := srv.assertKvisorResourceUsage(ctx); err != nil {
+		return fmt.Errorf("assert kvisor components resource usage: %w", err)
 	}
 	srv.containerStatsAsserterd = true
 	srv.containerStats = nil
@@ -401,7 +407,7 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 			return errors.New("timeout waiting for received logs")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			logs := t.logs
+			logs := slices.Clone(t.logs)
 			t.mu.Unlock()
 
 			if len(logs) > 0 {
@@ -732,7 +738,7 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 			return errors.New("timeout waiting for received container stats")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			stats := t.containerStats
+			stats := slices.Clone(t.containerStats)
 			t.mu.Unlock()
 			if len(stats) == 0 {
 				continue
@@ -775,7 +781,7 @@ func (t *testCASTAIServer) assertNodeStats(ctx context.Context) error {
 			return errors.New("timeout waiting for received node stats")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			stats := t.nodeStats
+			stats := slices.Clone(t.nodeStats)
 			t.mu.Unlock()
 			if len(stats) == 0 {
 				continue
@@ -793,6 +799,102 @@ func (t *testCASTAIServer) assertNodeStats(ctx context.Context) error {
 				t.nodeStatsAsserted = true
 			}
 			return nil
+		}
+	}
+}
+
+type resourceUsage struct {
+	cpu        uint64
+	mem        uint64
+	cpuHistory []uint64
+	memHistory []uint64
+
+	maxExpectedCPU uint64
+	maxExpectedMem uint64
+}
+
+func (r *resourceUsage) update(st *castaipb.ContainerStats) {
+	r.cpuHistory = append(r.cpuHistory, st.CpuStats.TotalUsage)
+	if curr := st.CpuStats.TotalUsage; curr > r.cpu {
+		r.cpu = curr
+	}
+	r.memHistory = append(r.memHistory, st.MemoryStats.Usage.Usage)
+	if curr := st.MemoryStats.Usage.Usage; curr > r.cpu {
+		r.mem = curr
+	}
+}
+
+func (t *testCASTAIServer) assertKvisorResourceUsage(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	resourceUsages := map[string]*resourceUsage{
+		"agent": {
+			maxExpectedCPU: 300_000_000,       // Should be no more than 300m cpu usage.
+			maxExpectedMem: 200 * 1024 * 1024, // Should be no more than 200MB mem usage.
+			// TODO: Memory usage is actually lower but spikes on initial container startup while loading btf types.
+			// There are some updates in recent cilium/ebpf version which may also help.
+		},
+		"controller": {
+			maxExpectedCPU: 200_000_000,       // Should be no more than 200m cpu usage.
+			maxExpectedMem: 128 * 1024 * 1024, // Should be no more than 128MB mem usage.
+		},
+	}
+	checkResourceUsage := func(stats []*castaipb.ContainerStats) (bool, error) {
+		agent := resourceUsages["agent"]
+		controller := resourceUsages["controller"]
+		for _, st := range stats {
+			if st.Namespace == "kvisor-e2e" {
+				if strings.Contains(st.PodName, "kvisor-agent") {
+					agent.update(st)
+				} else if strings.Contains(st.PodName, "kvisor-controller") {
+					controller.update(st)
+				}
+			}
+		}
+
+		if len(agent.cpuHistory) >= 5 && len(controller.cpuHistory) >= 5 {
+			var errs []error
+			if agent.cpu > agent.maxExpectedCPU {
+				errs = append(errs, fmt.Errorf("agent: expected cpu max %d, got %d, history: %v", agent.maxExpectedCPU, agent.cpu, agent.cpuHistory))
+			}
+			if agent.mem > agent.maxExpectedMem {
+				errs = append(errs, fmt.Errorf("agent: expected mem max %d, got %d, history: %v", agent.maxExpectedMem, agent.mem, agent.memHistory))
+			}
+			if controller.cpu > controller.maxExpectedCPU {
+				errs = append(errs, fmt.Errorf("controller: expected cpu max %d, got %d, history: %v", controller.maxExpectedCPU, controller.cpu, controller.cpuHistory))
+			}
+			if controller.mem > controller.maxExpectedMem {
+				errs = append(errs, fmt.Errorf("controller: expected mem max %d, got %d, history: %v", controller.maxExpectedMem, controller.mem, controller.memHistory))
+			}
+			if len(errs) > 0 {
+				return false, errors.Join(errs...)
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for kvisor components resource usage")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			stats := slices.Clone(t.containerStats)
+			t.mu.Unlock()
+			if len(stats) == 0 {
+				continue
+			}
+
+			ok, err := checkResourceUsage(stats)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return nil
+			}
 		}
 	}
 }
