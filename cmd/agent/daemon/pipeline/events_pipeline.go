@@ -17,26 +17,40 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type containerEventsGroup struct {
+	pb        *castaipb.ContainerEvents
+	updatedAt time.Time
+}
+
 func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	ticker := time.NewTicker(c.cfg.DataBatch.FlushInterval)
 	defer ticker.Stop()
 
-	groups := map[uint64]*castaipb.ContainerEvents{}
+	groups := c.eventGroups
 	stats := newDataBatchStats()
 
 	send := func(reason string) {
 		items := make([]*castaipb.DataBatchItem, 0, stats.totalItems)
 		for _, group := range groups {
+			if len(group.pb.Items) == 0 {
+				continue
+			}
 			items = append(items, &castaipb.DataBatchItem{
-				Data: &castaipb.DataBatchItem_ContainerEvents{ContainerEvents: group},
+				Data: &castaipb.DataBatchItem_ContainerEvents{ContainerEvents: group.pb},
 			})
 		}
 		c.sendDataBatch(reason, metrics.PipelineEBPFEvents, items)
 
 		// Reset stats and group items after send.
 		stats.reset()
-		for _, group := range groups {
-			group.Items = group.Items[:0]
+		now := time.Now()
+		for key, group := range groups {
+			// Delete the inactive group.
+			if group.updatedAt.Add(time.Minute).Before(now) {
+				delete(groups, key)
+				continue
+			}
+			group.pb.Items = group.pb.Items[:0]
 		}
 	}
 
@@ -59,14 +73,14 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 				if !found {
 					return
 				}
-				if len(group.Items) == 0 {
+				if len(group.pb.Items) == 0 {
 					delete(groups, cgroupID)
 					return
 				}
 				c.sendDataBatch("events cgroup deleted", metrics.PipelineEBPFEvents, []*castaipb.DataBatchItem{
 					{
 						Data: &castaipb.DataBatchItem_ContainerEvents{
-							ContainerEvents: group,
+							ContainerEvents: group.pb,
 						},
 					},
 				})
@@ -106,7 +120,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 	}
 }
 
-func (c *Controller) handleEvent(groups map[uint64]*castaipb.ContainerEvents, stats *dataBatchStats, e *ebpftypes.Event) {
+func (c *Controller) handleEvent(groups map[uint64]*containerEventsGroup, stats *dataBatchStats, e *ebpftypes.Event) {
 	group, found := groups[e.Context.CgroupID]
 	if !found {
 		group = c.newContainerEventsGroup(e)
@@ -123,11 +137,12 @@ func (c *Controller) handleEvent(groups map[uint64]*castaipb.ContainerEvents, st
 		return
 	}
 
-	group.Items = append(group.Items, pbEvent)
+	group.pb.Items = append(group.pb.Items, pbEvent)
+	group.updatedAt = time.Now()
 	stats.sizeBytes += proto.Size(pbEvent)
 }
 
-func (c *Controller) handleSignatureEvent(groups map[uint64]*castaipb.ContainerEvents, stats *dataBatchStats, e *ebpftypes.Event, signatureEvent *castaipb.SignatureEvent) {
+func (c *Controller) handleSignatureEvent(groups map[uint64]*containerEventsGroup, stats *dataBatchStats, e *ebpftypes.Event, signatureEvent *castaipb.SignatureEvent) {
 	group, found := groups[e.Context.CgroupID]
 	if !found {
 		group = c.newContainerEventsGroup(e)
@@ -137,11 +152,12 @@ func (c *Controller) handleSignatureEvent(groups map[uint64]*castaipb.ContainerE
 	pbEvent := &castaipb.ContainerEvent{}
 	c.fillProtoContainerEvent(pbEvent, e, signatureEvent)
 
-	group.Items = append(group.Items, pbEvent)
+	group.pb.Items = append(group.pb.Items, pbEvent)
+	group.updatedAt = time.Now()
 	stats.sizeBytes += proto.Size(pbEvent)
 }
 
-func (c *Controller) handleEnrichedEvent(groups map[uint64]*castaipb.ContainerEvents, stats *dataBatchStats, e *enrichment.EnrichedContainerEvent) {
+func (c *Controller) handleEnrichedEvent(groups map[uint64]*containerEventsGroup, stats *dataBatchStats, e *enrichment.EnrichedContainerEvent) {
 	group, found := groups[e.EbpfEvent.Context.CgroupID]
 	if !found {
 		// If enriched event is not found here most likely container was removed.
@@ -149,11 +165,12 @@ func (c *Controller) handleEnrichedEvent(groups map[uint64]*castaipb.ContainerEv
 		return
 	}
 
-	group.Items = append(group.Items, e.Event)
+	group.pb.Items = append(group.pb.Items, e.Event)
+	group.updatedAt = time.Now()
 	stats.sizeBytes += proto.Size(e.Event)
 }
 
-func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *castaipb.ContainerEvents {
+func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEventsGroup {
 	group := &castaipb.ContainerEvents{
 		NodeName:          c.nodeName,
 		Namespace:         e.Container.PodNamespace,
@@ -172,7 +189,9 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *castaipb.Conta
 		group.WorkloadUid = podInfo.WorkloadUid
 		group.NodeName = podInfo.NodeName
 	}
-	return group
+	return &containerEventsGroup{
+		pb: group,
+	}
 }
 
 func (c *Controller) fillProtoContainerEvent(res *castaipb.ContainerEvent, e *ebpftypes.Event, signatureEvent *castaipb.SignatureEvent) {

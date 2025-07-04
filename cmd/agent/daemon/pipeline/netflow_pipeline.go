@@ -76,7 +76,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		}
 	}
 
-	groups := map[uint64]*containerNetflows{}
+	groups := c.netflowGroups
 	netflowGroupKeyDigest := xxhash.New()
 	stats := newDataBatchStats()
 
@@ -99,7 +99,13 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 
 		// Reset stats and group items after send.
 		stats.reset()
-		for _, group := range groups {
+		now := time.Now()
+		for key, group := range groups {
+			// Delete the inactive group.
+			if group.updatedAt.Add(time.Minute).Before(now) {
+				delete(groups, key)
+				continue
+			}
 			for _, flow := range group.flows {
 				flow.pb.Destinations = flow.pb.Destinations[:0]
 			}
@@ -132,8 +138,9 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	}
 }
 
-type containerNetflows struct {
-	flows map[uint64]*netflowVal
+type netflowGroup struct {
+	flows     map[uint64]*netflowVal
+	updatedAt time.Time
 }
 
 type netflowVal struct {
@@ -163,7 +170,7 @@ func digestAddUint64(digest *xxhash.Digest, val uint64) {
 
 func (c *Controller) handleNetflows(
 	ctx context.Context,
-	groups map[uint64]*containerNetflows,
+	groups map[uint64]*netflowGroup,
 	stats *dataBatchStats,
 	digest *xxhash.Digest,
 	keys []ebpftracer.TrafficKey,
@@ -182,7 +189,7 @@ func (c *Controller) handleNetflows(
 		summary := vals[i]
 		group, found := groups[key.ProcessIdentity.CgroupId]
 		if !found {
-			group = &containerNetflows{
+			group = &netflowGroup{
 				flows: make(map[uint64]*netflowVal),
 			}
 			groups[key.ProcessIdentity.CgroupId] = group
@@ -210,6 +217,7 @@ func (c *Controller) handleNetflows(
 				}
 			}
 		}
+		group.updatedAt = time.Now()
 
 		dest, isPublicDest, err := c.toNetflowDestination(key, summary, podsByIPCache)
 		if err != nil {

@@ -19,6 +19,7 @@ type containerStatsGroup struct {
 	prevMemStat *castaipb.MemoryStats
 	prevIOStat  *castaipb.IOStats
 	changed     bool
+	updatedAt   time.Time
 }
 
 type nodeScrapePoint struct {
@@ -42,7 +43,7 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 	nodeStats := &nodeScrapePoint{
 		nodeName: c.nodeName,
 	}
-	containerStatsGroups := map[uint64]*containerStatsGroup{}
+	containerStatsGroups := c.containerStatsGroups
 	stats := newDataBatchStats()
 
 	send := func() {
@@ -71,7 +72,13 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 		}
 		c.sendDataBatch("container stats scrape", metrics.PipelineStats, items)
 		stats.reset()
-		for _, group := range containerStatsGroups {
+		now := time.Now()
+		for key, group := range containerStatsGroups {
+			// Delete the inactive group.
+			if group.updatedAt.Add(time.Minute).Before(now) {
+				delete(containerStatsGroups, key)
+				continue
+			}
 			group.changed = false
 		}
 	}
@@ -104,7 +111,7 @@ func (c *Controller) scrapeContainersResourceStats(groups map[uint64]*containerS
 	conts := c.containersClient.ListContainers(func(cont *containers.Container) bool {
 		return cont.Err == nil && cont.Cgroup != nil && cont.Name != ""
 	})
-	c.log.Debugf("scraping resource stats from %d containers", len(conts))
+	c.log.Infof("scraping resource stats from %d containers", len(conts))
 	for _, cont := range conts {
 		c.scrapeContainerResourcesStats(groups, cont, stats)
 	}
@@ -151,6 +158,7 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 	}
 
 	group.changed = true
+	group.updatedAt = time.Now()
 	group.pb.CpuStats = getCPUStatsDiff(group.prevCpuStat, cgStats.CpuStats)
 	group.pb.MemoryStats = getMemoryStatsDiff(group.prevMemStat, cgStats.MemoryStats)
 	group.pb.IoStats = getIOStatsDiff(group.prevIOStat, cgStats.IOStats)

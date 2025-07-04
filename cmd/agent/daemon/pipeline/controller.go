@@ -135,6 +135,10 @@ func NewController(
 		deletedContainersNetflowsQueue:       make(chan uint64, 100),
 		deletedContainersContainerStatsQueue: make(chan uint64, 100),
 		maxCachedNetflowsPerContainer:        5,
+
+		eventGroups:          make(map[uint64]*containerEventsGroup),
+		netflowGroups:        make(map[uint64]*netflowGroup),
+		containerStatsGroups: make(map[uint64]*containerStatsGroup),
 	}
 }
 
@@ -161,6 +165,10 @@ type Controller struct {
 	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
+
+	eventGroups          map[uint64]*containerEventsGroup
+	netflowGroups        map[uint64]*netflowGroup
+	containerStatsGroups map[uint64]*containerStatsGroup
 
 	deletedContainersEventsQueue         chan uint64
 	deletedContainersNetflowsQueue       chan uint64

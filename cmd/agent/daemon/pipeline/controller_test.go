@@ -388,6 +388,46 @@ func TestController(t *testing.T) {
 				return true
 			}, 2*time.Second, 10*time.Millisecond)
 		})
+
+		t.Run("remove not active events group after send", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController()
+			ctrl.cfg.Events.Enabled = true
+			ctrl.cfg.DataBatch.FlushInterval = flushIntervalNever
+			ctrl.cfg.DataBatch.MaxBatchSizeBytes = 1
+			ctx, cancel := context.WithCancel(ctx)
+
+			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
+				Context: &types.EventContext{Ts: 1, CgroupID: 1},
+				Container: &containers.Container{
+					PodName: "p999",
+				},
+			}
+
+			ctrl.eventGroups[2] = &containerEventsGroup{
+				updatedAt: time.Now().Add(-time.Hour),
+				pb:        &castaipb.ContainerEvents{},
+			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			exp := getTestDataBatchExporter(ctrl)
+
+			r.Eventually(func() bool {
+				batch := exp.getEvents()
+				if len(batch) == 0 {
+					return false
+				}
+				cancel()
+				r.Equal("p999", batch[0].PodName)
+				r.Len(ctrl.eventGroups, 1)
+				r.NotNil(ctrl.eventGroups[1])
+				return true
+			}, 2*time.Second, 10*time.Millisecond)
+		})
 	})
 
 	t.Run("stats pipeline", func(t *testing.T) {
