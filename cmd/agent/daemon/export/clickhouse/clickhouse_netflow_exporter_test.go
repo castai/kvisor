@@ -1,4 +1,4 @@
-package pipeline
+package clickhouse
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	castpb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -21,7 +20,6 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 
 	r := require.New(t)
 	ctx := context.Background()
-	log := logging.NewTestLog()
 
 	addr, cleanup := startClickhouseDB(t)
 	defer cleanup()
@@ -31,31 +29,39 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 
 	r.NoError(conn.Exec(ctx, ClickhouseNetflowSchema()))
 
-	exporter := NewClickhouseNetflowExporter(log, conn, 100)
-	err = exporter.asyncWrite(ctx, true, &castpb.Netflow{
-		Timestamp:     uint64(time.Now().UnixNano()),
-		ProcessName:   "curl",
-		Namespace:     "n1",
-		PodName:       "p1",
-		ContainerName: "c1",
-		WorkloadName:  "w1",
-		WorkloadKind:  "Deployment",
-		Zone:          "us-east-1",
-		Addr:          netip.MustParseAddr("10.10.1.10").AsSlice(),
-		Port:          34555,
-		Protocol:      castpb.NetflowProtocol_NETFLOW_PROTOCOL_TCP,
-		Destinations: []*castpb.NetflowDestination{
+	exporter := NewDataBatchWriter(conn)
+	err = exporter.Write(ctx, &castpb.WriteDataBatchRequest{
+		Items: []*castpb.DataBatchItem{
 			{
-				Namespace:    "n2",
-				PodName:      "p2",
-				WorkloadName: "w2",
-				WorkloadKind: "Deployment",
-				Zone:         "us-east-2",
-				DnsQuestion:  "service.n2.svc.cluster.local.",
-				Addr:         netip.MustParseAddr("10.10.1.15").AsSlice(),
-				Port:         80,
-				TxBytes:      10,
-				TxPackets:    2,
+				Data: &castpb.DataBatchItem_Netflow{
+					Netflow: &castpb.Netflow{
+						Timestamp:     uint64(time.Now().UnixNano()),
+						ProcessName:   "curl",
+						Namespace:     "n1",
+						PodName:       "p1",
+						ContainerName: "c1",
+						WorkloadName:  "w1",
+						WorkloadKind:  "Deployment",
+						Zone:          "us-east-1",
+						Addr:          netip.MustParseAddr("10.10.1.10").AsSlice(),
+						Port:          34555,
+						Protocol:      castpb.NetflowProtocol_NETFLOW_PROTOCOL_TCP,
+						Destinations: []*castpb.NetflowDestination{
+							{
+								Namespace:    "n2",
+								PodName:      "p2",
+								WorkloadName: "w2",
+								WorkloadKind: "Deployment",
+								Zone:         "us-east-2",
+								DnsQuestion:  "service.n2.svc.cluster.local.",
+								Addr:         netip.MustParseAddr("10.10.1.15").AsSlice(),
+								Port:         80,
+								TxBytes:      10,
+								TxPackets:    2,
+							},
+						},
+					},
+				},
 			},
 		},
 	})
@@ -124,7 +130,7 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 		r.Equal("us-east-1", zone)
 		r.Equal("w1", workloadName)
 		r.Equal("Deployment", workloadKind)
-		r.Equal(netip.MustParseAddr("10.10.1.10"), addr)
+		r.Equal("::ffff:10.10.1.10", addr.String())
 		r.Equal(uint16(34555), port)
 		r.Equal("tcp", protocol)
 		r.Equal("n2", dstNamespace)
@@ -133,7 +139,7 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 		r.Equal("Deployment", dstWorkloadKind)
 		r.Equal("us-east-2", dstZone)
 		r.Equal("service.n2.svc.cluster.local.", dstDomain)
-		r.Equal(netip.MustParseAddr("10.10.1.15"), dstAddr)
+		r.Equal("::ffff:10.10.1.15", dstAddr.String())
 		r.Equal(uint16(80), dstPort)
 		r.Equal(uint64(10), txBytes)
 		r.Equal(uint64(2), txPackets)

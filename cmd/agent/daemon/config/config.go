@@ -26,9 +26,9 @@ type Config struct {
 	ContainerdSockPath             string                          `json:"containerdSockPath"`
 	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
 	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`
+	DataBatch                      DataBatchConfig                 `json:"dataBatch"`
 	Stats                          StatsConfig                     `json:"stats"`
 	Events                         EventsConfig                    `json:"events"`
-	EBPFEventsEnabled              bool                            `json:"EBPFEventsEnabled"`
 	EBPFEventsOutputChanSize       int                             `validate:"required" json:"EBPFEventsOutputChanSize"`
 	EBPFEventsStdioExporterEnabled bool                            `json:"EBPFEventsStdioExporterEnabled"`
 	EBPFMetrics                    EBPFMetricsConfig               `json:"EBPFMetrics"`
@@ -53,14 +53,19 @@ type Config struct {
 	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
 }
 
+type DataBatchConfig struct {
+	MaxBatchSizeBytes int           `validate:"required" json:"maxBatchSizeBytes"`
+	FlushInterval     time.Duration `validate:"required" json:"flushInterval"`
+	ExportTimeout     time.Duration `validate:"required" json:"exportTimeout"`
+}
+
 type StatsConfig struct {
 	Enabled        bool          `json:"enabled"`
 	ScrapeInterval time.Duration `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
 }
 
 type EventsConfig struct {
-	BatchSize     int           `validate:"required" json:"batchSize"`
-	FlushInterval time.Duration `validate:"required" json:"flushInterval"`
+	Enabled bool `json:"enabled"`
 }
 
 type EnricherConfig struct {
@@ -69,12 +74,11 @@ type EnricherConfig struct {
 }
 
 type NetflowConfig struct {
-	Enabled                     bool                       `json:"enabled"`
-	SampleSubmitIntervalSeconds uint64                     `json:"sampleSubmitIntervalSeconds"`
-	ExportInterval              time.Duration              `json:"exportInterval"`
-	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
-	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
-	CheckClusterNetworkRanges   bool                       `json:"checkClusterNetworkRanges"`
+	Enabled                   bool                       `json:"enabled"`
+	ExportInterval            time.Duration              `json:"exportInterval"`
+	Grouping                  ebpftracer.NetflowGrouping `json:"grouping"`
+	MaxPublicIPs              int16                      `json:"maxPublicIPs"`
+	CheckClusterNetworkRanges bool                       `json:"checkClusterNetworkRanges"`
 }
 
 type FileAccessConfig struct {

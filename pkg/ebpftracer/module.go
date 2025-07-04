@@ -94,13 +94,12 @@ func (m *module) load(cfg Config) error {
 	}
 
 	if err := helpers.SetVariable(spec, "global_config", tracerGlobalConfigT{
-		SelfPid:                         uint32(os.Getpid()), // nolint:gosec
-		PidNsId:                         cfg.HomePIDNS,
-		FlowSampleSubmitIntervalSeconds: cfg.NetflowSampleSubmitIntervalSeconds,
-		FlowGrouping:                    uint64(cfg.NetflowGrouping),
-		TrackSyscallStats:               false, // TODO: Due high perf impact we do not track syscall stats.
-		ExportMetrics:                   cfg.MetricsReporting.TracerMetricsEnabled,
-		CgroupV1:                        cfg.DefaultCgroupsVersion == "V1",
+		SelfPid:           uint32(os.Getpid()), // nolint:gosec
+		PidNsId:           cfg.HomePIDNS,
+		FlowGrouping:      uint64(cfg.NetflowGrouping),
+		TrackSyscallStats: false, // TODO: Due high perf impact we do not track syscall stats.
+		ExportMetrics:     cfg.MetricsReporting.TracerMetricsEnabled,
+		CgroupV1:          cfg.DefaultCgroupsVersion == "V1",
 	}); err != nil {
 		return err
 	}

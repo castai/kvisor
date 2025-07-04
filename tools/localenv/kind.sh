@@ -2,7 +2,7 @@
 
 set -ex
 
-cluster_name="kind"
+cluster_name=${CLUSTER_NAME:-kind}
 
 if ! command -v kind &> /dev/null; then
   echo 'binary "kind" not found in PATH. Is it installed?' >&2
@@ -30,7 +30,8 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: ${cluster_name}
 nodes:
 - role: control-plane
-
+networking:
+  ipFamily: dual
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]

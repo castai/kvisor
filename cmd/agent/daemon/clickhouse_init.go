@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
+	clickhouseexport "github.com/castai/kvisor/cmd/agent/daemon/export/clickhouse"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/spf13/cobra"
 )
@@ -47,13 +47,13 @@ func NewClickhouseInitCommand() *cobra.Command {
 				}
 				defer conn.Close()
 
-				if err := conn.Exec(ctx, pipeline.ClickhouseContainerEventsSchema()); err != nil {
+				if err := conn.Exec(ctx, clickhouseexport.ClickhouseContainerEventsSchema()); err != nil {
 					return fmt.Errorf("creating clickhouse container events schema: %w", err)
 				}
-				if err := conn.Exec(ctx, pipeline.ClickhouseNetflowSchema()); err != nil {
+				if err := conn.Exec(ctx, clickhouseexport.ClickhouseNetflowSchema()); err != nil {
 					return fmt.Errorf("creating clickhouse netflow schema: %w", err)
 				}
-				if err := conn.Exec(ctx, pipeline.ClickhouseProcessTreeSchema()); err != nil {
+				if err := conn.Exec(ctx, clickhouseexport.ClickhouseProcessTreeSchema()); err != nil {
 					return fmt.Errorf("creating clickhouse process tree schema: %w", err)
 				}
 

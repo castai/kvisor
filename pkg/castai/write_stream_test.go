@@ -34,7 +34,7 @@ func TestWriteStream(t *testing.T) {
 
 	serverStreamOpenCount := atomic.NewInt64(0)
 	srv := &testServer{
-		eventsWriteStreamHandler: func(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error {
+		logsWriteStreamHandler: func(server castaipb.RuntimeSecurityAgentAPI_LogsWriteStreamServer) error {
 			serverStreamOpenCount.Add(1)
 			var count int
 			for {
@@ -58,14 +58,14 @@ func TestWriteStream(t *testing.T) {
 	r.NoError(err)
 	defer client.Close()
 
-	ws := NewWriteStream[*castaipb.Event, *castaipb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
-		return client.GRPC.EventsWriteStream(ctx)
+	ws := NewWriteStream[*castaipb.LogEvent, *castaipb.WriteStreamResponse](ctx, func(ctx context.Context) (grpc.ClientStream, error) {
+		return client.GRPC.LogsWriteStream(ctx)
 	})
 	ws.ReopenDelay = 1 * time.Millisecond
 
 	var errs []error
 	for i := 0; i < 100; i++ {
-		if err := ws.Send(&castaipb.Event{}); err != nil {
+		if err := ws.Send(&castaipb.LogEvent{}); err != nil {
 			errs = append(errs, err)
 		}
 		time.Sleep(1 * time.Millisecond)

@@ -64,21 +64,20 @@ func NewNetflowsDebugCommand() *cobra.Command {
 		defer containersClient.Close()
 
 		tr := ebpftracer.New(log, ebpftracer.Config{
-			BTFPath:                            *btfPath,
-			SignalEventsRingBufferSize:         1 << 20,
-			EventsRingBufferSize:               1 << 20,
-			SkbEventsRingBufferSize:            1 << 20,
-			EventsOutputChanSize:               1024,
-			DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
-			ContainerClient:                    containersClient,
-			CgroupClient:                       cgroupClient,
-			AutomountCgroupv2:                  true,
-			SignatureEngine:                    nil,
-			MountNamespacePIDStore:             nil,
-			HomePIDNS:                          pidNSID,
-			NetflowSampleSubmitIntervalSeconds: 5,
-			NetflowGrouping:                    0,
-			PodName:                            os.Getenv("POD_NAME"),
+			BTFPath:                    *btfPath,
+			SignalEventsRingBufferSize: 1 << 20,
+			EventsRingBufferSize:       1 << 20,
+			SkbEventsRingBufferSize:    1 << 20,
+			EventsOutputChanSize:       1024,
+			DefaultCgroupsVersion:      cgroupClient.DefaultCgroupVersion().String(),
+			ContainerClient:            containersClient,
+			CgroupClient:               cgroupClient,
+			AutomountCgroupv2:          true,
+			SignatureEngine:            nil,
+			MountNamespacePIDStore:     nil,
+			HomePIDNS:                  pidNSID,
+			NetflowGrouping:            0,
+			PodName:                    os.Getenv("POD_NAME"),
 		})
 
 		if err := tr.Load(); err != nil {

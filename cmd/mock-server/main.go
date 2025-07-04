@@ -12,7 +12,6 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func main() {
@@ -57,69 +56,15 @@ type MockServer struct {
 	log *logging.Logger
 }
 
-func (m *MockServer) ContainerEventsBatchWriteStream(server grpc.ClientStreamingServer[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse]) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		for _, event := range event.Items {
-			m.log.Debugf("container_events: ns=%s, pod=%s, cont=%s, item_count=%+v",
-				event.NodeName, event.PodName, event.ContainerName, len(event.Items))
-			data, err := protojson.Marshal(event)
-			if err != nil {
-				m.log.Debugf("error while dumping event json: %v", err)
-				continue
-			}
-			m.log.WithField("event", string(data)).Debug("processed event")
-		}
-	}
-}
-
-func (m *MockServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		json, err := protojson.Marshal(event)
-		if err != nil {
-			m.log.Debugf("cannot parse process event: %v\n%v", err, event)
-			continue
-		}
-		m.log.Debugf("process event:\n%s", string(json))
-	}
-}
-
-func (m *MockServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			m.log.Warnf("delta recv: %v", err)
-			break
-		}
-		m.log.Debugf("delta_items: %v", event)
-		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
-			m.log.Warnf("delta ack send: %v", err)
-			break
-		}
-	}
+func (m *MockServer) ProcessEventsWriteStream(g grpc.ClientStreamingServer[castaipb.ProcessTreeEvent, castaipb.WriteStreamResponse]) error {
 	return nil
 }
 
-func (m *MockServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		json, err := protojson.Marshal(event)
-		if err != nil {
-			m.log.Debugf("cannot parse event: %v\n%v", err, event)
-			continue
-		}
-		m.log.Debugf("netflow:\n%s", string(json))
+func (m *MockServer) WriteDataBatch(ctx context.Context, req *castaipb.WriteDataBatchRequest) (*castaipb.WriteDataBatchResponse, error) {
+	for _, item := range req.Items {
+		m.log.Debugf("data batch item: %v", item)
 	}
+	return &castaipb.WriteDataBatchResponse{}, nil
 }
 
 func (m *MockServer) KubeBenchReportIngest(ctx context.Context, in *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -152,21 +97,6 @@ func (m *MockServer) GetConfiguration(ctx context.Context, in *castaipb.GetConfi
 	return &castaipb.GetConfigurationResponse{}, nil
 }
 
-func (m *MockServer) EventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		json, err := protojson.Marshal(event)
-		if err != nil {
-			m.log.Debugf("cannot parse event: %v\n%v", err, event)
-			continue
-		}
-		m.log.Debugf("event:\n%s", string(json))
-	}
-}
-
 func (m *MockServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_LogsWriteStreamServer) error {
 	for {
 		event, err := server.Recv()
@@ -175,39 +105,4 @@ func (m *MockServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_Log
 		}
 		m.log.Debugf("log: %v", event)
 	}
-}
-
-func (m *MockServer) StatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		for _, v := range event.Items {
-			cont := v.GetContainer()
-			if cont != nil {
-				m.log.Debugf("container_stats, ns=%s, pod=%s, cont=%s, cpu=%v, mem=%v", cont.Namespace, cont.PodName, cont.ContainerName, cont.CpuStats, cont.MemoryStats)
-			}
-			node := v.GetNode()
-			if node != nil {
-				m.log.Debugf("node_stats, node=%s,cpu=%v, mem=%v", node.NodeName, node.CpuStats, node.MemoryStats)
-			}
-		}
-	}
-}
-
-func (m *MockServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			m.log.Warnf("delta recv: %v", err)
-			break
-		}
-		m.log.Debugf("delta_item: %v", event)
-		if err := server.Send(&castaipb.KubernetesDeltaIngestResponse{}); err != nil {
-			m.log.Warnf("delta ack send: %v", err)
-			break
-		}
-	}
-	return nil
 }

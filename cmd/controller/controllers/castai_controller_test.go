@@ -75,21 +75,17 @@ type testGrpcClient struct {
 	getConfigurationResponse func() (*castaipb.GetConfigurationResponse, error)
 }
 
-func (t testGrpcClient) ContainerEventsBatchWriteStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse], error) {
+func (t testGrpcClient) LogsWriteStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[castaipb.LogEvent, castaipb.WriteStreamResponse], error) {
+	return nil, nil
+}
+
+func (t testGrpcClient) WriteDataBatch(ctx context.Context, in *castaipb.WriteDataBatchRequest, opts ...grpc.CallOption) (*castaipb.WriteDataBatchResponse, error) {
 	return nil, nil
 }
 
 var _ castaipb.RuntimeSecurityAgentAPIClient = testGrpcClient{}
 
 func (t testGrpcClient) ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error) {
-	return nil, nil
-}
-
-func (t testGrpcClient) KubernetesDeltaBatchIngest(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestClient, error) {
-	return nil, nil
-}
-
-func (t testGrpcClient) NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error) {
 	return nil, nil
 }
 
@@ -118,20 +114,4 @@ func (t testGrpcClient) GetConfiguration(ctx context.Context, in *castaipb.GetCo
 		return t.getConfigurationResponse()
 	}
 	return &castaipb.GetConfigurationResponse{}, nil
-}
-
-func (t testGrpcClient) EventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamClient, error) {
-	return nil, nil
-}
-
-func (t testGrpcClient) LogsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_LogsWriteStreamClient, error) {
-	return nil, nil
-}
-
-func (t testGrpcClient) StatsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamClient, error) {
-	return nil, nil
-}
-
-func (testGrpcClient) KubernetesDeltaIngest(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestClient, error) {
-	return nil, nil
 }

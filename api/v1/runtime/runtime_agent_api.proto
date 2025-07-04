@@ -10,22 +10,35 @@ option go_package = "github.com/castai/kvisord/api/runtime/v1";
 // RuntimeSecurityAgentAPI is used in kvisord. Should be mirrored.
 service RuntimeSecurityAgentAPI {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
-  rpc EventsWriteStream(stream Event) returns (WriteStreamResponse) {}
-  rpc ContainerEventsBatchWriteStream(stream ContainerEventsBatch) returns (WriteStreamResponse) {}
+
   rpc LogsWriteStream(stream LogEvent) returns (WriteStreamResponse) {}
-  rpc StatsWriteStream(stream StatsBatch) returns (WriteStreamResponse) {}
-  rpc NetflowWriteStream(stream Netflow) returns (WriteStreamResponse) {}
+
+  // TODO: Move process tree write stream to WriteDataBatch
   rpc ProcessEventsWriteStream(stream ProcessTreeEvent) returns (WriteStreamResponse) {}
+  rpc WriteDataBatch(WriteDataBatchRequest) returns (WriteDataBatchResponse) {}
 
   rpc GetSyncState(GetSyncStateRequest) returns (GetSyncStateResponse) {}
   rpc UpdateSyncState(UpdateSyncStateRequest) returns (UpdateSyncStateResponse) {}
 
-  rpc KubernetesDeltaBatchIngest(stream KubernetesDeltaBatch) returns (stream KubernetesDeltaIngestResponse) {}
-  // Deprecated. Should use KubernetesDeltaBatchIngest.
-  rpc KubernetesDeltaIngest(stream KubernetesDeltaItem) returns (stream KubernetesDeltaIngestResponse) {}
   rpc ImageMetadataIngest(ImageMetadata) returns (ImageMetadataIngestResponse) {}
   rpc KubeBenchReportIngest(KubeBenchReport) returns (KubeBenchReportIngestResponse) {}
   rpc KubeLinterReportIngest(KubeLinterReport) returns (KubeLinterReportIngestResponse) {}
+}
+
+message WriteDataBatchRequest {
+  repeated DataBatchItem items = 10;
+}
+
+message WriteDataBatchResponse {}
+
+message DataBatchItem {
+  oneof data {
+    ContainerStats container_stats = 10;
+    NodeStats node_stats = 11;
+    ContainerEvents container_events = 12;
+    Netflow netflow = 13;
+    ProcessTreeEvent process_tree = 14;
+  }
 }
 
 message GetConfigurationRequest {
@@ -63,37 +76,6 @@ enum EventType {
   EVENT_ANY = 999;
 }
 
-message Event {
-  EventType event_type = 1;
-  uint64 timestamp = 2; // Stored as unix timestamp in nanoseconds.
-  string process_name = 3;
-  string namespace = 4;
-  string pod_name = 5;
-  string container_name = 6;
-  string workload_name = 7;
-  string workload_kind = 13;
-  map<string, string> object_labels = 29;
-  map<string, string> object_annotations = 30;
-  string pod_uid = 8;
-  string container_id = 9;
-  uint64 cgroup_id = 10;
-  uint32 host_pid = 11;
-  string workload_uid = 12;
-  string node_name = 14;
-  ProcessIdentity process_identity = 15;
-
-  oneof data {
-    v1.Exec exec = 21;
-    v1.DNS dns = 22;
-    v1.File file = 23;
-    v1.Tuple tuple = 24;
-    v1.SignatureEvent signature = 25;
-    v1.Any any = 26;
-    v1.StdioViaSocketFinding stdio_via_socket = 27;
-    v1.SSHData ssh = 28;
-  }
-}
-
 message ProcessIdentity {
   uint32 pid = 1;
   uint64 start_time = 2;
@@ -107,10 +89,6 @@ enum WorkloadKind {
   WORKLOAD_KIND_JOB = 4;
   WORKLOAD_KIND_CRONJOB = 5;
   WORKLOAD_KIND_POD = 6;
-}
-
-message ContainerEventsBatch {
-  repeated ContainerEvents items = 1;
 }
 
 message ContainerEvents {
@@ -157,17 +135,6 @@ message WriteStreamResponse {}
 
 message SendLogsResponse {}
 
-message StatsBatch {
-  repeated StatsItem items = 1;
-}
-
-message StatsItem {
-  oneof data {
-    ContainerStats container = 1;
-    NodeStats node = 2;
-  }
-}
-
 message ContainerStats {
   string namespace = 1;
   string pod_name = 2;
@@ -190,39 +157,6 @@ message NodeStats {
   MemoryStats memory_stats = 22;
   IOStats io_stats = 23;
 }
-
-enum KubernetesDeltaItemEvent {
-  DELTA_ADD = 0;
-  DELTA_UPDATE = 1;
-  DELTA_REMOVE = 2;
-}
-
-message KubernetesDeltaItem {
-  KubernetesDeltaItemEvent event = 1;
-  string object_uid = 2;
-  string object_name = 3;
-  string object_namespace = 4;
-  string object_kind = 5;
-  string object_api_version = 6;
-  google.protobuf.Timestamp object_created_at = 7;
-  repeated Container object_containers = 8;
-  string object_owner_uid = 9;
-  map<string, string> object_labels = 10;
-  map<string, string> object_annotations = 11;
-  bytes object_status = 12;
-  bytes object_spec = 13;
-}
-
-message KubernetesDeltaBatch {
-  repeated KubernetesDeltaItem items = 1;
-}
-
-message Container {
-  string name = 1;
-  string image_name = 2;
-}
-
-message KubernetesDeltaIngestResponse {}
 
 message ImageMetadata {
   string image_name = 1;
