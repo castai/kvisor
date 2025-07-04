@@ -104,24 +104,32 @@ func (m *module) load(cfg Config) error {
 	}); err != nil {
 		return err
 	}
-	mapBufferSpec, found := spec.Maps["network_traffic_buffer_map"]
-	if !found {
-		return fmt.Errorf("error network_traffic_buffer_map map spec not found")
-	}
-	m.networkTrafficSummaryMapSpec = mapBufferSpec
-	summaryMapBuffer, err := buildSummaryBufferMap(mapBufferSpec)
-	if err != nil {
-		return fmt.Errorf("error while building summary map buffer: %w", err)
+
+	mapsReplacement := map[string]*ebpf.Map{}
+	if cfg.NetflowsEnabled {
+		mapBufferSpec, found := spec.Maps["network_traffic_buffer_map"]
+		if !found {
+			return fmt.Errorf("error network_traffic_buffer_map map spec not found")
+		}
+		m.networkTrafficSummaryMapSpec = mapBufferSpec
+		summaryMapBuffer, err := buildSummaryBufferMap(mapBufferSpec)
+		if err != nil {
+			return fmt.Errorf("error while building summary map buffer: %w", err)
+		}
+		mapsReplacement["network_traffic_buffer_map"] = summaryMapBuffer
 	}
 
-	fileAccessMapBufferSpec, found := spec.Maps["file_access_stats_map"]
-	if !found {
-		return fmt.Errorf("error file_access_stats_map map spec not found")
-	}
-	m.fileAccessMapSpec = fileAccessMapBufferSpec
-	fileAccessMapBuffer, err := buildSummaryBufferMap(fileAccessMapBufferSpec)
-	if err != nil {
-		return fmt.Errorf("error while building file access map buffer: %w", err)
+	if cfg.FileAccessEnabled {
+		fileAccessMapBufferSpec, found := spec.Maps["file_access_stats_map"]
+		if !found {
+			return fmt.Errorf("error file_access_stats_map map spec not found")
+		}
+		m.fileAccessMapSpec = fileAccessMapBufferSpec
+		fileAccessMapBuffer, err := buildSummaryBufferMap(fileAccessMapBufferSpec)
+		if err != nil {
+			return fmt.Errorf("error while building file access map buffer: %w", err)
+		}
+		mapsReplacement["file_access_stats_map"] = fileAccessMapBuffer
 	}
 
 	spec.Maps["signal_events"].MaxEntries = cfg.SignalEventsRingBufferSize
@@ -134,10 +142,7 @@ func (m *module) load(cfg Config) error {
 			LogDisabled: false,
 			KernelTypes: kernelTypes,
 		},
-		MapReplacements: map[string]*ebpf.Map{
-			"network_traffic_buffer_map": summaryMapBuffer,
-			"file_access_stats_map":      fileAccessMapBuffer,
-		},
+		MapReplacements: mapsReplacement,
 	}); err != nil {
 		var ve *ebpf.VerifierError
 		if errors.As(err, &ve) {

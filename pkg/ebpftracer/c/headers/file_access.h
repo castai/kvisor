@@ -7,11 +7,18 @@
 #include <maps.h>
 #include <common/filesystem.h>
 
-#define MAX_FILE_ACCESS_ENTRIES 65535
+#define MAX_FILE_ACCESS_ENTRIES 16384
 // Max path len is limited to 4096 bytes, see https://github.com/torvalds/linux/blob/master/include/uapi/linux/limits.h#L13
 // But in most cases it's a waste of memory as file paths are not that long.
 // We can make this configurable in the feature if needed.
 #define PATH_MAX_LEN	512
+
+// TODO:(anjmao): By enabling file stats we will require quite additional memory.
+// As minimum it can be calculated as MAX_FILE_ACCESS_ENTRIES * PATH_MAX_LEN * 2 (Two arrays). With default values minimum additional will be required 16MB
+// Once file stats collection is enabled consider:
+// 1. Allow to configure max entries
+// 2. Decrease file path.
+// 3. DO strings interning. This would help if there are many similar file paths.
 
 typedef struct file_access_config {
     int map_index;
