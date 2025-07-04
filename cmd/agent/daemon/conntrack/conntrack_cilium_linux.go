@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -28,7 +27,9 @@ var (
 func iniCiliumMaps(log *logging.Logger) bool {
 	var err error
 
-	ciliumCt4, err = bpf.OpenMap(proc.HostPath(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, ctmap.MapNameTCP4Global)), &ctmap.CtKey4Global{}, &ctmap.CtEntry{})
+	ciliumCt4, err = bpf.OpenMap(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, ctmap.MapNameTCP4Global), &ctmap.CtKey4Global{}, &ctmap.CtEntry{})
+	// Log debug the file path to the map
+	log.Infof("cilium ct4 map path: %s", filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, ctmap.MapNameTCP4Global))
 	if err != nil {
 		log.Info(err.Error())
 		// We always expect v4 map. If it doesn't exist assume that cilium is not used.
@@ -37,20 +38,20 @@ func iniCiliumMaps(log *logging.Logger) bool {
 		log.Infof("found cilium ebpf-map %s", ctmap.MapNameTCP4Global)
 	}
 
-	ciliumCt6, err = bpf.OpenMap(proc.HostPath(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, ctmap.MapNameTCP6Global)), &ctmap.CtKey6Global{}, &ctmap.CtEntry{})
+	ciliumCt6, err = bpf.OpenMap(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, ctmap.MapNameTCP6Global), &ctmap.CtKey6Global{}, &ctmap.CtEntry{})
 	if err != nil {
 		log.Warn(err.Error())
 	} else {
 		log.Infof("found cilium ebpf-map %s", ctmap.MapNameTCP6Global)
 	}
-	backends4Map, err = bpf.OpenMap(proc.HostPath(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, lbmap.Backend4MapV3Name)), &lbmap.Backend4KeyV3{}, &lbmap.Backend4ValueV3{})
+	backends4Map, err = bpf.OpenMap(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, lbmap.Backend4MapV3Name), &lbmap.Backend4KeyV3{}, &lbmap.Backend4ValueV3{})
 	if err != nil {
 		log.Warn(err.Error())
 	} else {
 		log.Infof("found cilium ebpf-map %s", lbmap.Backend4MapV3Name)
 	}
 
-	backends6Map, err = bpf.OpenMap(proc.HostPath(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, lbmap.Backend6MapV3Name)), &lbmap.Backend6KeyV3{}, &lbmap.Backend6ValueV3{})
+	backends6Map, err = bpf.OpenMap(filepath.Join(defaults.BPFFSRoot, defaults.TCGlobalsPath, lbmap.Backend6MapV3Name), &lbmap.Backend6KeyV3{}, &lbmap.Backend6ValueV3{})
 	if err != nil {
 		log.Warn(err.Error())
 	} else {
