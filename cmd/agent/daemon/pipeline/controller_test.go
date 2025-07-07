@@ -424,6 +424,7 @@ func TestController(t *testing.T) {
 					return false
 				}
 				cancel()
+				<-ctrlerr
 				r.Equal("p999", batch[0].PodName)
 				r.Len(ctrl.eventGroups, 1)
 				r.NotNil(ctrl.eventGroups[1])
