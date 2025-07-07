@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/netip"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type testAddr struct {
@@ -834,7 +836,7 @@ func (m *mockDataBatchExporter) getEvents() []*castaipb.ContainerEvents {
 	var res []*castaipb.ContainerEvents
 	for _, item := range m.items {
 		if v := item.GetContainerEvents(); v != nil {
-			res = append(res, v)
+			res = append(res, deepProtoCopy(v))
 		}
 	}
 	return res
@@ -846,7 +848,7 @@ func (m *mockDataBatchExporter) getNetflows() []*castaipb.Netflow {
 	var res []*castaipb.Netflow
 	for _, item := range m.items {
 		if v := item.GetNetflow(); v != nil {
-			res = append(res, v)
+			res = append(res, deepProtoCopy(v))
 		}
 	}
 	return res
@@ -858,7 +860,7 @@ func (m *mockDataBatchExporter) getContainerStats() []*castaipb.ContainerStats {
 	var res []*castaipb.ContainerStats
 	for _, item := range m.items {
 		if v := item.GetContainerStats(); v != nil {
-			res = append(res, v)
+			res = append(res, deepProtoCopy(v))
 		}
 	}
 	return res
@@ -870,10 +872,23 @@ func (m *mockDataBatchExporter) getNodeStats() []*castaipb.NodeStats {
 	var res []*castaipb.NodeStats
 	for _, item := range m.items {
 		if v := item.GetNodeStats(); v != nil {
-			res = append(res, v)
+			res = append(res, deepProtoCopy(v))
 		}
 	}
 	return res
+}
+
+// deepProtoCopy is used to copy proto messages to avoid race conditions it tests.
+func deepProtoCopy[T proto.Message](in T) T {
+	data, err := protojson.Marshal(in)
+	if err != nil {
+		panic(err)
+	}
+	out := reflect.New(reflect.TypeOf(in).Elem()).Interface().(proto.Message)
+	if err := protojson.Unmarshal(data, out); err != nil {
+		panic(err)
+	}
+	return out.(T)
 }
 
 type mockContainersClient struct {

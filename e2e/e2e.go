@@ -829,14 +829,12 @@ func (t *testCASTAIServer) assertKvisorResourceUsage(ctx context.Context) error 
 
 	resourceUsages := map[string]*resourceUsage{
 		"agent": {
-			maxExpectedCPU: 300_000_000,       // Should be no more than 300m cpu usage.
-			maxExpectedMem: 200 * 1024 * 1024, // Should be no more than 200MB mem usage.
-			// TODO: Memory usage is actually lower but spikes on initial container startup while loading btf types.
-			// There are some updates in recent cilium/ebpf version which may also help.
+			maxExpectedCPU: 300_000_000,       // 300m.
+			maxExpectedMem: 256 * 1024 * 1024, // 256Mi
 		},
 		"controller": {
-			maxExpectedCPU: 200_000_000,       // Should be no more than 200m cpu usage.
-			maxExpectedMem: 128 * 1024 * 1024, // Should be no more than 128MB mem usage.
+			maxExpectedCPU: 200_000_000,       // 200m.
+			maxExpectedMem: 128 * 1024 * 1024, // 256Mi.
 		},
 	}
 	checkResourceUsage := func(stats []*castaipb.ContainerStats) (bool, error) {

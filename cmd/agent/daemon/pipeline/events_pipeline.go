@@ -181,7 +181,7 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEvent
 		ObjectLabels:      e.Container.Labels,
 		ObjectAnnotations: e.Container.Annotations,
 		CgroupId:          e.Context.CgroupID,
-		Items:             make([]*castaipb.ContainerEvent, 0, 100), // Preallocate to reduce memory allocations.
+		Items:             make([]*castaipb.ContainerEvent, 0, 10), // Preallocate to reduce memory allocations.
 	}
 	if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
 		group.WorkloadKind = castaipb.WorkloadKind(podInfo.WorkloadKind)

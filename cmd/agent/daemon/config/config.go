@@ -54,6 +54,9 @@ type Config struct {
 }
 
 type DataBatchConfig struct {
+	// MaxBatchSizeBytes is approximate proto bytes sizes before compression.
+	// gRPC Go uses different sizes memory pools, see here https://github.com/grpc/grpc-go/blob/master/mem/buffer_pool.go#L38
+	// Our current default is 512kB batch size.
 	MaxBatchSizeBytes int           `validate:"required" json:"maxBatchSizeBytes"`
 	FlushInterval     time.Duration `validate:"required" json:"flushInterval"`
 	ExportTimeout     time.Duration `validate:"required" json:"exportTimeout"`

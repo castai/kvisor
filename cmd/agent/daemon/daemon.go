@@ -87,8 +87,8 @@ func NewRunCommand(version string) *cobra.Command {
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
-		dataBatchMaxSize       = command.Flags().Uint32("data-batch-max-size", 524288, "Data batch max size")
-		dataBatchFlushInterval = command.Flags().Duration("data-batch-flush-interval", 15*time.Second, "Data batch flush interval")
+		dataBatchMaxSize       = command.Flags().Uint32("data-batch-max-size", 524288, "Data batch max size in bytes (before compression)")
+		dataBatchFlushInterval = command.Flags().Duration("data-batch-flush-interval", 15*time.Second, "Data batch flush interval. Data is flushed periodically if data batch size is not reached")
 		dataBatchExportTimeout = command.Flags().Duration("data-batch-export-timeout", 10*time.Second, "Data batch export timeout")
 
 		clickhouseAddr     = command.Flags().String("clickhouse-addr", "", "Clickhouse address to send events to")
