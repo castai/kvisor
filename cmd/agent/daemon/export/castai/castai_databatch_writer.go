@@ -12,20 +12,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Config struct {
-	WriteTimeout time.Duration
-}
-
-func NewDataBatchWriter(cfg Config, client *castai.Client, log *logging.Logger) export.DataBatchWriter {
+func NewDataBatchWriter(client *castai.Client, log *logging.Logger) export.DataBatchWriter {
 	return &dataBatchWriter{
-		cfg:    cfg,
 		client: client,
 		log:    log,
 	}
 }
 
 type dataBatchWriter struct {
-	cfg    Config
 	client *castai.Client
 	log    *logging.Logger
 }
@@ -35,9 +29,6 @@ func (c *dataBatchWriter) Name() string {
 }
 
 func (c *dataBatchWriter) Write(ctx context.Context, req *castaipb.WriteDataBatchRequest) error {
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.WriteTimeout)
-	defer cancel()
-
 	_, err := backoff.Retry(
 		ctx,
 		func() (bool, error) {

@@ -95,9 +95,8 @@ func NewRunCommand(version string) *cobra.Command {
 		clickhouseDatabase = command.Flags().String("clickhouse-database", "", "Clickhouse database name")
 		clickhouseUsername = command.Flags().String("clickhouse-username", "", "Clickhouse username")
 
-		castaiServerInsecure        = command.Flags().Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
-		castaiCompressionName       = command.Flags().String("castai-compression-name", gzip.Name, "CASTAI gRPC compression name")
-		castaiDatabatchWriteTimeout = command.Flags().Duration("castai-databatch-write-timeout", 10*time.Second, "CASTAI data batch write timeout")
+		castaiServerInsecure  = command.Flags().Bool("castai-server-insecure", false, "Use insecure connection to castai grpc server. Used for e2e.")
+		castaiCompressionName = command.Flags().String("castai-compression-name", gzip.Name, "CASTAI gRPC compression name")
 
 		kubeAPIServiceAddr = command.Flags().String("kube-api-service-addr", "", "Custom kube API service grpc address")
 
@@ -127,7 +126,6 @@ func NewRunCommand(version string) *cobra.Command {
 			slog.Warn(fmt.Errorf("failed to initialize CAST AI client config: %w", err).Error())
 		}
 		castaiClientCfg.CompressionName = *castaiCompressionName
-		castaiClientCfg.DataBatchWriteTimeout = *castaiDatabatchWriteTimeout
 
 		var redactSensitiveValuesRegex *regexp.Regexp
 		if *redactSensitiveValuesRegexStr != "" {

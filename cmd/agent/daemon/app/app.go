@@ -104,9 +104,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		log = logging.New(logCfg)
 
-		exporters = append(exporters, castaiexport.NewDataBatchWriter(castaiexport.Config{
-			WriteTimeout: a.cfg.Castai.DataBatchWriteTimeout,
-		}, castaiClient, log))
+		exporters = append(exporters, castaiexport.NewDataBatchWriter(castaiClient, log))
 
 	} else {
 		log = logging.New(logCfg)
@@ -205,21 +203,21 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
-		FileAccessEnabled:                  cfg.FileAccess.Enabled,
-		BTFPath:                            cfg.BTFPath,
-		SignalEventsRingBufferSize:         cfg.EBPFSignalEventsRingBufferSize,
-		EventsRingBufferSize:               cfg.EBPFEventsRingBufferSize,
-		SkbEventsRingBufferSize:            cfg.EBPFSkbEventsRingBufferSize,
-		EventsOutputChanSize:               cfg.EBPFEventsOutputChanSize,
-		DefaultCgroupsVersion:              cgroupClient.DefaultCgroupVersion().String(),
-		ContainerClient:                    containersClient,
-		CgroupClient:                       cgroupClient,
-		AutomountCgroupv2:                  cfg.AutomountCgroupv2,
-		SignatureEngine:                    signatureEngine,
-		MountNamespacePIDStore:             mountNamespacePIDStore,
-		HomePIDNS:                          pidNSID,
-		NetflowsEnabled:                    cfg.Netflow.Enabled,
-		NetflowGrouping:                    cfg.Netflow.Grouping,
+		FileAccessEnabled:          cfg.FileAccess.Enabled,
+		BTFPath:                    cfg.BTFPath,
+		SignalEventsRingBufferSize: cfg.EBPFSignalEventsRingBufferSize,
+		EventsRingBufferSize:       cfg.EBPFEventsRingBufferSize,
+		SkbEventsRingBufferSize:    cfg.EBPFSkbEventsRingBufferSize,
+		EventsOutputChanSize:       cfg.EBPFEventsOutputChanSize,
+		DefaultCgroupsVersion:      cgroupClient.DefaultCgroupVersion().String(),
+		ContainerClient:            containersClient,
+		CgroupClient:               cgroupClient,
+		AutomountCgroupv2:          cfg.AutomountCgroupv2,
+		SignatureEngine:            signatureEngine,
+		MountNamespacePIDStore:     mountNamespacePIDStore,
+		HomePIDNS:                  pidNSID,
+		NetflowsEnabled:            cfg.Netflow.Enabled,
+		NetflowGrouping:            cfg.Netflow.Grouping,
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,

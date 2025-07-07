@@ -3,7 +3,6 @@ package castai
 import (
 	"fmt"
 	"os"
-	"time"
 )
 
 type Config struct {
@@ -12,8 +11,7 @@ type Config struct {
 	APIGrpcAddr string `json:"APIGrpcAddr"`
 	Insecure    bool   `json:"insecure"`
 
-	CompressionName       string        `json:"compression"`
-	DataBatchWriteTimeout time.Duration `json:"dataBatchWriteTimeout"`
+	CompressionName string `json:"compression"`
 }
 
 func NewConfigFromEnv(insecure bool) (Config, error) {
