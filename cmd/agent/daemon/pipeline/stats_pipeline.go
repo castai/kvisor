@@ -77,6 +77,7 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			// Delete the inactive group.
 			if group.updatedAt.Add(time.Minute).Before(now) {
 				delete(containerStatsGroups, key)
+				c.log.Debugf("deleted inactive container stats group, container=%s(%s)", group.pb.ContainerName, group.pb.ContainerId)
 				continue
 			}
 			group.changed = false
@@ -136,6 +137,7 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 	group, found := groups[cont.CgroupID]
 	if !found {
 		group = &containerStatsGroup{
+			updatedAt: time.Now(),
 			pb: &castaipb.ContainerStats{
 				Namespace:     cont.PodNamespace,
 				PodName:       cont.PodName,
@@ -146,13 +148,13 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 				NodeName:      c.nodeName,
 			},
 		}
-		group.prevCpuStat = cgStats.CpuStats
-		group.prevMemStat = cgStats.MemoryStats
-		group.prevIOStat = cgStats.IOStats
 		if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
 			group.pb.WorkloadName = podInfo.WorkloadName
 			group.pb.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
 		}
+		group.prevCpuStat = cgStats.CpuStats
+		group.prevMemStat = cgStats.MemoryStats
+		group.prevIOStat = cgStats.IOStats
 		groups[cont.CgroupID] = group
 		return
 	}

@@ -48,6 +48,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 			// Delete the inactive group.
 			if group.updatedAt.Add(time.Minute).Before(now) {
 				delete(groups, key)
+				c.log.Debugf("deleted inactive events group, cgroup_id=%d", key)
 				continue
 			}
 			group.pb.Items = group.pb.Items[:0]
@@ -190,7 +191,8 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEvent
 		group.NodeName = podInfo.NodeName
 	}
 	return &containerEventsGroup{
-		pb: group,
+		pb:        group,
+		updatedAt: time.Now(),
 	}
 }
 

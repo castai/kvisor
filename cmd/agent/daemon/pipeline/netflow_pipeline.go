@@ -104,6 +104,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 			// Delete the inactive group.
 			if group.updatedAt.Add(time.Minute).Before(now) {
 				delete(groups, key)
+				c.log.Debugf("deleted inactive netflow group, cgroup_id=%d", key)
 				continue
 			}
 			for _, flow := range group.flows {
@@ -190,7 +191,8 @@ func (c *Controller) handleNetflows(
 		group, found := groups[key.ProcessIdentity.CgroupId]
 		if !found {
 			group = &netflowGroup{
-				flows: make(map[uint64]*netflowVal),
+				flows:     make(map[uint64]*netflowVal),
+				updatedAt: time.Now(),
 			}
 			groups[key.ProcessIdentity.CgroupId] = group
 		}
