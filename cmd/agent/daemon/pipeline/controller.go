@@ -311,9 +311,21 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.dnsCache.Remove(container.CgroupID)
 
-	c.deletedContainersEventsQueue <- container.CgroupID
-	c.deletedContainersNetflowsQueue <- container.CgroupID
-	c.deletedContainersContainerStatsQueue <- container.CgroupID
+	// TODO: Consider removing these channels and related logic as we now have expiration for inactive groups.
+	select {
+	case c.deletedContainersEventsQueue <- container.CgroupID:
+	default:
+	}
+
+	select {
+	case c.deletedContainersNetflowsQueue <- container.CgroupID:
+	default:
+	}
+
+	select {
+	case c.deletedContainersContainerStatsQueue <- container.CgroupID:
+	default:
+	}
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }

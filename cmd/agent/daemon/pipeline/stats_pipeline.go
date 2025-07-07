@@ -90,14 +90,10 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 
 	for {
 		select {
-		case cgroupID := <-c.deletedContainersContainerStatsQueue:
-			delete(containerStatsGroups, cgroupID)
-		default:
-		}
-
-		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case cgroupID := <-c.deletedContainersContainerStatsQueue:
+			delete(containerStatsGroups, cgroupID)
 		case <-ticker.C:
 			start := time.Now()
 			c.scrapeNodeStats(nodeStats, stats)

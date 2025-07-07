@@ -146,8 +146,8 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cgroupEventPolicy:         map[uint64]map[events.ID]*cgroupEventPolicy{},
 		dnsPacketParser:           &layers.DNS{},
 		signatureEventMap:         map[events.ID]struct{}{},
-		cleanupTimerTickRate:      1 * time.Minute,
-		cgroupCleanupDelay:        1 * time.Minute,
+		cleanupTimerTickRate:      30 * time.Second,
+		cgroupCleanupDelay:        30 * time.Second,
 		metricExportTimerTickRate: 5 * time.Second,
 		currentTracerEbpfMetrics:  map[string]uint64{},
 	}
