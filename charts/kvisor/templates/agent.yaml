@@ -45,7 +45,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
       hostPID: true
       securityContext:
         {{- toYaml .Values.agent.securityContext | nindent 8 }}
@@ -264,6 +264,26 @@ spec:
         - name: proc
           hostPath:
             path: /proc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-kepler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kepler
+  annotations:
+    prometheus.io/scrape: "true"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8888
+      targetPort: kepler-metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "kvisor.agent.selectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 {{- if .Values.agent.serviceAccount.create -}}
