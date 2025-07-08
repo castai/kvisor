@@ -122,8 +122,6 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case cgroupID := <-c.deletedContainersNetflowsQueue:
-			delete(groups, cgroupID)
 		case <-ticker.C:
 			keys, vals, err := c.tracer.CollectNetworkSummary()
 			if err != nil {

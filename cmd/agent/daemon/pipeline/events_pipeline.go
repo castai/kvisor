@@ -55,25 +55,6 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		}
 	}
 
-	handleCgroupDelete := func(cgroupID uint64) {
-		group, found := groups[cgroupID]
-		if !found {
-			return
-		}
-		if len(group.pb.Items) == 0 {
-			delete(groups, cgroupID)
-			return
-		}
-		c.sendDataBatch("events cgroup deleted", metrics.PipelineEBPFEvents, []*castaipb.DataBatchItem{
-			{
-				Data: &castaipb.DataBatchItem_ContainerEvents{
-					ContainerEvents: group.pb,
-				},
-			},
-		})
-		delete(groups, cgroupID)
-	}
-
 	for {
 		// Top priority, handle context cancel and flush remaining data.
 		select {
@@ -85,13 +66,6 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 		default:
 		}
 
-		// High priority. Flush recently deleted groups.
-		select {
-		case cgroupID := <-c.deletedContainersEventsQueue:
-			handleCgroupDelete(cgroupID)
-		default:
-		}
-
 		// Normal priority.
 		select {
 		case <-ctx.Done():
@@ -99,8 +73,6 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 				send("events shutdown")
 			}
 			return ctx.Err()
-		case cgroupID := <-c.deletedContainersEventsQueue:
-			handleCgroupDelete(cgroupID)
 		case e := <-c.tracer.Events():
 			c.handleEvent(groups, stats, e)
 			if stats.sizeBytes >= c.cfg.DataBatch.MaxBatchSizeBytes {

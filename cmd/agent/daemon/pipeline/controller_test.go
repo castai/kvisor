@@ -338,59 +338,6 @@ func TestController(t *testing.T) {
 			}
 		})
 
-		t.Run("remove events group on container delete and flush remaining", func(t *testing.T) {
-			r := require.New(t)
-			ctrl := newTestController()
-			ctrl.cfg.Events.Enabled = true
-			ctrl.cfg.DataBatch.FlushInterval = flushIntervalNever
-			ctrl.cfg.DataBatch.MaxBatchSizeBytes = batchSizeNever
-
-			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
-				Context: &types.EventContext{Ts: 1, CgroupID: 1},
-				Container: &containers.Container{
-					PodName: "p999",
-				},
-			}
-
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
-
-			// Process initial event and wait for queue drain.
-			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
-				Context: &types.EventContext{Ts: 1, CgroupID: 1},
-				Container: &containers.Container{
-					PodName: "p999",
-				},
-			}
-			r.Eventually(func() bool {
-				return len(ctrl.tracer.(*mockEbpfTracer).eventsChan) == 0
-			}, 2*time.Second, 100*time.Millisecond)
-
-			// Delete container.
-			ctrl.onDeleteContainer(&containers.Container{CgroupID: 1})
-
-			// At this point last select from normal priority may be blocked waiting for some even. Trigger to process.
-			ctrl.tracer.(*mockEbpfTracer).eventsChan <- &types.Event{
-				Context: &types.EventContext{Ts: 1, CgroupID: 2},
-				Container: &containers.Container{
-					PodName: "p999",
-				},
-			}
-
-			exp := getTestDataBatchExporter(ctrl)
-
-			r.Eventually(func() bool {
-				batch := exp.getEvents()
-				if len(batch) == 0 {
-					return false
-				}
-				r.Equal("p999", batch[0].PodName)
-				return true
-			}, 2*time.Second, 10*time.Millisecond)
-		})
-
 		t.Run("remove not active events group after send", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController()

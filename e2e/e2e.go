@@ -108,6 +108,11 @@ func run(ctx context.Context) error {
 	if err := srv.assertNetflows(ctx, "echo-a-ipv6", unix.AF_INET6); err != nil {
 		return fmt.Errorf("assert ipv6 netflows: %w", err)
 	}
+
+	fmt.Println("🙏waiting for iperf netflows")
+	if err := srv.assertIperfNetflows(ctx); err != nil {
+		return err
+	}
 	srv.netflowsAsserted = true
 	srv.netflows = nil
 
@@ -181,7 +186,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.file-hash-enricher-enabled=true \
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
-  --set agent.extraArgs.netflow-export-interval=1s \
+  --set agent.extraArgs.netflow-export-interval=5s \
   --set agent.extraArgs.process-tree-enabled=true \
   --set agent.extraArgs.data-batch-flush-interval=1s \
   --set agent.extraArgs.containers-refresh-interval=5s \
@@ -1032,7 +1037,7 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context, workload string, 
 			return errors.New("timeout waiting for netflows")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			items := t.netflows
+			items := slices.Clone(t.netflows)
 			t.mu.Unlock()
 			for _, f1 := range items {
 				for _, d1 := range f1.Destinations {
@@ -1055,6 +1060,60 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context, workload string, 
 					r.NotEmpty(d1.TxPackets + d1.RxPackets)
 					return r.error()
 				}
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertIperfNetflows(ctx context.Context) error {
+	timeout := time.After(30 * time.Second)
+	r := newAssertions()
+
+	var foundClient, foundServer bool
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for iperf netflows")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			items := slices.Clone(t.netflows)
+			t.mu.Unlock()
+
+			for _, f1 := range items {
+				if f1.WorkloadKind == "DaemonSet" && f1.WorkloadName == "iperf-clients" {
+					r.Equal("iperf", f1.Namespace)
+					r.Equal("iperf-client", f1.ContainerName)
+					r.Equal("iperf", f1.ProcessName)
+					for _, d1 := range f1.Destinations {
+						if d1.WorkloadName == "iperf-server" {
+							r.Equal("iperf-server.kvisor-e2e.svc.cluster.local", d1.DnsQuestion)
+							r.Greater(d1.TxBytes, d1.RxBytes)
+							r.GreaterOrEqual(d1.TxBytes, 256*1024)
+							r.LessOrEqual(d1.TxBytes, 1*1024*1024)
+							foundClient = true
+						}
+					}
+				}
+
+				if f1.WorkloadKind == "Deployment" && f1.WorkloadName == "iperf-server" {
+					r.Equal("iperf", f1.Namespace)
+					r.Equal("iperf-server", f1.ContainerName)
+					r.Equal("iperf", f1.ProcessName)
+					for _, d1 := range f1.Destinations {
+						if d1.WorkloadName == "iperf-client" {
+							r.Greater(d1.RxBytes, d1.TxBytes)
+							r.GreaterOrEqual(d1.RxBytes, 256*1024)
+						}
+						foundServer = true
+					}
+				}
+			}
+
+			if foundClient && foundServer {
+				return r.error()
 			}
 		}
 	}

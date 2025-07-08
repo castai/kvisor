@@ -115,26 +115,23 @@ func NewController(
 	}
 
 	return &Controller{
-		log:                                  log.WithField("component", "ctrl"),
-		cfg:                                  cfg,
-		exporters:                            exporters,
-		containersClient:                     containersClient,
-		netStatsReader:                       netStatsReader,
-		ct:                                   ct,
-		tracer:                               tracer,
-		signatureEngine:                      signatureEngine,
-		kubeClient:                           kubeClient,
-		nodeName:                             os.Getenv("NODE_NAME"),
-		mutedNamespaces:                      map[string]struct{}{},
-		dnsCache:                             dnsCache,
-		podCache:                             podCache,
-		processTreeCollector:                 processTreeCollector,
-		procHandler:                          procHandler,
-		enrichmentService:                    enrichmentService,
-		deletedContainersEventsQueue:         make(chan uint64, 100),
-		deletedContainersNetflowsQueue:       make(chan uint64, 100),
-		deletedContainersContainerStatsQueue: make(chan uint64, 100),
-		maxCachedNetflowsPerContainer:        5,
+		log:                           log.WithField("component", "ctrl"),
+		cfg:                           cfg,
+		exporters:                     exporters,
+		containersClient:              containersClient,
+		netStatsReader:                netStatsReader,
+		ct:                            ct,
+		tracer:                        tracer,
+		signatureEngine:               signatureEngine,
+		kubeClient:                    kubeClient,
+		nodeName:                      os.Getenv("NODE_NAME"),
+		mutedNamespaces:               map[string]struct{}{},
+		dnsCache:                      dnsCache,
+		podCache:                      podCache,
+		processTreeCollector:          processTreeCollector,
+		procHandler:                   procHandler,
+		enrichmentService:             enrichmentService,
+		maxCachedNetflowsPerContainer: 5,
 
 		eventGroups:          make(map[uint64]*containerEventsGroup),
 		netflowGroups:        make(map[uint64]*netflowGroup),
@@ -169,10 +166,6 @@ type Controller struct {
 	eventGroups          map[uint64]*containerEventsGroup
 	netflowGroups        map[uint64]*netflowGroup
 	containerStatsGroups map[uint64]*containerStatsGroup
-
-	deletedContainersEventsQueue         chan uint64
-	deletedContainersNetflowsQueue       chan uint64
-	deletedContainersContainerStatsQueue chan uint64
 
 	maxCachedNetflowsPerContainer int
 }
@@ -310,22 +303,6 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 
 func (c *Controller) onDeleteContainer(container *containers.Container) {
 	c.dnsCache.Remove(container.CgroupID)
-
-	// TODO: Consider removing these channels and related logic as we now have expiration for inactive groups.
-	select {
-	case c.deletedContainersEventsQueue <- container.CgroupID:
-	default:
-	}
-
-	select {
-	case c.deletedContainersNetflowsQueue <- container.CgroupID:
-	default:
-	}
-
-	select {
-	case c.deletedContainersContainerStatsQueue <- container.CgroupID:
-	default:
-	}
 
 	c.log.Debugf("removed cgroup %d", container.CgroupID)
 }

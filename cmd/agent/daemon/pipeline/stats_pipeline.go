@@ -92,8 +92,6 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case cgroupID := <-c.deletedContainersContainerStatsQueue:
-			delete(containerStatsGroups, cgroupID)
 		case <-ticker.C:
 			start := time.Now()
 			c.scrapeNodeStats(nodeStats, stats)
@@ -157,12 +155,14 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 
 	group.changed = true
 	group.updatedAt = time.Now()
+	stats.sizeBytes += proto.Size(group.pb)
+	stats.totalItems++
+
 	group.pb.CpuStats = getCPUStatsDiff(group.prevCpuStat, cgStats.CpuStats)
 	group.pb.MemoryStats = getMemoryStatsDiff(group.prevMemStat, cgStats.MemoryStats)
 	group.pb.IoStats = getIOStatsDiff(group.prevIOStat, cgStats.IOStats)
 	group.pb.PidsStats = cgStats.PidsStats
-	stats.sizeBytes += proto.Size(group.pb)
-	stats.totalItems++
+
 	group.prevCpuStat = cgStats.CpuStats
 	group.prevMemStat = cgStats.MemoryStats
 	group.prevIOStat = cgStats.IOStats
