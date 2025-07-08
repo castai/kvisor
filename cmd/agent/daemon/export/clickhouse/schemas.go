@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS netflows
 	zone LowCardinality(String),
 	workload_name LowCardinality(String),
 	workload_kind LowCardinality(String),
+	pid UInt64,
 	addr IPv6,
 	port UInt16,
 	dst_addr IPv6,

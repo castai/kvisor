@@ -118,6 +118,8 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 				continue
 			}
 			c.handleNetflows(ctx, groups, stats, netflowGroupKeyDigest, keys, vals)
+			// TODO: Netflows export currently doesn't use max data batch size.
+			// In the feature we may need to send partial collected netflows.
 			send("netflows collected")
 		}
 	}

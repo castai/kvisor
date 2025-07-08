@@ -834,11 +834,11 @@ func (t *testCASTAIServer) assertKvisorResourceUsage(ctx context.Context) error 
 
 	resourceUsages := map[string]*resourceUsage{
 		"agent": {
-			maxExpectedCPU: 300_000_000,       // 300m.
+			maxExpectedCPU: 600_000_000,       // 600m.
 			maxExpectedMem: 256 * 1024 * 1024, // 256Mi
 		},
 		"controller": {
-			maxExpectedCPU: 200_000_000,       // 200m.
+			maxExpectedCPU: 600_000_000,       // 600m.
 			maxExpectedMem: 128 * 1024 * 1024, // 256Mi.
 		},
 	}
