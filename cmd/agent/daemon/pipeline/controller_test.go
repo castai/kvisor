@@ -563,6 +563,76 @@ func TestController(t *testing.T) {
 			}
 		})
 
+		t.Run("group flows by container and process", func(t *testing.T) {
+			r := require.New(t)
+			ctrl := newTestController(customizeMockContainersClient(func(t *mockContainersClient) {
+				t.list = append(t.list, &containers.Container{
+					ID:           "abcd",
+					Name:         "container-1",
+					CgroupID:     100,
+					PodNamespace: "default",
+					PodUID:       "abcd",
+					PodName:      "test-pod",
+					Cgroup: &cgroup.Cgroup{
+						Id: 100,
+					},
+				})
+			}))
+			ctrl.cfg.Netflow.Enabled = true
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			key1 := newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 1, 0xa}, family: uint16(types.AF_INET)})
+			key1.ProcessIdentity.CgroupId = 100
+			key1.ProcessIdentity.Pid = 1
+			key1.ProcessIdentity.PidStartTime = 1
+			val1 := ebpftracer.TrafficSummary{
+				TxBytes:   10,
+				TxPackets: 5,
+				RxBytes:   11,
+				RxPackets: 12,
+			}
+
+			key2 := newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 1, 0xa}, family: uint16(types.AF_INET)})
+			key2.ProcessIdentity.CgroupId = 100
+			key2.ProcessIdentity.Pid = 2
+			key2.ProcessIdentity.PidStartTime = 2
+			val2 := ebpftracer.TrafficSummary{
+				TxBytes:   11,
+				TxPackets: 6,
+				RxBytes:   12,
+				RxPackets: 13,
+			}
+
+			ctrl.tracer.(*mockEbpfTracer).sendNetflowTestEvent(netflowList{
+				keys: []ebpftracer.TrafficKey{
+					key1, key2,
+				},
+				vals: []ebpftracer.TrafficSummary{
+					val1, val2,
+				},
+			})
+
+			exp := getTestDataBatchExporter(ctrl)
+
+			r.Eventually(func() bool {
+				flows := exp.getNetflows()
+				if len(flows) == 0 {
+					return false
+				}
+				r.Len(flows, 2)
+				f1 := flows[0]
+				f2 := flows[1]
+				r.Equal("container-1", f1.ContainerName)
+				r.Equal(f1.ContainerName, f2.ContainerName)
+				r.NotEqual(f1.Pid, f2.Pid)
+				return true
+			}, 3*time.Second, 1*time.Millisecond)
+		})
+
 		t.Run("aggregate public ips without dns after max limit reached", func(t *testing.T) {
 			r := require.New(t)
 			ctrl := newTestController(customizeMockContainersClient(func(t *mockContainersClient) {

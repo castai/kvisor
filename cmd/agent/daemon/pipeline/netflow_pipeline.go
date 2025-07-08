@@ -76,7 +76,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		}
 	}
 
-	groups := c.netflowGroups
+	groups := map[uint64]*netflowGroup{} // TODO: Consider reusing groups similar to events and container stats.
 	netflowGroupKeyDigest := xxhash.New()
 	stats := newDataBatchStats()
 
@@ -97,20 +97,9 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		}
 		c.sendDataBatch(reason, metrics.PipelineNetflows, items)
 
-		// Reset stats and group items after send.
+		// Reset after sent.
 		stats.reset()
-		now := time.Now()
-		for key, group := range groups {
-			// Delete the inactive group.
-			if group.updatedAt.Add(time.Minute).Before(now) {
-				delete(groups, key)
-				c.log.Debugf("deleted inactive netflow group, cgroup_id=%d", key)
-				continue
-			}
-			for _, flow := range group.flows {
-				flow.pb.Destinations = flow.pb.Destinations[:0]
-			}
-		}
+		groups = map[uint64]*netflowGroup{}
 	}
 
 	ticker := time.NewTicker(c.cfg.Netflow.ExportInterval)
@@ -128,20 +117,21 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 				c.log.Errorf("error while collecting network traffic summary: %v", err)
 				continue
 			}
-			c.handleNetflows(ctx, groups, stats, netflowGroupKeyDigest, keys, vals, send)
+			c.handleNetflows(ctx, groups, stats, netflowGroupKeyDigest, keys, vals)
+			send("netflows collected")
 		}
 	}
 }
 
 type netflowGroup struct {
-	flows     map[uint64]*netflowVal
-	updatedAt time.Time
+	flows map[uint64]*netflowVal
 }
 
 type netflowVal struct {
 	pb              *castaipb.Netflow
 	mergeThreshold  int
 	mergedDestIndex int
+	updatedAt       time.Time
 }
 
 func newNetflowKey(digest *xxhash.Digest, key *ebpftracer.TrafficKey) uint64 {
@@ -163,30 +153,19 @@ func digestAddUint64(digest *xxhash.Digest, val uint64) {
 	_, _ = digest.Write(dst[:])
 }
 
-func (c *Controller) handleNetflows(
-	ctx context.Context,
-	groups map[uint64]*netflowGroup,
-	stats *dataBatchStats,
-	digest *xxhash.Digest,
-	keys []ebpftracer.TrafficKey,
-	vals []ebpftracer.TrafficSummary,
-	sendOnFull func(reason string),
-) {
-	c.log.Infof("handling netflows, groups=%d, keys=%v, vals=%v", len(groups), len(keys), len(vals))
+func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netflowGroup, stats *dataBatchStats, digest *xxhash.Digest, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
+	c.log.Infof("handling netflows, total=%v", len(keys))
 
 	start := time.Now()
 	// TODO: This could potentially return incorrect pods info. We may need to have timestamps in the key.
 	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
 
-	var sent bool
 	for i, key := range keys {
-		sent = false
 		summary := vals[i]
 		group, found := groups[key.ProcessIdentity.CgroupId]
 		if !found {
 			group = &netflowGroup{
-				flows:     make(map[uint64]*netflowVal),
-				updatedAt: time.Now(),
+				flows: make(map[uint64]*netflowVal),
 			}
 			groups[key.ProcessIdentity.CgroupId] = group
 		}
@@ -199,21 +178,14 @@ func (c *Controller) handleNetflows(
 				c.log.Errorf("error while parsing netflow destination: %v", err)
 				continue
 			}
-			val := &netflowVal{pb: d}
+			val := &netflowVal{
+				pb:        d,
+				updatedAt: time.Now(),
+			}
 			group.flows[netflowKey] = val
 			netflow = val
 			stats.totalItems++
-			// Cleanup empty flows with no new destinations. This is needed to prevent growing memory
-			// for containers which creates temp processes periodically.
-			if len(group.flows) > c.maxCachedNetflowsPerContainer {
-				for flowKey, flow := range group.flows {
-					if len(flow.pb.Destinations) == 0 {
-						delete(group.flows, flowKey)
-					}
-				}
-			}
 		}
-		group.updatedAt = time.Now()
 
 		dest, isPublicDest, err := c.toNetflowDestination(key, summary, podsByIPCache)
 		if err != nil {
@@ -223,18 +195,11 @@ func (c *Controller) handleNetflows(
 
 		c.addNetflowDestination(netflow, dest, isPublicDest)
 		stats.sizeBytes += proto.Size(dest)
-		if stats.sizeBytes >= c.cfg.DataBatch.MaxBatchSizeBytes {
-			sendOnFull("netflows batch is full")
-			sent = true
-		}
-
-		if i == len(keys)-1 != sent {
-			sendOnFull("netflows batch is full")
-		}
 	}
 }
 
 func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.NetflowDestination, isPublicDest bool) {
+	netflow.updatedAt = time.Now()
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
 	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, c.cfg.Netflow.MaxPublicIPs)
@@ -294,6 +259,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		// for already existing sockets.
 		Port:     uint32(key.Tuple.Sport),
 		NodeName: c.nodeName,
+		Pid:      key.ProcessIdentity.Pid,
 	}
 
 	if key.Tuple.Family == unix.AF_INET {

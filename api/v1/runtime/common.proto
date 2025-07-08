@@ -171,6 +171,7 @@ message Netflow {
   string node_name = 13;
   bytes addr = 9;
   uint32 port = 10;
+  uint32 pid = 14;
   NetflowProtocol protocol = 11;
   repeated NetflowDestination destinations = 12;
 }

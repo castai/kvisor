@@ -77,6 +77,7 @@ func NewNetflowsDebugCommand() *cobra.Command {
 			MountNamespacePIDStore:     nil,
 			HomePIDNS:                  pidNSID,
 			NetflowGrouping:            0,
+			NetflowsEnabled:            true,
 			PodName:                    os.Getenv("POD_NAME"),
 		})
 

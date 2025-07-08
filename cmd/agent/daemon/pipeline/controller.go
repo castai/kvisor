@@ -115,26 +115,24 @@ func NewController(
 	}
 
 	return &Controller{
-		log:                           log.WithField("component", "ctrl"),
-		cfg:                           cfg,
-		exporters:                     exporters,
-		containersClient:              containersClient,
-		netStatsReader:                netStatsReader,
-		ct:                            ct,
-		tracer:                        tracer,
-		signatureEngine:               signatureEngine,
-		kubeClient:                    kubeClient,
-		nodeName:                      os.Getenv("NODE_NAME"),
-		mutedNamespaces:               map[string]struct{}{},
-		dnsCache:                      dnsCache,
-		podCache:                      podCache,
-		processTreeCollector:          processTreeCollector,
-		procHandler:                   procHandler,
-		enrichmentService:             enrichmentService,
-		maxCachedNetflowsPerContainer: 5,
+		log:                  log.WithField("component", "ctrl"),
+		cfg:                  cfg,
+		exporters:            exporters,
+		containersClient:     containersClient,
+		netStatsReader:       netStatsReader,
+		ct:                   ct,
+		tracer:               tracer,
+		signatureEngine:      signatureEngine,
+		kubeClient:           kubeClient,
+		nodeName:             os.Getenv("NODE_NAME"),
+		mutedNamespaces:      map[string]struct{}{},
+		dnsCache:             dnsCache,
+		podCache:             podCache,
+		processTreeCollector: processTreeCollector,
+		procHandler:          procHandler,
+		enrichmentService:    enrichmentService,
 
 		eventGroups:          make(map[uint64]*containerEventsGroup),
-		netflowGroups:        make(map[uint64]*netflowGroup),
 		containerStatsGroups: make(map[uint64]*containerStatsGroup),
 	}
 }
@@ -164,10 +162,7 @@ type Controller struct {
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
 	eventGroups          map[uint64]*containerEventsGroup
-	netflowGroups        map[uint64]*netflowGroup
 	containerStatsGroups map[uint64]*containerStatsGroup
-
-	maxCachedNetflowsPerContainer int
 }
 
 func (c *Controller) Run(ctx context.Context) error {
