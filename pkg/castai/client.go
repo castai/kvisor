@@ -46,10 +46,6 @@ type Client struct {
 	compressionName string
 }
 
-func (c *Client) NetflowWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamClient, error) {
-	return c.GRPC.NetflowWriteStream(ctx, opts...)
-}
-
 func (c *Client) Close() {
 	if c.grpcConn != nil {
 		_ = c.grpcConn.Close()

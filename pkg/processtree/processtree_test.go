@@ -22,7 +22,7 @@ func TestInitProcessTree(t *testing.T) {
 		containerID1 := "container-1"
 		containerID2 := "container-2"
 
-		tree, err := New(logging.New(&logging.Config{}), proc.NewFromFS(fs.(proc.ProcFS)),
+		tree := New(logging.New(&logging.Config{}), proc.NewFromFS(fs.(proc.ProcFS)),
 			&dummyContainerClient{
 				loadContainerTaskFn: func(ctx context.Context) ([]containers.ContainerProcess, error) {
 					return []containers.ContainerProcess{
@@ -37,21 +37,14 @@ func TestInitProcessTree(t *testing.T) {
 					}, nil
 				},
 			})
+
+		events, err := tree.GetCurrentProcesses(context.TODO())
 		r.NoError(err)
 
-		err = tree.Init(context.TODO())
-		r.NoError(err)
-
-		events := consumeAll(tree.eventSink)
-		r.Len(events, 1)
-
-		processTreeEvent := events[0]
-		r.True(processTreeEvent.Initial)
-		r.Len(processTreeEvent.Events, 6)
+		r.Len(events, 6)
 
 		now := time.Now()
-
-		processEvents := lo.Map(processTreeEvent.Events, func(item ProcessEvent, index int) ProcessEvent {
+		processEvents := lo.Map(events, func(item ProcessEvent, index int) ProcessEvent {
 			// We do not care about timestamp in this test.
 			item.Timestamp = now
 			return item

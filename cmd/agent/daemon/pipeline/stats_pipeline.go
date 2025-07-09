@@ -10,18 +10,27 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"google.golang.org/protobuf/proto"
 )
 
-type containerStatsScrapePoint struct {
-	cpuStat *castaipb.CpuStats
-	memStat *castaipb.MemoryStats
-	ioStat  *castaipb.IOStats
+type containerStatsGroup struct {
+	pb          *castaipb.ContainerStats
+	prevCpuStat *castaipb.CpuStats
+	prevMemStat *castaipb.MemoryStats
+	prevIOStat  *castaipb.IOStats
+	changed     bool
+	updatedAt   time.Time
 }
 
 type nodeScrapePoint struct {
-	cpuStat *castaipb.CpuStats
-	memStat *castaipb.MemoryStats
-	ioStat  *castaipb.IOStats
+	nodeName string
+	cpuStat  *castaipb.CpuStats
+	memStat  *castaipb.MemoryStats
+	ioStat   *castaipb.IOStats
+
+	prevCpuStat *castaipb.CpuStats
+	prevMemStat *castaipb.MemoryStats
+	prevIOStat  *castaipb.IOStats
 }
 
 func (c *Controller) runStatsPipeline(ctx context.Context) error {
@@ -31,42 +40,79 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 	ticker := time.NewTicker(c.cfg.Stats.ScrapeInterval)
 	defer ticker.Stop()
 
+	nodeStats := &nodeScrapePoint{
+		nodeName: c.nodeName,
+	}
+	containerStatsGroups := c.containerStatsGroups
+	stats := newDataBatchStats()
+
+	send := func() {
+		items := make([]*castaipb.DataBatchItem, 0, stats.totalItems)
+		for _, group := range containerStatsGroups {
+			if !group.changed {
+				continue
+			}
+			items = append(items, &castaipb.DataBatchItem{
+				Data: &castaipb.DataBatchItem_ContainerStats{
+					ContainerStats: group.pb,
+				},
+			})
+		}
+		if nodeStats.cpuStat != nil {
+			items = append(items, &castaipb.DataBatchItem{
+				Data: &castaipb.DataBatchItem_NodeStats{
+					NodeStats: &castaipb.NodeStats{
+						NodeName:    nodeStats.nodeName,
+						CpuStats:    nodeStats.cpuStat,
+						MemoryStats: nodeStats.memStat,
+						IoStats:     nodeStats.ioStat,
+					},
+				},
+			})
+		}
+		c.sendDataBatch("container stats scrape", metrics.PipelineStats, items)
+		stats.reset()
+		now := time.Now()
+		for key, group := range containerStatsGroups {
+			// Delete the inactive group.
+			if group.updatedAt.Add(time.Minute).Before(now) {
+				delete(containerStatsGroups, key)
+				c.log.Debugf("deleted inactive container stats group, container=%s(%s)", group.pb.ContainerName, group.pb.ContainerId)
+				continue
+			}
+			group.changed = false
+		}
+	}
+
 	// Initial scrape to populate initial points for diffs.
-	c.scrapeNodeStats(nil)
-	c.scrapeContainersResourceStats(nil)
+	c.scrapeNodeStats(nodeStats, stats)
+	c.scrapeContainersResourceStats(containerStatsGroups, stats)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			func() {
-				start := time.Now()
-				batch := &castaipb.StatsBatch{}
-				c.scrapeNodeStats(batch)
-				c.scrapeContainersResourceStats(batch)
-				if len(batch.Items) > 0 {
-					for _, exp := range c.exporters.Stats {
-						exp.Enqueue(batch)
-					}
-				}
-				c.log.Debugf("stats exported, duration=%v", time.Since(start))
-			}()
+			start := time.Now()
+			c.scrapeNodeStats(nodeStats, stats)
+			c.scrapeContainersResourceStats(containerStatsGroups, stats)
+			send()
+			c.log.Debugf("stats exported, duration=%v", time.Since(start))
 		}
 	}
 }
 
-func (c *Controller) scrapeContainersResourceStats(batch *castaipb.StatsBatch) {
+func (c *Controller) scrapeContainersResourceStats(groups map[uint64]*containerStatsGroup, stats *dataBatchStats) {
 	conts := c.containersClient.ListContainers(func(cont *containers.Container) bool {
 		return cont.Err == nil && cont.Cgroup != nil && cont.Name != ""
 	})
-	c.log.Debugf("scraping resource stats from %d containers", len(conts))
+	c.log.Infof("scraping resource stats from %d containers", len(conts))
 	for _, cont := range conts {
-		c.scrapeContainerResourcesStats(cont, batch)
+		c.scrapeContainerResourcesStats(groups, cont, stats)
 	}
 }
 
-func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, batch *castaipb.StatsBatch) {
+func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerStatsGroup, cont *containers.Container, stats *dataBatchStats) {
 	cgStats, err := c.containersClient.GetCgroupStats(cont)
 	if err != nil {
 		if c.log.IsEnabled(slog.LevelDebug) {
@@ -82,58 +128,53 @@ func (c *Controller) scrapeContainerResourcesStats(cont *containers.Container, b
 		return
 	}
 
-	currScrape := &containerStatsScrapePoint{
-		cpuStat: cgStats.CpuStats,
-		memStat: cgStats.MemoryStats,
-		ioStat:  cgStats.IOStats,
-	}
-
-	// We need at least 2 scrapes to calculate diffs.
-	// Diffs are needed for always increasing counters only because we store them as deltas.
-	// This includes cpu usage and psi total value.
-	c.containerStatsScrapePointsMu.RLock()
-	prevScrape, found := c.containerStatsScrapePoints[cont.CgroupID]
-	c.containerStatsScrapePointsMu.RUnlock()
+	group, found := groups[cont.CgroupID]
 	if !found {
-		c.containerStatsScrapePointsMu.Lock()
-		c.containerStatsScrapePoints[cont.CgroupID] = currScrape
-		c.containerStatsScrapePointsMu.Unlock()
+		group = &containerStatsGroup{
+			updatedAt: time.Now(),
+			pb: &castaipb.ContainerStats{
+				Namespace:     cont.PodNamespace,
+				PodName:       cont.PodName,
+				ContainerName: cont.Name,
+				PodUid:        cont.PodUID,
+				ContainerId:   cont.ID,
+				PidsStats:     cgStats.PidsStats,
+				NodeName:      c.nodeName,
+			},
+		}
+		if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
+			group.pb.WorkloadName = podInfo.WorkloadName
+			group.pb.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
+		}
+		group.prevCpuStat = cgStats.CpuStats
+		group.prevMemStat = cgStats.MemoryStats
+		group.prevIOStat = cgStats.IOStats
+		groups[cont.CgroupID] = group
 		return
 	}
 
-	if batch == nil {
-		return
-	}
+	group.changed = true
+	group.updatedAt = time.Now()
+	stats.sizeBytes += proto.Size(group.pb)
+	stats.totalItems++
 
-	item := &castaipb.ContainerStats{
-		Namespace:     cont.PodNamespace,
-		PodName:       cont.PodName,
-		ContainerName: cont.Name,
-		PodUid:        cont.PodUID,
-		ContainerId:   cont.ID,
-		CpuStats:      getCPUStatsDiff(prevScrape.cpuStat, currScrape.cpuStat),
-		MemoryStats:   getMemoryStatsDiff(prevScrape.memStat, currScrape.memStat),
-		PidsStats:     cgStats.PidsStats,
-		IoStats:       getIOStatsDiff(prevScrape.ioStat, currScrape.ioStat),
-		NodeName:      c.nodeName,
-	}
-	if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
-		item.WorkloadName = podInfo.WorkloadName
-		item.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
-	}
-	batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Container{Container: item}})
+	group.pb.CpuStats = getCPUStatsDiff(group.prevCpuStat, cgStats.CpuStats)
+	group.pb.MemoryStats = getMemoryStatsDiff(group.prevMemStat, cgStats.MemoryStats)
+	group.pb.IoStats = getIOStatsDiff(group.prevIOStat, cgStats.IOStats)
+	group.pb.PidsStats = cgStats.PidsStats
 
-	prevScrape.cpuStat = currScrape.cpuStat
-	prevScrape.memStat = currScrape.memStat
-	prevScrape.ioStat = currScrape.ioStat
+	group.prevCpuStat = cgStats.CpuStats
+	group.prevMemStat = cgStats.MemoryStats
+	group.prevIOStat = cgStats.IOStats
 }
 
-func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
+func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatchStats) {
 	if err := func() error {
 		// For now, we only care about PSI related metrics on node.
 		if !c.procHandler.PSIEnabled() {
 			return nil
 		}
+		c.log.Debug("scraping node stats")
 
 		cpuPSI, err := c.procHandler.GetPSIStats("cpu")
 		if err != nil {
@@ -152,39 +193,31 @@ func (c *Controller) scrapeNodeStats(batch *castaipb.StatsBatch) {
 			return err
 		}
 
-		currScrape := &nodeScrapePoint{
-			cpuStat: &castaipb.CpuStats{Psi: cpuPSI},
-			memStat: &castaipb.MemoryStats{
-				Usage:         memStats.Usage,
-				SwapOnlyUsage: memStats.SwapOnlyUsage,
-				Psi:           memoryPSI,
-			},
-			ioStat: &castaipb.IOStats{Psi: ioPSI},
+		currCPU := &castaipb.CpuStats{Psi: cpuPSI}
+		currMem := &castaipb.MemoryStats{
+			Usage:         memStats.Usage,
+			SwapOnlyUsage: memStats.SwapOnlyUsage,
+			Psi:           memoryPSI,
 		}
+		currIO := &castaipb.IOStats{Psi: ioPSI}
 
 		// We need at least 2 scrapes to calculate diffs.
 		// Diffs are needed for always increasing counters only because we store them as deltas.
 		// This includes cpu usage and psi total value.
-		if c.nodeScrapePoint == nil {
-			c.nodeScrapePoint = currScrape
-			return nil
-		}
-		if batch == nil {
+		if nodeStats.prevCpuStat == nil {
+			nodeStats.prevCpuStat = currCPU
+			nodeStats.prevMemStat = currMem
+			nodeStats.prevIOStat = currIO
 			return nil
 		}
 
-		batch.Items = append(batch.Items, &castaipb.StatsItem{Data: &castaipb.StatsItem_Node{
-			Node: &castaipb.NodeStats{
-				NodeName:    c.nodeName,
-				CpuStats:    getCPUStatsDiff(c.nodeScrapePoint.cpuStat, currScrape.cpuStat),
-				MemoryStats: getMemoryStatsDiff(c.nodeScrapePoint.memStat, currScrape.memStat),
-				IoStats:     getIOStatsDiff(c.nodeScrapePoint.ioStat, currScrape.ioStat),
-			},
-		}})
-
-		c.nodeScrapePoint.cpuStat = currScrape.cpuStat
-		c.nodeScrapePoint.memStat = currScrape.memStat
-		c.nodeScrapePoint.ioStat = currScrape.ioStat
+		nodeStats.cpuStat = getCPUStatsDiff(nodeStats.prevCpuStat, currCPU)
+		nodeStats.memStat = getMemoryStatsDiff(nodeStats.prevMemStat, currMem)
+		nodeStats.ioStat = getIOStatsDiff(nodeStats.prevIOStat, currIO)
+		nodeStats.prevCpuStat = currCPU
+		nodeStats.prevMemStat = currMem
+		nodeStats.prevIOStat = currIO
+		stats.totalItems++
 
 		return nil
 	}(); err != nil {

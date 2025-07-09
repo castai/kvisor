@@ -58,6 +58,7 @@ kubectl apply -f ./e2e/oom-generator.yaml
 kubectl apply -f ./e2e/socks5-generator.yaml
 kubectl apply -f ./e2e/nc-server-client.yaml
 kubectl apply -f ./e2e/conn-generator.yaml
+kubectl apply -f ./e2e/iperf.yaml
 
 echo "Waiting for job to finish"
 
@@ -100,3 +101,4 @@ if [[ $job_result -eq 1 ]]; then
     exit 1
 fi
 echo "👌 Job succeeded!"
+kubectl delete ns $ns --force || true

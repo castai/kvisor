@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -96,7 +97,6 @@ func run(ctx context.Context) error {
 	}
 	// After events assert is done we should cleanup and stop persisting them to reduce e2e test memory usage.
 	srv.eventsAsserted = true
-	srv.events = nil
 
 	fmt.Println("🙏waiting for ipv4 netflows")
 	if err := srv.assertNetflows(ctx, "echo-a-ipv4", unix.AF_INET); err != nil {
@@ -108,6 +108,11 @@ func run(ctx context.Context) error {
 	if err := srv.assertNetflows(ctx, "echo-a-ipv6", unix.AF_INET6); err != nil {
 		return fmt.Errorf("assert ipv6 netflows: %w", err)
 	}
+
+	fmt.Println("🙏waiting for iperf netflows")
+	if err := srv.assertIperfNetflows(ctx); err != nil {
+		return err
+	}
 	srv.netflowsAsserted = true
 	srv.netflows = nil
 
@@ -115,8 +120,20 @@ func run(ctx context.Context) error {
 	if err := srv.assertContainerStats(ctx); err != nil {
 		return fmt.Errorf("assert container stats: %w", err)
 	}
-	srv.statsAsserted = true
-	srv.stats = nil
+
+	fmt.Println("🙏waiting for kvisor components resource usage")
+	if err := srv.assertKvisorResourceUsage(ctx); err != nil {
+		return fmt.Errorf("assert kvisor components resource usage: %w", err)
+	}
+	srv.containerStatsAsserterd = true
+	srv.containerStats = nil
+
+	fmt.Println("🙏waiting for node stats")
+	if err := srv.assertNodeStats(ctx); err != nil {
+		return fmt.Errorf("assert node stats: %w", err)
+	}
+	srv.nodeStatsAsserted = true
+	srv.nodeStats = nil
 
 	fmt.Println("🙏waiting for kube bench")
 	if err := srv.assertKubeBenchReport(ctx); err != nil {
@@ -163,15 +180,16 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
   --set agent.extraArgs.stats-enabled=true \
-  --set agent.extraArgs.stats-scrape-interval=5s \
+  --set agent.extraArgs.stats-scrape-interval=1s \
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
   --set agent.extraArgs.file-hash-enricher-enabled=true \
   --set agent.extraArgs.signature-socks5-detection-enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
-  --set agent.extraArgs.netflow-sample-submit-interval-seconds=5 \
   --set agent.extraArgs.netflow-export-interval=5s \
   --set agent.extraArgs.process-tree-enabled=true \
+  --set agent.extraArgs.data-batch-flush-interval=1s \
+  --set agent.extraArgs.containers-refresh-interval=5s \
   --set agent.extraArgs.ebpf-events-include-pod-labels="name\,app\,app.kubernetes.io/name\,app.kubernetes.io/component" \
   --set agent.extraArgs.ebpf-events-include-pod-annotations="cast.ai\,checksum/config"  \
   --set controller.extraArgs.castai-server-insecure=true \
@@ -207,62 +225,62 @@ type testCASTAIServer struct {
 
 	testStartTime time.Time
 
-	mu                     sync.Mutex
-	stats                  []*castaipb.StatsBatch
-	statsAsserted          bool
-	events                 []*castaipb.Event
-	containerEventsBatches []*castaipb.ContainerEventsBatch
-	eventsAsserted         bool
-	logs                   []*castaipb.LogEvent
-	imageMetadatas         []*castaipb.ImageMetadata
-	kubeBenchReports       []*castaipb.KubeBenchReport
-	kubeLinterReports      []*castaipb.KubeLinterReport
-	processTreeEvents      []*castaipb.ProcessTreeEvent
-	controllerConfig       []byte
-	agentConfig            []byte
-	netflows               []*castaipb.Netflow
-	netflowsAsserted       bool
-	outputReceivedData     bool
+	mu                      sync.Mutex
+	containerStats          []*castaipb.ContainerStats
+	nodeStats               []*castaipb.NodeStats
+	containerStatsAsserterd bool
+	containerEvents         []*castaipb.ContainerEvents
+	eventsAsserted          bool
+
+	logs               []*castaipb.LogEvent
+	imageMetadatas     []*castaipb.ImageMetadata
+	kubeBenchReports   []*castaipb.KubeBenchReport
+	kubeLinterReports  []*castaipb.KubeLinterReport
+	processTreeEvents  []*castaipb.ProcessTreeEvent
+	controllerConfig   []byte
+	agentConfig        []byte
+	netflows           []*castaipb.Netflow
+	netflowsAsserted   bool
+	outputReceivedData bool
+	nodeStatsAsserted  bool
 }
 
-func (t *testCASTAIServer) ContainerEventsBatchWriteStream(g grpc.ClientStreamingServer[castaipb.ContainerEventsBatch, castaipb.WriteStreamResponse]) error {
-	md, ok := metadata.FromIncomingContext(g.Context())
+func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.WriteDataBatchRequest) (*castaipb.WriteDataBatchResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return errors.New("no metadata")
+		return nil, errors.New("no metadata")
 	}
 	token := md["authorization"]
 	if len(token) == 0 {
-		return errors.New("no authorization")
+		return nil, errors.New("no authorization")
 	}
 	if token[0] != "Token "+apiKey {
-		return fmt.Errorf("invalid token %s", token[0])
-	}
-	cluster := md["x-cluster-id"]
-	if len(cluster) == 0 {
-		return errors.New("no x-cluster-id")
-	}
-	if cluster[0] != clusterID {
-		return fmt.Errorf("invalid cluster ID %s", cluster[0])
+		return nil, fmt.Errorf("invalid token %s", token[0])
 	}
 
-	for {
-		event, err := g.Recv()
-		if err != nil {
-			return err
-		}
-		if t.eventsAsserted {
-			continue
-		}
-		data, err := protojson.Marshal(event)
-		if err != nil {
-			fmt.Println("received container events batch(cannot marshall to json):", event)
-		} else if t.outputReceivedData {
-			fmt.Println("received container events batch", string(data))
-		}
-		t.mu.Lock()
-		t.containerEventsBatches = append(t.containerEventsBatches, event)
-		t.mu.Unlock()
+	cluster := md["x-cluster-id"]
+	if len(cluster) == 0 {
+		return nil, errors.New("no x-cluster-id")
 	}
+	if cluster[0] != clusterID {
+		return nil, fmt.Errorf("invalid cluster ID %s", cluster[0])
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for _, item := range req.Items {
+		if v := item.GetContainerEvents(); v != nil {
+			t.containerEvents = append(t.containerEvents, v)
+		} else if v := item.GetNetflow(); v != nil {
+			t.netflows = append(t.netflows, v)
+		} else if v := item.GetContainerStats(); v != nil {
+			t.containerStats = append(t.containerStats, v)
+		} else if v := item.GetNodeStats(); v != nil {
+			t.nodeStats = append(t.nodeStats, v)
+		}
+	}
+	return &castaipb.WriteDataBatchResponse{}, nil
 }
 
 func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
@@ -302,24 +320,6 @@ func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecur
 	}
 }
 
-func (t *testCASTAIServer) NetflowWriteStream(server castaipb.RuntimeSecurityAgentAPI_NetflowWriteStreamServer) error {
-	for {
-		msg, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		if t.netflowsAsserted {
-			continue
-		}
-		if t.outputReceivedData {
-			fmt.Printf("received netflow: %+v\n", msg)
-		}
-		t.mu.Lock()
-		t.netflows = append(t.netflows, msg)
-		t.mu.Unlock()
-	}
-}
-
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
 	t.kubeBenchReports = append(t.kubeBenchReports, report)
 	return &castaipb.KubeBenchReportIngestResponse{}, nil
@@ -346,24 +346,6 @@ func (t *testCASTAIServer) GetSyncState(ctx context.Context, request *castaipb.G
 
 func (t *testCASTAIServer) UpdateSyncState(ctx context.Context, request *castaipb.UpdateSyncStateRequest) (*castaipb.UpdateSyncStateResponse, error) {
 	return &castaipb.UpdateSyncStateResponse{}, nil
-}
-
-func (t *testCASTAIServer) StatsWriteStream(server castaipb.RuntimeSecurityAgentAPI_StatsWriteStreamServer) error {
-	for {
-		msg, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		if t.statsAsserted {
-			continue
-		}
-		if t.outputReceivedData {
-			fmt.Println("received stats:", len(msg.Items))
-		}
-		t.mu.Lock()
-		t.stats = append(t.stats, msg)
-		t.mu.Unlock()
-	}
 }
 
 func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.GetConfigurationRequest) (*castaipb.GetConfigurationResponse, error) {
@@ -402,43 +384,6 @@ func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.G
 	return &castaipb.GetConfigurationResponse{}, nil
 }
 
-func (t *testCASTAIServer) EventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_EventsWriteStreamServer) error {
-	md, ok := metadata.FromIncomingContext(server.Context())
-	if !ok {
-		return errors.New("no metadata")
-	}
-	token := md["authorization"]
-	if len(token) == 0 {
-		return errors.New("no authorization")
-	}
-	if token[0] != "Token "+apiKey {
-		return fmt.Errorf("invalid token %s", token[0])
-	}
-	cluster := md["x-cluster-id"]
-	if len(cluster) == 0 {
-		return errors.New("no x-cluster-id")
-	}
-	if cluster[0] != clusterID {
-		return fmt.Errorf("invalid cluster ID %s", cluster[0])
-	}
-
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		if t.outputReceivedData {
-			fmt.Printf("received event: %+v\n", event)
-		}
-		if t.eventsAsserted {
-			continue
-		}
-		t.mu.Lock()
-		t.events = append(t.events, event)
-		t.mu.Unlock()
-	}
-}
-
 func (t *testCASTAIServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_LogsWriteStreamServer) error {
 	for {
 		event, err := server.Recv()
@@ -467,7 +412,7 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 			return errors.New("timeout waiting for received logs")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			logs := t.logs
+			logs := slices.Clone(t.logs)
 			t.mu.Unlock()
 
 			if len(logs) > 0 {
@@ -484,14 +429,6 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-func (t *testCASTAIServer) KubernetesDeltaIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaIngestServer) error {
-	panic("should not be called")
-}
-
-func (t *testCASTAIServer) KubernetesDeltaBatchIngest(server castaipb.RuntimeSecurityAgentAPI_KubernetesDeltaBatchIngestServer) error {
-	panic("should not be called")
 }
 
 const (
@@ -649,7 +586,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 				var foundExecDroppedBinary bool
 				var foundMagicWrite bool
 
-				for _, e := range t.events {
+				for _, e := range batch.Items {
 					if e.EventType == castaipb.EventType_EVENT_EXEC {
 						if e.GetExec().HashSha256 != nil {
 							foundExecWithHash = true
@@ -720,7 +657,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 				var foundSSH bool
 				var foundSocks5 bool
 
-				for _, e := range t.events {
+				for _, e := range batch.Items {
 					if e.EventType == castaipb.EventType_EVENT_SSH {
 						foundSSH = true
 						r.NotEmpty(e.GetSsh().Tuple.SrcIp)
@@ -753,11 +690,9 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 		var passedCount int
 		for _, validator := range validators {
 			passedCount++
-			for _, batch := range t.containerEventsBatches {
-				for _, item := range batch.Items {
-					if err := validator.validate(validator, item); err != nil {
-						errs = append(errs, err)
-					}
+			for _, batch := range t.containerEvents {
+				if err := validator.validate(validator, batch); err != nil {
+					errs = append(errs, err)
 				}
 			}
 		}
@@ -800,9 +735,6 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
 
-	nodeStatsAsserted := false
-	containerStatsAsserted := false
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -811,54 +743,159 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 			return errors.New("timeout waiting for received container stats")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			stats := t.stats
+			stats := slices.Clone(t.containerStats)
+			t.mu.Unlock()
+			if len(stats) == 0 {
+				continue
+			}
+			fmt.Printf("asserting container stats, items=%d\n", len(stats))
+
+			for _, cont := range stats {
+				if cont.Namespace == "" {
+					return errors.New("missing namespace")
+				}
+				if cont.PodName == "" {
+					return errors.New("missing pod")
+				}
+				if cont.ContainerName == "" {
+					return errors.New("missing container")
+				}
+				if cont.NodeName == "" {
+					return fmt.Errorf("missing node: %+v", cont)
+				}
+				cpuUsage := cont.CpuStats.TotalUsage
+				memUsage := cont.MemoryStats.Usage.Usage
+				if cpuUsage == 0 && memUsage == 0 {
+					return errors.New("missing cpu or memory usage")
+				}
+				t.containerStatsAsserterd = true
+			}
+			return nil
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertNodeStats(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received node stats")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			stats := slices.Clone(t.nodeStats)
 			t.mu.Unlock()
 			if len(stats) == 0 {
 				continue
 			}
 
-			sb1 := stats[0]
-			if len(sb1.Items) == 0 {
-				return errors.New("missing stat batch items")
+			for _, cont := range stats {
+				if cont.NodeName == "" {
+					return fmt.Errorf("missing node: %+v", cont)
+				}
+				cpuUsage := cont.CpuStats.TotalUsage
+				memUsage := cont.MemoryStats.Usage.Usage
+				if cpuUsage == 0 && memUsage == 0 {
+					return errors.New("missing cpu or memory usage")
+				}
+				t.nodeStatsAsserted = true
 			}
+			return nil
+		}
+	}
+}
 
-			for _, st := range stats {
-				for _, item := range st.Items {
-					cont := item.GetContainer()
-					if cont != nil {
-						if cont.Namespace == "" {
-							return errors.New("missing namespace")
-						}
-						if cont.PodName == "" {
-							return errors.New("missing pod")
-						}
-						if cont.ContainerName == "" {
-							return errors.New("missing container")
-						}
-						if cont.NodeName == "" {
-							return fmt.Errorf("missing node: %+v", cont)
-						}
-						cpuUsage := cont.CpuStats.TotalUsage
-						memUsage := cont.MemoryStats.Usage.Usage
-						if cpuUsage == 0 && memUsage == 0 {
-							return errors.New("missing cpu or memory usage")
-						}
-						containerStatsAsserted = true
-					}
-					node := item.GetNode()
-					if node != nil {
-						if node.NodeName == "" {
-							return errors.New("missing node name")
-						}
-						if node.MemoryStats.Usage.Usage == 0 {
-							return errors.New("missing node memory usage")
-						}
-						nodeStatsAsserted = true
-					}
+type resourceUsage struct {
+	cpu        uint64
+	mem        uint64
+	cpuHistory []uint64
+	memHistory []uint64
+
+	maxExpectedCPU uint64
+	maxExpectedMem uint64
+}
+
+func (r *resourceUsage) update(st *castaipb.ContainerStats) {
+	r.cpuHistory = append(r.cpuHistory, st.CpuStats.TotalUsage)
+	if curr := st.CpuStats.TotalUsage; curr > r.cpu {
+		r.cpu = curr
+	}
+	r.memHistory = append(r.memHistory, st.MemoryStats.Usage.Usage)
+	if curr := st.MemoryStats.Usage.Usage; curr > r.cpu {
+		r.mem = curr
+	}
+}
+
+func (t *testCASTAIServer) assertKvisorResourceUsage(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	resourceUsages := map[string]*resourceUsage{
+		"agent": {
+			maxExpectedCPU: 600_000_000,       // 600m.
+			maxExpectedMem: 256 * 1024 * 1024, // 256Mi
+		},
+		"controller": {
+			maxExpectedCPU: 600_000_000,       // 600m.
+			maxExpectedMem: 128 * 1024 * 1024, // 256Mi.
+		},
+	}
+	checkResourceUsage := func(stats []*castaipb.ContainerStats) (bool, error) {
+		agent := resourceUsages["agent"]
+		controller := resourceUsages["controller"]
+		for _, st := range stats {
+			if st.Namespace == "kvisor-e2e" {
+				if strings.Contains(st.PodName, "kvisor-agent") {
+					agent.update(st)
+				} else if strings.Contains(st.PodName, "kvisor-controller") {
+					controller.update(st)
 				}
 			}
+		}
 
-			if containerStatsAsserted && nodeStatsAsserted {
+		if len(agent.cpuHistory) >= 5 && len(controller.cpuHistory) >= 5 {
+			var errs []error
+			if agent.cpu > agent.maxExpectedCPU {
+				errs = append(errs, fmt.Errorf("agent: expected cpu max %d, got %d, history: %v", agent.maxExpectedCPU, agent.cpu, agent.cpuHistory))
+			}
+			if agent.mem > agent.maxExpectedMem {
+				errs = append(errs, fmt.Errorf("agent: expected mem max %d, got %d, history: %v", agent.maxExpectedMem, agent.mem, agent.memHistory))
+			}
+			if controller.cpu > controller.maxExpectedCPU {
+				errs = append(errs, fmt.Errorf("controller: expected cpu max %d, got %d, history: %v", controller.maxExpectedCPU, controller.cpu, controller.cpuHistory))
+			}
+			if controller.mem > controller.maxExpectedMem {
+				errs = append(errs, fmt.Errorf("controller: expected mem max %d, got %d, history: %v", controller.maxExpectedMem, controller.mem, controller.memHistory))
+			}
+			if len(errs) > 0 {
+				return false, errors.Join(errs...)
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for kvisor components resource usage")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			stats := slices.Clone(t.containerStats)
+			t.mu.Unlock()
+			if len(stats) == 0 {
+				continue
+			}
+
+			ok, err := checkResourceUsage(stats)
+			if err != nil {
+				return err
+			}
+			if ok {
 				return nil
 			}
 		}
@@ -1000,7 +1037,7 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context, workload string, 
 			return errors.New("timeout waiting for netflows")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			items := t.netflows
+			items := slices.Clone(t.netflows)
 			t.mu.Unlock()
 			for _, f1 := range items {
 				for _, d1 := range f1.Destinations {
@@ -1023,6 +1060,60 @@ func (t *testCASTAIServer) assertNetflows(ctx context.Context, workload string, 
 					r.NotEmpty(d1.TxPackets + d1.RxPackets)
 					return r.error()
 				}
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertIperfNetflows(ctx context.Context) error {
+	timeout := time.After(30 * time.Second)
+	r := newAssertions()
+
+	var foundClient, foundServer bool
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for iperf netflows")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			items := slices.Clone(t.netflows)
+			t.mu.Unlock()
+
+			for _, f1 := range items {
+				if f1.WorkloadKind == "DaemonSet" && f1.WorkloadName == "iperf-clients" {
+					r.Equal("iperf", f1.Namespace)
+					r.Equal("iperf-client", f1.ContainerName)
+					r.Equal("iperf", f1.ProcessName)
+					for _, d1 := range f1.Destinations {
+						if d1.WorkloadName == "iperf-server" {
+							r.Equal("iperf-server.kvisor-e2e.svc.cluster.local", d1.DnsQuestion)
+							r.Greater(d1.TxBytes, d1.RxBytes)
+							r.GreaterOrEqual(d1.TxBytes, 256*1024)
+							r.LessOrEqual(d1.TxBytes, 1*1024*1024)
+							foundClient = true
+						}
+					}
+				}
+
+				if f1.WorkloadKind == "Deployment" && f1.WorkloadName == "iperf-server" {
+					r.Equal("iperf", f1.Namespace)
+					r.Equal("iperf-server", f1.ContainerName)
+					r.Equal("iperf", f1.ProcessName)
+					for _, d1 := range f1.Destinations {
+						if d1.WorkloadName == "iperf-client" {
+							r.Greater(d1.RxBytes, d1.TxBytes)
+							r.GreaterOrEqual(d1.RxBytes, 256*1024)
+						}
+						foundServer = true
+					}
+				}
+			}
+
+			if foundClient && foundServer {
+				return r.error()
 			}
 		}
 	}

@@ -94,12 +94,11 @@ func TestTracer(t *testing.T) {
 				}, nil
 			},
 		},
-		CgroupClient:                       &ebpftracer.MockCgroupClient{},
-		MountNamespacePIDStore:             getInitializedMountNamespacePIDStore(procHandle),
-		HomePIDNS:                          pidNS,
-		NetflowSampleSubmitIntervalSeconds: 2,
-		NetflowGrouping:                    ebpftracer.NetflowGroupingDropSrcPort,
-		ProcessTreeCollector:               processtree.NewNoop(),
+		CgroupClient:           &ebpftracer.MockCgroupClient{},
+		MountNamespacePIDStore: getInitializedMountNamespacePIDStore(procHandle),
+		HomePIDNS:              pidNS,
+		NetflowGrouping:        ebpftracer.NetflowGroupingDropSrcPort,
+		ProcessTreeCollector:   processtree.NewNoop(),
 		MetricsReporting: ebpftracer.MetricsReportingConfig{
 			ProgramMetricsEnabled: true,
 			TracerMetricsEnabled:  true,

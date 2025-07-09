@@ -31,7 +31,7 @@ enum buf_idx_e
 typedef struct {
     u32 self_pid;
     u64 pid_ns_id; // id of the pid namespace the node host PID will be translated to.
-    u64 flow_sample_submit_interval_seconds;
+    u64 flow_sample_submit_interval_seconds; // TODO(anjmao): This field is not used now, remove it.
     u64 flow_grouping;
     bool track_syscall_stats;
     bool export_metrics;

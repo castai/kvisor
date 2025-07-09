@@ -75,16 +75,15 @@ type Config struct {
 	SignatureEngine        *signature.SignatureEngine
 	MountNamespacePIDStore *types.PIDsPerNamespace
 	// All PIPs reported from ebpf will be normalized to this PID namespace
-	HomePIDNS                          proc.NamespaceID
-	AllowAnyEvent                      bool
-	FileAccessEnabled                  bool
-	NetflowsEnabled                    bool
-	NetflowSampleSubmitIntervalSeconds uint64
-	NetflowGrouping                    NetflowGrouping
-	TrackSyscallStats                  bool
-	ProcessTreeCollector               processTreeCollector
-	MetricsReporting                   MetricsReportingConfig
-	PodName                            string
+	HomePIDNS            proc.NamespaceID
+	AllowAnyEvent        bool
+	FileAccessEnabled    bool
+	NetflowsEnabled      bool
+	NetflowGrouping      NetflowGrouping
+	TrackSyscallStats    bool
+	ProcessTreeCollector processTreeCollector
+	MetricsReporting     MetricsReportingConfig
+	PodName              string
 }
 
 type cgroupCleanupRequest struct {
@@ -147,8 +146,8 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cgroupEventPolicy:         map[uint64]map[events.ID]*cgroupEventPolicy{},
 		dnsPacketParser:           &layers.DNS{},
 		signatureEventMap:         map[events.ID]struct{}{},
-		cleanupTimerTickRate:      1 * time.Minute,
-		cgroupCleanupDelay:        1 * time.Minute,
+		cleanupTimerTickRate:      30 * time.Second,
+		cgroupCleanupDelay:        30 * time.Second,
 		metricExportTimerTickRate: 5 * time.Second,
 		currentTracerEbpfMetrics:  map[string]uint64{},
 	}

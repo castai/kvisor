@@ -3,21 +3,28 @@ package pipeline
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net/netip"
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	castpb "github.com/castai/kvisor/api/v1/runtime"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/net/iputil"
-	"golang.org/x/sync/errgroup"
+	"github.com/cespare/xxhash/v2"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
 )
+
+type clusterInfo struct {
+	podCidr     []netip.Prefix
+	serviceCidr []netip.Prefix
+}
 
 func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 	for {
@@ -69,56 +76,117 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		}
 	}
 
+	groups := map[uint64]*netflowGroup{} // TODO: Consider reusing groups similar to events and container stats.
+	netflowGroupKeyDigest := xxhash.New()
+	stats := newDataBatchStats()
+
+	send := func(reason string) {
+		items := make([]*castaipb.DataBatchItem, 0, stats.totalItems)
+		for _, group := range groups {
+			if len(group.flows) == 0 {
+				continue
+			}
+			for _, flow := range group.flows {
+				if len(flow.pb.Destinations) == 0 {
+					continue
+				}
+				items = append(items, &castaipb.DataBatchItem{
+					Data: &castaipb.DataBatchItem_Netflow{Netflow: flow.pb},
+				})
+			}
+		}
+		c.sendDataBatch(reason, metrics.PipelineNetflows, items)
+
+		// Reset after sent.
+		stats.reset()
+		groups = map[uint64]*netflowGroup{}
+	}
+
 	ticker := time.NewTicker(c.cfg.Netflow.ExportInterval)
 	defer func() {
 		ticker.Stop()
 	}()
 
-	errg, ctx := errgroup.WithContext(ctx)
-	errg.Go(func() error {
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker.C:
-				keys, vals, err := c.tracer.CollectNetworkSummary()
-				if err != nil {
-					c.log.Errorf("error while collecting network traffic summary: %v", err)
-					continue
-				}
-				c.enqueueNetworkSummaryExport(ctx, keys, vals)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			keys, vals, err := c.tracer.CollectNetworkSummary()
+			if err != nil {
+				c.log.Errorf("error while collecting network traffic summary: %v", err)
+				continue
 			}
+			c.handleNetflows(ctx, groups, stats, netflowGroupKeyDigest, keys, vals)
+			// TODO: Netflows export currently doesn't use max data batch size.
+			// In the feature we may need to send partial collected netflows.
+			send("netflows collected")
 		}
-	})
-	return errg.Wait()
+	}
+}
 
+type netflowGroup struct {
+	flows map[uint64]*netflowVal
 }
 
 type netflowVal struct {
-	pb              *castpb.Netflow
+	pb              *castaipb.Netflow
 	mergeThreshold  int
 	mergedDestIndex int
+	updatedAt       time.Time
 }
 
-func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
-	start := time.Now()
-	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
+func newNetflowKey(digest *xxhash.Digest, key *ebpftracer.TrafficKey) uint64 {
+	digest.Reset()
+	digestAddUint64(digest, key.ProcessIdentity.PidStartTime)
+	digestAddUint32(digest, key.ProcessIdentity.Pid)
+	return digest.Sum64()
+}
 
-	type cgroupID = uint64
-	netflows := map[cgroupID]*netflowVal{}
+func digestAddUint32(digest *xxhash.Digest, val uint32) {
+	var dst [4]byte
+	binary.LittleEndian.PutUint32(dst[:], val)
+	_, _ = digest.Write(dst[:])
+}
+
+func digestAddUint64(digest *xxhash.Digest, val uint64) {
+	var dst [8]byte
+	binary.LittleEndian.PutUint64(dst[:], val)
+	_, _ = digest.Write(dst[:])
+}
+
+func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netflowGroup, stats *dataBatchStats, digest *xxhash.Digest, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
+	c.log.Infof("handling netflows, total=%v", len(keys))
+
+	start := time.Now()
+	// TODO: This could potentially return incorrect pods info. We may need to have timestamps in the key.
+	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
 
 	for i, key := range keys {
 		summary := vals[i]
-		netflow, found := netflows[key.ProcessIdentity.CgroupId]
+		group, found := groups[key.ProcessIdentity.CgroupId]
+		if !found {
+			group = &netflowGroup{
+				flows: make(map[uint64]*netflowVal),
+			}
+			groups[key.ProcessIdentity.CgroupId] = group
+		}
+
+		netflowKey := newNetflowKey(digest, &key)
+		netflow, found := group.flows[netflowKey]
 		if !found {
 			d, err := c.toNetflow(ctx, key, start)
 			if err != nil {
 				c.log.Errorf("error while parsing netflow destination: %v", err)
 				continue
 			}
-			val := &netflowVal{pb: d}
-			netflows[key.ProcessIdentity.CgroupId] = val
+			val := &netflowVal{
+				pb:        d,
+				updatedAt: time.Now(),
+			}
+			group.flows[netflowKey] = val
 			netflow = val
+			stats.totalItems++
 		}
 
 		dest, isPublicDest, err := c.toNetflowDestination(key, summary, podsByIPCache)
@@ -128,23 +196,18 @@ func (c *Controller) enqueueNetworkSummaryExport(ctx context.Context, keys []ebp
 		}
 
 		c.addNetflowDestination(netflow, dest, isPublicDest)
-	}
-
-	for _, n := range netflows {
-		// Enqueue to exporters.
-		for _, exp := range c.exporters.Netflow {
-			exp.Enqueue(n.pb)
-		}
+		stats.sizeBytes += proto.Size(dest)
 	}
 }
 
-func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castpb.NetflowDestination, isPublicDest bool) {
+func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.NetflowDestination, isPublicDest bool) {
+	netflow.updatedAt = time.Now()
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
 	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, c.cfg.Netflow.MaxPublicIPs)
 	if maybeMerge && netflow.mergeThreshold >= int(c.cfg.Netflow.MaxPublicIPs) {
 		if netflow.mergedDestIndex == 0 {
-			netflow.pb.Destinations = append(netflow.pb.Destinations, &castpb.NetflowDestination{
+			netflow.pb.Destinations = append(netflow.pb.Destinations, &castaipb.NetflowDestination{
 				Addr:      []byte{0, 0, 0, 0},
 				TxBytes:   dest.TxBytes,
 				TxPackets: dest.TxPackets,
@@ -169,7 +232,7 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castpb.Net
 	}
 }
 
-func isNetflowDestCandidateForMerge(dest *castpb.NetflowDestination, isPublic bool, maxPublicIPs int16) bool {
+func isNetflowDestCandidateForMerge(dest *castaipb.NetflowDestination, isPublic bool, maxPublicIPs int16) bool {
 	// No merge for private destinations.
 	if !isPublic {
 		return false
@@ -185,8 +248,8 @@ func isNetflowDestCandidateForMerge(dest *castpb.NetflowDestination, isPublic bo
 	return true
 }
 
-func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t time.Time) (*castpb.Netflow, error) {
-	res := &castpb.Netflow{
+func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t time.Time) (*castaipb.Netflow, error) {
+	res := &castaipb.Netflow{
 		Timestamp:   uint64(t.UnixNano()), // nolint:gosec
 		ProcessName: string(bytes.SplitN(key.ProcessIdentity.Comm[:], []byte{0}, 2)[0]),
 		Protocol:    toProtoProtocol(key.Proto),
@@ -198,6 +261,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		// for already existing sockets.
 		Port:     uint32(key.Tuple.Sport),
 		NodeName: c.nodeName,
+		Pid:      key.ProcessIdentity.Pid,
 	}
 
 	if key.Tuple.Family == unix.AF_INET {
@@ -228,7 +292,7 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 	return res, nil
 }
 
-func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castpb.NetflowDestination, bool, error) {
+func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castaipb.NetflowDestination, bool, error) {
 	localIP := parseAddr(key.Tuple.Saddr.Raw, key.Tuple.Family)
 	if !localIP.IsValid() {
 		return nil, false, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
@@ -249,7 +313,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		}
 	}
 
-	destination := &castpb.NetflowDestination{
+	destination := &castaipb.NetflowDestination{
 		DnsQuestion: dns,
 		Addr:        remote.Addr().AsSlice(),
 		Port:        uint32(remote.Port()),
@@ -316,14 +380,32 @@ func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, 
 	return realDst, true
 }
 
-func toProtoProtocol(proto uint8) castpb.NetflowProtocol {
+func (c *clusterInfo) podCidrContains(ip netip.Addr) bool {
+	for _, cidr := range c.podCidr {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
+	for _, cidr := range c.serviceCidr {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func toProtoProtocol(proto uint8) castaipb.NetflowProtocol {
 	switch proto {
 	case unix.IPPROTO_TCP:
-		return castpb.NetflowProtocol_NETFLOW_PROTOCOL_TCP
+		return castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP
 	case unix.IPPROTO_UDP:
-		return castpb.NetflowProtocol_NETFLOW_PROTOCOL_UDP
+		return castaipb.NetflowProtocol_NETFLOW_PROTOCOL_UDP
 	default:
-		return castpb.NetflowProtocol_NETFLOW_PROTOCOL_UNKNOWN
+		return castaipb.NetflowProtocol_NETFLOW_PROTOCOL_UNKNOWN
 	}
 }
 

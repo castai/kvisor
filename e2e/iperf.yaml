@@ -1,13 +1,7 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: iperf
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: iperf-server-deployment
-  namespace: iperf
+  name: iperf-server
   labels:
     app: iperf-server
 spec:
@@ -27,7 +21,7 @@ spec:
           operator: Exists
           effect: NoSchedule
       containers:
-        - name: iperf3-server
+        - name: iperf-server
           image: mlabbe/iperf
           args: ['-s']
           ports:
@@ -40,7 +34,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: iperf-server
-  namespace: iperf
 spec:
   selector:
     app: iperf-server
@@ -54,7 +47,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: iperf-clients
-  namespace: iperf
   labels:
     app: iperf-client
 spec:
