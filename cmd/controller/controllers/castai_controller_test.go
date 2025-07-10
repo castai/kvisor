@@ -85,10 +85,6 @@ func (t testGrpcClient) WriteDataBatch(ctx context.Context, in *castaipb.WriteDa
 
 var _ castaipb.RuntimeSecurityAgentAPIClient = testGrpcClient{}
 
-func (t testGrpcClient) ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient, error) {
-	return nil, nil
-}
-
 func (t testGrpcClient) KubeBenchReportIngest(ctx context.Context, in *castaipb.KubeBenchReport, opts ...grpc.CallOption) (*castaipb.KubeBenchReportIngestResponse, error) {
 	return nil, nil
 }

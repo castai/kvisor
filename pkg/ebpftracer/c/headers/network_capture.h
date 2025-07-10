@@ -15,10 +15,6 @@ typedef struct process_identity {
     __u32 pid;
     __u64 pid_start_time;
     __u64 cgroup_id;
-    // TODO(patrick.pichler): In the future we might want to get rid of comm and move it
-    // to an enrichment stage in userspace. If we do this, we could probably also get rid
-    // of it for event context.
-    __u8 comm[TASK_COMM_LEN];
 } __attribute__((__packed__)) process_identity_t;
 
 struct traffic_summary {
@@ -28,7 +24,10 @@ struct traffic_summary {
     __u64 tx_packets;
     __u64 tx_bytes;
 
-    __u64 last_packet_ts;
+    // We store process name on summary (ebpf map value) to make lookup key smaller and save few extra instructions fetching comm from task context each time.
+    // It can be stored once during initial flow creation.
+    __u8 comm[TASK_COMM_LEN];
+    
     // In order for BTF to be generated for this struct, a dummy variable needs to
     // be created.
 } __attribute__((__packed__)) traffic_summary_dummy;
@@ -242,8 +241,6 @@ update_traffic_summary(struct traffic_summary *val, u64 bytes, enum flow_directi
         return;
     }
 
-    val->last_packet_ts = bpf_ktime_get_ns();
-
     switch (direction) {
         case INGRESS:
             __sync_fetch_and_add(&val->rx_bytes, bytes);
@@ -267,8 +264,6 @@ statfunc void record_netflow(struct __sk_buff *ctx,
         .cgroup_id = task_ctx->cgroup_id,
     };
 
-    __builtin_memcpy(identity.comm, task_ctx->comm, sizeof(identity.comm));
-
     int zero = 0;
     netflow_config_t *config = bpf_map_lookup_elem(&netflow_config_map, &zero);
     if (!config)
@@ -286,11 +281,13 @@ statfunc void record_netflow(struct __sk_buff *ctx,
 
     struct traffic_summary *summary = bpf_map_lookup_elem(sum_map, &key);
     if (summary == NULL) {
-        struct traffic_summary empty = {0};
+        struct traffic_summary new_summary = {0};
+
+         __builtin_memcpy(new_summary.comm, task_ctx->comm, sizeof(new_summary.comm));
 
         // We do not really care if the update fails, as it would mean, another thread added the
         // entry.
-        bpf_map_update_elem(sum_map, &key, &empty, BPF_NOEXIST);
+        bpf_map_update_elem(sum_map, &key, &new_summary, BPF_NOEXIST);
 
         summary = bpf_map_lookup_elem(sum_map, &key);
         if (summary == NULL) // Something went terribly wrong...

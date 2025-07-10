@@ -172,6 +172,7 @@ message Netflow {
   bytes addr = 9;
   uint32 port = 10;
   uint32 pid = 14;
+  uint64 process_start_time = 15;
   NetflowProtocol protocol = 11;
   repeated NetflowDestination destinations = 12;
 }

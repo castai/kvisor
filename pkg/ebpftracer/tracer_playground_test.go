@@ -103,6 +103,7 @@ func TestTracer(t *testing.T) {
 			ProgramMetricsEnabled: true,
 			TracerMetricsEnabled:  true,
 		},
+		NetflowsEnabled: true,
 	})
 	defer tr.Close()
 
@@ -116,7 +117,7 @@ func TestTracer(t *testing.T) {
 	}()
 
 	go func() {
-		//errc <- printNetworkTracerSummary(ctx, log, tr)
+		errc <- printNetworkTracerSummary(ctx, log, tr)
 	}()
 
 	go func() {
@@ -126,14 +127,14 @@ func TestTracer(t *testing.T) {
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.SockSetState},
-			// {ID: events.SchedProcessExec},
+			{ID: events.SchedProcessExec},
 			// {ID: events.MagicWrite},
-			{ID: events.SecurityFileOpen},
+			//{ID: events.SecurityFileOpen},
 			// {ID: events.ProcessOomKilled},
 			// {ID: events.TtyWrite},
 			// {ID: events.NetPacketSSHBase},
 			// {ID: events.NetPacketDNSBase},
-			// {ID: events.NetFlowBase},
+			{ID: events.NetFlowBase},
 		},
 		SignatureEvents: signatureEngine.TargetEvents(),
 	}
@@ -204,8 +205,8 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 					daddr = netip.AddrFrom16(tk.Tuple.Daddr.Raw)
 				}
 
-				fmt.Printf("%s PID %d (protocol: %d): %s:%d -> %s:%d TX: %d RX: %d TX_Packets: %d RX_Packets: %d\n",
-					string(bytes.SplitN(tk.ProcessIdentity.Comm[:], []byte{0}, 2)[0]), tk.ProcessIdentity.Pid, tk.Proto,
+				fmt.Printf("%s PID %d:%d (protocol: %d): %s:%d -> %s:%d TX: %d RX: %d TX_Packets: %d RX_Packets: %d\n",
+					string(bytes.SplitN(ts.Comm[:], []byte{0}, 2)[0]), tk.ProcessIdentity.Pid, tk.ProcessIdentity.PidStartTime, tk.Proto,
 					saddr, tk.Tuple.Sport, daddr, tk.Tuple.Dport,
 					ts.TxBytes, ts.RxBytes,
 					ts.TxPackets, ts.RxPackets,

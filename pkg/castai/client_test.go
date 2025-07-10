@@ -94,8 +94,6 @@ func TestRemote(t *testing.T) {
 			time.Sleep(3 * time.Second)
 			fmt.Println("sent logs", time.Now().Unix())
 		}
-
-		return nil
 	})
 
 	r.NoError(errg.Wait())
@@ -110,11 +108,6 @@ func (t *testServer) LogsWriteStream(g grpc.ClientStreamingServer[castaipb.LogEv
 }
 
 func (t *testServer) WriteDataBatch(ctx context.Context, req *castaipb.WriteDataBatchRequest) (*castaipb.WriteDataBatchResponse, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t *testServer) ProcessEventsWriteStream(castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
 	//TODO implement me
 	panic("implement me")
 }

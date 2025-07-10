@@ -175,7 +175,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 		netflowKey := newNetflowKey(digest, &key)
 		netflow, found := group.flows[netflowKey]
 		if !found {
-			d, err := c.toNetflow(ctx, key, start)
+			d, err := c.toNetflow(ctx, &key, &summary, start)
 			if err != nil {
 				c.log.Errorf("error while parsing netflow destination: %v", err)
 				continue
@@ -248,10 +248,10 @@ func isNetflowDestCandidateForMerge(dest *castaipb.NetflowDestination, isPublic 
 	return true
 }
 
-func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t time.Time) (*castaipb.Netflow, error) {
+func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, val *ebpftracer.TrafficSummary, t time.Time) (*castaipb.Netflow, error) {
 	res := &castaipb.Netflow{
 		Timestamp:   uint64(t.UnixNano()), // nolint:gosec
-		ProcessName: string(bytes.SplitN(key.ProcessIdentity.Comm[:], []byte{0}, 2)[0]),
+		ProcessName: string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]),
 		Protocol:    toProtoProtocol(key.Proto),
 		// TODO(patrick.pichler): only set local port if it is the listening port. ephemeral ports
 		// are not that interesting and  generate a lot of additional data.
@@ -259,9 +259,10 @@ func (c *Controller) toNetflow(ctx context.Context, key ebpftracer.TrafficKey, t
 		// one. I tried using `sk->state == 0xa`, but this is not working as expected. One way would be
 		// to trace the full lifecycle of a socket, but this is rather expensive and would not fully work
 		// for already existing sockets.
-		Port:     uint32(key.Tuple.Sport),
-		NodeName: c.nodeName,
-		Pid:      key.ProcessIdentity.Pid,
+		Port:             uint32(key.Tuple.Sport),
+		NodeName:         c.nodeName,
+		Pid:              key.ProcessIdentity.Pid,
+		ProcessStartTime: key.ProcessIdentity.PidStartTime,
 	}
 
 	if key.Tuple.Family == unix.AF_INET {

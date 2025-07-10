@@ -56,10 +56,6 @@ type MockServer struct {
 	log *logging.Logger
 }
 
-func (m *MockServer) ProcessEventsWriteStream(g grpc.ClientStreamingServer[castaipb.ProcessTreeEvent, castaipb.WriteStreamResponse]) error {
-	return nil
-}
-
 func (m *MockServer) WriteDataBatch(ctx context.Context, req *castaipb.WriteDataBatchRequest) (*castaipb.WriteDataBatchResponse, error) {
 	for _, item := range req.Items {
 		m.log.Debugf("data batch item: %v", item)

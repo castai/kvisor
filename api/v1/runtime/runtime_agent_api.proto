@@ -13,8 +13,6 @@ service RuntimeSecurityAgentAPI {
 
   rpc LogsWriteStream(stream LogEvent) returns (WriteStreamResponse) {}
 
-  // TODO: Move process tree write stream to WriteDataBatch
-  rpc ProcessEventsWriteStream(stream ProcessTreeEvent) returns (WriteStreamResponse) {}
   rpc WriteDataBatch(WriteDataBatchRequest) returns (WriteDataBatchResponse) {}
 
   rpc GetSyncState(GetSyncStateRequest) returns (GetSyncStateResponse) {}
