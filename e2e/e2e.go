@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip" // Register gzip compressor.
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -90,6 +89,12 @@ func run(ctx context.Context) error {
 	if err := srv.assertConfig(ctx); err != nil {
 		return fmt.Errorf("assert config: %w", err)
 	}
+
+	fmt.Println("🙏waiting for initial process tree")
+	if err := srv.assertProcessTree(ctx); err != nil {
+		return fmt.Errorf("assert initial process tree: %w", err)
+	}
+	srv.processTreeEvents = nil
 
 	fmt.Println("🙏waiting for events")
 	if err := srv.assertEvents(ctx); err != nil {
@@ -278,46 +283,11 @@ func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.Wri
 			t.containerStats = append(t.containerStats, v)
 		} else if v := item.GetNodeStats(); v != nil {
 			t.nodeStats = append(t.nodeStats, v)
+		} else if v := item.GetProcessTree(); v != nil {
+			t.processTreeEvents = append(t.processTreeEvents, v)
 		}
 	}
 	return &castaipb.WriteDataBatchResponse{}, nil
-}
-
-func (t *testCASTAIServer) ProcessEventsWriteStream(server castaipb.RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer) error {
-	md, ok := metadata.FromIncomingContext(server.Context())
-	if !ok {
-		return errors.New("no metadata")
-	}
-	token := md["authorization"]
-	if len(token) == 0 {
-		return errors.New("no authorization")
-	}
-	if token[0] != "Token "+apiKey {
-		return fmt.Errorf("invalid token %s", token[0])
-	}
-	cluster := md["x-cluster-id"]
-	if len(cluster) == 0 {
-		return errors.New("no x-cluster-id")
-	}
-	if cluster[0] != clusterID {
-		return fmt.Errorf("invalid cluster ID %s", cluster[0])
-	}
-
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		data, err := protojson.Marshal(event)
-		if err != nil {
-			fmt.Println("received process tree event (cannot marshall to json):", event)
-		} else if t.outputReceivedData {
-			fmt.Println("received process tree event:", string(data))
-		}
-		t.mu.Lock()
-		t.processTreeEvents = append(t.processTreeEvents, event)
-		t.mu.Unlock()
-	}
 }
 
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -1087,6 +1057,8 @@ func (t *testCASTAIServer) assertIperfNetflows(ctx context.Context) error {
 					r.Equal("iperf", f1.Namespace)
 					r.Equal("iperf-client", f1.ContainerName)
 					r.Equal("iperf", f1.ProcessName)
+					r.NotEmpty(f1.Pid)
+					r.NotEmpty(f1.ProcessStartTime)
 					for _, d1 := range f1.Destinations {
 						if d1.WorkloadName == "iperf-server" {
 							r.Equal("iperf-server.kvisor-e2e.svc.cluster.local", d1.DnsQuestion)
@@ -1102,6 +1074,8 @@ func (t *testCASTAIServer) assertIperfNetflows(ctx context.Context) error {
 					r.Equal("iperf", f1.Namespace)
 					r.Equal("iperf-server", f1.ContainerName)
 					r.Equal("iperf", f1.ProcessName)
+					r.NotEmpty(f1.Pid)
+					r.NotEmpty(f1.ProcessStartTime)
 					for _, d1 := range f1.Destinations {
 						if d1.WorkloadName == "iperf-client" {
 							r.Greater(d1.RxBytes, d1.TxBytes)
@@ -1113,6 +1087,38 @@ func (t *testCASTAIServer) assertIperfNetflows(ctx context.Context) error {
 			}
 
 			if foundClient && foundServer {
+				return r.error()
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertProcessTree(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	r := newAssertions()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting initial process tree")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			ptree := slices.Clone(t.processTreeEvents)
+			t.mu.Unlock()
+
+			if len(ptree) > 0 {
+				l1 := ptree[0]
+				r.NotEmpty(l1.Events)
+				e1 := l1.Events[0]
+				r.NotEmpty(e1.Timestamp)
+				r.NotEmpty(e1.Process.Pid)
+				r.NotEmpty(e1.Process.Filepath)
+				r.NotEmpty(e1.Process.Ppid)
+				r.NotEmpty(e1.Process.StartTime)
+
 				return r.error()
 			}
 		}

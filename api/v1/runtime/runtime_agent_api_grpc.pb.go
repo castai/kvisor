@@ -19,15 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RuntimeSecurityAgentAPI_GetConfiguration_FullMethodName         = "/runtime.v1.RuntimeSecurityAgentAPI/GetConfiguration"
-	RuntimeSecurityAgentAPI_LogsWriteStream_FullMethodName          = "/runtime.v1.RuntimeSecurityAgentAPI/LogsWriteStream"
-	RuntimeSecurityAgentAPI_ProcessEventsWriteStream_FullMethodName = "/runtime.v1.RuntimeSecurityAgentAPI/ProcessEventsWriteStream"
-	RuntimeSecurityAgentAPI_WriteDataBatch_FullMethodName           = "/runtime.v1.RuntimeSecurityAgentAPI/WriteDataBatch"
-	RuntimeSecurityAgentAPI_GetSyncState_FullMethodName             = "/runtime.v1.RuntimeSecurityAgentAPI/GetSyncState"
-	RuntimeSecurityAgentAPI_UpdateSyncState_FullMethodName          = "/runtime.v1.RuntimeSecurityAgentAPI/UpdateSyncState"
-	RuntimeSecurityAgentAPI_ImageMetadataIngest_FullMethodName      = "/runtime.v1.RuntimeSecurityAgentAPI/ImageMetadataIngest"
-	RuntimeSecurityAgentAPI_KubeBenchReportIngest_FullMethodName    = "/runtime.v1.RuntimeSecurityAgentAPI/KubeBenchReportIngest"
-	RuntimeSecurityAgentAPI_KubeLinterReportIngest_FullMethodName   = "/runtime.v1.RuntimeSecurityAgentAPI/KubeLinterReportIngest"
+	RuntimeSecurityAgentAPI_GetConfiguration_FullMethodName       = "/runtime.v1.RuntimeSecurityAgentAPI/GetConfiguration"
+	RuntimeSecurityAgentAPI_LogsWriteStream_FullMethodName        = "/runtime.v1.RuntimeSecurityAgentAPI/LogsWriteStream"
+	RuntimeSecurityAgentAPI_WriteDataBatch_FullMethodName         = "/runtime.v1.RuntimeSecurityAgentAPI/WriteDataBatch"
+	RuntimeSecurityAgentAPI_GetSyncState_FullMethodName           = "/runtime.v1.RuntimeSecurityAgentAPI/GetSyncState"
+	RuntimeSecurityAgentAPI_UpdateSyncState_FullMethodName        = "/runtime.v1.RuntimeSecurityAgentAPI/UpdateSyncState"
+	RuntimeSecurityAgentAPI_ImageMetadataIngest_FullMethodName    = "/runtime.v1.RuntimeSecurityAgentAPI/ImageMetadataIngest"
+	RuntimeSecurityAgentAPI_KubeBenchReportIngest_FullMethodName  = "/runtime.v1.RuntimeSecurityAgentAPI/KubeBenchReportIngest"
+	RuntimeSecurityAgentAPI_KubeLinterReportIngest_FullMethodName = "/runtime.v1.RuntimeSecurityAgentAPI/KubeLinterReportIngest"
 )
 
 // RuntimeSecurityAgentAPIClient is the client API for RuntimeSecurityAgentAPI service.
@@ -38,8 +37,6 @@ const (
 type RuntimeSecurityAgentAPIClient interface {
 	GetConfiguration(ctx context.Context, in *GetConfigurationRequest, opts ...grpc.CallOption) (*GetConfigurationResponse, error)
 	LogsWriteStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[LogEvent, WriteStreamResponse], error)
-	// TODO: Move process tree write stream to WriteDataBatch
-	ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ProcessTreeEvent, WriteStreamResponse], error)
 	WriteDataBatch(ctx context.Context, in *WriteDataBatchRequest, opts ...grpc.CallOption) (*WriteDataBatchResponse, error)
 	GetSyncState(ctx context.Context, in *GetSyncStateRequest, opts ...grpc.CallOption) (*GetSyncStateResponse, error)
 	UpdateSyncState(ctx context.Context, in *UpdateSyncStateRequest, opts ...grpc.CallOption) (*UpdateSyncStateResponse, error)
@@ -78,19 +75,6 @@ func (c *runtimeSecurityAgentAPIClient) LogsWriteStream(ctx context.Context, opt
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type RuntimeSecurityAgentAPI_LogsWriteStreamClient = grpc.ClientStreamingClient[LogEvent, WriteStreamResponse]
-
-func (c *runtimeSecurityAgentAPIClient) ProcessEventsWriteStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ProcessTreeEvent, WriteStreamResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &RuntimeSecurityAgentAPI_ServiceDesc.Streams[1], RuntimeSecurityAgentAPI_ProcessEventsWriteStream_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[ProcessTreeEvent, WriteStreamResponse]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type RuntimeSecurityAgentAPI_ProcessEventsWriteStreamClient = grpc.ClientStreamingClient[ProcessTreeEvent, WriteStreamResponse]
 
 func (c *runtimeSecurityAgentAPIClient) WriteDataBatch(ctx context.Context, in *WriteDataBatchRequest, opts ...grpc.CallOption) (*WriteDataBatchResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -160,8 +144,6 @@ func (c *runtimeSecurityAgentAPIClient) KubeLinterReportIngest(ctx context.Conte
 type RuntimeSecurityAgentAPIServer interface {
 	GetConfiguration(context.Context, *GetConfigurationRequest) (*GetConfigurationResponse, error)
 	LogsWriteStream(grpc.ClientStreamingServer[LogEvent, WriteStreamResponse]) error
-	// TODO: Move process tree write stream to WriteDataBatch
-	ProcessEventsWriteStream(grpc.ClientStreamingServer[ProcessTreeEvent, WriteStreamResponse]) error
 	WriteDataBatch(context.Context, *WriteDataBatchRequest) (*WriteDataBatchResponse, error)
 	GetSyncState(context.Context, *GetSyncStateRequest) (*GetSyncStateResponse, error)
 	UpdateSyncState(context.Context, *UpdateSyncStateRequest) (*UpdateSyncStateResponse, error)
@@ -182,9 +164,6 @@ func (UnimplementedRuntimeSecurityAgentAPIServer) GetConfiguration(context.Conte
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) LogsWriteStream(grpc.ClientStreamingServer[LogEvent, WriteStreamResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method LogsWriteStream not implemented")
-}
-func (UnimplementedRuntimeSecurityAgentAPIServer) ProcessEventsWriteStream(grpc.ClientStreamingServer[ProcessTreeEvent, WriteStreamResponse]) error {
-	return status.Errorf(codes.Unimplemented, "method ProcessEventsWriteStream not implemented")
 }
 func (UnimplementedRuntimeSecurityAgentAPIServer) WriteDataBatch(context.Context, *WriteDataBatchRequest) (*WriteDataBatchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WriteDataBatch not implemented")
@@ -248,13 +227,6 @@ func _RuntimeSecurityAgentAPI_LogsWriteStream_Handler(srv interface{}, stream gr
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type RuntimeSecurityAgentAPI_LogsWriteStreamServer = grpc.ClientStreamingServer[LogEvent, WriteStreamResponse]
-
-func _RuntimeSecurityAgentAPI_ProcessEventsWriteStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(RuntimeSecurityAgentAPIServer).ProcessEventsWriteStream(&grpc.GenericServerStream[ProcessTreeEvent, WriteStreamResponse]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type RuntimeSecurityAgentAPI_ProcessEventsWriteStreamServer = grpc.ClientStreamingServer[ProcessTreeEvent, WriteStreamResponse]
 
 func _RuntimeSecurityAgentAPI_WriteDataBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(WriteDataBatchRequest)
@@ -404,11 +376,6 @@ var RuntimeSecurityAgentAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "LogsWriteStream",
 			Handler:       _RuntimeSecurityAgentAPI_LogsWriteStream_Handler,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "ProcessEventsWriteStream",
-			Handler:       _RuntimeSecurityAgentAPI_ProcessEventsWriteStream_Handler,
 			ClientStreams: true,
 		},
 	},

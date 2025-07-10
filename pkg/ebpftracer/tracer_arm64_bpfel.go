@@ -56,7 +56,6 @@ type tracerIpKey struct {
 		Pid          uint32
 		PidStartTime uint64
 		CgroupId     uint64
-		Comm         [16]uint8
 	}
 	Tuple struct {
 		Saddr  struct{ Raw [16]uint8 }
@@ -89,11 +88,11 @@ type tracerTaskContextT struct {
 }
 
 type tracerTrafficSummary struct {
-	RxPackets    uint64
-	RxBytes      uint64
-	TxPackets    uint64
-	TxBytes      uint64
-	LastPacketTs uint64
+	RxPackets uint64
+	RxBytes   uint64
+	TxPackets uint64
+	TxBytes   uint64
+	Comm      [16]uint8
 }
 
 // loadTracer returns the embedded CollectionSpec for tracer.

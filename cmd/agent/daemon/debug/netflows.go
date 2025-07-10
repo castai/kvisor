@@ -153,7 +153,7 @@ func NewNetflowsDebugCommand() *cobra.Command {
 			}
 
 			t.AppendRow(table.Row{
-				string(bytes.SplitN(key.ProcessIdentity.Comm[:], []byte{0}, 2)[0]),
+				string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]),
 				key.ProcessIdentity.CgroupId,
 				key.ProcessIdentity.Pid,
 				key.Proto,
