@@ -8,13 +8,7 @@
 #include <common/filesystem.h>
 
 #define MAX_FILE_ACCESS_ENTRIES 8192
-// Max path len is limited to 4096 bytes, see https://github.com/torvalds/linux/blob/master/include/uapi/linux/limits.h#L13
-// But in most cases it's a waste of memory as file paths are not that long.
-// We can make this configurable in the feature if needed.
-// With default values we will allocation additional memory which can be calculated:
-// MAX_FILE_ACCESS_ENTRIES * keys struct size + vals struct size * 2 (Two arrays) = 16384*316*2=10354688 ~=10MB
 #define PATH_MAX_LEN	256
-
 #define MAX_ROOT_DIR_LEN 16
 
 typedef struct file_access_config {
@@ -66,21 +60,24 @@ statfunc bool is_low_cardinality_file_access_path(void * path)
     if (bpf_probe_read_kernel(&b, sizeof(b), path)) {
         return false;
     }
-    if (b[0] == '/' && b[1] == 'u' && b[2] == 's' && b[3] == 'r') {
-        return true;
+    if (b[0] == '/') {
+         if (b[1] == 'u' && b[2] == 's' && b[3] == 'r') {
+            return true;
+        }
+        if (b[1] == 'b' && b[2] == 'i' && b[3] == 'n') {
+            return true;
+        }
+        if (b[1] == 'e' && b[2] == 't' && b[3] == 'c') {
+            return true;
+        }
+        if (b[1] == 'o' && b[2] == 'p' && b[3] == 't') {
+            return true;
+        }
+        if (b[1] == 'l' && b[2] == 'i' && b[3] == 'b') {
+            return true;
+        }
     }
-    if (b[0] == '/' && b[1] == 'b' && b[2] == 'i' && b[3] == 'n') {
-        return true;
-    }
-    if (b[0] == '/' && b[1] == 'e' && b[2] == 't' && b[3] == 'c') {
-        return true;
-    }
-    if (b[0] == '/' && b[1] == 'o' && b[2] == 'p' && b[3] == 't') {
-        return true;
-    }
-    if (b[0] == '/' && b[1] == 'l' && b[2] == 'i' && b[3] == 'b') {
-        return true;
-    }
+
     return false;
 }
 
@@ -113,15 +110,17 @@ statfunc u64 get_path_root_hash(void * path) {
         return false;
     }
 
-    // Simple bytewise xor hash of the first path segment.
-    u64 hash = 0;
+    // Calculate bash based on FNV for the first dir segment.
+    u64 hash = 14695981039346656037ULL; // FNV offset basis.
 #pragma unroll
     for (int i = 0; i < MAX_ROOT_DIR_LEN; i++) {
         char c = b[i];
         if (c == 0) {
+            // Stop at NULL terminator. After that buffer can contain other random data.
             return hash;
         }
-        hash ^= b[i];
+        hash ^= b[i]; // XOR in the byte.
+        hash *= 1099511628211ULL;  // Multiply by FNV prime.
     }
     return hash;
 }
