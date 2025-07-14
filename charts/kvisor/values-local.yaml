@@ -23,6 +23,7 @@ agent:
     signature-socks5-detection-enabled: true
     stats-enabled: true
     stats-scrape-interval: 5s
+    stats-file-access-enabled: true
     containers-refresh-interval: "0"
     ebpf-events-enabled: true
     netflow-enabled: true

@@ -147,6 +147,11 @@ message ContainerStats {
   MemoryStats memory_stats = 22;
   PidsStats pids_stats = 23;
   IOStats io_stats = 24;
+  FilesAccessStats files_access_stats = 25;
+}
+
+message FilesAccessStats {
+  repeated string paths = 1;
 }
 
 message NodeStats {

@@ -163,12 +163,17 @@ statfunc size_t get_path_str_buf(struct path *path, buf_t *out_buf)
         return 0;
     }
 
-    struct path f_path;
-    bpf_probe_read_kernel(&f_path, sizeof(struct path), path);
+    // Disconnected dentry - the file in question is not in
+    // the dentry cache and its path cannot be constructed.
+    struct dentry *dentry = BPF_CORE_READ(path, dentry);
+    if (BPF_CORE_READ(dentry, d_flags) & DCACHE_DISCONNECTED) {
+        bpf_probe_read_kernel_str(&(out_buf->buf[0]), MAX_STRING_SIZE, "<disconnected>");
+        return 0;
+    }
+
     char slash = '/';
     int zero = 0;
-    struct dentry *dentry = f_path.dentry;
-    struct vfsmount *vfsmnt = f_path.mnt;
+    struct vfsmount *vfsmnt = BPF_CORE_READ(path, mnt);
     struct mount *mnt_parent_p;
     struct mount *mnt_p = real_mount(vfsmnt);
     bpf_core_read(&mnt_parent_p, sizeof(struct mount *), &mnt_p->mnt_parent);

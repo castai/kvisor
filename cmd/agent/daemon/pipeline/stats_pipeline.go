@@ -10,6 +10,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,6 +21,13 @@ type containerStatsGroup struct {
 	prevIOStat  *castaipb.IOStats
 	changed     bool
 	updatedAt   time.Time
+}
+
+func (g *containerStatsGroup) updatePrevCgroupStats(cgStats cgroup.Stats) {
+	g.prevCpuStat = cgStats.CpuStats
+	g.prevMemStat = cgStats.MemoryStats
+	g.prevIOStat = cgStats.IOStats
+	g.prevIOStat = cgStats.IOStats
 }
 
 type nodeScrapePoint struct {
@@ -44,10 +52,10 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 		nodeName: c.nodeName,
 	}
 	containerStatsGroups := c.containerStatsGroups
-	stats := newDataBatchStats()
+	batchState := newDataBatchStats()
 
 	send := func() {
-		items := make([]*castaipb.DataBatchItem, 0, stats.totalItems)
+		items := make([]*castaipb.DataBatchItem, 0, batchState.totalItems)
 		for _, group := range containerStatsGroups {
 			if !group.changed {
 				continue
@@ -71,7 +79,7 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			})
 		}
 		c.sendDataBatch("container stats scrape", metrics.PipelineStats, items)
-		stats.reset()
+		batchState.reset()
 		now := time.Now()
 		for key, group := range containerStatsGroups {
 			// Delete the inactive group.
@@ -81,12 +89,9 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 				continue
 			}
 			group.changed = false
+			group.pb.FilesAccessStats = nil
 		}
 	}
-
-	// Initial scrape to populate initial points for diffs.
-	c.scrapeNodeStats(nodeStats, stats)
-	c.scrapeContainersResourceStats(containerStatsGroups, stats)
 
 	for {
 		select {
@@ -94,25 +99,57 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			start := time.Now()
-			c.scrapeNodeStats(nodeStats, stats)
-			c.scrapeContainersResourceStats(containerStatsGroups, stats)
+			c.scrapeNodeStats(nodeStats, batchState)
+			c.scrapeContainersStats(containerStatsGroups, batchState)
 			send()
 			c.log.Debugf("stats exported, duration=%v", time.Since(start))
 		}
 	}
 }
 
-func (c *Controller) scrapeContainersResourceStats(groups map[uint64]*containerStatsGroup, stats *dataBatchStats) {
+func (c *Controller) scrapeContainersStats(groups map[uint64]*containerStatsGroup, batchState *dataBatchStats) {
 	conts := c.containersClient.ListContainers(func(cont *containers.Container) bool {
 		return cont.Err == nil && cont.Cgroup != nil && cont.Name != ""
 	})
-	c.log.Infof("scraping resource stats from %d containers", len(conts))
+
+	c.log.Infof("scraping stats from %d containers", len(conts))
 	for _, cont := range conts {
-		c.scrapeContainerResourcesStats(groups, cont, stats)
+		group, found := groups[cont.CgroupID]
+		if !found {
+			group = c.createNewContainerStatsGroup(cont)
+			groups[cont.CgroupID] = group
+		}
+
+		if c.cfg.Stats.Enabled {
+			c.scrapeContainerCgroupStats(group, cont, batchState)
+		}
+	}
+
+	if c.cfg.Stats.FileAccessEnabled {
+		c.scrapeContainersFileAccessStats(groups)
 	}
 }
 
-func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerStatsGroup, cont *containers.Container, stats *dataBatchStats) {
+func (c *Controller) createNewContainerStatsGroup(cont *containers.Container) *containerStatsGroup {
+	group := &containerStatsGroup{
+		updatedAt: time.Now(),
+		pb: &castaipb.ContainerStats{
+			Namespace:     cont.PodNamespace,
+			PodName:       cont.PodName,
+			ContainerName: cont.Name,
+			PodUid:        cont.PodUID,
+			ContainerId:   cont.ID,
+			NodeName:      c.nodeName,
+		},
+	}
+	if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
+		group.pb.WorkloadName = podInfo.WorkloadName
+		group.pb.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
+	}
+	return group
+}
+
+func (c *Controller) scrapeContainerCgroupStats(group *containerStatsGroup, cont *containers.Container, stats *dataBatchStats) {
 	cgStats, err := c.containersClient.GetCgroupStats(cont)
 	if err != nil {
 		if c.log.IsEnabled(slog.LevelDebug) {
@@ -128,28 +165,9 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 		return
 	}
 
-	group, found := groups[cont.CgroupID]
-	if !found {
-		group = &containerStatsGroup{
-			updatedAt: time.Now(),
-			pb: &castaipb.ContainerStats{
-				Namespace:     cont.PodNamespace,
-				PodName:       cont.PodName,
-				ContainerName: cont.Name,
-				PodUid:        cont.PodUID,
-				ContainerId:   cont.ID,
-				PidsStats:     cgStats.PidsStats,
-				NodeName:      c.nodeName,
-			},
-		}
-		if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
-			group.pb.WorkloadName = podInfo.WorkloadName
-			group.pb.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
-		}
-		group.prevCpuStat = cgStats.CpuStats
-		group.prevMemStat = cgStats.MemoryStats
-		group.prevIOStat = cgStats.IOStats
-		groups[cont.CgroupID] = group
+	if group.prevCpuStat == nil {
+		group.updatePrevCgroupStats(cgStats)
+		// We need at least two scrapes for cgroup stats.
 		return
 	}
 
@@ -163,9 +181,8 @@ func (c *Controller) scrapeContainerResourcesStats(groups map[uint64]*containerS
 	group.pb.IoStats = getIOStatsDiff(group.prevIOStat, cgStats.IOStats)
 	group.pb.PidsStats = cgStats.PidsStats
 
-	group.prevCpuStat = cgStats.CpuStats
-	group.prevMemStat = cgStats.MemoryStats
-	group.prevIOStat = cgStats.IOStats
+	group.updatePrevCgroupStats(cgStats)
+
 }
 
 func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatchStats) {
@@ -226,6 +243,27 @@ func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatc
 		}
 		metrics.AgentStatsScrapeErrorsTotal.WithLabelValues("node").Inc()
 		return
+	}
+}
+
+func (c *Controller) scrapeContainersFileAccessStats(groups map[uint64]*containerStatsGroup) {
+	keys, vals, err := c.tracer.CollectFileAccessStats()
+	if err != nil {
+		c.log.Errorf("collecting file access stats: %v", err)
+		return
+	}
+
+	for i, key := range keys {
+		val := vals[i]
+		group, found := groups[key.CgroupId]
+		if !found {
+			continue
+		}
+		group.changed = true
+		if group.pb.FilesAccessStats == nil {
+			group.pb.FilesAccessStats = &castaipb.FilesAccessStats{}
+		}
+		group.pb.FilesAccessStats.Paths = append(group.pb.FilesAccessStats.Paths, unix.ByteSliceToString(val.Filepath[:]))
 	}
 }
 

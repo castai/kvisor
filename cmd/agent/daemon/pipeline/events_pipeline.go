@@ -51,7 +51,7 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 				c.log.Debugf("deleted inactive events group, cgroup_id=%d", key)
 				continue
 			}
-			group.pb.Items = group.pb.Items[:0]
+			group.pb.Items = nil
 		}
 	}
 

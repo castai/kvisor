@@ -17978,7 +17978,7 @@ func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, er
 	if err != nil {
 		return types.SecurityFileOpenArgs{}, err
 	}
-	if numArgs > 1 {
+	if numArgs > 3 {
 		return types.SecurityFileOpenArgs{}, ErrTooManyArguments
 	}
 
@@ -17995,9 +17995,23 @@ func ParseSecurityFileOpenArgs(decoder *Decoder) (types.SecurityFileOpenArgs, er
 			if err != nil {
 				return types.SecurityFileOpenArgs{}, err
 			}
+		case 1:
+			err = decoder.DecodeUint64(&result.Inode)
+			if err != nil {
+				return types.SecurityFileOpenArgs{}, err
+			}
+		case 2:
+			err = decoder.DecodeUint32(&result.Dev)
+			if err != nil {
+				return types.SecurityFileOpenArgs{}, err
+			}
 		}
 	}
 	return result, nil
+}
+
+func ParseFileAccessStatsArgs(decoder *Decoder) (types.FileAccessStatsArgs, error) {
+	return types.FileAccessStatsArgs{}, nil
 }
 
 func ParseTestEventArgs(decoder *Decoder) (types.TestEventArgs, error) {
@@ -18958,6 +18972,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
 		return ParseProcFdLinkResolvedArgs(decoder)
 	case events.SecurityFileOpen:
 		return ParseSecurityFileOpenArgs(decoder)
+	case events.FileAccessStats:
+		return ParseFileAccessStatsArgs(decoder)
 	case events.TestEvent:
 		return ParseTestEventArgs(decoder)
 	}

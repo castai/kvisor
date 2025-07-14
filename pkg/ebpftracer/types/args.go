@@ -3570,7 +3570,13 @@ type ProcFdLinkResolvedArgs struct {
 type SecurityFileOpenArgs struct {
 	internalArgs
 
-	Path string
+	Path  string
+	Inode uint64
+	Dev   uint32
+}
+
+type FileAccessStatsArgs struct {
+	internalArgs
 }
 
 type TestEventArgs struct {

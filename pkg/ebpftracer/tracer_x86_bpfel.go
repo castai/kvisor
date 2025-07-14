@@ -25,17 +25,14 @@ type tracerEventContextT struct {
 type tracerFileAccessConfigT struct{ MapIndex int32 }
 
 type tracerFileAccessKey struct {
-	CgroupId     uint64
-	Inode        uint64
-	PidStartTime uint64
-	Pid          uint32
-	HostPid      uint32
-	Dev          uint32
+	CgroupId uint64
+	Inode    uint64
+	Dev      uint32
 }
 
 type tracerFileAccessStats struct {
 	Reads    uint64
-	Filepath [512]uint8
+	Filepath [256]uint8
 	Comm     [16]uint8
 }
 

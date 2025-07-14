@@ -997,6 +997,10 @@ func (m *mockEbpfTracer) CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebp
 	}
 }
 
+func (m *mockEbpfTracer) CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error) {
+	return nil, nil, nil
+}
+
 func (m *mockEbpfTracer) ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error) {
 	// Inc stats each time scrape is called since we export only stats which changed.
 	for _, s := range m.syscallStats {

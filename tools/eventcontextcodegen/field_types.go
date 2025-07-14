@@ -131,8 +131,8 @@ func parseSimpleFieldType(n string) (fieldType, bool, error) {
 		return uint32Type, true, nil
 	case "uint64":
 		return uint64Type, true, nil
-	case "int8", "byte":
-    // Byte and Int8 are the same and are always represented as int8.
+	case "uint8", "int8", "byte":
+		// Byte and Int8 are the same and are always represented as int8.
 		return int8Type, true, nil
 	}
 
