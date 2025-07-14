@@ -727,12 +727,10 @@ func newEbpfTrafficKey(k trafficKey) ebpftracer.TrafficKey {
 			Pid          uint32
 			PidStartTime uint64
 			CgroupId     uint64
-			Comm         [16]uint8
 		}{
 			Pid:          1,
 			PidStartTime: 0,
 			CgroupId:     100,
-			Comm:         [16]uint8{},
 		},
 		Tuple: struct {
 			Saddr  struct{ Raw [16]uint8 }
