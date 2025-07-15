@@ -185,6 +185,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
   --set agent.extraArgs.stats-enabled=true \
+  --set agent.extraArgs.stats-file-access-enabled=true \
   --set agent.extraArgs.stats-scrape-interval=1s \
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
@@ -274,19 +275,21 @@ func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.Wri
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	var contStats []*castaipb.ContainerStats
 	for _, item := range req.Items {
 		if v := item.GetContainerEvents(); v != nil {
 			t.containerEvents = append(t.containerEvents, v)
 		} else if v := item.GetNetflow(); v != nil {
 			t.netflows = append(t.netflows, v)
 		} else if v := item.GetContainerStats(); v != nil {
-			t.containerStats = append(t.containerStats, v)
+			contStats = append(contStats, v)
 		} else if v := item.GetNodeStats(); v != nil {
-			t.nodeStats = append(t.nodeStats, v)
+			t.nodeStats = []*castaipb.NodeStats{v}
 		} else if v := item.GetProcessTree(); v != nil {
 			t.processTreeEvents = append(t.processTreeEvents, v)
 		}
 	}
+	t.containerStats = contStats
 	return &castaipb.WriteDataBatchResponse{}, nil
 }
 
@@ -736,17 +739,23 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 				r.NotEmpty(cont.ContainerName)
 				r.NotEmpty(cont.NodeName)
 
-				cpuUsage := cont.CpuStats.TotalUsage
-				memUsage := cont.MemoryStats.Usage.Usage
-				if cpuUsage == 0 && memUsage == 0 {
-					return errors.New("missing cpu or memory usage")
+				var cpuUsage, memUsage uint64
+				if cont.CpuStats != nil {
+					cpuUsage = cont.CpuStats.TotalUsage
 				}
+				if cont.MemoryStats != nil {
+					memUsage = cont.MemoryStats.Usage.Usage
+				}
+				if cpuUsage > 0 && memUsage > 0 {
+					resourceUsageStatsFound = true
+				}
+
 				if cont.FilesAccessStats != nil {
 					for _, f := range cont.FilesAccessStats.Paths {
 						r.NotEmpty(f)
-						if strings.HasPrefix(f, "/usr") {
+						if strings.HasPrefix(f, "/usr/bin/iperf") {
 							fileAccessInUsrDirFound = true
-						} else if strings.HasPrefix(f, "/var/*") {
+						} else if strings.HasPrefix(f, "/proc/*") {
 							fileAccessInTruncatedDirFound = true
 						}
 					}
