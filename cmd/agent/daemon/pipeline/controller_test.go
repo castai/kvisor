@@ -381,87 +381,174 @@ func TestController(t *testing.T) {
 	})
 
 	t.Run("stats pipeline", func(t *testing.T) {
-		r := require.New(t)
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		t.Run("collect cgroup stats", func(t *testing.T) {
+			r := require.New(t)
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
 
-		ctrl := newTestController()
-		ctrl.cfg.Stats.Enabled = true
-		var nodeCpuPSIUsage uint64 = 1_000_000_000
-		ctrl.procHandler = &mockProcHandler{
-			psiEnabled: true,
-			psiStatsFunc: func(file string) (*castaipb.PSIStats, error) {
-				if file == "cpu" {
-					nodeCpuPSIUsage += 1_000
-					return &castaipb.PSIStats{
-						Some: &castaipb.PSIData{Total: nodeCpuPSIUsage},
-						Full: nil,
-					}, nil
+			ctrl := newTestController()
+			ctrl.cfg.Stats.Enabled = true
+			ctrl.procHandler = &mockProcHandler{
+				psiEnabled: false,
+			}
+
+			ctrl.containersClient.(*mockContainersClient).list = []*containers.Container{
+				{
+					ID:           "c1",
+					Name:         "cont",
+					CgroupID:     1,
+					PodNamespace: "ns1",
+					PodUID:       "p1",
+					PodName:      "p1",
+					Cgroup:       nil,
+				},
+			}
+
+			var contCpuUsage uint64 = 3_000_000_000
+			var contCpuPSI uint64 = 1_000_000_000
+			ctrl.containersClient.(*mockContainersClient).getCgroupStatsFunc = func(c *containers.Container) (cgroup.Stats, error) {
+				if c.CgroupID != 1 {
+					return cgroup.Stats{}, cgroup.ErrStatsNotFound
 				}
-				return &castaipb.PSIStats{}, nil
-			},
-		}
-
-		ctrl.containersClient.(*mockContainersClient).list = []*containers.Container{
-			{
-				ID:           "c1",
-				Name:         "cont",
-				CgroupID:     1,
-				PodNamespace: "ns1",
-				PodUID:       "p1",
-				PodName:      "p1",
-				Cgroup:       nil,
-			},
-		}
-
-		var contCpuUsage uint64 = 3_000_000_000
-		var contCpuPSI uint64 = 1_000_000_000
-		ctrl.containersClient.(*mockContainersClient).getCgroupStatsFunc = func(c *containers.Container) (cgroup.Stats, error) {
-			if c.CgroupID != 1 {
-				return cgroup.Stats{}, cgroup.ErrStatsNotFound
-			}
-			contCpuUsage += 1_000
-			contCpuPSI += 2_000
-			return cgroup.Stats{
-				CpuStats: &castaipb.CpuStats{
-					TotalUsage: contCpuUsage,
-					Psi: &castaipb.PSIStats{
-						Some: &castaipb.PSIData{Total: contCpuPSI},
+				contCpuUsage += 1_000
+				contCpuPSI += 2_000
+				return cgroup.Stats{
+					CpuStats: &castaipb.CpuStats{
+						TotalUsage: contCpuUsage,
+						Psi: &castaipb.PSIStats{
+							Some: &castaipb.PSIData{Total: contCpuPSI},
+						},
 					},
-				},
-				MemoryStats: &castaipb.MemoryStats{
-					Usage: &castaipb.MemoryData{
-						Usage: 15,
+					MemoryStats: &castaipb.MemoryStats{
+						Usage: &castaipb.MemoryData{
+							Usage: 15,
+						},
 					},
-				},
-			}, nil
-		}
-
-		ctrlerr := make(chan error, 1)
-		go func() {
-			ctrlerr <- ctrl.Run(ctx)
-		}()
-
-		exp := getTestDataBatchExporter(ctrl)
-
-		r.Eventually(func() bool {
-			// Wait for at least 10 different scrapes.
-			if len(exp.getContainerStats()) < 10 {
-				return false
+				}, nil
 			}
 
-			nodeStats := exp.getNodeStats()
-			r.Equal(1_000, int(nodeStats[9].CpuStats.Psi.Some.Total))
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
 
-			contStats := exp.getContainerStats()
-			// Cpu should return diff between scrapes.
-			r.Equal(1_000, int(contStats[9].CpuStats.TotalUsage))
-			r.Equal(2_000, int(contStats[9].CpuStats.Psi.Some.Total))
-			// Memory always returns latest value.
-			r.Equal(15, int(contStats[9].MemoryStats.Usage.Usage))
+			exp := getTestDataBatchExporter(ctrl)
 
-			return true
-		}, 1*time.Second, 1*time.Millisecond)
+			r.Eventually(func() bool {
+				// Wait for at least 10 different scrapes.
+				if len(exp.getContainerStats()) < 10 {
+					return false
+				}
+
+				contStats := exp.getContainerStats()
+				// Cpu should return diff between scrapes.
+				r.Equal(1_000, int(contStats[9].CpuStats.TotalUsage))
+				r.Equal(2_000, int(contStats[9].CpuStats.Psi.Some.Total))
+				// Memory always returns latest value.
+				r.Equal(15, int(contStats[9].MemoryStats.Usage.Usage))
+
+				return true
+			}, 1*time.Second, 1*time.Millisecond)
+		})
+
+		t.Run("collect file access stats", func(t *testing.T) {
+			r := require.New(t)
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			ctrl := newTestController()
+			ctrl.cfg.Stats.FileAccessEnabled = true
+			ctrl.procHandler = &mockProcHandler{
+				psiEnabled: false,
+			}
+
+			ctrl.containersClient.(*mockContainersClient).list = []*containers.Container{
+				{
+					ID:           "c1",
+					Name:         "cont",
+					CgroupID:     1,
+					PodNamespace: "ns1",
+					PodUID:       "p1",
+					PodName:      "p1",
+					Cgroup:       nil,
+				},
+			}
+
+			ctrl.tracer.(*mockEbpfTracer).collectFileAccessStatsFunc = func() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error) {
+				return []ebpftracer.FileAccessKey{
+						{
+							CgroupId: 1,
+							Inode:    10,
+							Dev:      1,
+						},
+					}, []ebpftracer.FileAccessStats{
+						{
+							Reads:    101,
+							Filepath: [256]byte{'/', 'u', 's', 'r'},
+						},
+					}, nil
+			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			exp := getTestDataBatchExporter(ctrl)
+
+			r.Eventually(func() bool {
+				if len(exp.getContainerStats()) < 1 {
+					return false
+				}
+
+				contStats := exp.getContainerStats()
+				r.NotNil(contStats[0].FilesAccessStats)
+				r.Equal([]uint32{101}, contStats[0].FilesAccessStats.Reads)
+				r.Equal([]string{"/usr"}, contStats[0].FilesAccessStats.Paths)
+
+				return true
+			}, 1*time.Second, 1*time.Millisecond)
+		})
+
+		t.Run("collect node stats", func(t *testing.T) {
+			r := require.New(t)
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			ctrl := newTestController()
+			ctrl.cfg.Stats.Enabled = true
+			var nodeCpuPSIUsage uint64 = 1_000_000_000
+			ctrl.procHandler = &mockProcHandler{
+				psiEnabled: true,
+				psiStatsFunc: func(file string) (*castaipb.PSIStats, error) {
+					if file == "cpu" {
+						nodeCpuPSIUsage += 1_000
+						return &castaipb.PSIStats{
+							Some: &castaipb.PSIData{Total: nodeCpuPSIUsage},
+							Full: nil,
+						}, nil
+					}
+					return &castaipb.PSIStats{}, nil
+				},
+			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
+
+			exp := getTestDataBatchExporter(ctrl)
+
+			r.Eventually(func() bool {
+				nodeStats := exp.getNodeStats()
+				if len(nodeStats) < 10 {
+					return false
+				}
+				r.Equal(1_000, int(nodeStats[9].CpuStats.Psi.Some.Total))
+
+				return true
+			}, 1*time.Second, 1*time.Millisecond)
+		})
 	})
 
 	t.Run("netflow pipeline", func(t *testing.T) {
@@ -520,19 +607,18 @@ func TestController(t *testing.T) {
 						ctrlerr <- ctrl.Run(ctx)
 					}()
 
-					ctrl.tracer.(*mockEbpfTracer).sendNetflowTestEvent(netflowList{
-						keys: []ebpftracer.TrafficKey{
-							newEbpfTrafficKey(trafficKey{saddr: tt.saddr.raw, daddr: tt.daddr.raw, family: tt.family}),
-						},
-						vals: []ebpftracer.TrafficSummary{
-							{
-								TxBytes:   10,
-								TxPackets: 5,
-								RxBytes:   11,
-								RxPackets: 12,
-							},
-						},
-					})
+					ctrl.tracer.(*mockEbpfTracer).collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
+						return []ebpftracer.TrafficKey{
+								newEbpfTrafficKey(trafficKey{saddr: tt.saddr.raw, daddr: tt.daddr.raw, family: tt.family}),
+							}, []ebpftracer.TrafficSummary{
+								{
+									TxBytes:   10,
+									TxPackets: 5,
+									RxBytes:   11,
+									RxPackets: 12,
+								},
+							}, nil
+					}
 
 					exp := getTestDataBatchExporter(ctrl)
 
@@ -607,14 +693,13 @@ func TestController(t *testing.T) {
 				RxPackets: 13,
 			}
 
-			ctrl.tracer.(*mockEbpfTracer).sendNetflowTestEvent(netflowList{
-				keys: []ebpftracer.TrafficKey{
-					key1, key2,
-				},
-				vals: []ebpftracer.TrafficSummary{
-					val1, val2,
-				},
-			})
+			ctrl.tracer.(*mockEbpfTracer).collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
+				return []ebpftracer.TrafficKey{
+						key1, key2,
+					}, []ebpftracer.TrafficSummary{
+						val1, val2,
+					}, nil
+			}
 
 			exp := getTestDataBatchExporter(ctrl)
 
@@ -656,27 +741,26 @@ func TestController(t *testing.T) {
 				ctrlerr <- ctrl.Run(ctx)
 			}()
 
-			ctrl.tracer.(*mockEbpfTracer).sendNetflowTestEvent(netflowList{
-				keys: []ebpftracer.TrafficKey{
-					// 10.0.0.10 to private 10.0.0.11, should keep as is
-					newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 0, 0xb}, family: uint16(types.AF_INET)}),
-					// 10.0.0.10 to private 10.0.0.12, should keep as is, private ip destinations are always collected
-					newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 0, 0xc}, family: uint16(types.AF_INET)}),
-					// 10.0.0.10 to public 8.8.8.8, should keep as is, no public ip limit reached yet
-					newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0x8, 0x8, 0x8, 0x8}, family: uint16(types.AF_INET)}),
-					// 10.0.0.10 to 1.1.1.1, max public ips count reached, will be aggregated under 0.0.0.0
-					newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0x1, 0x1, 0x1, 0x1}, family: uint16(types.AF_INET)}),
-					// 10.0.0.10 to 8.8.8.8, max public ips count reached, will be aggregated under 0.0.0.0
-					newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0x8, 0x8, 0x8, 0x8}, family: uint16(types.AF_INET)}),
-				},
-				vals: []ebpftracer.TrafficSummary{
-					{TxBytes: 1, TxPackets: 1, RxBytes: 1, RxPackets: 1},
-					{TxBytes: 1, TxPackets: 2, RxBytes: 1, RxPackets: 1},
-					{TxBytes: 1, TxPackets: 1, RxBytes: 1, RxPackets: 1},
-					{TxBytes: 3, TxPackets: 3, RxBytes: 3, RxPackets: 3},
-					{TxBytes: 4, TxPackets: 5, RxBytes: 6, RxPackets: 7},
-				},
-			})
+			ctrl.tracer.(*mockEbpfTracer).collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
+				return []ebpftracer.TrafficKey{
+						// 10.0.0.10 to private 10.0.0.11, should keep as is
+						newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 0, 0xb}, family: uint16(types.AF_INET)}),
+						// 10.0.0.10 to private 10.0.0.12, should keep as is, private ip destinations are always collected
+						newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 0, 0xc}, family: uint16(types.AF_INET)}),
+						// 10.0.0.10 to public 8.8.8.8, should keep as is, no public ip limit reached yet
+						newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0x8, 0x8, 0x8, 0x8}, family: uint16(types.AF_INET)}),
+						// 10.0.0.10 to 1.1.1.1, max public ips count reached, will be aggregated under 0.0.0.0
+						newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0x1, 0x1, 0x1, 0x1}, family: uint16(types.AF_INET)}),
+						// 10.0.0.10 to 8.8.8.8, max public ips count reached, will be aggregated under 0.0.0.0
+						newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0x8, 0x8, 0x8, 0x8}, family: uint16(types.AF_INET)}),
+					}, []ebpftracer.TrafficSummary{
+						{TxBytes: 1, TxPackets: 1, RxBytes: 1, RxPackets: 1},
+						{TxBytes: 1, TxPackets: 2, RxBytes: 1, RxPackets: 1},
+						{TxBytes: 1, TxPackets: 1, RxBytes: 1, RxPackets: 1},
+						{TxBytes: 3, TxPackets: 3, RxBytes: 3, RxPackets: 3},
+						{TxBytes: 4, TxPackets: 5, RxBytes: 6, RxPackets: 7},
+					}, nil
+			}
 
 			exp := getTestDataBatchExporter(ctrl)
 			r.Eventually(func() bool {
@@ -709,10 +793,6 @@ func TestController(t *testing.T) {
 
 		})
 	})
-}
-
-func (m *mockEbpfTracer) sendNetflowTestEvent(v netflowList) {
-	m.netflowCollectChan <- v
 }
 
 type trafficKey struct {
@@ -781,8 +861,7 @@ func newTestController(opts ...any) *Controller {
 	ctClient := &mockConntrackClient{}
 
 	tracer := &mockEbpfTracer{
-		eventsChan:         make(chan *types.Event, 500),
-		netflowCollectChan: make(chan netflowList, 100),
+		eventsChan: make(chan *types.Event, 500),
 	}
 	tracerCustomizer := getOptOr[customizeMockTracer](opts, func(t *mockEbpfTracer) {})
 	tracerCustomizer(tracer)
@@ -974,9 +1053,10 @@ func (m *mockConntrackClient) GetDestination(src, dst netip.AddrPort) (netip.Add
 var _ ebpfTracer = (*mockEbpfTracer)(nil)
 
 type mockEbpfTracer struct {
-	eventsChan         chan *types.Event
-	syscallStats       map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
-	netflowCollectChan chan netflowList
+	eventsChan                 chan *types.Event
+	syscallStats               map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
+	collectNetworkSummaryFunc  func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
+	collectFileAccessStatsFunc func() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error)
 }
 
 func (m *mockEbpfTracer) GetEventName(id events.ID) string {
@@ -989,15 +1069,16 @@ type netflowList struct {
 }
 
 func (m *mockEbpfTracer) CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
-	select {
-	case v := <-m.netflowCollectChan:
-		return v.keys, v.vals, nil
-	default:
-		return nil, nil, nil
+	if m.collectNetworkSummaryFunc != nil {
+		return m.collectNetworkSummaryFunc()
 	}
+	return nil, nil, nil
 }
 
 func (m *mockEbpfTracer) CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error) {
+	if m.collectFileAccessStatsFunc != nil {
+		return m.collectFileAccessStatsFunc()
+	}
 	return nil, nil, nil
 }
 

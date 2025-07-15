@@ -152,6 +152,7 @@ message ContainerStats {
 
 message FilesAccessStats {
   repeated string paths = 1;
+  repeated uint32 reads = 2;
 }
 
 message NodeStats {

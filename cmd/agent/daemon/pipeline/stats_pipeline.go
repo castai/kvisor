@@ -264,6 +264,7 @@ func (c *Controller) scrapeContainersFileAccessStats(groups map[uint64]*containe
 			group.pb.FilesAccessStats = &castaipb.FilesAccessStats{}
 		}
 		group.pb.FilesAccessStats.Paths = append(group.pb.FilesAccessStats.Paths, unix.ByteSliceToString(val.Filepath[:]))
+		group.pb.FilesAccessStats.Reads = append(group.pb.FilesAccessStats.Reads, val.Reads)
 	}
 }
 

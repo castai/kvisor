@@ -217,18 +217,15 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 }
 
 type fileAccessRaw struct {
-	FilePath     string `json:"file_path"`
-	Reads        uint64 `json:"reads"`
-	Process      string `json:"process"`
-	HostPid      uint32 `json:"host_pid"`
-	Pid          uint32 `json:"pid"`
-	PidStartTime uint64 `json:"pid_start_time"`
-	Inode        uint64 `json:"inode"`
-	CgroupID     uint64 `json:"cgroup_id"`
+	CgroupID uint64 `json:"cgroup_id"`
+	Inode    uint64 `json:"inode"`
+	Dev      uint32 `json:"dev"`
+	Reads    uint32 `json:"reads"`
+	FilePath string `json:"file_path"`
 }
 
 func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftracer.Tracer) error {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer func() {
 		ticker.Stop()
 	}()
@@ -251,11 +248,11 @@ func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftrace
 				val := vals[i]
 
 				res = append(res, fileAccessRaw{
-					FilePath: unix.ByteSliceToString(val.Filepath[:]),
-					Reads:    val.Reads,
-					Process:  string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]),
-					Inode:    key.Inode,
 					CgroupID: key.CgroupId,
+					Inode:    key.Inode,
+					Dev:      key.Dev,
+					Reads:    val.Reads,
+					FilePath: unix.ByteSliceToString(val.Filepath[:]),
 				})
 				fmt.Printf("cgroup=%d, path=%s reads=%d, inode=%d\n", key.CgroupId, unix.ByteSliceToString(val.Filepath[:]), val.Reads, key.Inode)
 			}

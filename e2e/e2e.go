@@ -705,12 +705,22 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
 
+	r := newAssertions()
+	var resourceUsageStatsFound bool
+	var fileAccessInUsrDirFound bool
+	var fileAccessInTruncatedDirFound bool
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeout:
-			return errors.New("timeout waiting for received container stats")
+			return fmt.Errorf(
+				"timeout waiting for received container stats, resource_usage_stats=%v, file_access_usr_dir=%v, file_access_trunc_dir=%v",
+				resourceUsageStatsFound,
+				fileAccessInUsrDirFound,
+				fileAccessInTruncatedDirFound,
+			)
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
 			stats := slices.Clone(t.containerStats)
@@ -721,26 +731,34 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 			fmt.Printf("asserting container stats, items=%d\n", len(stats))
 
 			for _, cont := range stats {
-				if cont.Namespace == "" {
-					return errors.New("missing namespace")
-				}
-				if cont.PodName == "" {
-					return errors.New("missing pod")
-				}
-				if cont.ContainerName == "" {
-					return errors.New("missing container")
-				}
-				if cont.NodeName == "" {
-					return fmt.Errorf("missing node: %+v", cont)
-				}
+				r.NotEmpty(cont.Namespace)
+				r.NotEmpty(cont.PodName)
+				r.NotEmpty(cont.ContainerName)
+				r.NotEmpty(cont.NodeName)
+
 				cpuUsage := cont.CpuStats.TotalUsage
 				memUsage := cont.MemoryStats.Usage.Usage
 				if cpuUsage == 0 && memUsage == 0 {
 					return errors.New("missing cpu or memory usage")
 				}
-				t.containerStatsAsserterd = true
+				if cont.FilesAccessStats != nil {
+					for _, f := range cont.FilesAccessStats.Paths {
+						r.NotEmpty(f)
+						if strings.HasPrefix(f, "/usr") {
+							fileAccessInUsrDirFound = true
+						} else if strings.HasPrefix(f, "/var/*") {
+							fileAccessInTruncatedDirFound = true
+						}
+					}
+					for _, reads := range cont.FilesAccessStats.Reads {
+						r.NotEmpty(reads)
+					}
+				}
 			}
-			return nil
+
+			if resourceUsageStatsFound && fileAccessInUsrDirFound && fileAccessInTruncatedDirFound {
+				return r.error()
+			}
 		}
 	}
 }

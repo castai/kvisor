@@ -25,9 +25,8 @@ struct file_access_key {
 } __attribute__((__packed__)) file_access_key_dummy;
 
 struct file_access_stats {
-    u64 reads;
+    u32 reads;
     u8 filepath[PATH_MAX_LEN];
-    u8 comm[TASK_COMM_LEN];
     // In order for BTF to be generated for this struct, a dummy variable needs to
     // be created.
 } __attribute__((__packed__)) file_access_stats_dummy;
@@ -188,8 +187,6 @@ statfunc void record_file_access(task_context_t *task_ctx, struct file *file)
         if (stats == NULL) {
             return;
         }
-
-        bpf_get_current_comm(&stats->comm, sizeof(stats->comm));
         bpf_probe_read_kernel_str(&stats->filepath, PATH_MAX_LEN, file_info.path);
     }
 
