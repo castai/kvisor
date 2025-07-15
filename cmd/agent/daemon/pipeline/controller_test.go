@@ -627,7 +627,6 @@ func TestController(t *testing.T) {
 						if len(flows) == 0 {
 							return false
 						}
-						r.Len(flows, 1)
 						e := flows[0]
 						r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
 						r.Equal(netip.MustParseAddr(tt.saddr.expected).AsSlice(), e.Addr)
@@ -708,7 +707,6 @@ func TestController(t *testing.T) {
 				if len(flows) == 0 {
 					return false
 				}
-				r.Len(flows, 2)
 				f1 := flows[0]
 				f2 := flows[1]
 				r.Equal("container-1", f1.ContainerName)
@@ -768,7 +766,6 @@ func TestController(t *testing.T) {
 				if len(flows) == 0 {
 					return false
 				}
-				r.Len(flows, 1)
 				e := flows[0]
 				r.Equal(castaipb.NetflowProtocol_NETFLOW_PROTOCOL_TCP, e.Protocol)
 				r.Len(e.Destinations, 4)

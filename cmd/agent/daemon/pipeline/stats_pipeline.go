@@ -140,11 +140,13 @@ func (c *Controller) createNewContainerStatsGroup(cont *containers.Container) *c
 			PodUid:        cont.PodUID,
 			ContainerId:   cont.ID,
 			NodeName:      c.nodeName,
+			CgroupId:      cont.CgroupID,
 		},
 	}
 	if podInfo, ok := c.getPodInfo(cont.PodUID); ok {
 		group.pb.WorkloadName = podInfo.WorkloadName
 		group.pb.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
+		group.pb.WorkloadUid = podInfo.WorkloadUid
 	}
 	return group
 }
@@ -182,7 +184,6 @@ func (c *Controller) scrapeContainerCgroupStats(group *containerStatsGroup, cont
 	group.pb.PidsStats = cgStats.PidsStats
 
 	group.updatePrevCgroupStats(cgStats)
-
 }
 
 func (c *Controller) scrapeNodeStats(nodeStats *nodeScrapePoint, stats *dataBatchStats) {
