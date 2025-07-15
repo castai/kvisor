@@ -602,11 +602,6 @@ func TestController(t *testing.T) {
 					}))
 					ctrl.cfg.Netflow.Enabled = true
 
-					ctrlerr := make(chan error, 1)
-					go func() {
-						ctrlerr <- ctrl.Run(ctx)
-					}()
-
 					ctrl.tracer.(*mockEbpfTracer).collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
 						return []ebpftracer.TrafficKey{
 								newEbpfTrafficKey(trafficKey{saddr: tt.saddr.raw, daddr: tt.daddr.raw, family: tt.family}),
@@ -619,6 +614,11 @@ func TestController(t *testing.T) {
 								},
 							}, nil
 					}
+
+					ctrlerr := make(chan error, 1)
+					go func() {
+						ctrlerr <- ctrl.Run(ctx)
+					}()
 
 					exp := getTestDataBatchExporter(ctrl)
 
@@ -666,11 +666,6 @@ func TestController(t *testing.T) {
 			}))
 			ctrl.cfg.Netflow.Enabled = true
 
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
-
 			key1 := newEbpfTrafficKey(trafficKey{saddr: [16]byte{0xa, 0, 0, 0xa}, daddr: [16]byte{0xa, 0, 1, 0xa}, family: uint16(types.AF_INET)})
 			key1.ProcessIdentity.CgroupId = 100
 			key1.ProcessIdentity.Pid = 1
@@ -700,6 +695,11 @@ func TestController(t *testing.T) {
 						val1, val2,
 					}, nil
 			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
 
 			exp := getTestDataBatchExporter(ctrl)
 
@@ -736,11 +736,6 @@ func TestController(t *testing.T) {
 			ctrl.cfg.Netflow.Enabled = true
 			ctrl.cfg.Netflow.MaxPublicIPs = 1
 
-			ctrlerr := make(chan error, 1)
-			go func() {
-				ctrlerr <- ctrl.Run(ctx)
-			}()
-
 			ctrl.tracer.(*mockEbpfTracer).collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
 				return []ebpftracer.TrafficKey{
 						// 10.0.0.10 to private 10.0.0.11, should keep as is
@@ -761,6 +756,11 @@ func TestController(t *testing.T) {
 						{TxBytes: 4, TxPackets: 5, RxBytes: 6, RxPackets: 7},
 					}, nil
 			}
+
+			ctrlerr := make(chan error, 1)
+			go func() {
+				ctrlerr <- ctrl.Run(ctx)
+			}()
 
 			exp := getTestDataBatchExporter(ctrl)
 			r.Eventually(func() bool {
