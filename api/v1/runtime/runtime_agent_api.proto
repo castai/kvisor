@@ -142,11 +142,19 @@ message ContainerStats {
   string pod_uid = 5;
   string container_id = 6;
   string node_name = 8;
+  string workload_uid = 9;
+  uint64 cgroup_id = 10;
 
   CpuStats cpu_stats = 21;
   MemoryStats memory_stats = 22;
   PidsStats pids_stats = 23;
   IOStats io_stats = 24;
+  FilesAccessStats files_access_stats = 25;
+}
+
+message FilesAccessStats {
+  repeated string paths = 1;
+  repeated uint32 reads = 2;
 }
 
 message NodeStats {

@@ -5739,7 +5739,22 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			sets: []string{},
 			params: []argMeta{
 				{Type: "char*", Name: "path"},
+				{Type: "u64", Name: "inode"},
+				{Type: "u32", Name: "dev"},
 			},
+		},
+		events.FileAccessStats: {
+			ID:      events.FileAccessStats,
+			id32Bit: events.Sys32Undefined,
+			name:    "file_access_stats",
+			dependencies: dependencies{
+				probes: []EventProbe{
+					{handle: ProbeSecurityFileOpen, required: true},
+				},
+			},
+			internal: true,
+			sets:     []string{},
+			params:   []argMeta{},
 		},
 		// Event used for testing in unit tests
 		events.TestEvent: {

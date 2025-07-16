@@ -41,7 +41,6 @@ type Config struct {
 	Castai                         castai.Config                   `json:"castai"`
 	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
 	Netflow                        NetflowConfig                   `json:"netflow"`
-	FileAccess                     FileAccessConfig                `json:"fileAccess"`
 	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
 	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
@@ -63,8 +62,9 @@ type DataBatchConfig struct {
 }
 
 type StatsConfig struct {
-	Enabled        bool          `json:"enabled"`
-	ScrapeInterval time.Duration `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
+	Enabled           bool          `json:"enabled"`
+	ScrapeInterval    time.Duration `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
+	FileAccessEnabled bool          `json:"fileAccessEnabled"`
 }
 
 type EventsConfig struct {

@@ -70,6 +70,7 @@ enum event_id_e {
     STDIO_VIA_SOCKET,
     PROC_FD_LINK_RESOLVED,
     SECURITY_FILE_OPEN,
+    FILE_ACCESS_STATS,
     MAX_EVENT_ID,
 };
 

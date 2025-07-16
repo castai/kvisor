@@ -2736,17 +2736,28 @@ int BPF_KPROBE(security_file_open)
         return 0;
     }
 
-    if (!should_submit(SECURITY_FILE_OPEN, p.event)) {
-        return 0;
-    }
-
     u64 cgroup_id = p.event->context.task.cgroup_id;
     if (should_skip_cgroup(cgroup_id)) {
         return 0;
     }
 
-    struct file *file = (struct file *) PT_REGS_PARM1(ctx);
-    init_task_context(&p.event->context.task, p.task);
-    record_file_access(&p.event->context.task, file);
+    if (should_submit(FILE_ACCESS_STATS, p.event)) {
+        struct file *file = (struct file *) PT_REGS_PARM1(ctx);
+        init_task_context(&p.event->context.task, p.task);
+        record_file_access(&p.event->context.task, file);
+    }
+
+    if (should_submit(SECURITY_FILE_OPEN, p.event)) {
+        struct file *file = (struct file *) PT_REGS_PARM1(ctx);
+        void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
+        u64 inode = BPF_CORE_READ(file, f_inode, i_ino);
+        u32 dev = BPF_CORE_READ(file, f_inode, i_sb, s_dev);
+
+        save_str_to_buf(&p.event->args_buf, file_path, 0);
+        save_to_submit_buf(&p.event->args_buf, &inode, sizeof(u64), 1);
+        save_to_submit_buf(&p.event->args_buf, &dev, sizeof(u32), 2);
+        events_ringbuf_submit(&p, SECURITY_FILE_OPEN, 0);
+    }
+
     return 0;
 }

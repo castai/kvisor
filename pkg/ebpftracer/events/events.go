@@ -44,6 +44,7 @@ const (
 	StdioViaSocket
 	ProcFdLinkResolved
 	SecurityFileOpen
+	FileAccessStats
 	MaxCommonID
 )
 

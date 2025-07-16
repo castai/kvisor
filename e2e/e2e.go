@@ -185,6 +185,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
   --set agent.extraArgs.stats-enabled=true \
+  --set agent.extraArgs.stats-file-access-enabled=true \
   --set agent.extraArgs.stats-scrape-interval=1s \
   --set agent.extraArgs.castai-server-insecure=true \
   --set agent.extraArgs.ebpf-events-enabled=true \
@@ -274,19 +275,21 @@ func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.Wri
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	var contStats []*castaipb.ContainerStats
 	for _, item := range req.Items {
 		if v := item.GetContainerEvents(); v != nil {
 			t.containerEvents = append(t.containerEvents, v)
 		} else if v := item.GetNetflow(); v != nil {
 			t.netflows = append(t.netflows, v)
 		} else if v := item.GetContainerStats(); v != nil {
-			t.containerStats = append(t.containerStats, v)
+			contStats = append(contStats, v)
 		} else if v := item.GetNodeStats(); v != nil {
-			t.nodeStats = append(t.nodeStats, v)
+			t.nodeStats = []*castaipb.NodeStats{v}
 		} else if v := item.GetProcessTree(); v != nil {
 			t.processTreeEvents = append(t.processTreeEvents, v)
 		}
 	}
+	t.containerStats = contStats
 	return &castaipb.WriteDataBatchResponse{}, nil
 }
 
@@ -705,12 +708,22 @@ func (t *testCASTAIServer) assertEvents(ctx context.Context) error {
 func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
 
+	r := newAssertions()
+	var resourceUsageStatsFound bool
+	var fileAccessInUsrDirFound bool
+	var fileAccessInTruncatedDirFound bool
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeout:
-			return errors.New("timeout waiting for received container stats")
+			return fmt.Errorf(
+				"timeout waiting for received container stats, resource_usage_stats=%v, file_access_usr_dir=%v, file_access_trunc_dir=%v",
+				resourceUsageStatsFound,
+				fileAccessInUsrDirFound,
+				fileAccessInTruncatedDirFound,
+			)
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
 			stats := slices.Clone(t.containerStats)
@@ -721,26 +734,40 @@ func (t *testCASTAIServer) assertContainerStats(ctx context.Context) error {
 			fmt.Printf("asserting container stats, items=%d\n", len(stats))
 
 			for _, cont := range stats {
-				if cont.Namespace == "" {
-					return errors.New("missing namespace")
+				r.NotEmpty(cont.Namespace)
+				r.NotEmpty(cont.PodName)
+				r.NotEmpty(cont.ContainerName)
+				r.NotEmpty(cont.NodeName)
+
+				var cpuUsage, memUsage uint64
+				if cont.CpuStats != nil {
+					cpuUsage = cont.CpuStats.TotalUsage
 				}
-				if cont.PodName == "" {
-					return errors.New("missing pod")
+				if cont.MemoryStats != nil {
+					memUsage = cont.MemoryStats.Usage.Usage
 				}
-				if cont.ContainerName == "" {
-					return errors.New("missing container")
+				if cpuUsage > 0 && memUsage > 0 {
+					resourceUsageStatsFound = true
 				}
-				if cont.NodeName == "" {
-					return fmt.Errorf("missing node: %+v", cont)
+
+				if cont.FilesAccessStats != nil {
+					for _, f := range cont.FilesAccessStats.Paths {
+						r.NotEmpty(f)
+						if strings.HasPrefix(f, "/usr/bin/iperf") {
+							fileAccessInUsrDirFound = true
+						} else if strings.HasPrefix(f, "/proc/*") {
+							fileAccessInTruncatedDirFound = true
+						}
+					}
+					for _, reads := range cont.FilesAccessStats.Reads {
+						r.NotEmpty(reads)
+					}
 				}
-				cpuUsage := cont.CpuStats.TotalUsage
-				memUsage := cont.MemoryStats.Usage.Usage
-				if cpuUsage == 0 && memUsage == 0 {
-					return errors.New("missing cpu or memory usage")
-				}
-				t.containerStatsAsserterd = true
 			}
-			return nil
+
+			if resourceUsageStatsFound && fileAccessInUsrDirFound && fileAccessInTruncatedDirFound {
+				return r.error()
+			}
 		}
 	}
 }

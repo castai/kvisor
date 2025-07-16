@@ -39,8 +39,9 @@ func NewRunCommand(version string) *cobra.Command {
 		metricsHTTPListenPort = command.Flags().Int("metrics-http-listen-port", 6060, "metrics http listen port")
 		hostCgroupsDir        = command.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 
-		statsEnabled        = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
-		statsScrapeInterval = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
+		statsEnabled           = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
+		statsScrapeInterval    = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
+		statsFileAccessEnabled = command.Flags().Bool("stats-file-access-enabled", false, "Enable file access stats tracking")
 
 		btfPath           = command.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled = command.Flags().Bool("ebpf-events-enabled", false, "Enable ebpf events")
@@ -155,8 +156,9 @@ func NewRunCommand(version string) *cobra.Command {
 				ExportTimeout:     *dataBatchExportTimeout,
 			},
 			Stats: config.StatsConfig{
-				Enabled:        *statsEnabled,
-				ScrapeInterval: *statsScrapeInterval,
+				Enabled:           *statsEnabled,
+				ScrapeInterval:    *statsScrapeInterval,
+				FileAccessEnabled: *statsFileAccessEnabled,
 			},
 			Events: config.EventsConfig{
 				Enabled: *ebpfEventsEnabled,

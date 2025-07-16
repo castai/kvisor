@@ -203,7 +203,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	tracer := ebpftracer.New(log, ebpftracer.Config{
-		FileAccessEnabled:          cfg.FileAccess.Enabled,
+		FileAccessEnabled:          cfg.Stats.FileAccessEnabled,
 		BTFPath:                    cfg.BTFPath,
 		SignalEventsRingBufferSize: cfg.EBPFSignalEventsRingBufferSize,
 		EventsRingBufferSize:       cfg.EBPFEventsRingBufferSize,
@@ -417,6 +417,13 @@ Currently we care only care about dns responses with valid answers.
 			policy.Events = append(policy.Events, dnsEventPolicy)
 		}
 	}
+
+	if cfg.Stats.FileAccessEnabled {
+		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+			ID: events.FileAccessStats,
+		})
+	}
+
 	return policy
 }
 

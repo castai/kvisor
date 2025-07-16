@@ -103,7 +103,7 @@ func TestTracer(t *testing.T) {
 			ProgramMetricsEnabled: true,
 			TracerMetricsEnabled:  true,
 		},
-		NetflowsEnabled: true,
+		FileAccessEnabled: true,
 	})
 	defer tr.Close()
 
@@ -117,24 +117,24 @@ func TestTracer(t *testing.T) {
 	}()
 
 	go func() {
-		errc <- printNetworkTracerSummary(ctx, log, tr)
+		//errc <- printNetworkTracerSummary(ctx, log, tr)
 	}()
 
 	go func() {
-		//errc <- printFileAccessStats(ctx, log, tr)
+		errc <- printFileAccessStats(ctx, log, tr)
 	}()
 
 	policy := &ebpftracer.Policy{
 		Events: []*ebpftracer.EventPolicy{
 			// {ID: events.SockSetState},
-			{ID: events.SchedProcessExec},
+			// {ID: events.SchedProcessExec},
 			// {ID: events.MagicWrite},
-			//{ID: events.SecurityFileOpen},
 			// {ID: events.ProcessOomKilled},
 			// {ID: events.TtyWrite},
 			// {ID: events.NetPacketSSHBase},
 			// {ID: events.NetPacketDNSBase},
-			{ID: events.NetFlowBase},
+			//{ID: events.SecurityFileOpen},
+			{ID: events.FileAccessStats},
 		},
 		SignatureEvents: signatureEngine.TargetEvents(),
 	}
@@ -205,8 +205,8 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 					daddr = netip.AddrFrom16(tk.Tuple.Daddr.Raw)
 				}
 
-				fmt.Printf("%s PID %d:%d (protocol: %d): %s:%d -> %s:%d TX: %d RX: %d TX_Packets: %d RX_Packets: %d\n",
-					string(bytes.SplitN(ts.Comm[:], []byte{0}, 2)[0]), tk.ProcessIdentity.Pid, tk.ProcessIdentity.PidStartTime, tk.Proto,
+				fmt.Printf("%s PID %d (protocol: %d): %s:%d -> %s:%d TX: %d RX: %d TX_Packets: %d RX_Packets: %d\n",
+					string(bytes.SplitN(ts.Comm[:], []byte{0}, 2)[0]), tk.ProcessIdentity.Pid, tk.Proto,
 					saddr, tk.Tuple.Sport, daddr, tk.Tuple.Dport,
 					ts.TxBytes, ts.RxBytes,
 					ts.TxPackets, ts.RxPackets,
@@ -216,8 +216,16 @@ func printNetworkTracerSummary(ctx context.Context, log *logging.Logger, t *ebpf
 	}
 }
 
+type fileAccessRaw struct {
+	CgroupID uint64 `json:"cgroup_id"`
+	Inode    uint64 `json:"inode"`
+	Dev      uint32 `json:"dev"`
+	Reads    uint32 `json:"reads"`
+	FilePath string `json:"file_path"`
+}
+
 func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftracer.Tracer) error {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer func() {
 		ticker.Stop()
 	}()
@@ -233,14 +241,23 @@ func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftrace
 				continue
 			}
 
+			var res []fileAccessRaw
+
 			fmt.Println("=== File access stats")
 			for i, key := range keys {
 				val := vals[i]
-				fmt.Printf("comm=%s cgroup=%d host_pid=%d pid=%d pid_start=%d inode=%d dev=%d reads=%d, path=%s\n",
-					string(bytes.SplitN(val.Comm[:], []byte{0}, 2)[0]), key.CgroupId, key.HostPid, key.Pid, key.PidStartTime, key.Inode, key.Dev, val.Reads, string(unix.ByteSliceToString(val.Filepath[:])),
-				)
+
+				res = append(res, fileAccessRaw{
+					CgroupID: key.CgroupId,
+					Inode:    key.Inode,
+					Dev:      key.Dev,
+					Reads:    val.Reads,
+					FilePath: unix.ByteSliceToString(val.Filepath[:]),
+				})
+				fmt.Printf("cgroup=%d, path=%s reads=%d, inode=%d\n", key.CgroupId, unix.ByteSliceToString(val.Filepath[:]), val.Reads, key.Inode)
 			}
-			fmt.Printf("total=%d\n", len(keys))
+
+			fmt.Println("total", len(keys))
 		}
 	}
 }

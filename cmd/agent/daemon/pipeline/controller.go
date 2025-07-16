@@ -61,6 +61,7 @@ type ebpfTracer interface {
 	IsCgroupMuted(cgroup uint64) bool
 	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
 	CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
+	CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error)
 	GetEventName(id events.ID) string
 }
 
@@ -178,7 +179,7 @@ func (c *Controller) Run(ctx context.Context) error {
 			return c.runEventsPipeline(ctx)
 		})
 	}
-	if c.cfg.Stats.Enabled {
+	if c.cfg.Stats.Enabled || c.cfg.Stats.FileAccessEnabled {
 		errg.Go(func() error {
 			return c.runStatsPipeline(ctx)
 		})

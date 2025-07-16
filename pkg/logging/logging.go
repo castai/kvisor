@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -54,23 +55,24 @@ func New(cfg *Config) *Logger {
 	if cfg.Ctx == nil {
 		cfg.Ctx = context.Background()
 	}
-	var replace func(groups []string, a slog.Attr) slog.Attr
-	if cfg.AddSource {
-		replace = func(groups []string, a slog.Attr) slog.Attr {
-			// Remove the directory from the source's filename.
-			if a.Key == slog.SourceKey {
-				source := a.Value.Any().(*slog.Source)
-				source.File = filepath.Base(source.File)
-			}
-			return a
-		}
-	}
 
 	// Initial logger.
 	var handler slog.Handler = slog.NewTextHandler(out, &slog.HandlerOptions{
-		AddSource:   cfg.AddSource,
-		Level:       cfg.Level,
-		ReplaceAttr: replace,
+		AddSource: cfg.AddSource,
+		Level:     cfg.Level,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.LevelKey {
+				a.Value = slog.StringValue(strings.ToLower(a.Value.String()))
+			}
+			if cfg.AddSource {
+				// Remove the directory from the source's filename.
+				if a.Key == slog.SourceKey {
+					source := a.Value.Any().(*slog.Source)
+					source.File = filepath.Base(source.File)
+				}
+			}
+			return a
+		},
 	})
 
 	// Export logs handler.
