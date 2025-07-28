@@ -78,6 +78,10 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 				},
 			})
 		}
+		// Skip if no changes.
+		if len(items) == 0 {
+			return
+		}
 		c.sendDataBatch("container stats scrape", metrics.PipelineStats, items)
 		batchState.reset()
 		now := time.Now()

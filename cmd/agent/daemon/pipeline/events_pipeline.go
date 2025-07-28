@@ -39,6 +39,10 @@ func (c *Controller) runEventsPipeline(ctx context.Context) error {
 				Data: &castaipb.DataBatchItem_ContainerEvents{ContainerEvents: group.pb},
 			})
 		}
+		// Skip if no changes.
+		if len(items) == 0 {
+			return
+		}
 		c.sendDataBatch(reason, metrics.PipelineEBPFEvents, items)
 
 		// Reset stats and group items after send.

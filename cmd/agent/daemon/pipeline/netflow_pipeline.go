@@ -95,6 +95,10 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 				})
 			}
 		}
+		// Skip if no changes.
+		if len(items) == 0 {
+			return
+		}
 		c.sendDataBatch(reason, metrics.PipelineNetflows, items)
 
 		// Reset after sent.
