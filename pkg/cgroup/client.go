@@ -164,16 +164,21 @@ func (c *Client) LoadCgroupByContainerID(containerID string) (*Cgroup, error) {
 	return cgroup, nil
 }
 
-func (c *Client) LoadCgroup(id ID, path string) {
+func (c *Client) LoadCgroup(id ID, path string) bool {
+	if c.version == V1 && id == 1 {
+		// Skip loading root cgroup.
+		return false
+	}
+
 	c.cgroupMu.Lock()
 	defer c.cgroupMu.Unlock()
 
 	path = c.fixCgroupPath(path)
-
 	c.cgroupCacheByID[id] = sync.OnceValue(func() *Cgroup {
 		cgroup := c.loadCgroupForIDAndPath(id, path)
 		return cgroup
 	})
+	return true
 }
 
 var systemSliceRegexp = regexp.MustCompile(`^/system\.slice/docker-[a-f0-9]+\.scope/`)

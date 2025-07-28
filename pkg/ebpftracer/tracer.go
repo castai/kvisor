@@ -39,7 +39,7 @@ type ContainerClient interface {
 
 type CgroupClient interface {
 	GetCgroupsRootPath() string
-	LoadCgroup(id cgroup.ID, path string)
+	LoadCgroup(id cgroup.ID, path string) bool
 	CleanupCgroup(cgroup cgroup.ID)
 	IsDefaultHierarchy(uint32) bool
 }

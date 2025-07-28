@@ -130,13 +130,15 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs types.Args) error {
 	args := parsedArgs.(types.CgroupMkdirArgs)
 	// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
-	if int(args.CgroupId) == 1 || !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
+	if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
 		return nil
 	}
 
 	t.log.Debugf("received cgroup mkdir event cgroup=%d, path=%s", args.CgroupId, args.CgroupPath)
 
-	t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath)
+	if !t.cfg.CgroupClient.LoadCgroup(args.CgroupId, args.CgroupPath) {
+		return nil
+	}
 	if _, err := t.cfg.ContainerClient.AddContainerByCgroupID(context.Background(), args.CgroupId); err != nil {
 		if errors.Is(err, containers.ErrContainerNotFound) {
 			err := t.MuteEventsFromCgroup(eventCtx.CgroupID, fmt.Sprintf("container not found during mkdir, path=%s", args.CgroupPath))
@@ -145,7 +147,7 @@ func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs
 			}
 			return nil
 		}
-		t.log.Errorf("cannot add container to cgroup %d: %v", args.CgroupId, err)
+		t.log.Errorf("cannot add container to cgroup=%d, path=%s: %v", args.CgroupId, args.CgroupPath, err)
 	}
 	return nil
 }
