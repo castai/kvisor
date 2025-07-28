@@ -130,7 +130,7 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 func (t *Tracer) handleCgroupMkdirEvent(eventCtx *types.EventContext, parsedArgs types.Args) error {
 	args := parsedArgs.(types.CgroupMkdirArgs)
 	// We we only care about events from the default cgroup, as cgroup v1 does not have unified cgroups.
-	if !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) || args.CgroupId == 1 {
+	if int(args.CgroupId) == 1 || !t.cfg.CgroupClient.IsDefaultHierarchy(args.HierarchyId) {
 		return nil
 	}
 

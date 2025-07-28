@@ -75,8 +75,14 @@ func TestClientFixPath(t *testing.T) {
 			version:      V2,
 		},
 		{
-			name:         "add root cgroup prefix for cgroup v1",
+			name:         "add cpuset prefix for cgroup v1",
 			path:         "/file.scope",
+			expectedPath: "/cgroups/cpuset/file.scope",
+			version:      V1,
+		},
+		{
+			name:         "skip adding cpuset prefix for cgroup v1 if already exist",
+			path:         "/cpuset/file.scope",
 			expectedPath: "/cgroups/cpuset/file.scope",
 			version:      V1,
 		},
