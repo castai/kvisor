@@ -165,7 +165,7 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 		}
 		added++
 	}
-	c.log.Debugf("loaded %d containers out of %d", added, len(containersList.Containers))
+	c.log.Infof("loaded %d containers out of %d", added, len(containersList.Containers))
 	return nil
 }
 
