@@ -49,34 +49,45 @@ func TestContainerByCgroup(t *testing.T) {
 }
 
 func TestClientFixPath(t *testing.T) {
-	c := newTestClient()
-	c.cgRoot = "/cgroups"
 
 	tests := []struct {
 		name         string
 		path         string
 		expectedPath string
+		version      Version
 	}{
 		{
 			name:         "fix system slice path",
 			path:         "/system.slice/docker-4cc818a75eb691c5efb9c943b0c3a26ec8e0a05acb60bef4717315e65d671774.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod12fdc709_933e_41d0_917f_cd84de9afa94.slice/cri-containerd-c46bafd57b2ef55a23c1319893c8aa5bfca24872bd95258700a51059941fb69e.scope",
 			expectedPath: "/cgroups/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod12fdc709_933e_41d0_917f_cd84de9afa94.slice/cri-containerd-c46bafd57b2ef55a23c1319893c8aa5bfca24872bd95258700a51059941fb69e.scope",
+			version:      V2,
 		},
 		{
 			name:         "add root cgroup prefix",
 			path:         "/file.scope",
 			expectedPath: "/cgroups/file.scope",
+			version:      V2,
 		},
 		{
 			name:         "no changes for valid path",
 			path:         "/cgroups/file.scope",
 			expectedPath: "/cgroups/file.scope",
+			version:      V2,
+		},
+		{
+			name:         "add root cgroup prefix for cgroup v1",
+			path:         "/file.scope",
+			expectedPath: "/cgroups/cpuset/file.scope",
+			version:      V1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
+			c := newTestClient()
+			c.cgRoot = "/cgroups"
+			c.version = tt.version
 			actualPath := c.fixCgroupPath(tt.path)
 			r.Equal(tt.expectedPath, actualPath)
 		})

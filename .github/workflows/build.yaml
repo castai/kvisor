@@ -70,20 +70,6 @@ jobs:
       - name: Build linter go binary arm64
         run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-linter
 
-      - name: Run golangci-lint
-        # You may pin to the exact commit or the version.
-        # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
-        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
-        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
-        with:
-          args: -v --timeout=5m
-          version: v2.0.2
-          only-new-issues: false
-
-      - name: Test
-        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
-        run: go test -race -short ./...
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
 
@@ -156,6 +142,20 @@ jobs:
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-scanners:latest
+
+      - name: Run golangci-lint
+        # You may pin to the exact commit or the version.
+        # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
+        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
+        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
+        with:
+          args: -v --timeout=5m
+          version: v2.0.2
+          only-new-issues: false
+
+      - name: Test
+        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
+        run: go test -race -short ./...
 
       - name: Summary
         run: |

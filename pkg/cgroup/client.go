@@ -185,8 +185,9 @@ func (c *Client) fixCgroupPath(path string) string {
 	if strings.HasPrefix(path, "/system.slice/docker-") {
 		path = systemSliceRegexp.ReplaceAllString(path, "/")
 	}
-	if !strings.HasPrefix(path, c.cgRoot) {
-		path = filepath.Join(c.cgRoot, path)
+	rootDir := c.getCgroupSearchBasePath()
+	if !strings.HasPrefix(path, rootDir) {
+		path = filepath.Join(rootDir, path)
 	}
 	return path
 }
