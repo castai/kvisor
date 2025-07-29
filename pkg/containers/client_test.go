@@ -111,15 +111,6 @@ func TestClient(t *testing.T) {
 			return true
 		})
 		r.Len(cachedContainers, 2)
-		//c1 := cachedContainers[0]
-		//r.Equal("c1", c1.ID)
-		//r.Equal(1, int(c1.CgroupID))
-		//r.Equal("pod", c1.PodName)
-		//r.Equal("pod1", c1.PodUID)
-		//r.Equal("ns1", c1.PodNamespace)
-		//r.Equal("cont", c1.Name)
-		//r.Equal("k8s-label-val", c1.Labels["k8s-label"])
-		//r.Equal("k8s-annotation-val", c1.Annotations["k8s-annotation"])
 	})
 
 	t.Run("deleting inactive containers during containers load", func(t *testing.T) {

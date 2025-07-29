@@ -259,7 +259,7 @@ func (c *Client) upsertContainer(cont *criapi.Container) error {
 	c.mu.RLock()
 	cachedCont, found := c.containersByID[cont.Id]
 	c.mu.RUnlock()
-	if found {
+	if found && (cachedCont.Err == nil || errors.Is(cachedCont.Err, ErrContainerNotFound)) {
 		cachedCont.markAccessed()
 		return nil
 	}
