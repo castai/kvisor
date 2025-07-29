@@ -42,7 +42,7 @@ jobs:
           extra_args: --only-verified
 
       - name: Setup Go
-        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version-file: "go.mod"
 
@@ -74,7 +74,7 @@ jobs:
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
@@ -85,7 +85,7 @@ jobs:
 
       - name: Docker build and push pr (controller)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
         with:
           context: .
           file: ./Dockerfile.controller
@@ -95,7 +95,7 @@ jobs:
 
       - name: Docker build and push pr (agent)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
         with:
           context: .
           file: ./Dockerfile.agent
@@ -105,7 +105,7 @@ jobs:
 
       - name: Docker build and push pr (scanners)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
         with:
           context: .
           file: ./Dockerfile.scanners
@@ -115,7 +115,7 @@ jobs:
 
       - name: Docker build and push main (controller)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
         with:
           context: .
           file: ./Dockerfile.controller
@@ -125,7 +125,7 @@ jobs:
 
       - name: Docker build and push main (agent)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
         with:
           context: .
           file: ./Dockerfile.agent
@@ -135,7 +135,7 @@ jobs:
 
       - name: Docker build and push main (scanners)
         if: ${{ github.event_name != 'pull_request' &&  github.event_name != 'release'}}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
         with:
           context: .
           file: ./Dockerfile.scanners
@@ -147,7 +147,7 @@ jobs:
         # You may pin to the exact commit or the version.
         # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
-        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
+        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
         with:
           args: -v --timeout=5m
           version: v2.0.2
@@ -190,7 +190,7 @@ jobs:
           echo "Head commit sha ${head}"
 
       - name: Setup Go
-        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version-file: "go.mod"
 
