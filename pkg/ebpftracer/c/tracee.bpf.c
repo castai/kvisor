@@ -2724,9 +2724,18 @@ int BPF_KPROBE(trace_security_inode_follow_link,
     return events_ringbuf_submit(&p, PROC_FD_LINK_RESOLVED, 0);
 }
 
-SEC("kprobe/security_file_open")
-int BPF_KPROBE(security_file_open)
+// For file access tracking we use do_filp_open kretprobe instead of kprobe/security_file_open.
+// In overlayfs security_file_open is triggered for both lower and upperdirs for the same file, but only device changes.
+// By using do_filp_open we get only one call during file open and file path is already fully resolved.
+SEC("kretprobe/do_filp_open")
+int BPF_KRETPROBE(trace_do_filp_open)
 {
+    struct file *file = (struct file *)PT_REGS_RC(ctx);
+    u64 inode = BPF_CORE_READ(file, f_inode, i_ino);
+    if (inode == 0) {
+        return 0;
+    }
+
     program_data_t p = {};
     if (!init_program_data(&p, ctx)) {
         return 0;
@@ -2742,13 +2751,11 @@ int BPF_KPROBE(security_file_open)
     }
 
     if (should_submit(FILE_ACCESS_STATS, p.event)) {
-        struct file *file = (struct file *) PT_REGS_PARM1(ctx);
         init_task_context(&p.event->context.task, p.task);
         record_file_access(&p.event->context.task, file);
     }
 
     if (should_submit(SECURITY_FILE_OPEN, p.event)) {
-        struct file *file = (struct file *) PT_REGS_PARM1(ctx);
         void *file_path = get_path_str(__builtin_preserve_access_index(&file->f_path));
         u64 inode = BPF_CORE_READ(file, f_inode, i_ino);
         u32 dev = BPF_CORE_READ(file, f_inode, i_sb, s_dev);

@@ -141,7 +141,6 @@ type tracerProgramSpecs struct {
 	KernelWriteMagicReturn          *ebpf.ProgramSpec `ebpf:"kernel_write_magic_return"`
 	OomMarkVictim                   *ebpf.ProgramSpec `ebpf:"oom_mark_victim"`
 	SchedProcessExecEventSubmitTail *ebpf.ProgramSpec `ebpf:"sched_process_exec_event_submit_tail"`
-	SecurityFileOpen                *ebpf.ProgramSpec `ebpf:"security_file_open"`
 	SocketTaskFileIter              *ebpf.ProgramSpec `ebpf:"socket_task_file_iter"`
 	SysDupExitTail                  *ebpf.ProgramSpec `ebpf:"sys_dup_exit_tail"`
 	SysEnterInit                    *ebpf.ProgramSpec `ebpf:"sys_enter_init"`
@@ -150,6 +149,7 @@ type tracerProgramSpecs struct {
 	SysExitSubmit                   *ebpf.ProgramSpec `ebpf:"sys_exit_submit"`
 	SyscallExecve                   *ebpf.ProgramSpec `ebpf:"syscall__execve"`
 	SyscallExecveat                 *ebpf.ProgramSpec `ebpf:"syscall__execveat"`
+	TraceDoFilpOpen                 *ebpf.ProgramSpec `ebpf:"trace_do_filp_open"`
 	TraceExecBinprm                 *ebpf.ProgramSpec `ebpf:"trace_exec_binprm"`
 	TraceFdInstall                  *ebpf.ProgramSpec `ebpf:"trace_fd_install"`
 	TraceFileModified               *ebpf.ProgramSpec `ebpf:"trace_file_modified"`
@@ -370,7 +370,6 @@ type tracerPrograms struct {
 	KernelWriteMagicReturn          *ebpf.Program `ebpf:"kernel_write_magic_return"`
 	OomMarkVictim                   *ebpf.Program `ebpf:"oom_mark_victim"`
 	SchedProcessExecEventSubmitTail *ebpf.Program `ebpf:"sched_process_exec_event_submit_tail"`
-	SecurityFileOpen                *ebpf.Program `ebpf:"security_file_open"`
 	SocketTaskFileIter              *ebpf.Program `ebpf:"socket_task_file_iter"`
 	SysDupExitTail                  *ebpf.Program `ebpf:"sys_dup_exit_tail"`
 	SysEnterInit                    *ebpf.Program `ebpf:"sys_enter_init"`
@@ -379,6 +378,7 @@ type tracerPrograms struct {
 	SysExitSubmit                   *ebpf.Program `ebpf:"sys_exit_submit"`
 	SyscallExecve                   *ebpf.Program `ebpf:"syscall__execve"`
 	SyscallExecveat                 *ebpf.Program `ebpf:"syscall__execveat"`
+	TraceDoFilpOpen                 *ebpf.Program `ebpf:"trace_do_filp_open"`
 	TraceExecBinprm                 *ebpf.Program `ebpf:"trace_exec_binprm"`
 	TraceFdInstall                  *ebpf.Program `ebpf:"trace_fd_install"`
 	TraceFileModified               *ebpf.Program `ebpf:"trace_file_modified"`
@@ -418,7 +418,6 @@ func (p *tracerPrograms) Close() error {
 		p.KernelWriteMagicReturn,
 		p.OomMarkVictim,
 		p.SchedProcessExecEventSubmitTail,
-		p.SecurityFileOpen,
 		p.SocketTaskFileIter,
 		p.SysDupExitTail,
 		p.SysEnterInit,
@@ -427,6 +426,7 @@ func (p *tracerPrograms) Close() error {
 		p.SysExitSubmit,
 		p.SyscallExecve,
 		p.SyscallExecveat,
+		p.TraceDoFilpOpen,
 		p.TraceExecBinprm,
 		p.TraceFdInstall,
 		p.TraceFileModified,

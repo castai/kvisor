@@ -242,22 +242,33 @@ func printFileAccessStats(ctx context.Context, log *logging.Logger, t *ebpftrace
 			}
 
 			var res []fileAccessRaw
+			fsCahce := map[string]fileAccessRaw{}
+			var dups []string
 
 			fmt.Println("=== File access stats")
 			for i, key := range keys {
 				val := vals[i]
-
-				res = append(res, fileAccessRaw{
+				rec := fileAccessRaw{
 					CgroupID: key.CgroupId,
 					Inode:    key.Inode,
 					Dev:      key.Dev,
 					Reads:    val.Reads,
 					FilePath: unix.ByteSliceToString(val.Filepath[:]),
-				})
-				fmt.Printf("cgroup=%d, path=%s reads=%d, inode=%d\n", key.CgroupId, unix.ByteSliceToString(val.Filepath[:]), val.Reads, key.Inode)
+				}
+				cacheKey := fmt.Sprintf("%d-%s", key.CgroupId, rec.FilePath)
+				if prev, ok := fsCahce[cacheKey]; ok {
+					dups = append(dups, fmt.Sprintf("cgroup=%d inode=%d:%d dev=%d:%d reads=%d:%d path=%s:%s", key.CgroupId, key.Inode, prev.Inode, key.Dev, prev.Dev, val.Reads, prev.Reads, rec.FilePath, prev.FilePath))
+				} else {
+					fsCahce[cacheKey] = rec
+				}
+				res = append(res, rec)
+				fmt.Printf("cgroup=%d, path=%s reads=%d, inode=%d dev=%d\n", key.CgroupId, unix.ByteSliceToString(val.Filepath[:]), val.Reads, key.Inode, key.Dev)
 			}
 
-			fmt.Println("total", len(keys))
+			fmt.Printf("total=%d, dups=%d\n", len(keys), len(dups))
+			for _, dup := range dups {
+				fmt.Println(dup)
+			}
 		}
 	}
 }

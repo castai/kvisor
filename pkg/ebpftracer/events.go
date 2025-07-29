@@ -5733,7 +5733,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:    "security_file_open",
 			dependencies: dependencies{
 				probes: []EventProbe{
-					{handle: ProbeSecurityFileOpen, required: true},
+					{handle: ProbeDoFilpOpen, required: true},
 				},
 			},
 			sets: []string{},
@@ -5749,7 +5749,7 @@ func newEventsDefinitionSet(objs *tracerObjects) map[events.ID]definition {
 			name:    "file_access_stats",
 			dependencies: dependencies{
 				probes: []EventProbe{
-					{handle: ProbeSecurityFileOpen, required: true},
+					{handle: ProbeDoFilpOpen, required: true},
 				},
 			},
 			internal: true,

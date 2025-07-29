@@ -195,7 +195,6 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.extraArgs.netflow-export-interval=5s \
   --set agent.extraArgs.process-tree-enabled=true \
   --set agent.extraArgs.data-batch-flush-interval=1s \
-  --set agent.extraArgs.containers-refresh-interval=5s \
   --set agent.extraArgs.ebpf-events-include-pod-labels="name\,app\,app.kubernetes.io/name\,app.kubernetes.io/component" \
   --set agent.extraArgs.ebpf-events-include-pod-annotations="cast.ai\,checksum/config"  \
   --set controller.extraArgs.castai-server-insecure=true \
