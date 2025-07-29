@@ -197,6 +197,7 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 		for _, cont := range inactiveCachedContainers {
 			c.CleanupByCgroupID(cont.CgroupID)
 		}
+		c.log.Infof("removed %d inactive containers", l)
 	}
 
 	return nil
