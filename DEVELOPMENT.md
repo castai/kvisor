@@ -484,3 +484,39 @@ spec:
     matchLabels:
       app.kubernetes.io/name: castai-kvisor-agent
 ```
+
+### Finding details in procfs by cgroup inode
+
+Let's say we have cgroup inode 12844.
+We can find useful details in /proc and /sys/fs/cgroup
+
+#### Find cgroup file location
+```sh
+find /sys/fs/cgroup/ -inum 12844
+
+# Example Output:
+# /sys/fs/cgroup/system.slice/docker-fcbd11c886bdaa771d13f109450275adf8b24a9fc60e0a2a89eb35b7d35ac142.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-poda64a957d_9b1a_4a1d_aa5c_0d4aa7ab0509.slice/cri-containerd-028375b9de015bdd987d11a3d6bae0b57b295250000e06fb134e23c04b9bd5c3.scope
+```
+
+#### Find the root process
+
+We can find root process by searching for cgroup file by container hash in procfs.
+```sh
+grep -rl "028375b9de015bdd987d11a3d6bae0b57b295250000e06fb134e23c04b9bd5c3" /proc/*/cgroup
+
+#Example output
+# /proc/5517/cgroup
+```
+
+#### Access containers root filesystem
+
+Now by knowing pid we can access containers root filesystem
+
+```sh
+stat /proc/5517/root/usr/lib/aarch64-linux-gnu/libmnl.so.0.2.0
+```
+
+Also see
+```sh
+/tools/hack/cgroup-root-pid.sh 12844
+```

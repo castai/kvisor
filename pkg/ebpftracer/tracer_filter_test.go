@@ -116,10 +116,11 @@ func (m MockCgroupClient) CleanupCgroup(cgroup cgroup.ID) {
 	}
 }
 
-func (m MockCgroupClient) LoadCgroup(id cgroup.ID, path string) {
+func (m MockCgroupClient) LoadCgroup(id cgroup.ID, path string) bool {
 	if m.CgroupLoader != nil {
 		m.CgroupLoader(id, path)
 	}
+	return true
 }
 
 type MockContainerClient struct {
