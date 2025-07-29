@@ -140,7 +140,7 @@ func (c *MockContainerClient) GetOrLoadContainerByCgroupID(ctx context.Context, 
 	return c.ContainerGetter(ctx, cgroup)
 }
 
-func (c *MockContainerClient) CleanupCgroup(cgroup uint64) {
+func (c *MockContainerClient) CleanupByCgroupID(cgroup uint64) {
 	if c.CgroupCleaner == nil {
 		return
 	}

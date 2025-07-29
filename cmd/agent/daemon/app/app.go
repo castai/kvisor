@@ -332,11 +332,8 @@ func containersRefreshLoop(ctx context.Context, interval time.Duration, log *log
 		select {
 		case <-ticker.C:
 			func() {
-				start := time.Now()
 				if err := client.LoadContainers(ctx); err != nil {
-					log.Warnf("refreshing containers, duration=%v: %v", err, time.Since(start))
-				} else {
-					log.Infof("refreshed containers, duration=%v", time.Since(start))
+					log.Warnf("refreshing containers: %v", err)
 				}
 			}()
 		case <-ctx.Done():
