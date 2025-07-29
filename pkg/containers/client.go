@@ -222,7 +222,8 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 			// TODO: This is quick fix to prevent constant search for invalid containers.
 			// Check for some better error handling. For example container client network error could occur.
 			cont = &Container{
-				Err: rerrr,
+				Err:                   rerrr,
+				lastAccessTimeSeconds: &atomic.Int64{},
 			}
 			c.mu.Lock()
 			c.containersByCgroup[cgroupID] = cont
