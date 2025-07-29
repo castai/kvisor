@@ -197,7 +197,6 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 		for _, cont := range inactiveCachedContainers {
 			c.CleanupByCgroupID(cont.CgroupID)
 		}
-		c.log.Infof("removed %d inactive containers", l)
 	}
 
 	return nil
@@ -222,9 +221,11 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 			// TODO: This is quick fix to prevent constant search for invalid containers.
 			// Check for some better error handling. For example container client network error could occur.
 			cont = &Container{
+				CgroupID:              cgroupID,
 				Err:                   rerrr,
 				lastAccessTimeSeconds: &atomic.Int64{},
 			}
+			cont.markAccessed()
 			c.mu.Lock()
 			c.containersByCgroup[cgroupID] = cont
 			c.mu.Unlock()
