@@ -114,6 +114,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		containerdClient:           containerdClient,
 		cgroupClient:               cgroupClient,
 		containersByCgroup:         map[uint64]*Container{},
+		containersByID:             map[string]*Container{},
 		procHandler:                procHandler,
 		criRuntimeServiceClient:    criRuntimeServiceClient,
 		forwardedLabels:            labels,
