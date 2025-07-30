@@ -34,7 +34,7 @@ type ActualDestinationGetter interface {
 type ContainerClient interface {
 	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup cgroup.ID) (*containers.Container, error)
 	AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID) (cont *containers.Container, rerrr error)
-	CleanupCgroup(cgroup cgroup.ID)
+	CleanupByCgroupID(cgroup cgroup.ID)
 }
 
 type CgroupClient interface {
@@ -518,7 +518,7 @@ func (t *Tracer) removeCgroups(cgroupIDs []cgroup.ID) {
 	t.removedCgroupsMu.Unlock()
 
 	for _, id := range cgroupIDs {
-		t.cfg.ContainerClient.CleanupCgroup(id)
+		t.cfg.ContainerClient.CleanupByCgroupID(id)
 		t.cfg.CgroupClient.CleanupCgroup(id)
 	}
 }

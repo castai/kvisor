@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
@@ -38,17 +39,30 @@ type Container struct {
 
 	Labels      map[string]string
 	Annotations map[string]string
+
+	lastAccessTimeSeconds *atomic.Int64
+}
+
+func (c *Container) markAccessed() {
+	c.lastAccessTimeSeconds.Store(time.Now().Unix())
+}
+
+type criClient interface {
+	ListPodSandbox(ctx context.Context, in *criapi.ListPodSandboxRequest, opts ...grpc.CallOption) (*criapi.ListPodSandboxResponse, error)
+	ListContainers(ctx context.Context, in *criapi.ListContainersRequest, opts ...grpc.CallOption) (*criapi.ListContainersResponse, error)
+}
+
+type cgroupsClient interface {
+	LoadCgroupByID(cgroupID cgroup.ID) (*cgroup.Cgroup, error)
+	LoadCgroupByContainerID(containerID string) (*cgroup.Cgroup, error)
 }
 
 // Client is generic container client.
 type Client struct {
 	log                     *logging.Logger
 	containerdClient        *containerd.Client
-	cgroupClient            *cgroup.Client
-	criRuntimeServiceClient criapi.RuntimeServiceClient
-
-	containersByCgroup map[uint64]*Container
-	mu                 sync.RWMutex
+	cgroupClient            cgroupsClient
+	criRuntimeServiceClient criClient
 
 	containerCreatedListeners []ContainerCreatedListener
 	containerDeletedListeners []ContainerDeletedListener
@@ -58,6 +72,11 @@ type Client struct {
 
 	forwardedLabels      []string
 	forwardedAnnotations []string
+
+	containersByID             map[string]*Container
+	containersByCgroup         map[uint64]*Container
+	mu                         sync.RWMutex
+	inactiveContainersDuration time.Duration
 }
 
 func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
@@ -91,14 +110,16 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	}
 
 	return &Client{
-		log:                     log.WithField("component", "cgroups"),
-		containerdClient:        containerdClient,
-		cgroupClient:            cgroupClient,
-		containersByCgroup:      map[uint64]*Container{},
-		procHandler:             procHandler,
-		criRuntimeServiceClient: criRuntimeServiceClient,
-		forwardedLabels:         labels,
-		forwardedAnnotations:    annotations,
+		log:                        log.WithField("component", "cgroups"),
+		containerdClient:           containerdClient,
+		cgroupClient:               cgroupClient,
+		containersByCgroup:         map[uint64]*Container{},
+		containersByID:             map[string]*Container{},
+		procHandler:                procHandler,
+		criRuntimeServiceClient:    criRuntimeServiceClient,
+		forwardedLabels:            labels,
+		forwardedAnnotations:       annotations,
+		inactiveContainersDuration: 2 * time.Minute,
 	}, nil
 }
 
@@ -142,6 +163,8 @@ func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, er
 }
 
 func (c *Client) LoadContainers(ctx context.Context) error {
+	start := time.Now()
+	// Load latest running containers and upsert to local containers cache.
 	containersList, err := c.criRuntimeServiceClient.ListContainers(ctx, &criapi.ListContainersRequest{
 		Filter: &criapi.ContainerFilter{
 			State: &criapi.ContainerStateValue{
@@ -152,20 +175,31 @@ func (c *Client) LoadContainers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	c.mu.Lock()
-	c.containersByCgroup = map[uint64]*Container{}
-	c.mu.Unlock()
-
 	var added int
 	for _, container := range containersList.Containers {
-		err = c.addContainer(container)
+		err = c.upsertContainer(container)
 		if err != nil {
-			c.log.Warnf("adding container, state=%v %v %v: %v", container.State, container.Id, container.Labels, err)
+			c.log.Warnf("upserting container, state=%v %v %v: %v", container.State, container.Id, container.Labels, err)
 			continue
 		}
 		added++
 	}
-	c.log.Infof("loaded %d containers out of %d", added, len(containersList.Containers))
+	c.log.Infof("loaded %d containers out of %d, duration=%v", added, len(containersList.Containers), time.Since(start))
+
+	// Cleanup any inactive containers.
+	now := time.Now().UTC()
+	inactiveCachedContainers := c.ListContainers(func(cont *Container) bool {
+		diff := now.Sub(time.Unix(cont.lastAccessTimeSeconds.Load(), 0).UTC())
+		return diff > c.inactiveContainersDuration
+	})
+
+	if l := len(inactiveCachedContainers); l > 0 {
+		for _, cont := range inactiveCachedContainers {
+			c.CleanupByCgroupID(cont.CgroupID)
+		}
+		c.log.Infof("removed %d inactive containers", l)
+	}
+
 	return nil
 }
 
@@ -188,8 +222,11 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 			// TODO: This is quick fix to prevent constant search for invalid containers.
 			// Check for some better error handling. For example container client network error could occur.
 			cont = &Container{
-				Err: rerrr,
+				CgroupID:              cgroupID,
+				Err:                   rerrr,
+				lastAccessTimeSeconds: &atomic.Int64{},
 			}
+			cont.markAccessed()
 			c.mu.Lock()
 			c.containersByCgroup[cgroupID] = cont
 			c.mu.Unlock()
@@ -221,7 +258,17 @@ func (c *Client) AddContainerByCgroupID(ctx context.Context, cgroupID cgroup.ID)
 	return c.addContainerWithCgroup(resp.Containers[0], cg)
 }
 
-func (c *Client) addContainer(cont *criapi.Container) error {
+func (c *Client) upsertContainer(cont *criapi.Container) error {
+	// Fast path. If container is already added skip loading it's cgroup and metadata.
+	c.mu.RLock()
+	cachedCont, found := c.containersByID[cont.Id]
+	c.mu.RUnlock()
+	if found && (cachedCont.Err == nil || errors.Is(cachedCont.Err, ErrContainerNotFound)) {
+		cachedCont.markAccessed()
+		return nil
+	}
+
+	// Find cgroup in cgroups file system and load container k8s metadata.
 	cg, err := c.cgroupClient.LoadCgroupByContainerID(cont.Id)
 	if err != nil || cg.ContainerID == "" {
 		if errors.Is(err, cgroup.ErrCgroupNotFound) {
@@ -246,14 +293,16 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	}
 
 	cont = &Container{
-		ID:           cg.ContainerID,
-		Name:         containerName,
-		CgroupID:     cg.Id,
-		PodNamespace: podNamespace,
-		PodUID:       podID,
-		PodName:      podName,
-		Cgroup:       cg,
+		ID:                    cg.ContainerID,
+		Name:                  containerName,
+		CgroupID:              cg.Id,
+		PodNamespace:          podNamespace,
+		PodUID:                podID,
+		PodName:               podName,
+		Cgroup:                cg,
+		lastAccessTimeSeconds: &atomic.Int64{},
 	}
+	cont.markAccessed()
 
 	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -288,6 +337,7 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 
 	c.mu.Lock()
 	c.containersByCgroup[cg.Id] = cont
+	c.containersByID[cont.ID] = cont
 	c.mu.Unlock()
 
 	c.log.Debugf("added container, cgroup=%d id=%s pod=%s name=%s sandbox=%s", cg.Id, container.Id, podName, containerName, container.PodSandboxId)
@@ -318,11 +368,17 @@ func (c *Client) getPodSandbox(ctx context.Context, cont *criapi.Container) (*cr
 	return sandboxResp.Items[0], nil
 }
 
-func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*Container, error) {
-	container, found, err := c.LookupContainerForCgroupInCache(cgroup)
+func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (cont *Container, rerr error) {
+	container, found, err := c.lookupContainerForCgroupInCache(cgroup)
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		if rerr == nil {
+			cont.markAccessed()
+		}
+	}()
 
 	if !found {
 		metrics.AgentLoadContainerByCgroup.Inc()
@@ -332,7 +388,7 @@ func (c *Client) GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64
 	return container, nil
 }
 
-func (c *Client) LookupContainerForCgroupInCache(cgroup uint64) (*Container, bool, error) {
+func (c *Client) lookupContainerForCgroupInCache(cgroup uint64) (*Container, bool, error) {
 	c.mu.RLock()
 	container, found := c.containersByCgroup[cgroup]
 	c.mu.RUnlock()
@@ -348,14 +404,17 @@ func (c *Client) LookupContainerForCgroupInCache(cgroup uint64) (*Container, boo
 	return container, true, nil
 }
 
-func (c *Client) CleanupCgroup(cgroup cgroup.ID) {
+func (c *Client) CleanupByCgroupID(cgroup cgroup.ID) {
 	c.mu.Lock()
 	container := c.containersByCgroup[cgroup]
 	delete(c.containersByCgroup, cgroup)
+	if container != nil {
+		delete(c.containersByID, container.ID)
+	}
 	c.mu.Unlock()
 
 	if container != nil {
-		c.fireContainerDeletedListeners(container)
+		go c.fireContainerDeletedListeners(container)
 	}
 }
 

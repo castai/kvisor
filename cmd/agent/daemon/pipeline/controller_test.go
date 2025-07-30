@@ -1008,16 +1008,7 @@ func (m *mockContainersClient) GetOrLoadContainerByCgroupID(ctx context.Context,
 	return nil, containers.ErrContainerNotFound
 }
 
-func (m *mockContainersClient) LookupContainerForCgroupInCache(cgroup uint64) (*containers.Container, bool, error) {
-	for _, v := range m.list {
-		if v.CgroupID == cgroup {
-			return v, true, nil
-		}
-	}
-	return nil, false, containers.ErrContainerNotFound
-}
-
-func (m *mockContainersClient) CleanupCgroup(cgroup cgroup.ID) {
+func (m *mockContainersClient) CleanupByCgroupID(cgroup cgroup.ID) {
 	return
 }
 

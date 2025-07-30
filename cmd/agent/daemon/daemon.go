@@ -111,8 +111,7 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventLabels      = command.Flags().StringSlice("ebpf-events-include-pod-labels", []string{}, "List of label keys to be sent with eBPF events, separated by comma")
 		ebpfEventAnnotations = command.Flags().StringSlice("ebpf-events-include-pod-annotations", []string{}, "List of annotation keys to be sent with eBPF events, separated by comma")
 
-		// TODO: Enable containers refresh once perf issue is fixed.
-		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 0, "Containers refresh interval")
+		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 2*time.Minute, "Containers refresh interval")
 	)
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")

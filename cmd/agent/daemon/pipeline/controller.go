@@ -39,9 +39,8 @@ type Config struct {
 
 type containersClient interface {
 	ListContainers(filter func(c *containers.Container) bool) []*containers.Container
-	GetOrLoadContainerByCgroupID(ctx context.Context, cgroup uint64) (*containers.Container, error)
-	LookupContainerForCgroupInCache(cgroup uint64) (*containers.Container, bool, error)
-	CleanupCgroup(cgroup cgroup.ID)
+	GetOrLoadContainerByCgroupID(ctx context.Context, cgroupID uint64) (*containers.Container, error)
+	CleanupByCgroupID(cgroupID cgroup.ID)
 	GetCgroupsInNamespace(namespace string) []uint64
 	RegisterContainerCreatedListener(l containers.ContainerCreatedListener)
 	RegisterContainerDeletedListener(l containers.ContainerDeletedListener)
