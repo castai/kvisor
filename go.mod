@@ -3,57 +3,57 @@ module github.com/castai/kvisor
 go 1.24.4
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.32.2
+	github.com/ClickHouse/clickhouse-go/v2 v2.40.1
 	github.com/aquasecurity/testdocker v0.0.0-20240730052646-35e4cd04890c
-	github.com/aquasecurity/trivy v0.61.0
+	github.com/aquasecurity/trivy v0.65.0
 	github.com/castai/image-analyzer v0.8.0
-	github.com/cenkalti/backoff/v5 v5.0.2
+	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/cilium v1.17.0-pre.2
-	github.com/cilium/ebpf v0.17.3
-	github.com/containerd/containerd v1.7.27
+	github.com/cilium/cilium v1.18.0
+	github.com/cilium/ebpf v0.19.0
+	github.com/containerd/containerd v1.7.28
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
 	github.com/fatih/color v1.18.0
 	github.com/florianl/go-conntrack v0.4.0
-	github.com/go-playground/validator/v10 v10.26.0
-	github.com/golang/glog v1.2.4
-	github.com/google/go-containerregistry v0.20.3
+	github.com/go-playground/validator/v10 v10.27.0
+	github.com/golang/glog v1.2.5
+	github.com/google/go-containerregistry v0.20.6
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
 	github.com/iancoleman/strcase v0.3.0
-	github.com/jedib0t/go-pretty/v6 v6.6.7
+	github.com/jedib0t/go-pretty/v6 v6.6.8
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/labstack/echo/v4 v4.13.3
-	github.com/magiconair/properties v1.8.9
+	github.com/labstack/echo/v4 v4.13.4
+	github.com/magiconair/properties v1.8.10
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/ginkgo v1.16.5
-	github.com/prometheus/client_golang v1.21.1
-	github.com/redis/go-redis/v9 v9.7.3
-	github.com/samber/lo v1.49.1
+	github.com/prometheus/client_golang v1.23.0
+	github.com/redis/go-redis/v9 v9.12.0
+	github.com/samber/lo v1.51.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	github.com/testcontainers/testcontainers-go v0.35.0
+	github.com/testcontainers/testcontainers-go v0.38.0
 	github.com/tklauser/go-sysconf v0.3.15
 	github.com/vishvananda/netns v0.0.5
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/net v0.41.0
-	golang.org/x/sync v0.15.0
-	golang.org/x/sys v0.33.0
-	golang.org/x/time v0.11.0
-	golang.stackrox.io/kube-linter v0.7.3-0.20250507172404-3f4b9037f56f
-	google.golang.org/grpc v1.71.1
-	google.golang.org/protobuf v1.36.6
+	golang.org/x/net v0.43.0
+	golang.org/x/sync v0.16.0
+	golang.org/x/sys v0.35.0
+	golang.org/x/time v0.12.0
+	golang.stackrox.io/kube-linter v0.7.5
+	google.golang.org/grpc v1.74.2
+	google.golang.org/protobuf v1.36.7
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/client-go v0.32.3
-	k8s.io/cri-api v0.32.2
+	k8s.io/api v0.33.3
+	k8s.io/apimachinery v0.33.3
+	k8s.io/client-go v0.33.3
+	k8s.io/cri-api v0.33.3
 )
 
 require (
@@ -408,7 +408,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.27.0
 	golang.org/x/oauth2 v0.29.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
@@ -432,4 +432,4 @@ require (
 )
 
 // Needed by keda https://github.com/kedacore/keda/blob/main/go.mod#L140
-replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.54.0
+replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.305.0
