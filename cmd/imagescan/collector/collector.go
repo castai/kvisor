@@ -14,6 +14,7 @@ import (
 	fanalyzer "github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/cenkalti/backoff/v5"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/samber/lo"
@@ -191,29 +192,22 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing image reference: %w", err)
 	}
+
 	if c.cfg.Mode == config.ModeRemote {
 		opts := types.ImageOptions{}
+		var dockerAuth *authn.AuthConfig
+
 		if c.cfg.ImagePullSecret != "" {
 			configData, err := config.ReadImagePullSecret(os.DirFS(config.SecretMountPath))
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading image pull secret: %w", err)
 			}
-			cfg := image.DockerConfig{}
+			var cfg image.DockerConfig
 			if err := json.Unmarshal(configData, &cfg); err != nil {
 				return nil, nil, fmt.Errorf("parsing image pull secret: %w", err)
 			}
-
-			if _, auth, ok := findRegistryAuth(cfg, imgRef, c.log); ok {
-				if auth.Username == "" || auth.Password == "" {
-					if auth.Token != "" {
-						opts.RegistryOptions.RegistryToken = auth.Token
-					}
-				} else {
-					opts.RegistryOptions.Credentials = append(opts.RegistryOptions.Credentials, types.Credential{
-						Username: auth.Username,
-						Password: auth.Password,
-					})
-				}
+			if _, authCfg, ok := findRegistryAuth(cfg, imgRef, c.log); ok {
+				dockerAuth = &authCfg
 			} else {
 				c.log.Infof("image pull secret %q cannot be used to pull %q", c.cfg.ImagePullSecret, imgRef.String())
 			}
@@ -226,6 +220,7 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 				return nil, nil, fmt.Errorf("unmarshaling docker options file: %w", err)
 			}
 		}
+
 		if c.cfg.ImageArchitecture != "" && c.cfg.ImageOS != "" {
 			opts.RegistryOptions.Platform = types.Platform{
 				Platform: &v1.Platform{
@@ -234,7 +229,8 @@ func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(),
 				},
 			}
 		}
-		img, err := image.NewFromRemote(ctx, c.log, c.cfg.ImageName, opts)
+
+		img, err := image.NewFromRemote(ctx, c.log, c.cfg.ImageName, opts, dockerAuth)
 		return img, func() {}, err
 	}
 
@@ -268,7 +264,7 @@ func (c *Collector) sendResult(ctx context.Context, imageMetadata *castaipb.Imag
 	return nil
 }
 
-func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.FieldLogger) (string, image.RegistryAuth, bool) {
+func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.FieldLogger) (string, authn.AuthConfig, bool) {
 	imageRepo := fmt.Sprintf("%s/%s", imgRef.Context().RegistryStr(), imgRef.Context().RepositoryStr())
 	log.Infof("finding registry auth for image %s", imageRepo)
 
@@ -284,7 +280,7 @@ func findRegistryAuth(cfg image.DockerConfig, imgRef name.Reference, log logrus.
 		}
 	}
 
-	return "", image.RegistryAuth{}, false
+	return "", authn.AuthConfig{}, false
 }
 
 var (

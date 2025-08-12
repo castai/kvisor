@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -355,21 +356,24 @@ func startCPUProfile(name string) {
 }
 
 func TestFindRegistryAuth(t *testing.T) {
-	registryAuth := image.RegistryAuth{Username: "u", Password: "p", Token: "t"}
+	registryAuth := authn.AuthConfig{
+		Username:      "u",
+		Password:      "p",
+		RegistryToken: "t",
+	}
 
 	tests := []struct {
-		name     string
-		cfg      image.DockerConfig
-		imageRef name.Reference
-
+		name          string
+		cfg           image.DockerConfig
+		imageRef      name.Reference
 		expectedFound bool
 		expectedKey   string
-		expectedAuth  image.RegistryAuth
+		expectedAuth  authn.AuthConfig
 	}{
 		{
 			name: "find auth for image",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"a":                       registryAuth,
 					"gitlab.com":              registryAuth,
 					"us-east4-docker.pkg.dev": registryAuth,
@@ -384,7 +388,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "find auth for image with trailing slash",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"a":                        registryAuth,
 					"gitlab.com":               registryAuth,
 					"us-east4-docker.pkg.dev/": registryAuth,
@@ -399,7 +403,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "find auth scoped by repository",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"a":                                    registryAuth,
 					"us-east4-docker.pkg.dev":              registryAuth,
 					"us-east4-docker.pkg.dev/project/repo": registryAuth,
@@ -414,7 +418,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "find auth scoped by repository with trailing slash",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"a":                                     registryAuth,
 					"us-east4-docker.pkg.dev/":              registryAuth,
 					"us-east4-docker.pkg.dev/project/repo/": registryAuth,
@@ -429,7 +433,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "find auth for http or https prefixed auths",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"a": registryAuth,
 					"https://us-east4-docker.pkg.dev/project/repo": registryAuth,
 					"x": {},
@@ -443,7 +447,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "no auth for unmatched auths",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"a": registryAuth,
 					"https://us-east4-docker.pkg.dev/project/repo": registryAuth,
 					"x": {},
@@ -452,12 +456,12 @@ func TestFindRegistryAuth(t *testing.T) {
 			imageRef:      name.MustParseReference("nginx:latest"),
 			expectedFound: false,
 			expectedKey:   "",
-			expectedAuth:  image.RegistryAuth{},
+			expectedAuth:  authn.AuthConfig{},
 		},
 		{
 			name: "default docker registry",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"docker.io": registryAuth,
 				},
 			},
@@ -469,7 +473,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "default docker registry with version",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"docker.io/v2": registryAuth,
 				},
 			},
@@ -481,7 +485,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "default docker registry with index",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"index.docker.io": registryAuth,
 				},
 			},
@@ -493,7 +497,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "default docker registry with index and version v1",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"index.docker.io/v1": registryAuth,
 				},
 			},
@@ -505,7 +509,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "default docker registry with index and version",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"index.docker.io/v2": registryAuth,
 				},
 			},
@@ -517,7 +521,7 @@ func TestFindRegistryAuth(t *testing.T) {
 		{
 			name: "default docker registry with protocol, index and version",
 			cfg: image.DockerConfig{
-				Auths: map[string]image.RegistryAuth{
+				Auths: map[string]authn.AuthConfig{
 					"https://index.docker.io/v2/": registryAuth,
 				},
 			},
