@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/containerd/containerd"
+	"github.com/opencontainers/go-digest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
@@ -41,6 +42,7 @@ type Container struct {
 	Annotations map[string]string
 
 	lastAccessTimeSeconds *atomic.Int64
+	ImageDigest           digest.Digest
 }
 
 func (c *Container) markAccessed() {
@@ -303,6 +305,15 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 		lastAccessTimeSeconds: &atomic.Int64{},
 	}
 	cont.markAccessed()
+
+	getImageCtx, cancelGetImageCtx := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancelGetImageCtx()
+	img, err := c.containerdClient.ImageService().Get(getImageCtx, container.Image.Image)
+	if err != nil {
+		c.log.Warnf("getting image %s: %v", container.Image.Image, err)
+	} else {
+		cont.ImageDigest = img.Target.Digest
+	}
 
 	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

@@ -484,6 +484,7 @@ func (t *testCASTAIServer) validateEvents(ctx context.Context, timeout time.Dura
 				r.NotEmpty(batch.PodUid)
 				r.NotEmpty(batch.ContainerId)
 				r.NotEmpty(batch.CgroupId)
+				r.NotEmpty(batch.ImageDigest)
 
 				var foundDNS bool
 				var foundTCP bool

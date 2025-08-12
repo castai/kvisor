@@ -99,6 +99,7 @@ message ContainerEvents {
   string container_name = 7;
   string container_id = 8;
   string pod_uid = 9;
+  string image_digest = 14;
   map<string, string> object_labels = 10;
   map<string, string> object_annotations = 11;
   uint64 cgroup_id = 12;
