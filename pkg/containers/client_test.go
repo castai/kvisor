@@ -9,6 +9,8 @@ import (
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -31,6 +33,9 @@ func TestClient(t *testing.T) {
 					"io.kubernetes.pod.name":       "pod",
 					"io.kubernetes.pod.uid":        "pod1",
 					"io.kubernetes.container.name": "cont",
+				},
+				Image: &criapi.ImageSpec{
+					Image: "image",
 				},
 			},
 		}
@@ -82,6 +87,9 @@ func TestClient(t *testing.T) {
 		client.criRuntimeServiceClient.(*mockCriClient).containers = []*criapi.Container{
 			{
 				Id: "c2",
+				Image: &criapi.ImageSpec{
+					Image: "image",
+				},
 			},
 		}
 		client.cgroupClient.(*mockCgroupClient).cgroupsByID = map[cgroup.ID]*cgroup.Cgroup{
@@ -159,6 +167,7 @@ func newTestClient() *Client {
 		containersByID:             map[string]*Container{},
 		containersByCgroup:         map[uint64]*Container{},
 		inactiveContainersDuration: 1 * time.Minute,
+		containerdClient:           &mockContainerdClient{},
 	}
 }
 
@@ -196,4 +205,24 @@ func (m *mockCgroupClient) LoadCgroupByContainerID(containerID string) (*cgroup.
 		}
 	}
 	return nil, fmt.Errorf("cgroup by container %s not found", containerID)
+}
+
+type mockContainerdClient struct {
+	images map[string]*containerd.Image
+}
+
+func (m *mockContainerdClient) GetImage(ctx context.Context, ref string) (containerd.Image, error) {
+	img, found := m.images[ref]
+	if !found {
+		return nil, fmt.Errorf("image %s not found", ref)
+	}
+	return *img, nil
+}
+
+func (m *mockContainerdClient) Close() error {
+	return nil
+}
+
+func (m *mockContainerdClient) TaskService() tasks.TasksClient {
+	return nil
 }

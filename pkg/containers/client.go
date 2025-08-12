@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/opencontainers/go-digest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -59,10 +60,16 @@ type cgroupsClient interface {
 	LoadCgroupByContainerID(containerID string) (*cgroup.Cgroup, error)
 }
 
+type containerdClient interface {
+	GetImage(ctx context.Context, ref string) (containerd.Image, error)
+	Close() error
+	TaskService() tasks.TasksClient
+}
+
 // Client is generic container client.
 type Client struct {
 	log                     *logging.Logger
-	containerdClient        *containerd.Client
+	containerdClient        containerdClient
 	cgroupClient            cgroupsClient
 	criRuntimeServiceClient criClient
 
@@ -308,11 +315,11 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 
 	getImageCtx, cancelGetImageCtx := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancelGetImageCtx()
-	img, err := c.containerdClient.ImageService().Get(getImageCtx, container.Image.Image)
+	img, err := c.containerdClient.GetImage(getImageCtx, container.Image.Image)
 	if err != nil {
 		c.log.Warnf("getting image %s: %v", container.Image.Image, err)
 	} else {
-		cont.ImageDigest = img.Target.Digest
+		cont.ImageDigest = img.Target().Digest
 	}
 
 	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
