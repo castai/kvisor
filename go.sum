@@ -840,6 +840,10 @@ github.com/bytecodealliance/wasmtime-go/v3 v3.0.2 h1:3uZCA/BLTIu+DqCfguByNMJa2HV
 github.com/bytecodealliance/wasmtime-go/v3 v3.0.2/go.mod h1:RnUjnIXxEJcL6BgCvNyzCCRzZcxCgsZCi+RNlvYor5Q=
 github.com/castai/image-analyzer v0.8.0 h1:+Xl/GphvcP8SE6r1G4G6vD7qX0NlIXJLLRphe50htfI=
 github.com/castai/image-analyzer v0.8.0/go.mod h1:85ovIeloF6nst4kaBWC39L0r31HwlgqLOykopVCo/ag=
+github.com/castai/image-analyzer v0.9.0 h1:2RIy/SRE186cShLGGilDFG/Epp1HuyI95Dfx6SZ5+MI=
+github.com/castai/image-analyzer v0.9.0/go.mod h1:85ovIeloF6nst4kaBWC39L0r31HwlgqLOykopVCo/ag=
+github.com/castai/image-analyzer v0.9.1 h1:oJKxq6bToMAa6JwCs2hiNtOjzcRhvZjK5Koyix1C9DM=
+github.com/castai/image-analyzer v0.9.1/go.mod h1:85ovIeloF6nst4kaBWC39L0r31HwlgqLOykopVCo/ag=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cenkalti/backoff/v5 v5.0.2 h1:rIfFVxEf1QsI7E1ZHfp/B4DF/6QBAUhmgkxc0H7Zss8=
