@@ -12,6 +12,7 @@ require (
 	github.com/cilium/cilium v1.17.0-pre.2
 	github.com/cilium/ebpf v0.17.3
 	github.com/containerd/containerd v1.7.27
+	github.com/containerd/containerd/api v1.8.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
 	github.com/fatih/color v1.18.0
@@ -29,6 +30,7 @@ require (
 	github.com/magiconair/properties v1.8.9
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/prometheus/client_golang v1.21.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/samber/lo v1.49.1
@@ -113,7 +115,6 @@ require (
 	github.com/cilium/workerpool v1.2.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20250121191232-2f005788dc42 // indirect
 	github.com/containerd/cgroups/v3 v3.0.3 // indirect
-	github.com/containerd/containerd/api v1.8.0 // indirect
 	github.com/containerd/containerd/v2 v2.0.5 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
@@ -367,8 +368,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/opencontainers/selinux v1.11.1 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
