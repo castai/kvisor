@@ -144,6 +144,7 @@ message ContainerStats {
   string container_id = 6;
   string node_name = 8;
   string workload_uid = 9;
+  string image_digest = 11;
   uint64 cgroup_id = 10;
 
   CpuStats cpu_stats = 21;
