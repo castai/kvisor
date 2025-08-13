@@ -9,10 +9,52 @@ import (
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/logging"
+	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/images"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
+
+func TestSortManifests(t *testing.T) {
+	index := ocispec.Index{
+		Manifests: []ocispec.Descriptor{
+			{
+				Platform: &ocispec.Platform{
+					Architecture: "arm64",
+				},
+			},
+			{
+				Platform: &ocispec.Platform{
+					Architecture: "rest",
+				},
+			},
+			{
+				Platform: &ocispec.Platform{
+					Architecture: "arm64",
+					Variant:      "v8",
+				},
+			},
+			{
+				Platform: &ocispec.Platform{
+					Architecture: "amd64",
+				},
+			},
+		},
+	}
+
+	sortIndexManifests(&index)
+
+	sorted := lo.Map(index.Manifests, func(item ocispec.Descriptor, index int) string {
+		return item.Platform.Architecture + item.Platform.Variant
+	})
+
+	require.Equal(t, []string{"amd64", "arm64v8", "arm64", "rest"}, sorted)
+}
 
 func TestClient(t *testing.T) {
 	ctx := context.Background()
@@ -31,6 +73,9 @@ func TestClient(t *testing.T) {
 					"io.kubernetes.pod.name":       "pod",
 					"io.kubernetes.pod.uid":        "pod1",
 					"io.kubernetes.container.name": "cont",
+				},
+				Image: &criapi.ImageSpec{
+					Image: "img1",
 				},
 			},
 		}
@@ -58,6 +103,46 @@ func TestClient(t *testing.T) {
 			},
 		}
 
+		client.containerdClient.(*mockContainerdClient).images = map[string]containerd.Image{
+			"img1": containerd.NewImage(&containerd.Client{}, images.Image{
+				Target: ocispec.Descriptor{
+					Digest: "index-manifest-digest",
+				},
+			}),
+		}
+
+		client.containerContentStoreClient.(*mockContainerContentStoreClient).files = map[string]*contentStoreFile{
+			"index-manifest-digest": {
+				data: []byte(`
+{
+  "manifests": [
+    {
+      "digest": "sha256:83a4745a9c165dd4da61a49ddb76550909859bf6ed62d41974e31559eec7fb8e",
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      }
+    },
+    {
+      "digest": "sha256:eafc1edb577d2e9b458664a15f23ea1c370214193226069eb22921169fc7e43f",
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      }
+    }
+  ]
+}
+`),
+			},
+			"sha256:eafc1edb577d2e9b458664a15f23ea1c370214193226069eb22921169fc7e43f": {
+				data: []byte(`
+{
+  "digest": "sha256:eafc1edb577d2e9b458664a15f23ea1c370214193226069eb22921169fc7e43f"
+}
+`),
+			},
+		}
+
 		err := client.LoadContainers(ctx)
 		r.NoError(err)
 
@@ -74,6 +159,7 @@ func TestClient(t *testing.T) {
 		r.Equal("cont", c1.Name)
 		r.Equal("k8s-label-val", c1.Labels["k8s-label"])
 		r.Equal("k8s-annotation-val", c1.Annotations["k8s-annotation"])
+		r.Equal("sha256:eafc1edb577d2e9b458664a15f23ea1c370214193226069eb22921169fc7e43f", c1.ImageDigest.String())
 	})
 
 	t.Run("load containers and merge to cached containers", func(t *testing.T) {
@@ -82,6 +168,9 @@ func TestClient(t *testing.T) {
 		client.criRuntimeServiceClient.(*mockCriClient).containers = []*criapi.Container{
 			{
 				Id: "c2",
+				Image: &criapi.ImageSpec{
+					Image: "image",
+				},
 			},
 		}
 		client.cgroupClient.(*mockCgroupClient).cgroupsByID = map[cgroup.ID]*cgroup.Cgroup{
@@ -153,12 +242,14 @@ func TestClient(t *testing.T) {
 
 func newTestClient() *Client {
 	return &Client{
-		log:                        logging.NewTestLog(),
-		criRuntimeServiceClient:    &mockCriClient{},
-		cgroupClient:               &mockCgroupClient{},
-		containersByID:             map[string]*Container{},
-		containersByCgroup:         map[uint64]*Container{},
-		inactiveContainersDuration: 1 * time.Minute,
+		log:                         logging.NewTestLog(),
+		criRuntimeServiceClient:     &mockCriClient{},
+		cgroupClient:                &mockCgroupClient{},
+		containersByID:              map[string]*Container{},
+		containersByCgroup:          map[uint64]*Container{},
+		inactiveContainersDuration:  1 * time.Minute,
+		containerdClient:            &mockContainerdClient{},
+		containerContentStoreClient: &mockContainerContentStoreClient{},
 	}
 }
 
@@ -196,4 +287,52 @@ func (m *mockCgroupClient) LoadCgroupByContainerID(containerID string) (*cgroup.
 		}
 	}
 	return nil, fmt.Errorf("cgroup by container %s not found", containerID)
+}
+
+type mockContainerdClient struct {
+	images map[string]containerd.Image
+}
+
+func (m *mockContainerdClient) GetImage(ctx context.Context, ref string) (containerd.Image, error) {
+	img, found := m.images[ref]
+	if !found {
+		return nil, fmt.Errorf("image %s not found", ref)
+	}
+	return img, nil
+}
+
+func (m *mockContainerdClient) Close() error {
+	return nil
+}
+
+func (m *mockContainerdClient) TaskService() tasks.TasksClient {
+	return nil
+}
+
+type mockContainerContentStoreClient struct {
+	files map[string]*contentStoreFile
+}
+
+func (m *mockContainerContentStoreClient) ReaderAt(ctx context.Context, desc ocispec.Descriptor) (content.ReaderAt, error) {
+	if f, found := m.files[desc.Digest.String()]; found {
+		return f, nil
+	}
+	return nil, fmt.Errorf("file %s not found", desc.Digest)
+}
+
+type contentStoreFile struct {
+	data []byte
+}
+
+func (m *contentStoreFile) ReadAt(p []byte, off int64) (n int, err error) {
+	copy(p, m.data[off:])
+	return len(p), nil
+}
+
+func (m *contentStoreFile) Close() error {
+	return nil
+}
+
+func (m *contentStoreFile) Size() int64 {
+	return int64(len(m.data))
 }
