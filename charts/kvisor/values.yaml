@@ -58,6 +58,9 @@ agent:
     # If not set and create is true, a name is generated using the fullname template
     name: ""
 
+  # Specifies whether the service account token should be automounted.
+  automountServiceAccountToken: false
+
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
