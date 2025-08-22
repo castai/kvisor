@@ -2,11 +2,8 @@ package containers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,10 +14,6 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/api/services/tasks/v1"
-	"github.com/containerd/containerd/content"
-	"github.com/opencontainers/go-digest"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
@@ -48,7 +41,6 @@ type Container struct {
 	Annotations map[string]string
 
 	lastAccessTimeSeconds *atomic.Int64
-	ImageDigest           digest.Digest
 }
 
 func (c *Container) markAccessed() {
@@ -65,23 +57,12 @@ type cgroupsClient interface {
 	LoadCgroupByContainerID(containerID string) (*cgroup.Cgroup, error)
 }
 
-type containerdClient interface {
-	GetImage(ctx context.Context, ref string) (containerd.Image, error)
-	Close() error
-	TaskService() tasks.TasksClient
-}
-
-type containerContentStoreClient interface {
-	ReaderAt(ctx context.Context, desc ocispec.Descriptor) (content.ReaderAt, error)
-}
-
 // Client is generic container client.
 type Client struct {
-	log                         *logging.Logger
-	containerdClient            containerdClient
-	cgroupClient                cgroupsClient
-	criRuntimeServiceClient     criClient
-	containerContentStoreClient containerContentStoreClient
+	log                     *logging.Logger
+	containerdClient        *containerd.Client
+	cgroupClient            cgroupsClient
+	criRuntimeServiceClient criClient
 
 	containerCreatedListeners []ContainerCreatedListener
 	containerDeletedListeners []ContainerDeletedListener
@@ -129,17 +110,16 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	}
 
 	return &Client{
-		log:                         log.WithField("component", "cgroups"),
-		containerdClient:            containerdClient,
-		containerContentStoreClient: containerdClient.ContentStore(),
-		cgroupClient:                cgroupClient,
-		containersByCgroup:          map[uint64]*Container{},
-		containersByID:              map[string]*Container{},
-		procHandler:                 procHandler,
-		criRuntimeServiceClient:     criRuntimeServiceClient,
-		forwardedLabels:             labels,
-		forwardedAnnotations:        annotations,
-		inactiveContainersDuration:  2 * time.Minute,
+		log:                        log.WithField("component", "cgroups"),
+		containerdClient:           containerdClient,
+		cgroupClient:               cgroupClient,
+		containersByCgroup:         map[uint64]*Container{},
+		containersByID:             map[string]*Container{},
+		procHandler:                procHandler,
+		criRuntimeServiceClient:    criRuntimeServiceClient,
+		forwardedLabels:            labels,
+		forwardedAnnotations:       annotations,
+		inactiveContainersDuration: 2 * time.Minute,
 	}, nil
 }
 
@@ -324,12 +304,6 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	}
 	cont.markAccessed()
 
-	imageDigest, err := c.findImageDigest(container)
-	if err != nil {
-		c.log.Warnf("finding image digest for container %v: %v", container.Id, err)
-	}
-	cont.ImageDigest = imageDigest
-
 	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	sandbox, err := c.getPodSandbox(getSandboxCtx, container)
@@ -371,90 +345,6 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	go c.fireContainerCreatedListeners(cont)
 
 	return cont, nil
-}
-
-// findImageDigest tries to find actual image digest based on config file or manifest.
-// Image digest on the container can point to index manifest digest.
-func (c *Client) findImageDigest(container *criapi.Container) (digest.Digest, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	dig := container.ImageId
-	if dig == "" {
-		dig = container.Image.Image
-	}
-
-	// Fetch image details.
-	img, err := c.containerdClient.GetImage(ctx, dig)
-	if err != nil {
-		return "", err
-	}
-	imageDigest := img.Target().Digest
-
-	// Check if this digest points to index manifest. If it doesn't we can return current digest.
-	imgContent, err := c.containerContentStoreClient.ReaderAt(ctx, ocispec.Descriptor{
-		Digest: imageDigest,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer imgContent.Close()
-	data, err := readAllFromReaderAt(imgContent, imgContent.Size())
-	if err != nil {
-		return "", err
-	}
-	var index ocispec.Index
-	if err := json.Unmarshal(data, &index); err != nil || len(index.Manifests) == 0 {
-		// If we can't parse to index, assume we already have a correct digest.
-		return imageDigest, nil
-	}
-
-	// Image points to index manifest. We need to find index manifest file and
-	// poke file system by each manifest in order. The first one which is found should point to actual manifest digest.
-	sortIndexManifests(&index)
-	for _, manifest := range index.Manifests {
-		imgContent, err = c.containerContentStoreClient.ReaderAt(ctx, ocispec.Descriptor{
-			Digest: manifest.Digest,
-		})
-		if imgContent != nil {
-			imgContent.Close()
-		}
-		if err == nil {
-			// We found actual manifest on the file system.
-			return manifest.Digest, nil
-		}
-	}
-
-	return "", fmt.Errorf("actual image digest not found, initial digest=%s", imageDigest)
-}
-
-func sortIndexManifests(index *ocispec.Index) {
-	sortOrder := map[string]int{
-		"amd64":   -4,
-		"arm64v8": -3,
-		"arm64v7": -2,
-		"arm64":   -1,
-	}
-	slices.SortFunc(index.Manifests, func(a, b ocispec.Descriptor) int {
-		a1 := sortOrder[a.Platform.Architecture+a.Platform.Variant]
-		b1 := sortOrder[b.Platform.Architecture+b.Platform.Variant]
-		if a1 < b1 {
-			return -1
-		}
-		if a1 > b1 {
-			return 1
-		}
-		return 0
-	})
-}
-
-func readAllFromReaderAt(r io.ReaderAt, size int64) ([]byte, error) {
-	buf := make([]byte, size)
-	_, err := r.ReadAt(buf, 0)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	return buf, nil
 }
 
 func (c *Client) getPodSandbox(ctx context.Context, cont *criapi.Container) (*criapi.PodSandbox, error) {

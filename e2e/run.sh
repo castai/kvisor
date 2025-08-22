@@ -25,15 +25,15 @@ kind load docker-image $name-e2e:local --name $KIND_CONTEXT
 if [ "$IMAGE_TAG" == "local" ]
 then
   GOOS=linux CGO_ENABLED=0 make clean-kvisor-agent kvisor-agent
-  docker build . -t $name-agent:local --build-arg TARGETARCH=$GOARCH -f Dockerfile.agent
+  docker build . -t $name-agent:local -f Dockerfile.agent
   kind load docker-image $name-agent:local --name $KIND_CONTEXT
 
   GOOS=linux CGO_ENABLED=0 make clean-kvisor-controller kvisor-controller
-  docker build . -t $name-controller:local --build-arg TARGETARCH=$GOARCH -f Dockerfile.controller
+  docker build . -t $name-controller:local -f Dockerfile.controller
   kind load docker-image $name-controller:local --name $KIND_CONTEXT
 
   GOOS=linux CGO_ENABLED=0 make clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kvisor-linter
-  docker build . -t $name-scanners:local --build-arg TARGETARCH=$GOARCH -f Dockerfile.scanners
+  docker build . -t $name-scanners:local -f Dockerfile.scanners
   kind load docker-image $name-scanners:local --name $KIND_CONTEXT
 fi
 
