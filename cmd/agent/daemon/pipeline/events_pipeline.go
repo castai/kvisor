@@ -162,7 +162,6 @@ func (c *Controller) newContainerEventsGroup(e *ebpftypes.Event) *containerEvent
 		ObjectLabels:      e.Container.Labels,
 		ObjectAnnotations: e.Container.Annotations,
 		CgroupId:          e.Context.CgroupID,
-		ImageDigest:       e.Container.ImageDigest.String(),
 		Items:             make([]*castaipb.ContainerEvent, 0, 10), // Preallocate to reduce memory allocations.
 	}
 	if podInfo, found := c.getPodInfo(e.Container.PodUID); found {
