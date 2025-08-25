@@ -115,6 +115,11 @@ func (a *App) Run(ctx context.Context) error {
 			exporter := state.NewCastaiProcessTreeExporter(log, castaiClient, cfg.ExportersQueueSize)
 			exporters.ProcessTree = append(exporters.ProcessTree, exporter)
 		}
+		if cfg.Sustainability.Enabled {
+			// Add CAST AI sustainability exporter for sending data to mothership
+			castaiSustainabilityExporter := state.NewCastaiSustainabilityExporter(log, castaiClient, cfg.ExportersQueueSize)
+			exporters.Sustainability = append(exporters.Sustainability, castaiSustainabilityExporter)
+		}
 	} else {
 		log = logging.New(logCfg)
 		exporters = state.NewExporters(log)
