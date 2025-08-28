@@ -75,6 +75,10 @@ spec:
             - "--clickhouse-username={{.Values.clickhouse.auth.username}}"
           {{- end }}
             - "--kube-api-service-addr={{ include "kvisor.controller.fullname" .}}.{{.Release.Namespace}}:{{ .Values.controller.kubeAPIListenPort }}"
+          {{- if .Values.agent.sustainability.enabled }}
+            - "--sustainability-enabled={{ .Values.agent.sustainability.enabled }}"
+            - "--sustainability-kepler-endpoint={{ .Values.agent.sustainability.keplerEndpoint }}"
+          {{- end }}
           {{- range $key, $value := .Values.agent.extraArgs }}
             - "--{{ $key }}={{ $value }}"
           {{- end }}
@@ -152,6 +156,60 @@ spec:
             - name: containerd-sock
               mountPath: /run/containerd/containerd.sock
               readOnly: true
+        {{- if .Values.agent.sustainability.enabled }}
+        # Kepler sidecar container for energy monitoring
+        - name: kepler
+          image: "quay.io/sustainable_computing_io/kepler:latest"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - SYS_ADMIN
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          command:
+            - /usr/bin/kepler
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KEPLER_LOG_LEVEL
+              value: "1"
+            - name: KEPLER_ENABLE_FAKE_CPU_METER
+              value: "true"
+          ports:
+            - containerPort: 8888
+              name: kepler-metrics
+              protocol: TCP
+          volumeMounts:
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: usr-src
+              mountPath: /usr/src
+              readOnly: true
+            - name: boot
+              mountPath: /boot
+              readOnly: true
+            - name: proc
+              mountPath: /proc
+              readOnly: true
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: kepler-config
+              mountPath: /etc/kepler/config.yaml
+              subPath: config.yaml
+              readOnly: true
+        {{- end }}
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
@@ -182,6 +240,27 @@ spec:
           hostPath:
             path: /run/containerd/containerd.sock
             type: Socket
+        {{- if .Values.agent.sustainability.enabled }}
+        # Kepler
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: usr-src
+          hostPath:
+            path: /usr/src
+        - name: boot
+          hostPath:
+            path: /boot
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: kepler-config
+          configMap:
+            name: kepler-config
+        {{- end }}
 {{- end }}
 ---
 {{- if .Values.agent.serviceAccount.create -}}
@@ -262,4 +341,49 @@ spec:
         values:
           - {{ .Values.agent.priorityClass }}
 {{- end }}
+{{- end }}
+{{- if .Values.agent.sustainability.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-kepler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kepler
+spec:
+  ports:
+  - name: kepler-metrics
+    port: 8888
+    protocol: TCP
+    targetPort: kepler-metrics
+  selector:
+    {{- include "kvisor.agent.selectorLabels" . | nindent 4 }}
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    cpu-estimator-address: ""
+    dram-estimator-address: ""
+    other-estimator-address: ""
+    uncore-estimator-address: ""
+    gpu-estimator-address: ""
+    enabledGPU: false
+    cpu:
+      msr:
+        enabled: false
+      acpi:
+        enabled: false
+      gpu:
+        nvml:
+          enabled: false
+        dcgm:
+          enabled: false
+    use-fake-cpu-power: false
 {{- end }}

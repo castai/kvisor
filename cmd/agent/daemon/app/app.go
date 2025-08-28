@@ -240,11 +240,12 @@ func (a *App) Run(ctx context.Context) error {
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
-			Netflow:     cfg.Netflow,
-			Events:      cfg.Events,
-			Stats:       cfg.Stats,
-			ProcessTree: cfg.ProcessTree,
-			DataBatch:   cfg.DataBatch,
+			Netflow:        cfg.Netflow,
+			Events:         cfg.Events,
+			Stats:          cfg.Stats,
+			ProcessTree:    cfg.ProcessTree,
+			Sustainability: cfg.Sustainability,
+			DataBatch:      cfg.DataBatch,
 		},
 		exporters,
 		containersClient,

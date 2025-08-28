@@ -76,3 +76,24 @@ func ClickhouseContainerEventsSchema() string {
 		TTL toDateTime(ts) + INTERVAL 24 HOUR;
 	`
 }
+
+func ClickhouseSustainabilityStatsSchema() string {
+	return `
+CREATE TABLE IF NOT EXISTS sustainability_stats
+(
+	ts DateTime64(9, 'UTC'),
+	namespace LowCardinality(String) CODEC(ZSTD(1)),
+	pod_name LowCardinality(String) CODEC(ZSTD(1)),
+	container_name LowCardinality(String) CODEC(ZSTD(1)),
+	node_name LowCardinality(String) CODEC(ZSTD(1)),
+	energy_joules Float64,
+	carbon_grams_co2e Float64,
+	cost_usd Float64,
+	carbon_intensity_gco2_per_kwh Float64,
+	energy_price_usd_per_kwh Float64
+)
+ENGINE = MergeTree()
+ORDER BY (ts, namespace, container_name)
+TTL toDateTime(ts) + INTERVAL 24 HOUR;
+`
+}

@@ -30,11 +30,14 @@ func (d *dataBatchWriter) Name() string {
 func (d *dataBatchWriter) Write(ctx context.Context, req *castaipb.WriteDataBatchRequest) error {
 	var netflows []*castaipb.Netflow
 	var events []*castaipb.ContainerEvents
+	var sustainabilityStats []*castaipb.SustainabilityStats
 	for _, item := range req.Items {
 		if v := item.GetContainerEvents(); v != nil {
 			events = append(events, v)
 		} else if v := item.GetNetflow(); v != nil {
 			netflows = append(netflows, v)
+		} else if v := item.GetSustainabilityStats(); v != nil {
+			sustainabilityStats = append(sustainabilityStats, v)
 		}
 	}
 
@@ -45,6 +48,11 @@ func (d *dataBatchWriter) Write(ctx context.Context, req *castaipb.WriteDataBatc
 	}
 	for _, e := range events {
 		if err := d.insertEventsGroup(ctx, e); err != nil {
+			return err
+		}
+	}
+	for _, s := range sustainabilityStats {
+		if err := d.insertSustainabilityStats(ctx, s); err != nil {
 			return err
 		}
 	}
@@ -157,6 +165,24 @@ func (d *dataBatchWriter) insertEventsGroup(ctx context.Context, group *castaipb
 	return nil
 }
 
+func (d *dataBatchWriter) insertSustainabilityStats(ctx context.Context, stats *castaipb.SustainabilityStats) error {
+	return d.conn.AsyncInsert(
+		ctx,
+		sustainabilityStatsInsertQuery,
+		true,
+		time.UnixMicro(int64(stats.Timestamp)/1000),
+		stats.Namespace,
+		stats.PodName,
+		stats.ContainerName,
+		stats.NodeName,
+		stats.EnergyJoules,
+		stats.CarbonGramsCo2E,
+		stats.CostUsd,
+		stats.CarbonIntensityGco2PerKwh,
+		stats.EnergyPriceUsdPerKwh,
+	)
+}
+
 func shouldAddEvent(e *castaipb.ContainerEvent) bool {
 	switch e.EventType {
 	case castaipb.EventType_EVENT_PROCESS_FORK, castaipb.EventType_EVENT_PROCESS_EXIT:
@@ -220,6 +246,22 @@ var netflowInsertQuery = newInsertQueryTemplate(tableConfig{
 		"tx_packets",
 		"rx_bytes",
 		"rx_packets",
+	},
+})
+
+var sustainabilityStatsInsertQuery = newInsertQueryTemplate(tableConfig{
+	name: "sustainability_stats",
+	columns: []string{
+		"ts",
+		"namespace",
+		"pod_name",
+		"container_name",
+		"node_name",
+		"energy_joules",
+		"carbon_grams_co2e",
+		"cost_usd",
+		"carbon_intensity_gco2_per_kwh",
+		"energy_price_usd_per_kwh",
 	},
 })
 

@@ -38,6 +38,10 @@ agent:
   prometheusScrape:
     enabled: true
 
+  sustainability:
+    enabled: true
+    keplerEndpoint: "http://localhost:8888/metrics"
+
   containerSecurityContext:
     readOnlyRootFilesystem: false
 

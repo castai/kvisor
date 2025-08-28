@@ -17,6 +17,7 @@ const (
 	PipelineNetflows           string = "netflows"
 	PipelineStats              string = "stats"
 	PipelineInitialProcessTree string = "initial_process_tree"
+	PipelineSustainability     string = "sustainability"
 )
 
 var (
