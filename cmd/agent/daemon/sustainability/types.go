@@ -1,7 +1,7 @@
 package sustainability
 
 const (
-	KeplerContainerEnergyJoulesMetric = "kepler_container_energy_joules"
+	KeplerContainerEnergyJoulesMetric = "kepler_container_joules_total"
 )
 
 // Sustainability calculation constants

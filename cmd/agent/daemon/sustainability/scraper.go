@@ -71,7 +71,7 @@ func (s *Scraper) convertMetricToSustainabilityStats(metric *prom.Metric, timest
 		labels[label.GetName()] = label.GetValue()
 	}
 
-	namespace := labels["pod_namespace"]
+	namespace := labels["container_namespace"]
 	podName := labels["pod_name"]
 	containerName := labels["container_name"]
 	nodeName := labels["instance"]
