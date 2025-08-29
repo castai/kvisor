@@ -14,6 +14,15 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/go-playground/validator/v10"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/samber/lo"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
@@ -37,14 +46,8 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/go-playground/validator/v10"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/samber/lo"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	castailogging "github.com/castai/logging"
+	custommetrics "github.com/castai/metrics"
 )
 
 func New(cfg *config.Config) *App {
@@ -237,6 +240,37 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(proc.Path)
 
+	var metricsClient custommetrics.MetricClient
+	if cfg.Stats.StorageEnabled && cfg.Castai.Valid() {
+		metricsClientConfig := custommetrics.Config{
+			APIAddr:   cfg.Castai.APIGrpcAddr,
+			ClusterID: cfg.Castai.ClusterID,
+			APIToken:  cfg.Castai.APIKey,
+			Insecure:  cfg.Castai.Insecure,
+		}
+
+		castaiLogger := castailogging.New(
+			castailogging.NewTextHandler(castailogging.TextHandlerConfig{
+				Level:     castailogging.MustParseLevel(cfg.LogLevel),
+				Output:    os.Stdout,
+				AddSource: false,
+			}),
+		)
+
+		var err error
+		metricsClient, err = custommetrics.NewMetricClient(metricsClientConfig, castaiLogger)
+		if err != nil {
+			log.Errorf("failed to create metrics client: %v", err)
+		} else {
+			go func() {
+				log.Info("starting storage metrics client")
+				if err := metricsClient.Start(ctx); err != nil {
+					log.Errorf("failed to start storage metrics client: %v", err)
+				}
+			}()
+		}
+	}
+
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
@@ -256,6 +290,7 @@ func (a *App) Run(ctx context.Context) error {
 		processTreeCollector,
 		procHandler,
 		enrichmentService,
+		metricsClient,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)

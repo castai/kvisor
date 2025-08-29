@@ -869,6 +869,7 @@ func newTestController(opts ...any) *Controller {
 	processTreeCollector := &mockProcessTreeController{}
 
 	procHandler := &mockProcHandler{}
+	metricsClient := &mockMetricClient{}
 
 	ctrl := NewController(
 		log,
@@ -883,6 +884,7 @@ func newTestController(opts ...any) *Controller {
 		processTreeCollector,
 		procHandler,
 		enrichService,
+		metricsClient,
 	)
 	return ctrl
 }
@@ -1203,4 +1205,22 @@ func (m mockProcHandler) GetPSIStats(file string) (*castaipb.PSIStats, error) {
 
 func (m mockProcHandler) GetMeminfoStats() (*castaipb.MemoryStats, error) {
 	return &castaipb.MemoryStats{}, nil
+}
+
+type mockMetricClient struct{}
+
+func (m *mockMetricClient) NewMetric(name string, options ...interface{}) (interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockMetricClient) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockMetricClient) Stop() error {
+	return nil
+}
+
+func (m *mockMetricClient) Add(name string, metric interface{}) error {
+	return nil
 }

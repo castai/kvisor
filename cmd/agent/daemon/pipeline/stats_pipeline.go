@@ -4,15 +4,35 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
+
+	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
-	"golang.org/x/sys/unix"
-	"google.golang.org/protobuf/proto"
 )
+
+type BlockDeviceMetrics struct {
+	Name            string    `avro:"name"`
+	NodeName        string    `avro:"node_name"`
+	ReadThroughput  float64   `avro:"read_throughput"`
+	WriteThroughput float64   `avro:"write_throughput"`
+	Timestamp       time.Time `avro:"ts"`
+}
+
+type FilesystemMetrics struct {
+	Device         string    `avro:"device"`
+	NodeName       string    `avro:"node_name"`
+	TotalSize      int64     `avro:"total_size"`
+	UsedSpace      int64     `avro:"used_space"`
+	AvailableSpace int64     `avro:"available_space"`
+	Timestamp      time.Time `avro:"ts"`
+}
 
 type containerStatsGroup struct {
 	pb          *castaipb.ContainerStats
@@ -39,6 +59,22 @@ type nodeScrapePoint struct {
 	prevCpuStat *castaipb.CpuStats
 	prevMemStat *castaipb.MemoryStats
 	prevIOStat  *castaipb.IOStats
+}
+
+type blockDeviceState struct {
+	name            string
+	readBytesTotal  uint64
+	writeBytesTotal uint64
+	scrapedAt       time.Time
+
+	prevReadBytesTotal  uint64
+	prevWriteBytesTotal uint64
+	prevScrapedAt       time.Time
+}
+
+type storageMetricsState struct {
+	blockDevices map[string]*blockDeviceState
+	filesystems  map[string]*FilesystemMetrics
 }
 
 func (c *Controller) runStatsPipeline(ctx context.Context) error {
@@ -105,6 +141,9 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			start := time.Now()
 			c.scrapeNodeStats(nodeStats, batchState)
 			c.scrapeContainersStats(containerStatsGroups, batchState)
+			if c.cfg.Stats.StorageEnabled {
+				c.scrapeStorageMetrics()
+			}
 			send()
 			c.log.Debugf("stats exported, duration=%v", time.Since(start))
 		}
@@ -324,4 +363,195 @@ func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
 		}
 	}
 	return res
+}
+
+func (c *Controller) scrapeStorageMetrics() {
+	if c.k8sClient == nil || c.blockDeviceMetrics == nil || c.filesystemMetrics == nil {
+		c.log.Debug("storage metrics not initialized, skipping")
+		return
+	}
+	req := c.k8sClient.CoreV1().RESTClient().Get().
+		Resource("nodes").
+		Name(c.nodeName).
+		SubResource("proxy").
+		Suffix("metrics/cadvisor")
+
+	body, err := req.DoRaw(context.TODO())
+	if err != nil {
+		c.log.Errorf("failed to fetch cadvisor metrics via k8s client: %v", err)
+		return
+	}
+
+	c.parseAndSendCadvisorMetrics(string(body))
+}
+
+func (c *Controller) parseAndSendCadvisorMetrics(metricsData string) {
+	lines := strings.Split(metricsData, "\n")
+	timestamp := time.Now()
+
+	currentBlockDevices := make(map[string]*blockDeviceState)
+	currentFilesystems := make(map[string]*FilesystemMetrics)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.Contains(line, "container_fs_limit_bytes") ||
+			strings.Contains(line, "container_fs_usage_bytes") {
+			c.parseFilesystemMetric(line, timestamp, currentFilesystems)
+		}
+
+		if strings.Contains(line, "container_blkio_device_usage_total") {
+			c.parseBlockDeviceCounters(line, timestamp, currentBlockDevices)
+		}
+	}
+
+	for deviceName, currentState := range currentBlockDevices {
+		prevState, exists := c.storageState.blockDevices[deviceName]
+		if !exists {
+			c.storageState.blockDevices[deviceName] = currentState
+			continue
+		}
+
+		intervalSeconds := currentState.scrapedAt.Sub(prevState.scrapedAt).Seconds()
+		if intervalSeconds <= 0 {
+			c.log.Warnf("invalid interval for device %s: %v seconds", deviceName, intervalSeconds)
+			continue
+		}
+
+		readBytesDiff := currentState.readBytesTotal - prevState.readBytesTotal
+		writeBytesDiff := currentState.writeBytesTotal - prevState.writeBytesTotal
+
+		blockMetric := &BlockDeviceMetrics{
+			Name:            deviceName,
+			NodeName:        c.nodeName,
+			Timestamp:       timestamp,
+			ReadThroughput:  float64(readBytesDiff) / intervalSeconds,
+			WriteThroughput: float64(writeBytesDiff) / intervalSeconds,
+		}
+
+		if err := c.blockDeviceMetrics.Write(*blockMetric); err != nil {
+			c.log.Errorf("failed to write block device metric: %v", err)
+		}
+
+		prevState.prevReadBytesTotal = prevState.readBytesTotal
+		prevState.prevWriteBytesTotal = prevState.writeBytesTotal
+		prevState.prevScrapedAt = prevState.scrapedAt
+
+		prevState.readBytesTotal = currentState.readBytesTotal
+		prevState.writeBytesTotal = currentState.writeBytesTotal
+		prevState.scrapedAt = currentState.scrapedAt
+	}
+
+	for _, fs := range currentFilesystems {
+		if fs.TotalSize > 0 && fs.UsedSpace >= 0 {
+			fs.AvailableSpace = fs.TotalSize - fs.UsedSpace
+		}
+
+		if err := c.filesystemMetrics.Write(*fs); err != nil {
+			c.log.Errorf("failed to write filesystem metric: %v", err)
+		}
+		c.storageState.filesystems[fs.Device] = fs
+	}
+}
+
+func (c *Controller) parseFilesystemMetric(line string, timestamp time.Time, filesystems map[string]*FilesystemMetrics) {
+	value, labels := c.parsePrometheusLine(line)
+	if value == nil {
+		return
+	}
+
+	device, hasDevice := labels["device"]
+	if !hasDevice {
+		return
+	}
+
+	key := device
+	if filesystems[key] == nil {
+		filesystems[key] = &FilesystemMetrics{
+			NodeName:  c.nodeName,
+			Device:    device,
+			Timestamp: timestamp,
+		}
+	}
+
+	fs := filesystems[key]
+	if strings.Contains(line, "container_fs_limit_bytes") {
+		fs.TotalSize = int64(*value)
+	} else if strings.Contains(line, "container_fs_usage_bytes") {
+		fs.UsedSpace = int64(*value)
+	}
+}
+
+func (c *Controller) parseBlockDeviceCounters(line string, timestamp time.Time, blockDevices map[string]*blockDeviceState) {
+	value, labels := c.parsePrometheusLine(line)
+	if value == nil {
+		return
+	}
+
+	device, hasDevice := labels["device"]
+	if !hasDevice {
+		return
+	}
+
+	operation, hasOperation := labels["operation"]
+	if !hasOperation {
+		return
+	}
+
+	if blockDevices[device] == nil {
+		blockDevices[device] = &blockDeviceState{
+			name:      device,
+			scrapedAt: timestamp,
+		}
+	}
+
+	bd := blockDevices[device]
+	uintValue := uint64(*value)
+
+	switch operation {
+	case "Read":
+		bd.readBytesTotal = uintValue
+	case "Write":
+		bd.writeBytesTotal = uintValue
+	}
+}
+
+func (c *Controller) parsePrometheusLine(line string) (*float64, map[string]string) {
+	// Split metric name/labels from value and timestamp
+	// Format: metric_name{labels} value timestamp
+	parts := strings.Fields(line)
+	if len(parts) < 3 {
+		return nil, nil
+	}
+
+	// Take the second-to-last part as the value (last part is timestamp)
+	value, err := strconv.ParseFloat(parts[len(parts)-2], 64)
+	if err != nil {
+		return nil, nil
+	}
+
+	metricPart := parts[0]
+	labels := make(map[string]string)
+
+	start := strings.Index(metricPart, "{")
+	end := strings.LastIndex(metricPart, "}")
+	if start != -1 && end != -1 && start < end {
+		labelStr := metricPart[start+1 : end]
+		labelPairs := strings.Split(labelStr, ",")
+
+		for _, pair := range labelPairs {
+			kvParts := strings.SplitN(strings.TrimSpace(pair), "=", 2)
+			if len(kvParts) == 2 {
+				key := strings.TrimSpace(kvParts[0])
+				val := strings.Trim(strings.TrimSpace(kvParts[1]), `"`)
+				labels[key] = val
+			}
+		}
+	}
+
+	return &value, labels
 }
