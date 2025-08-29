@@ -59,7 +59,7 @@ agent:
     name: ""
 
   # Specifies whether the service account token should be automounted.
-  automountServiceAccountToken: false
+  automountServiceAccountToken: true
 
   updateStrategy:
     type: RollingUpdate

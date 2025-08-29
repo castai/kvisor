@@ -160,58 +160,81 @@ spec:
               mountPath: /run/containerd/containerd.sock
               readOnly: true
         {{- if .Values.agent.sustainability.enabled }}
-        # Kepler sidecar container for energy monitoring
+        # Kepler (Kubernetes-based Efficient Power Level Exporter) sidecar container
+        # Documentation: https://sustainable-computing.io/
         - name: kepler
           image: "quay.io/sustainable_computing_io/kepler:latest"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
-            privileged: false
+            # Kepler requires privileged mode for:
+            # - Intel RAPL (Running Average Power Limit) sensor access via /sys/class/powercap/intel-rapl
+            # - eBPF program loading and attachment to kernel tracepoints
+            # - Access to MSRs (Model Specific Registers) for CPU power monitoring
+            # - Hardware performance counters (perf events)
+            privileged: true
             readOnlyRootFilesystem: false
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
             capabilities:
               add:
-                - SYS_ADMIN
+                - SYS_ADMIN  # Required for eBPF programs and tracepoint attachment
+                - SYS_RESOURCE  # For resource limit modifications
+                - NET_ADMIN  # For network-related eBPF programs
+                - PERFMON  # For hardware performance counter access (Linux 5.8+)
+                - BPF  # For eBPF operations (Linux 5.8+)
               drop:
                 - ALL
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 200Mi
           command:
             - /usr/bin/kepler
           env:
+            # Node identification
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
             - name: KEPLER_LOG_LEVEL
-              value: "1"
+              value: "info"
             - name: KEPLER_ENABLE_FAKE_CPU_METER
               value: "true"
+            # Feature flags
+            - name: ENABLE_GPU
+              value: "false"  # Set to true if NVIDIA GPUs are present
+            - name: ENABLE_EBPF_CGROUPID
+              value: "true"  # Use eBPF for cgroup-based resource tracking
+            - name: EXPOSE_HW_COUNTER_METRICS
+              value: "true"  # Expose hardware performance counter metrics
+            - name: ENABLE_PROCESS_METRICS
+              value: "false"  # Process-level metrics (high overhead)
+            - name: METRICS_PATH
+              value: "/metrics"
+            - name: BIND_ADDRESS
+              value: "0.0.0.0:8888"
           ports:
             - containerPort: 8888
               name: kepler-metrics
               protocol: TCP
           volumeMounts:
+            # Kernel modules for eBPF
             - name: lib-modules
               mountPath: /lib/modules
               readOnly: true
-            - name: usr-src
-              mountPath: /usr/src
-              readOnly: true
-            - name: boot
-              mountPath: /boot
-              readOnly: true
+            # System information and hardware sensors
+            - name: sys
+              mountPath: /sys
+              readOnly: false  # Write access needed for eBPF maps and tracepoints
+            # Process and container information
             - name: proc
               mountPath: /proc
               readOnly: true
-            - name: sys
-              mountPath: /sys
+            # Optional: Kernel headers for eBPF compilation
+            {{- if .Values.agent.sustainability.mountUsrSrc }}
+            - name: usr-src
+              mountPath: /usr/src
               readOnly: true
-            - name: kepler-config
-              mountPath: /etc/kepler/config.yaml
-              subPath: config.yaml
-              readOnly: true
+            {{- end }}
         {{- end }}
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
@@ -248,21 +271,21 @@ spec:
         - name: lib-modules
           hostPath:
             path: /lib/modules
-        - name: usr-src
-          hostPath:
-            path: /usr/src
-        - name: boot
-          hostPath:
-            path: /boot
-        - name: proc
-          hostPath:
-            path: /proc
+            # Kernel modules for eBPF CO-RE
+            type: DirectoryOrCreate
         - name: sys
           hostPath:
             path: /sys
-        - name: kepler-config
-          configMap:
-            name: kepler-config
+            # Hardware sensors (/sys/class/powercap) and eBPF
+            type: Directory
+        - name: proc
+          hostPath:
+            path: /proc
+            # Process information for container attribution
+            type: Directory
+        - name: usr-src
+          hostPath:
+            path: /sys
         {{- end }}
 {{- end }}
 ---
@@ -356,37 +379,12 @@ metadata:
     {{- include "kvisor.agent.labels" . | nindent 4 }}
     app.kubernetes.io/component: kepler
 spec:
+  type: ClusterIP
   ports:
-  - name: kepler-metrics
-    port: 8888
-    protocol: TCP
-    targetPort: kepler-metrics
+    - port: 8888
+      targetPort: kepler-metrics
+      protocol: TCP
+      name: metrics
   selector:
     {{- include "kvisor.agent.selectorLabels" . | nindent 4 }}
-  type: ClusterIP
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kepler-config
-  namespace: {{ .Release.Namespace }}
-data:
-  config.yaml: |
-    cpu-estimator-address: ""
-    dram-estimator-address: ""
-    other-estimator-address: ""
-    uncore-estimator-address: ""
-    gpu-estimator-address: ""
-    enabledGPU: false
-    cpu:
-      msr:
-        enabled: false
-      acpi:
-        enabled: false
-      gpu:
-        nvml:
-          enabled: false
-        dcgm:
-          enabled: false
-    use-fake-cpu-power: false
 {{- end }}
