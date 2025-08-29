@@ -131,6 +131,7 @@ agent:
   sustainability:
     enabled: true
     keplerEndpoint: "http://localhost:8888/metrics"
+    scrapeInterval: "30s"
 
   # Extra args for egressd collector container.
   extraArgs:

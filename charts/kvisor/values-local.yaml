@@ -41,6 +41,7 @@ agent:
   sustainability:
     enabled: true
     keplerEndpoint: "http://localhost:8888/metrics"
+    scrapeInterval: "10s"
 
   containerSecurityContext:
     readOnlyRootFilesystem: false

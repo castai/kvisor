@@ -90,6 +90,7 @@ func NewRunCommand(version string) *cobra.Command {
 
 		sustainabilityEnabled        = command.Flags().Bool("sustainability-enabled", false, "Enables sustainability metrics collection")
 		sustainabilityKeplerEndpoint = command.Flags().String("sustainability-kepler-endpoint", "http://localhost:8888/metrics", "Kepler metrics endpoint URL")
+		sustainabilityScrapeInterval = command.Flags().Duration("sustainability-scrape-interval", 30*time.Second, "Sustainability metrics scrape interval")
 
 		dataBatchMaxSize       = command.Flags().Uint32("data-batch-max-size", 524288, "Data batch max size in bytes (before compression)")
 		dataBatchFlushInterval = command.Flags().Duration("data-batch-flush-interval", 15*time.Second, "Data batch flush interval. Data is flushed periodically if data batch size is not reached")
@@ -216,6 +217,7 @@ func NewRunCommand(version string) *cobra.Command {
 			Sustainability: config.SustainabilityConfig{
 				Enabled:        *sustainabilityEnabled,
 				KeplerEndpoint: *sustainabilityKeplerEndpoint,
+				ScrapeInterval: *sustainabilityScrapeInterval,
 			},
 			KubeAPIServiceAddr:        *kubeAPIServiceAddr,
 			ExportersQueueSize:        *exportersQueueSize,

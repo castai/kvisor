@@ -78,6 +78,9 @@ spec:
           {{- if .Values.agent.sustainability.enabled }}
             - "--sustainability-enabled={{ .Values.agent.sustainability.enabled }}"
             - "--sustainability-kepler-endpoint={{ .Values.agent.sustainability.keplerEndpoint }}"
+            {{- if .Values.agent.sustainability.scrapeInterval }}
+            - "--sustainability-scrape-interval={{ .Values.agent.sustainability.scrapeInterval }}"
+            {{- end }}
           {{- end }}
           {{- range $key, $value := .Values.agent.extraArgs }}
             - "--{{ $key }}={{ $value }}"

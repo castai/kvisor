@@ -101,6 +101,7 @@ type ProcessTreeConfig struct {
 }
 
 type SustainabilityConfig struct {
-	Enabled        bool   `json:"enabled"`
-	KeplerEndpoint string `json:"keplerEndpoint"`
+	Enabled        bool          `json:"enabled"`
+	KeplerEndpoint string        `json:"keplerEndpoint"`
+	ScrapeInterval time.Duration `json:"scrapeInterval"`
 }

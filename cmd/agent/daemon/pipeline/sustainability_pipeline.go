@@ -14,7 +14,7 @@ func (c *Controller) runSustainabilityPipeline(ctx context.Context) error {
 	defer c.log.Info("sustainability pipeline done")
 
 	scraper := sustainability.NewScraper(c.cfg.Sustainability.KeplerEndpoint)
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(c.cfg.Sustainability.ScrapeInterval)
 	defer ticker.Stop()
 
 	for {
