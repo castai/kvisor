@@ -233,10 +233,6 @@ func (a *App) Run(ctx context.Context) error {
 		PodName: podName,
 	})
 	if err := tracer.Load(); err != nil {
-		if cfg.Sustainability.Enabled {
-			log.Warnf("eBPF tracer failed to load, running in sustainability-only mode: %v", err)
-			return a.runSustainabilityOnlyMode(ctx, log, exporters)
-		}
 		return fmt.Errorf("loading tracer: %w", err)
 	}
 	defer tracer.Close()
@@ -629,8 +625,8 @@ func (p *sustainabilityOnlyPipeline) runSustainabilityPipeline(ctx context.Conte
 func (p *sustainabilityOnlyPipeline) printSustainabilityResults(stats []*castaipb.SustainabilityStats) {
 	p.log.Info("=== SUSTAINABILITY RESULTS ===")
 	for _, stat := range stats {
-		p.log.Infof("Pod: %s/%s/%s | Energy: %.6f J | Carbon: %.6f gCO2e | Cost: $%.8f",
-			stat.Namespace, stat.PodName, stat.ContainerName,
+		p.log.Infof("Instance: %s | Pod: %s/%s/%s | Energy: %.6f J | Carbon: %.6f gCO2e | Cost: $%.8f",
+			stat.NodeName, stat.Namespace, stat.PodName, stat.ContainerName,
 			stat.EnergyJoules, stat.CarbonGramsCo2E, stat.CostUsd)
 	}
 	p.log.Info("=== END SUSTAINABILITY RESULTS ===")

@@ -54,8 +54,9 @@ func (s *Scraper) parsePrometheusMetrics(r io.Reader) ([]*castaipb.Sustainabilit
 		return stats, nil
 	}
 
+	nodeNameFromMetrics := s.extractNodeNameFromMetrics(metricFamilies)
 	for _, metric := range energyFamily.GetMetric() {
-		stat, err := s.convertMetricToSustainabilityStats(metric, timestamp)
+		stat, err := s.convertMetricToSustainabilityStats(metric, timestamp, nodeNameFromMetrics)
 		if err != nil {
 			continue
 		}
@@ -65,18 +66,39 @@ func (s *Scraper) parsePrometheusMetrics(r io.Reader) ([]*castaipb.Sustainabilit
 	return stats, nil
 }
 
-func (s *Scraper) convertMetricToSustainabilityStats(metric *prom.Metric, timestamp int64) (*castaipb.SustainabilityStats, error) {
+func (s *Scraper) extractNodeNameFromMetrics(metricFamilies map[string]*prom.MetricFamily) string {
+	nodeMetrics := []string{
+		KeplerNodeEnergyJoulesMetric,
+		KeplerNodeCoreEnergyJoulesMetric,
+		KeplerNodeDramEnergyJoulesMetric,
+		KeplerNodePackageEnergyJoulesMetric,
+		KeplerNodeUncoreEnergyJoulesMetric,
+	}
+	for _, metricName := range nodeMetrics {
+		if family, exists := metricFamilies[metricName]; exists {
+			for _, metric := range family.GetMetric() {
+				for _, label := range metric.GetLabel() {
+					if label.GetName() == InstanceLabel && label.GetValue() != "" {
+						return label.GetValue()
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (s *Scraper) convertMetricToSustainabilityStats(metric *prom.Metric, timestamp int64, nodeName string) (*castaipb.SustainabilityStats, error) {
 	labels := make(map[string]string)
 	for _, label := range metric.GetLabel() {
 		labels[label.GetName()] = label.GetValue()
 	}
 
-	namespace := labels["container_namespace"]
-	podName := labels["pod_name"]
-	containerName := labels["container_name"]
-	nodeName := labels["instance"]
+	containerNamespace := labels[ContainerNamespaceLabel]
+	containerName := labels[ContainerNameLabel]
+	podName := labels[PodNameLabel]
 
-	if namespace == "" || podName == "" || containerName == "" {
+	if containerNamespace == "" || containerName == "" || podName == "" {
 		return nil, fmt.Errorf("missing required labels")
 	}
 
@@ -93,7 +115,7 @@ func (s *Scraper) convertMetricToSustainabilityStats(metric *prom.Metric, timest
 	costUsd := CalculateEnergyCost(value, DefaultEnergyPriceUSDPerKWh)
 
 	return &castaipb.SustainabilityStats{
-		Namespace:                 namespace,
+		Namespace:                 containerNamespace,
 		PodName:                   podName,
 		ContainerName:             containerName,
 		NodeName:                  nodeName,

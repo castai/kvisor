@@ -1,7 +1,22 @@
 package sustainability
 
 const (
+	// Container metrics
 	KeplerContainerEnergyJoulesMetric = "kepler_container_joules_total"
+	// Node metrics
+	KeplerNodeEnergyJoulesMetric        = "kepler_node_joules_total"
+	KeplerNodeCoreEnergyJoulesMetric    = "kepler_node_core_joules_total"
+	KeplerNodeDramEnergyJoulesMetric    = "kepler_node_dram_joules_total"
+	KeplerNodePackageEnergyJoulesMetric = "kepler_node_package_joules_total"
+	KeplerNodeUncoreEnergyJoulesMetric  = "kepler_node_uncore_joules_total"
+)
+
+const (
+	// Metrics label keys
+	ContainerNamespaceLabel = "container_namespace"
+	ContainerNameLabel      = "container_name"
+	PodNameLabel            = "pod_name"
+	InstanceLabel           = "instance" // node name label in Kepler metrics
 )
 
 // Sustainability calculation constants
