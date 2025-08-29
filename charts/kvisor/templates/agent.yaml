@@ -50,6 +50,11 @@ spec:
       serviceAccountName: {{ include "kvisor.agent.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.agent.automountServiceAccountToken }}
       hostPID: true
+      {{- if .Values.agent.sustainability.enabled }}
+      # hostNetwork required for Kepler to access hardware sensors (RAPL, MSRs)
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
       securityContext:
         {{- toYaml .Values.agent.securityContext | nindent 8 }}
       priorityClassName: {{ .Values.agent.priorityClass }}
@@ -195,27 +200,74 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # Official Kepler environment variables based on sustainable-computing.io docs
             - name: KEPLER_LOG_LEVEL
-              value: "info"
-            - name: KEPLER_ENABLE_FAKE_CPU_METER
-              value: "true"
-            # Feature flags
-            - name: ENABLE_GPU
-              value: "false"  # Set to true if NVIDIA GPUs are present
+              value: "1"  # Numeric levels: 0=debug, 1=info, 2=warn, 3=error
+            - name: METRIC_PATH
+              value: "/metrics"  # Prometheus metrics endpoint path
+            - name: BIND_ADDRESS
+              value: "0.0.0.0:8888"  # Metrics server bind address
+            
+            # Metrics collection configuration
+            - name: COUNTER_METRICS
+              value: "*"  # Enable all counter metrics
+            - name: BPF_METRICS
+              value: "*"  # Enable all eBPF metrics
+            - name: PERF_METRICS
+              value: "*"  # Enable all performance counter metrics
+            - name: GPU_METRICS
+              value: ""  # Empty = disabled, "*" = all GPU metrics
+            
+            # Feature flags (official Kepler configuration)
             - name: ENABLE_EBPF_CGROUPID
               value: "true"  # Use eBPF for cgroup-based resource tracking
             - name: EXPOSE_HW_COUNTER_METRICS
               value: "true"  # Expose hardware performance counter metrics
             - name: ENABLE_PROCESS_METRICS
               value: "false"  # Process-level metrics (high overhead)
-            - name: METRICS_PATH
-              value: "/metrics"
-            - name: BIND_ADDRESS
-              value: "0.0.0.0:8888"
+            
+            # Model server configuration (for environments without hardware sensors)
+            - name: MODEL_SERVER_ENABLE
+              value: "{{ .Values.agent.sustainability.modelServer.enabled | default "false" }}"  # External ML model for power estimation
+            {{- if .Values.agent.sustainability.modelServer.enabled }}
+            - name: MODEL_SERVER_ENDPOINT
+              value: "{{ .Values.agent.sustainability.modelServer.endpoint }}"
+            {{- end }}
+            
+            # Development/testing configuration
+            {{- if .Values.agent.sustainability.fakeCpuMeter }}
+            - name: KEPLER_ENABLE_FAKE_CPU_METER
+              value: "true"  # Enable fake CPU meter for testing without RAPL
+            {{- end }}
           ports:
             - containerPort: 8888
               name: kepler-metrics
               protocol: TCP
+          # Health checks based on official Kepler Helm chart
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: kepler-metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: kepler-metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: kepler-metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
           volumeMounts:
             # Kernel modules for eBPF
             - name: lib-modules
