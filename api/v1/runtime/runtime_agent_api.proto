@@ -36,6 +36,7 @@ message DataBatchItem {
     ContainerEvents container_events = 12;
     Netflow netflow = 13;
     ProcessTreeEvent process_tree = 14;
+    SustainabilityStats sustainability_stats = 15;
   }
 }
 
@@ -162,6 +163,25 @@ message NodeStats {
   CpuStats cpu_stats = 21;
   MemoryStats memory_stats = 22;
   IOStats io_stats = 23;
+}
+
+message SustainabilityStats {
+  string namespace = 1;
+  string pod_name = 2;
+  string container_name = 3;
+  string node_name = 4;
+  // Energy consumption in Joules
+  double energy_joules = 5;
+  // Carbon emissions in grams of CO2 equivalent
+  double carbon_grams_co2e = 6;
+  // Energy cost in USD
+  double cost_usd = 7;
+  // Carbon intensity factor used (gCO2e/kWh)
+  double carbon_intensity_gco2_per_kwh = 8;
+  // Energy price factor used (USD/kWh)
+  double energy_price_usd_per_kwh = 9;
+  // Timestamp when the energy was measured
+  int64 timestamp = 10;
 }
 
 message ImageMetadata {

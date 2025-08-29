@@ -42,6 +42,7 @@ type Config struct {
 	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
 	Netflow                        NetflowConfig                   `json:"netflow"`
 	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
+	Sustainability                 SustainabilityConfig            `json:"sustainability"`
 	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
 	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
@@ -97,4 +98,10 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool `json:"enabled"`
+}
+
+type SustainabilityConfig struct {
+	Enabled        bool          `json:"enabled"`
+	KeplerEndpoint string        `json:"keplerEndpoint"`
+	ScrapeInterval time.Duration `json:"scrapeInterval"`
 }

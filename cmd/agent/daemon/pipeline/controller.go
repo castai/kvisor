@@ -30,11 +30,12 @@ import (
 )
 
 type Config struct {
-	DataBatch   config.DataBatchConfig   `validate:"required"`
-	Netflow     config.NetflowConfig     `validate:"required"`
-	Events      config.EventsConfig      `validate:"required"`
-	Stats       config.StatsConfig       `validate:"required"`
-	ProcessTree config.ProcessTreeConfig `validate:"required"`
+	DataBatch      config.DataBatchConfig      `validate:"required"`
+	Netflow        config.NetflowConfig        `validate:"required"`
+	Events         config.EventsConfig         `validate:"required"`
+	Stats          config.StatsConfig          `validate:"required"`
+	ProcessTree    config.ProcessTreeConfig    `validate:"required"`
+	Sustainability config.SustainabilityConfig `validate:"required"`
 }
 
 type containersClient interface {
@@ -212,6 +213,12 @@ func (c *Controller) Run(ctx context.Context) error {
 				c.log.Errorf("collecting initial process tree: %v", err)
 			}
 			return nil
+		})
+	}
+
+	if c.cfg.Sustainability.Enabled {
+		errg.Go(func() error {
+			return c.runSustainabilityPipeline(ctx)
 		})
 	}
 

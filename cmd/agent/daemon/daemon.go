@@ -88,6 +88,10 @@ func NewRunCommand(version string) *cobra.Command {
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
+		sustainabilityEnabled        = command.Flags().Bool("sustainability-enabled", false, "Enables sustainability metrics collection")
+		sustainabilityKeplerEndpoint = command.Flags().String("sustainability-kepler-endpoint", "http://127.0.0.1:8888/metrics", "Kepler metrics endpoint URL")
+		sustainabilityScrapeInterval = command.Flags().Duration("sustainability-scrape-interval", 30*time.Second, "Sustainability metrics scrape interval")
+
 		dataBatchMaxSize       = command.Flags().Uint32("data-batch-max-size", 524288, "Data batch max size in bytes (before compression)")
 		dataBatchFlushInterval = command.Flags().Duration("data-batch-flush-interval", 15*time.Second, "Data batch flush interval. Data is flushed periodically if data batch size is not reached")
 		dataBatchExportTimeout = command.Flags().Duration("data-batch-export-timeout", 10*time.Second, "Data batch export timeout")
@@ -209,6 +213,11 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			ProcessTree: config.ProcessTreeConfig{
 				Enabled: *processTreeEnabled,
+			},
+			Sustainability: config.SustainabilityConfig{
+				Enabled:        *sustainabilityEnabled,
+				KeplerEndpoint: *sustainabilityKeplerEndpoint,
+				ScrapeInterval: *sustainabilityScrapeInterval,
 			},
 			KubeAPIServiceAddr:        *kubeAPIServiceAddr,
 			ExportersQueueSize:        *exportersQueueSize,

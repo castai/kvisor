@@ -11,6 +11,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -26,6 +27,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
+	"github.com/castai/kvisor/cmd/agent/daemon/sustainability"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -156,6 +158,12 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
+	//TODO: ONLY FOR TESTING
+	if cfg.Sustainability.Enabled {
+		log.Warnf("CRI runtime client failed, running in sustainability-only mode: %v", err)
+		return a.runSustainabilityOnlyMode(ctx, log, exporters)
+	}
+
 	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
 		return fmt.Errorf("new CRI runtime client: %w", err)
@@ -240,11 +248,12 @@ func (a *App) Run(ctx context.Context) error {
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
-			Netflow:     cfg.Netflow,
-			Events:      cfg.Events,
-			Stats:       cfg.Stats,
-			ProcessTree: cfg.ProcessTree,
-			DataBatch:   cfg.DataBatch,
+			Netflow:        cfg.Netflow,
+			Events:         cfg.Events,
+			Stats:          cfg.Stats,
+			ProcessTree:    cfg.ProcessTree,
+			Sustainability: cfg.Sustainability,
+			DataBatch:      cfg.DataBatch,
 		},
 		exporters,
 		containersClient,
@@ -529,4 +538,118 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	case err := <-errc:
 		return err
 	}
+}
+
+func (a *App) runSustainabilityOnlyMode(ctx context.Context, log *logging.Logger, exporters []export.DataBatchWriter) error {
+	log.Info("starting sustainability-only mode")
+	defer log.Info("stopping sustainability-only mode")
+
+	// Create a minimal sustainability pipeline
+	sustainabilityPipeline := &sustainabilityOnlyPipeline{
+		cfg:       a.cfg,
+		log:       log,
+		exporters: exporters,
+	}
+
+	errg, ctx := errgroup.WithContext(ctx)
+
+	errg.Go(func() error {
+		return a.runHTTPServer(ctx, log)
+	})
+
+	errg.Go(func() error {
+		return sustainabilityPipeline.run(ctx)
+	})
+
+	return errg.Wait()
+}
+
+type sustainabilityOnlyPipeline struct {
+	cfg       *config.Config
+	log       *logging.Logger
+	exporters []export.DataBatchWriter
+}
+
+func (p *sustainabilityOnlyPipeline) run(ctx context.Context) error {
+	return p.runSustainabilityPipeline(ctx)
+}
+
+func (p *sustainabilityOnlyPipeline) runSustainabilityPipeline(ctx context.Context) error {
+	p.log.Info("running sustainability-only pipeline")
+	defer p.log.Info("sustainability-only pipeline done")
+
+	scraper := sustainability.NewScraper(p.cfg.Sustainability.KeplerEndpoint)
+	interval := 30 * time.Second
+	if p.cfg.Sustainability.ScrapeInterval > 0 {
+		interval = p.cfg.Sustainability.ScrapeInterval
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			start := time.Now()
+			stats, err := scraper.ScrapeMetrics()
+			if err != nil {
+				p.log.Warnf("failed to scrape sustainability metrics: %v", err)
+				continue
+			}
+
+			if len(stats) == 0 {
+				p.log.Debug("no sustainability stats scraped")
+				continue
+			}
+
+			// Print results to logs as requested
+			p.printSustainabilityResults(stats)
+
+			items := make([]*castaipb.DataBatchItem, 0, len(stats))
+			for _, stat := range stats {
+				items = append(items, &castaipb.DataBatchItem{
+					Data: &castaipb.DataBatchItem_SustainabilityStats{
+						SustainabilityStats: stat,
+					},
+				})
+			}
+
+			p.sendDataBatch(items)
+			p.log.Infof("sustainability stats exported, count=%d, duration=%v", len(stats), time.Since(start))
+		}
+	}
+}
+
+func (p *sustainabilityOnlyPipeline) printSustainabilityResults(stats []*castaipb.SustainabilityStats) {
+	p.log.Info("=== SUSTAINABILITY RESULTS ===")
+	for _, stat := range stats {
+		p.log.Infof("Instance: %s | Pod: %s/%s/%s | Energy: %.6f J | Carbon: %.6f gCO2e | Cost: $%.8f",
+			stat.NodeName, stat.Namespace, stat.PodName, stat.ContainerName,
+			stat.EnergyJoules, stat.CarbonGramsCo2E, stat.CostUsd)
+	}
+	p.log.Info("=== END SUSTAINABILITY RESULTS ===")
+}
+
+func (p *sustainabilityOnlyPipeline) sendDataBatch(items []*castaipb.DataBatchItem) {
+	var g sync.WaitGroup
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req := &castaipb.WriteDataBatchRequest{
+		Items: items,
+	}
+
+	for _, exp := range p.exporters {
+		g.Add(1)
+		go func(exporter export.DataBatchWriter) {
+			defer g.Done()
+			if err := exporter.Write(ctx, req); err != nil {
+				p.log.Warnf("failed to export sustainability data to %s: %v", exporter.Name(), err)
+			}
+		}(exp)
+	}
+
+	g.Wait()
 }

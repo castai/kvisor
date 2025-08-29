@@ -59,7 +59,7 @@ agent:
     name: ""
 
   # Specifies whether the service account token should be automounted.
-  automountServiceAccountToken: false
+  automountServiceAccountToken: true
 
   updateStrategy:
     type: RollingUpdate
@@ -127,6 +127,19 @@ agent:
   dnsPolicy: ClusterFirstWithHostNet
 
   metricsHTTPListenPort: 6060
+
+  sustainability:
+    enabled: true
+    keplerEndpoint: "http://localhost:8888/metrics"
+    scrapeInterval: "30s"
+    # Model server for environments without hardware sensors (cloud/virtualized)
+    modelServer:
+      enabled: false
+      endpoint: "http://kepler-model-server:8100"
+    # Enable fake CPU meter for testing without RAPL sensors
+    fakeCpuMeter: false
+    # Mount /usr/src for eBPF compilation (optional)
+    mountUsrSrc: false
 
   # Extra args for egressd collector container.
   extraArgs:
