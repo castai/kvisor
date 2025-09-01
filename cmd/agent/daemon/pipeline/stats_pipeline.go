@@ -6,13 +6,36 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/disk"
+	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
+
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
-	"golang.org/x/sys/unix"
-	"google.golang.org/protobuf/proto"
 )
+
+type BlockDeviceMetrics struct {
+	Name            string    `avro:"name"`
+	NodeName        string    `avro:"node_name"`
+	ReadIOPS        int64     `avro:"read_iops"`
+	WriteIOPS       int64     `avro:"write_iops"`
+	ReadThroughput  float64   `avro:"read_throughput"`
+	WriteThroughput float64   `avro:"write_throughput"`
+	Size            int64     `avro:"size"`
+	Timestamp       time.Time `avro:"ts"`
+}
+
+type FilesystemMetrics struct {
+	Devices        []string  `avro:"devices"`
+	NodeName       string    `avro:"node_name"`
+	MountPoint     string    `avro:"mount_point"`
+	TotalSize      int64     `avro:"total_size"`
+	UsedSpace      int64     `avro:"used_space"`
+	AvailableSpace int64     `avro:"available_space"`
+	Timestamp      time.Time `avro:"ts"`
+}
 
 type containerStatsGroup struct {
 	pb          *castaipb.ContainerStats
@@ -27,7 +50,6 @@ func (g *containerStatsGroup) updatePrevCgroupStats(cgStats cgroup.Stats) {
 	g.prevCpuStat = cgStats.CpuStats
 	g.prevMemStat = cgStats.MemoryStats
 	g.prevIOStat = cgStats.IOStats
-	g.prevIOStat = cgStats.IOStats
 }
 
 type nodeScrapePoint struct {
@@ -39,6 +61,11 @@ type nodeScrapePoint struct {
 	prevCpuStat *castaipb.CpuStats
 	prevMemStat *castaipb.MemoryStats
 	prevIOStat  *castaipb.IOStats
+}
+
+type storageMetricsState struct {
+	blockDevices map[string]*BlockDeviceMetrics
+	filesystems  map[string]*FilesystemMetrics
 }
 
 func (c *Controller) runStatsPipeline(ctx context.Context) error {
@@ -105,6 +132,9 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			start := time.Now()
 			c.scrapeNodeStats(nodeStats, batchState)
 			c.scrapeContainersStats(containerStatsGroups, batchState)
+			if c.cfg.Stats.StorageEnabled {
+				c.scrapeStorageMetrics()
+			}
 			send()
 			c.log.Debugf("stats exported, duration=%v", time.Since(start))
 		}
@@ -324,4 +354,154 @@ func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
 		}
 	}
 	return res
+}
+
+func (c *Controller) scrapeStorageMetrics() {
+	if c.blockDeviceMetrics == nil || c.filesystemMetrics == nil {
+		c.log.Debug("storage metrics not initialized, skipping")
+		return
+	}
+
+	c.log.Debug("starting storage metrics collection")
+	c.collectAndSendSystemStorageMetrics()
+}
+
+func (c *Controller) collectAndSendSystemStorageMetrics() {
+	now := time.Now()
+
+	if c.storageState == nil {
+		c.storageState = &storageMetricsState{
+			blockDevices: make(map[string]*BlockDeviceMetrics),
+			filesystems:  make(map[string]*FilesystemMetrics),
+		}
+	}
+
+	if c.blockDeviceMetrics != nil {
+		currentBlockMetrics, err := collectBlockDeviceMetrics(c.nodeName, now)
+		if err != nil {
+			c.log.Errorf("failed to collect block device metrics: %v", err)
+		} else {
+			c.log.Infof("collected %d raw block device metrics", len(currentBlockMetrics))
+			for _, current := range currentBlockMetrics {
+				prev, exists := c.storageState.blockDevices[current.Name]
+				if exists {
+					timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
+					c.log.Debugf("block device %s: time diff = %.2f seconds", current.Name, timeDiff)
+					if timeDiff > 0 {
+						current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
+						current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
+
+						current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
+						current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
+
+						c.log.Debugf("block device %s: calculated rates - ReadIOPS=%d, WriteIOPS=%d",
+							current.Name, current.ReadIOPS, current.WriteIOPS)
+
+						if err := c.blockDeviceMetrics.Write(current); err != nil {
+							c.log.Errorf("failed to write block device metric for %s: %v", current.Name, err)
+						}
+					} else {
+						c.log.Debugf("skipping block device %s: zero time difference", current.Name)
+					}
+				} else {
+					c.log.Debugf("storing initial block device %s metrics (no previous data)", current.Name)
+				}
+				c.storageState.blockDevices[current.Name] = &current
+			}
+		}
+	} else {
+		c.log.Warn("block device metrics not initialized, skipping collection")
+	}
+
+	if c.filesystemMetrics != nil {
+		fsMetrics, err := collectFilesystemMetrics(c.nodeName, now)
+		if err != nil {
+			c.log.Errorf("failed to collect filesystem metrics: %v", err)
+		} else {
+			c.log.Infof("collected %d filesystem metrics", len(fsMetrics))
+			writtenCount := 0
+			for _, metric := range fsMetrics {
+				if err := c.filesystemMetrics.Write(metric); err != nil {
+					c.log.Errorf("failed to write filesystem metric for %s: %v", metric.MountPoint, err)
+				} else {
+					writtenCount++
+				}
+			}
+			c.log.Infof("successfully wrote %d filesystem metrics to storage", writtenCount)
+		}
+	} else {
+		c.log.Warn("filesystem metrics not initialized, skipping collection")
+	}
+}
+
+func collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDeviceMetrics, error) {
+	var metrics []BlockDeviceMetrics
+
+	ioStats, err := disk.IOCounters()
+	if err != nil {
+		return nil, err
+	}
+
+	for deviceName, stat := range ioStats {
+
+		metrics = append(metrics, BlockDeviceMetrics{
+			Name:            deviceName,
+			NodeName:        nodeName,
+			ReadIOPS:        int64(stat.ReadCount),
+			WriteIOPS:       int64(stat.WriteCount),
+			ReadThroughput:  float64(stat.ReadBytes),
+			WriteThroughput: float64(stat.WriteBytes),
+			Size:            int64(calculateDiskSize(deviceName)),
+			Timestamp:       timestamp,
+		})
+	}
+
+	return metrics, nil
+}
+
+func collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
+	var metrics []FilesystemMetrics
+
+	partitions, err := disk.Partitions(true) // false = physical devices only
+	if err != nil {
+		return nil, err
+	}
+
+	for _, partition := range partitions {
+		usage, err := disk.Usage(partition.Mountpoint)
+		if err != nil {
+			continue
+		}
+
+		devices := getDevicesForPartition(partition)
+
+		metrics = append(metrics, FilesystemMetrics{
+			Devices:        devices,
+			NodeName:       nodeName,
+			MountPoint:     partition.Mountpoint,
+			TotalSize:      int64(usage.Total),
+			UsedSpace:      int64(usage.Used),
+			AvailableSpace: int64(usage.Free),
+			Timestamp:      timestamp,
+		})
+	}
+
+	return metrics, nil
+}
+
+func calculateDiskSize(deviceName string) int64 {
+	usage, err := disk.Usage(deviceName)
+	if err != nil {
+		return 0
+	}
+	return int64(usage.Total)
+}
+
+func getDevicesForPartition(partition disk.PartitionStat) []string {
+	// For most cases, the device is straightforward
+	// For LVM/RAID, we might need more complex logic
+	if partition.Device != "" {
+		return []string{partition.Device}
+	}
+	return []string{"unknown"}
 }
