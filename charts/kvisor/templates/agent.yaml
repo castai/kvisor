@@ -152,6 +152,10 @@ spec:
             - name: containerd-sock
               mountPath: /run/containerd/containerd.sock
               readOnly: true
+            - name: host-root
+              mountPath: /mnt/host
+              mountPropagation: HostToContainer
+              readOnly: true
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
@@ -167,6 +171,10 @@ spec:
       {{- end }}
       # TODO: Since we run with hostPID these volumes could be removed and accessed via `/proc/1/root` prefix.
       volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
         - name: etc-os-release
           hostPath:
             path: /etc/os-release

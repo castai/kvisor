@@ -474,20 +474,28 @@ func collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]Filesyste
 	slog.Info("collectFilesystemMetrics", "total_partitions", len(partitions), "node", nodeName)
 
 	for i, partition := range partitions {
-		slog.Debug("processing partition", 
+		slog.Debug("processing partition",
 			"index", i,
-			"device", partition.Device, 
-			"mountpoint", partition.Mountpoint, 
+			"device", partition.Device,
+			"mountpoint", partition.Mountpoint,
 			"fstype", partition.Fstype,
 			"opts", partition.Opts)
 
-		usage, err := disk.Usage(partition.Mountpoint)
+		// Try to get usage stats using host path
+		hostPath := "/mnt/host" + partition.Mountpoint
+		usage, err := disk.Usage(hostPath)
 		if err != nil {
-			slog.Warn("failed to get disk usage", 
-				"mountpoint", partition.Mountpoint, 
-				"device", partition.Device, 
+			slog.Warn("failed to get disk usage",
+				"mountpoint", partition.Mountpoint,
+				"host_path", hostPath,
+				"device", partition.Device,
 				"error", err)
 			continue
+		} else {
+			slog.Debug("success to get disk usage",
+				"mountpoint", partition.Mountpoint,
+				"host_path", hostPath,
+				"device", partition.Device)
 		}
 
 		devices := getDevicesForPartition(partition)
@@ -510,8 +518,8 @@ func collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]Filesyste
 		})
 	}
 
-	slog.Info("collectFilesystemMetrics completed", 
-		"total_metrics", len(metrics), 
+	slog.Info("collectFilesystemMetrics completed",
+		"total_metrics", len(metrics),
 		"node", nodeName)
 
 	return metrics, nil
@@ -531,22 +539,22 @@ func getDevicesForPartition(partition disk.PartitionStat) []string {
 		return []string{"unknown"}
 	}
 
-	slog.Debug("detecting devices for partition", 
-		"device", partition.Device, 
+	slog.Debug("detecting devices for partition",
+		"device", partition.Device,
 		"mountpoint", partition.Mountpoint,
 		"fstype", partition.Fstype)
 
 	// Try gopsutil + /sys/block approach for device hierarchy detection
 	devices := getDeviceHierarchy(partition.Device)
 	if len(devices) > 1 {
-		slog.Info("multi-device detected", 
+		slog.Info("multi-device detected",
 			"original_device", partition.Device,
 			"underlying_devices", devices,
 			"count", len(devices))
 		return devices
 	}
 
-	slog.Debug("single device detected", 
+	slog.Debug("single device detected",
 		"device", partition.Device,
 		"detected_devices", devices)
 
@@ -556,34 +564,36 @@ func getDevicesForPartition(partition disk.PartitionStat) []string {
 
 func getDeviceHierarchy(device string) []string {
 	deviceName := strings.TrimPrefix(device, "/dev/")
-	
+
 	slog.Debug("getDeviceHierarchy", "device", device, "deviceName", deviceName)
 
-	// 1. Check if it's a device mapper device using gopsutil
-	if label, err := disk.Label(deviceName); err == nil && label != "" {
-		slog.Debug("device mapper label found", "device", deviceName, "label", label)
+	// 1. Check if it's a device mapper device using host path
+	hostDevicePath := "/mnt/host/dev/" + deviceName
+	if label, err := disk.Label(hostDevicePath); err == nil && label != "" {
+		slog.Debug("device mapper label found", "device", deviceName, "host_path", hostDevicePath, "label", label)
 		// This is a device mapper device, get underlying devices
 		if slaves := getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
 			slog.Info("device mapper slaves found", "device", deviceName, "slaves", slaves)
 			return slaves
 		}
 	} else if err != nil {
-		slog.Debug("disk.Label failed", "device", deviceName, "error", err)
+		slog.Debug("disk.Label failed", "device", deviceName, "host_path", hostDevicePath, "error", err)
 	}
 
-	// 2. For /dev/mapper/ devices, resolve symlinks (like gopsutil does internally)
+	// 2. For /dev/mapper/ devices, resolve symlinks using host path
 	if strings.HasPrefix(device, "/dev/mapper/") {
-		slog.Debug("checking /dev/mapper/ device", "device", device)
-		if devpath, err := filepath.EvalSymlinks(device); err == nil {
+		hostMapperPath := "/mnt/host" + device
+		slog.Debug("checking /dev/mapper/ device", "device", device, "host_path", hostMapperPath)
+		if devpath, err := filepath.EvalSymlinks(hostMapperPath); err == nil {
 			slog.Debug("resolved symlink", "original", device, "resolved", devpath)
-			// Extract device name and get slaves
-			resolvedName := strings.TrimPrefix(devpath, "/dev/")
+			// Extract device name and get slaves (remove /mnt/host/dev/ prefix)
+			resolvedName := strings.TrimPrefix(devpath, "/mnt/host/dev/")
 			if slaves := getDeviceMapperSlaves(resolvedName); len(slaves) > 0 {
 				slog.Info("mapper symlink slaves found", "device", device, "resolved", resolvedName, "slaves", slaves)
 				return slaves
 			}
 		} else {
-			slog.Debug("symlink resolution failed", "device", device, "error", err)
+			slog.Debug("symlink resolution failed", "device", device, "host_path", hostMapperPath, "error", err)
 		}
 	}
 
@@ -601,9 +611,9 @@ func getDeviceHierarchy(device string) []string {
 }
 
 func getDeviceMapperSlaves(deviceName string) []string {
-	// Read /sys/block/{device}/slaves/ directory to find underlying devices
-	slavesPath := fmt.Sprintf("/sys/block/%s/slaves", deviceName)
-	
+	// Read /sys/block/{device}/slaves/ directory to find underlying devices via host mount
+	slavesPath := fmt.Sprintf("/mnt/host/sys/block/%s/slaves", deviceName)
+
 	slog.Debug("checking slaves directory", "device", deviceName, "path", slavesPath)
 
 	entries, err := os.ReadDir(slavesPath)
