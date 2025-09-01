@@ -3,10 +3,14 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v4/disk"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
@@ -464,16 +468,36 @@ func collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]Filesyste
 
 	partitions, err := disk.Partitions(true) // false = physical devices only
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
 
-	for _, partition := range partitions {
+	slog.Info("collectFilesystemMetrics", "total_partitions", len(partitions), "node", nodeName)
+
+	for i, partition := range partitions {
+		slog.Debug("processing partition", 
+			"index", i,
+			"device", partition.Device, 
+			"mountpoint", partition.Mountpoint, 
+			"fstype", partition.Fstype,
+			"opts", partition.Opts)
+
 		usage, err := disk.Usage(partition.Mountpoint)
 		if err != nil {
+			slog.Warn("failed to get disk usage", 
+				"mountpoint", partition.Mountpoint, 
+				"device", partition.Device, 
+				"error", err)
 			continue
 		}
 
 		devices := getDevicesForPartition(partition)
+
+		slog.Info("filesystem metric collected",
+			"device", partition.Device,
+			"mountpoint", partition.Mountpoint,
+			"detected_devices", devices,
+			"total_size", usage.Total,
+			"multi_device", len(devices) > 1)
 
 		metrics = append(metrics, FilesystemMetrics{
 			Devices:        devices,
@@ -485,6 +509,10 @@ func collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]Filesyste
 			Timestamp:      timestamp,
 		})
 	}
+
+	slog.Info("collectFilesystemMetrics completed", 
+		"total_metrics", len(metrics), 
+		"node", nodeName)
 
 	return metrics, nil
 }
@@ -498,10 +526,109 @@ func calculateDiskSize(deviceName string) int64 {
 }
 
 func getDevicesForPartition(partition disk.PartitionStat) []string {
-	// For most cases, the device is straightforward
-	// For LVM/RAID, we might need more complex logic
-	if partition.Device != "" {
-		return []string{partition.Device}
+	if partition.Device == "" {
+		slog.Debug("empty device for partition", "mountpoint", partition.Mountpoint)
+		return []string{"unknown"}
 	}
-	return []string{"unknown"}
+
+	slog.Debug("detecting devices for partition", 
+		"device", partition.Device, 
+		"mountpoint", partition.Mountpoint,
+		"fstype", partition.Fstype)
+
+	// Try gopsutil + /sys/block approach for device hierarchy detection
+	devices := getDeviceHierarchy(partition.Device)
+	if len(devices) > 1 {
+		slog.Info("multi-device detected", 
+			"original_device", partition.Device,
+			"underlying_devices", devices,
+			"count", len(devices))
+		return devices
+	}
+
+	slog.Debug("single device detected", 
+		"device", partition.Device,
+		"detected_devices", devices)
+
+	// Return the detected devices (even if single)
+	return devices
+}
+
+func getDeviceHierarchy(device string) []string {
+	deviceName := strings.TrimPrefix(device, "/dev/")
+	
+	slog.Debug("getDeviceHierarchy", "device", device, "deviceName", deviceName)
+
+	// 1. Check if it's a device mapper device using gopsutil
+	if label, err := disk.Label(deviceName); err == nil && label != "" {
+		slog.Debug("device mapper label found", "device", deviceName, "label", label)
+		// This is a device mapper device, get underlying devices
+		if slaves := getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
+			slog.Info("device mapper slaves found", "device", deviceName, "slaves", slaves)
+			return slaves
+		}
+	} else if err != nil {
+		slog.Debug("disk.Label failed", "device", deviceName, "error", err)
+	}
+
+	// 2. For /dev/mapper/ devices, resolve symlinks (like gopsutil does internally)
+	if strings.HasPrefix(device, "/dev/mapper/") {
+		slog.Debug("checking /dev/mapper/ device", "device", device)
+		if devpath, err := filepath.EvalSymlinks(device); err == nil {
+			slog.Debug("resolved symlink", "original", device, "resolved", devpath)
+			// Extract device name and get slaves
+			resolvedName := strings.TrimPrefix(devpath, "/dev/")
+			if slaves := getDeviceMapperSlaves(resolvedName); len(slaves) > 0 {
+				slog.Info("mapper symlink slaves found", "device", device, "resolved", resolvedName, "slaves", slaves)
+				return slaves
+			}
+		} else {
+			slog.Debug("symlink resolution failed", "device", device, "error", err)
+		}
+	}
+
+	// 3. Check for RAID devices (md devices)
+	if strings.HasPrefix(deviceName, "md") {
+		slog.Debug("checking RAID device", "device", deviceName)
+		if slaves := getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
+			slog.Info("RAID slaves found", "device", deviceName, "slaves", slaves)
+			return slaves
+		}
+	}
+
+	slog.Debug("no multi-device hierarchy found", "device", device, "fallback", []string{device})
+	return []string{device}
+}
+
+func getDeviceMapperSlaves(deviceName string) []string {
+	// Read /sys/block/{device}/slaves/ directory to find underlying devices
+	slavesPath := fmt.Sprintf("/sys/block/%s/slaves", deviceName)
+	
+	slog.Debug("checking slaves directory", "device", deviceName, "path", slavesPath)
+
+	entries, err := os.ReadDir(slavesPath)
+	if err != nil {
+		slog.Debug("no slaves directory found", "device", deviceName, "path", slavesPath, "error", err)
+		// No slaves directory means it's likely a physical device
+		return []string{}
+	}
+
+	var slaves []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			slog.Debug("skipping directory in slaves", "device", deviceName, "entry", entry.Name())
+			continue
+		}
+		slaveName := entry.Name()
+		slaves = append(slaves, "/dev/"+slaveName)
+		slog.Debug("found slave device", "parent", deviceName, "slave", slaveName)
+	}
+
+	if len(slaves) > 0 {
+		slog.Info("slaves discovered", "device", deviceName, "slaves", slaves, "count", len(slaves))
+	} else {
+		slog.Debug("no slaves found", "device", deviceName)
+	}
+
+	return slaves
 }
