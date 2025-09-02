@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -362,79 +361,82 @@ func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
 
 func (c *Controller) scrapeStorageMetrics() {
 	if c.blockDeviceMetrics == nil || c.filesystemMetrics == nil {
-		c.log.Debug("storage metrics not initialized, skipping")
 		return
 	}
 
-	c.log.Debug("starting storage metrics collection")
 	c.collectAndSendSystemStorageMetrics()
 }
 
 func (c *Controller) collectAndSendSystemStorageMetrics() {
 	now := time.Now()
+	c.initStorageState()
+	c.collectAndSendBlockDeviceMetrics(now)
+	c.collectAndSendFilesystemMetrics(now)
+}
 
+func (c *Controller) initStorageState() {
 	if c.storageState == nil {
 		c.storageState = &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetrics),
 			filesystems:  make(map[string]*FilesystemMetrics),
 		}
 	}
+}
 
-	if c.blockDeviceMetrics != nil {
-		currentBlockMetrics, err := collectBlockDeviceMetrics(c.nodeName, now)
-		if err != nil {
-			c.log.Errorf("failed to collect block device metrics: %v", err)
-		} else {
-			c.log.Infof("collected %d raw block device metrics", len(currentBlockMetrics))
-			for _, current := range currentBlockMetrics {
-				prev, exists := c.storageState.blockDevices[current.Name]
-				if exists {
-					timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
-					c.log.Debugf("block device %s: time diff = %.2f seconds", current.Name, timeDiff)
-					if timeDiff > 0 {
-						current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
-						current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
-
-						current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
-						current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
-
-						c.log.Debugf("block device %s: calculated rates - ReadIOPS=%d, WriteIOPS=%d",
-							current.Name, current.ReadIOPS, current.WriteIOPS)
-
-						if err := c.blockDeviceMetrics.Write(current); err != nil {
-							c.log.Errorf("failed to write block device metric for %s: %v", current.Name, err)
-						}
-					} else {
-						c.log.Debugf("skipping block device %s: zero time difference", current.Name)
-					}
-				} else {
-					c.log.Debugf("storing initial block device %s metrics (no previous data)", current.Name)
-				}
-				c.storageState.blockDevices[current.Name] = &current
-			}
-		}
-	} else {
-		c.log.Warn("block device metrics not initialized, skipping collection")
+func (c *Controller) collectAndSendBlockDeviceMetrics(timestamp time.Time) {
+	if c.blockDeviceMetrics == nil {
+		return
 	}
 
-	if c.filesystemMetrics != nil {
-		fsMetrics, err := collectFilesystemMetrics(c.nodeName, now)
-		if err != nil {
-			c.log.Errorf("failed to collect filesystem metrics: %v", err)
-		} else {
-			c.log.Infof("collected %d filesystem metrics", len(fsMetrics))
-			writtenCount := 0
-			for _, metric := range fsMetrics {
-				if err := c.filesystemMetrics.Write(metric); err != nil {
-					c.log.Errorf("failed to write filesystem metric for %s: %v", metric.MountPoint, err)
-				} else {
-					writtenCount++
-				}
+	currentBlockMetrics, err := collectBlockDeviceMetrics(c.nodeName, timestamp)
+	if err != nil {
+		c.log.Errorf("failed to collect block device metrics: %v", err)
+		return
+	}
+
+	c.log.Infof("collected %d raw block device metrics", len(currentBlockMetrics))
+	for _, current := range currentBlockMetrics {
+		c.processAndSendBlockDeviceMetric(current)
+	}
+}
+
+func (c *Controller) processAndSendBlockDeviceMetric(current BlockDeviceMetrics) {
+	prev, exists := c.storageState.blockDevices[current.Name]
+	if exists {
+		timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
+		if timeDiff > 0 {
+			c.calculateBlockDeviceRates(&current, prev, timeDiff)
+			if err := c.blockDeviceMetrics.Write(current); err != nil {
+				c.log.Errorf("failed to write block device metric for %s: %v", current.Name, err)
 			}
-			c.log.Infof("successfully wrote %d filesystem metrics to storage", writtenCount)
 		}
-	} else {
-		c.log.Warn("filesystem metrics not initialized, skipping collection")
+	}
+	c.storageState.blockDevices[current.Name] = &current
+}
+
+func (c *Controller) calculateBlockDeviceRates(current *BlockDeviceMetrics, prev *BlockDeviceMetrics, timeDiff float64) {
+	current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
+	current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
+	current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
+	current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
+}
+
+func (c *Controller) collectAndSendFilesystemMetrics(timestamp time.Time) {
+	if c.filesystemMetrics == nil {
+		return
+	}
+
+	fsMetrics, err := c.collectFilesystemMetrics(c.nodeName, timestamp)
+	if err != nil {
+		c.log.Errorf("failed to collect filesystem metrics: %v", err)
+		return
+	}
+
+	c.log.Infof("collected %d filesystem metrics", len(fsMetrics))
+	for _, metric := range fsMetrics {
+		if err := c.filesystemMetrics.Write(metric); err != nil {
+			c.log.Errorf("failed to write filesystem metric for %s: %v", metric.MountPoint, err)
+		}
 	}
 }
 
@@ -463,66 +465,47 @@ func collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDev
 	return metrics, nil
 }
 
-func collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
-	var metrics []FilesystemMetrics
-
-	partitions, err := disk.Partitions(true) // false = physical devices only
+func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
+	partitions, err := disk.Partitions(true) // true = physical and virtual devices
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
 
-	slog.Info("collectFilesystemMetrics", "total_partitions", len(partitions), "node", nodeName)
-
-	for i, partition := range partitions {
-		slog.Debug("processing partition",
-			"index", i,
-			"device", partition.Device,
-			"mountpoint", partition.Mountpoint,
-			"fstype", partition.Fstype,
-			"opts", partition.Opts)
-
-		// Try to get usage stats using host path
-		hostPath := "/mnt/host" + partition.Mountpoint
-		usage, err := disk.Usage(hostPath)
+	var metrics []FilesystemMetrics
+	for _, partition := range partitions {
+		metric, err := c.createFilesystemMetric(partition, nodeName, timestamp)
 		if err != nil {
-			slog.Warn("failed to get disk usage",
+			hostPath := "/mnt/host" + partition.Mountpoint
+			c.log.Warnf("failed to get disk usage",
 				"mountpoint", partition.Mountpoint,
 				"host_path", hostPath,
 				"device", partition.Device,
 				"error", err)
 			continue
-		} else {
-			slog.Debug("success to get disk usage",
-				"mountpoint", partition.Mountpoint,
-				"host_path", hostPath,
-				"device", partition.Device)
 		}
-
-		devices := getDevicesForPartition(partition)
-
-		slog.Info("filesystem metric collected",
-			"device", partition.Device,
-			"mountpoint", partition.Mountpoint,
-			"detected_devices", devices,
-			"total_size", usage.Total,
-			"multi_device", len(devices) > 1)
-
-		metrics = append(metrics, FilesystemMetrics{
-			Devices:        devices,
-			NodeName:       nodeName,
-			MountPoint:     partition.Mountpoint,
-			TotalSize:      int64(usage.Total),
-			UsedSpace:      int64(usage.Used),
-			AvailableSpace: int64(usage.Free),
-			Timestamp:      timestamp,
-		})
+		metrics = append(metrics, metric)
 	}
 
-	slog.Info("collectFilesystemMetrics completed",
-		"total_metrics", len(metrics),
-		"node", nodeName)
-
+	c.log.Infof("collectFilesystemMetrics completed", "total_metrics", len(metrics))
 	return metrics, nil
+}
+
+func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (FilesystemMetrics, error) {
+	hostPath := "/mnt/host" + partition.Mountpoint
+	usage, err := disk.Usage(hostPath)
+	if err != nil {
+		return FilesystemMetrics{}, err
+	}
+
+	return FilesystemMetrics{
+		Devices:        c.getDeviceHierarchy(partition.Device),
+		NodeName:       nodeName,
+		MountPoint:     partition.Mountpoint,
+		TotalSize:      int64(usage.Total),
+		UsedSpace:      int64(usage.Used),
+		AvailableSpace: int64(usage.Free),
+		Timestamp:      timestamp,
+	}, nil
 }
 
 func calculateDiskSize(deviceName string) int64 {
@@ -533,112 +516,54 @@ func calculateDiskSize(deviceName string) int64 {
 	return int64(usage.Total)
 }
 
-func getDevicesForPartition(partition disk.PartitionStat) []string {
-	if partition.Device == "" {
-		slog.Debug("empty device for partition", "mountpoint", partition.Mountpoint)
-		return []string{"unknown"}
-	}
-
-	slog.Debug("detecting devices for partition",
-		"device", partition.Device,
-		"mountpoint", partition.Mountpoint,
-		"fstype", partition.Fstype)
-
-	// Try gopsutil + /sys/block approach for device hierarchy detection
-	devices := getDeviceHierarchy(partition.Device)
-	if len(devices) > 1 {
-		slog.Info("multi-device detected",
-			"original_device", partition.Device,
-			"underlying_devices", devices,
-			"count", len(devices))
-		return devices
-	}
-
-	slog.Debug("single device detected",
-		"device", partition.Device,
-		"detected_devices", devices)
-
-	// Return the detected devices (even if single)
-	return devices
-}
-
-func getDeviceHierarchy(device string) []string {
+func (c *Controller) getDeviceHierarchy(device string) []string {
 	deviceName := strings.TrimPrefix(device, "/dev/")
-
-	slog.Debug("getDeviceHierarchy", "device", device, "deviceName", deviceName)
-
-	// 1. Check if it's a device mapper device using host path
 	hostDevicePath := "/mnt/host/dev/" + deviceName
-	if label, err := disk.Label(hostDevicePath); err == nil && label != "" {
-		slog.Debug("device mapper label found", "device", deviceName, "host_path", hostDevicePath, "label", label)
-		// This is a device mapper device, get underlying devices
-		if slaves := getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
-			slog.Info("device mapper slaves found", "device", deviceName, "slaves", slaves)
+
+	// check for LVM devices
+	label, err := disk.Label(hostDevicePath)
+	if err == nil && label != "" {
+		if slaves := c.getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
 			return slaves
 		}
-	} else if err != nil {
-		slog.Debug("disk.Label failed", "device", deviceName, "host_path", hostDevicePath, "error", err)
+	} else {
+		c.log.Debugf("disk.Label failed for %s: %v", deviceName, err)
 	}
 
-	// 2. For /dev/mapper/ devices, resolve symlinks using host path
-	if strings.HasPrefix(device, "/dev/mapper/") {
-		hostMapperPath := "/mnt/host" + device
-		slog.Debug("checking /dev/mapper/ device", "device", device, "host_path", hostMapperPath)
-		if devpath, err := filepath.EvalSymlinks(hostMapperPath); err == nil {
-			slog.Debug("resolved symlink", "original", device, "resolved", devpath)
-			// Extract device name and get slaves (remove /mnt/host/dev/ prefix)
-			resolvedName := strings.TrimPrefix(devpath, "/mnt/host/dev/")
-			if slaves := getDeviceMapperSlaves(resolvedName); len(slaves) > 0 {
-				slog.Info("mapper symlink slaves found", "device", device, "resolved", resolvedName, "slaves", slaves)
-				return slaves
-			}
-		} else {
-			slog.Debug("symlink resolution failed", "device", device, "host_path", hostMapperPath, "error", err)
-		}
-	}
-
-	// 3. Check for RAID devices (md devices)
+	// check for RAID devices (md devices)
 	if strings.HasPrefix(deviceName, "md") {
-		slog.Debug("checking RAID device", "device", deviceName)
-		if slaves := getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
-			slog.Info("RAID slaves found", "device", deviceName, "slaves", slaves)
+		if slaves := c.getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
 			return slaves
 		}
 	}
 
-	slog.Debug("no multi-device hierarchy found", "device", device, "fallback", []string{device})
 	return []string{device}
 }
 
-func getDeviceMapperSlaves(deviceName string) []string {
-	// Read /sys/block/{device}/slaves/ directory to find underlying devices via host mount
+func (c *Controller) getDeviceMapperSlaves(deviceName string) []string {
 	slavesPath := fmt.Sprintf("/mnt/host/sys/block/%s/slaves", deviceName)
-
-	slog.Debug("checking slaves directory", "device", deviceName, "path", slavesPath)
-
+	c.log.Debugf("checking slaves directory for %s at %s", deviceName, slavesPath)
 	entries, err := os.ReadDir(slavesPath)
 	if err != nil {
-		slog.Debug("no slaves directory found", "device", deviceName, "path", slavesPath, "error", err)
-		// No slaves directory means it's likely a physical device
+		c.log.Debugf("no slaves directory found for %s: %v", deviceName, err)
 		return []string{}
 	}
 
+	slaves := c.collectSlaveDevices(entries, deviceName)
+	c.log.Debugf("%d slaves discovered for %s", len(slaves), deviceName)
+	return slaves
+}
+
+func (c *Controller) collectSlaveDevices(entries []os.DirEntry, deviceName string) []string {
 	var slaves []string
 	for _, entry := range entries {
 		if entry.IsDir() {
-			slog.Debug("skipping directory in slaves", "device", deviceName, "entry", entry.Name())
+			c.log.Debugf("skipping directory in slaves for %s: %s", deviceName, entry.Name())
 			continue
 		}
 		slaveName := entry.Name()
 		slaves = append(slaves, "/dev/"+slaveName)
-		slog.Debug("found slave device", "parent", deviceName, "slave", slaveName)
+		c.log.Debugf("found slave device %s for parent %s", slaveName, deviceName)
 	}
-
-	if len(slaves) > 0 {
-		slog.Info("slaves discovered", "device", deviceName, "slaves", slaves, "count", len(slaves))
-	} else {
-		slog.Debug("no slaves found", "device", deviceName)
-	}
-
 	return slaves
 }
