@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -388,7 +391,7 @@ func (c *Controller) collectAndSendBlockDeviceMetrics(timestamp time.Time) {
 		return
 	}
 
-	currentBlockMetrics, err := collectBlockDeviceMetrics(c.nodeName, timestamp)
+	currentBlockMetrics, err := c.collectBlockDeviceMetrics(c.nodeName, timestamp)
 	if err != nil {
 		c.log.Errorf("failed to collect block device metrics: %v", err)
 		return
@@ -440,7 +443,7 @@ func (c *Controller) collectAndSendFilesystemMetrics(timestamp time.Time) {
 	}
 }
 
-func collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDeviceMetrics, error) {
+func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDeviceMetrics, error) {
 	var metrics []BlockDeviceMetrics
 
 	ioStats, err := disk.IOCounters()
@@ -449,7 +452,11 @@ func collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDev
 	}
 
 	for deviceName, stat := range ioStats {
-
+		c.log.Debugf("processing block device: %s", deviceName)
+		diskUsage, err := calculateDiskSize(deviceName)
+		if err != nil {
+			c.log.Warnf("failed to get diskUsage for %s: %v", deviceName, err)
+		}
 		metrics = append(metrics, BlockDeviceMetrics{
 			Name:            deviceName,
 			NodeName:        nodeName,
@@ -457,7 +464,7 @@ func collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDev
 			WriteIOPS:       int64(stat.WriteCount),
 			ReadThroughput:  float64(stat.ReadBytes),
 			WriteThroughput: float64(stat.WriteBytes),
-			Size:            int64(calculateDiskSize(deviceName)),
+			Size:            diskUsage,
 			Timestamp:       timestamp,
 		})
 	}
@@ -508,36 +515,115 @@ func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeNa
 	}, nil
 }
 
-func calculateDiskSize(deviceName string) int64 {
-	usage, err := disk.Usage(deviceName)
+func calculateDiskSize(deviceName string) (int64, error) {
+	// disk.Usage() is designed for filesystems, not raw block devices
+	// For block device metrics, we should get the actual device size, not filesystem size
+	size := getBlockDeviceSize(deviceName)
+	if size > 0 {
+		return size, nil
+	}
+	
+	// Fallback: try disk.Usage() with host path (mainly for debugging)
+	hostDevicePath := "/mnt/host/dev/" + deviceName
+	usage, err := disk.Usage(hostDevicePath)
+	if err == nil {
+		// This gives filesystem size, not device size - usually not what we want for block metrics
+		return int64(usage.Total), nil
+	}
+	
+	return 0, fmt.Errorf("failed to get size for device %s: both /sys/block and disk.Usage failed", deviceName)
+}
+
+var partitionRegex = regexp.MustCompile(`^(sd[a-z]+|nvme\d+n\d+|xvd[a-z]+)(\d+)$`)
+
+func getBlockDeviceSize(deviceName string) int64 {
+	if strings.Contains(deviceName, "/") {
+		return 0 // Skip device names with slashes
+	}
+
+	// Try main device path first: /sys/block/<device>/size
+	sizePath := fmt.Sprintf("/mnt/host/sys/block/%s/size", deviceName)
+	data, err := os.ReadFile(sizePath)
+	
+	if err != nil {
+		// Check if it's a partition (e.g., sda1, nvme0n1p1)
+		if matches := partitionRegex.FindStringSubmatch(deviceName); matches != nil {
+			baseDevice := matches[1]
+			// Try partition path: /sys/block/<base_device>/<partition>/size
+			partitionPath := fmt.Sprintf("/mnt/host/sys/block/%s/%s/size", baseDevice, deviceName)
+			data, err = os.ReadFile(partitionPath)
+			if err != nil {
+				return 0
+			}
+			sizePath = partitionPath // Update for logging
+		} else {
+			return 0
+		}
+	}
+
+	sizeStr := strings.TrimSpace(string(data))
+	sectors, err := strconv.ParseInt(sizeStr, 10, 64)
 	if err != nil {
 		return 0
 	}
-	return int64(usage.Total)
+
+	// Convert from 512-byte sectors to bytes
+	return sectors * 512
 }
 
 func (c *Controller) getDeviceHierarchy(device string) []string {
-	deviceName := strings.TrimPrefix(device, "/dev/")
-	hostDevicePath := "/mnt/host/dev/" + deviceName
+	c.log.Debugf("getDeviceHierarchy: processing device %s", device)
 
-	// check for LVM devices
-	label, err := disk.Label(hostDevicePath)
-	if err == nil && label != "" {
-		if slaves := c.getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
-			return slaves
-		}
-	} else {
-		c.log.Debugf("disk.Label failed for %s: %v", deviceName, err)
+	// check for LVM devices via symlink resolution
+	if slaves := c.resolveLVMDeviceSlaves(device); len(slaves) > 0 {
+		return slaves
 	}
 
 	// check for RAID devices (md devices)
+	deviceName := strings.TrimPrefix(device, "/dev/")
 	if strings.HasPrefix(deviceName, "md") {
 		if slaves := c.getDeviceMapperSlaves(deviceName); len(slaves) > 0 {
 			return slaves
 		}
 	}
 
+	c.log.Debugf("getDeviceHierarchy: no slaves found, returning single device %s", device)
 	return []string{device}
+}
+
+// resolveLVMDeviceSlaves resolves LVM logical volumes to their underlying physical devices.
+// It handles the symlink chain: /dev/mapper/vg-lv → /dev/dm-X → /sys/block/dm-X/slaves/ → [sdf, sdg]
+// Returns the list of underlying physical devices or nil if not an LVM device.
+func (c *Controller) resolveLVMDeviceSlaves(device string) []string {
+	if !strings.HasPrefix(device, "/dev/mapper/") {
+		return nil
+	}
+
+	hostMapperPath := "/mnt/host" + device
+	c.log.Debugf("resolving LVM device %s at %s", device, hostMapperPath)
+
+	resolvedPath, err := filepath.EvalSymlinks(hostMapperPath)
+	if err != nil {
+		c.log.Debugf("symlink resolution failed for %s: %v", device, err)
+		return nil
+	}
+
+	c.log.Debugf("resolved %s to %s", device, resolvedPath)
+
+	const hostPrefix = "/mnt/host/dev/"
+	if !strings.HasPrefix(resolvedPath, hostPrefix) {
+		c.log.Debugf("unexpected resolved path format: %s", resolvedPath)
+		return nil
+	}
+
+	resolvedDeviceName := strings.TrimPrefix(resolvedPath, hostPrefix)
+	slaves := c.getDeviceMapperSlaves(resolvedDeviceName)
+
+	if len(slaves) > 0 {
+		c.log.Debugf("found %d underlying devices for LVM %s: %v", len(slaves), device, slaves)
+	}
+
+	return slaves
 }
 
 func (c *Controller) getDeviceMapperSlaves(deviceName string) []string {
