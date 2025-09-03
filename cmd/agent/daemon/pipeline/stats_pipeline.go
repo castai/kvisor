@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -363,14 +362,6 @@ func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
 }
 
 func (c *Controller) scrapeStorageMetrics() {
-	if c.blockDeviceMetrics == nil || c.filesystemMetrics == nil {
-		return
-	}
-
-	c.collectAndSendSystemStorageMetrics()
-}
-
-func (c *Controller) collectAndSendSystemStorageMetrics() {
 	now := time.Now()
 	c.initStorageState()
 	c.collectAndSendBlockDeviceMetrics(now)
@@ -444,7 +435,7 @@ func (c *Controller) collectAndSendFilesystemMetrics(timestamp time.Time) {
 }
 
 func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDeviceMetrics, error) {
-	var metrics []BlockDeviceMetrics
+	var blockMetrics []BlockDeviceMetrics
 
 	ioStats, err := disk.IOCounters()
 	if err != nil {
@@ -452,12 +443,11 @@ func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.T
 	}
 
 	for deviceName, stat := range ioStats {
-		c.log.Debugf("processing block device: %s", deviceName)
 		diskUsage, err := calculateDiskSize(deviceName)
 		if err != nil {
-			c.log.Warnf("failed to get diskUsage for %s: %v", deviceName, err)
+			c.log.Warnf("failed to get disk usage for %s: %v", deviceName, err)
 		}
-		metrics = append(metrics, BlockDeviceMetrics{
+		blockMetrics = append(blockMetrics, BlockDeviceMetrics{
 			Name:            deviceName,
 			NodeName:        nodeName,
 			ReadIOPS:        int64(stat.ReadCount),
@@ -468,8 +458,9 @@ func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.T
 			Timestamp:       timestamp,
 		})
 	}
+	c.log.Infof("collection of block metrics completed completed. total_metrics: %d", len(blockMetrics))
 
-	return metrics, nil
+	return blockMetrics, nil
 }
 
 func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
@@ -478,30 +469,24 @@ func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Ti
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
 
-	var metrics []FilesystemMetrics
+	var filesystemMetrics []FilesystemMetrics
 	for _, partition := range partitions {
 		metric, err := c.createFilesystemMetric(partition, nodeName, timestamp)
 		if err != nil {
-			hostPath := "/mnt/host" + partition.Mountpoint
-			c.log.Warnf("failed to get disk usage",
-				"mountpoint", partition.Mountpoint,
-				"host_path", hostPath,
-				"device", partition.Device,
-				"error", err)
 			continue
 		}
-		metrics = append(metrics, metric)
+		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
-	c.log.Infof("collectFilesystemMetrics completed", "total_metrics", len(metrics))
-	return metrics, nil
+	c.log.Infof("collection of filesystem metrics completed completed. total_metrics: %d", len(filesystemMetrics))
+	return filesystemMetrics, nil
 }
 
 func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (FilesystemMetrics, error) {
 	hostPath := "/mnt/host" + partition.Mountpoint
 	usage, err := disk.Usage(hostPath)
 	if err != nil {
-		return FilesystemMetrics{}, err
+		c.log.Warnf("failed to get disk usage: mountpoint: %s, host_path: %s, device: %s, error: %v", partition.Mountpoint, hostPath, partition.Device, err)
 	}
 
 	return FilesystemMetrics{
@@ -516,49 +501,54 @@ func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeNa
 }
 
 func calculateDiskSize(deviceName string) (int64, error) {
-	// disk.Usage() is designed for filesystems, not raw block devices
-	// For block device metrics, we should get the actual device size, not filesystem size
 	size := getBlockDeviceSize(deviceName)
 	if size > 0 {
 		return size, nil
 	}
-	
-	// Fallback: try disk.Usage() with host path (mainly for debugging)
-	hostDevicePath := "/mnt/host/dev/" + deviceName
-	usage, err := disk.Usage(hostDevicePath)
-	if err == nil {
-		// This gives filesystem size, not device size - usually not what we want for block metrics
-		return int64(usage.Total), nil
-	}
-	
-	return 0, fmt.Errorf("failed to get size for device %s: both /sys/block and disk.Usage failed", deviceName)
+
+	return 0, fmt.Errorf("failed to get size for device %s", deviceName)
 }
 
-var partitionRegex = regexp.MustCompile(`^(sd[a-z]+|nvme\d+n\d+|xvd[a-z]+)(\d+)$`)
-
 func getBlockDeviceSize(deviceName string) int64 {
-	if strings.Contains(deviceName, "/") {
-		return 0 // Skip device names with slashes
+	// Try whole device first: /sys/block/{device}/size
+	if sectors := readSectorCount(fmt.Sprintf("/mnt/host/sys/block/%s/size", deviceName)); sectors > 0 {
+		return sectors * 512
 	}
 
-	// Try main device path first: /sys/block/<device>/size
-	sizePath := fmt.Sprintf("/mnt/host/sys/block/%s/size", deviceName)
-	data, err := os.ReadFile(sizePath)
-	
+	// If that failed, it might be a partition. Search for it under any base device.
+	if sectors := findPartitionSize(deviceName); sectors > 0 {
+		return sectors * 512
+	}
+
+	return 0
+}
+
+func findPartitionSize(deviceName string) int64 {
+	blockDir := "/mnt/host/sys/block"
+	entries, err := os.ReadDir(blockDir)
 	if err != nil {
-		// Check if it's a partition (e.g., sda1, nvme0n1p1)
-		if matches := partitionRegex.FindStringSubmatch(deviceName); matches != nil {
-			baseDevice := matches[1]
-			// Try partition path: /sys/block/<base_device>/<partition>/size
-			partitionPath := fmt.Sprintf("/mnt/host/sys/block/%s/%s/size", baseDevice, deviceName)
-			data, err = os.ReadFile(partitionPath)
-			if err != nil {
-				return 0
-			}
-			sizePath = partitionPath // Update for logging
-		} else {
-			return 0
+		return 0
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
 		}
+
+		// Try: /sys/block/{baseDevice}/{deviceName}/size
+		partitionPath := fmt.Sprintf("%s/%s/%s/size", blockDir, entry.Name(), deviceName)
+		if sectors := readSectorCount(partitionPath); sectors > 0 {
+			return sectors
+		}
+	}
+
+	return 0
+}
+
+func readSectorCount(path string) int64 {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
 	}
 
 	sizeStr := strings.TrimSpace(string(data))
@@ -567,13 +557,10 @@ func getBlockDeviceSize(deviceName string) int64 {
 		return 0
 	}
 
-	// Convert from 512-byte sectors to bytes
-	return sectors * 512
+	return sectors
 }
 
 func (c *Controller) getDeviceHierarchy(device string) []string {
-	c.log.Debugf("getDeviceHierarchy: processing device %s", device)
-
 	// check for LVM devices via symlink resolution
 	if slaves := c.resolveLVMDeviceSlaves(device); len(slaves) > 0 {
 		return slaves

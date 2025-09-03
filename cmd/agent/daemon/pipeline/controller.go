@@ -12,8 +12,6 @@ import (
 	"github.com/elastic/go-freelru"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
@@ -122,7 +120,6 @@ func NewController(
 	var blockDeviceMetrics custommetrics.Metric[BlockDeviceMetrics]
 	var filesystemMetrics custommetrics.Metric[FilesystemMetrics]
 
-	var k8sClient kubernetes.Interface
 	if cfg.Stats.StorageEnabled {
 		var err error
 		blockDeviceMetrics, err = custommetrics.NewMetric[BlockDeviceMetrics](
@@ -132,9 +129,6 @@ func NewController(
 		)
 		if err != nil {
 			log.Errorf("failed to create block device metrics: %v", err)
-			blockDeviceMetrics = nil
-		} else {
-			log.Info("block device metrics initialized successfully")
 		}
 
 		filesystemMetrics, err = custommetrics.NewMetric[FilesystemMetrics](
@@ -144,22 +138,6 @@ func NewController(
 		)
 		if err != nil {
 			log.Errorf("failed to create filesystem metrics: %v", err)
-			filesystemMetrics = nil
-		} else {
-			log.Info("filesystem metrics initialized successfully")
-		}
-
-		kubeConfig, err := rest.InClusterConfig()
-		if err != nil {
-			log.Errorf("failed to create in-cluster kubernetes config: %v", err)
-		} else {
-			k8sClient, err = kubernetes.NewForConfig(kubeConfig)
-			if err != nil {
-				log.Errorf("failed to create kubernetes client: %v", err)
-				k8sClient = nil
-			} else {
-				log.Info("kubernetes client initialized for storage metrics")
-			}
 		}
 	}
 
@@ -184,10 +162,8 @@ func NewController(
 		eventGroups:          make(map[uint64]*containerEventsGroup),
 		containerStatsGroups: make(map[uint64]*containerStatsGroup),
 
-		// Storage metrics
 		blockDeviceMetrics: blockDeviceMetrics,
 		filesystemMetrics:  filesystemMetrics,
-		k8sClient:          k8sClient,
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetrics),
 			filesystems:  make(map[string]*FilesystemMetrics),
@@ -226,7 +202,6 @@ type Controller struct {
 	blockDeviceMetrics custommetrics.Metric[BlockDeviceMetrics]
 	filesystemMetrics  custommetrics.Metric[FilesystemMetrics]
 	storageState       *storageMetricsState
-	k8sClient          kubernetes.Interface
 }
 
 func (c *Controller) Run(ctx context.Context) error {
