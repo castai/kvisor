@@ -436,8 +436,15 @@ func sortIndexManifests(index *ocispec.Index) {
 		"arm64":   -1,
 	}
 	slices.SortFunc(index.Manifests, func(a, b ocispec.Descriptor) int {
-		a1 := sortOrder[a.Platform.Architecture+a.Platform.Variant]
-		b1 := sortOrder[b.Platform.Architecture+b.Platform.Variant]
+		key1, key2 := "", ""
+		if a.Platform != nil {
+			key1 = a.Platform.Architecture + a.Platform.Variant
+		}
+		if b.Platform != nil {
+			key2 = b.Platform.Architecture + b.Platform.Variant
+		}
+		a1 := sortOrder[key1]
+		b1 := sortOrder[key2]
 		if a1 < b1 {
 			return -1
 		}

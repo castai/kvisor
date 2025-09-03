@@ -24,25 +24,33 @@ func TestSortManifests(t *testing.T) {
 	index := ocispec.Index{
 		Manifests: []ocispec.Descriptor{
 			{
+				Digest: "1",
 				Platform: &ocispec.Platform{
 					Architecture: "arm64",
 				},
 			},
 			{
+				Digest: "2",
 				Platform: &ocispec.Platform{
 					Architecture: "rest",
 				},
 			},
 			{
+				Digest: "3",
 				Platform: &ocispec.Platform{
 					Architecture: "arm64",
 					Variant:      "v8",
 				},
 			},
 			{
+				Digest: "4",
 				Platform: &ocispec.Platform{
 					Architecture: "amd64",
 				},
+			},
+			{
+				Digest:   "5",
+				Platform: nil, // Platform can be nil even for index manifests.
 			},
 		},
 	}
@@ -50,10 +58,13 @@ func TestSortManifests(t *testing.T) {
 	sortIndexManifests(&index)
 
 	sorted := lo.Map(index.Manifests, func(item ocispec.Descriptor, index int) string {
-		return item.Platform.Architecture + item.Platform.Variant
+		if item.Platform == nil {
+			item.Platform = &ocispec.Platform{}
+		}
+		return item.Platform.Architecture + item.Platform.Variant + item.Digest.String()
 	})
 
-	require.Equal(t, []string{"amd64", "arm64v8", "arm64", "rest"}, sorted)
+	require.Equal(t, []string{"amd644", "arm64v83", "arm641", "rest2", "5"}, sorted)
 }
 
 func TestClient(t *testing.T) {
