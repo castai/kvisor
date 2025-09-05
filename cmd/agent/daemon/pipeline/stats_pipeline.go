@@ -491,16 +491,16 @@ func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Ti
 func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (FilesystemMetrics, error) {
 	// Access host filesystem via /proc/1/root since we have hostPID: true
 	hostPath := "/proc/1/root" + partition.Mountpoint
-	
+
 	c.log.Debugf("attempting to get usage for: original=%s, host_path=%s", partition.Mountpoint, hostPath)
-	
+
 	usage, err := c.diskClient.Usage(hostPath)
 	if err != nil {
 		usage = &disk.UsageStat{}
-		c.log.Warnf("failed to get disk usage: mountpoint: %s, host_path: %s, device: %s, error: %v", 
+		c.log.Warnf("failed to get disk usage: mountpoint: %s, host_path: %s, device: %s, error: %v",
 			partition.Mountpoint, hostPath, partition.Device, err)
 	} else {
-		c.log.Debugf("successfully got usage: mountpoint=%s, total=%d, used=%d, free=%d", 
+		c.log.Debugf("successfully got usage: mountpoint=%s, total=%d, used=%d, free=%d",
 			partition.Mountpoint, usage.Total, usage.Used, usage.Free)
 	}
 
@@ -547,7 +547,7 @@ func findPartitionSize(deviceName string) int64 {
 	}
 
 	fmt.Printf("DEBUG: findPartitionSize searching for %s, found %d entries in %s\n", deviceName, len(entries), blockDir)
-	
+
 	for _, entry := range entries {
 		// Check if entry is a directory or symlink pointing to a directory
 		entryPath := fmt.Sprintf("%s/%s", blockDir, entry.Name())
@@ -559,7 +559,7 @@ func findPartitionSize(deviceName string) int64 {
 		// Try: /sys/block/{baseDevice}/{deviceName}/size
 		partitionPath := fmt.Sprintf("%s/%s/%s/size", blockDir, entry.Name(), deviceName)
 		fmt.Printf("DEBUG: trying partition path: %s\n", partitionPath)
-		
+
 		if sectors := readSectorCount(partitionPath); sectors > 0 {
 			fmt.Printf("DEBUG: found partition %s with %d sectors\n", deviceName, sectors)
 			return sectors
@@ -616,18 +616,19 @@ func (c *Controller) resolveLVMDeviceSlaves(device string) []string {
 		return nil
 	}
 
-	hostMapperPath := device
-	c.log.Debugf("resolving LVM device %s at %s", device, hostMapperPath)
+	// Read the symlink target directly from host namespace
+	hostMapperPath := "/proc/1/root" + device
 
-	resolvedPath, err := filepath.EvalSymlinks(hostMapperPath)
+	linkTarget, err := os.Readlink(hostMapperPath)
 	if err != nil {
 		c.log.Debugf("symlink resolution failed for %s: %v", device, err)
 		return nil
 	}
 
-	c.log.Debugf("resolved %s to %s", device, resolvedPath)
+	// Convert to absolute path in host namespace (LVM symlinks typically point to ../dm-X)
+	resolvedPath := "/proc/1/root/dev/" + filepath.Base(linkTarget)
 
-	const hostPrefix = "/dev/"
+	const hostPrefix = "/proc/1/root/dev/"
 	if !strings.HasPrefix(resolvedPath, hostPrefix) {
 		c.log.Debugf("unexpected resolved path format: %s", resolvedPath)
 		return nil
@@ -645,7 +646,12 @@ func (c *Controller) resolveLVMDeviceSlaves(device string) []string {
 
 func (c *Controller) getDeviceMapperSlaves(deviceName string) []string {
 	slavesPath := fmt.Sprintf("/sys/block/%s/slaves", deviceName)
-	c.log.Debugf("checking slaves directory for %s at %s", deviceName, slavesPath)
+
+	// Check if the slaves directory exists
+	if _, err := os.Stat(slavesPath); err != nil {
+		return []string{}
+	}
+
 	entries, err := os.ReadDir(slavesPath)
 	if err != nil {
 		c.log.Debugf("no slaves directory found for %s: %v", deviceName, err)
