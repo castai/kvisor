@@ -37,13 +37,12 @@ type BlockDeviceMetrics struct {
 }
 
 type FilesystemMetrics struct {
-	Devices        []string  `avro:"devices"`
-	NodeName       string    `avro:"node_name"`
-	MountPoint     string    `avro:"mount_point"`
-	TotalSize      uint64    `avro:"total_size"`
-	UsedSpace      uint64    `avro:"used_space"`
-	AvailableSpace uint64    `avro:"available_space"`
-	Timestamp      time.Time `avro:"ts"`
+	Devices    []string  `avro:"devices"`
+	NodeName   string    `avro:"node_name"`
+	MountPoint string    `avro:"mount_point"`
+	TotalSize  uint64    `avro:"total_size"`
+	UsedSpace  uint64    `avro:"used_space"`
+	Timestamp  time.Time `avro:"ts"`
 }
 
 type containerStatsGroup struct {
@@ -520,13 +519,12 @@ func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeNam
 	devices := c.resolveDeviceHierarchy(partition.Device)
 
 	return FilesystemMetrics{
-		Devices:        devices,
-		NodeName:       nodeName,
-		MountPoint:     partition.Mountpoint,
-		TotalSize:      usage.Total,
-		UsedSpace:      usage.Used,
-		AvailableSpace: usage.Free,
-		Timestamp:      timestamp,
+		Devices:    devices,
+		NodeName:   nodeName,
+		MountPoint: partition.Mountpoint,
+		TotalSize:  usage.Total,
+		UsedSpace:  usage.Used,
+		Timestamp:  timestamp,
 	}
 }
 

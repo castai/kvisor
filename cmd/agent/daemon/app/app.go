@@ -247,9 +247,15 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create metrics client: %w", err)
 		}
 
-		blockDeviceMetrics, filesystemMetrics, err = setupStorageMetrics(ctx, metricsClient)
+		go func() {
+			if err = metricsClient.Start(ctx); err != nil {
+				log.Warnf("metric client failed with:%v", err)
+			}
+		}()
+
+		blockDeviceMetrics, filesystemMetrics, err = setupStorageMetrics(metricsClient)
 		if err != nil {
-			return fmt.Errorf("failed to setup storage metrics: %v", err)
+			return fmt.Errorf("failed to setup storage metrics: %w", err)
 		}
 	}
 
@@ -550,11 +556,7 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	}
 }
 
-func setupStorageMetrics(ctx context.Context, metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, error) {
-	if err := startMetricsClient(ctx, metricsClient); err != nil {
-		return nil, nil, fmt.Errorf("failed to start metrics client: %w", err)
-	}
-
+func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, error) {
 	blockDeviceMetrics, err := pipeline.NewBlockDeviceMetricsWriter(metricsClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
@@ -581,13 +583,4 @@ func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error)
 	}
 
 	return custommetrics.NewMetricClient(metricsClientConfig, nil)
-}
-
-func startMetricsClient(ctx context.Context, client custommetrics.MetricClient) error {
-	go func() {
-		if err := client.Start(ctx); err != nil {
-		}
-	}()
-
-	return nil
 }
