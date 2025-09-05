@@ -22,6 +22,8 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 )
 
+const hostRootPath = "/proc/1/root"
+
 type BlockDeviceMetrics struct {
 	Name            string    `avro:"name"`
 	PhysicalDevices []string  `avro:"physical_devices"`
@@ -519,11 +521,9 @@ func (c *Controller) getFilesystemMetrics(nodeName string, timestamp time.Time) 
 	return filesystemMetrics, nil
 }
 
-const hostRootPath = "/proc/1/root"
-
 func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (FilesystemMetrics, error) {
-	hostPath := c.buildHostPath(partition.Mountpoint)
-	usage := c.getFilesystemUsage(hostPath, partition)
+	hostPath := hostRootPath + partition.Mountpoint
+	usage := c.getFilesystemUsage(hostPath)
 	devices := c.resolveDeviceHierarchy(partition.Device)
 
 	return FilesystemMetrics{
@@ -537,14 +537,10 @@ func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeNam
 	}, nil
 }
 
-func (c *Controller) buildHostPath(mountpoint string) string {
-	return hostRootPath + mountpoint
-}
-
-func (c *Controller) getFilesystemUsage(hostPath string, partition disk.PartitionStat) *disk.UsageStat {
+func (c *Controller) getFilesystemUsage(hostPath string) *disk.UsageStat {
 	usage, err := c.diskClient.Usage(hostPath)
 	if err != nil {
-		c.log.Warnf("failed to get disk usage for %s (%s): %v", partition.Mountpoint, partition.Device, err)
+		c.log.Warnf("failed to get disk usage for %s: %v", hostPath, err)
 		return &disk.UsageStat{} // Return empty stats on error
 	}
 	return usage
@@ -553,12 +549,10 @@ func (c *Controller) getFilesystemUsage(hostPath string, partition disk.Partitio
 const sectorSizeBytes = 512
 
 func getDeviceSize(deviceName string) (int64, error) {
-	// Try whole device first: /sys/block/{device}/size
 	if sectors := getSectorCount(fmt.Sprintf("/sys/block/%s/size", deviceName)); sectors > 0 {
 		return sectors * sectorSizeBytes, nil
 	}
 
-	// If that failed, try partition path: /sys/block/{parent}/{device}/size
 	if sectors := getPartitionSize(deviceName); sectors > 0 {
 		return sectors * sectorSizeBytes, nil
 	}
@@ -605,12 +599,10 @@ func getSectorCount(path string) int64 {
 }
 
 func (c *Controller) resolveDeviceHierarchy(device string) []string {
-	// check for LVM devices via symlink resolution
 	if slaves := c.resolveLVMSlaves(device); len(slaves) > 0 {
 		return slaves
 	}
 
-	// check for any device mapper slaves (RAID, other mapped devices)
 	deviceName := strings.TrimPrefix(device, "/dev/")
 	if slaves := c.resolveDeviceMapperSlaves(deviceName); len(slaves) > 0 {
 		return slaves
@@ -627,8 +619,7 @@ func (c *Controller) resolveLVMSlaves(device string) []string {
 		return nil
 	}
 
-	// Read the symlink target directly from host namespace
-	hostMapperPath := "/proc/1/root" + device
+	hostMapperPath := hostRootPath + device
 
 	linkTarget, err := os.Readlink(hostMapperPath)
 	if err != nil {
@@ -636,10 +627,9 @@ func (c *Controller) resolveLVMSlaves(device string) []string {
 		return nil
 	}
 
-	// Convert to absolute path in host namespace (LVM symlinks typically point to ../dm-X)
-	resolvedPath := "/proc/1/root/dev/" + filepath.Base(linkTarget)
+	resolvedPath := hostRootPath + "/dev/" + filepath.Base(linkTarget)
 
-	const hostPrefix = "/proc/1/root/dev/"
+	const hostPrefix = hostRootPath + "/dev/"
 	if !strings.HasPrefix(resolvedPath, hostPrefix) {
 		c.log.Debugf("unexpected resolved path format: %s", resolvedPath)
 		return nil
@@ -658,7 +648,6 @@ func (c *Controller) resolveLVMSlaves(device string) []string {
 func (c *Controller) resolveDeviceMapperSlaves(deviceName string) []string {
 	slavesPath := fmt.Sprintf("/sys/block/%s/slaves", deviceName)
 
-	// Check if the slaves directory exists
 	if _, err := os.Stat(slavesPath); err != nil {
 		return []string{}
 	}
@@ -700,26 +689,21 @@ func (c *Controller) resolvePhysicalDevices(deviceName string) []string {
 }
 
 func (c *Controller) resolveToPhysicalDevices(deviceName string, visited map[string]bool) []string {
-	// Prevent infinite loops
 	if visited[deviceName] {
 		c.log.Warnf("circular dependency detected for device %s", deviceName)
 		return []string{"/dev/" + deviceName}
 	}
 	visited[deviceName] = true
 
-	// Read slave devices from sysfs
 	slaves := c.readDeviceSlaves(deviceName)
 
 	if len(slaves) == 0 {
-		// No slaves - check if it's a partition
 		if parentDevice := c.findPartitionParent(deviceName); parentDevice != "" {
 			return c.resolveToPhysicalDevices(parentDevice, visited)
 		}
-		// This is a physical device
 		return []string{"/dev/" + deviceName}
 	}
 
-	// This device has slaves - recursively resolve them
 	var allPhysicalDevices []string
 	for _, slave := range slaves {
 		slavePhysical := c.resolveToPhysicalDevices(slave, visited)
@@ -752,7 +736,6 @@ func (c *Controller) readDeviceSlaves(deviceName string) []string {
 
 // getPartitionParentDevice checks if a device is a partition and returns its parent
 func (c *Controller) findPartitionParent(deviceName string) string {
-	// Look through /sys/block/ to find if deviceName appears as a subdirectory
 	blockDevices, err := os.ReadDir("/sys/block")
 	if err != nil {
 		c.log.Debugf("cannot read /sys/block: %v", err)
@@ -788,7 +771,6 @@ func (c *Controller) deduplicateDevices(devices []string) []string {
 		}
 	}
 
-	// Sort for consistent output using standard library
 	sort.Strings(unique)
 	return unique
 }
