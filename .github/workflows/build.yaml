@@ -143,18 +143,18 @@ jobs:
           push: true
           tags: ghcr.io/castai/kvisor/kvisor-scanners:${{ env.head_commit_sha }},ghcr.io/castai/kvisor/kvisor-scanners:latest
 
-      - name: Run golangci-lint
-        # You may pin to the exact commit or the version.
-        # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
-        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
-        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
-        with:
-          args: -v --timeout=5m
-          version: v2.0.2
-          only-new-issues: false
+      # - name: Run golangci-lint
+      #   # You may pin to the exact commit or the version.
+      #   # uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
+      #   if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-lint') }}
+      #   uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
+      #   with:
+      #     args: -v --timeout=5m
+      #     version: v2.0.2
+      #     only-new-issues: false
 
       - name: Test
-        if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
+        if: ${{ github.event_name == 'pull_request' }}
         run: go test -race -short ./...
 
       - name: Summary

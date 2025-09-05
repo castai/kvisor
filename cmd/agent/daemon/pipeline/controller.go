@@ -89,6 +89,32 @@ type enrichmentService interface {
 	Events() <-chan *enrichment.EnrichedContainerEvent
 }
 
+type BlockDeviceMetricsWriter interface {
+	Write(metrics ...BlockDeviceMetrics) error
+}
+
+type FilesystemMetricsWriter interface {
+	Write(metrics ...FilesystemMetrics) error
+}
+
+// NewBlockDeviceMetricsWriter creates a new block device metrics writer
+func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
+	return custommetrics.NewMetric[BlockDeviceMetrics](
+		metricsClient,
+		custommetrics.WithCollectionName[BlockDeviceMetrics]("kvisor_block_device_metrics"),
+		custommetrics.WithSkipTimestamp[BlockDeviceMetrics](),
+	)
+}
+
+// NewFilesystemMetricsWriter creates a new filesystem metrics writer
+func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
+	return custommetrics.NewMetric[FilesystemMetrics](
+		metricsClient,
+		custommetrics.WithCollectionName[FilesystemMetrics]("kvisor_filesystem_metrics"),
+		custommetrics.WithSkipTimestamp[FilesystemMetrics](),
+	)
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
@@ -102,7 +128,9 @@ func NewController(
 	processTreeCollector processTreeCollector,
 	procHandler procHandler,
 	enrichmentService enrichmentService,
-	metricsClient custommetrics.MetricClient,
+	blockDeviceMetrics BlockDeviceMetricsWriter,
+	filesystemMetrics FilesystemMetricsWriter,
+	diskStatsProvider DiskStatsProvider,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -115,30 +143,6 @@ func NewController(
 	})
 	if err != nil {
 		panic(err)
-	}
-
-	var blockDeviceMetrics custommetrics.Metric[BlockDeviceMetrics]
-	var filesystemMetrics custommetrics.Metric[FilesystemMetrics]
-
-	if cfg.Stats.StorageEnabled {
-		var err error
-		blockDeviceMetrics, err = custommetrics.NewMetric[BlockDeviceMetrics](
-			metricsClient,
-			custommetrics.WithCollectionName[BlockDeviceMetrics]("kvisor_block_device_metrics"),
-			custommetrics.WithSkipTimestamp[BlockDeviceMetrics](),
-		)
-		if err != nil {
-			log.Errorf("failed to create block device metrics: %v", err)
-		}
-
-		filesystemMetrics, err = custommetrics.NewMetric[FilesystemMetrics](
-			metricsClient,
-			custommetrics.WithCollectionName[FilesystemMetrics]("kvisor_filesystem_metrics"),
-			custommetrics.WithSkipTimestamp[FilesystemMetrics](),
-		)
-		if err != nil {
-			log.Errorf("failed to create filesystem metrics: %v", err)
-		}
 	}
 
 	return &Controller{
@@ -164,6 +168,7 @@ func NewController(
 
 		blockDeviceMetrics: blockDeviceMetrics,
 		filesystemMetrics:  filesystemMetrics,
+		diskStatsProvider:  diskStatsProvider,
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetrics),
 			filesystems:  make(map[string]*FilesystemMetrics),
@@ -199,9 +204,13 @@ type Controller struct {
 	containerStatsGroups map[uint64]*containerStatsGroup
 
 	// Storage metrics
-	blockDeviceMetrics custommetrics.Metric[BlockDeviceMetrics]
-	filesystemMetrics  custommetrics.Metric[FilesystemMetrics]
+	blockDeviceMetrics BlockDeviceMetricsWriter
+	filesystemMetrics  FilesystemMetricsWriter
 	storageState       *storageMetricsState
+	diskStatsProvider  DiskStatsProvider
+	
+	// Test configuration - when set, overrides default sysfs paths
+	testSysBlockPath   string
 }
 
 func (c *Controller) Run(ctx context.Context) error {

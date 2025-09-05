@@ -21,6 +21,36 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 )
 
+type DiskStatsProvider interface {
+	IOCounters() (map[string]disk.IOCountersStat, error)
+	Partitions(all bool) ([]disk.PartitionStat, error)
+	Usage(path string) (*disk.UsageStat, error)
+}
+
+type RealDiskStatsProvider struct {
+	hostPath string
+}
+
+func NewRealDiskStatsProvider() *RealDiskStatsProvider {
+	return &RealDiskStatsProvider{hostPath: "/proc/1/root"}
+}
+
+func NewTestDiskStatsProvider(hostPath string) *RealDiskStatsProvider {
+	return &RealDiskStatsProvider{hostPath: hostPath}
+}
+
+func (r *RealDiskStatsProvider) IOCounters() (map[string]disk.IOCountersStat, error) {
+	return disk.IOCounters()
+}
+
+func (r *RealDiskStatsProvider) Partitions(all bool) ([]disk.PartitionStat, error) {
+	return disk.Partitions(all)
+}
+
+func (r *RealDiskStatsProvider) Usage(path string) (*disk.UsageStat, error) {
+	return disk.Usage(r.hostPath + path)
+}
+
 type BlockDeviceMetrics struct {
 	Name            string    `avro:"name"`
 	PhysicalDevices []string  `avro:"physical_devices"`
@@ -438,13 +468,13 @@ func (c *Controller) collectAndSendFilesystemMetrics(timestamp time.Time) {
 func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDeviceMetrics, error) {
 	var blockMetrics []BlockDeviceMetrics
 
-	ioStats, err := disk.IOCounters()
+	ioStats, err := c.diskStatsProvider.IOCounters()
 	if err != nil {
 		return nil, err
 	}
 
 	for deviceName, stat := range ioStats {
-		diskUsage, err := calculateDiskSize(deviceName)
+		diskUsage, err := c.calculateDiskSize(deviceName)
 		if err != nil {
 			c.log.Warnf("failed to get disk usage for %s: %v", deviceName, err)
 		}
@@ -470,7 +500,7 @@ func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.T
 }
 
 func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
-	partitions, err := disk.Partitions(false) // true = physical and virtual devices
+	partitions, err := c.diskStatsProvider.Partitions(false) // true = physical and virtual devices
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
@@ -489,16 +519,13 @@ func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Ti
 }
 
 func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (FilesystemMetrics, error) {
-	// Access host filesystem via /proc/1/root since we have hostPID: true
-	hostPath := "/proc/1/root" + partition.Mountpoint
+	c.log.Debugf("attempting to get usage for: original=%s", partition.Mountpoint)
 	
-	c.log.Debugf("attempting to get usage for: original=%s, host_path=%s", partition.Mountpoint, hostPath)
-	
-	usage, err := disk.Usage(hostPath)
+	usage, err := c.diskStatsProvider.Usage(partition.Mountpoint)
 	if err != nil {
 		usage = &disk.UsageStat{}
-		c.log.Warnf("failed to get disk usage: mountpoint: %s, host_path: %s, device: %s, error: %v", 
-			partition.Mountpoint, hostPath, partition.Device, err)
+		c.log.Warnf("failed to get disk usage: mountpoint: %s, device: %s, error: %v", 
+			partition.Mountpoint, partition.Device, err)
 	} else {
 		c.log.Debugf("successfully got usage: mountpoint=%s, total=%d, used=%d, free=%d", 
 			partition.Mountpoint, usage.Total, usage.Used, usage.Free)
@@ -515,8 +542,8 @@ func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeNa
 	}, nil
 }
 
-func calculateDiskSize(deviceName string) (int64, error) {
-	size := getBlockDeviceSize(deviceName)
+func (c *Controller) calculateDiskSize(deviceName string) (int64, error) {
+	size := c.getBlockDeviceSize(deviceName)
 	if size > 0 {
 		return size, nil
 	}
@@ -524,22 +551,26 @@ func calculateDiskSize(deviceName string) (int64, error) {
 	return 0, fmt.Errorf("failed to get size for device %s", deviceName)
 }
 
-func getBlockDeviceSize(deviceName string) int64 {
+func (c *Controller) getBlockDeviceSize(deviceName string) int64 {
+	basePath := "/sys/block"
+	if c.testSysBlockPath != "" {
+		basePath = c.testSysBlockPath + "/sys/block"
+	}
+	
 	// Try whole device first: /sys/block/{device}/size
-	if sectors := readSectorCount(fmt.Sprintf("/sys/block/%s/size", deviceName)); sectors > 0 {
+	if sectors := readSectorCount(fmt.Sprintf("%s/%s/size", basePath, deviceName)); sectors > 0 {
 		return sectors * 512
 	}
 
 	// If that failed, try partition path: /sys/block/{parent}/{device}/size
-	if sectors := findPartitionSize(deviceName); sectors > 0 {
+	if sectors := c.findPartitionSize(deviceName, basePath); sectors > 0 {
 		return sectors * 512
 	}
 
 	return 0
 }
 
-func findPartitionSize(deviceName string) int64 {
-	blockDir := "/sys/block"
+func (c *Controller) findPartitionSize(deviceName string, blockDir string) int64 {
 	entries, err := os.ReadDir(blockDir)
 	if err != nil {
 		fmt.Printf("DEBUG: findPartitionSize cannot read %s: %v\n", blockDir, err)
@@ -644,7 +675,12 @@ func (c *Controller) resolveLVMDeviceSlaves(device string) []string {
 }
 
 func (c *Controller) getDeviceMapperSlaves(deviceName string) []string {
-	slavesPath := fmt.Sprintf("/sys/block/%s/slaves", deviceName)
+	basePath := "/sys/block"
+	if c.testSysBlockPath != "" {
+		basePath = c.testSysBlockPath + "/sys/block"
+	}
+	
+	slavesPath := fmt.Sprintf("%s/%s/slaves", basePath, deviceName)
 	c.log.Debugf("checking slaves directory for %s at %s", deviceName, slavesPath)
 	entries, err := os.ReadDir(slavesPath)
 	if err != nil {
@@ -725,7 +761,12 @@ func (c *Controller) resolveToPhysicalDevices(deviceName string, visited map[str
 
 // readDeviceSlaves reads the slave devices from /sys/block/DEVICE/slaves/
 func (c *Controller) readDeviceSlaves(deviceName string) []string {
-	slavesPath := fmt.Sprintf("/sys/block/%s/slaves", deviceName)
+	basePath := "/sys/block"
+	if c.testSysBlockPath != "" {
+		basePath = c.testSysBlockPath + "/sys/block"
+	}
+	
+	slavesPath := fmt.Sprintf("%s/%s/slaves", basePath, deviceName)
 	entries, err := os.ReadDir(slavesPath)
 	if err != nil {
 		c.log.Debugf("cannot read slaves for %s: %v", deviceName, err)
@@ -746,10 +787,15 @@ func (c *Controller) readDeviceSlaves(deviceName string) []string {
 
 // getPartitionParentDevice checks if a device is a partition and returns its parent
 func (c *Controller) getPartitionParentDevice(deviceName string) string {
+	basePath := "/sys/block"
+	if c.testSysBlockPath != "" {
+		basePath = c.testSysBlockPath + "/sys/block"
+	}
+	
 	// Look through /sys/block/ to find if deviceName appears as a subdirectory
-	blockDevices, err := os.ReadDir("/sys/block")
+	blockDevices, err := os.ReadDir(basePath)
 	if err != nil {
-		c.log.Debugf("cannot read /sys/block: %v", err)
+		c.log.Debugf("cannot read %s: %v", basePath, err)
 		return ""
 	}
 
@@ -759,7 +805,7 @@ func (c *Controller) getPartitionParentDevice(deviceName string) string {
 		}
 
 		parentDeviceName := entry.Name()
-		partitionPath := fmt.Sprintf("/sys/block/%s/%s", parentDeviceName, deviceName)
+		partitionPath := fmt.Sprintf("%s/%s/%s", basePath, parentDeviceName, deviceName)
 
 		if _, err := os.Stat(partitionPath); err == nil {
 			c.log.Debugf("found partition %s under parent %s", deviceName, parentDeviceName)
