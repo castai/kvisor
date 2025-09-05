@@ -13,6 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
@@ -27,11 +33,6 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 type testAddr struct {
@@ -869,7 +870,9 @@ func newTestController(opts ...any) *Controller {
 	processTreeCollector := &mockProcessTreeController{}
 
 	procHandler := &mockProcHandler{}
-	metricsClient := &mockMetricClient{}
+	//metricsClient := &mockMetricClient{}
+	blockDeviceMetrics := &mockBlockDeviceMetricsWriter{}
+	filesystemMetrics := &mockFilesystemMetricsWriter{}
 
 	ctrl := NewController(
 		log,
@@ -884,7 +887,8 @@ func newTestController(opts ...any) *Controller {
 		processTreeCollector,
 		procHandler,
 		enrichService,
-		metricsClient,
+		blockDeviceMetrics,
+		filesystemMetrics,
 	)
 	return ctrl
 }
@@ -1222,5 +1226,31 @@ func (m *mockMetricClient) Stop() error {
 }
 
 func (m *mockMetricClient) Add(name string, metric interface{}) error {
+	return nil
+}
+
+type mockBlockDeviceMetricsWriter struct {
+	writeFunc func(metrics ...BlockDeviceMetrics) error
+	metrics   []BlockDeviceMetrics
+}
+
+func (m *mockBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetrics) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
+	return nil
+}
+
+type mockFilesystemMetricsWriter struct {
+	writeFunc func(metrics ...FilesystemMetrics) error
+	metrics   []FilesystemMetrics
+}
+
+func (m *mockFilesystemMetricsWriter) Write(metrics ...FilesystemMetrics) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
 	return nil
 }

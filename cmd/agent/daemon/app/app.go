@@ -271,6 +271,22 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
+	// Create storage metrics writers
+	var blockDeviceMetrics pipeline.BlockDeviceMetricsWriter
+	var filesystemMetrics pipeline.FilesystemMetricsWriter
+	if cfg.Stats.StorageEnabled && metricsClient != nil {
+		var err error
+		blockDeviceMetrics, err = pipeline.NewBlockDeviceMetricsWriter(metricsClient)
+		if err != nil {
+			log.Errorf("failed to create block device metrics: %v", err)
+		}
+
+		filesystemMetrics, err = pipeline.NewFilesystemMetricsWriter(metricsClient)
+		if err != nil {
+			log.Errorf("failed to create filesystem metrics: %v", err)
+		}
+	}
+
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
@@ -290,7 +306,9 @@ func (a *App) Run(ctx context.Context) error {
 		processTreeCollector,
 		procHandler,
 		enrichmentService,
-		metricsClient,
+		// metricsClient,
+		blockDeviceMetrics,
+		filesystemMetrics,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
