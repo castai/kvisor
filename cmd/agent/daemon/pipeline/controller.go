@@ -10,6 +10,7 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
+	"github.com/shirou/gopsutil/v4/disk"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
@@ -30,6 +31,30 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	custommetrics "github.com/castai/metrics"
 )
+
+type DiskInterface interface {
+	IOCounters() (map[string]disk.IOCountersStat, error)
+	Partitions(all bool) ([]disk.PartitionStat, error)
+	Usage(path string) (*disk.UsageStat, error)
+}
+
+type DiskClient struct{}
+
+func NewDiskClient() *DiskClient {
+	return &DiskClient{}
+}
+
+func (d *DiskClient) IOCounters() (map[string]disk.IOCountersStat, error) {
+	return disk.IOCounters()
+}
+
+func (d *DiskClient) Partitions(all bool) ([]disk.PartitionStat, error) {
+	return disk.Partitions(all)
+}
+
+func (d *DiskClient) Usage(path string) (*disk.UsageStat, error) {
+	return disk.Usage(path)
+}
 
 type Config struct {
 	DataBatch   config.DataBatchConfig   `validate:"required"`
