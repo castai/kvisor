@@ -122,7 +122,6 @@ type FilesystemMetricsWriter interface {
 	Write(metrics ...FilesystemMetrics) error
 }
 
-// NewBlockDeviceMetricsWriter creates a new block device metrics writer
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetrics](
 		metricsClient,
@@ -131,7 +130,6 @@ func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (Bloc
 	)
 }
 
-// NewFilesystemMetricsWriter creates a new filesystem metrics writer
 func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
 	return custommetrics.NewMetric[FilesystemMetrics](
 		metricsClient,
@@ -156,6 +154,7 @@ func NewController(
 	blockDeviceMetrics BlockDeviceMetricsWriter,
 	filesystemMetrics FilesystemMetricsWriter,
 	diskClient DiskInterface,
+	deviceInfoProvider DeviceInfoProvider,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -194,6 +193,7 @@ func NewController(
 		blockDeviceMetrics: blockDeviceMetrics,
 		filesystemMetrics:  filesystemMetrics,
 		diskClient:         diskClient,
+		deviceInfoProvider: deviceInfoProvider,
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetrics),
 			filesystems:  make(map[string]*FilesystemMetrics),
@@ -232,6 +232,7 @@ type Controller struct {
 	blockDeviceMetrics BlockDeviceMetricsWriter
 	filesystemMetrics  FilesystemMetricsWriter
 	diskClient         DiskInterface
+	deviceInfoProvider DeviceInfoProvider
 	storageState       *storageMetricsState
 }
 

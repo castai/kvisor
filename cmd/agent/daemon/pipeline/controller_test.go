@@ -889,6 +889,8 @@ func newTestController(opts ...any) *Controller {
 		enrichService,
 		blockDeviceMetrics,
 		filesystemMetrics,
+		nil,
+		nil,
 	)
 	return ctrl
 }

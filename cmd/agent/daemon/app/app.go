@@ -281,6 +281,7 @@ func (a *App) Run(ctx context.Context) error {
 		blockDeviceMetrics,
 		filesystemMetrics,
 		pipeline.NewDiskClient(),
+		pipeline.NewSysfsDeviceInfoProvider(),
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
