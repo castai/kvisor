@@ -46,7 +46,6 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
-	castailogging "github.com/castai/logging"
 	custommetrics "github.com/castai/metrics"
 )
 
@@ -240,50 +239,17 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(proc.Path)
 
-	var metricsClient custommetrics.MetricClient
-	if cfg.Stats.StorageEnabled && cfg.Castai.Valid() {
-		metricsClientConfig := custommetrics.Config{
-			APIAddr:   cfg.Castai.APIGrpcAddr,
-			ClusterID: cfg.Castai.ClusterID,
-			APIToken:  cfg.Castai.APIKey,
-			Insecure:  cfg.Castai.Insecure,
-		}
-
-		castaiLogger := castailogging.New(
-			castailogging.NewTextHandler(castailogging.TextHandlerConfig{
-				Level:     castailogging.MustParseLevel(cfg.LogLevel),
-				Output:    os.Stdout,
-				AddSource: false,
-			}),
-		)
-
-		var err error
-		metricsClient, err = custommetrics.NewMetricClient(metricsClientConfig, castaiLogger)
-		if err != nil {
-			log.Errorf("failed to create metrics client: %v", err)
-		} else {
-			go func() {
-				log.Info("starting storage metrics client")
-				if err := metricsClient.Start(ctx); err != nil {
-					log.Errorf("failed to start storage metrics client: %v", err)
-				}
-			}()
-		}
-	}
-
-	// Create storage metrics writers
 	var blockDeviceMetrics pipeline.BlockDeviceMetricsWriter
 	var filesystemMetrics pipeline.FilesystemMetricsWriter
-	if cfg.Stats.StorageEnabled && metricsClient != nil {
-		var err error
-		blockDeviceMetrics, err = pipeline.NewBlockDeviceMetricsWriter(metricsClient)
+	if cfg.Stats.StorageEnabled {
+		metricsClient, err := createMetricsClient(cfg)
 		if err != nil {
-			log.Errorf("failed to create block device metrics: %v", err)
+			return fmt.Errorf("failed to create metrics client: %w", err)
 		}
 
-		filesystemMetrics, err = pipeline.NewFilesystemMetricsWriter(metricsClient)
+		blockDeviceMetrics, filesystemMetrics, err = setupStorageMetrics(ctx, metricsClient)
 		if err != nil {
-			log.Errorf("failed to create filesystem metrics: %v", err)
+			return fmt.Errorf("failed to setup storage metrics: %v", err)
 		}
 	}
 
@@ -306,7 +272,6 @@ func (a *App) Run(ctx context.Context) error {
 		processTreeCollector,
 		procHandler,
 		enrichmentService,
-		// metricsClient,
 		blockDeviceMetrics,
 		filesystemMetrics,
 		pipeline.NewDiskClient(),
@@ -583,4 +548,46 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	case err := <-errc:
 		return err
 	}
+}
+
+func setupStorageMetrics(ctx context.Context, metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, error) {
+	if err := startMetricsClient(ctx, metricsClient); err != nil {
+		return nil, nil, fmt.Errorf("failed to start metrics client: %w", err)
+	}
+
+	blockDeviceMetrics, err := pipeline.NewBlockDeviceMetricsWriter(metricsClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
+	}
+
+	filesystemMetrics, err := pipeline.NewFilesystemMetricsWriter(metricsClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create filesystem metrics writer: %w", err)
+	}
+
+	return blockDeviceMetrics, filesystemMetrics, nil
+}
+
+func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error) {
+	if !cfg.Castai.Valid() {
+		return nil, fmt.Errorf("cast config is not valid")
+	}
+
+	metricsClientConfig := custommetrics.Config{
+		APIAddr:   cfg.Castai.APIGrpcAddr,
+		ClusterID: cfg.Castai.ClusterID,
+		APIToken:  cfg.Castai.APIKey,
+		Insecure:  cfg.Castai.Insecure,
+	}
+
+	return custommetrics.NewMetricClient(metricsClientConfig, nil)
+}
+
+func startMetricsClient(ctx context.Context, client custommetrics.MetricClient) error {
+	go func() {
+		if err := client.Start(ctx); err != nil {
+		}
+	}()
+
+	return nil
 }

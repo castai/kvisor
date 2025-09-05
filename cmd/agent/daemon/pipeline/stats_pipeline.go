@@ -28,8 +28,8 @@ type BlockDeviceMetrics struct {
 	Name            string    `avro:"name"`
 	PhysicalDevices []string  `avro:"physical_devices"`
 	NodeName        string    `avro:"node_name"`
-	ReadIOPS        int64     `avro:"read_iops"`
-	WriteIOPS       int64     `avro:"write_iops"`
+	ReadIOPS        uint64    `avro:"read_iops"`
+	WriteIOPS       uint64    `avro:"write_iops"`
 	ReadThroughput  float64   `avro:"read_throughput"`
 	WriteThroughput float64   `avro:"write_throughput"`
 	Size            int64     `avro:"size"`
@@ -40,9 +40,9 @@ type FilesystemMetrics struct {
 	Devices        []string  `avro:"devices"`
 	NodeName       string    `avro:"node_name"`
 	MountPoint     string    `avro:"mount_point"`
-	TotalSize      int64     `avro:"total_size"`
-	UsedSpace      int64     `avro:"used_space"`
-	AvailableSpace int64     `avro:"available_space"`
+	TotalSize      uint64    `avro:"total_size"`
+	UsedSpace      uint64    `avro:"used_space"`
+	AvailableSpace uint64    `avro:"available_space"`
 	Timestamp      time.Time `avro:"ts"`
 }
 
@@ -365,7 +365,7 @@ func getPSIStatsDiff(prev, curr *castaipb.PSIStats) *castaipb.PSIStats {
 	return res
 }
 
-func (c *Controller) collectStorageMetrics() error {
+func (c *Controller) collectStorageMetrics() {
 	start := time.Now()
 	c.log.Debug("starting storage metrics collection")
 
@@ -374,7 +374,6 @@ func (c *Controller) collectStorageMetrics() error {
 	timestamp := time.Now()
 	if err := c.processBlockDeviceMetrics(timestamp); err != nil {
 		c.log.Errorf("failed to collect block device metrics: %v", err)
-		// Continue with filesystem metrics even if block devices fail
 	}
 
 	if err := c.processFilesystemMetrics(timestamp); err != nil {
@@ -382,7 +381,6 @@ func (c *Controller) collectStorageMetrics() error {
 	}
 
 	c.log.Debugf("storage metrics collection completed in %v", time.Since(start))
-	return nil
 }
 
 func (c *Controller) initStorageState() {
@@ -436,8 +434,8 @@ func (c *Controller) processBlockDeviceMetricWithRates(current BlockDeviceMetric
 func (c *Controller) calculateBlockDeviceRates(current *BlockDeviceMetrics, prev *BlockDeviceMetrics, timeDiff float64) {
 	current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
 	current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
-	current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
-	current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
+	current.ReadIOPS = uint64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
+	current.WriteIOPS = uint64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
 }
 
 func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
@@ -475,7 +473,6 @@ func (c *Controller) getBlockDeviceMetrics(nodeName string, timestamp time.Time)
 		blockMetrics = append(blockMetrics, metric)
 	}
 
-	c.log.Debugf("collected %d block device metrics", len(blockMetrics))
 	return blockMetrics, nil
 }
 
@@ -492,8 +489,8 @@ func (c *Controller) buildBlockDeviceMetric(deviceName string, stat disk.IOCount
 		Name:            deviceName,
 		PhysicalDevices: physicalDevices,
 		NodeName:        nodeName,
-		ReadIOPS:        int64(stat.ReadCount),
-		WriteIOPS:       int64(stat.WriteCount),
+		ReadIOPS:        stat.ReadCount,
+		WriteIOPS:       stat.WriteCount,
 		ReadThroughput:  float64(stat.ReadBytes),
 		WriteThroughput: float64(stat.WriteBytes),
 		Size:            diskUsage,
@@ -502,18 +499,14 @@ func (c *Controller) buildBlockDeviceMetric(deviceName string, stat disk.IOCount
 }
 
 func (c *Controller) getFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
-	partitions, err := c.diskClient.Partitions(false) // true = physical and virtual devices
+	partitions, err := c.diskClient.Partitions(false) // false = only physical devices
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
 
 	filesystemMetrics := make([]FilesystemMetrics, 0, len(partitions))
 	for _, partition := range partitions {
-		metric, err := c.buildFilesystemMetric(partition, nodeName, timestamp)
-		if err != nil {
-			c.log.Debugf("skipping partition %s: %v", partition.Mountpoint, err)
-			continue
-		}
+		metric := c.buildFilesystemMetric(partition, nodeName, timestamp)
 		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
@@ -521,7 +514,7 @@ func (c *Controller) getFilesystemMetrics(nodeName string, timestamp time.Time) 
 	return filesystemMetrics, nil
 }
 
-func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (FilesystemMetrics, error) {
+func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) FilesystemMetrics {
 	hostPath := hostRootPath + partition.Mountpoint
 	usage := c.getFilesystemUsage(hostPath)
 	devices := c.resolveDeviceHierarchy(partition.Device)
@@ -530,18 +523,18 @@ func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeNam
 		Devices:        devices,
 		NodeName:       nodeName,
 		MountPoint:     partition.Mountpoint,
-		TotalSize:      int64(usage.Total),
-		UsedSpace:      int64(usage.Used),
-		AvailableSpace: int64(usage.Free),
+		TotalSize:      usage.Total,
+		UsedSpace:      usage.Used,
+		AvailableSpace: usage.Free,
 		Timestamp:      timestamp,
-	}, nil
+	}
 }
 
 func (c *Controller) getFilesystemUsage(hostPath string) *disk.UsageStat {
 	usage, err := c.diskClient.Usage(hostPath)
 	if err != nil {
 		c.log.Warnf("failed to get disk usage for %s: %v", hostPath, err)
-		return &disk.UsageStat{} // Return empty stats on error
+		return &disk.UsageStat{}
 	}
 	return usage
 }
@@ -613,7 +606,6 @@ func (c *Controller) resolveDeviceHierarchy(device string) []string {
 
 // resolveLVMSlaves resolves LVM logical volumes to their underlying physical devices.
 // It handles the symlink chain: /dev/mapper/vg-lv → /dev/dm-X → /sys/block/dm-X/slaves/ → [sdf, sdg]
-// Returns the list of underlying physical devices or nil if not an LVM device.
 func (c *Controller) resolveLVMSlaves(device string) []string {
 	if !strings.HasPrefix(device, "/dev/mapper/") {
 		return nil
@@ -734,7 +726,6 @@ func (c *Controller) readDeviceSlaves(deviceName string) []string {
 	return slaves
 }
 
-// getPartitionParentDevice checks if a device is a partition and returns its parent
 func (c *Controller) findPartitionParent(deviceName string) string {
 	blockDevices, err := os.ReadDir("/sys/block")
 	if err != nil {
@@ -759,7 +750,6 @@ func (c *Controller) findPartitionParent(deviceName string) string {
 	return ""
 }
 
-// removeDuplicateDevices removes duplicate devices and sorts the result
 func (c *Controller) deduplicateDevices(devices []string) []string {
 	seen := make(map[string]bool)
 	unique := make([]string, 0, len(devices))
