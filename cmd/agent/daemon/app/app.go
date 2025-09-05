@@ -309,6 +309,7 @@ func (a *App) Run(ctx context.Context) error {
 		// metricsClient,
 		blockDeviceMetrics,
 		filesystemMetrics,
+		pipeline.NewDiskClient(),
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)

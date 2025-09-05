@@ -130,6 +130,7 @@ func NewController(
 	enrichmentService enrichmentService,
 	blockDeviceMetrics BlockDeviceMetricsWriter,
 	filesystemMetrics FilesystemMetricsWriter,
+	diskClient DiskInterface,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -167,6 +168,7 @@ func NewController(
 
 		blockDeviceMetrics: blockDeviceMetrics,
 		filesystemMetrics:  filesystemMetrics,
+		diskClient:         diskClient,
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetrics),
 			filesystems:  make(map[string]*FilesystemMetrics),
@@ -204,6 +206,7 @@ type Controller struct {
 	// Storage metrics
 	blockDeviceMetrics BlockDeviceMetricsWriter
 	filesystemMetrics  FilesystemMetricsWriter
+	diskClient         DiskInterface
 	storageState       *storageMetricsState
 }
 

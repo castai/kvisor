@@ -438,7 +438,7 @@ func (c *Controller) collectAndSendFilesystemMetrics(timestamp time.Time) {
 func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.Time) ([]BlockDeviceMetrics, error) {
 	var blockMetrics []BlockDeviceMetrics
 
-	ioStats, err := disk.IOCounters()
+	ioStats, err := c.diskClient.IOCounters()
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +470,7 @@ func (c *Controller) collectBlockDeviceMetrics(nodeName string, timestamp time.T
 }
 
 func (c *Controller) collectFilesystemMetrics(nodeName string, timestamp time.Time) ([]FilesystemMetrics, error) {
-	partitions, err := disk.Partitions(false) // true = physical and virtual devices
+	partitions, err := c.diskClient.Partitions(false) // true = physical and virtual devices
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
@@ -494,7 +494,7 @@ func (c *Controller) createFilesystemMetric(partition disk.PartitionStat, nodeNa
 	
 	c.log.Debugf("attempting to get usage for: original=%s, host_path=%s", partition.Mountpoint, hostPath)
 	
-	usage, err := disk.Usage(hostPath)
+	usage, err := c.diskClient.Usage(hostPath)
 	if err != nil {
 		usage = &disk.UsageStat{}
 		c.log.Warnf("failed to get disk usage: mountpoint: %s, host_path: %s, device: %s, error: %v", 
