@@ -635,36 +635,42 @@ func (c *Controller) getFilesystemMetrics(nodeName string, timestamp time.Time) 
 
 	filesystemMetrics := make([]FilesystemMetrics, 0, len(partitions))
 	for _, partition := range partitions {
-		metric := c.buildFilesystemMetric(partition, nodeName, timestamp)
-		filesystemMetrics = append(filesystemMetrics, metric)
+		metric, err := c.buildFilesystemMetric(partition, nodeName, timestamp)
+		if err != nil {
+			c.log.Warnf("failed to build file system metric: %v", err)
+			continue
+		}
+		filesystemMetrics = append(filesystemMetrics, *metric)
 	}
 
 	c.log.Debugf("collected %d filesystem metrics", len(filesystemMetrics))
 	return filesystemMetrics, nil
 }
 
-func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) FilesystemMetrics {
+func (c *Controller) buildFilesystemMetric(partition disk.PartitionStat, nodeName string, timestamp time.Time) (*FilesystemMetrics, error) {
 	hostPath := hostRootPath + partition.Mountpoint
-	usage := c.getFilesystemUsage(hostPath)
+	usage, err := c.getFilesystemUsage(hostPath)
+	if err != nil {
+		return nil, err
+	}
 	devices := c.resolveDeviceHierarchy(partition.Device)
 
-	return FilesystemMetrics{
+	return &FilesystemMetrics{
 		Devices:    devices,
 		NodeName:   nodeName,
 		MountPoint: partition.Mountpoint,
 		TotalSize:  safeUint64ToInt64(usage.Total),
 		UsedSpace:  safeUint64ToInt64(usage.Used),
 		Timestamp:  timestamp,
-	}
+	}, nil
 }
 
-func (c *Controller) getFilesystemUsage(hostPath string) *disk.UsageStat {
+func (c *Controller) getFilesystemUsage(hostPath string) (*disk.UsageStat, error) {
 	usage, err := c.diskClient.Usage(hostPath)
 	if err != nil {
-		c.log.Warnf("failed to get disk usage for %s: %v", hostPath, err)
-		return &disk.UsageStat{}
+		return nil, fmt.Errorf("failed to get disk usage for %s: %v", hostPath, err)
 	}
-	return usage
+	return usage, nil
 }
 
 func (c *Controller) resolveDeviceHierarchy(device string) []string {
@@ -695,20 +701,9 @@ func (c *Controller) resolveLVMSlaves(device string) []string {
 		return nil
 	}
 
-	resolvedPath := hostRootPath + "/dev/" + filepath.Base(linkTarget)
-
-	const hostPrefix = hostRootPath + "/dev/"
-	if !strings.HasPrefix(resolvedPath, hostPrefix) {
-		c.log.Debugf("unexpected resolved path format: %s", resolvedPath)
-		return nil
-	}
-
-	resolvedDeviceName := strings.TrimPrefix(resolvedPath, hostPrefix)
+	resolvedDeviceName := filepath.Base(linkTarget)
 	slaves := c.resolveDeviceMapperSlaves(resolvedDeviceName)
-
-	if len(slaves) > 0 {
-		c.log.Debugf("found %d underlying devices for LVM %s: %v", len(slaves), device, slaves)
-	}
+	c.log.Debugf("found %d underlying devices for LVM %s: %v", len(slaves), device, slaves)
 
 	return slaves
 }
