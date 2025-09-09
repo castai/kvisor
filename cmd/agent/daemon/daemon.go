@@ -11,15 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/encoding/gzip"
-
 	"github.com/castai/kvisor/cmd/agent/daemon/app"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 func NewRunCommand(version string) *cobra.Command {

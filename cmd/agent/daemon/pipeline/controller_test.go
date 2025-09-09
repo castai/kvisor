@@ -13,12 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
@@ -33,6 +27,11 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type testAddr struct {

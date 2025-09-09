@@ -65,9 +65,6 @@ spec:
             - "/usr/local/bin/kvisor-agent"
           args:
             - "run"
-            - "--log-rate-interval=1s"
-            - "--log-rate-burst=10000"
-            - "--log-level=debug"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
