@@ -158,7 +158,7 @@ func NewRunCommand(version string) *cobra.Command {
 				Enabled:           *statsEnabled,
 				ScrapeInterval:    *statsScrapeInterval,
 				FileAccessEnabled: *statsFileAccessEnabled,
-				StorageEnabled:    true,
+				StorageEnabled:    false,
 			},
 			Events: config.EventsConfig{
 				Enabled: *ebpfEventsEnabled,
