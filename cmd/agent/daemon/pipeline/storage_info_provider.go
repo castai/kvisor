@@ -46,7 +46,6 @@ type StorageInfoProvider interface {
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetrics, error)
 }
 
-// TODO: order functions in calude
 type SysfsStorageInfoProvider struct {
 	log            *logging.Logger
 	diskClient     DiskInterface
@@ -70,39 +69,36 @@ func NewStorageInfoProvider(log *logging.Logger, nodeName string) StorageInfoPro
 	}
 }
 
-// TODO small letter
-func (c *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetrics, error) {
-	partitions, err := c.diskClient.Partitions(false) // false = only physical devices
+func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetrics, error) {
+	partitions, err := s.diskClient.Partitions(false) // false = only physical devices
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
 
 	filesystemMetrics := make([]FilesystemMetrics, 0, len(partitions))
 	for _, partition := range partitions {
-		c.log.Infof("partition m: %s d: %s", partition.Mountpoint, partition.Device)
-		metric, err := c.buildFilesystemMetric(partition, timestamp)
+		metric, err := s.buildFilesystemMetric(partition, timestamp)
 		if err != nil {
-			c.log.Warnf("failed to build file system metric: %v", err)
+			s.log.Warnf("failed to build file system metric: %v", err)
 			continue
 		}
 		filesystemMetrics = append(filesystemMetrics, *metric)
 	}
 
-	c.log.Debugf("collected %d filesystem metrics", len(filesystemMetrics))
+	s.log.Debugf("collected %d filesystem metrics", len(filesystemMetrics))
 	return filesystemMetrics, nil
 }
 
-func (c *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.PartitionStat, timestamp time.Time) (*FilesystemMetrics, error) {
-	fileSystemPath := c.hostRootPath + partition.Mountpoint
-	usage, err := c.diskClient.Usage(fileSystemPath)
+func (s *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.PartitionStat, timestamp time.Time) (*FilesystemMetrics, error) {
+	fileSystemPath := s.hostRootPath + partition.Mountpoint
+	usage, err := s.diskClient.Usage(fileSystemPath)
 	if err != nil {
 		return nil, err
 	}
-	devices := c.resolveDeviceHierarchy(partition.Device)
 
 	return &FilesystemMetrics{
-		Devices:    devices,
-		NodeName:   c.nodeName,
+		Devices:    s.getBackingDevices(partition.Device),
+		NodeName:   s.nodeName,
 		MountPoint: partition.Mountpoint,
 		TotalSize:  safeUint64ToInt64(usage.Total),
 		UsedSpace:  safeUint64ToInt64(usage.Used),
@@ -110,108 +106,70 @@ func (c *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.Partitio
 	}, nil
 }
 
-// resolveDeviceHierarchy resolves a device to its underlying physical devices.
-// Input examples: "/dev/mapper/vg-lv", "/dev/dm-0", "/dev/sda1"
-// Output examples: ["/dev/sda5", "/dev/sdb1"] or ["/dev/sda1"]
-func (c *SysfsStorageInfoProvider) resolveDeviceHierarchy(device string) []string {
-	c.log.Infof("resolveDeviceHierarchy: device: %s", device)
-
-	if slaves := c.getLVMSlaves(device); len(slaves) > 0 {
-		return slaves
-	}
-
-	deviceName := strings.TrimPrefix(device, c.hostRootPath+"/dev/") //TODO: check if it still works
-	c.log.Infof("resolveDeviceHierarchy: deviceName: %s", deviceName)
-	if slaves := c.getUnderlyingDevices(deviceName); len(slaves) > 0 {
+// getBackingDevices resolves a device to its backing device.
+// For LVM: "/dev/mapper/vg-lv" → "/dev/dm-1"
+// For regular devices: "/dev/sda1" → "/dev/sda1"
+func (s *SysfsStorageInfoProvider) getBackingDevices(device string) []string {
+	if slaves := s.getLVMDMDevice(device); len(slaves) > 0 {
 		return slaves
 	}
 
 	return []string{device}
 }
 
-// getLVMSlaves resolves LVM logical volumes to their underlying physical devices.
-// It handles the symlink chain: /dev/mapper/vg-lv → /dev/dm-X → /sys/block/dm-X/slaves/ → [sdf, sdg]
-func (c *SysfsStorageInfoProvider) getLVMSlaves(device string) []string {
-	if !strings.HasPrefix(device, c.hostRootPath+"/dev/mapper/") { // TODO check if it works
+// getLVMSlaves resolves LVM logical volumes to their dm device.
+// It handles the symlink chain: /dev/mapper/vg-lv → /dev/dm-X
+func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
+	if !strings.HasPrefix(device, "/dev/mapper/") {
 		return nil
 	}
-	hostMapperPath := c.hostRootPath + device
-
+	hostMapperPath := s.hostRootPath + device
 	linkTarget, err := os.Readlink(hostMapperPath)
 	if err != nil {
-		c.log.Debugf("symlink resolution failed for %s: %v", device, err)
+		s.log.Debugf("symlink resolution failed for %s: %v", device, err)
 		return nil
 	}
-	c.log.Infof("resolveDeviceHierarchy: linkTarget: %s", linkTarget)
-
-	resolvedDeviceName := filepath.Base(linkTarget)
-	c.log.Infof("resolveDeviceHierarchy: resolvedDeviceName: %s", resolvedDeviceName)
-
-	slaves := c.getUnderlyingDevices(resolvedDeviceName)
-	c.log.Debugf("found %d underlying devices for LVM %s: %v", len(slaves), device, slaves)
-
-	return slaves
+	return []string{"/dev/" + filepath.Base(linkTarget)}
 }
 
-func (c *SysfsStorageInfoProvider) getUnderlyingDevices(deviceName string) []string {
-	slavesPath := fmt.Sprintf("%s/sys/block/%s/slaves", c.sysBlockPrefix, deviceName)
-
-	exists, err := c.deviceExists(slavesPath)
-	if err != nil || !exists {
-		return []string{}
-	}
-
-	slaves, err := c.getBlockSlaves(deviceName)
-	if err != nil {
-		c.log.Debugf("no slaves directory found for %s: %v", deviceName, err)
-		return []string{}
-	}
-
-	var fullPaths []string
-	for _, slaveName := range slaves {
-		fullPaths = append(fullPaths, "/dev/"+slaveName)
-		c.log.Debugf("found slave device %s for parent %s", slaveName, deviceName)
-	}
-
-	c.log.Debugf("%d slaves discovered for %s", len(fullPaths), deviceName)
-	return fullPaths
-}
-
-func (c *SysfsStorageInfoProvider) resolvePhysicalDevices(blockName string) []string {
+func (s *SysfsStorageInfoProvider) resolvePhysicalDevices(blockName string) []string {
 	visited := make(map[string]bool)
-	// TODO: check if recursivness is actually needed with claude
-	physicalDevices := c.getPhysicalDevicesRecursive(blockName, visited)
+	physicalDevices := s.getPhysicalDevicesRecursive(blockName, visited)
 
 	if len(physicalDevices) == 0 {
 		return []string{"/dev/" + blockName}
 	}
 
-	return c.deduplicateDevices(physicalDevices)
+	return s.deduplicateDevices(physicalDevices)
 }
 
-func (c *SysfsStorageInfoProvider) getPhysicalDevicesRecursive(blockName string, visited map[string]bool) []string {
+func (s *SysfsStorageInfoProvider) getPhysicalDevicesRecursive(blockName string, visited map[string]bool) []string {
 	if visited[blockName] {
-		c.log.Warnf("circular dependency detected for device %s", blockName)
+		s.log.Warnf("circular dependency detected for device %s", blockName)
 		return []string{"/dev/" + blockName}
 	}
 	visited[blockName] = true
 
-	slaves, err := c.getBlockSlaves(blockName)
+	slaves, err := s.getBlockSlaves(blockName)
 	if err != nil {
-		c.log.Debugf("cannot read slaves for %s: %v", blockName, err)
-		return nil
+		s.log.Debugf("cannot read slaves for %s: %v", blockName, err)
+		return []string{"/dev/" + blockName}
+	}
+
+	if len(slaves) == 0 {
+		return []string{"/dev/" + blockName}
 	}
 
 	var allPhysicalDevices []string
 	for _, slave := range slaves {
-		slavePhysical := c.getPhysicalDevicesRecursive(slave, visited)
+		slavePhysical := s.getPhysicalDevicesRecursive(slave, visited)
 		allPhysicalDevices = append(allPhysicalDevices, slavePhysical...)
 	}
 
 	return allPhysicalDevices
 }
 
-func (c *SysfsStorageInfoProvider) deduplicateDevices(devices []string) []string {
+func (s *SysfsStorageInfoProvider) deduplicateDevices(devices []string) []string {
 	seen := make(map[string]bool)
 	unique := make([]string, 0, len(devices))
 
@@ -226,16 +184,8 @@ func (c *SysfsStorageInfoProvider) deduplicateDevices(devices []string) []string
 	return unique
 }
 
-// safeUint64ToInt64 safely converts uint64 to int64, clamping to MaxInt64 if overflow would occur
-func safeUint64ToInt64(val uint64) int64 {
-	if val > math.MaxInt64 {
-		return math.MaxInt64
-	}
-	return int64(val)
-}
-
-func (c *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetrics, error) {
-	ioStats, err := c.diskClient.IOCounters()
+func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetrics, error) {
+	ioStats, err := s.diskClient.IOCounters()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IO counters: %w", err)
 	}
@@ -243,11 +193,8 @@ func (c *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 	blockMetrics := make([]BlockDeviceMetrics, 0, len(ioStats))
 
 	for blockName, stat := range ioStats {
-		c.log.Infof("getBlockDeviceMetrics: blockName: %s", blockName)
-
-		current := c.buildBlockDeviceMetric(blockName, stat, c.nodeName, timestamp)
-
-		prev, exists := c.storageState.blockDevices[current.Name]
+		current := s.buildBlockDeviceMetric(blockName, stat, s.nodeName, timestamp)
+		prev, exists := s.storageState.blockDevices[current.Name]
 		if exists {
 			timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
 			if timeDiff > 0 {
@@ -256,20 +203,20 @@ func (c *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 			}
 		}
 
-		c.storageState.blockDevices[current.Name] = &current
+		s.storageState.blockDevices[current.Name] = &current
 	}
 
 	return blockMetrics, nil
 }
 
-func (c *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, nodeName string, timestamp time.Time) BlockDeviceMetrics {
-	diskUsage, err := c.getDeviceSize(blockName)
+func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, nodeName string, timestamp time.Time) BlockDeviceMetrics {
+	diskUsage, err := s.getDeviceSize(blockName)
 	if err != nil {
-		c.log.Warnf("failed to get disk usage for %s: %v", blockName, err)
+		s.log.Warnf("failed to get disk usage for %s: %v", blockName, err)
 		diskUsage = 0
 	}
 
-	physicalDevices := c.resolvePhysicalDevices(blockName)
+	physicalDevices := s.resolvePhysicalDevices(blockName)
 
 	return BlockDeviceMetrics{
 		Name:            blockName,
@@ -352,13 +299,10 @@ func (p *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, e
 	return slaves, nil
 }
 
-func (p *SysfsStorageInfoProvider) deviceExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
+// safeUint64ToInt64 safely converts uint64 to int64, clamping to MaxInt64 if overflow would occur
+func safeUint64ToInt64(val uint64) int64 {
+	if val > math.MaxInt64 {
+		return math.MaxInt64
 	}
-	return true, nil
+	return int64(val)
 }

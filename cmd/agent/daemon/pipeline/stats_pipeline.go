@@ -359,7 +359,7 @@ func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
 	c.log.Debugf("collected %d processed block device metrics", len(blockMetrics))
 
 	if err := c.blockDeviceMetrics.Write(blockMetrics...); err != nil {
-		return fmt.Errorf("failed to write block device metrics: %v", err)
+		return fmt.Errorf("failed to write block device metrics: %w", err)
 	}
 
 	return nil
@@ -385,7 +385,7 @@ func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
 	c.log.Debugf("collected %d filesystem metrics", len(fsMetrics))
 
 	if err := c.filesystemMetrics.Write(fsMetrics...); err != nil {
-		return fmt.Errorf("failed to write filesystem metric: %v", err)
+		return fmt.Errorf("failed to write filesystem metric: %w", err)
 	}
 
 	return nil
