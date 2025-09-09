@@ -66,6 +66,12 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
+          {{- if .Values.agent.logging.rateInterval }}
+            - "--log-rate-interval={{ .Values.agent.logging.rateInterval }}"
+          {{- end }}
+          {{- if .Values.agent.logging.rateBurst }}
+            - "--log-rate-burst={{ .Values.agent.logging.rateBurst }}"
+          {{- end }}
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
@@ -232,6 +238,13 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - nodes/proxy
+    verbs:
+      - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -65,6 +65,7 @@ type StatsConfig struct {
 	Enabled           bool          `json:"enabled"`
 	ScrapeInterval    time.Duration `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
 	FileAccessEnabled bool          `json:"fileAccessEnabled"`
+	StorageEnabled    bool          `json:"storageEnabled"`
 }
 
 type EventsConfig struct {

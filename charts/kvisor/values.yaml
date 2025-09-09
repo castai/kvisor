@@ -59,7 +59,14 @@ agent:
     name: ""
 
   # Specifies whether the service account token should be automounted.
-  automountServiceAccountToken: false
+  automountServiceAccountToken: true
+
+  # Log rate limiting configuration
+  logging:
+    # Increase rate interval (how often to reset the burst counter)
+    rateInterval: "100ms"
+    # Increase burst limit (how many logs allowed in burst)
+    rateBurst: 50000
 
   updateStrategy:
     type: RollingUpdate

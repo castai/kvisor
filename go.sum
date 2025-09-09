@@ -840,6 +840,12 @@ github.com/bytecodealliance/wasmtime-go/v3 v3.0.2 h1:3uZCA/BLTIu+DqCfguByNMJa2HV
 github.com/bytecodealliance/wasmtime-go/v3 v3.0.2/go.mod h1:RnUjnIXxEJcL6BgCvNyzCCRzZcxCgsZCi+RNlvYor5Q=
 github.com/castai/image-analyzer v0.9.1 h1:oJKxq6bToMAa6JwCs2hiNtOjzcRhvZjK5Koyix1C9DM=
 github.com/castai/image-analyzer v0.9.1/go.mod h1:85ovIeloF6nst4kaBWC39L0r31HwlgqLOykopVCo/ag=
+github.com/castai/logging v0.1.0 h1:hSKozasDz+FT5RzJVfaz0kjKQuMm0WPN9ncMjs0THB8=
+github.com/castai/logging v0.1.0/go.mod h1:Jm1Ad/+Ed8E+Fbhxw505Iu+3liYeOI8J55TBm3LnfRQ=
+github.com/castai/logging v0.2.0 h1:Zh0z1MWa3Baz3dd51N0xvPJKxvxoepPA5GV7kmNa8OI=
+github.com/castai/logging v0.2.0/go.mod h1:Jm1Ad/+Ed8E+Fbhxw505Iu+3liYeOI8J55TBm3LnfRQ=
+github.com/castai/metrics v0.0.0-20250528070754-28d157978f86 h1:Qe4jCsVBAENiUTccMC9E87c0G2IKR46i8Mr72RPEqhk=
+github.com/castai/metrics v0.0.0-20250528070754-28d157978f86/go.mod h1:m63MWJd4H5a8Z21sGc0Ya0zci/JrSpR+/y+RCA1y59I=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cenkalti/backoff/v5 v5.0.2 h1:rIfFVxEf1QsI7E1ZHfp/B4DF/6QBAUhmgkxc0H7Zss8=
@@ -1330,6 +1336,8 @@ github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0/go.mod h1:hgWBS7lorOAVIJEQMi4Zs
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3/go.mod h1:o//XUCC/F+yRGJoPO/VU0GSB0f8Nhgmxx0VIRUvaC0w=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 h1:e9Rjr40Z98/clHv5Yg79Is0NtosR5LXRvdr7o/6NwbA=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1/go.mod h1:tIxuGz/9mpox++sgp9fJjHO0+q1X9/UOWd798aAm22M=
+github.com/hamba/avro/v2 v2.27.0 h1:IAM4lQ0VzUIKBuo4qlAiLKfqALSrFC+zi1iseTtbBKU=
+github.com/hamba/avro/v2 v2.27.0/go.mod h1:jN209lopfllfrz7IGoZErlDz+AyUJ3vrBePQFZwYf5I=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
 github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
@@ -1734,6 +1742,8 @@ github.com/secure-systems-lab/go-securesystemslib v0.9.0 h1:rf1HIbL64nUpEIZnjLZ3
 github.com/secure-systems-lab/go-securesystemslib v0.9.0/go.mod h1:DVHKMcZ+V4/woA/peqr+L0joiRXbPpQ042GgJckkFgw=
 github.com/segmentio/asm v1.2.0 h1:9BQrFxC+YOHJlTlHGkTrFWf59nbL3XnCoFLTwDCI7ys=
 github.com/segmentio/asm v1.2.0/go.mod h1:BqMnlJP91P8d+4ibuonYZw9mfnzI9HfxselHZr5aAcs=
+github.com/sercand/kuberesolver/v5 v5.1.1 h1:CYH+d67G0sGBj7q5wLK61yzqJJ8gLLC8aeprPTHb6yY=
+github.com/sercand/kuberesolver/v5 v5.1.1/go.mod h1:Fs1KbKhVRnB2aDWN12NjKCB+RgYMWZJ294T3BtmVCpQ=
 github.com/sergi/go-diff v1.1.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
 github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 h1:n661drycOFuPLCN3Uc8sB6B/s6Z4t2xvBgU1htSHuq8=
 github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3/go.mod h1:A0bzQcvG0E7Rwjx0REVgAGH58e96+X0MeOfepqsbeW4=
@@ -2770,6 +2780,8 @@ k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 h1:hcha5B1kVACrLujCKLbr8X
 k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7/go.mod h1:GewRfANuJ70iYzvn+i4lezLDAFzvjxZYK1gn1lWcfas=
 k8s.io/kubectl v0.32.3 h1:VMi584rbboso+yjfv0d8uBHwwxbC438LKq+dXd5tOAI=
 k8s.io/kubectl v0.32.3/go.mod h1:6Euv2aso5GKzo/UVMacV6C7miuyevpfI91SvBvV9Zdg=
+k8s.io/kubelet v0.31.2 h1:6Hytyw4LqWqhgzoi7sPfpDGClu2UfxmPmaiXPC4FRgI=
+k8s.io/kubelet v0.31.2/go.mod h1:0E4++3cMWi2cJxOwuaQP3eMBa7PSOvAFgkTPlVc/2FA=
 k8s.io/utils v0.0.0-20241210054802-24370beab758 h1:sdbE21q2nlQtFh65saZY+rRM6x6aJJI8IUa1AmH/qa0=
 k8s.io/utils v0.0.0-20241210054802-24370beab758/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 knative.dev/pkg v0.0.0-20250326102644-9f3e60a9244c h1:6IZwH1QHGfWlmfdy7svgDCPhRqWpisWK/Gcp8wdAwE0=

@@ -105,6 +105,8 @@ require (
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.8.1 // indirect
+	github.com/castai/logging v0.2.0 // indirect
+	github.com/castai/metrics v0.0.0-20250528070754-28d157978f86 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/hive v0.0.0-20250121145729-e67f66eb0375 // indirect
@@ -152,6 +154,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gopacket/gopacket v1.3.1 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
+	github.com/hamba/avro/v2 v2.27.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
@@ -200,6 +203,7 @@ require (
 	github.com/sassoftware/go-rpmutils v0.4.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
+	github.com/sercand/kuberesolver/v5 v5.1.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.24.2 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
