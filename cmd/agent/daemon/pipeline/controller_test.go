@@ -869,6 +869,8 @@ func newTestController(opts ...any) *Controller {
 	processTreeCollector := &mockProcessTreeController{}
 
 	procHandler := &mockProcHandler{}
+	blockDeviceMetrics := &mockBlockDeviceMetricsWriter{}
+	filesystemMetrics := &mockFilesystemMetricsWriter{}
 
 	ctrl := NewController(
 		log,
@@ -883,6 +885,9 @@ func newTestController(opts ...any) *Controller {
 		processTreeCollector,
 		procHandler,
 		enrichService,
+		blockDeviceMetrics,
+		filesystemMetrics,
+		nil,
 	)
 	return ctrl
 }
@@ -1203,4 +1208,48 @@ func (m mockProcHandler) GetPSIStats(file string) (*castaipb.PSIStats, error) {
 
 func (m mockProcHandler) GetMeminfoStats() (*castaipb.MemoryStats, error) {
 	return &castaipb.MemoryStats{}, nil
+}
+
+type mockMetricClient struct{}
+
+func (m *mockMetricClient) NewMetric(name string, options ...interface{}) (interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockMetricClient) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockMetricClient) Stop() error {
+	return nil
+}
+
+func (m *mockMetricClient) Add(name string, metric interface{}) error {
+	return nil
+}
+
+type mockBlockDeviceMetricsWriter struct {
+	writeFunc func(metrics ...BlockDeviceMetrics) error
+	metrics   []BlockDeviceMetrics
+}
+
+func (m *mockBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetrics) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
+	return nil
+}
+
+type mockFilesystemMetricsWriter struct {
+	writeFunc func(metrics ...FilesystemMetrics) error
+	metrics   []FilesystemMetrics
+}
+
+func (m *mockFilesystemMetricsWriter) Write(metrics ...FilesystemMetrics) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
+	return nil
 }

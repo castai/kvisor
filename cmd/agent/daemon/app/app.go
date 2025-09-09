@@ -14,6 +14,17 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/go-playground/validator/v10"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/samber/lo"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
@@ -37,14 +48,8 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/go-playground/validator/v10"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/samber/lo"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	castlog "github.com/castai/logging"
+	custommetrics "github.com/castai/metrics"
 )
 
 func New(cfg *config.Config) *App {
@@ -237,6 +242,34 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(proc.Path)
 
+	var blockDeviceMetricsWriter pipeline.BlockDeviceMetricsWriter
+	var filesystemMetricsWriter pipeline.FilesystemMetricsWriter
+	var storageInfoProvider pipeline.StorageInfoProvider
+	if cfg.Stats.StorageEnabled {
+		metricsClient, err := createMetricsClient(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create metrics client: %w", err)
+		}
+
+		go func() {
+			if err = metricsClient.Start(ctx); err != nil {
+				log.Warnf("metric client failed with:%v", err)
+			}
+		}()
+
+		blockDeviceMetricsWriter, filesystemMetricsWriter, err = setupStorageMetrics(metricsClient)
+		if err != nil {
+			return fmt.Errorf("failed to setup storage metrics: %w", err)
+		}
+
+		k8sClient, err := newKubernetesClient()
+		if err != nil {
+			return fmt.Errorf("failed to create Kubernetes client: %w", err)
+		}
+
+		storageInfoProvider = pipeline.NewStorageInfoProvider(log, k8sClient)
+	}
+
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
@@ -256,6 +289,9 @@ func (a *App) Run(ctx context.Context) error {
 		processTreeCollector,
 		procHandler,
 		enrichmentService,
+		blockDeviceMetricsWriter,
+		filesystemMetricsWriter,
+		storageInfoProvider,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
@@ -529,4 +565,42 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	case err := <-errc:
 		return err
 	}
+}
+
+func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, error) {
+	blockDeviceMetrics, err := pipeline.NewBlockDeviceMetricsWriter(metricsClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
+	}
+
+	filesystemMetrics, err := pipeline.NewFilesystemMetricsWriter(metricsClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create filesystem metrics writer: %w", err)
+	}
+
+	return blockDeviceMetrics, filesystemMetrics, nil
+}
+
+func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error) {
+	if !cfg.Castai.Valid() {
+		return nil, fmt.Errorf("cast config is not valid")
+	}
+
+	metricsClientConfig := custommetrics.Config{
+		APIAddr:   cfg.Castai.APIGrpcAddr,
+		ClusterID: cfg.Castai.ClusterID,
+		APIToken:  cfg.Castai.APIKey,
+		Insecure:  cfg.Castai.Insecure,
+	}
+
+	return custommetrics.NewMetricClient(metricsClientConfig, castlog.New())
+}
+
+func newKubernetesClient() (kubernetes.Interface, error) {
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(clusterConfig)
 }
