@@ -870,7 +870,6 @@ func newTestController(opts ...any) *Controller {
 	processTreeCollector := &mockProcessTreeController{}
 
 	procHandler := &mockProcHandler{}
-	//metricsClient := &mockMetricClient{}
 	blockDeviceMetrics := &mockBlockDeviceMetricsWriter{}
 	filesystemMetrics := &mockFilesystemMetricsWriter{}
 
@@ -889,7 +888,6 @@ func newTestController(opts ...any) *Controller {
 		enrichService,
 		blockDeviceMetrics,
 		filesystemMetrics,
-		nil,
 		nil,
 	)
 	return ctrl
