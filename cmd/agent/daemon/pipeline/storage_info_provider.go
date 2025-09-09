@@ -1,9 +1,8 @@
 package pipeline
 
 import (
+	"context"
 	"fmt"
-	"github.com/castai/kvisor/pkg/logging"
-	"github.com/shirou/gopsutil/v4/disk"
 	"math"
 	"os"
 	"path/filepath"
@@ -11,29 +10,37 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/shirou/gopsutil/v4/disk"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/castai/kvisor/pkg/logging"
 )
 
 const sectorSizeBytes = 512
 
 type BlockDeviceMetrics struct {
 	Name            string    `avro:"name"`
-	PhysicalDevices []string  `avro:"physical_devices"`
 	NodeName        string    `avro:"node_name"`
+	NodeTemplate    string    `avro:"node_template"`
 	ReadIOPS        int64     `avro:"read_iops"`
 	WriteIOPS       int64     `avro:"write_iops"`
 	ReadThroughput  float64   `avro:"read_throughput"`
 	WriteThroughput float64   `avro:"write_throughput"`
 	Size            int64     `avro:"size"`
+	PhysicalDevices []string  `avro:"physical_devices"`
 	Timestamp       time.Time `avro:"ts"`
 }
 
 type FilesystemMetrics struct {
-	Devices    []string  `avro:"devices"`
-	NodeName   string    `avro:"node_name"`
-	MountPoint string    `avro:"mount_point"`
-	TotalSize  int64     `avro:"total_size"`
-	UsedSpace  int64     `avro:"used_space"`
-	Timestamp  time.Time `avro:"ts"`
+	Devices      []string  `avro:"devices"`
+	NodeName     string    `avro:"node_name"`
+	NodeTemplate string    `avro:"node_template"`
+	MountPoint   string    `avro:"mount_point"`
+	TotalSize    int64     `avro:"total_size"`
+	UsedSpace    int64     `avro:"used_space"`
+	Timestamp    time.Time `avro:"ts"`
 }
 
 type storageMetricsState struct {
@@ -53,9 +60,10 @@ type SysfsStorageInfoProvider struct {
 	nodeName       string
 	hostRootPath   string
 	sysBlockPrefix string
+	k8sClient      kubernetes.Interface
 }
 
-func NewStorageInfoProvider(log *logging.Logger, nodeName string) StorageInfoProvider {
+func NewStorageInfoProvider(log *logging.Logger, k8sClient kubernetes.Interface) StorageInfoProvider {
 	return &SysfsStorageInfoProvider{
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetrics),
@@ -63,10 +71,32 @@ func NewStorageInfoProvider(log *logging.Logger, nodeName string) StorageInfoPro
 		},
 		log:            log,
 		diskClient:     NewDiskClient(),
-		nodeName:       nodeName,
+		nodeName:       os.Getenv("NODE_NAME"),
 		hostRootPath:   "/proc/1/root",
 		sysBlockPrefix: "",
+		k8sClient:      k8sClient,
 	}
+}
+
+func (s *SysfsStorageInfoProvider) getNodeTemplate() string {
+	if s.k8sClient == nil {
+		return ""
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	node, err := s.k8sClient.CoreV1().Nodes().Get(
+		ctx,
+		s.nodeName,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		s.log.Warnf("failed to get node %s: %v", s.nodeName, err)
+		return ""
+	}
+
+	return node.Labels["scheduling.cast.ai/node-template"]
 }
 
 func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetrics, error) {
@@ -97,12 +127,13 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.Partitio
 	}
 
 	return &FilesystemMetrics{
-		Devices:    s.getBackingDevices(partition.Device),
-		NodeName:   s.nodeName,
-		MountPoint: partition.Mountpoint,
-		TotalSize:  safeUint64ToInt64(usage.Total),
-		UsedSpace:  safeUint64ToInt64(usage.Used),
-		Timestamp:  timestamp,
+		Devices:      s.getBackingDevices(partition.Device),
+		NodeName:     s.nodeName,
+		NodeTemplate: s.getNodeTemplate(),
+		MountPoint:   partition.Mountpoint,
+		TotalSize:    safeUint64ToInt64(usage.Total),
+		UsedSpace:    safeUint64ToInt64(usage.Used),
+		Timestamp:    timestamp,
 	}, nil
 }
 
@@ -188,7 +219,7 @@ func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 	blockMetrics := make([]BlockDeviceMetrics, 0, len(ioStats))
 
 	for blockName, stat := range ioStats {
-		current := s.buildBlockDeviceMetric(blockName, stat, s.nodeName, timestamp)
+		current := s.buildBlockDeviceMetric(blockName, stat, timestamp)
 		prev, exists := s.storageState.blockDevices[current.Name]
 		if exists {
 			timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
@@ -204,7 +235,7 @@ func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 	return blockMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, nodeName string, timestamp time.Time) BlockDeviceMetrics {
+func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, timestamp time.Time) BlockDeviceMetrics {
 	diskUsage, err := s.getDeviceSize(blockName)
 	if err != nil {
 		s.log.Warnf("failed to get disk usage for %s: %v", blockName, err)
@@ -215,8 +246,9 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 
 	return BlockDeviceMetrics{
 		Name:            blockName,
+		NodeName:        s.nodeName,
+		NodeTemplate:    s.getNodeTemplate(),
 		PhysicalDevices: physicalDevices,
-		NodeName:        nodeName,
 		ReadIOPS:        safeUint64ToInt64(stat.ReadCount),
 		WriteIOPS:       safeUint64ToInt64(stat.WriteCount),
 		ReadThroughput:  float64(stat.ReadBytes),

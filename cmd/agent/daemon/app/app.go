@@ -22,6 +22,8 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
@@ -240,8 +242,9 @@ func (a *App) Run(ctx context.Context) error {
 
 	netStatsReader := netstats.NewReader(proc.Path)
 
-	var blockDeviceMetrics pipeline.BlockDeviceMetricsWriter
-	var filesystemMetrics pipeline.FilesystemMetricsWriter
+	var blockDeviceMetricsWriter pipeline.BlockDeviceMetricsWriter
+	var filesystemMetricsWriter pipeline.FilesystemMetricsWriter
+	var storageInfoProvider pipeline.StorageInfoProvider
 	if cfg.Stats.StorageEnabled {
 		metricsClient, err := createMetricsClient(cfg)
 		if err != nil {
@@ -254,13 +257,18 @@ func (a *App) Run(ctx context.Context) error {
 			}
 		}()
 
-		blockDeviceMetrics, filesystemMetrics, err = setupStorageMetrics(metricsClient)
+		blockDeviceMetricsWriter, filesystemMetricsWriter, err = setupStorageMetrics(metricsClient)
 		if err != nil {
 			return fmt.Errorf("failed to setup storage metrics: %w", err)
 		}
-	}
 
-	storageInfoProvider := pipeline.NewStorageInfoProvider(log, os.Getenv("NODE_NAME"))
+		k8sClient, err := newKubernetesClient()
+		if err != nil {
+			return fmt.Errorf("failed to create Kubernetes client: %w", err)
+		}
+
+		storageInfoProvider = pipeline.NewStorageInfoProvider(log, k8sClient)
+	}
 
 	ctrl := pipeline.NewController(
 		log,
@@ -281,8 +289,8 @@ func (a *App) Run(ctx context.Context) error {
 		processTreeCollector,
 		procHandler,
 		enrichmentService,
-		blockDeviceMetrics,
-		filesystemMetrics,
+		blockDeviceMetricsWriter,
+		filesystemMetricsWriter,
 		storageInfoProvider,
 	)
 
@@ -586,4 +594,13 @@ func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error)
 	}
 
 	return custommetrics.NewMetricClient(metricsClientConfig, castlog.New())
+}
+
+func newKubernetesClient() (kubernetes.Interface, error) {
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(clusterConfig)
 }

@@ -151,8 +151,8 @@ func NewController(
 	processTreeCollector processTreeCollector,
 	procHandler procHandler,
 	enrichmentService enrichmentService,
-	blockDeviceMetrics BlockDeviceMetricsWriter,
-	filesystemMetrics FilesystemMetricsWriter,
+	blockDeviceMetricsWriter BlockDeviceMetricsWriter,
+	filesystemMetricsWriter FilesystemMetricsWriter,
 	storageInfoProvider StorageInfoProvider,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
@@ -189,9 +189,9 @@ func NewController(
 		eventGroups:          make(map[uint64]*containerEventsGroup),
 		containerStatsGroups: make(map[uint64]*containerStatsGroup),
 
-		blockDeviceMetrics:  blockDeviceMetrics,
-		filesystemMetrics:   filesystemMetrics,
-		storageInfoProvider: storageInfoProvider,
+		blockDeviceMetricsWriter: blockDeviceMetricsWriter,
+		filesystemMetricsWriter:  filesystemMetricsWriter,
+		storageInfoProvider:      storageInfoProvider,
 	}
 }
 
@@ -223,9 +223,9 @@ type Controller struct {
 	containerStatsGroups map[uint64]*containerStatsGroup
 
 	// Storage metrics
-	blockDeviceMetrics  BlockDeviceMetricsWriter
-	filesystemMetrics   FilesystemMetricsWriter
-	storageInfoProvider StorageInfoProvider
+	blockDeviceMetricsWriter BlockDeviceMetricsWriter
+	filesystemMetricsWriter  FilesystemMetricsWriter
+	storageInfoProvider      StorageInfoProvider
 }
 
 func (c *Controller) Run(ctx context.Context) error {

@@ -347,7 +347,7 @@ func (c *Controller) collectStorageMetrics() {
 }
 
 func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
-	if c.blockDeviceMetrics == nil {
+	if c.blockDeviceMetricsWriter == nil {
 		return fmt.Errorf("block device metrics writer not initialized")
 	}
 
@@ -356,9 +356,9 @@ func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
 		return fmt.Errorf("failed to collect block device metrics: %w", err)
 	}
 
-	c.log.Debugf("collected %d processed block device metrics", len(blockMetrics))
+	c.log.Infof("collected %d block device metrics", len(blockMetrics))
 
-	if err := c.blockDeviceMetrics.Write(blockMetrics...); err != nil {
+	if err := c.blockDeviceMetricsWriter.Write(blockMetrics...); err != nil {
 		return fmt.Errorf("failed to write block device metrics: %w", err)
 	}
 
@@ -366,7 +366,7 @@ func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
 }
 
 func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
-	if c.filesystemMetrics == nil {
+	if c.filesystemMetricsWriter == nil {
 		return fmt.Errorf("filesystem metrics writer not initialized")
 	}
 
@@ -375,9 +375,9 @@ func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
 		return fmt.Errorf("failed to collect filesystem metrics: %w", err)
 	}
 
-	c.log.Debugf("collected %d filesystem metrics", len(fsMetrics))
+	c.log.Infof("collected %d filesystem metrics", len(fsMetrics))
 
-	if err := c.filesystemMetrics.Write(fsMetrics...); err != nil {
+	if err := c.filesystemMetricsWriter.Write(fsMetrics...); err != nil {
 		return fmt.Errorf("failed to write filesystem metric: %w", err)
 	}
 
