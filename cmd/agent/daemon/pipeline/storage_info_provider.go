@@ -117,7 +117,7 @@ func (s *SysfsStorageInfoProvider) getBackingDevices(device string) []string {
 	return []string{device}
 }
 
-// getLVMSlaves resolves LVM logical volumes to their dm device.
+// getLVMDMDevice resolves LVM logical volumes to their dm device.
 // It handles the symlink chain: /dev/mapper/vg-lv → /dev/dm-X
 func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 	if !strings.HasPrefix(device, "/dev/mapper/") {
@@ -135,11 +135,6 @@ func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 func (s *SysfsStorageInfoProvider) resolvePhysicalDevices(blockName string) []string {
 	visited := make(map[string]bool)
 	physicalDevices := s.getPhysicalDevicesRecursive(blockName, visited)
-
-	if len(physicalDevices) == 0 {
-		return []string{"/dev/" + blockName}
-	}
-
 	return s.deduplicateDevices(physicalDevices)
 }
 
@@ -231,20 +226,20 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 	}
 }
 
-func (p *SysfsStorageInfoProvider) getDeviceSize(deviceName string) (int64, error) {
-	devicePath := fmt.Sprintf("%s/sys/block/%s/size", p.sysBlockPrefix, deviceName)
-	if sectors, err := p.getDeviceSectorCount(devicePath); err == nil && sectors > 0 {
+func (s *SysfsStorageInfoProvider) getDeviceSize(deviceName string) (int64, error) {
+	devicePath := fmt.Sprintf("%s/sys/block/%s/size", s.sysBlockPrefix, deviceName)
+	if sectors, err := s.getDeviceSectorCount(devicePath); err == nil && sectors > 0 {
 		return sectors * sectorSizeBytes, nil
 	}
 
-	if sectors, err := p.getPartitionSectorCount(deviceName); err == nil && sectors > 0 {
+	if sectors, err := s.getPartitionSectorCount(deviceName); err == nil && sectors > 0 {
 		return sectors * sectorSizeBytes, nil
 	}
 
 	return 0, fmt.Errorf("failed to get size for device %s", deviceName)
 }
 
-func (p *SysfsStorageInfoProvider) getDeviceSectorCount(devicePath string) (int64, error) {
+func (s *SysfsStorageInfoProvider) getDeviceSectorCount(devicePath string) (int64, error) {
 	data, err := os.ReadFile(devicePath)
 	if err != nil {
 		return 0, err
@@ -259,8 +254,8 @@ func (p *SysfsStorageInfoProvider) getDeviceSectorCount(devicePath string) (int6
 	return sectors, nil
 }
 
-func (p *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (int64, error) {
-	blockDir := p.sysBlockPrefix + "/sys/block"
+func (s *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (int64, error) {
+	blockDir := s.sysBlockPrefix + "/sys/block"
 	entries, err := os.ReadDir(blockDir)
 	if err != nil {
 		return 0, err
@@ -274,7 +269,7 @@ func (p *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (i
 		}
 
 		partitionPath := fmt.Sprintf("%s/%s/%s/size", blockDir, entry.Name(), deviceName)
-		if sectors, err := p.getDeviceSectorCount(partitionPath); err == nil && sectors > 0 {
+		if sectors, err := s.getDeviceSectorCount(partitionPath); err == nil && sectors > 0 {
 			return sectors, nil
 		}
 	}
@@ -282,8 +277,8 @@ func (p *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (i
 	return 0, fmt.Errorf("partition %s not found", deviceName)
 }
 
-func (p *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, error) {
-	slavesPath := fmt.Sprintf("%s/sys/block/%s/slaves", p.sysBlockPrefix, blockName)
+func (s *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, error) {
+	slavesPath := fmt.Sprintf("%s/sys/block/%s/slaves", s.sysBlockPrefix, blockName)
 	entries, err := os.ReadDir(slavesPath)
 	if err != nil {
 		return nil, err
@@ -305,4 +300,11 @@ func safeUint64ToInt64(val uint64) int64 {
 		return math.MaxInt64
 	}
 	return int64(val)
+}
+
+func calculateBlockDeviceRates(current *BlockDeviceMetrics, prev *BlockDeviceMetrics, timeDiff float64) {
+	current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
+	current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
+	current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
+	current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
 }

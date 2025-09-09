@@ -46,6 +46,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
+	castlog "github.com/castai/logging"
 	custommetrics "github.com/castai/metrics"
 )
 
@@ -584,5 +585,5 @@ func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error)
 		Insecure:  cfg.Castai.Insecure,
 	}
 
-	return custommetrics.NewMetricClient(metricsClientConfig, nil)
+	return custommetrics.NewMetricClient(metricsClientConfig, castlog.New())
 }

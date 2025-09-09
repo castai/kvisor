@@ -365,13 +365,6 @@ func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
 	return nil
 }
 
-func calculateBlockDeviceRates(current *BlockDeviceMetrics, prev *BlockDeviceMetrics, timeDiff float64) {
-	current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
-	current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
-	current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
-	current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
-}
-
 func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
 	if c.filesystemMetrics == nil {
 		return fmt.Errorf("filesystem metrics writer not initialized")
