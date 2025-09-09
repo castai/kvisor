@@ -259,6 +259,8 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
+	storageInfoProvider := pipeline.NewStorageInfoProvider(log, os.Getenv("NODE_NAME"))
+
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
@@ -280,8 +282,7 @@ func (a *App) Run(ctx context.Context) error {
 		enrichmentService,
 		blockDeviceMetrics,
 		filesystemMetrics,
-		pipeline.NewDiskClient(),
-		pipeline.NewSysfsDeviceInfoProvider(),
+		storageInfoProvider,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
