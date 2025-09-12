@@ -170,6 +170,7 @@ message ImageMetadata {
   string image_name = 1;
   string image_id = 2;
   string image_digest = 3;
+  string index_digest = 13;
   string architecture = 5; // used as fallback, in case image manifest doesn't have architecture set
   string os_name = 6;
   google.protobuf.Timestamp created_at = 7;
