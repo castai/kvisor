@@ -5,7 +5,7 @@
     "llvm_14@14.0.6",
     "clang_14@14.0.6",
     "protobuf@29.3",
-    "protoc-gen-go@1.36.6",
+    "protoc-gen-go@1.36.4",
     "protoc-gen-go-grpc@1.5.1",
     "tilt@0.33.21",
     "bpftrace@0.22.1",

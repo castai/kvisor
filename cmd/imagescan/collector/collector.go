@@ -112,22 +112,48 @@ func (c *Collector) Collect(ctx context.Context) error {
 		DisabledAnalyzers: disabledAnalyzers,
 	})
 	if err != nil {
-		return fmt.Errorf("creating an artifact: %w", err)
+		return fmt.Errorf("creating image artifact: %w", err)
 	}
 
 	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
-		return fmt.Errorf("inspecting an artifact: %w", err)
+		return fmt.Errorf("inspecting image artifact: %w", err)
 	}
 
 	manifest, err := img.Manifest()
 	if err != nil {
 		return fmt.Errorf("extracting manifest from an artifact: %w", err)
 	}
-
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("marshalling manifest: %w", err)
+	}
 	digest, err := img.Digest()
 	if err != nil {
-		return fmt.Errorf("extract manifest digest: %w", err)
+		return fmt.Errorf("extracting manifest digest: %w", err)
+	}
+
+	index, err := img.IndexManifest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index manifest: %w", err)
+	}
+	indexBytes, err := json.Marshal(index)
+	if err != nil {
+		return fmt.Errorf("marshalling index: %w", err)
+	}
+	indexDigest, err := img.IndexDigest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index digest: %w", err)
+	}
+
+	configFileBytes, err := json.Marshal(arRef.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("marshalling config: %w", err)
+	}
+
+	blobsInfoBytes, err := json.Marshal(arRef.BlobsInfo)
+	if err != nil {
+		return fmt.Errorf("marshalling blobs info: %w", err)
 	}
 
 	arch := arRef.ConfigFile.Architecture
@@ -143,40 +169,23 @@ func (c *Collector) Collect(ctx context.Context) error {
 		ImageDigest:  digest.String(),
 		Architecture: arch,
 		ResourceIds:  strings.Split(c.cfg.ResourceIDs, ","),
+		Packages:     blobsInfoBytes,
+		Manifest:     manifestBytes,
+		ConfigFile:   configFileBytes,
 	}
+
+	if index != nil {
+		metadata.IndexDigest = indexDigest.String()
+		metadata.Index = indexBytes
+	}
+
 	if arRef.OsInfo != nil {
 		metadata.OsName = arRef.OsInfo.Name
 	}
+
 	if arRef.ArtifactInfo != nil {
 		metadata.CreatedAt = timestamppb.New(arRef.ArtifactInfo.Created)
 	}
-	packagesBytes, err := json.Marshal(arRef.BlobsInfo)
-	if err != nil {
-		return fmt.Errorf("marshalling blobs info: %w", err)
-	}
-	metadata.Packages = packagesBytes
-
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		return fmt.Errorf("marshalling manifest: %w", err)
-	}
-	metadata.Manifest = manifestBytes
-
-	configFileBytes, err := json.Marshal(arRef.ConfigFile)
-	if err != nil {
-		return fmt.Errorf("marshalling config: %w", err)
-	}
-	metadata.ConfigFile = configFileBytes
-
-	index, err := img.IndexManifest()
-	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
-		return fmt.Errorf("extracting index manifest: %w", err)
-	}
-	indexBytes, err := json.Marshal(index)
-	if err != nil {
-		return fmt.Errorf("marshalling index: %w", err)
-	}
-	metadata.Index = indexBytes
 
 	if _, err := backoff.Retry(ctx, func() (any, error) {
 		return nil, c.sendResult(ctx, metadata)
