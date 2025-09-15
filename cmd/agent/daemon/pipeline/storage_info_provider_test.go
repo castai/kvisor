@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,50 +17,35 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 )
 
-type simpleDiskClient struct {
-	partitions []disk.PartitionStat
-	diskStats  *disk.UsageStat
-	err        error
+type mockDiskClient struct {
+	partitions    []disk.PartitionStat
+	partitionsErr error
+	diskStatsMap  map[string]*disk.UsageStat
+	diskStatsErr  map[string]error
+	ioStats       map[string]disk.IOCountersStat
+	ioStatsErr    error
 }
 
-func (m *simpleDiskClient) Partitions(all bool) ([]disk.PartitionStat, error) {
-	return m.partitions, m.err
+func (m *mockDiskClient) Partitions(all bool) ([]disk.PartitionStat, error) {
+	return m.partitions, m.partitionsErr
 }
 
-func (m *simpleDiskClient) GetDiskStats(path string) (*disk.UsageStat, error) {
-
-	switch path {
-	case hostPathRoot + "/":
-		return &disk.UsageStat{
-			Total: 1000000,
-			Used:  500000,
-		}, nil
-	case hostPathRoot + "/home":
-		return nil, fmt.Errorf("internal error")
+func (m *mockDiskClient) GetDiskStats(path string) (*disk.UsageStat, error) {
+	if m.diskStatsErr != nil {
+		if err, exists := m.diskStatsErr[path]; exists {
+			return nil, err
+		}
 	}
-
-	return m.diskStats, m.err
+	if m.diskStatsMap != nil {
+		if stats, exists := m.diskStatsMap[path]; exists {
+			return stats, nil
+		}
+	}
+	return nil, fmt.Errorf("no mock data configured for path: %s", path)
 }
 
-func (m *simpleDiskClient) IOCounters() (map[string]disk.IOCountersStat, error) {
-	return nil, nil
-}
-
-type mockIOCountersClient struct {
-	ioStats map[string]disk.IOCountersStat
-	err     error
-}
-
-func (m *mockIOCountersClient) Partitions(all bool) ([]disk.PartitionStat, error) {
-	return nil, nil
-}
-
-func (m *mockIOCountersClient) GetDiskStats(path string) (*disk.UsageStat, error) {
-	return nil, nil
-}
-
-func (m *mockIOCountersClient) IOCounters() (map[string]disk.IOCountersStat, error) {
-	return m.ioStats, m.err
+func (m *mockDiskClient) IOCounters() (map[string]disk.IOCountersStat, error) {
+	return m.ioStats, m.ioStatsErr
 }
 
 func TestBuildFilesystemMetrics_BasicCases(t *testing.T) {
@@ -76,12 +62,16 @@ func TestBuildFilesystemMetrics_BasicCases(t *testing.T) {
 			kubeClient: &mockKubeClient{
 				nodeTemplate: lo.ToPtr("test-template"),
 			},
-			diskClient: &simpleDiskClient{
+			diskClient: &mockDiskClient{
 				partitions: []disk.PartitionStat{
 					{
-						Device:     "/dev/sda1",
-						Mountpoint: "/",
-						Fstype:     "ext4",
+						Device: "/dev/sda1", Mountpoint: "/",
+					},
+				},
+				diskStatsMap: map[string]*disk.UsageStat{
+					hostPathRoot + "/": {
+						Total: 1000000,
+						Used:  500000,
 					},
 				},
 			},
@@ -106,20 +96,22 @@ func TestBuildFilesystemMetrics_BasicCases(t *testing.T) {
 		{
 			name:       "partition error",
 			kubeClient: &mockKubeClient{nodeTemplate: lo.ToPtr("test-template")},
-			diskClient: &simpleDiskClient{
-				err: assert.AnError,
+			diskClient: &mockDiskClient{
+				partitionsErr: assert.AnError,
 			},
 			expectError:   true,
 			errorContains: "failed to get partitions",
 		},
 		{
 			name:       "missing node template",
-			kubeClient: &mockKubeClient{}, // no nodeTemplate
-			diskClient: &simpleDiskClient{
+			kubeClient: &mockKubeClient{nodeTemplate: nil},
+			diskClient: &mockDiskClient{
 				partitions: []disk.PartitionStat{
 					{Device: "/dev/sda1", Mountpoint: "/"},
 				},
-				diskStats: &disk.UsageStat{Total: 1000, Used: 500},
+				diskStatsMap: map[string]*disk.UsageStat{
+					hostPathRoot + "/": {Total: 1000, Used: 500},
+				},
 			},
 			validateMetric: func(t *testing.T, metrics []FilesystemMetric, timestamp time.Time) {
 				require.Len(t, metrics, 1)
@@ -161,7 +153,7 @@ func TestBuildFilesystemMetrics_BasicCases(t *testing.T) {
 }
 
 func TestBuildFilesystemMetrics_MissingDiskStats(t *testing.T) {
-	mockDisk := &simpleDiskClient{
+	mockDisk := &mockDiskClient{
 		partitions: []disk.PartitionStat{
 			{
 				Device:     "/dev/sda1",
@@ -173,6 +165,15 @@ func TestBuildFilesystemMetrics_MissingDiskStats(t *testing.T) {
 				Mountpoint: "/home",
 				Fstype:     "ext4",
 			},
+		},
+		diskStatsMap: map[string]*disk.UsageStat{
+			hostPathRoot + "/": {
+				Total: 1000000,
+				Used:  500000,
+			},
+		},
+		diskStatsErr: map[string]error{
+			hostPathRoot + "/home": fmt.Errorf("internal error"),
 		},
 	}
 
@@ -239,7 +240,7 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 			kubeClient: &mockKubeClient{
 				nodeTemplate: lo.ToPtr("test-template"),
 			},
-			diskClient: &mockIOCountersClient{
+			diskClient: &mockDiskClient{
 				ioStats: map[string]disk.IOCountersStat{
 					"sda": {
 						ReadCount:  100,
@@ -250,7 +251,7 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 				},
 			},
 			setupSecondCall: func() DiskInterface {
-				return &mockIOCountersClient{
+				return &mockDiskClient{
 					ioStats: map[string]disk.IOCountersStat{
 						"sda": {
 							ReadCount:  200,     // +100 operations
@@ -274,8 +275,8 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 		{
 			name:       "io counters error",
 			kubeClient: &mockKubeClient{nodeTemplate: lo.ToPtr("test-template")},
-			diskClient: &mockIOCountersClient{
-				err: fmt.Errorf("failed to read /proc/diskstats"),
+			diskClient: &mockDiskClient{
+				ioStatsErr: fmt.Errorf("failed to read /proc/diskstats"),
 			},
 			expectError:   true,
 			errorContains: "failed to get IO counters",
@@ -283,7 +284,7 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 		{
 			name:       "node template error",
 			kubeClient: nil, // nil client causes error
-			diskClient: &mockIOCountersClient{
+			diskClient: &mockDiskClient{
 				ioStats: map[string]disk.IOCountersStat{
 					"sda": {
 						ReadCount:  100,
@@ -294,7 +295,7 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 				},
 			},
 			setupSecondCall: func() DiskInterface {
-				return &mockIOCountersClient{
+				return &mockDiskClient{
 					ioStats: map[string]disk.IOCountersStat{
 						"sda": {
 							ReadCount:  200,
@@ -311,11 +312,11 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 			},
 		},
 		{
-			name: "counter overflow",
+			name: "counter reset detection",
 			kubeClient: &mockKubeClient{
 				nodeTemplate: lo.ToPtr("test-template"),
 			},
-			diskClient: &mockIOCountersClient{
+			diskClient: &mockDiskClient{
 				ioStats: map[string]disk.IOCountersStat{
 					"sda": {
 						ReadCount:  1000,
@@ -326,22 +327,25 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 				},
 			},
 			setupSecondCall: func() DiskInterface {
-				return &mockIOCountersClient{
+				return &mockDiskClient{
 					ioStats: map[string]disk.IOCountersStat{
 						"sda": {
-							ReadCount:  100,     // Lower than previous (reset)
-							WriteCount: 50,      // Lower than previous (reset)
-							ReadBytes:  1000000, // Lower than previous (reset)
-							WriteBytes: 500000,  // Lower than previous (reset)
+							// Counters reset to lower values (e.g., system reboot)
+							ReadCount:  100,
+							WriteCount: 50,
+							ReadBytes:  1000000,
+							WriteBytes: 500000,
 						},
 					},
 				}
 			},
 			validateMetric: func(t *testing.T, metric BlockDeviceMetric) {
 				assert.Equal(t, "sda", metric.Name)
-				// With current implementation, negative deltas will result in very large positive values
-				// due to uint64 underflow. For now, just verify the calculation happens without error.
-				assert.NotNil(t, metric)
+				// When counter reset is detected, rates should be 0
+				assert.Equal(t, int64(0), metric.ReadIOPS)
+				assert.Equal(t, int64(0), metric.WriteIOPS)
+				assert.Equal(t, int64(0), metric.ReadThroughput)
+				assert.Equal(t, int64(0), metric.WriteThroughput)
 			},
 		},
 	}
@@ -374,7 +378,7 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, firstMetrics) // First call always returns empty
 
-			// Second call (if setupSecondCall provided)
+			// Second call
 			if tc.setupSecondCall != nil {
 				secondTimestamp := firstTimestamp.Add(10 * time.Second)
 				provider.diskClient = tc.setupSecondCall()
@@ -403,7 +407,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			name:           "block device size available",
 			sysBlockPrefix: "/tmp/test-sys-block",
 			deviceName:     "sda",
-			expectedSize:   lo.ToPtr(int64(512000)), // 1000 * 512
+			expectedSize:   lo.ToPtr(int64(1000 * 512)),
 			setupFunc: func(prefix string) error {
 				path := filepath.Join(prefix, "sys", "block", "sda", "size")
 				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -416,7 +420,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			name:           "partition fallback",
 			sysBlockPrefix: "/tmp/test-sys-partition",
 			deviceName:     "sda1",
-			expectedSize:   lo.ToPtr(int64(1024000)), // 2000 * 512
+			expectedSize:   lo.ToPtr(int64(2000 * 512)),
 			setupFunc: func(prefix string) error {
 				path := filepath.Join(prefix, "sys", "block", "sda", "sda1", "size")
 				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -470,7 +474,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			require.NoError(t, err)
 			defer os.RemoveAll(tc.sysBlockPrefix)
 
-			provider.diskClient = &mockIOCountersClient{
+			provider.diskClient = &mockDiskClient{
 				ioStats: map[string]disk.IOCountersStat{
 					tc.deviceName: {
 						ReadCount:  100,
@@ -521,7 +525,6 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			deviceName:        "sda",
 			expectedPhysicals: []string{"/dev/sda"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
-				// Create empty slaves directory (no slaves = physical device)
 				slavesPath := filepath.Join(sysPrefix, "sys", "block", "sda", "slaves")
 				return os.MkdirAll(slavesPath, 0755)
 			},
@@ -566,13 +569,12 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			},
 		},
 		{
-			name:              "slaves directory missing",
+			name:              "virtual device - slaves directory missing",
 			sysBlockPrefix:    "/tmp/test-sys-missing",
 			hostRootPath:      "/tmp/test-host-missing",
 			deviceName:        "loop0",
 			expectedPhysicals: []string{"/dev/loop0"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
-				// Don't create slaves directory (simulates virtual device)
 				return os.MkdirAll(filepath.Join(sysPrefix, "sys", "block"), 0755)
 			},
 		},
@@ -627,7 +629,7 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			defer os.RemoveAll(tc.sysBlockPrefix)
 			defer os.RemoveAll(tc.hostRootPath)
 
-			provider.diskClient = &mockIOCountersClient{
+			provider.diskClient = &mockDiskClient{
 				ioStats: map[string]disk.IOCountersStat{
 					tc.deviceName: {
 						ReadCount:  100,
@@ -646,7 +648,7 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, firstMetrics)
 
-			// Second call - check physical devices resolution
+			// Second call
 			secondMetrics, err := provider.BuildBlockDeviceMetrics(secondTimestamp)
 			require.NoError(t, err)
 			require.Len(t, secondMetrics, 1)
@@ -722,19 +724,17 @@ func TestBuildFilesystemMetrics_BackingDevicesResolution_Cases(t *testing.T) {
 
 			provider := &SysfsStorageInfoProvider{
 				log:          logging.NewTestLog(),
-				diskClient:   &simpleDiskClient{},
+				diskClient:   &mockDiskClient{},
 				nodeName:     "test-node",
 				hostRootPath: tc.hostRootPath,
 				kubeClient:   mockKube,
 			}
 
-			// Setup test filesystem
 			err := tc.setupFunc(tc.hostRootPath)
 			require.NoError(t, err)
 			defer os.RemoveAll(tc.hostRootPath)
 
-			// Mock partition with test device
-			provider.diskClient = &simpleDiskClient{
+			provider.diskClient = &mockDiskClient{
 				partitions: []disk.PartitionStat{
 					{
 						Device:     tc.devicePath,
@@ -742,7 +742,9 @@ func TestBuildFilesystemMetrics_BackingDevicesResolution_Cases(t *testing.T) {
 						Fstype:     "ext4",
 					},
 				},
-				diskStats: &disk.UsageStat{Total: 2000000, Used: 1000000},
+				diskStatsMap: map[string]*disk.UsageStat{
+					tc.hostRootPath + tc.mountPoint: {Total: 2000000, Used: 1000000},
+				},
 			}
 
 			metrics, err := provider.BuildFilesystemMetrics(time.Now())
@@ -753,7 +755,6 @@ func TestBuildFilesystemMetrics_BackingDevicesResolution_Cases(t *testing.T) {
 			assert.Equal(t, "test-node", metric.NodeName)
 			assert.Equal(t, tc.mountPoint, metric.MountPoint)
 
-			// Verify backing device resolution
 			assert.Equal(t, tc.expectedDevices, metric.Devices)
 
 			require.NotNil(t, metric.TotalSize)
@@ -776,7 +777,7 @@ func TestBuildBlockDeviceMetrics_MultipleDevices(t *testing.T) {
 		},
 	}
 
-	provider.diskClient = &mockIOCountersClient{
+	provider.diskClient = &mockDiskClient{
 		ioStats: map[string]disk.IOCountersStat{
 			"sda": {
 				ReadCount:  100,
@@ -808,7 +809,7 @@ func TestBuildBlockDeviceMetrics_MultipleDevices(t *testing.T) {
 	require.Empty(t, firstMetrics)
 
 	// Update counters for second call
-	provider.diskClient = &mockIOCountersClient{
+	provider.diskClient = &mockDiskClient{
 		ioStats: map[string]disk.IOCountersStat{
 			"sda": {
 				ReadCount:  200,     // +100
@@ -836,30 +837,97 @@ func TestBuildBlockDeviceMetrics_MultipleDevices(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, secondMetrics, 3)
 
-	// Find metrics by device name
 	metricsByName := make(map[string]BlockDeviceMetric)
 	for _, metric := range secondMetrics {
 		metricsByName[metric.Name] = metric
 	}
 
-	// Verify sda metrics (delta/10sec)
 	sdaMetric := metricsByName["sda"]
 	assert.Equal(t, int64(10), sdaMetric.ReadIOPS)            // (200-100)/10
 	assert.Equal(t, int64(5), sdaMetric.WriteIOPS)            // (100-50)/10
 	assert.Equal(t, int64(200000), sdaMetric.ReadThroughput)  // (3000000-1000000)/10
 	assert.Equal(t, int64(100000), sdaMetric.WriteThroughput) // (1500000-500000)/10
 
-	// Verify sdb metrics
 	sdbMetric := metricsByName["sdb"]
 	assert.Equal(t, int64(20), sdbMetric.ReadIOPS)            // (400-200)/10
 	assert.Equal(t, int64(10), sdbMetric.WriteIOPS)           // (200-100)/10
 	assert.Equal(t, int64(400000), sdbMetric.ReadThroughput)  // (6000000-2000000)/10
 	assert.Equal(t, int64(200000), sdbMetric.WriteThroughput) // (3000000-1000000)/10
 
-	// Verify nvme0n1 metrics
 	nvmeMetric := metricsByName["nvme0n1"]
 	assert.Equal(t, int64(15), nvmeMetric.ReadIOPS)            // (450-300)/10
 	assert.Equal(t, int64(7), nvmeMetric.WriteIOPS)            // (225-150)/10 = 7.5 → 7
 	assert.Equal(t, int64(300000), nvmeMetric.ReadThroughput)  // (6000000-3000000)/10
 	assert.Equal(t, int64(150000), nvmeMetric.WriteThroughput) // (3000000-1500000)/10
+}
+
+func TestSafeDelta(t *testing.T) {
+	testCases := []struct {
+		name     string
+		current  uint64
+		previous uint64
+		expected int64
+	}{
+		{
+			name:     "normal increment",
+			current:  100,
+			previous: 50,
+			expected: 50,
+		},
+		{
+			name:     "no change",
+			current:  100,
+			previous: 100,
+			expected: 0,
+		},
+		{
+			name:     "counter reset detected",
+			current:  50,
+			previous: 100,
+			expected: 0,
+		},
+		{
+			name:     "zero to value",
+			current:  100,
+			previous: 0,
+			expected: 100,
+		},
+		{
+			name:     "value to zero (reset)",
+			current:  0,
+			previous: 100,
+			expected: 0,
+		},
+		{
+			name:     "large delta within int64 range",
+			current:  uint64(math.MaxInt64),
+			previous: 1000,
+			expected: math.MaxInt64 - 1000,
+		},
+		{
+			name:     "delta exactly at MaxInt64",
+			current:  uint64(math.MaxInt64) + 1000,
+			previous: 1000,
+			expected: math.MaxInt64,
+		},
+		{
+			name:     "delta exceeding MaxInt64 gets clamped",
+			current:  math.MaxUint64,
+			previous: 1000,
+			expected: math.MaxInt64,
+		},
+		{
+			name:     "large values no overflow",
+			current:  math.MaxUint64 - 1000,
+			previous: math.MaxUint64 - 2000,
+			expected: 1000,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := safeDelta(tc.current, tc.previous)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }

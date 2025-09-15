@@ -115,7 +115,7 @@ func (s *SysfsStorageInfoProvider) getNode() (*kubepb.Node, error) {
 		Name: s.nodeName,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get node %s: %v", s.nodeName, err)
+		return nil, fmt.Errorf("failed to get node %s: %w", s.nodeName, err)
 	}
 
 	if resp.Node == nil {
@@ -394,15 +394,23 @@ func safeUint64ToInt64(val uint64) int64 {
 	return int64(val)
 }
 
+func safeDelta(current, previous uint64) int64 {
+	if current >= previous {
+		return safeUint64ToInt64(current - previous)
+	}
+	return 0
+}
+
 func calculateBlockDeviceRates(current *BlockDeviceMetric, prev *BlockDeviceMetric, timeDiff float64) {
 	timeDiffSecs := int64(timeDiff)
-	readOpsDelta := current.readCount - prev.readCount
-	writeOpsDelta := current.writeCount - prev.writeCount
-	readBytesDelta := current.readBytes - prev.readBytes
-	writeBytesDelta := current.writeBytes - prev.writeBytes
 
-	current.ReadIOPS = int64(readOpsDelta) / timeDiffSecs
-	current.WriteIOPS = int64(writeOpsDelta) / timeDiffSecs
-	current.ReadThroughput = int64(readBytesDelta) / timeDiffSecs
-	current.WriteThroughput = int64(writeBytesDelta) / timeDiffSecs
+	readOpsDelta := safeDelta(current.readCount, prev.readCount)
+	writeOpsDelta := safeDelta(current.writeCount, prev.writeCount)
+	readBytesDelta := safeDelta(current.readBytes, prev.readBytes)
+	writeBytesDelta := safeDelta(current.writeBytes, prev.writeBytes)
+
+	current.ReadIOPS = readOpsDelta / timeDiffSecs
+	current.WriteIOPS = writeOpsDelta / timeDiffSecs
+	current.ReadThroughput = readBytesDelta / timeDiffSecs
+	current.WriteThroughput = writeBytesDelta / timeDiffSecs
 }
