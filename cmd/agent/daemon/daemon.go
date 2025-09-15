@@ -43,6 +43,7 @@ func NewRunCommand(version string) *cobra.Command {
 		statsEnabled           = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
 		statsScrapeInterval    = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
 		statsFileAccessEnabled = command.Flags().Bool("stats-file-access-enabled", false, "Enable file access stats tracking")
+		storageStatsEnabled    = command.Flags().Bool("storage-stats-enabled", false, "Enable storage stats scraping")
 
 		btfPath           = command.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled = command.Flags().Bool("ebpf-events-enabled", false, "Enable ebpf events")
@@ -159,7 +160,7 @@ func NewRunCommand(version string) *cobra.Command {
 				Enabled:           *statsEnabled,
 				ScrapeInterval:    *statsScrapeInterval,
 				FileAccessEnabled: *statsFileAccessEnabled,
-				StorageEnabled:    true,
+				StorageEnabled:    *storageStatsEnabled,
 			},
 			Events: config.EventsConfig{
 				Enabled: *ebpfEventsEnabled,

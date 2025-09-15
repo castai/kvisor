@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -25,6 +24,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 )
 
 var (
@@ -185,6 +186,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set agent.enabled=true \
   --set agent.extraArgs.log-level=debug \
   --set agent.extraArgs.stats-enabled=true \
+  --set agent.extraArgs.storage-stats-enabled=true \
   --set agent.extraArgs.stats-file-access-enabled=true \
   --set agent.extraArgs.stats-scrape-interval=1s \
   --set agent.extraArgs.castai-server-insecure=true \
