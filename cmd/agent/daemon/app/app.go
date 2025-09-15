@@ -22,8 +22,6 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
@@ -592,13 +590,4 @@ func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error)
 	}
 
 	return custommetrics.NewMetricClient(metricsClientConfig, castlog.New())
-}
-
-func newKubernetesClient() (kubernetes.Interface, error) {
-	clusterConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(clusterConfig)
 }
