@@ -319,7 +319,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 }
 
 func (s *SysfsStorageInfoProvider) getDeviceSize(deviceName string) (*int64, error) {
-	devicePath := fmt.Sprintf("%s/sys/block/%s/size", s.sysBlockPrefix, deviceName)
+	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "size")
 	if sectors, err := s.getDeviceSectorCount(devicePath); err == nil && sectors > 0 {
 		return lo.ToPtr(sectors * sectorSizeBytes), nil
 	}
@@ -347,20 +347,20 @@ func (s *SysfsStorageInfoProvider) getDeviceSectorCount(devicePath string) (int6
 }
 
 func (s *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (int64, error) {
-	blockDir := s.sysBlockPrefix + "/sys/block"
+	blockDir := filepath.Join(s.sysBlockPrefix, "sys", "block")
 	entries, err := os.ReadDir(blockDir)
 	if err != nil {
 		return 0, err
 	}
 
 	for _, entry := range entries {
-		entryPath := fmt.Sprintf("%s/%s", blockDir, entry.Name())
+		entryPath := filepath.Join(blockDir, entry.Name())
 		stat, err := os.Stat(entryPath)
 		if err != nil || !stat.IsDir() {
 			continue
 		}
 
-		partitionPath := fmt.Sprintf("%s/%s/%s/size", blockDir, entry.Name(), deviceName)
+		partitionPath := filepath.Join(blockDir, entry.Name(), deviceName, "size")
 		if sectors, err := s.getDeviceSectorCount(partitionPath); err == nil && sectors > 0 {
 			return sectors, nil
 		}
@@ -370,7 +370,7 @@ func (s *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (i
 }
 
 func (s *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, error) {
-	slavesPath := fmt.Sprintf("%s/sys/block/%s/slaves", s.sysBlockPrefix, blockName)
+	slavesPath := filepath.Join(s.sysBlockPrefix, "sys", "block", blockName, "slaves")
 	entries, err := os.ReadDir(slavesPath)
 	if err != nil {
 		return nil, err

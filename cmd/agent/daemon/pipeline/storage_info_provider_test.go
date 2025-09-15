@@ -265,8 +265,8 @@ func TestBuildBlockDeviceMetrics_BasicCases(t *testing.T) {
 				assert.Equal(t, "sda", metric.Name)
 				assert.Equal(t, "test-node", metric.NodeName)
 				// Verify rate calculations: delta / time_diff (10 seconds)
-				assert.Equal(t, int64(10), metric.ReadIOPS)       // (200-100)/10
-				assert.Equal(t, int64(5), metric.WriteIOPS)       // (100-50)/10
+				assert.Equal(t, int64(10), metric.ReadIOPS)            // (200-100)/10
+				assert.Equal(t, int64(5), metric.WriteIOPS)            // (100-50)/10
 				assert.Equal(t, int64(200000), metric.ReadThroughput)  // (3000000-1000000)/10
 				assert.Equal(t, int64(100000), metric.WriteThroughput) // (1500000-500000)/10
 			},
@@ -405,7 +405,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			deviceName:     "sda",
 			expectedSize:   lo.ToPtr(int64(512000)), // 1000 * 512
 			setupFunc: func(prefix string) error {
-				path := prefix + "/sys/block/sda/size"
+				path := filepath.Join(prefix, "sys", "block", "sda", "size")
 				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 					return err
 				}
@@ -418,7 +418,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			deviceName:     "sda1",
 			expectedSize:   lo.ToPtr(int64(1024000)), // 2000 * 512
 			setupFunc: func(prefix string) error {
-				path := prefix + "/sys/block/sda/sda1/size"
+				path := filepath.Join(prefix, "sys", "block", "sda", "sda1", "size")
 				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 					return err
 				}
@@ -431,7 +431,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			deviceName:     "virt-device",
 			expectedSize:   nil,
 			setupFunc: func(prefix string) error {
-				return os.MkdirAll(prefix+"/sys/block", 0755)
+				return os.MkdirAll(filepath.Join(prefix, "sys", "block"), 0755)
 			},
 		},
 		{
@@ -440,7 +440,7 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 			deviceName:     "sdb",
 			expectedSize:   nil,
 			setupFunc: func(prefix string) error {
-				path := prefix + "/sys/block/sdb/size"
+				path := filepath.Join(prefix, "sys", "block", "sdb", "size")
 				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 					return err
 				}
@@ -522,7 +522,7 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			expectedPhysicals: []string{"/dev/sda"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
 				// Create empty slaves directory (no slaves = physical device)
-				slavesPath := sysPrefix + "/sys/block/sda/slaves"
+				slavesPath := filepath.Join(sysPrefix, "sys", "block", "sda", "slaves")
 				return os.MkdirAll(slavesPath, 0755)
 			},
 		},
@@ -534,7 +534,7 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			expectedPhysicals: []string{"/dev/dm-1"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
 				// Create empty slaves directory for dm device
-				slavesPath := sysPrefix + "/sys/block/dm-1/slaves"
+				slavesPath := filepath.Join(sysPrefix, "sys", "block", "dm-1", "slaves")
 				return os.MkdirAll(slavesPath, 0755)
 			},
 		},
@@ -546,23 +546,23 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			expectedPhysicals: []string{"/dev/sda", "/dev/sdb"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
 				// Create RAID device with two slaves
-				slavesPath := sysPrefix + "/sys/block/md0/slaves"
+				slavesPath := filepath.Join(sysPrefix, "sys", "block", "md0", "slaves")
 				if err := os.MkdirAll(slavesPath, 0755); err != nil {
 					return err
 				}
 				// Create slave symlinks
-				if err := os.Symlink("../../sda", slavesPath+"/sda"); err != nil {
+				if err := os.Symlink("../../sda", filepath.Join(slavesPath, "sda")); err != nil {
 					return err
 				}
-				if err := os.Symlink("../../sdb", slavesPath+"/sdb"); err != nil {
+				if err := os.Symlink("../../sdb", filepath.Join(slavesPath, "sdb")); err != nil {
 					return err
 				}
 
 				// Create empty slaves for physical devices
-				if err := os.MkdirAll(sysPrefix+"/sys/block/sda/slaves", 0755); err != nil {
+				if err := os.MkdirAll(filepath.Join(sysPrefix, "sys", "block", "sda", "slaves"), 0755); err != nil {
 					return err
 				}
-				return os.MkdirAll(sysPrefix+"/sys/block/sdb/slaves", 0755)
+				return os.MkdirAll(filepath.Join(sysPrefix, "sys", "block", "sdb", "slaves"), 0755)
 			},
 		},
 		{
@@ -573,7 +573,7 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			expectedPhysicals: []string{"/dev/loop0"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
 				// Don't create slaves directory (simulates virtual device)
-				return os.MkdirAll(sysPrefix+"/sys/block", 0755)
+				return os.MkdirAll(filepath.Join(sysPrefix, "sys", "block"), 0755)
 			},
 		},
 		{
@@ -584,22 +584,22 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 			expectedPhysicals: []string{"/dev/md0"},
 			setupFunc: func(sysPrefix, hostPrefix string) error {
 				// Create circular dependency: md0 → sda → md0
-				md0SlavesPath := sysPrefix + "/sys/block/md0/slaves"
-				sdaSlavesPath := sysPrefix + "/sys/block/sda/slaves"
-				
+				md0SlavesPath := filepath.Join(sysPrefix, "sys", "block", "md0", "slaves")
+				sdaSlavesPath := filepath.Join(sysPrefix, "sys", "block", "sda", "slaves")
+
 				if err := os.MkdirAll(md0SlavesPath, 0755); err != nil {
 					return err
 				}
 				if err := os.MkdirAll(sdaSlavesPath, 0755); err != nil {
 					return err
 				}
-				
+
 				// md0 → sda
-				if err := os.Symlink("../../sda", md0SlavesPath+"/sda"); err != nil {
+				if err := os.Symlink("../../sda", filepath.Join(md0SlavesPath, "sda")); err != nil {
 					return err
 				}
 				// sda → md0 (creates circular dependency)
-				return os.Symlink("../../md0", sdaSlavesPath+"/md0")
+				return os.Symlink("../../md0", filepath.Join(sdaSlavesPath, "md0"))
 			},
 		},
 	}
@@ -683,11 +683,11 @@ func TestBuildFilesystemMetrics_BackingDevicesResolution_Cases(t *testing.T) {
 			mountPoint:      "/home",
 			expectedDevices: []string{"/dev/dm-1"},
 			setupFunc: func(hostPrefix string) error {
-				mapperDir := hostPrefix + "/dev/mapper"
+				mapperDir := filepath.Join(hostPrefix, "dev", "mapper")
 				if err := os.MkdirAll(mapperDir, 0755); err != nil {
 					return err
 				}
-				return os.Symlink("../dm-1", mapperDir+"/vg-lv")
+				return os.Symlink("../dm-1", filepath.Join(mapperDir, "vg-lv"))
 			},
 		},
 		{
@@ -698,7 +698,7 @@ func TestBuildFilesystemMetrics_BackingDevicesResolution_Cases(t *testing.T) {
 			expectedDevices: []string{"/dev/mapper/broken-lv"},
 			setupFunc: func(hostPrefix string) error {
 				// Create mapper dir but no symlink (broken LVM)
-				mapperDir := hostPrefix + "/dev/mapper"
+				mapperDir := filepath.Join(hostPrefix, "dev", "mapper")
 				return os.MkdirAll(mapperDir, 0755)
 			},
 		},
@@ -844,22 +844,22 @@ func TestBuildBlockDeviceMetrics_MultipleDevices(t *testing.T) {
 
 	// Verify sda metrics (delta/10sec)
 	sdaMetric := metricsByName["sda"]
-	assert.Equal(t, int64(10), sdaMetric.ReadIOPS)       // (200-100)/10
-	assert.Equal(t, int64(5), sdaMetric.WriteIOPS)       // (100-50)/10
+	assert.Equal(t, int64(10), sdaMetric.ReadIOPS)            // (200-100)/10
+	assert.Equal(t, int64(5), sdaMetric.WriteIOPS)            // (100-50)/10
 	assert.Equal(t, int64(200000), sdaMetric.ReadThroughput)  // (3000000-1000000)/10
 	assert.Equal(t, int64(100000), sdaMetric.WriteThroughput) // (1500000-500000)/10
 
 	// Verify sdb metrics
 	sdbMetric := metricsByName["sdb"]
-	assert.Equal(t, int64(20), sdbMetric.ReadIOPS)       // (400-200)/10
-	assert.Equal(t, int64(10), sdbMetric.WriteIOPS)      // (200-100)/10
+	assert.Equal(t, int64(20), sdbMetric.ReadIOPS)            // (400-200)/10
+	assert.Equal(t, int64(10), sdbMetric.WriteIOPS)           // (200-100)/10
 	assert.Equal(t, int64(400000), sdbMetric.ReadThroughput)  // (6000000-2000000)/10
 	assert.Equal(t, int64(200000), sdbMetric.WriteThroughput) // (3000000-1000000)/10
 
 	// Verify nvme0n1 metrics
 	nvmeMetric := metricsByName["nvme0n1"]
-	assert.Equal(t, int64(15), nvmeMetric.ReadIOPS)       // (450-300)/10
-	assert.Equal(t, int64(7), nvmeMetric.WriteIOPS)       // (225-150)/10 = 7.5 → 7
+	assert.Equal(t, int64(15), nvmeMetric.ReadIOPS)            // (450-300)/10
+	assert.Equal(t, int64(7), nvmeMetric.WriteIOPS)            // (225-150)/10 = 7.5 → 7
 	assert.Equal(t, int64(300000), nvmeMetric.ReadThroughput)  // (6000000-3000000)/10
 	assert.Equal(t, int64(150000), nvmeMetric.WriteThroughput) // (3000000-1500000)/10
 }
