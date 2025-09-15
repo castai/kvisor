@@ -8,7 +8,7 @@ require (
 	github.com/aquasecurity/trivy v0.61.0
 	github.com/castai/image-analyzer v0.9.1
 	github.com/castai/logging v0.2.0
-	github.com/castai/metrics v0.0.0-20250528070754-28d157978f86
+	github.com/castai/metrics v0.0.0-20250912111254-991abbf54573
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2

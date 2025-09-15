@@ -35,7 +35,7 @@ import (
 type DiskInterface interface {
 	IOCounters() (map[string]disk.IOCountersStat, error)
 	Partitions(all bool) ([]disk.PartitionStat, error)
-	Usage(path string) (*disk.UsageStat, error)
+	GetDiskStats(path string) (*disk.UsageStat, error)
 }
 
 type DiskClient struct{}
@@ -52,7 +52,7 @@ func (d *DiskClient) Partitions(all bool) ([]disk.PartitionStat, error) {
 	return disk.Partitions(all)
 }
 
-func (d *DiskClient) Usage(path string) (*disk.UsageStat, error) {
+func (d *DiskClient) GetDiskStats(path string) (*disk.UsageStat, error) {
 	return disk.Usage(path)
 }
 
@@ -115,26 +115,26 @@ type enrichmentService interface {
 }
 
 type BlockDeviceMetricsWriter interface {
-	Write(metrics ...BlockDeviceMetrics) error
+	Write(metrics ...BlockDeviceMetric) error
 }
 
 type FilesystemMetricsWriter interface {
-	Write(metrics ...FilesystemMetrics) error
+	Write(metrics ...FilesystemMetric) error
 }
 
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
-	return custommetrics.NewMetric[BlockDeviceMetrics](
+	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[BlockDeviceMetrics]("kvisor_block_device_metrics"),
-		custommetrics.WithSkipTimestamp[BlockDeviceMetrics](),
+		custommetrics.WithCollectionName[BlockDeviceMetric]("kvisor_block_device_metrics"),
+		custommetrics.WithSkipTimestamp[BlockDeviceMetric](),
 	)
 }
 
 func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
-	return custommetrics.NewMetric[FilesystemMetrics](
+	return custommetrics.NewMetric[FilesystemMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[FilesystemMetrics]("kvisor_filesystem_metrics"),
-		custommetrics.WithSkipTimestamp[FilesystemMetrics](),
+		custommetrics.WithCollectionName[FilesystemMetric]("kvisor_filesystem_metrics"),
+		custommetrics.WithSkipTimestamp[FilesystemMetric](),
 	)
 }
 

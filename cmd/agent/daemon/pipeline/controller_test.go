@@ -13,6 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
@@ -27,11 +33,6 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 type testAddr struct {
@@ -1142,6 +1143,7 @@ func (m *mockEnrichmentService) Events() <-chan *enrichment.EnrichedContainerEve
 }
 
 type mockKubeClient struct {
+	nodeTemplate *string
 }
 
 func (m *mockKubeClient) GetClusterInfo(ctx context.Context, in *kubepb.GetClusterInfoRequest, opts ...grpc.CallOption) (*kubepb.GetClusterInfoResponse, error) {
@@ -1170,6 +1172,18 @@ func (m *mockKubeClient) GetPod(ctx context.Context, in *kubepb.GetPodRequest, o
 	return &kubepb.GetPodResponse{
 		Pod: &kubepb.Pod{},
 	}, nil
+}
+
+func (m *mockKubeClient) GetNode(ctx context.Context, req *kubepb.GetNodeRequest, opts ...grpc.CallOption) (*kubepb.GetNodeResponse, error) {
+	response := &kubepb.GetNodeResponse{
+		Node: &kubepb.Node{
+			Labels: make(map[string]string),
+		},
+	}
+	if m.nodeTemplate != nil {
+		response.Node.Labels["scheduling.cast.ai/node-template"] = *m.nodeTemplate
+	}
+	return response, nil
 }
 
 type mockProcessTreeController struct {
@@ -1229,11 +1243,11 @@ func (m *mockMetricClient) Add(name string, metric interface{}) error {
 }
 
 type mockBlockDeviceMetricsWriter struct {
-	writeFunc func(metrics ...BlockDeviceMetrics) error
-	metrics   []BlockDeviceMetrics
+	writeFunc func(metrics ...BlockDeviceMetric) error
+	metrics   []BlockDeviceMetric
 }
 
-func (m *mockBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetrics) error {
+func (m *mockBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetric) error {
 	if m.writeFunc != nil {
 		return m.writeFunc(metrics...)
 	}
@@ -1242,11 +1256,11 @@ func (m *mockBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetrics) erro
 }
 
 type mockFilesystemMetricsWriter struct {
-	writeFunc func(metrics ...FilesystemMetrics) error
-	metrics   []FilesystemMetrics
+	writeFunc func(metrics ...FilesystemMetric) error
+	metrics   []FilesystemMetric
 }
 
-func (m *mockFilesystemMetricsWriter) Write(metrics ...FilesystemMetrics) error {
+func (m *mockFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
 	if m.writeFunc != nil {
 		return m.writeFunc(metrics...)
 	}

@@ -11,46 +11,55 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
+	"github.com/elastic/go-freelru"
+	"github.com/samber/lo"
 	"github.com/shirou/gopsutil/v4/disk"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
+	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/pkg/logging"
 )
 
 const sectorSizeBytes = 512
+const hostPathRoot = "/proc/1/root"
 
-type BlockDeviceMetrics struct {
+type BlockDeviceMetric struct {
 	Name            string    `avro:"name"`
 	NodeName        string    `avro:"node_name"`
-	NodeTemplate    string    `avro:"node_template"`
+	NodeTemplate    *string   `avro:"node_template"`
 	ReadIOPS        int64     `avro:"read_iops"`
 	WriteIOPS       int64     `avro:"write_iops"`
-	ReadThroughput  float64   `avro:"read_throughput"`
-	WriteThroughput float64   `avro:"write_throughput"`
-	Size            int64     `avro:"size"`
+	ReadThroughput  int64     `avro:"read_throughput"`
+	WriteThroughput int64     `avro:"write_throughput"`
+	Size            *int64    `avro:"size"`
 	PhysicalDevices []string  `avro:"physical_devices"`
 	Timestamp       time.Time `avro:"ts"`
+
+	// Internal fields for calculation (raw cumulative counters)
+	readCount  uint64
+	writeCount uint64
+	readBytes  uint64
+	writeBytes uint64
 }
 
-type FilesystemMetrics struct {
+type FilesystemMetric struct {
 	Devices      []string  `avro:"devices"`
 	NodeName     string    `avro:"node_name"`
-	NodeTemplate string    `avro:"node_template"`
+	NodeTemplate *string   `avro:"node_template"`
 	MountPoint   string    `avro:"mount_point"`
-	TotalSize    int64     `avro:"total_size"`
-	UsedSpace    int64     `avro:"used_space"`
+	TotalSize    *int64    `avro:"total_size"`
+	UsedSpace    *int64    `avro:"used_space"`
 	Timestamp    time.Time `avro:"ts"`
 }
 
 type storageMetricsState struct {
-	blockDevices map[string]*BlockDeviceMetrics
-	filesystems  map[string]*FilesystemMetrics
+	blockDevices map[string]*BlockDeviceMetric
+	filesystems  map[string]*FilesystemMetric
 }
 
 type StorageInfoProvider interface {
-	BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetrics, error)
-	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetrics, error)
+	BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error)
+	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -60,81 +69,127 @@ type SysfsStorageInfoProvider struct {
 	nodeName       string
 	hostRootPath   string
 	sysBlockPrefix string
-	k8sClient      kubernetes.Interface
+	kubeClient     kubepb.KubeAPIClient
+	nodeCache      *freelru.SyncedLRU[string, *kubepb.Node]
 }
 
-func NewStorageInfoProvider(log *logging.Logger, k8sClient kubernetes.Interface) StorageInfoProvider {
+func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient) (StorageInfoProvider, error) {
+	nodeCache, err := freelru.NewSynced[string, *kubepb.Node](4, func(k string) uint32 {
+		return uint32(xxhash.Sum64String(k)) // nolint:gosec
+	})
+	if err != nil {
+		return nil, fmt.Errorf("nodeCache can not be initialized")
+	}
+
 	return &SysfsStorageInfoProvider{
 		storageState: &storageMetricsState{
-			blockDevices: make(map[string]*BlockDeviceMetrics),
-			filesystems:  make(map[string]*FilesystemMetrics),
+			blockDevices: make(map[string]*BlockDeviceMetric),
+			filesystems:  make(map[string]*FilesystemMetric),
 		},
 		log:            log,
 		diskClient:     NewDiskClient(),
 		nodeName:       os.Getenv("NODE_NAME"),
-		hostRootPath:   "/proc/1/root",
+		hostRootPath:   hostPathRoot,
 		sysBlockPrefix: "",
-		k8sClient:      k8sClient,
-	}
+		kubeClient:     kubeClient,
+		nodeCache:      nodeCache,
+	}, nil
 }
 
-func (s *SysfsStorageInfoProvider) getNodeTemplate() string {
-	if s.k8sClient == nil {
-		return ""
+func (s *SysfsStorageInfoProvider) getNode() (*kubepb.Node, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	if s.nodeCache != nil {
+		node, found := s.nodeCache.Get(s.nodeName)
+		if found {
+			return node, nil
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	node, err := s.k8sClient.CoreV1().Nodes().Get(
-		ctx,
-		s.nodeName,
-		metav1.GetOptions{},
-	)
+	resp, err := s.kubeClient.GetNode(ctx, &kubepb.GetNodeRequest{
+		Name: s.nodeName,
+	})
 	if err != nil {
-		s.log.Warnf("failed to get node %s: %v", s.nodeName, err)
-		return ""
+		return nil, fmt.Errorf("failed to get node %s: %v", s.nodeName, err)
 	}
 
-	return node.Labels["scheduling.cast.ai/node-template"]
+	if resp.Node == nil {
+		return nil, fmt.Errorf("failed to get node")
+	}
+
+	if s.nodeCache != nil {
+		s.nodeCache.Add(s.nodeName, resp.Node)
+	}
+
+	return resp.Node, nil
 }
 
-func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetrics, error) {
+func (s *SysfsStorageInfoProvider) getNodeTemplate() (*string, error) {
+	node, err := s.getNode()
+	if err != nil {
+		return nil, err
+	}
+
+	if node.Labels == nil {
+		return nil, fmt.Errorf("failed to get labels")
+	}
+
+	nodeTemplate, exists := node.Labels["scheduling.cast.ai/node-template"]
+	if !exists {
+		return nil, nil
+	}
+
+	return &nodeTemplate, nil
+}
+
+func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
 	partitions, err := s.diskClient.Partitions(false) // false = only physical devices
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partitions: %w", err)
 	}
 
-	filesystemMetrics := make([]FilesystemMetrics, 0, len(partitions))
+	filesystemMetrics := make([]FilesystemMetric, 0, len(partitions))
 	for _, partition := range partitions {
-		metric, err := s.buildFilesystemMetric(partition, timestamp)
-		if err != nil {
-			s.log.Warnf("failed to build file system metric: %v", err)
-			continue
-		}
-		filesystemMetrics = append(filesystemMetrics, *metric)
+		metric := s.buildFilesystemMetric(partition, timestamp)
+		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
-	s.log.Debugf("collected %d filesystem metrics", len(filesystemMetrics))
 	return filesystemMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.PartitionStat, timestamp time.Time) (*FilesystemMetrics, error) {
+func (s *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.PartitionStat, timestamp time.Time) FilesystemMetric {
 	fileSystemPath := s.hostRootPath + partition.Mountpoint
-	usage, err := s.diskClient.Usage(fileSystemPath)
-	if err != nil {
-		return nil, err
+	diskStats, diskErr := s.diskClient.GetDiskStats(fileSystemPath)
+	if diskErr != nil {
+		s.log.Warnf("failed to build file system metric: %v", diskErr)
 	}
 
-	return &FilesystemMetrics{
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template for %s: %v", partition.Mountpoint, err)
+	}
+
+	var totalSize, usedSpace *int64
+	if diskErr == nil && diskStats != nil {
+		total := safeUint64ToInt64(diskStats.Total)
+		used := safeUint64ToInt64(diskStats.Used)
+		totalSize, usedSpace = &total, &used
+	}
+
+	return FilesystemMetric{
 		Devices:      s.getBackingDevices(partition.Device),
 		NodeName:     s.nodeName,
-		NodeTemplate: s.getNodeTemplate(),
+		NodeTemplate: nodeTemplate,
 		MountPoint:   partition.Mountpoint,
-		TotalSize:    safeUint64ToInt64(usage.Total),
-		UsedSpace:    safeUint64ToInt64(usage.Used),
+		TotalSize:    totalSize,
+		UsedSpace:    usedSpace,
 		Timestamp:    timestamp,
-	}, nil
+	}
 }
 
 // getBackingDevices resolves a device to its backing device.
@@ -157,7 +212,7 @@ func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 	hostMapperPath := s.hostRootPath + device
 	linkTarget, err := os.Readlink(hostMapperPath)
 	if err != nil {
-		s.log.Debugf("symlink resolution failed for %s: %v", device, err)
+		s.log.Errorf("symlink resolution failed for %s: %v", device, err)
 		return nil
 	}
 	return []string{"/dev/" + filepath.Base(linkTarget)}
@@ -210,16 +265,17 @@ func (s *SysfsStorageInfoProvider) deduplicateDevices(devices []string) []string
 	return unique
 }
 
-func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetrics, error) {
+func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
 	ioStats, err := s.diskClient.IOCounters()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IO counters: %w", err)
 	}
 
-	blockMetrics := make([]BlockDeviceMetrics, 0, len(ioStats))
+	blockMetrics := make([]BlockDeviceMetric, 0, len(ioStats))
 
 	for blockName, stat := range ioStats {
 		current := s.buildBlockDeviceMetric(blockName, stat, timestamp)
+
 		prev, exists := s.storageState.blockDevices[current.Name]
 		if exists {
 			timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
@@ -235,40 +291,44 @@ func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 	return blockMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, timestamp time.Time) BlockDeviceMetrics {
-	diskUsage, err := s.getDeviceSize(blockName)
+func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, timestamp time.Time) BlockDeviceMetric {
+	diskSize, err := s.getDeviceSize(blockName)
 	if err != nil {
 		s.log.Warnf("failed to get disk usage for %s: %v", blockName, err)
-		diskUsage = 0
 	}
 
 	physicalDevices := s.resolvePhysicalDevices(blockName)
 
-	return BlockDeviceMetrics{
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template for %s: %v", blockName, err)
+	}
+
+	return BlockDeviceMetric{
 		Name:            blockName,
 		NodeName:        s.nodeName,
-		NodeTemplate:    s.getNodeTemplate(),
+		NodeTemplate:    nodeTemplate,
 		PhysicalDevices: physicalDevices,
-		ReadIOPS:        safeUint64ToInt64(stat.ReadCount),
-		WriteIOPS:       safeUint64ToInt64(stat.WriteCount),
-		ReadThroughput:  float64(stat.ReadBytes),
-		WriteThroughput: float64(stat.WriteBytes),
-		Size:            diskUsage,
+		Size:            diskSize,
 		Timestamp:       timestamp,
+		readCount:       stat.ReadCount,
+		writeCount:      stat.WriteCount,
+		readBytes:       stat.ReadBytes,
+		writeBytes:      stat.WriteBytes,
 	}
 }
 
-func (s *SysfsStorageInfoProvider) getDeviceSize(deviceName string) (int64, error) {
+func (s *SysfsStorageInfoProvider) getDeviceSize(deviceName string) (*int64, error) {
 	devicePath := fmt.Sprintf("%s/sys/block/%s/size", s.sysBlockPrefix, deviceName)
 	if sectors, err := s.getDeviceSectorCount(devicePath); err == nil && sectors > 0 {
-		return sectors * sectorSizeBytes, nil
+		return lo.ToPtr(sectors * sectorSizeBytes), nil
 	}
 
 	if sectors, err := s.getPartitionSectorCount(deviceName); err == nil && sectors > 0 {
-		return sectors * sectorSizeBytes, nil
+		return lo.ToPtr(sectors * sectorSizeBytes), nil
 	}
 
-	return 0, fmt.Errorf("failed to get size for device %s", deviceName)
+	return nil, fmt.Errorf("failed to get size for device %s", deviceName)
 }
 
 func (s *SysfsStorageInfoProvider) getDeviceSectorCount(devicePath string) (int64, error) {
@@ -334,9 +394,15 @@ func safeUint64ToInt64(val uint64) int64 {
 	return int64(val)
 }
 
-func calculateBlockDeviceRates(current *BlockDeviceMetrics, prev *BlockDeviceMetrics, timeDiff float64) {
-	current.ReadThroughput = (current.ReadThroughput - prev.ReadThroughput) / timeDiff
-	current.WriteThroughput = (current.WriteThroughput - prev.WriteThroughput) / timeDiff
-	current.ReadIOPS = int64(float64(current.ReadIOPS-prev.ReadIOPS) / timeDiff)
-	current.WriteIOPS = int64(float64(current.WriteIOPS-prev.WriteIOPS) / timeDiff)
+func calculateBlockDeviceRates(current *BlockDeviceMetric, prev *BlockDeviceMetric, timeDiff float64) {
+	timeDiffSecs := int64(timeDiff)
+	readOpsDelta := current.readCount - prev.readCount
+	writeOpsDelta := current.writeCount - prev.writeCount
+	readBytesDelta := current.readBytes - prev.readBytes
+	writeBytesDelta := current.writeBytes - prev.writeBytes
+
+	current.ReadIOPS = int64(readOpsDelta) / timeDiffSecs
+	current.WriteIOPS = int64(writeOpsDelta) / timeDiffSecs
+	current.ReadThroughput = int64(readBytesDelta) / timeDiffSecs
+	current.WriteThroughput = int64(writeBytesDelta) / timeDiffSecs
 }

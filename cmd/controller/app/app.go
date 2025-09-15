@@ -11,16 +11,6 @@ import (
 	"net/http/pprof"
 	"time"
 
-	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/cmd/controller/config"
-	"github.com/castai/kvisor/cmd/controller/controllers"
-	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
-	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
-	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
-	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/pkg/blobscache"
-	"github.com/castai/kvisor/pkg/castai"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -32,6 +22,17 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+
+	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/cmd/controller/config"
+	"github.com/castai/kvisor/cmd/controller/controllers"
+	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
+	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
+	"github.com/castai/kvisor/cmd/controller/kube"
+	"github.com/castai/kvisor/pkg/blobscache"
+	"github.com/castai/kvisor/pkg/castai"
+	"github.com/castai/kvisor/pkg/logging"
 )
 
 func New(cfg config.Config, clientset kubernetes.Interface) *App {

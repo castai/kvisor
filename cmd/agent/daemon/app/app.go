@@ -262,12 +262,10 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to setup storage metrics: %w", err)
 		}
 
-		k8sClient, err := newKubernetesClient()
+		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient)
 		if err != nil {
-			return fmt.Errorf("failed to create Kubernetes client: %w", err)
+			return err
 		}
-
-		storageInfoProvider = pipeline.NewStorageInfoProvider(log, k8sClient)
 	}
 
 	ctrl := pipeline.NewController(
