@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	metricspb "github.com/castai/metrics/api/v1beta"
 )
 
 var (
@@ -74,6 +75,7 @@ func run(ctx context.Context) error {
 
 	srv := &testCASTAIServer{clientset: clientset, testStartTime: time.Now().UTC(), outputReceivedData: false}
 	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
+	metricspb.RegisterIngestionAPIServer(s, srv)
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			fmt.Printf("serving grcp failed: %v\n", err)
@@ -157,6 +159,13 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("assert image metadata: %w", err)
 	}
 	srv.imageMetadatas = nil
+
+	fmt.Println("🙏waiting for storage metrics")
+	if err := srv.assertStorageMetrics(ctx); err != nil {
+		return fmt.Errorf("assert storage metrics: %w", err)
+	}
+	srv.storageMetricsAsserted = true
+	srv.storageMetrics = nil
 
 	fmt.Println("🙏waiting for flogs")
 	if err := srv.assertLogs(ctx); err != nil {
@@ -250,6 +259,9 @@ type testCASTAIServer struct {
 	netflowsAsserted   bool
 	outputReceivedData bool
 	nodeStatsAsserted  bool
+
+	storageMetrics         map[string]int
+	storageMetricsAsserted bool
 }
 
 func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.WriteDataBatchRequest) (*castaipb.WriteDataBatchResponse, error) {
@@ -292,6 +304,34 @@ func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.Wri
 	}
 	t.containerStats = contStats
 	return &castaipb.WriteDataBatchResponse{}, nil
+}
+
+func (t *testCASTAIServer) WriteMetrics(stream metricspb.IngestionAPI_WriteMetricsServer) error {
+	t.mu.Lock()
+	if t.storageMetrics == nil {
+		t.storageMetrics = make(map[string]int)
+	}
+	t.mu.Unlock()
+
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			break
+		}
+
+		t.mu.Lock()
+		t.storageMetrics[req.Collection]++
+		t.mu.Unlock()
+
+		fmt.Printf("received storage metrics: collection=%s, rows=%d\n", req.Collection, func() uint64 {
+			if req.Metadata != nil {
+				return req.Metadata.Rows
+			}
+			return 0
+		}())
+	}
+
+	return stream.SendAndClose(&metricspb.WriteMetricsResponse{Success: true})
 }
 
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -400,6 +440,31 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 				}
 
 				return r.error()
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for storage metrics")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			metrics := make(map[string]int)
+			for k, v := range t.storageMetrics {
+				metrics[k] = v
+			}
+			t.mu.Unlock()
+
+			if len(metrics) > 0 {
+				fmt.Printf("received storage metrics: %+v\n", metrics)
+				return nil
 			}
 		}
 	}
