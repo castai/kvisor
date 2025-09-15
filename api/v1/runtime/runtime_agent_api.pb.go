@@ -713,6 +713,7 @@ type ContainerEvents struct {
 	ContainerName     string                 `protobuf:"bytes,7,opt,name=container_name,json=containerName,proto3" json:"container_name,omitempty"`
 	ContainerId       string                 `protobuf:"bytes,8,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
 	PodUid            string                 `protobuf:"bytes,9,opt,name=pod_uid,json=podUid,proto3" json:"pod_uid,omitempty"`
+	ImageDigest       string                 `protobuf:"bytes,14,opt,name=image_digest,json=imageDigest,proto3" json:"image_digest,omitempty"`
 	ObjectLabels      map[string]string      `protobuf:"bytes,10,rep,name=object_labels,json=objectLabels,proto3" json:"object_labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	ObjectAnnotations map[string]string      `protobuf:"bytes,11,rep,name=object_annotations,json=objectAnnotations,proto3" json:"object_annotations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	CgroupId          uint64                 `protobuf:"varint,12,opt,name=cgroup_id,json=cgroupId,proto3" json:"cgroup_id,omitempty"`
@@ -810,6 +811,13 @@ func (x *ContainerEvents) GetContainerId() string {
 func (x *ContainerEvents) GetPodUid() string {
 	if x != nil {
 		return x.PodUid
+	}
+	return ""
+}
+
+func (x *ContainerEvents) GetImageDigest() string {
+	if x != nil {
+		return x.ImageDigest
 	}
 	return ""
 }
@@ -1199,6 +1207,7 @@ type ContainerStats struct {
 	ContainerId      string                 `protobuf:"bytes,6,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
 	NodeName         string                 `protobuf:"bytes,8,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
 	WorkloadUid      string                 `protobuf:"bytes,9,opt,name=workload_uid,json=workloadUid,proto3" json:"workload_uid,omitempty"`
+	ImageDigest      string                 `protobuf:"bytes,11,opt,name=image_digest,json=imageDigest,proto3" json:"image_digest,omitempty"`
 	CgroupId         uint64                 `protobuf:"varint,10,opt,name=cgroup_id,json=cgroupId,proto3" json:"cgroup_id,omitempty"`
 	CpuStats         *CpuStats              `protobuf:"bytes,21,opt,name=cpu_stats,json=cpuStats,proto3" json:"cpu_stats,omitempty"`
 	MemoryStats      *MemoryStats           `protobuf:"bytes,22,opt,name=memory_stats,json=memoryStats,proto3" json:"memory_stats,omitempty"`
@@ -1298,6 +1307,13 @@ func (x *ContainerStats) GetNodeName() string {
 func (x *ContainerStats) GetWorkloadUid() string {
 	if x != nil {
 		return x.WorkloadUid
+	}
+	return ""
+}
+
+func (x *ContainerStats) GetImageDigest() string {
+	if x != nil {
+		return x.ImageDigest
 	}
 	return ""
 }
@@ -2623,7 +2639,7 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\x0fProcessIdentity\x12\x10\n" +
 	"\x03pid\x18\x01 \x01(\rR\x03pid\x12\x1d\n" +
 	"\n" +
-	"start_time\x18\x02 \x01(\x04R\tstartTime\"\xde\x05\n" +
+	"start_time\x18\x02 \x01(\x04R\tstartTime\"\x81\x06\n" +
 	"\x0fContainerEvents\x12\x1b\n" +
 	"\tnode_name\x18\x01 \x01(\tR\bnodeName\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12#\n" +
@@ -2633,7 +2649,8 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\bpod_name\x18\x06 \x01(\tR\apodName\x12%\n" +
 	"\x0econtainer_name\x18\a \x01(\tR\rcontainerName\x12!\n" +
 	"\fcontainer_id\x18\b \x01(\tR\vcontainerId\x12\x17\n" +
-	"\apod_uid\x18\t \x01(\tR\x06podUid\x12R\n" +
+	"\apod_uid\x18\t \x01(\tR\x06podUid\x12!\n" +
+	"\fimage_digest\x18\x0e \x01(\tR\vimageDigest\x12R\n" +
 	"\robject_labels\x18\n" +
 	" \x03(\v2-.runtime.v1.ContainerEvents.ObjectLabelsEntryR\fobjectLabels\x12a\n" +
 	"\x12object_annotations\x18\v \x03(\v22.runtime.v1.ContainerEvents.ObjectAnnotationsEntryR\x11objectAnnotations\x12\x1b\n" +
@@ -2667,7 +2684,7 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\fprocess_exit\x18\x1e \x01(\v2\x17.runtime.v1.ProcessExitH\x00R\vprocessExitB\x06\n" +
 	"\x04data\"\x15\n" +
 	"\x13WriteStreamResponse\"\x12\n" +
-	"\x10SendLogsResponse\"\xf4\x04\n" +
+	"\x10SendLogsResponse\"\x97\x05\n" +
 	"\x0eContainerStats\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x19\n" +
 	"\bpod_name\x18\x02 \x01(\tR\apodName\x12%\n" +
@@ -2677,7 +2694,8 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\apod_uid\x18\x05 \x01(\tR\x06podUid\x12!\n" +
 	"\fcontainer_id\x18\x06 \x01(\tR\vcontainerId\x12\x1b\n" +
 	"\tnode_name\x18\b \x01(\tR\bnodeName\x12!\n" +
-	"\fworkload_uid\x18\t \x01(\tR\vworkloadUid\x12\x1b\n" +
+	"\fworkload_uid\x18\t \x01(\tR\vworkloadUid\x12!\n" +
+	"\fimage_digest\x18\v \x01(\tR\vimageDigest\x12\x1b\n" +
 	"\tcgroup_id\x18\n" +
 	" \x01(\x04R\bcgroupId\x121\n" +
 	"\tcpu_stats\x18\x15 \x01(\v2\x14.runtime.v1.CpuStatsR\bcpuStats\x12:\n" +

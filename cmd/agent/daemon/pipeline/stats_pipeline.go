@@ -147,6 +147,7 @@ func (c *Controller) createNewContainerStatsGroup(cont *containers.Container) *c
 			ContainerName: cont.Name,
 			PodUid:        cont.PodUID,
 			ContainerId:   cont.ID,
+			ImageDigest:   cont.ImageDigest.String(),
 			NodeName:      c.nodeName,
 			CgroupId:      cont.CgroupID,
 		},
