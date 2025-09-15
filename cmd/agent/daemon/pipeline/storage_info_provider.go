@@ -402,16 +402,14 @@ func safeDelta(current, previous uint64) int64 {
 }
 
 func calculateBlockDeviceRates(current *BlockDeviceMetric, prev *BlockDeviceMetric, timeDiff float64) {
-	if timeDiff == 0 {
+	timeDiffSecs := int64(timeDiff)
+	if timeDiffSecs == 0 {
 		current.ReadIOPS = 0
 		current.WriteIOPS = 0
 		current.ReadThroughput = 0
 		current.WriteThroughput = 0
 		return
 	}
-
-	timeDiffSecs := int64(timeDiff)
-
 	readOpsDelta := safeDelta(current.readCount, prev.readCount)
 	writeOpsDelta := safeDelta(current.writeCount, prev.writeCount)
 	readBytesDelta := safeDelta(current.readBytes, prev.readBytes)

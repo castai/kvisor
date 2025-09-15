@@ -469,7 +469,6 @@ func TestBuildBlockDeviceMetrics_DeviceSize_Cases(t *testing.T) {
 				},
 			}
 
-			// Setup test filesystem
 			err := tc.setupFunc(tc.sysBlockPrefix)
 			require.NoError(t, err)
 			defer os.RemoveAll(tc.sysBlockPrefix)
@@ -623,7 +622,6 @@ func TestBuildBlockDeviceMetrics_PhysicalDevicesResolution_Cases(t *testing.T) {
 				},
 			}
 
-			// Setup test filesystem
 			err := tc.setupFunc(tc.sysBlockPrefix, tc.hostRootPath)
 			require.NoError(t, err)
 			defer os.RemoveAll(tc.sysBlockPrefix)
