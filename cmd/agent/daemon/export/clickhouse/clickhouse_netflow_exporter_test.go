@@ -67,9 +67,13 @@ func TestClickhouseNetflowExporter(t *testing.T) {
 	})
 	r.NoError(err)
 
-	rows, err := conn.Query(ctx, "select * from netflows")
+	rows, err := conn.Query(ctx, `select ts, protocol, process, container_name, pod_name, namespace, zone,
+		workload_name, workload_kind, addr, port, dst_addr, dst_port,
+		dst_domain, dst_pod_name, dst_namespace, dst_zone, dst_workload_name,
+		dst_workload_kind, tx_bytes, tx_packets, rx_bytes, rx_packets from netflows`)
 	r.NoError(err)
 	defer rows.Close()
+
 	for rows.Next() {
 		var (
 			ts              time.Time

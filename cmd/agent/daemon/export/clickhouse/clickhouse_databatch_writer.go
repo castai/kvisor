@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/export"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
+	"github.com/castai/kvisor/pkg/net/iputil"
 )
 
 func NewDataBatchWriter(conn clickhouse.Conn) export.DataBatchWriter {
@@ -38,11 +38,10 @@ func (d *dataBatchWriter) Write(ctx context.Context, req *castaipb.WriteDataBatc
 		}
 	}
 
-	for _, n := range netflows {
-		if err := d.insertNetflows(ctx, true, n); err != nil {
-			return err
-		}
+	if err := d.insertNetflows(ctx, netflows); err != nil {
+		return fmt.Errorf("insert netflows: %w", err)
 	}
+
 	for _, e := range events {
 		if err := d.insertEventsGroup(ctx, e); err != nil {
 			return err
@@ -51,45 +50,57 @@ func (d *dataBatchWriter) Write(ctx context.Context, req *castaipb.WriteDataBatc
 	return nil
 }
 
-// TODO(anjmao): Rewrite method to write batches. Many small writes to async is also not efficient.
-func (d *dataBatchWriter) insertNetflows(ctx context.Context, wait bool, e *castaipb.Netflow) error {
-	for _, dst := range e.Destinations {
-		srcAddr, _ := netip.AddrFromSlice(e.Addr)
-		dstAddr, _ := netip.AddrFromSlice(dst.Addr)
+func (d *dataBatchWriter) insertNetflows(ctx context.Context, netflows []*castaipb.Netflow) error {
+	batch, err := d.conn.PrepareBatch(ctx, netflowsInsertQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare batch: %w", err)
+	}
 
-		if err := d.conn.AsyncInsert(
-			ctx,
-			netflowInsertQuery,
-			wait,
+	for _, netflow := range netflows {
+		for _, dst := range netflow.Destinations {
+			srcAddr, _ := netip.AddrFromSlice(netflow.Addr)
+			dstAddr, _ := netip.AddrFromSlice(dst.Addr)
 
-			time.UnixMicro(int64(e.Timestamp)/1000), // nolint:gosec
-			toDBProtocol(e.Protocol),
-			e.ProcessName,
-			e.ContainerName,
-			e.PodName,
-			e.Namespace,
-			e.Zone,
-			e.WorkloadName,
-			e.WorkloadKind,
-			e.Pid,
-			srcAddr.Unmap(),
-			e.Port,
-			dstAddr.Unmap(),
-			dst.Port,
-			dst.DnsQuestion,
-			dst.PodName,
-			dst.Namespace,
-			dst.Zone,
-			dst.WorkloadName,
-			dst.WorkloadKind,
-			dst.TxBytes,
-			dst.TxPackets,
-			dst.RxBytes,
-			dst.RxPackets,
-		); err != nil {
-			return err
+			dstKind := dst.WorkloadKind
+			if dst.WorkloadKind == "" && !iputil.IsPrivateNetwork(dstAddr) {
+				dstKind = "internet"
+			}
+
+			if err := batch.Append(
+				time.UnixMicro(int64(netflow.Timestamp)/1000), // nolint:gosec
+				toDBProtocol(netflow.Protocol),
+				netflow.ProcessName,
+				netflow.ContainerName,
+				netflow.PodName,
+				netflow.Namespace,
+				netflow.Zone,
+				netflow.WorkloadName,
+				netflow.WorkloadKind,
+				netflow.Pid,
+				srcAddr.Unmap(),
+				netflow.Port,
+				dstAddr.Unmap(),
+				dst.Port,
+				dst.DnsQuestion,
+				dst.PodName,
+				dst.Namespace,
+				dst.Zone,
+				dst.WorkloadName,
+				dstKind,
+				dst.TxBytes,
+				dst.TxPackets,
+				dst.RxBytes,
+				dst.RxPackets,
+			); err != nil {
+				return err
+			}
 		}
 	}
+
+	if err := batch.Send(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -191,61 +202,4 @@ func toDBProtocol(proto castaipb.NetflowProtocol) string {
 	default:
 		return "unknown"
 	}
-}
-
-var netflowInsertQuery = newInsertQueryTemplate(tableConfig{
-	name: "netflows",
-	columns: []string{
-		"ts",
-		"protocol",
-		"process",
-		"container_name",
-		"pod_name",
-		"namespace",
-		"zone",
-		"workload_name",
-		"workload_kind",
-		"pid",
-		"addr",
-		"port",
-		"dst_addr",
-		"dst_port",
-		"dst_domain",
-		"dst_pod_name",
-		"dst_namespace",
-		"dst_zone",
-		"dst_workload_name",
-		"dst_workload_kind",
-		"tx_bytes",
-		"tx_packets",
-		"rx_bytes",
-		"rx_packets",
-	},
-})
-
-type tableConfig struct {
-	name    string
-	columns []string
-}
-
-func newInsertQueryTemplate(t tableConfig) string {
-	var buf strings.Builder
-	buf.WriteString(fmt.Sprintf("INSERT INTO %s", t.name))
-	buf.WriteString(" (")
-	for i, c := range t.columns {
-		buf.WriteString(c)
-		if i != len(t.columns)-1 {
-			buf.WriteString(",")
-		}
-	}
-	buf.WriteString(" )")
-	buf.WriteString(" VALUES (")
-	for i := range t.columns {
-		buf.WriteString("?")
-		if i != len(t.columns)-1 {
-			buf.WriteString(",")
-		}
-	}
-	buf.WriteString(")")
-	return buf.String()
 }

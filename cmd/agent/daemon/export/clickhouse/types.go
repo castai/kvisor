@@ -9,6 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
+var netflowsInsertQuery = `INSERT INTO netflows (
+		ts, protocol, process, container_name, pod_name, namespace, zone,
+		workload_name, workload_kind, pid, addr, port, dst_addr, dst_port,
+		dst_domain, dst_pod_name, dst_namespace, dst_zone, dst_workload_name,
+		dst_workload_kind, tx_bytes, tx_packets, rx_bytes, rx_packets
+	)`
+
 type Event struct {
 	// Base event field.
 	TS               time.Time `ch:"ts"`
@@ -63,4 +70,31 @@ type Event struct {
 
 	// Reusable field to hold flags any event.
 	Flags uint64 `ch:"flags"`
+}
+
+type Netflow struct {
+	Ts              time.Time `ch:"ts"`
+	Protocol        string    `ch:"protocol"`
+	Process         string    `ch:"process"`
+	ContainerName   string    `ch:"container_name"`
+	PodName         string    `ch:"pod_name"`
+	Namespace       string    `ch:"namespace"`
+	Zone            string    `ch:"zone"`
+	WorkloadName    string    `ch:"workload_name"`
+	WorkloadKind    string    `ch:"workload_kind"`
+	PID             uint64    `ch:"pid"`
+	Addr            net.IP    `ch:"addr"`
+	Port            uint16    `ch:"port"`
+	DstAddr         net.IP    `ch:"dst_addr"`
+	DstPort         uint16    `ch:"dst_port"`
+	DstDomain       string    `ch:"dst_domain"`
+	DstPodName      string    `ch:"dst_pod_name"`
+	DstNamespace    string    `ch:"dst_namespace"`
+	DstZone         string    `ch:"dst_zone"`
+	DstWorkloadName string    `ch:"dst_workload_name"`
+	DstWorkloadKind string    `ch:"dst_workload_kind"`
+	TxBytes         uint64    `ch:"tx_bytes"`
+	TxPackets       uint64    `ch:"tx_packets"`
+	RxBytes         uint64    `ch:"rx_bytes"`
+	RxPackets       uint64    `ch:"rx_packets"`
 }
