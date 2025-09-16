@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
@@ -791,6 +792,39 @@ func TestController(t *testing.T) {
 
 		})
 	})
+
+	t.Run("storage metrics", func(t *testing.T) {
+		r := require.New(t)
+		ctrl := newTestController()
+		ctrl.cfg.Stats.StorageEnabled = true
+
+		blockWriter := ctrl.blockDeviceMetricsWriter.(*mockBlockDeviceMetricsWriter)
+		fsWriter := ctrl.filesystemMetricsWriter.(*mockFilesystemMetricsWriter)
+
+		ctrl.collectStorageMetrics()
+
+		r.Len(blockWriter.metrics, 1)
+		r.Len(fsWriter.metrics, 1)
+
+		fsMetric := fsWriter.metrics[0]
+		r.Equal("/", fsMetric.MountPoint)
+		r.Equal("test-node", fsMetric.NodeName)
+		r.Equal([]string{"/dev/sda1"}, fsMetric.Devices)
+		r.Equal(int64(1000000), *fsMetric.TotalSize)
+		r.Equal(int64(500000), *fsMetric.UsedSpace)
+		r.NotNil(fsMetric.NodeTemplate)
+
+		blockMetric := blockWriter.metrics[0]
+		r.Equal("sda", blockMetric.Name)
+		r.Equal("test-node", blockMetric.NodeName)
+		r.Equal([]string{"/dev/sda"}, blockMetric.PhysicalDevices)
+		r.Equal(int64(100), blockMetric.ReadIOPS)
+		r.Equal(int64(50), blockMetric.WriteIOPS)
+		r.Equal(int64(1024), blockMetric.ReadThroughput)
+		r.Equal(int64(512), blockMetric.WriteThroughput)
+		r.Equal(int64(2000000), *blockMetric.Size)
+		r.NotNil(blockMetric.NodeTemplate)
+	})
 }
 
 type trafficKey struct {
@@ -888,7 +922,7 @@ func newTestController(opts ...any) *Controller {
 		enrichService,
 		blockDeviceMetrics,
 		filesystemMetrics,
-		nil,
+		&mockStorageInfoProvider{},
 	)
 	return ctrl
 }
@@ -1224,24 +1258,6 @@ func (m mockProcHandler) GetMeminfoStats() (*castaipb.MemoryStats, error) {
 	return &castaipb.MemoryStats{}, nil
 }
 
-type mockMetricClient struct{}
-
-func (m *mockMetricClient) NewMetric(name string, options ...interface{}) (interface{}, error) {
-	return nil, nil
-}
-
-func (m *mockMetricClient) Start(ctx context.Context) error {
-	return nil
-}
-
-func (m *mockMetricClient) Stop() error {
-	return nil
-}
-
-func (m *mockMetricClient) Add(name string, metric interface{}) error {
-	return nil
-}
-
 type mockBlockDeviceMetricsWriter struct {
 	writeFunc func(metrics ...BlockDeviceMetric) error
 	metrics   []BlockDeviceMetric
@@ -1266,4 +1282,37 @@ func (m *mockFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
 	}
 	m.metrics = append(m.metrics, metrics...)
 	return nil
+}
+
+type mockStorageInfoProvider struct{}
+
+func (m *mockStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
+	return []FilesystemMetric{
+		{
+			NodeName:     "test-node",
+			NodeTemplate: lo.ToPtr("test-template"),
+			MountPoint:   "/",
+			Devices:      []string{"/dev/sda1"},
+			TotalSize:    lo.ToPtr(int64(1000000)),
+			UsedSpace:    lo.ToPtr(int64(500000)),
+			Timestamp:    timestamp,
+		},
+	}, nil
+}
+
+func (m *mockStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
+	return []BlockDeviceMetric{
+		{
+			Name:            "sda",
+			NodeName:        "test-node",
+			NodeTemplate:    lo.ToPtr("test-template"),
+			PhysicalDevices: []string{"/dev/sda"},
+			ReadIOPS:        100,
+			WriteIOPS:       50,
+			ReadThroughput:  1024,
+			WriteThroughput: 512,
+			Size:            lo.ToPtr(int64(2000000)),
+			Timestamp:       timestamp,
+		},
+	}, nil
 }
