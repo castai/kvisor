@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hamba/avro/v2"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -26,8 +29,18 @@ import (
 	"k8s.io/client-go/rest"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
 	metricspb "github.com/castai/metrics/api/v1beta"
 )
+
+type StorageMetricsBatch struct {
+	Collection    string
+	Rows          uint64
+	Schema        []byte
+	Metrics       []byte
+	SkipTimestamp bool
+	Timestamp     time.Time
+}
 
 var (
 	imageTag = pflag.String("image-tag", "", "Kvisor docker image tag")
@@ -260,7 +273,7 @@ type testCASTAIServer struct {
 	outputReceivedData bool
 	nodeStatsAsserted  bool
 
-	storageMetrics         map[string]int
+	storageMetrics         map[string][]StorageMetricsBatch
 	storageMetricsAsserted bool
 }
 
@@ -309,7 +322,7 @@ func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.Wri
 func (t *testCASTAIServer) WriteMetrics(stream metricspb.IngestionAPI_WriteMetricsServer) error {
 	t.mu.Lock()
 	if t.storageMetrics == nil {
-		t.storageMetrics = make(map[string]int)
+		t.storageMetrics = make(map[string][]StorageMetricsBatch)
 	}
 	t.mu.Unlock()
 
@@ -319,19 +332,74 @@ func (t *testCASTAIServer) WriteMetrics(stream metricspb.IngestionAPI_WriteMetri
 			break
 		}
 
-		t.mu.Lock()
-		t.storageMetrics[req.Collection]++
-		t.mu.Unlock()
+		batch := StorageMetricsBatch{
+			Collection: req.Collection,
+			Schema:     req.Schema,
+			Metrics:    req.Metrics,
+			Timestamp:  time.Now(),
+		}
 
-		fmt.Printf("received storage metrics: collection=%s, rows=%d\n", req.Collection, func() uint64 {
-			if req.Metadata != nil {
-				return req.Metadata.Rows
-			}
-			return 0
-		}())
+		if req.Metadata != nil {
+			batch.Rows = req.Metadata.Rows
+			batch.SkipTimestamp = req.Metadata.SkipTimestamp
+		}
+
+		t.mu.Lock()
+		t.storageMetrics[req.Collection] = append(t.storageMetrics[req.Collection], batch)
+		t.mu.Unlock()
 	}
 
 	return stream.SendAndClose(&metricspb.WriteMetricsResponse{Success: true})
+}
+
+func (t *testCASTAIServer) decodeBlockDeviceMetrics(schema, data []byte) ([]pipeline.BlockDeviceMetric, error) {
+	avroSchema, err := avro.Parse(string(schema))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+
+	// The data contains multiple individually encoded records
+	// We need to decode them one by one using a decoder
+	decoder := avro.NewDecoderForSchema(avroSchema, bytes.NewReader(data))
+	var results []pipeline.BlockDeviceMetric
+
+	for {
+		var metric pipeline.BlockDeviceMetric
+		if err := decoder.Decode(&metric); err != nil {
+			if errors.Is(err, io.EOF) {
+				break // End of data
+			}
+			return nil, fmt.Errorf("failed to decode metric: %w", err)
+		}
+		results = append(results, metric)
+	}
+
+	return results, nil
+}
+
+func (t *testCASTAIServer) decodeFilesystemMetrics(schema, data []byte) ([]pipeline.FilesystemMetric, error) {
+	avroSchema, err := avro.Parse(string(schema))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+
+	// The data contains multiple individually encoded records
+	// We need to decode them one by one using a decoder
+	decoder := avro.NewDecoderForSchema(avroSchema, bytes.NewReader(data))
+	var results []pipeline.FilesystemMetric
+
+	for {
+		var metric pipeline.FilesystemMetric
+		if err := decoder.Decode(&metric); err != nil {
+			if errors.Is(err, io.EOF) {
+				break // End of data
+			}
+			return nil, fmt.Errorf("failed to decode metric: %w", err)
+		}
+		results = append(results, metric)
+	}
+
+	return results, nil
 }
 
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
@@ -446,7 +514,12 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(15 * time.Second)
+
+	expectedCollections := []string{
+		"kvisor_block_device_metrics",
+		"kvisor_filesystem_metrics",
+	}
 
 	for {
 		select {
@@ -456,14 +529,100 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 			return errors.New("timeout waiting for storage metrics")
 		case <-time.After(1 * time.Second):
 			t.mu.Lock()
-			metrics := make(map[string]int)
+			metrics := make(map[string][]StorageMetricsBatch)
 			for k, v := range t.storageMetrics {
-				metrics[k] = v
+				metrics[k] = append([]StorageMetricsBatch{}, v...)
 			}
 			t.mu.Unlock()
 
-			if len(metrics) > 0 {
-				fmt.Printf("received storage metrics: %+v\n", metrics)
+			if len(metrics) == 0 {
+				continue
+			}
+
+			fmt.Printf("received storage metrics collections: %v\n", func() []string {
+				var collections []string
+				for collection := range metrics {
+					collections = append(collections, collection)
+				}
+				return collections
+			}())
+
+			if batches, exists := metrics["kvisor_block_device_metrics"]; exists {
+				for _, batch := range batches {
+					blockMetrics, err := t.decodeBlockDeviceMetrics(batch.Schema, batch.Metrics)
+					if err != nil {
+						return fmt.Errorf("failed to decode block device metrics: %w", err)
+					}
+
+					for _, metric := range blockMetrics {
+						if metric.Name == "" {
+							return errors.New("block device metric missing name")
+						}
+						if metric.NodeName == "" {
+							return errors.New("block device metric missing node name")
+						}
+						if len(metric.PhysicalDevices) == 0 {
+							return errors.New("block device metric missing physical devices")
+						}
+
+						if metric.Size != nil && *metric.Size < 0 {
+							return fmt.Errorf("block device metric has negative size: %d", metric.ReadIOPS)
+						}
+
+						if metric.ReadIOPS < 0 {
+							return fmt.Errorf("block device metric has negative read IOPS: %d", metric.ReadIOPS)
+						}
+						if metric.WriteIOPS < 0 {
+							return fmt.Errorf("block device metric has negative write IOPS: %d", metric.WriteIOPS)
+						}
+
+						if metric.ReadThroughput < 0 {
+							return fmt.Errorf("block device metric has negative ReadThroughput: %d", metric.ReadIOPS)
+						}
+
+						if metric.WriteThroughput < 0 {
+							return fmt.Errorf("block device metric has negative WriteThroughput: %d", metric.WriteIOPS)
+						}
+					}
+				}
+			}
+
+			if batches, exists := metrics["kvisor_filesystem_metrics"]; exists {
+				for _, batch := range batches {
+					fsMetrics, err := t.decodeFilesystemMetrics(batch.Schema, batch.Metrics)
+					if err != nil {
+						return fmt.Errorf("failed to decode filesystem metrics: %w", err)
+					}
+
+					for _, metric := range fsMetrics {
+						if metric.NodeName == "" {
+							return errors.New("filesystem metric missing node name")
+						}
+						if metric.MountPoint == "" {
+							return errors.New("filesystem metric missing mount point")
+						}
+						if len(metric.Devices) == 0 {
+							return errors.New("filesystem metric missing devices")
+						}
+						if metric.TotalSize == nil {
+							return errors.New("filesystem metric missing total size")
+						}
+						if metric.UsedSpace == nil {
+							return errors.New("filesystem metric missing used space")
+						}
+					}
+				}
+			}
+
+			foundCollections := 0
+			for _, expectedCollection := range expectedCollections {
+				if _, exists := metrics[expectedCollection]; exists {
+					foundCollections++
+				}
+			}
+
+			if foundCollections == len(expectedCollections) {
+				fmt.Printf("all storage metrics collections received and validated\n")
 				return nil
 			}
 		}
