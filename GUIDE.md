@@ -7,12 +7,14 @@ Normally your would install kvisor via CAST AI platform. Advanced users can conf
 Install kvisor with netflows monitoring.
 
 ```sh
-helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
-  -n castai-agent--create-namespace \
+helm upgrade --install castai-kvisor castai-kvisor --repo https://castai.github.io/helm-charts \
+  -n castai-agent --create-namespace \
   --reset-then-reuse-values \
+  --set castai.enabled=false \
+  --set castai.clusterID=noop \
   --set agent.enabled=true \
   --set agent.extraArgs.netflow-enabled=true \
-  --set agent.extraArgs.netflow-export-interval=15s
+  --set agent.extraArgs.netflow-export-interval=15s \
   --set clickhouse.enabled=true \
   --set clickhouse.persistentVolume.size=200Gi
 ```
@@ -155,4 +157,10 @@ order by sum(tx_bytes) desc;
 |kube-system       |coredns                 |Deployment   |4.12 KiB|7.66 KiB |
 |local-path-storage|local-path-provisioner  |Deployment   |2.32 KiB|5.48 KiB |
 +------------------+------------------------+-------------+--------+---------+
+```
+
+## Uninstall
+
+```sh
+helm uninstall castai-kvisor -n castai-agent
 ```
