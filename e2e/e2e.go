@@ -517,8 +517,8 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 	timeout := time.After(15 * time.Second)
 
 	expectedCollections := []string{
-		"kvisor_block_device_metrics",
-		"kvisor_filesystem_metrics",
+		"storage_block_device_metrics",
+		"storage_filesystem_metrics",
 	}
 
 	for {
@@ -547,7 +547,7 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 				return collections
 			}())
 
-			if batches, exists := metrics["kvisor_block_device_metrics"]; exists {
+			if batches, exists := metrics["storage_block_device_metrics"]; exists {
 				for _, batch := range batches {
 					blockMetrics, err := t.decodeBlockDeviceMetrics(batch.Schema, batch.Metrics)
 					if err != nil {
@@ -587,7 +587,7 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 				}
 			}
 
-			if batches, exists := metrics["kvisor_filesystem_metrics"]; exists {
+			if batches, exists := metrics["storage_filesystem_metrics"]; exists {
 				for _, batch := range batches {
 					fsMetrics, err := t.decodeFilesystemMetrics(batch.Schema, batch.Metrics)
 					if err != nil {

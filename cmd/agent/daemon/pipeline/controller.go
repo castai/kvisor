@@ -125,7 +125,7 @@ type FilesystemMetricsWriter interface {
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[BlockDeviceMetric]("kvisor_block_device_metrics"),
+		custommetrics.WithCollectionName[BlockDeviceMetric]("storage_block_device_metrics"),
 		custommetrics.WithSkipTimestamp[BlockDeviceMetric](),
 	)
 }
@@ -133,7 +133,7 @@ func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (Bloc
 func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
 	return custommetrics.NewMetric[FilesystemMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[FilesystemMetric]("kvisor_filesystem_metrics"),
+		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics"),
 		custommetrics.WithSkipTimestamp[FilesystemMetric](),
 	)
 }
