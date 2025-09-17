@@ -233,7 +233,6 @@ func (s *SysfsStorageInfoProvider) getPhysicalDevicesRecursive(blockName string,
 
 	slaves, err := s.getBlockSlaves(blockName)
 	if err != nil {
-		s.log.Debugf("cannot read slaves for %s: %v", blockName, err)
 		return []string{"/dev/" + blockName}
 	}
 
