@@ -11,6 +11,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -577,13 +578,31 @@ func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.Blo
 	return blockDeviceMetrics, filesystemMetrics, nil
 }
 
+// resolveMetricsAddr transforms kvisor.* addresses to telemetry.* addresses
+func resolveMetricsAddr(addr string) string {
+	const (
+		kvisorPrefix    = "kvisor."
+		telemetryPrefix = "telemetry."
+	)
+
+	if addr == "" {
+		return addr
+	}
+
+	if strings.HasPrefix(addr, kvisorPrefix) {
+		return strings.Replace(addr, kvisorPrefix, telemetryPrefix, 1)
+	}
+
+	return addr
+}
+
 func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error) {
 	if !cfg.Castai.Valid() {
 		return nil, fmt.Errorf("cast config is not valid")
 	}
 
 	metricsClientConfig := custommetrics.Config{
-		APIAddr:   cfg.Castai.APIGrpcAddr,
+		APIAddr:   resolveMetricsAddr(cfg.Castai.APIGrpcAddr),
 		ClusterID: cfg.Castai.ClusterID,
 		APIToken:  cfg.Castai.APIKey,
 		Insecure:  cfg.Castai.Insecure,
