@@ -8,6 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
+	"github.com/elastic/go-freelru"
+	"github.com/shirou/gopsutil/v4/disk"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
@@ -23,11 +29,32 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/cespare/xxhash/v2"
-	"github.com/elastic/go-freelru"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
+	custommetrics "github.com/castai/metrics"
 )
+
+type DiskInterface interface {
+	IOCounters() (map[string]disk.IOCountersStat, error)
+	Partitions(all bool) ([]disk.PartitionStat, error)
+	GetDiskStats(path string) (*disk.UsageStat, error)
+}
+
+type DiskClient struct{}
+
+func NewDiskClient() *DiskClient {
+	return &DiskClient{}
+}
+
+func (d *DiskClient) IOCounters() (map[string]disk.IOCountersStat, error) {
+	return disk.IOCounters()
+}
+
+func (d *DiskClient) Partitions(all bool) ([]disk.PartitionStat, error) {
+	return disk.Partitions(all)
+}
+
+func (d *DiskClient) GetDiskStats(path string) (*disk.UsageStat, error) {
+	return disk.Usage(path)
+}
 
 type Config struct {
 	DataBatch   config.DataBatchConfig   `validate:"required"`
@@ -87,6 +114,30 @@ type enrichmentService interface {
 	Events() <-chan *enrichment.EnrichedContainerEvent
 }
 
+type BlockDeviceMetricsWriter interface {
+	Write(metrics ...BlockDeviceMetric) error
+}
+
+type FilesystemMetricsWriter interface {
+	Write(metrics ...FilesystemMetric) error
+}
+
+func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
+	return custommetrics.NewMetric[BlockDeviceMetric](
+		metricsClient,
+		custommetrics.WithCollectionName[BlockDeviceMetric]("storage_block_device_metrics"),
+		custommetrics.WithSkipTimestamp[BlockDeviceMetric](),
+	)
+}
+
+func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
+	return custommetrics.NewMetric[FilesystemMetric](
+		metricsClient,
+		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics"),
+		custommetrics.WithSkipTimestamp[FilesystemMetric](),
+	)
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
@@ -100,6 +151,9 @@ func NewController(
 	processTreeCollector processTreeCollector,
 	procHandler procHandler,
 	enrichmentService enrichmentService,
+	blockDeviceMetricsWriter BlockDeviceMetricsWriter,
+	filesystemMetricsWriter FilesystemMetricsWriter,
+	storageInfoProvider StorageInfoProvider,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -134,6 +188,10 @@ func NewController(
 
 		eventGroups:          make(map[uint64]*containerEventsGroup),
 		containerStatsGroups: make(map[uint64]*containerStatsGroup),
+
+		blockDeviceMetricsWriter: blockDeviceMetricsWriter,
+		filesystemMetricsWriter:  filesystemMetricsWriter,
+		storageInfoProvider:      storageInfoProvider,
 	}
 }
 
@@ -163,6 +221,11 @@ type Controller struct {
 
 	eventGroups          map[uint64]*containerEventsGroup
 	containerStatsGroups map[uint64]*containerStatsGroup
+
+	// Storage metrics
+	blockDeviceMetricsWriter BlockDeviceMetricsWriter
+	filesystemMetricsWriter  FilesystemMetricsWriter
+	storageInfoProvider      StorageInfoProvider
 }
 
 func (c *Controller) Run(ctx context.Context) error {

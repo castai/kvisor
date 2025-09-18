@@ -245,6 +245,17 @@ func (c *Client) GetPodInfo(uid string) (*PodInfo, bool) {
 	return podInfo, true
 }
 
+func (c *Client) GetNodeInfo(name string) (*corev1.Node, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	node, found := c.index.nodesByName[name]
+	if !found {
+		return nil, false
+	}
+	return node, true
+}
+
 func (c *Client) GetOwnerUID(obj Object) string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

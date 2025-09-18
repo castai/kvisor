@@ -8,6 +8,7 @@ service KubeAPI {
   rpc GetClusterInfo(GetClusterInfoRequest) returns (GetClusterInfoResponse);
   rpc GetIPInfo(GetIPInfoRequest) returns (GetIPInfoResponse);
   rpc GetPod(GetPodRequest) returns (GetPodResponse);
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
 }
 
 message GetClusterInfoRequest {}
@@ -60,4 +61,17 @@ message Pod {
   WorkloadKind workload_kind = 3;
   string zone = 4;
   string node_name = 5;
+}
+
+message GetNodeRequest {
+  string name = 1;
+}
+
+message GetNodeResponse {
+  Node node = 1;
+}
+
+message Node {
+  string name = 1;
+  map<string, string> labels = 2;
 }

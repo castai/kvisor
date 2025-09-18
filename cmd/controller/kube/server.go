@@ -4,9 +4,10 @@ import (
 	"context"
 	"net/netip"
 
-	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	kubepb "github.com/castai/kvisor/api/v1/kube"
 )
 
 func NewServer(client *Client) kubepb.KubeAPIServer {
@@ -80,6 +81,19 @@ func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb
 			WorkloadKind: toProtoWorkloadKind(info.Owner.Kind),
 			Zone:         info.Zone,
 			NodeName:     info.Pod.Spec.NodeName,
+		},
+	}, nil
+}
+
+func (s *Server) GetNode(ctx context.Context, req *kubepb.GetNodeRequest) (*kubepb.GetNodeResponse, error) {
+	node, found := s.client.GetNodeInfo(req.Name)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "node info not found")
+	}
+	return &kubepb.GetNodeResponse{
+		Node: &kubepb.Node{
+			Name:   node.Name,
+			Labels: node.Labels,
 		},
 	}, nil
 }

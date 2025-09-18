@@ -11,14 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/encoding/gzip"
+
 	"github.com/castai/kvisor/cmd/agent/daemon/app"
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/encoding/gzip"
 )
 
 func NewRunCommand(version string) *cobra.Command {
@@ -42,6 +43,7 @@ func NewRunCommand(version string) *cobra.Command {
 		statsEnabled           = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
 		statsScrapeInterval    = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
 		statsFileAccessEnabled = command.Flags().Bool("stats-file-access-enabled", false, "Enable file access stats tracking")
+		storageStatsEnabled    = command.Flags().Bool("storage-stats-enabled", false, "Enable storage stats scraping")
 
 		btfPath           = command.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled = command.Flags().Bool("ebpf-events-enabled", false, "Enable ebpf events")
@@ -158,6 +160,7 @@ func NewRunCommand(version string) *cobra.Command {
 				Enabled:           *statsEnabled,
 				ScrapeInterval:    *statsScrapeInterval,
 				FileAccessEnabled: *statsFileAccessEnabled,
+				StorageEnabled:    *storageStatsEnabled,
 			},
 			Events: config.EventsConfig{
 				Enabled: *ebpfEventsEnabled,
