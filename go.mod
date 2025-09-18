@@ -14,6 +14,7 @@ require (
 	github.com/cilium/cilium v1.17.0-pre.2
 	github.com/cilium/ebpf v0.17.3
 	github.com/containerd/containerd v1.7.27
+	github.com/containerd/containerd/api v1.8.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
 	github.com/fatih/color v1.18.0
@@ -23,6 +24,7 @@ require (
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
+	github.com/hamba/avro/v2 v2.27.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7
 	github.com/json-iterator/go v1.1.12
@@ -31,6 +33,7 @@ require (
 	github.com/magiconair/properties v1.8.9
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/prometheus/client_golang v1.21.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/samber/lo v1.49.1
@@ -45,13 +48,13 @@ require (
 	github.com/vishvananda/netns v0.0.5
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/net v0.41.0
-	golang.org/x/sync v0.15.0
+	golang.org/x/net v0.43.0
+	golang.org/x/sync v0.16.0
 	golang.org/x/sys v0.35.0
 	golang.org/x/time v0.11.0
 	golang.stackrox.io/kube-linter v0.7.3-0.20250507172404-3f4b9037f56f
 	google.golang.org/grpc v1.71.1
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.7
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
@@ -116,7 +119,6 @@ require (
 	github.com/cilium/workerpool v1.2.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20250121191232-2f005788dc42 // indirect
 	github.com/containerd/cgroups/v3 v3.0.3 // indirect
-	github.com/containerd/containerd/api v1.8.0 // indirect
 	github.com/containerd/containerd/v2 v2.0.5 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
@@ -156,7 +158,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gopacket/gopacket v1.3.1 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
-	github.com/hamba/avro/v2 v2.27.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
@@ -234,7 +235,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/tools v0.33.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -267,7 +268,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/GoogleCloudPlatform/docker-credential-gcr v2.0.5+incompatible // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.3.0 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.12.9 // indirect
@@ -304,7 +305,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
@@ -372,8 +373,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/opencontainers/selinux v1.11.1 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
@@ -411,12 +412,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.27.0
 	golang.org/x/oauth2 v0.29.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	google.golang.org/api v0.228.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
