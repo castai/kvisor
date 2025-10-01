@@ -1485,6 +1485,7 @@ type ImageMetadata struct {
 	ImageName     string                 `protobuf:"bytes,1,opt,name=image_name,json=imageName,proto3" json:"image_name,omitempty"`
 	ImageId       string                 `protobuf:"bytes,2,opt,name=image_id,json=imageId,proto3" json:"image_id,omitempty"`
 	ImageDigest   string                 `protobuf:"bytes,3,opt,name=image_digest,json=imageDigest,proto3" json:"image_digest,omitempty"`
+	IndexDigest   string                 `protobuf:"bytes,13,opt,name=index_digest,json=indexDigest,proto3" json:"index_digest,omitempty"`
 	Architecture  string                 `protobuf:"bytes,5,opt,name=architecture,proto3" json:"architecture,omitempty"` // used as fallback, in case image manifest doesn't have architecture set
 	OsName        string                 `protobuf:"bytes,6,opt,name=os_name,json=osName,proto3" json:"os_name,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -1544,6 +1545,13 @@ func (x *ImageMetadata) GetImageId() string {
 func (x *ImageMetadata) GetImageDigest() string {
 	if x != nil {
 		return x.ImageDigest
+	}
+	return ""
+}
+
+func (x *ImageMetadata) GetIndexDigest() string {
+	if x != nil {
+		return x.IndexDigest
 	}
 	return ""
 }
@@ -2711,12 +2719,13 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\tnode_name\x18\x01 \x01(\tR\bnodeName\x121\n" +
 	"\tcpu_stats\x18\x15 \x01(\v2\x14.runtime.v1.CpuStatsR\bcpuStats\x12:\n" +
 	"\fmemory_stats\x18\x16 \x01(\v2\x17.runtime.v1.MemoryStatsR\vmemoryStats\x12.\n" +
-	"\bio_stats\x18\x17 \x01(\v2\x13.runtime.v1.IOStatsR\aioStats\"\xf6\x02\n" +
+	"\bio_stats\x18\x17 \x01(\v2\x13.runtime.v1.IOStatsR\aioStats\"\x99\x03\n" +
 	"\rImageMetadata\x12\x1d\n" +
 	"\n" +
 	"image_name\x18\x01 \x01(\tR\timageName\x12\x19\n" +
 	"\bimage_id\x18\x02 \x01(\tR\aimageId\x12!\n" +
-	"\fimage_digest\x18\x03 \x01(\tR\vimageDigest\x12\"\n" +
+	"\fimage_digest\x18\x03 \x01(\tR\vimageDigest\x12!\n" +
+	"\findex_digest\x18\r \x01(\tR\vindexDigest\x12\"\n" +
 	"\farchitecture\x18\x05 \x01(\tR\farchitecture\x12\x17\n" +
 	"\aos_name\x18\x06 \x01(\tR\x06osName\x129\n" +
 	"\n" +

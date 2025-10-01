@@ -133,19 +133,6 @@ func (c *Collector) Collect(ctx context.Context) error {
 		return fmt.Errorf("extracting manifest digest: %w", err)
 	}
 
-	index, err := img.IndexManifest()
-	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
-		return fmt.Errorf("extracting index manifest: %w", err)
-	}
-	indexBytes, err := json.Marshal(index)
-	if err != nil {
-		return fmt.Errorf("marshalling index: %w", err)
-	}
-	indexDigest, err := img.IndexDigest()
-	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
-		return fmt.Errorf("extracting index digest: %w", err)
-	}
-
 	configFileBytes, err := json.Marshal(arRef.ConfigFile)
 	if err != nil {
 		return fmt.Errorf("marshalling config: %w", err)
@@ -174,9 +161,23 @@ func (c *Collector) Collect(ctx context.Context) error {
 		ConfigFile:   configFileBytes,
 	}
 
+	index, err := img.IndexManifest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index manifest: %w", err)
+	}
+
 	if index != nil {
-		metadata.IndexDigest = indexDigest.String()
+		indexBytes, err := json.Marshal(index)
+		if err != nil {
+			return fmt.Errorf("marshalling index: %w", err)
+		}
 		metadata.Index = indexBytes
+
+		indexDigest, err := img.IndexDigest()
+		if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+			return fmt.Errorf("extracting index digest: %w", err)
+		}
+		metadata.IndexDigest = indexDigest.String()
 	}
 
 	if arRef.OsInfo != nil {
