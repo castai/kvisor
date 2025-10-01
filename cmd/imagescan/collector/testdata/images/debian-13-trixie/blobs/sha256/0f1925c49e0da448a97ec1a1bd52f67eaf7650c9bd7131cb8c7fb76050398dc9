@@ -1,0 +1,24 @@
+{
+    "manifests": [
+        {
+            "annotations": {
+                "com.docker.official-images.bashbrew.arch": "amd64",
+                "org.opencontainers.image.base.name": "scratch",
+                "org.opencontainers.image.created": "2025-05-20T00:00:00Z",
+                "org.opencontainers.image.revision": "9497182fdda2971b71e105e1c5e45c216ed0b974",
+                "org.opencontainers.image.source": "https://github.com/debuerreotype/docker-debian-artifacts.git",
+                "org.opencontainers.image.url": "https://hub.docker.com/_/debian",
+                "org.opencontainers.image.version": "trixie-slim"
+            },
+            "digest": "sha256:15c7e0bb63f2ca20adbf4387f89ceebb4bfaa2b38715e4048d18f5a126e2f412",
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            },
+            "size": 1021
+        }
+    ],
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "schemaVersion": 2
+}

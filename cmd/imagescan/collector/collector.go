@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -26,6 +27,7 @@ import (
 	analyzer "github.com/castai/image-analyzer"
 	"github.com/castai/image-analyzer/image"
 	"github.com/castai/image-analyzer/image/hostfs"
+	itypes "github.com/castai/image-analyzer/image/types"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/imagescan/config"
 	"github.com/castai/kvisor/cmd/imagescan/trivy/golang/analyzer/binary"
@@ -110,22 +112,35 @@ func (c *Collector) Collect(ctx context.Context) error {
 		DisabledAnalyzers: disabledAnalyzers,
 	})
 	if err != nil {
-		return fmt.Errorf("creating an artifact: %w", err)
+		return fmt.Errorf("creating image artifact: %w", err)
 	}
 
 	arRef, err := artifact.Inspect(ctx)
 	if err != nil {
-		return fmt.Errorf("inspecting an artifact: %w", err)
+		return fmt.Errorf("inspecting image artifact: %w", err)
 	}
 
 	manifest, err := img.Manifest()
 	if err != nil {
 		return fmt.Errorf("extracting manifest from an artifact: %w", err)
 	}
-
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("marshalling manifest: %w", err)
+	}
 	digest, err := img.Digest()
 	if err != nil {
-		return fmt.Errorf("extract manifest digest: %w", err)
+		return fmt.Errorf("extracting manifest digest: %w", err)
+	}
+
+	configFileBytes, err := json.Marshal(arRef.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("marshalling config: %w", err)
+	}
+
+	blobsInfoBytes, err := json.Marshal(arRef.BlobsInfo)
+	if err != nil {
+		return fmt.Errorf("marshalling blobs info: %w", err)
 	}
 
 	arch := arRef.ConfigFile.Architecture
@@ -141,37 +156,36 @@ func (c *Collector) Collect(ctx context.Context) error {
 		ImageDigest:  digest.String(),
 		Architecture: arch,
 		ResourceIds:  strings.Split(c.cfg.ResourceIDs, ","),
+		Packages:     blobsInfoBytes,
+		Manifest:     manifestBytes,
+		ConfigFile:   configFileBytes,
 	}
-	if arRef.OsInfo != nil {
-		metadata.OsName = arRef.OsInfo.Name
-	}
-	if arRef.ArtifactInfo != nil {
-		metadata.CreatedAt = timestamppb.New(arRef.ArtifactInfo.Created)
-	}
-	packagesBytes, err := json.Marshal(arRef.BlobsInfo)
-	if err != nil {
-		return fmt.Errorf("marshalling blobs info: %w", err)
-	}
-	metadata.Packages = packagesBytes
 
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		return fmt.Errorf("marshalling manifest: %w", err)
+	index, err := img.IndexManifest()
+	if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+		return fmt.Errorf("extracting index manifest: %w", err)
 	}
-	metadata.Manifest = manifestBytes
 
-	configFileBytes, err := json.Marshal(arRef.ConfigFile)
-	if err != nil {
-		return fmt.Errorf("marshalling config: %w", err)
-	}
-	metadata.ConfigFile = configFileBytes
-
-	if index := img.Index(); index != nil {
+	if index != nil {
 		indexBytes, err := json.Marshal(index)
 		if err != nil {
 			return fmt.Errorf("marshalling index: %w", err)
 		}
 		metadata.Index = indexBytes
+
+		indexDigest, err := img.IndexDigest()
+		if err != nil && !errors.Is(err, itypes.ErrImageIndexNotFound) {
+			return fmt.Errorf("extracting index digest: %w", err)
+		}
+		metadata.IndexDigest = indexDigest.String()
+	}
+
+	if arRef.OsInfo != nil {
+		metadata.OsName = arRef.OsInfo.Name
+	}
+
+	if arRef.ArtifactInfo != nil {
+		metadata.CreatedAt = timestamppb.New(arRef.ArtifactInfo.Created)
 	}
 
 	if _, err := backoff.Retry(ctx, func() (any, error) {
@@ -187,7 +201,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) getImage(ctx context.Context) (image.ImageWithIndex, func(), error) {
+func (c *Collector) getImage(ctx context.Context) (itypes.ImageWithIndex, func(), error) {
 	imgRef, err := name.ParseReference(c.cfg.ImageName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing image reference: %w", err)

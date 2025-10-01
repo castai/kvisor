@@ -4,110 +4,116 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
-	"path"
 	"runtime"
 	"runtime/pprof"
-	"slices"
 	"testing"
 	"time"
 
-	"github.com/aquasecurity/testdocker/auth"
-	"github.com/aquasecurity/testdocker/engine"
-	"github.com/aquasecurity/testdocker/registry"
-	"github.com/aquasecurity/testdocker/tarfile"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/castai/image-analyzer/image"
-	"github.com/castai/image-analyzer/image/hostfs"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/imagescan/config"
 	mockblobcache "github.com/castai/kvisor/pkg/blobscache/mock"
 )
 
 func TestCollector(t *testing.T) {
-	t.Run("collect and sends metadata", func(t *testing.T) {
-		t.Setenv("CASTAI_GRPC_INSECURE", "true")
-		imgName := "notused"
-		imgID := "gke.gcr.io/phpmyadmin@sha256:b0d9c54760b35edd1854e5710c1a62a28ad2d2b070c801da3e30a3e59c19e7e3" //nolint:gosec
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
 
-		r := require.New(t)
-		ctx := context.Background()
-		log := logrus.New()
-		log.SetLevel(logrus.DebugLevel)
+	tests := []struct {
+		name  string
+		image string
 
-		mockCache := mockblobcache.MockClient{}
+		expectedMetadata string
+	}{
+		{
+			name:             "scan by tag",
+			image:            "alpine:3.21.3",
+			expectedMetadata: "testdata/metadata/alpine-3-21-3-index.json",
+		},
+		{
+			name:             "scan by index digest",
+			image:            "alpine@sha256:2c62ccfd5af3cacd327127a22a2f80277c5f6acbec9e5b1cbc18a1b435336b40",
+			expectedMetadata: "testdata/metadata/alpine-3-21-3-index.json",
+		},
+		{
+			name:             "scan by manifest digest",
+			image:            "alpine@sha256:1c4eef651f65e2f7daee7ee785882ac164b02b78fb74503052a26dc061c90474", // linux/amd64
+			expectedMetadata: "testdata/metadata/alpine-3-21-3-manifest.json",
+		},
+	}
 
-		cwd, _ := os.Getwd()
-		p := path.Join(cwd, "testdata/amd64-linux/io.containerd.content.v1.content")
+	var (
+		mockCache    = mockblobcache.MockClient{}
+		ingestClient = &mockIngestClient{}
+	)
 
-		ingestClient := &mockIngestClient{}
+	tr := setupTestRegistry(t)
+	defer tr.Close()
+	registryAddr := tr.Listener.Addr().String()
 
-		c := New(
-			log,
-			config.Config{
-				ImageID:           imgID,
-				ImageName:         imgName,
-				Timeout:           5 * time.Minute,
-				Mode:              config.ModeHostFS,
-				Runtime:           config.RuntimeContainerd,
-				ImageArchitecture: "amd64",
-				ImageOS:           "linux",
-				Parallel:          1,
-				DisabledAnalyzers: []string{"secret"},
-			},
-			ingestClient,
-			mockCache,
-			&hostfs.ContainerdHostFSConfig{
-				Platform: v1.Platform{
-					Architecture: "amd64",
-					OS:           "linux",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+			c := New(
+				log,
+				config.Config{
+					ImageID:           tt.image,
+					ImageName:         fmt.Sprintf("%s/%s", registryAddr, tt.image),
+					Timeout:           1 * time.Minute,
+					Mode:              config.ModeRemote,
+					Runtime:           config.RuntimeDocker,
+					Parallel:          1,
+					DisabledAnalyzers: []string{"secret"},
 				},
-				ContentDir: p,
-			},
-		)
+				ingestClient,
+				mockCache,
+				nil,
+			)
 
-		r.NoError(c.Collect(ctx))
+			r.NoError(c.Collect(ctx))
 
-		// Read expect metadata.
-		var expected castaipb.ImageMetadata
-		b, err := os.ReadFile("./testdata/expected_image_scan_meta1.json")
-		r.NoError(err)
-		r.NoError(protojson.Unmarshal(b, &expected))
+			receivedMetadataJson, err := protojson.Marshal(ingestClient.receivedMeta)
+			r.NoError(err)
+			var receivedMetadata castaipb.ImageMetadata
+			r.NoError(protojson.Unmarshal(receivedMetadataJson, &receivedMetadata))
 
-		receivedMetadataJson, err := protojson.Marshal(ingestClient.receivedMeta)
-		r.NoError(err)
-		var actual castaipb.ImageMetadata
-		r.NoError(protojson.Unmarshal(receivedMetadataJson, &actual))
+			var expectedMetadata castaipb.ImageMetadata
+			b, err := os.ReadFile(tt.expectedMetadata)
+			r.NoError(err)
+			r.NoError(protojson.Unmarshal(b, &expectedMetadata))
 
-		var expectedPackages []types.BlobInfo
-		var actualPackages []types.BlobInfo
-		r.NoError(json.Unmarshal(expected.Packages, &expectedPackages))
-		r.NoError(json.Unmarshal(actual.Packages, &actualPackages))
-		expected.Packages = nil
-		actual.Packages = nil
-
-		r.Equal(&expected, &actual)
-		// This test was matching the concrete packages before, but this was incredibly brittle and breaking with
-		// every upgrade of trivy. Hence we now only test if the len of the packages match.
-		r.Len(actualPackages, len(expectedPackages))
-	})
+			// ignore image name and id as the registry port is dynamic per test run
+			r.Equal(tt.image, receivedMetadata.ImageId)
+			expectedMetadata.ImageId = receivedMetadata.ImageId
+			r.Contains(receivedMetadata.ImageName, tt.image)
+			expectedMetadata.ImageName = receivedMetadata.ImageName
+			r.Equal(&expectedMetadata, &receivedMetadata)
+		})
+	}
 }
 
 func TestCollectorPackageAnalyzers(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode")
-	}
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
 
 	tests := []struct {
 		name  string
@@ -115,7 +121,7 @@ func TestCollectorPackageAnalyzers(t *testing.T) {
 	}{
 		{
 			name:  "analyze apk packages",
-			image: "alpine:3.21",
+			image: "alpine:3.21.3",
 		},
 		{
 			name:  "analyze deb packages",
@@ -123,24 +129,18 @@ func TestCollectorPackageAnalyzers(t *testing.T) {
 		},
 		{
 			name:  "analyze rpm packages",
-			image: "ubi-minimal:8.10",
+			image: "ubi-micro:8.10",
 		},
 	}
 
-	ctx := context.Background()
-	log := logrus.New()
-	log.SetLevel(logrus.DebugLevel)
+	var (
+		mockCache    = mockblobcache.MockClient{}
+		ingestClient = &mockIngestClient{}
+	)
 
-	mockCache := mockblobcache.MockClient{}
-
-	ingestClient := &mockIngestClient{}
-
-	te, tr := setupEngineAndRegistry(t)
-	defer func() {
-		te.Close()
-		tr.Close()
-	}()
-	serverAddr := tr.Listener.Addr().String()
+	tr := setupTestRegistry(t)
+	defer tr.Close()
+	registryAddr := tr.Listener.Addr().String()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -149,7 +149,7 @@ func TestCollectorPackageAnalyzers(t *testing.T) {
 				log,
 				config.Config{
 					ImageID:           test.image,
-					ImageName:         fmt.Sprintf("%s/%s", serverAddr, test.image),
+					ImageName:         fmt.Sprintf("%s/%s", registryAddr, test.image),
 					Timeout:           5 * time.Minute,
 					Mode:              config.ModeRemote,
 					Runtime:           config.RuntimeDocker,
@@ -174,73 +174,18 @@ func TestCollectorPackageAnalyzers(t *testing.T) {
 			// verify that files installed per package are included in the scan result
 			r.Len(actualPackages, 1)
 			r.Len(actualPackages[0].PackageInfos, 1)
-			pkgs := actualPackages[0].PackageInfos[0].Packages
-			r.NotEmpty(pkgs)
-			r.NotEmpty(pkgs[0].InstalledFiles)
+			r.True(hasPackageWithInstalledFiles(actualPackages[0].PackageInfos[0].Packages))
 		})
 	}
 }
 
-func TestCollectorWithIngressNginx(t *testing.T) {
-	t.Run("collects right ingress nginx version", func(t *testing.T) {
-		// This is for local testing only. The whole underlying logic is a huge hack.
-		t.Skip()
-
-		imgID := "registry.k8s.io/ingress-nginx/controller:v1.11.0@sha256:a886e56d532d1388c77c8340261149d974370edca1093af4c97a96fb1467cb39" //nolint:gosec
-		imgName := imgID
-
-		r := require.New(t)
-		ctx := context.Background()
-		log := logrus.New()
-		log.SetLevel(logrus.DebugLevel)
-
-		mockCache := mockblobcache.MockClient{}
-
-		ingestClient := &mockIngestClient{}
-
-		c := New(
-			log,
-			config.Config{
-				ImageID:           imgID,
-				ImageName:         imgName,
-				Timeout:           5 * time.Minute,
-				Mode:              config.ModeRemote,
-				Runtime:           config.RuntimeContainerd,
-				Parallel:          1,
-				ImageLocalTarPath: "ingress-controller.tar",
-				DisabledAnalyzers: []string{"secret"},
-			},
-			ingestClient,
-			mockCache,
-			nil,
-		)
-
-		r.NoError(c.Collect(ctx))
-
-		receivedMetadataJson, err := protojson.Marshal(ingestClient.receivedMeta)
-		r.NoError(err)
-		var actual castaipb.ImageMetadata
-		r.NoError(protojson.Unmarshal(receivedMetadataJson, &actual))
-
-		var actualPackages []types.BlobInfo
-		r.NoError(json.Unmarshal(actual.Packages, &actualPackages))
-
-		var ingressVersion string
-
-		for _, bi := range slices.Backward(actualPackages) {
-			for _, a := range bi.Applications {
-				for _, p := range a.Packages {
-					if p.Name == "k8s.io/ingress-nginx" {
-						ingressVersion = p.Version
-						goto out
-					}
-				}
-			}
+func hasPackageWithInstalledFiles(packages []types.Package) bool {
+	for _, pkg := range packages {
+		if len(pkg.InstalledFiles) > 0 {
+			return true
 		}
-
-	out:
-		r.Equal("v1.11.0", ingressVersion)
-	})
+	}
+	return false
 }
 
 func TestCollectorLargeImageDockerTar(t *testing.T) {
@@ -552,35 +497,52 @@ func (m *mockIngestClient) ImageMetadataIngest(ctx context.Context, in *castaipb
 	return &castaipb.ImageMetadataIngestResponse{}, nil
 }
 
-func setupEngineAndRegistry(t *testing.T) (*httptest.Server, *httptest.Server) {
+func setupTestRegistry(t *testing.T) *httptest.Server {
 	t.Helper()
-	imagePaths := map[string]string{
-		"alpine:3.21":        "testdata/images/alpine-3-21.tar.gz",
-		"debian:trixie-slim": "testdata/images/debian-13-trixie.tar.gz",
-		"ubi-minimal:8.10":   "testdata/images/ubi8-minimal-8-10.tar.gz",
-	}
-	opt := engine.Option{
-		APIVersion: "1.38",
-		ImagePaths: imagePaths,
-	}
-	te := engine.NewDockerEngine(opt)
 
-	images := map[string]v1.Image{
-		"v2/alpine:3.21":        mustImageFromPath(t, "testdata/images/alpine-3-21.tar.gz"),
-		"v2/debian:trixie-slim": mustImageFromPath(t, "testdata/images/debian-13-trixie.tar.gz"),
-		"v2/ubi-minimal:8.10":   mustImageFromPath(t, "testdata/images/ubi8-minimal-8-10.tar.gz"),
-	}
-	tr := registry.NewDockerRegistry(registry.Option{
-		Images: images,
-		Auth:   auth.Auth{},
-	})
+	tr := httptest.NewServer(registry.New())
+	u, err := url.Parse(tr.URL)
+	require.NoError(t, err)
 
-	t.Setenv("DOCKER_HOST", fmt.Sprintf("tcp://%s", te.Listener.Addr().String()))
-	return te, tr
+	// crane pull ${image} --format oci ${path}/${image}
+	//
+	// To reduce the size of the test data the images have been trimmed
+	// to include only the linux/amd64 architecture while keeping the index manifest
+	imageIndexes := map[string]v1.ImageIndex{
+		"alpine:3.21.3":      mustImageIndexFromPath(t, "testdata/images/alpine-3-21-3"),
+		"debian:trixie-slim": mustImageIndexFromPath(t, "testdata/images/debian-13-trixie"),
+		"ubi-micro:8.10":     mustImageIndexFromPath(t, "testdata/images/ubi-micro-8-10"),
+	}
+
+	for tag, index := range imageIndexes {
+		mustWriteImageIndex(t, u.Host, tag, index)
+	}
+
+	return tr
 }
 
-func mustImageFromPath(t *testing.T, filePath string) v1.Image {
-	img, err := tarfile.ImageFromPath(filePath)
+func mustImageIndexFromPath(t *testing.T, path string) v1.ImageIndex {
+	t.Helper()
+
+	layout, err := layout.ImageIndexFromPath(path)
 	require.NoError(t, err)
-	return img
+
+	layoutIndex, err := layout.IndexManifest()
+	require.NoError(t, err)
+
+	index, err := layout.ImageIndex(layoutIndex.Manifests[0].Digest)
+	require.NoError(t, err)
+
+	return index
+}
+
+func mustWriteImageIndex(t *testing.T, host string, tag string, index v1.ImageIndex) {
+	t.Helper()
+
+	repoTag := fmt.Sprintf("%s/%s", host, tag)
+	ref, err := name.ParseReference(repoTag)
+	require.NoError(t, err)
+
+	err = remote.WriteIndex(ref, index)
+	require.NoError(t, err)
 }
