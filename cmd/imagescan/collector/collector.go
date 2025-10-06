@@ -31,10 +31,12 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/imagescan/config"
 	"github.com/castai/kvisor/cmd/imagescan/trivy/golang/analyzer/binary"
+	jaroffline "github.com/castai/kvisor/cmd/imagescan/trivy/jar-offline/analyzer"
 )
 
 func init() {
 	binary.Register()
+	jaroffline.Register()
 }
 
 type ingestClient interface {
@@ -96,7 +98,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 		fanalyzer.TypeTerraformPlanSnapshot,
 
 		// Java
-		fanalyzer.TypeJar, // Jar analyzer needs trivy-java-db, disable it until it is implemented in kvisor
+		fanalyzer.TypeJar, // Jar analyzer needs trivy-java-db, this is replaced with cmd/imagescan/trivy/jar-offline analyzer
 	}
 
 	for _, a := range c.cfg.DisabledAnalyzers {

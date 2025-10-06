@@ -179,10 +179,84 @@ func TestCollectorPackageAnalyzers(t *testing.T) {
 	}
 }
 
+func TestCollectorRuntimeAnalyzers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow test, skipping in short mode")
+	}
+
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	tests := []struct {
+		runtime  string
+		image    string
+		filePath string
+	}{
+		{
+			runtime:  "jar",
+			image:    "ghcr.io/open-telemetry/demo:1.8.0-adservice", // 359MB
+			filePath: "usr/src/app/opentelemetry-javaagent.jar",
+		},
+	}
+
+	var (
+		mockCache    = mockblobcache.MockClient{}
+		ingestClient = &mockIngestClient{}
+	)
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("analyze %s runtime", test.runtime), func(t *testing.T) {
+			r := require.New(t)
+			c := New(
+				log,
+				config.Config{
+					ImageID:           test.image,
+					ImageName:         test.image,
+					Timeout:           5 * time.Minute,
+					Mode:              config.ModeRemote,
+					Runtime:           config.RuntimeDocker,
+					Parallel:          1,
+					DisabledAnalyzers: []string{"secret"},
+				},
+				ingestClient,
+				mockCache,
+				nil,
+			)
+
+			err := c.Collect(ctx)
+			r.NoError(err)
+
+			receivedMetadataJson, err := protojson.Marshal(ingestClient.receivedMeta)
+			r.NoError(err)
+			var actual castaipb.ImageMetadata
+			r.NoError(protojson.Unmarshal(receivedMetadataJson, &actual))
+
+			var blobsInfo []types.BlobInfo
+			err = json.Unmarshal(actual.Packages, &blobsInfo)
+			r.NoError(err)
+
+			found := hasDependenciesByTypeAndPath(blobsInfo, types.LangType(test.runtime), test.filePath)
+			r.True(found, "no dependencies found for %s in %s", test.runtime, test.filePath)
+		})
+	}
+}
+
 func hasPackageWithInstalledFiles(packages []types.Package) bool {
 	for _, pkg := range packages {
 		if len(pkg.InstalledFiles) > 0 {
 			return true
+		}
+	}
+	return false
+}
+
+func hasDependenciesByTypeAndPath(blobsInfo []types.BlobInfo, appType types.LangType, filePath string) bool {
+	for _, blob := range blobsInfo {
+		for _, app := range blob.Applications {
+			if app.Type == appType && app.FilePath == filePath {
+				return len(app.Packages) > 0
+			}
 		}
 	}
 	return false
