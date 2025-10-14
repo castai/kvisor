@@ -149,34 +149,10 @@ bpf_printk("called");
 cat /sys/kernel/debug/tracing/trace_pipe
 ```
 
-### Downgrade kernel version
+### Downgrade/Upgrade kernel version
 
 ```sh
-wget https://raw.githubusercontent.com/pimlie/ubuntu-mainline-kernel.sh/master/ubuntu-mainline-kernel.sh
-chmod +x ubuntu-mainline-kernel.sh
-
-# search and find your wanted version
-ubuntu-mainline-kernel.sh -r | grep 5.10
-
-# install that version kernel
-ubuntu-mainline-kernel.sh -i v5.10.5
-
-# get all menuentries
-grep 'menuentry \|submenu ' /boot/grub/grub.cfg | cut -f2 -d "'"
-
-# change the grub configuration
-vi /etc/default/grub
-from: GRUB_DEFAULT=0
-to: GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 5.10.5-051005-generic"
-
-# update grub
-update-grub
-
-# reboot
-reboot now
-
-# verify
-uname -r
+TARGET_VERSION=v5.10.15 ./tools/hack/update-kernel.sh
 ```
 
 
