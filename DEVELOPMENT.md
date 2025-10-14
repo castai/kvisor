@@ -152,7 +152,7 @@ cat /sys/kernel/debug/tracing/trace_pipe
 ### Downgrade/Upgrade kernel version
 
 ```sh
-TARGET_VERSION=v5.10.15 ./tools/hack/auto-kernel-update.sh
+TARGET_VERSION=v5.10.15 ./tools/hack/update-kernel.sh
 ```
 
 
