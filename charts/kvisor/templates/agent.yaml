@@ -85,7 +85,7 @@ spec:
           {{- if .Values.castai.enabled }}
           {{- include "kvisor.apiKeyEnvFrom" (set (deepCopy .) "envFrom" .Values.agent.envFrom) | nindent 12 }}
           {{- end }}
-          {{- if.Values.clickhouse.enabled }}
+          {{- if .Values.clickhouse.enabled }}
             - secretRef:
                 name:  {{ include "kvisor.clickhouse.fullname" . }}
           {{- end }}
@@ -149,9 +149,11 @@ spec:
               readOnly: true
             - name: debugfs
               mountPath: /sys/kernel/debug
+          {{- if .Values.agent.containerd.enabled }}
             - name: containerd-sock
               mountPath: /run/containerd/containerd.sock
               readOnly: true
+          {{- end }}
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
@@ -178,10 +180,12 @@ spec:
             path: /sys/fs/cgroup
         - name: cgroup-mountdir
           emptyDir: {}
+      {{- if and .Values.agent.containerd.enabled .Values.agent.containerd.socketPath }}
         - name: containerd-sock
           hostPath:
-            path: /run/containerd/containerd.sock
+            path: {{ .Values.agent.containerd.socketPath }}
             type: Socket
+      {{- end }}
 {{- end }}
 ---
 {{- if .Values.agent.serviceAccount.create -}}
