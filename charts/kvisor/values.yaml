@@ -145,6 +145,9 @@ agent:
   # Additional environment variables for the agent container via configMaps or secrets.
   envFrom: []
 
+  # Custom socket path for containerd.
+  containerdSocketPath: "/run/containerd/containerd.sock"
+
 controller:
   enabled: true
 
