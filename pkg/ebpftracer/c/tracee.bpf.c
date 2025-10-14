@@ -41,8 +41,6 @@ char LICENSE[] SEC("license") = "GPL";
 
 extern _Bool LINUX_HAS_SYSCALL_WRAPPER __kconfig;
 
-extern void socket_file_ops __ksym;
-
 // trace/events/syscalls.h: TP_PROTO(struct pt_regs *regs, long id)
 // initial entry for sys_enter syscall logic
 SEC("raw_tracepoint/sys_enter")
@@ -1858,6 +1856,18 @@ int cgroup_sock_create(struct bpf_sock *sk)
     return 1;
 }
 
+statfunc void init_task_iter_net_context(struct task_struct *task, net_task_context_t *netctx) {
+    init_task_context(&netctx->taskctx, task);
+    netctx->taskctx.host_pid = task->pid;
+    netctx->taskctx.host_tid = task->tgid;
+
+    if (global_config.cgroup_v1) {
+        netctx->taskctx.cgroup_id = get_cgroup_v1_subsys0_id(task);
+    } else {
+        netctx->taskctx.cgroup_id = get_default_cgroup_id(task);
+    }
+}
+
 // This iterates over all open files of all processes, filter per socket and updates the
 // netcontext map accordingly.
 SEC("iter/task_file")
@@ -1869,21 +1879,7 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
     if (!file || !task)
         return 0;
 
-    // // We only care about sockets.
-    if (file->f_op != &socket_file_ops) {
-        return 0;
-    }
-    net_task_context_t netctx = {0};
-    init_task_context(&netctx.taskctx, task);
-    netctx.taskctx.host_pid = task->pid;
-    netctx.taskctx.host_tid = task->tgid;
-
-    if (global_config.cgroup_v1) {
-        netctx.taskctx.cgroup_id = get_cgroup_v1_subsys0_id(task);
-    } else {
-        netctx.taskctx.cgroup_id = get_default_cgroup_id(task);
-    }
-
+    // Older kernels do not support bpf_sock_from_file helper.
     if (LINUX_KERNEL_VERSION < KERNEL_VERSION(5, 11, 0)) {
         struct socket *socket = (struct socket *) file->private_data;
         if (!socket) {
@@ -1893,18 +1889,26 @@ int socket_task_file_iter(struct bpf_iter__task_file *ctx)
         if (!sock) {
             return 0;
         }
+
+        net_task_context_t netctx = {0};
+        init_task_iter_net_context(task, &netctx);
+
         bpf_map_update_elem(&existing_sockets_map, &sock, &netctx, BPF_ANY);
-    } else {
-        struct socket *sock = bpf_sock_from_file(file);
-        if (sock) {
-            struct net_task_context *sknetctx = bpf_sk_storage_get(
-                &net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
-            // Empty pid means that sk storage map entry was created inside skb fallback with
-            // cgroup_id only.
-            if (sknetctx && sknetctx->taskctx.pid == 0) {
-                __builtin_memcpy(sknetctx, &netctx, sizeof(net_task_context_t));
-            }
-        }
+        return 0;
+    }
+
+    struct socket *sock = bpf_sock_from_file(file);
+    if (!sock) {
+        return 0;
+    }
+    net_task_context_t netctx = {0};
+    init_task_iter_net_context(task, &netctx);
+    struct net_task_context *sknetctx = bpf_sk_storage_get(
+        &net_taskctx_map, sock->sk, &netctx, BPF_LOCAL_STORAGE_GET_F_CREATE);
+    // Empty pid means that sk storage map entry was created inside skb fallback with
+    // cgroup_id only.
+    if (sknetctx && sknetctx->taskctx.pid == 0) {
+        __builtin_memcpy(sknetctx, &netctx, sizeof(net_task_context_t));
     }
 
     return 0;
