@@ -149,11 +149,9 @@ spec:
               readOnly: true
             - name: debugfs
               mountPath: /sys/kernel/debug
-          {{- if .Values.agent.containerd.enabled }}
             - name: containerd-sock
               mountPath: /run/containerd/containerd.sock
               readOnly: true
-          {{- end }}
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
@@ -180,12 +178,10 @@ spec:
             path: /sys/fs/cgroup
         - name: cgroup-mountdir
           emptyDir: {}
-      {{- if and .Values.agent.containerd.enabled .Values.agent.containerd.socketPath }}
         - name: containerd-sock
           hostPath:
-            path: {{ .Values.agent.containerd.socketPath }}
+            path: {{ .Values.agent.containerdSocketPath }}
             type: Socket
-      {{- end }}
 {{- end }}
 ---
 {{- if .Values.agent.serviceAccount.create -}}
