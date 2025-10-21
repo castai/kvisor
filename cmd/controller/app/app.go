@@ -16,7 +16,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -28,7 +27,6 @@ import (
 	"github.com/castai/kvisor/cmd/controller/controllers"
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
-	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
@@ -129,18 +127,6 @@ func (a *App) Run(ctx context.Context) error {
 			kubeClient.RegisterKubernetesChangeListener(imageScanCtrl)
 			errg.Go(func() error {
 				return imageScanCtrl.Run(ctx)
-			})
-		}
-
-		if cfg.Linter.Enabled {
-			linter, err := kubelinter.New(lo.Keys(kubelinter.LinterRuleMap))
-			if err != nil {
-				return err
-			}
-			linterCtrl := kubelinter.NewController(log, a.cfg.Linter, linter, castaiClient.GRPC)
-			kubeClient.RegisterKubernetesChangeListener(linterCtrl)
-			errg.Go(func() error {
-				return linterCtrl.Run(ctx)
 			})
 		}
 
