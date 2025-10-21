@@ -55,32 +55,67 @@ func TestClient(t *testing.T) {
 
 		t.Run("ipv4 added to index", func(t *testing.T) {
 			ip4 := client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")]
-			r.Equal(ip4.Service.GetName(), "s1")
+			r.Equal(ip4[0].Service.GetName(), "s1")
 		})
 
 		t.Run("ipv6 added to index", func(t *testing.T) {
 			ip6 := client.index.ipsDetails[netip.MustParseAddr("fd01::1")]
-			r.Equal(ip6.Service.GetName(), "s1")
+			r.Equal(ip6[0].Service.GetName(), "s1")
 		})
 	})
 
-	t.Run("add pod", func(t *testing.T) {
-		r := require.New(t)
-		_, err := clientset.CoreV1().Pods("default").Create(ctx, newTestPod(), metav1.CreateOptions{})
-		r.NoError(err)
+	t.Run("update ip index on pod changes", func(t *testing.T) {
+		t.Run("add ip index records on pod creation", func(t *testing.T) {
+			r := require.New(t)
+			_, err := clientset.CoreV1().Pods("default").Create(ctx, newTestPod(), metav1.CreateOptions{})
+			r.NoError(err)
 
-		r.Eventually(func() bool {
-			return countObjects[*corev1.Pod](listener.getItems()) == 1
-		}, 2*time.Second, 10*time.Millisecond)
+			r.Eventually(func() bool {
+				return countObjects[*corev1.Pod](listener.getItems()) == 1
+			}, 2*time.Second, 10*time.Millisecond)
 
-		t.Run("ipv4 added to index", func(t *testing.T) {
-			ip4 := client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")]
-			r.Equal(ip4.PodInfo.Pod.GetName(), "p1")
+			t.Run("ipv4 added to index", func(t *testing.T) {
+				ip4 := client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")]
+				r.Equal(ip4[0].PodInfo.Pod.GetName(), "p1")
+			})
+
+			t.Run("ipv6 added to index", func(t *testing.T) {
+				ip6 := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
+				r.Equal(ip6[0].PodInfo.Pod.GetName(), "p1")
+			})
 		})
 
-		t.Run("ipv6 added to index", func(t *testing.T) {
-			ip6 := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
-			r.Equal(ip6.PodInfo.Pod.GetName(), "p1")
+		t.Run("mark ip index records as deleted on pod deletion", func(t *testing.T) {
+			r := require.New(t)
+			err := clientset.CoreV1().Pods("default").Delete(ctx, "p1", metav1.DeleteOptions{})
+			r.NoError(err)
+
+			r.Eventually(func() bool {
+				return countObjects[*corev1.Pod](listener.getItems()) == 0
+			}, 2*time.Second, 10*time.Millisecond)
+
+			t.Run("ipv4 removed from index", func(t *testing.T) {
+				items, found := client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")]
+				r.True(found)
+				r.Equal(len(items), 1)
+				r.NotNil(items[0].deleteAt)
+			})
+
+			t.Run("ipv6 removed from index", func(t *testing.T) {
+				items, found := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
+				r.True(found)
+				r.Equal(len(items), 1)
+				r.NotNil(items[0].deleteAt)
+			})
+		})
+
+		t.Run("cleanup ip details", func(t *testing.T) {
+			r := require.New(t)
+
+			client.index.ipsDetails.cleanup(time.Nanosecond)
+
+			_, found := client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")]
+			r.False(found)
 		})
 	})
 
@@ -117,26 +152,6 @@ func TestClient(t *testing.T) {
 
 		t.Run("ipv6 removed from index", func(t *testing.T) {
 			_, found := client.index.ipsDetails[netip.MustParseAddr("fd01::1")]
-			r.False(found)
-		})
-	})
-
-	t.Run("delete pod", func(t *testing.T) {
-		r := require.New(t)
-		err := clientset.CoreV1().Pods("default").Delete(ctx, "p1", metav1.DeleteOptions{})
-		r.NoError(err)
-
-		r.Eventually(func() bool {
-			return countObjects[*corev1.Pod](listener.getItems()) == 0
-		}, 2*time.Second, 10*time.Millisecond)
-
-		t.Run("ipv4 removed from index", func(t *testing.T) {
-			_, found := client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")]
-			r.False(found)
-		})
-
-		t.Run("ipv6 removed from index", func(t *testing.T) {
-			_, found := client.index.ipsDetails[netip.MustParseAddr("fd00::1")]
 			r.False(found)
 		})
 	})

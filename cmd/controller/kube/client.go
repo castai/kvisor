@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/pkg/logging"
-
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -73,6 +72,7 @@ type Client struct {
 	changeListenersMu sync.RWMutex
 	changeListeners   []*eventListener
 	version           Version
+	ipInfoTTL         time.Duration
 }
 
 func NewClient(
@@ -89,6 +89,7 @@ func NewClient(
 		client:                        client,
 		index:                         NewIndex(),
 		version:                       version,
+		ipInfoTTL:                     30 * time.Second,
 	}
 }
 
@@ -140,9 +141,24 @@ func (c *Client) RegisterPodsHandlers(factory informers.SharedInformerFactory) {
 
 func (c *Client) Run(ctx context.Context) error {
 	// nolint: staticcheck
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
+	ttlCleanupTicker := time.NewTicker(c.ipInfoTTL)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ttlCleanupTicker.C:
+			c.runCleanup()
+		}
+	}
+}
+
+func (c *Client) runCleanup() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	deleted := c.index.ipsDetails.cleanup(c.ipInfoTTL)
+	if deleted > 0 {
+		c.log.Debugf("ips index cleanup done, removed %d ips", deleted)
 	}
 }
 
@@ -230,8 +246,22 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	val, found := c.index.ipsDetails[ip]
+	val, found := c.index.ipsDetails.find(ip)
 	return val, found
+}
+
+func (c *Client) GetIPsInfo(ips []netip.Addr) []IPInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var res []IPInfo
+	for _, ip := range ips {
+		val, found := c.index.ipsDetails.find(ip)
+		if found {
+			res = append(res, val)
+		}
+	}
+	return res
 }
 
 func (c *Client) GetPodInfo(uid string) (*PodInfo, bool) {
@@ -299,7 +329,11 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	// Find pod cidr from pod if not found from nodes
 	if len(res.PodCidr) == 0 {
 		for _, info := range c.index.ipsDetails {
-			if pod := info.PodInfo; pod != nil && pod.Pod != nil {
+			if len(info) == 0 {
+				continue
+			}
+			first := info[0]
+			if pod := first.PodInfo; pod != nil && pod.Pod != nil {
 				podCidr, err := getPodCidrFromPod(pod.Pod)
 				if err != nil {
 					return nil, err
@@ -360,7 +394,7 @@ func getPodCidrFromPod(pod *corev1.Pod) ([]string, error) {
 	return podCidr, nil
 }
 
-func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string, ipDetails map[netip.Addr]IPInfo) ([]string, error) {
+func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string, ipDetails ipsDetails) ([]string, error) {
 	res, err := getServiceCidrFromServiceCreation(ctx, client, namespace)
 	if err == nil {
 		return res, nil
@@ -394,12 +428,16 @@ func getServiceCidrFromServiceCreation(ctx context.Context, client kubernetes.In
 	return serviceCidr, nil
 }
 
-func getServiceCidrFromServicesSpec(ipDetails map[netip.Addr]IPInfo) ([]string, error) {
+func getServiceCidrFromServicesSpec(ipDetails ipsDetails) ([]string, error) {
 	for _, details := range ipDetails {
-		if details.Service == nil {
+		if len(details) == 0 {
 			continue
 		}
-		clusterIPs := details.Service.Spec.ClusterIPs
+		first := details[0]
+		if first.Service == nil {
+			continue
+		}
+		clusterIPs := first.Service.Spec.ClusterIPs
 		if len(clusterIPs) == 0 {
 			continue
 		}

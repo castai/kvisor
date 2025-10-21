@@ -19,12 +19,17 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	log := logging.NewTestLog()
 
 	clientset := fake.NewClientset()
 	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
 	client.index = NewIndex()
+
+	go func() {
+		_ = client.Run(ctx)
+	}()
 
 	client.index.nodesByName["n1"] = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,16 +78,14 @@ func TestServer(t *testing.T) {
 		},
 		Zone: "us-east-1a",
 	}
-	client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = IPInfo{
-		IP:      "",
+	client.index.ipsDetails.set(netip.MustParseAddr("10.10.10.10"), IPInfo{
 		PodInfo: client.index.pods["p1"],
 		Node:    client.index.nodesByName["n1"],
-	}
-	client.index.ipsDetails[netip.MustParseAddr("fd00::1")] = IPInfo{
-		IP:      "",
+	})
+	client.index.ipsDetails.set(netip.MustParseAddr("fd00::1"), IPInfo{
 		PodInfo: client.index.pods["p1"],
 		Node:    client.index.nodesByName["n1"],
-	}
+	})
 	clientset.PrependReactor("create", "services", func(action kubetesting.Action) (bool, runtime.Object, error) {
 		svc := action.(kubetesting.CreateAction).GetObject().(*corev1.Service)
 		switch svc.Spec.ClusterIP {
@@ -120,15 +123,19 @@ func TestServer(t *testing.T) {
 
 	t.Run("get ipv4 info", func(t *testing.T) {
 		r := require.New(t)
-		resp, err := srv.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{
-			Ip: netip.MustParseAddr("10.10.10.10").AsSlice(),
+		resp, err := srv.GetIPsInfo(ctx, &kubepb.GetIPsInfoRequest{
+			Ips: [][]byte{
+				netip.MustParseAddr("10.10.10.10").AsSlice(),
+			},
 		})
 		r.NoError(err)
-		r.Equal("p1", resp.Info.PodName)
-		r.Equal("st1-name", resp.Info.WorkloadName)
-		r.Equal("StatefulSet", resp.Info.WorkloadKind)
-		r.Equal("us-east-1a", resp.Info.Zone)
-		r.Equal("n1", resp.Info.NodeName)
+		r.Len(resp.List, 1)
+		item1 := resp.List[0]
+		r.Equal("p1", item1.PodName)
+		r.Equal("st1-name", item1.WorkloadName)
+		r.Equal("StatefulSet", item1.WorkloadKind)
+		r.Equal("us-east-1a", item1.Zone)
+		r.Equal("n1", item1.NodeName)
 	})
 
 	t.Run("get ipv6 info", func(t *testing.T) {
@@ -187,14 +194,16 @@ func TestServer(t *testing.T) {
 		client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
 		client.index = NewIndex()
 
-		client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = IPInfo{
-			PodInfo: &PodInfo{
-				Pod: &corev1.Pod{
-					Status: corev1.PodStatus{
-						PodIP: "10.10.10.10",
-						PodIPs: []corev1.PodIP{
-							{
-								IP: "10.10.10.10",
+		client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = []IPInfo{
+			IPInfo{
+				PodInfo: &PodInfo{
+					Pod: &corev1.Pod{
+						Status: corev1.PodStatus{
+							PodIP: "10.10.10.10",
+							PodIPs: []corev1.PodIP{
+								{
+									IP: "10.10.10.10",
+								},
 							},
 						},
 					},
@@ -202,10 +211,12 @@ func TestServer(t *testing.T) {
 			},
 		}
 
-		client.index.ipsDetails[netip.MustParseAddr("fd00::1")] = IPInfo{
-			Service: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					ClusterIPs: []string{"10.10.10.10", "fd00::1"},
+		client.index.ipsDetails[netip.MustParseAddr("fd00::1")] = []IPInfo{
+			IPInfo{
+				Service: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						ClusterIPs: []string{"10.10.10.10", "fd00::1"},
+					},
 				},
 			},
 		}

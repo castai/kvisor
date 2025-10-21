@@ -2,6 +2,7 @@ package kube
 
 import (
 	"net/netip"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +13,7 @@ import (
 
 func NewIndex() *Index {
 	return &Index{
-		ipsDetails:  make(map[netip.Addr]IPInfo),
+		ipsDetails:  make(ipsDetails),
 		replicaSets: make(map[types.UID]metav1.ObjectMeta),
 		jobs:        make(map[types.UID]metav1.ObjectMeta),
 		deployments: make(map[types.UID]*appsv1.Deployment),
@@ -22,7 +23,7 @@ func NewIndex() *Index {
 }
 
 type Index struct {
-	ipsDetails  map[netip.Addr]IPInfo
+	ipsDetails  ipsDetails
 	replicaSets map[types.UID]metav1.ObjectMeta
 	jobs        map[types.UID]metav1.ObjectMeta
 	deployments map[types.UID]*appsv1.Deployment
@@ -48,9 +49,10 @@ func (i *Index) addFromPod(pod *corev1.Pod) {
 		}
 		for _, p := range podIPs {
 			if addr, err := netip.ParseAddr(p.IP); err == nil {
-				i.ipsDetails[addr] = IPInfo{
-					PodInfo: podInfo,
-				}
+				i.ipsDetails.set(addr, IPInfo{
+					PodInfo:    podInfo,
+					resourceID: pod.UID,
+				})
 			}
 		}
 	}
@@ -68,12 +70,15 @@ func (i *Index) addFromEndpoints(v *corev1.Endpoints) {
 			if err != nil {
 				continue
 			}
-			i.ipsDetails[addr] = IPInfo{Endpoint: &IPEndpoint{
-				ID:        string(v.UID),
-				Name:      v.Name,
-				Namespace: v.Namespace,
-				Labels:    v.Labels,
-			}}
+			i.ipsDetails.set(addr, IPInfo{
+				Endpoint: &IPEndpoint{
+					ID:        string(v.UID),
+					Name:      v.Name,
+					Namespace: v.Namespace,
+					Labels:    v.Labels,
+				},
+				resourceID: v.UID,
+			})
 		}
 	}
 }
@@ -89,7 +94,10 @@ func (i *Index) addFromService(v *corev1.Service) {
 		if err != nil {
 			continue
 		}
-		i.ipsDetails[addr] = IPInfo{Service: v}
+		i.ipsDetails.set(addr, IPInfo{
+			Service:    v,
+			resourceID: v.UID,
+		})
 	}
 }
 
@@ -102,7 +110,10 @@ func (i *Index) addFromNode(v *corev1.Node) {
 			if err != nil {
 				continue
 			}
-			i.ipsDetails[addr] = IPInfo{Node: v}
+			i.ipsDetails.set(addr, IPInfo{
+				Node:       v,
+				resourceID: v.UID,
+			})
 			return
 		}
 	}
@@ -119,7 +130,7 @@ func (i *Index) deleteFromPod(v *corev1.Pod) {
 		}
 		for _, p := range podIPs {
 			if addr, err := netip.ParseAddr(p.IP); err == nil {
-				delete(i.ipsDetails, addr)
+				i.ipsDetails.delete(addr, v.UID)
 			}
 		}
 	}
@@ -135,7 +146,7 @@ func (i *Index) deleteFromEndpoints(v *corev1.Endpoints) {
 			if err != nil {
 				continue
 			}
-			delete(i.ipsDetails, addr)
+			i.ipsDetails.delete(addr, v.UID)
 		}
 	}
 }
@@ -151,7 +162,7 @@ func (i *Index) deleteFromService(v *corev1.Service) {
 		if err != nil {
 			continue
 		}
-		delete(i.ipsDetails, addr)
+		i.ipsDetails.delete(addr, v.UID)
 	}
 }
 
@@ -164,7 +175,7 @@ func (i *Index) deleteByNode(v *corev1.Node) {
 			if err != nil {
 				continue
 			}
-			delete(i.ipsDetails, addr)
+			i.ipsDetails.delete(addr, v.UID)
 		}
 	}
 }
@@ -270,11 +281,15 @@ type IPEndpoint struct {
 }
 
 type IPInfo struct {
-	IP       string
 	PodInfo  *PodInfo
 	Service  *corev1.Service
 	Node     *corev1.Node
 	Endpoint *IPEndpoint
+
+	ip         netip.Addr
+	resourceID types.UID
+	setAt      time.Time
+	deleteAt   *time.Time
 }
 
 type PodInfo struct {
