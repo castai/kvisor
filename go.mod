@@ -23,7 +23,7 @@ require (
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1
 	github.com/hamba/avro/v2 v2.27.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7
@@ -62,7 +62,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.19.2 // indirect
+	cel.dev/expr v0.23.1 // indirect
 	cloud.google.com/go/auth v0.15.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/monitoring v1.24.1 // indirect
@@ -158,6 +158,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gopacket/gopacket v1.3.1 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
