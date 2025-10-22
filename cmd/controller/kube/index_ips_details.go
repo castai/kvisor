@@ -4,7 +4,6 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -58,7 +57,6 @@ func (m ipsDetails) delete(ip netip.Addr, resourceID types.UID) {
 		}
 	}
 	m[ip] = list
-	spew.Dump(m)
 }
 
 func (m ipsDetails) cleanup(ttl time.Duration) int {
