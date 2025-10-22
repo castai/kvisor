@@ -23,6 +23,7 @@ require (
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hamba/avro/v2 v2.27.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7

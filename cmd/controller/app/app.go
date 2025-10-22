@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
@@ -237,7 +238,9 @@ func (a *App) runKubeServer(ctx context.Context, log *logging.Logger, client *ku
 		return err
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 	kubepb.RegisterKubeAPIServer(s, kube.NewServer(client))
 
 	go func() {
