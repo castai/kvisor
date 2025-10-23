@@ -165,8 +165,6 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 	c.log.Infof("handling netflows, total=%v", len(keys))
 
 	start := time.Now()
-	// TODO: This could potentially return incorrect pods info. We may need to have timestamps in the key.
-	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
 	kubeDestinations := map[netip.Addr]struct{}{}
 
 	for i, key := range keys {
@@ -196,7 +194,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 			stats.totalItems++
 		}
 
-		dest, destAddr, err := c.toNetflowDestination(key, summary, podsByIPCache)
+		dest, destAddr, err := c.toNetflowDestination(key, summary)
 		if err != nil {
 			c.log.Errorf("cannot parse netflow destination: %v", err)
 			continue
@@ -354,7 +352,7 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 	return res, nil
 }
 
-func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castaipb.NetflowDestination, netip.Addr, error) {
+func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary) (*castaipb.NetflowDestination, netip.Addr, error) {
 	localIP := parseAddr(key.Tuple.Saddr.Raw, key.Tuple.Family)
 	if !localIP.IsValid() {
 		return nil, netip.Addr{}, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
