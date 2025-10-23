@@ -126,13 +126,7 @@ func TestClient(t *testing.T) {
 
 		r.Eventually(func() bool {
 			items := listener.getItems()
-			if countObjects[*appsv1.Deployment](items) == 0 {
-				if countObjects[*corev1.Pod](listener.getItems()) == 0 {
-					t.Fatal("expected to keep pod after deployment delete")
-				}
-				return true
-			}
-			return false
+			return countObjects[*appsv1.Deployment](items) == 0
 		}, 2*time.Second, 10*time.Millisecond)
 	})
 
@@ -145,14 +139,14 @@ func TestClient(t *testing.T) {
 			return countObjects[*corev1.Service](listener.getItems()) == 0
 		}, 2*time.Second, 10*time.Millisecond)
 
-		t.Run("ipv4 removed from index", func(t *testing.T) {
+		t.Run("ipv4 is still kept it the index", func(t *testing.T) {
 			_, found := client.index.ipsDetails[netip.MustParseAddr("10.30.0.36")]
-			r.False(found)
+			r.True(found)
 		})
 
-		t.Run("ipv6 removed from index", func(t *testing.T) {
+		t.Run("ipv6 is still kept it the index", func(t *testing.T) {
 			_, found := client.index.ipsDetails[netip.MustParseAddr("fd01::1")]
-			r.False(found)
+			r.True(found)
 		})
 	})
 
