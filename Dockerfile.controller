@@ -1,4 +1,4 @@
-FROM cgr.dev/chainguard/static:latest@sha256:95a45fc5fda9aa71dbdc645b20c6fb03f33aec8c1c2581ef7362b1e6e1d09dfb
+FROM cgr.dev/chainguard/static:latest@sha256:01f45a2a6b87a54e242361c217335b4e792b09b92cd4b0780f8b253e27d299bb
 
 ARG TARGETARCH
 COPY ./bin/kvisor-controller-$TARGETARCH /usr/local/bin/kvisor-controller
