@@ -1180,6 +1180,24 @@ type mockKubeClient struct {
 	nodeTemplate *string
 }
 
+func (m *mockKubeClient) GetIPsInfo(ctx context.Context, in *kubepb.GetIPsInfoRequest, opts ...grpc.CallOption) (*kubepb.GetIPsInfoResponse, error) {
+	return &kubepb.GetIPsInfoResponse{
+		List: []*kubepb.IPInfo{
+			{
+				Ip:           in.Ips[0],
+				PodUid:       "abcd",
+				PodName:      "test-pod",
+				Namespace:    "default",
+				WorkloadName: "test-pod",
+				WorkloadKind: "Deployment",
+				WorkloadUid:  "abcd",
+				Zone:         "us-east-1a",
+				NodeName:     "node1",
+			},
+		},
+	}, nil
+}
+
 func (m *mockKubeClient) GetClusterInfo(ctx context.Context, in *kubepb.GetClusterInfoRequest, opts ...grpc.CallOption) (*kubepb.GetClusterInfoResponse, error) {
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    []string{"10.0.0.0/16", "fd00::/48"},
@@ -1188,18 +1206,7 @@ func (m *mockKubeClient) GetClusterInfo(ctx context.Context, in *kubepb.GetClust
 }
 
 func (m *mockKubeClient) GetIPInfo(ctx context.Context, in *kubepb.GetIPInfoRequest, opts ...grpc.CallOption) (*kubepb.GetIPInfoResponse, error) {
-	return &kubepb.GetIPInfoResponse{
-		Info: &kubepb.IPInfo{
-			PodUid:       "abcd",
-			PodName:      "test-pod",
-			Namespace:    "default",
-			WorkloadName: "test-pod",
-			WorkloadKind: "Deployment",
-			WorkloadUid:  "abcd",
-			Zone:         "us-east-1a",
-			NodeName:     "node1",
-		},
-	}, nil
+	return nil, nil
 }
 
 func (m *mockKubeClient) GetPod(ctx context.Context, in *kubepb.GetPodRequest, opts ...grpc.CallOption) (*kubepb.GetPodResponse, error) {

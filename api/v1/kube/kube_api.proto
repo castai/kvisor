@@ -6,7 +6,9 @@ option go_package = "github.com/castai/kvisor/api/kube/v1";
 
 service KubeAPI {
   rpc GetClusterInfo(GetClusterInfoRequest) returns (GetClusterInfoResponse);
+  // GetIPInfo is deprecated, use GetIPsInfo.
   rpc GetIPInfo(GetIPInfoRequest) returns (GetIPInfoResponse);
+  rpc GetIPsInfo(GetIPsInfoRequest) returns (GetIPsInfoResponse);
   rpc GetPod(GetPodRequest) returns (GetPodResponse);
   rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
 }
@@ -25,6 +27,14 @@ message GetIPInfoResponse {
   IPInfo info = 1;
 }
 
+message GetIPsInfoRequest {
+  repeated bytes ips = 1;
+}
+
+message GetIPsInfoResponse {
+  repeated IPInfo list = 1;
+}
+
 message IPInfo {
   string pod_uid = 1;
   string pod_name = 3;
@@ -34,6 +44,7 @@ message IPInfo {
   string workload_uid = 6;
   string zone = 7;
   string node_name = 8;
+  bytes ip = 9;
 }
 
 message GetPodRequest {

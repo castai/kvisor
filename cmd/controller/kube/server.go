@@ -7,6 +7,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	_ "google.golang.org/grpc/encoding/gzip"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 )
 
@@ -22,7 +24,6 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	addr, ok := netip.AddrFromSlice(req.Ip)
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ip: %v", string(req.Ip))
-
 	}
 	info, found := s.client.GetIPInfo(addr)
 	if !found {
@@ -56,6 +57,52 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	return &kubepb.GetIPInfoResponse{
 		Info: res,
 	}, nil
+}
+
+func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) (*kubepb.GetIPsInfoResponse, error) {
+	ips := make([]netip.Addr, 0, len(req.Ips))
+	for _, rawIP := range req.Ips {
+		ip, ok := netip.AddrFromSlice(rawIP)
+		if !ok {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid ip: %v", string(rawIP))
+		}
+		ips = append(ips, ip)
+	}
+
+	infos := s.client.GetIPsInfo(ips)
+	res := &kubepb.GetIPsInfoResponse{
+		List: make([]*kubepb.IPInfo, 0, len(infos)),
+	}
+	for _, info := range infos {
+		pbInfo := &kubepb.IPInfo{
+			Ip: info.ip.AsSlice(),
+		}
+		if info.Node != nil {
+			pbInfo.Zone = getZone(info.Node)
+		}
+		if podInfo := info.PodInfo; podInfo != nil {
+			pbInfo.PodUid = string(podInfo.Pod.UID)
+			pbInfo.PodName = podInfo.Pod.Name
+			pbInfo.Namespace = podInfo.Pod.Namespace
+			pbInfo.WorkloadUid = string(podInfo.Owner.UID)
+			pbInfo.WorkloadName = podInfo.Owner.Name
+			pbInfo.WorkloadKind = podInfo.Owner.Kind
+			pbInfo.Zone = podInfo.Zone
+			pbInfo.NodeName = podInfo.Pod.Spec.NodeName
+		}
+		if svc := info.Service; svc != nil {
+			pbInfo.WorkloadKind = "Service"
+			pbInfo.WorkloadName = svc.Name
+			pbInfo.Namespace = svc.Namespace
+		}
+		if e := info.Endpoint; e != nil {
+			pbInfo.WorkloadKind = "Endpoint"
+			pbInfo.WorkloadName = e.Name
+			pbInfo.Namespace = e.Namespace
+		}
+		res.List = append(res.List, pbInfo)
+	}
+	return res, nil
 }
 
 func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoRequest) (*kubepb.GetClusterInfoResponse, error) {

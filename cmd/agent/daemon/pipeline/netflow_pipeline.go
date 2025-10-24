@@ -18,6 +18,8 @@ import (
 	"github.com/castai/kvisor/pkg/net/iputil"
 	"github.com/cespare/xxhash/v2"
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -163,8 +165,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 	c.log.Infof("handling netflows, total=%v", len(keys))
 
 	start := time.Now()
-	// TODO: This could potentially return incorrect pods info. We may need to have timestamps in the key.
-	podsByIPCache := map[netip.Addr]*kubepb.IPInfo{}
+	kubeDestinations := map[netip.Addr]struct{}{}
 
 	for i, key := range keys {
 		summary := vals[i]
@@ -193,18 +194,72 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 			stats.totalItems++
 		}
 
-		dest, isPublicDest, err := c.toNetflowDestination(key, summary, podsByIPCache)
+		dest, destAddr, err := c.toNetflowDestination(key, summary)
 		if err != nil {
 			c.log.Errorf("cannot parse netflow destination: %v", err)
 			continue
 		}
 
-		c.addNetflowDestination(netflow, dest, isPublicDest)
+		if (c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(destAddr) || c.clusterInfo.podCidrContains(destAddr))) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+			kubeDestinations[destAddr] = struct{}{}
+		}
+
+		c.addNetflowDestination(netflow, dest, destAddr)
 		stats.sizeBytes += proto.Size(dest)
+	}
+
+	if len(kubeDestinations) > 0 {
+		c.enrichKubeDestinations(ctx, groups, kubeDestinations)
 	}
 }
 
-func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.NetflowDestination, isPublicDest bool) {
+func (c *Controller) enrichKubeDestinations(ctx context.Context, groups map[uint64]*netflowGroup, ips map[netip.Addr]struct{}) {
+	req := &kubepb.GetIPsInfoRequest{
+		Ips: make([][]byte, 0, len(ips)),
+	}
+	for ip := range ips {
+		req.Ips = append(req.Ips, ip.AsSlice())
+	}
+	resp, err := c.kubeClient.GetIPsInfo(ctx, req, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		c.log.Errorf("getting ips info: %v", err)
+		return
+	}
+	respIpsLookup := make(map[netip.Addr]*kubepb.IPInfo, len(resp.List))
+	for _, info := range resp.List {
+		addr, ok := netip.AddrFromSlice(info.GetIp())
+		if !ok {
+			continue
+		}
+		respIpsLookup[addr] = info
+	}
+
+	if len(respIpsLookup) == 0 {
+		return
+	}
+
+	for _, group := range groups {
+		for _, flow := range group.flows {
+			for _, flowDest := range flow.pb.Destinations {
+				destIP, ok := netip.AddrFromSlice(flowDest.Addr)
+				if !ok {
+					continue
+				}
+				if info, found := respIpsLookup[destIP]; found {
+					flowDest.PodName = info.PodName
+					flowDest.Namespace = info.Namespace
+					flowDest.WorkloadName = info.WorkloadName
+					flowDest.WorkloadKind = info.WorkloadKind
+					flowDest.Zone = info.Zone
+					flowDest.NodeName = info.NodeName
+				}
+			}
+		}
+	}
+}
+
+func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.NetflowDestination, destAddr netip.Addr) {
+	isPublicDest := !iputil.IsPrivateNetwork(destAddr)
 	netflow.updatedAt = time.Now()
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
@@ -297,16 +352,16 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 	return res, nil
 }
 
-func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary, podsByIPCache map[netip.Addr]*kubepb.IPInfo) (*castaipb.NetflowDestination, bool, error) {
+func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebpftracer.TrafficSummary) (*castaipb.NetflowDestination, netip.Addr, error) {
 	localIP := parseAddr(key.Tuple.Saddr.Raw, key.Tuple.Family)
 	if !localIP.IsValid() {
-		return nil, false, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
+		return nil, netip.Addr{}, fmt.Errorf("got invalid local addr `%v`", key.Tuple.Saddr.Raw)
 	}
 	local := netip.AddrPortFrom(localIP, key.Tuple.Sport)
 
 	remoteIP := parseAddr(key.Tuple.Daddr.Raw, key.Tuple.Family)
 	if !remoteIP.IsValid() {
-		return nil, false, fmt.Errorf("got invalid remote addr `%v`", key.Tuple.Daddr.Raw)
+		return nil, netip.Addr{}, fmt.Errorf("got invalid remote addr `%v`", key.Tuple.Daddr.Raw)
 	}
 	remote := netip.AddrPortFrom(remoteIP, key.Tuple.Dport)
 
@@ -328,21 +383,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		RxPackets:   summary.RxPackets,
 	}
 
-	if (c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(remote.Addr()) || c.clusterInfo.podCidrContains(remote.Addr()))) || !c.cfg.Netflow.CheckClusterNetworkRanges {
-		ipInfo, found := c.getIPInfo(podsByIPCache, remote.Addr())
-		if found {
-			destination.PodName = ipInfo.PodName
-			destination.Namespace = ipInfo.Namespace
-			destination.WorkloadName = ipInfo.WorkloadName
-			destination.WorkloadKind = ipInfo.WorkloadKind
-			destination.Zone = ipInfo.Zone
-			destination.NodeName = ipInfo.NodeName
-		}
-	}
-
-	isPublicDst := !iputil.IsPrivateNetwork(remote.Addr())
-
-	return destination, isPublicDst, nil
+	return destination, remote.Addr(), nil
 }
 
 func parseAddr(data [16]byte, family uint16) netip.Addr {
@@ -354,22 +395,6 @@ func parseAddr(data [16]byte, family uint16) netip.Addr {
 	}
 
 	return netip.Addr{}
-}
-
-func (c *Controller) getIPInfo(podsByIPCache map[netip.Addr]*kubepb.IPInfo, addr netip.Addr) (*kubepb.IPInfo, bool) {
-	ipInfo, found := podsByIPCache[addr]
-	if !found {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		resp, err := c.kubeClient.GetIPInfo(ctx, &kubepb.GetIPInfoRequest{Ip: addr.Unmap().AsSlice()})
-		if err != nil {
-			metrics.AgentFetchKubeIPInfoErrorsTotal.Inc()
-			return nil, false
-		}
-		ipInfo = resp.Info
-		podsByIPCache[addr] = ipInfo
-	}
-	return ipInfo, true
 }
 
 func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, bool) {
