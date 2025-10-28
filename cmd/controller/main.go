@@ -13,7 +13,6 @@ import (
 	"github.com/castai/kvisor/cmd/controller/config"
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
-	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -74,9 +73,10 @@ var (
 	// deprecated: use cloudProvider
 	kubeBenchCloudProvider = pflag.String("kube-bench-cloud-provider", "", "Kube bench cloud provider. Deprecated: use `cloud-provider` instead.")
 
-	kubeLinterEnabled      = pflag.Bool("kube-linter-enabled", false, "Kube linter enabled")
-	kubeLinterScanInterval = pflag.Duration("kube-linter-scan-interval", 60*time.Second, "Kube linter scan interval")
-	kubeLinterInitDelay    = pflag.Duration("kube-linter-init-delay", 60*time.Second, "Kube linter init delay")
+	// Kubelinter flags are no longer used. Keeping here for now in case some of these flags are still in helm.
+	_ = pflag.Bool("kube-linter-enabled", false, "Kube linter enabled")
+	_ = pflag.Duration("kube-linter-scan-interval", 60*time.Second, "Kube linter scan interval")
+	_ = pflag.Duration("kube-linter-init-delay", 60*time.Second, "Kube linter init delay")
 
 	jobsCleanupInterval = pflag.Duration("jobs-cleanup", 10*time.Minute, "Jobs cleanup interval")
 	jobsCleanupJobAge   = pflag.Duration("jobs-cleanup-job-age", 10*time.Minute, "Jobs cleanup job age")
@@ -166,11 +166,6 @@ func main() {
 			CloudProvider:             cloudProviderVal,
 			IgnoredNamespaces:         *imageScanIgnoredNamespaces,
 			DisabledAnalyzers:         *imageScanDisabledAnalyzers,
-		},
-		Linter: kubelinter.Config{
-			Enabled:      *kubeLinterEnabled,
-			ScanInterval: *kubeLinterScanInterval,
-			InitDelay:    *kubeLinterInitDelay,
 		},
 		KubeBench: kubebench.Config{
 			Enabled:            *kubeBenchEnabled,
