@@ -254,7 +254,7 @@ clickhouse:
   image:
     repository: clickhouse/clickhouse-server
     pullPolicy: IfNotPresent
-    tag: "25.2.1.3085-alpine@sha256:49e2bbe28760d0af142096d837ca2337b0265c910a07504a3175fc9326965bd7"
+    tag: "25.10.1.3832-alpine@sha256:fd9ddbd4891d29df76ff91f20d7d5b580a57ea261917ee944136c4813e44f198"
 
   nodeSelector: {}
   tolerations: []
