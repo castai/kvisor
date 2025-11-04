@@ -153,62 +153,6 @@ func convertNodeStats(node *nodeStatsJSON) *kubepb.NodeStats {
 	return stats
 }
 
-func convertPodStats(pod *podStatsJSON) *kubepb.PodStats {
-	stats := &kubepb.PodStats{
-		PodRefName:       pod.PodRef.Name,
-		PodRefNamespace:  pod.PodRef.Namespace,
-		PodRefUid:        pod.PodRef.UID,
-		StartTimeSeconds: pod.StartTime.Unix(),
-		Volume:           make([]*kubepb.VolumeStats, 0, len(pod.Volume)),
-		Containers:       make([]*kubepb.ContainerStats, 0, len(pod.Containers)),
-	}
-
-	if pod.CPU != nil {
-		stats.Cpu = convertCPUStats(pod.CPU)
-	}
-	if pod.Memory != nil {
-		stats.Memory = convertMemoryStats(pod.Memory)
-	}
-	if pod.Network != nil {
-		stats.Network = convertNetworkStats(pod.Network)
-	}
-
-	for _, vol := range pod.Volume {
-		stats.Volume = append(stats.Volume, &kubepb.VolumeStats{
-			Name: vol.Name,
-			Fs:   convertFsStats(&vol.FsStats),
-		})
-	}
-
-	for _, container := range pod.Containers {
-		stats.Containers = append(stats.Containers, convertContainerStats(&container))
-	}
-
-	return stats
-}
-
-func convertContainerStats(container *containerStatsJSON) *kubepb.ContainerStats {
-	stats := &kubepb.ContainerStats{
-		Name:             container.Name,
-		StartTimeSeconds: container.StartTime.Unix(),
-	}
-
-	if container.CPU != nil {
-		stats.Cpu = convertCPUStats(container.CPU)
-	}
-	if container.Memory != nil {
-		stats.Memory = convertMemoryStats(container.Memory)
-	}
-	if container.Rootfs != nil {
-		stats.Rootfs = convertFsStats(container.Rootfs)
-	}
-	if container.Logs != nil {
-		stats.Logs = convertFsStats(container.Logs)
-	}
-
-	return stats
-}
-
 func convertCPUStats(cpu *cpuStatsJSON) *kubepb.CPUStats {
 	stats := &kubepb.CPUStats{
 		TimeSeconds: cpu.Time.Unix(),
@@ -298,12 +242,4 @@ func convertRuntimeStats(runtime *runtimeStatsJSON) *kubepb.RuntimeStats {
 		stats.TimeSeconds = runtime.ImageFs.Time.Unix()
 	}
 	return stats
-}
-
-// Helper function to safely get Unix timestamp from metav1.Time
-func getUnixTime(t metav1.Time) int64 {
-	if t.IsZero() {
-		return 0
-	}
-	return t.Unix()
 }
