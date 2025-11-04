@@ -52,6 +52,17 @@ type FilesystemMetric struct {
 	Timestamp    time.Time `avro:"ts"`
 }
 
+// NodeStatsSummaryMetric represents node-level filesystem statistics from kubelet
+type NodeStatsSummaryMetric struct {
+	NodeName             string    `avro:"node_name"`
+	NodeTemplate         *string   `avro:"node_template"`
+	ImageFsSizeBytes     *int64    `avro:"image_fs_size_bytes"`
+	ImageFsUsedBytes     *int64    `avro:"image_fs_used_bytes"`
+	ContainerFsSizeBytes *int64    `avro:"container_fs_size_bytes"`
+	ContainerFsUsedBytes *int64    `avro:"container_fs_used_bytes"`
+	Timestamp            time.Time `avro:"ts"`
+}
+
 type storageMetricsState struct {
 	blockDevices map[string]*BlockDeviceMetric
 	filesystems  map[string]*FilesystemMetric
@@ -60,6 +71,7 @@ type storageMetricsState struct {
 type StorageInfoProvider interface {
 	BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error)
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
+	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -67,13 +79,14 @@ type SysfsStorageInfoProvider struct {
 	diskClient     DiskInterface
 	storageState   *storageMetricsState
 	nodeName       string
+	clusterID      string
 	hostRootPath   string
 	sysBlockPrefix string
 	kubeClient     kubepb.KubeAPIClient
 	nodeCache      *freelru.SyncedLRU[string, *kubepb.Node]
 }
 
-func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient) (StorageInfoProvider, error) {
+func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient, clusterID string) (StorageInfoProvider, error) {
 	nodeCache, err := freelru.NewSynced[string, *kubepb.Node](4, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
 	})
@@ -89,6 +102,7 @@ func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient
 		log:            log,
 		diskClient:     NewDiskClient(),
 		nodeName:       os.Getenv("NODE_NAME"),
+		clusterID:      clusterID,
 		hostRootPath:   hostPathRoot,
 		sysBlockPrefix: "",
 		kubeClient:     kubeClient,
@@ -136,15 +150,80 @@ func (s *SysfsStorageInfoProvider) getNodeTemplate() (*string, error) {
 	}
 
 	if node.Labels == nil {
-		return nil, fmt.Errorf("failed to get labels")
-	}
-
-	nodeTemplate, exists := node.Labels["scheduling.cast.ai/node-template"]
-	if !exists {
 		return nil, nil
 	}
 
-	return &nodeTemplate, nil
+	// Try the scheduling label first (current standard)
+	if nodeTemplate, exists := node.Labels["scheduling.cast.ai/node-template"]; exists {
+		return &nodeTemplate, nil
+	}
+
+	// Fallback to provisioner label (legacy)
+	if nodeTemplate, exists := node.Labels["provisioner.cast.ai/node-template"]; exists {
+		return &nodeTemplate, nil
+	}
+
+	return nil, nil
+}
+
+// CollectNodeStatsSummary retrieves node stats summary from the controller and builds a metric
+func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	// Get node stats summary from controller
+	resp, err := s.kubeClient.GetNodeStatsSummary(ctx, &kubepb.GetNodeStatsSummaryRequest{
+		NodeName: s.nodeName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node stats summary for %s: %w", s.nodeName, err)
+	}
+
+	if resp == nil || resp.Node == nil {
+		return nil, fmt.Errorf("empty node stats response for %s", s.nodeName)
+	}
+
+	// Get node template
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template: %v", err)
+		// Don't fail the whole collection if node template lookup fails
+		nodeTemplate = nil
+	}
+
+	// Extract filesystem metrics
+	metric := &NodeStatsSummaryMetric{
+		NodeName:     s.nodeName,
+		NodeTemplate: nodeTemplate,
+		Timestamp:    time.Now(),
+	}
+
+	// Extract image filesystem stats from runtime.image_fs
+	if resp.Node.Runtime != nil && resp.Node.Runtime.ImageFs != nil {
+		if resp.Node.Runtime.ImageFs.CapacityBytes > 0 {
+			capacity := int64(resp.Node.Runtime.ImageFs.CapacityBytes)
+			metric.ImageFsSizeBytes = &capacity
+		}
+		if resp.Node.Runtime.ImageFs.UsedBytes > 0 {
+			used := int64(resp.Node.Runtime.ImageFs.UsedBytes)
+			metric.ImageFsUsedBytes = &used
+		}
+	}
+
+	// Extract container filesystem stats from node.fs
+	if resp.Node.Fs != nil {
+		if resp.Node.Fs.CapacityBytes > 0 {
+			capacity := int64(resp.Node.Fs.CapacityBytes)
+			metric.ContainerFsSizeBytes = &capacity
+		}
+		if resp.Node.Fs.UsedBytes > 0 {
+			used := int64(resp.Node.Fs.UsedBytes)
+			metric.ContainerFsUsedBytes = &used
+		}
+	}
+
+	return metric, nil
 }
 
 func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {

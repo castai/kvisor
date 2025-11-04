@@ -145,6 +145,19 @@ func (s *Server) GetNode(ctx context.Context, req *kubepb.GetNodeRequest) (*kube
 	}, nil
 }
 
+func (s *Server) GetNodeStatsSummary(ctx context.Context, req *kubepb.GetNodeStatsSummaryRequest) (*kubepb.GetNodeStatsSummaryResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	resp, err := s.client.GetNodeStatsSummary(ctx, req.NodeName)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get node stats summary: %v", err)
+	}
+
+	return resp, nil
+}
+
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {
 	switch kind {
 	case "Deployment":
