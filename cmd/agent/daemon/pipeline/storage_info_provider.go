@@ -15,6 +15,8 @@ import (
 	"github.com/elastic/go-freelru"
 	"github.com/samber/lo"
 	"github.com/shirou/gopsutil/v4/disk"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/pkg/logging"
@@ -175,7 +177,7 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 	// Get node stats summary from controller
 	resp, err := s.kubeClient.GetNodeStatsSummary(ctx, &kubepb.GetNodeStatsSummaryRequest{
 		NodeName: s.nodeName,
-	})
+	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node stats summary for %s: %w", s.nodeName, err)
 	}
