@@ -210,12 +210,12 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 				metric.ImageFsUsedBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Runtime.ImageFs.UsedBytes))
 			}
 		}
-		if resp.Node.Fs != nil {
-			if resp.Node.Fs.CapacityBytes > 0 {
-				metric.ContainerFsSizeBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Fs.CapacityBytes))
+		if resp.Node.Runtime.ContainerFs != nil {
+			if resp.Node.Runtime.ContainerFs.CapacityBytes > 0 {
+				metric.ContainerFsSizeBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Runtime.ContainerFs.CapacityBytes))
 			}
-			if resp.Node.Fs.UsedBytes > 0 {
-				metric.ContainerFsUsedBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Fs.UsedBytes))
+			if resp.Node.Runtime.ContainerFs.UsedBytes > 0 {
+				metric.ContainerFsUsedBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Runtime.ContainerFs.UsedBytes))
 			}
 		}
 	}

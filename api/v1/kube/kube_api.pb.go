@@ -941,198 +941,6 @@ func (x *NodeStats) GetRuntime() *RuntimeStats {
 	return nil
 }
 
-type PodStats struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	PodRefName       string                 `protobuf:"bytes,1,opt,name=pod_ref_name,json=podRefName,proto3" json:"pod_ref_name,omitempty"`
-	PodRefNamespace  string                 `protobuf:"bytes,2,opt,name=pod_ref_namespace,json=podRefNamespace,proto3" json:"pod_ref_namespace,omitempty"`
-	PodRefUid        string                 `protobuf:"bytes,3,opt,name=pod_ref_uid,json=podRefUid,proto3" json:"pod_ref_uid,omitempty"`
-	StartTimeSeconds int64                  `protobuf:"varint,4,opt,name=start_time_seconds,json=startTimeSeconds,proto3" json:"start_time_seconds,omitempty"`
-	Cpu              *CPUStats              `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	Memory           *MemoryStats           `protobuf:"bytes,6,opt,name=memory,proto3" json:"memory,omitempty"`
-	Network          *NetworkStats          `protobuf:"bytes,7,opt,name=network,proto3" json:"network,omitempty"`
-	Volume           []*VolumeStats         `protobuf:"bytes,8,rep,name=volume,proto3" json:"volume,omitempty"`
-	Containers       []*ContainerStats      `protobuf:"bytes,9,rep,name=containers,proto3" json:"containers,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *PodStats) Reset() {
-	*x = PodStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PodStats) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PodStats) ProtoMessage() {}
-
-func (x *PodStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PodStats.ProtoReflect.Descriptor instead.
-func (*PodStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *PodStats) GetPodRefName() string {
-	if x != nil {
-		return x.PodRefName
-	}
-	return ""
-}
-
-func (x *PodStats) GetPodRefNamespace() string {
-	if x != nil {
-		return x.PodRefNamespace
-	}
-	return ""
-}
-
-func (x *PodStats) GetPodRefUid() string {
-	if x != nil {
-		return x.PodRefUid
-	}
-	return ""
-}
-
-func (x *PodStats) GetStartTimeSeconds() int64 {
-	if x != nil {
-		return x.StartTimeSeconds
-	}
-	return 0
-}
-
-func (x *PodStats) GetCpu() *CPUStats {
-	if x != nil {
-		return x.Cpu
-	}
-	return nil
-}
-
-func (x *PodStats) GetMemory() *MemoryStats {
-	if x != nil {
-		return x.Memory
-	}
-	return nil
-}
-
-func (x *PodStats) GetNetwork() *NetworkStats {
-	if x != nil {
-		return x.Network
-	}
-	return nil
-}
-
-func (x *PodStats) GetVolume() []*VolumeStats {
-	if x != nil {
-		return x.Volume
-	}
-	return nil
-}
-
-func (x *PodStats) GetContainers() []*ContainerStats {
-	if x != nil {
-		return x.Containers
-	}
-	return nil
-}
-
-type ContainerStats struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Name             string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	StartTimeSeconds int64                  `protobuf:"varint,2,opt,name=start_time_seconds,json=startTimeSeconds,proto3" json:"start_time_seconds,omitempty"`
-	Cpu              *CPUStats              `protobuf:"bytes,3,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	Memory           *MemoryStats           `protobuf:"bytes,4,opt,name=memory,proto3" json:"memory,omitempty"`
-	Rootfs           *FsStats               `protobuf:"bytes,5,opt,name=rootfs,proto3" json:"rootfs,omitempty"`
-	Logs             *FsStats               `protobuf:"bytes,6,opt,name=logs,proto3" json:"logs,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *ContainerStats) Reset() {
-	*x = ContainerStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ContainerStats) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ContainerStats) ProtoMessage() {}
-
-func (x *ContainerStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ContainerStats.ProtoReflect.Descriptor instead.
-func (*ContainerStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *ContainerStats) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *ContainerStats) GetStartTimeSeconds() int64 {
-	if x != nil {
-		return x.StartTimeSeconds
-	}
-	return 0
-}
-
-func (x *ContainerStats) GetCpu() *CPUStats {
-	if x != nil {
-		return x.Cpu
-	}
-	return nil
-}
-
-func (x *ContainerStats) GetMemory() *MemoryStats {
-	if x != nil {
-		return x.Memory
-	}
-	return nil
-}
-
-func (x *ContainerStats) GetRootfs() *FsStats {
-	if x != nil {
-		return x.Rootfs
-	}
-	return nil
-}
-
-func (x *ContainerStats) GetLogs() *FsStats {
-	if x != nil {
-		return x.Logs
-	}
-	return nil
-}
-
 type CPUStats struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	TimeSeconds          int64                  `protobuf:"varint,1,opt,name=time_seconds,json=timeSeconds,proto3" json:"time_seconds,omitempty"`
@@ -1144,7 +952,7 @@ type CPUStats struct {
 
 func (x *CPUStats) Reset() {
 	*x = CPUStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[18]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +964,7 @@ func (x *CPUStats) String() string {
 func (*CPUStats) ProtoMessage() {}
 
 func (x *CPUStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[18]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1169,7 +977,7 @@ func (x *CPUStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CPUStats.ProtoReflect.Descriptor instead.
 func (*CPUStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{18}
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CPUStats) GetTimeSeconds() int64 {
@@ -1208,7 +1016,7 @@ type MemoryStats struct {
 
 func (x *MemoryStats) Reset() {
 	*x = MemoryStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[19]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1220,7 +1028,7 @@ func (x *MemoryStats) String() string {
 func (*MemoryStats) ProtoMessage() {}
 
 func (x *MemoryStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[19]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1233,7 +1041,7 @@ func (x *MemoryStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryStats.ProtoReflect.Descriptor instead.
 func (*MemoryStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{19}
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *MemoryStats) GetTimeSeconds() int64 {
@@ -1298,7 +1106,7 @@ type NetworkStats struct {
 
 func (x *NetworkStats) Reset() {
 	*x = NetworkStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[20]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1310,7 +1118,7 @@ func (x *NetworkStats) String() string {
 func (*NetworkStats) ProtoMessage() {}
 
 func (x *NetworkStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[20]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1323,7 +1131,7 @@ func (x *NetworkStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkStats.ProtoReflect.Descriptor instead.
 func (*NetworkStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{20}
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *NetworkStats) GetTimeSeconds() int64 {
@@ -1376,7 +1184,7 @@ type FsStats struct {
 
 func (x *FsStats) Reset() {
 	*x = FsStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[21]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1388,7 +1196,7 @@ func (x *FsStats) String() string {
 func (*FsStats) ProtoMessage() {}
 
 func (x *FsStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[21]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1401,7 +1209,7 @@ func (x *FsStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FsStats.ProtoReflect.Descriptor instead.
 func (*FsStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{21}
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *FsStats) GetTimeSeconds() int64 {
@@ -1457,13 +1265,14 @@ type RuntimeStats struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TimeSeconds   int64                  `protobuf:"varint,1,opt,name=time_seconds,json=timeSeconds,proto3" json:"time_seconds,omitempty"`
 	ImageFs       *FsStats               `protobuf:"bytes,2,opt,name=image_fs,json=imageFs,proto3" json:"image_fs,omitempty"`
+	ContainerFs   *FsStats               `protobuf:"bytes,3,opt,name=container_fs,json=containerFs,proto3" json:"container_fs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RuntimeStats) Reset() {
 	*x = RuntimeStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[22]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1475,7 +1284,7 @@ func (x *RuntimeStats) String() string {
 func (*RuntimeStats) ProtoMessage() {}
 
 func (x *RuntimeStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[22]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1488,7 +1297,7 @@ func (x *RuntimeStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeStats.ProtoReflect.Descriptor instead.
 func (*RuntimeStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{22}
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RuntimeStats) GetTimeSeconds() int64 {
@@ -1505,54 +1314,9 @@ func (x *RuntimeStats) GetImageFs() *FsStats {
 	return nil
 }
 
-type VolumeStats struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Fs            *FsStats               `protobuf:"bytes,2,opt,name=fs,proto3" json:"fs,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *VolumeStats) Reset() {
-	*x = VolumeStats{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VolumeStats) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VolumeStats) ProtoMessage() {}
-
-func (x *VolumeStats) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[23]
+func (x *RuntimeStats) GetContainerFs() *FsStats {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VolumeStats.ProtoReflect.Descriptor instead.
-func (*VolumeStats) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *VolumeStats) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *VolumeStats) GetFs() *FsStats {
-	if x != nil {
-		return x.Fs
+		return x.ContainerFs
 	}
 	return nil
 }
@@ -1615,27 +1379,7 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x06memory\x18\x04 \x01(\v2\x14.kube.v1.MemoryStatsR\x06memory\x12/\n" +
 	"\anetwork\x18\x05 \x01(\v2\x15.kube.v1.NetworkStatsR\anetwork\x12 \n" +
 	"\x02fs\x18\x06 \x01(\v2\x10.kube.v1.FsStatsR\x02fs\x12/\n" +
-	"\aruntime\x18\a \x01(\v2\x15.kube.v1.RuntimeStatsR\aruntime\"\x91\x03\n" +
-	"\bPodStats\x12 \n" +
-	"\fpod_ref_name\x18\x01 \x01(\tR\n" +
-	"podRefName\x12*\n" +
-	"\x11pod_ref_namespace\x18\x02 \x01(\tR\x0fpodRefNamespace\x12\x1e\n" +
-	"\vpod_ref_uid\x18\x03 \x01(\tR\tpodRefUid\x12,\n" +
-	"\x12start_time_seconds\x18\x04 \x01(\x03R\x10startTimeSeconds\x12#\n" +
-	"\x03cpu\x18\x05 \x01(\v2\x11.kube.v1.CPUStatsR\x03cpu\x12,\n" +
-	"\x06memory\x18\x06 \x01(\v2\x14.kube.v1.MemoryStatsR\x06memory\x12/\n" +
-	"\anetwork\x18\a \x01(\v2\x15.kube.v1.NetworkStatsR\anetwork\x12,\n" +
-	"\x06volume\x18\b \x03(\v2\x14.kube.v1.VolumeStatsR\x06volume\x127\n" +
-	"\n" +
-	"containers\x18\t \x03(\v2\x17.kube.v1.ContainerStatsR\n" +
-	"containers\"\xf5\x01\n" +
-	"\x0eContainerStats\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
-	"\x12start_time_seconds\x18\x02 \x01(\x03R\x10startTimeSeconds\x12#\n" +
-	"\x03cpu\x18\x03 \x01(\v2\x11.kube.v1.CPUStatsR\x03cpu\x12,\n" +
-	"\x06memory\x18\x04 \x01(\v2\x14.kube.v1.MemoryStatsR\x06memory\x12(\n" +
-	"\x06rootfs\x18\x05 \x01(\v2\x10.kube.v1.FsStatsR\x06rootfs\x12$\n" +
-	"\x04logs\x18\x06 \x01(\v2\x10.kube.v1.FsStatsR\x04logs\"\x8c\x01\n" +
+	"\aruntime\x18\a \x01(\v2\x15.kube.v1.RuntimeStatsR\aruntime\"\x8c\x01\n" +
 	"\bCPUStats\x12!\n" +
 	"\ftime_seconds\x18\x01 \x01(\x03R\vtimeSeconds\x12'\n" +
 	"\x0fusage_nanocores\x18\x02 \x01(\x04R\x0eusageNanocores\x124\n" +
@@ -1666,13 +1410,11 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"inodesFree\x12\x16\n" +
 	"\x06inodes\x18\x06 \x01(\x04R\x06inodes\x12\x1f\n" +
 	"\vinodes_used\x18\a \x01(\x04R\n" +
-	"inodesUsed\"^\n" +
+	"inodesUsed\"\x93\x01\n" +
 	"\fRuntimeStats\x12!\n" +
 	"\ftime_seconds\x18\x01 \x01(\x03R\vtimeSeconds\x12+\n" +
-	"\bimage_fs\x18\x02 \x01(\v2\x10.kube.v1.FsStatsR\aimageFs\"C\n" +
-	"\vVolumeStats\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\x02fs\x18\x02 \x01(\v2\x10.kube.v1.FsStatsR\x02fs*\xed\x01\n" +
+	"\bimage_fs\x18\x02 \x01(\v2\x10.kube.v1.FsStatsR\aimageFs\x123\n" +
+	"\fcontainer_fs\x18\x03 \x01(\v2\x10.kube.v1.FsStatsR\vcontainerFs*\xed\x01\n" +
 	"\fWorkloadKind\x12\x19\n" +
 	"\x15WORKLOAD_KIND_UNKNOWN\x10\x00\x12\x1c\n" +
 	"\x18WORKLOAD_KIND_DEPLOYMENT\x10\x01\x12\x1d\n" +
@@ -1704,7 +1446,7 @@ func file_api_v1_kube_kube_api_proto_rawDescGZIP() []byte {
 }
 
 var file_api_v1_kube_kube_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_v1_kube_kube_api_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_api_v1_kube_kube_api_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_api_v1_kube_kube_api_proto_goTypes = []any{
 	(WorkloadKind)(0),                   // 0: kube.v1.WorkloadKind
 	(*GetClusterInfoRequest)(nil),       // 1: kube.v1.GetClusterInfoRequest
@@ -1723,15 +1465,12 @@ var file_api_v1_kube_kube_api_proto_goTypes = []any{
 	(*GetNodeStatsSummaryRequest)(nil),  // 14: kube.v1.GetNodeStatsSummaryRequest
 	(*GetNodeStatsSummaryResponse)(nil), // 15: kube.v1.GetNodeStatsSummaryResponse
 	(*NodeStats)(nil),                   // 16: kube.v1.NodeStats
-	(*PodStats)(nil),                    // 17: kube.v1.PodStats
-	(*ContainerStats)(nil),              // 18: kube.v1.ContainerStats
-	(*CPUStats)(nil),                    // 19: kube.v1.CPUStats
-	(*MemoryStats)(nil),                 // 20: kube.v1.MemoryStats
-	(*NetworkStats)(nil),                // 21: kube.v1.NetworkStats
-	(*FsStats)(nil),                     // 22: kube.v1.FsStats
-	(*RuntimeStats)(nil),                // 23: kube.v1.RuntimeStats
-	(*VolumeStats)(nil),                 // 24: kube.v1.VolumeStats
-	nil,                                 // 25: kube.v1.Node.LabelsEntry
+	(*CPUStats)(nil),                    // 17: kube.v1.CPUStats
+	(*MemoryStats)(nil),                 // 18: kube.v1.MemoryStats
+	(*NetworkStats)(nil),                // 19: kube.v1.NetworkStats
+	(*FsStats)(nil),                     // 20: kube.v1.FsStats
+	(*RuntimeStats)(nil),                // 21: kube.v1.RuntimeStats
+	nil,                                 // 22: kube.v1.Node.LabelsEntry
 }
 var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	7,  // 0: kube.v1.GetIPInfoResponse.info:type_name -> kube.v1.IPInfo
@@ -1739,41 +1478,32 @@ var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	10, // 2: kube.v1.GetPodResponse.pod:type_name -> kube.v1.Pod
 	0,  // 3: kube.v1.Pod.workload_kind:type_name -> kube.v1.WorkloadKind
 	13, // 4: kube.v1.GetNodeResponse.node:type_name -> kube.v1.Node
-	25, // 5: kube.v1.Node.labels:type_name -> kube.v1.Node.LabelsEntry
+	22, // 5: kube.v1.Node.labels:type_name -> kube.v1.Node.LabelsEntry
 	16, // 6: kube.v1.GetNodeStatsSummaryResponse.node:type_name -> kube.v1.NodeStats
-	19, // 7: kube.v1.NodeStats.cpu:type_name -> kube.v1.CPUStats
-	20, // 8: kube.v1.NodeStats.memory:type_name -> kube.v1.MemoryStats
-	21, // 9: kube.v1.NodeStats.network:type_name -> kube.v1.NetworkStats
-	22, // 10: kube.v1.NodeStats.fs:type_name -> kube.v1.FsStats
-	23, // 11: kube.v1.NodeStats.runtime:type_name -> kube.v1.RuntimeStats
-	19, // 12: kube.v1.PodStats.cpu:type_name -> kube.v1.CPUStats
-	20, // 13: kube.v1.PodStats.memory:type_name -> kube.v1.MemoryStats
-	21, // 14: kube.v1.PodStats.network:type_name -> kube.v1.NetworkStats
-	24, // 15: kube.v1.PodStats.volume:type_name -> kube.v1.VolumeStats
-	18, // 16: kube.v1.PodStats.containers:type_name -> kube.v1.ContainerStats
-	19, // 17: kube.v1.ContainerStats.cpu:type_name -> kube.v1.CPUStats
-	20, // 18: kube.v1.ContainerStats.memory:type_name -> kube.v1.MemoryStats
-	22, // 19: kube.v1.ContainerStats.rootfs:type_name -> kube.v1.FsStats
-	22, // 20: kube.v1.ContainerStats.logs:type_name -> kube.v1.FsStats
-	22, // 21: kube.v1.RuntimeStats.image_fs:type_name -> kube.v1.FsStats
-	22, // 22: kube.v1.VolumeStats.fs:type_name -> kube.v1.FsStats
-	1,  // 23: kube.v1.KubeAPI.GetClusterInfo:input_type -> kube.v1.GetClusterInfoRequest
-	3,  // 24: kube.v1.KubeAPI.GetIPInfo:input_type -> kube.v1.GetIPInfoRequest
-	5,  // 25: kube.v1.KubeAPI.GetIPsInfo:input_type -> kube.v1.GetIPsInfoRequest
-	8,  // 26: kube.v1.KubeAPI.GetPod:input_type -> kube.v1.GetPodRequest
-	11, // 27: kube.v1.KubeAPI.GetNode:input_type -> kube.v1.GetNodeRequest
-	14, // 28: kube.v1.KubeAPI.GetNodeStatsSummary:input_type -> kube.v1.GetNodeStatsSummaryRequest
-	2,  // 29: kube.v1.KubeAPI.GetClusterInfo:output_type -> kube.v1.GetClusterInfoResponse
-	4,  // 30: kube.v1.KubeAPI.GetIPInfo:output_type -> kube.v1.GetIPInfoResponse
-	6,  // 31: kube.v1.KubeAPI.GetIPsInfo:output_type -> kube.v1.GetIPsInfoResponse
-	9,  // 32: kube.v1.KubeAPI.GetPod:output_type -> kube.v1.GetPodResponse
-	12, // 33: kube.v1.KubeAPI.GetNode:output_type -> kube.v1.GetNodeResponse
-	15, // 34: kube.v1.KubeAPI.GetNodeStatsSummary:output_type -> kube.v1.GetNodeStatsSummaryResponse
-	29, // [29:35] is the sub-list for method output_type
-	23, // [23:29] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	17, // 7: kube.v1.NodeStats.cpu:type_name -> kube.v1.CPUStats
+	18, // 8: kube.v1.NodeStats.memory:type_name -> kube.v1.MemoryStats
+	19, // 9: kube.v1.NodeStats.network:type_name -> kube.v1.NetworkStats
+	20, // 10: kube.v1.NodeStats.fs:type_name -> kube.v1.FsStats
+	21, // 11: kube.v1.NodeStats.runtime:type_name -> kube.v1.RuntimeStats
+	20, // 12: kube.v1.RuntimeStats.image_fs:type_name -> kube.v1.FsStats
+	20, // 13: kube.v1.RuntimeStats.container_fs:type_name -> kube.v1.FsStats
+	1,  // 14: kube.v1.KubeAPI.GetClusterInfo:input_type -> kube.v1.GetClusterInfoRequest
+	3,  // 15: kube.v1.KubeAPI.GetIPInfo:input_type -> kube.v1.GetIPInfoRequest
+	5,  // 16: kube.v1.KubeAPI.GetIPsInfo:input_type -> kube.v1.GetIPsInfoRequest
+	8,  // 17: kube.v1.KubeAPI.GetPod:input_type -> kube.v1.GetPodRequest
+	11, // 18: kube.v1.KubeAPI.GetNode:input_type -> kube.v1.GetNodeRequest
+	14, // 19: kube.v1.KubeAPI.GetNodeStatsSummary:input_type -> kube.v1.GetNodeStatsSummaryRequest
+	2,  // 20: kube.v1.KubeAPI.GetClusterInfo:output_type -> kube.v1.GetClusterInfoResponse
+	4,  // 21: kube.v1.KubeAPI.GetIPInfo:output_type -> kube.v1.GetIPInfoResponse
+	6,  // 22: kube.v1.KubeAPI.GetIPsInfo:output_type -> kube.v1.GetIPsInfoResponse
+	9,  // 23: kube.v1.KubeAPI.GetPod:output_type -> kube.v1.GetPodResponse
+	12, // 24: kube.v1.KubeAPI.GetNode:output_type -> kube.v1.GetNodeResponse
+	15, // 25: kube.v1.KubeAPI.GetNodeStatsSummary:output_type -> kube.v1.GetNodeStatsSummaryResponse
+	20, // [20:26] is the sub-list for method output_type
+	14, // [14:20] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_kube_kube_api_proto_init() }
@@ -1787,7 +1517,7 @@ func file_api_v1_kube_kube_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_kube_kube_api_proto_rawDesc), len(file_api_v1_kube_kube_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -60,7 +60,8 @@ type fsStatsJSON struct {
 }
 
 type runtimeStatsJSON struct {
-	ImageFs *fsStatsJSON `json:"imageFs,omitempty"`
+	ImageFs     *fsStatsJSON `json:"imageFs,omitempty"`
+	ContainerFs *fsStatsJSON `json:"containerFs,omitempty"`
 }
 
 // GetNodeStatsSummary retrieves stats summary for a given node from the kubelet stats API.
@@ -209,6 +210,12 @@ func convertRuntimeStats(runtime *runtimeStatsJSON) *kubepb.RuntimeStats {
 	if runtime.ImageFs != nil {
 		stats.ImageFs = convertFsStats(runtime.ImageFs)
 		stats.TimeSeconds = runtime.ImageFs.Time.Unix()
+	}
+	if runtime.ContainerFs != nil {
+		stats.ContainerFs = convertFsStats(runtime.ContainerFs)
+		if stats.TimeSeconds == 0 {
+			stats.TimeSeconds = runtime.ContainerFs.Time.Unix()
+		}
 	}
 	return stats
 }

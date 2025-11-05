@@ -106,27 +106,6 @@ message NodeStats {
   RuntimeStats runtime = 7;
 }
 
-message PodStats {
-  string pod_ref_name = 1;
-  string pod_ref_namespace = 2;
-  string pod_ref_uid = 3;
-  int64 start_time_seconds = 4;
-  CPUStats cpu = 5;
-  MemoryStats memory = 6;
-  NetworkStats network = 7;
-  repeated VolumeStats volume = 8;
-  repeated ContainerStats containers = 9;
-}
-
-message ContainerStats {
-  string name = 1;
-  int64 start_time_seconds = 2;
-  CPUStats cpu = 3;
-  MemoryStats memory = 4;
-  FsStats rootfs = 5;
-  FsStats logs = 6;
-}
-
 message CPUStats {
   int64 time_seconds = 1;
   uint64 usage_nanocores = 2;
@@ -164,9 +143,5 @@ message FsStats {
 message RuntimeStats {
   int64 time_seconds = 1;
   FsStats image_fs = 2;
-}
-
-message VolumeStats {
-  string name = 1;
-  FsStats fs = 2;
+  FsStats container_fs = 3;
 }
