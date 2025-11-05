@@ -400,7 +400,7 @@ func (c *Controller) collectNodeStatsSummary() {
 		return
 	}
 
-	c.log.Debugf("collected node stats summary for node %s", metric.NodeName)
+	c.log.Info("collected node stats summary")
 
 	if err := c.nodeStatsSummaryWriter.Write(*metric); err != nil {
 		c.log.Errorf("failed to write node stats summary: %v", err)

@@ -53,42 +53,6 @@ func TestGetNodeStatsSummary(t *testing.T) {
 				InodesUsed:     ptrUint64(1000000),
 			},
 		},
-		Pods: []podStatsJSON{
-			{
-				PodRef: podRefJSON{
-					Name:      "test-pod",
-					Namespace: "default",
-					UID:       "test-pod-uid",
-				},
-				StartTime: metav1.Now(),
-				CPU: &cpuStatsJSON{
-					Time:                 metav1.Now(),
-					UsageNanoCores:       ptrUint64(100000000),
-					UsageCoreNanoSeconds: ptrUint64(500000000),
-				},
-				Memory: &memoryStatsJSON{
-					Time:            metav1.Now(),
-					UsageBytes:      ptrUint64(100000000),
-					WorkingSetBytes: ptrUint64(90000000),
-				},
-				Containers: []containerStatsJSON{
-					{
-						Name:      "test-container",
-						StartTime: metav1.Now(),
-						CPU: &cpuStatsJSON{
-							Time:                 metav1.Now(),
-							UsageNanoCores:       ptrUint64(100000000),
-							UsageCoreNanoSeconds: ptrUint64(500000000),
-						},
-						Memory: &memoryStatsJSON{
-							Time:            metav1.Now(),
-							UsageBytes:      ptrUint64(100000000),
-							WorkingSetBytes: ptrUint64(90000000),
-						},
-					},
-				},
-			},
-		},
 	}
 
 	_ = json.Marshal // Keep json import for potential future use

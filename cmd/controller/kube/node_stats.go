@@ -12,8 +12,7 @@ import (
 // NodeStatsSummary represents the summary API response from kubelet.
 // This matches the structure returned by /api/v1/nodes/{name}/proxy/stats/summary
 type NodeStatsSummary struct {
-	Node nodeStatsJSON   `json:"node"`
-	Pods []podStatsJSON  `json:"pods"`
+	Node nodeStatsJSON `json:"node"`
 }
 
 type nodeStatsJSON struct {
@@ -24,31 +23,6 @@ type nodeStatsJSON struct {
 	Network   *networkStatsJSON  `json:"network,omitempty"`
 	Fs        *fsStatsJSON       `json:"fs,omitempty"`
 	Runtime   *runtimeStatsJSON  `json:"runtime,omitempty"`
-}
-
-type podStatsJSON struct {
-	PodRef     podRefJSON           `json:"podRef"`
-	StartTime  metav1.Time          `json:"startTime"`
-	CPU        *cpuStatsJSON        `json:"cpu,omitempty"`
-	Memory     *memoryStatsJSON     `json:"memory,omitempty"`
-	Network    *networkStatsJSON    `json:"network,omitempty"`
-	Volume     []volumeStatsJSON    `json:"volume,omitempty"`
-	Containers []containerStatsJSON `json:"containers,omitempty"`
-}
-
-type podRefJSON struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	UID       string `json:"uid"`
-}
-
-type containerStatsJSON struct {
-	Name      string           `json:"name"`
-	StartTime metav1.Time      `json:"startTime"`
-	CPU       *cpuStatsJSON    `json:"cpu,omitempty"`
-	Memory    *memoryStatsJSON `json:"memory,omitempty"`
-	Rootfs    *fsStatsJSON     `json:"rootfs,omitempty"`
-	Logs      *fsStatsJSON     `json:"logs,omitempty"`
 }
 
 type cpuStatsJSON struct {
@@ -87,11 +61,6 @@ type fsStatsJSON struct {
 
 type runtimeStatsJSON struct {
 	ImageFs *fsStatsJSON `json:"imageFs,omitempty"`
-}
-
-type volumeStatsJSON struct {
-	Name      string      `json:"name"`
-	FsStats   fsStatsJSON `json:"fsStats"`
 }
 
 // GetNodeStatsSummary retrieves stats summary for a given node from the kubelet stats API.

@@ -199,27 +199,22 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 		Timestamp:    time.Now(),
 	}
 
-	// Extract image filesystem stats from runtime.image_fs
-	if resp.Node.Runtime != nil && resp.Node.Runtime.ImageFs != nil {
-		if resp.Node.Runtime.ImageFs.CapacityBytes > 0 {
-			capacity := safeUint64ToInt64(resp.Node.Runtime.ImageFs.CapacityBytes)
-			metric.ImageFsSizeBytes = &capacity
+	if resp.Node.Runtime != nil {
+		if resp.Node.Runtime.ImageFs != nil {
+			if resp.Node.Runtime.ImageFs.CapacityBytes > 0 {
+				metric.ImageFsSizeBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Runtime.ImageFs.CapacityBytes))
+			}
+			if resp.Node.Runtime.ImageFs.UsedBytes > 0 {
+				metric.ImageFsUsedBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Runtime.ImageFs.UsedBytes))
+			}
 		}
-		if resp.Node.Runtime.ImageFs.UsedBytes > 0 {
-			used := safeUint64ToInt64(resp.Node.Runtime.ImageFs.UsedBytes)
-			metric.ImageFsUsedBytes = &used
-		}
-	}
-
-	// Extract container filesystem stats from node.fs
-	if resp.Node.Fs != nil {
-		if resp.Node.Fs.CapacityBytes > 0 {
-			capacity := safeUint64ToInt64(resp.Node.Fs.CapacityBytes)
-			metric.ContainerFsSizeBytes = &capacity
-		}
-		if resp.Node.Fs.UsedBytes > 0 {
-			used := safeUint64ToInt64(resp.Node.Fs.UsedBytes)
-			metric.ContainerFsUsedBytes = &used
+		if resp.Node.Fs != nil {
+			if resp.Node.Fs.CapacityBytes > 0 {
+				metric.ContainerFsSizeBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Fs.CapacityBytes))
+			}
+			if resp.Node.Fs.UsedBytes > 0 {
+				metric.ContainerFsUsedBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Fs.UsedBytes))
+			}
 		}
 	}
 
