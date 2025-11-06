@@ -108,7 +108,7 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			c.scrapeContainersStats(containerStatsGroups, batchState)
 			if c.cfg.Stats.StorageEnabled {
 				c.collectStorageMetrics()
-				c.collectNodeStatsSummary()
+				c.collectNodeStatsSummary(ctx)
 			}
 			send()
 			c.log.Debugf("stats exported, duration=%v", time.Since(start))
@@ -386,12 +386,12 @@ func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
 	return nil
 }
 
-func (c *Controller) collectNodeStatsSummary() {
+func (c *Controller) collectNodeStatsSummary(ctx context.Context) {
 	if c.nodeStatsSummaryWriter == nil || c.storageInfoProvider == nil {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	metric, err := c.storageInfoProvider.CollectNodeStatsSummary(ctx)
