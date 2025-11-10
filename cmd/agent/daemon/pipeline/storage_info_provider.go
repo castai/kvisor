@@ -250,37 +250,30 @@ func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) (
 
 	filesystemMetrics := make([]FilesystemMetric, 0, len(mounts))
 	for _, mount := range mounts {
-		metric := s.buildFilesystemMetric(mount, timestamp)
+		metric, err := s.buildFilesystemMetric(mount, timestamp)
+		if err != nil {
+			s.log.Warnf("skipping filesystem metric for %s: %v", mount.MountPoint, err)
+			continue
+		}
 		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
 	return filesystemMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time) FilesystemMetric {
+func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time) (FilesystemMetric, error) {
 	// Construct the path from host's root to access the filesystem
 	fileSystemPath := s.hostRootPath + mount.MountPoint
 
 	// Get filesystem statistics using syscall.Statfs
 	sizeBytes, usedBytes, totalInodes, usedInodes, statsErr := getFilesystemStats(fileSystemPath)
 	if statsErr != nil {
-		s.log.Warnf("failed to get filesystem stats for %s: %v", mount.MountPoint, statsErr)
+		return FilesystemMetric{}, fmt.Errorf("failed to get filesystem stats for %s: %w", mount.MountPoint, statsErr)
 	}
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
 		s.log.Warnf("failed to get node template for %s: %v", mount.MountPoint, err)
-	}
-
-	// Convert to pointers (nil if stats failed)
-	var totalBytesPtr, usedBytesPtr *int64
-	var totalInodesPtr, usedInodesPtr *int64
-
-	if statsErr == nil {
-		totalBytesPtr = &sizeBytes
-		usedBytesPtr = &usedBytes
-		totalInodesPtr = &totalInodes
-		usedInodesPtr = &usedInodes
 	}
 
 	return FilesystemMetric{
@@ -290,12 +283,12 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 		MountPoint:   mount.MountPoint,
 		Type:         mount.FsType,
 		Options:      mount.Options,
-		TotalBytes:   totalBytesPtr,
-		UsedBytes:    usedBytesPtr,
-		TotalInodes:  totalInodesPtr,
-		UsedInodes:   usedInodesPtr,
+		TotalBytes:   &sizeBytes,
+		UsedBytes:    &usedBytes,
+		TotalInodes:  &totalInodes,
+		UsedInodes:   &usedInodes,
 		Timestamp:    timestamp,
-	}
+	}, nil
 }
 
 // getBackingDevices resolves a device to its backing device.
