@@ -388,7 +388,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 		IsVirtual:          isVirtualDevice(blockName),
 		RaidLevel:          raidLevel,
 		Timestamp:          timestamp,
-		InFlightRequests:   int64(stats.InFlight),
+		InFlightRequests:   safeUint64ToInt64(stats.InFlight),
 
 		// Internal fields for delta calculation
 		logicalSectorSize:  logicalSectorSize,
@@ -730,7 +730,11 @@ func getFilesystemStats(mountPoint string) (sizeBytes, usedBytes int64, totalIno
 		return 0, 0, 0, 0, fmt.Errorf("failed to statfs %s: %w", mountPoint, err)
 	}
 
+	// stat.Bsize is uint32, safe to convert to uint64
 	blockSize := uint64(stat.Bsize)
+	if blockSize == 0 {
+		blockSize = 512 // fallback to default block size
+	}
 
 	// Calculate block-based metrics
 	totalBlocks := stat.Blocks

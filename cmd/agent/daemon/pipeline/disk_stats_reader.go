@@ -28,8 +28,8 @@ type DiskStats struct {
 // isDiscoverableDevice returns true if the device should be included in metrics
 // Filters out loop and ram devices
 func isDiscoverableDevice(deviceName string) bool {
-	return !(strings.HasPrefix(deviceName, "loop") ||
-		strings.HasPrefix(deviceName, "ram"))
+	return !strings.HasPrefix(deviceName, "loop") &&
+		!strings.HasPrefix(deviceName, "ram")
 }
 
 const procDiskStatsPath = "/proc/diskstats"
