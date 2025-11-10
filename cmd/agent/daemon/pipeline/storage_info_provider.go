@@ -6,7 +6,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,15 +30,12 @@ type BlockDeviceMetric struct {
 	NodeName     string    `avro:"node_name"`
 	NodeTemplate *string   `avro:"node_template"`
 	Path         string    `avro:"path"`
-	Size         *int64    `avro:"size"`
-	DiskType     string    `avro:"disk_type"`     // HDD, SSD
-	DeviceType   string    `avro:"device_type"`   // physical, partition, lvm, raid, virtual
-	PartitionOf  string    `avro:"partition_of"`  // parent device for partitions
-	Holders      []string  `avro:"holders"`       // devices using this device
-	Virtual      bool      `avro:"virtual"`       // dm-* or md* devices
-	RaidLevel    string    `avro:"raid_level"`    // raid0, raid1, raid5, etc
-
-	PhysicalDevices []string  `avro:"physical_devices"` // recursively resolved backing devices
+	SizeBytes    *int64    `avro:"size_bytes"`
+	DiskType     string    `avro:"disk_type"`    // HDD, SSD
+	PartitionOf  string    `avro:"partition_of"` // parent device for partitions
+	Holders      []string  `avro:"holders"`      // devices using this device
+	IsVirtual    bool      `avro:"is_virtual"`   // dm-* or md* devices
+	RaidLevel    string    `avro:"raid_level"`   // raid0, raid1, raid5, etc
 
 	ReadIOPS             float64   `avro:"read_iops"`
 	WriteIOPS            float64   `avro:"write_iops"`
@@ -328,52 +324,6 @@ func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 	return []string{"/dev/" + filepath.Base(linkTarget)}
 }
 
-func (s *SysfsStorageInfoProvider) resolvePhysicalDevices(blockName string) []string {
-	visited := make(map[string]bool)
-	physicalDevices := s.getPhysicalDevicesRecursive(blockName, visited)
-	return s.deduplicateDevices(physicalDevices)
-}
-
-func (s *SysfsStorageInfoProvider) getPhysicalDevicesRecursive(blockName string, visited map[string]bool) []string {
-	if visited[blockName] {
-		s.log.Warnf("circular dependency detected for device %s", blockName)
-		return []string{"/dev/" + blockName}
-	}
-	visited[blockName] = true
-
-	slaves, err := s.getBlockSlaves(blockName)
-	if err != nil {
-		return []string{"/dev/" + blockName}
-	}
-
-	if len(slaves) == 0 {
-		return []string{"/dev/" + blockName}
-	}
-
-	var allPhysicalDevices []string
-	for _, slave := range slaves {
-		slavePhysical := s.getPhysicalDevicesRecursive(slave, visited)
-		allPhysicalDevices = append(allPhysicalDevices, slavePhysical...)
-	}
-
-	return allPhysicalDevices
-}
-
-func (s *SysfsStorageInfoProvider) deduplicateDevices(devices []string) []string {
-	seen := make(map[string]bool)
-	unique := make([]string, 0, len(devices))
-
-	for _, device := range devices {
-		if !seen[device] {
-			seen[device] = true
-			unique = append(unique, device)
-		}
-	}
-
-	sort.Strings(unique)
-	return unique
-}
-
 func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
 	// Read stats from /proc/diskstats
 	diskStats, err := readProcDiskStats()
@@ -403,9 +353,11 @@ func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 
 func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stats DiskStats, timestamp time.Time) BlockDeviceMetric {
 	// Get device metadata
-	deviceType := s.getDeviceType(blockName)
 	diskType := s.getDiskType(blockName)
+
+	// Check if this is a partition to find parent device
 	partitionOf := ""
+	deviceType := s.getDeviceType(blockName)
 	if deviceType == "partition" {
 		partitionOf = s.getPartitionParent(blockName)
 	}
@@ -419,8 +371,6 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 		s.log.Debugf("failed to get disk size for %s: %v", blockName, err)
 	}
 
-	physicalDevices := s.resolvePhysicalDevices(blockName)
-
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
 		s.log.Debugf("failed to get node template for %s: %v", blockName, err)
@@ -431,14 +381,12 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 		NodeName:           s.nodeName,
 		NodeTemplate:       nodeTemplate,
 		Path:               filepath.Join("/dev", blockName),
-		Size:               diskSize,
+		SizeBytes:          diskSize,
 		DiskType:           diskType,
-		DeviceType:         deviceType,
 		PartitionOf:        partitionOf,
 		Holders:            holders,
-		Virtual:            isVirtualDevice(blockName),
+		IsVirtual:          isVirtualDevice(blockName),
 		RaidLevel:          raidLevel,
-		PhysicalDevices:    physicalDevices,
 		Timestamp:          timestamp,
 		InFlightRequests:   int64(stats.InFlight),
 
@@ -540,24 +488,6 @@ func (s *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (i
 	}
 
 	return 0, fmt.Errorf("partition %s not found", deviceName)
-}
-
-// getBlockSlaves - reads from /sys/block/<device>/slaves/
-func (s *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, error) {
-	slavesPath := filepath.Join(s.sysBlockPrefix, "sys", "block", blockName, "slaves")
-	entries, err := os.ReadDir(slavesPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var slaves []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			slaves = append(slaves, entry.Name())
-		}
-	}
-
-	return slaves, nil
 }
 
 func isLVMDevice(deviceName string) bool {

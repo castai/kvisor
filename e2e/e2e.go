@@ -587,12 +587,9 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 						if metric.NodeName == "" {
 							return errors.New("block device metric missing node name")
 						}
-						if len(metric.PhysicalDevices) == 0 {
-							return errors.New("block device metric missing physical devices")
-						}
 
-						if metric.Size != nil && *metric.Size < 0 {
-							return fmt.Errorf("block device metric has negative size: %d", metric.ReadIOPS)
+						if metric.SizeBytes != nil && *metric.SizeBytes < 0 {
+							return fmt.Errorf("block device metric has negative size: %d", *metric.SizeBytes)
 						}
 
 						if metric.ReadIOPS < 0 {

@@ -817,12 +817,11 @@ func TestController(t *testing.T) {
 		blockMetric := blockWriter.metrics[0]
 		r.Equal("sda", blockMetric.Name)
 		r.Equal("test-node", blockMetric.NodeName)
-		r.Equal([]string{"/dev/sda"}, blockMetric.PhysicalDevices)
 		r.Equal(float64(100), blockMetric.ReadIOPS)
 		r.Equal(float64(50), blockMetric.WriteIOPS)
 		r.Equal(float64(1024), blockMetric.ReadThroughputBytes)
 		r.Equal(float64(512), blockMetric.WriteThroughputBytes)
-		r.Equal(int64(2000000), *blockMetric.Size)
+		r.Equal(int64(2000000), *blockMetric.SizeBytes)
 		r.NotNil(blockMetric.NodeTemplate)
 	})
 }
@@ -1337,14 +1336,13 @@ func (m *mockStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) (
 			NodeName:             "test-node",
 			NodeTemplate:         lo.ToPtr("test-template"),
 			Path:                 "/dev/sda",
-			PhysicalDevices:      []string{"/dev/sda"},
 			ReadIOPS:             100,
 			WriteIOPS:            50,
 			ReadThroughputBytes:  1024,
 			WriteThroughputBytes: 512,
-			Size:                 lo.ToPtr(int64(2000000)),
+			SizeBytes:            lo.ToPtr(int64(2000000)),
 			DiskType:             "SSD",
-			DeviceType:           "physical",
+			IsVirtual:            false,
 			Timestamp:            timestamp,
 		},
 	}, nil
