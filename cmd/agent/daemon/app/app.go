@@ -243,6 +243,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	var blockDeviceMetricsWriter pipeline.BlockDeviceMetricsWriter
 	var filesystemMetricsWriter pipeline.FilesystemMetricsWriter
+	var nodeStatsSummaryWriter pipeline.NodeStatsSummaryWriter
 	var storageInfoProvider pipeline.StorageInfoProvider
 	if cfg.Stats.StorageEnabled {
 		metricsClient, err := createMetricsClient(cfg)
@@ -256,12 +257,12 @@ func (a *App) Run(ctx context.Context) error {
 			}
 		}()
 
-		blockDeviceMetricsWriter, filesystemMetricsWriter, err = setupStorageMetrics(metricsClient)
+		blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, err = setupStorageMetrics(metricsClient)
 		if err != nil {
 			return fmt.Errorf("failed to setup storage metrics: %w", err)
 		}
 
-		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient)
+		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient, cfg.Castai.ClusterID)
 		if err != nil {
 			return err
 		}
@@ -289,6 +290,7 @@ func (a *App) Run(ctx context.Context) error {
 		blockDeviceMetricsWriter,
 		filesystemMetricsWriter,
 		storageInfoProvider,
+		nodeStatsSummaryWriter,
 	)
 
 	errg, ctx := errgroup.WithContext(ctx)
@@ -564,18 +566,23 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	}
 }
 
-func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, error) {
+func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, pipeline.NodeStatsSummaryWriter, error) {
 	blockDeviceMetrics, err := pipeline.NewBlockDeviceMetricsWriter(metricsClient)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
 	}
 
 	filesystemMetrics, err := pipeline.NewFilesystemMetricsWriter(metricsClient)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create filesystem metrics writer: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to create filesystem metrics writer: %w", err)
 	}
 
-	return blockDeviceMetrics, filesystemMetrics, nil
+	nodeStatsSummaryWriter, err := pipeline.NewNodeStatsSummaryWriter(metricsClient)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to create node storage stats summary writer: %w", err)
+	}
+
+	return blockDeviceMetrics, filesystemMetrics, nodeStatsSummaryWriter, nil
 }
 
 // resolveMetricsAddr transforms kvisor.* addresses to telemetry.* addresses

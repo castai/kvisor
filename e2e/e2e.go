@@ -402,6 +402,31 @@ func (t *testCASTAIServer) decodeFilesystemMetrics(schema, data []byte) ([]pipel
 	return results, nil
 }
 
+func (t *testCASTAIServer) decodeNodeStatsSummaryMetrics(schema, data []byte) ([]pipeline.NodeStatsSummaryMetric, error) {
+	avroSchema, err := avro.Parse(string(schema))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+
+	// The data contains multiple individually encoded records
+	// We need to decode them one by one using a decoder
+	decoder := avro.NewDecoderForSchema(avroSchema, bytes.NewReader(data))
+	var results []pipeline.NodeStatsSummaryMetric
+
+	for {
+		var metric pipeline.NodeStatsSummaryMetric
+		if err := decoder.Decode(&metric); err != nil {
+			if errors.Is(err, io.EOF) {
+				break // End of data
+			}
+			return nil, fmt.Errorf("failed to decode metric: %w", err)
+		}
+		results = append(results, metric)
+	}
+
+	return results, nil
+}
+
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
 	t.kubeBenchReports = append(t.kubeBenchReports, report)
 	return &castaipb.KubeBenchReportIngestResponse{}, nil
@@ -519,6 +544,7 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 	expectedCollections := []string{
 		"storage_block_device_metrics",
 		"storage_filesystem_metrics",
+		"storage_node_metrics",
 	}
 
 	for {
@@ -609,6 +635,34 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 						}
 						if metric.UsedSpace == nil {
 							return errors.New("filesystem metric missing used space")
+						}
+					}
+				}
+			}
+
+			if batches, exists := metrics["storage_node_metrics"]; exists {
+				for _, batch := range batches {
+					nodeMetrics, err := t.decodeNodeStatsSummaryMetrics(batch.Schema, batch.Metrics)
+					if err != nil {
+						return fmt.Errorf("failed to decode node stats summary metrics: %w", err)
+					}
+
+					for _, metric := range nodeMetrics {
+						if metric.NodeName == "" {
+							return errors.New("node stats summary metric missing node name")
+						}
+
+						if metric.ImageFsSizeBytes != nil && *metric.ImageFsSizeBytes < 0 {
+							return fmt.Errorf("node stats summary metric has negative image fs size: %d", *metric.ImageFsSizeBytes)
+						}
+						if metric.ImageFsUsedBytes != nil && *metric.ImageFsUsedBytes < 0 {
+							return fmt.Errorf("node stats summary metric has negative image fs used bytes: %d", *metric.ImageFsUsedBytes)
+						}
+						if metric.ContainerFsSizeBytes != nil && *metric.ContainerFsSizeBytes < 0 {
+							return fmt.Errorf("node stats summary metric has negative container fs size: %d", *metric.ContainerFsSizeBytes)
+						}
+						if metric.ContainerFsUsedBytes != nil && *metric.ContainerFsUsedBytes < 0 {
+							return fmt.Errorf("node stats summary metric has negative container fs used bytes: %d", *metric.ContainerFsUsedBytes)
 						}
 					}
 				}

@@ -906,6 +906,7 @@ func newTestController(opts ...any) *Controller {
 	procHandler := &mockProcHandler{}
 	blockDeviceMetrics := &mockBlockDeviceMetricsWriter{}
 	filesystemMetrics := &mockFilesystemMetricsWriter{}
+	nodeStatsSummaryWriter := &mockNodeStatsSummaryWriter{}
 
 	ctrl := NewController(
 		log,
@@ -923,6 +924,7 @@ func newTestController(opts ...any) *Controller {
 		blockDeviceMetrics,
 		filesystemMetrics,
 		&mockStorageInfoProvider{},
+		nodeStatsSummaryWriter,
 	)
 	return ctrl
 }
@@ -1227,6 +1229,14 @@ func (m *mockKubeClient) GetNode(ctx context.Context, req *kubepb.GetNodeRequest
 	return response, nil
 }
 
+func (m *mockKubeClient) GetNodeStatsSummary(ctx context.Context, req *kubepb.GetNodeStatsSummaryRequest, opts ...grpc.CallOption) (*kubepb.GetNodeStatsSummaryResponse, error) {
+	return &kubepb.GetNodeStatsSummaryResponse{
+		Node: &kubepb.NodeStats{
+			NodeName: req.NodeName,
+		},
+	}, nil
+}
+
 type mockProcessTreeController struct {
 }
 
@@ -1291,6 +1301,19 @@ func (m *mockFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
 	return nil
 }
 
+type mockNodeStatsSummaryWriter struct {
+	writeFunc func(metrics ...NodeStatsSummaryMetric) error
+	metrics   []NodeStatsSummaryMetric
+}
+
+func (m *mockNodeStatsSummaryWriter) Write(metrics ...NodeStatsSummaryMetric) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
+	return nil
+}
+
 type mockStorageInfoProvider struct{}
 
 func (m *mockStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
@@ -1321,5 +1344,17 @@ func (m *mockStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) (
 			Size:            lo.ToPtr(int64(2000000)),
 			Timestamp:       timestamp,
 		},
+	}, nil
+}
+
+func (m *mockStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error) {
+	return &NodeStatsSummaryMetric{
+		NodeName:             "test-node",
+		NodeTemplate:         lo.ToPtr("test-template"),
+		ImageFsSizeBytes:     lo.ToPtr(int64(100000000000)),
+		ImageFsUsedBytes:     lo.ToPtr(int64(50000000000)),
+		ContainerFsSizeBytes: lo.ToPtr(int64(200000000000)),
+		ContainerFsUsedBytes: lo.ToPtr(int64(100000000000)),
+		Timestamp:            time.Now(),
 	}, nil
 }

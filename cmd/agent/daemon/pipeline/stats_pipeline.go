@@ -108,6 +108,7 @@ func (c *Controller) runStatsPipeline(ctx context.Context) error {
 			c.scrapeContainersStats(containerStatsGroups, batchState)
 			if c.cfg.Stats.StorageEnabled {
 				c.collectStorageMetrics()
+				c.collectNodeStatsSummary(ctx)
 			}
 			send()
 			c.log.Debugf("stats exported, duration=%v", time.Since(start))
@@ -383,4 +384,25 @@ func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
 	}
 
 	return nil
+}
+
+func (c *Controller) collectNodeStatsSummary(ctx context.Context) {
+	if c.nodeStatsSummaryWriter == nil || c.storageInfoProvider == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	metric, err := c.storageInfoProvider.CollectNodeStatsSummary(ctx)
+	if err != nil {
+		c.log.Errorf("failed to collect node stats summary: %v", err)
+		return
+	}
+
+	c.log.Info("collected node stats summary")
+
+	if err := c.nodeStatsSummaryWriter.Write(*metric); err != nil {
+		c.log.Errorf("failed to write node stats summary: %v", err)
+	}
 }

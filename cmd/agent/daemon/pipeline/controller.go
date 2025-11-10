@@ -122,6 +122,10 @@ type FilesystemMetricsWriter interface {
 	Write(metrics ...FilesystemMetric) error
 }
 
+type NodeStatsSummaryWriter interface {
+	Write(metrics ...NodeStatsSummaryMetric) error
+}
+
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
@@ -135,6 +139,14 @@ func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (Files
 		metricsClient,
 		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics"),
 		custommetrics.WithSkipTimestamp[FilesystemMetric](),
+	)
+}
+
+func NewNodeStatsSummaryWriter(metricsClient custommetrics.MetricClient) (NodeStatsSummaryWriter, error) {
+	return custommetrics.NewMetric[NodeStatsSummaryMetric](
+		metricsClient,
+		custommetrics.WithCollectionName[NodeStatsSummaryMetric]("storage_node_metrics"),
+		custommetrics.WithSkipTimestamp[NodeStatsSummaryMetric](),
 	)
 }
 
@@ -154,6 +166,7 @@ func NewController(
 	blockDeviceMetricsWriter BlockDeviceMetricsWriter,
 	filesystemMetricsWriter FilesystemMetricsWriter,
 	storageInfoProvider StorageInfoProvider,
+	nodeStatsSummaryWriter NodeStatsSummaryWriter,
 ) *Controller {
 	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
 		return uint32(k) // nolint:gosec
@@ -192,6 +205,7 @@ func NewController(
 		blockDeviceMetricsWriter: blockDeviceMetricsWriter,
 		filesystemMetricsWriter:  filesystemMetricsWriter,
 		storageInfoProvider:      storageInfoProvider,
+		nodeStatsSummaryWriter:   nodeStatsSummaryWriter,
 	}
 }
 
@@ -226,6 +240,7 @@ type Controller struct {
 	blockDeviceMetricsWriter BlockDeviceMetricsWriter
 	filesystemMetricsWriter  FilesystemMetricsWriter
 	storageInfoProvider      StorageInfoProvider
+	nodeStatsSummaryWriter   NodeStatsSummaryWriter
 }
 
 func (c *Controller) Run(ctx context.Context) error {
