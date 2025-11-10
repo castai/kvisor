@@ -9,12 +9,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 	"github.com/samber/lo"
-	"github.com/shirou/gopsutil/v4/disk"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
 
@@ -25,23 +25,43 @@ import (
 const sectorSizeBytes = 512
 const hostPathRoot = "/proc/1/root"
 
+// BlockDeviceMetric represents enhanced block device metrics with accurate sector sizes
 type BlockDeviceMetric struct {
-	Name            string    `avro:"name"`
-	NodeName        string    `avro:"node_name"`
-	NodeTemplate    *string   `avro:"node_template"`
-	ReadIOPS        int64     `avro:"read_iops"`
-	WriteIOPS       int64     `avro:"write_iops"`
-	ReadThroughput  int64     `avro:"read_throughput"`
-	WriteThroughput int64     `avro:"write_throughput"`
-	Size            *int64    `avro:"size"`
-	PhysicalDevices []string  `avro:"physical_devices"`
-	Timestamp       time.Time `avro:"ts"`
+	Name         string    `avro:"name"`
+	NodeName     string    `avro:"node_name"`
+	NodeTemplate *string   `avro:"node_template"`
+	Path         string    `avro:"path"`
+	Size         *int64    `avro:"size"`
+	DiskType     string    `avro:"disk_type"`     // HDD, SSD
+	DeviceType   string    `avro:"device_type"`   // physical, partition, lvm, raid, virtual
+	PartitionOf  string    `avro:"partition_of"`  // parent device for partitions
+	Holders      []string  `avro:"holders"`       // devices using this device
+	Virtual      bool      `avro:"virtual"`       // dm-* or md* devices
+	RaidLevel    string    `avro:"raid_level"`    // raid0, raid1, raid5, etc
+
+	PhysicalDevices []string  `avro:"physical_devices"` // recursively resolved backing devices
+
+	ReadIOPS             float64   `avro:"read_iops"`
+	WriteIOPS            float64   `avro:"write_iops"`
+	ReadThroughputBytes  float64   `avro:"read_throughput_bytes"`
+	WriteThroughputBytes float64   `avro:"write_throughput_bytes"`
+	ReadLatencyMs        float64   `avro:"read_latency_ms"`
+	WriteLatencyMs       float64   `avro:"write_latency_ms"`
+	InFlightRequests     int64     `avro:"in_flight_requests"`
+	AvgQueueDepth        float64   `avro:"avg_queue_depth"`
+	Utilization          float64   `avro:"utilization"`
+	Timestamp            time.Time `avro:"ts"`
 
 	// Internal fields for calculation (raw cumulative counters)
-	readCount  uint64
-	writeCount uint64
-	readBytes  uint64
-	writeBytes uint64
+	logicalSectorSize  uint64
+	readIOs            uint64
+	writeIOs           uint64
+	readSectors        uint64
+	writeSectors       uint64
+	readTicks          uint64
+	writeTicks         uint64
+	ioTicks            uint64
+	timeInQueue        uint64
 }
 
 type FilesystemMetric struct {
@@ -49,8 +69,12 @@ type FilesystemMetric struct {
 	NodeName     string    `avro:"node_name"`
 	NodeTemplate *string   `avro:"node_template"`
 	MountPoint   string    `avro:"mount_point"`
-	TotalSize    *int64    `avro:"total_size"`
-	UsedSpace    *int64    `avro:"used_space"`
+	Type         string    `avro:"type"`    // Filesystem type (ext4, xfs, btrfs, etc.)
+	Options      []string  `avro:"options"` // Mount options
+	TotalBytes   *int64    `avro:"total_bytes"`
+	UsedBytes    *int64    `avro:"used_bytes"`
+	TotalInodes  *int64    `avro:"total_inodes"`
+	UsedInodes   *int64    `avro:"used_inodes"`
 	Timestamp    time.Time `avro:"ts"`
 }
 
@@ -78,7 +102,6 @@ type StorageInfoProvider interface {
 
 type SysfsStorageInfoProvider struct {
 	log            *logging.Logger
-	diskClient     DiskInterface
 	storageState   *storageMetricsState
 	nodeName       string
 	clusterID      string
@@ -102,7 +125,6 @@ func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient
 			filesystems:  make(map[string]*FilesystemMetric),
 		},
 		log:            log,
-		diskClient:     NewDiskClient(),
 		nodeName:       os.Getenv("NODE_NAME"),
 		clusterID:      clusterID,
 		hostRootPath:   hostPathRoot,
@@ -224,46 +246,58 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 }
 
 func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
-	partitions, err := s.diskClient.Partitions(false) // false = only physical devices
+	// Read mount information from /proc/1/mountinfo
+	mounts, err := readMountInfo("/proc/1/mountinfo")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get partitions: %w", err)
+		return nil, fmt.Errorf("failed to read mountinfo: %w", err)
 	}
 
-	filesystemMetrics := make([]FilesystemMetric, 0, len(partitions))
-	for _, partition := range partitions {
-		metric := s.buildFilesystemMetric(partition, timestamp)
+	filesystemMetrics := make([]FilesystemMetric, 0, len(mounts))
+	for _, mount := range mounts {
+		metric := s.buildFilesystemMetric(mount, timestamp)
 		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
 	return filesystemMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildFilesystemMetric(partition disk.PartitionStat, timestamp time.Time) FilesystemMetric {
-	fileSystemPath := s.hostRootPath + partition.Mountpoint
-	diskStats, diskErr := s.diskClient.GetDiskStats(fileSystemPath)
-	if diskErr != nil {
-		s.log.Warnf("failed to build file system metric: %v", diskErr)
+func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time) FilesystemMetric {
+	// Construct the path from host's root to access the filesystem
+	fileSystemPath := s.hostRootPath + mount.MountPoint
+
+	// Get filesystem statistics using syscall.Statfs
+	sizeBytes, usedBytes, totalInodes, usedInodes, statsErr := getFilesystemStats(fileSystemPath)
+	if statsErr != nil {
+		s.log.Warnf("failed to get filesystem stats for %s: %v", mount.MountPoint, statsErr)
 	}
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
-		s.log.Warnf("failed to get node template for %s: %v", partition.Mountpoint, err)
+		s.log.Warnf("failed to get node template for %s: %v", mount.MountPoint, err)
 	}
 
-	var totalSize, usedSpace *int64
-	if diskErr == nil && diskStats != nil {
-		total := safeUint64ToInt64(diskStats.Total)
-		used := safeUint64ToInt64(diskStats.Used)
-		totalSize, usedSpace = &total, &used
+	// Convert to pointers (nil if stats failed)
+	var totalBytesPtr, usedBytesPtr *int64
+	var totalInodesPtr, usedInodesPtr *int64
+
+	if statsErr == nil {
+		totalBytesPtr = &sizeBytes
+		usedBytesPtr = &usedBytes
+		totalInodesPtr = &totalInodes
+		usedInodesPtr = &usedInodes
 	}
 
 	return FilesystemMetric{
-		Devices:      s.getBackingDevices(partition.Device),
+		Devices:      s.getBackingDevices(mount.Device),
 		NodeName:     s.nodeName,
 		NodeTemplate: nodeTemplate,
-		MountPoint:   partition.Mountpoint,
-		TotalSize:    totalSize,
-		UsedSpace:    usedSpace,
+		MountPoint:   mount.MountPoint,
+		Type:         mount.FsType,
+		Options:      mount.Options,
+		TotalBytes:   totalBytesPtr,
+		UsedBytes:    usedBytesPtr,
+		TotalInodes:  totalInodesPtr,
+		UsedInodes:   usedInodesPtr,
 		Timestamp:    timestamp,
 	}
 }
@@ -341,21 +375,22 @@ func (s *SysfsStorageInfoProvider) deduplicateDevices(devices []string) []string
 }
 
 func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
-	ioStats, err := s.diskClient.IOCounters()
+	// Read stats from /proc/diskstats
+	diskStats, err := readProcDiskStats()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get IO counters: %w", err)
+		return nil, fmt.Errorf("failed to read disk stats: %w", err)
 	}
 
-	blockMetrics := make([]BlockDeviceMetric, 0, len(ioStats))
+	blockMetrics := make([]BlockDeviceMetric, 0, len(diskStats))
 
-	for blockName, stat := range ioStats {
-		current := s.buildBlockDeviceMetric(blockName, stat, timestamp)
+	for deviceName, stats := range diskStats {
+		current := s.buildBlockDeviceMetric(deviceName, stats, timestamp)
 
 		prev, exists := s.storageState.blockDevices[current.Name]
 		if exists {
 			timeDiff := current.Timestamp.Sub(prev.Timestamp).Seconds()
 			if timeDiff > 0 {
-				calculateBlockDeviceRates(&current, prev, timeDiff)
+				s.calculateBlockDeviceRates(&current, prev, timeDiff)
 				blockMetrics = append(blockMetrics, current)
 			}
 		}
@@ -366,33 +401,96 @@ func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) 
 	return blockMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat disk.IOCountersStat, timestamp time.Time) BlockDeviceMetric {
+func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stats DiskStats, timestamp time.Time) BlockDeviceMetric {
+	// Get device metadata
+	deviceType := s.getDeviceType(blockName)
+	diskType := s.getDiskType(blockName)
+	partitionOf := ""
+	if deviceType == "partition" {
+		partitionOf = s.getPartitionParent(blockName)
+	}
+
+	holders := s.getHolders(blockName)
+	raidLevel := s.getRaidLevel(blockName)
+	logicalSectorSize := s.getLogicalSectorSize(blockName)
+
 	diskSize, err := s.getDeviceSize(blockName)
 	if err != nil {
-		s.log.Warnf("failed to get disk usage for %s: %v", blockName, err)
+		s.log.Debugf("failed to get disk size for %s: %v", blockName, err)
 	}
 
 	physicalDevices := s.resolvePhysicalDevices(blockName)
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
-		s.log.Warnf("failed to get node template for %s: %v", blockName, err)
+		s.log.Debugf("failed to get node template for %s: %v", blockName, err)
 	}
 
 	return BlockDeviceMetric{
-		Name:            blockName,
-		NodeName:        s.nodeName,
-		NodeTemplate:    nodeTemplate,
-		PhysicalDevices: physicalDevices,
-		Size:            diskSize,
-		Timestamp:       timestamp,
-		readCount:       stat.ReadCount,
-		writeCount:      stat.WriteCount,
-		readBytes:       stat.ReadBytes,
-		writeBytes:      stat.WriteBytes,
+		Name:               blockName,
+		NodeName:           s.nodeName,
+		NodeTemplate:       nodeTemplate,
+		Path:               filepath.Join("/dev", blockName),
+		Size:               diskSize,
+		DiskType:           diskType,
+		DeviceType:         deviceType,
+		PartitionOf:        partitionOf,
+		Holders:            holders,
+		Virtual:            isVirtualDevice(blockName),
+		RaidLevel:          raidLevel,
+		PhysicalDevices:    physicalDevices,
+		Timestamp:          timestamp,
+		InFlightRequests:   int64(stats.InFlight),
+
+		// Internal fields for delta calculation
+		logicalSectorSize:  logicalSectorSize,
+		readIOs:            stats.ReadIOs,
+		writeIOs:           stats.WriteIOs,
+		readSectors:        stats.ReadSectors,
+		writeSectors:       stats.WriteSectors,
+		readTicks:          stats.ReadTicks,
+		writeTicks:         stats.WriteTicks,
+		ioTicks:            stats.IOTicks,
+		timeInQueue:        stats.TimeInQueue,
 	}
 }
 
+func (s *SysfsStorageInfoProvider) calculateBlockDeviceRates(current *BlockDeviceMetric, prev *BlockDeviceMetric, timeDiff float64) {
+	if timeDiff <= 0 {
+		return
+	}
+
+	// Calculate deltas
+	deltaReadIOs := float64(current.readIOs - prev.readIOs)
+	deltaWriteIOs := float64(current.writeIOs - prev.writeIOs)
+	deltaReadSectors := float64(current.readSectors - prev.readSectors)
+	deltaWriteSectors := float64(current.writeSectors - prev.writeSectors)
+	deltaReadTicks := float64(current.readTicks - prev.readTicks)
+	deltaWriteTicks := float64(current.writeTicks - prev.writeTicks)
+	deltaIOTicks := float64(current.ioTicks - prev.ioTicks)
+	deltaTimeInQueue := float64(current.timeInQueue - prev.timeInQueue)
+
+	// Calculate rates
+	current.ReadIOPS = deltaReadIOs / timeDiff
+	current.WriteIOPS = deltaWriteIOs / timeDiff
+
+	// Use actual logical sector size for throughput
+	sectorSize := float64(current.logicalSectorSize)
+	current.ReadThroughputBytes = (deltaReadSectors * sectorSize) / timeDiff
+	current.WriteThroughputBytes = (deltaWriteSectors * sectorSize) / timeDiff
+
+	// Calculate latencies (average time per operation in milliseconds)
+	current.ReadLatencyMs = safeDiv(deltaReadTicks, deltaReadIOs)
+	current.WriteLatencyMs = safeDiv(deltaWriteTicks, deltaWriteIOs)
+
+	// Calculate average queue depth
+	current.AvgQueueDepth = safeDiv(deltaTimeInQueue, timeDiff*1000.0)
+
+	// Calculate utilization (fraction of time with I/O operations, 0-1)
+	current.Utilization = safeDiv(deltaIOTicks, timeDiff*1000.0)
+}
+
+// getDeviceSize - reads from /sys/block/<device>/size or /sys/block/<parent>/<partition>/size
 func (s *SysfsStorageInfoProvider) getDeviceSize(deviceName string) (*int64, error) {
 	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "size")
 	if sectors, err := s.getDeviceSectorCount(devicePath); err == nil && sectors > 0 {
@@ -444,6 +542,7 @@ func (s *SysfsStorageInfoProvider) getPartitionSectorCount(deviceName string) (i
 	return 0, fmt.Errorf("partition %s not found", deviceName)
 }
 
+// getBlockSlaves - reads from /sys/block/<device>/slaves/
 func (s *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, error) {
 	slavesPath := filepath.Join(s.sysBlockPrefix, "sys", "block", blockName, "slaves")
 	entries, err := os.ReadDir(slavesPath)
@@ -461,7 +560,138 @@ func (s *SysfsStorageInfoProvider) getBlockSlaves(blockName string) ([]string, e
 	return slaves, nil
 }
 
-// safeUint64ToInt64 safely converts uint64 to int64, clamping to MaxInt64 if overflow would occur
+func isLVMDevice(deviceName string) bool {
+	return strings.HasPrefix(deviceName, "dm-")
+}
+
+func isRAIDDevice(deviceName string) bool {
+	return strings.HasPrefix(deviceName, "md")
+}
+
+func isVirtualDevice(deviceName string) bool {
+	return isLVMDevice(deviceName) || isRAIDDevice(deviceName)
+}
+
+func (s *SysfsStorageInfoProvider) getDeviceType(blockName string) string {
+	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", blockName)
+
+	// Check if device exists in /sys/block (top-level device)
+	// Source: /sys/block/<device>/
+	if _, err := os.Stat(devicePath); os.IsNotExist(err) {
+		return "partition"
+	}
+
+	// Check for device-mapper (LVM)
+	// Source: /sys/block/<device>/dm/uuid
+	if isLVMDevice(blockName) {
+		uuidPath := filepath.Join(devicePath, "dm", "uuid")
+		if uuid, err := os.ReadFile(uuidPath); err == nil {
+			if strings.HasPrefix(string(uuid), "LVM-") {
+				return "lvm"
+			}
+		}
+		return "device-mapper"
+	}
+
+	// Check for RAID
+	// Source: /sys/block/<device>/md/
+	if isRAIDDevice(blockName) {
+		mdPath := filepath.Join(devicePath, "md")
+		if _, err := os.Stat(mdPath); err == nil {
+			return "raid"
+		}
+	}
+
+	// Check for virtual devices with slaves
+	// Source: /sys/block/<device>/slaves/
+	slavesPath := filepath.Join(devicePath, "slaves")
+	if entries, err := os.ReadDir(slavesPath); err == nil && len(entries) > 0 {
+		return "virtual"
+	}
+
+	return "physical"
+}
+
+// getPartitionParent - reads from /sys/block/<parent>/<partition>/
+func (s *SysfsStorageInfoProvider) getPartitionParent(partition string) string {
+	blockDir := filepath.Join(s.sysBlockPrefix, "sys", "block")
+	entries, err := os.ReadDir(blockDir)
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		partPath := filepath.Join(blockDir, entry.Name(), partition)
+		if _, err := os.Stat(partPath); err == nil {
+			return entry.Name()
+		}
+	}
+
+	return ""
+}
+
+// getRaidLevel - reads from /sys/block/<device>/md/level
+func (s *SysfsStorageInfoProvider) getRaidLevel(deviceName string) string {
+	if !isRAIDDevice(deviceName) {
+		return ""
+	}
+
+	levelPath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "md", "level")
+	data, err := os.ReadFile(levelPath)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(data))
+}
+
+// getLogicalSectorSize - reads from /sys/block/<device>/queue/logical_block_size
+func (s *SysfsStorageInfoProvider) getLogicalSectorSize(deviceName string) uint64 {
+	sizePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "queue", "logical_block_size")
+	data, err := os.ReadFile(sizePath)
+	if err != nil {
+		return 512 // fallback to default
+	}
+
+	size, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+	if err != nil {
+		return 512
+	}
+
+	return size
+}
+
+// getDiskType - reads from /sys/block/<device>/queue/rotational
+func (s *SysfsStorageInfoProvider) getDiskType(deviceName string) string {
+	rotPath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "queue", "rotational")
+	data, err := os.ReadFile(rotPath)
+	if err != nil {
+		return ""
+	}
+
+	rotational := strings.TrimSpace(string(data))
+	if rotational == "0" {
+		return "SSD"
+	}
+	return "HDD"
+}
+
+// getHolders - reads from /sys/block/<device>/holders/
+func (s *SysfsStorageInfoProvider) getHolders(deviceName string) []string {
+	holdersPath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "holders")
+	entries, err := os.ReadDir(holdersPath)
+	if err != nil {
+		return nil
+	}
+
+	var holders []string
+	for _, entry := range entries {
+		holders = append(holders, entry.Name())
+	}
+
+	return holders
+}
+
 func safeUint64ToInt64(val uint64) int64 {
 	if val > math.MaxInt64 {
 		return math.MaxInt64
@@ -469,29 +699,126 @@ func safeUint64ToInt64(val uint64) int64 {
 	return int64(val)
 }
 
-func safeDelta(current, previous uint64) int64 {
-	if current >= previous {
-		return safeUint64ToInt64(current - previous)
+func safeDiv(numerator, denominator float64) float64 {
+	if denominator == 0 {
+		return 0
 	}
-	return 0
+	return numerator / denominator
 }
 
-func calculateBlockDeviceRates(current *BlockDeviceMetric, prev *BlockDeviceMetric, timeDiff float64) {
-	timeDiffSecs := int64(timeDiff)
-	if timeDiffSecs == 0 {
-		current.ReadIOPS = 0
-		current.WriteIOPS = 0
-		current.ReadThroughput = 0
-		current.WriteThroughput = 0
-		return
-	}
-	readOpsDelta := safeDelta(current.readCount, prev.readCount)
-	writeOpsDelta := safeDelta(current.writeCount, prev.writeCount)
-	readBytesDelta := safeDelta(current.readBytes, prev.readBytes)
-	writeBytesDelta := safeDelta(current.writeBytes, prev.writeBytes)
-
-	current.ReadIOPS = readOpsDelta / timeDiffSecs
-	current.WriteIOPS = writeOpsDelta / timeDiffSecs
-	current.ReadThroughput = readBytesDelta / timeDiffSecs
-	current.WriteThroughput = writeBytesDelta / timeDiffSecs
+// mountInfo represents a parsed line from /proc/1/mountinfo
+type mountInfo struct {
+	Device      string
+	MountPoint  string
+	FsType      string
+	Options     []string
+	MajorMinor  string
 }
+
+// readMountInfo - reads from /proc/1/mountinfo
+func readMountInfo(mountInfoPath string) ([]mountInfo, error) {
+	if mountInfoPath == "" {
+		mountInfoPath = "/proc/1/mountinfo"
+	}
+
+	data, err := os.ReadFile(mountInfoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", mountInfoPath, err)
+	}
+
+	var mounts []mountInfo
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		mount, err := parseMountInfoLine(line)
+		if err != nil {
+			// Skip unsupported or malformed lines
+			continue
+		}
+		if mount != nil {
+			mounts = append(mounts, *mount)
+		}
+	}
+
+	return mounts, nil
+}
+
+// parseMountInfoLine parses a single line from /proc/1/mountinfo
+// Format: <mount id> <parent id> <major:minor> <root> <mount point> <mount options> <optional fields> - <fs type> <mount source> <super options>
+func parseMountInfoLine(line string) (*mountInfo, error) {
+	// The " - " separator splits the line into two parts
+	parts := strings.Split(line, " - ")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid mountinfo format: missing separator")
+	}
+
+	left := strings.Fields(parts[0])
+	right := strings.Fields(parts[1])
+
+	if len(left) < 6 || len(right) < 2 {
+		return nil, fmt.Errorf("insufficient fields in mountinfo line")
+	}
+
+	majorMinor := left[2]
+	mountPoint := left[4]
+	mountOptions := strings.Split(left[5], ",")
+	fsType := right[0]
+	device := right[1]
+
+	// Filter to only supported filesystem types
+	if !isSupportedFilesystem(fsType) {
+		return nil, nil // Not an error, just not supported
+	}
+
+	return &mountInfo{
+		Device:     device,
+		MountPoint: mountPoint,
+		FsType:     fsType,
+		Options:    mountOptions,
+		MajorMinor: majorMinor,
+	}, nil
+}
+
+func isSupportedFilesystem(fsType string) bool {
+	switch fsType {
+	case "ext4", "xfs", "btrfs", "ext3", "ext2":
+		return true
+	default:
+		return false
+	}
+}
+
+// getFilesystemStats - takes data from syscall.Statfs() system call
+func getFilesystemStats(mountPoint string) (sizeBytes, usedBytes int64, totalInodes, usedInodes int64, err error) {
+	var stat syscall.Statfs_t
+	err = syscall.Statfs(mountPoint, &stat)
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("failed to statfs %s: %w", mountPoint, err)
+	}
+
+	blockSize := uint64(stat.Bsize)
+
+	// Calculate block-based metrics
+	totalBlocks := stat.Blocks
+	freeBlocks := stat.Bfree
+	usedBlocks := totalBlocks - freeBlocks
+
+	// Convert to bytes
+	totalSizeBytes := totalBlocks * blockSize
+	usedSpaceBytes := usedBlocks * blockSize
+
+	// Inode statistics
+	totalInodesVal := stat.Files
+	usedInodesVal := totalInodesVal - stat.Ffree
+
+	return safeUint64ToInt64(totalSizeBytes),
+		safeUint64ToInt64(usedSpaceBytes),
+		safeUint64ToInt64(totalInodesVal),
+		safeUint64ToInt64(usedInodesVal),
+		nil
+}
+

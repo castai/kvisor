@@ -542,8 +542,8 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 	timeout := time.After(15 * time.Second)
 
 	expectedCollections := []string{
-		"storage_block_device_metrics",
-		"storage_filesystem_metrics",
+		"storage_block_device_metrics_v2",
+		"storage_filesystem_metrics_v2",
 		"storage_node_metrics",
 	}
 
@@ -573,7 +573,7 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 				return collections
 			}())
 
-			if batches, exists := metrics["storage_block_device_metrics"]; exists {
+			if batches, exists := metrics["storage_block_device_metrics_v2"]; exists {
 				for _, batch := range batches {
 					blockMetrics, err := t.decodeBlockDeviceMetrics(batch.Schema, batch.Metrics)
 					if err != nil {
@@ -596,24 +596,24 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 						}
 
 						if metric.ReadIOPS < 0 {
-							return fmt.Errorf("block device metric has negative read IOPS: %d", metric.ReadIOPS)
+							return fmt.Errorf("block device metric has negative read IOPS: %f", metric.ReadIOPS)
 						}
 						if metric.WriteIOPS < 0 {
-							return fmt.Errorf("block device metric has negative write IOPS: %d", metric.WriteIOPS)
+							return fmt.Errorf("block device metric has negative write IOPS: %f", metric.WriteIOPS)
 						}
 
-						if metric.ReadThroughput < 0 {
-							return fmt.Errorf("block device metric has negative ReadThroughput: %d", metric.ReadIOPS)
+						if metric.ReadThroughputBytes < 0 {
+							return fmt.Errorf("block device metric has negative ReadThroughputBytes: %f", metric.ReadThroughputBytes)
 						}
 
-						if metric.WriteThroughput < 0 {
-							return fmt.Errorf("block device metric has negative WriteThroughput: %d", metric.WriteIOPS)
+						if metric.WriteThroughputBytes < 0 {
+							return fmt.Errorf("block device metric has negative WriteThroughputBytes: %f", metric.WriteThroughputBytes)
 						}
 					}
 				}
 			}
 
-			if batches, exists := metrics["storage_filesystem_metrics"]; exists {
+			if batches, exists := metrics["storage_filesystem_metrics_v2"]; exists {
 				for _, batch := range batches {
 					fsMetrics, err := t.decodeFilesystemMetrics(batch.Schema, batch.Metrics)
 					if err != nil {
@@ -630,11 +630,11 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 						if len(metric.Devices) == 0 {
 							return errors.New("filesystem metric missing devices")
 						}
-						if metric.TotalSize == nil {
-							return errors.New("filesystem metric missing total size")
+						if metric.TotalBytes == nil {
+							return errors.New("filesystem metric missing total bytes")
 						}
-						if metric.UsedSpace == nil {
-							return errors.New("filesystem metric missing used space")
+						if metric.UsedBytes == nil {
+							return errors.New("filesystem metric missing used bytes")
 						}
 					}
 				}

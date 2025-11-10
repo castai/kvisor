@@ -36,7 +36,6 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/samber/lo v1.49.1
-	github.com/shirou/gopsutil/v4 v4.25.8
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -128,7 +127,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
-	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
