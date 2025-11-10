@@ -629,6 +629,13 @@ func safeUint64ToInt64(val uint64) int64 {
 	return int64(val)
 }
 
+func safeInt64ToUint64(val int64) uint64 {
+	if val < 0 {
+		return 0
+	}
+	return uint64(val)
+}
+
 func safeDiv(numerator, denominator float64) float64 {
 	if denominator == 0 {
 		return 0
@@ -730,8 +737,8 @@ func getFilesystemStats(mountPoint string) (sizeBytes, usedBytes int64, totalIno
 		return 0, 0, 0, 0, fmt.Errorf("failed to statfs %s: %w", mountPoint, err)
 	}
 
-	// stat.Bsize is uint32, safe to convert to uint64
-	blockSize := uint64(stat.Bsize)
+	// stat.Bsize is uint32 on Darwin, int64 on Linux - convert safely to uint64
+	blockSize := safeInt64ToUint64(int64(stat.Bsize))
 	if blockSize == 0 {
 		blockSize = 512 // fallback to default block size
 	}
