@@ -585,10 +585,21 @@ func (s *SysfsStorageInfoProvider) getLogicalSectorSize(deviceName string) uint6
 }
 
 // getDiskType - reads from /sys/block/<device>/queue/rotational
+// For partitions, inherits the disk type from the parent device
 func (s *SysfsStorageInfoProvider) getDiskType(deviceName string) string {
+	// Check if device has its own queue/rotational file
 	rotPath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "queue", "rotational")
 	data, err := os.ReadFile(rotPath)
 	if err != nil {
+		// If reading fails (e.g., for partitions), try to get parent's disk type
+		deviceType := s.getDeviceType(deviceName)
+		if deviceType == "partition" {
+			parent := s.getPartitionParent(deviceName)
+			if parent != "" {
+				// Recursively get parent's disk type
+				return s.getDiskType(parent)
+			}
+		}
 		return ""
 	}
 

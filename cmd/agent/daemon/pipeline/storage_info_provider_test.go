@@ -604,3 +604,81 @@ func TestSafeDiv(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDiskType(t *testing.T) {
+	// Create a temporary directory structure mimicking /sys/block
+	tmpDir, err := os.MkdirTemp("", "sysblock-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create parent device (nvme0n1) with rotational=0 (SSD)
+	nvme0n1Path := tmpDir + "/sys/block/nvme0n1"
+	err = os.MkdirAll(nvme0n1Path+"/queue", 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(nvme0n1Path+"/queue/rotational", []byte("0\n"), 0644)
+	require.NoError(t, err)
+
+	// Create partition under parent (nvme0n1p1)
+	nvme0n1p1Path := nvme0n1Path + "/nvme0n1p1"
+	err = os.MkdirAll(nvme0n1p1Path, 0755)
+	require.NoError(t, err)
+
+	// Create HDD device (sda) with rotational=1
+	sdaPath := tmpDir + "/sys/block/sda"
+	err = os.MkdirAll(sdaPath+"/queue", 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(sdaPath+"/queue/rotational", []byte("1\n"), 0644)
+	require.NoError(t, err)
+
+	// Create partition under sda (sda1)
+	sda1Path := sdaPath + "/sda1"
+	err = os.MkdirAll(sda1Path, 0755)
+	require.NoError(t, err)
+
+	provider := &SysfsStorageInfoProvider{
+		log:            logging.NewTestLog(),
+		sysBlockPrefix: tmpDir,
+		storageState: &storageMetricsState{
+			blockDevices: make(map[string]*BlockDeviceMetric),
+		},
+	}
+
+	tests := []struct {
+		name       string
+		deviceName string
+		expected   string
+	}{
+		{
+			name:       "SSD parent device",
+			deviceName: "nvme0n1",
+			expected:   "SSD",
+		},
+		{
+			name:       "SSD partition inherits from parent",
+			deviceName: "nvme0n1p1",
+			expected:   "SSD",
+		},
+		{
+			name:       "HDD parent device",
+			deviceName: "sda",
+			expected:   "HDD",
+		},
+		{
+			name:       "HDD partition inherits from parent",
+			deviceName: "sda1",
+			expected:   "HDD",
+		},
+		{
+			name:       "non-existent device returns empty",
+			deviceName: "nonexistent",
+			expected:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := provider.getDiskType(tt.deviceName)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
