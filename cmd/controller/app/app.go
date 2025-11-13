@@ -30,6 +30,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
+	"github.com/castai/kvisor/cmd/controller/controllers/nodeconfigscrapper"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
@@ -151,6 +152,12 @@ func (a *App) Run(ctx context.Context) error {
 			kubeClient.RegisterKubernetesChangeListener(kubeBenchCtrl)
 			errg.Go(func() error {
 				return kubeBenchCtrl.Run(ctx)
+			})
+
+			nodeConfigScrapperCtrl := nodeconfigscrapper.NewController(log, clientset, a.cfg.NodeConfigScrapper)
+			kubeClient.RegisterKubernetesChangeListener(nodeConfigScrapperCtrl)
+			errg.Go(func() error {
+				return nodeConfigScrapperCtrl.Run(ctx)
 			})
 		}
 	}

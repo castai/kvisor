@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/castai/kvisor/cmd/linter/kubebench"
+	"github.com/castai/kvisor/cmd/linter/nodeconfigscrapper"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,7 @@ func main() {
 
 	root.AddCommand(
 		kubebench.NewCommand(),
+		nodeconfigscrapper.NewRunCommand(),
 	)
 
 	if err := root.Execute(); err != nil {
