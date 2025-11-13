@@ -137,6 +137,11 @@ func (t *testServer) UpdateSyncState(ctx context.Context, request *castaipb.Upda
 	panic("implement me")
 }
 
+func (t *testServer) KubeNodeComponentsIngest(ctx context.Context, request *castaipb.KubeNodeComponents) (*castaipb.KubeNodeComponentsIngestResponse, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (t *testServer) GetConfiguration(ctx context.Context, request *castaipb.GetConfigurationRequest) (*castaipb.GetConfigurationResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
