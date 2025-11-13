@@ -105,6 +105,10 @@ func (t testGrpcClient) UpdateSyncState(ctx context.Context, in *castaipb.Update
 	return nil, nil
 }
 
+func (t testGrpcClient) KubeNodeComponentsIngest(ctx context.Context, in *castaipb.KubeNodeComponents, opts ...grpc.CallOption) (*castaipb.KubeNodeComponentsIngestResponse, error) {
+	return nil, nil
+}
+
 func (t testGrpcClient) GetConfiguration(ctx context.Context, in *castaipb.GetConfigurationRequest, opts ...grpc.CallOption) (*castaipb.GetConfigurationResponse, error) {
 	if t.getConfigurationResponse != nil {
 		return t.getConfigurationResponse()
