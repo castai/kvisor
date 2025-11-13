@@ -810,19 +810,18 @@ func TestController(t *testing.T) {
 		r.Equal("/", fsMetric.MountPoint)
 		r.Equal("test-node", fsMetric.NodeName)
 		r.Equal([]string{"/dev/sda1"}, fsMetric.Devices)
-		r.Equal(int64(1000000), *fsMetric.TotalSize)
-		r.Equal(int64(500000), *fsMetric.UsedSpace)
+		r.Equal(int64(1000000), *fsMetric.TotalBytes)
+		r.Equal(int64(500000), *fsMetric.UsedBytes)
 		r.NotNil(fsMetric.NodeTemplate)
 
 		blockMetric := blockWriter.metrics[0]
 		r.Equal("sda", blockMetric.Name)
 		r.Equal("test-node", blockMetric.NodeName)
-		r.Equal([]string{"/dev/sda"}, blockMetric.PhysicalDevices)
-		r.Equal(int64(100), blockMetric.ReadIOPS)
-		r.Equal(int64(50), blockMetric.WriteIOPS)
-		r.Equal(int64(1024), blockMetric.ReadThroughput)
-		r.Equal(int64(512), blockMetric.WriteThroughput)
-		r.Equal(int64(2000000), *blockMetric.Size)
+		r.Equal(float64(100), blockMetric.ReadIOPS)
+		r.Equal(float64(50), blockMetric.WriteIOPS)
+		r.Equal(float64(1024), blockMetric.ReadThroughputBytes)
+		r.Equal(float64(512), blockMetric.WriteThroughputBytes)
+		r.Equal(int64(2000000), *blockMetric.SizeBytes)
 		r.NotNil(blockMetric.NodeTemplate)
 	})
 }
@@ -1323,8 +1322,8 @@ func (m *mockStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([
 			NodeTemplate: lo.ToPtr("test-template"),
 			MountPoint:   "/",
 			Devices:      []string{"/dev/sda1"},
-			TotalSize:    lo.ToPtr(int64(1000000)),
-			UsedSpace:    lo.ToPtr(int64(500000)),
+			TotalBytes:   lo.ToPtr(int64(1000000)),
+			UsedBytes:    lo.ToPtr(int64(500000)),
 			Timestamp:    timestamp,
 		},
 	}, nil
@@ -1333,16 +1332,18 @@ func (m *mockStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([
 func (m *mockStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
 	return []BlockDeviceMetric{
 		{
-			Name:            "sda",
-			NodeName:        "test-node",
-			NodeTemplate:    lo.ToPtr("test-template"),
-			PhysicalDevices: []string{"/dev/sda"},
-			ReadIOPS:        100,
-			WriteIOPS:       50,
-			ReadThroughput:  1024,
-			WriteThroughput: 512,
-			Size:            lo.ToPtr(int64(2000000)),
-			Timestamp:       timestamp,
+			Name:                 "sda",
+			NodeName:             "test-node",
+			NodeTemplate:         lo.ToPtr("test-template"),
+			Path:                 "/dev/sda",
+			ReadIOPS:             100,
+			WriteIOPS:            50,
+			ReadThroughputBytes:  1024,
+			WriteThroughputBytes: 512,
+			SizeBytes:            lo.ToPtr(int64(2000000)),
+			DiskType:             "SSD",
+			IsVirtual:            false,
+			Timestamp:            timestamp,
 		},
 	}, nil
 }

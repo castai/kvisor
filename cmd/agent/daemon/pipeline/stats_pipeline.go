@@ -336,7 +336,7 @@ func (c *Controller) collectStorageMetrics() {
 	start := time.Now()
 	c.log.Debug("starting storage metrics collection")
 
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	if err := c.processBlockDeviceMetrics(timestamp); err != nil {
 		c.log.Errorf("failed to collect block device metrics: %v", err)
 	}

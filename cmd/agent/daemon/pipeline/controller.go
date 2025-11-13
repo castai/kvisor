@@ -10,7 +10,6 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
-	"github.com/shirou/gopsutil/v4/disk"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
@@ -31,30 +30,6 @@ import (
 	"github.com/castai/kvisor/pkg/processtree"
 	custommetrics "github.com/castai/metrics"
 )
-
-type DiskInterface interface {
-	IOCounters() (map[string]disk.IOCountersStat, error)
-	Partitions(all bool) ([]disk.PartitionStat, error)
-	GetDiskStats(path string) (*disk.UsageStat, error)
-}
-
-type DiskClient struct{}
-
-func NewDiskClient() *DiskClient {
-	return &DiskClient{}
-}
-
-func (d *DiskClient) IOCounters() (map[string]disk.IOCountersStat, error) {
-	return disk.IOCounters()
-}
-
-func (d *DiskClient) Partitions(all bool) ([]disk.PartitionStat, error) {
-	return disk.Partitions(all)
-}
-
-func (d *DiskClient) GetDiskStats(path string) (*disk.UsageStat, error) {
-	return disk.Usage(path)
-}
 
 type Config struct {
 	DataBatch   config.DataBatchConfig   `validate:"required"`
@@ -129,7 +104,7 @@ type NodeStatsSummaryWriter interface {
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[BlockDeviceMetric]("storage_block_device_metrics"),
+		custommetrics.WithCollectionName[BlockDeviceMetric]("storage_block_device_metrics_v2"),
 		custommetrics.WithSkipTimestamp[BlockDeviceMetric](),
 	)
 }
@@ -137,7 +112,7 @@ func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (Bloc
 func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
 	return custommetrics.NewMetric[FilesystemMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics"),
+		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics_v2"),
 		custommetrics.WithSkipTimestamp[FilesystemMetric](),
 	)
 }
