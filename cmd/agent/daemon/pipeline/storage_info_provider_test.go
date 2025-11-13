@@ -20,7 +20,7 @@ func readProcDiskStatsFromPath(procPath string) (map[string]DiskStats, error) {
 		return nil, err
 	}
 
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	stats := make(map[string]DiskStats)
 
 	for _, line := range strings.Split(string(data), "\n") {

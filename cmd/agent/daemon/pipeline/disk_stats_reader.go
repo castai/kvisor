@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strconv"
@@ -37,16 +38,18 @@ const procDiskStatsPath = "/proc/diskstats"
 // readProcDiskStats reads and parses /proc/diskstats
 // Returns a map of device name -> DiskStats
 func readProcDiskStats() (map[string]DiskStats, error) {
-	data, err := os.ReadFile(procDiskStatsPath)
+	f, err := os.Open(procDiskStatsPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", procDiskStatsPath, err)
+		return nil, fmt.Errorf("failed to open %s: %w", procDiskStatsPath, err)
 	}
+	defer f.Close()
 
 	timestamp := time.Now()
 	stats := make(map[string]DiskStats)
 
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
 		if line == "" {
 			continue
 		}
@@ -125,6 +128,10 @@ func readProcDiskStats() (map[string]DiskStats, error) {
 			TimeInQueue:  timeInQueue,
 			Timestamp:    timestamp,
 		}
+	}
+
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("error scanning %s: %w", procDiskStatsPath, err)
 	}
 
 	return stats, nil

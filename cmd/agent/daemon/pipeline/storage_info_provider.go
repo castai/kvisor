@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"math"
@@ -662,15 +663,16 @@ func readMountInfo(mountInfoPath string) ([]mountInfo, error) {
 		mountInfoPath = "/proc/1/mountinfo"
 	}
 
-	data, err := os.ReadFile(mountInfoPath)
+	f, err := os.Open(mountInfoPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", mountInfoPath, err)
+		return nil, fmt.Errorf("failed to open %s: %w", mountInfoPath, err)
 	}
+	defer f.Close()
 
 	var mounts []mountInfo
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
 		if line == "" {
 			continue
 		}
@@ -683,6 +685,10 @@ func readMountInfo(mountInfoPath string) ([]mountInfo, error) {
 		if mount != nil {
 			mounts = append(mounts, *mount)
 		}
+	}
+
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("error scanning %s: %w", mountInfoPath, err)
 	}
 
 	return mounts, nil
