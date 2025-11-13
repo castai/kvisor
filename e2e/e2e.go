@@ -455,6 +455,10 @@ func (t *testCASTAIServer) UpdateSyncState(ctx context.Context, request *castaip
 	return &castaipb.UpdateSyncStateResponse{}, nil
 }
 
+func (t *testCASTAIServer) KubeNodeComponentsIngest(ctx context.Context, components *castaipb.KubeNodeComponents) (*castaipb.KubeNodeComponentsIngestResponse, error) {
+	return &castaipb.KubeNodeComponentsIngestResponse{}, nil
+}
+
 func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.GetConfigurationRequest) (*castaipb.GetConfigurationResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {

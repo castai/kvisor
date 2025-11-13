@@ -7,7 +7,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
-	"github.com/castai/kvisor/cmd/controller/controllers/nodeconfigscrapper"
+	"github.com/castai/kvisor/cmd/controller/controllers/nodecomponentscollector"
 	"github.com/castai/kvisor/pkg/castai"
 )
 
@@ -33,14 +33,14 @@ type Config struct {
 	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
 	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
 
-	CastaiController   controllers.CastaiConfig      `json:"castaiController"`
-	CastaiEnv          castai.Config                 `json:"castaiEnv"`
-	ImageScan          imagescan.Config              `json:"imageScan"`
-	Linter             kubelinter.Config             `json:"linter"`
-	KubeBench          kubebench.Config              `json:"kubeBench"`
-	NodeConfigScrapper nodeconfigscrapper.Config     `json:"nodeConfigScrapper"`
-	JobsCleanup        controllers.JobsCleanupConfig `json:"jobsCleanup"`
-	AgentConfig        AgentConfig                   `json:"agentConfig"`
+	CastaiController   controllers.CastaiConfig       `json:"castaiController"`
+	CastaiEnv          castai.Config                  `json:"castaiEnv"`
+	ImageScan          imagescan.Config               `json:"imageScan"`
+	Linter             kubelinter.Config              `json:"linter"`
+	KubeBench          kubebench.Config               `json:"kubeBench"`
+	NodeConfigScrapper nodecomponentscollector.Config `json:"nodeConfigScrapper"`
+	JobsCleanup        controllers.JobsCleanupConfig  `json:"jobsCleanup"`
+	AgentConfig        AgentConfig                    `json:"agentConfig"`
 }
 
 type AgentConfig struct {

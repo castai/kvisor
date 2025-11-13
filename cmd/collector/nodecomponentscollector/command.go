@@ -1,11 +1,11 @@
-package nodeconfigscrapper
+package nodecomponentscollector
 
 import (
 	"errors"
 	"fmt"
 	"os"
 
-	"github.com/castai/kvisor/cmd/linter/nodeconfigscrapper/config"
+	"github.com/castai/kvisor/cmd/collector/nodecomponentscollector/config"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -17,8 +17,8 @@ import (
 
 func NewRunCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "node-config-scrapper",
-		Short: "Run node configuration scrapper",
+		Use:   "run",
+		Short: "Run node components collector",
 		Run: func(cmd *cobra.Command, args []string) {
 			cfg, err := config.FromEnv()
 			if err != nil {
@@ -29,7 +29,7 @@ func NewRunCommand() *cobra.Command {
 			if err != nil {
 				exitWithError(fmt.Errorf("failed to initialize CAST AI client config: %w", err))
 			}
-			castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-node-config-scrapper/%s", version), castaiClientCfg)
+			castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-node-components-collector/%s", version), castaiClientCfg)
 			if err != nil {
 				exitWithError(err)
 			}
