@@ -21,6 +21,8 @@ service RuntimeSecurityAgentAPI {
   rpc ImageMetadataIngest(ImageMetadata) returns (ImageMetadataIngestResponse) {}
   rpc KubeBenchReportIngest(KubeBenchReport) returns (KubeBenchReportIngestResponse) {}
   rpc KubeLinterReportIngest(KubeLinterReport) returns (KubeLinterReportIngestResponse) {}
+
+  rpc KubeNodeComponentsIngest(KubeNodeComponents) returns (KubeNodeComponentsIngestResponse) {}
 }
 
 message WriteDataBatchRequest {
@@ -285,3 +287,63 @@ message ProcessTreeEvent {
   bool initial = 1;
   repeated ProcessEvent events = 2;
 }
+
+message KubeNodeComponents {
+  // The name of the node where components were collected
+  string node_name = 1;
+  // List of kubernetes components collected from the node
+  repeated NodeComponent components = 2;
+
+  message NodeComponent {
+    // Component identifier (e.g., kubelet, proxy)
+    ComponentName name = 1;
+    // Type of configuration
+    ConfigType config_type = 2;
+    // File metadata (path, permissions, ownership)
+    optional ConfigFile config_file = 3;
+    // Configuration content (source, content, hash)
+    optional ConfigData config_data = 4;
+  }
+
+  enum ComponentName {
+    COMPONENT_NAME_UNKNOWN = 0;
+    COMPONENT_NAME_KUBELET = 1;
+    COMPONENT_NAME_KUBERNETES = 2;
+    COMPONENT_NAME_PROXY = 3;
+  }
+
+  enum ConfigType {
+    CONFIG_TYPE_UNKNOWN = 0;
+    CONFIG_TYPE_CONF = 1;
+    CONFIG_TYPE_KUBECONFIG = 2;
+    CONFIG_TYPE_AZURE_JSON = 3;
+  }
+
+  message ConfigFile {
+    // Absolute path to the file on the node filesystem
+    string path = 1;
+    // File mode bits (type + permissions)
+    uint32 mode = 2;
+    // Owner user ID
+    uint32 uid = 3;
+    // Owner group ID
+    uint32 gid = 4;
+  }
+
+  message ConfigData {
+    // Source of the configuration data
+    ConfigSource source = 1;
+    // Raw configuration content
+    bytes content = 2;
+    // Hash of the configuration content
+    string hash = 3;
+  }
+
+  enum ConfigSource {
+    CONFIG_SOURCE_UNKNOWN = 0;
+    CONFIG_SOURCE_FILE = 1;
+    CONFIG_SOURCE_API = 2;
+  }
+}
+
+message KubeNodeComponentsIngestResponse {}
