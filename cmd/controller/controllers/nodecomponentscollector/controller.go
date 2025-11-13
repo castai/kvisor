@@ -1,4 +1,4 @@
-package nodeconfigscrapper
+package nodecomponentscollector
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castai/kvisor/cmd/controller/controllers/nodeconfigscrapper/spec"
+	"github.com/castai/kvisor/cmd/controller/controllers/nodecomponentscollector/spec"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/cenkalti/backoff/v5"
@@ -102,7 +102,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		case <-ticker.C:
 			err := c.process(ctx)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				c.log.Errorf("error scanning node configs: %v", err)
+				c.log.Errorf("run node components collector: %v", err)
 			}
 		}
 	}
@@ -123,8 +123,8 @@ func (c *Controller) process(ctx context.Context) (rerr error) {
 		return nil
 	}
 
-	c.log.Infof("processing node configs")
-	defer c.log.Info("processing node configs done")
+	c.log.Infof("processing node components collector")
+	defer c.log.Info("processing node components collector done")
 	var wg sync.WaitGroup
 	for _, n := range nodeJobs {
 		job := n
@@ -135,7 +135,7 @@ func (c *Controller) process(ctx context.Context) (rerr error) {
 			defer cancel()
 			err := c.scrapNodeConfigs(ctx, job.node)
 			if err != nil {
-				c.log.WithField("node", job.node.Name).Errorf("node configs: %v", err)
+				c.log.WithField("node", job.node.Name).Errorf("node components collector: %v", err)
 				job.setFailed()
 				return
 			}
@@ -152,7 +152,7 @@ func (c *Controller) RequiredInformers() []reflect.Type {
 }
 
 func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (rerr error) {
-	c.log.Debugf("starting config scraper job for node=%s", node.Name)
+	c.log.Debugf("starting node components collector job for node=%s", node.Name)
 	jobName := generateName(node.GetName())
 	err := c.deleteJob(ctx, jobName)
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -212,7 +212,7 @@ func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.N
 		Jobs(c.cfg.JobNamespace).
 		Create(ctx, jobSpec, metav1.CreateOptions{})
 	if err != nil {
-		c.log.Errorf("can not create kube-bench scan job: %v", err)
+		c.log.Errorf("can not create node components collector job: %v", err)
 		return nil, err
 	}
 	selector := labels.Set{labelJobName: job.Name}
@@ -237,7 +237,7 @@ func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.N
 			kubeBenchPod = &pods.Items[0]
 
 			if kubeBenchPod.Status.Phase == corev1.PodFailed {
-				return nil, backoff.Permanent(fmt.Errorf("kube-bench failed: %s", kubeBenchPod.Status.Message))
+				return nil, backoff.Permanent(fmt.Errorf("node components collector failed: %s", kubeBenchPod.Status.Message))
 			}
 
 			if kubeBenchPod.Status.Phase == corev1.PodSucceeded {

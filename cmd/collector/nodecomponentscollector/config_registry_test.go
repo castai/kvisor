@@ -1,4 +1,4 @@
-package nodeconfigscrapper
+package nodecomponentscollector
 
 import (
 	"slices"
