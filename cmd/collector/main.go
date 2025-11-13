@@ -4,21 +4,17 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/castai/kvisor/cmd/linter/kubebench"
+	"github.com/castai/kvisor/cmd/collector/nodecomponentscollector"
 	"github.com/spf13/cobra"
-)
-
-var (
-	Version = "local"
 )
 
 func main() {
 	root := cobra.Command{
-		Use: "kvisor-linter",
+		Use: "collector",
 	}
 
 	root.AddCommand(
-		kubebench.NewCommand(),
+		nodecomponentscollector.NewRunCommand(),
 	)
 
 	if err := root.Execute(); err != nil {
