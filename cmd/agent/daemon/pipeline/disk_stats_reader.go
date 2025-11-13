@@ -44,7 +44,7 @@ func readProcDiskStats() (map[string]DiskStats, error) {
 	}
 	defer f.Close()
 
-	timestamp := time.Now()
+	timestamp := time.Now().UTC()
 	stats := make(map[string]DiskStats)
 
 	sc := bufio.NewScanner(f)
