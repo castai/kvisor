@@ -9,12 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castai/kvisor/cmd/controller/controllers/nodecomponentscollector/spec"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/cenkalti/backoff/v5"
 	"github.com/samber/lo"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -153,7 +151,8 @@ func (c *Controller) RequiredInformers() []reflect.Type {
 
 func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (rerr error) {
 	c.log.Debugf("starting node components collector job for node=%s", node.Name)
-	jobName := generateName(node.GetName())
+	jobName := generateJobName(node.GetName())
+
 	err := c.deleteJob(ctx, jobName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		c.log.Errorf("can not delete job %q: %v", jobName, err)
@@ -194,10 +193,9 @@ func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (r
 
 // We are interested in job pod succeeding and not the Job
 func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
-	specFn := resolveSpec(c.cfg.CloudProvider, node)
-	jobSpec := specFn(node.GetName(), jobName)
+	jobSpec := generateJobSpec(node.GetName(), jobName)
 
-	// Set image.
+	// Set job image
 	imageDetails, err := c.kubeController.GetKvisorAgentImageDetails()
 	if err != nil {
 		return nil, fmt.Errorf("kvisor image details not found: %w", err)
@@ -281,28 +279,10 @@ func (c *Controller) waitJobDeleted(ctx context.Context, jobName string) error {
 	return err
 }
 
-func generateName(nodeName string) string {
+func generateJobName(nodeName string) string {
 	h := fnv.New32a()
 	h.Write([]byte(nodeName))
 	return fmt.Sprintf("castai-%s-%d", componentName, h.Sum32())
-}
-
-func resolveSpec(provider string, node *corev1.Node) func(nodeName, jobname string) *batchv1.Job {
-	switch provider {
-	case "gke":
-		return spec.GKE
-	case "aks":
-		return spec.AKS
-	case "eks":
-		return spec.EKS
-	default:
-		labels := node.GetLabels()
-		if _, ok := labels["node-role.kubernetes.io/control-plane"]; ok {
-			return spec.Master
-		}
-
-		return spec.Node
-	}
 }
 
 func isNodeReady(n *corev1.Node) bool {
