@@ -102,3 +102,8 @@ func (m *MockServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_Log
 		m.log.Debugf("log: %v", event)
 	}
 }
+
+func (m *MockServer) KubeNodeComponentsIngest(ctx context.Context, in *castaipb.KubeNodeComponents) (*castaipb.KubeNodeComponentsIngestResponse, error) {
+	m.log.Debugf("KubeNodeComponentsIngest: %v", in)
+	return &castaipb.KubeNodeComponentsIngestResponse{}, nil
+}
