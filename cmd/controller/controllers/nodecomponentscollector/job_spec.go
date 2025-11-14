@@ -1,4 +1,4 @@
-package spec
+package nodecomponentscollector
 
 import (
 	"github.com/samber/lo"
@@ -8,8 +8,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GKE(nodeName, jobName string) *batchv1.Job {
-	//https://raw.githubusercontent.com/aquasecurity/kube-bench/v0.6.9/job-gke.yaml
+const (
+	limitCPU   = "200m"
+	limitMem   = "128Mi"
+	requestCPU = "10m"
+	requestMem = "64Mi"
+)
+
+func generateJobSpec(nodeName, jobName string) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -18,7 +24,7 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 				"autoscaling.cast.ai/disposable": "true",
 			},
 			Labels: map[string]string{
-				"app":                          "kube-bench",
+				"app":                          "node-components-collector",
 				"app.kubernetes.io/managed-by": "castai",
 			},
 		},
@@ -49,10 +55,10 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 								},
 							},
 							Command: []string{
-								"/usr/local/bin/kvisor-linter",
+								"/usr/local/bin/kvisor-collector",
 							},
 							Args: []string{
-								"node-config-scrapper",
+								"run",
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -61,16 +67,6 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "var-lib-kubelet",
-									MountPath: "/var/lib/kubelet",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "etc-systemd",
-									MountPath: "/etc/systemd",
-									ReadOnly:  true,
-								},
 								{
 									Name:      "etc-kubernetes",
 									MountPath: "/etc/kubernetes",
@@ -81,26 +77,25 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 									MountPath: "/home/kubernetes",
 									ReadOnly:  true,
 								},
+								{
+									Name:      "var-lib-kubelet",
+									MountPath: "/var/lib/kubelet",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "etc-default-kubelet",
+									MountPath: "/etc/default/kubelet",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "var-snap-kubelet",
+									MountPath: "/var/snap/kubelet/",
+									ReadOnly:  true,
+								},
 							},
 						},
 					},
 					Volumes: []corev1.Volume{
-						{
-							Name: "var-lib-kubelet",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet",
-								},
-							},
-						},
-						{
-							Name: "etc-systemd",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/etc/systemd",
-								},
-							},
-						},
 						{
 							Name: "etc-kubernetes",
 							VolumeSource: corev1.VolumeSource{
@@ -114,6 +109,30 @@ func GKE(nodeName, jobName string) *batchv1.Job {
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
 									Path: "/home/kubernetes",
+								},
+							},
+						},
+						{
+							Name: "var-lib-kubelet",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet",
+								},
+							},
+						},
+						{
+							Name: "etc-default-kubelet",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/etc/default/kubelet",
+								},
+							},
+						},
+						{
+							Name: "var-snap-kubelet",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/snap/kubelet",
 								},
 							},
 						},
