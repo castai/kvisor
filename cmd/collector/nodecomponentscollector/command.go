@@ -50,7 +50,7 @@ func NewRunCommand() *cobra.Command {
 				exitWithError(errors.New("error parsing config rules"))
 			}
 
-			scrapper := NewScrapper(castaiClient.GRPC, clientset, configRegistry, cfg.NodeName)
+			scrapper := NewScrapper(castaiClient.GRPC, clientset, configRegistry, cfg.NodeId, cfg.NodeName)
 			err = scrapper.Run(cmd.Context())
 			if err != nil {
 				exitWithError(err)

@@ -21,6 +21,7 @@ type Scrapper struct {
 	castaiClient   castAIClient
 	configRegistry configRegistry
 	ks8Client      kubernetes.Interface
+	nodeId         string
 	nodeName       string
 }
 
@@ -32,8 +33,8 @@ type configRegistry interface {
 	GetConfigs(component castaipb.KubeNodeComponents_ComponentName) []Config
 }
 
-func NewScrapper(castaiClient castAIClient, ks8Client kubernetes.Interface, configRegistry configRegistry, nodeName string) *Scrapper {
-	return &Scrapper{castaiClient: castaiClient, configRegistry: configRegistry, ks8Client: ks8Client, nodeName: nodeName}
+func NewScrapper(castaiClient castAIClient, ks8Client kubernetes.Interface, configRegistry configRegistry, nodeId, nodeName string) *Scrapper {
+	return &Scrapper{castaiClient: castaiClient, configRegistry: configRegistry, ks8Client: ks8Client, nodeId: nodeId, nodeName: nodeName}
 }
 
 func (s *Scrapper) Run(ctx context.Context) error {
@@ -52,7 +53,9 @@ func (s *Scrapper) Run(ctx context.Context) error {
 
 // generateReport returns a report with config files for Kubernetes node components
 func (s *Scrapper) generateReport(ctx context.Context) (*castaipb.KubeNodeComponents, error) {
-	report := &castaipb.KubeNodeComponents{NodeName: s.nodeName}
+	report := &castaipb.KubeNodeComponents{
+		Node: &castaipb.KubeNodeComponents_Node{Id: s.nodeId, Name: s.nodeName},
+	}
 
 	// Kubernetes component
 	kubernetesComponent, err := s.getKubeNodeComponent(castaipb.KubeNodeComponents_COMPONENT_NAME_KUBERNETES)

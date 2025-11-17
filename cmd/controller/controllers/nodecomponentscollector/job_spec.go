@@ -15,7 +15,7 @@ const (
 	requestMem = "64Mi"
 )
 
-func generateJobSpec(nodeName, jobName string) *batchv1.Job {
+func generateJobSpec(nodeId, nodeName, jobName string) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,6 +61,10 @@ func generateJobSpec(nodeName, jobName string) *batchv1.Job {
 								"run",
 							},
 							Env: []corev1.EnvVar{
+								{
+									Name:  "NODE_ID",
+									Value: nodeId,
+								},
 								{
 									Name:  "NODE_NAME",
 									Value: nodeName,

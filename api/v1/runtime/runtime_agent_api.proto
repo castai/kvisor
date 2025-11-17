@@ -289,10 +289,17 @@ message ProcessTreeEvent {
 }
 
 message KubeNodeComponents {
-  // The name of the node where components were collected
-  string node_name = 1;
+  // The Kubernetes node where components were collected
+  Node node = 1;
   // List of kubernetes components collected from the node
   repeated NodeComponent components = 2;
+
+  message Node {
+    // The ID of the Kubernetes node
+    string id = 1;
+    // The name of the Kubernetes node
+    string name = 2;
+  }
 
   message NodeComponent {
     // Component identifier (e.g., kubelet, proxy)
