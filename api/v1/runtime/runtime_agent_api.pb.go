@@ -2771,8 +2771,8 @@ func (x *ProcessTreeEvent) GetEvents() []*ProcessEvent {
 
 type KubeNodeComponents struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the node where components were collected
-	NodeName string `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	// The Kubernetes node where components were collected
+	Node *KubeNodeComponents_Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// List of kubernetes components collected from the node
 	Components    []*KubeNodeComponents_NodeComponent `protobuf:"bytes,2,rep,name=components,proto3" json:"components,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2809,11 +2809,11 @@ func (*KubeNodeComponents) Descriptor() ([]byte, []int) {
 	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34}
 }
 
-func (x *KubeNodeComponents) GetNodeName() string {
+func (x *KubeNodeComponents) GetNode() *KubeNodeComponents_Node {
 	if x != nil {
-		return x.NodeName
+		return x.Node
 	}
-	return ""
+	return nil
 }
 
 func (x *KubeNodeComponents) GetComponents() []*KubeNodeComponents_NodeComponent {
@@ -2859,6 +2859,60 @@ func (*KubeNodeComponentsIngestResponse) Descriptor() ([]byte, []int) {
 	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{35}
 }
 
+type KubeNodeComponents_Node struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The ID of the Kubernetes node
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The name of the Kubernetes node
+	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KubeNodeComponents_Node) Reset() {
+	*x = KubeNodeComponents_Node{}
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KubeNodeComponents_Node) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KubeNodeComponents_Node) ProtoMessage() {}
+
+func (x *KubeNodeComponents_Node) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KubeNodeComponents_Node.ProtoReflect.Descriptor instead.
+func (*KubeNodeComponents_Node) Descriptor() ([]byte, []int) {
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 0}
+}
+
+func (x *KubeNodeComponents_Node) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *KubeNodeComponents_Node) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 type KubeNodeComponents_NodeComponent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Component identifier (e.g., kubelet, proxy)
@@ -2875,7 +2929,7 @@ type KubeNodeComponents_NodeComponent struct {
 
 func (x *KubeNodeComponents_NodeComponent) Reset() {
 	*x = KubeNodeComponents_NodeComponent{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2887,7 +2941,7 @@ func (x *KubeNodeComponents_NodeComponent) String() string {
 func (*KubeNodeComponents_NodeComponent) ProtoMessage() {}
 
 func (x *KubeNodeComponents_NodeComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2900,7 +2954,7 @@ func (x *KubeNodeComponents_NodeComponent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeNodeComponents_NodeComponent.ProtoReflect.Descriptor instead.
 func (*KubeNodeComponents_NodeComponent) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 0}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 1}
 }
 
 func (x *KubeNodeComponents_NodeComponent) GetName() KubeNodeComponents_ComponentName {
@@ -2947,7 +3001,7 @@ type KubeNodeComponents_ConfigFile struct {
 
 func (x *KubeNodeComponents_ConfigFile) Reset() {
 	*x = KubeNodeComponents_ConfigFile{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2959,7 +3013,7 @@ func (x *KubeNodeComponents_ConfigFile) String() string {
 func (*KubeNodeComponents_ConfigFile) ProtoMessage() {}
 
 func (x *KubeNodeComponents_ConfigFile) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2972,7 +3026,7 @@ func (x *KubeNodeComponents_ConfigFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeNodeComponents_ConfigFile.ProtoReflect.Descriptor instead.
 func (*KubeNodeComponents_ConfigFile) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 1}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 2}
 }
 
 func (x *KubeNodeComponents_ConfigFile) GetPath() string {
@@ -3017,7 +3071,7 @@ type KubeNodeComponents_ConfigData struct {
 
 func (x *KubeNodeComponents_ConfigData) Reset() {
 	*x = KubeNodeComponents_ConfigData{}
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[40]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3029,7 +3083,7 @@ func (x *KubeNodeComponents_ConfigData) String() string {
 func (*KubeNodeComponents_ConfigData) ProtoMessage() {}
 
 func (x *KubeNodeComponents_ConfigData) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[40]
+	mi := &file_api_v1_runtime_runtime_agent_api_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3042,7 +3096,7 @@ func (x *KubeNodeComponents_ConfigData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeNodeComponents_ConfigData.ProtoReflect.Descriptor instead.
 func (*KubeNodeComponents_ConfigData) Descriptor() ([]byte, []int) {
-	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 2}
+	return file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP(), []int{34, 3}
 }
 
 func (x *KubeNodeComponents_ConfigData) GetSource() KubeNodeComponents_ConfigSource {
@@ -3248,12 +3302,15 @@ const file_api_v1_runtime_runtime_agent_api_proto_rawDesc = "" +
 	"\x06action\x18\x04 \x01(\x0e2\x19.runtime.v1.ProcessActionR\x06action\"^\n" +
 	"\x10ProcessTreeEvent\x12\x18\n" +
 	"\ainitial\x18\x01 \x01(\bR\ainitial\x120\n" +
-	"\x06events\x18\x02 \x03(\v2\x18.runtime.v1.ProcessEventR\x06events\"\x8e\b\n" +
-	"\x12KubeNodeComponents\x12\x1b\n" +
-	"\tnode_name\x18\x01 \x01(\tR\bnodeName\x12L\n" +
+	"\x06events\x18\x02 \x03(\v2\x18.runtime.v1.ProcessEventR\x06events\"\xd6\b\n" +
+	"\x12KubeNodeComponents\x127\n" +
+	"\x04node\x18\x01 \x01(\v2#.runtime.v1.KubeNodeComponents.NodeR\x04node\x12L\n" +
 	"\n" +
 	"components\x18\x02 \x03(\v2,.runtime.v1.KubeNodeComponents.NodeComponentR\n" +
-	"components\x1a\xdf\x02\n" +
+	"components\x1a*\n" +
+	"\x04Node\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x1a\xdf\x02\n" +
 	"\rNodeComponent\x12@\n" +
 	"\x04name\x18\x01 \x01(\x0e2,.runtime.v1.KubeNodeComponents.ComponentNameR\x04name\x12J\n" +
 	"\vconfig_type\x18\x02 \x01(\x0e2).runtime.v1.KubeNodeComponents.ConfigTypeR\n" +
@@ -3353,7 +3410,7 @@ func file_api_v1_runtime_runtime_agent_api_proto_rawDescGZIP() []byte {
 }
 
 var file_api_v1_runtime_runtime_agent_api_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_api_v1_runtime_runtime_agent_api_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_api_v1_runtime_runtime_agent_api_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_api_v1_runtime_runtime_agent_api_proto_goTypes = []any{
 	(EventType)(0),                           // 0: runtime.v1.EventType
 	(WorkloadKind)(0),                        // 1: runtime.v1.WorkloadKind
@@ -3400,33 +3457,34 @@ var file_api_v1_runtime_runtime_agent_api_proto_goTypes = []any{
 	(*KubeNodeComponentsIngestResponse)(nil), // 42: runtime.v1.KubeNodeComponentsIngestResponse
 	nil,                                      // 43: runtime.v1.ContainerEvents.ObjectLabelsEntry
 	nil,                                      // 44: runtime.v1.ContainerEvents.ObjectAnnotationsEntry
-	(*KubeNodeComponents_NodeComponent)(nil), // 45: runtime.v1.KubeNodeComponents.NodeComponent
-	(*KubeNodeComponents_ConfigFile)(nil),    // 46: runtime.v1.KubeNodeComponents.ConfigFile
-	(*KubeNodeComponents_ConfigData)(nil),    // 47: runtime.v1.KubeNodeComponents.ConfigData
-	(*Netflow)(nil),                          // 48: runtime.v1.Netflow
-	(*Exec)(nil),                             // 49: runtime.v1.Exec
-	(*DNS)(nil),                              // 50: runtime.v1.DNS
-	(*File)(nil),                             // 51: runtime.v1.File
-	(*Tuple)(nil),                            // 52: runtime.v1.Tuple
-	(*SignatureEvent)(nil),                   // 53: runtime.v1.SignatureEvent
-	(*Any)(nil),                              // 54: runtime.v1.Any
-	(*StdioViaSocketFinding)(nil),            // 55: runtime.v1.StdioViaSocketFinding
-	(*SSHData)(nil),                          // 56: runtime.v1.SSHData
-	(*ProcessFork)(nil),                      // 57: runtime.v1.ProcessFork
-	(*ProcessExit)(nil),                      // 58: runtime.v1.ProcessExit
-	(*CpuStats)(nil),                         // 59: runtime.v1.CpuStats
-	(*MemoryStats)(nil),                      // 60: runtime.v1.MemoryStats
-	(*PidsStats)(nil),                        // 61: runtime.v1.PidsStats
-	(*IOStats)(nil),                          // 62: runtime.v1.IOStats
-	(*timestamppb.Timestamp)(nil),            // 63: google.protobuf.Timestamp
-	(*LogEvent)(nil),                         // 64: runtime.v1.LogEvent
+	(*KubeNodeComponents_Node)(nil),          // 45: runtime.v1.KubeNodeComponents.Node
+	(*KubeNodeComponents_NodeComponent)(nil), // 46: runtime.v1.KubeNodeComponents.NodeComponent
+	(*KubeNodeComponents_ConfigFile)(nil),    // 47: runtime.v1.KubeNodeComponents.ConfigFile
+	(*KubeNodeComponents_ConfigData)(nil),    // 48: runtime.v1.KubeNodeComponents.ConfigData
+	(*Netflow)(nil),                          // 49: runtime.v1.Netflow
+	(*Exec)(nil),                             // 50: runtime.v1.Exec
+	(*DNS)(nil),                              // 51: runtime.v1.DNS
+	(*File)(nil),                             // 52: runtime.v1.File
+	(*Tuple)(nil),                            // 53: runtime.v1.Tuple
+	(*SignatureEvent)(nil),                   // 54: runtime.v1.SignatureEvent
+	(*Any)(nil),                              // 55: runtime.v1.Any
+	(*StdioViaSocketFinding)(nil),            // 56: runtime.v1.StdioViaSocketFinding
+	(*SSHData)(nil),                          // 57: runtime.v1.SSHData
+	(*ProcessFork)(nil),                      // 58: runtime.v1.ProcessFork
+	(*ProcessExit)(nil),                      // 59: runtime.v1.ProcessExit
+	(*CpuStats)(nil),                         // 60: runtime.v1.CpuStats
+	(*MemoryStats)(nil),                      // 61: runtime.v1.MemoryStats
+	(*PidsStats)(nil),                        // 62: runtime.v1.PidsStats
+	(*IOStats)(nil),                          // 63: runtime.v1.IOStats
+	(*timestamppb.Timestamp)(nil),            // 64: google.protobuf.Timestamp
+	(*LogEvent)(nil),                         // 65: runtime.v1.LogEvent
 }
 var file_api_v1_runtime_runtime_agent_api_proto_depIdxs = []int32{
 	9,  // 0: runtime.v1.WriteDataBatchRequest.items:type_name -> runtime.v1.DataBatchItem
 	18, // 1: runtime.v1.DataBatchItem.container_stats:type_name -> runtime.v1.ContainerStats
 	20, // 2: runtime.v1.DataBatchItem.node_stats:type_name -> runtime.v1.NodeStats
 	14, // 3: runtime.v1.DataBatchItem.container_events:type_name -> runtime.v1.ContainerEvents
-	48, // 4: runtime.v1.DataBatchItem.netflow:type_name -> runtime.v1.Netflow
+	49, // 4: runtime.v1.DataBatchItem.netflow:type_name -> runtime.v1.Netflow
 	40, // 5: runtime.v1.DataBatchItem.process_tree:type_name -> runtime.v1.ProcessTreeEvent
 	12, // 6: runtime.v1.GetConfigurationResponse.config:type_name -> runtime.v1.Configuration
 	1,  // 7: runtime.v1.ContainerEvents.workload_kind:type_name -> runtime.v1.WorkloadKind
@@ -3434,25 +3492,25 @@ var file_api_v1_runtime_runtime_agent_api_proto_depIdxs = []int32{
 	44, // 9: runtime.v1.ContainerEvents.object_annotations:type_name -> runtime.v1.ContainerEvents.ObjectAnnotationsEntry
 	15, // 10: runtime.v1.ContainerEvents.items:type_name -> runtime.v1.ContainerEvent
 	0,  // 11: runtime.v1.ContainerEvent.event_type:type_name -> runtime.v1.EventType
-	49, // 12: runtime.v1.ContainerEvent.exec:type_name -> runtime.v1.Exec
-	50, // 13: runtime.v1.ContainerEvent.dns:type_name -> runtime.v1.DNS
-	51, // 14: runtime.v1.ContainerEvent.file:type_name -> runtime.v1.File
-	52, // 15: runtime.v1.ContainerEvent.tuple:type_name -> runtime.v1.Tuple
-	53, // 16: runtime.v1.ContainerEvent.signature:type_name -> runtime.v1.SignatureEvent
-	54, // 17: runtime.v1.ContainerEvent.any:type_name -> runtime.v1.Any
-	55, // 18: runtime.v1.ContainerEvent.stdio_via_socket:type_name -> runtime.v1.StdioViaSocketFinding
-	56, // 19: runtime.v1.ContainerEvent.ssh:type_name -> runtime.v1.SSHData
-	57, // 20: runtime.v1.ContainerEvent.process_fork:type_name -> runtime.v1.ProcessFork
-	58, // 21: runtime.v1.ContainerEvent.process_exit:type_name -> runtime.v1.ProcessExit
-	59, // 22: runtime.v1.ContainerStats.cpu_stats:type_name -> runtime.v1.CpuStats
-	60, // 23: runtime.v1.ContainerStats.memory_stats:type_name -> runtime.v1.MemoryStats
-	61, // 24: runtime.v1.ContainerStats.pids_stats:type_name -> runtime.v1.PidsStats
-	62, // 25: runtime.v1.ContainerStats.io_stats:type_name -> runtime.v1.IOStats
+	50, // 12: runtime.v1.ContainerEvent.exec:type_name -> runtime.v1.Exec
+	51, // 13: runtime.v1.ContainerEvent.dns:type_name -> runtime.v1.DNS
+	52, // 14: runtime.v1.ContainerEvent.file:type_name -> runtime.v1.File
+	53, // 15: runtime.v1.ContainerEvent.tuple:type_name -> runtime.v1.Tuple
+	54, // 16: runtime.v1.ContainerEvent.signature:type_name -> runtime.v1.SignatureEvent
+	55, // 17: runtime.v1.ContainerEvent.any:type_name -> runtime.v1.Any
+	56, // 18: runtime.v1.ContainerEvent.stdio_via_socket:type_name -> runtime.v1.StdioViaSocketFinding
+	57, // 19: runtime.v1.ContainerEvent.ssh:type_name -> runtime.v1.SSHData
+	58, // 20: runtime.v1.ContainerEvent.process_fork:type_name -> runtime.v1.ProcessFork
+	59, // 21: runtime.v1.ContainerEvent.process_exit:type_name -> runtime.v1.ProcessExit
+	60, // 22: runtime.v1.ContainerStats.cpu_stats:type_name -> runtime.v1.CpuStats
+	61, // 23: runtime.v1.ContainerStats.memory_stats:type_name -> runtime.v1.MemoryStats
+	62, // 24: runtime.v1.ContainerStats.pids_stats:type_name -> runtime.v1.PidsStats
+	63, // 25: runtime.v1.ContainerStats.io_stats:type_name -> runtime.v1.IOStats
 	19, // 26: runtime.v1.ContainerStats.files_access_stats:type_name -> runtime.v1.FilesAccessStats
-	59, // 27: runtime.v1.NodeStats.cpu_stats:type_name -> runtime.v1.CpuStats
-	60, // 28: runtime.v1.NodeStats.memory_stats:type_name -> runtime.v1.MemoryStats
-	62, // 29: runtime.v1.NodeStats.io_stats:type_name -> runtime.v1.IOStats
-	63, // 30: runtime.v1.ImageMetadata.created_at:type_name -> google.protobuf.Timestamp
+	60, // 27: runtime.v1.NodeStats.cpu_stats:type_name -> runtime.v1.CpuStats
+	61, // 28: runtime.v1.NodeStats.memory_stats:type_name -> runtime.v1.MemoryStats
+	63, // 29: runtime.v1.NodeStats.io_stats:type_name -> runtime.v1.IOStats
+	64, // 30: runtime.v1.ImageMetadata.created_at:type_name -> google.protobuf.Timestamp
 	25, // 31: runtime.v1.GetSyncStateResponse.images:type_name -> runtime.v1.ImagesSyncState
 	26, // 32: runtime.v1.ImagesSyncState.images:type_name -> runtime.v1.Image
 	2,  // 33: runtime.v1.Image.scan_status:type_name -> runtime.v1.ImageScanStatus
@@ -3465,35 +3523,36 @@ var file_api_v1_runtime_runtime_agent_api_proto_depIdxs = []int32{
 	38, // 40: runtime.v1.ProcessEvent.process:type_name -> runtime.v1.Process
 	3,  // 41: runtime.v1.ProcessEvent.action:type_name -> runtime.v1.ProcessAction
 	39, // 42: runtime.v1.ProcessTreeEvent.events:type_name -> runtime.v1.ProcessEvent
-	45, // 43: runtime.v1.KubeNodeComponents.components:type_name -> runtime.v1.KubeNodeComponents.NodeComponent
-	4,  // 44: runtime.v1.KubeNodeComponents.NodeComponent.name:type_name -> runtime.v1.KubeNodeComponents.ComponentName
-	5,  // 45: runtime.v1.KubeNodeComponents.NodeComponent.config_type:type_name -> runtime.v1.KubeNodeComponents.ConfigType
-	46, // 46: runtime.v1.KubeNodeComponents.NodeComponent.config_file:type_name -> runtime.v1.KubeNodeComponents.ConfigFile
-	47, // 47: runtime.v1.KubeNodeComponents.NodeComponent.config_data:type_name -> runtime.v1.KubeNodeComponents.ConfigData
-	6,  // 48: runtime.v1.KubeNodeComponents.ConfigData.source:type_name -> runtime.v1.KubeNodeComponents.ConfigSource
-	10, // 49: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:input_type -> runtime.v1.GetConfigurationRequest
-	64, // 50: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:input_type -> runtime.v1.LogEvent
-	7,  // 51: runtime.v1.RuntimeSecurityAgentAPI.WriteDataBatch:input_type -> runtime.v1.WriteDataBatchRequest
-	23, // 52: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:input_type -> runtime.v1.GetSyncStateRequest
-	27, // 53: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:input_type -> runtime.v1.UpdateSyncStateRequest
-	21, // 54: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:input_type -> runtime.v1.ImageMetadata
-	29, // 55: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:input_type -> runtime.v1.KubeBenchReport
-	35, // 56: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:input_type -> runtime.v1.KubeLinterReport
-	41, // 57: runtime.v1.RuntimeSecurityAgentAPI.KubeNodeComponentsIngest:input_type -> runtime.v1.KubeNodeComponents
-	11, // 58: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:output_type -> runtime.v1.GetConfigurationResponse
-	16, // 59: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:output_type -> runtime.v1.WriteStreamResponse
-	8,  // 60: runtime.v1.RuntimeSecurityAgentAPI.WriteDataBatch:output_type -> runtime.v1.WriteDataBatchResponse
-	24, // 61: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:output_type -> runtime.v1.GetSyncStateResponse
-	28, // 62: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:output_type -> runtime.v1.UpdateSyncStateResponse
-	22, // 63: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:output_type -> runtime.v1.ImageMetadataIngestResponse
-	30, // 64: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:output_type -> runtime.v1.KubeBenchReportIngestResponse
-	36, // 65: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:output_type -> runtime.v1.KubeLinterReportIngestResponse
-	42, // 66: runtime.v1.RuntimeSecurityAgentAPI.KubeNodeComponentsIngest:output_type -> runtime.v1.KubeNodeComponentsIngestResponse
-	58, // [58:67] is the sub-list for method output_type
-	49, // [49:58] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	45, // 43: runtime.v1.KubeNodeComponents.node:type_name -> runtime.v1.KubeNodeComponents.Node
+	46, // 44: runtime.v1.KubeNodeComponents.components:type_name -> runtime.v1.KubeNodeComponents.NodeComponent
+	4,  // 45: runtime.v1.KubeNodeComponents.NodeComponent.name:type_name -> runtime.v1.KubeNodeComponents.ComponentName
+	5,  // 46: runtime.v1.KubeNodeComponents.NodeComponent.config_type:type_name -> runtime.v1.KubeNodeComponents.ConfigType
+	47, // 47: runtime.v1.KubeNodeComponents.NodeComponent.config_file:type_name -> runtime.v1.KubeNodeComponents.ConfigFile
+	48, // 48: runtime.v1.KubeNodeComponents.NodeComponent.config_data:type_name -> runtime.v1.KubeNodeComponents.ConfigData
+	6,  // 49: runtime.v1.KubeNodeComponents.ConfigData.source:type_name -> runtime.v1.KubeNodeComponents.ConfigSource
+	10, // 50: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:input_type -> runtime.v1.GetConfigurationRequest
+	65, // 51: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:input_type -> runtime.v1.LogEvent
+	7,  // 52: runtime.v1.RuntimeSecurityAgentAPI.WriteDataBatch:input_type -> runtime.v1.WriteDataBatchRequest
+	23, // 53: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:input_type -> runtime.v1.GetSyncStateRequest
+	27, // 54: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:input_type -> runtime.v1.UpdateSyncStateRequest
+	21, // 55: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:input_type -> runtime.v1.ImageMetadata
+	29, // 56: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:input_type -> runtime.v1.KubeBenchReport
+	35, // 57: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:input_type -> runtime.v1.KubeLinterReport
+	41, // 58: runtime.v1.RuntimeSecurityAgentAPI.KubeNodeComponentsIngest:input_type -> runtime.v1.KubeNodeComponents
+	11, // 59: runtime.v1.RuntimeSecurityAgentAPI.GetConfiguration:output_type -> runtime.v1.GetConfigurationResponse
+	16, // 60: runtime.v1.RuntimeSecurityAgentAPI.LogsWriteStream:output_type -> runtime.v1.WriteStreamResponse
+	8,  // 61: runtime.v1.RuntimeSecurityAgentAPI.WriteDataBatch:output_type -> runtime.v1.WriteDataBatchResponse
+	24, // 62: runtime.v1.RuntimeSecurityAgentAPI.GetSyncState:output_type -> runtime.v1.GetSyncStateResponse
+	28, // 63: runtime.v1.RuntimeSecurityAgentAPI.UpdateSyncState:output_type -> runtime.v1.UpdateSyncStateResponse
+	22, // 64: runtime.v1.RuntimeSecurityAgentAPI.ImageMetadataIngest:output_type -> runtime.v1.ImageMetadataIngestResponse
+	30, // 65: runtime.v1.RuntimeSecurityAgentAPI.KubeBenchReportIngest:output_type -> runtime.v1.KubeBenchReportIngestResponse
+	36, // 66: runtime.v1.RuntimeSecurityAgentAPI.KubeLinterReportIngest:output_type -> runtime.v1.KubeLinterReportIngestResponse
+	42, // 67: runtime.v1.RuntimeSecurityAgentAPI.KubeNodeComponentsIngest:output_type -> runtime.v1.KubeNodeComponentsIngestResponse
+	59, // [59:68] is the sub-list for method output_type
+	50, // [50:59] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_runtime_runtime_agent_api_proto_init() }
@@ -3525,14 +3584,14 @@ func file_api_v1_runtime_runtime_agent_api_proto_init() {
 		(*ContainerEvent_ProcessFork)(nil),
 		(*ContainerEvent_ProcessExit)(nil),
 	}
-	file_api_v1_runtime_runtime_agent_api_proto_msgTypes[38].OneofWrappers = []any{}
+	file_api_v1_runtime_runtime_agent_api_proto_msgTypes[39].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_runtime_runtime_agent_api_proto_rawDesc), len(file_api_v1_runtime_runtime_agent_api_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   41,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

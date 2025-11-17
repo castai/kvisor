@@ -6,6 +6,7 @@ import (
 
 type Config struct {
 	CastaiGRPCInsecure bool   `envconfig:"CASTAI_GRPC_INSECURE"`
+	NodeId             string `envconfig:"NODE_ID"`
 	NodeName           string `envconfig:"NODE_NAME"`
 	Kubeconfig         string `envconfig:"KUBECONFIG"`
 }

@@ -193,7 +193,7 @@ func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (r
 
 // We are interested in job pod succeeding and not the Job
 func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
-	jobSpec := generateJobSpec(node.GetName(), jobName)
+	jobSpec := generateJobSpec(string(node.GetUID()), node.GetName(), jobName)
 
 	// Set job image
 	imageDetails, err := c.kubeController.GetKvisorAgentImageDetails()

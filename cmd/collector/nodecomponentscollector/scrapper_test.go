@@ -12,7 +12,7 @@ import (
 
 func TestScrapper(t *testing.T) {
 	clientset := fake.NewClientset()
-	scrapper := NewScrapper(&mockCastaiClient{}, clientset, &mockConfigRegistry{}, "test-node")
+	scrapper := NewScrapper(&mockCastaiClient{}, clientset, &mockConfigRegistry{}, "test-id", "test-node")
 
 	t.Run("get node component", func(t *testing.T) {
 		r := require.New(t)
