@@ -24,7 +24,7 @@ const (
 	nodeScanTimeout   = 5 * time.Minute
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 1
-	componentName     = "node-config-scrapper"
+	componentName     = "node-components-collector"
 )
 
 type kubeController interface {
@@ -33,11 +33,9 @@ type kubeController interface {
 
 type Config struct {
 	Enabled            bool          `json:"enabled"`
-	Force              bool          `json:"force"`
 	ScanInterval       time.Duration `validate:"required" json:"scanInterval"`
-	JobImagePullPolicy string        `json:"jobImagePullPolicy"`
-	CloudProvider      string        `json:"cloudProvider"`
-	JobNamespace       string        `json:"jobNamespace"`
+	ServiceAccountName string        `validate:"required" json:"serviceAccount"`
+	JobNamespace       string        `validate:"required" json:"jobNamespace"`
 }
 
 func NewController(
@@ -193,7 +191,7 @@ func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (r
 
 // We are interested in job pod succeeding and not the Job
 func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
-	jobSpec := generateJobSpec(string(node.GetUID()), node.GetName(), jobName)
+	jobSpec := generateJobSpec(string(node.GetUID()), node.GetName(), jobName, c.cfg.ServiceAccountName)
 
 	// Set job image
 	imageDetails, err := c.kubeController.GetKvisorAgentImageDetails()
@@ -202,7 +200,7 @@ func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.N
 	}
 	cont := jobSpec.Spec.Template.Spec.Containers[0]
 	cont.Image = imageDetails.ScannerImageName
-	cont.ImagePullPolicy = corev1.PullPolicy(c.cfg.JobImagePullPolicy)
+	cont.ImagePullPolicy = corev1.PullIfNotPresent
 	jobSpec.Spec.Template.Spec.Containers[0] = cont
 	jobSpec.Spec.Template.Spec.ImagePullSecrets = imageDetails.ImagePullSecrets
 

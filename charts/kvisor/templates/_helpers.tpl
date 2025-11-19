@@ -207,6 +207,19 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ include "kvisor.labels" . }}
 {{- end }}
 
+Common helpers for castai-kvisor-node-components-collector.
+*/}}
+{{- define "kvisor.nodeComponentsCollector.fullname" -}}
+{{ include "kvisor.fullname" . }}-node-collector
+{{- end }}
+
+{{- define "kvisor.nodeComponentsCollector.serviceAccountName" -}}
+{{ include "kvisor.nodeComponentsCollector.fullname" . }}
+{{- end }}
+
+{{- define "kvisor.nodeComponentsCollector.labels" -}}
+{{ include "kvisor.labels" . }}
+{{- end }}
 
 {{/*
 Agent container security context with conditional capabilities.

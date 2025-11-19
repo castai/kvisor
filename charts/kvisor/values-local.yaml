@@ -93,3 +93,6 @@ clickhouse:
     database: "kvisor"
     username: "kvisor"
     password: "kvisor"
+
+nodeComponentsCollector:
+  enabled: true

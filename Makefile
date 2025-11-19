@@ -173,6 +173,20 @@ clean-kvisor-linter:
 #
 	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-linter-$(GO_ARCH)
 
+# Node collector build
+.PHONY: kvisor-node-collector
+kvisor-node-collector: $(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH)
+
+$(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH): \
+#
+	$(CMD_GO) build -v -o $@ ./cmd/collector/
+
+.PHONY: clean-kvisor-node-collector
+clean-kvisor-node-collector:
+#
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH)
+
+
 GO_ENV_SERVER =
 GO_ENV_SERVER += GOOS=linux
 GO_ENV_SERVER += GOARCH=$(GO_ARCH)
