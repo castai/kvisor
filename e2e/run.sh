@@ -35,6 +35,10 @@ then
   GOOS=linux CGO_ENABLED=0 make clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kvisor-linter
   docker build . -t $name-scanners:local --build-arg TARGETARCH=$GOARCH -f Dockerfile.scanners
   kind load docker-image $name-scanners:local --name $KIND_CONTEXT
+
+  GOOS=linux CGO_ENABLED=0 make clean-kvisor-node-collector kvisor-node-collector
+  docker build . -t $name-node-collector:local --build-arg TARGETARCH=$GOARCH -f Dockerfile.node-collector
+  kind load docker-image $name-node-collector:local --name $KIND_CONTEXT
 fi
 
 ns="$name-e2e"

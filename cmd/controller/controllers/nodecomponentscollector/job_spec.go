@@ -15,7 +15,7 @@ const (
 	requestMem = "64Mi"
 )
 
-func generateJobSpec(nodeId, nodeName, jobName string) *batchv1.Job {
+func generateJobSpec(nodeId, nodeName, jobName, serviceAccountName string) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -35,6 +35,7 @@ func generateJobSpec(nodeId, nodeName, jobName string) *batchv1.Job {
 					HostPID:                      true,
 					NodeName:                     nodeName,
 					RestartPolicy:                "Never",
+					ServiceAccountName:           serviceAccountName,
 					AutomountServiceAccountToken: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{

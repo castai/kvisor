@@ -154,7 +154,7 @@ func (a *App) Run(ctx context.Context) error {
 				return kubeBenchCtrl.Run(ctx)
 			})
 
-			nodeConfigScrapperCtrl := nodecomponentscollector.NewController(log, clientset, a.cfg.NodeConfigScrapper)
+			nodeConfigScrapperCtrl := nodecomponentscollector.NewController(log, clientset, a.cfg.NodeComponentsCollector)
 			kubeClient.RegisterKubernetesChangeListener(nodeConfigScrapperCtrl)
 			errg.Go(func() error {
 				return nodeConfigScrapperCtrl.Run(ctx)
