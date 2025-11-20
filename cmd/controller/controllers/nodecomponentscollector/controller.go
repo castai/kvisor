@@ -89,6 +89,15 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.log.Info("running")
 	defer c.log.Infof("stopping")
 
+	// add existing nodes
+	nodes, err := c.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list nodes: %w", err)
+	}
+	for _, node := range nodes.Items {
+		c.OnAdd(&node)
+	}
+
 	ticker := time.NewTicker(c.cfg.ScanInterval)
 	defer ticker.Stop()
 	for {
