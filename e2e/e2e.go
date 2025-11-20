@@ -1465,7 +1465,7 @@ func (t *testCASTAIServer) assertNodeComponents(ctx context.Context) error {
 			if len(components) > 0 {
 				comp := components[0]
 				r.NotEmpty(comp.Node.Name)
-				r.Greater(len(comp.Components), 0)
+				r.NotEmpty(comp.Components)
 
 				return r.error()
 			}
