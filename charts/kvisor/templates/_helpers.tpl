@@ -208,6 +208,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 
+{{/*
+Common helpers for castai-kvisor-node-components-collector.
+*/}}
+{{- define "kvisor.nodeComponentsCollector.fullname" -}}
+{{ include "kvisor.fullname" . }}-node-collector
+{{- end }}
+
+{{- define "kvisor.nodeComponentsCollector.serviceAccountName" -}}
+{{ include "kvisor.nodeComponentsCollector.fullname" . }}
+{{- end }}
+
+{{- define "kvisor.nodeComponentsCollector.labels" -}}
+{{ include "kvisor.labels" . }}
+{{- end }}
+
+
 {{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}
 {{- define "GOMEMLIMITEnv" -}}
 {{- $memory := . -}}

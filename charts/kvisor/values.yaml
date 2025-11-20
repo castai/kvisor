@@ -263,3 +263,6 @@ clickhouse:
   persistentVolume:
     size: 20Gi
     #storageClass: premium-rwo
+
+nodeComponentsCollector:
+  enabled: true

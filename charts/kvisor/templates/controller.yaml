@@ -97,6 +97,10 @@ spec:
             - name: {{ $key }}
               value: {{ $value }}
           {{- end }}
+          {{- if .Values.nodeComponentsCollector.enabled }}
+            - name: NODE_COMPONENTS_COLLECTOR_SA
+              value: {{ include "kvisor.nodeComponentsCollector.serviceAccountName" . }}
+          {{- end }}
           envFrom:
           {{- with .Values.controller.envFrom }}
             {{- toYaml . | nindent 12 }}
