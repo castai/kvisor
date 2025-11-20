@@ -180,6 +180,12 @@ func run(ctx context.Context) error {
 	srv.storageMetricsAsserted = true
 	srv.storageMetrics = nil
 
+	fmt.Println("🙏waiting for node components")
+	if err := srv.assertNodeComponents(ctx); err != nil {
+		return fmt.Errorf("assert node components: %w", err)
+	}
+	srv.nodeComponents = nil
+
 	fmt.Println("🙏waiting for flogs")
 	if err := srv.assertLogs(ctx); err != nil {
 		return fmt.Errorf("assert logs: %w", err)
@@ -275,6 +281,8 @@ type testCASTAIServer struct {
 
 	storageMetrics         map[string][]StorageMetricsBatch
 	storageMetricsAsserted bool
+
+	nodeComponents []*castaipb.KubeNodeComponents
 }
 
 func (t *testCASTAIServer) WriteDataBatch(ctx context.Context, req *castaipb.WriteDataBatchRequest) (*castaipb.WriteDataBatchResponse, error) {
@@ -456,6 +464,11 @@ func (t *testCASTAIServer) UpdateSyncState(ctx context.Context, request *castaip
 }
 
 func (t *testCASTAIServer) KubeNodeComponentsIngest(ctx context.Context, components *castaipb.KubeNodeComponents) (*castaipb.KubeNodeComponentsIngestResponse, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.nodeComponents = append(t.nodeComponents, components)
+
 	return &castaipb.KubeNodeComponentsIngestResponse{}, nil
 }
 
@@ -1426,6 +1439,33 @@ func (t *testCASTAIServer) assertProcessTree(ctx context.Context) error {
 				r.NotEmpty(e1.Process.Filepath)
 				r.NotEmpty(e1.Process.Ppid)
 				r.NotEmpty(e1.Process.StartTime)
+
+				return r.error()
+			}
+		}
+	}
+}
+
+func (t *testCASTAIServer) assertNodeComponents(ctx context.Context) error {
+	timeout := time.After(10 * time.Second)
+
+	r := newAssertions()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received node components")
+		case <-time.After(1 * time.Second):
+			t.mu.Lock()
+			components := slices.Clone(t.nodeComponents)
+			t.mu.Unlock()
+
+			if len(components) > 0 {
+				comp := components[0]
+				r.NotEmpty(comp.Node.Name)
+				r.Greater(len(comp.Components), 0)
 
 				return r.error()
 			}
