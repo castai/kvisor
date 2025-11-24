@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/cmd/controller/kube"
+	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/cenkalti/backoff/v5"
 	"github.com/samber/lo"
@@ -42,11 +43,13 @@ func NewController(
 	log *logging.Logger,
 	client kubernetes.Interface,
 	cfg Config,
+	castaiCfg castai.Config,
 ) *Controller {
 	return &Controller{
 		log:                           log.WithField("component", componentName),
 		client:                        client,
 		cfg:                           cfg,
+		castAIConfig:                  castaiCfg,
 		nodes:                         newDeltaState(),
 		finishedJobDeleteWaitDuration: 10 * time.Second,
 	}
@@ -56,6 +59,7 @@ type Controller struct {
 	log                           *logging.Logger
 	client                        kubernetes.Interface
 	cfg                           Config
+	castAIConfig                  castai.Config
 	nodes                         *nodeDeltaState
 	kubeController                kubeController
 	finishedJobDeleteWaitDuration time.Duration
@@ -200,7 +204,7 @@ func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (r
 
 // We are interested in job pod succeeding and not the Job
 func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
-	jobSpec := generateJobSpec(string(node.GetUID()), node.GetName(), jobName, c.cfg.ServiceAccountName)
+	jobSpec := generateJobSpec(c.castAIConfig, jobName, string(node.GetUID()), node.GetName(), c.cfg.ServiceAccountName)
 
 	// Set job image
 	imageDetails, err := c.kubeController.GetKvisorAgentImageDetails()

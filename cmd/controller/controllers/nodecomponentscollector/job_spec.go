@@ -1,6 +1,7 @@
 package nodecomponentscollector
 
 import (
+	"github.com/castai/kvisor/pkg/castai"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +16,12 @@ const (
 	requestMem = "64Mi"
 )
 
-func generateJobSpec(nodeId, nodeName, jobName, serviceAccountName string) *batchv1.Job {
+func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccountName string) *batchv1.Job {
+	insecureValue := "false"
+	if cfg.Insecure {
+		insecureValue = "true"
+	}
+
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -63,12 +69,33 @@ func generateJobSpec(nodeId, nodeName, jobName, serviceAccountName string) *batc
 							},
 							Env: []corev1.EnvVar{
 								{
+									Name:  "CASTAI_API_GRPC_ADDR",
+									Value: cfg.APIGrpcAddr,
+								},
+								{
+									Name:  "CLUSTER_ID",
+									Value: cfg.ClusterID,
+								},
+								{
+									Name:  "INSECURE",
+									Value: insecureValue,
+								},
+								{
 									Name:  "NODE_ID",
 									Value: nodeId,
 								},
 								{
 									Name:  "NODE_NAME",
 									Value: nodeName,
+								},
+							},
+							EnvFrom: []corev1.EnvFromSource{
+								{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "castai-kvisor",
+										},
+									},
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
