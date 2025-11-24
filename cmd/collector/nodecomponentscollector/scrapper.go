@@ -3,7 +3,6 @@ package nodecomponentscollector
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -132,19 +131,15 @@ func (s *Scrapper) getNodeConfigData(ctx context.Context) (*castaipb.KubeNodeCom
 		return nil, fmt.Errorf("getting node config content: %w", err)
 	}
 
-	// encoding JSON API response
-	var encodedContent []byte
-	base64.StdEncoding.Encode(encodedContent, content)
-
 	// calculate content hash
 	d := sha256.New()
-	_, err = d.Write(encodedContent)
+	_, err = d.Write(content)
 	if err != nil {
 		return nil, fmt.Errorf("calculating content hash: %w", err)
 	}
 
 	return &castaipb.KubeNodeComponents_ConfigData{
-		Content: encodedContent,
+		Content: content,
 		Hash:    fmt.Sprintf("sha256:%s", hex.EncodeToString(d.Sum(nil))),
 		Source:  castaipb.KubeNodeComponents_CONFIG_SOURCE_API,
 	}, nil
