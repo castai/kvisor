@@ -91,6 +91,9 @@ jobs:
       - name: Build linter go binary arm64
         run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-linter
 
+      - name: Build node collector go binary arm64
+        run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-node-collector
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
 

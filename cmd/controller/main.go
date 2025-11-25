@@ -14,6 +14,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
+	"github.com/castai/kvisor/cmd/controller/controllers/nodecomponentscollector"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -80,6 +81,9 @@ var (
 
 	jobsCleanupInterval = pflag.Duration("jobs-cleanup", 10*time.Minute, "Jobs cleanup interval")
 	jobsCleanupJobAge   = pflag.Duration("jobs-cleanup-job-age", 10*time.Minute, "Jobs cleanup job age")
+
+	nodeCollectorScanInterval   = pflag.Duration("node-collector-scan-interval", 10*time.Minute, "Scan interval for node collector")
+	nodeCollectorServiceAccount = pflag.String("node-collector-service-account", "", "Service account name for node collector job")
 
 	agentEnabled = pflag.Bool("agent-enabled", false, "Whether kvisor-agent is enabled (used for reporting; does not enable agent)")
 )
@@ -187,6 +191,12 @@ func main() {
 		},
 		AgentConfig: config.AgentConfig{
 			Enabled: *agentEnabled,
+		},
+		NodeComponentsCollector: nodecomponentscollector.Config{
+			CastaiSecretRefName: *castaiSecretRefName,
+			ScanInterval:        *nodeCollectorScanInterval,
+			ServiceAccountName:  *nodeCollectorServiceAccount,
+			JobNamespace:        podNs,
 		},
 	},
 		clientset,

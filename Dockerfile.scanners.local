@@ -6,3 +6,4 @@ RUN apk --no-cache add procps
 COPY bin/kvisor-linter /usr/local/bin/kvisor-linter
 COPY bin/kvisor-image-scanner /usr/local/bin/kvisor-image-scanner
 COPY cmd/linter/kubebench/kubebench-rules /etc/kubebench-rules
+COPY bin/kvisor-node-collector /usr/local/bin/kvisor-node-collector

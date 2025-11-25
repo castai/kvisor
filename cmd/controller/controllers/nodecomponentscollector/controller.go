@@ -25,7 +25,7 @@ const (
 	nodeScanTimeout   = 5 * time.Minute
 	labelJobName      = "job-name"
 	maxConcurrentJobs = 1
-	componentName     = "node-components-collector"
+	componentName     = "node-collector"
 )
 
 type kubeController interface {
@@ -33,21 +33,24 @@ type kubeController interface {
 }
 
 type Config struct {
-	Enabled            bool          `json:"enabled"`
-	ScanInterval       time.Duration `validate:"required" json:"scanInterval"`
-	ServiceAccountName string        `validate:"required" json:"serviceAccount"`
-	JobNamespace       string        `validate:"required" json:"jobNamespace"`
+	Enabled             bool          `json:"enabled"`
+	CastaiSecretRefName string        `json:"castaiSecretRefName"`
+	ScanInterval        time.Duration `validate:"required" json:"scanInterval"`
+	ServiceAccountName  string        `validate:"required" json:"serviceAccount"`
+	JobNamespace        string        `json:"jobNamespace"`
 }
 
 func NewController(
 	log *logging.Logger,
 	client kubernetes.Interface,
+	kubeController kubeController,
 	cfg Config,
 	castaiCfg castai.Config,
 ) *Controller {
 	return &Controller{
 		log:                           log.WithField("component", componentName),
 		client:                        client,
+		kubeController:                kubeController,
 		cfg:                           cfg,
 		castAIConfig:                  castaiCfg,
 		nodes:                         newDeltaState(),
@@ -90,7 +93,7 @@ func (c *Controller) OnDelete(obj kube.Object) {
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	c.log.Info("running")
+	c.log.Infof("running with scan interval: %s", c.cfg.ScanInterval.String())
 	defer c.log.Infof("stopping")
 
 	// add existing nodes
@@ -131,9 +134,8 @@ func (c *Controller) process(ctx context.Context) (rerr error) {
 	if len(nodeJobs) == 0 {
 		return nil
 	}
+	c.log.Infof("processing node components collector. nodes count: %d", len(nodeJobs))
 
-	c.log.Infof("processing node components collector")
-	defer c.log.Info("processing node components collector done")
 	var wg sync.WaitGroup
 	for _, n := range nodeJobs {
 		job := n
@@ -148,7 +150,8 @@ func (c *Controller) process(ctx context.Context) (rerr error) {
 				job.setFailed()
 				return
 			}
-			// c.delta.delete(job.node)
+
+			c.nodes.delete(job.node)
 		}()
 	}
 
@@ -204,7 +207,7 @@ func (c *Controller) scrapNodeConfigs(ctx context.Context, node *corev1.Node) (r
 
 // We are interested in job pod succeeding and not the Job
 func (c *Controller) createConfigScrapperJob(ctx context.Context, node *corev1.Node, jobName string) (*corev1.Pod, error) {
-	jobSpec := generateJobSpec(c.castAIConfig, jobName, string(node.GetUID()), node.GetName(), c.cfg.ServiceAccountName)
+	jobSpec := generateJobSpec(c.castAIConfig, c.cfg, jobName, string(node.GetUID()), node.GetName())
 
 	// Set job image
 	imageDetails, err := c.kubeController.GetKvisorAgentImageDetails()

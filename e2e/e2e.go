@@ -239,6 +239,8 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set controller.extraArgs.kube-linter-enabled=true \
   --set controller.extraArgs.kube-linter-scan-interval=5s \
   --set controller.extraArgs.kube-linter-init-delay=5s \
+  --set controller.extraArgs.node-collector-scan-interval=5s \
+  --set controller.extraArgs.node-collector-service-account=castai-kvisor-node-collector \
   --set castai.grpcAddr=%s \
   --set castai.apiKey=%s \
   --set castai.clusterID=%s \
@@ -467,6 +469,7 @@ func (t *testCASTAIServer) KubeNodeComponentsIngest(ctx context.Context, compone
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	fmt.Printf("received %d node components for node: %s\n", len(components.Components), components.Node)
 	t.nodeComponents = append(t.nodeComponents, components)
 
 	return &castaipb.KubeNodeComponentsIngestResponse{}, nil
@@ -1447,7 +1450,7 @@ func (t *testCASTAIServer) assertProcessTree(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertNodeComponents(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(30 * time.Second)
 
 	r := newAssertions()
 

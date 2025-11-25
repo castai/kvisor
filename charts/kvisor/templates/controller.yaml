@@ -70,6 +70,10 @@ spec:
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
         {{- end }}
+          {{- if eq .Values.nodeComponentsCollector.enabled true }}
+            - "--node-collector-scan-interval={{ .Values.nodeComponentsCollector.scanInterval }}"
+            - "--node-collector-service-account={{ include "kvisor.nodeComponentsCollector.serviceAccountName" . }}"
+          {{- end }}
           resources:
             {{- toYaml .Values.controller.resources | nindent 12 }}
           env:
@@ -96,10 +100,6 @@ spec:
           {{- range $key, $value := .Values.controller.extraEnv }}
             - name: {{ $key }}
               value: {{ $value }}
-          {{- end }}
-          {{- if .Values.nodeComponentsCollector.enabled }}
-            - name: NODE_COMPONENTS_COLLECTOR_SA
-              value: {{ include "kvisor.nodeComponentsCollector.serviceAccountName" . }}
           {{- end }}
           envFrom:
           {{- with .Values.controller.envFrom }}

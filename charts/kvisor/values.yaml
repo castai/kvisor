@@ -260,3 +260,4 @@ clickhouse:
 
 nodeComponentsCollector:
   enabled: true
+  scanInterval: 5s

@@ -12,13 +12,13 @@ import (
 const (
 	limitCPU   = "200m"
 	limitMem   = "128Mi"
-	requestCPU = "10m"
+	requestCPU = "100m"
 	requestMem = "64Mi"
 )
 
-func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccountName string) *batchv1.Job {
+func generateJobSpec(castaiCfg castai.Config, cfg Config, jobName, nodeId, nodeName string) *batchv1.Job {
 	insecureValue := "false"
-	if cfg.Insecure {
+	if castaiCfg.Insecure {
 		insecureValue = "true"
 	}
 
@@ -41,11 +41,11 @@ func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccoun
 					HostPID:                      true,
 					NodeName:                     nodeName,
 					RestartPolicy:                "Never",
-					ServiceAccountName:           serviceAccountName,
+					ServiceAccountName:           cfg.ServiceAccountName,
 					AutomountServiceAccountToken: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{
-							Name:  "kube-bench",
+							Name:  "node-collector",
 							Image: "<placeholder>",
 							SecurityContext: &corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
@@ -62,7 +62,7 @@ func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccoun
 								},
 							},
 							Command: []string{
-								"/usr/local/bin/kvisor-collector",
+								"/usr/local/bin/kvisor-node-collector",
 							},
 							Args: []string{
 								"run",
@@ -70,11 +70,11 @@ func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccoun
 							Env: []corev1.EnvVar{
 								{
 									Name:  "CASTAI_API_GRPC_ADDR",
-									Value: cfg.APIGrpcAddr,
+									Value: castaiCfg.APIGrpcAddr,
 								},
 								{
 									Name:  "CLUSTER_ID",
-									Value: cfg.ClusterID,
+									Value: castaiCfg.ClusterID,
 								},
 								{
 									Name:  "INSECURE",
@@ -93,7 +93,7 @@ func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccoun
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "castai-kvisor",
+											Name: cfg.CastaiSecretRefName,
 										},
 									},
 								},
@@ -119,11 +119,11 @@ func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccoun
 									MountPath: "/etc/default/kubelet",
 									ReadOnly:  true,
 								},
-								{
-									Name:      "var-snap-kubelet",
-									MountPath: "/var/snap/kubelet/",
-									ReadOnly:  true,
-								},
+								//{
+								//	Name:      "var-snap-kubelet",
+								//	MountPath: "/var/snap/kubelet/",
+								//	ReadOnly:  true,
+								//},
 							},
 						},
 					},
@@ -160,14 +160,14 @@ func generateJobSpec(cfg castai.Config, jobName, nodeId, nodeName, serviceAccoun
 								},
 							},
 						},
-						{
-							Name: "var-snap-kubelet",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/snap/kubelet",
-								},
-							},
-						},
+						//{
+						//	Name: "var-snap-kubelet",
+						//	VolumeSource: corev1.VolumeSource{
+						//		HostPath: &corev1.HostPathVolumeSource{
+						//			Path: "/var/snap/kubelet",
+						//		},
+						//	},
+						//},
 					},
 				},
 			},

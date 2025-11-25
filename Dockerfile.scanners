@@ -7,3 +7,4 @@ ARG TARGETARCH
 COPY bin/kvisor-linter-$TARGETARCH /usr/local/bin/kvisor-linter
 COPY bin/kvisor-image-scanner-$TARGETARCH /usr/local/bin/kvisor-image-scanner
 COPY cmd/linter/kubebench/kubebench-rules /etc/kubebench-rules
+COPY bin/kvisor-node-collector-$TARGETARCH /usr/local/bin/kvisor-node-collector
