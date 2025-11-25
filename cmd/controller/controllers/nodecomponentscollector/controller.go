@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/castai/kvisor/cmd/controller/kube"
@@ -14,6 +13,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/cenkalti/backoff/v5"
 	"github.com/samber/lo"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,8 +120,9 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 }
 
-func (c *Controller) process(ctx context.Context) (rerr error) {
+func (c *Controller) process(ctx context.Context) error {
 	nodes := c.nodes.peek()
+
 	var nodeJobs []*nodeJob
 	for _, nodeJob := range nodes {
 		if nodeJob.ready() && len(nodeJob.node.Spec.Taints) == 0 {
@@ -136,27 +137,24 @@ func (c *Controller) process(ctx context.Context) (rerr error) {
 	}
 	c.log.Infof("processing node components collector. nodes count: %d", len(nodeJobs))
 
-	var wg sync.WaitGroup
-	for _, n := range nodeJobs {
-		job := n
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	var g errgroup.Group
+	for _, job := range nodeJobs {
+		g.Go(func() error {
 			ctx, cancel := context.WithTimeout(ctx, nodeScanTimeout)
 			defer cancel()
 			err := c.scrapNodeConfigs(ctx, job.node)
 			if err != nil {
 				c.log.WithField("node", job.node.Name).Errorf("node components collector: %v", err)
 				job.setFailed()
-				return
+				return err
 			}
 
 			c.nodes.delete(job.node)
-		}()
+			return nil
+		})
 	}
 
-	wg.Wait()
-	return nil
+	return g.Wait()
 }
 
 func (c *Controller) RequiredInformers() []reflect.Type {
