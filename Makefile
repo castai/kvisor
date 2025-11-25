@@ -179,7 +179,13 @@ kvisor-node-collector: $(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH)
 
 $(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH): \
 #
-	$(CMD_GO) build -X main.Version=\"$(VERSION)\" -v -o $@ ./cmd/collector/
+	$(GO_ENV_EBPF) $(CMD_GO) build \
+	 	-tags $(GO_TAGS_EBPF) \
+	 	-ldflags="$(GO_DEBUG_FLAG) \
+			-X main.Version=\"$(VERSION)\" \
+			" \
+     	-v -o $@ \
+     	./cmd/collector/
 
 .PHONY: clean-kvisor-node-collector
 clean-kvisor-node-collector:
