@@ -79,6 +79,9 @@ jobs:
       - name: Build linter go binary amd64
         run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-linter
 
+      - name: Build node collector go binary amd64
+        run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-node-collector
+
       - name: Build agent go binary arm64
         run: UNAME_M=arm64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
 

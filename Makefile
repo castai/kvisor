@@ -179,7 +179,7 @@ kvisor-node-collector: $(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH)
 
 $(OUTPUT_DIR_BIN)/kvisor-node-collector-$(GO_ARCH): \
 #
-	$(CMD_GO) build -v -o $@ ./cmd/collector/
+	$(CMD_GO) build -X main.Version=\"$(VERSION)\" -v -o $@ ./cmd/collector/
 
 .PHONY: clean-kvisor-node-collector
 clean-kvisor-node-collector:
