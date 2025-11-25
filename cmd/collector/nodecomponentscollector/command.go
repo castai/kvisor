@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 )
 
-func NewRunCommand() *cobra.Command {
+func NewRunCommand(version string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "run",
 		Short: "Run node components collector",
@@ -29,7 +29,7 @@ func NewRunCommand() *cobra.Command {
 			if err != nil {
 				exitWithError(fmt.Errorf("failed to initialize CAST AI client config: %w", err))
 			}
-			castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-node-components-collector/%s", version), castaiClientCfg)
+			castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-node-collector/%s", version), castaiClientCfg)
 			if err != nil {
 				exitWithError(err)
 			}

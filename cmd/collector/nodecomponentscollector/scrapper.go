@@ -14,8 +14,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const version = "1.0.0"
-
 type Scrapper struct {
 	castaiClient   castAIClient
 	configRegistry configRegistry
@@ -43,7 +41,7 @@ func (s *Scrapper) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate report: %w", err)
 	}
-	
+
 	err = s.sendReport(ctx, report)
 	if err != nil {
 		return fmt.Errorf("failed to send report: %w", err)

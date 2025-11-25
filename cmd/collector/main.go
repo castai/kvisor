@@ -8,13 +8,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	Version = "local"
+)
+
 func main() {
 	root := cobra.Command{
 		Use: "collector",
 	}
 
 	root.AddCommand(
-		nodecomponentscollector.NewRunCommand(),
+		nodecomponentscollector.NewRunCommand(Version),
 	)
 
 	if err := root.Execute(); err != nil {
