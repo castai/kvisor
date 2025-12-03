@@ -180,6 +180,9 @@ jobs:
           version: v2.0.2
           only-new-issues: false
 
+      - name: Check disk space
+        run: du -h -d 1 /
+
       - name: Test
         if: ${{ github.event_name == 'pull_request' && !contains(env.head_commit_message, '#skip-test') }}
         run: go test -race -short ./...
