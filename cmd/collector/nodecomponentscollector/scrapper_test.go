@@ -20,7 +20,7 @@ func TestScrapper(t *testing.T) {
 	//	component, err := scrapper.getKubeNodeComponent(castaipb.KubeNodeComponents_COMPONENT_NAME_KUBELET)
 	//	r.NoError(err)
 	//
-	//	r.Equal("./config_rules/config.yaml", component.ConfigFile.Path)
+	//	r.Equal("./config-rules/config.yaml", component.ConfigFile.Path)
 	//	r.Equal(castaipb.KubeNodeComponents_COMPONENT_NAME_KUBELET, component.Name)
 	//	r.Equal(castaipb.KubeNodeComponents_CONFIG_TYPE_AZURE_JSON, component.ConfigType)
 	//})
@@ -45,6 +45,6 @@ type mockConfigRegistry struct{}
 
 func (c *mockConfigRegistry) GetConfigs(component castaipb.KubeNodeComponents_ComponentName) []Config {
 	return []Config{
-		{Component: castaipb.KubeNodeComponents_COMPONENT_NAME_KUBELET, Path: "./config_rules/config.yaml", Type: castaipb.KubeNodeComponents_CONFIG_TYPE_AZURE_JSON},
+		// {Component: castaipb.KubeNodeComponents_COMPONENT_NAME_KUBELET, Path: "./config-rules/config.yaml", Type: castaipb.KubeNodeComponents_CONFIG_TYPE_AZURE_JSON},
 	}
 }

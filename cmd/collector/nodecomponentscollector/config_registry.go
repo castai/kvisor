@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed config_rules/config.yaml
+//go:embed config-rules/config.yaml
 var configRulesData []byte
 
 type ConfigRegistry struct {
