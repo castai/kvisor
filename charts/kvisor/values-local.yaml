@@ -24,6 +24,7 @@ agent:
     stats-enabled: true
     stats-scrape-interval: 5s
     stats-file-access-enabled: true
+    storage-stats-enabled: true
     containers-refresh-interval: "5s"
     ebpf-events-enabled: true
     netflow-enabled: true

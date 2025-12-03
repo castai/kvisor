@@ -14,6 +14,32 @@ jobs:
     runs-on: ubuntu-24.04
     if: ${{ github.event.head_commit.message != '[Release] Update Chart.yaml' }}
     steps:
+      - name: Free disk space
+        run: |
+          echo "Disk usage BEFORE cleanup:"
+          df -h
+
+          echo "Removing hosted toolcache..."
+          sudo rm -rf /opt/hostedtoolcache || true
+
+          echo "Removing .NET..."
+          sudo rm -rf /usr/share/dotnet || true
+
+          echo "Removing Android SDK..."
+          sudo rm -rf /usr/local/lib/android || true
+
+          echo "Removing GHC / Haskell..."
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+
+          echo "Docker prune (just in case runner had leftovers)..."
+          sudo docker container prune -f || true
+          sudo docker image prune -af || true
+          sudo docker volume prune -f || true
+
+          echo "Disk usage AFTER cleanup:"
+          df -h
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -168,6 +194,39 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Upgrade with helm:**" >> $GITHUB_STEP_SUMMARY
           echo "helm upgrade castai-kvisor castai-helm/castai-kvisor -n castai-agent --reuse-values --set image.tag=${{ env.head_commit_sha }}" >> $GITHUB_STEP_SUMMARY
+
+  helm-test:
+    name: Test Helm Charts
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: Check for chart changes
+        id: changes
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q '^charts/'; then
+            echo "charts_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "charts_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Helm
+        if: steps.changes.outputs.charts_changed == 'true'
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4
+
+      # TODO: re-add verification when https://github.com/helm-unittest/helm-unittest/issues/777 is resolved
+      - name: Install helm-unittest plugin
+        if: steps.changes.outputs.charts_changed == 'true'
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
+
+      - name: Run Helm unit tests
+        if: steps.changes.outputs.charts_changed == 'true'
+        run: helm unittest -f 'tests/**/test.yaml' ./charts/kvisor
 
   # TODO: we might want to run the tests both in ubuntu-22.04, as well as ubuntu-20.04 to test
   # if we everything is working with cgroups v1 and v2

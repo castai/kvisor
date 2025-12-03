@@ -208,6 +208,44 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 
+{{/*
+Agent container security context with conditional capabilities.
+If capabilities.add is already defined in values.yaml, those are used as-is.
+Otherwise, capabilities are added dynamically based on enabled features in extraArgs:
+  - BPF: Required for loading eBPF programs and the creation of eBPF maps
+  - SYS_ADMIN: Required for eBPF operations on older kernels
+  - SYS_PTRACE: Required for reading /proc/[pid]/ns
+  - SYS_RESOURCE: Required for rlimit adjustments
+  - NET_ADMIN: Required for loading network programs
+  - PERFMON: Required for loading tracing programs
+  - IPC_LOCK: Required for mmap
+  - SYSLOG: Required for resolving /proc/kallsyms
+*/}}
+{{- define "kvisor.agent.containerSecurityContext" -}}
+{{- $secCtx := deepCopy .Values.agent.containerSecurityContext -}}
+{{- /* Only add capabilities dynamically if not already defined in values */ -}}
+{{- if not $secCtx.capabilities.add -}}
+  {{- $needsEbpfCaps := or
+    (eq (index .Values.agent.extraArgs "ebpf-events-enabled") true)
+    (eq (index .Values.agent.extraArgs "netflow-enabled") true)
+  -}}
+  {{- if $needsEbpfCaps -}}
+    {{- $ebpfCaps := list
+      "BPF"
+      "SYS_ADMIN"
+      "SYS_PTRACE"
+      "SYS_RESOURCE"
+      "NET_ADMIN"
+      "PERFMON"
+      "IPC_LOCK"
+      "SYSLOG"
+    -}}
+    {{- $_ := set $secCtx.capabilities "add" $ebpfCaps -}}
+  {{- end -}}
+{{- end -}}
+{{- toYaml $secCtx -}}
+{{- end -}}
+
 {{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}
 {{- define "GOMEMLIMITEnv" -}}
 {{- $memory := . -}}

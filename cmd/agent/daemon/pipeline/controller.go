@@ -19,7 +19,6 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/export"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
-	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -47,10 +46,6 @@ type containersClient interface {
 	RegisterContainerCreatedListener(l containers.ContainerCreatedListener)
 	RegisterContainerDeletedListener(l containers.ContainerDeletedListener)
 	GetCgroupStats(c *containers.Container) (cgroup.Stats, error)
-}
-
-type netStatsReader interface {
-	Read(pid uint32) ([]netstats.InterfaceStats, error)
 }
 
 type ebpfTracer interface {
@@ -130,7 +125,6 @@ func NewController(
 	cfg Config,
 	exporters []export.DataBatchWriter,
 	containersClient containersClient,
-	netStatsReader netStatsReader,
 	ct conntrackClient,
 	tracer ebpfTracer,
 	signatureEngine signatureEngine,
@@ -161,7 +155,6 @@ func NewController(
 		cfg:                  cfg,
 		exporters:            exporters,
 		containersClient:     containersClient,
-		netStatsReader:       netStatsReader,
 		ct:                   ct,
 		tracer:               tracer,
 		signatureEngine:      signatureEngine,
@@ -188,7 +181,6 @@ type Controller struct {
 	log                  *logging.Logger
 	cfg                  Config
 	containersClient     containersClient
-	netStatsReader       netStatsReader
 	ct                   conntrackClient
 	tracer               ebpfTracer
 	signatureEngine      signatureEngine
@@ -359,6 +351,11 @@ func (c *Controller) MuteNamespace(namespace string) error {
 	c.mutedNamespacesMu.Lock()
 	c.mutedNamespaces[namespace] = struct{}{}
 	c.mutedNamespacesMu.Unlock()
+
+	if c.tracer == nil {
+		c.log.Debugf("skipping mute cgroup in namespace %q: tracer is not initialized", namespace)
+		return nil
+	}
 
 	cgroups := c.containersClient.GetCgroupsInNamespace(namespace)
 
