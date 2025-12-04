@@ -32,11 +32,6 @@ jobs:
           sudo rm -rf /opt/ghc || true
           sudo rm -rf /usr/local/.ghcup || true
 
-          echo "Docker prune (just in case runner had leftovers)..."
-          sudo docker container prune -f || true
-          sudo docker image prune -af || true
-          sudo docker volume prune -f || true
-
           echo "Disk usage AFTER cleanup:"
           df -h
 

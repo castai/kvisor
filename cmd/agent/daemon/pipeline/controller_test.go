@@ -1127,14 +1127,6 @@ func (m *mockEbpfTracer) UnmuteEventsFromCgroup(cgroup uint64) error {
 	return nil
 }
 
-func (m *mockEbpfTracer) UnmuteEventsFromCgroups(cgroups []uint64) error {
-	return nil
-}
-
-func (m *mockEbpfTracer) IsCgroupMuted(cgroup uint64) bool {
-	return true
-}
-
 type mockSignatureEngine struct {
 	eventsChan chan signature.Event
 }

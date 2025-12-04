@@ -53,8 +53,6 @@ type ebpfTracer interface {
 	MuteEventsFromCgroup(cgroup uint64, reason string) error
 	MuteEventsFromCgroups(cgroups []uint64, reason string) error
 	UnmuteEventsFromCgroup(cgroup uint64) error
-	UnmuteEventsFromCgroups(cgroups []uint64) error
-	IsCgroupMuted(cgroup uint64) bool
 	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
 	CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
 	CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error)
@@ -361,21 +359,6 @@ func (c *Controller) MuteNamespace(namespace string) error {
 
 	err := c.tracer.MuteEventsFromCgroups(cgroups, fmt.Sprintf("muted namespace %q", namespace))
 
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Controller) UnmuteNamespace(namespace string) error {
-	c.mutedNamespacesMu.Lock()
-	delete(c.mutedNamespaces, namespace)
-	c.mutedNamespacesMu.Unlock()
-
-	cgroups := c.containersClient.GetCgroupsInNamespace(namespace)
-
-	err := c.tracer.UnmuteEventsFromCgroups(cgroups)
 	if err != nil {
 		return err
 	}
