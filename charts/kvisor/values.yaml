@@ -80,17 +80,11 @@ agent:
     runAsNonRoot: false
     allowPrivilegeEscalation: false
     capabilities:
-      add:
-        - SYS_ADMIN
-        - SYS_PTRACE
-        - SYS_RESOURCE
-        - NET_ADMIN
-        - BPF
-        - PERFMON
-        - IPC_LOCK # Needed for mmap.
-        - SYSLOG # Required to resolve /proc/kallsyms.
       drop:
         - ALL
+      # If empty, capabilities are added dynamically based on enabled features (see _helpers.tpl)
+      # Set explicitly to override the dynamic behavior
+      add: []
     seccompProfile:
       type: Unconfined
     appArmorProfile:

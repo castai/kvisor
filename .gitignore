@@ -7,3 +7,4 @@ node_modules
 .devbox
 .DS_Store
 .vscode
+__snapshot__

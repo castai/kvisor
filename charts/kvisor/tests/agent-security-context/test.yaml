@@ -1,0 +1,84 @@
+suite: agent security context tests
+templates:
+  - agent.yaml
+  - secret.yaml
+values:
+  - values.yaml
+tests:
+  - it: should have no add capabilities by default
+    set:
+      agent.extraArgs:
+        ebpf-events-enabled: false
+        netflow-enabled: false
+    asserts:
+      - isKind:
+          of: DaemonSet
+        template: agent.yaml
+        documentIndex: 0
+      - isEmpty:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should include all capabilities when ebpf-events-enabled is set
+    set:
+      agent.extraArgs:
+        ebpf-events-enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          count: 8
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: SYS_ADMIN
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should include all capabilities when netflow-enabled is set
+    set:
+      agent.extraArgs:
+        netflow-enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          count: 8
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: SYS_ADMIN
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use custom capabilities when defined in values
+    set:
+      agent.extraArgs:
+        ebpf-events-enabled: true
+      agent.containerSecurityContext:
+        capabilities:
+          add:
+            - SYS_PTRACE
+            - CUSTOM_CAP
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          count: 2
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: CUSTOM_CAP
+        template: agent.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: SYS_ADMIN
+        template: agent.yaml
+        documentIndex: 0

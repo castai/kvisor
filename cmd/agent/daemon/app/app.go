@@ -34,7 +34,6 @@ import (
 	castaiexport "github.com/castai/kvisor/cmd/agent/daemon/export/castai"
 	clickhouseexport "github.com/castai/kvisor/cmd/agent/daemon/export/clickhouse"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
-	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
@@ -174,11 +173,14 @@ func (a *App) Run(ctx context.Context) error {
 
 	processTreeCollector := processtree.New(log, procHandler, containersClient)
 
-	ct, err := conntrack.NewClient(log)
-	if err != nil {
-		return fmt.Errorf("conntrack: %w", err)
+	var ct conntrack.Client
+	if cfg.Netflow.Enabled {
+		ct, err = conntrack.NewClient(log)
+		if err != nil {
+			return fmt.Errorf("conntrack: %w", err)
+		}
+		defer ct.Close()
 	}
-	defer ct.Close()
 
 	activeSignatures, err := signature.DefaultSignatures(log, cfg.SignatureEngineConfig)
 	if err != nil {
@@ -196,50 +198,56 @@ func (a *App) Run(ctx context.Context) error {
 		EventEnrichers: getActiveEnrichers(cfg.EnricherConfig, log, mountNamespacePIDStore),
 	})
 
-	pidNSID, err := procHandler.GetCurrentPIDNSID()
-	if err != nil {
-		return fmt.Errorf("proc handler: %w", err)
-	}
-
 	if cfg.EBPFMetrics.ProgramMetricsEnabled {
 		cleanup := enableBPFStats(cfg, log)
 		defer cleanup()
 	}
 
-	tracer := ebpftracer.New(log, ebpftracer.Config{
-		FileAccessEnabled:          cfg.Stats.FileAccessEnabled,
-		BTFPath:                    cfg.BTFPath,
-		SignalEventsRingBufferSize: cfg.EBPFSignalEventsRingBufferSize,
-		EventsRingBufferSize:       cfg.EBPFEventsRingBufferSize,
-		SkbEventsRingBufferSize:    cfg.EBPFSkbEventsRingBufferSize,
-		EventsOutputChanSize:       cfg.EBPFEventsOutputChanSize,
-		DefaultCgroupsVersion:      cgroupClient.DefaultCgroupVersion().String(),
-		ContainerClient:            containersClient,
-		CgroupClient:               cgroupClient,
-		AutomountCgroupv2:          cfg.AutomountCgroupv2,
-		SignatureEngine:            signatureEngine,
-		MountNamespacePIDStore:     mountNamespacePIDStore,
-		HomePIDNS:                  pidNSID,
-		NetflowsEnabled:            cfg.Netflow.Enabled,
-		NetflowGrouping:            cfg.Netflow.Grouping,
-		MetricsReporting: ebpftracer.MetricsReportingConfig{
-			ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
-			TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
-		},
-		PodName: podName,
-	})
-	if err := tracer.Load(); err != nil {
-		return fmt.Errorf("loading tracer: %w", err)
-	}
-	defer tracer.Close()
+	var tracer *ebpftracer.Tracer
+	tracererr := make(chan error, 1)
+	if cfg.Events.Enabled || cfg.Netflow.Enabled {
+		pidNSID, err := procHandler.GetCurrentPIDNSID()
+		if err != nil {
+			return fmt.Errorf("proc handler: %w", err)
+		}
 
-	policy := buildEBPFPolicy(log, cfg, signatureEngine)
-	// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
-	if err := tracer.ApplyPolicy(policy); err != nil {
-		return fmt.Errorf("apply policy: %w", err)
-	}
+		tracer = ebpftracer.New(log, ebpftracer.Config{
+			FileAccessEnabled:          cfg.Stats.FileAccessEnabled,
+			BTFPath:                    cfg.BTFPath,
+			SignalEventsRingBufferSize: cfg.EBPFSignalEventsRingBufferSize,
+			EventsRingBufferSize:       cfg.EBPFEventsRingBufferSize,
+			SkbEventsRingBufferSize:    cfg.EBPFSkbEventsRingBufferSize,
+			EventsOutputChanSize:       cfg.EBPFEventsOutputChanSize,
+			DefaultCgroupsVersion:      cgroupClient.DefaultCgroupVersion().String(),
+			ContainerClient:            containersClient,
+			CgroupClient:               cgroupClient,
+			AutomountCgroupv2:          cfg.AutomountCgroupv2,
+			SignatureEngine:            signatureEngine,
+			MountNamespacePIDStore:     mountNamespacePIDStore,
+			HomePIDNS:                  pidNSID,
+			NetflowsEnabled:            cfg.Netflow.Enabled,
+			NetflowGrouping:            cfg.Netflow.Grouping,
+			MetricsReporting: ebpftracer.MetricsReportingConfig{
+				ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
+				TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
+			},
+			PodName: podName,
+		})
+		if err := tracer.Load(); err != nil {
+			return fmt.Errorf("loading tracer: %w", err)
+		}
+		defer tracer.Close()
 
-	netStatsReader := netstats.NewReader(proc.Path)
+		policy := buildEBPFPolicy(log, cfg, signatureEngine)
+		// TODO: Allow to change policy on the fly. We should be able to change it from remote config.
+		if err := tracer.ApplyPolicy(policy); err != nil {
+			return fmt.Errorf("apply policy: %w", err)
+		}
+
+		go func() {
+			tracererr <- tracer.Run(ctx)
+		}()
+	}
 
 	var blockDeviceMetricsWriter pipeline.BlockDeviceMetricsWriter
 	var filesystemMetricsWriter pipeline.FilesystemMetricsWriter
@@ -279,7 +287,6 @@ func (a *App) Run(ctx context.Context) error {
 		},
 		exporters,
 		containersClient,
-		netStatsReader,
 		ct,
 		tracer,
 		signatureEngine,
@@ -292,6 +299,13 @@ func (a *App) Run(ctx context.Context) error {
 		storageInfoProvider,
 		nodeStatsSummaryWriter,
 	)
+
+	for _, namespace := range cfg.MutedNamespaces {
+		err := ctrl.MuteNamespace(namespace)
+		if err != nil {
+			log.Warnf("error while muting namespace: %v", err)
+		}
+	}
 
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
@@ -309,20 +323,6 @@ func (a *App) Run(ctx context.Context) error {
 	errg.Go(func() error {
 		return enrichmentService.Run(ctx)
 	})
-
-	// Tracer should not run in err group because it can block event if context is canceled
-	// during event read.
-	tracererr := make(chan error, 1)
-	go func() {
-		tracererr <- tracer.Run(ctx)
-	}()
-
-	for _, namespace := range cfg.MutedNamespaces {
-		err := ctrl.MuteNamespace(namespace)
-		if err != nil {
-			log.Warnf("error while muting namespace: %v", err)
-		}
-	}
 
 	if err := containersClient.LoadContainers(ctx); err != nil {
 		return fmt.Errorf("load containers: %w", err)

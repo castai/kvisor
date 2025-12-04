@@ -25,7 +25,6 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/export"
-	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -888,7 +887,6 @@ func newTestController(opts ...any) *Controller {
 	contClientCustomizer := getOptOr[customizeMockContainersClient](opts, func(t *mockContainersClient) {})
 	contClientCustomizer(contClient)
 
-	netReader := &mockNetStatsReader{}
 	ctClient := &mockConntrackClient{}
 
 	tracer := &mockEbpfTracer{
@@ -912,7 +910,6 @@ func newTestController(opts ...any) *Controller {
 		cfg,
 		exporters,
 		contClient,
-		netReader,
 		ctClient,
 		tracer,
 		sigEngine,
@@ -1065,13 +1062,6 @@ func (m *mockContainersClient) RegisterContainerDeletedListener(l containers.Con
 	return
 }
 
-type mockNetStatsReader struct {
-}
-
-func (m *mockNetStatsReader) Read(pid uint32) ([]netstats.InterfaceStats, error) {
-	return nil, nil
-}
-
 type mockConntrackClient struct {
 }
 
@@ -1135,14 +1125,6 @@ func (m *mockEbpfTracer) MuteEventsFromCgroups(cgroups []uint64, reason string) 
 
 func (m *mockEbpfTracer) UnmuteEventsFromCgroup(cgroup uint64) error {
 	return nil
-}
-
-func (m *mockEbpfTracer) UnmuteEventsFromCgroups(cgroups []uint64) error {
-	return nil
-}
-
-func (m *mockEbpfTracer) IsCgroupMuted(cgroup uint64) bool {
-	return true
 }
 
 type mockSignatureEngine struct {

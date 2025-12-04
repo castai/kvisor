@@ -226,37 +226,3 @@ func (t *Tracer) UnmuteEventsFromCgroup(cgroup uint64) error {
 
 	return err
 }
-
-func (t *Tracer) UnmuteEventsFromCgroups(cgroups []uint64) error {
-	t.log.Debugf("unmuting cgroup %v", cgroups)
-
-	kernelVersion, err := kernel.CurrentKernelVersion()
-	if err != nil {
-		return err
-	}
-
-	// The ebpf batch helpers are available since kernel version 5.6.
-	if kernelVersion.Major > 5 || (kernelVersion.Major == 5 && kernelVersion.Minor >= 6) {
-		_, err = t.module.objects.IgnoredCgroupsMap.BatchDelete(cgroups, nil)
-		if !errors.Is(err, ebpf.ErrKeyNotExist) {
-			t.log.Warnf("got error while trying to delete cgroups %v from ignore map: %s", cgroups, err)
-		}
-	} else {
-		for _, cgroup := range cgroups {
-			err = t.module.objects.IgnoredCgroupsMap.Delete(cgroup)
-			if !errors.Is(err, ebpf.ErrKeyNotExist) {
-				t.log.Warnf("got error while trying to delete cgroup %d from ignore map: %s", cgroup, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (t *Tracer) IsCgroupMuted(cgroup uint64) bool {
-	var value uint64
-
-	err := t.module.objects.IgnoredCgroupsMap.Lookup(cgroup, &value)
-
-	return !errors.Is(err, ebpf.ErrKeyNotExist) && value > 0
-}

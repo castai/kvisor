@@ -19,7 +19,6 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/export"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
-	"github.com/castai/kvisor/cmd/agent/daemon/netstats"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -49,17 +48,11 @@ type containersClient interface {
 	GetCgroupStats(c *containers.Container) (cgroup.Stats, error)
 }
 
-type netStatsReader interface {
-	Read(pid uint32) ([]netstats.InterfaceStats, error)
-}
-
 type ebpfTracer interface {
 	Events() <-chan *types.Event
 	MuteEventsFromCgroup(cgroup uint64, reason string) error
 	MuteEventsFromCgroups(cgroups []uint64, reason string) error
 	UnmuteEventsFromCgroup(cgroup uint64) error
-	UnmuteEventsFromCgroups(cgroups []uint64) error
-	IsCgroupMuted(cgroup uint64) bool
 	ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error)
 	CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
 	CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error)
@@ -130,7 +123,6 @@ func NewController(
 	cfg Config,
 	exporters []export.DataBatchWriter,
 	containersClient containersClient,
-	netStatsReader netStatsReader,
 	ct conntrackClient,
 	tracer ebpfTracer,
 	signatureEngine signatureEngine,
@@ -161,7 +153,6 @@ func NewController(
 		cfg:                  cfg,
 		exporters:            exporters,
 		containersClient:     containersClient,
-		netStatsReader:       netStatsReader,
 		ct:                   ct,
 		tracer:               tracer,
 		signatureEngine:      signatureEngine,
@@ -188,7 +179,6 @@ type Controller struct {
 	log                  *logging.Logger
 	cfg                  Config
 	containersClient     containersClient
-	netStatsReader       netStatsReader
 	ct                   conntrackClient
 	tracer               ebpfTracer
 	signatureEngine      signatureEngine
@@ -360,25 +350,15 @@ func (c *Controller) MuteNamespace(namespace string) error {
 	c.mutedNamespaces[namespace] = struct{}{}
 	c.mutedNamespacesMu.Unlock()
 
+	if c.tracer == nil {
+		c.log.Debugf("skipping mute cgroup in namespace %q: tracer is not initialized", namespace)
+		return nil
+	}
+
 	cgroups := c.containersClient.GetCgroupsInNamespace(namespace)
 
 	err := c.tracer.MuteEventsFromCgroups(cgroups, fmt.Sprintf("muted namespace %q", namespace))
 
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Controller) UnmuteNamespace(namespace string) error {
-	c.mutedNamespacesMu.Lock()
-	delete(c.mutedNamespaces, namespace)
-	c.mutedNamespacesMu.Unlock()
-
-	cgroups := c.containersClient.GetCgroupsInNamespace(namespace)
-
-	err := c.tracer.UnmuteEventsFromCgroups(cgroups)
 	if err != nil {
 		return err
 	}
