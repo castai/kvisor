@@ -161,12 +161,6 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("assert kube bench: %w", err)
 	}
 
-	fmt.Println("🙏waiting for kube linter")
-	if err := srv.assertKubeLinter(ctx); err != nil {
-		return fmt.Errorf("assert kube linter: %w", err)
-	}
-	srv.kubeLinterReports = nil
-
 	fmt.Println("🙏waiting for image metadata")
 	if err := srv.assertImageMetadata(ctx); err != nil {
 		return fmt.Errorf("assert image metadata: %w", err)
@@ -230,9 +224,6 @@ func installChart(ns, imageTag string) ([]byte, error) {
   --set controller.extraArgs.kube-bench-enabled=true \
   --set controller.extraArgs.kube-bench-scan-interval=5s \
   --set controller.extraArgs.kube-bench-cloud-provider=gke \
-  --set controller.extraArgs.kube-linter-enabled=true \
-  --set controller.extraArgs.kube-linter-scan-interval=5s \
-  --set controller.extraArgs.kube-linter-init-delay=5s \
   --set castai.grpcAddr=%s \
   --set castai.apiKey=%s \
   --set castai.clusterID=%s \
@@ -264,7 +255,6 @@ type testCASTAIServer struct {
 	logs               []*castaipb.LogEvent
 	imageMetadatas     []*castaipb.ImageMetadata
 	kubeBenchReports   []*castaipb.KubeBenchReport
-	kubeLinterReports  []*castaipb.KubeLinterReport
 	processTreeEvents  []*castaipb.ProcessTreeEvent
 	controllerConfig   []byte
 	agentConfig        []byte
@@ -433,7 +423,6 @@ func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *ca
 }
 
 func (t *testCASTAIServer) KubeLinterReportIngest(ctx context.Context, report *castaipb.KubeLinterReport) (*castaipb.KubeLinterReportIngestResponse, error) {
-	t.kubeLinterReports = append(t.kubeLinterReports, report)
 	return &castaipb.KubeLinterReportIngestResponse{}, nil
 }
 
@@ -1269,29 +1258,6 @@ func (t *testCASTAIServer) assertKubeBenchReport(ctx context.Context) error {
 				}
 				if len(l1.Controls) == 0 {
 					return errors.New("missing controls")
-				}
-				return nil
-			}
-		}
-	}
-}
-
-func (t *testCASTAIServer) assertKubeLinter(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timeout:
-			return errors.New("timeout waiting kube linter")
-		case <-time.After(1 * time.Second):
-			t.mu.Lock()
-			items := t.kubeLinterReports
-			t.mu.Unlock()
-			if len(items) > 0 {
-				l1 := items[0]
-				if len(l1.Checks) == 0 {
-					return errors.New("missing linter checks")
 				}
 				return nil
 			}
