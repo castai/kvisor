@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/castai/kvisor/cmd/collector/nodecomponentscollector"
+	"github.com/castai/kvisor/cmd/nodecollector/nodecomponentscollector"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +14,7 @@ var (
 
 func main() {
 	root := cobra.Command{
-		Use: "collector",
+		Use: "nodecollector",
 	}
 
 	root.AddCommand(

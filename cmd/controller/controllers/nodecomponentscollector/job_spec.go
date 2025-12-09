@@ -30,7 +30,7 @@ func generateJobSpec(castaiCfg castai.Config, cfg Config, jobName, nodeId, nodeN
 				"autoscaling.cast.ai/disposable": "true",
 			},
 			Labels: map[string]string{
-				"app":                          "node-components-collector",
+				"app":                          "node-components-nodecollector",
 				"app.kubernetes.io/managed-by": "castai",
 			},
 		},
@@ -45,7 +45,7 @@ func generateJobSpec(castaiCfg castai.Config, cfg Config, jobName, nodeId, nodeN
 					AutomountServiceAccountToken: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{
-							Name:  "node-collector",
+							Name:  "node-nodecollector",
 							Image: "<placeholder>",
 							SecurityContext: &corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   lo.ToPtr(true),
@@ -73,12 +73,16 @@ func generateJobSpec(castaiCfg castai.Config, cfg Config, jobName, nodeId, nodeN
 									Value: castaiCfg.APIGrpcAddr,
 								},
 								{
-									Name:  "CLUSTER_ID",
-									Value: castaiCfg.ClusterID,
+									Name:  "CASTAI_GRPC_INSECURE",
+									Value: insecureValue,
 								},
 								{
 									Name:  "INSECURE",
 									Value: insecureValue,
+								},
+								{
+									Name:  "CLUSTER_ID",
+									Value: castaiCfg.ClusterID,
 								},
 								{
 									Name:  "NODE_ID",

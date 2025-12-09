@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/castai/kvisor/cmd/collector/nodecomponentscollector/config"
+	"github.com/castai/kvisor/cmd/nodecollector/nodecomponentscollector/config"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ func NewRunCommand(version string) *cobra.Command {
 			if err != nil {
 				exitWithError(fmt.Errorf("failed to initialize CAST AI client config: %w", err))
 			}
-			castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-node-collector/%s", version), castaiClientCfg)
+			castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-nodecollector/%s", version), castaiClientCfg)
 			if err != nil {
 				exitWithError(err)
 			}

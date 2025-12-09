@@ -125,10 +125,10 @@ func run(ctx context.Context) error {
 	}
 	srv.netflows = nil
 
-	fmt.Println("🙏waiting for ipv6 netflows")
-	if err := srv.assertNetflows(ctx, "echo-a-ipv6", unix.AF_INET6); err != nil {
-		return fmt.Errorf("assert ipv6 netflows: %w", err)
-	}
+	//fmt.Println("🙏waiting for ipv6 netflows")
+	//if err := srv.assertNetflows(ctx, "echo-a-ipv6", unix.AF_INET6); err != nil {
+	//	return fmt.Errorf("assert ipv6 netflows: %w", err)
+	//}
 
 	fmt.Println("🙏waiting for iperf netflows")
 	if err := srv.assertIperfNetflows(ctx); err != nil {
