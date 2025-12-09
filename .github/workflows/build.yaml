@@ -40,11 +40,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
       - name: Get head sha
         id: parse-commit-sha
         run: |
@@ -262,7 +257,7 @@ jobs:
 
           echo "Disk usage AFTER cleanup:"
           df -h
-  
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
