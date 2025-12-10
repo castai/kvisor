@@ -42,6 +42,20 @@ CLUSTER_NAME=tilt ./tools/localenv/kind.sh
 
 ## Run E2E tests locally
 
+### Exposing Docker daemon to host
+
+Create a new docker profile.
+
+```sh
+docker context create lima-lima-ebpf --docker "host=unix://~/.lima/lima-ebpf/sock/docker.sock"
+```
+
+Activate a new docker profile.
+
+`docker context use lima-lima-ebpf`
+
+### Run E2E tests
+
 You can run tests on your local kind cluster.
 
 ```sh
