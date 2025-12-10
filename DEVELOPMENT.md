@@ -35,6 +35,15 @@ sudo update-grub
 sudo reboot
 ```
 
+Install kind cluster.
+```sh
+CLUSTER_NAME=tilt ./tools/localenv/kind.sh
+```
+
+## Run E2E tests locally
+
+### Exposing Docker daemon to host
+
 Create a new docker profile.
 
 ```sh
@@ -45,13 +54,7 @@ Activate a new docker profile.
 
 `docker context use lima-lima-ebpf`
 
-
-Install kind cluster.
-```sh
-CLUSTER_NAME=tilt ./tools/localenv/kind.sh
-```
-
-## Run E2E tests locally
+### Run E2E tests
 
 You can run tests on your local kind cluster.
 
