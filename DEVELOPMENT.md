@@ -288,6 +288,8 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
     --set castai.enabled=false \
     --set agent.enabled=true \
     --set agent.extraArgs.netflow-enabled=true \
+    --set agent.extraArgs.ebpf-events-enabled=true \
+    --set agent.extraArgs.ebpf-events-policy=net_packet_dns_base \
     --set clickhouse.enabled=true
 ```
 
