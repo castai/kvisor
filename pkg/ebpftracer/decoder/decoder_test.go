@@ -561,16 +561,16 @@ type dnsData struct {
 }
 
 var udpDnsData = dnsData{
-	question: "orf.at",
+	question: "orf.at.",
 	answers: []dnsRecord{
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.142"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.150"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.141"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.4"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.140"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.149"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.139"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.3"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.142"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.150"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.141"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.4"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.140"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.149"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.139"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.3"},
 	},
 }
 var dnsOverUDP4 = []byte{
@@ -601,16 +601,16 @@ var dnsOverUDP4 = []byte{
 }
 
 var tcpDnsData = dnsData{
-	question: "orf.at",
+	question: "orf.at.",
 	answers: []dnsRecord{
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.149"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.140"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.139"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.3"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.4"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.142"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.150"},
-		{uint32(dnsmessage.TypeA), "orf.at", "194.232.104.141"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.149"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.140"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.139"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.3"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.4"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.142"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.150"},
+		{uint32(dnsmessage.TypeA), "orf.at.", "194.232.104.141"},
 	},
 }
 var dnsOverTCP4FullMessage = []byte{

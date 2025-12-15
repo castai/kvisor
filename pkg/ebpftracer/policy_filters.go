@@ -151,7 +151,7 @@ func DeduplicateDNSEventsPreFilter(log *logging.Logger, size uint32, ttl time.Du
 			}
 
 			// Cache dns by dns question. Cached records are dropped.
-			cacheKey := xxhash.Sum64(dns.Questions[0].Name)
+			cacheKey := xxhash.Sum64String(dns.Question[0].Name)
 			if cache.Contains(cacheKey) {
 				return nil, ErrErrDNSDuplicateDetected
 			}

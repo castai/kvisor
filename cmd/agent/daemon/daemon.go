@@ -86,6 +86,7 @@ func NewRunCommand(version string) *cobra.Command {
 		netflowCheckClusterNetworkRanges = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
 		netflowExportInterval            = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowMaxPublicIPsBucket        = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
+		netflowCgroupDnsCacheMaxEntries  = command.Flags().Uint32("netflow-cgroup-dns-cache-max-entries", 1024, "Number of dns cache entries per cgroup")
 		netflowGrouping                  = ebpftracer.NetflowGroupingDropSrcPort
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
@@ -203,6 +204,7 @@ func NewRunCommand(version string) *cobra.Command {
 				ExportInterval:            *netflowExportInterval,
 				MaxPublicIPs:              *netflowMaxPublicIPsBucket,
 				CheckClusterNetworkRanges: *netflowCheckClusterNetworkRanges,
+				CgroupDNSCacheMaxEntries:  *netflowCgroupDnsCacheMaxEntries,
 			},
 			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,

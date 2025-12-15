@@ -18,8 +18,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/net/packet"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"github.com/miekg/dns"
 	"golang.org/x/sys/unix"
 )
 
@@ -520,10 +519,7 @@ func (decoder *Decoder) ReadAddrTuple() (types.AddrTuple, error) {
 
 var errDNSMessageNotComplete = errors.New("received dns packet not complete")
 
-// NOTE: This is not thread safe. Since currently only single go-routine reads the data this is fine.
-var dnsPacketParser = &layers.DNS{}
-
-func (decoder *Decoder) DecodeDNSLayer(details *packet.PacketDetails) (*layers.DNS, error) {
+func (decoder *Decoder) DecodeDNSLayer(details *packet.PacketDetails) (*dns.Msg, error) {
 	if details.Proto == packet.SubProtocolTCP {
 		if len(details.Payload) < 2 {
 			return nil, errDNSMessageNotComplete
@@ -538,13 +534,14 @@ func (decoder *Decoder) DecodeDNSLayer(details *packet.PacketDetails) (*layers.D
 		}
 		details.Payload = details.Payload[2:]
 	}
-	if err := dnsPacketParser.DecodeFromBytes(details.Payload, gopacket.NilDecodeFeedback); err != nil {
+	msg := new(dns.Msg)
+	if err := msg.Unpack(details.Payload); err != nil {
 		return nil, err
 	}
-	return dnsPacketParser, nil
+	return msg, nil
 }
 
-func (decoder *Decoder) DecodeDNSAndDetails() (*layers.DNS, packet.PacketDetails, error) {
+func (decoder *Decoder) DecodeDNSAndDetails() (*dns.Msg, packet.PacketDetails, error) {
 	var discard uint8
 	// Read firsts two bytes and discard. It's mapped to argsnum and index.
 	// For network events in most cases there is only 1 argument (payload).
@@ -593,11 +590,12 @@ func (decoder *Decoder) ReadProtoDNS() (*types.ProtoDNS, error) {
 		}
 		details.Payload = details.Payload[2:]
 	}
-	if err := dnsPacketParser.DecodeFromBytes(details.Payload, gopacket.NilDecodeFeedback); err != nil {
+	msg := new(dns.Msg)
+	if err := msg.Unpack(details.Payload); err != nil {
 		return nil, err
 	}
 
-	return ToProtoDNS(&details, dnsPacketParser), nil
+	return ToProtoDNS(&details, msg), nil
 }
 
 // ProcessNameString converts raw process name to readable string.
@@ -606,9 +604,9 @@ func ProcessNameString(raw []byte) string {
 	return unix.ByteSliceToString(raw)
 }
 
-func ToProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *castpb.DNS {
+func ToProtoDNS(details *packet.PacketDetails, dnsMsg *dns.Msg) *castpb.DNS {
 	pbDNS := &castpb.DNS{
-		Answers: make([]*castpb.DNSAnswers, len(dnsPacketParser.Answers)),
+		Answers: make([]*castpb.DNSAnswers, len(dnsMsg.Answer)),
 		Tuple: &castpb.Tuple{
 			SrcIp:   details.Src.Addr().AsSlice(),
 			DstIp:   details.Dst.Addr().AsSlice(),
@@ -617,20 +615,28 @@ func ToProtoDNS(details *packet.PacketDetails, dnsPacketParser *layers.DNS) *cas
 		},
 	}
 
-	for _, v := range dnsPacketParser.Questions {
-		pbDNS.DNSQuestionDomain = string(v.Name)
+	for _, v := range dnsMsg.Question {
+		pbDNS.DNSQuestionDomain = v.Name
 		break
 	}
 
-	for i, v := range dnsPacketParser.Answers {
-		pbDNS.Answers[i] = &castpb.DNSAnswers{
-			Name:  string(v.Name),
-			Type:  uint32(v.Type),
-			Class: uint32(v.Class),
-			Ttl:   v.TTL,
-			Ip:    v.IP,
-			Cname: string(v.CNAME),
+	for i, ans := range dnsMsg.Answer {
+		hdr := ans.Header()
+		res := &castpb.DNSAnswers{
+			Name:  ans.Header().Name,
+			Type:  uint32(hdr.Rrtype),
+			Class: uint32(hdr.Class),
+			Ttl:   hdr.Ttl,
 		}
+		switch rr := ans.(type) {
+		case *dns.A:
+			res.Ip = rr.A
+		case *dns.AAAA:
+			res.Ip = rr.AAAA
+		case *dns.CNAME:
+			res.Cname = rr.Target
+		}
+		pbDNS.Answers[i] = res
 	}
 	return pbDNS
 }
