@@ -623,7 +623,7 @@ func ToProtoDNS(details *packet.PacketDetails, dnsMsg *dns.Msg) *castpb.DNS {
 	for i, ans := range dnsMsg.Answer {
 		hdr := ans.Header()
 		res := &castpb.DNSAnswers{
-			Name:  ans.Header().Name,
+			Name:  hdr.Name,
 			Type:  uint32(hdr.Rrtype),
 			Class: uint32(hdr.Class),
 			Ttl:   hdr.Ttl,
