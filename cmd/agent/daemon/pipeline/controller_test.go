@@ -38,6 +38,7 @@ import (
 type testAddr struct {
 	expected string
 	raw      [16]byte
+	dns      string
 }
 
 func TestController(t *testing.T) {
@@ -563,24 +564,26 @@ func TestController(t *testing.T) {
 					name:   "ipv4",
 					family: uint16(types.AF_INET),
 					saddr: testAddr{
-						"10.0.0.10",
-						[16]byte{0xa, 0, 0, 0xa},
+						expected: "10.0.0.10",
+						raw:      [16]byte{0xa, 0, 0, 0xa},
 					},
 					daddr: testAddr{
-						"172.16.0.10",
-						[16]byte{0xac, 0x10, 0, 0xa},
+						expected: "172.16.0.10",
+						raw:      [16]byte{0xac, 0x10, 0, 0xa},
+						dns:      "ipv4.example.com",
 					},
 				},
 				{
 					name:   "ipv6",
 					family: uint16(types.AF_INET6),
 					saddr: testAddr{
-						"fd00::1",
-						[16]byte{0xfd, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1},
+						expected: "fd00::1",
+						raw:      [16]byte{0xfd, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1},
 					},
 					daddr: testAddr{
-						"fd01::1",
-						[16]byte{0xfd, 0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1},
+						expected: "fd01::1",
+						raw:      [16]byte{0xfd, 0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1},
+						dns:      "ipv6.example.com",
 					},
 				},
 			}
@@ -603,7 +606,8 @@ func TestController(t *testing.T) {
 					}))
 					ctrl.cfg.Netflow.Enabled = true
 
-					ctrl.tracer.(*mockEbpfTracer).collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
+					mockTracer := ctrl.tracer.(*mockEbpfTracer)
+					mockTracer.collectNetworkSummaryFunc = func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
 						return []ebpftracer.TrafficKey{
 								newEbpfTrafficKey(trafficKey{saddr: tt.saddr.raw, daddr: tt.daddr.raw, family: tt.family}),
 							}, []ebpftracer.TrafficSummary{
@@ -614,6 +618,9 @@ func TestController(t *testing.T) {
 									RxPackets: 12,
 								},
 							}, nil
+					}
+					mockTracer.dnsCache = map[netip.Addr]string{
+						netip.MustParseAddr(tt.daddr.expected): tt.daddr.dns,
 					}
 
 					ctrlerr := make(chan error, 1)
@@ -643,6 +650,7 @@ func TestController(t *testing.T) {
 						r.Equal(int(dest.TxPackets), 5)
 						r.Equal(int(dest.RxBytes), 11)
 						r.Equal(int(dest.RxPackets), 12)
+						r.Equal(tt.daddr.dns, dest.DnsQuestion)
 						return true
 					}, 3*time.Second, 1*time.Millisecond)
 				})
@@ -1076,10 +1084,21 @@ type mockEbpfTracer struct {
 	syscallStats               map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats
 	collectNetworkSummaryFunc  func() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
 	collectFileAccessStatsFunc func() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error)
+	dnsCache                   map[netip.Addr]string
 }
 
 func (m *mockEbpfTracer) GetEventName(id events.ID) string {
 	return strconv.Itoa(int(id))
+}
+
+func (m *mockEbpfTracer) GetDNSNameFromCache(cgroupID uint64, addr netip.Addr) string {
+	if m.dnsCache != nil {
+		return m.dnsCache[addr]
+	}
+	return ""
+}
+
+func (m *mockEbpfTracer) RemoveCgroupFromDNSCache(cgroup uint64) {
 }
 
 type netflowList struct {

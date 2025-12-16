@@ -57,6 +57,8 @@ type ebpfTracer interface {
 	CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error)
 	CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error)
 	GetEventName(id events.ID) string
+	GetDNSNameFromCache(cgroupID uint64, addr netip.Addr) string
+	RemoveCgroupFromDNSCache(cgroup uint64)
 }
 
 type signatureEngine interface {
@@ -135,12 +137,6 @@ func NewController(
 	storageInfoProvider StorageInfoProvider,
 	nodeStatsSummaryWriter NodeStatsSummaryWriter,
 ) *Controller {
-	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
-		return uint32(k) // nolint:gosec
-	})
-	if err != nil {
-		panic(err)
-	}
 	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
 	})
@@ -159,7 +155,6 @@ func NewController(
 		kubeClient:           kubeClient,
 		nodeName:             os.Getenv("NODE_NAME"),
 		mutedNamespaces:      map[string]struct{}{},
-		dnsCache:             dnsCache,
 		podCache:             podCache,
 		processTreeCollector: processTreeCollector,
 		procHandler:          procHandler,
@@ -194,7 +189,6 @@ type Controller struct {
 
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient
-	dnsCache       *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
@@ -340,9 +334,7 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 }
 
 func (c *Controller) onDeleteContainer(container *containers.Container) {
-	c.dnsCache.Remove(container.CgroupID)
-
-	c.log.Debugf("removed cgroup %d", container.CgroupID)
+	c.tracer.RemoveCgroupFromDNSCache(container.CgroupID)
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

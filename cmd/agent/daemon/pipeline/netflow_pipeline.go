@@ -365,7 +365,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 	}
 	remote := netip.AddrPortFrom(remoteIP, key.Tuple.Dport)
 
-	dns := c.getAddrDnsQuestion(key.ProcessIdentity.CgroupId, remote.Addr())
+	dns := c.tracer.GetDNSNameFromCache(key.ProcessIdentity.CgroupId, remote.Addr())
 
 	if (c.clusterInfo != nil && c.clusterInfo.serviceCidrContains(remote.Addr())) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 		if realDst, found := c.getConntrackDest(local, remote); found {

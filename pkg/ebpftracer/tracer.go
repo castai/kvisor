@@ -19,6 +19,7 @@ import (
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
 	"github.com/castai/kvisor/pkg/system"
+	"github.com/elastic/go-freelru"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/gopacket/layers"
 	"github.com/samber/lo"
@@ -121,6 +122,8 @@ type Tracer struct {
 	metricExportTimerTickRate time.Duration
 
 	currentTracerEbpfMetrics map[string]uint64
+
+	dnsCache *freelru.SyncedLRU[uint64, *freelru.SyncedLRU[netip.Addr, string]]
 }
 
 func New(log *logging.Logger, cfg Config) *Tracer {
@@ -133,6 +136,13 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 
 	if cfg.EventsOutputChanSize == 0 {
 		cfg.EventsOutputChanSize = 16384
+	}
+
+	dnsCache, err := freelru.NewSynced[uint64, *freelru.SyncedLRU[netip.Addr, string]](1024, func(k uint64) uint32 {
+		return uint32(k) // nolint:gosec
+	})
+	if err != nil {
+		panic(fmt.Errorf("invalid dns cache initialization: %w", err).Error())
 	}
 
 	t := &Tracer{
@@ -150,6 +160,7 @@ func New(log *logging.Logger, cfg Config) *Tracer {
 		cgroupCleanupDelay:        30 * time.Second,
 		metricExportTimerTickRate: 5 * time.Second,
 		currentTracerEbpfMetrics:  map[string]uint64{},
+		dnsCache:                  dnsCache,
 	}
 
 	return t
