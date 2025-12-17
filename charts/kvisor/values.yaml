@@ -49,6 +49,12 @@ pyroscope:
 agent:
   enabled: false
 
+  # -- Used to set additional volumes.
+  extraVolumes: []
+
+  # -- Used to set additional volume mounts.
+  extraVolumeMounts: []
+
   serviceAccount:
     # Specifies whether a service account should be created
     create: true
@@ -144,6 +150,12 @@ agent:
 
 controller:
   enabled: true
+
+  # -- Used to set additional volumes.
+  extraVolumes: []
+
+  # -- Used to set additional volume mounts.
+  extraVolumeMounts: []
 
   replicas: 1
 
