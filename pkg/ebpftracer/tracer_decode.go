@@ -118,6 +118,13 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		}
 	}
 
+	// Fill dns cache from dns events
+	if eventId == events.NetPacketDNSBase {
+		if err := t.handleNetPacketDNSEvent(&eventCtx, parsedArgs); err != nil {
+			t.log.Errorf("handling dns event: %v", err)
+		}
+	}
+
 	select {
 	case t.eventsChan <- event:
 	default:
@@ -177,6 +184,12 @@ func (t *Tracer) handleSchedProcessExitEvent(eventCtx *types.EventContext) {
 	} else {
 		t.cfg.MountNamespacePIDStore.RemoveFromBucket(proc.NamespaceID(eventCtx.MntID), eventCtx.NodeHostPid)
 	}
+}
+
+func (t *Tracer) handleNetPacketDNSEvent(eventCtx *types.EventContext, parsedArgs types.Args) error {
+	event := parsedArgs.(types.NetPacketDNSBaseArgs).Payload
+	err := t.addDNSResponseToCache(eventCtx.CgroupID, event.Answers)
+	return err
 }
 
 func (t *Tracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
