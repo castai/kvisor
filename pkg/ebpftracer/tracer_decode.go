@@ -1,6 +1,7 @@
 package ebpftracer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"runtime/debug"
@@ -13,7 +14,6 @@ import (
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/cilium/ebpf"
-	"golang.org/x/net/context"
 )
 
 // ErrPanic indicating that the resulting error was caught from a panic

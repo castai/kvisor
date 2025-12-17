@@ -347,7 +347,7 @@ func (c *Controller) cacheDNS(cgroupID uint64, dnsEvent *ebpftypes.ProtoDNS) {
 	cacheVal, found := c.dnsCache.Get(cgroupID)
 	if !found {
 		var err error
-		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
+		cacheVal, err = freelru.NewSynced[netip.Addr, string](c.cfg.Netflow.CgroupDNSCacheMaxEntries, func(k netip.Addr) uint32 {
 			return uint32(xxhash.Sum64(k.AsSlice())) // nolint:gosec
 		})
 		if err != nil {
@@ -366,7 +366,7 @@ func (c *Controller) cacheDNS(cgroupID uint64, dnsEvent *ebpftypes.ProtoDNS) {
 			continue
 		}
 
-		cacheVal.Add(addr, answ.Name)
+		cacheVal.Add(addr.Unmap(), answ.Name)
 	}
 }
 

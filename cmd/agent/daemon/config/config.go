@@ -83,6 +83,7 @@ type NetflowConfig struct {
 	Grouping                  ebpftracer.NetflowGrouping `json:"grouping"`
 	MaxPublicIPs              int16                      `json:"maxPublicIPs"`
 	CheckClusterNetworkRanges bool                       `json:"checkClusterNetworkRanges"`
+	CgroupDNSCacheMaxEntries  uint32                     `json:"cgroupDNSCacheMaxEntries"`
 }
 
 type FileAccessConfig struct {

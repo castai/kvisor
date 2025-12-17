@@ -32,6 +32,7 @@ require (
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/magiconair/properties v1.8.9
 	github.com/mattn/go-shellwords v1.0.12
+	github.com/miekg/dns v1.1.62
 	github.com/onsi/ginkgo v1.16.5
 	github.com/prometheus/client_golang v1.21.1
 	github.com/redis/go-redis/v9 v9.7.3
