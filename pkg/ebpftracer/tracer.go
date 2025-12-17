@@ -76,15 +76,16 @@ type Config struct {
 	SignatureEngine        *signature.SignatureEngine
 	MountNamespacePIDStore *types.PIDsPerNamespace
 	// All PIPs reported from ebpf will be normalized to this PID namespace
-	HomePIDNS            proc.NamespaceID
-	AllowAnyEvent        bool
-	FileAccessEnabled    bool
-	NetflowsEnabled      bool
-	NetflowGrouping      NetflowGrouping
-	TrackSyscallStats    bool
-	ProcessTreeCollector processTreeCollector
-	MetricsReporting     MetricsReportingConfig
-	PodName              string
+	HomePIDNS                proc.NamespaceID
+	AllowAnyEvent            bool
+	FileAccessEnabled        bool
+	NetflowsEnabled          bool
+	NetflowGrouping          NetflowGrouping
+	CgroupDNSCacheMaxEntries uint32
+	TrackSyscallStats        bool
+	ProcessTreeCollector     processTreeCollector
+	MetricsReporting         MetricsReportingConfig
+	PodName                  string
 }
 
 type cgroupCleanupRequest struct {

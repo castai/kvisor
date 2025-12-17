@@ -227,6 +227,7 @@ func (a *App) Run(ctx context.Context) error {
 			HomePIDNS:                  pidNSID,
 			NetflowsEnabled:            cfg.Netflow.Enabled,
 			NetflowGrouping:            cfg.Netflow.Grouping,
+			CgroupDNSCacheMaxEntries:   cfg.Netflow.CgroupDNSCacheMaxEntries,
 			MetricsReporting: ebpftracer.MetricsReportingConfig{
 				ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 				TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,

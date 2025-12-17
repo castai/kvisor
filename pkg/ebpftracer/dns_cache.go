@@ -15,7 +15,13 @@ func (t *Tracer) addDNSResponseToCache(cgroupID uint64, answers []*castaipb.DNSA
 	cacheVal, found := t.dnsCache.Get(cgroupID)
 	if !found {
 		var err error
-		cacheVal, err = freelru.NewSynced[netip.Addr, string](1024, func(k netip.Addr) uint32 {
+
+		cacheSize := uint32(1024)
+		if t.cfg.CgroupDNSCacheMaxEntries > 0 {
+			cacheSize = t.cfg.CgroupDNSCacheMaxEntries
+		}
+
+		cacheVal, err = freelru.NewSynced[netip.Addr, string](cacheSize, func(k netip.Addr) uint32 {
 			return uint32(xxhash.Sum64(k.AsSlice())) // nolint:gosec
 		})
 		if err != nil {
@@ -33,7 +39,7 @@ func (t *Tracer) addDNSResponseToCache(cgroupID uint64, answers []*castaipb.DNSA
 		}
 
 		name := strings.ToValidUTF8(answer.Name, "")
-		cacheVal.Add(addr, name)
+		cacheVal.Add(addr.Unmap(), name)
 	}
 	return nil
 }
