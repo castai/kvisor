@@ -1077,7 +1077,7 @@ func (m *mockConntrackClient) GetDestination(src, dst netip.AddrPort) (netip.Add
 	return netip.AddrPort{}, false
 }
 
-var _ ebpfTracer = (*mockEbpfTracer)(nil)
+var _ EBPFTracer = (*mockEbpfTracer)(nil)
 
 type mockEbpfTracer struct {
 	eventsChan                 chan *types.Event
