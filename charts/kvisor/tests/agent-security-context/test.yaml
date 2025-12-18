@@ -57,6 +57,29 @@ tests:
         template: agent.yaml
         documentIndex: 0
 
+  - it: should include SYS_PTRACE when storage-stats-enabled is set without ebpf
+    set:
+      agent.extraArgs:
+        ebpf-events-enabled: false
+        netflow-enabled: false
+        storage-stats-enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          count: 1
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: SYS_PTRACE
+        template: agent.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: SYS_ADMIN
+        template: agent.yaml
+        documentIndex: 0
+
   - it: should use custom capabilities when defined in values
     set:
       agent.extraArgs:
