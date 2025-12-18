@@ -212,14 +212,19 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Agent container security context with conditional capabilities.
 If capabilities.add is already defined in values.yaml, those are used as-is.
 Otherwise, capabilities are added dynamically based on enabled features in extraArgs:
+
+When ebpf-events-enabled or netflow-enabled:
   - BPF: Required for loading eBPF programs and the creation of eBPF maps
   - SYS_ADMIN: Required for eBPF operations on older kernels
-  - SYS_PTRACE: Required for reading /proc/[pid]/ns
+  - SYS_PTRACE: Required for reading /proc/[pid]/ns and /proc/1/root paths
   - SYS_RESOURCE: Required for rlimit adjustments
   - NET_ADMIN: Required for loading network programs
   - PERFMON: Required for loading tracing programs
   - IPC_LOCK: Required for mmap
   - SYSLOG: Required for resolving /proc/kallsyms
+
+When storage-stats-enabled (without eBPF):
+  - SYS_PTRACE: Required for accessing /proc/1/root paths for storage metrics
 */}}
 {{- define "kvisor.agent.containerSecurityContext" -}}
 {{- $secCtx := deepCopy .Values.agent.containerSecurityContext -}}
@@ -229,6 +234,7 @@ Otherwise, capabilities are added dynamically based on enabled features in extra
     (eq (index .Values.agent.extraArgs "ebpf-events-enabled") true)
     (eq (index .Values.agent.extraArgs "netflow-enabled") true)
   -}}
+  {{- $needsStorageCaps := eq (index .Values.agent.extraArgs "storage-stats-enabled") true -}}
   {{- if $needsEbpfCaps -}}
     {{- $ebpfCaps := list
       "BPF"
@@ -241,6 +247,10 @@ Otherwise, capabilities are added dynamically based on enabled features in extra
       "SYSLOG"
     -}}
     {{- $_ := set $secCtx.capabilities "add" $ebpfCaps -}}
+  {{- else if $needsStorageCaps -}}
+    {{- /* Storage stats only needs SYS_PTRACE to access /proc/1/root paths */ -}}
+    {{- $storageCaps := list "SYS_PTRACE" -}}
+    {{- $_ := set $secCtx.capabilities "add" $storageCaps -}}
   {{- end -}}
 {{- end -}}
 {{- toYaml $secCtx -}}
