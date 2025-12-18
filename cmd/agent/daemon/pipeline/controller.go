@@ -48,7 +48,7 @@ type containersClient interface {
 	GetCgroupStats(c *containers.Container) (cgroup.Stats, error)
 }
 
-type ebpfTracer interface {
+type EBPFTracer interface {
 	Events() <-chan *types.Event
 	MuteEventsFromCgroup(cgroup uint64, reason string) error
 	MuteEventsFromCgroups(cgroups []uint64, reason string) error
@@ -126,7 +126,7 @@ func NewController(
 	exporters []export.DataBatchWriter,
 	containersClient containersClient,
 	ct conntrackClient,
-	tracer ebpfTracer,
+	tracer EBPFTracer,
 	signatureEngine signatureEngine,
 	kubeClient kubepb.KubeAPIClient,
 	processTreeCollector processTreeCollector,
@@ -175,7 +175,7 @@ type Controller struct {
 	cfg                  Config
 	containersClient     containersClient
 	ct                   conntrackClient
-	tracer               ebpfTracer
+	tracer               EBPFTracer
 	signatureEngine      signatureEngine
 	processTreeCollector processTreeCollector
 	exporters            []export.DataBatchWriter
@@ -322,7 +322,7 @@ func (c *Controller) collectInitialProcessTree(ctx context.Context) error {
 }
 
 func (c *Controller) onNewContainer(container *containers.Container) {
-	if c.IsMutedNamespace(container.PodNamespace) {
+	if c.tracer != nil && c.IsMutedNamespace(container.PodNamespace) {
 		// We explicitly mute cgroups of new containers in muted namespaces, as otherwise
 		// there could be a timing issue, where we want to mute a namespace before the cgroup mkdir
 		// event has been handled.
@@ -334,7 +334,9 @@ func (c *Controller) onNewContainer(container *containers.Container) {
 }
 
 func (c *Controller) onDeleteContainer(container *containers.Container) {
-	c.tracer.RemoveCgroupFromDNSCache(container.CgroupID)
+	if c.tracer != nil {
+		c.tracer.RemoveCgroupFromDNSCache(container.CgroupID)
+	}
 }
 
 func (c *Controller) MuteNamespace(namespace string) error {

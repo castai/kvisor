@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/pprof"
+	"net/netip"
 	"os"
 	"runtime"
 	"strings"
@@ -203,7 +204,7 @@ func (a *App) Run(ctx context.Context) error {
 		defer cleanup()
 	}
 
-	var tracer *ebpftracer.Tracer
+	var ebpfTracer pipeline.EBPFTracer = &noopTracer{}
 	tracererr := make(chan error, 1)
 	if cfg.Events.Enabled || cfg.Netflow.Enabled {
 		pidNSID, err := procHandler.GetCurrentPIDNSID()
@@ -211,7 +212,7 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("proc handler: %w", err)
 		}
 
-		tracer = ebpftracer.New(log, ebpftracer.Config{
+		tracer := ebpftracer.New(log, ebpftracer.Config{
 			FileAccessEnabled:          cfg.Stats.FileAccessEnabled,
 			BTFPath:                    cfg.BTFPath,
 			SignalEventsRingBufferSize: cfg.EBPFSignalEventsRingBufferSize,
@@ -234,6 +235,7 @@ func (a *App) Run(ctx context.Context) error {
 			},
 			PodName: podName,
 		})
+		ebpfTracer = tracer
 		if err := tracer.Load(); err != nil {
 			return fmt.Errorf("loading tracer: %w", err)
 		}
@@ -289,7 +291,7 @@ func (a *App) Run(ctx context.Context) error {
 		exporters,
 		containersClient,
 		ct,
-		tracer,
+		ebpfTracer,
 		signatureEngine,
 		kubeAPIServerClient,
 		processTreeCollector,
@@ -617,4 +619,45 @@ func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error)
 	}
 
 	return custommetrics.NewMetricClient(metricsClientConfig, castlog.New())
+}
+
+type noopTracer struct{}
+
+func (n *noopTracer) Events() <-chan *types.Event {
+	return make(chan *types.Event)
+}
+
+func (n *noopTracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {
+	return nil
+}
+
+func (n *noopTracer) MuteEventsFromCgroups(cgroups []uint64, reason string) error {
+	return nil
+}
+
+func (n *noopTracer) UnmuteEventsFromCgroup(cgroup uint64) error {
+	return nil
+}
+
+func (n *noopTracer) ReadSyscallStats() (map[ebpftracer.SyscallStatsKeyCgroupID][]ebpftracer.SyscallStats, error) {
+	return nil, nil
+}
+
+func (n *noopTracer) CollectNetworkSummary() ([]ebpftracer.TrafficKey, []ebpftracer.TrafficSummary, error) {
+	return nil, nil, nil
+}
+
+func (n *noopTracer) CollectFileAccessStats() ([]ebpftracer.FileAccessKey, []ebpftracer.FileAccessStats, error) {
+	return nil, nil, nil
+}
+
+func (n *noopTracer) GetEventName(id events.ID) string {
+	return ""
+}
+
+func (n *noopTracer) GetDNSNameFromCache(cgroupID uint64, addr netip.Addr) string {
+	return ""
+}
+
+func (n *noopTracer) RemoveCgroupFromDNSCache(cgroup uint64) {
 }
