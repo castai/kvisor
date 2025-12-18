@@ -121,7 +121,7 @@ func (c *Controller) scrapeContainersStats(groups map[uint64]*containerStatsGrou
 		return cont.Err == nil && cont.Cgroup != nil && cont.Name != ""
 	})
 
-	c.log.Infof("scraping stats from %d containers", len(conts))
+	c.log.Debugf("scraping stats from %d containers", len(conts))
 	for _, cont := range conts {
 		group, found := groups[cont.CgroupID]
 		if !found {

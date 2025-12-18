@@ -281,7 +281,7 @@ func (c *Controller) sendDataBatch(reason, pipeline string, items []*castaipb.Da
 	}
 
 	g.Wait()
-	c.log.Infof("data batch exported, items=%d, size_bytes=%d, duration=%v, reason=%s", len(items), size, time.Since(start), reason)
+	c.log.Debugf("data batch exported, items=%d, size_bytes=%d, duration=%v, reason=%s", len(items), size, time.Since(start), reason)
 	metrics.AgentDataBatchItemsSentTotal.WithLabelValues(pipeline).Add(float64(len(items)))
 	metrics.AgentDataBatchBytesSentTotal.WithLabelValues(pipeline).Add(float64(size))
 }

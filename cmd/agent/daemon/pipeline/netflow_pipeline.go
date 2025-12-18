@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
@@ -162,10 +163,12 @@ func digestAddUint64(digest *xxhash.Digest, val uint64) {
 }
 
 func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netflowGroup, stats *dataBatchStats, digest *xxhash.Digest, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
-	c.log.Infof("handling netflows, total=%v", len(keys))
+	c.log.Debugf("handling netflows, total=%v", len(keys))
 
 	start := time.Now()
 	kubeDestinations := map[netip.Addr]struct{}{}
+
+	var foundContainerdConnectErrors bool
 
 	for i, key := range keys {
 		summary := vals[i]
@@ -182,7 +185,12 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 		if !found {
 			d, err := c.toNetflow(ctx, &key, &summary, start)
 			if err != nil {
-				c.log.Errorf("error while parsing netflow destination: %v", err)
+				// TODO: Investigate why containerd connect fails for some clusters. Most likely sock is in a different path.
+				if strings.Contains(err.Error(), "/run/containerd/containerd.sock: connect: connection refused") {
+					foundContainerdConnectErrors = true
+					continue
+				}
+				c.log.Errorf("creating netflow: %v", err)
 				continue
 			}
 			val := &netflowVal{
@@ -210,6 +218,10 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 
 	if len(kubeDestinations) > 0 {
 		c.enrichKubeDestinations(ctx, groups, kubeDestinations)
+	}
+
+	if foundContainerdConnectErrors {
+		c.log.Error("found containerd connect errors in netflow pipeline")
 	}
 }
 
@@ -332,7 +344,7 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 
 	container, err := c.containersClient.GetOrLoadContainerByCgroupID(ctx, key.ProcessIdentity.CgroupId)
 	if err != nil && !errors.Is(err, containers.ErrContainerNotFound) {
-		return nil, err
+		return nil, fmt.Errorf("getting container: %w", err)
 	}
 
 	if container != nil {
