@@ -51,7 +51,6 @@ func (p *Provider) fetchVPCs(ctx context.Context) ([]types.VPC, error) {
 
 	filterNetwork := fmt.Sprintf("name=%s", p.cfg.NetworkName)
 
-	// List networks (VPCs) in project
 	req := &computepb.ListNetworksRequest{
 		Project: p.cfg.GCPProjectID,
 		Filter:  &filterNetwork,
@@ -79,7 +78,6 @@ func (p *Provider) fetchVPCs(ctx context.Context) ([]types.VPC, error) {
 		}
 		vpc.Subnets = vpcSubnets
 
-		// Fetch peered VPCs
 		vpc.PeeredVPCs = p.fetchPeeredVPCs(ctx, network)
 
 		vpcs = append(vpcs, vpc)

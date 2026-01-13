@@ -6,8 +6,9 @@ These tests make real API calls to GCP and require actual credentials.
 
 ### 1. GCP Project
 You need access to a GCP project with VPC networks configured.
+If you have setup gcloud cli credentials you don't need to do anything extra, otherwsie go to step 2 and 3
 
-### 2. Service Account Credentials
+### 2. Service Account Credentials (Optional)
 Create a service account with the following IAM permissions:
 - `compute.networks.list`
 - `compute.networks.listPeeringRoutes`
@@ -17,7 +18,7 @@ You can use one of these pre-defined roles:
 - **Compute Network Viewer** (`roles/compute.networkViewer`) - Recommended minimal permissions
 - **Compute Viewer** (`roles/compute.viewer`) - Broader read access
 
-### 3. Download Service Account Key
+### 3. Download Service Account Key (Optional)
 ```bash
 # Create service account
 gcloud iam service-accounts create kvisor-integration-test \
