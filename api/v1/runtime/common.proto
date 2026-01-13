@@ -183,6 +183,7 @@ message NetflowDestination {
   string workload_name = 3;
   string workload_kind = 4;
   string zone = 5;
+  string region = 15;
   string dns_question = 6;
   string node_name = 14;
   bytes addr = 8;

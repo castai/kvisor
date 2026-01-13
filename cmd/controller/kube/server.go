@@ -10,14 +10,16 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/pkg/logging"
 )
 
-func NewServer(client *Client) kubepb.KubeAPIServer {
-	return &Server{client: client}
+func NewServer(client *Client, log *logging.Logger) kubepb.KubeAPIServer {
+	return &Server{client: client, log: log}
 }
 
 type Server struct {
 	client *Client
+	log    *logging.Logger
 }
 
 func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*kubepb.GetIPInfoResponse, error) {
@@ -73,35 +75,60 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 	res := &kubepb.GetIPsInfoResponse{
 		List: make([]*kubepb.IPInfo, 0, len(infos)),
 	}
-	for _, info := range infos {
+	for _, ip := range ips {
+		shouldIncludeIP := false
 		pbInfo := &kubepb.IPInfo{
-			Ip: info.ip.AsSlice(),
+			Ip: ip.AsSlice(),
 		}
-		if info.Node != nil {
-			pbInfo.Zone = getZone(info.Node)
+
+		info, ok := s.client.GetIPInfo(ip)
+		if ok {
+			shouldIncludeIP = true
+			if info.Node != nil {
+				pbInfo.Zone = getZone(info.Node)
+			}
+			if podInfo := info.PodInfo; podInfo != nil {
+				pbInfo.PodUid = string(podInfo.Pod.UID)
+				pbInfo.PodName = podInfo.Pod.Name
+				pbInfo.Namespace = podInfo.Pod.Namespace
+				pbInfo.WorkloadUid = string(podInfo.Owner.UID)
+				pbInfo.WorkloadName = podInfo.Owner.Name
+				pbInfo.WorkloadKind = podInfo.Owner.Kind
+				pbInfo.Zone = podInfo.Zone
+				pbInfo.NodeName = podInfo.Pod.Spec.NodeName
+			}
+			if svc := info.Service; svc != nil {
+				pbInfo.WorkloadKind = "Service"
+				pbInfo.WorkloadName = svc.Name
+				pbInfo.Namespace = svc.Namespace
+			}
+			if e := info.Endpoint; e != nil {
+				pbInfo.WorkloadKind = "Endpoint"
+				pbInfo.WorkloadName = e.Name
+				pbInfo.Namespace = e.Namespace
+			}
 		}
-		if podInfo := info.PodInfo; podInfo != nil {
-			pbInfo.PodUid = string(podInfo.Pod.UID)
-			pbInfo.PodName = podInfo.Pod.Name
-			pbInfo.Namespace = podInfo.Pod.Namespace
-			pbInfo.WorkloadUid = string(podInfo.Owner.UID)
-			pbInfo.WorkloadName = podInfo.Owner.Name
-			pbInfo.WorkloadKind = podInfo.Owner.Kind
-			pbInfo.Zone = podInfo.Zone
-			pbInfo.NodeName = podInfo.Pod.Spec.NodeName
+
+		vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
+		if ok {
+			shouldIncludeIP = true
+			s.log.WithField("region", vpcIPInfo.Region).Infof("VPC TESTING: %+v", vpcIPInfo)
+			if pbInfo.Zone == "" && vpcIPInfo.Zone != "" {
+				pbInfo.Zone = vpcIPInfo.Zone
+			}
+			if pbInfo.Region == "" && vpcIPInfo.Region != "" {
+				pbInfo.Region = vpcIPInfo.Region
+			}
+			pbInfo.CloudDomain = vpcIPInfo.CloudDomain
+		} else {
+			s.log.WithField("ip", ip.String()).Infof("VPC TESTING: not found")
 		}
-		if svc := info.Service; svc != nil {
-			pbInfo.WorkloadKind = "Service"
-			pbInfo.WorkloadName = svc.Name
-			pbInfo.Namespace = svc.Namespace
+
+		if shouldIncludeIP {
+			res.List = append(res.List, pbInfo)
 		}
-		if e := info.Endpoint; e != nil {
-			pbInfo.WorkloadKind = "Endpoint"
-			pbInfo.WorkloadName = e.Name
-			pbInfo.Namespace = e.Namespace
-		}
-		res.List = append(res.List, pbInfo)
 	}
+
 	return res, nil
 }
 
@@ -113,6 +140,7 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
 		ServiceCidr: info.ServiceCidr,
+		OtherCidr:   s.client.vpcIndex.metadata.ListKnownCIDRs(),
 	}, nil
 }
 

@@ -27,6 +27,7 @@ import (
 type clusterInfo struct {
 	podCidr     []netip.Prefix
 	serviceCidr []netip.Prefix
+	otherCidr   []netip.Prefix
 }
 
 func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
@@ -57,6 +58,13 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 				return nil, fmt.Errorf("parsing service cidr: %w", err)
 			}
 			res.serviceCidr = append(res.serviceCidr, subnet)
+		}
+		for _, cidr := range resp.OtherCidr {
+			subnet, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				return nil, fmt.Errorf("parsing other cidr: %w", err)
+			}
+			res.otherCidr = append(res.otherCidr, subnet)
 		}
 		return &res, nil
 	}
@@ -162,14 +170,20 @@ func digestAddUint64(digest *xxhash.Digest, val uint64) {
 	_, _ = digest.Write(dst[:])
 }
 
-func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netflowGroup, stats *dataBatchStats, digest *xxhash.Digest, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
+func (c *Controller) handleNetflows(
+	ctx context.Context,
+	groups map[uint64]*netflowGroup,
+	stats *dataBatchStats,
+	digest *xxhash.Digest,
+	keys []ebpftracer.TrafficKey,
+	vals []ebpftracer.TrafficSummary,
+) {
 	c.log.Debugf("handling netflows, total=%v", len(keys))
 
 	start := time.Now()
 	kubeDestinations := map[netip.Addr]struct{}{}
 
 	var foundContainerdConnectErrors bool
-
 	for i, key := range keys {
 		summary := vals[i]
 		group, found := groups[key.ProcessIdentity.CgroupId]
@@ -208,7 +222,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 			continue
 		}
 
-		if (c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(destAddr) || c.clusterInfo.podCidrContains(destAddr))) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+		if (c.clusterInfo != nil && c.clusterInfo.clusterCidrContains(destAddr)) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 			kubeDestinations[destAddr] = struct{}{}
 		}
 
@@ -263,7 +277,14 @@ func (c *Controller) enrichKubeDestinations(ctx context.Context, groups map[uint
 					flowDest.WorkloadName = info.WorkloadName
 					flowDest.WorkloadKind = info.WorkloadKind
 					flowDest.Zone = info.Zone
+					flowDest.Region = info.Region
 					flowDest.NodeName = info.NodeName
+
+					// set cloud domain as dns question when it's empty
+					// i.e. googleapis.com or amazonaws.com
+					if flowDest.DnsQuestion == "" && info.CloudDomain != "" {
+						flowDest.DnsQuestion = info.CloudDomain
+					}
 				}
 			}
 		}
@@ -433,6 +454,25 @@ func (c *clusterInfo) podCidrContains(ip netip.Addr) bool {
 
 func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
 	for _, cidr := range c.serviceCidr {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *clusterInfo) otherCidrContains(ip netip.Addr) bool {
+	for _, cidr := range c.otherCidr {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
+	cidrs := append(c.podCidr, append(c.serviceCidr, c.otherCidr...)...)
+	for _, cidr := range cidrs {
 		if cidr.Contains(ip) {
 			return true
 		}

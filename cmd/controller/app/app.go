@@ -33,6 +33,8 @@ import (
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
+	"github.com/castai/kvisor/pkg/cloudprovider"
+	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/castai/kvisor/pkg/logging"
 )
 
@@ -106,6 +108,13 @@ func (a *App) Run(ctx context.Context) error {
 	errg.Go(func() error {
 		return kubeClient.Run(ctx)
 	})
+
+	// Initialize cloud provider if enabled
+	if cfg.CloudProvider.Enabled {
+		errg.Go(func() error {
+			return a.runVPCMetadataFetcher(ctx, log, kubeClient)
+		})
+	}
 
 	// CAST AI specific logic.
 	if castaiClient != nil {
@@ -244,7 +253,7 @@ func (a *App) runKubeServer(ctx context.Context, log *logging.Logger, client *ku
 	s := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(srvMetrics.UnaryServerInterceptor()),
 	)
-	kubepb.RegisterKubeAPIServer(s, kube.NewServer(client))
+	kubepb.RegisterKubeAPIServer(s, kube.NewServer(client, log))
 
 	go func() {
 		<-ctx.Done()
@@ -293,4 +302,110 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 	}
 
 	return nil
+}
+
+// runVPCMetadataFetcher initializes the cloud provider and starts fetching VPC metadata.
+func (a *App) runVPCMetadataFetcher(ctx context.Context, log *logging.Logger, kubeClient *kube.Client) error {
+	cfg := a.cfg.CloudProvider
+
+	log.Infof("initializing VPC metadata fetcher for cloud provider: %s", cfg.Type)
+
+	// Create cloud provider config
+	cpConfig := cloudtypes.Config{
+		Type:            cloudtypes.Type(cfg.Type),
+		NetworkName:     cfg.NetworkName,
+		CredentialsFile: cfg.CredentialsFile,
+		GCPProjectID:    cfg.GCPProjectID,
+		AWSAccountID:    cfg.AWSAccountID,
+	}
+	var refreshInterval time.Duration
+	if cfg.RefreshInterval == 0 {
+		refreshInterval = 15 * time.Minute
+	}
+
+	// Create cloud provider
+	provider, err := cloudprovider.NewProvider(ctx, cpConfig)
+	if err != nil {
+		log.Errorf("failed to initialize cloud provider: %v", err)
+		return nil
+	}
+	defer provider.Close()
+
+	log.Infof("cloud provider %s initialized successfully", provider.Type())
+
+	// Create VPC index
+	vpcIndex := kube.NewVPCIndex(log, refreshInterval)
+
+	// Initial metadata fetch with retries
+	var metadata *cloudtypes.Metadata
+	backoff := 2 * time.Second
+	maxRetries := 5
+
+	for i := 0; i < maxRetries; i++ {
+		err := provider.RefreshMetadata(ctx)
+		if err != nil {
+			log.Errorf("VPC metadata refresh failed: %v", err)
+			continue
+		}
+		metadata, err = provider.GetMetadata(ctx)
+		if err == nil {
+			if err := vpcIndex.Update(metadata); err != nil {
+				log.Errorf("failed to update VPC index: %v", err)
+			} else {
+				log.Info("initial VPC metadata loaded successfully")
+				break
+			}
+		}
+
+		if i < maxRetries-1 {
+			log.Warnf("VPC metadata fetch attempt %d/%d failed: %v, retrying in %v", i+1, maxRetries, err, backoff)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+				backoff *= 2
+				if backoff > 30*time.Second {
+					backoff = 30 * time.Second
+				}
+			}
+		} else {
+			log.Errorf("failed to fetch initial VPC metadata after %d attempts: %v", maxRetries, err)
+			return nil
+		}
+	}
+
+	// Set VPC index in kube client
+	kubeClient.SetVPCIndex(vpcIndex)
+
+	// Start periodic refresh
+	ticker := time.NewTicker(refreshInterval)
+	defer ticker.Stop()
+
+	log.Infof("starting VPC metadata refresh (interval: %v)", refreshInterval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			err := provider.RefreshMetadata(ctx)
+			if err != nil {
+				log.Errorf("VPC metadata refresh failed: %v", err)
+				continue
+			}
+
+			metadata, err := provider.GetMetadata(ctx)
+			if err != nil {
+				log.Errorf("VPC metadata loading failed: %v", err)
+				continue
+			}
+
+			if err := vpcIndex.Update(metadata); err != nil {
+				log.Errorf("failed to update VPC index: %v", err)
+				continue
+			}
+
+			log.Debug("VPC metadata refreshed successfully")
+		}
+	}
 }
