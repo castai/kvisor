@@ -14,6 +14,13 @@ user = os.environ.get('USER', 'unknown-user')
 
 GOARCH = str(local('go env GOARCH')).rstrip('\n')
 
+registry = 'localhost:5000'
+
+if os.environ.get('TILT_DEFAULT_REGISTRY'):
+    registry = os.environ['TILT_DEFAULT_REGISTRY']
+
+default_registry(registry)
+
 namespace_create(namespace)
 
 local_resource(
@@ -76,7 +83,7 @@ local_resource(
 )
 
 docker_build_with_restart(
-    'localhost:5000/kvisor-agent',
+    'kvisor-agent',
     '.',
     entrypoint=['/usr/local/bin/kvisor-agent'],
     dockerfile='Dockerfile.agent.local',
@@ -94,7 +101,7 @@ docker_build_with_restart(
 )
 
 docker_build_with_restart(
-    'localhost:5000/kvisor-controller',
+    'kvisor-controller',
     '.',
     entrypoint=['/app/kvisor-controller'],
     dockerfile='Dockerfile.controller.local',
@@ -107,7 +114,7 @@ docker_build_with_restart(
 )
 
 docker_build_with_restart(
-    'localhost:5000/kvisor-mock-server',
+    'kvisor-mock-server',
     '.',
     entrypoint=['/app/kvisor-mock-server'],
     dockerfile='Dockerfile.mock-server',
@@ -120,7 +127,7 @@ docker_build_with_restart(
 )
 
 docker_build(
-    'localhost:5000/kvisor-scanners',
+    'kvisor-scanners',
     '.',
     dockerfile='Dockerfile.scanners.local',
     match_in_env_vars=True,
@@ -146,6 +153,5 @@ k8s_yaml(helm(
 # )
 
 #k8s_resource(workload='kvisor-controller', port_forwards=[6060,5432])
-
 #
 # k8s_yaml('./hack/network-test-app.yaml')
