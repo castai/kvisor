@@ -5,7 +5,7 @@ castai:
   enabled: true
 
 image:
-  repository: localhost:5000/kvisor
+  repository: kvisor
   tag: latest
 
 commonLabels:
@@ -62,7 +62,7 @@ controller:
     kube-linter-scan-interval: 5s
 
   extraEnv:
-    SCANNERS_IMAGE: localhost:5000/kvisor-scanners
+    SCANNERS_IMAGE: kvisor-scanners
 
   containerSecurityContext:
     readOnlyRootFilesystem: false
@@ -75,13 +75,13 @@ controller:
 eventGenerator:
   enabled: false
   image:
-    repository: localhost:5000/kvisor-event-generator
+    repository: kvisor-event-generator
     tag: latest
 
 mockServer:
   enabled: true
   image:
-    repository: localhost:5000/kvisor-mock-server
+    repository: kvisor-mock-server
     tag: latest
 
 clickhouse:
@@ -93,3 +93,4 @@ clickhouse:
     database: "kvisor"
     username: "kvisor"
     password: "kvisor"
+
