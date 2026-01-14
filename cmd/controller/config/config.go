@@ -37,22 +37,11 @@ type Config struct {
 	ImageScan        imagescan.Config              `json:"imageScan"`
 	Linter           kubelinter.Config             `json:"linter"`
 	KubeBench        kubebench.Config              `json:"kubeBench"`
-	JobsCleanup      controllers.JobsCleanupConfig `json:"jobsCleanup"`
-	AgentConfig      AgentConfig                   `json:"agentConfig"`
-	CloudProvider    CloudProviderConfig           `json:"cloudProvider"`
+	JobsCleanup   controllers.JobsCleanupConfig   `json:"jobsCleanup"`
+	AgentConfig   AgentConfig                     `json:"agentConfig"`
+	CloudProvider controllers.VPCMetadataConfig   `json:"cloudProvider"`
 }
 
 type AgentConfig struct {
 	Enabled bool `json:"enabled"`
-}
-
-type CloudProviderConfig struct {
-	Enabled           bool          `json:"enabled"`
-	Type              string        `json:"type"`        // "gcp", "aws", "azure"
-	NetworkName       string        `json:"networkName"` // "gcp", "aws", "azure"
-	RefreshInterval   time.Duration `json:"refreshInterval"`
-	CredentialsFile   string        `json:"credentialsFile"`
-	GCPProjectID      string        `json:"gcpProjectID"`
-	AWSAccountID      string        `json:"awsAccountID"`      // For future AWS support
-	AzureSubscription string        `json:"azureSubscription"` // For future Azure support
 }

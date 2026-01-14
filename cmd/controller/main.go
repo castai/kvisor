@@ -192,7 +192,7 @@ func main() {
 		AgentConfig: config.AgentConfig{
 			Enabled: *agentEnabled,
 		},
-		CloudProvider: config.CloudProviderConfig{
+		CloudProvider: controllers.VPCMetadataConfig{
 			Enabled:         *cloudProviderVPCSyncEnabled,
 			NetworkName:     *cloudProviderVPCName,
 			RefreshInterval: *cloudProviderVPCSyncInterval,
