@@ -29,9 +29,9 @@ func (m ipsDetails) find(ip netip.Addr) (IPInfo, bool) {
 				nodeZone := getZone(ipInfo.Node)
 				if ipZone == "" {
 					ipZone = nodeZone
-				}
-				if ipZone != nodeZone {
-					continue
+				} else if ipZone != nodeZone {
+					ipZone = ""
+					break
 				}
 			}
 		}
