@@ -253,7 +253,7 @@ func (a *App) runKubeServer(ctx context.Context, log *logging.Logger, client *ku
 	s := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(srvMetrics.UnaryServerInterceptor()),
 	)
-	kubepb.RegisterKubeAPIServer(s, kube.NewServer(client, log))
+	kubepb.RegisterKubeAPIServer(s, kube.NewServer(client))
 
 	go func() {
 		<-ctx.Done()

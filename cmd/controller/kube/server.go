@@ -10,16 +10,14 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/pkg/logging"
 )
 
-func NewServer(client *Client, log *logging.Logger) kubepb.KubeAPIServer {
-	return &Server{client: client, log: log}
+func NewServer(client *Client) kubepb.KubeAPIServer {
+	return &Server{client: client}
 }
 
 type Server struct {
 	client *Client
-	log    *logging.Logger
 }
 
 func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*kubepb.GetIPInfoResponse, error) {
