@@ -34,6 +34,7 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	res := &kubepb.IPInfo{}
 	if info.Node != nil {
 		res.Zone = getZone(info.Node)
+		res.NodeName = info.Node.GetName()
 	}
 	if podInfo := info.PodInfo; podInfo != nil {
 		res.PodUid = string(podInfo.Pod.UID)
@@ -84,6 +85,9 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 		info, ok := s.client.GetIPInfo(ip)
 		if ok {
 			shouldIncludeIP = true
+			if info.zone != "" {
+				pbInfo.Zone = info.zone
+			}
 			if info.Node != nil {
 				pbInfo.Zone = getZone(info.Node)
 				pbInfo.NodeName = info.Node.GetName()
@@ -113,7 +117,6 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 		vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
 		if ok {
 			shouldIncludeIP = true
-			s.log.WithField("region", vpcIPInfo.Region).Infof("VPC TESTING: %+v", vpcIPInfo)
 			if pbInfo.Zone == "" && vpcIPInfo.Zone != "" {
 				pbInfo.Zone = vpcIPInfo.Zone
 			}
@@ -121,8 +124,6 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 				pbInfo.Region = vpcIPInfo.Region
 			}
 			pbInfo.CloudDomain = vpcIPInfo.CloudDomain
-		} else {
-			s.log.WithField("ip", ip.String()).Infof("VPC TESTING: not found")
 		}
 
 		if shouldIncludeIP {

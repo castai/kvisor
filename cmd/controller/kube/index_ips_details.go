@@ -20,6 +20,23 @@ func (m ipsDetails) find(ip netip.Addr) (IPInfo, bool) {
 	if len(list) == 1 {
 		return list[0], true
 	}
+
+	// Despite multiple records we can use ip info if all records have the same zone
+	if len(list) > 1 {
+		ipZone := ""
+		for _, ipInfo := range list {
+			if ipInfo.Node != nil {
+				nodeZone := getZone(ipInfo.Node)
+				if ipZone == "" {
+					ipZone = nodeZone
+				}
+				if ipZone != nodeZone {
+					continue
+				}
+			}
+		}
+		return IPInfo{zone: ipZone}, true
+	}
 	return IPInfo{}, false
 }
 

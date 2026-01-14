@@ -286,6 +286,7 @@ type IPInfo struct {
 	Node     *corev1.Node
 	Endpoint *IPEndpoint
 
+	zone       string
 	ip         netip.Addr
 	resourceID types.UID
 	setAt      time.Time
