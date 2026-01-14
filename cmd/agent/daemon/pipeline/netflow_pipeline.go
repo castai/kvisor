@@ -319,6 +319,7 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 
 	if !isPublicDest && dest.Zone == "" && c.isSameNodeIP(destAddr) {
 		dest.Zone = netflow.pb.Zone
+		dest.Region = netflow.pb.Region
 		dest.NodeName = netflow.pb.NodeName
 	}
 
