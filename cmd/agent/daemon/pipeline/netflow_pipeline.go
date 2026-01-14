@@ -481,26 +481,8 @@ func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, 
 	return realDst, true
 }
 
-func (c *clusterInfo) podCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.podCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
 	for _, cidr := range c.serviceCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *clusterInfo) otherCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.otherCidr {
 		if cidr.Contains(ip) {
 			return true
 		}
