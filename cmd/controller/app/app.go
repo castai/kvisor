@@ -318,9 +318,9 @@ func (a *App) runVPCMetadataFetcher(ctx context.Context, log *logging.Logger, ku
 		GCPProjectID:    cfg.GCPProjectID,
 		AWSAccountID:    cfg.AWSAccountID,
 	}
-	var refreshInterval time.Duration
-	if cfg.RefreshInterval == 0 {
-		refreshInterval = 15 * time.Minute
+	refreshInterval := cfg.RefreshInterval
+	if refreshInterval == 0 {
+		refreshInterval = 1 * time.Hour
 	}
 
 	// Create cloud provider
