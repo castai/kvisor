@@ -116,16 +116,18 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 		}
 
 		// step 2: check IPs from VPC index
-		vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
-		if ok {
-			shouldIncludeIP = true
-			if pbInfo.Zone == "" && vpcIPInfo.Zone != "" {
-				pbInfo.Zone = vpcIPInfo.Zone
+		if s.client.vpcIndex != nil {
+			vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
+			if ok {
+				shouldIncludeIP = true
+				if pbInfo.Zone == "" && vpcIPInfo.Zone != "" {
+					pbInfo.Zone = vpcIPInfo.Zone
+				}
+				if pbInfo.Region == "" && vpcIPInfo.Region != "" {
+					pbInfo.Region = vpcIPInfo.Region
+				}
+				pbInfo.CloudDomain = vpcIPInfo.CloudDomain
 			}
-			if pbInfo.Region == "" && vpcIPInfo.Region != "" {
-				pbInfo.Region = vpcIPInfo.Region
-			}
-			pbInfo.CloudDomain = vpcIPInfo.CloudDomain
 		}
 
 		if shouldIncludeIP {
@@ -141,10 +143,14 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	if err != nil || info == nil {
 		return nil, status.Errorf(codes.NotFound, "cluster info not found: %v", err)
 	}
+	var otherCidr []string
+	if s.client.vpcIndex != nil {
+		otherCidr = s.client.vpcIndex.metadata.ListKnownCIDRs()
+	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
 		ServiceCidr: info.ServiceCidr,
-		OtherCidr:   s.client.vpcIndex.metadata.ListKnownCIDRs(),
+		OtherCidr:   otherCidr,
 	}, nil
 }
 

@@ -50,7 +50,6 @@ func (c *VPCMetadataController) Run(ctx context.Context) error {
 		AWSAccountID:    c.cfg.AWSAccountID,
 	}
 
-	// Create cloud provider
 	provider, err := cloudprovider.NewProvider(ctx, cpConfig)
 	if err != nil {
 		c.log.Errorf("failed to initialize cloud provider: %v", err)
@@ -60,19 +59,15 @@ func (c *VPCMetadataController) Run(ctx context.Context) error {
 
 	c.log.Infof("cloud provider %s initialized successfully", provider.Type())
 
-	// Create VPC index
 	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval)
 
-	// Initial metadata fetch with retries
 	if err := c.fetchInitialMetadata(ctx, provider, vpcIndex); err != nil {
 		c.log.Errorf("failed to fetch initial VPC metadata: %v", err)
 		return nil
 	}
 
-	// Set VPC index in kube client
 	c.kubeClient.SetVPCIndex(vpcIndex)
 
-	// Start periodic refresh
 	return c.runRefreshLoop(ctx, provider, vpcIndex)
 }
 
