@@ -22,8 +22,13 @@ func (m ipsDetails) find(ip netip.Addr) (IPInfo, bool) {
 	}
 
 	// Despite multiple records we can use ip info if all records have the same zone
+	// this is needed because in GCP subnets are regional and not zonal, so it means
+	// that same IP can be spawn in different zones (not relevant for AWS)
 	if len(list) > 1 {
 		ipZone := ""
+		// region will be always the same for same IP
+		// as unique CIDRs are always assigned to the same region
+		ipRegion := getRegion(list[0].Node)
 		for _, ipInfo := range list {
 			if ipInfo.Node != nil {
 				nodeZone := getZone(ipInfo.Node)
@@ -35,7 +40,7 @@ func (m ipsDetails) find(ip netip.Addr) (IPInfo, bool) {
 				}
 			}
 		}
-		return IPInfo{zone: ipZone}, true
+		return IPInfo{zone: ipZone, region: ipRegion}, true
 	}
 	return IPInfo{}, false
 }

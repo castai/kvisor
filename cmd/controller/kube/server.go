@@ -80,14 +80,16 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 			Ip: ip.AsSlice(),
 		}
 
+		// step 1: check IPs from kube client first
 		info, ok := s.client.GetIPInfo(ip)
 		if ok {
 			shouldIncludeIP = true
-			if info.zone != "" {
-				pbInfo.Zone = info.zone
-			}
+			pbInfo.Zone = info.zone
+			pbInfo.Region = info.region
+
 			if info.Node != nil {
 				pbInfo.Zone = getZone(info.Node)
+				pbInfo.Region = getRegion(info.Node)
 				pbInfo.NodeName = info.Node.GetName()
 			}
 			if podInfo := info.PodInfo; podInfo != nil {
@@ -98,6 +100,7 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 				pbInfo.WorkloadName = podInfo.Owner.Name
 				pbInfo.WorkloadKind = podInfo.Owner.Kind
 				pbInfo.Zone = podInfo.Zone
+				pbInfo.Region = podInfo.Region
 				pbInfo.NodeName = podInfo.Pod.Spec.NodeName
 			}
 			if svc := info.Service; svc != nil {
@@ -112,6 +115,7 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 			}
 		}
 
+		// step 2: check IPs from VPC index
 		vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
 		if ok {
 			shouldIncludeIP = true
@@ -155,6 +159,7 @@ func (s *Server) GetPod(ctx context.Context, req *kubepb.GetPodRequest) (*kubepb
 			WorkloadName: info.Owner.Name,
 			WorkloadKind: toProtoWorkloadKind(info.Owner.Kind),
 			Zone:         info.Zone,
+			Region:       info.Region,
 			NodeName:     info.Pod.Spec.NodeName,
 		},
 	}, nil

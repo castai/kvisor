@@ -75,6 +75,7 @@ message Pod {
   string workload_name = 2;
   WorkloadKind workload_kind = 3;
   string zone = 4;
+  string region = 6;
   string node_name = 5;
 }
 

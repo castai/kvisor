@@ -445,3 +445,11 @@ func getZone(n *kubepb.Node) string {
 	zone := n.Labels["topology.kubernetes.io/zone"]
 	return zone
 }
+
+func getRegion(n *kubepb.Node) string {
+	if n == nil {
+		return ""
+	}
+	region := n.Labels["topology.kubernetes.io/region"]
+	return region
+}

@@ -168,6 +168,7 @@ message Netflow {
   string workload_name = 6;
   string workload_kind = 7;
   string zone = 8;
+  string region = 16;
   string node_name = 13;
   bytes addr = 9;
   uint32 port = 10;

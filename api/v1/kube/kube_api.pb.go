@@ -575,6 +575,7 @@ type Pod struct {
 	WorkloadName  string                 `protobuf:"bytes,2,opt,name=workload_name,json=workloadName,proto3" json:"workload_name,omitempty"`
 	WorkloadKind  WorkloadKind           `protobuf:"varint,3,opt,name=workload_kind,json=workloadKind,proto3,enum=kube.v1.WorkloadKind" json:"workload_kind,omitempty"`
 	Zone          string                 `protobuf:"bytes,4,opt,name=zone,proto3" json:"zone,omitempty"`
+	Region        string                 `protobuf:"bytes,6,opt,name=region,proto3" json:"region,omitempty"`
 	NodeName      string                 `protobuf:"bytes,5,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -634,6 +635,13 @@ func (x *Pod) GetWorkloadKind() WorkloadKind {
 func (x *Pod) GetZone() string {
 	if x != nil {
 		return x.Zone
+	}
+	return ""
+}
+
+func (x *Pod) GetRegion() string {
+	if x != nil {
+		return x.Region
 	}
 	return ""
 }
@@ -1380,12 +1388,13 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\rGetPodRequest\x12\x10\n" +
 	"\x03uid\x18\x02 \x01(\tR\x03uid\"0\n" +
 	"\x0eGetPodResponse\x12\x1e\n" +
-	"\x03pod\x18\x01 \x01(\v2\f.kube.v1.PodR\x03pod\"\xba\x01\n" +
+	"\x03pod\x18\x01 \x01(\v2\f.kube.v1.PodR\x03pod\"\xd2\x01\n" +
 	"\x03Pod\x12!\n" +
 	"\fworkload_uid\x18\x01 \x01(\tR\vworkloadUid\x12#\n" +
 	"\rworkload_name\x18\x02 \x01(\tR\fworkloadName\x12:\n" +
 	"\rworkload_kind\x18\x03 \x01(\x0e2\x15.kube.v1.WorkloadKindR\fworkloadKind\x12\x12\n" +
-	"\x04zone\x18\x04 \x01(\tR\x04zone\x12\x1b\n" +
+	"\x04zone\x18\x04 \x01(\tR\x04zone\x12\x16\n" +
+	"\x06region\x18\x06 \x01(\tR\x06region\x12\x1b\n" +
 	"\tnode_name\x18\x05 \x01(\tR\bnodeName\"$\n" +
 	"\x0eGetNodeRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"4\n" +

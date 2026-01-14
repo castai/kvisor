@@ -35,10 +35,12 @@ func (i *Index) addFromPod(pod *corev1.Pod) {
 	owner := i.getPodOwner(pod)
 	node := i.nodesByName[pod.Spec.NodeName]
 	zone := getZone(node)
+	region := getRegion(node)
 	podInfo := &PodInfo{
-		Pod:   pod,
-		Owner: owner,
-		Zone:  zone,
+		Pod:    pod,
+		Owner:  owner,
+		Zone:   zone,
+		Region: region,
 	}
 	i.pods[pod.UID] = podInfo
 	if !pod.Spec.HostNetwork {
@@ -52,6 +54,8 @@ func (i *Index) addFromPod(pod *corev1.Pod) {
 				i.ipsDetails.set(addr, IPInfo{
 					PodInfo:    podInfo,
 					resourceID: pod.UID,
+					zone:       zone,
+					region:     region,
 				})
 			}
 		}
@@ -113,6 +117,8 @@ func (i *Index) addFromNode(v *corev1.Node) {
 			i.ipsDetails.set(addr, IPInfo{
 				Node:       v,
 				resourceID: v.UID,
+				zone:       getZone(v),
+				region:     getRegion(v),
 			})
 			return
 		}
@@ -273,6 +279,14 @@ func getZone(n *corev1.Node) string {
 	return zone
 }
 
+func getRegion(n *corev1.Node) string {
+	if n == nil {
+		return ""
+	}
+	region := n.Labels["topology.kubernetes.io/region"]
+	return region
+}
+
 type IPEndpoint struct {
 	ID        string
 	Name      string
@@ -287,6 +301,7 @@ type IPInfo struct {
 	Endpoint *IPEndpoint
 
 	zone       string
+	region     string
 	ip         netip.Addr
 	resourceID types.UID
 	setAt      time.Time
@@ -294,7 +309,8 @@ type IPInfo struct {
 }
 
 type PodInfo struct {
-	Pod   *corev1.Pod
-	Owner metav1.OwnerReference
-	Zone  string
+	Pod    *corev1.Pod
+	Owner  metav1.OwnerReference
+	Zone   string
+	Region string
 }

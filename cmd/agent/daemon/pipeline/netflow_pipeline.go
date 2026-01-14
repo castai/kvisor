@@ -383,15 +383,20 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 			res.WorkloadName = podInfo.WorkloadName
 			res.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
 			res.Zone = podInfo.Zone
+			res.Region = podInfo.Region
 			res.NodeName = podInfo.NodeName
 		}
 	}
 
 	// in case when pod info is not found we still can get AZ info from node
-	if res.Zone == "" {
-		nodeInfo, found := c.getNodeInfo(res.NodeName)
-		if found {
-			res.Zone = getZone(nodeInfo)
+	if res.Zone == "" || res.Region == "" {
+		if nodeInfo, found := c.getNodeInfo(res.NodeName); found {
+			if res.Zone == "" {
+				res.Zone = getZone(nodeInfo)
+			}
+			if res.Region == "" {
+				res.Region = getRegion(nodeInfo)
+			}
 		}
 	}
 
