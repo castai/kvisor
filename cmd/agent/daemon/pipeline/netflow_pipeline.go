@@ -197,7 +197,7 @@ func (c *Controller) handleNetflows(
 		netflowKey := newNetflowKey(digest, &key)
 		netflow, found := group.flows[netflowKey]
 		if !found {
-			d, err := c.toNetflow(ctx, &key, &summary, start)
+			netflowPb, err := c.toNetflow(ctx, &key, &summary, start)
 			if err != nil {
 				// TODO: Investigate why containerd connect fails for some clusters. Most likely sock is in a different path.
 				if strings.Contains(err.Error(), "/run/containerd/containerd.sock: connect: connection refused") {
@@ -208,7 +208,7 @@ func (c *Controller) handleNetflows(
 				continue
 			}
 			val := &netflowVal{
-				pb:        d,
+				pb:        netflowPb,
 				updatedAt: time.Now(),
 			}
 			group.flows[netflowKey] = val
@@ -315,6 +315,11 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 			destForMerge.RxPackets += dest.RxPackets
 		}
 		return
+	}
+
+	if !isPublicDest && dest.Zone == "" && c.isSameNodeIP(destAddr) {
+		dest.Zone = netflow.pb.Zone
+		dest.NodeName = netflow.pb.NodeName
 	}
 
 	// No merge, just append to destinations list.
@@ -425,6 +430,31 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 	}
 
 	return destination, remote.Addr(), nil
+}
+
+// isSameNodeIP checks if the given IP address falls within private
+// or special-purpose IP ranges (loopback, link-local, RFC-1918).
+func (c *Controller) isSameNodeIP(addr netip.Addr) bool {
+	ranges := []string{
+		"127.0.0.0/8",    // Loopback Addresses (IANA IPv4 Special-Purpose Address Registry)
+		"169.254.0.0/16", // IPv4 Link Local Address Space
+	}
+
+	var prefixes []netip.Prefix
+	for _, r := range ranges {
+		prefix, err := netip.ParsePrefix(r)
+		if err != nil {
+			c.log.Debugf("invalid private IP CIDR: %s", r)
+			continue
+		}
+		prefixes = append(prefixes, prefix)
+	}
+	for _, prefix := range prefixes {
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseAddr(data [16]byte, family uint16) netip.Addr {
