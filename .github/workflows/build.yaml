@@ -231,6 +231,27 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     needs: build
     steps:
+      - name: Free disk space
+        run: |
+          echo "Disk usage BEFORE cleanup:"
+          df -h
+
+          echo "Removing hosted toolcache..."
+          sudo rm -rf /opt/hostedtoolcache || true
+
+          echo "Removing .NET..."
+          sudo rm -rf /usr/share/dotnet || true
+
+          echo "Removing Android SDK..."
+          sudo rm -rf /usr/local/lib/android || true
+
+          echo "Removing GHC / Haskell..."
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+
+          echo "Disk usage AFTER cleanup:"
+          df -h
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
