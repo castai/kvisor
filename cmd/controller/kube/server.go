@@ -86,6 +86,7 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 			shouldIncludeIP = true
 			if info.Node != nil {
 				pbInfo.Zone = getZone(info.Node)
+				pbInfo.NodeName = info.Node.GetName()
 			}
 			if podInfo := info.PodInfo; podInfo != nil {
 				pbInfo.PodUid = string(podInfo.Pod.UID)

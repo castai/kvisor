@@ -143,6 +143,12 @@ func NewController(
 	if err != nil {
 		panic(err)
 	}
+	nodeCache, err := freelru.NewSynced[string, *kubepb.Node](4, func(k string) uint32 {
+		return uint32(xxhash.Sum64String(k)) // nolint:gosec
+	})
+	if err != nil {
+		panic(err)
+	}
 
 	return &Controller{
 		log:                  log.WithField("component", "ctrl"),
@@ -156,6 +162,7 @@ func NewController(
 		nodeName:             os.Getenv("NODE_NAME"),
 		mutedNamespaces:      map[string]struct{}{},
 		podCache:             podCache,
+		nodeCache:            nodeCache,
 		processTreeCollector: processTreeCollector,
 		procHandler:          procHandler,
 		enrichmentService:    enrichmentService,
@@ -190,6 +197,7 @@ type Controller struct {
 	clusterInfo    *clusterInfo
 	kubeClient     kubepb.KubeAPIClient
 	podCache       *freelru.SyncedLRU[string, *kubepb.Pod]
+	nodeCache      *freelru.SyncedLRU[string, *kubepb.Node]
 	conntrackCache *freelru.LRU[types.AddrTuple, netip.AddrPort]
 
 	eventGroups          map[uint64]*containerEventsGroup
@@ -352,7 +360,6 @@ func (c *Controller) MuteNamespace(namespace string) error {
 	cgroups := c.containersClient.GetCgroupsInNamespace(namespace)
 
 	err := c.tracer.MuteEventsFromCgroups(cgroups, fmt.Sprintf("muted namespace %q", namespace))
-
 	if err != nil {
 		return err
 	}
@@ -381,6 +388,21 @@ func (c *Controller) getPodInfo(podID string) (*kubepb.Pod, bool) {
 		c.podCache.Add(podID, pod)
 	}
 	return pod, true
+}
+
+func (c *Controller) getNodeInfo(nodeName string) (*kubepb.Node, bool) {
+	node, found := c.nodeCache.Get(nodeName)
+	if !found {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		resp, err := c.kubeClient.GetNode(ctx, &kubepb.GetNodeRequest{Name: nodeName})
+		if err != nil {
+			return nil, false
+		}
+		node = resp.Node
+		c.nodeCache.Add(nodeName, node)
+	}
+	return node, true
 }
 
 func workloadKindString(kind kubepb.WorkloadKind) string {
@@ -414,4 +436,12 @@ func toProtoProcessAction(action processtree.ProcessAction) castaipb.ProcessActi
 		return castaipb.ProcessAction_PROCESS_ACTION_EXIT
 	}
 	return castaipb.ProcessAction_PROCESS_ACTION_UNKNOWN
+}
+
+func getZone(n *kubepb.Node) string {
+	if n == nil {
+		return ""
+	}
+	zone := n.Labels["topology.kubernetes.io/zone"]
+	return zone
 }
