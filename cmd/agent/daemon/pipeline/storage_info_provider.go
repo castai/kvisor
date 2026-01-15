@@ -114,8 +114,8 @@ type K8sPodVolumeMetric struct {
 	PVName             *string   `avro:"pv_name"`
 	StorageClass       *string   `avro:"storage_class"`
 	CSIDriver          *string   `avro:"csi_driver"`
-	VolumeMode         string    `avro:"volume_mode"`   // "Filesystem" or "Block"
-	DevicePath         *string   `avro:"device_path"`   // For block volumes: container's volumeDevices[].devicePath
+	VolumeMode         string    `avro:"volume_mode"` // "Filesystem" or "Block"
+	DevicePath         *string   `avro:"device_path"` // For block volumes: container's volumeDevices[].devicePath
 	Timestamp          time.Time `avro:"ts"`
 }
 
