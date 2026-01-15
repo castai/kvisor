@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
@@ -156,6 +157,88 @@ func (s *Server) GetNodeStatsSummary(ctx context.Context, req *kubepb.GetNodeSta
 	}
 
 	return resp, nil
+}
+
+func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesRequest) (*kubepb.GetPodVolumesResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	pods := s.client.GetPodsOnNode(req.NodeName)
+	var volumes []*kubepb.PodVolumeInfo
+
+	for _, podInfo := range pods {
+		pod := podInfo.Pod
+		if pod == nil {
+			continue
+		}
+
+		// Build a map of volume name -> volume for quick lookup
+		volumeMap := make(map[string]corev1.Volume)
+		for _, vol := range pod.Spec.Volumes {
+			volumeMap[vol.Name] = vol
+		}
+
+		// Iterate through containers and their volume mounts
+		for _, container := range pod.Spec.Containers {
+			for _, mount := range container.VolumeMounts {
+				vol, exists := volumeMap[mount.Name]
+				if !exists {
+					continue
+				}
+
+				volInfo := &kubepb.PodVolumeInfo{
+					Namespace:      pod.Namespace,
+					PodName:        pod.Name,
+					PodUid:         string(pod.UID),
+					ControllerKind: podInfo.Owner.Kind,
+					ControllerName: podInfo.Owner.Name,
+					ContainerName:  container.Name,
+					VolumeName:     vol.Name,
+					MountPath:      mount.MountPath,
+				}
+
+				// If this is a PVC-backed volume, enrich with PVC/PV details
+				if vol.PersistentVolumeClaim != nil {
+					pvcName := vol.PersistentVolumeClaim.ClaimName
+					volInfo.PvcName = pvcName
+
+					if pvc, found := s.client.GetPVCByName(pod.Namespace, pvcName); found {
+						volInfo.PvcUid = string(pvc.UID)
+
+						// Get requested storage size
+						if req, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
+							volInfo.RequestedSizeBytes = req.Value()
+						}
+
+						// Get storage class
+						if pvc.Spec.StorageClassName != nil {
+							volInfo.StorageClass = *pvc.Spec.StorageClassName
+						}
+
+						// Get PV details if bound
+						if pvc.Spec.VolumeName != "" {
+							volInfo.PvName = pvc.Spec.VolumeName
+
+							if pv, found := s.client.GetPVByName(pvc.Spec.VolumeName); found {
+								// Get CSI details if available
+								if pv.Spec.CSI != nil {
+									volInfo.CsiDriver = pv.Spec.CSI.Driver
+									volInfo.CsiVolumeHandle = pv.Spec.CSI.VolumeHandle
+								}
+							}
+						}
+					}
+				}
+
+				volumes = append(volumes, volInfo)
+			}
+		}
+	}
+
+	return &kubepb.GetPodVolumesResponse{
+		Volumes: volumes,
+	}, nil
 }
 
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {

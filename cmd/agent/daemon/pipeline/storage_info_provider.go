@@ -76,6 +76,14 @@ type FilesystemMetric struct {
 	TotalInodes  *int64            `avro:"total_inodes"`
 	UsedInodes   *int64            `avro:"used_inodes"`
 	Timestamp    time.Time         `avro:"ts"`
+
+	// Pod/PVC metadata (nil for node-level filesystems)
+	Namespace    *string `avro:"namespace"`
+	PodName      *string `avro:"pod_name"`
+	PodUID       *string `avro:"pod_uid"`
+	PVCName      *string `avro:"pvc_name"`
+	PVName       *string `avro:"pv_name"`
+	StorageClass *string `avro:"storage_class"`
 }
 
 // NodeStatsSummaryMetric represents node-level filesystem statistics from kubelet
@@ -89,6 +97,26 @@ type NodeStatsSummaryMetric struct {
 	Timestamp            time.Time `avro:"ts"`
 }
 
+// K8sPodVolumeMetric represents pod volume information from Kubernetes
+type K8sPodVolumeMetric struct {
+	NodeName           string    `avro:"node_name"`
+	NodeTemplate       *string   `avro:"node_template"`
+	Namespace          string    `avro:"namespace"`
+	PodName            string    `avro:"pod_name"`
+	PodUID             string    `avro:"pod_uid"`
+	ControllerKind     string    `avro:"controller_kind"`
+	ControllerName     string    `avro:"controller_name"`
+	ContainerName      string    `avro:"container_name"`
+	VolumeName         string    `avro:"volume_name"`
+	MountPath          string    `avro:"mount_path"`
+	PVCName            *string   `avro:"pvc_name"`
+	RequestedSizeBytes *int64    `avro:"requested_size_bytes"`
+	PVName             *string   `avro:"pv_name"`
+	StorageClass       *string   `avro:"storage_class"`
+	CSIDriver          *string   `avro:"csi_driver"`
+	Timestamp          time.Time `avro:"ts"`
+}
+
 type storageMetricsState struct {
 	blockDevices map[string]*BlockDeviceMetric
 	filesystems  map[string]*FilesystemMetric
@@ -98,6 +126,7 @@ type StorageInfoProvider interface {
 	BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error)
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
+	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -286,6 +315,65 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 	return metric, nil
 }
 
+// CollectPodVolumeMetrics retrieves pod volume information from the controller
+func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod volumes for %s: %w", s.nodeName, err)
+	}
+
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template: %v", err)
+		nodeTemplate = nil
+	}
+
+	timestamp := time.Now()
+	metrics := make([]K8sPodVolumeMetric, 0, len(resp.Volumes))
+
+	for _, v := range resp.Volumes {
+		metric := K8sPodVolumeMetric{
+			NodeName:       s.nodeName,
+			NodeTemplate:   nodeTemplate,
+			Namespace:      v.Namespace,
+			PodName:        v.PodName,
+			PodUID:         v.PodUid,
+			ControllerKind: v.ControllerKind,
+			ControllerName: v.ControllerName,
+			ContainerName:  v.ContainerName,
+			VolumeName:     v.VolumeName,
+			MountPath:      v.MountPath,
+			Timestamp:      timestamp,
+		}
+
+		if v.PvcName != "" {
+			metric.PVCName = &v.PvcName
+		}
+		if v.RequestedSizeBytes > 0 {
+			metric.RequestedSizeBytes = &v.RequestedSizeBytes
+		}
+		if v.PvName != "" {
+			metric.PVName = &v.PvName
+		}
+		if v.StorageClass != "" {
+			metric.StorageClass = &v.StorageClass
+		}
+		if v.CsiDriver != "" {
+			metric.CSIDriver = &v.CsiDriver
+		}
+
+		metrics = append(metrics, metric)
+	}
+
+	return metrics, nil
+}
+
 func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
 	// Read mount information from /proc/1/mountinfo
 	mounts, err := readMountInfo("/proc/1/mountinfo")
@@ -293,9 +381,12 @@ func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) (
 		return nil, fmt.Errorf("failed to read mountinfo: %w", err)
 	}
 
+	// Build pod volume lookup map for enrichment
+	podVolumeMap := s.buildPodVolumeLookupMap()
+
 	filesystemMetrics := make([]FilesystemMetric, 0, len(mounts))
 	for _, mount := range mounts {
-		metric, err := s.buildFilesystemMetric(mount, timestamp)
+		metric, err := s.buildFilesystemMetric(mount, timestamp, podVolumeMap)
 		if err != nil {
 			s.log.Warnf("skipping filesystem metric for %s: %v", mount.MountPoint, err)
 			continue
@@ -306,7 +397,38 @@ func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) (
 	return filesystemMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time) (FilesystemMetric, error) {
+// podVolumeKey generates a lookup key from pod UID and volume name
+func podVolumeKey(podUID, volumeName string) string {
+	return podUID + "/" + volumeName
+}
+
+// buildPodVolumeLookupMap fetches pod volumes from controller and builds a lookup map
+func (s *SysfsStorageInfoProvider) buildPodVolumeLookupMap() map[string]*kubepb.PodVolumeInfo {
+	if s.kubeClient == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		s.log.Warnf("failed to get pod volumes for enrichment: %v", err)
+		return nil
+	}
+
+	volumeMap := make(map[string]*kubepb.PodVolumeInfo, len(resp.Volumes))
+	for _, v := range resp.Volumes {
+		key := podVolumeKey(v.PodUid, v.VolumeName)
+		volumeMap[key] = v
+	}
+
+	return volumeMap
+}
+
+func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time, podVolumeMap map[string]*kubepb.PodVolumeInfo) (FilesystemMetric, error) {
 	// Construct the path from host's root to access the filesystem
 	fileSystemPath := filepath.Join(s.hostRootPath, mount.MountPoint)
 
@@ -324,7 +446,7 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 	// Check whether the filesystem is holding kubelet and/or castai-storage directories
 	labels := buildFilesystemLabels(devID, s.wellKnownPathDeviceID)
 
-	return FilesystemMetric{
+	metric := FilesystemMetric{
 		Devices:      s.getBackingDevices(mount.Device),
 		NodeName:     s.nodeName,
 		NodeTemplate: nodeTemplate,
@@ -337,7 +459,28 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 		UsedInodes:   &usedInodes,
 		Labels:       labels,
 		Timestamp:    timestamp,
-	}, nil
+	}
+
+	// Check if this is a pod volume mount and enrich with pod metadata
+	if volInfo := ParseVolumeMountPath(mount.MountPoint); volInfo != nil && podVolumeMap != nil {
+		key := podVolumeKey(volInfo.PodUID, volInfo.VolumeName)
+		if pv, ok := podVolumeMap[key]; ok {
+			metric.Namespace = &pv.Namespace
+			metric.PodName = &pv.PodName
+			metric.PodUID = &pv.PodUid
+			if pv.PvcName != "" {
+				metric.PVCName = &pv.PvcName
+			}
+			if pv.PvName != "" {
+				metric.PVName = &pv.PvName
+			}
+			if pv.StorageClass != "" {
+				metric.StorageClass = &pv.StorageClass
+			}
+		}
+	}
+
+	return metric, nil
 }
 
 // getBackingDevices resolves a device to its backing device.
@@ -799,7 +942,7 @@ func getFilesystemStats(mountPoint string) (sizeBytes, usedBytes int64, totalIno
 	var mountPointStat unix.Stat_t
 	err = unix.Stat(mountPoint, &mountPointStat)
 	if err == nil {
-		devID = mountPointStat.Dev
+		devID = uint64(mountPointStat.Dev)
 	}
 
 	// statfs.Bsize is uint32 on Darwin, int64 on Linux - convert safely to uint64
@@ -837,7 +980,7 @@ func getDeviceIDForPath(path string) (uint64, error) {
 		return 0, err
 	}
 
-	return stat.Dev, nil
+	return uint64(stat.Dev), nil
 }
 
 func buildFilesystemLabels(fsMountPointDeviceID uint64, wellKnownPathsDeviceID map[string]uint64) map[string]string {

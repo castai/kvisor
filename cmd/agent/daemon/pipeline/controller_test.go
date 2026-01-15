@@ -808,7 +808,7 @@ func TestController(t *testing.T) {
 		blockWriter := ctrl.blockDeviceMetricsWriter.(*mockBlockDeviceMetricsWriter)
 		fsWriter := ctrl.filesystemMetricsWriter.(*mockFilesystemMetricsWriter)
 
-		ctrl.collectStorageMetrics()
+		ctrl.collectStorageMetrics(context.Background())
 
 		r.Len(blockWriter.metrics, 1)
 		r.Len(fsWriter.metrics, 1)
@@ -929,6 +929,7 @@ func newTestController(opts ...any) *Controller {
 		filesystemMetrics,
 		&mockStorageInfoProvider{},
 		nodeStatsSummaryWriter,
+		nil, // podVolumeMetricsWriter
 	)
 	return ctrl
 }
@@ -1237,6 +1238,12 @@ func (m *mockKubeClient) GetNodeStatsSummary(ctx context.Context, req *kubepb.Ge
 	}, nil
 }
 
+func (m *mockKubeClient) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesRequest, opts ...grpc.CallOption) (*kubepb.GetPodVolumesResponse, error) {
+	return &kubepb.GetPodVolumesResponse{
+		Volumes: []*kubepb.PodVolumeInfo{},
+	}, nil
+}
+
 type mockProcessTreeController struct {
 }
 
@@ -1359,4 +1366,8 @@ func (m *mockStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (
 		ContainerFsUsedBytes: lo.ToPtr(int64(100000000000)),
 		Timestamp:            time.Now(),
 	}, nil
+}
+
+func (m *mockStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error) {
+	return []K8sPodVolumeMetric{}, nil
 }

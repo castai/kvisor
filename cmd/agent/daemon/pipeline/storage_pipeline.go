@@ -19,14 +19,14 @@ func (c *Controller) runStoragePipeline(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			start := time.Now()
-			c.collectStorageMetrics()
+			c.collectStorageMetrics(ctx)
 			c.collectNodeStatsSummary(ctx)
 			c.log.Debugf("storage stats exported, duration=%v", time.Since(start))
 		}
 	}
 }
 
-func (c *Controller) collectStorageMetrics() {
+func (c *Controller) collectStorageMetrics(ctx context.Context) {
 	start := time.Now()
 	c.log.Debug("starting storage stats collection")
 
@@ -37,6 +37,10 @@ func (c *Controller) collectStorageMetrics() {
 
 	if err := c.processFilesystemMetrics(timestamp); err != nil {
 		c.log.Errorf("failed to collect filesystem metrics: %v", err)
+	}
+
+	if err := c.processPodVolumeMetrics(ctx); err != nil {
+		c.log.Errorf("failed to collect pod volume metrics: %v", err)
 	}
 
 	c.log.Debugf("storage stats collection completed in %v", time.Since(start))
@@ -75,6 +79,32 @@ func (c *Controller) processFilesystemMetrics(timestamp time.Time) error {
 
 	if err := c.filesystemMetricsWriter.Write(fsMetrics...); err != nil {
 		return fmt.Errorf("failed to write filesystem metric: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Controller) processPodVolumeMetrics(ctx context.Context) error {
+	if c.podVolumeMetricsWriter == nil {
+		return nil // Pod volume metrics writer not configured, skip
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	metrics, err := c.storageInfoProvider.CollectPodVolumeMetrics(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to collect pod volume metrics: %w", err)
+	}
+
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	c.log.Infof("collected %d pod volume metrics", len(metrics))
+
+	if err := c.podVolumeMetricsWriter.Write(metrics...); err != nil {
+		return fmt.Errorf("failed to write pod volume metrics: %w", err)
 	}
 
 	return nil

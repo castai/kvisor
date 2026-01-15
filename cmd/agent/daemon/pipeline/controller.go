@@ -96,6 +96,10 @@ type NodeStatsSummaryWriter interface {
 	Write(metrics ...NodeStatsSummaryMetric) error
 }
 
+type K8sPodVolumeMetricsWriter interface {
+	Write(metrics ...K8sPodVolumeMetric) error
+}
+
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
@@ -120,6 +124,14 @@ func NewNodeStatsSummaryWriter(metricsClient custommetrics.MetricClient) (NodeSt
 	)
 }
 
+func NewK8sPodVolumeMetricsWriter(metricsClient custommetrics.MetricClient) (K8sPodVolumeMetricsWriter, error) {
+	return custommetrics.NewMetric[K8sPodVolumeMetric](
+		metricsClient,
+		custommetrics.WithCollectionName[K8sPodVolumeMetric]("k8s_pod_volume"),
+		custommetrics.WithSkipTimestamp[K8sPodVolumeMetric](),
+	)
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
@@ -136,6 +148,7 @@ func NewController(
 	filesystemMetricsWriter FilesystemMetricsWriter,
 	storageInfoProvider StorageInfoProvider,
 	nodeStatsSummaryWriter NodeStatsSummaryWriter,
+	podVolumeMetricsWriter K8sPodVolumeMetricsWriter,
 ) *Controller {
 	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
@@ -167,6 +180,7 @@ func NewController(
 		filesystemMetricsWriter:  filesystemMetricsWriter,
 		storageInfoProvider:      storageInfoProvider,
 		nodeStatsSummaryWriter:   nodeStatsSummaryWriter,
+		podVolumeMetricsWriter:   podVolumeMetricsWriter,
 	}
 }
 
@@ -200,6 +214,7 @@ type Controller struct {
 	filesystemMetricsWriter  FilesystemMetricsWriter
 	storageInfoProvider      StorageInfoProvider
 	nodeStatsSummaryWriter   NodeStatsSummaryWriter
+	podVolumeMetricsWriter   K8sPodVolumeMetricsWriter
 }
 
 func (c *Controller) Run(ctx context.Context) error {

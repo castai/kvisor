@@ -12,6 +12,7 @@ service KubeAPI {
   rpc GetPod(GetPodRequest) returns (GetPodResponse);
   rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
   rpc GetNodeStatsSummary(GetNodeStatsSummaryRequest) returns (GetNodeStatsSummaryResponse);
+  rpc GetPodVolumes(GetPodVolumesRequest) returns (GetPodVolumesResponse);
 }
 
 message GetClusterInfoRequest {}
@@ -144,4 +145,30 @@ message RuntimeStats {
   int64 time_seconds = 1;
   FsStats image_fs = 2;
   FsStats container_fs = 3;
+}
+
+message GetPodVolumesRequest {
+  string node_name = 1;
+}
+
+message GetPodVolumesResponse {
+  repeated PodVolumeInfo volumes = 1;
+}
+
+message PodVolumeInfo {
+  string namespace = 1;
+  string pod_name = 2;
+  string pod_uid = 3;
+  string controller_kind = 4;
+  string controller_name = 5;
+  string container_name = 6;
+  string volume_name = 7;
+  string mount_path = 8;
+  string pvc_name = 9;
+  string pvc_uid = 10;
+  int64 requested_size_bytes = 11;
+  string pv_name = 12;
+  string storage_class = 13;
+  string csi_driver = 14;
+  string csi_volume_handle = 15;
 }
