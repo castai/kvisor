@@ -220,6 +220,11 @@ func (c *Controller) Run(ctx context.Context) error {
 			return c.runStatsPipeline(ctx)
 		})
 	}
+	if c.cfg.Stats.StorageEnabled {
+		errg.Go(func() error {
+			return c.runStoragePipeline(ctx)
+		})
+	}
 	if c.cfg.Netflow.Enabled {
 		// Conntrack cache is used only in netflow pipeline.
 		// It's safe to use non synced lru since it's accessed form one goroutine.
