@@ -188,7 +188,7 @@ kvisor-agent-docker:
 
 .PHONY: kvisor-agent-docker-image
 kvisor-agent-docker-image: clean-kvisor-agent kvisor-agent-docker
-	docker build -t $(IMAGE_REPO)-agent:$(IMAGE_TAG) . -f Dockerfile.agent
+	docker build -t $(IMAGE_REPO)-agent:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.agent
 
 .PHONY: kvisor-agent-push-deploy
 kvisor-agent-push-deploy: kvisor-agent-docker-image
@@ -212,7 +212,7 @@ $(OUTPUT_DIR_BIN)/kvisor-controller-$(GO_ARCH):
 
 .PHONY: kvisor-controller-docker-image
 kvisor-controller-docker-image: clean-kvisor-controller kvisor-controller
-	docker build -t $(IMAGE_REPO)-controller:$(IMAGE_TAG) . -f Dockerfile.controller
+	docker build -t $(IMAGE_REPO)-controller:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.controller
 
 .PHONY: kvisor-controller-push-deploy
 kvisor-controller-push-deploy: kvisor-controller-docker-image
@@ -225,7 +225,7 @@ kvisor-scanners-docker:
 
 .PHONY: kvisor-scanners-docker-image
 kvisor-scanners-docker-image: clean-kvisor-image-scanner kvisor-image-scanner clean-kvisor-linter kvisor-linter
-	docker build -t $(IMAGE_REPO)-scanners:$(IMAGE_TAG) . -f Dockerfile.scanners
+	docker build -t $(IMAGE_REPO)-scanners:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.scanners
 
 .PHONY: kvisor-scanners-push-deploy
 kvisor-scanners-push-deploy: kvisor-scanners-docker-image
@@ -249,7 +249,7 @@ $(OUTPUT_DIR_BIN)/kvisor-event-generator:
 
 .PHONY: kvisor-event-generator-docker-image
 kvisor-event-generator-docker-image: clean-kvisor-event-generator kvisor-event-generator
-	docker build -t $(IMAGE_REPO)-event-generator:$(IMAGE_TAG) . -f Dockerfile.event-generator
+	docker build -t $(IMAGE_REPO)-event-generator:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.event-generator
 
 .PHONY: kvisor-event-generator-push-deploy
 kvisor-event-generator-push-deploy: kvisor-event-generator-docker-image
