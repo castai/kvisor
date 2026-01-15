@@ -37,9 +37,9 @@ type Config struct {
 	ImageScan        imagescan.Config              `json:"imageScan"`
 	Linter           kubelinter.Config             `json:"linter"`
 	KubeBench        kubebench.Config              `json:"kubeBench"`
-	JobsCleanup   controllers.JobsCleanupConfig   `json:"jobsCleanup"`
-	AgentConfig   AgentConfig                     `json:"agentConfig"`
-	CloudProvider controllers.VPCMetadataConfig   `json:"cloudProvider"`
+	JobsCleanup      controllers.JobsCleanupConfig `json:"jobsCleanup"`
+	AgentConfig      AgentConfig                   `json:"agentConfig"`
+	CloudProvider    controllers.VPCMetadataConfig `json:"cloudProvider"`
 }
 
 type AgentConfig struct {
