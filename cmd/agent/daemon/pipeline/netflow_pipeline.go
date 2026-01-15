@@ -442,8 +442,10 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 // or special-purpose IP ranges (loopback, link-local, RFC-1918).
 func (c *Controller) isSameNodeIP(addr netip.Addr) bool {
 	ranges := []string{
-		"127.0.0.0/8",    // Loopback Addresses (IANA IPv4 Special-Purpose Address Registry)
+		"127.0.0.0/8",    // IPv4 Loopback Addresses (IANA IPv4 Special-Purpose Address Registry)
 		"169.254.0.0/16", // IPv4 Link Local Address Space
+		"::1/128",        // IPv6 Loopback Address
+		"fe80::/10",      // IPv6 Link Local Address Space
 	}
 
 	var prefixes []netip.Prefix
