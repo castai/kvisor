@@ -61,6 +61,9 @@ func (m ipsDetails) set(ip netip.Addr, info IPInfo) {
 	}
 
 	// Add new record.
+	// We can have multiple records for the same IP.
+	// i.e. multiple pods running on the same node and have hostNetwork: true.
+	// or old pod removed but new pod with the same IP created while cache not yet cleared
 	list = append(list, info)
 	m[ip] = list
 }
