@@ -258,20 +258,26 @@ func (a *App) Run(ctx context.Context) error {
 	var podVolumeMetricsWriter pipeline.K8sPodVolumeMetricsWriter
 	var storageInfoProvider pipeline.StorageInfoProvider
 	if cfg.Stats.StorageEnabled {
-		metricsClient, err := createMetricsClient(cfg)
-		if err != nil {
-			return fmt.Errorf("failed to create metrics client: %w", err)
-		}
-
-		go func() {
-			if err = metricsClient.Start(ctx); err != nil {
-				log.Warnf("metric client failed with:%v", err)
+		// Check if logging-only mode is enabled (for testing without ClickHouse)
+		if os.Getenv("STORAGE_METRICS_LOG_ONLY") == "true" {
+			log.Info("using logging writers for storage metrics (STORAGE_METRICS_LOG_ONLY=true)")
+			blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter = setupLoggingStorageMetrics(log)
+		} else {
+			metricsClient, err := createMetricsClient(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to create metrics client: %w", err)
 			}
-		}()
 
-		blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter, err = setupStorageMetrics(metricsClient)
-		if err != nil {
-			return fmt.Errorf("failed to setup storage metrics: %w", err)
+			go func() {
+				if err = metricsClient.Start(ctx); err != nil {
+					log.Warnf("metric client failed with:%v", err)
+				}
+			}()
+
+			blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter, err = setupStorageMetrics(metricsClient)
+			if err != nil {
+				return fmt.Errorf("failed to setup storage metrics: %w", err)
+			}
 		}
 
 		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient, cfg.Castai.ClusterID)
@@ -593,6 +599,14 @@ func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.Blo
 	}
 
 	return blockDeviceMetrics, filesystemMetrics, nodeStatsSummaryWriter, podVolumeMetricsWriter, nil
+}
+
+// setupLoggingStorageMetrics creates logging-based writers for testing without ClickHouse
+func setupLoggingStorageMetrics(log *logging.Logger) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, pipeline.NodeStatsSummaryWriter, pipeline.K8sPodVolumeMetricsWriter) {
+	return pipeline.NewLoggingBlockDeviceMetricsWriter(log),
+		pipeline.NewLoggingFilesystemMetricsWriter(log),
+		pipeline.NewLoggingNodeStatsSummaryWriter(log),
+		pipeline.NewLoggingK8sPodVolumeMetricsWriter(log)
 }
 
 // resolveMetricsAddr transforms kvisor.* addresses to telemetry.* addresses

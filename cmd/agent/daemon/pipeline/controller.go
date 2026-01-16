@@ -132,6 +132,72 @@ func NewK8sPodVolumeMetricsWriter(metricsClient custommetrics.MetricClient) (K8s
 	)
 }
 
+// Logging writers for testing without ClickHouse
+
+type LoggingBlockDeviceMetricsWriter struct {
+	log *logging.Logger
+}
+
+func NewLoggingBlockDeviceMetricsWriter(log *logging.Logger) BlockDeviceMetricsWriter {
+	return &LoggingBlockDeviceMetricsWriter{log: log.WithField("writer", "block_device")}
+}
+
+func (w *LoggingBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetric) error {
+	for _, m := range metrics {
+		w.log.Infof("[BlockDevice] name=%s path=%s size=%v type=%s partition_of=%s read_iops=%.2f write_iops=%.2f",
+			m.Name, m.Path, m.SizeBytes, m.DiskType, m.PartitionOf, m.ReadIOPS, m.WriteIOPS)
+	}
+	return nil
+}
+
+type LoggingFilesystemMetricsWriter struct {
+	log *logging.Logger
+}
+
+func NewLoggingFilesystemMetricsWriter(log *logging.Logger) FilesystemMetricsWriter {
+	return &LoggingFilesystemMetricsWriter{log: log.WithField("writer", "filesystem")}
+}
+
+func (w *LoggingFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
+	for _, m := range metrics {
+		w.log.Infof("[Filesystem] mount=%s type=%s total=%v used=%v namespace=%v pod=%v pvc=%v",
+			m.MountPoint, m.Type, m.TotalBytes, m.UsedBytes, m.Namespace, m.PodName, m.PVCName)
+	}
+	return nil
+}
+
+type LoggingNodeStatsSummaryWriter struct {
+	log *logging.Logger
+}
+
+func NewLoggingNodeStatsSummaryWriter(log *logging.Logger) NodeStatsSummaryWriter {
+	return &LoggingNodeStatsSummaryWriter{log: log.WithField("writer", "node_stats")}
+}
+
+func (w *LoggingNodeStatsSummaryWriter) Write(metrics ...NodeStatsSummaryMetric) error {
+	for _, m := range metrics {
+		w.log.Infof("[NodeStats] node=%s image_fs_size=%v image_fs_used=%v container_fs_size=%v container_fs_used=%v",
+			m.NodeName, m.ImageFsSizeBytes, m.ImageFsUsedBytes, m.ContainerFsSizeBytes, m.ContainerFsUsedBytes)
+	}
+	return nil
+}
+
+type LoggingK8sPodVolumeMetricsWriter struct {
+	log *logging.Logger
+}
+
+func NewLoggingK8sPodVolumeMetricsWriter(log *logging.Logger) K8sPodVolumeMetricsWriter {
+	return &LoggingK8sPodVolumeMetricsWriter{log: log.WithField("writer", "pod_volume")}
+}
+
+func (w *LoggingK8sPodVolumeMetricsWriter) Write(metrics ...K8sPodVolumeMetric) error {
+	for _, m := range metrics {
+		w.log.Infof("[PodVolume] ns=%s pod=%s volume=%s mount=%s mode=%s pvc=%v pv=%v storage_class=%v device_path=%v",
+			m.Namespace, m.PodName, m.VolumeName, m.MountPath, m.VolumeMode, m.PVCName, m.PVName, m.StorageClass, m.DevicePath)
+	}
+	return nil
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
