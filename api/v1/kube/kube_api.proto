@@ -171,4 +171,6 @@ message PodVolumeInfo {
   string storage_class = 13;
   string csi_driver = 14;
   string csi_volume_handle = 15;
+  string volume_mode = 16;    // "Filesystem" or "Block"
+  string device_path = 17;    // For block volumes: container's volumeDevices[].devicePath
 }

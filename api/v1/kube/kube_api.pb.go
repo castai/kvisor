@@ -1426,6 +1426,8 @@ type PodVolumeInfo struct {
 	StorageClass       string                 `protobuf:"bytes,13,opt,name=storage_class,json=storageClass,proto3" json:"storage_class,omitempty"`
 	CsiDriver          string                 `protobuf:"bytes,14,opt,name=csi_driver,json=csiDriver,proto3" json:"csi_driver,omitempty"`
 	CsiVolumeHandle    string                 `protobuf:"bytes,15,opt,name=csi_volume_handle,json=csiVolumeHandle,proto3" json:"csi_volume_handle,omitempty"`
+	VolumeMode         string                 `protobuf:"bytes,16,opt,name=volume_mode,json=volumeMode,proto3" json:"volume_mode,omitempty"` // "Filesystem" or "Block"
+	DevicePath         string                 `protobuf:"bytes,17,opt,name=device_path,json=devicePath,proto3" json:"device_path,omitempty"` // For block volumes: container's volumeDevices[].devicePath
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1565,6 +1567,20 @@ func (x *PodVolumeInfo) GetCsiVolumeHandle() string {
 	return ""
 }
 
+func (x *PodVolumeInfo) GetVolumeMode() string {
+	if x != nil {
+		return x.VolumeMode
+	}
+	return ""
+}
+
+func (x *PodVolumeInfo) GetDevicePath() string {
+	if x != nil {
+		return x.DevicePath
+	}
+	return ""
+}
+
 var File_api_v1_kube_kube_api_proto protoreflect.FileDescriptor
 
 const file_api_v1_kube_kube_api_proto_rawDesc = "" +
@@ -1662,7 +1678,7 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x14GetPodVolumesRequest\x12\x1b\n" +
 	"\tnode_name\x18\x01 \x01(\tR\bnodeName\"I\n" +
 	"\x15GetPodVolumesResponse\x120\n" +
-	"\avolumes\x18\x01 \x03(\v2\x16.kube.v1.PodVolumeInfoR\avolumes\"\x89\x04\n" +
+	"\avolumes\x18\x01 \x03(\v2\x16.kube.v1.PodVolumeInfoR\avolumes\"\xcb\x04\n" +
 	"\rPodVolumeInfo\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x19\n" +
 	"\bpod_name\x18\x02 \x01(\tR\apodName\x12\x17\n" +
@@ -1682,7 +1698,11 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\rstorage_class\x18\r \x01(\tR\fstorageClass\x12\x1d\n" +
 	"\n" +
 	"csi_driver\x18\x0e \x01(\tR\tcsiDriver\x12*\n" +
-	"\x11csi_volume_handle\x18\x0f \x01(\tR\x0fcsiVolumeHandle*\xed\x01\n" +
+	"\x11csi_volume_handle\x18\x0f \x01(\tR\x0fcsiVolumeHandle\x12\x1f\n" +
+	"\vvolume_mode\x18\x10 \x01(\tR\n" +
+	"volumeMode\x12\x1f\n" +
+	"\vdevice_path\x18\x11 \x01(\tR\n" +
+	"devicePath*\xed\x01\n" +
 	"\fWorkloadKind\x12\x19\n" +
 	"\x15WORKLOAD_KIND_UNKNOWN\x10\x00\x12\x1c\n" +
 	"\x18WORKLOAD_KIND_DEPLOYMENT\x10\x01\x12\x1d\n" +

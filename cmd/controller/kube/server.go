@@ -179,7 +179,7 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 			volumeMap[vol.Name] = vol
 		}
 
-		// Iterate through containers and their volume mounts
+		// Iterate through containers and their volume mounts (filesystem volumes)
 		for _, container := range pod.Spec.Containers {
 			for _, mount := range container.VolumeMounts {
 				vol, exists := volumeMap[mount.Name]
@@ -196,39 +196,39 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 					ContainerName:  container.Name,
 					VolumeName:     vol.Name,
 					MountPath:      mount.MountPath,
+					VolumeMode:     "Filesystem",
 				}
 
 				// If this is a PVC-backed volume, enrich with PVC/PV details
 				if vol.PersistentVolumeClaim != nil {
-					pvcName := vol.PersistentVolumeClaim.ClaimName
-					volInfo.PvcName = pvcName
+					s.enrichPVCDetails(volInfo, vol, pod.Namespace)
+				}
 
-					if pvc, found := s.client.GetPVCByName(pod.Namespace, pvcName); found {
-						volInfo.PvcUid = string(pvc.UID)
+				volumes = append(volumes, volInfo)
+			}
 
-						// Get requested storage size
-						if req, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
-							volInfo.RequestedSizeBytes = req.Value()
-						}
+			// Handle block volumes (VolumeDevices)
+			for _, device := range container.VolumeDevices {
+				vol, exists := volumeMap[device.Name]
+				if !exists {
+					continue
+				}
 
-						// Get storage class
-						if pvc.Spec.StorageClassName != nil {
-							volInfo.StorageClass = *pvc.Spec.StorageClassName
-						}
+				volInfo := &kubepb.PodVolumeInfo{
+					Namespace:      pod.Namespace,
+					PodName:        pod.Name,
+					PodUid:         string(pod.UID),
+					ControllerKind: podInfo.Owner.Kind,
+					ControllerName: podInfo.Owner.Name,
+					ContainerName:  container.Name,
+					VolumeName:     vol.Name,
+					DevicePath:     device.DevicePath,
+					VolumeMode:     "Block",
+				}
 
-						// Get PV details if bound
-						if pvc.Spec.VolumeName != "" {
-							volInfo.PvName = pvc.Spec.VolumeName
-
-							if pv, found := s.client.GetPVByName(pvc.Spec.VolumeName); found {
-								// Get CSI details if available
-								if pv.Spec.CSI != nil {
-									volInfo.CsiDriver = pv.Spec.CSI.Driver
-									volInfo.CsiVolumeHandle = pv.Spec.CSI.VolumeHandle
-								}
-							}
-						}
-					}
+				// If this is a PVC-backed volume, enrich with PVC/PV details
+				if vol.PersistentVolumeClaim != nil {
+					s.enrichPVCDetails(volInfo, vol, pod.Namespace)
 				}
 
 				volumes = append(volumes, volInfo)
@@ -239,6 +239,41 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 	return &kubepb.GetPodVolumesResponse{
 		Volumes: volumes,
 	}, nil
+}
+
+func (s *Server) enrichPVCDetails(volInfo *kubepb.PodVolumeInfo, vol corev1.Volume, namespace string) {
+	pvcName := vol.PersistentVolumeClaim.ClaimName
+	volInfo.PvcName = pvcName
+
+	pvc, found := s.client.GetPVCByName(namespace, pvcName)
+	if !found {
+		return
+	}
+
+	volInfo.PvcUid = string(pvc.UID)
+
+	// Get requested storage size
+	if req, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
+		volInfo.RequestedSizeBytes = req.Value()
+	}
+
+	// Get storage class
+	if pvc.Spec.StorageClassName != nil {
+		volInfo.StorageClass = *pvc.Spec.StorageClassName
+	}
+
+	// Get PV details if bound
+	if pvc.Spec.VolumeName != "" {
+		volInfo.PvName = pvc.Spec.VolumeName
+
+		if pv, found := s.client.GetPVByName(pvc.Spec.VolumeName); found {
+			// Get CSI details if available
+			if pv.Spec.CSI != nil {
+				volInfo.CsiDriver = pv.Spec.CSI.Driver
+				volInfo.CsiVolumeHandle = pv.Spec.CSI.VolumeHandle
+			}
+		}
+	}
 }
 
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {
