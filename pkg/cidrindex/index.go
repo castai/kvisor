@@ -30,6 +30,9 @@ type Index[T any] struct {
 	// CIDR tree for fast IP lookups
 	cidrTree cidranger.Ranger
 
+	// Map of CIDR string to entry for tracking and cleanup
+	entries map[string]*cidrEntry[T]
+
 	// IP lookup cache (LRU)
 	ipCache *freelru.SyncedLRU[netip.Addr, *LookupResult[T]]
 
@@ -41,6 +44,7 @@ type Index[T any] struct {
 type cidrEntry[T any] struct {
 	ipNet    net.IPNet
 	metadata T
+	deleteAt *time.Time
 }
 
 func (c *cidrEntry[T]) Network() net.IPNet {
@@ -51,6 +55,7 @@ func (c *cidrEntry[T]) Network() net.IPNet {
 func NewIndex[T any](cacheSize uint32, cacheTTL time.Duration) (*Index[T], error) {
 	idx := &Index[T]{
 		cidrTree: cidranger.NewPCTrieRanger(),
+		entries:  make(map[string]*cidrEntry[T]),
 		cacheTTL: cacheTTL,
 	}
 
@@ -78,10 +83,14 @@ func (idx *Index[T]) Add(cidr netip.Prefix, metadata T) error {
 		return err
 	}
 
+	cidrStr := cidr.String()
 	entry := &cidrEntry[T]{
 		ipNet:    *ipNet,
 		metadata: metadata,
 	}
+
+	// Store in map for cleanup tracking
+	idx.entries[cidrStr] = entry
 
 	return idx.cidrTree.Insert(entry)
 }
@@ -124,15 +133,20 @@ func (idx *Index[T]) lookupInTree(ip netip.Addr) *LookupResult[T] {
 		return nil
 	}
 
-	// Return most specific match (longest prefix / last in list)
+	// Find the most specific non-deleted match ((longest prefix / last in list))
 	// cidranger returns entries ordered from least to most specific
-	mostSpecific := entries[len(entries)-1].(*cidrEntry[T])
-
-	return &LookupResult[T]{
-		IP:         ip,
-		Metadata:   mostSpecific.metadata,
-		ResolvedAt: time.Now(),
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i].(*cidrEntry[T])
+		if entry.deleteAt == nil {
+			return &LookupResult[T]{
+				IP:         ip,
+				Metadata:   entry.metadata,
+				ResolvedAt: time.Now(),
+			}
+		}
 	}
+
+	return nil
 }
 
 // Rebuild replaces all entries in the index with the provided entries.
@@ -141,6 +155,7 @@ func (idx *Index[T]) Rebuild(entries []Entry[T]) error {
 	defer idx.mu.Unlock()
 
 	newTree := cidranger.NewPCTrieRanger()
+	newEntries := make(map[string]*cidrEntry[T])
 
 	for _, entry := range entries {
 		_, ipNet, err := net.ParseCIDR(entry.CIDR.String())
@@ -156,9 +171,12 @@ func (idx *Index[T]) Rebuild(entries []Entry[T]) error {
 		if err := newTree.Insert(cidrEntry); err != nil {
 			return err
 		}
+
+		newEntries[entry.CIDR.String()] = cidrEntry
 	}
 
 	idx.cidrTree = newTree
+	idx.entries = newEntries
 
 	if idx.ipCache != nil {
 		idx.ipCache.Purge()
@@ -187,10 +205,68 @@ func (idx *Index[T]) Remove(cidr netip.Prefix) error {
 		return err
 	}
 
+	// Remove from tracking map
+	delete(idx.entries, cidr.String())
+
 	// Despite just single cidr being removed, let's clear all cache,
 	// as part of it is no longer valid
 	if idx.ipCache != nil {
 		idx.ipCache.Purge()
 	}
 	return nil
+}
+
+// MarkDeleted marks the given CIDR range as deleted without removing it from the index.
+func (idx *Index[T]) MarkDeleted(cidr netip.Prefix) {
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+
+	cidrStr := cidr.String()
+	entry, found := idx.entries[cidrStr]
+	if !found || entry.deleteAt != nil {
+		return
+	}
+
+	now := time.Now()
+	entry.deleteAt = &now
+
+	// Clear cache as deleted entries should not be returned
+	if idx.ipCache != nil {
+		idx.ipCache.Purge()
+	}
+}
+
+// Cleanup removes deleted entries that are older than the specified TTL.
+func (idx *Index[T]) Cleanup(ttl time.Duration) int {
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+
+	if len(idx.entries) == 0 {
+		return 0
+	}
+
+	cutoff := time.Now().Add(-ttl)
+	var removed int
+
+	var toRemove []string
+
+	for cidrStr, entry := range idx.entries {
+		if entry.deleteAt != nil && entry.deleteAt.Before(cutoff) {
+			toRemove = append(toRemove, cidrStr)
+		}
+	}
+
+	for _, cidrStr := range toRemove {
+		entry := idx.entries[cidrStr]
+		if _, err := idx.cidrTree.Remove(entry.ipNet); err == nil {
+			delete(idx.entries, cidrStr)
+			removed++
+		}
+	}
+
+	if removed > 0 && idx.ipCache != nil {
+		idx.ipCache.Purge()
+	}
+
+	return removed
 }
