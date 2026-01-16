@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 
 	"google.golang.org/grpc/codes"
@@ -75,17 +76,15 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 		List: make([]*kubepb.IPInfo, 0, len(infos)),
 	}
 	for _, ip := range ips {
-		shouldIncludeIP := false
 		pbInfo := &kubepb.IPInfo{
 			Ip: ip.AsSlice(),
 		}
 
-		// step 1: check IPs from kube client first
 		info, ok := s.client.GetIPInfo(ip)
 		if ok {
-			shouldIncludeIP = true
 			pbInfo.Zone = info.zone
 			pbInfo.Region = info.region
+			pbInfo.CloudDomain = info.cloudDomain
 
 			if info.Node != nil {
 				pbInfo.Zone = getZone(info.Node)
@@ -115,26 +114,9 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 			}
 		}
 
-		// step 2: check IPs from VPC index
-		if s.client.vpcIndex != nil {
-			vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
-			if ok {
-				shouldIncludeIP = true
-				if pbInfo.Zone == "" && vpcIPInfo.Zone != "" {
-					pbInfo.Zone = vpcIPInfo.Zone
-				}
-				if pbInfo.Region == "" && vpcIPInfo.Region != "" {
-					pbInfo.Region = vpcIPInfo.Region
-				}
-				if pbInfo.CloudDomain == "" && vpcIPInfo.CloudDomain != "" {
-					pbInfo.CloudDomain = vpcIPInfo.CloudDomain
-				}
-			}
-		}
+		fmt.Printf("Lookup ip: %v -> region: %v, cloudDomain: %v, zone: %v, step: %v\n", ip, info.region, info.cloudDomain, info.zone, info.step)
 
-		if shouldIncludeIP {
-			res.List = append(res.List, pbInfo)
-		}
+		res.List = append(res.List, pbInfo)
 	}
 
 	return res, nil

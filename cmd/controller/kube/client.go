@@ -97,13 +97,13 @@ func NewClient(
 }
 
 // SetVPCIndex sets the VPC index for enriching external IPs with VPC metadata.
-func (i *Client) SetVPCIndex(vpcIndex *VPCIndex) {
-	i.vpcIndex = vpcIndex
+func (c *Client) SetVPCIndex(vpcIndex *VPCIndex) {
+	c.vpcIndex = vpcIndex
 }
 
 // GetVPCIndex returns the VPC index if available.
-func (i *Client) GetVPCIndex() *VPCIndex {
-	return i.vpcIndex
+func (c *Client) GetVPCIndex() *VPCIndex {
+	return c.vpcIndex
 }
 
 func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {
@@ -259,8 +259,31 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	val, found := c.index.ipsDetails.find(ip)
-	return val, found
+	// step 1: check IPs from kube client first
+	// all known pods/services/endpoints/nodes
+	val, kubeIPFound := c.index.ipsDetails.find(ip)
+	if kubeIPFound && val.zone != "" {
+		return val, true
+	}
+	// step 2: check IPs from nodes pod CIDRs
+	// in case when IP is not found within known k8s resources
+	// i.e. CNI bridge gateway IP
+	cidrInfo, nodeCIDRFound := c.index.nodesCIDRIndex.Lookup(ip)
+	if nodeCIDRFound && cidrInfo.Metadata != nil {
+		val.Node = cidrInfo.Metadata
+		val.step = 2
+		return val, true
+	}
+
+	// step 3: check IPs from VPC index
+	if vpcInfo, vpcCIDRFound := c.vpcIndex.LookupIP(ip); vpcCIDRFound {
+		val.zone = vpcInfo.Zone
+		val.region = vpcInfo.Region
+		val.cloudDomain = vpcInfo.CloudDomain
+		val.step = 3
+		return val, true
+	}
+	return IPInfo{}, false
 }
 
 func (c *Client) GetIPsInfo(ips []netip.Addr) []IPInfo {
@@ -371,6 +394,22 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	}
 	c.clusterInfo = &res
 	return &res, nil
+}
+
+func getPodCidrsFromNodeSpec(node *corev1.Node) ([]netip.Prefix, error) {
+	nodeCidrs := node.Spec.PodCIDRs
+	if len(nodeCidrs) == 0 && node.Spec.PodCIDR != "" {
+		nodeCidrs = []string{node.Spec.PodCIDR}
+	}
+	var podCidrs []netip.Prefix
+	for _, cidr := range nodeCidrs {
+		subnet, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing pod cidr: %w", err)
+		}
+		podCidrs = append(podCidrs, subnet)
+	}
+	return podCidrs, nil
 }
 
 func getPodCidrFromNodeSpec(node *corev1.Node) ([]string, error) {

@@ -1,9 +1,11 @@
 package kube
 
 import (
+	"fmt"
 	"net/netip"
 	"time"
 
+	"github.com/castai/kvisor/pkg/cidrindex"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,24 +13,35 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// nodeCIDRInfo stores CIDR metadata for node lookups.
+type nodeCIDRInfo struct {
+	Zone     string
+	Region   string
+	NodeName string
+}
+
 func NewIndex() *Index {
+	// nodesCIDRIndex, _ := cidrindex.NewIndex[nodeCIDRInfo](1000, 5*time.Minute)
+	nodesCIDRIndex, _ := cidrindex.NewIndex[*corev1.Node](1000, 5*time.Minute)
 	return &Index{
-		ipsDetails:  make(ipsDetails),
-		replicaSets: make(map[types.UID]metav1.ObjectMeta),
-		jobs:        make(map[types.UID]metav1.ObjectMeta),
-		deployments: make(map[types.UID]*appsv1.Deployment),
-		pods:        make(map[types.UID]*PodInfo),
-		nodesByName: make(map[string]*corev1.Node),
+		ipsDetails:     make(ipsDetails),
+		replicaSets:    make(map[types.UID]metav1.ObjectMeta),
+		jobs:           make(map[types.UID]metav1.ObjectMeta),
+		deployments:    make(map[types.UID]*appsv1.Deployment),
+		pods:           make(map[types.UID]*PodInfo),
+		nodesByName:    make(map[string]*corev1.Node),
+		nodesCIDRIndex: nodesCIDRIndex,
 	}
 }
 
 type Index struct {
-	ipsDetails  ipsDetails
-	replicaSets map[types.UID]metav1.ObjectMeta
-	jobs        map[types.UID]metav1.ObjectMeta
-	deployments map[types.UID]*appsv1.Deployment
-	pods        map[types.UID]*PodInfo
-	nodesByName map[string]*corev1.Node
+	ipsDetails     ipsDetails
+	replicaSets    map[types.UID]metav1.ObjectMeta
+	jobs           map[types.UID]metav1.ObjectMeta
+	deployments    map[types.UID]*appsv1.Deployment
+	pods           map[types.UID]*PodInfo
+	nodesByName    map[string]*corev1.Node
+	nodesCIDRIndex *cidrindex.Index[*corev1.Node]
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
@@ -108,6 +121,19 @@ func (i *Index) addFromService(v *corev1.Service) {
 func (i *Index) addFromNode(v *corev1.Node) {
 	i.nodesByName[v.Name] = v
 
+	metadata := nodeCIDRInfo{
+		Zone:     getZone(v),
+		Region:   getRegion(v),
+		NodeName: v.GetName(),
+	}
+
+	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
+		fmt.Printf("Node %s has %+v pod cidrs\n", v.Name, podCidrs)
+		for _, cidr := range podCidrs {
+			_ = i.nodesCIDRIndex.Add(cidr, v)
+		}
+	}
+
 	for _, address := range v.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP {
 			addr, err := netip.ParseAddr(address.Address)
@@ -117,8 +143,8 @@ func (i *Index) addFromNode(v *corev1.Node) {
 			i.ipsDetails.set(addr, IPInfo{
 				Node:       v,
 				resourceID: v.UID,
-				zone:       getZone(v),
-				region:     getRegion(v),
+				zone:       metadata.Zone,
+				region:     metadata.Region,
 			})
 			return
 		}
@@ -174,6 +200,12 @@ func (i *Index) deleteFromService(v *corev1.Service) {
 
 func (i *Index) deleteByNode(v *corev1.Node) {
 	delete(i.nodesByName, v.Name)
+
+	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
+		for _, cidr := range podCidrs {
+			_ = i.nodesCIDRIndex.Remove(cidr)
+		}
+	}
 
 	for _, address := range v.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP {
@@ -300,12 +332,14 @@ type IPInfo struct {
 	Node     *corev1.Node
 	Endpoint *IPEndpoint
 
-	zone       string
-	region     string
-	ip         netip.Addr
-	resourceID types.UID
-	setAt      time.Time
-	deleteAt   *time.Time
+	step        int
+	zone        string
+	region      string
+	cloudDomain string
+	ip          netip.Addr
+	resourceID  types.UID
+	setAt       time.Time
+	deleteAt    *time.Time
 }
 
 type PodInfo struct {
