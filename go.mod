@@ -47,6 +47,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.35.0
 	github.com/tklauser/go-sysconf v0.3.15
 	github.com/vishvananda/netns v0.0.5
+	github.com/yl2chen/cidranger v1.0.2
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
 	golang.org/x/net v0.46.0

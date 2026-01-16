@@ -18,6 +18,7 @@ message GetClusterInfoRequest {}
 message GetClusterInfoResponse {
   repeated string pods_cidr = 1;
   repeated string service_cidr = 2;
+  repeated string other_cidr = 3;
 }
 
 message GetIPInfoRequest {
@@ -44,7 +45,9 @@ message IPInfo {
   string workload_kind = 5;
   string workload_uid = 6;
   string zone = 7;
+  string region = 10;
   string node_name = 8;
+  string cloud_domain = 11;
   bytes ip = 9;
 }
 
@@ -72,6 +75,7 @@ message Pod {
   string workload_name = 2;
   WorkloadKind workload_kind = 3;
   string zone = 4;
+  string region = 6;
   string node_name = 5;
 }
 

@@ -27,6 +27,8 @@ import (
 type clusterInfo struct {
 	podCidr     []netip.Prefix
 	serviceCidr []netip.Prefix
+	otherCidr   []netip.Prefix
+	clusterCidr []netip.Prefix
 }
 
 func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
@@ -50,6 +52,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 				return nil, fmt.Errorf("parsing pods cidr: %w", err)
 			}
 			res.podCidr = append(res.podCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		for _, cidr := range resp.ServiceCidr {
 			subnet, err := netip.ParsePrefix(cidr)
@@ -57,6 +60,15 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 				return nil, fmt.Errorf("parsing service cidr: %w", err)
 			}
 			res.serviceCidr = append(res.serviceCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
+		}
+		for _, cidr := range resp.OtherCidr {
+			subnet, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				return nil, fmt.Errorf("parsing other cidr: %w", err)
+			}
+			res.otherCidr = append(res.otherCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		return &res, nil
 	}
@@ -162,14 +174,20 @@ func digestAddUint64(digest *xxhash.Digest, val uint64) {
 	_, _ = digest.Write(dst[:])
 }
 
-func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netflowGroup, stats *dataBatchStats, digest *xxhash.Digest, keys []ebpftracer.TrafficKey, vals []ebpftracer.TrafficSummary) {
+func (c *Controller) handleNetflows(
+	ctx context.Context,
+	groups map[uint64]*netflowGroup,
+	stats *dataBatchStats,
+	digest *xxhash.Digest,
+	keys []ebpftracer.TrafficKey,
+	vals []ebpftracer.TrafficSummary,
+) {
 	c.log.Debugf("handling netflows, total=%v", len(keys))
 
 	start := time.Now()
 	kubeDestinations := map[netip.Addr]struct{}{}
 
 	var foundContainerdConnectErrors bool
-
 	for i, key := range keys {
 		summary := vals[i]
 		group, found := groups[key.ProcessIdentity.CgroupId]
@@ -183,7 +201,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 		netflowKey := newNetflowKey(digest, &key)
 		netflow, found := group.flows[netflowKey]
 		if !found {
-			d, err := c.toNetflow(ctx, &key, &summary, start)
+			netflowPb, err := c.toNetflow(ctx, &key, &summary, start)
 			if err != nil {
 				// TODO: Investigate why containerd connect fails for some clusters. Most likely sock is in a different path.
 				if strings.Contains(err.Error(), "/run/containerd/containerd.sock: connect: connection refused") {
@@ -194,7 +212,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 				continue
 			}
 			val := &netflowVal{
-				pb:        d,
+				pb:        netflowPb,
 				updatedAt: time.Now(),
 			}
 			group.flows[netflowKey] = val
@@ -208,7 +226,7 @@ func (c *Controller) handleNetflows(ctx context.Context, groups map[uint64]*netf
 			continue
 		}
 
-		if (c.clusterInfo != nil && (c.clusterInfo.serviceCidrContains(destAddr) || c.clusterInfo.podCidrContains(destAddr))) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+		if (c.clusterInfo != nil && c.clusterInfo.clusterCidrContains(destAddr)) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 			kubeDestinations[destAddr] = struct{}{}
 		}
 
@@ -263,7 +281,14 @@ func (c *Controller) enrichKubeDestinations(ctx context.Context, groups map[uint
 					flowDest.WorkloadName = info.WorkloadName
 					flowDest.WorkloadKind = info.WorkloadKind
 					flowDest.Zone = info.Zone
+					flowDest.Region = info.Region
 					flowDest.NodeName = info.NodeName
+
+					// set cloud domain as dns question when it's empty
+					// i.e. googleapis.com or amazonaws.com
+					if flowDest.DnsQuestion == "" && info.CloudDomain != "" {
+						flowDest.DnsQuestion = info.CloudDomain
+					}
 				}
 			}
 		}
@@ -294,6 +319,13 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 			destForMerge.RxPackets += dest.RxPackets
 		}
 		return
+	}
+
+	// If destination zone is unknown but IP is local network (loopback, link-local),
+	// then destination must be on same zone/region
+	if !isPublicDest && dest.Zone == "" && iputil.IsLocalNetwork(destAddr) {
+		dest.Zone = netflow.pb.Zone
+		dest.Region = netflow.pb.Region
 	}
 
 	// No merge, just append to destinations list.
@@ -352,12 +384,25 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 		res.PodName = container.PodName
 		res.ContainerName = container.Name
 
-		ipInfo, found := c.getPodInfo(container.PodUID)
+		podInfo, found := c.getPodInfo(container.PodUID)
 		if found {
-			res.WorkloadName = ipInfo.WorkloadName
-			res.WorkloadKind = workloadKindString(ipInfo.WorkloadKind)
-			res.Zone = ipInfo.Zone
-			res.NodeName = ipInfo.NodeName
+			res.WorkloadName = podInfo.WorkloadName
+			res.WorkloadKind = workloadKindString(podInfo.WorkloadKind)
+			res.Zone = podInfo.Zone
+			res.Region = podInfo.Region
+			res.NodeName = podInfo.NodeName
+		}
+	}
+
+	// in case when pod info is not found we still can get AZ info from node
+	if res.Zone == "" || res.Region == "" {
+		if nodeInfo, found := c.getNodeInfo(res.NodeName); found {
+			if res.Zone == "" {
+				res.Zone = getZone(nodeInfo)
+			}
+			if res.Region == "" {
+				res.Region = getRegion(nodeInfo)
+			}
 		}
 	}
 
@@ -422,8 +467,8 @@ func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, 
 	return realDst, true
 }
 
-func (c *clusterInfo) podCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.podCidr {
+func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
+	for _, cidr := range c.serviceCidr {
 		if cidr.Contains(ip) {
 			return true
 		}
@@ -431,8 +476,8 @@ func (c *clusterInfo) podCidrContains(ip netip.Addr) bool {
 	return false
 }
 
-func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.serviceCidr {
+func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
+	for _, cidr := range c.clusterCidr {
 		if cidr.Contains(ip) {
 			return true
 		}

@@ -41,7 +41,11 @@ var (
 
 	chartVersion = pflag.String("chart-version", "", "Helm chart version")
 
-	cloudProvider = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
+	cloudProvider                = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
+	cloudProviderVPCSyncEnabled  = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC metadata sync")
+	cloudProviderVPCName         = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
+	cloudProviderVPCSyncInterval = pflag.Duration("cloud-provider-vpc-sync-interval", 1*time.Hour, "Cloud provider VPC sync interval")
+	cloudProviderGCPProjectID    = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider VPC syncer in which the cluster is running")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
 	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
@@ -187,6 +191,13 @@ func main() {
 		},
 		AgentConfig: config.AgentConfig{
 			Enabled: *agentEnabled,
+		},
+		CloudProvider: controllers.VPCMetadataConfig{
+			Enabled:         *cloudProviderVPCSyncEnabled,
+			NetworkName:     *cloudProviderVPCName,
+			RefreshInterval: *cloudProviderVPCSyncInterval,
+			Type:            *cloudProvider,
+			GCPProjectID:    *cloudProviderGCPProjectID,
 		},
 	},
 		clientset,
