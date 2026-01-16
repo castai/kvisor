@@ -126,7 +126,9 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 				if pbInfo.Region == "" && vpcIPInfo.Region != "" {
 					pbInfo.Region = vpcIPInfo.Region
 				}
-				pbInfo.CloudDomain = vpcIPInfo.CloudDomain
+				if pbInfo.CloudDomain == "" && vpcIPInfo.CloudDomain != "" {
+					pbInfo.CloudDomain = vpcIPInfo.CloudDomain
+				}
 			}
 		}
 

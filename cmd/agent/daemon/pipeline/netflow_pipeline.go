@@ -317,10 +317,11 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 		return
 	}
 
-	if !isPublicDest && dest.Zone == "" && c.isSameNodeIP(destAddr) {
+	// If destination zone is unknown but IP is local network (loopback, link-local),
+	// then destination must be on same node as source, therefore same zone/region
+	if !isPublicDest && dest.Zone == "" && iputil.IsLocalNetwork(destAddr) {
 		dest.Zone = netflow.pb.Zone
 		dest.Region = netflow.pb.Region
-		dest.NodeName = netflow.pb.NodeName
 	}
 
 	// No merge, just append to destinations list.
@@ -436,33 +437,6 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 	}
 
 	return destination, remote.Addr(), nil
-}
-
-// isSameNodeIP checks if the given IP address falls within private
-// or special-purpose IP ranges (loopback, link-local, RFC-1918).
-func (c *Controller) isSameNodeIP(addr netip.Addr) bool {
-	ranges := []string{
-		"127.0.0.0/8",    // IPv4 Loopback Addresses (IANA IPv4 Special-Purpose Address Registry)
-		"169.254.0.0/16", // IPv4 Link Local Address Space
-		"::1/128",        // IPv6 Loopback Address
-		"fe80::/10",      // IPv6 Link Local Address Space
-	}
-
-	var prefixes []netip.Prefix
-	for _, r := range ranges {
-		prefix, err := netip.ParsePrefix(r)
-		if err != nil {
-			c.log.Debugf("invalid private IP CIDR: %s", r)
-			continue
-		}
-		prefixes = append(prefixes, prefix)
-	}
-	for _, prefix := range prefixes {
-		if prefix.Contains(addr) {
-			return true
-		}
-	}
-	return false
 }
 
 func parseAddr(data [16]byte, family uint16) netip.Addr {
