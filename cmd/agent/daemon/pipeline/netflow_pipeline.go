@@ -28,6 +28,7 @@ type clusterInfo struct {
 	podCidr     []netip.Prefix
 	serviceCidr []netip.Prefix
 	otherCidr   []netip.Prefix
+	clusterCidr []netip.Prefix
 }
 
 func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
@@ -51,6 +52,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 				return nil, fmt.Errorf("parsing pods cidr: %w", err)
 			}
 			res.podCidr = append(res.podCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		for _, cidr := range resp.ServiceCidr {
 			subnet, err := netip.ParsePrefix(cidr)
@@ -58,6 +60,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 				return nil, fmt.Errorf("parsing service cidr: %w", err)
 			}
 			res.serviceCidr = append(res.serviceCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		for _, cidr := range resp.OtherCidr {
 			subnet, err := netip.ParsePrefix(cidr)
@@ -65,6 +68,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 				return nil, fmt.Errorf("parsing other cidr: %w", err)
 			}
 			res.otherCidr = append(res.otherCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		return &res, nil
 	}
@@ -473,8 +477,7 @@ func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
 }
 
 func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
-	cidrs := append(c.podCidr, append(c.serviceCidr, c.otherCidr...)...)
-	for _, cidr := range cidrs {
+	for _, cidr := range c.clusterCidr {
 		if cidr.Contains(ip) {
 			return true
 		}
