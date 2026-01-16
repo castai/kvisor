@@ -27,6 +27,7 @@ import (
 type clusterInfo struct {
 	podCidr     []netip.Prefix
 	serviceCidr []netip.Prefix
+	nodeCidr    []netip.Prefix
 	otherCidr   []netip.Prefix
 	clusterCidr []netip.Prefix
 }
@@ -62,6 +63,14 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 			res.serviceCidr = append(res.serviceCidr, subnet)
 			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
+		for _, cidr := range resp.NodeCidr {
+			subnet, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				return nil, fmt.Errorf("parsing node cidr: %w", err)
+			}
+			res.nodeCidr = append(res.serviceCidr, subnet)
+			res.clusterCidr = append(res.clusterCidr, subnet)
+		}
 		for _, cidr := range resp.OtherCidr {
 			subnet, err := netip.ParsePrefix(cidr)
 			if err != nil {
@@ -87,7 +96,7 @@ func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 		}
 		c.clusterInfo = clusterInfo
 		if clusterInfo != nil {
-			c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr)
+			c.log.Infof("fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s", clusterInfo.podCidr, clusterInfo.serviceCidr, clusterInfo.nodeCidr)
 		}
 	}
 

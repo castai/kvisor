@@ -126,6 +126,7 @@ type GetClusterInfoResponse struct {
 	PodsCidr      []string               `protobuf:"bytes,1,rep,name=pods_cidr,json=podsCidr,proto3" json:"pods_cidr,omitempty"`
 	ServiceCidr   []string               `protobuf:"bytes,2,rep,name=service_cidr,json=serviceCidr,proto3" json:"service_cidr,omitempty"`
 	OtherCidr     []string               `protobuf:"bytes,3,rep,name=other_cidr,json=otherCidr,proto3" json:"other_cidr,omitempty"`
+	NodeCidr      []string               `protobuf:"bytes,4,rep,name=node_cidr,json=nodeCidr,proto3" json:"node_cidr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -177,6 +178,13 @@ func (x *GetClusterInfoResponse) GetServiceCidr() []string {
 func (x *GetClusterInfoResponse) GetOtherCidr() []string {
 	if x != nil {
 		return x.OtherCidr
+	}
+	return nil
+}
+
+func (x *GetClusterInfoResponse) GetNodeCidr() []string {
+	if x != nil {
+		return x.NodeCidr
 	}
 	return nil
 }
@@ -1358,12 +1366,13 @@ var File_api_v1_kube_kube_api_proto protoreflect.FileDescriptor
 const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\n" +
 	"\x1aapi/v1/kube/kube_api.proto\x12\akube.v1\"\x17\n" +
-	"\x15GetClusterInfoRequest\"w\n" +
+	"\x15GetClusterInfoRequest\"\x94\x01\n" +
 	"\x16GetClusterInfoResponse\x12\x1b\n" +
 	"\tpods_cidr\x18\x01 \x03(\tR\bpodsCidr\x12!\n" +
 	"\fservice_cidr\x18\x02 \x03(\tR\vserviceCidr\x12\x1d\n" +
 	"\n" +
-	"other_cidr\x18\x03 \x03(\tR\totherCidr\"\"\n" +
+	"other_cidr\x18\x03 \x03(\tR\totherCidr\x12\x1b\n" +
+	"\tnode_cidr\x18\x04 \x03(\tR\bnodeCidr\"\"\n" +
 	"\x10GetIPInfoRequest\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\fR\x02ip\"8\n" +
 	"\x11GetIPInfoResponse\x12#\n" +

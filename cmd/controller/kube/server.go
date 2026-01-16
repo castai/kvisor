@@ -131,6 +131,7 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
 		ServiceCidr: info.ServiceCidr,
+		NodeCidr:    info.NodeCidr,
 		OtherCidr:   otherCidr,
 	}, nil
 }

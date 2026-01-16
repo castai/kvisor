@@ -338,6 +338,7 @@ func (c *Client) GetOwnerUID(obj Object) string {
 type ClusterInfo struct {
 	PodCidr     []string
 	ServiceCidr []string
+	NodeCidr    []string
 }
 
 func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
@@ -348,11 +349,25 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	}
 
 	var res ClusterInfo
+	// Find nodes cidr
+	nodeCidrMap := make(map[string]struct{})
+	for _, node := range c.index.nodesByName {
+		nodeCidr, err := getNodeCidrFromNodeSpec(node)
+		if err != nil {
+			continue
+		}
+		_, found := nodeCidrMap[nodeCidr]
+		if nodeCidr != "" && !found {
+			res.NodeCidr = append(res.NodeCidr, nodeCidr)
+			nodeCidrMap[nodeCidr] = struct{}{}
+		}
+	}
+
 	// Try to find pods cidr from nodes.
 	for _, node := range c.index.nodesByName {
 		podCidr, err := getPodCidrFromNodeSpec(node)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if len(podCidr) > 0 {
 			res.PodCidr = podCidr
@@ -442,6 +457,19 @@ func getPodCidrFromPod(pod *corev1.Pod) ([]string, error) {
 		podCidr = append(podCidr, cidr)
 	}
 	return podCidr, nil
+}
+
+func getNodeCidrFromNodeSpec(node *corev1.Node) (string, error) {
+	for _, address := range node.Status.Addresses {
+		if address.Type == corev1.NodeInternalIP {
+			cidr, err := parseIPToCidr(address.Address)
+			if err != nil {
+				return "", err
+			}
+			return cidr, nil
+		}
+	}
+	return "", nil
 }
 
 func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string, ipDetails ipsDetails) ([]string, error) {

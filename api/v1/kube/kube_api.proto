@@ -19,6 +19,7 @@ message GetClusterInfoResponse {
   repeated string pods_cidr = 1;
   repeated string service_cidr = 2;
   repeated string other_cidr = 3;
+  repeated string node_cidr = 4;
 }
 
 message GetIPInfoRequest {
