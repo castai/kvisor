@@ -322,7 +322,7 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 	}
 
 	// If destination zone is unknown but IP is local network (loopback, link-local),
-	// then destination must be on same node as source, therefore same zone/region
+	// then destination must be on same zone/region
 	if !isPublicDest && dest.Zone == "" && iputil.IsLocalNetwork(destAddr) {
 		dest.Zone = netflow.pb.Zone
 		dest.Region = netflow.pb.Region
