@@ -86,16 +86,6 @@ func (idx *Index[T]) Add(cidr netip.Prefix, metadata T) error {
 	return idx.cidrTree.Insert(entry)
 }
 
-// AddMultiple inserts multiple CIDR entries into the index.
-func (idx *Index[T]) AddMultiple(entries []Entry[T]) error {
-	for _, entry := range entries {
-		if err := idx.Add(entry.CIDR, entry.Metadata); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Lookup finds the most specific CIDR range containing the given IP address.
 func (idx *Index[T]) Lookup(ip netip.Addr) (*LookupResult[T], bool) {
 	// Check cache first
@@ -160,8 +150,6 @@ func (idx *Index[T]) Clear() {
 }
 
 // Rebuild replaces all entries in the index with the provided entries.
-// This is more efficient than calling Clear() followed by AddMultiple()
-// because it clears the cache only once.
 func (idx *Index[T]) Rebuild(entries []Entry[T]) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()

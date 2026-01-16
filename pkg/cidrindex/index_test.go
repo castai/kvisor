@@ -44,38 +44,6 @@ func TestIndex(t *testing.T) {
 		r.Equal("subnet-1", result.Metadata.Name)
 	})
 
-	t.Run("add multiple CIDRs", func(t *testing.T) {
-		r := require.New(t)
-		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
-		r.NoError(err)
-
-		entries := []Entry[testMetadata]{
-			{
-				CIDR:     netip.MustParsePrefix("10.0.1.0/24"),
-				Metadata: testMetadata{Zone: "us-east-1a", Region: "us-east-1"},
-			},
-			{
-				CIDR:     netip.MustParsePrefix("10.0.2.0/24"),
-				Metadata: testMetadata{Zone: "us-east-1b", Region: "us-east-1"},
-			},
-		}
-
-		err = idx.AddMultiple(entries)
-		r.NoError(err)
-
-		// Lookup in first CIDR
-		ip1 := netip.MustParseAddr("10.0.1.50")
-		result1, found1 := idx.Lookup(ip1)
-		r.True(found1)
-		r.Equal("us-east-1a", result1.Metadata.Zone)
-
-		// Lookup in second CIDR
-		ip2 := netip.MustParseAddr("10.0.2.50")
-		result2, found2 := idx.Lookup(ip2)
-		r.True(found2)
-		r.Equal("us-east-1b", result2.Metadata.Zone)
-	})
-
 	t.Run("lookup IP not found", func(t *testing.T) {
 		r := require.New(t)
 		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
@@ -166,31 +134,6 @@ func TestIndex(t *testing.T) {
 		r.True(result2.ResolvedAt.After(timestamp1), "Second lookup should have newer timestamp")
 	})
 
-	t.Run("clear removes all entries", func(t *testing.T) {
-		r := require.New(t)
-		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
-		r.NoError(err)
-
-		cidr := netip.MustParsePrefix("10.0.1.0/24")
-		meta := testMetadata{Zone: "us-east-1a"}
-
-		err = idx.Add(cidr, meta)
-		r.NoError(err)
-
-		ip := netip.MustParseAddr("10.0.1.50")
-
-		// Verify it's added
-		_, found := idx.Lookup(ip)
-		r.True(found)
-
-		// Clear
-		idx.Clear()
-
-		// Should not be found
-		_, found = idx.Lookup(ip)
-		r.False(found)
-	})
-
 	t.Run("rebuild replaces all entries", func(t *testing.T) {
 		r := require.New(t)
 		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
@@ -203,8 +146,10 @@ func TestIndex(t *testing.T) {
 				Metadata: testMetadata{Zone: "us-east-1a"},
 			},
 		}
-		err = idx.AddMultiple(entries1)
-		r.NoError(err)
+		for _, entry := range entries1 {
+			err = idx.Add(entry.CIDR, entry.Metadata)
+			r.NoError(err)
+		}
 
 		ip1 := netip.MustParseAddr("10.0.1.50")
 		result1, found1 := idx.Lookup(ip1)

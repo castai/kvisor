@@ -17,13 +17,6 @@ type IPVPCInfo struct {
 	CloudDomain string // filled when IP is public cloud service
 }
 
-// vpcCIDRInfo stores CIDR metadata for VPC lookups.
-type vpcCIDRInfo struct {
-	Zone        string
-	Region      string
-	CloudDomain string
-}
-
 type VPCIndex struct {
 	log *logging.Logger
 
@@ -31,7 +24,7 @@ type VPCIndex struct {
 	metadata *cloudtypes.Metadata
 
 	// Generic CIDR index for fast IP lookups
-	cidrIndex *cidrindex.Index[vpcCIDRInfo]
+	cidrIndex *cidrindex.Index[IPVPCInfo]
 
 	// Last successful refresh
 	lastRefresh time.Time
@@ -39,11 +32,11 @@ type VPCIndex struct {
 
 // NewVPCIndex creates a new VPC index.
 func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration) *VPCIndex {
-	cidrIdx, err := cidrindex.NewIndex[vpcCIDRInfo](10000, refreshInterval)
+	cidrIdx, err := cidrindex.NewIndex[IPVPCInfo](10000, refreshInterval)
 	if err != nil {
 		log.Warnf("failed to create CIDR index: %v", err)
 		// Create without cache
-		cidrIdx, _ = cidrindex.NewIndex[vpcCIDRInfo](0, refreshInterval)
+		cidrIdx, _ = cidrindex.NewIndex[IPVPCInfo](0, refreshInterval)
 	}
 
 	return &VPCIndex{
@@ -72,19 +65,19 @@ func (vi *VPCIndex) Update(metadata *cloudtypes.Metadata) error {
 }
 
 // buildCIDREntries extracts CIDR entries from VPC metadata.
-func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.Entry[vpcCIDRInfo] {
+func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.Entry[IPVPCInfo] {
 	if metadata == nil {
 		return nil
 	}
 
-	var entries []cidrindex.Entry[vpcCIDRInfo]
+	var entries []cidrindex.Entry[IPVPCInfo]
 
 	// Index service IP ranges first (lowest priority in lookups)
 	for _, svcRange := range metadata.ServiceRanges {
 		for _, cidr := range svcRange.CIRDs {
-			entries = append(entries, cidrindex.Entry[vpcCIDRInfo]{
+			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR: cidr,
-				Metadata: vpcCIDRInfo{
+				Metadata: IPVPCInfo{
 					CloudDomain: metadata.Domain,
 					Region:      svcRange.Region,
 				},
@@ -94,19 +87,18 @@ func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.
 
 	// Index VPC and subnet CIDRs
 	for _, vpc := range metadata.VPCs {
-		// Index VPC CIDRs
 		for _, cidr := range vpc.CIDRs {
-			entries = append(entries, cidrindex.Entry[vpcCIDRInfo]{
+			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR:     cidr,
-				Metadata: vpcCIDRInfo{},
+				Metadata: IPVPCInfo{},
 			})
 		}
 
 		// Index subnet CIDRs
 		for _, subnet := range vpc.Subnets {
-			entries = append(entries, cidrindex.Entry[vpcCIDRInfo]{
+			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR: subnet.CIDR,
-				Metadata: vpcCIDRInfo{
+				Metadata: IPVPCInfo{
 					Zone:   subnet.Zone,
 					Region: subnet.Region,
 				},
@@ -114,9 +106,9 @@ func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.
 
 			// Index secondary ranges (GKE alias IPs)
 			for _, secondary := range subnet.SecondaryRanges {
-				entries = append(entries, cidrindex.Entry[vpcCIDRInfo]{
+				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: secondary.CIDR,
-					Metadata: vpcCIDRInfo{
+					Metadata: IPVPCInfo{
 						Zone:   subnet.Zone,
 						Region: subnet.Region,
 					},
@@ -127,9 +119,9 @@ func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.
 		// Index peered VPC CIDRs
 		for _, peer := range vpc.PeeredVPCs {
 			for _, cidrRange := range peer.Ranges {
-				entries = append(entries, cidrindex.Entry[vpcCIDRInfo]{
+				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: cidrRange.CIDR,
-					Metadata: vpcCIDRInfo{
+					Metadata: IPVPCInfo{
 						Zone:   cidrRange.Zone,
 						Region: cidrRange.Region,
 					},
