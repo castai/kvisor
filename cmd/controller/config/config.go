@@ -39,6 +39,7 @@ type Config struct {
 	KubeBench        kubebench.Config              `json:"kubeBench"`
 	JobsCleanup      controllers.JobsCleanupConfig `json:"jobsCleanup"`
 	AgentConfig      AgentConfig                   `json:"agentConfig"`
+	CloudProvider    controllers.VPCMetadataConfig `json:"cloudProvider"`
 }
 
 type AgentConfig struct {

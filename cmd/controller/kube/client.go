@@ -65,7 +65,8 @@ type Client struct {
 	mu                      sync.RWMutex
 	kvisorControllerPodSpec *corev1.PodSpec
 
-	index *Index
+	index    *Index
+	vpcIndex *VPCIndex
 
 	clusterInfo *ClusterInfo
 
@@ -88,9 +89,21 @@ func NewClient(
 		kvisorControllerContainerName: "controller",
 		client:                        client,
 		index:                         NewIndex(),
-		version:                       version,
-		ipInfoTTL:                     30 * time.Second,
+		// TODO: set default
+		vpcIndex:  nil,
+		version:   version,
+		ipInfoTTL: 30 * time.Second,
 	}
+}
+
+// SetVPCIndex sets the VPC index for enriching external IPs with VPC metadata.
+func (i *Client) SetVPCIndex(vpcIndex *VPCIndex) {
+	i.vpcIndex = vpcIndex
+}
+
+// GetVPCIndex returns the VPC index if available.
+func (i *Client) GetVPCIndex() *VPCIndex {
+	return i.vpcIndex
 }
 
 func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {

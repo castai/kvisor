@@ -107,6 +107,14 @@ func (a *App) Run(ctx context.Context) error {
 		return kubeClient.Run(ctx)
 	})
 
+	// Initialize cloud provider if enabled
+	if cfg.CloudProvider.Enabled {
+		errg.Go(func() error {
+			vpcMetadataCtrl := controllers.NewVPCMetadataController(log, cfg.CloudProvider, kubeClient)
+			return vpcMetadataCtrl.Run(ctx)
+		})
+	}
+
 	// CAST AI specific logic.
 	if castaiClient != nil {
 		errg.Go(func() error {
