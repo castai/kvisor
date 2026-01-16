@@ -30,8 +30,8 @@ type VPCIndex struct {
 }
 
 // NewVPCIndex creates a new VPC index.
-func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration) *VPCIndex {
-	cidrIdx, err := cidrindex.NewIndex[IPVPCInfo](10000, refreshInterval)
+func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration, cacheSize uint32) *VPCIndex {
+	cidrIdx, err := cidrindex.NewIndex[IPVPCInfo](cacheSize, refreshInterval)
 	if err != nil {
 		log.Warnf("failed to create CIDR index: %v", err)
 		// Create without cache
@@ -147,4 +147,32 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 		Region:      result.Metadata.Region,
 		CloudDomain: result.Metadata.CloudDomain,
 	}, true
+}
+
+func (vi *VPCIndex) ListKnownCIDRs() []string {
+	if vi.metadata == nil {
+		return []string{}
+	}
+
+	netsToStrings := func(nets []netip.Prefix) []string {
+		var s []string
+		for _, n := range nets {
+			s = append(s, n.String())
+		}
+		return s
+	}
+	var knownCIDRs []string
+	for _, vpc := range vi.metadata.VPCs {
+		knownCIDRs = append(knownCIDRs, netsToStrings(vpc.CIDRs)...)
+		for _, subnet := range vpc.Subnets {
+			knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
+			for _, secondaryRange := range subnet.SecondaryRanges {
+				knownCIDRs = append(knownCIDRs, secondaryRange.CIDR.String())
+			}
+		}
+	}
+	for _, svcRange := range vi.metadata.ServiceRanges {
+		knownCIDRs = append(knownCIDRs, netsToStrings(svcRange.CIRDs)...)
+	}
+	return knownCIDRs
 }

@@ -321,7 +321,6 @@ type IPInfo struct {
 	Node     *corev1.Node
 	Endpoint *IPEndpoint
 
-	step        int
 	zone        string
 	region      string
 	cloudDomain string

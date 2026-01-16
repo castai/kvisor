@@ -89,10 +89,9 @@ func NewClient(
 		kvisorControllerContainerName: "controller",
 		client:                        client,
 		index:                         NewIndex(),
-		// TODO: set default
-		vpcIndex:  nil,
-		version:   version,
-		ipInfoTTL: 30 * time.Second,
+		vpcIndex:                      NewVPCIndex(log, 0, 0),
+		version:                       version,
+		ipInfoTTL:                     30 * time.Second,
 	}
 }
 
@@ -271,7 +270,6 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	cidrInfo, nodeCIDRFound := c.index.nodesCIDRIndex.Lookup(ip)
 	if nodeCIDRFound && cidrInfo.Metadata != nil {
 		val.Node = cidrInfo.Metadata
-		val.step = 2
 		return val, true
 	}
 
@@ -280,24 +278,10 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 		val.zone = vpcInfo.Zone
 		val.region = vpcInfo.Region
 		val.cloudDomain = vpcInfo.CloudDomain
-		val.step = 3
 		return val, true
 	}
-	return IPInfo{}, false
-}
 
-func (c *Client) GetIPsInfo(ips []netip.Addr) []IPInfo {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	var res []IPInfo
-	for _, ip := range ips {
-		val, found := c.index.ipsDetails.find(ip)
-		if found {
-			res = append(res, val)
-		}
-	}
-	return res
+	return val, kubeIPFound || nodeCIDRFound
 }
 
 func (c *Client) GetPodInfo(uid string) (*PodInfo, bool) {

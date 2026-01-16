@@ -70,9 +70,8 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 		ips = append(ips, ip)
 	}
 
-	infos := s.client.GetIPsInfo(ips)
 	res := &kubepb.GetIPsInfoResponse{
-		List: make([]*kubepb.IPInfo, 0, len(infos)),
+		List: make([]*kubepb.IPInfo, 0, len(ips)),
 	}
 	for _, ip := range ips {
 		pbInfo := &kubepb.IPInfo{
@@ -111,9 +110,10 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 				pbInfo.WorkloadName = e.Name
 				pbInfo.Namespace = e.Namespace
 			}
+
+			res.List = append(res.List, pbInfo)
 		}
 
-		res.List = append(res.List, pbInfo)
 	}
 
 	return res, nil
@@ -126,7 +126,7 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	}
 	var otherCidr []string
 	if s.client.vpcIndex != nil {
-		otherCidr = s.client.vpcIndex.metadata.ListKnownCIDRs()
+		otherCidr = s.client.vpcIndex.ListKnownCIDRs()
 	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,

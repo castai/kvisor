@@ -17,7 +17,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		refreshInterval := 1 * time.Hour
 
-		index := NewVPCIndex(log, refreshInterval)
+		index := NewVPCIndex(log, refreshInterval, 1000)
 
 		r.NotNil(index)
 		r.NotNil(index.cidrIndex)
@@ -25,7 +25,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("update metadata", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			Domain: "example.com",
@@ -46,7 +46,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in subnet", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -79,7 +79,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in service range", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			Domain: "googleapis.com",
@@ -105,7 +105,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in secondary range", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -143,7 +143,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in peered VPC", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -179,7 +179,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP not found", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -209,7 +209,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup uses cache", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -247,7 +247,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("cache invalidated on update", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata1 := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -303,7 +303,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("most specific match wins", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{
@@ -337,7 +337,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("empty metadata", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
 		metadata := &cloudtypes.Metadata{}
 		err := index.Update(metadata)
@@ -352,7 +352,7 @@ func TestVPCIndex(t *testing.T) {
 	t.Run("cache expiry", func(t *testing.T) {
 		r := require.New(t)
 		shortRefresh := 50 * time.Millisecond
-		index := NewVPCIndex(log, shortRefresh)
+		index := NewVPCIndex(log, shortRefresh, 1000)
 
 		metadata := &cloudtypes.Metadata{
 			VPCs: []cloudtypes.VPC{

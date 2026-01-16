@@ -59,7 +59,7 @@ func (c *VPCMetadataController) Run(ctx context.Context) error {
 
 	c.log.Infof("cloud provider %s initialized successfully", provider.Type())
 
-	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval)
+	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval, 10000)
 
 	if err := c.fetchInitialMetadata(ctx, provider, vpcIndex); err != nil {
 		c.log.Errorf("failed to fetch initial VPC metadata: %v", err)
