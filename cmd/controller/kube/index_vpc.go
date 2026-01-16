@@ -23,7 +23,6 @@ type VPCIndex struct {
 	mu       sync.RWMutex
 	metadata *cloudtypes.Metadata
 
-	// Generic CIDR index for fast IP lookups
 	cidrIndex *cidrindex.Index[IPVPCInfo]
 
 	// Last successful refresh

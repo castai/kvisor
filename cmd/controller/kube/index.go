@@ -1,7 +1,6 @@
 package kube
 
 import (
-	"fmt"
 	"net/netip"
 	"time"
 
@@ -13,16 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// nodeCIDRInfo stores CIDR metadata for node lookups.
-type nodeCIDRInfo struct {
-	Zone     string
-	Region   string
-	NodeName string
-}
-
 func NewIndex() *Index {
-	// nodesCIDRIndex, _ := cidrindex.NewIndex[nodeCIDRInfo](1000, 5*time.Minute)
-	nodesCIDRIndex, _ := cidrindex.NewIndex[*corev1.Node](1000, 5*time.Minute)
+	nodesCIDRIndex, _ := cidrindex.NewIndex[*corev1.Node](1000, 30*time.Second)
 	return &Index{
 		ipsDetails:     make(ipsDetails),
 		replicaSets:    make(map[types.UID]metav1.ObjectMeta),
@@ -121,14 +112,12 @@ func (i *Index) addFromService(v *corev1.Service) {
 func (i *Index) addFromNode(v *corev1.Node) {
 	i.nodesByName[v.Name] = v
 
-	metadata := nodeCIDRInfo{
-		Zone:     getZone(v),
-		Region:   getRegion(v),
-		NodeName: v.GetName(),
-	}
+	zone := getZone(v)
+	region := getRegion(v)
 
+	// Associate pods CIDR with node reference to be able to find pods
+	// in cases when multiple pods have the same IP (i.e. hostNetwork: true)
 	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
-		fmt.Printf("Node %s has %+v pod cidrs\n", v.Name, podCidrs)
 		for _, cidr := range podCidrs {
 			_ = i.nodesCIDRIndex.Add(cidr, v)
 		}
@@ -143,8 +132,8 @@ func (i *Index) addFromNode(v *corev1.Node) {
 			i.ipsDetails.set(addr, IPInfo{
 				Node:       v,
 				resourceID: v.UID,
-				zone:       metadata.Zone,
-				region:     metadata.Region,
+				zone:       zone,
+				region:     region,
 			})
 			return
 		}

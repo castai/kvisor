@@ -2,7 +2,6 @@ package kube
 
 import (
 	"context"
-	"fmt"
 	"net/netip"
 
 	"google.golang.org/grpc/codes"
@@ -113,8 +112,6 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 				pbInfo.Namespace = e.Namespace
 			}
 		}
-
-		fmt.Printf("Lookup ip: %v -> region: %v, cloudDomain: %v, zone: %v, step: %v\n", ip, info.region, info.cloudDomain, info.zone, info.step)
 
 		res.List = append(res.List, pbInfo)
 	}

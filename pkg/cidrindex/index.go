@@ -88,10 +88,8 @@ func (idx *Index[T]) Add(cidr netip.Prefix, metadata T) error {
 
 // Lookup finds the most specific CIDR range containing the given IP address.
 func (idx *Index[T]) Lookup(ip netip.Addr) (*LookupResult[T], bool) {
-	// Check cache first
 	if idx.ipCache != nil {
 		if cached, ok := idx.ipCache.Get(ip); ok {
-			// Check if cached entry is still valid
 			if idx.cacheTTL == 0 || time.Since(cached.ResolvedAt) < idx.cacheTTL {
 				return cached, true
 			}
@@ -121,7 +119,6 @@ func (idx *Index[T]) lookupInTree(ip netip.Addr) *LookupResult[T] {
 
 	netIP := net.IP(ip.AsSlice())
 
-	// Find all containing networks
 	entries, err := idx.cidrTree.ContainingNetworks(netIP)
 	if err != nil || len(entries) == 0 {
 		return nil
@@ -154,10 +151,8 @@ func (idx *Index[T]) Rebuild(entries []Entry[T]) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	// Create new tree
 	newTree := cidranger.NewPCTrieRanger()
 
-	// Insert all entries
 	for _, entry := range entries {
 		_, ipNet, err := net.ParseCIDR(entry.CIDR.String())
 		if err != nil {
@@ -174,10 +169,8 @@ func (idx *Index[T]) Rebuild(entries []Entry[T]) error {
 		}
 	}
 
-	// Replace tree atomically
 	idx.cidrTree = newTree
 
-	// Clear cache
 	if idx.ipCache != nil {
 		idx.ipCache.Purge()
 	}
