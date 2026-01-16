@@ -48,14 +48,14 @@ func (c *cidrEntry[T]) Network() net.IPNet {
 }
 
 // NewIndex creates a new CIDR index with the specified cache size and TTL.
-func NewIndex[T any](cacheSize int, cacheTTL time.Duration) (*Index[T], error) {
+func NewIndex[T any](cacheSize uint32, cacheTTL time.Duration) (*Index[T], error) {
 	idx := &Index[T]{
 		cidrTree: cidranger.NewPCTrieRanger(),
 		cacheTTL: cacheTTL,
 	}
 
 	if cacheSize > 0 {
-		cache, err := freelru.NewSynced[netip.Addr, *LookupResult[T]](uint32(cacheSize), func(ip netip.Addr) uint32 {
+		cache, err := freelru.NewSynced[netip.Addr, *LookupResult[T]](cacheSize, func(ip netip.Addr) uint32 {
 			b := ip.As16()
 			return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
 		})
