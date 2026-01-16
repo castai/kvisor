@@ -28,16 +28,13 @@ func (m ipsDetails) find(ip netip.Addr) (IPInfo, bool) {
 		ipZone := ""
 		// region will be always the same for same IP
 		// as unique CIDRs are always assigned to the same region
-		ipRegion := getRegion(list[0].Node)
+		ipRegion := list[0].region
 		for _, ipInfo := range list {
-			if ipInfo.Node != nil {
-				nodeZone := getZone(ipInfo.Node)
-				if ipZone == "" {
-					ipZone = nodeZone
-				} else if ipZone != nodeZone {
-					ipZone = ""
-					break
-				}
+			if ipZone == "" {
+				ipZone = ipInfo.zone
+			} else if ipZone != ipInfo.zone {
+				ipZone = ""
+				break
 			}
 		}
 		return IPInfo{zone: ipZone, region: ipRegion}, true

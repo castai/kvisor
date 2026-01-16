@@ -135,17 +135,6 @@ func (idx *Index[T]) lookupInTree(ip netip.Addr) *LookupResult[T] {
 	}
 }
 
-// Clear removes all entries from the index and clears the cache.
-func (idx *Index[T]) Clear() {
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
-
-	idx.cidrTree = cidranger.NewPCTrieRanger()
-	if idx.ipCache != nil {
-		idx.ipCache.Purge()
-	}
-}
-
 // Rebuild replaces all entries in the index with the provided entries.
 func (idx *Index[T]) Rebuild(entries []Entry[T]) error {
 	idx.mu.Lock()

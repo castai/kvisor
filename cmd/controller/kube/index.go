@@ -190,6 +190,7 @@ func (i *Index) deleteFromService(v *corev1.Service) {
 func (i *Index) deleteByNode(v *corev1.Node) {
 	delete(i.nodesByName, v.Name)
 
+	// TODO: soft remove here and do actual cleanup in the background
 	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
 		for _, cidr := range podCidrs {
 			_ = i.nodesCIDRIndex.Remove(cidr)
