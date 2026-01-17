@@ -266,8 +266,6 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	// step 1: check IPs from kube client first
 	// all known pods/services/endpoints/nodes
 	val, kubeIPFound := c.index.ipsDetails.find(ip)
-	c.log.Debugf("GetIPInfo step 1: ip=%s kubeIPFound=%v info=%s", ip, kubeIPFound, val.String())
-
 	if kubeIPFound && val.zone != "" {
 		return val, true
 	}
@@ -275,8 +273,6 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	// in case when IP is not found within known k8s resources
 	// i.e. CNI bridge gateway IP
 	cidrInfo, nodeCIDRFound := c.index.nodesCIDRIndex.Lookup(ip)
-	c.log.Debugf("GetIPInfo step 2: ip=%s nodeCIDRFound=%v", ip, nodeCIDRFound)
-
 	if nodeCIDRFound && cidrInfo.Metadata != "" {
 		val.Node = c.index.nodesByName[cidrInfo.Metadata]
 		return val, true
@@ -290,8 +286,6 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 		return val, true
 	}
 
-	c.log.Debugf("GetIPInfo returning final: ip=%s kubeIPFound=%v nodeCIDRFound=%v info=%s",
-		ip, kubeIPFound, nodeCIDRFound, val.String())
 	return val, kubeIPFound || nodeCIDRFound
 }
 
@@ -346,7 +340,9 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	}
 
 	var res ClusterInfo
-	// Find nodes cidr
+	// Find nodes cidr.
+	// This is neeeded when `netflow-check-cluster-network-ranges` flag enabled
+	// to allow to enrich destination flows with node cidr
 	nodeCidrMap := make(map[string]struct{})
 	for _, node := range c.index.nodesByName {
 		nodeCidr, err := getNodeCidrFromNodeSpec(node)

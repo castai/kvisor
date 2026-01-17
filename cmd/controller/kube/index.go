@@ -1,9 +1,7 @@
 package kube
 
 import (
-	"fmt"
 	"net/netip"
-	"strings"
 	"time"
 
 	"github.com/castai/kvisor/pkg/cidrindex"
@@ -120,7 +118,6 @@ func (i *Index) addFromNode(v *corev1.Node) {
 	// Associate pods CIDR with node reference to be able to find pods
 	// in cases when multiple pods have the same IP (i.e. hostNetwork: true)
 	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
-		fmt.Printf("Add pod cidrs %v to node %v at %v\n", podCidrs, v.GetName(), time.Now())
 		for _, cidr := range podCidrs {
 			_ = i.nodesCIDRIndex.Add(cidr, string(v.GetName()))
 		}
@@ -194,7 +191,6 @@ func (i *Index) deleteByNode(v *corev1.Node) {
 	delete(i.nodesByName, v.Name)
 
 	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
-		fmt.Printf("Remove pod cidrs %v from node %v at %v\n", podCidrs, v.GetName(), time.Now())
 		for _, cidr := range podCidrs {
 			i.nodesCIDRIndex.MarkDeleted(cidr)
 		}
@@ -332,78 +328,6 @@ type IPInfo struct {
 	resourceID  types.UID
 	setAt       time.Time
 	deleteAt    *time.Time
-}
-
-// String returns a debug-friendly representation of IPInfo.
-func (info IPInfo) String() string {
-	var parts []string
-
-	if info.ip.IsValid() {
-		parts = append(parts, fmt.Sprintf("ip=%s", info.ip))
-	}
-
-	if info.zone != "" {
-		parts = append(parts, fmt.Sprintf("zone=%s", info.zone))
-	}
-	if info.region != "" {
-		parts = append(parts, fmt.Sprintf("region=%s", info.region))
-	}
-	if info.cloudDomain != "" {
-		parts = append(parts, fmt.Sprintf("cloudDomain=%s", info.cloudDomain))
-	}
-
-	if info.Node != nil {
-		nodeName := info.Node.GetName()
-		var nodeIP string
-		for _, addr := range info.Node.Status.Addresses {
-			if addr.Type == corev1.NodeInternalIP {
-				nodeIP = addr.Address
-				break
-			}
-		}
-		if nodeIP != "" {
-			parts = append(parts, fmt.Sprintf("node=%s(%s)", nodeName, nodeIP))
-		} else {
-			parts = append(parts, fmt.Sprintf("node=%s", nodeName))
-		}
-	}
-
-	if info.PodInfo != nil {
-		podName := fmt.Sprintf("%s/%s", info.PodInfo.Pod.Namespace, info.PodInfo.Pod.Name)
-		parts = append(parts, fmt.Sprintf("pod=%s", podName))
-		if info.PodInfo.Owner.Name != "" {
-			parts = append(parts, fmt.Sprintf("owner=%s/%s", info.PodInfo.Owner.Kind, info.PodInfo.Owner.Name))
-		}
-	}
-
-	if info.Service != nil {
-		svcName := fmt.Sprintf("%s/%s", info.Service.Namespace, info.Service.Name)
-		parts = append(parts, fmt.Sprintf("service=%s", svcName))
-		if info.Service.Spec.ClusterIP != "" {
-			parts = append(parts, fmt.Sprintf("clusterIP=%s", info.Service.Spec.ClusterIP))
-		}
-	}
-
-	if info.Endpoint != nil {
-		epName := fmt.Sprintf("%s/%s", info.Endpoint.Namespace, info.Endpoint.Name)
-		parts = append(parts, fmt.Sprintf("endpoint=%s", epName))
-	}
-
-	if info.resourceID != "" {
-		parts = append(parts, fmt.Sprintf("resourceID=%s", info.resourceID))
-	}
-	if !info.setAt.IsZero() {
-		parts = append(parts, fmt.Sprintf("setAt=%s", info.setAt.Format(time.RFC3339)))
-	}
-	if info.deleteAt != nil {
-		parts = append(parts, fmt.Sprintf("deleteAt=%s", info.deleteAt.Format(time.RFC3339)))
-	}
-
-	if len(parts) == 0 {
-		return "IPInfo{empty}"
-	}
-
-	return fmt.Sprintf("IPInfo{%s}", strings.Join(parts, " "))
 }
 
 type PodInfo struct {
