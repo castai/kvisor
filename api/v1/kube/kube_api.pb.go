@@ -122,12 +122,13 @@ func (*GetClusterInfoRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetClusterInfoResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PodsCidr      []string               `protobuf:"bytes,1,rep,name=pods_cidr,json=podsCidr,proto3" json:"pods_cidr,omitempty"`
-	ServiceCidr   []string               `protobuf:"bytes,2,rep,name=service_cidr,json=serviceCidr,proto3" json:"service_cidr,omitempty"`
-	OtherCidr     []string               `protobuf:"bytes,3,rep,name=other_cidr,json=otherCidr,proto3" json:"other_cidr,omitempty"`
-	NodeCidr      []string               `protobuf:"bytes,4,rep,name=node_cidr,json=nodeCidr,proto3" json:"node_cidr,omitempty"`
-	VpcCidr       []string               `protobuf:"bytes,5,rep,name=vpc_cidr,json=vpcCidr,proto3" json:"vpc_cidr,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	PodsCidr    []string               `protobuf:"bytes,1,rep,name=pods_cidr,json=podsCidr,proto3" json:"pods_cidr,omitempty"`
+	ServiceCidr []string               `protobuf:"bytes,2,rep,name=service_cidr,json=serviceCidr,proto3" json:"service_cidr,omitempty"`
+	NodeCidr    []string               `protobuf:"bytes,4,rep,name=node_cidr,json=nodeCidr,proto3" json:"node_cidr,omitempty"`
+	VpcCidr     []string               `protobuf:"bytes,5,rep,name=vpc_cidr,json=vpcCidr,proto3" json:"vpc_cidr,omitempty"`
+	// other_cidr is a list of known cloud services CIDRs
+	OtherCidr     []string `protobuf:"bytes,3,rep,name=other_cidr,json=otherCidr,proto3" json:"other_cidr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -176,13 +177,6 @@ func (x *GetClusterInfoResponse) GetServiceCidr() []string {
 	return nil
 }
 
-func (x *GetClusterInfoResponse) GetOtherCidr() []string {
-	if x != nil {
-		return x.OtherCidr
-	}
-	return nil
-}
-
 func (x *GetClusterInfoResponse) GetNodeCidr() []string {
 	if x != nil {
 		return x.NodeCidr
@@ -193,6 +187,13 @@ func (x *GetClusterInfoResponse) GetNodeCidr() []string {
 func (x *GetClusterInfoResponse) GetVpcCidr() []string {
 	if x != nil {
 		return x.VpcCidr
+	}
+	return nil
+}
+
+func (x *GetClusterInfoResponse) GetOtherCidr() []string {
+	if x != nil {
+		return x.OtherCidr
 	}
 	return nil
 }
@@ -1377,11 +1378,11 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x15GetClusterInfoRequest\"\xaf\x01\n" +
 	"\x16GetClusterInfoResponse\x12\x1b\n" +
 	"\tpods_cidr\x18\x01 \x03(\tR\bpodsCidr\x12!\n" +
-	"\fservice_cidr\x18\x02 \x03(\tR\vserviceCidr\x12\x1d\n" +
-	"\n" +
-	"other_cidr\x18\x03 \x03(\tR\totherCidr\x12\x1b\n" +
+	"\fservice_cidr\x18\x02 \x03(\tR\vserviceCidr\x12\x1b\n" +
 	"\tnode_cidr\x18\x04 \x03(\tR\bnodeCidr\x12\x19\n" +
-	"\bvpc_cidr\x18\x05 \x03(\tR\avpcCidr\"\"\n" +
+	"\bvpc_cidr\x18\x05 \x03(\tR\avpcCidr\x12\x1d\n" +
+	"\n" +
+	"other_cidr\x18\x03 \x03(\tR\totherCidr\"\"\n" +
 	"\x10GetIPInfoRequest\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\fR\x02ip\"8\n" +
 	"\x11GetIPInfoResponse\x12#\n" +
