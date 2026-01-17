@@ -149,18 +149,11 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 	}, true
 }
 
-func (vi *VPCIndex) ListKnownCIDRs() []string {
+func (vi *VPCIndex) VpcCIDRs() []string {
 	if vi.metadata == nil {
 		return []string{}
 	}
 
-	netsToStrings := func(nets []netip.Prefix) []string {
-		var s []string
-		for _, n := range nets {
-			s = append(s, n.String())
-		}
-		return s
-	}
 	var knownCIDRs []string
 	for _, vpc := range vi.metadata.VPCs {
 		knownCIDRs = append(knownCIDRs, netsToStrings(vpc.CIDRs)...)
@@ -171,8 +164,25 @@ func (vi *VPCIndex) ListKnownCIDRs() []string {
 			}
 		}
 	}
+	return knownCIDRs
+}
+
+func (vi *VPCIndex) CloudServiceCIDRs() []string {
+	if vi.metadata == nil {
+		return []string{}
+	}
+
+	var knownCIDRs []string
 	for _, svcRange := range vi.metadata.ServiceRanges {
 		knownCIDRs = append(knownCIDRs, netsToStrings(svcRange.CIRDs)...)
 	}
 	return knownCIDRs
+}
+
+func netsToStrings(nets []netip.Prefix) []string {
+	var s []string
+	for _, n := range nets {
+		s = append(s, n.String())
+	}
+	return s
 }

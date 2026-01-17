@@ -10,13 +10,11 @@ import (
 	"github.com/yl2chen/cidranger"
 )
 
-// Entry represents a CIDR range with associated metadata.
 type Entry[T any] struct {
 	CIDR     netip.Prefix
 	Metadata T
 }
 
-// LookupResult contains the result of an IP lookup with timestamp.
 type LookupResult[T any] struct {
 	IP         netip.Addr
 	Metadata   T

@@ -15,7 +15,7 @@ import (
 )
 
 func NewIndex() *Index {
-	nodesCIDRIndex, _ := cidrindex.NewIndex[*corev1.Node](1000, 30*time.Second)
+	nodesCIDRIndex, _ := cidrindex.NewIndex[string](1000, 30*time.Second)
 	return &Index{
 		ipsDetails:     make(ipsDetails),
 		replicaSets:    make(map[types.UID]metav1.ObjectMeta),
@@ -34,7 +34,7 @@ type Index struct {
 	deployments    map[types.UID]*appsv1.Deployment
 	pods           map[types.UID]*PodInfo
 	nodesByName    map[string]*corev1.Node
-	nodesCIDRIndex *cidrindex.Index[*corev1.Node]
+	nodesCIDRIndex *cidrindex.Index[string]
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
@@ -122,7 +122,7 @@ func (i *Index) addFromNode(v *corev1.Node) {
 	if podCidrs, err := getPodCidrsFromNodeSpec(v); err == nil {
 		fmt.Printf("Add pod cidrs %v to node %v at %v\n", podCidrs, v.GetName(), time.Now())
 		for _, cidr := range podCidrs {
-			_ = i.nodesCIDRIndex.Add(cidr, v)
+			_ = i.nodesCIDRIndex.Add(cidr, string(v.GetName()))
 		}
 	}
 

@@ -277,11 +277,8 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	cidrInfo, nodeCIDRFound := c.index.nodesCIDRIndex.Lookup(ip)
 	c.log.Debugf("GetIPInfo step 2: ip=%s nodeCIDRFound=%v", ip, nodeCIDRFound)
 
-	if nodeCIDRFound && cidrInfo.Metadata != nil {
-		val.Node = cidrInfo.Metadata
-		// Also populate zone/region from the node
-		val.zone = getZone(cidrInfo.Metadata)
-		val.region = getRegion(cidrInfo.Metadata)
+	if nodeCIDRFound && cidrInfo.Metadata != "" {
+		val.Node = c.index.nodesByName[cidrInfo.Metadata]
 		return val, true
 	}
 

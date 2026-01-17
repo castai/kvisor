@@ -124,15 +124,12 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	if err != nil || info == nil {
 		return nil, status.Errorf(codes.NotFound, "cluster info not found: %v", err)
 	}
-	var otherCidr []string
-	if s.client.vpcIndex != nil {
-		otherCidr = s.client.vpcIndex.ListKnownCIDRs()
-	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
 		ServiceCidr: info.ServiceCidr,
 		NodeCidr:    info.NodeCidr,
-		OtherCidr:   otherCidr,
+		OtherCidr:   s.client.vpcIndex.CloudServiceCIDRs(),
+		VpcCidr:     s.client.vpcIndex.VpcCIDRs(),
 	}, nil
 }
 
