@@ -215,6 +215,11 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 			continue
 		}
 
+		// Skip kube-system namespace - system pods don't have user-relevant PVCs
+		if pod.Namespace == "kube-system" {
+			continue
+		}
+
 		// Build a map of volume name -> volume for quick lookup
 		volumeMap := make(map[string]corev1.Volume)
 		for _, vol := range pod.Spec.Volumes {
@@ -222,10 +227,16 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 		}
 
 		// Iterate through containers and their volume mounts (filesystem volumes)
+		// Only include PVC-backed volumes - skip ephemeral volumes like configMaps, secrets, serviceAccount tokens
 		for _, container := range pod.Spec.Containers {
 			for _, mount := range container.VolumeMounts {
 				vol, exists := volumeMap[mount.Name]
 				if !exists {
+					continue
+				}
+
+				// Only include PVC-backed volumes
+				if vol.PersistentVolumeClaim == nil {
 					continue
 				}
 
@@ -241,11 +252,7 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 					VolumeMode:     "Filesystem",
 				}
 
-				// If this is a PVC-backed volume, enrich with PVC/PV details
-				if vol.PersistentVolumeClaim != nil {
-					s.enrichPVCDetails(volInfo, vol, pod.Namespace)
-				}
-
+				s.enrichPVCDetails(volInfo, vol, pod.Namespace)
 				volumes = append(volumes, volInfo)
 			}
 
@@ -253,6 +260,11 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 			for _, device := range container.VolumeDevices {
 				vol, exists := volumeMap[device.Name]
 				if !exists {
+					continue
+				}
+
+				// Only include PVC-backed volumes
+				if vol.PersistentVolumeClaim == nil {
 					continue
 				}
 
@@ -268,11 +280,7 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 					VolumeMode:     "Block",
 				}
 
-				// If this is a PVC-backed volume, enrich with PVC/PV details
-				if vol.PersistentVolumeClaim != nil {
-					s.enrichPVCDetails(volInfo, vol, pod.Namespace)
-				}
-
+				s.enrichPVCDetails(volInfo, vol, pod.Namespace)
 				volumes = append(volumes, volInfo)
 			}
 		}

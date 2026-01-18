@@ -323,12 +323,14 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 		return nil, fmt.Errorf("kube client is not initialized")
 	}
 
+	s.log.Infof("CollectPodVolumeMetrics: requesting pod volumes for node %s", s.nodeName)
 	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
 		NodeName: s.nodeName,
 	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod volumes for %s: %w", s.nodeName, err)
 	}
+	s.log.Infof("CollectPodVolumeMetrics: received %d volumes from controller", len(resp.Volumes))
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
@@ -409,6 +411,9 @@ func podVolumeKey(podUID, volumeName string) string {
 }
 
 // buildPodVolumeLookupMap fetches pod volumes from controller and builds a lookup map
+// The map is keyed by both:
+// - podUID/volumeName (for emptyDir, configMap, etc.)
+// - podUID/pvName (for CSI volumes where the mount path contains the PV name)
 func (s *SysfsStorageInfoProvider) buildPodVolumeLookupMap() map[string]*kubepb.PodVolumeInfo {
 	if s.kubeClient == nil {
 		return nil
@@ -425,10 +430,18 @@ func (s *SysfsStorageInfoProvider) buildPodVolumeLookupMap() map[string]*kubepb.
 		return nil
 	}
 
-	volumeMap := make(map[string]*kubepb.PodVolumeInfo, len(resp.Volumes))
+	volumeMap := make(map[string]*kubepb.PodVolumeInfo, len(resp.Volumes)*2)
 	for _, v := range resp.Volumes {
+		// Primary key: podUID/volumeName
 		key := podVolumeKey(v.PodUid, v.VolumeName)
 		volumeMap[key] = v
+
+		// Secondary key: podUID/pvName (for CSI volumes)
+		// CSI mount paths use the PV name as the directory name, not the volume name
+		if v.PvName != "" {
+			pvKey := podVolumeKey(v.PodUid, v.PvName)
+			volumeMap[pvKey] = v
+		}
 	}
 
 	return volumeMap
