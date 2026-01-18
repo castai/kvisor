@@ -98,6 +98,7 @@ func (c *Controller) processPodVolumeMetrics(ctx context.Context) error {
 	}
 
 	if len(metrics) == 0 {
+		c.log.Info("no pod volume metrics collected from controller (empty response)")
 		return nil
 	}
 

@@ -206,6 +206,7 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 	}
 
 	pods := s.client.GetPodsOnNode(req.NodeName)
+	s.client.log.Infof("GetPodVolumes: found %d pods on node %s", len(pods), req.NodeName)
 	var volumes []*kubepb.PodVolumeInfo
 
 	for _, podInfo := range pods {
@@ -277,6 +278,7 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 		}
 	}
 
+	s.client.log.Infof("GetPodVolumes: returning %d volumes for node %s", len(volumes), req.NodeName)
 	return &kubepb.GetPodVolumesResponse{
 		Volumes: volumes,
 	}, nil

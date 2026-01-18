@@ -134,6 +134,14 @@ func NewK8sPodVolumeMetricsWriter(metricsClient custommetrics.MetricClient) (K8s
 
 // Logging writers for testing without ClickHouse
 
+// ptrToStr safely dereferences a pointer for logging, returning "<nil>" if nil
+func ptrToStr[T any](p *T) string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("%v", *p)
+}
+
 type LoggingBlockDeviceMetricsWriter struct {
 	log *logging.Logger
 }
@@ -144,8 +152,8 @@ func NewLoggingBlockDeviceMetricsWriter(log *logging.Logger) BlockDeviceMetricsW
 
 func (w *LoggingBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[BlockDevice] name=%s path=%s size=%v type=%s partition_of=%s read_iops=%.2f write_iops=%.2f",
-			m.Name, m.Path, m.SizeBytes, m.DiskType, m.PartitionOf, m.ReadIOPS, m.WriteIOPS)
+		w.log.Infof("[BlockDevice] name=%s path=%s size=%s type=%s partition_of=%s read_iops=%.2f write_iops=%.2f",
+			m.Name, m.Path, ptrToStr(m.SizeBytes), m.DiskType, m.PartitionOf, m.ReadIOPS, m.WriteIOPS)
 	}
 	return nil
 }
@@ -160,8 +168,8 @@ func NewLoggingFilesystemMetricsWriter(log *logging.Logger) FilesystemMetricsWri
 
 func (w *LoggingFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[Filesystem] mount=%s type=%s total=%v used=%v namespace=%v pod=%v pvc=%v",
-			m.MountPoint, m.Type, m.TotalBytes, m.UsedBytes, m.Namespace, m.PodName, m.PVCName)
+		w.log.Infof("[Filesystem] mount=%s type=%s total=%s used=%s namespace=%s pod=%s pvc=%s",
+			m.MountPoint, m.Type, ptrToStr(m.TotalBytes), ptrToStr(m.UsedBytes), ptrToStr(m.Namespace), ptrToStr(m.PodName), ptrToStr(m.PVCName))
 	}
 	return nil
 }
@@ -176,8 +184,8 @@ func NewLoggingNodeStatsSummaryWriter(log *logging.Logger) NodeStatsSummaryWrite
 
 func (w *LoggingNodeStatsSummaryWriter) Write(metrics ...NodeStatsSummaryMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[NodeStats] node=%s image_fs_size=%v image_fs_used=%v container_fs_size=%v container_fs_used=%v",
-			m.NodeName, m.ImageFsSizeBytes, m.ImageFsUsedBytes, m.ContainerFsSizeBytes, m.ContainerFsUsedBytes)
+		w.log.Infof("[NodeStats] node=%s image_fs_size=%s image_fs_used=%s container_fs_size=%s container_fs_used=%s",
+			m.NodeName, ptrToStr(m.ImageFsSizeBytes), ptrToStr(m.ImageFsUsedBytes), ptrToStr(m.ContainerFsSizeBytes), ptrToStr(m.ContainerFsUsedBytes))
 	}
 	return nil
 }
@@ -192,8 +200,8 @@ func NewLoggingK8sPodVolumeMetricsWriter(log *logging.Logger) K8sPodVolumeMetric
 
 func (w *LoggingK8sPodVolumeMetricsWriter) Write(metrics ...K8sPodVolumeMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[PodVolume] ns=%s pod=%s volume=%s mount=%s mode=%s pvc=%v pv=%v storage_class=%v device_path=%v",
-			m.Namespace, m.PodName, m.VolumeName, m.MountPath, m.VolumeMode, m.PVCName, m.PVName, m.StorageClass, m.DevicePath)
+		w.log.Infof("[PodVolume] ns=%s pod=%s volume=%s mount=%s mode=%s pvc=%s pv=%s storage_class=%s device_path=%s",
+			m.Namespace, m.PodName, m.VolumeName, m.MountPath, m.VolumeMode, ptrToStr(m.PVCName), ptrToStr(m.PVName), ptrToStr(m.StorageClass), ptrToStr(m.DevicePath))
 	}
 	return nil
 }
