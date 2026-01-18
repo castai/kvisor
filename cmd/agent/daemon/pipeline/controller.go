@@ -152,8 +152,9 @@ func NewLoggingBlockDeviceMetricsWriter(log *logging.Logger) BlockDeviceMetricsW
 
 func (w *LoggingBlockDeviceMetricsWriter) Write(metrics ...BlockDeviceMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[BlockDevice] name=%s path=%s size=%s type=%s partition_of=%s read_iops=%.2f write_iops=%.2f",
-			m.Name, m.Path, ptrToStr(m.SizeBytes), m.DiskType, m.PartitionOf, m.ReadIOPS, m.WriteIOPS)
+		w.log.Infof("[BlockDevice] name=%s path=%s size=%s type=%s partition_of=%s holders=%v is_virtual=%t raid_level=%s read_iops=%.2f write_iops=%.2f read_throughput=%.0f write_throughput=%.0f read_latency_ms=%.2f write_latency_ms=%.2f util=%.2f",
+			m.Name, m.Path, ptrToStr(m.SizeBytes), m.DiskType, m.PartitionOf, m.Holders, m.IsVirtual, m.RaidLevel,
+			m.ReadIOPS, m.WriteIOPS, m.ReadThroughputBytes, m.WriteThroughputBytes, m.ReadLatencyMs, m.WriteLatencyMs, m.Utilization)
 	}
 	return nil
 }
@@ -168,8 +169,9 @@ func NewLoggingFilesystemMetricsWriter(log *logging.Logger) FilesystemMetricsWri
 
 func (w *LoggingFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[Filesystem] mount=%s devices=%v type=%s total=%s used=%s namespace=%s pod=%s pvc=%s",
-			m.MountPoint, m.Devices, m.Type, ptrToStr(m.TotalBytes), ptrToStr(m.UsedBytes), ptrToStr(m.Namespace), ptrToStr(m.PodName), ptrToStr(m.PVCName))
+		w.log.Infof("[Filesystem] mount=%s devices=%v type=%s options=%v total=%s used=%s total_inodes=%s used_inodes=%s namespace=%s pod=%s pod_uid=%s pvc=%s pv=%s storage_class=%s",
+			m.MountPoint, m.Devices, m.Type, m.Options, ptrToStr(m.TotalBytes), ptrToStr(m.UsedBytes), ptrToStr(m.TotalInodes), ptrToStr(m.UsedInodes),
+			ptrToStr(m.Namespace), ptrToStr(m.PodName), ptrToStr(m.PodUID), ptrToStr(m.PVCName), ptrToStr(m.PVName), ptrToStr(m.StorageClass))
 	}
 	return nil
 }
@@ -200,8 +202,9 @@ func NewLoggingK8sPodVolumeMetricsWriter(log *logging.Logger) K8sPodVolumeMetric
 
 func (w *LoggingK8sPodVolumeMetricsWriter) Write(metrics ...K8sPodVolumeMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[PodVolume] ns=%s pod=%s volume=%s mount=%s mode=%s pvc=%s pv=%s storage_class=%s csi_volume_handle=%s device_path=%s",
-			m.Namespace, m.PodName, m.VolumeName, m.MountPath, m.VolumeMode, ptrToStr(m.PVCName), ptrToStr(m.PVName), ptrToStr(m.StorageClass), ptrToStr(m.CSIVolumeHandle), ptrToStr(m.DevicePath))
+		w.log.Infof("[PodVolume] ns=%s pod=%s pod_uid=%s controller=%s/%s container=%s volume=%s mount=%s mode=%s pvc=%s requested_size=%s pv=%s storage_class=%s csi_driver=%s csi_volume_handle=%s device_path=%s",
+			m.Namespace, m.PodName, m.PodUID, m.ControllerKind, m.ControllerName, m.ContainerName, m.VolumeName, m.MountPath, m.VolumeMode,
+			ptrToStr(m.PVCName), ptrToStr(m.RequestedSizeBytes), ptrToStr(m.PVName), ptrToStr(m.StorageClass), ptrToStr(m.CSIDriver), ptrToStr(m.CSIVolumeHandle), ptrToStr(m.DevicePath))
 	}
 	return nil
 }
