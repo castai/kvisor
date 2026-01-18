@@ -323,6 +323,8 @@ func (s *Server) enrichPVCDetails(volInfo *kubepb.PodVolumeInfo, vol corev1.Volu
 				volInfo.CsiDriver = pv.Spec.CSI.Driver
 				volInfo.CsiVolumeHandle = pv.Spec.CSI.VolumeHandle
 			}
+		} else {
+			s.client.log.Warnf("PV %s not found in index for PVC %s/%s", pvc.Spec.VolumeName, namespace, pvcName)
 		}
 	}
 }
