@@ -322,6 +322,10 @@ func (s *Server) enrichPVCDetails(volInfo *kubepb.PodVolumeInfo, vol corev1.Volu
 			if pv.Spec.CSI != nil {
 				volInfo.CsiDriver = pv.Spec.CSI.Driver
 				volInfo.CsiVolumeHandle = pv.Spec.CSI.VolumeHandle
+				s.client.log.Infof("PV %s has CSI driver=%s handle=%s", pv.Name, pv.Spec.CSI.Driver, pv.Spec.CSI.VolumeHandle)
+			} else {
+				// Log what volume source the PV has (could be AWS EBS native, not CSI)
+				s.client.log.Warnf("PV %s has no CSI spec (spec: %+v)", pv.Name, pv.Spec.PersistentVolumeSource)
 			}
 		} else {
 			s.client.log.Warnf("PV %s not found in index for PVC %s/%s", pvc.Spec.VolumeName, namespace, pvcName)

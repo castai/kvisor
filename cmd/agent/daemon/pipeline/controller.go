@@ -168,8 +168,8 @@ func NewLoggingFilesystemMetricsWriter(log *logging.Logger) FilesystemMetricsWri
 
 func (w *LoggingFilesystemMetricsWriter) Write(metrics ...FilesystemMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[Filesystem] mount=%s type=%s total=%s used=%s namespace=%s pod=%s pvc=%s",
-			m.MountPoint, m.Type, ptrToStr(m.TotalBytes), ptrToStr(m.UsedBytes), ptrToStr(m.Namespace), ptrToStr(m.PodName), ptrToStr(m.PVCName))
+		w.log.Infof("[Filesystem] mount=%s devices=%v type=%s total=%s used=%s namespace=%s pod=%s pvc=%s",
+			m.MountPoint, m.Devices, m.Type, ptrToStr(m.TotalBytes), ptrToStr(m.UsedBytes), ptrToStr(m.Namespace), ptrToStr(m.PodName), ptrToStr(m.PVCName))
 	}
 	return nil
 }
