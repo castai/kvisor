@@ -396,13 +396,31 @@ func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) (
 	// Build pod volume lookup map for enrichment
 	podVolumeMap := s.buildPodVolumeLookupMap()
 
-	filesystemMetrics := make([]FilesystemMetric, 0, len(mounts))
+	// Deduplicate by major:minor device ID
+	// When multiple mounts point to the same device (bind mounts), prefer paths
+	// matching /var/lib/kubelet/pods because they can be enriched with pod metadata
+	seenDevices := make(map[string]FilesystemMetric)
 	for _, mount := range mounts {
 		metric, err := s.buildFilesystemMetric(mount, timestamp, podVolumeMap)
 		if err != nil {
 			s.log.Warnf("skipping filesystem metric for %s: %v", mount.MountPoint, err)
 			continue
 		}
+
+		deviceKey := mount.MajorMinor
+		if existing, seen := seenDevices[deviceKey]; seen {
+			// Prefer the mount that has pod metadata (was enriched)
+			if metric.PodUID != nil && existing.PodUID == nil {
+				seenDevices[deviceKey] = metric
+			}
+			// Otherwise keep the first one we saw
+		} else {
+			seenDevices[deviceKey] = metric
+		}
+	}
+
+	filesystemMetrics := make([]FilesystemMetric, 0, len(seenDevices))
+	for _, metric := range seenDevices {
 		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
