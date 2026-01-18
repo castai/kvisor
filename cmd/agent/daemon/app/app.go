@@ -268,9 +268,10 @@ func (a *App) Run(ctx context.Context) error {
 				return fmt.Errorf("failed to create metrics client: %w", err)
 			}
 
-		blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter, err = setupStorageMetrics(metricsClient)
-		if err != nil {
-			return fmt.Errorf("failed to setup storage metrics: %w", err)
+			blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter, err = setupStorageMetrics(metricsClient)
+			if err != nil {
+				return fmt.Errorf("failed to setup storage metrics: %w", err)
+			}
 		}
 
 		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient, cfg.Castai.ClusterID)
@@ -592,7 +593,6 @@ func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.Blo
 	}
 
 	return blockDeviceMetrics, filesystemMetrics, nodeStatsSummaryWriter, podVolumeMetricsWriter, nil
-<<<<<<< HEAD
 }
 
 // setupLoggingStorageMetrics creates logging-based writers for testing without ClickHouse
@@ -601,8 +601,6 @@ func setupLoggingStorageMetrics(log *logging.Logger) (pipeline.BlockDeviceMetric
 		pipeline.NewLoggingFilesystemMetricsWriter(log),
 		pipeline.NewLoggingNodeStatsSummaryWriter(log),
 		pipeline.NewLoggingK8sPodVolumeMetricsWriter(log)
-=======
->>>>>>> e47cf1e (Gather Kubernetes data about pod volumes and add K8s context to filesystem metrics)
 }
 
 // resolveMetricsAddr transforms kvisor.* addresses to telemetry.* addresses
