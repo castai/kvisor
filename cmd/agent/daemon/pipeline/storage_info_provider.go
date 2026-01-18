@@ -114,8 +114,9 @@ type K8sPodVolumeMetric struct {
 	PVName             *string   `avro:"pv_name"`
 	StorageClass       *string   `avro:"storage_class"`
 	CSIDriver          *string   `avro:"csi_driver"`
-	VolumeMode         string    `avro:"volume_mode"` // "Filesystem" or "Block"
-	DevicePath         *string   `avro:"device_path"` // For block volumes: container's volumeDevices[].devicePath
+	CSIVolumeHandle    *string   `avro:"csi_volume_handle"` // For EBS: vol-xxx, can be joined with block_device.ebs_volume_id
+	VolumeMode         string    `avro:"volume_mode"`       // "Filesystem" or "Block"
+	DevicePath         *string   `avro:"device_path"`       // For block volumes: container's volumeDevices[].devicePath
 	Timestamp          time.Time `avro:"ts"`
 }
 
@@ -371,6 +372,9 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 		}
 		if v.CsiDriver != "" {
 			metric.CSIDriver = &v.CsiDriver
+		}
+		if v.CsiVolumeHandle != "" {
+			metric.CSIVolumeHandle = &v.CsiVolumeHandle
 		}
 		if v.DevicePath != "" {
 			metric.DevicePath = &v.DevicePath

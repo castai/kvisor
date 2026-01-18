@@ -200,8 +200,8 @@ func NewLoggingK8sPodVolumeMetricsWriter(log *logging.Logger) K8sPodVolumeMetric
 
 func (w *LoggingK8sPodVolumeMetricsWriter) Write(metrics ...K8sPodVolumeMetric) error {
 	for _, m := range metrics {
-		w.log.Infof("[PodVolume] ns=%s pod=%s volume=%s mount=%s mode=%s pvc=%s pv=%s storage_class=%s device_path=%s",
-			m.Namespace, m.PodName, m.VolumeName, m.MountPath, m.VolumeMode, ptrToStr(m.PVCName), ptrToStr(m.PVName), ptrToStr(m.StorageClass), ptrToStr(m.DevicePath))
+		w.log.Infof("[PodVolume] ns=%s pod=%s volume=%s mount=%s mode=%s pvc=%s pv=%s storage_class=%s csi_volume_handle=%s device_path=%s",
+			m.Namespace, m.PodName, m.VolumeName, m.MountPath, m.VolumeMode, ptrToStr(m.PVCName), ptrToStr(m.PVName), ptrToStr(m.StorageClass), ptrToStr(m.CSIVolumeHandle), ptrToStr(m.DevicePath))
 	}
 	return nil
 }
