@@ -15,6 +15,7 @@ type VPCMetadataConfig struct {
 	Type              string        `json:"type"`
 	NetworkName       string        `json:"networkName"`
 	RefreshInterval   time.Duration `json:"refreshInterval"`
+	CacheSize         uint32        `json:"CacheSize"`
 	CredentialsFile   string        `json:"credentialsFile"`
 	GCPProjectID      string        `json:"gcpProjectID"`
 	AWSAccountID      string        `json:"awsAccountID"`
@@ -59,7 +60,7 @@ func (c *VPCMetadataController) Run(ctx context.Context) error {
 
 	c.log.Infof("cloud provider %s initialized successfully", provider.Type())
 
-	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval, 10000)
+	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval, c.cfg.CacheSize)
 
 	if err := c.fetchInitialMetadata(ctx, provider, vpcIndex); err != nil {
 		c.log.Errorf("failed to fetch initial VPC metadata: %v", err)
