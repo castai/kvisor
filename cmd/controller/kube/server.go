@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"net/netip"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -318,19 +319,52 @@ func (s *Server) enrichPVCDetails(volInfo *kubepb.PodVolumeInfo, vol corev1.Volu
 		volInfo.PvName = pvc.Spec.VolumeName
 
 		if pv, found := s.client.GetPVByName(pvc.Spec.VolumeName); found {
-			// Get CSI details if available
+			// Get volume source details - supports both CSI and in-tree provisioners
 			if pv.Spec.CSI != nil {
+				// CSI volume (modern)
 				volInfo.CsiDriver = pv.Spec.CSI.Driver
-				volInfo.CsiVolumeHandle = pv.Spec.CSI.VolumeHandle
-				s.client.log.Infof("PV %s has CSI driver=%s handle=%s", pv.Name, pv.Spec.CSI.Driver, pv.Spec.CSI.VolumeHandle)
-			} else {
-				// Log what volume source the PV has (could be AWS EBS native, not CSI)
-				s.client.log.Warnf("PV %s has no CSI spec (spec: %+v)", pv.Name, pv.Spec.PersistentVolumeSource)
+				volInfo.CsiVolumeHandle = extractVolumeID(pv.Spec.CSI.VolumeHandle)
+			} else if pv.Spec.AWSElasticBlockStore != nil {
+				// In-tree AWS EBS provisioner (gp2 storage class)
+				volInfo.CsiDriver = "kubernetes.io/aws-ebs"
+				volInfo.CsiVolumeHandle = pv.Spec.AWSElasticBlockStore.VolumeID
+			} else if pv.Spec.GCEPersistentDisk != nil {
+				// In-tree GCE PD provisioner
+				volInfo.CsiDriver = "kubernetes.io/gce-pd"
+				volInfo.CsiVolumeHandle = pv.Spec.GCEPersistentDisk.PDName
+			} else if pv.Spec.AzureDisk != nil {
+				// In-tree Azure Disk provisioner
+				volInfo.CsiDriver = "kubernetes.io/azure-disk"
+				volInfo.CsiVolumeHandle = pv.Spec.AzureDisk.DiskName
 			}
 		} else {
 			s.client.log.Warnf("PV %s not found in index for PVC %s/%s", pvc.Spec.VolumeName, namespace, pvcName)
 		}
 	}
+}
+
+// extractVolumeID extracts the volume/disk name from a CSI volume handle.
+// Different CSI drivers use different path formats:
+// - GCP: projects/<project>/zones/<zone>/disks/<disk-name> → <disk-name>
+// - AWS: vol-xxx → vol-xxx (no change)
+// - Azure: /subscriptions/.../providers/Microsoft.Compute/disks/<disk-name> → <disk-name>
+func extractVolumeID(csiVolumeHandle string) string {
+	// GCP format: projects/<project>/zones/<zone>/disks/<disk-name>
+	if strings.Contains(csiVolumeHandle, "/disks/") {
+		parts := strings.Split(csiVolumeHandle, "/disks/")
+		if len(parts) == 2 {
+			return parts[1]
+		}
+	}
+	// Azure format: /subscriptions/.../providers/Microsoft.Compute/disks/<disk-name>
+	if strings.Contains(csiVolumeHandle, "Microsoft.Compute/disks/") {
+		parts := strings.Split(csiVolumeHandle, "Microsoft.Compute/disks/")
+		if len(parts) == 2 {
+			return parts[1]
+		}
+	}
+	// AWS and others: return as-is
+	return csiVolumeHandle
 }
 
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {

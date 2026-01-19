@@ -237,3 +237,44 @@ func TestServer(t *testing.T) {
 		r.Equal([]string{"10.8.0.0/14", "fd00::/48"}, resp.ServiceCidr)
 	})
 }
+
+func TestExtractVolumeID(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "GCP CSI volume handle",
+			input:    "projects/engineering-test-353509/zones/us-central1-a/disks/pvc-2f7e7ae2-bbe2-410b-a109-571ce3298b98",
+			expected: "pvc-2f7e7ae2-bbe2-410b-a109-571ce3298b98",
+		},
+		{
+			name:     "AWS EBS CSI volume handle",
+			input:    "vol-08d551180685f8611",
+			expected: "vol-08d551180685f8611",
+		},
+		{
+			name:     "Azure CSI volume handle",
+			input:    "/subscriptions/abc123/resourceGroups/rg/providers/Microsoft.Compute/disks/pvc-xxx-yyy-zzz",
+			expected: "pvc-xxx-yyy-zzz",
+		},
+		{
+			name:     "Simple volume ID",
+			input:    "simple-volume-id",
+			expected: "simple-volume-id",
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractVolumeID(tt.input)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}

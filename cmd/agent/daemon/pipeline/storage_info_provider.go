@@ -77,13 +77,8 @@ type FilesystemMetric struct {
 	UsedInodes   *int64            `avro:"used_inodes"`
 	Timestamp    time.Time         `avro:"ts"`
 
-	// Pod/PVC metadata (nil for node-level filesystems)
-	Namespace    *string `avro:"namespace"`
-	PodName      *string `avro:"pod_name"`
-	PodUID       *string `avro:"pod_uid"`
-	PVCName      *string `avro:"pvc_name"`
-	PVName       *string `avro:"pv_name"`
-	StorageClass *string `avro:"storage_class"`
+	// PV name for joining with K8sPodVolumeMetric (nil for node-level filesystems)
+	PVName *string `avro:"pv_name"`
 }
 
 // NodeStatsSummaryMetric represents node-level filesystem statistics from kubelet
@@ -409,8 +404,8 @@ func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) (
 
 		deviceKey := mount.MajorMinor
 		if existing, seen := seenDevices[deviceKey]; seen {
-			// Prefer the mount that has pod metadata (was enriched)
-			if metric.PodUID != nil && existing.PodUID == nil {
+			// Prefer the mount that has PV metadata (was enriched with K8s info)
+			if metric.PVName != nil && existing.PVName == nil {
 				seenDevices[deviceKey] = metric
 			}
 			// Otherwise keep the first one we saw
@@ -502,22 +497,11 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 		Timestamp:    timestamp,
 	}
 
-	// Check if this is a pod volume mount and enrich with pod metadata
+	// Check if this is a pod volume mount and enrich with PV name for joining
 	if volInfo := ParseVolumeMountPath(mount.MountPoint); volInfo != nil && podVolumeMap != nil {
 		key := podVolumeKey(volInfo.PodUID, volInfo.VolumeName)
-		if pv, ok := podVolumeMap[key]; ok {
-			metric.Namespace = &pv.Namespace
-			metric.PodName = &pv.PodName
-			metric.PodUID = &pv.PodUid
-			if pv.PvcName != "" {
-				metric.PVCName = &pv.PvcName
-			}
-			if pv.PvName != "" {
-				metric.PVName = &pv.PvName
-			}
-			if pv.StorageClass != "" {
-				metric.StorageClass = &pv.StorageClass
-			}
+		if pv, ok := podVolumeMap[key]; ok && pv.PvName != "" {
+			metric.PVName = &pv.PvName
 		}
 	}
 
