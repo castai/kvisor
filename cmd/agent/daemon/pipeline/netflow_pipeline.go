@@ -68,13 +68,13 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 			if err != nil {
 				return nil, fmt.Errorf("parsing node cidr: %w", err)
 			}
-			res.nodeCidr = append(res.serviceCidr, subnet)
+			res.nodeCidr = append(res.nodeCidr, subnet)
 			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		for _, cidr := range resp.VpcCidr {
 			subnet, err := netip.ParsePrefix(cidr)
 			if err != nil {
-				return nil, fmt.Errorf("parsing other cidr: %w", err)
+				return nil, fmt.Errorf("parsing vpc cidr: %w", err)
 			}
 			res.vpcCidr = append(res.vpcCidr, subnet)
 			res.clusterCidr = append(res.clusterCidr, subnet)
