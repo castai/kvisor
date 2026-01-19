@@ -103,7 +103,7 @@ type K8sPodVolumeMetricsWriter interface {
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[BlockDeviceMetric]("storage_block_device_metrics_v2_local"),
+		custommetrics.WithCollectionName[BlockDeviceMetric]("storage_block_device_metrics_v2"),
 		custommetrics.WithSkipTimestamp[BlockDeviceMetric](),
 	)
 }
@@ -111,7 +111,7 @@ func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (Bloc
 func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (FilesystemMetricsWriter, error) {
 	return custommetrics.NewMetric[FilesystemMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics_v2_local"),
+		custommetrics.WithCollectionName[FilesystemMetric]("storage_filesystem_metrics_v2"),
 		custommetrics.WithSkipTimestamp[FilesystemMetric](),
 	)
 }
@@ -119,7 +119,7 @@ func NewFilesystemMetricsWriter(metricsClient custommetrics.MetricClient) (Files
 func NewNodeStatsSummaryWriter(metricsClient custommetrics.MetricClient) (NodeStatsSummaryWriter, error) {
 	return custommetrics.NewMetric[NodeStatsSummaryMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[NodeStatsSummaryMetric]("storage_node_metrics_local"),
+		custommetrics.WithCollectionName[NodeStatsSummaryMetric]("storage_node_metrics"),
 		custommetrics.WithSkipTimestamp[NodeStatsSummaryMetric](),
 	)
 }
@@ -127,7 +127,7 @@ func NewNodeStatsSummaryWriter(metricsClient custommetrics.MetricClient) (NodeSt
 func NewK8sPodVolumeMetricsWriter(metricsClient custommetrics.MetricClient) (K8sPodVolumeMetricsWriter, error) {
 	return custommetrics.NewMetric[K8sPodVolumeMetric](
 		metricsClient,
-		custommetrics.WithCollectionName[K8sPodVolumeMetric]("k8s_pod_volume_metrics_local"),
+		custommetrics.WithCollectionName[K8sPodVolumeMetric]("k8s_pod_volume_metrics"),
 		custommetrics.WithSkipTimestamp[K8sPodVolumeMetric](),
 	)
 }
