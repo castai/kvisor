@@ -4,12 +4,12 @@
 
 The Cloud metadata syncer enriches netflow data with cloud provider network information, including:
 
-- VPC and subnet details (CIDR ranges, regions)
-- GKE secondary IP ranges (pod and service CIDRs)
+- VPC and subnet details: CIDR ranges, regions, zones.
 - VPC peering connections and their IP ranges
 - Cloud provider service IP ranges
 
 This metadata enables better network flow analysis and region/zone attribution for network traffic.
+**NOTE**: Zones information is not available via GCP VPC metadata due to the nature of networking in GCP.
 
 ## How It Works
 
@@ -21,7 +21,7 @@ This metadata enables better network flow analysis and region/zone attribution f
 ## Supported Cloud Providers
 
 Currently supported:
-- **GCP (Google Cloud Platform)** - Support with Workload Identity and Service Account authentication
+- GCP  - Support with Workload Identity and Service Account authentication
 
 Coming soon:
 - AWS
@@ -159,7 +159,7 @@ kubectl create secret generic gcp-credentials \
   --from-file=credentials.json=kvisor-sa-key.json \
   --namespace kvisor
 
-# Securely delete the local key file
+# Delete the local key file
 rm kvisor-sa-key.json
 ```
 
