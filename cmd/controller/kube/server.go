@@ -72,22 +72,19 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 		ips = append(ips, ip)
 	}
 
-	infos := s.client.GetIPsInfo(ips)
 	res := &kubepb.GetIPsInfoResponse{
-		List: make([]*kubepb.IPInfo, 0, len(infos)),
+		List: make([]*kubepb.IPInfo, 0, len(ips)),
 	}
 	for _, ip := range ips {
-		shouldIncludeIP := false
 		pbInfo := &kubepb.IPInfo{
 			Ip: ip.AsSlice(),
 		}
 
-		// step 1: check IPs from kube client first
 		info, ok := s.client.GetIPInfo(ip)
 		if ok {
-			shouldIncludeIP = true
 			pbInfo.Zone = info.zone
 			pbInfo.Region = info.region
+			pbInfo.CloudDomain = info.cloudDomain
 
 			if info.Node != nil {
 				pbInfo.Zone = getZone(info.Node)
@@ -115,28 +112,10 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 				pbInfo.WorkloadName = e.Name
 				pbInfo.Namespace = e.Namespace
 			}
-		}
 
-		// step 2: check IPs from VPC index
-		if s.client.vpcIndex != nil {
-			vpcIPInfo, ok := s.client.vpcIndex.LookupIP(ip)
-			if ok {
-				shouldIncludeIP = true
-				if pbInfo.Zone == "" && vpcIPInfo.Zone != "" {
-					pbInfo.Zone = vpcIPInfo.Zone
-				}
-				if pbInfo.Region == "" && vpcIPInfo.Region != "" {
-					pbInfo.Region = vpcIPInfo.Region
-				}
-				if pbInfo.CloudDomain == "" && vpcIPInfo.CloudDomain != "" {
-					pbInfo.CloudDomain = vpcIPInfo.CloudDomain
-				}
-			}
-		}
-
-		if shouldIncludeIP {
 			res.List = append(res.List, pbInfo)
 		}
+
 	}
 
 	return res, nil
@@ -147,14 +126,12 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	if err != nil || info == nil {
 		return nil, status.Errorf(codes.NotFound, "cluster info not found: %v", err)
 	}
-	var otherCidr []string
-	if s.client.vpcIndex != nil {
-		otherCidr = s.client.vpcIndex.metadata.ListKnownCIDRs()
-	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
 		ServiceCidr: info.ServiceCidr,
-		OtherCidr:   otherCidr,
+		NodeCidr:    info.NodeCidr,
+		OtherCidr:   s.client.vpcIndex.CloudServiceCIDRs(),
+		VpcCidr:     s.client.vpcIndex.VpcCIDRs(),
 	}, nil
 }
 

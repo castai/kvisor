@@ -26,6 +26,7 @@ func TestServer(t *testing.T) {
 	clientset := fake.NewClientset()
 	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
 	client.index = NewIndex()
+	client.vpcIndex = NewVPCIndex(log, 0, 0)
 
 	go func() {
 		_ = client.Run(ctx)
@@ -195,7 +196,7 @@ func TestServer(t *testing.T) {
 		client.index = NewIndex()
 
 		client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = []IPInfo{
-			IPInfo{
+			{
 				PodInfo: &PodInfo{
 					Pod: &corev1.Pod{
 						Status: corev1.PodStatus{
@@ -212,7 +213,7 @@ func TestServer(t *testing.T) {
 		}
 
 		client.index.ipsDetails[netip.MustParseAddr("fd00::1")] = []IPInfo{
-			IPInfo{
+			{
 				Service: &corev1.Service{
 					Spec: corev1.ServiceSpec{
 						ClusterIPs: []string{"10.10.10.10", "fd00::1"},

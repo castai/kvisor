@@ -45,6 +45,7 @@ var (
 	cloudProviderVPCSyncEnabled  = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC metadata sync")
 	cloudProviderVPCName         = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
 	cloudProviderVPCSyncInterval = pflag.Duration("cloud-provider-vpc-sync-interval", 1*time.Hour, "Cloud provider VPC sync interval")
+	cloudProviderVPCCacheSize    = pflag.Uint32("cloud-provider-vpc-cache-size", 10000, "Cloud provider VPC cache size")
 	cloudProviderGCPProjectID    = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider VPC syncer in which the cluster is running")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
@@ -196,6 +197,7 @@ func main() {
 			Enabled:         *cloudProviderVPCSyncEnabled,
 			NetworkName:     *cloudProviderVPCName,
 			RefreshInterval: *cloudProviderVPCSyncInterval,
+			CacheSize:       *cloudProviderVPCCacheSize,
 			Type:            *cloudProvider,
 			GCPProjectID:    *cloudProviderGCPProjectID,
 		},
