@@ -121,7 +121,7 @@ type storageMetricsState struct {
 }
 
 type StorageInfoProvider interface {
-	BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error)
+	BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error)
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
@@ -381,7 +381,7 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 	return metrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
+func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
 	// Read mount information from /proc/1/mountinfo
 	mounts, err := readMountInfo("/proc/1/mountinfo")
 	if err != nil {
@@ -389,7 +389,7 @@ func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) (
 	}
 
 	// Build pod volume lookup map for enrichment
-	podVolumeMap := s.buildPodVolumeLookupMap()
+	podVolumeMap := s.buildPodVolumeLookupMap(ctx)
 
 	// Deduplicate by major:minor device ID
 	// When multiple mounts point to the same device (bind mounts), prefer paths
@@ -431,12 +431,12 @@ func podVolumeKey(podUID, volumeName string) string {
 // The map is keyed by both:
 // - podUID/volumeName (for emptyDir, configMap, etc.)
 // - podUID/pvName (for CSI volumes where the mount path contains the PV name)
-func (s *SysfsStorageInfoProvider) buildPodVolumeLookupMap() map[string]*kubepb.PodVolumeInfo {
+func (s *SysfsStorageInfoProvider) buildPodVolumeLookupMap(ctx context.Context) map[string]*kubepb.PodVolumeInfo {
 	if s.kubeClient == nil {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{

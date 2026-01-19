@@ -1323,7 +1323,7 @@ func (m *mockNodeStatsSummaryWriter) Write(metrics ...NodeStatsSummaryMetric) er
 
 type mockStorageInfoProvider struct{}
 
-func (m *mockStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
+func (m *mockStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
 	return []FilesystemMetric{
 		{
 			NodeName:     "test-node",
