@@ -157,7 +157,6 @@ kubectl create namespace kvisor
 
 kubectl create secret generic gcp-credentials \
   --from-file=credentials.json=kvisor-sa-key.json \
-  --create-namespace \
   --namespace kvisor
 
 # Securely delete the local key file
@@ -202,50 +201,6 @@ helm upgrade -i castai-kvisor castai-helm/castai-kvisor \
   --namespace kvisor \
   --create-namespace \
   --values values.yaml
-```
-
----
-
-## Configuration Options
-
-### Required Parameters
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `cloud-provider` | Cloud provider type | `gcp/aws/azure` |
-| `cloud-provider-vpc-sync-enabled` | Enable VPC metadata syncing | `true` |
-| `cloud-provider-gcp-project-id` | GCP project ID | `my-project-123456` |
-| `cloud-provider-vpc-name` | VPC network name to monitor | `default` or `my-vpc` |
-
-### Optional Parameters
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `cloud-provider-vpc-sync-interval` | Metadata refresh interval | `1h` |
-| `cloud-provider-vpc-cache-size` | LRU cache size for VPC metadata | `10000` |
-
-### Example: Full Configuration
-
-```yaml
-controller:
-  extraArgs:
-    # Required cloud provider configuration
-    cloud-provider: gcp
-    cloud-provider-vpc-sync-enabled: true
-    cloud-provider-gcp-project-id: "engineering-prod-123456"
-    cloud-provider-vpc-name: "production-vpc"
-
-    # Optional 
-    cloud-provider-vpc-sync-interval: 30m
-    cloud-provider-vpc-cache-size: 50000
-
-  nodeSelector:
-    iam.gke.io/gke-metadata-server-enabled: "true"
-
-  serviceAccount:
-    create: true
-    annotations:
-      iam.gke.io/gcp-service-account: "kvisor-vpc-reader@engineering-prod-123456.iam.gserviceaccount.com"
 ```
 
 ---
