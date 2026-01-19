@@ -117,7 +117,7 @@ controller:
 **Step 4: Install/Upgrade kvisor**
 
 ```bash
-helm upgrade --install kvisor ./charts/kvisor \
+helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
   --namespace kvisor \
   --create-namespace \
   --values values.yaml
@@ -197,7 +197,7 @@ controller:
 **Step 4: Install/Upgrade kvisor**
 
 ```bash
-helm upgrade -i castai-kvisor castai-helm/castai-kvisor \
+helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
   --namespace kvisor \
   --create-namespace \
   --values values.yaml
