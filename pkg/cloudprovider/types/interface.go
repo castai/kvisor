@@ -36,30 +36,6 @@ type Metadata struct {
 	ServiceRanges []ServiceRanges // Cloud provider service IP ranges (e.g., GCP APIs)
 }
 
-func (m *Metadata) ListKnownCIDRs() []string {
-	netsToStrings := func(nets []netip.Prefix) []string {
-		var s []string
-		for _, n := range nets {
-			s = append(s, n.String())
-		}
-		return s
-	}
-	var knownCIDRs []string
-	for _, vpc := range m.VPCs {
-		knownCIDRs = append(knownCIDRs, netsToStrings(vpc.CIDRs)...)
-		for _, subnet := range vpc.Subnets {
-			knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
-			for _, secondaryRange := range subnet.SecondaryRanges {
-				knownCIDRs = append(knownCIDRs, secondaryRange.CIDR.String())
-			}
-		}
-	}
-	for _, svcRange := range m.ServiceRanges {
-		knownCIDRs = append(knownCIDRs, netsToStrings(svcRange.CIRDs)...)
-	}
-	return knownCIDRs
-}
-
 // ServiceRanges contains cloud provider service IP ranges.
 type ServiceRanges struct {
 	Region string

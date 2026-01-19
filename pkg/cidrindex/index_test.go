@@ -1,0 +1,409 @@
+package cidrindex
+
+import (
+	"net/netip"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+type testMetadata struct {
+	Zone   string
+	Region string
+	Name   string
+}
+
+func TestIndex(t *testing.T) {
+	t.Run("create new index", func(t *testing.T) {
+		r := require.New(t)
+
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+		r.NotNil(idx)
+	})
+
+	t.Run("add and lookup single CIDR", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a", Region: "us-east-1", Name: "subnet-1"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Lookup IP in CIDR
+		ip := netip.MustParseAddr("10.0.1.50")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.NotNil(result)
+		r.Equal("us-east-1a", result.Metadata.Zone)
+		r.Equal("us-east-1", result.Metadata.Region)
+		r.Equal("subnet-1", result.Metadata.Name)
+	})
+
+	t.Run("lookup IP not found", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Lookup IP not in any CIDR
+		ip := netip.MustParseAddr("192.168.1.1")
+		result, found := idx.Lookup(ip)
+		r.False(found)
+		r.Nil(result)
+	})
+
+	t.Run("most specific match wins", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		// Add broader CIDR first
+		err = idx.Add(netip.MustParsePrefix("10.0.0.0/16"), testMetadata{Name: "vpc"})
+		r.NoError(err)
+
+		// Add more specific CIDR
+		err = idx.Add(netip.MustParsePrefix("10.0.1.0/24"), testMetadata{Name: "subnet"})
+		r.NoError(err)
+
+		// IP matches both, should return more specific
+		ip := netip.MustParseAddr("10.0.1.50")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("subnet", result.Metadata.Name)
+	})
+
+	t.Run("cache returns same result", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		ip := netip.MustParseAddr("10.0.1.50")
+
+		// First lookup
+		result1, found1 := idx.Lookup(ip)
+		r.True(found1)
+		timestamp1 := result1.ResolvedAt
+
+		// Second lookup - should use cache
+		result2, found2 := idx.Lookup(ip)
+		r.True(found2)
+		r.Equal(timestamp1, result2.ResolvedAt) // Same timestamp means from cache
+	})
+
+	t.Run("cache expiry", func(t *testing.T) {
+		r := require.New(t)
+		shortTTL := 50 * time.Millisecond
+		idx, err := NewIndex[testMetadata](1000, shortTTL)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		ip := netip.MustParseAddr("10.0.1.50")
+
+		// First lookup
+		result1, found1 := idx.Lookup(ip)
+		r.True(found1)
+		timestamp1 := result1.ResolvedAt
+
+		// Wait for cache to expire
+		time.Sleep(100 * time.Millisecond)
+
+		// Second lookup - should get fresh result
+		result2, found2 := idx.Lookup(ip)
+		r.True(found2)
+		r.True(result2.ResolvedAt.After(timestamp1), "Second lookup should have newer timestamp")
+	})
+
+	t.Run("rebuild replaces all entries", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		// Add initial entries
+		entries1 := []Entry[testMetadata]{
+			{
+				CIDR:     netip.MustParsePrefix("10.0.1.0/24"),
+				Metadata: testMetadata{Zone: "us-east-1a"},
+			},
+		}
+		for _, entry := range entries1 {
+			err = idx.Add(entry.CIDR, entry.Metadata)
+			r.NoError(err)
+		}
+
+		ip1 := netip.MustParseAddr("10.0.1.50")
+		result1, found1 := idx.Lookup(ip1)
+		r.True(found1)
+		r.Equal("us-east-1a", result1.Metadata.Zone)
+
+		// Rebuild with different entries
+		entries2 := []Entry[testMetadata]{
+			{
+				CIDR:     netip.MustParsePrefix("10.0.2.0/24"),
+				Metadata: testMetadata{Zone: "us-east-1b"},
+			},
+		}
+		err = idx.Rebuild(entries2)
+		r.NoError(err)
+
+		// Old entry should not be found
+		_, found := idx.Lookup(ip1)
+		r.False(found)
+
+		// New entry should be found
+		ip2 := netip.MustParseAddr("10.0.2.50")
+		result2, found2 := idx.Lookup(ip2)
+		r.True(found2)
+		r.Equal("us-east-1b", result2.Metadata.Zone)
+	})
+
+	t.Run("contains check", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		r.True(idx.Contains(netip.MustParseAddr("10.0.1.50")))
+		r.False(idx.Contains(netip.MustParseAddr("192.168.1.1")))
+	})
+
+	t.Run("index without cache", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](0, 0) // No cache
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		ip := netip.MustParseAddr("10.0.1.50")
+
+		// Should still work without cache
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("us-east-1a", result.Metadata.Zone)
+	})
+
+	t.Run("IPv6 support", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("2001:db8::/32")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		ip := netip.MustParseAddr("2001:db8::1")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("us-east-1a", result.Metadata.Zone)
+	})
+
+	t.Run("mark deleted hides entry from lookup", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Verify entry exists
+		ip := netip.MustParseAddr("10.0.1.50")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("us-east-1a", result.Metadata.Zone)
+
+		// Mark as deleted
+		idx.MarkDeleted(cidr)
+
+		// Should not be found anymore
+		_, found = idx.Lookup(ip)
+		r.False(found)
+	})
+
+	t.Run("mark deleted on non-existent CIDR does nothing", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+
+		// Should not panic
+		idx.MarkDeleted(cidr)
+	})
+
+	t.Run("mark deleted twice does nothing", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Mark as deleted twice
+		idx.MarkDeleted(cidr)
+		idx.MarkDeleted(cidr)
+
+		// Should still not be found
+		ip := netip.MustParseAddr("10.0.1.50")
+		_, found := idx.Lookup(ip)
+		r.False(found)
+	})
+
+	t.Run("cleanup removes old deleted entries", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Mark as deleted
+		idx.MarkDeleted(cidr)
+
+		// Wait a bit
+		time.Sleep(10 * time.Millisecond)
+
+		// Cleanup with short TTL
+		removed := idx.Cleanup(5 * time.Millisecond)
+		r.Equal(1, removed)
+
+		// Entry should still not be found (it was already deleted)
+		ip := netip.MustParseAddr("10.0.1.50")
+		_, found := idx.Lookup(ip)
+		r.False(found)
+	})
+
+	t.Run("cleanup keeps recent deleted entries", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Mark as deleted
+		idx.MarkDeleted(cidr)
+
+		// Cleanup with long TTL
+		removed := idx.Cleanup(1 * time.Hour)
+		r.Equal(0, removed)
+
+		// Entry should still not be found (it's marked deleted but not cleaned up)
+		ip := netip.MustParseAddr("10.0.1.50")
+		_, found := idx.Lookup(ip)
+		r.False(found)
+	})
+
+	t.Run("cleanup ignores non-deleted entries", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Cleanup without deleting
+		removed := idx.Cleanup(1 * time.Millisecond)
+		r.Equal(0, removed)
+
+		// Entry should still be found
+		ip := netip.MustParseAddr("10.0.1.50")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("us-east-1a", result.Metadata.Zone)
+	})
+
+	t.Run("most specific non-deleted match wins", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		// Add broader CIDR
+		err = idx.Add(netip.MustParsePrefix("10.0.0.0/16"), testMetadata{Name: "vpc"})
+		r.NoError(err)
+
+		// Add more specific CIDR
+		err = idx.Add(netip.MustParsePrefix("10.0.1.0/24"), testMetadata{Name: "subnet"})
+		r.NoError(err)
+
+		// Mark more specific as deleted
+		idx.MarkDeleted(netip.MustParsePrefix("10.0.1.0/24"))
+
+		// Should return the broader CIDR since more specific is deleted
+		ip := netip.MustParseAddr("10.0.1.50")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("vpc", result.Metadata.Name)
+	})
+
+	t.Run("remove deletes entry immediately", func(t *testing.T) {
+		r := require.New(t)
+		idx, err := NewIndex[testMetadata](1000, 1*time.Hour)
+		r.NoError(err)
+
+		cidr := netip.MustParsePrefix("10.0.1.0/24")
+		meta := testMetadata{Zone: "us-east-1a"}
+
+		err = idx.Add(cidr, meta)
+		r.NoError(err)
+
+		// Verify entry exists
+		ip := netip.MustParseAddr("10.0.1.50")
+		result, found := idx.Lookup(ip)
+		r.True(found)
+		r.Equal("us-east-1a", result.Metadata.Zone)
+
+		// Remove entry
+		err = idx.Remove(cidr)
+		r.NoError(err)
+
+		// Should not be found
+		_, found = idx.Lookup(ip)
+		r.False(found)
+	})
+}

@@ -89,21 +89,20 @@ func NewClient(
 		kvisorControllerContainerName: "controller",
 		client:                        client,
 		index:                         NewIndex(),
-		// TODO: set default
-		vpcIndex:  nil,
-		version:   version,
-		ipInfoTTL: 30 * time.Second,
+		vpcIndex:                      NewVPCIndex(log, 0, 0),
+		version:                       version,
+		ipInfoTTL:                     30 * time.Second,
 	}
 }
 
 // SetVPCIndex sets the VPC index for enriching external IPs with VPC metadata.
-func (i *Client) SetVPCIndex(vpcIndex *VPCIndex) {
-	i.vpcIndex = vpcIndex
+func (c *Client) SetVPCIndex(vpcIndex *VPCIndex) {
+	c.vpcIndex = vpcIndex
 }
 
 // GetVPCIndex returns the VPC index if available.
-func (i *Client) GetVPCIndex() *VPCIndex {
-	return i.vpcIndex
+func (c *Client) GetVPCIndex() *VPCIndex {
+	return c.vpcIndex
 }
 
 func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {
@@ -172,6 +171,11 @@ func (c *Client) runCleanup() {
 	deleted := c.index.ipsDetails.cleanup(c.ipInfoTTL)
 	if deleted > 0 {
 		c.log.Debugf("ips index cleanup done, removed %d ips", deleted)
+	}
+
+	deletedCidrs := c.index.nodesCIDRIndex.Cleanup(c.ipInfoTTL)
+	if deletedCidrs > 0 {
+		c.log.Debugf("nodes cidr index cleanup done, removed %d cidrs", deletedCidrs)
 	}
 }
 
@@ -259,22 +263,30 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	val, found := c.index.ipsDetails.find(ip)
-	return val, found
-}
-
-func (c *Client) GetIPsInfo(ips []netip.Addr) []IPInfo {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	var res []IPInfo
-	for _, ip := range ips {
-		val, found := c.index.ipsDetails.find(ip)
-		if found {
-			res = append(res, val)
-		}
+	// step 1: check IPs from kube client first
+	// all known pods/services/endpoints/nodes
+	val, kubeIPFound := c.index.ipsDetails.find(ip)
+	if kubeIPFound && val.zone != "" {
+		return val, true
 	}
-	return res
+	// step 2: check IPs from nodes pod CIDRs
+	// in case when IP is not found within known k8s resources
+	// i.e. CNI bridge gateway IP
+	cidrInfo, nodeCIDRFound := c.index.nodesCIDRIndex.Lookup(ip)
+	if nodeCIDRFound && cidrInfo.Metadata != "" {
+		val.Node = c.index.nodesByName[cidrInfo.Metadata]
+		return val, true
+	}
+
+	// step 3: check IPs from VPC index
+	if vpcInfo, vpcCIDRFound := c.vpcIndex.LookupIP(ip); vpcCIDRFound {
+		val.zone = vpcInfo.Zone
+		val.region = vpcInfo.Region
+		val.cloudDomain = vpcInfo.CloudDomain
+		return val, true
+	}
+
+	return val, kubeIPFound || nodeCIDRFound
 }
 
 func (c *Client) GetPodInfo(uid string) (*PodInfo, bool) {
@@ -317,6 +329,7 @@ func (c *Client) GetOwnerUID(obj Object) string {
 type ClusterInfo struct {
 	PodCidr     []string
 	ServiceCidr []string
+	NodeCidr    []string
 }
 
 func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
@@ -327,11 +340,27 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	}
 
 	var res ClusterInfo
+	// Find nodes cidr.
+	// This is neeeded when `netflow-check-cluster-network-ranges` flag enabled
+	// to allow to enrich destination flows with node cidr
+	nodeCidrMap := make(map[string]struct{})
+	for _, node := range c.index.nodesByName {
+		nodeCidr, err := getNodeCidrFromNodeSpec(node)
+		if err != nil {
+			continue
+		}
+		_, found := nodeCidrMap[nodeCidr]
+		if nodeCidr != "" && !found {
+			res.NodeCidr = append(res.NodeCidr, nodeCidr)
+			nodeCidrMap[nodeCidr] = struct{}{}
+		}
+	}
+
 	// Try to find pods cidr from nodes.
 	for _, node := range c.index.nodesByName {
 		podCidr, err := getPodCidrFromNodeSpec(node)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if len(podCidr) > 0 {
 			res.PodCidr = podCidr
@@ -373,6 +402,22 @@ func (c *Client) GetClusterInfo(ctx context.Context) (*ClusterInfo, error) {
 	return &res, nil
 }
 
+func getPodCidrsFromNodeSpec(node *corev1.Node) ([]netip.Prefix, error) {
+	nodeCidrs := node.Spec.PodCIDRs
+	if len(nodeCidrs) == 0 && node.Spec.PodCIDR != "" {
+		nodeCidrs = []string{node.Spec.PodCIDR}
+	}
+	var podCidrs []netip.Prefix
+	for _, cidr := range nodeCidrs {
+		subnet, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing pod cidr: %w", err)
+		}
+		podCidrs = append(podCidrs, subnet)
+	}
+	return podCidrs, nil
+}
+
 func getPodCidrFromNodeSpec(node *corev1.Node) ([]string, error) {
 	nodeCidrs := node.Spec.PodCIDRs
 	if len(nodeCidrs) == 0 && node.Spec.PodCIDR != "" {
@@ -405,6 +450,19 @@ func getPodCidrFromPod(pod *corev1.Pod) ([]string, error) {
 		podCidr = append(podCidr, cidr)
 	}
 	return podCidr, nil
+}
+
+func getNodeCidrFromNodeSpec(node *corev1.Node) (string, error) {
+	for _, address := range node.Status.Addresses {
+		if address.Type == corev1.NodeInternalIP {
+			cidr, err := parseIPToCidr(address.Address)
+			if err != nil {
+				return "", err
+			}
+			return cidr, nil
+		}
+	}
+	return "", nil
 }
 
 func getServiceCidr(ctx context.Context, client kubernetes.Interface, namespace string, ipDetails ipsDetails) ([]string, error) {

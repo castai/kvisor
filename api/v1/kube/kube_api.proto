@@ -18,6 +18,9 @@ message GetClusterInfoRequest {}
 message GetClusterInfoResponse {
   repeated string pods_cidr = 1;
   repeated string service_cidr = 2;
+  repeated string node_cidr = 4;
+  repeated string vpc_cidr = 5;
+  // other_cidr is a list of known cloud services CIDRs
   repeated string other_cidr = 3;
 }
 
