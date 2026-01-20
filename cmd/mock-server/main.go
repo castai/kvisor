@@ -23,7 +23,7 @@ func main() {
 	})
 
 	// nolint:gosec
-	lis, err := net.Listen("tcp", ":8443")
+	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", ":8443")
 	if err != nil {
 		log.Fatal(err.Error())
 	}

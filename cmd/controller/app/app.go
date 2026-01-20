@@ -250,7 +250,8 @@ func (a *App) runHTTPServer(ctx context.Context, log *logging.Logger) error {
 }
 
 func (a *App) runKubeServer(ctx context.Context, log *logging.Logger, client *kube.Client) error {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", a.cfg.KubeServerListenPort))
+	cfg := net.ListenConfig{}
+	lis, err := cfg.Listen(ctx, "tcp", fmt.Sprintf(":%d", a.cfg.KubeServerListenPort))
 	if err != nil {
 		return err
 	}
