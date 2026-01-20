@@ -127,7 +127,7 @@ func (e *eventExecBinary) run(ctx context.Context) error {
 		{"nsenter", "--target", "1", "--pid"},
 	}
 	cmd := cmds[rnd.Intn(len(cmds))]
-	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput() //nolint:gosec
+	out, err := exec.CommandContext(ctx, cmd[0], cmd[1:]...).CombinedOutput() //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("%s:%w", string(out), err)
 	}

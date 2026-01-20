@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf(":%d", 8443)
-	lis, err := net.Listen("tcp", addr)
+	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	out, err := installChart(*ns, *imageTag)
+	out, err := installChart(ctx, *ns, *imageTag)
 	if err != nil {
 		return fmt.Errorf("installing chart: %w: %s", err, string(out))
 	}
@@ -191,7 +191,7 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func installChart(ns, imageTag string) ([]byte, error) {
+func installChart(ctx context.Context, ns, imageTag string) ([]byte, error) {
 	fmt.Printf("installing kvisor chart with image tag %q\n", imageTag)
 	repo := "ghcr.io/castai/kvisor/kvisor"
 	if imageTag == "local" {
@@ -200,7 +200,7 @@ func installChart(ns, imageTag string) ([]byte, error) {
 
 	grpcAddr := fmt.Sprintf("%s:8443", os.Getenv("POD_IP"))
 	//nolint:gosec
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", fmt.Sprintf(
 		`helm upgrade --install kvisor-e2e ./charts/kvisor \
   -n %s --create-namespace \
   --set image.repository=%s \
