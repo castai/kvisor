@@ -263,6 +263,12 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create metrics client: %w", err)
 		}
 
+		go func() {
+			if err := metricsClient.Start(ctx); err != nil {
+				log.Warnf("metrics client failed: %v", err)
+			}
+		}()
+
 		blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter, err = setupStorageMetrics(metricsClient)
 		if err != nil {
 			return fmt.Errorf("failed to setup storage metrics: %w", err)
