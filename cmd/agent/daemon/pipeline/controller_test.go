@@ -808,7 +808,7 @@ func TestController(t *testing.T) {
 		blockWriter := ctrl.blockDeviceMetricsWriter.(*mockBlockDeviceMetricsWriter)
 		fsWriter := ctrl.filesystemMetricsWriter.(*mockFilesystemMetricsWriter)
 
-		ctrl.collectStorageMetrics(context.Background())
+		ctrl.collectStorageMetrics(t.Context())
 
 		r.Len(blockWriter.metrics, 1)
 		r.Len(fsWriter.metrics, 1)
