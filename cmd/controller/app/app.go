@@ -33,6 +33,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
+	"github.com/castai/kvisor/pkg/cloudprovider"
 	"github.com/castai/kvisor/pkg/logging"
 )
 
@@ -108,11 +109,19 @@ func (a *App) Run(ctx context.Context) error {
 	})
 
 	// Initialize cloud provider if enabled
-	if cfg.CloudProvider.Enabled {
-		errg.Go(func() error {
-			vpcMetadataCtrl := controllers.NewVPCMetadataController(log, cfg.CloudProvider, kubeClient)
-			return vpcMetadataCtrl.Run(ctx)
-		})
+	if cfg.CloudProviderConfig.CloudProvider.Type != "" {
+		provider, err := cloudprovider.NewProvider(ctx, cfg.CloudProviderConfig.CloudProvider)
+		if err != nil {
+			return fmt.Errorf("failed to initialize cloud provider: %w", err)
+		}
+		log.Infof("cloud provider %s initialized successfully", provider.Type())
+
+		if cfg.CloudProviderConfig.VPCStateController.Enabled {
+			errg.Go(func() error {
+				return controllers.NewVPCStateController(log,
+					cfg.CloudProviderConfig.VPCStateController, provider, kubeClient).Run(ctx)
+			})
+		}
 	}
 
 	// CAST AI specific logic.

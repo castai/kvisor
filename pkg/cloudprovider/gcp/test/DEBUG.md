@@ -44,7 +44,7 @@ export GCP_PROJECT_ID="your-project-id"
 export GCP_CREDENTIALS_FILE="$HOME/kvisor-test-sa-key.json"
 
 # Run the tests
-go test -v -run TestRefreshMetadata ./...
+go test -v -run TestRefreshState ./...
 ```
 
 ## Cleanup

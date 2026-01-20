@@ -12,22 +12,20 @@ import (
 
 type Provider struct {
 	log *logging.Logger
-	cfg types.Config
+	cfg types.ProviderConfig
 
 	// GCP clients
 	networksClient    *compute.NetworksClient
 	subnetworksClient *compute.SubnetworksClient
 
-	// Cached metadata
-	mu       sync.RWMutex
-	metadata *types.Metadata
+	// Cached network state
+	networkStateMu sync.RWMutex
+	networkState   *types.NetworkState
 }
 
 // NewProvider creates a new GCP provider instance.
-func NewProvider(ctx context.Context, cfg types.Config) (types.Provider, error) {
-	log := logging.New(&logging.Config{}).
-		WithField("component", "vpc_metadata").
-		WithField("cloudprovider", "gcp")
+func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider, error) {
+	log := logging.New(&logging.Config{}).WithField("cloudprovider", "gcp")
 
 	// Build client options with authentication
 	clientOptions, err := buildClientOptions(cfg)
@@ -52,20 +50,9 @@ func NewProvider(ctx context.Context, cfg types.Config) (types.Provider, error) 
 		subnetworksClient: subnetworksClient,
 	}
 
-	log.With("project", cfg.GCPProjectID).Info("GCP network provider initialized")
+	log.With("project", cfg.GCPProjectID).Info("gcp provider initialized")
 
 	return p, nil
-}
-
-func (p *Provider) GetMetadata(ctx context.Context) (*types.Metadata, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	if p.metadata == nil {
-		return nil, fmt.Errorf("metadata not yet available")
-	}
-
-	return p.metadata, nil
 }
 
 func (p *Provider) Type() types.Type {
