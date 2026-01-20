@@ -427,6 +427,29 @@ func (t *testCASTAIServer) decodeNodeStatsSummaryMetrics(schema, data []byte) ([
 	return results, nil
 }
 
+func (t *testCASTAIServer) decodeK8sPodVolumeMetrics(schema, data []byte) ([]pipeline.K8sPodVolumeMetric, error) {
+	avroSchema, err := avro.Parse(string(schema))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+
+	decoder := avro.NewDecoderForSchema(avroSchema, bytes.NewReader(data))
+	var results []pipeline.K8sPodVolumeMetric
+
+	for {
+		var metric pipeline.K8sPodVolumeMetric
+		if err := decoder.Decode(&metric); err != nil {
+			if errors.Is(err, io.EOF) {
+				break // End of data
+			}
+			return nil, fmt.Errorf("failed to decode metric: %w", err)
+		}
+		results = append(results, metric)
+	}
+
+	return results, nil
+}
+
 func (t *testCASTAIServer) KubeBenchReportIngest(ctx context.Context, report *castaipb.KubeBenchReport) (*castaipb.KubeBenchReportIngestResponse, error) {
 	t.kubeBenchReports = append(t.kubeBenchReports, report)
 	return &castaipb.KubeBenchReportIngestResponse{}, nil
@@ -539,7 +562,7 @@ func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
 }
 
 func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
-	timeout := time.After(15 * time.Second)
+	timeout := time.After(30 * time.Second)
 
 	expectedCollections := []string{
 		"storage_block_device_metrics_v2",
@@ -660,6 +683,34 @@ func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
 						}
 						if metric.ContainerFsUsedBytes != nil && *metric.ContainerFsUsedBytes < 0 {
 							return fmt.Errorf("node stats summary metric has negative container fs used bytes: %d", *metric.ContainerFsUsedBytes)
+						}
+					}
+				}
+			}
+
+			// k8s_pod_volume_metrics is optional - only sent if there are PVCs in the cluster
+			if batches, exists := metrics["k8s_pod_volume_metrics"]; exists {
+				for _, batch := range batches {
+					podVolumeMetrics, err := t.decodeK8sPodVolumeMetrics(batch.Schema, batch.Metrics)
+					if err != nil {
+						return fmt.Errorf("failed to decode k8s pod volume metrics: %w", err)
+					}
+
+					for _, metric := range podVolumeMetrics {
+						if metric.NodeName == "" {
+							return errors.New("k8s pod volume metric missing node name")
+						}
+						if metric.Namespace == "" {
+							return errors.New("k8s pod volume metric missing namespace")
+						}
+						if metric.PodName == "" {
+							return errors.New("k8s pod volume metric missing pod name")
+						}
+						if metric.PodUID == "" {
+							return errors.New("k8s pod volume metric missing pod uid")
+						}
+						if metric.VolumeName == "" {
+							return errors.New("k8s pod volume metric missing volume name")
 						}
 					}
 				}

@@ -59,6 +59,8 @@ kubectl apply -f ./e2e/socks5-generator.yaml
 kubectl apply -f ./e2e/nc-server-client.yaml
 kubectl apply -f ./e2e/conn-generator.yaml
 kubectl apply -f ./e2e/iperf.yaml
+# Deploy PVC test to generate k8s_pod_volume_metrics
+kubectl apply -f ./e2e/pvc-test.yaml
 
 echo "Waiting for job to finish"
 
