@@ -15,24 +15,28 @@ import (
 func NewIndex() *Index {
 	nodesCIDRIndex, _ := cidrindex.NewIndex[string](1000, 30*time.Second)
 	return &Index{
-		ipsDetails:     make(ipsDetails),
-		replicaSets:    make(map[types.UID]metav1.ObjectMeta),
-		jobs:           make(map[types.UID]metav1.ObjectMeta),
-		deployments:    make(map[types.UID]*appsv1.Deployment),
-		pods:           make(map[types.UID]*PodInfo),
-		nodesByName:    make(map[string]*corev1.Node),
+		ipsDetails:  make(ipsDetails),
+		replicaSets: make(map[types.UID]metav1.ObjectMeta),
+		jobs:        make(map[types.UID]metav1.ObjectMeta),
+		deployments: make(map[types.UID]*appsv1.Deployment),
+		pods:        make(map[types.UID]*PodInfo),
+		nodesByName: make(map[string]*corev1.Node),
 		nodesCIDRIndex: nodesCIDRIndex,
+		pvcs:        make(map[string]*corev1.PersistentVolumeClaim),
+		pvs:         make(map[string]*corev1.PersistentVolume),
 	}
 }
 
 type Index struct {
-	ipsDetails     ipsDetails
-	replicaSets    map[types.UID]metav1.ObjectMeta
-	jobs           map[types.UID]metav1.ObjectMeta
-	deployments    map[types.UID]*appsv1.Deployment
-	pods           map[types.UID]*PodInfo
-	nodesByName    map[string]*corev1.Node
+	ipsDetails  ipsDetails
+	replicaSets map[types.UID]metav1.ObjectMeta
+	jobs        map[types.UID]metav1.ObjectMeta
+	deployments map[types.UID]*appsv1.Deployment
+	pods        map[types.UID]*PodInfo
+	nodesByName map[string]*corev1.Node
 	nodesCIDRIndex *cidrindex.Index[string]
+	pvcs        map[string]*corev1.PersistentVolumeClaim // key: namespace/name
+	pvs         map[string]*corev1.PersistentVolume      // key: PV name
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
@@ -335,4 +339,44 @@ type PodInfo struct {
 	Owner  metav1.OwnerReference
 	Zone   string
 	Region string
+}
+
+func pvcKey(namespace, name string) string {
+	return namespace + "/" + name
+}
+
+func (i *Index) addFromPVC(pvc *corev1.PersistentVolumeClaim) {
+	i.pvcs[pvcKey(pvc.Namespace, pvc.Name)] = pvc
+}
+
+func (i *Index) deleteFromPVC(pvc *corev1.PersistentVolumeClaim) {
+	delete(i.pvcs, pvcKey(pvc.Namespace, pvc.Name))
+}
+
+func (i *Index) GetPVCByName(namespace, name string) (*corev1.PersistentVolumeClaim, bool) {
+	pvc, found := i.pvcs[pvcKey(namespace, name)]
+	return pvc, found
+}
+
+func (i *Index) addFromPV(pv *corev1.PersistentVolume) {
+	i.pvs[pv.Name] = pv
+}
+
+func (i *Index) deleteFromPV(pv *corev1.PersistentVolume) {
+	delete(i.pvs, pv.Name)
+}
+
+func (i *Index) GetPVByName(name string) (*corev1.PersistentVolume, bool) {
+	pv, found := i.pvs[name]
+	return pv, found
+}
+
+func (i *Index) GetPodsOnNode(nodeName string) []*PodInfo {
+	var pods []*PodInfo
+	for _, podInfo := range i.pods {
+		if podInfo.Pod.Spec.NodeName == nodeName {
+			pods = append(pods, podInfo)
+		}
+	}
+	return pods
 }

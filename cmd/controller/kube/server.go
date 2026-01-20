@@ -3,9 +3,11 @@ package kube
 import (
 	"context"
 	"net/netip"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
@@ -174,6 +176,172 @@ func (s *Server) GetNodeStatsSummary(ctx context.Context, req *kubepb.GetNodeSta
 	}
 
 	return resp, nil
+}
+
+func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesRequest) (*kubepb.GetPodVolumesResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	pods := s.client.GetPodsOnNode(req.NodeName)
+	s.client.log.Infof("GetPodVolumes: found %d pods on node %s", len(pods), req.NodeName)
+	var volumes []*kubepb.PodVolumeInfo
+
+	for _, podInfo := range pods {
+		pod := podInfo.Pod
+		if pod == nil {
+			continue
+		}
+
+		// Skip kube-system namespace - system pods don't have user-relevant PVCs
+		if pod.Namespace == "kube-system" {
+			continue
+		}
+
+		// Build a map of volume name -> volume for quick lookup
+		volumeMap := make(map[string]corev1.Volume)
+		for _, vol := range pod.Spec.Volumes {
+			volumeMap[vol.Name] = vol
+		}
+
+		// Iterate through containers and their volume mounts (filesystem volumes)
+		// Only include PVC-backed volumes - skip ephemeral volumes like configMaps, secrets, serviceAccount tokens
+		for _, container := range pod.Spec.Containers {
+			for _, mount := range container.VolumeMounts {
+				vol, exists := volumeMap[mount.Name]
+				if !exists {
+					continue
+				}
+
+				// Only include PVC-backed volumes
+				if vol.PersistentVolumeClaim == nil {
+					continue
+				}
+
+				volInfo := &kubepb.PodVolumeInfo{
+					Namespace:      pod.Namespace,
+					PodName:        pod.Name,
+					PodUid:         string(pod.UID),
+					ControllerKind: podInfo.Owner.Kind,
+					ControllerName: podInfo.Owner.Name,
+					ContainerName:  container.Name,
+					VolumeName:     vol.Name,
+					MountPath:      mount.MountPath,
+					VolumeMode:     "Filesystem",
+				}
+
+				s.enrichPVCDetails(volInfo, vol, pod.Namespace)
+				volumes = append(volumes, volInfo)
+			}
+
+			// Handle block volumes (VolumeDevices)
+			for _, device := range container.VolumeDevices {
+				vol, exists := volumeMap[device.Name]
+				if !exists {
+					continue
+				}
+
+				// Only include PVC-backed volumes
+				if vol.PersistentVolumeClaim == nil {
+					continue
+				}
+
+				volInfo := &kubepb.PodVolumeInfo{
+					Namespace:      pod.Namespace,
+					PodName:        pod.Name,
+					PodUid:         string(pod.UID),
+					ControllerKind: podInfo.Owner.Kind,
+					ControllerName: podInfo.Owner.Name,
+					ContainerName:  container.Name,
+					VolumeName:     vol.Name,
+					DevicePath:     device.DevicePath,
+					VolumeMode:     "Block",
+				}
+
+				s.enrichPVCDetails(volInfo, vol, pod.Namespace)
+				volumes = append(volumes, volInfo)
+			}
+		}
+	}
+
+	s.client.log.Infof("GetPodVolumes: returning %d volumes for node %s", len(volumes), req.NodeName)
+	return &kubepb.GetPodVolumesResponse{
+		Volumes: volumes,
+	}, nil
+}
+
+func (s *Server) enrichPVCDetails(volInfo *kubepb.PodVolumeInfo, vol corev1.Volume, namespace string) {
+	pvcName := vol.PersistentVolumeClaim.ClaimName
+	volInfo.PvcName = pvcName
+
+	pvc, found := s.client.GetPVCByName(namespace, pvcName)
+	if !found {
+		return
+	}
+
+	volInfo.PvcUid = string(pvc.UID)
+
+	// Get requested storage size
+	if req, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
+		volInfo.RequestedSizeBytes = req.Value()
+	}
+
+	// Get storage class
+	if pvc.Spec.StorageClassName != nil {
+		volInfo.StorageClass = *pvc.Spec.StorageClassName
+	}
+
+	// Get PV details if bound
+	if pvc.Spec.VolumeName != "" {
+		volInfo.PvName = pvc.Spec.VolumeName
+
+		if pv, found := s.client.GetPVByName(pvc.Spec.VolumeName); found {
+			// Get volume source details - supports both CSI and in-tree provisioners
+			if pv.Spec.CSI != nil {
+				// CSI volume (modern)
+				volInfo.CsiDriver = pv.Spec.CSI.Driver
+				volInfo.CsiVolumeHandle = extractVolumeID(pv.Spec.CSI.VolumeHandle)
+			} else if pv.Spec.AWSElasticBlockStore != nil {
+				// In-tree AWS EBS provisioner (gp2 storage class)
+				volInfo.CsiDriver = "kubernetes.io/aws-ebs"
+				volInfo.CsiVolumeHandle = pv.Spec.AWSElasticBlockStore.VolumeID
+			} else if pv.Spec.GCEPersistentDisk != nil {
+				// In-tree GCE PD provisioner
+				volInfo.CsiDriver = "kubernetes.io/gce-pd"
+				volInfo.CsiVolumeHandle = pv.Spec.GCEPersistentDisk.PDName
+			} else if pv.Spec.AzureDisk != nil {
+				// In-tree Azure Disk provisioner
+				volInfo.CsiDriver = "kubernetes.io/azure-disk"
+				volInfo.CsiVolumeHandle = pv.Spec.AzureDisk.DiskName
+			}
+		} else {
+			s.client.log.Warnf("PV %s not found in index for PVC %s/%s", pvc.Spec.VolumeName, namespace, pvcName)
+		}
+	}
+}
+
+// extractVolumeID extracts the volume/disk name from a CSI volume handle.
+// Different CSI drivers use different path formats:
+// - GCP: projects/<project>/zones/<zone>/disks/<disk-name> → <disk-name>
+// - AWS: vol-xxx → vol-xxx (no change)
+// - Azure: /subscriptions/.../providers/Microsoft.Compute/disks/<disk-name> → <disk-name>
+func extractVolumeID(csiVolumeHandle string) string {
+	// GCP format: projects/<project>/zones/<zone>/disks/<disk-name>
+	if strings.Contains(csiVolumeHandle, "/disks/") {
+		parts := strings.Split(csiVolumeHandle, "/disks/")
+		if len(parts) == 2 {
+			return parts[1]
+		}
+	}
+	// Azure format: /subscriptions/.../providers/Microsoft.Compute/disks/<disk-name>
+	if strings.Contains(csiVolumeHandle, "Microsoft.Compute/disks/") {
+		parts := strings.Split(csiVolumeHandle, "Microsoft.Compute/disks/")
+		if len(parts) == 2 {
+			return parts[1]
+		}
+	}
+	// AWS and others: return as-is
+	return csiVolumeHandle
 }
 
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {

@@ -111,6 +111,8 @@ func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {
 		factory.Core().V1().Services().Informer(),
 		factory.Core().V1().Endpoints().Informer(),
 		factory.Core().V1().Namespaces().Informer(),
+		factory.Core().V1().PersistentVolumeClaims().Informer(),
+		factory.Core().V1().PersistentVolumes().Informer(),
 		factory.Apps().V1().Deployments().Informer(),
 		factory.Apps().V1().StatefulSets().Informer(),
 		factory.Apps().V1().DaemonSets().Informer(),
@@ -194,6 +196,10 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 				c.index.addFromEndpoints(t)
 			case *corev1.Node:
 				c.index.addFromNode(t)
+			case *corev1.PersistentVolumeClaim:
+				c.index.addFromPVC(t)
+			case *corev1.PersistentVolume:
+				c.index.addFromPV(t)
 			case *batchv1.Job:
 				c.index.jobs[t.UID] = t.ObjectMeta
 			case *appsv1.ReplicaSet:
@@ -219,6 +225,10 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 				c.index.addFromEndpoints(t)
 			case *corev1.Node:
 				c.index.addFromNode(t)
+			case *corev1.PersistentVolumeClaim:
+				c.index.addFromPVC(t)
+			case *corev1.PersistentVolume:
+				c.index.addFromPV(t)
 			case *batchv1.Job:
 				c.index.jobs[t.UID] = t.ObjectMeta
 			case *appsv1.ReplicaSet:
@@ -244,6 +254,10 @@ func (c *Client) eventHandler() cache.ResourceEventHandler {
 				c.index.deleteFromEndpoints(t)
 			case *corev1.Node:
 				c.index.deleteByNode(t)
+			case *corev1.PersistentVolumeClaim:
+				c.index.deleteFromPVC(t)
+			case *corev1.PersistentVolume:
+				c.index.deleteFromPV(t)
 			case *batchv1.Job:
 				delete(c.index.jobs, t.UID)
 			case *appsv1.ReplicaSet:
@@ -309,6 +323,27 @@ func (c *Client) GetNodeInfo(name string) (*corev1.Node, bool) {
 		return nil, false
 	}
 	return node, true
+}
+
+func (c *Client) GetPVCByName(namespace, name string) (*corev1.PersistentVolumeClaim, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.index.GetPVCByName(namespace, name)
+}
+
+func (c *Client) GetPVByName(name string) (*corev1.PersistentVolume, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.index.GetPVByName(name)
+}
+
+func (c *Client) GetPodsOnNode(nodeName string) []*PodInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.index.GetPodsOnNode(nodeName)
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {

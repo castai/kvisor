@@ -1,0 +1,30 @@
+# PVC test for E2E - generates k8s_pod_volume_metrics
+# Uses Kind's default "standard" storage class (local-path-provisioner)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: e2e-test-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: e2e-test-pvc-pod
+spec:
+  containers:
+  - name: test
+    image: busybox
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: data
+      mountPath: /data
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: e2e-test-pvc

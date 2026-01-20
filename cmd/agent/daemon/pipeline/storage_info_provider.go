@@ -76,6 +76,9 @@ type FilesystemMetric struct {
 	TotalInodes  *int64            `avro:"total_inodes"`
 	UsedInodes   *int64            `avro:"used_inodes"`
 	Timestamp    time.Time         `avro:"ts"`
+
+	// PV name for joining with K8sPodVolumeMetric (nil for node-level filesystems)
+	PVName *string `avro:"pv_name"`
 }
 
 // NodeStatsSummaryMetric represents node-level filesystem statistics from kubelet
@@ -89,15 +92,39 @@ type NodeStatsSummaryMetric struct {
 	Timestamp            time.Time `avro:"ts"`
 }
 
+// K8sPodVolumeMetric represents pod volume information from Kubernetes
+type K8sPodVolumeMetric struct {
+	NodeName           string    `avro:"node_name"`
+	NodeTemplate       *string   `avro:"node_template"`
+	Namespace          string    `avro:"namespace"`
+	PodName            string    `avro:"pod_name"`
+	PodUID             string    `avro:"pod_uid"`
+	ControllerKind     string    `avro:"controller_kind"`
+	ControllerName     string    `avro:"controller_name"`
+	ContainerName      string    `avro:"container_name"`
+	VolumeName         string    `avro:"volume_name"`
+	MountPath          string    `avro:"mount_path"`
+	PVCName            *string   `avro:"pvc_name"`
+	RequestedSizeBytes *int64    `avro:"requested_size_bytes"`
+	PVName             *string   `avro:"pv_name"`
+	StorageClass       *string   `avro:"storage_class"`
+	CSIDriver          *string   `avro:"csi_driver"`
+	CSIVolumeHandle    *string   `avro:"csi_volume_handle"` // For EBS: vol-xxx, can be joined with block_device.ebs_volume_id
+	VolumeMode         string    `avro:"volume_mode"`       // "Filesystem" or "Block"
+	DevicePath         *string   `avro:"device_path"`       // For block volumes: container's volumeDevices[].devicePath
+	Timestamp          time.Time `avro:"ts"`
+}
+
 type storageMetricsState struct {
 	blockDevices map[string]*BlockDeviceMetric
 	filesystems  map[string]*FilesystemMetric
 }
 
 type StorageInfoProvider interface {
-	BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error)
+	BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error)
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
+	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -286,27 +313,158 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 	return metric, nil
 }
 
-func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(timestamp time.Time) ([]FilesystemMetric, error) {
+// CollectPodVolumeMetrics retrieves pod volume information from the controller
+func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	s.log.Infof("CollectPodVolumeMetrics: requesting pod volumes for node %s", s.nodeName)
+	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod volumes for %s: %w", s.nodeName, err)
+	}
+	s.log.Infof("CollectPodVolumeMetrics: received %d volumes from controller", len(resp.Volumes))
+
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template: %v", err)
+		nodeTemplate = nil
+	}
+
+	timestamp := time.Now()
+	metrics := make([]K8sPodVolumeMetric, 0, len(resp.Volumes))
+
+	for _, v := range resp.Volumes {
+		metric := K8sPodVolumeMetric{
+			NodeName:       s.nodeName,
+			NodeTemplate:   nodeTemplate,
+			Namespace:      v.Namespace,
+			PodName:        v.PodName,
+			PodUID:         v.PodUid,
+			ControllerKind: v.ControllerKind,
+			ControllerName: v.ControllerName,
+			ContainerName:  v.ContainerName,
+			VolumeName:     v.VolumeName,
+			MountPath:      v.MountPath,
+			VolumeMode:     v.VolumeMode,
+			Timestamp:      timestamp,
+		}
+
+		if v.PvcName != "" {
+			metric.PVCName = &v.PvcName
+		}
+		if v.RequestedSizeBytes > 0 {
+			metric.RequestedSizeBytes = &v.RequestedSizeBytes
+		}
+		if v.PvName != "" {
+			metric.PVName = &v.PvName
+		}
+		if v.StorageClass != "" {
+			metric.StorageClass = &v.StorageClass
+		}
+		if v.CsiDriver != "" {
+			metric.CSIDriver = &v.CsiDriver
+		}
+		if v.CsiVolumeHandle != "" {
+			metric.CSIVolumeHandle = &v.CsiVolumeHandle
+		}
+		if v.DevicePath != "" {
+			metric.DevicePath = &v.DevicePath
+		}
+
+		metrics = append(metrics, metric)
+	}
+
+	return metrics, nil
+}
+
+func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
 	// Read mount information from /proc/1/mountinfo
 	mounts, err := readMountInfo("/proc/1/mountinfo")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mountinfo: %w", err)
 	}
 
-	filesystemMetrics := make([]FilesystemMetric, 0, len(mounts))
+	// Build pod volume lookup map for enrichment
+	podVolumeMap := s.buildPodVolumeLookupMap(ctx)
+
+	// Deduplicate by major:minor device ID
+	// When multiple mounts point to the same device (bind mounts), prefer paths
+	// matching /var/lib/kubelet/pods because they can be enriched with pod metadata
+	seenDevices := make(map[string]FilesystemMetric)
 	for _, mount := range mounts {
-		metric, err := s.buildFilesystemMetric(mount, timestamp)
+		metric, err := s.buildFilesystemMetric(mount, timestamp, podVolumeMap)
 		if err != nil {
 			s.log.Warnf("skipping filesystem metric for %s: %v", mount.MountPoint, err)
 			continue
 		}
+
+		deviceKey := mount.MajorMinor
+		if existing, seen := seenDevices[deviceKey]; seen {
+			// Prefer the mount that has PV metadata (was enriched with K8s info)
+			if metric.PVName != nil && existing.PVName == nil {
+				seenDevices[deviceKey] = metric
+			}
+			// Otherwise keep the first one we saw
+		} else {
+			seenDevices[deviceKey] = metric
+		}
+	}
+
+	filesystemMetrics := make([]FilesystemMetric, 0, len(seenDevices))
+	for _, metric := range seenDevices {
 		filesystemMetrics = append(filesystemMetrics, metric)
 	}
 
 	return filesystemMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time) (FilesystemMetric, error) {
+// podVolumeKey generates a lookup key from pod UID and volume name
+func podVolumeKey(podUID, volumeName string) string {
+	return podUID + "/" + volumeName
+}
+
+// buildPodVolumeLookupMap fetches pod volumes from controller and builds a lookup map
+// The map is keyed by both:
+// - podUID/volumeName (for emptyDir, configMap, etc.)
+// - podUID/pvName (for CSI volumes where the mount path contains the PV name)
+func (s *SysfsStorageInfoProvider) buildPodVolumeLookupMap(ctx context.Context) map[string]*kubepb.PodVolumeInfo {
+	if s.kubeClient == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		s.log.Warnf("failed to get pod volumes for enrichment: %v", err)
+		return nil
+	}
+
+	volumeMap := make(map[string]*kubepb.PodVolumeInfo, len(resp.Volumes)*2)
+	for _, v := range resp.Volumes {
+		// Primary key: podUID/volumeName
+		key := podVolumeKey(v.PodUid, v.VolumeName)
+		volumeMap[key] = v
+
+		// Secondary key: podUID/pvName (for CSI volumes)
+		// CSI mount paths use the PV name as the directory name, not the volume name
+		if v.PvName != "" {
+			pvKey := podVolumeKey(v.PodUid, v.PvName)
+			volumeMap[pvKey] = v
+		}
+	}
+
+	return volumeMap
+}
+
+func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timestamp time.Time, podVolumeMap map[string]*kubepb.PodVolumeInfo) (FilesystemMetric, error) {
 	// Construct the path from host's root to access the filesystem
 	fileSystemPath := filepath.Join(s.hostRootPath, mount.MountPoint)
 
@@ -324,7 +482,7 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 	// Check whether the filesystem is holding kubelet and/or castai-storage directories
 	labels := buildFilesystemLabels(devID, s.wellKnownPathDeviceID)
 
-	return FilesystemMetric{
+	metric := FilesystemMetric{
 		Devices:      s.getBackingDevices(mount.Device),
 		NodeName:     s.nodeName,
 		NodeTemplate: nodeTemplate,
@@ -337,7 +495,17 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 		UsedInodes:   &usedInodes,
 		Labels:       labels,
 		Timestamp:    timestamp,
-	}, nil
+	}
+
+	// Check if this is a pod volume mount and enrich with PV name for joining
+	if volInfo := ParseVolumeMountPath(mount.MountPoint); volInfo != nil && podVolumeMap != nil {
+		key := podVolumeKey(volInfo.PodUID, volInfo.VolumeName)
+		if pv, ok := podVolumeMap[key]; ok && pv.PvName != "" {
+			metric.PVName = &pv.PvName
+		}
+	}
+
+	return metric, nil
 }
 
 // getBackingDevices resolves a device to its backing device.
@@ -799,7 +967,7 @@ func getFilesystemStats(mountPoint string) (sizeBytes, usedBytes int64, totalIno
 	var mountPointStat unix.Stat_t
 	err = unix.Stat(mountPoint, &mountPointStat)
 	if err == nil {
-		devID = mountPointStat.Dev
+		devID = uint64(mountPointStat.Dev)
 	}
 
 	// statfs.Bsize is uint32 on Darwin, int64 on Linux - convert safely to uint64
@@ -837,7 +1005,7 @@ func getDeviceIDForPath(path string) (uint64, error) {
 		return 0, err
 	}
 
-	return stat.Dev, nil
+	return uint64(stat.Dev), nil
 }
 
 func buildFilesystemLabels(fsMountPointDeviceID uint64, wellKnownPathsDeviceID map[string]uint64) map[string]string {

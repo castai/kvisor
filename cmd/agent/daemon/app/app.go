@@ -255,6 +255,7 @@ func (a *App) Run(ctx context.Context) error {
 	var blockDeviceMetricsWriter pipeline.BlockDeviceMetricsWriter
 	var filesystemMetricsWriter pipeline.FilesystemMetricsWriter
 	var nodeStatsSummaryWriter pipeline.NodeStatsSummaryWriter
+	var podVolumeMetricsWriter pipeline.K8sPodVolumeMetricsWriter
 	var storageInfoProvider pipeline.StorageInfoProvider
 	if cfg.Stats.StorageEnabled {
 		metricsClient, err := createMetricsClient(cfg)
@@ -263,12 +264,12 @@ func (a *App) Run(ctx context.Context) error {
 		}
 
 		go func() {
-			if err = metricsClient.Start(ctx); err != nil {
-				log.Warnf("metric client failed with:%v", err)
+			if err := metricsClient.Start(ctx); err != nil {
+				log.Warnf("metrics client failed: %v", err)
 			}
 		}()
 
-		blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, err = setupStorageMetrics(metricsClient)
+		blockDeviceMetricsWriter, filesystemMetricsWriter, nodeStatsSummaryWriter, podVolumeMetricsWriter, err = setupStorageMetrics(metricsClient)
 		if err != nil {
 			return fmt.Errorf("failed to setup storage metrics: %w", err)
 		}
@@ -301,6 +302,7 @@ func (a *App) Run(ctx context.Context) error {
 		filesystemMetricsWriter,
 		storageInfoProvider,
 		nodeStatsSummaryWriter,
+		podVolumeMetricsWriter,
 	)
 
 	for _, namespace := range cfg.MutedNamespaces {
@@ -569,23 +571,28 @@ func waitWithTimeout(errg *errgroup.Group, timeout time.Duration) error {
 	}
 }
 
-func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, pipeline.NodeStatsSummaryWriter, error) {
+func setupStorageMetrics(metricsClient custommetrics.MetricClient) (pipeline.BlockDeviceMetricsWriter, pipeline.FilesystemMetricsWriter, pipeline.NodeStatsSummaryWriter, pipeline.K8sPodVolumeMetricsWriter, error) {
 	blockDeviceMetrics, err := pipeline.NewBlockDeviceMetricsWriter(metricsClient)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to create block device metrics writer: %w", err)
 	}
 
 	filesystemMetrics, err := pipeline.NewFilesystemMetricsWriter(metricsClient)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create filesystem metrics writer: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to create filesystem metrics writer: %w", err)
 	}
 
 	nodeStatsSummaryWriter, err := pipeline.NewNodeStatsSummaryWriter(metricsClient)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create node storage stats summary writer: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to create node storage stats summary writer: %w", err)
 	}
 
-	return blockDeviceMetrics, filesystemMetrics, nodeStatsSummaryWriter, nil
+	podVolumeMetricsWriter, err := pipeline.NewK8sPodVolumeMetricsWriter(metricsClient)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to create pod volume metrics writer: %w", err)
+	}
+
+	return blockDeviceMetrics, filesystemMetrics, nodeStatsSummaryWriter, podVolumeMetricsWriter, nil
 }
 
 // resolveMetricsAddr transforms kvisor.* addresses to telemetry.* addresses
