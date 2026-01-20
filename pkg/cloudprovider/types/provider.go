@@ -32,6 +32,12 @@ type Provider interface {
 	// RefreshNetworkState updates cached network state.
 	RefreshNetworkState(ctx context.Context, network string) error
 
+	// GetStorageState returns the cached storage state for the cluster's cloud environment.
+	GetStorageState(ctx context.Context) (*StorageState, error)
+
+	// RefreshStorageState updates cached storage state.
+	RefreshStorageState(ctx context.Context, instanceIds ...string) error
+
 	// Close cleans up resources.
 	Close() error
 }

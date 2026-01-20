@@ -44,11 +44,15 @@ var (
 
 	cloudProvider             = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
 	cloudProviderGCPProjectID = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider GCP project ID")
+	cloudProviderAWSRegion    = pflag.String("cloud-provider-aws-region", "", "Cloud provider AWS region")
 
 	cloudProviderVPCSyncEnabled  = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC controller")
 	cloudProviderVPCName         = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
 	cloudProviderVPCSyncInterval = pflag.Duration("cloud-provider-vpc-sync-interval", 1*time.Hour, "Cloud provider VPC sync interval")
 	cloudProviderVPCCacheSize    = pflag.Uint32("cloud-provider-vpc-cache-size", 10000, "Cloud provider VPC cache size")
+
+	cloudProviderStorageSyncEnabled  = pflag.Bool("cloud-provider-storage-sync-enabled", false, "Enable cloud provider storage controller")
+	cloudProviderStorageSyncInterval = pflag.Duration("cloud-provider-storage-sync-interval", 5*time.Minute, "Cloud provider storage sync interval")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
 	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
@@ -199,12 +203,17 @@ func main() {
 			CloudProvider: cloudtypes.ProviderConfig{
 				Type:         cloudtypes.Type(*cloudProvider),
 				GCPProjectID: *cloudProviderGCPProjectID,
+				AWSRegion:    *cloudProviderAWSRegion,
 			},
 			VPCStateController: controllers.VPCStateControllerConfig{
 				Enabled:         *cloudProviderVPCSyncEnabled,
 				NetworkName:     *cloudProviderVPCName,
 				RefreshInterval: *cloudProviderVPCSyncInterval,
 				CacheSize:       *cloudProviderVPCCacheSize,
+			},
+			VolumeStateController: controllers.VolumeStateControllerConfig{
+				Enabled:         *cloudProviderStorageSyncEnabled,
+				RefreshInterval: *cloudProviderStorageSyncInterval,
 			},
 		},
 	},

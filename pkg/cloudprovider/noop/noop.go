@@ -25,6 +25,14 @@ func (n *noOpProvider) RefreshNetworkState(ctx context.Context, network string) 
 	return nil
 }
 
+func (n *noOpProvider) GetStorageState(ctx context.Context) (*types.StorageState, error) {
+	return nil, nil
+}
+
+func (n *noOpProvider) RefreshStorageState(ctx context.Context, instanceIds ...string) error {
+	return nil
+}
+
 func (n *noOpProvider) Close() error {
 	return nil
 }

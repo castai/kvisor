@@ -183,8 +183,10 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
 	}
 
+	log := s.client.log.WithField("endpoint", "get_pod_volumes")
+
 	pods := s.client.GetPodsOnNode(req.NodeName)
-	s.client.log.Infof("GetPodVolumes: found %d pods on node %s", len(pods), req.NodeName)
+	log.Debugf("found %d pods on node %s", len(pods), req.NodeName)
 	var volumes []*kubepb.PodVolumeInfo
 
 	for _, podInfo := range pods {
@@ -264,8 +266,45 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 		}
 	}
 
-	s.client.log.Infof("GetPodVolumes: returning %d volumes for node %s", len(volumes), req.NodeName)
+	log.Debugf("returning %d pod volumes for node %s", len(volumes), req.NodeName)
 	return &kubepb.GetPodVolumesResponse{
+		Volumes: volumes,
+	}, nil
+}
+
+func (s *Server) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolumesRequest) (*kubepb.GetCloudVolumesResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	log := s.client.log.WithField("endpoint", "get_cloud_volumes")
+
+	nodeVolumes := s.client.GetVolumesForNode(req.NodeName)
+	if len(nodeVolumes) == 0 {
+		return &kubepb.GetCloudVolumesResponse{}, nil
+	}
+
+	cloudProvider := s.client.GetCloudProvider()
+
+	volumes := make([]*kubepb.CloudVolumeInfo, 0, len(nodeVolumes))
+	for _, vol := range nodeVolumes {
+		volInfo := &kubepb.CloudVolumeInfo{
+			CloudProvider:   string(cloudProvider),
+			Zone:            vol.Zone,
+			VolumeId:        vol.VolumeID,
+			VolumeType:      vol.VolumeType,
+			VolumeState:     vol.VolumeState,
+			SizeBytes:       vol.SizeBytes,
+			Iops:            vol.IOPS,
+			ThroughputBytes: vol.ThroughputBytes,
+			Encrypted:       vol.Encrypted,
+		}
+
+		volumes = append(volumes, volInfo)
+	}
+
+	log.Debugf("returning %d volumes for node %s", len(volumes), req.NodeName)
+	return &kubepb.GetCloudVolumesResponse{
 		Volumes: volumes,
 	}, nil
 }

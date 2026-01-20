@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/castai/kvisor/pkg/cloudprovider/aws"
 	"github.com/castai/kvisor/pkg/cloudprovider/gcp"
 	"github.com/castai/kvisor/pkg/cloudprovider/noop"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
@@ -15,7 +16,7 @@ func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider,
 	case types.TypeGCP:
 		return gcp.NewProvider(ctx, cfg)
 	case types.TypeAWS:
-		return nil, fmt.Errorf("aws provider not yet implemented")
+		return aws.NewProvider(ctx, cfg)
 	case types.TypeAzure:
 		return nil, fmt.Errorf("azure provider not yet implemented")
 	case types.TypeNone:
