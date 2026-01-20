@@ -8,6 +8,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/pkg/castai"
+	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
 )
 
 type Config struct {
@@ -32,14 +33,20 @@ type Config struct {
 	MetricsHTTPListenPort int `json:"metricsHTTPListenPort"`
 	KubeServerListenPort  int `validate:"required" json:"kubeServerListenPort"`
 
-	CastaiController controllers.CastaiConfig      `json:"castaiController"`
-	CastaiEnv        castai.Config                 `json:"castaiEnv"`
-	ImageScan        imagescan.Config              `json:"imageScan"`
-	Linter           kubelinter.Config             `json:"linter"`
-	KubeBench        kubebench.Config              `json:"kubeBench"`
-	JobsCleanup      controllers.JobsCleanupConfig `json:"jobsCleanup"`
-	AgentConfig      AgentConfig                   `json:"agentConfig"`
-	CloudProvider    controllers.VPCMetadataConfig `json:"cloudProvider"`
+	CastaiController    controllers.CastaiConfig      `json:"castaiController"`
+	CastaiEnv           castai.Config                 `json:"castaiEnv"`
+	ImageScan           imagescan.Config              `json:"imageScan"`
+	Linter              kubelinter.Config             `json:"linter"`
+	KubeBench           kubebench.Config              `json:"kubeBench"`
+	JobsCleanup         controllers.JobsCleanupConfig `json:"jobsCleanup"`
+	AgentConfig         AgentConfig                   `json:"agentConfig"`
+	CloudProviderConfig CloudProviderConfig           `json:"cloudProviderConfig"`
+}
+
+type CloudProviderConfig struct {
+	CloudProvider          cloudtypes.ProviderConfig               `json:"cloudProvider"`
+	VPCStateController     controllers.VPCStateControllerConfig    `json:"vpcStateController"`
+	VolumesStateController controllers.VolumeStateControllerConfig `json:"volumesStateController"`
 }
 
 type AgentConfig struct {

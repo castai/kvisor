@@ -16,40 +16,51 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func (p *Provider) RefreshMetadata(ctx context.Context) error {
-	p.log.Info("refreshing GCP metadata")
+func (p *Provider) GetNetworkState(ctx context.Context) (*types.NetworkState, error) {
+	p.networkStateMu.RLock()
+	defer p.networkStateMu.RUnlock()
 
-	metadata := &types.Metadata{
+	if p.networkState == nil {
+		return nil, fmt.Errorf("network state not yet available")
+	}
+
+	return p.networkState, nil
+}
+
+func (p *Provider) RefreshNetworkState(ctx context.Context, network string) error {
+	p.log.Info("refreshing GCP network state")
+
+	state := &types.NetworkState{
 		Domain:   "googleapis.com",
 		Provider: types.TypeGCP,
 	}
 
-	vpcs, err := p.fetchVPCs(ctx)
+	vpcs, err := p.fetchVPCs(ctx, network)
 	if err != nil {
 		return fmt.Errorf("fetching VPCs: %w", err)
 	}
-	metadata.VPCs = vpcs
+	state.VPCs = vpcs
 
 	serviceRanges, err := p.fetchServiceIPRanges(ctx)
 	if err != nil {
 		p.log.Warnf("fetching service IP ranges: %v", err)
 	} else {
-		metadata.ServiceRanges = serviceRanges
+		state.ServiceRanges = serviceRanges
 	}
 
-	p.mu.Lock()
-	p.metadata = metadata
-	p.mu.Unlock()
+	p.networkStateMu.Lock()
+	p.networkState = state
+	p.networkStateMu.Unlock()
 
-	p.log.Info("refreshed vpc metadata")
+	p.log.Info("refreshed network state")
 	return nil
 }
 
 // https://docs.cloud.google.com/compute/docs/reference/rest/v1/networks/list
-func (p *Provider) fetchVPCs(ctx context.Context) ([]types.VPC, error) {
+func (p *Provider) fetchVPCs(ctx context.Context, network string) ([]types.VPC, error) {
 	var vpcs []types.VPC
 
-	filterNetwork := fmt.Sprintf("name=%s", p.cfg.NetworkName)
+	filterNetwork := fmt.Sprintf("name=%s", network)
 
 	req := &computepb.ListNetworksRequest{
 		Project: p.cfg.GCPProjectID,
@@ -154,7 +165,6 @@ func (p *Provider) fetchNetworkPeeringRoutes(ctx context.Context, peering *compu
 
 	req := &computepb.ListPeeringRoutesNetworksRequest{
 		Project:     p.cfg.GCPProjectID,
-		Network:     p.cfg.NetworkName,
 		PeeringName: peering.Name,
 		Region:      &region,
 		Direction:   &direction,

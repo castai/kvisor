@@ -23,11 +23,11 @@ func TestVPCIndex(t *testing.T) {
 		r.NotNil(index.cidrIndex)
 	})
 
-	t.Run("update metadata", func(t *testing.T) {
+	t.Run("update state", func(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			Domain: "example.com",
 			VPCs: []cloudtypes.VPC{
 				{
@@ -37,10 +37,10 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
-		r.NotNil(index.metadata)
-		r.Equal(metadata, index.metadata)
+		r.NotNil(index.state)
+		r.Equal(state, index.state)
 		r.False(index.lastRefresh.IsZero())
 	})
 
@@ -48,7 +48,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -64,7 +64,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		// Lookup IP in subnet
@@ -81,7 +81,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			Domain: "googleapis.com",
 			ServiceRanges: []cloudtypes.ServiceRanges{
 				{
@@ -91,7 +91,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		// Lookup IP in service range
@@ -107,7 +107,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -129,7 +129,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		// Lookup IP in secondary range
@@ -145,7 +145,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -165,7 +165,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		// Lookup IP in peered VPC
@@ -181,7 +181,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -197,7 +197,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		// Lookup IP not in any range
@@ -211,7 +211,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -227,7 +227,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		ip := netip.MustParseAddr("10.0.1.50")
@@ -249,7 +249,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata1 := &cloudtypes.Metadata{
+		state1 := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -265,7 +265,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata1)
+		err := index.Update(state1)
 		r.NoError(err)
 
 		ip := netip.MustParseAddr("10.0.1.50")
@@ -275,8 +275,8 @@ func TestVPCIndex(t *testing.T) {
 		r.True(found1)
 		r.Equal("us-east-1a", info1.Zone)
 
-		// Update metadata with different zone
-		metadata2 := &cloudtypes.Metadata{
+		// Update state with different zone
+		state2 := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -292,10 +292,10 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err = index.Update(metadata2)
+		err = index.Update(state2)
 		r.NoError(err)
 
-		// Second lookup - should reflect new metadata
+		// Second lookup - should reflect new state
 		info2, found2 := index.LookupIP(ip)
 		r.True(found2)
 		r.Equal("us-east-1b", info2.Zone)
@@ -305,7 +305,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID:    "vpc-1",
@@ -322,7 +322,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		// IP is in both VPC CIDR (10.0.0.0/16) and subnet CIDR (10.0.1.0/24)
@@ -335,12 +335,12 @@ func TestVPCIndex(t *testing.T) {
 		r.Equal("us-east-1", info.Region)
 	})
 
-	t.Run("empty metadata", func(t *testing.T) {
+	t.Run("empty state", func(t *testing.T) {
 		r := require.New(t)
 		index := NewVPCIndex(log, 1*time.Hour, 1000)
 
-		metadata := &cloudtypes.Metadata{}
-		err := index.Update(metadata)
+		state := &cloudtypes.NetworkState{}
+		err := index.Update(state)
 		r.NoError(err)
 
 		ip := netip.MustParseAddr("10.0.1.50")
@@ -354,7 +354,7 @@ func TestVPCIndex(t *testing.T) {
 		shortRefresh := 50 * time.Millisecond
 		index := NewVPCIndex(log, shortRefresh, 1000)
 
-		metadata := &cloudtypes.Metadata{
+		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
 				{
 					ID: "vpc-1",
@@ -370,7 +370,7 @@ func TestVPCIndex(t *testing.T) {
 			},
 		}
 
-		err := index.Update(metadata)
+		err := index.Update(state)
 		r.NoError(err)
 
 		ip := netip.MustParseAddr("10.0.1.50")

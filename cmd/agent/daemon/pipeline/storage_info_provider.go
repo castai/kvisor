@@ -114,6 +114,23 @@ type K8sPodVolumeMetric struct {
 	Timestamp          time.Time `avro:"ts"`
 }
 
+// CloudVolumeMetric represents cloud provider volume metadata and configuration
+type CloudVolumeMetric struct {
+	NodeName         string    `avro:"node_name"`
+	NodeTemplate     *string   `avro:"node_template"`
+	CloudProvider    string    `avro:"cloud_provider"`
+	Region           string    `avro:"region"`
+	AvailabilityZone string    `avro:"availability_zone"`
+	VolumeID         string    `avro:"volume_id"`
+	VolumeType       string    `avro:"volume_type"`
+	VolumeState      string    `avro:"volume_state"`
+	SizeBytes        uint64    `avro:"size_bytes"`
+	IOPS             *uint32   `avro:"iops"`
+	ThroughputBytes  *uint32   `avro:"throughput_bytes"`
+	Encrypted        bool      `avro:"encrypted"`
+	Timestamp        time.Time `avro:"ts"`
+}
+
 type storageMetricsState struct {
 	blockDevices map[string]*BlockDeviceMetric
 	filesystems  map[string]*FilesystemMetric
@@ -124,6 +141,7 @@ type StorageInfoProvider interface {
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
+	CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -333,10 +351,10 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 		nodeTemplate = nil
 	}
 
-	timestamp := time.Now()
-	metrics := make([]K8sPodVolumeMetric, 0, len(resp.Volumes))
+	timestamp := time.Now().UTC()
+	metrics := make([]K8sPodVolumeMetric, len(resp.Volumes))
 
-	for _, v := range resp.Volumes {
+	for i, v := range resp.Volumes {
 		metric := K8sPodVolumeMetric{
 			NodeName:       s.nodeName,
 			NodeTemplate:   nodeTemplate,
@@ -374,7 +392,60 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 			metric.DevicePath = &v.DevicePath
 		}
 
-		metrics = append(metrics, metric)
+		metrics[i] = metric
+	}
+
+	return metrics, nil
+}
+
+// CollectCloudVolumeMetrics retrieves cloud volume metadata from the cloud provider and builds metrics
+func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	s.log.Infof("CollectCloudVolumeMetrics: requesting cloud volumes for node %s", s.nodeName)
+	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
+	}
+	s.log.Infof("CollectCloudVolumeMetrics: received %d volumes from controller", len(resp.Volumes))
+
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template: %v", err)
+		nodeTemplate = nil
+	}
+
+	timestamp := time.Now().UTC()
+	metrics := make([]CloudVolumeMetric, len(resp.Volumes))
+
+	for i, v := range resp.Volumes {
+		metric := CloudVolumeMetric{
+			NodeName:         s.nodeName,
+			NodeTemplate:     nodeTemplate,
+			CloudProvider:    v.CloudProvider,
+			Region:           v.Region,
+			AvailabilityZone: v.AvailabilityZone,
+			VolumeID:         v.VolumeId,
+			VolumeType:       v.VolumeType,
+			VolumeState:      v.VolumeState,
+			SizeBytes:        v.SizeBytes,
+			Encrypted:        v.Encrypted,
+			Timestamp:        timestamp,
+		}
+
+		if v.Iops > 0 {
+			metric.IOPS = &v.Iops
+		}
+
+		if v.ThroughputBytes > 0 {
+			metric.ThroughputBytes = &v.ThroughputBytes
+		}
+
+		metrics[i] = metric
 	}
 
 	return metrics, nil

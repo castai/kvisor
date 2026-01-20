@@ -807,12 +807,17 @@ func TestController(t *testing.T) {
 
 		blockWriter := ctrl.blockDeviceMetricsWriter.(*mockBlockDeviceMetricsWriter)
 		fsWriter := ctrl.filesystemMetricsWriter.(*mockFilesystemMetricsWriter)
+		podVolumeWriter := ctrl.podVolumeMetricsWriter.(*mockPodVolumeMetricsWriter)
+		cloudVolumeWriter := ctrl.cloudVolumeMetricsWriter.(*mockCloudVolumeMetricsWriter)
 
 		ctrl.collectStorageMetrics(t.Context())
 
 		r.Len(blockWriter.metrics, 1)
 		r.Len(fsWriter.metrics, 1)
+		r.Len(podVolumeWriter.metrics, 1)
+		r.Len(cloudVolumeWriter.metrics, 1)
 
+		// Filesystem metrics
 		fsMetric := fsWriter.metrics[0]
 		r.Equal("/", fsMetric.MountPoint)
 		r.Equal("test-node", fsMetric.NodeName)
@@ -821,6 +826,7 @@ func TestController(t *testing.T) {
 		r.Equal(int64(500000), *fsMetric.UsedBytes)
 		r.NotNil(fsMetric.NodeTemplate)
 
+		// Block device metrics
 		blockMetric := blockWriter.metrics[0]
 		r.Equal("sda", blockMetric.Name)
 		r.Equal("test-node", blockMetric.NodeName)
@@ -830,6 +836,25 @@ func TestController(t *testing.T) {
 		r.Equal(float64(512), blockMetric.WriteThroughputBytes)
 		r.Equal(int64(2000000), *blockMetric.SizeBytes)
 		r.NotNil(blockMetric.NodeTemplate)
+
+		// Pod volume metrics
+		podVolumeMetric := podVolumeWriter.metrics[0]
+		r.Equal("test-node", podVolumeMetric.NodeName)
+		r.Equal("default", podVolumeMetric.Namespace)
+		r.Equal("test-pod", podVolumeMetric.PodName)
+		r.Equal("/data", podVolumeMetric.MountPath)
+		r.NotNil(podVolumeMetric.RequestedSizeBytes)
+		r.Equal(int64(10737418240), *podVolumeMetric.RequestedSizeBytes) // 10 GiB
+
+		// Cloud volume metrics
+		cloudVolumeMetric := cloudVolumeWriter.metrics[0]
+		r.Equal("test-node", cloudVolumeMetric.NodeName)
+		r.Equal("aws", cloudVolumeMetric.CloudProvider)
+		r.Equal("vol-0123456789abcdef0", cloudVolumeMetric.VolumeID)
+		r.Equal("gp3", cloudVolumeMetric.VolumeType)
+		r.Equal(uint64(107374182400), cloudVolumeMetric.SizeBytes) // 100 GiB
+		r.NotNil(cloudVolumeMetric.IOPS)
+		r.Equal(uint32(3000), *cloudVolumeMetric.IOPS)
 	})
 }
 
@@ -912,6 +937,8 @@ func newTestController(opts ...any) *Controller {
 	blockDeviceMetrics := &mockBlockDeviceMetricsWriter{}
 	filesystemMetrics := &mockFilesystemMetricsWriter{}
 	nodeStatsSummaryWriter := &mockNodeStatsSummaryWriter{}
+	podVolumeMetricsWriter := &mockPodVolumeMetricsWriter{}
+	cloudVolumeMetricsWriter := &mockCloudVolumeMetricsWriter{}
 
 	ctrl := NewController(
 		log,
@@ -929,7 +956,8 @@ func newTestController(opts ...any) *Controller {
 		filesystemMetrics,
 		&mockStorageInfoProvider{},
 		nodeStatsSummaryWriter,
-		nil, // podVolumeMetricsWriter
+		podVolumeMetricsWriter,
+		cloudVolumeMetricsWriter,
 	)
 	return ctrl
 }
@@ -1244,6 +1272,12 @@ func (m *mockKubeClient) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVo
 	}, nil
 }
 
+func (m *mockKubeClient) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolumesRequest, opts ...grpc.CallOption) (*kubepb.GetCloudVolumesResponse, error) {
+	return &kubepb.GetCloudVolumesResponse{
+		Volumes: []*kubepb.CloudVolumeInfo{},
+	}, nil
+}
+
 type mockProcessTreeController struct {
 }
 
@@ -1321,6 +1355,32 @@ func (m *mockNodeStatsSummaryWriter) Write(metrics ...NodeStatsSummaryMetric) er
 	return nil
 }
 
+type mockPodVolumeMetricsWriter struct {
+	writeFunc func(metrics ...K8sPodVolumeMetric) error
+	metrics   []K8sPodVolumeMetric
+}
+
+func (m *mockPodVolumeMetricsWriter) Write(metrics ...K8sPodVolumeMetric) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
+	return nil
+}
+
+type mockCloudVolumeMetricsWriter struct {
+	writeFunc func(metrics ...CloudVolumeMetric) error
+	metrics   []CloudVolumeMetric
+}
+
+func (m *mockCloudVolumeMetricsWriter) Write(metrics ...CloudVolumeMetric) error {
+	if m.writeFunc != nil {
+		return m.writeFunc(metrics...)
+	}
+	m.metrics = append(m.metrics, metrics...)
+	return nil
+}
+
 type mockStorageInfoProvider struct{}
 
 func (m *mockStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
@@ -1369,5 +1429,47 @@ func (m *mockStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (
 }
 
 func (m *mockStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error) {
-	return []K8sPodVolumeMetric{}, nil
+	return []K8sPodVolumeMetric{
+		{
+			NodeName:           "test-node",
+			NodeTemplate:       lo.ToPtr("test-template"),
+			Namespace:          "default",
+			PodName:            "test-pod",
+			PodUID:             "test-pod-uid",
+			ControllerKind:     "Deployment",
+			ControllerName:     "test-deployment",
+			ContainerName:      "test-container",
+			VolumeName:         "test-volume",
+			MountPath:          "/data",
+			PVCName:            lo.ToPtr("test-pvc"),
+			RequestedSizeBytes: lo.ToPtr(int64(10737418240)), // 10 GiB
+			PVName:             lo.ToPtr("test-pv"),
+			StorageClass:       lo.ToPtr("gp3"),
+			CSIDriver:          lo.ToPtr("ebs.csi.aws.com"),
+			CSIVolumeHandle:    lo.ToPtr("vol-0123456789abcdef0"),
+			VolumeMode:         "Filesystem",
+			Timestamp:          time.Now().UTC(),
+		},
+	}, nil
+}
+
+func (m *mockStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error) {
+	timestamp := time.Now().UTC()
+	return []CloudVolumeMetric{
+		{
+			NodeName:         "test-node",
+			NodeTemplate:     lo.ToPtr("test-template"),
+			CloudProvider:    "aws",
+			Region:           "us-east-1",
+			AvailabilityZone: "us-east-1a",
+			VolumeID:         "vol-0123456789abcdef0",
+			VolumeType:       "gp3",
+			VolumeState:      "in-use",
+			SizeBytes:        107374182400, // 100 GiB
+			IOPS:             lo.ToPtr(uint32(3000)),
+			ThroughputBytes:  lo.ToPtr(uint32(125000000)), // 125 MB/s
+			Encrypted:        true,
+			Timestamp:        timestamp,
+		},
+	}, nil
 }

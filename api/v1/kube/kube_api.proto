@@ -13,6 +13,7 @@ service KubeAPI {
   rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
   rpc GetNodeStatsSummary(GetNodeStatsSummaryRequest) returns (GetNodeStatsSummaryResponse);
   rpc GetPodVolumes(GetPodVolumesRequest) returns (GetPodVolumesResponse);
+  rpc GetCloudVolumes(GetCloudVolumesRequest) returns (GetCloudVolumesResponse);
 }
 
 message GetClusterInfoRequest {}
@@ -180,4 +181,25 @@ message PodVolumeInfo {
   string csi_volume_handle = 15;
   string volume_mode = 16;    // "Filesystem" or "Block"
   string device_path = 17;    // For block volumes: container's volumeDevices[].devicePath
+}
+
+message GetCloudVolumesRequest {
+  string node_name = 1;
+}
+
+message GetCloudVolumesResponse {
+  repeated CloudVolumeInfo volumes = 1;
+}
+
+message CloudVolumeInfo {
+  string cloud_provider = 1;
+  string region = 2;
+  string availability_zone = 3;
+  string volume_id = 4;
+  string volume_type = 5;
+  string volume_state = 6;
+  uint64 size_bytes = 7;
+  uint32 iops = 8;
+  uint32 throughput_bytes = 9;
+  bool encrypted = 10;
 }

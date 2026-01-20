@@ -270,6 +270,47 @@ func (s *Server) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVolumesReq
 	}, nil
 }
 
+func (s *Server) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolumesRequest) (*kubepb.GetCloudVolumesResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	nodeVolumes := s.client.GetVolumesForNode(req.NodeName)
+	if len(nodeVolumes) == 0 {
+		return &kubepb.GetCloudVolumesResponse{}, nil
+	}
+
+	cloudProvider := s.client.GetCloudProvider()
+
+	volumes := make([]*kubepb.CloudVolumeInfo, 0, len(nodeVolumes))
+	for _, vol := range nodeVolumes {
+		volInfo := &kubepb.CloudVolumeInfo{
+			CloudProvider:    string(cloudProvider),
+			AvailabilityZone: vol.AvailabilityZone,
+			VolumeId:         vol.VolumeID,
+			VolumeType:       vol.VolumeType,
+			VolumeState:      vol.VolumeState,
+			SizeBytes:        vol.SizeBytes,
+			Encrypted:        vol.Encrypted,
+		}
+
+		if vol.IOPS != nil {
+			volInfo.Iops = *vol.IOPS
+		}
+
+		if vol.ThroughputBytes != nil {
+			volInfo.ThroughputBytes = *vol.ThroughputBytes
+		}
+
+		volumes = append(volumes, volInfo)
+	}
+
+	s.client.log.Infof("GetCloudVolumes: returning %d volumes for node %s", len(volumes), req.NodeName)
+	return &kubepb.GetCloudVolumesResponse{
+		Volumes: volumes,
+	}, nil
+}
+
 func (s *Server) enrichPVCDetails(volInfo *kubepb.PodVolumeInfo, vol corev1.Volume, namespace string) {
 	pvcName := vol.PersistentVolumeClaim.ClaimName
 	volInfo.PvcName = pvcName

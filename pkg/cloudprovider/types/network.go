@@ -1,35 +1,8 @@
 package types
 
-import (
-	"context"
-	"net/netip"
-)
+import "net/netip"
 
-// Provider defines cloud-agnostic operations for fetching VPC/network metadata.
-type Provider interface {
-	// GetMetadata returns the cached network metadata for the cluster's cloud environment.
-	GetMetadata(ctx context.Context) (*Metadata, error)
-
-	// RefreshMetadata updates cached metadata.
-	RefreshMetadata(ctx context.Context) error
-
-	// Type returns the cloud provider type.
-	Type() Type
-
-	// Close cleans up resources.
-	Close() error
-}
-
-type Type string
-
-const (
-	TypeGCP   Type = "gcp"
-	TypeAWS   Type = "aws"
-	TypeAzure Type = "azure"
-	TypeNone  Type = "none"
-)
-
-type Metadata struct {
+type NetworkState struct {
 	Provider      Type
 	Domain        string // Cloud domain (e.g., googleapis.com, amazonaws.com)
 	VPCs          []VPC
@@ -79,24 +52,4 @@ type PeeredVPCRange struct {
 	Zone   string
 	Region string
 	CIDR   netip.Prefix
-}
-
-// Config contains cloud provider configuration.
-type Config struct {
-	Type Type
-
-	// NetworkName required to filter only requested network
-	NetworkName string
-
-	// Authentication
-	CredentialsFile string // Path to service account key (fallback)
-
-	// GCP specific
-	GCPProjectID string
-
-	// AWS specific (for future)
-	AWSAccountID string
-
-	// Azure specific (for future)
-	AzureSubscriptionID string
 }
