@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aquasecurity/trivy/pkg/log"
 	"github.com/cespare/xxhash/v2"
 	"github.com/elastic/go-freelru"
 	"github.com/samber/lo"
@@ -480,7 +479,7 @@ func (s *SysfsStorageInfoProvider) buildFilesystemMetric(mount mountInfo, timest
 	}
 
 	// Check whether the filesystem is holding kubelet and/or castai-storage directories
-	labels := buildFilesystemLabels(devID, s.wellKnownPathDeviceID)
+	labels := buildFilesystemLabels(s.log, devID, s.wellKnownPathDeviceID)
 
 	metric := FilesystemMetric{
 		Devices:      s.getBackingDevices(mount.Device),
@@ -1008,7 +1007,7 @@ func getDeviceIDForPath(path string) (uint64, error) {
 	return uint64(stat.Dev), nil
 }
 
-func buildFilesystemLabels(fsMountPointDeviceID uint64, wellKnownPathsDeviceID map[string]uint64) map[string]string {
+func buildFilesystemLabels(log *logging.Logger, fsMountPointDeviceID uint64, wellKnownPathsDeviceID map[string]uint64) map[string]string {
 	labels := make(map[string]string)
 	if devID, ok := wellKnownPathsDeviceID[kubeletPath]; ok {
 		if devID == fsMountPointDeviceID {
