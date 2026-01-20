@@ -10,7 +10,7 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 )
 
-// IPVPCInfo contains network metadata for a specific IP address.
+// IPVPCInfo contains network state for a specific IP address.
 type IPVPCInfo struct {
 	Zone        string // filled only for AWS
 	Region      string
@@ -20,8 +20,9 @@ type IPVPCInfo struct {
 type VPCIndex struct {
 	log *logging.Logger
 
-	mu          sync.RWMutex
-	metadata    *cloudtypes.Metadata
+	mu    sync.RWMutex
+	state *cloudtypes.NetworkState
+
 	vpcCIDRs    []string
 	subnetCIDRs []string
 	peerCIDRs   []string
@@ -50,15 +51,15 @@ func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration, cacheSize u
 	}
 }
 
-// Update updates the VPC metadata and rebuilds the CIDR tree.
-func (vi *VPCIndex) Update(metadata *cloudtypes.Metadata) error {
+// Update updates the VPC state and rebuilds the CIDR tree.
+func (vi *VPCIndex) Update(state *cloudtypes.NetworkState) error {
 	vi.mu.Lock()
 	defer vi.mu.Unlock()
 
-	vi.metadata = metadata
+	vi.state = state
 	vi.lastRefresh = time.Now()
 
-	entries := vi.buildCIDREntries(metadata)
+	entries := vi.buildCIDREntries(state)
 
 	if err := vi.cidrIndex.Rebuild(entries); err != nil {
 		vi.log.Warnf("failed to rebuild CIDR index: %v", err)
@@ -72,21 +73,21 @@ func (vi *VPCIndex) Update(metadata *cloudtypes.Metadata) error {
 	return nil
 }
 
-// buildCIDREntries extracts CIDR entries from VPC metadata.
-func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.Entry[IPVPCInfo] {
-	if metadata == nil {
+// buildCIDREntries extracts CIDR entries from VPC state.
+func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex.Entry[IPVPCInfo] {
+	if state == nil {
 		return nil
 	}
 
 	var entries []cidrindex.Entry[IPVPCInfo]
 
 	// Index service IP ranges first (lowest priority in lookups)
-	for _, svcRange := range metadata.ServiceRanges {
+	for _, svcRange := range state.ServiceRanges {
 		for _, cidr := range svcRange.CIRDs {
 			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR: cidr,
 				Metadata: IPVPCInfo{
-					CloudDomain: metadata.Domain,
+					CloudDomain: state.Domain,
 					Region:      svcRange.Region,
 				},
 			})
@@ -94,7 +95,7 @@ func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.
 	}
 
 	// Index VPC and subnet CIDRs
-	for _, vpc := range metadata.VPCs {
+	for _, vpc := range state.VPCs {
 		for _, cidr := range vpc.CIDRs {
 			vi.vpcCIDRs = append(vi.vpcCIDRs, cidr.String())
 			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
@@ -145,7 +146,7 @@ func (vi *VPCIndex) buildCIDREntries(metadata *cloudtypes.Metadata) []cidrindex.
 	return entries
 }
 
-// LookupIP looks up VPC metadata for an IP address.
+// LookupIP looks up VPC state for an IP address.
 func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
@@ -163,12 +164,12 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 }
 
 func (vi *VPCIndex) VpcCIDRs() []string {
-	if vi.metadata == nil {
+	if vi.state == nil {
 		return []string{}
 	}
 
 	var knownCIDRs []string
-	for _, vpc := range vi.metadata.VPCs {
+	for _, vpc := range vi.state.VPCs {
 		knownCIDRs = append(knownCIDRs, netsToStrings(vpc.CIDRs)...)
 		for _, subnet := range vpc.Subnets {
 			knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
@@ -181,12 +182,12 @@ func (vi *VPCIndex) VpcCIDRs() []string {
 }
 
 func (vi *VPCIndex) CloudServiceCIDRs() []string {
-	if vi.metadata == nil {
+	if vi.state == nil {
 		return []string{}
 	}
 
 	var knownCIDRs []string
-	for _, svcRange := range vi.metadata.ServiceRanges {
+	for _, svcRange := range vi.state.ServiceRanges {
 		knownCIDRs = append(knownCIDRs, netsToStrings(svcRange.CIRDs)...)
 	}
 	return knownCIDRs

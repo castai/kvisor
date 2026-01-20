@@ -15,6 +15,7 @@ import (
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubelinter"
 	"github.com/castai/kvisor/pkg/castai"
+	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -41,12 +42,13 @@ var (
 
 	chartVersion = pflag.String("chart-version", "", "Helm chart version")
 
-	cloudProvider                = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
-	cloudProviderVPCSyncEnabled  = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC metadata sync")
+	cloudProvider             = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
+	cloudProviderGCPProjectID = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider GCP project ID")
+
+	cloudProviderVPCSyncEnabled  = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC controller")
 	cloudProviderVPCName         = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
 	cloudProviderVPCSyncInterval = pflag.Duration("cloud-provider-vpc-sync-interval", 1*time.Hour, "Cloud provider VPC sync interval")
 	cloudProviderVPCCacheSize    = pflag.Uint32("cloud-provider-vpc-cache-size", 10000, "Cloud provider VPC cache size")
-	cloudProviderGCPProjectID    = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider VPC syncer in which the cluster is running")
 
 	castaiSecretRefName      = pflag.String("castai-secret-ref-name", "castai-kvisor", "CASTAI k8s secret name")
 	castaiConfigSyncDuration = pflag.Duration("castai-config-sync-duration", 1*time.Minute, "CASTAI remote config sync duration")
@@ -193,13 +195,17 @@ func main() {
 		AgentConfig: config.AgentConfig{
 			Enabled: *agentEnabled,
 		},
-		CloudProvider: controllers.VPCMetadataConfig{
-			Enabled:         *cloudProviderVPCSyncEnabled,
-			NetworkName:     *cloudProviderVPCName,
-			RefreshInterval: *cloudProviderVPCSyncInterval,
-			CacheSize:       *cloudProviderVPCCacheSize,
-			Type:            *cloudProvider,
-			GCPProjectID:    *cloudProviderGCPProjectID,
+		CloudProviderConfig: config.CloudProviderConfig{
+			CloudProvider: cloudtypes.ProviderConfig{
+				Type:         cloudtypes.Type(*cloudProvider),
+				GCPProjectID: *cloudProviderGCPProjectID,
+			},
+			VPCStateController: controllers.VPCStateControllerConfig{
+				Enabled:         *cloudProviderVPCSyncEnabled,
+				NetworkName:     *cloudProviderVPCName,
+				RefreshInterval: *cloudProviderVPCSyncInterval,
+				CacheSize:       *cloudProviderVPCCacheSize,
+			},
 		},
 	},
 		clientset,

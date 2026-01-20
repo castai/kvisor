@@ -16,21 +16,15 @@ func init() {
 	_ = godotenv.Load(".env")
 }
 
-func getTestConfig(t *testing.T) types.Config {
+func getTestConfig(t *testing.T) types.ProviderConfig {
 	projectID := os.Getenv("GCP_PROJECT_ID")
 	if projectID == "" {
 		t.Skip("GCP_PROJECT_ID not set (use .env file or environment variable)")
 	}
 
-	networkName := os.Getenv("NETWORK_NAME")
-	if networkName == "" {
-		t.Skip("NETWORK_NAME not set (use .env file or environment variable)")
-	}
-
-	cfg := types.Config{
+	cfg := types.ProviderConfig{
 		Type:         types.TypeGCP,
 		GCPProjectID: projectID,
-		NetworkName:  networkName,
 	}
 
 	if credsFile := os.Getenv("GCP_CREDENTIALS_FILE"); credsFile != "" {
@@ -46,8 +40,8 @@ func getTestConfig(t *testing.T) types.Config {
 	return cfg
 }
 
-// TestRefreshMetadata calls RefreshMetadata and prints the results.
-func TestRefreshMetadata(t *testing.T) {
+// TestRefreshNetworkState calls RefreshNetworkState and prints the results.
+func TestRefreshNetworkState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := context.Background()
 
@@ -55,23 +49,27 @@ func TestRefreshMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
-	defer provider.Close()
 
 	p := provider.(*gcp.Provider)
 
-	err = p.RefreshMetadata(ctx)
-	if err != nil {
-		t.Fatalf("RefreshMetadata failed: %v", err)
+	networkName := os.Getenv("NETWORK_NAME")
+	if networkName == "" {
+		t.Fatal("NETWORK_NAME not set (use .env file or environment variable)")
 	}
 
-	metadata, err := p.GetMetadata(ctx)
+	err = p.RefreshNetworkState(ctx, networkName)
 	if err != nil {
-		t.Fatalf("GetMetadata failed: %v", err)
+		t.Fatalf("RefreshState failed: %v", err)
 	}
 
-	t.Logf("Metadata:")
-	t.Logf("  Provider: %s", metadata.Provider)
-	for _, vpc := range metadata.VPCs {
+	state, err := p.GetNetworkState(ctx)
+	if err != nil {
+		t.Fatalf("GetState failed: %v", err)
+	}
+
+	t.Logf("State:")
+	t.Logf("  Provider: %s", state.Provider)
+	for _, vpc := range state.VPCs {
 		t.Logf("  VPC: %s", vpc.Name)
 		for _, subnet := range vpc.Subnets {
 			t.Logf("    Subnet: %s; Region: %s; CIDR: %s", subnet.Name, subnet.Region, subnet.CIDR)
@@ -82,5 +80,5 @@ func TestRefreshMetadata(t *testing.T) {
 			}
 		}
 	}
-	// t.Logf("  Service Ranges: %+v", metadata.ServiceRanges)
+	// t.Logf("  Service Ranges: %+v", state.ServiceRanges)
 }

@@ -10,7 +10,7 @@ import (
 
 // buildClientOptions constructs GCP client options with authentication.
 // Priority: Workload Identity (default) > Service Account Key File > Default Credentials
-func buildClientOptions(cfg types.Config) ([]option.ClientOption, error) {
+func buildClientOptions(cfg types.ProviderConfig) ([]option.ClientOption, error) {
 	var opts []option.ClientOption
 
 	// Try Workload Identity first (no credentials needed - uses pod service account)
@@ -32,7 +32,7 @@ func buildClientOptions(cfg types.Config) ([]option.ClientOption, error) {
 	// No explicit authentication configured - rely on default credentials
 	// This will use:
 	// 1. GOOGLE_APPLICATION_CREDENTIALS env var
-	// 2. GCE metadata service (if running on GCE)
+	// 2. GCE state service (if running on GCE)
 	// 3. gcloud CLI credentials
 	return opts, nil
 }
