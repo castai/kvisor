@@ -520,17 +520,37 @@ func (s *SysfsStorageInfoProvider) getBackingDevices(device string) []string {
 
 // getLVMDMDevice resolves LVM logical volumes to their dm device.
 // It handles the symlink chain: /dev/mapper/vg-lv → /dev/dm-X
+// It also handled block devices.
 func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 	if !strings.HasPrefix(device, "/dev/mapper/") {
 		return nil
 	}
 	hostMapperPath := filepath.Join(s.hostRootPath, device)
-	linkTarget, err := os.Readlink(hostMapperPath)
-	if err != nil {
-		s.log.Errorf("symlink resolution failed for %s: %v", device, err)
+
+	var stat unix.Stat_t
+	if err := unix.Lstat(hostMapperPath, &stat); err != nil {
+		s.log.Errorf("cannot read stat of %s: %v", hostMapperPath, err)
 		return nil
 	}
-	return []string{"/dev/" + filepath.Base(linkTarget)}
+
+	switch stat.Mode & unix.S_IFMT {
+	// It is most common for devices under /dev/mapper to be symlinks, so check this first.
+	case unix.S_IFLNK:
+		linkTarget, err := os.Readlink(hostMapperPath)
+		if err != nil {
+			s.log.Errorf("symlink resolution failed for %s: %v", device, err)
+			return nil
+		}
+		return []string{"/dev/" + filepath.Base(linkTarget)}
+
+	// Devices under /dev/mapper can also be block devices.
+	case unix.S_IFBLK:
+		return s.findDMDeviceByMajorMinor(hostMapperPath, stat.Rdev)
+
+	default:
+		s.log.Errorf("unhandled file type for %s: %d", hostMapperPath, stat.Mode)
+		return nil
+	}
 }
 
 func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
