@@ -44,8 +44,9 @@ type Config struct {
 }
 
 type CloudProviderConfig struct {
-	CloudProvider      cloudtypes.ProviderConfig            `json:"cloudProvider"`
-	VPCStateController controllers.VPCStateControllerConfig `json:"vpcStateController"`
+	CloudProvider         cloudtypes.ProviderConfig               `json:"cloudProvider"`
+	VPCStateController    controllers.VPCStateControllerConfig    `json:"vpcStateController"`
+	VolumeStateController controllers.VolumeStateControllerConfig `json:"volumeStateController"`
 }
 
 type AgentConfig struct {

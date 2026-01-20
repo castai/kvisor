@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/castai/kvisor/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -65,8 +66,9 @@ type Client struct {
 	mu                      sync.RWMutex
 	kvisorControllerPodSpec *corev1.PodSpec
 
-	index    *Index
-	vpcIndex *VPCIndex
+	index       *Index
+	vpcIndex    *VPCIndex
+	volumeIndex *VolumeIndex
 
 	clusterInfo *ClusterInfo
 
@@ -74,6 +76,8 @@ type Client struct {
 	changeListeners   []*eventListener
 	version           Version
 	ipInfoTTL         time.Duration
+
+	cloudProvider cloudtypes.Type
 }
 
 func NewClient(
@@ -103,6 +107,23 @@ func (c *Client) SetVPCIndex(vpcIndex *VPCIndex) {
 // GetVPCIndex returns the VPC index if available.
 func (c *Client) GetVPCIndex() *VPCIndex {
 	return c.vpcIndex
+}
+
+// SetVolumeIndex sets the volume index for enriching volume information with cloud metadata.
+func (c *Client) SetVolumeIndex(volumeIndex *VolumeIndex) {
+	c.volumeIndex = volumeIndex
+}
+
+// GetAllNodes returns all nodes currently in the index.
+func (c *Client) GetAllNodes() []*corev1.Node {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	nodes := make([]*corev1.Node, 0, len(c.index.nodesByName))
+	for _, node := range c.index.nodesByName {
+		nodes = append(nodes, node)
+	}
+	return nodes
 }
 
 func (c *Client) RegisterHandlers(factory informers.SharedInformerFactory) {
@@ -344,6 +365,22 @@ func (c *Client) GetPodsOnNode(nodeName string) []*PodInfo {
 	defer c.mu.RUnlock()
 
 	return c.index.GetPodsOnNode(nodeName)
+}
+
+func (c *Client) GetVolumesForNode(nodeName string) []cloudtypes.Volume {
+	if c.volumeIndex == nil {
+		return nil
+	}
+
+	return c.volumeIndex.GetVolumesForNode(nodeName)
+}
+
+func (c *Client) GetCloudProvider() cloudtypes.Type {
+	return c.cloudProvider
+}
+
+func (c *Client) SetCloudProvider(provider cloudtypes.Type) {
+	c.cloudProvider = provider
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {

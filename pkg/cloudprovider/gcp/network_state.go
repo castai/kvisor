@@ -21,14 +21,14 @@ func (p *Provider) GetNetworkState(ctx context.Context) (*types.NetworkState, er
 	defer p.networkStateMu.RUnlock()
 
 	if p.networkState == nil {
-		return nil, fmt.Errorf("state not yet available")
+		return nil, fmt.Errorf("network state not yet available")
 	}
 
 	return p.networkState, nil
 }
 
 func (p *Provider) RefreshNetworkState(ctx context.Context, network string) error {
-	p.log.Info("refreshing GCP state")
+	p.log.Debug("refreshing network state")
 
 	state := &types.NetworkState{
 		Domain:   types.DomainGCP,
@@ -52,7 +52,7 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.networkState = state
 	p.networkStateMu.Unlock()
 
-	p.log.Info("refreshed vpc state")
+	p.log.Debug("refreshed network state")
 	return nil
 }
 
