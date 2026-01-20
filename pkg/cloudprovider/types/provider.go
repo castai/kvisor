@@ -21,15 +21,15 @@ type ProviderConfig struct {
 	AzureSubscriptionID string
 }
 
-// Provider defines cloud-agnostic operations for fetching VPC/network state.
+// Provider defines cloud-agnostic operations for fetching cloud environment state.
 type Provider interface {
 	// Type returns the cloud provider type.
 	Type() Type
 
-	// GetState returns the cached network state for the cluster's cloud environment.
+	// GetNetworkState returns the cached network state for the cluster's cloud environment.
 	GetNetworkState(ctx context.Context) (*NetworkState, error)
 
-	// RefreshState updates cached network state.
+	// RefreshNetworkState updates cached network state.
 	RefreshNetworkState(ctx context.Context, network string) error
 
 	// Close cleans up resources.

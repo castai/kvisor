@@ -1,22 +1,22 @@
-# Cloud Metadata Syncer Configuration
+# Cloud State controller Configuration
 
 ## Overview
 
-The Cloud metadata syncer enriches netflow data with cloud provider network information, including:
+The Cloud state controller enriches netflow data with cloud provider network information, including:
 
 - VPC and subnet details: CIDR ranges, regions, zones.
 - VPC peering connections and their IP ranges
 - Cloud provider service IP ranges
 
-This metadata enables better network flow analysis and region/zone attribution for network traffic.
-**NOTE**: Zones information is not available via GCP VPC metadata due to the nature of networking in GCP.
+This network state enables better network flow analysis and region/zone attribution for network traffic.
+**NOTE**: Zones information is not available via GCP VPC state due to the nature of networking in GCP.
 
 ## How It Works
 
-1. On startup, kvisor fetches VPC metadata from your cloud provider API
-2. Metadata is cached and refreshed periodically (default: every hour)
+1. On startup, kvisor fetches VPC network state from your cloud provider API
+2. Network state is cached and refreshed periodically (default: every hour)
 3. Network flow events are enriched with VPC context (region, zone, subnet info)
-4. The syncer runs as a background controller in the kvisor controller pod
+4. The controller runs as a background controller in the kvisor controller pod
 
 ## Supported Cloud Providers
 
@@ -58,7 +58,7 @@ export SERVICE_ACCOUNT_NAME="kvisor-vpc-reader"
 # Create service account
 gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} \
   --project=${PROJECT_ID} \
-  --display-name="Kvisor VPC Metadata Reader"
+  --display-name="Kvisor VPC State Reader"
 
 # Grant necessary permissions
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
@@ -95,13 +95,15 @@ agent:
 
 controller:
   extraArgs:
-    # VPC syncer configuration
+    # Cloud provider configuration
     cloud-provider: gcp
-    cloud-provider-vpc-sync-enabled: true
     cloud-provider-gcp-project-id: "your-gcp-project-id"
+
+    # VPC controller configuration
+    cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "your-vpc-name"
     cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
-    cloud-provider-vpc-name: "your-vpc-name"
+    cloud-provider-vpc-cache-size: 10000 # Optional: cache size
 
   nodeSelector:
     iam.gke.io/gke-metadata-server-enabled: "true"
@@ -136,7 +138,7 @@ export SERVICE_ACCOUNT_NAME="kvisor-vpc-reader"
 # Create service account
 gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} \
   --project=${PROJECT_ID} \
-  --display-name="Kvisor VPC Metadata Reader"
+  --display-name="Kvisor VPC State Reader"
 
 # Grant necessary permissions
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
@@ -169,7 +171,7 @@ Create or update your `values.yaml`:
 
 ```yaml
 controller:
-  # VPC syncer configuration
+  # VPC controller configuration
   extraArgs:
     cloud-provider: gcp
     cloud-provider-vpc-sync-enabled: true
