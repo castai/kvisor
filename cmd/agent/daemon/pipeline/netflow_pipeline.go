@@ -379,7 +379,7 @@ func isNetflowDestCandidateForMerge(
 	}
 
 	// No merge for cloud destinations.
-	if !isCloud {
+	if isCloud {
 		return false
 	}
 	// Not merge if there is destination dns context.
