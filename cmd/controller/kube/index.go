@@ -15,28 +15,28 @@ import (
 func NewIndex() *Index {
 	nodesCIDRIndex, _ := cidrindex.NewIndex[string](1000, 30*time.Second)
 	return &Index{
-		ipsDetails:  make(ipsDetails),
-		replicaSets: make(map[types.UID]metav1.ObjectMeta),
-		jobs:        make(map[types.UID]metav1.ObjectMeta),
-		deployments: make(map[types.UID]*appsv1.Deployment),
-		pods:        make(map[types.UID]*PodInfo),
-		nodesByName: make(map[string]*corev1.Node),
+		ipsDetails:     make(ipsDetails),
+		replicaSets:    make(map[types.UID]metav1.ObjectMeta),
+		jobs:           make(map[types.UID]metav1.ObjectMeta),
+		deployments:    make(map[types.UID]*appsv1.Deployment),
+		pods:           make(map[types.UID]*PodInfo),
+		nodesByName:    make(map[string]*corev1.Node),
 		nodesCIDRIndex: nodesCIDRIndex,
-		pvcs:        make(map[string]*corev1.PersistentVolumeClaim),
-		pvs:         make(map[string]*corev1.PersistentVolume),
+		pvcs:           make(map[string]*corev1.PersistentVolumeClaim),
+		pvs:            make(map[string]*corev1.PersistentVolume),
 	}
 }
 
 type Index struct {
-	ipsDetails  ipsDetails
-	replicaSets map[types.UID]metav1.ObjectMeta
-	jobs        map[types.UID]metav1.ObjectMeta
-	deployments map[types.UID]*appsv1.Deployment
-	pods        map[types.UID]*PodInfo
-	nodesByName map[string]*corev1.Node
+	ipsDetails     ipsDetails
+	replicaSets    map[types.UID]metav1.ObjectMeta
+	jobs           map[types.UID]metav1.ObjectMeta
+	deployments    map[types.UID]*appsv1.Deployment
+	pods           map[types.UID]*PodInfo
+	nodesByName    map[string]*corev1.Node
 	nodesCIDRIndex *cidrindex.Index[string]
-	pvcs        map[string]*corev1.PersistentVolumeClaim // key: namespace/name
-	pvs         map[string]*corev1.PersistentVolume      // key: PV name
+	pvcs           map[string]*corev1.PersistentVolumeClaim // key: namespace/name
+	pvs            map[string]*corev1.PersistentVolume      // key: PV name
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {

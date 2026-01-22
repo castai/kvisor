@@ -2,6 +2,10 @@ package iputil
 
 import "net/netip"
 
+func IsPublicNetwork(ip netip.Addr) bool {
+	return ip.IsValid() && !IsPrivateNetwork(ip)
+}
+
 func IsPrivateNetwork(ip netip.Addr) bool {
 	return ip.IsPrivate() ||
 		ip.IsLoopback() ||

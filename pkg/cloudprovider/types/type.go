@@ -7,4 +7,7 @@ const (
 	TypeAWS   Type = "aws"
 	TypeAzure Type = "azure"
 	TypeNone  Type = "none"
+
+	DomainGCP string = "googleapis.com"
+	DomainAWS string = "amazonaws.com"
 )
