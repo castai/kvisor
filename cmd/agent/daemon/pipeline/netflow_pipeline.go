@@ -330,9 +330,13 @@ func (c *Controller) enrichKubeDestinations(ctx context.Context, groups map[uint
 func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.NetflowDestination, destAddr netip.Addr) {
 	isPublicDest := !iputil.IsPrivateNetwork(destAddr)
 	netflow.updatedAt = time.Now()
+	var isCloudDest bool
+	if c.clusterInfo != nil {
+		isCloudDest = c.clusterInfo.cloudCidrContains(destAddr)
+	}
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
-	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, c.clusterInfo.cloudCidrContains(destAddr), c.cfg.Netflow.MaxPublicIPs)
+	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, isCloudDest, c.cfg.Netflow.MaxPublicIPs)
 	if maybeMerge && netflow.mergeThreshold >= int(c.cfg.Netflow.MaxPublicIPs) {
 		if netflow.mergedDestIndex == 0 {
 			netflow.pb.Destinations = append(netflow.pb.Destinations, &castaipb.NetflowDestination{
