@@ -80,6 +80,9 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 	}
 
 	var entries []cidrindex.Entry[IPVPCInfo]
+	var vpcCIDRs []string
+	var subnetCIDRs []string
+	var peerCIDRs []string
 
 	// Index service IP ranges first (lowest priority in lookups)
 	for _, svcRange := range state.ServiceRanges {
@@ -97,7 +100,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 	// Index VPC and subnet CIDRs
 	for _, vpc := range state.VPCs {
 		for _, cidr := range vpc.CIDRs {
-			vi.vpcCIDRs = append(vi.vpcCIDRs, cidr.String())
+			vpcCIDRs = append(vpcCIDRs, cidr.String())
 			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR:     cidr,
 				Metadata: IPVPCInfo{},
@@ -106,7 +109,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 		// Index subnet CIDRs
 		for _, subnet := range vpc.Subnets {
-			vi.subnetCIDRs = append(vi.subnetCIDRs, subnet.CIDR.String())
+			subnetCIDRs = append(subnetCIDRs, subnet.CIDR.String())
 			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR: subnet.CIDR,
 				Metadata: IPVPCInfo{
@@ -117,7 +120,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 			// Index secondary ranges (GKE alias IPs)
 			for _, secondary := range subnet.SecondaryRanges {
-				vi.subnetCIDRs = append(vi.subnetCIDRs, secondary.CIDR.String())
+				subnetCIDRs = append(subnetCIDRs, secondary.CIDR.String())
 				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: secondary.CIDR,
 					Metadata: IPVPCInfo{
@@ -131,7 +134,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 		// Index peered VPC CIDRs
 		for _, peer := range vpc.PeeredVPCs {
 			for _, cidrRange := range peer.Ranges {
-				vi.peerCIDRs = append(vi.peerCIDRs, cidrRange.CIDR.String())
+				peerCIDRs = append(peerCIDRs, cidrRange.CIDR.String())
 				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: cidrRange.CIDR,
 					Metadata: IPVPCInfo{
@@ -143,6 +146,9 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 		}
 	}
 
+	vi.vpcCIDRs = vpcCIDRs
+	vi.subnetCIDRs = subnetCIDRs
+	vi.peerCIDRs = peerCIDRs
 	return entries
 }
 

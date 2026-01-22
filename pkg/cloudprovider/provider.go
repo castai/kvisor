@@ -24,3 +24,14 @@ func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider,
 		return nil, fmt.Errorf("unsupported cloud provider type: %s", cfg.Type)
 	}
 }
+
+func DomainToProviderType(domain string) string {
+	switch domain {
+	case types.DomainGCP:
+		return string(types.TypeGCP)
+	case types.DomainAWS:
+		return string(types.TypeAWS)
+	default:
+		return ""
+	}
+}

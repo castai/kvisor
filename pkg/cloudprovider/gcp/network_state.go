@@ -31,7 +31,7 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.log.Info("refreshing GCP state")
 
 	state := &types.NetworkState{
-		Domain:   "googleapis.com",
+		Domain:   types.DomainGCP,
 		Provider: types.TypeGCP,
 	}
 

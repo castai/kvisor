@@ -13,6 +13,7 @@ import (
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
+	"github.com/castai/kvisor/pkg/cloudprovider"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -29,6 +30,7 @@ type clusterInfo struct {
 	serviceCidr []netip.Prefix
 	nodeCidr    []netip.Prefix
 	vpcCidr     []netip.Prefix
+	cloudCidr   []netip.Prefix
 	clusterCidr []netip.Prefix
 }
 
@@ -84,6 +86,7 @@ func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
 			if err != nil {
 				return nil, fmt.Errorf("parsing other cidr: %w", err)
 			}
+			res.cloudCidr = append(res.cloudCidr, subnet)
 			res.clusterCidr = append(res.clusterCidr, subnet)
 		}
 		return &res, nil
@@ -306,10 +309,17 @@ func (c *Controller) enrichKubeDestinations(ctx context.Context, groups map[uint
 					flowDest.Region = info.Region
 					flowDest.NodeName = info.NodeName
 
-					// set cloud domain as dns question when it's empty
-					// i.e. googleapis.com or amazonaws.com
-					if flowDest.DnsQuestion == "" && info.CloudDomain != "" {
-						flowDest.DnsQuestion = info.CloudDomain
+					// CloudDomain will be non empty if this is flow within cloud traffic
+					if info.CloudDomain != "" {
+						// set cloud domain as dns question when it's empty
+						// i.e. googleapis.com or amazonaws.com
+						if flowDest.DnsQuestion == "" {
+							flowDest.DnsQuestion = info.CloudDomain
+						}
+
+						// Set cloud as kind and type as workload name for cloud IPs
+						flowDest.WorkloadName = cloudprovider.DomainToProviderType(info.CloudDomain)
+						flowDest.WorkloadKind = "cloud"
 					}
 				}
 			}
@@ -322,7 +332,7 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 	netflow.updatedAt = time.Now()
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
-	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, c.cfg.Netflow.MaxPublicIPs)
+	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, c.clusterInfo.cloudCidrContains(destAddr), c.cfg.Netflow.MaxPublicIPs)
 	if maybeMerge && netflow.mergeThreshold >= int(c.cfg.Netflow.MaxPublicIPs) {
 		if netflow.mergedDestIndex == 0 {
 			netflow.pb.Destinations = append(netflow.pb.Destinations, &castaipb.NetflowDestination{
@@ -357,9 +367,19 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 	}
 }
 
-func isNetflowDestCandidateForMerge(dest *castaipb.NetflowDestination, isPublic bool, maxPublicIPs int16) bool {
+func isNetflowDestCandidateForMerge(
+	dest *castaipb.NetflowDestination,
+	isPublic bool,
+	isCloud bool,
+	maxPublicIPs int16,
+) bool {
 	// No merge for private destinations.
 	if !isPublic {
+		return false
+	}
+
+	// No merge for cloud destinations.
+	if !isCloud {
 		return false
 	}
 	// Not merge if there is destination dns context.
@@ -452,6 +472,11 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		}
 	}
 
+	flowKind := "private"
+	if iputil.IsPublicNetwork(remote.Addr()) {
+		flowKind = "internet"
+	}
+
 	destination := &castaipb.NetflowDestination{
 		DnsQuestion: dns,
 		Addr:        remote.Addr().AsSlice(),
@@ -460,6 +485,11 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 		RxBytes:     summary.RxBytes,
 		TxPackets:   summary.TxPackets,
 		RxPackets:   summary.RxPackets,
+
+		// Mark workload kind as private or internet,
+		// but it later could be overriden by IP info from kube client
+		// within `enrichKubeDestinations` method
+		WorkloadKind: flowKind,
 	}
 
 	return destination, remote.Addr(), nil
@@ -500,6 +530,15 @@ func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
 
 func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
 	for _, cidr := range c.clusterCidr {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *clusterInfo) cloudCidrContains(ip netip.Addr) bool {
+	for _, cidr := range c.cloudCidr {
 		if cidr.Contains(ip) {
 			return true
 		}
