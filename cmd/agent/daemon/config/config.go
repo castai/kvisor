@@ -78,12 +78,13 @@ type EnricherConfig struct {
 }
 
 type NetflowConfig struct {
-	Enabled                   bool                       `json:"enabled"`
-	ExportInterval            time.Duration              `json:"exportInterval"`
-	Grouping                  ebpftracer.NetflowGrouping `json:"grouping"`
-	MaxPublicIPs              int16                      `json:"maxPublicIPs"`
-	CheckClusterNetworkRanges bool                       `json:"checkClusterNetworkRanges"`
-	CgroupDNSCacheMaxEntries  uint32                     `json:"cgroupDNSCacheMaxEntries"`
+	Enabled                     bool                       `json:"enabled"`
+	ExportInterval              time.Duration              `json:"exportInterval"`
+	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
+	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
+	CheckClusterNetworkRanges   bool                       `json:"checkClusterNetworkRanges"`
+	ClusterInfoRefreshInterval  time.Duration              `json:"clusterInfoRefreshInterval"`
+	CgroupDNSCacheMaxEntries    uint32                     `json:"cgroupDNSCacheMaxEntries"`
 }
 
 type FileAccessConfig struct {

@@ -82,12 +82,13 @@ func NewRunCommand(version string) *cobra.Command {
 		gitCloneDetectionSignatureRedactPasswords        = command.Flags().Bool("signature-git-clone-detection-redact-password", true, "If enabled, any password passed via the URL gets redacted")
 		ingressNightmareExploitDetectionSignatureEnabled = command.Flags().Bool("signature-ingress-nightmare-exploit-detection-enabled", true, "Enables the detection signature to detect exploits of ingress nightmare")
 
-		netflowEnabled                   = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
-		netflowCheckClusterNetworkRanges = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
-		netflowExportInterval            = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
-		netflowMaxPublicIPsBucket        = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
-		netflowCgroupDnsCacheMaxEntries  = command.Flags().Uint32("netflow-cgroup-dns-cache-max-entries", 1024, "Number of dns cache entries per cgroup")
-		netflowGrouping                  = ebpftracer.NetflowGroupingDropSrcPort
+		netflowEnabled                     = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
+		netflowCheckClusterNetworkRanges   = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
+		netflowExportInterval              = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
+		netflowMaxPublicIPsBucket          = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
+		netflowCgroupDnsCacheMaxEntries    = command.Flags().Uint32("netflow-cgroup-dns-cache-max-entries", 1024, "Number of dns cache entries per cgroup")
+		netflowClusterInfoRefreshInterval  = command.Flags().Duration("netflow-cluster-info-refresh-interval", 5*time.Minute, "Cluster info refresh interval (0 to disable periodic refresh)")
+		netflowGrouping                    = ebpftracer.NetflowGroupingDropSrcPort
 
 		processTreeEnabled = command.Flags().Bool("process-tree-enabled", false, "Enables process tree tracking")
 
@@ -199,12 +200,13 @@ func NewRunCommand(version string) *cobra.Command {
 				RedactSensitiveValuesRegex: redactSensitiveValuesRegex,
 			},
 			Netflow: config.NetflowConfig{
-				Enabled:                   *netflowEnabled,
-				Grouping:                  netflowGrouping,
-				ExportInterval:            *netflowExportInterval,
-				MaxPublicIPs:              *netflowMaxPublicIPsBucket,
-				CheckClusterNetworkRanges: *netflowCheckClusterNetworkRanges,
-				CgroupDNSCacheMaxEntries:  *netflowCgroupDnsCacheMaxEntries,
+				Enabled:                     *netflowEnabled,
+				Grouping:                    netflowGrouping,
+				ExportInterval:              *netflowExportInterval,
+				MaxPublicIPs:                *netflowMaxPublicIPsBucket,
+				CheckClusterNetworkRanges:   *netflowCheckClusterNetworkRanges,
+				ClusterInfoRefreshInterval:  *netflowClusterInfoRefreshInterval,
+				CgroupDNSCacheMaxEntries:    *netflowCgroupDnsCacheMaxEntries,
 			},
 			Clickhouse: config.ClickhouseConfig{
 				Addr:     *clickhouseAddr,
