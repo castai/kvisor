@@ -73,9 +73,37 @@ func newClusterInfo(kubeClient kubepb.KubeAPIClient, log *logging.Logger) *clust
 }
 
 func (c *clusterInfo) sync(ctx context.Context) error {
-	resp, err := c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
-	if err != nil {
-		return fmt.Errorf("getting cluster info: %w", err)
+	const (
+		maxRetries     = 5
+		initialBackoff = 2 * time.Second
+		maxBackoff     = 30 * time.Second
+	)
+
+	var resp *kubepb.GetClusterInfoResponse
+	var err error
+
+	backoff := initialBackoff
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		resp, err = c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
+		if err == nil {
+			break
+		}
+
+		if attempt < maxRetries {
+			c.log.Warnf("getting cluster info (attempt %d/%d): %v, retrying in %v", attempt, maxRetries, err, backoff)
+
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("context cancelled during retry: %w", ctx.Err())
+			case <-time.After(backoff):
+				backoff *= 2
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+			}
+		} else {
+			return fmt.Errorf("getting cluster info after %d attempts: %w", maxRetries, err)
+		}
 	}
 
 	var podCidr, serviceCidr, nodeCidr, vpcCidr, cloudCidr, clusterCidr []netip.Prefix
@@ -172,9 +200,7 @@ func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
 			return true
 		}
 	}
-	// When cluster cidr is empty, it means that sync has not been called
-	// let's assume that the IP is in the cluster, so that we don't drop dest info about it
-	return len(c.serviceCidr) > 0
+	return false
 }
 
 func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
@@ -191,7 +217,5 @@ func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
 		}
 	}
 
-	// When cluster cidr is empty, it means that sync has not been called
-	// let's assume that the IP is in the cluster, so that we don't drop dest info about it
-	return len(c.clusterCidr) > 0
+	return false
 }

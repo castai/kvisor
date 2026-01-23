@@ -445,12 +445,3 @@ func toProtoProtocol(proto uint8) castaipb.NetflowProtocol {
 		return castaipb.NetflowProtocol_NETFLOW_PROTOCOL_UNKNOWN
 	}
 }
-
-func sleep(ctx context.Context, timeout time.Duration) {
-	t := time.NewTimer(timeout)
-	defer t.Stop()
-	select {
-	case <-t.C:
-	case <-ctx.Done():
-	}
-}

@@ -93,7 +93,6 @@ func NewClient(
 		kvisorControllerContainerName: "controller",
 		client:                        client,
 		index:                         NewIndex(),
-		vpcIndex:                      NewVPCIndex(log, 0, 0),
 		version:                       version,
 		ipInfoTTL:                     30 * time.Second,
 	}
