@@ -158,7 +158,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 // LookupIP looks up VPC state for an IP address.
 func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
-	if vi.state == nil {
+	if vi == nil {
 		return nil, false
 	}
 
@@ -178,7 +178,7 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 }
 
 func (vi *VPCIndex) VpcCIDRs() []string {
-	if vi.state == nil || vi.state == nil {
+	if vi == nil || vi.state == nil {
 		return []string{}
 	}
 
@@ -196,7 +196,7 @@ func (vi *VPCIndex) VpcCIDRs() []string {
 }
 
 func (vi *VPCIndex) CloudServiceCIDRs() []string {
-	if vi.state == nil || vi.state == nil {
+	if vi == nil || vi.state == nil {
 		return []string{}
 	}
 
