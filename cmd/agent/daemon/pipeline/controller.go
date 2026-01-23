@@ -281,6 +281,13 @@ func (c *Controller) Run(ctx context.Context) error {
 		}
 		c.conntrackCache = conntrackCache
 
+		if c.cfg.Netflow.CheckClusterNetworkRanges {
+			errg.Go(func() error {
+				c.runClusterInfoPipeline(ctx)
+				return nil
+			})
+		}
+
 		errg.Go(func() error {
 			return c.runNetflowPipeline(ctx)
 		})

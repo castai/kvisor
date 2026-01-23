@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
-	"sync"
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
@@ -18,7 +17,6 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/net/iputil"
 	"github.com/cespare/xxhash/v2"
 	"golang.org/x/sys/unix"
@@ -27,117 +25,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type clusterInfo struct {
-	mu          sync.RWMutex
-	kubeClient  kubepb.KubeAPIClient
-	log         *logging.Logger
-	podCidr     []netip.Prefix
-	serviceCidr []netip.Prefix
-	nodeCidr    []netip.Prefix
-	vpcCidr     []netip.Prefix
-	cloudCidr   []netip.Prefix
-	clusterCidr []netip.Prefix
-}
-
-func NewClusterInfo(kubeClient kubepb.KubeAPIClient, log *logging.Logger) *clusterInfo {
-	return &clusterInfo{
-		kubeClient: kubeClient,
-		log:        log,
-	}
-}
-
-func (c *clusterInfo) sync(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		resp, err := c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
-		if err != nil {
-			c.log.Warnf("getting cluster info: %v", err)
-			sleep(ctx, 2*time.Second)
-			continue
-		}
-
-		var podCidr, serviceCidr, nodeCidr, vpcCidr, cloudCidr, clusterCidr []netip.Prefix
-
-		for _, cidr := range resp.GetPodsCidr() {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return fmt.Errorf("parsing pods cidr: %w", err)
-			}
-			podCidr = append(podCidr, subnet)
-			clusterCidr = append(clusterCidr, subnet)
-		}
-		for _, cidr := range resp.GetServiceCidr() {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return fmt.Errorf("parsing service cidr: %w", err)
-			}
-			serviceCidr = append(serviceCidr, subnet)
-			clusterCidr = append(clusterCidr, subnet)
-		}
-		for _, cidr := range resp.GetNodeCidr() {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return fmt.Errorf("parsing node cidr: %w", err)
-			}
-			nodeCidr = append(nodeCidr, subnet)
-			clusterCidr = append(clusterCidr, subnet)
-		}
-		for _, cidr := range resp.GetVpcCidr() {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return fmt.Errorf("parsing vpc cidr: %w", err)
-			}
-			vpcCidr = append(vpcCidr, subnet)
-			clusterCidr = append(clusterCidr, subnet)
-		}
-		for _, cidr := range resp.GetOtherCidr() {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return fmt.Errorf("parsing other cidr: %w", err)
-			}
-			cloudCidr = append(cloudCidr, subnet)
-			clusterCidr = append(clusterCidr, subnet)
-		}
-
-		// Update internal state with lock
-		c.mu.Lock()
-		c.podCidr = podCidr
-		c.serviceCidr = serviceCidr
-		c.nodeCidr = nodeCidr
-		c.vpcCidr = vpcCidr
-		c.cloudCidr = cloudCidr
-		c.clusterCidr = clusterCidr
-		c.log.Infof(
-			"fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s, vpc_cidr=%s, cloud_cidr=%s",
-			c.podCidr, c.serviceCidr, c.nodeCidr, c.vpcCidr, c.cloudCidr,
-		)
-		c.mu.Unlock()
-
-		return nil
-	}
-}
-
 func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	c.log.Info("running netflow pipeline")
 	defer c.log.Info("netflow pipeline done")
-
-	// Initialize and fetch cluster info periodically if enabled
-	if c.cfg.Netflow.CheckClusterNetworkRanges {
-		c.clusterInfo = NewClusterInfo(c.kubeClient, c.log)
-
-		c.refreshClusterInfoOnce(ctx)
-
-		// Start periodic refresh if interval is configured
-		// this is needed to keep cluster CIDRs up to date
-		if c.cfg.Netflow.ClusterInfoRefreshInterval > 0 {
-			go c.runClusterInfoRefreshLoop(ctx)
-		}
-	}
 
 	groups := map[uint64]*netflowGroup{} // TODO: Consider reusing groups similar to events and container stats.
 	netflowGroupKeyDigest := xxhash.New()
@@ -274,7 +164,7 @@ func (c *Controller) handleNetflows(
 			continue
 		}
 
-		if (c.clusterInfo != nil && c.clusterInfo.clusterCidrContains(destAddr)) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+		if c.clusterInfo.clusterCidrContains(destAddr) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 			kubeDestinations[destAddr] = struct{}{}
 		}
 
@@ -354,10 +244,7 @@ func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.N
 	isPublicDest := !iputil.IsPrivateNetwork(destAddr)
 	netflow.updatedAt = time.Now()
 
-	var isCloudDest bool
-	if c.clusterInfo != nil {
-		isCloudDest = c.clusterInfo.cloudCidrContains(destAddr)
-	}
+	isCloudDest := c.clusterInfo.cloudCidrContains(destAddr)
 
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
@@ -495,7 +382,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 
 	dns := c.tracer.GetDNSNameFromCache(key.ProcessIdentity.CgroupId, remote.Addr())
 
-	if (c.clusterInfo != nil && c.clusterInfo.serviceCidrContains(remote.Addr())) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+	if c.clusterInfo.serviceCidrContains(remote.Addr()) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 		if realDst, found := c.getConntrackDest(local, remote); found {
 			remote = realDst
 		}
@@ -548,39 +435,6 @@ func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, 
 	return realDst, true
 }
 
-func (c *clusterInfo) cloudCidrContains(ip netip.Addr) bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, cidr := range c.cloudCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, cidr := range c.clusterCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, cidr := range c.serviceCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
 func toProtoProtocol(proto uint8) castaipb.NetflowProtocol {
 	switch proto {
 	case unix.IPPROTO_TCP:
@@ -598,40 +452,5 @@ func sleep(ctx context.Context, timeout time.Duration) {
 	select {
 	case <-t.C:
 	case <-ctx.Done():
-	}
-}
-
-// refreshClusterInfoOnce fetches cluster info once and updates internal state
-func (c *Controller) refreshClusterInfoOnce(ctx context.Context) {
-	if c.clusterInfo == nil {
-		c.log.Warn("clusterInfo not initialized, skipping refresh")
-		return
-	}
-
-	clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, time.Second*10)
-	defer clusterInfoCancel()
-
-	if err := c.clusterInfo.sync(clusterInfoCtx); err != nil {
-		c.log.Errorf("syncing cluster info: %v", err)
-		return
-	}
-}
-
-// runClusterInfoRefreshLoop periodically refreshes cluster info in the background
-func (c *Controller) runClusterInfoRefreshLoop(ctx context.Context) {
-	ticker := time.NewTicker(c.cfg.Netflow.ClusterInfoRefreshInterval)
-	defer ticker.Stop()
-
-	c.log.Infof("starting cluster info refresh with interval %s", c.cfg.Netflow.ClusterInfoRefreshInterval)
-
-	for {
-		select {
-		case <-ctx.Done():
-			c.log.Info("stopping cluster info refresh")
-			return
-		case <-ticker.C:
-			c.log.Debug("refreshing cluster info")
-			c.refreshClusterInfoOnce(ctx)
-		}
 	}
 }
