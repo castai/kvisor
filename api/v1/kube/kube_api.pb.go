@@ -86,9 +86,10 @@ func (WorkloadKind) EnumDescriptor() ([]byte, []int) {
 }
 
 type GetClusterInfoRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ExcludeOtherCidr bool                   `protobuf:"varint,1,opt,name=exclude_other_cidr,json=excludeOtherCidr,proto3" json:"exclude_other_cidr,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetClusterInfoRequest) Reset() {
@@ -119,6 +120,13 @@ func (x *GetClusterInfoRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use GetClusterInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetClusterInfoRequest) Descriptor() ([]byte, []int) {
 	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *GetClusterInfoRequest) GetExcludeOtherCidr() bool {
+	if x != nil {
+		return x.ExcludeOtherCidr
+	}
+	return false
 }
 
 type GetClusterInfoResponse struct {
@@ -1830,8 +1838,9 @@ var File_api_v1_kube_kube_api_proto protoreflect.FileDescriptor
 
 const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\n" +
-	"\x1aapi/v1/kube/kube_api.proto\x12\akube.v1\"\x17\n" +
-	"\x15GetClusterInfoRequest\"\xaf\x01\n" +
+	"\x1aapi/v1/kube/kube_api.proto\x12\akube.v1\"E\n" +
+	"\x15GetClusterInfoRequest\x12,\n" +
+	"\x12exclude_other_cidr\x18\x01 \x01(\bR\x10excludeOtherCidr\"\xaf\x01\n" +
 	"\x16GetClusterInfoResponse\x12\x1b\n" +
 	"\tpods_cidr\x18\x01 \x03(\tR\bpodsCidr\x12!\n" +
 	"\fservice_cidr\x18\x02 \x03(\tR\vserviceCidr\x12\x1b\n" +

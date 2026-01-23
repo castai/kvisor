@@ -84,7 +84,8 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 
 	backoff := initialBackoff
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		resp, err = c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
+		// There is no point to refersh cloud CIDRs as they are changed very infrequently
+		resp, err = c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{ExcludeOtherCidr: len(c.cloudCidr) > 0})
 		if err == nil {
 			break
 		}
@@ -163,8 +164,8 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 	c.clusterCidr = clusterCidr
 	c.synced = true
 	c.log.Infof(
-		"fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s, vpc_cidr=%s",
-		podCidr, serviceCidr, nodeCidr, vpcCidr,
+		"fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s, vpc_cidr=%s, cloud_cidr_count=%d",
+		podCidr, serviceCidr, nodeCidr, vpcCidr, len(cloudCidr),
 	)
 	c.mu.Unlock()
 
