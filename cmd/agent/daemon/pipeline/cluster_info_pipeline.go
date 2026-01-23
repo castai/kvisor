@@ -11,6 +11,12 @@ import (
 	"github.com/castai/kvisor/pkg/logging"
 )
 
+const (
+	maxRetries     = 10
+	initialBackoff = 2 * time.Second
+	maxBackoff     = 1 * time.Minute
+)
+
 type clusterInfo struct {
 	mu          sync.RWMutex
 	kubeClient  kubepb.KubeAPIClient
@@ -21,14 +27,12 @@ type clusterInfo struct {
 	vpcCidr     []netip.Prefix
 	cloudCidr   []netip.Prefix
 	clusterCidr []netip.Prefix
-
-	synced bool
 }
 
 func (c *Controller) runClusterInfoPipeline(ctx context.Context) {
 	c.clusterInfo = newClusterInfo(c.kubeClient, c.log)
 
-	clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, time.Second*10)
+	clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, maxBackoff)
 	defer clusterInfoCancel()
 
 	// initial sync of cluster CIDRs info
@@ -55,7 +59,7 @@ func (c *Controller) runClusterInfoPipeline(ctx context.Context) {
 		case <-ticker.C:
 			c.log.Debug("refreshing cluster info")
 
-			clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, time.Second*10)
+			clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, maxBackoff)
 			defer clusterInfoCancel()
 
 			if err := c.clusterInfo.sync(clusterInfoCtx); err != nil {
@@ -73,12 +77,6 @@ func newClusterInfo(kubeClient kubepb.KubeAPIClient, log *logging.Logger) *clust
 }
 
 func (c *clusterInfo) sync(ctx context.Context) error {
-	const (
-		maxRetries     = 5
-		initialBackoff = 2 * time.Second
-		maxBackoff     = 30 * time.Second
-	)
-
 	var resp *kubepb.GetClusterInfoResponse
 	var err error
 
@@ -160,12 +158,13 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 	c.serviceCidr = serviceCidr
 	c.nodeCidr = nodeCidr
 	c.vpcCidr = vpcCidr
-	c.cloudCidr = cloudCidr
 	c.clusterCidr = clusterCidr
-	c.synced = true
+	if len(cloudCidr) > 0 {
+		c.cloudCidr = cloudCidr
+	}
 	c.log.Infof(
 		"fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s, vpc_cidr=%s, cloud_cidr_count=%d",
-		podCidr, serviceCidr, nodeCidr, vpcCidr, len(cloudCidr),
+		c.podCidr, c.serviceCidr, c.nodeCidr, c.vpcCidr, len(c.cloudCidr),
 	)
 	c.mu.Unlock()
 
