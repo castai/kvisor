@@ -11,18 +11,7 @@ import (
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
 )
 
-func (p *Provider) GetStorageState(ctx context.Context) (*types.StorageState, error) {
-	p.storageStateMu.RLock()
-	defer p.storageStateMu.RUnlock()
-
-	if p.storageState == nil {
-		return nil, fmt.Errorf("storage state not yet available")
-	}
-
-	return p.storageState, nil
-}
-
-func (p *Provider) RefreshStorageState(ctx context.Context, instanceIds ...string) error {
+func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (*types.StorageState, error) {
 	p.log.Debug("refreshing storage state")
 
 	state := &types.StorageState{
@@ -33,16 +22,15 @@ func (p *Provider) RefreshStorageState(ctx context.Context, instanceIds ...strin
 
 	instanceVolumes, err := p.fetchInstanceVolumes(ctx, instanceIds...)
 	if err != nil {
-		return fmt.Errorf("fetching volumes: %w", err)
+		return nil, fmt.Errorf("fetching volumes: %w", err)
 	}
 	state.InstanceVolumes = instanceVolumes
 
 	p.storageStateMu.Lock()
+	defer p.storageStateMu.Unlock()
 	p.storageState = state
-	p.storageStateMu.Unlock()
 
-	p.log.Debug("refreshed storage state")
-	return nil
+	return p.storageState, nil
 }
 
 // fetchInstanceVolumes retrieves instance volumes from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Volume.html

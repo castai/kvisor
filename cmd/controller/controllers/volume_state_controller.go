@@ -17,8 +17,7 @@ type VolumeStateControllerConfig struct {
 
 type cloudProviderVolume interface {
 	Type() cloudtypes.Type
-	GetStorageState(ctx context.Context) (*cloudtypes.StorageState, error)
-	RefreshStorageState(ctx context.Context, instanceIds ...string) error
+	GetStorageState(ctx context.Context, instanceIds ...string) (*cloudtypes.StorageState, error)
 }
 
 func NewVolumeStateController(log *logging.Logger, cfg VolumeStateControllerConfig, cloudProvider cloudProviderVolume, kubeClient *kube.Client) *VolumeStateController {
@@ -74,13 +73,7 @@ func (c *VolumeStateController) fetchInitialStorageState(ctx context.Context, vo
 			instanceIDToNodeName[instanceID] = node.Name
 		}
 
-		err := c.cloudProvider.RefreshStorageState(ctx, instanceIDs...)
-		if err != nil {
-			c.log.Errorf("storage state refresh failed: %v", err)
-			continue
-		}
-
-		state, err := c.cloudProvider.GetStorageState(ctx)
+		state, err := c.cloudProvider.GetStorageState(ctx, instanceIDs...)
 		if err == nil {
 			nodeVolumes := mapInstanceVolumesToNodeVolumes(state.InstanceVolumes, instanceIDToNodeName)
 			volumeIndex.UpdateNodeVolumes(nodeVolumes)
@@ -129,13 +122,7 @@ func (c *VolumeStateController) runRefreshLoop(ctx context.Context, volumeIndex 
 				instanceIDToNodeName[instanceID] = node.Name
 			}
 
-			err := c.cloudProvider.RefreshStorageState(ctx, instanceIDs...)
-			if err != nil {
-				c.log.Errorf("storage state refresh failed: %v", err)
-				continue
-			}
-
-			state, err := c.cloudProvider.GetStorageState(ctx)
+			state, err := c.cloudProvider.GetStorageState(ctx, instanceIDs...)
 			if err != nil {
 				c.log.Errorf("storage state loading failed: %v", err)
 				continue

@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -46,10 +45,10 @@ func getTestConfig(t *testing.T) types.ProviderConfig {
 	return cfg
 }
 
-// TestRefreshStorageState calls RefreshStorageState and prints the results.
-func TestRefreshStorageState(t *testing.T) {
+// TestGetStorageState calls GetStorageState and prints the results.
+func TestGetStorageState(t *testing.T) {
 	cfg := getTestConfig(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	provider, err := aws.NewProvider(ctx, cfg)
 	if err != nil {
@@ -64,14 +63,8 @@ func TestRefreshStorageState(t *testing.T) {
 		t.Fatal("AWS_INSTANCE_ID not set")
 	}
 
-	// Refresh storage state first
-	err = p.RefreshStorageState(ctx, instanceID)
-	if err != nil {
-		t.Fatalf("RefreshStorageState failed: %v", err)
-	}
-
 	// Get the cached storage state
-	state, err := p.GetStorageState(ctx)
+	state, err := p.GetStorageState(ctx, instanceID)
 	if err != nil {
 		t.Fatalf("GetStorageState failed: %v", err)
 	}
