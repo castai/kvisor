@@ -540,6 +540,10 @@ func (m *mockKubeClientWithResponse) GetPodVolumes(ctx context.Context, in *kube
 	return &kubepb.GetPodVolumesResponse{}, nil
 }
 
+func (m *mockKubeClientWithResponse) GetCloudVolumes(ctx context.Context, in *kubepb.GetCloudVolumesRequest, opts ...grpc.CallOption) (*kubepb.GetCloudVolumesResponse, error) {
+	return &kubepb.GetCloudVolumesResponse{}, nil
+}
+
 func (m *mockKubeClientWithResponse) GetNode(ctx context.Context, req *kubepb.GetNodeRequest, opts ...grpc.CallOption) (*kubepb.GetNodeResponse, error) {
 	return &kubepb.GetNodeResponse{Node: &kubepb.Node{Labels: make(map[string]string)}}, nil
 }

@@ -1,4 +1,6 @@
-package test
+//go:build cloudintegration
+
+package integration_test
 
 import (
 	"os"
@@ -19,7 +21,7 @@ func init() {
 func getTestConfig(t *testing.T) types.ProviderConfig {
 	profile := os.Getenv("AWS_PROFILE")
 	if profile == "" {
-		t.Skip("AWS_PROFILE not set (use .env file or environment variable)")
+		t.Fatal("AWS_PROFILE not set (use .env file or environment variable)")
 	}
 
 	t.Logf("Using AWS profile: %s", profile)
