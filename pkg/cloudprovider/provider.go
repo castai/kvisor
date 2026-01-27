@@ -19,7 +19,7 @@ func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider,
 		return aws.NewProvider(ctx, cfg)
 	case types.TypeAzure:
 		return nil, fmt.Errorf("azure provider not yet implemented")
-	case types.TypeNone:
+	case types.TypeNoop:
 		return noop.NewProvider(), nil
 	default:
 		return nil, fmt.Errorf("unsupported cloud provider type: %s", cfg.Type)

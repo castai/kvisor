@@ -120,12 +120,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	var cloudProviderVal string
-	if *cloudProvider != "" {
-		cloudProviderVal = *cloudProvider
-	} else {
-		slog.Warn(`--kube-bench-cloud-provider is deprecated, please use --cloud-provider instead.`)
-		cloudProviderVal = *kubeBenchCloudProvider
+	cloudProviderType, err := parseCloudProvider(*cloudProvider, *kubeBenchCloudProvider)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	podNs := os.Getenv("POD_NAMESPACE")
@@ -174,7 +172,7 @@ func main() {
 			CastaiClusterID:           castaiClientCfg.ClusterID,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
-			CloudProvider:             cloudProviderVal,
+			CloudProvider:             cloudProviderType.KubernetesType(),
 			IgnoredNamespaces:         *imageScanIgnoredNamespaces,
 			DisabledAnalyzers:         *imageScanDisabledAnalyzers,
 		},
@@ -188,7 +186,7 @@ func main() {
 			Force:              *kubeBenchForceScan,
 			ScanInterval:       *kubeBenchScanInterval,
 			JobImagePullPolicy: *kubeBenchJobImagePullPolicy,
-			CloudProvider:      cloudProviderVal,
+			CloudProvider:      cloudProviderType.KubernetesType(),
 			JobNamespace:       podNs,
 		},
 		JobsCleanup: controllers.JobsCleanupConfig{
@@ -201,7 +199,7 @@ func main() {
 		},
 		CloudProviderConfig: config.CloudProviderConfig{
 			CloudProvider: cloudtypes.ProviderConfig{
-				Type:         cloudtypes.Type(*cloudProvider),
+				Type:         cloudProviderType,
 				GCPProjectID: *cloudProviderGCPProjectID,
 				AWSRegion:    *cloudProviderAWSRegion,
 			},
@@ -244,4 +242,14 @@ func getKubeConfig(kubepath string) (*rest.Config, error) {
 		return nil, err
 	}
 	return inClusterConfig, nil
+}
+
+func parseCloudProvider(cloudProvider string, kubeBenchCloudProvider string) (cloudtypes.Type, error) {
+	if cloudProvider != "" {
+		return cloudtypes.NewProvider(cloudProvider)
+	} else if kubeBenchCloudProvider != "" {
+		slog.Warn(`--kube-bench-cloud-provider is deprecated, please use --cloud-provider instead.`)
+		return cloudtypes.NewProvider(kubeBenchCloudProvider)
+	}
+	return "", nil
 }
