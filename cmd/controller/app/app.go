@@ -109,7 +109,7 @@ func (a *App) Run(ctx context.Context) error {
 	})
 
 	// Initialize cloud provider if enabled
-	if cfg.CloudProviderConfig.CloudProvider.Type != "" {
+	if cfg.CloudProviderConfig.IsAnyControllerEnabled() {
 		provider, err := cloudprovider.NewProvider(ctx, cfg.CloudProviderConfig.CloudProvider)
 		if err == nil {
 			log.Infof("cloud provider %s initialized successfully", provider.Type())
