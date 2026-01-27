@@ -43,6 +43,10 @@ func (c *Controller) collectStorageMetrics(ctx context.Context) {
 		c.log.Errorf("failed to collect pod volume metrics: %v", err)
 	}
 
+	if err := c.processCloudVolumeMetrics(ctx); err != nil {
+		c.log.Errorf("failed to collect cloud volume metrics: %v", err)
+	}
+
 	c.log.Debugf("storage stats collection completed in %v", time.Since(start))
 }
 
@@ -106,6 +110,34 @@ func (c *Controller) processPodVolumeMetrics(ctx context.Context) error {
 
 	if err := c.podVolumeMetricsWriter.Write(metrics...); err != nil {
 		return fmt.Errorf("failed to write pod volume metrics: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Controller) processCloudVolumeMetrics(ctx context.Context) error {
+	if c.cloudVolumeMetricsWriter == nil {
+		return nil // cloud volume metrics writer not configured, skip
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	metrics, err := c.storageInfoProvider.CollectCloudVolumeMetrics(ctx)
+	if err != nil {
+		c.log.Errorf("failed to collect cloud volumes metrics: %v", err)
+		return nil
+	}
+
+	if len(metrics) == 0 {
+		c.log.Info("no cloud volume metrics collected from controller (empty response)")
+		return nil
+	}
+
+	c.log.Infof("collected %d cloud volume metrics", len(metrics))
+
+	if err := c.cloudVolumeMetricsWriter.Write(metrics...); err != nil {
+		c.log.Errorf("failed to write cloud volumes metrics: %v", err)
 	}
 
 	return nil

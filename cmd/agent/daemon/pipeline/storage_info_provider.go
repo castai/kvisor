@@ -114,6 +114,22 @@ type K8sPodVolumeMetric struct {
 	Timestamp          time.Time `avro:"ts"`
 }
 
+// CloudVolumeMetric represents cloud provider volume metadata and configuration
+type CloudVolumeMetric struct {
+	NodeName        string    `avro:"node_name"`
+	NodeTemplate    *string   `avro:"node_template"`
+	CloudProvider   string    `avro:"cloud_provider"`
+	Zone            string    `avro:"zone"`
+	VolumeID        string    `avro:"volume_id"`
+	VolumeType      string    `avro:"volume_type"`
+	VolumeState     string    `avro:"volume_state"`
+	SizeBytes       int64     `avro:"size_bytes"`
+	IOPS            int32     `avro:"iops"`
+	ThroughputBytes int32     `avro:"throughput_bytes"`
+	Encrypted       bool      `avro:"encrypted"`
+	Timestamp       time.Time `avro:"ts"`
+}
+
 type storageMetricsState struct {
 	blockDevices map[string]*BlockDeviceMetric
 	filesystems  map[string]*FilesystemMetric
@@ -124,6 +140,7 @@ type StorageInfoProvider interface {
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
+	CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -263,6 +280,8 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 		return nil, fmt.Errorf("kube client is not initialized")
 	}
 
+	log := s.log.WithField("collector", "node_stats")
+
 	// Get node stats summary from controller
 	resp, err := s.kubeClient.GetNodeStatsSummary(ctx, &kubepb.GetNodeStatsSummaryRequest{
 		NodeName: s.nodeName,
@@ -278,7 +297,7 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 	// Get node template
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
-		s.log.Warnf("failed to get node template: %v", err)
+		log.Warnf("failed to get node template: %v", err)
 		// Don't fail the whole collection if node template lookup fails
 		nodeTemplate = nil
 	}
@@ -318,25 +337,27 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 		return nil, fmt.Errorf("kube client is not initialized")
 	}
 
-	s.log.Infof("CollectPodVolumeMetrics: requesting pod volumes for node %s", s.nodeName)
+	log := s.log.WithField("collector", "pod_volumes")
+
+	log.Infof("requesting pod volumes for node %s", s.nodeName)
 	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
 		NodeName: s.nodeName,
 	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pod volumes for %s: %w", s.nodeName, err)
+		return nil, fmt.Errorf("failed to get pod volumes for node %s: %w", s.nodeName, err)
 	}
-	s.log.Infof("CollectPodVolumeMetrics: received %d volumes from controller", len(resp.Volumes))
+	log.Infof("received %d volumes from controller for node %s", len(resp.Volumes), s.nodeName)
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
-		s.log.Warnf("failed to get node template: %v", err)
+		log.Warnf("failed to get node template: %v", err)
 		nodeTemplate = nil
 	}
 
-	timestamp := time.Now()
-	metrics := make([]K8sPodVolumeMetric, 0, len(resp.Volumes))
+	timestamp := time.Now().UTC()
+	metrics := make([]K8sPodVolumeMetric, len(resp.Volumes))
 
-	for _, v := range resp.Volumes {
+	for i, v := range resp.Volumes {
 		metric := K8sPodVolumeMetric{
 			NodeName:       s.nodeName,
 			NodeTemplate:   nodeTemplate,
@@ -374,7 +395,54 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 			metric.DevicePath = &v.DevicePath
 		}
 
-		metrics = append(metrics, metric)
+		metrics[i] = metric
+	}
+
+	return metrics, nil
+}
+
+// CollectCloudVolumeMetrics retrieves cloud volume metadata from the cloud provider and builds metrics
+func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	log := s.log.WithField("collector", "cloud_volumes")
+
+	log.Infof("requesting cloud volumes for node %s", s.nodeName)
+	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
+	}
+	log.Infof("received %d cloud volumes from controller for node %s", len(resp.Volumes), s.nodeName)
+
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		log.Warnf("failed to get node template: %v", err)
+		nodeTemplate = nil
+	}
+
+	timestamp := time.Now().UTC()
+	metrics := make([]CloudVolumeMetric, len(resp.Volumes))
+
+	for i, v := range resp.Volumes {
+		metric := CloudVolumeMetric{
+			NodeName:        s.nodeName,
+			NodeTemplate:    nodeTemplate,
+			CloudProvider:   v.CloudProvider,
+			Zone:            v.Zone,
+			VolumeID:        v.VolumeId,
+			VolumeType:      v.VolumeType,
+			VolumeState:     v.VolumeState,
+			SizeBytes:       v.SizeBytes,
+			IOPS:            v.Iops,
+			ThroughputBytes: v.ThroughputBytes,
+			Encrypted:       v.Encrypted,
+			Timestamp:       timestamp,
+		}
+		metrics[i] = metric
 	}
 
 	return metrics, nil

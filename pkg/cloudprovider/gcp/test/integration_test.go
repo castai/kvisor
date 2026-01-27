@@ -1,4 +1,6 @@
-package test
+//go:build cloudintegration
+
+package integration_test
 
 import (
 	"context"
@@ -19,7 +21,7 @@ func init() {
 func getTestConfig(t *testing.T) types.ProviderConfig {
 	projectID := os.Getenv("GCP_PROJECT_ID")
 	if projectID == "" {
-		t.Skip("GCP_PROJECT_ID not set (use .env file or environment variable)")
+		t.Fatal("GCP_PROJECT_ID not set (use .env file or environment variable)")
 	}
 
 	cfg := types.ProviderConfig{

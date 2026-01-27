@@ -116,10 +116,19 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		log.Infof("cloud provider %s initialized successfully", provider.Type())
 
+		kubeClient.SetCloudProvider(provider.Type())
+
 		if cfg.CloudProviderConfig.VPCStateController.Enabled {
 			errg.Go(func() error {
 				return controllers.NewVPCStateController(log,
 					cfg.CloudProviderConfig.VPCStateController, provider, kubeClient).Run(ctx)
+			})
+		}
+
+		if cfg.CloudProviderConfig.VolumeStateController.Enabled {
+			errg.Go(func() error {
+				return controllers.NewVolumeStateController(log,
+					cfg.CloudProviderConfig.VolumeStateController, provider, kubeClient).Run(ctx)
 			})
 		}
 	}
