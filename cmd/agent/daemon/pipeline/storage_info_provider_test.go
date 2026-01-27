@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -679,6 +680,568 @@ func TestGetDiskType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := provider.getDiskType(tt.deviceName)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestParseQuantity(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		expected  int64
+		expectErr bool
+	}{
+		{"empty string", "", 0, false},
+		{"plain number", "1000", 1000, false},
+
+		{"kilobytes binary Ki", "1Ki", 1024, false},
+		{"megabytes binary Mi", "1Mi", 1024 * 1024, false},
+		{"gigabytes binary Gi", "1Gi", 1024 * 1024 * 1024, false},
+		{"terabytes binary Ti", "1Ti", 1024 * 1024 * 1024 * 1024, false},
+		{"petabytes binary Pi", "1Pi", 1024 * 1024 * 1024 * 1024 * 1024, false},
+
+		{"kilobytes decimal k", "1k", 1000, false},
+		{"megabytes decimal M", "1M", 1000 * 1000, false},
+		{"gigabytes decimal G", "1G", 1000 * 1000 * 1000, false},
+		{"terabytes decimal T", "1T", 1000 * 1000 * 1000 * 1000, false},
+
+		{"500Mi", "500Mi", 500 * 1024 * 1024, false},
+		{"10Gi", "10Gi", 10 * 1024 * 1024 * 1024, false},
+		{"100Gi", "100Gi", 100 * 1024 * 1024 * 1024, false},
+
+		{"invalid format returns error", "abc", 0, true},
+		{"unrecognized suffix returns error", "1Xi", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseQuantity(tt.input)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestParseEvictionThreshold(t *testing.T) {
+	capacity := int64(100 * 1024 * 1024 * 1024) // 100Gi
+
+	tests := []struct {
+		name      string
+		input     string
+		expected  int64
+		expectErr bool
+	}{
+		{"empty string", "", 0, false},
+		{"10 percent", "10%", capacity / 10, false},
+		{"15 percent", "15%", int64(float64(capacity) * 0.15), false},
+		{"100 percent", "100%", capacity, false},
+		{"0 percent", "0%", 0, false},
+		{"5.5 percent", "5.5%", int64(float64(capacity) * 0.055), false},
+
+		{"absolute 1Gi", "1Gi", 1024 * 1024 * 1024, false},
+		{"absolute 500Mi", "500Mi", 500 * 1024 * 1024, false},
+		{"absolute 100Mi", "100Mi", 100 * 1024 * 1024, false},
+
+		{"invalid percent - not matching regex falls through to parseQuantity", "abc%", 0, true},
+		{"negative percentage - rejected by regex", "-10%", 0, true},
+		{"malformed decimal - rejected by regex", "10.5.5%", 0, true},
+		{"space before percent - rejected by regex", "10 %", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseEvictionThreshold(tt.input, capacity)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCalculateAllocatableBytes(t *testing.T) {
+	capacity := int64(100 * 1024 * 1024 * 1024) // 100Gi
+
+	tests := []struct {
+		name          string
+		kubeletConfig *KubeletConfig
+		expected      int64
+	}{
+		{
+			name:          "nil config returns capacity",
+			kubeletConfig: nil,
+			expected:      capacity,
+		},
+		{
+			name: "empty config returns capacity",
+			kubeletConfig: &KubeletConfig{
+				EvictionHard:   nil,
+				KubeReserved:   nil,
+				SystemReserved: nil,
+			},
+			expected: capacity,
+		},
+		{
+			name: "eviction hard 10 percent",
+			kubeletConfig: &KubeletConfig{
+				EvictionHard: map[string]string{
+					"nodefs.available": "10%",
+				},
+			},
+			expected: capacity - (capacity / 10),
+		},
+		{
+			name: "eviction hard absolute 1Gi",
+			kubeletConfig: &KubeletConfig{
+				EvictionHard: map[string]string{
+					"nodefs.available": "1Gi",
+				},
+			},
+			expected: capacity - (1024 * 1024 * 1024),
+		},
+		{
+			name: "kube reserved 1Gi",
+			kubeletConfig: &KubeletConfig{
+				KubeReserved: map[string]string{
+					"ephemeral-storage": "1Gi",
+				},
+			},
+			expected: capacity - (1024 * 1024 * 1024),
+		},
+		{
+			name: "system reserved 1Gi",
+			kubeletConfig: &KubeletConfig{
+				SystemReserved: map[string]string{
+					"ephemeral-storage": "1Gi",
+				},
+			},
+			expected: capacity - (1024 * 1024 * 1024),
+		},
+		{
+			name: "all reservations combined",
+			kubeletConfig: &KubeletConfig{
+				EvictionHard: map[string]string{
+					"nodefs.available": "10%", // 10Gi
+				},
+				KubeReserved: map[string]string{
+					"ephemeral-storage": "1Gi",
+				},
+				SystemReserved: map[string]string{
+					"ephemeral-storage": "2Gi",
+				},
+			},
+			expected: capacity - (capacity / 10) - (1024 * 1024 * 1024) - (2 * 1024 * 1024 * 1024),
+		},
+		{
+			name: "result cannot go negative",
+			kubeletConfig: &KubeletConfig{
+				EvictionHard: map[string]string{
+					"nodefs.available": "100%",
+				},
+				KubeReserved: map[string]string{
+					"ephemeral-storage": "10Gi",
+				},
+			},
+			expected: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := &SysfsStorageInfoProvider{
+				log:           logging.NewTestLog(),
+				kubeletConfig: tt.kubeletConfig,
+			}
+
+			result := provider.calculateAllocatableBytes(capacity)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestReadKubeletConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		configData  string
+		expectError bool
+		validate    func(t *testing.T, config *KubeletConfig)
+	}{
+		{
+			name: "valid config with all fields",
+			configData: `evictionHard:
+  nodefs.available: "10%"
+  imagefs.available: "15%"
+kubeReserved:
+  cpu: "100m"
+  memory: "256Mi"
+  ephemeral-storage: "1Gi"
+systemReserved:
+  cpu: "200m"
+  memory: "512Mi"
+  ephemeral-storage: "2Gi"
+`,
+			validate: func(t *testing.T, config *KubeletConfig) {
+				require.NotNil(t, config)
+				assert.Equal(t, "10%", config.EvictionHard["nodefs.available"])
+				assert.Equal(t, "15%", config.EvictionHard["imagefs.available"])
+				assert.Equal(t, "1Gi", config.KubeReserved["ephemeral-storage"])
+				assert.Equal(t, "2Gi", config.SystemReserved["ephemeral-storage"])
+			},
+		},
+		{
+			name: "config with only eviction hard",
+			configData: `evictionHard:
+  nodefs.available: "15%"
+`,
+			validate: func(t *testing.T, config *KubeletConfig) {
+				require.NotNil(t, config)
+				assert.Equal(t, "15%", config.EvictionHard["nodefs.available"])
+				assert.Nil(t, config.KubeReserved)
+				assert.Nil(t, config.SystemReserved)
+			},
+		},
+		{
+			name: "config with absolute eviction threshold",
+			configData: `evictionHard:
+  nodefs.available: "1Gi"
+`,
+			validate: func(t *testing.T, config *KubeletConfig) {
+				require.NotNil(t, config)
+				assert.Equal(t, "1Gi", config.EvictionHard["nodefs.available"])
+			},
+		},
+		{
+			name:       "empty config",
+			configData: "",
+			validate: func(t *testing.T, config *KubeletConfig) {
+				require.NotNil(t, config)
+				assert.Nil(t, config.EvictionHard)
+				assert.Nil(t, config.KubeReserved)
+				assert.Nil(t, config.SystemReserved)
+			},
+		},
+		{
+			name:        "malformed yaml syntax",
+			configData:  "evictionHard: [not: valid",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "kubelet-config-test-*")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpDir)
+
+			configDir := filepath.Join(tmpDir, "var", "lib", "kubelet")
+			err = os.MkdirAll(configDir, 0755)
+			require.NoError(t, err)
+
+			configPath := filepath.Join(configDir, "config.yaml")
+			err = os.WriteFile(configPath, []byte(tt.configData), 0644)
+			require.NoError(t, err)
+
+			config, err := readKubeletConfig(tmpDir, logging.NewTestLog())
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Nil(t, config)
+				return
+			}
+
+			require.NoError(t, err)
+			if tt.validate != nil {
+				tt.validate(t, config)
+			}
+		})
+	}
+}
+
+func TestReadKubeletConfigFileNotFound(t *testing.T) {
+	config, err := readKubeletConfig("/nonexistent/path", logging.NewTestLog())
+	require.Error(t, err)
+	assert.Nil(t, config)
+}
+
+func TestReadKubeletConfigMultiplePaths(t *testing.T) {
+	tests := []struct {
+		name           string
+		files          map[string]string
+		expectedConfig *KubeletConfig
+		expectError    bool
+	}{
+		{
+			name: "kubeadm YAML config",
+			files: map[string]string{
+				"/var/lib/kubelet/config.yaml": `evictionHard:
+  nodefs.available: "10%"
+kubeReserved:
+  ephemeral-storage: "1Gi"
+`,
+			},
+			expectedConfig: &KubeletConfig{
+				EvictionHard: map[string]string{"nodefs.available": "10%"},
+				KubeReserved: map[string]string{"ephemeral-storage": "1Gi"},
+			},
+		},
+		{
+			name: "GKE YAML config",
+			files: map[string]string{
+				"/home/kubernetes/kubelet-config.yaml": `evictionHard:
+  nodefs.available: "15%"
+`,
+			},
+			expectedConfig: &KubeletConfig{
+				EvictionHard: map[string]string{"nodefs.available": "15%"},
+			},
+		},
+		{
+			name: "EKS JSON config",
+			files: map[string]string{
+				"/etc/kubernetes/kubelet/kubelet-config.json": `{
+  "evictionHard": {"nodefs.available": "10%"},
+  "kubeReserved": {"ephemeral-storage": "2Gi"}
+}`,
+			},
+			expectedConfig: &KubeletConfig{
+				EvictionHard: map[string]string{"nodefs.available": "10%"},
+				KubeReserved: map[string]string{"ephemeral-storage": "2Gi"},
+			},
+		},
+		{
+			name: "first path takes priority",
+			files: map[string]string{
+				"/var/lib/kubelet/config.yaml":         "evictionHard:\n  nodefs.available: \"5%\"\n",
+				"/home/kubernetes/kubelet-config.yaml": "evictionHard:\n  nodefs.available: \"15%\"\n",
+			},
+			expectedConfig: &KubeletConfig{
+				EvictionHard: map[string]string{"nodefs.available": "5%"},
+			},
+		},
+		{
+			name: "falls back to second path if first is malformed",
+			files: map[string]string{
+				"/var/lib/kubelet/config.yaml":         "evictionHard: [not: valid",
+				"/home/kubernetes/kubelet-config.yaml": "evictionHard:\n  nodefs.available: \"15%\"\n",
+			},
+			expectedConfig: &KubeletConfig{
+				EvictionHard: map[string]string{"nodefs.available": "15%"},
+			},
+		},
+		{
+			name:        "no config found",
+			files:       map[string]string{},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "kubelet-config-multipath-*")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpDir)
+
+			for relativePath, content := range tt.files {
+				fullPath := filepath.Join(tmpDir, relativePath)
+				err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(fullPath, []byte(content), 0644)
+				require.NoError(t, err)
+			}
+
+			config, err := readKubeletConfig(tmpDir, logging.NewTestLog())
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Nil(t, config)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, config)
+
+			assert.Equal(t, tt.expectedConfig.EvictionHard, config.EvictionHard)
+			assert.Equal(t, tt.expectedConfig.KubeReserved, config.KubeReserved)
+			assert.Equal(t, tt.expectedConfig.SystemReserved, config.SystemReserved)
+		})
+	}
+}
+
+func TestGetNodefsCapacityMultiplePaths(t *testing.T) {
+	tests := []struct {
+		name             string
+		deviceIDs        map[string]uint64
+		expectedCapacity int64
+	}{
+		{
+			name: "all paths on same filesystem - counted once",
+			deviceIDs: map[string]uint64{
+				kubeletPath:       100,
+				containerdPath:    100,
+				castaiStoragePath: 100,
+			},
+			expectedCapacity: 1,
+		},
+		{
+			name: "kubelet and containerd same, castai-storage different - counted twice",
+			deviceIDs: map[string]uint64{
+				kubeletPath:       100,
+				containerdPath:    100,
+				castaiStoragePath: 200,
+			},
+			expectedCapacity: 2,
+		},
+		{
+			name: "all paths on different filesystems - counted three times",
+			deviceIDs: map[string]uint64{
+				kubeletPath:       100,
+				containerdPath:    200,
+				castaiStoragePath: 300,
+			},
+			expectedCapacity: 3,
+		},
+		{
+			name: "only kubelet exists",
+			deviceIDs: map[string]uint64{
+				kubeletPath: 100,
+			},
+			expectedCapacity: 1,
+		},
+		{
+			name: "only castai-storage exists",
+			deviceIDs: map[string]uint64{
+				castaiStoragePath: 100,
+			},
+			expectedCapacity: 1,
+		},
+		{
+			name:             "no paths exist",
+			deviceIDs:        map[string]uint64{},
+			expectedCapacity: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := &SysfsStorageInfoProvider{
+				log:                   logging.NewTestLog(),
+				wellKnownPathDeviceID: tt.deviceIDs,
+				hostRootPath:          "/",
+			}
+
+			paths := []string{kubeletPath, containerdPath, castaiStoragePath}
+			seenDevices := make(map[uint64]bool)
+			var uniqueCount int64
+
+			for _, path := range paths {
+				devID, ok := provider.wellKnownPathDeviceID[path]
+				if !ok {
+					continue
+				}
+				if seenDevices[devID] {
+					continue
+				}
+				seenDevices[devID] = true
+				uniqueCount++
+			}
+
+			assert.Equal(t, tt.expectedCapacity, uniqueCount)
+		})
+	}
+}
+
+func TestBuildFilesystemLabels(t *testing.T) {
+	tests := []struct {
+		name                   string
+		fsMountPointDeviceID   uint64
+		wellKnownPathsDeviceID map[string]uint64
+		expectedLabels         map[string]string
+	}{
+		{
+			name:                 "filesystem matches kubelet path",
+			fsMountPointDeviceID: 100,
+			wellKnownPathsDeviceID: map[string]uint64{
+				kubeletPath: 100,
+			},
+			expectedLabels: map[string]string{
+				"kubelet": "true",
+			},
+		},
+		{
+			name:                 "filesystem matches containerd path",
+			fsMountPointDeviceID: 100,
+			wellKnownPathsDeviceID: map[string]uint64{
+				containerdPath: 100,
+			},
+			expectedLabels: map[string]string{
+				"containerd": "true",
+			},
+		},
+		{
+			name:                 "filesystem matches castai-storage path",
+			fsMountPointDeviceID: 100,
+			wellKnownPathsDeviceID: map[string]uint64{
+				castaiStoragePath: 100,
+			},
+			expectedLabels: map[string]string{
+				"castai-storage": "true",
+			},
+		},
+		{
+			name:                 "filesystem matches multiple paths on same device",
+			fsMountPointDeviceID: 100,
+			wellKnownPathsDeviceID: map[string]uint64{
+				kubeletPath:       100,
+				containerdPath:    100,
+				castaiStoragePath: 100,
+			},
+			expectedLabels: map[string]string{
+				"kubelet":        "true",
+				"containerd":     "true",
+				"castai-storage": "true",
+			},
+		},
+		{
+			name:                 "filesystem matches kubelet and containerd but not castai-storage",
+			fsMountPointDeviceID: 100,
+			wellKnownPathsDeviceID: map[string]uint64{
+				kubeletPath:       100,
+				containerdPath:    100,
+				castaiStoragePath: 200,
+			},
+			expectedLabels: map[string]string{
+				"kubelet":    "true",
+				"containerd": "true",
+			},
+		},
+		{
+			name:                   "filesystem matches no paths",
+			fsMountPointDeviceID:   999,
+			wellKnownPathsDeviceID: map[string]uint64{
+				kubeletPath:       100,
+				containerdPath:    200,
+				castaiStoragePath: 300,
+			},
+			expectedLabels: map[string]string{},
+		},
+		{
+			name:                   "empty wellKnownPathsDeviceID",
+			fsMountPointDeviceID:   100,
+			wellKnownPathsDeviceID: map[string]uint64{},
+			expectedLabels:         map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			labels := buildFilesystemLabels(logging.NewTestLog(), tt.fsMountPointDeviceID, tt.wellKnownPathsDeviceID)
+			assert.Equal(t, tt.expectedLabels, labels)
 		})
 	}
 }
