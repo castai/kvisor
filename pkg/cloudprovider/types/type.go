@@ -8,13 +8,12 @@ const (
 	TypeGCP   Type = "gcp"
 	TypeAWS   Type = "aws"
 	TypeAzure Type = "azure"
-	TypeNoop  Type = "noop"
 
 	DomainGCP string = "googleapis.com"
 	DomainAWS string = "amazonaws.com"
 )
 
-func NewProvider(provider string) (Type, error) {
+func NewProviderType(provider string) (Type, error) {
 	switch provider {
 	case "gcp", "gke":
 		return TypeGCP, nil

@@ -63,7 +63,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewProvider(tt.provider)
+			got, err := NewProviderType(tt.provider)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewProvider() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -95,11 +95,6 @@ func TestType_KubernetesType(t *testing.T) {
 			name: "TypeAzure returns aks",
 			t:    TypeAzure,
 			want: "aks",
-		},
-		{
-			name: "TypeNoop returns empty string",
-			t:    TypeNoop,
-			want: "",
 		},
 		{
 			name: "unknown type returns empty string",

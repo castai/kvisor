@@ -246,10 +246,10 @@ func getKubeConfig(kubepath string) (*rest.Config, error) {
 
 func parseCloudProvider(cloudProvider string, kubeBenchCloudProvider string) (cloudtypes.Type, error) {
 	if cloudProvider != "" {
-		return cloudtypes.NewProvider(cloudProvider)
+		return cloudtypes.NewProviderType(cloudProvider)
 	} else if kubeBenchCloudProvider != "" {
 		slog.Warn(`--kube-bench-cloud-provider is deprecated, please use --cloud-provider instead.`)
-		return cloudtypes.NewProvider(kubeBenchCloudProvider)
+		return cloudtypes.NewProviderType(kubeBenchCloudProvider)
 	}
 	return "", nil
 }

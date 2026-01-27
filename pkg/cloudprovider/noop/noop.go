@@ -14,7 +14,7 @@ func NewProvider() types.Provider {
 }
 
 func (n *noOpProvider) Type() types.Type {
-	return types.TypeNoop
+	return types.Type("noop")
 }
 
 func (n *noOpProvider) GetNetworkState(ctx context.Context) (*types.NetworkState, error) {

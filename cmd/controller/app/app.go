@@ -111,25 +111,28 @@ func (a *App) Run(ctx context.Context) error {
 	// Initialize cloud provider if enabled
 	if cfg.CloudProviderConfig.CloudProvider.Type != "" {
 		provider, err := cloudprovider.NewProvider(ctx, cfg.CloudProviderConfig.CloudProvider)
-		if err != nil {
-			return fmt.Errorf("failed to initialize cloud provider: %w", err)
-		}
-		log.Infof("cloud provider %s initialized successfully", provider.Type())
+		if err == nil {
+			log.Infof("cloud provider %s initialized successfully", provider.Type())
 
-		kubeClient.SetCloudProvider(provider.Type())
+			kubeClient.SetCloudProvider(provider.Type())
 
-		if cfg.CloudProviderConfig.VPCStateController.Enabled {
-			errg.Go(func() error {
-				return controllers.NewVPCStateController(log,
-					cfg.CloudProviderConfig.VPCStateController, provider, kubeClient).Run(ctx)
-			})
-		}
+			if cfg.CloudProviderConfig.VPCStateController.Enabled {
+				errg.Go(func() error {
+					return controllers.NewVPCStateController(log,
+						cfg.CloudProviderConfig.VPCStateController, provider, kubeClient).Run(ctx)
+				})
+			}
 
-		if cfg.CloudProviderConfig.VolumeStateController.Enabled {
-			errg.Go(func() error {
-				return controllers.NewVolumeStateController(log,
-					cfg.CloudProviderConfig.VolumeStateController, provider, kubeClient).Run(ctx)
-			})
+			if cfg.CloudProviderConfig.VolumeStateController.Enabled {
+				errg.Go(func() error {
+					return controllers.NewVolumeStateController(log,
+						cfg.CloudProviderConfig.VolumeStateController, provider, kubeClient).Run(ctx)
+				})
+			}
+		} else {
+			if !errors.Is(err, cloudprovider.ErrProviderNotImplemented) {
+				return fmt.Errorf("failed to initialize cloud provider: %w", err)
+			}
 		}
 	}
 
