@@ -20,6 +20,10 @@ type Provider struct {
 	// Cached storage state
 	storageStateMu sync.RWMutex
 	storageState   *types.StorageState
+
+	// Cached network state
+	networkStateMu sync.RWMutex
+	networkState   *types.NetworkState
 }
 
 // NewProvider creates a new AWS provider instance.
