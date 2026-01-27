@@ -34,7 +34,7 @@ var (
 	serverHTTPListenPort  = pflag.Int("http-listen-port", 8080, "server http listen port")
 	kubeServerListenPort  = pflag.Int("kube-server-listen-port", 8090, "kube server grpc http listen port")
 
-	logLevel                  = pflag.String("log-level", slog.LevelDebug.String(), "Log level")
+	logLevel                  = pflag.String("log-level", slog.LevelDebug.String(), "Log level: debug, info, warn or error")
 	logRateInterval           = pflag.Duration("log-rate-interval", 100*time.Millisecond, "Log rate limit interval")
 	logRateBurst              = pflag.Int("log-rate-burst", 100, "Log rate burst")
 	promMetricsExportEnabled  = pflag.Bool("prom-metrics-export-enabled", false, "Enabled sending internal prometheus metrics")
@@ -98,6 +98,15 @@ var (
 func main() {
 	pflag.Parse()
 
+	var slogLevel slog.Level
+	if err := slogLevel.UnmarshalText([]byte(*logLevel)); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid log level %q: %v\n", *logLevel, err)
+		os.Exit(1)
+	}
+	logHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slogLevel})
+	logger := slog.New(logHandler)
+	slog.SetDefault(logger)
+
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -120,12 +129,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	var cloudProviderVal string
-	if *cloudProvider != "" {
-		cloudProviderVal = *cloudProvider
-	} else {
-		slog.Warn(`--kube-bench-cloud-provider is deprecated, please use --cloud-provider instead.`)
-		cloudProviderVal = *kubeBenchCloudProvider
+	cloudProviderType, err := parseCloudProvider(*cloudProvider, *kubeBenchCloudProvider)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	podNs := os.Getenv("POD_NAMESPACE")
@@ -174,7 +181,7 @@ func main() {
 			CastaiClusterID:           castaiClientCfg.ClusterID,
 			CastaiGrpcInsecure:        *castaiServerInsecure,
 			ImageScanBlobsCacheURL:    *imageScanBlobsCacheURL,
-			CloudProvider:             cloudProviderVal,
+			CloudProvider:             cloudProviderType.KubernetesType(),
 			IgnoredNamespaces:         *imageScanIgnoredNamespaces,
 			DisabledAnalyzers:         *imageScanDisabledAnalyzers,
 		},
@@ -188,7 +195,7 @@ func main() {
 			Force:              *kubeBenchForceScan,
 			ScanInterval:       *kubeBenchScanInterval,
 			JobImagePullPolicy: *kubeBenchJobImagePullPolicy,
-			CloudProvider:      cloudProviderVal,
+			CloudProvider:      cloudProviderType.KubernetesType(),
 			JobNamespace:       podNs,
 		},
 		JobsCleanup: controllers.JobsCleanupConfig{
@@ -201,7 +208,7 @@ func main() {
 		},
 		CloudProviderConfig: config.CloudProviderConfig{
 			CloudProvider: cloudtypes.ProviderConfig{
-				Type:         cloudtypes.Type(*cloudProvider),
+				Type:         cloudProviderType,
 				GCPProjectID: *cloudProviderGCPProjectID,
 				AWSRegion:    *cloudProviderAWSRegion,
 			},
@@ -244,4 +251,14 @@ func getKubeConfig(kubepath string) (*rest.Config, error) {
 		return nil, err
 	}
 	return inClusterConfig, nil
+}
+
+func parseCloudProvider(cloudProvider string, kubeBenchCloudProvider string) (cloudtypes.Type, error) {
+	if cloudProvider != "" {
+		return cloudtypes.NewProviderType(cloudProvider)
+	} else if kubeBenchCloudProvider != "" {
+		slog.Warn(`--kube-bench-cloud-provider is deprecated, please use --cloud-provider instead.`)
+		return cloudtypes.NewProviderType(kubeBenchCloudProvider)
+	}
+	return "", nil
 }
