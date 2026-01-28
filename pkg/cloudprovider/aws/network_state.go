@@ -58,10 +58,8 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC, error) {
 	var vpcs []types.VPC
 
-	// Build filters
 	filters := []ec2types.Filter{}
 
-	// Describe VPCs
 	describeVPCsInput := &ec2.DescribeVpcsInput{
 		Filters: filters,
 		VpcIds:  []string{networkID},
@@ -80,7 +78,6 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			Name: getTagValue(vpc.Tags, "Name"),
 		}
 
-		// Parse VPC CIDRs
 		if vpc.CidrBlock != nil {
 			cidr, err := netip.ParsePrefix(*vpc.CidrBlock)
 			if err != nil {
@@ -90,7 +87,6 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			}
 		}
 
-		// Parse additional CIDR blocks
 		for _, assoc := range vpc.CidrBlockAssociationSet {
 			if assoc.CidrBlock == nil {
 				continue
@@ -103,7 +99,6 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			vpcObj.CIDRs = append(vpcObj.CIDRs, cidr)
 		}
 
-		// Fetch subnets for this VPC
 		subnets, err := p.fetchSubnets(ctx, vpcID)
 		if err != nil {
 			p.log.With("vpc", vpcID).Warnf("fetching subnets: %v", err)
@@ -111,7 +106,6 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			vpcObj.Subnets = subnets
 		}
 
-		// Fetch VPC peering connections
 		peeredVPCs, err := p.fetchPeeredVPCs(ctx, vpcID)
 		if err != nil {
 			p.log.With("vpc", vpcID).Warnf("fetching peered VPCs: %v", err)
@@ -201,7 +195,6 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 			Name: stringValue(peering.VpcPeeringConnectionId),
 		}
 
-		// Parse accepter VPC CIDRs
 		if peering.AccepterVpcInfo.CidrBlock != nil {
 			cidr, err := netip.ParsePrefix(*peering.AccepterVpcInfo.CidrBlock)
 			if err != nil {
@@ -215,7 +208,6 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 			}
 		}
 
-		// Parse additional CIDR blocks
 		for _, cidrBlock := range peering.AccepterVpcInfo.CidrBlockSet {
 			if cidrBlock.CidrBlock == nil {
 				continue
@@ -299,7 +291,7 @@ func (p *Provider) fetchServiceIPRanges(ctx context.Context) ([]types.ServiceRan
 		return nil, fmt.Errorf("parsing JSON: %w", err)
 	}
 
-	// Process IPv4 prefixes
+	// IPv4 prefixes
 	for _, prefix := range ipRanges.Prefixes {
 		cidr, err := netip.ParsePrefix(prefix.IPPrefix)
 		if err != nil {
@@ -315,7 +307,7 @@ func (p *Provider) fetchServiceIPRanges(ctx context.Context) ([]types.ServiceRan
 		rangesByRegion[region] = append(rangesByRegion[region], cidr)
 	}
 
-	// Process IPv6 prefixes
+	// IPv6 prefixes
 	for _, prefix := range ipRanges.IPv6 {
 		cidr, err := netip.ParsePrefix(prefix.IPv6Prefix)
 		if err != nil {
