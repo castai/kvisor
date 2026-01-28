@@ -29,7 +29,7 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.log.Info("refreshing AWS metadata")
 
 	metadata := &types.NetworkState{
-		Domain:   "amazonaws.com",
+		Domain:   types.DomainAWS,
 		Provider: types.TypeAWS,
 	}
 
@@ -60,12 +60,6 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 
 	// Build filters
 	filters := []ec2types.Filter{}
-	// if networkID != "" {
-	// 	filters = append(filters, ec2types.Filter{
-	// 		Name:   stringPtr("vpc-id"),
-	// 		Values: []string{networkID},
-	// 	})
-	// }
 
 	// Describe VPCs
 	describeVPCsInput := &ec2.DescribeVpcsInput{
@@ -132,6 +126,7 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 	return vpcs, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSubnets.html
 func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subnet, error) {
 	var subnets []types.Subnet
 
@@ -175,6 +170,7 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 	return subnets, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcPeeringConnections.html
 func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.PeeredVPC, error) {
 	var peeredVPCs []types.PeeredVPC
 
@@ -348,8 +344,6 @@ func (p *Provider) fetchServiceIPRanges(ctx context.Context) ([]types.ServiceRan
 
 	return serviceRanges, nil
 }
-
-// Helper functions
 
 func stringPtr(s string) *string {
 	return &s
