@@ -21,10 +21,10 @@ This network state enables better network flow analysis and region/zone attribut
 ## Supported Cloud Providers
 
 Currently supported:
-- GCP  - Support with Workload Identity and Service Account authentication
+- **GCP** - Workload Identity and Service Account authentication
+- **AWS** - IRSA (IAM Roles for Service Accounts) and IAM User authentication
 
 Coming soon:
-- AWS
 - Azure
 
 ---
@@ -194,6 +194,304 @@ controller:
     - name: gcp-credentials
       secret:
         secretName: gcp-credentials
+```
+
+**Step 4: Install/Upgrade kvisor**
+
+```bash
+helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
+  --namespace kvisor \
+  --create-namespace \
+  --values values.yaml
+```
+
+---
+
+## AWS EKS Configuration
+
+### Prerequisites
+
+1. **AWS Account** with the VPC you want to monitor
+2. **IAM Role or User** with the following permissions:
+   - `ec2:DescribeVpcs`
+   - `ec2:DescribeSubnets`
+   - `ec2:DescribeVpcPeeringConnections`
+
+   **Recommended IAM Policy:**
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "ec2:DescribeVpcs",
+           "ec2:DescribeSubnets",
+           "ec2:DescribeVpcPeeringConnections"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+3. **VPC ID** - The ID of the VPC to monitor (e.g., `vpc-0123456789abcdef0`)
+
+### Authentication Methods
+
+Choose one of the following authentication methods:
+
+#### Option 1: IRSA - IAM Roles for Service Accounts (Recommended)
+
+**Step 1: Create IAM Policy**
+
+```bash
+export AWS_REGION="us-east-1"
+export POLICY_NAME="KvisorVPCReaderPolicy"
+
+cat > kvisor-vpc-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcPeeringConnections"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+
+aws iam create-policy \
+  --policy-name ${POLICY_NAME} \
+  --policy-document file://kvisor-vpc-policy.json \
+  --region ${AWS_REGION}
+```
+
+**Step 2: Create IAM Role for Service Account**
+
+You have two options:
+
+**Option A: Use existing kvisor service account (Recommended)**
+
+```bash
+export CLUSTER_NAME="your-eks-cluster"
+export NAMESPACE="kvisor"
+export SERVICE_ACCOUNT_NAME="kvisor"
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Associate OIDC provider with cluster (if not already done)
+eksctl utils associate-iam-oidc-provider \
+  --cluster ${CLUSTER_NAME} \
+  --region ${AWS_REGION} \
+  --approve
+
+# Get OIDC provider URL
+export OIDC_PROVIDER=$(aws eks describe-cluster --name ${CLUSTER_NAME} --region ${AWS_REGION} --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
+
+# Create IAM role with trust policy for the existing service account
+cat > trust-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/${OIDC_PROVIDER}"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "${OIDC_PROVIDER}:sub": "system:serviceaccount:${NAMESPACE}:${SERVICE_ACCOUNT_NAME}",
+          "${OIDC_PROVIDER}:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+# Create the IAM role
+aws iam create-role \
+  --role-name KvisorVPCReaderRole \
+  --assume-role-policy-document file://trust-policy.json
+
+# Attach the policy to the role
+aws iam attach-role-policy \
+  --role-name KvisorVPCReaderRole \
+  --policy-arn arn:aws:iam::${AWS_ACCOUNT_ID}:policy/${POLICY_NAME}
+
+# Get the role ARN (you'll need this for helm values)
+export ROLE_ARN=$(aws iam get-role --role-name KvisorVPCReaderRole --query 'Role.Arn' --output text)
+echo "Role ARN: ${ROLE_ARN}"
+```
+
+**Option B: Let eksctl create a new service account**
+
+```bash
+export CLUSTER_NAME="your-eks-cluster"
+export NAMESPACE="kvisor"
+export SERVICE_ACCOUNT_NAME="kvisor"
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Associate OIDC provider with cluster (if not already done)
+eksctl utils associate-iam-oidc-provider \
+  --cluster ${CLUSTER_NAME} \
+  --region ${AWS_REGION} \
+  --approve
+
+# Create IAM role and service account
+eksctl create iamserviceaccount \
+  --cluster=${CLUSTER_NAME} \
+  --namespace=${NAMESPACE} \
+  --name=${SERVICE_ACCOUNT_NAME} \
+  --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT_ID}:policy/${POLICY_NAME} \
+  --region=${AWS_REGION} \
+  --approve
+```
+
+**Step 3: Configure Helm Values**
+
+Create or update your `values.yaml`:
+
+**For Option A (existing service account):**
+
+```yaml
+controller:
+  extraArgs:
+    # Cloud provider configuration
+    cloud-provider: aws
+
+    # VPC controller configuration
+    cloud-provider-vpc-sync-enabled: true
+    cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+    cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
+    cloud-provider-vpc-cache-size: 10000  # Optional: cache size
+
+  serviceAccount:
+    create: true
+    name: kvisor
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::YOUR_ACCOUNT_ID:role/KvisorVPCReaderRole"
+```
+
+**For Option B (eksctl-created service account):**
+
+```yaml
+controller:
+  extraArgs:
+    # Cloud provider configuration
+    cloud-provider: aws
+
+    # VPC controller configuration
+    cloud-provider-vpc-sync-enabled: true
+    cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+    cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
+    cloud-provider-vpc-cache-size: 10000  # Optional: cache size
+
+  serviceAccount:
+    create: false
+```
+
+**Step 4: Install/Upgrade kvisor**
+
+```bash
+helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
+  --namespace kvisor \
+  --create-namespace \
+  --values values.yaml
+```
+
+---
+
+#### Option 2: IAM User with Access Keys
+
+**Step 1: Create IAM User and Policy**
+
+```bash
+export USER_NAME="kvisor-vpc-reader"
+export POLICY_NAME="KvisorVPCReaderPolicy"
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Create policy
+cat > kvisor-vpc-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcPeeringConnections"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+
+aws iam create-policy \
+  --policy-name ${POLICY_NAME} \
+  --policy-document file://kvisor-vpc-policy.json
+
+# Create IAM user
+aws iam create-user --user-name ${USER_NAME}
+
+# Attach policy to user
+aws iam attach-user-policy \
+  --user-name ${USER_NAME} \
+  --policy-arn arn:aws:iam::${AWS_ACCOUNT_ID}:policy/${POLICY_NAME}
+
+# Create access key
+aws iam create-access-key --user-name ${USER_NAME} > access-key.json
+```
+
+**Step 2: Create Kubernetes Secret**
+
+```bash
+export AWS_ACCESS_KEY_ID=$(cat access-key.json | jq -r '.AccessKey.AccessKeyId')
+export AWS_SECRET_ACCESS_KEY=$(cat access-key.json | jq -r '.AccessKey.SecretAccessKey')
+
+kubectl create namespace kvisor
+
+kubectl create secret generic aws-credentials \
+  --from-literal=AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+  --from-literal=AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+  --namespace kvisor
+
+# Delete the local credentials file
+rm access-key.json
+```
+
+**Step 3: Configure Helm Values**
+
+Create or update your `values.yaml`:
+
+```yaml
+controller:
+  extraArgs:
+    # Cloud provider configuration
+    cloud-provider: aws
+
+    # VPC controller configuration
+    cloud-provider-vpc-sync-enabled: true
+    cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+    cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
+    cloud-provider-vpc-cache-size: 10000  # Optional: cache size
+
+  # Mount credentials as environment variables
+  envFrom:
+    - secretRef:
+        name: aws-credentials
+
+  serviceAccount:
+    create: true
+    name: kvisor
 ```
 
 **Step 4: Install/Upgrade kvisor**

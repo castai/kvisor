@@ -3,6 +3,7 @@
 package integration_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -88,4 +89,44 @@ func TestGetStorageState(t *testing.T) {
 		t.Logf("    IOPS: %d", v.IOPS)
 		t.Logf("    ThroughputBytes: %d B/s", v.ThroughputBytes)
 	}
+}
+
+func TestRefreshNetworkState(t *testing.T) {
+	cfg := getTestConfig(t)
+	ctx := context.Background()
+
+	provider, err := aws.NewProvider(ctx, cfg)
+	if err != nil {
+		t.Fatalf("NewProvider failed: %v", err)
+	}
+	defer provider.Close()
+
+	p := provider.(*aws.Provider)
+
+	err = p.RefreshNetworkState(ctx, "default")
+	if err != nil {
+		t.Fatalf("RefreshMetadata failed: %v", err)
+	}
+
+	metadata, err := p.GetNetworkState(ctx)
+	if err != nil {
+		t.Fatalf("GetMetadata failed: %v", err)
+	}
+
+	t.Logf("Metadata:")
+	t.Logf("  Provider: %s", metadata.Provider)
+	t.Logf("  Domain: %s", metadata.Domain)
+	for _, vpc := range metadata.VPCs {
+		t.Logf("  VPC: %s (ID: %s)", vpc.Name, vpc.ID)
+		t.Logf("    VPC CIDRs: %v", vpc.CIDRs)
+		for _, subnet := range vpc.Subnets {
+			t.Logf("    Subnet: %s; Zone: %s; Region: %s; CIDR: %s", subnet.Name, subnet.Zone, subnet.Region, subnet.CIDR)
+		}
+		for _, peer := range vpc.PeeredVPCs {
+			for _, r := range peer.Ranges {
+				t.Logf("    Peered VPC: %s; Region: %s; CIDR: %s", peer.Name, r.Region, r.CIDR)
+			}
+		}
+	}
+	t.Logf("  Service Ranges: %d regions", len(metadata.ServiceRanges))
 }
