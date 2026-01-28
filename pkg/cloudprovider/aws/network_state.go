@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+	"github.com/samber/lo"
 )
 
 func (p *Provider) GetNetworkState(ctx context.Context) (*types.NetworkState, error) {
@@ -71,7 +72,7 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 	}
 
 	for _, vpc := range result.Vpcs {
-		vpcID := stringValue(vpc.VpcId)
+		vpcID := lo.FromPtr(vpc.VpcId)
 
 		vpcObj := types.VPC{
 			ID:   vpcID,
@@ -127,7 +128,7 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 	input := &ec2.DescribeSubnetsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   stringPtr("vpc-id"),
+				Name:   lo.ToPtr("vpc-id"),
 				Values: []string{vpcID},
 			},
 		},
@@ -139,18 +140,18 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 	}
 
 	for _, subnet := range result.Subnets {
-		cidr, err := netip.ParsePrefix(stringValue(subnet.CidrBlock))
+		cidr, err := netip.ParsePrefix(lo.FromPtr(subnet.CidrBlock))
 		if err != nil {
-			p.log.Warnf("parsing subnet CIDR %s: %v", stringValue(subnet.CidrBlock), err)
+			p.log.Warnf("parsing subnet CIDR %s: %v", lo.FromPtr(subnet.CidrBlock), err)
 			continue
 		}
 
 		subnetObj := types.Subnet{
-			ID:     stringValue(subnet.SubnetId),
+			ID:     lo.FromPtr(subnet.SubnetId),
 			Name:   getTagValue(subnet.Tags, "Name"),
 			CIDR:   cidr,
-			Zone:   stringValue(subnet.AvailabilityZone),
-			Region: extractRegion(stringValue(subnet.AvailabilityZone)),
+			Zone:   lo.FromPtr(subnet.AvailabilityZone),
+			Region: extractRegion(lo.FromPtr(subnet.AvailabilityZone)),
 		}
 
 		subnets = append(subnets, subnetObj)
@@ -171,11 +172,11 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 	input := &ec2.DescribeVpcPeeringConnectionsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   stringPtr("requester-vpc-info.vpc-id"),
+				Name:   lo.ToPtr("requester-vpc-info.vpc-id"),
 				Values: []string{vpcID},
 			},
 			{
-				Name:   stringPtr("status-code"),
+				Name:   lo.ToPtr("status-code"),
 				Values: []string{"active"},
 			},
 		},
@@ -192,7 +193,7 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 		}
 
 		peerVPC := types.PeeredVPC{
-			Name: stringValue(peering.VpcPeeringConnectionId),
+			Name: lo.FromPtr(peering.VpcPeeringConnectionId),
 		}
 
 		if peering.AccepterVpcInfo.CidrBlock != nil {
@@ -202,7 +203,7 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 			} else {
 				peerRange := types.PeeredVPCRange{
 					CIDR:   cidr,
-					Region: stringValue(peering.AccepterVpcInfo.Region),
+					Region: lo.FromPtr(peering.AccepterVpcInfo.Region),
 				}
 				peerVPC.Ranges = append(peerVPC.Ranges, peerRange)
 			}
@@ -219,7 +220,7 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 			}
 			peerRange := types.PeeredVPCRange{
 				CIDR:   cidr,
-				Region: stringValue(peering.AccepterVpcInfo.Region),
+				Region: lo.FromPtr(peering.AccepterVpcInfo.Region),
 			}
 			peerVPC.Ranges = append(peerVPC.Ranges, peerRange)
 		}
@@ -337,21 +338,10 @@ func (p *Provider) fetchServiceIPRanges(ctx context.Context) ([]types.ServiceRan
 	return serviceRanges, nil
 }
 
-func stringPtr(s string) *string {
-	return &s
-}
-
-func stringValue(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 func getTagValue(tags []ec2types.Tag, key string) string {
 	for _, tag := range tags {
-		if stringValue(tag.Key) == key {
-			return stringValue(tag.Value)
+		if lo.FromPtr(tag.Key) == key {
+			return lo.FromPtr(tag.Value)
 		}
 	}
 	return ""
