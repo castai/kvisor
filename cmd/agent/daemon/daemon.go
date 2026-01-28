@@ -84,7 +84,7 @@ func NewRunCommand(version string) *cobra.Command {
 
 		netflowEnabled                    = command.Flags().Bool("netflow-enabled", false, "Enables netflow tracking")
 		netflowCheckClusterNetworkRanges  = command.Flags().Bool("netflow-check-cluster-network-ranges", true, "Check cluster network ranges before enriching destinations")
-		netflowClusterInfoRefreshInterval = command.Flags().Duration("netflow-cluster-network-ranges-refresh-interval", 1*time.Hour, "Cluster network ranges refresh interval (0 to disable periodic refresh)")
+		netflowClusterInfoRefreshInterval = command.Flags().Duration("netflow-cluster-network-ranges-refresh-interval", 0, "Cluster network ranges refresh interval (0 to disable periodic refresh)")
 		netflowExportInterval             = command.Flags().Duration("netflow-export-interval", 15*time.Second, "Netflow export interval")
 		netflowMaxPublicIPsBucket         = command.Flags().Int16("netflow-max-public-ips-bucket", -1, "Maximum number of unique public IPs destination before aggregating into 0.0.0.0 range")
 		netflowCgroupDnsCacheMaxEntries   = command.Flags().Uint32("netflow-cgroup-dns-cache-max-entries", 1024, "Number of dns cache entries per cgroup")
