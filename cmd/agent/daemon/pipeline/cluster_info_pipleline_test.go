@@ -146,6 +146,10 @@ func (m *mockKubeClientWithRetry) GetClusterInfo(ctx context.Context, req *kubep
 	return m.response, nil
 }
 
+func (m *mockKubeClientWithRetry) GetCloudVolumes(ctx context.Context, in *kubepb.GetCloudVolumesRequest, opts ...grpc.CallOption) (*kubepb.GetCloudVolumesResponse, error) {
+	return &kubepb.GetCloudVolumesResponse{}, nil
+}
+
 func (m *mockKubeClientWithRetry) GetIPsInfo(ctx context.Context, in *kubepb.GetIPsInfoRequest, opts ...grpc.CallOption) (*kubepb.GetIPsInfoResponse, error) {
 	return &kubepb.GetIPsInfoResponse{}, nil
 }
