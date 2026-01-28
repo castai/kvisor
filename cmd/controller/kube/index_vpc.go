@@ -53,6 +53,10 @@ func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration, cacheSize u
 
 // Update updates the VPC state and rebuilds the CIDR tree.
 func (vi *VPCIndex) Update(state *cloudtypes.NetworkState) error {
+	if vi == nil {
+		return nil
+	}
+
 	vi.mu.Lock()
 	defer vi.mu.Unlock()
 
@@ -154,6 +158,10 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 // LookupIP looks up VPC state for an IP address.
 func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
+	if vi == nil {
+		return nil, false
+	}
+
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 
@@ -170,7 +178,7 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 }
 
 func (vi *VPCIndex) VpcCIDRs() []string {
-	if vi.state == nil {
+	if vi == nil || vi.state == nil {
 		return []string{}
 	}
 
@@ -188,7 +196,7 @@ func (vi *VPCIndex) VpcCIDRs() []string {
 }
 
 func (vi *VPCIndex) CloudServiceCIDRs() []string {
-	if vi.state == nil {
+	if vi == nil || vi.state == nil {
 		return []string{}
 	}
 

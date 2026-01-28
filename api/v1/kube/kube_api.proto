@@ -16,7 +16,10 @@ service KubeAPI {
   rpc GetCloudVolumes(GetCloudVolumesRequest) returns (GetCloudVolumesResponse);
 }
 
-message GetClusterInfoRequest {}
+message GetClusterInfoRequest {
+  bool exclude_other_cidr = 1;
+}
+
 message GetClusterInfoResponse {
   repeated string pods_cidr = 1;
   repeated string service_cidr = 2;

@@ -25,96 +25,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type clusterInfo struct {
-	podCidr     []netip.Prefix
-	serviceCidr []netip.Prefix
-	nodeCidr    []netip.Prefix
-	vpcCidr     []netip.Prefix
-	cloudCidr   []netip.Prefix
-	clusterCidr []netip.Prefix
-}
-
-func (c *Controller) getClusterInfo(ctx context.Context) (*clusterInfo, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		resp, err := c.kubeClient.GetClusterInfo(ctx, &kubepb.GetClusterInfoRequest{})
-		if err != nil {
-			c.log.Warnf("getting cluster info: %v", err)
-			sleep(ctx, 2*time.Second)
-			continue
-		}
-		res := clusterInfo{}
-		for _, cidr := range resp.PodsCidr {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return nil, fmt.Errorf("parsing pods cidr: %w", err)
-			}
-			res.podCidr = append(res.podCidr, subnet)
-			res.clusterCidr = append(res.clusterCidr, subnet)
-		}
-		for _, cidr := range resp.ServiceCidr {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return nil, fmt.Errorf("parsing service cidr: %w", err)
-			}
-			res.serviceCidr = append(res.serviceCidr, subnet)
-			res.clusterCidr = append(res.clusterCidr, subnet)
-		}
-		for _, cidr := range resp.NodeCidr {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return nil, fmt.Errorf("parsing node cidr: %w", err)
-			}
-			res.nodeCidr = append(res.nodeCidr, subnet)
-			res.clusterCidr = append(res.clusterCidr, subnet)
-		}
-		for _, cidr := range resp.VpcCidr {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return nil, fmt.Errorf("parsing vpc cidr: %w", err)
-			}
-			res.vpcCidr = append(res.vpcCidr, subnet)
-			res.clusterCidr = append(res.clusterCidr, subnet)
-		}
-		for _, cidr := range resp.OtherCidr {
-			subnet, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return nil, fmt.Errorf("parsing other cidr: %w", err)
-			}
-			res.cloudCidr = append(res.cloudCidr, subnet)
-			res.clusterCidr = append(res.clusterCidr, subnet)
-		}
-		return &res, nil
-	}
-}
-
 func (c *Controller) runNetflowPipeline(ctx context.Context) error {
 	c.log.Info("running netflow pipeline")
 	defer c.log.Info("netflow pipeline done")
-
-	// FIXME: we fetch cluster networks ranges only once when agent pod starts
-	// which could lead to a problem that some CIDRs are not yet indexed in controller pod
-	// and some flows can be missed.
-	if c.cfg.Netflow.CheckClusterNetworkRanges {
-		clusterInfoCtx, clusterInfoCancel := context.WithTimeout(ctx, time.Second*60)
-		defer clusterInfoCancel()
-		clusterInfo, err := c.getClusterInfo(clusterInfoCtx)
-		if err != nil {
-			c.log.Errorf("getting cluster info: %v", err)
-		}
-		c.clusterInfo = clusterInfo
-		if clusterInfo != nil {
-			c.log.Infof(
-				"fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s, vpc_cidr=%s",
-				clusterInfo.podCidr, clusterInfo.serviceCidr, clusterInfo.nodeCidr, clusterInfo.vpcCidr,
-			)
-		}
-	}
 
 	groups := map[uint64]*netflowGroup{} // TODO: Consider reusing groups similar to events and container stats.
 	netflowGroupKeyDigest := xxhash.New()
@@ -251,7 +164,7 @@ func (c *Controller) handleNetflows(
 			continue
 		}
 
-		if (c.clusterInfo != nil && c.clusterInfo.clusterCidrContains(destAddr)) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+		if c.clusterInfo.clusterCidrContains(destAddr) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 			kubeDestinations[destAddr] = struct{}{}
 		}
 
@@ -330,10 +243,9 @@ func (c *Controller) enrichKubeDestinations(ctx context.Context, groups map[uint
 func (c *Controller) addNetflowDestination(netflow *netflowVal, dest *castaipb.NetflowDestination, destAddr netip.Addr) {
 	isPublicDest := !iputil.IsPrivateNetwork(destAddr)
 	netflow.updatedAt = time.Now()
-	var isCloudDest bool
-	if c.clusterInfo != nil {
-		isCloudDest = c.clusterInfo.cloudCidrContains(destAddr)
-	}
+
+	isCloudDest := c.clusterInfo.cloudCidrContains(destAddr)
+
 	// To reduce cardinality we merge destinations to 0.0.0.0 range if
 	// it's a public ip and doesn't have dns domain.
 	maybeMerge := isNetflowDestCandidateForMerge(dest, isPublicDest, isCloudDest, c.cfg.Netflow.MaxPublicIPs)
@@ -470,7 +382,7 @@ func (c *Controller) toNetflowDestination(key ebpftracer.TrafficKey, summary ebp
 
 	dns := c.tracer.GetDNSNameFromCache(key.ProcessIdentity.CgroupId, remote.Addr())
 
-	if (c.clusterInfo != nil && c.clusterInfo.serviceCidrContains(remote.Addr())) || !c.cfg.Netflow.CheckClusterNetworkRanges {
+	if c.clusterInfo.serviceCidrContains(remote.Addr()) || !c.cfg.Netflow.CheckClusterNetworkRanges {
 		if realDst, found := c.getConntrackDest(local, remote); found {
 			remote = realDst
 		}
@@ -523,33 +435,6 @@ func (c *Controller) getConntrackDest(src, dst netip.AddrPort) (netip.AddrPort, 
 	return realDst, true
 }
 
-func (c *clusterInfo) serviceCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.serviceCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *clusterInfo) clusterCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.clusterCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *clusterInfo) cloudCidrContains(ip netip.Addr) bool {
-	for _, cidr := range c.cloudCidr {
-		if cidr.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
 func toProtoProtocol(proto uint8) castaipb.NetflowProtocol {
 	switch proto {
 	case unix.IPPROTO_TCP:
@@ -558,14 +443,5 @@ func toProtoProtocol(proto uint8) castaipb.NetflowProtocol {
 		return castaipb.NetflowProtocol_NETFLOW_PROTOCOL_UDP
 	default:
 		return castaipb.NetflowProtocol_NETFLOW_PROTOCOL_UNKNOWN
-	}
-}
-
-func sleep(ctx context.Context, timeout time.Duration) {
-	t := time.NewTimer(timeout)
-	defer t.Stop()
-	select {
-	case <-t.C:
-	case <-ctx.Done():
 	}
 }
