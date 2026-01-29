@@ -55,7 +55,7 @@ func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
 		return fmt.Errorf("block device metrics writer not initialized")
 	}
 
-	blockMetrics, err := c.storageInfoProvider.BuildBlockDeviceMetrics(timestamp)
+	blockMetrics, err := c.storageInfoProvider.CollectBlockDeviceMetrics(timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to collect block device metrics: %w", err)
 	}
@@ -74,7 +74,7 @@ func (c *Controller) processFilesystemMetrics(ctx context.Context, timestamp tim
 		return fmt.Errorf("filesystem metrics writer not initialized")
 	}
 
-	fsMetrics, err := c.storageInfoProvider.BuildFilesystemMetrics(ctx, timestamp)
+	fsMetrics, err := c.storageInfoProvider.CollectFilesystemMetrics(ctx, timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to collect filesystem metrics: %w", err)
 	}

@@ -28,16 +28,17 @@ const hostPathRoot = "/proc/1/root"
 
 // BlockDeviceMetric represents enhanced block device metrics with accurate sector sizes
 type BlockDeviceMetric struct {
-	Name         string   `avro:"name"`
-	NodeName     string   `avro:"node_name"`
-	NodeTemplate *string  `avro:"node_template"`
-	Path         string   `avro:"path"`
-	SizeBytes    *int64   `avro:"size_bytes"`
-	DiskType     string   `avro:"disk_type"`    // HDD, SSD
-	PartitionOf  string   `avro:"partition_of"` // parent device for partitions
-	Holders      []string `avro:"holders"`      // devices using this device
-	IsVirtual    bool     `avro:"is_virtual"`   // dm-* or md* devices
-	RaidLevel    string   `avro:"raid_level"`   // raid0, raid1, raid5, etc
+	Name         string            `avro:"name"`
+	NodeName     string            `avro:"node_name"`
+	NodeTemplate *string           `avro:"node_template"`
+	Path         string            `avro:"path"`
+	SizeBytes    *int64            `avro:"size_bytes"`
+	DiskType     string            `avro:"disk_type"`    // HDD, SSD
+	PartitionOf  string            `avro:"partition_of"` // parent device for partitions
+	Holders      []string          `avro:"holders"`      // devices using this device
+	IsVirtual    bool              `avro:"is_virtual"`   // dm-* or md* devices
+	RaidLevel    string            `avro:"raid_level"`   // raid0, raid1, raid5, etc
+	LVMInfo      map[string]string `avro:"lvm_info"`     // LVM metadata for this device
 
 	ReadIOPS             float64   `avro:"read_iops"`
 	WriteIOPS            float64   `avro:"write_iops"`
@@ -136,8 +137,8 @@ type storageMetricsState struct {
 }
 
 type StorageInfoProvider interface {
-	BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error)
-	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
+	CollectFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error)
+	CollectBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
 	CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error)
@@ -448,7 +449,7 @@ func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context
 	return metrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
+func (s *SysfsStorageInfoProvider) CollectFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
 	// Read mount information from /proc/1/mountinfo
 	mounts, err := readMountInfo("/proc/1/mountinfo")
 	if err != nil {
@@ -621,7 +622,7 @@ func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 	}
 }
 
-func (s *SysfsStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
+func (s *SysfsStorageInfoProvider) CollectBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
 	// Read stats from /proc/diskstats
 	diskStats, err := readProcDiskStats()
 	if err != nil {
@@ -662,6 +663,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 	holders := s.getHolders(blockName)
 	raidLevel := s.getRaidLevel(blockName)
 	logicalSectorSize := s.getLogicalSectorSize(blockName)
+	lvmInfo := s.getLVMInfo(blockName)
 
 	diskSize, err := s.getDeviceSize(blockName)
 	if err != nil {
@@ -684,6 +686,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 		Holders:          holders,
 		IsVirtual:        isVirtualDevice(blockName),
 		RaidLevel:        raidLevel,
+		LVMInfo:          lvmInfo,
 		Timestamp:        timestamp,
 		InFlightRequests: safeUint64ToInt64(stats.InFlight),
 
@@ -928,6 +931,74 @@ func (s *SysfsStorageInfoProvider) getHolders(deviceName string) []string {
 	}
 
 	return holders
+}
+
+// getLVMInfo returns LVM metadata (dm_name, lv_name, vg_name) for device-mapper devices
+func (s *SysfsStorageInfoProvider) getLVMInfo(deviceName string) map[string]string {
+	if !strings.HasPrefix(deviceName, "dm-") {
+		return nil
+	}
+
+	requiredTags := map[string]string{
+		"DM_NAME":    "dm_name",
+		"DM_LV_NAME": "lv_name",
+		"DM_VG_NAME": "vg_name",
+	}
+
+	// Read device major:minor from /sys/block/<device>/dev
+	devPath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName, "dev")
+	devData, err := os.ReadFile(devPath)
+	if err != nil {
+		return nil
+	}
+
+	majorMinor := strings.TrimSpace(string(devData))
+	if majorMinor == "" {
+		return nil
+	}
+
+	// Open udev database file from host: /proc/1/root/run/udev/data/b<major>:<minor>
+	udevDBPath := filepath.Join(s.hostRootPath, "run", "udev", "data", "b"+majorMinor)
+	udevDBFile, err := os.Open(udevDBPath)
+	if err != nil {
+		return nil
+	}
+	defer udevDBFile.Close()
+
+	tags := make(map[string]string)
+
+	scanner := bufio.NewScanner(udevDBFile)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Only process device property lines (E:)
+		if !strings.HasPrefix(line, "E:") {
+			continue
+		}
+		property := strings.TrimPrefix(line, "E:")
+
+		parts := strings.SplitN(property, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key, value := parts[0], parts[1]
+		if name, ok := requiredTags[key]; ok && value != "" {
+			tags[name] = value
+		}
+
+		// Exit early if desired tags are found
+		if len(tags) == len(requiredTags) {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		s.log.Errorf("failed to scan udev database for device %s: %v", deviceName, err)
+		return nil
+	}
+
+	return tags
 }
 
 func safeUint64ToInt64(val uint64) int64 {
