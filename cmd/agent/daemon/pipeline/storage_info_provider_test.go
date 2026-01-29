@@ -1080,31 +1080,20 @@ func TestGetNodefsCapacityMultiplePaths(t *testing.T) {
 		expectedCapacity int64
 	}{
 		{
-			name: "all paths on same filesystem - counted once",
+			name: "kubelet and containerd on same filesystem - counted once",
 			deviceIDs: map[string]uint64{
-				kubeletPath:       100,
-				containerdPath:    100,
-				castaiStoragePath: 100,
+				kubeletPath:    100,
+				containerdPath: 100,
 			},
 			expectedCapacity: 1,
 		},
 		{
-			name: "kubelet and containerd same, castai-storage different - counted twice",
+			name: "kubelet and containerd on different filesystems - counted twice",
 			deviceIDs: map[string]uint64{
-				kubeletPath:       100,
-				containerdPath:    100,
-				castaiStoragePath: 200,
+				kubeletPath:    100,
+				containerdPath: 200,
 			},
 			expectedCapacity: 2,
-		},
-		{
-			name: "all paths on different filesystems - counted three times",
-			deviceIDs: map[string]uint64{
-				kubeletPath:       100,
-				containerdPath:    200,
-				castaiStoragePath: 300,
-			},
-			expectedCapacity: 3,
 		},
 		{
 			name: "only kubelet exists",
@@ -1114,9 +1103,9 @@ func TestGetNodefsCapacityMultiplePaths(t *testing.T) {
 			expectedCapacity: 1,
 		},
 		{
-			name: "only castai-storage exists",
+			name: "only containerd exists",
 			deviceIDs: map[string]uint64{
-				castaiStoragePath: 100,
+				containerdPath: 100,
 			},
 			expectedCapacity: 1,
 		},
@@ -1135,7 +1124,7 @@ func TestGetNodefsCapacityMultiplePaths(t *testing.T) {
 				hostRootPath:          "/",
 			}
 
-			paths := []string{kubeletPath, containerdPath, castaiStoragePath}
+			paths := []string{kubeletPath, containerdPath}
 			seenDevices := make(map[uint64]bool)
 			var uniqueCount int64
 
@@ -1184,36 +1173,11 @@ func TestBuildFilesystemLabels(t *testing.T) {
 			},
 		},
 		{
-			name:                 "filesystem matches castai-storage path",
+			name:                 "filesystem matches kubelet and containerd on same device",
 			fsMountPointDeviceID: 100,
 			wellKnownPathsDeviceID: map[string]uint64{
-				castaiStoragePath: 100,
-			},
-			expectedLabels: map[string]string{
-				"castai-storage": "true",
-			},
-		},
-		{
-			name:                 "filesystem matches multiple paths on same device",
-			fsMountPointDeviceID: 100,
-			wellKnownPathsDeviceID: map[string]uint64{
-				kubeletPath:       100,
-				containerdPath:    100,
-				castaiStoragePath: 100,
-			},
-			expectedLabels: map[string]string{
-				"kubelet":        "true",
-				"containerd":     "true",
-				"castai-storage": "true",
-			},
-		},
-		{
-			name:                 "filesystem matches kubelet and containerd but not castai-storage",
-			fsMountPointDeviceID: 100,
-			wellKnownPathsDeviceID: map[string]uint64{
-				kubeletPath:       100,
-				containerdPath:    100,
-				castaiStoragePath: 200,
+				kubeletPath:    100,
+				containerdPath: 100,
 			},
 			expectedLabels: map[string]string{
 				"kubelet":    "true",
@@ -1221,12 +1185,22 @@ func TestBuildFilesystemLabels(t *testing.T) {
 			},
 		},
 		{
-			name:                   "filesystem matches no paths",
-			fsMountPointDeviceID:   999,
+			name:                 "filesystem matches kubelet but not containerd",
+			fsMountPointDeviceID: 100,
 			wellKnownPathsDeviceID: map[string]uint64{
-				kubeletPath:       100,
-				containerdPath:    200,
-				castaiStoragePath: 300,
+				kubeletPath:    100,
+				containerdPath: 200,
+			},
+			expectedLabels: map[string]string{
+				"kubelet": "true",
+			},
+		},
+		{
+			name:                 "filesystem matches no paths",
+			fsMountPointDeviceID: 999,
+			wellKnownPathsDeviceID: map[string]uint64{
+				kubeletPath:    100,
+				containerdPath: 200,
 			},
 			expectedLabels: map[string]string{},
 		},

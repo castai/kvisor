@@ -1213,7 +1213,7 @@ func (s *SysfsStorageInfoProvider) calculateAllocatableBytes(capacityBytes int64
 // getNodefsCapacity returns the total capacity across all well-known storage paths,
 // deduplicating by device ID to avoid counting the same filesystem multiple times.
 func (s *SysfsStorageInfoProvider) getNodefsCapacity() int64 {
-	paths := []string{kubeletPath, containerdPath, castaiStoragePath}
+	paths := []string{kubeletPath, containerdPath}
 	seenDevices := make(map[uint64]bool)
 	var totalCapacity int64
 
