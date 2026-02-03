@@ -209,48 +209,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 
 {{/*
-Container runtime socket path helpers for CRI-O and containerd support.
-*/}}
-
-{{/*
-Get the CRI socket path based on runtime type and overrides.
-*/}}
-{{- define "kvisor.agent.criSocketPath" -}}
-{{- if .Values.agent.containerRuntime.criSocketPath -}}
-  {{- .Values.agent.containerRuntime.criSocketPath -}}
-{{- else if eq .Values.agent.containerRuntime.type "crio" -}}
-  unix:///var/run/crio/crio.sock
-{{- else -}}
-  unix:///run/containerd/containerd.sock
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the containerd socket path based on runtime type and overrides.
-Returns empty string for CRI-O (containerd not used).
-*/}}
-{{- define "kvisor.agent.containerdSocketPath" -}}
-{{- if eq .Values.agent.containerRuntime.type "crio" -}}
-  {{/* Empty for CRI-O - containerd not used */}}
-{{- else if .Values.agent.containerRuntime.containerdSocketPath -}}
-  {{- .Values.agent.containerRuntime.containerdSocketPath -}}
-{{- else -}}
-  /run/containerd/containerd.sock
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the path for the runtime socket (used for both host and mount paths).
-*/}}
-{{- define "kvisor.agent.runtimeSocketPath" -}}
-{{- if eq .Values.agent.containerRuntime.type "crio" -}}
-  /var/run/crio/crio.sock
-{{- else -}}
-  /run/containerd/containerd.sock
-{{- end -}}
-{{- end -}}
-
-{{/*
 Agent container security context with conditional capabilities.
 If capabilities.add is already defined in values.yaml, those are used as-is.
 Otherwise, capabilities are added dynamically based on enabled features in extraArgs:

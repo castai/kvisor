@@ -160,7 +160,7 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
-	applyContainerRuntimePresets(cfg, log)
+	applyContainerdSettings(cfg, log)
 
 	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
@@ -402,21 +402,15 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	return cleanup
 }
 
-func applyContainerRuntimePresets(cfg *config.Config, log *logging.Logger) {
-	switch cfg.ContainerRuntime {
-	case "crio":
-		if cfg.CRIEndpoint == "unix:///run/containerd/containerd.sock" {
-			cfg.CRIEndpoint = "unix:///var/run/crio/crio.sock"
-		}
-		cfg.ContainerdSockPath = ""
-		if cfg.ProcessTree.Enabled {
-			log.Warn("process tree requires containerd, disabling for CRI-O runtime")
-			cfg.ProcessTree.Enabled = false
-		}
-	case "containerd", "auto", "":
+func applyContainerdSettings(cfg *config.Config, log *logging.Logger) {
+	if cfg.ContainerdEnabled {
 		return
-	default:
-		log.Warnf("unknown container runtime %q, using auto", cfg.ContainerRuntime)
+	}
+
+	cfg.ContainerdSockPath = ""
+	if cfg.ProcessTree.Enabled {
+		log.Warn("process tree requires containerd, disabling because containerd is not enabled")
+		cfg.ProcessTree.Enabled = false
 	}
 }
 

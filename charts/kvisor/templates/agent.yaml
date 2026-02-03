@@ -66,12 +66,9 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
-            - "--container-runtime={{ .Values.agent.containerRuntime.type }}"
-            - "--cri-endpoint={{ include "kvisor.agent.criSocketPath" . }}"
-          {{- $containerdPath := include "kvisor.agent.containerdSocketPath" . | trim }}
-          {{- if $containerdPath }}
-            - "--containerd-sock={{ $containerdPath }}"
-          {{- end }}
+            - "--containerd-enabled={{ .Values.agent.containerdEnabled }}"
+            - "--containerd-sock={{ .Values.agent.containerdSocketPath }}"
+            - "--cri-endpoint=unix://{{ .Values.agent.containerdSocketPath }}"
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
@@ -156,7 +153,7 @@ spec:
             - name: debugfs
               mountPath: /sys/kernel/debug
             - name: runtime-sock
-              mountPath: {{ include "kvisor.agent.runtimeSocketPath" . }}
+              mountPath: {{ .Values.agent.containerdSocketPath }}
               readOnly: true
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -189,7 +186,7 @@ spec:
           emptyDir: {}
         - name: runtime-sock
           hostPath:
-            path: {{ include "kvisor.agent.runtimeSocketPath" . }}
+            path: {{ .Values.agent.containerdSocketPath }}
             type: Socket
         {{- with .Values.agent.extraVolumes }}
         {{- toYaml . | nindent 8 }}

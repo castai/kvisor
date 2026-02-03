@@ -145,14 +145,12 @@ agent:
   # Additional environment variables for the agent container via configMaps or secrets.
   envFrom: []
 
-  # Container runtime configuration
-  containerRuntime:
-    # Runtime type: auto, containerd, crio
-    type: "auto"
-    # Override CRI socket path (auto-configured based on type if empty)
-    criSocketPath: ""
-    # Override containerd socket path (auto-configured based on type if empty)
-    containerdSocketPath: ""
+  # Path to the container runtime socket (containerd or CRI-O)
+  containerdSocketPath: "/run/containerd/containerd.sock"
+
+  # Enable containerd-specific features (process tree, image digest resolution).
+  # Set to false for CRI-O clusters.
+  containerdEnabled: true
 
 controller:
   enabled: true
