@@ -156,7 +156,7 @@ spec:
             - name: debugfs
               mountPath: /sys/kernel/debug
             - name: runtime-sock
-              mountPath: {{ include "kvisor.agent.runtimeSocketMountPath" . }}
+              mountPath: {{ include "kvisor.agent.runtimeSocketPath" . }}
               readOnly: true
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -189,7 +189,7 @@ spec:
           emptyDir: {}
         - name: runtime-sock
           hostPath:
-            path: {{ include "kvisor.agent.runtimeSocketHostPath" . }}
+            path: {{ include "kvisor.agent.runtimeSocketPath" . }}
             type: Socket
         {{- with .Values.agent.extraVolumes }}
         {{- toYaml . | nindent 8 }}

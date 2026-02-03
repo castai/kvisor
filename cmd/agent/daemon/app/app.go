@@ -413,10 +413,8 @@ func applyContainerRuntimePresets(cfg *config.Config, log *logging.Logger) {
 			log.Warn("process tree requires containerd, disabling for CRI-O runtime")
 			cfg.ProcessTree.Enabled = false
 		}
-	case "containerd":
-		// Explicit containerd mode - current defaults work
-	case "auto", "":
-		// Current behavior unchanged
+	case "containerd", "auto", "":
+		return
 	default:
 		log.Warnf("unknown container runtime %q, using auto", cfg.ContainerRuntime)
 	}

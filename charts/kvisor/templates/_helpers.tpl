@@ -240,20 +240,9 @@ Returns empty string for CRI-O (containerd not used).
 {{- end -}}
 
 {{/*
-Get the host path for the runtime socket mount.
+Get the path for the runtime socket (used for both host and mount paths).
 */}}
-{{- define "kvisor.agent.runtimeSocketHostPath" -}}
-{{- if eq .Values.agent.containerRuntime.type "crio" -}}
-  /var/run/crio/crio.sock
-{{- else -}}
-  /run/containerd/containerd.sock
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the container mount path for the runtime socket.
-*/}}
-{{- define "kvisor.agent.runtimeSocketMountPath" -}}
+{{- define "kvisor.agent.runtimeSocketPath" -}}
 {{- if eq .Values.agent.containerRuntime.type "crio" -}}
   /var/run/crio/crio.sock
 {{- else -}}
