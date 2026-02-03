@@ -150,7 +150,7 @@ spec:
               readOnly: true
             - name: debugfs
               mountPath: /sys/kernel/debug
-            - name: runtime-sock
+            - name: containerd-sock
               mountPath: /run/containerd/containerd.sock
               readOnly: true
             {{- with .Values.agent.extraVolumeMounts }}
@@ -182,7 +182,7 @@ spec:
             path: /sys/fs/cgroup
         - name: cgroup-mountdir
           emptyDir: {}
-        - name: runtime-sock
+        - name: containerd-sock
           hostPath:
             path: {{ .Values.agent.containerdSocketPath }}
             type: Socket
