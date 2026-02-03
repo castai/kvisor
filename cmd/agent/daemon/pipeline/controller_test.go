@@ -930,6 +930,7 @@ func newTestController(opts ...any) *Controller {
 		&mockStorageInfoProvider{},
 		nodeStatsSummaryWriter,
 		nil, // podVolumeMetricsWriter
+		nil, // podEphemeralStorageMetricsWriter
 	)
 	return ctrl
 }
@@ -1244,6 +1245,12 @@ func (m *mockKubeClient) GetPodVolumes(ctx context.Context, req *kubepb.GetPodVo
 	}, nil
 }
 
+func (m *mockKubeClient) GetPodEphemeralStorage(ctx context.Context, req *kubepb.GetPodEphemeralStorageRequest, opts ...grpc.CallOption) (*kubepb.GetPodEphemeralStorageResponse, error) {
+	return &kubepb.GetPodEphemeralStorageResponse{
+		Pods: []*kubepb.PodEphemeralStorageInfo{},
+	}, nil
+}
+
 type mockProcessTreeController struct {
 }
 
@@ -1370,4 +1377,8 @@ func (m *mockStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (
 
 func (m *mockStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error) {
 	return []K8sPodVolumeMetric{}, nil
+}
+
+func (m *mockStorageInfoProvider) CollectPodEphemeralStorageMetrics(ctx context.Context) ([]K8sPodEphemeralStorageMetric, error) {
+	return []K8sPodEphemeralStorageMetric{}, nil
 }

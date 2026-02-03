@@ -114,6 +114,20 @@ type K8sPodVolumeMetric struct {
 	Timestamp          time.Time `avro:"ts"`
 }
 
+// K8sPodEphemeralStorageMetric represents per-pod ephemeral storage usage from kubelet
+type K8sPodEphemeralStorageMetric struct {
+	NodeName       string    `avro:"node_name"`
+	NodeTemplate   *string   `avro:"node_template"`
+	Namespace      string    `avro:"namespace"`
+	PodName        string    `avro:"pod_name"`
+	PodUID         string    `avro:"pod_uid"`
+	ControllerKind string    `avro:"controller_kind"`
+	ControllerName string    `avro:"controller_name"`
+	UsedBytes      *int64    `avro:"used_bytes"`
+	InodesUsed     *int64    `avro:"inodes_used"`
+	Timestamp      time.Time `avro:"ts"`
+}
+
 type storageMetricsState struct {
 	blockDevices map[string]*BlockDeviceMetric
 	filesystems  map[string]*FilesystemMetric
@@ -124,6 +138,7 @@ type StorageInfoProvider interface {
 	BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
+	CollectPodEphemeralStorageMetrics(ctx context.Context) ([]K8sPodEphemeralStorageMetric, error)
 }
 
 type SysfsStorageInfoProvider struct {
@@ -372,6 +387,53 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 		}
 		if v.DevicePath != "" {
 			metric.DevicePath = &v.DevicePath
+		}
+
+		metrics = append(metrics, metric)
+	}
+
+	return metrics, nil
+}
+
+// CollectPodEphemeralStorageMetrics retrieves per-pod ephemeral storage metrics from the controller
+func (s *SysfsStorageInfoProvider) CollectPodEphemeralStorageMetrics(ctx context.Context) ([]K8sPodEphemeralStorageMetric, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kube client is not initialized")
+	}
+
+	resp, err := s.kubeClient.GetPodEphemeralStorage(ctx, &kubepb.GetPodEphemeralStorageRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod ephemeral storage for %s: %w", s.nodeName, err)
+	}
+
+	nodeTemplate, err := s.getNodeTemplate()
+	if err != nil {
+		s.log.Warnf("failed to get node template: %v", err)
+		nodeTemplate = nil
+	}
+
+	timestamp := time.Now()
+	metrics := make([]K8sPodEphemeralStorageMetric, 0, len(resp.Pods))
+
+	for _, p := range resp.Pods {
+		metric := K8sPodEphemeralStorageMetric{
+			NodeName:       s.nodeName,
+			NodeTemplate:   nodeTemplate,
+			Namespace:      p.Namespace,
+			PodName:        p.PodName,
+			PodUID:         p.PodUid,
+			ControllerKind: p.ControllerKind,
+			ControllerName: p.ControllerName,
+			Timestamp:      timestamp,
+		}
+
+		if p.UsedBytes > 0 {
+			metric.UsedBytes = lo.ToPtr(safeUint64ToInt64(p.UsedBytes))
+		}
+		if p.InodesUsed > 0 {
+			metric.InodesUsed = lo.ToPtr(safeUint64ToInt64(p.InodesUsed))
 		}
 
 		metrics = append(metrics, metric)

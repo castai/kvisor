@@ -13,6 +13,7 @@ service KubeAPI {
   rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
   rpc GetNodeStatsSummary(GetNodeStatsSummaryRequest) returns (GetNodeStatsSummaryResponse);
   rpc GetPodVolumes(GetPodVolumesRequest) returns (GetPodVolumesResponse);
+  rpc GetPodEphemeralStorage(GetPodEphemeralStorageRequest) returns (GetPodEphemeralStorageResponse);
 }
 
 message GetClusterInfoRequest {}
@@ -180,4 +181,25 @@ message PodVolumeInfo {
   string csi_volume_handle = 15;
   string volume_mode = 16;    // "Filesystem" or "Block"
   string device_path = 17;    // For block volumes: container's volumeDevices[].devicePath
+}
+
+message GetPodEphemeralStorageRequest {
+  string node_name = 1;
+}
+
+message GetPodEphemeralStorageResponse {
+  repeated PodEphemeralStorageInfo pods = 1;
+}
+
+message PodEphemeralStorageInfo {
+  string namespace = 1;
+  string pod_name = 2;
+  string pod_uid = 3;
+  string controller_kind = 4;
+  string controller_name = 5;
+  int64 time_seconds = 6;
+  uint64 used_bytes = 7;       // Per-pod: bytes used by this pod's ephemeral storage
+  uint64 inodes_used = 8;      // Per-pod: inodes used by this pod's ephemeral storage
+  // Note: availableBytes/capacityBytes/inodes are node-level values (same for all pods)
+  // and are already available in NodeStatsSummary.node.fs
 }

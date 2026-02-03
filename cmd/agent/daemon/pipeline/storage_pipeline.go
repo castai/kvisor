@@ -43,6 +43,10 @@ func (c *Controller) collectStorageMetrics(ctx context.Context) {
 		c.log.Errorf("failed to collect pod volume metrics: %v", err)
 	}
 
+	if err := c.processPodEphemeralStorageMetrics(ctx); err != nil {
+		c.log.Errorf("failed to collect pod ephemeral storage metrics: %v", err)
+	}
+
 	c.log.Debugf("storage stats collection completed in %v", time.Since(start))
 }
 
@@ -106,6 +110,33 @@ func (c *Controller) processPodVolumeMetrics(ctx context.Context) error {
 
 	if err := c.podVolumeMetricsWriter.Write(metrics...); err != nil {
 		return fmt.Errorf("failed to write pod volume metrics: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Controller) processPodEphemeralStorageMetrics(ctx context.Context) error {
+	if c.podEphemeralStorageMetricsWriter == nil {
+		return nil // Writer not configured, skip
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	metrics, err := c.storageInfoProvider.CollectPodEphemeralStorageMetrics(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to collect pod ephemeral storage metrics: %w", err)
+	}
+
+	if len(metrics) == 0 {
+		c.log.Debug("no pod ephemeral storage metrics collected")
+		return nil
+	}
+
+	c.log.Infof("collected %d pod ephemeral storage metrics", len(metrics))
+
+	if err := c.podEphemeralStorageMetricsWriter.Write(metrics...); err != nil {
+		return fmt.Errorf("failed to write pod ephemeral storage metrics: %w", err)
 	}
 
 	return nil

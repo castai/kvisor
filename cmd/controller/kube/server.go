@@ -344,6 +344,65 @@ func extractVolumeID(csiVolumeHandle string) string {
 	return csiVolumeHandle
 }
 
+func (s *Server) GetPodEphemeralStorage(ctx context.Context, req *kubepb.GetPodEphemeralStorageRequest) (*kubepb.GetPodEphemeralStorageResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	// Get kubelet stats summary with pod data
+	summary, err := s.client.GetNodeStatsSummaryWithPods(ctx, req.NodeName)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get node stats summary: %v", err)
+	}
+
+	// Get all pods on this node for owner resolution
+	pods := s.client.GetPodsOnNode(req.NodeName)
+	podInfoByUID := make(map[string]*PodInfo, len(pods))
+	for _, podInfo := range pods {
+		podInfoByUID[string(podInfo.Pod.UID)] = podInfo
+	}
+
+	// Convert and enrich with controller info
+	var result []*kubepb.PodEphemeralStorageInfo
+	for _, podStats := range summary.Pods {
+		if podStats.EphemeralStorage == nil {
+			continue
+		}
+
+		info := &kubepb.PodEphemeralStorageInfo{
+			Namespace: podStats.PodRef.Namespace,
+			PodName:   podStats.PodRef.Name,
+			PodUid:    podStats.PodRef.UID,
+		}
+
+		// Enrich with controller info using existing getPodOwner logic
+		if podInfo, found := podInfoByUID[podStats.PodRef.UID]; found {
+			info.ControllerKind = podInfo.Owner.Kind
+			info.ControllerName = podInfo.Owner.Name
+		}
+
+		// Set ephemeral storage metrics
+		// Note: availableBytes/capacityBytes/inodes/inodesFree are node-level values,
+		// identical for all pods. Only usedBytes and inodesUsed are truly per-pod.
+		es := podStats.EphemeralStorage
+		if !es.Time.IsZero() {
+			info.TimeSeconds = es.Time.Unix()
+		}
+		if es.UsedBytes != nil {
+			info.UsedBytes = *es.UsedBytes
+		}
+		if es.InodesUsed != nil {
+			info.InodesUsed = *es.InodesUsed
+		}
+
+		result = append(result, info)
+	}
+
+	return &kubepb.GetPodEphemeralStorageResponse{
+		Pods: result,
+	}, nil
+}
+
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {
 	switch kind {
 	case "Deployment":

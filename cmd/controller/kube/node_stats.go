@@ -12,7 +12,19 @@ import (
 // NodeStatsSummary represents the summary API response from kubelet.
 // This matches the structure returned by /api/v1/nodes/{name}/proxy/stats/summary
 type NodeStatsSummary struct {
-	Node nodeStatsJSON `json:"node"`
+	Node nodeStatsJSON  `json:"node"`
+	Pods []podStatsJSON `json:"pods"`
+}
+
+type podStatsJSON struct {
+	PodRef           podRefJSON   `json:"podRef"`
+	EphemeralStorage *fsStatsJSON `json:"ephemeral-storage,omitempty"`
+}
+
+type podRefJSON struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	UID       string `json:"uid"`
 }
 
 type nodeStatsJSON struct {
@@ -218,4 +230,27 @@ func convertRuntimeStats(runtime *runtimeStatsJSON) *kubepb.RuntimeStats {
 		}
 	}
 	return stats
+}
+
+// GetNodeStatsSummaryWithPods retrieves the full stats summary including pod data
+func (c *Client) GetNodeStatsSummaryWithPods(ctx context.Context, nodeName string) (*NodeStatsSummary, error) {
+	result := c.client.CoreV1().RESTClient().
+		Get().
+		Resource("nodes").
+		Name(nodeName).
+		SubResource("proxy").
+		Suffix("stats/summary").
+		Do(ctx)
+
+	rawData, err := result.Raw()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node stats summary: %w", err)
+	}
+
+	var summary NodeStatsSummary
+	if err := json.Unmarshal(rawData, &summary); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal stats summary: %w", err)
+	}
+
+	return &summary, nil
 }

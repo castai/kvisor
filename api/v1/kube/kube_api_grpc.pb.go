@@ -8,7 +8,6 @@ package v1
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -20,13 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KubeAPI_GetClusterInfo_FullMethodName      = "/kube.v1.KubeAPI/GetClusterInfo"
-	KubeAPI_GetIPInfo_FullMethodName           = "/kube.v1.KubeAPI/GetIPInfo"
-	KubeAPI_GetIPsInfo_FullMethodName          = "/kube.v1.KubeAPI/GetIPsInfo"
-	KubeAPI_GetPod_FullMethodName              = "/kube.v1.KubeAPI/GetPod"
-	KubeAPI_GetNode_FullMethodName             = "/kube.v1.KubeAPI/GetNode"
-	KubeAPI_GetNodeStatsSummary_FullMethodName = "/kube.v1.KubeAPI/GetNodeStatsSummary"
-	KubeAPI_GetPodVolumes_FullMethodName       = "/kube.v1.KubeAPI/GetPodVolumes"
+	KubeAPI_GetClusterInfo_FullMethodName         = "/kube.v1.KubeAPI/GetClusterInfo"
+	KubeAPI_GetIPInfo_FullMethodName              = "/kube.v1.KubeAPI/GetIPInfo"
+	KubeAPI_GetIPsInfo_FullMethodName             = "/kube.v1.KubeAPI/GetIPsInfo"
+	KubeAPI_GetPod_FullMethodName                 = "/kube.v1.KubeAPI/GetPod"
+	KubeAPI_GetNode_FullMethodName                = "/kube.v1.KubeAPI/GetNode"
+	KubeAPI_GetNodeStatsSummary_FullMethodName    = "/kube.v1.KubeAPI/GetNodeStatsSummary"
+	KubeAPI_GetPodVolumes_FullMethodName          = "/kube.v1.KubeAPI/GetPodVolumes"
+	KubeAPI_GetPodEphemeralStorage_FullMethodName = "/kube.v1.KubeAPI/GetPodEphemeralStorage"
 )
 
 // KubeAPIClient is the client API for KubeAPI service.
@@ -41,6 +41,7 @@ type KubeAPIClient interface {
 	GetNode(ctx context.Context, in *GetNodeRequest, opts ...grpc.CallOption) (*GetNodeResponse, error)
 	GetNodeStatsSummary(ctx context.Context, in *GetNodeStatsSummaryRequest, opts ...grpc.CallOption) (*GetNodeStatsSummaryResponse, error)
 	GetPodVolumes(ctx context.Context, in *GetPodVolumesRequest, opts ...grpc.CallOption) (*GetPodVolumesResponse, error)
+	GetPodEphemeralStorage(ctx context.Context, in *GetPodEphemeralStorageRequest, opts ...grpc.CallOption) (*GetPodEphemeralStorageResponse, error)
 }
 
 type kubeAPIClient struct {
@@ -121,6 +122,16 @@ func (c *kubeAPIClient) GetPodVolumes(ctx context.Context, in *GetPodVolumesRequ
 	return out, nil
 }
 
+func (c *kubeAPIClient) GetPodEphemeralStorage(ctx context.Context, in *GetPodEphemeralStorageRequest, opts ...grpc.CallOption) (*GetPodEphemeralStorageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPodEphemeralStorageResponse)
+	err := c.cc.Invoke(ctx, KubeAPI_GetPodEphemeralStorage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KubeAPIServer is the server API for KubeAPI service.
 // All implementations should embed UnimplementedKubeAPIServer
 // for forward compatibility.
@@ -133,6 +144,7 @@ type KubeAPIServer interface {
 	GetNode(context.Context, *GetNodeRequest) (*GetNodeResponse, error)
 	GetNodeStatsSummary(context.Context, *GetNodeStatsSummaryRequest) (*GetNodeStatsSummaryResponse, error)
 	GetPodVolumes(context.Context, *GetPodVolumesRequest) (*GetPodVolumesResponse, error)
+	GetPodEphemeralStorage(context.Context, *GetPodEphemeralStorageRequest) (*GetPodEphemeralStorageResponse, error)
 }
 
 // UnimplementedKubeAPIServer should be embedded to have
@@ -162,6 +174,9 @@ func (UnimplementedKubeAPIServer) GetNodeStatsSummary(context.Context, *GetNodeS
 }
 func (UnimplementedKubeAPIServer) GetPodVolumes(context.Context, *GetPodVolumesRequest) (*GetPodVolumesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPodVolumes not implemented")
+}
+func (UnimplementedKubeAPIServer) GetPodEphemeralStorage(context.Context, *GetPodEphemeralStorageRequest) (*GetPodEphemeralStorageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPodEphemeralStorage not implemented")
 }
 func (UnimplementedKubeAPIServer) testEmbeddedByValue() {}
 
@@ -309,6 +324,24 @@ func _KubeAPI_GetPodVolumes_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KubeAPI_GetPodEphemeralStorage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPodEphemeralStorageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KubeAPIServer).GetPodEphemeralStorage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KubeAPI_GetPodEphemeralStorage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KubeAPIServer).GetPodEphemeralStorage(ctx, req.(*GetPodEphemeralStorageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KubeAPI_ServiceDesc is the grpc.ServiceDesc for KubeAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -343,6 +376,10 @@ var KubeAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPodVolumes",
 			Handler:    _KubeAPI_GetPodVolumes_Handler,
+		},
+		{
+			MethodName: "GetPodEphemeralStorage",
+			Handler:    _KubeAPI_GetPodEphemeralStorage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

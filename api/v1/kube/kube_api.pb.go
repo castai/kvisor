@@ -7,12 +7,11 @@
 package v1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -1631,6 +1630,194 @@ func (x *PodVolumeInfo) GetDevicePath() string {
 	return ""
 }
 
+type GetPodEphemeralStorageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeName      string                 `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPodEphemeralStorageRequest) Reset() {
+	*x = GetPodEphemeralStorageRequest{}
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPodEphemeralStorageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPodEphemeralStorageRequest) ProtoMessage() {}
+
+func (x *GetPodEphemeralStorageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPodEphemeralStorageRequest.ProtoReflect.Descriptor instead.
+func (*GetPodEphemeralStorageRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *GetPodEphemeralStorageRequest) GetNodeName() string {
+	if x != nil {
+		return x.NodeName
+	}
+	return ""
+}
+
+type GetPodEphemeralStorageResponse struct {
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	Pods          []*PodEphemeralStorageInfo `protobuf:"bytes,1,rep,name=pods,proto3" json:"pods,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPodEphemeralStorageResponse) Reset() {
+	*x = GetPodEphemeralStorageResponse{}
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPodEphemeralStorageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPodEphemeralStorageResponse) ProtoMessage() {}
+
+func (x *GetPodEphemeralStorageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPodEphemeralStorageResponse.ProtoReflect.Descriptor instead.
+func (*GetPodEphemeralStorageResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GetPodEphemeralStorageResponse) GetPods() []*PodEphemeralStorageInfo {
+	if x != nil {
+		return x.Pods
+	}
+	return nil
+}
+
+type PodEphemeralStorageInfo struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Namespace      string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	PodName        string                 `protobuf:"bytes,2,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
+	PodUid         string                 `protobuf:"bytes,3,opt,name=pod_uid,json=podUid,proto3" json:"pod_uid,omitempty"`
+	ControllerKind string                 `protobuf:"bytes,4,opt,name=controller_kind,json=controllerKind,proto3" json:"controller_kind,omitempty"`
+	ControllerName string                 `protobuf:"bytes,5,opt,name=controller_name,json=controllerName,proto3" json:"controller_name,omitempty"`
+	TimeSeconds    int64                  `protobuf:"varint,6,opt,name=time_seconds,json=timeSeconds,proto3" json:"time_seconds,omitempty"`
+	UsedBytes      uint64                 `protobuf:"varint,7,opt,name=used_bytes,json=usedBytes,proto3" json:"used_bytes,omitempty"`    // Per-pod: bytes used by this pod's ephemeral storage
+	InodesUsed     uint64                 `protobuf:"varint,8,opt,name=inodes_used,json=inodesUsed,proto3" json:"inodes_used,omitempty"` // Per-pod: inodes used by this pod's ephemeral storage
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PodEphemeralStorageInfo) Reset() {
+	*x = PodEphemeralStorageInfo{}
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PodEphemeralStorageInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PodEphemeralStorageInfo) ProtoMessage() {}
+
+func (x *PodEphemeralStorageInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PodEphemeralStorageInfo.ProtoReflect.Descriptor instead.
+func (*PodEphemeralStorageInfo) Descriptor() ([]byte, []int) {
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *PodEphemeralStorageInfo) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *PodEphemeralStorageInfo) GetPodName() string {
+	if x != nil {
+		return x.PodName
+	}
+	return ""
+}
+
+func (x *PodEphemeralStorageInfo) GetPodUid() string {
+	if x != nil {
+		return x.PodUid
+	}
+	return ""
+}
+
+func (x *PodEphemeralStorageInfo) GetControllerKind() string {
+	if x != nil {
+		return x.ControllerKind
+	}
+	return ""
+}
+
+func (x *PodEphemeralStorageInfo) GetControllerName() string {
+	if x != nil {
+		return x.ControllerName
+	}
+	return ""
+}
+
+func (x *PodEphemeralStorageInfo) GetTimeSeconds() int64 {
+	if x != nil {
+		return x.TimeSeconds
+	}
+	return 0
+}
+
+func (x *PodEphemeralStorageInfo) GetUsedBytes() uint64 {
+	if x != nil {
+		return x.UsedBytes
+	}
+	return 0
+}
+
+func (x *PodEphemeralStorageInfo) GetInodesUsed() uint64 {
+	if x != nil {
+		return x.InodesUsed
+	}
+	return 0
+}
+
 var File_api_v1_kube_kube_api_proto protoreflect.FileDescriptor
 
 const file_api_v1_kube_kube_api_proto_rawDesc = "" +
@@ -1760,7 +1947,22 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\vvolume_mode\x18\x10 \x01(\tR\n" +
 	"volumeMode\x12\x1f\n" +
 	"\vdevice_path\x18\x11 \x01(\tR\n" +
-	"devicePath*\xed\x01\n" +
+	"devicePath\"<\n" +
+	"\x1dGetPodEphemeralStorageRequest\x12\x1b\n" +
+	"\tnode_name\x18\x01 \x01(\tR\bnodeName\"V\n" +
+	"\x1eGetPodEphemeralStorageResponse\x124\n" +
+	"\x04pods\x18\x01 \x03(\v2 .kube.v1.PodEphemeralStorageInfoR\x04pods\"\xa0\x02\n" +
+	"\x17PodEphemeralStorageInfo\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x19\n" +
+	"\bpod_name\x18\x02 \x01(\tR\apodName\x12\x17\n" +
+	"\apod_uid\x18\x03 \x01(\tR\x06podUid\x12'\n" +
+	"\x0fcontroller_kind\x18\x04 \x01(\tR\x0econtrollerKind\x12'\n" +
+	"\x0fcontroller_name\x18\x05 \x01(\tR\x0econtrollerName\x12!\n" +
+	"\ftime_seconds\x18\x06 \x01(\x03R\vtimeSeconds\x12\x1d\n" +
+	"\n" +
+	"used_bytes\x18\a \x01(\x04R\tusedBytes\x12\x1f\n" +
+	"\vinodes_used\x18\b \x01(\x04R\n" +
+	"inodesUsed*\xed\x01\n" +
 	"\fWorkloadKind\x12\x19\n" +
 	"\x15WORKLOAD_KIND_UNKNOWN\x10\x00\x12\x1c\n" +
 	"\x18WORKLOAD_KIND_DEPLOYMENT\x10\x01\x12\x1d\n" +
@@ -1769,7 +1971,7 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x18WORKLOAD_KIND_DAEMON_SET\x10\x04\x12\x15\n" +
 	"\x11WORKLOAD_KIND_JOB\x10\x05\x12\x19\n" +
 	"\x15WORKLOAD_KIND_CRONJOB\x10\x06\x12\x15\n" +
-	"\x11WORKLOAD_KIND_POD\x10\a2\x92\x04\n" +
+	"\x11WORKLOAD_KIND_POD\x10\a2\xfd\x04\n" +
 	"\aKubeAPI\x12Q\n" +
 	"\x0eGetClusterInfo\x12\x1e.kube.v1.GetClusterInfoRequest\x1a\x1f.kube.v1.GetClusterInfoResponse\x12B\n" +
 	"\tGetIPInfo\x12\x19.kube.v1.GetIPInfoRequest\x1a\x1a.kube.v1.GetIPInfoResponse\x12E\n" +
@@ -1778,7 +1980,8 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x06GetPod\x12\x16.kube.v1.GetPodRequest\x1a\x17.kube.v1.GetPodResponse\x12<\n" +
 	"\aGetNode\x12\x17.kube.v1.GetNodeRequest\x1a\x18.kube.v1.GetNodeResponse\x12`\n" +
 	"\x13GetNodeStatsSummary\x12#.kube.v1.GetNodeStatsSummaryRequest\x1a$.kube.v1.GetNodeStatsSummaryResponse\x12N\n" +
-	"\rGetPodVolumes\x12\x1d.kube.v1.GetPodVolumesRequest\x1a\x1e.kube.v1.GetPodVolumesResponseB&Z$github.com/castai/kvisor/api/kube/v1b\x06proto3"
+	"\rGetPodVolumes\x12\x1d.kube.v1.GetPodVolumesRequest\x1a\x1e.kube.v1.GetPodVolumesResponse\x12i\n" +
+	"\x16GetPodEphemeralStorage\x12&.kube.v1.GetPodEphemeralStorageRequest\x1a'.kube.v1.GetPodEphemeralStorageResponseB&Z$github.com/castai/kvisor/api/kube/v1b\x06proto3"
 
 var (
 	file_api_v1_kube_kube_api_proto_rawDescOnce sync.Once
@@ -1793,34 +1996,37 @@ func file_api_v1_kube_kube_api_proto_rawDescGZIP() []byte {
 }
 
 var file_api_v1_kube_kube_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_v1_kube_kube_api_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_api_v1_kube_kube_api_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_api_v1_kube_kube_api_proto_goTypes = []any{
-	(WorkloadKind)(0),                   // 0: kube.v1.WorkloadKind
-	(*GetClusterInfoRequest)(nil),       // 1: kube.v1.GetClusterInfoRequest
-	(*GetClusterInfoResponse)(nil),      // 2: kube.v1.GetClusterInfoResponse
-	(*GetIPInfoRequest)(nil),            // 3: kube.v1.GetIPInfoRequest
-	(*GetIPInfoResponse)(nil),           // 4: kube.v1.GetIPInfoResponse
-	(*GetIPsInfoRequest)(nil),           // 5: kube.v1.GetIPsInfoRequest
-	(*GetIPsInfoResponse)(nil),          // 6: kube.v1.GetIPsInfoResponse
-	(*IPInfo)(nil),                      // 7: kube.v1.IPInfo
-	(*GetPodRequest)(nil),               // 8: kube.v1.GetPodRequest
-	(*GetPodResponse)(nil),              // 9: kube.v1.GetPodResponse
-	(*Pod)(nil),                         // 10: kube.v1.Pod
-	(*GetNodeRequest)(nil),              // 11: kube.v1.GetNodeRequest
-	(*GetNodeResponse)(nil),             // 12: kube.v1.GetNodeResponse
-	(*Node)(nil),                        // 13: kube.v1.Node
-	(*GetNodeStatsSummaryRequest)(nil),  // 14: kube.v1.GetNodeStatsSummaryRequest
-	(*GetNodeStatsSummaryResponse)(nil), // 15: kube.v1.GetNodeStatsSummaryResponse
-	(*NodeStats)(nil),                   // 16: kube.v1.NodeStats
-	(*CPUStats)(nil),                    // 17: kube.v1.CPUStats
-	(*MemoryStats)(nil),                 // 18: kube.v1.MemoryStats
-	(*NetworkStats)(nil),                // 19: kube.v1.NetworkStats
-	(*FsStats)(nil),                     // 20: kube.v1.FsStats
-	(*RuntimeStats)(nil),                // 21: kube.v1.RuntimeStats
-	(*GetPodVolumesRequest)(nil),        // 22: kube.v1.GetPodVolumesRequest
-	(*GetPodVolumesResponse)(nil),       // 23: kube.v1.GetPodVolumesResponse
-	(*PodVolumeInfo)(nil),               // 24: kube.v1.PodVolumeInfo
-	nil,                                 // 25: kube.v1.Node.LabelsEntry
+	(WorkloadKind)(0),                      // 0: kube.v1.WorkloadKind
+	(*GetClusterInfoRequest)(nil),          // 1: kube.v1.GetClusterInfoRequest
+	(*GetClusterInfoResponse)(nil),         // 2: kube.v1.GetClusterInfoResponse
+	(*GetIPInfoRequest)(nil),               // 3: kube.v1.GetIPInfoRequest
+	(*GetIPInfoResponse)(nil),              // 4: kube.v1.GetIPInfoResponse
+	(*GetIPsInfoRequest)(nil),              // 5: kube.v1.GetIPsInfoRequest
+	(*GetIPsInfoResponse)(nil),             // 6: kube.v1.GetIPsInfoResponse
+	(*IPInfo)(nil),                         // 7: kube.v1.IPInfo
+	(*GetPodRequest)(nil),                  // 8: kube.v1.GetPodRequest
+	(*GetPodResponse)(nil),                 // 9: kube.v1.GetPodResponse
+	(*Pod)(nil),                            // 10: kube.v1.Pod
+	(*GetNodeRequest)(nil),                 // 11: kube.v1.GetNodeRequest
+	(*GetNodeResponse)(nil),                // 12: kube.v1.GetNodeResponse
+	(*Node)(nil),                           // 13: kube.v1.Node
+	(*GetNodeStatsSummaryRequest)(nil),     // 14: kube.v1.GetNodeStatsSummaryRequest
+	(*GetNodeStatsSummaryResponse)(nil),    // 15: kube.v1.GetNodeStatsSummaryResponse
+	(*NodeStats)(nil),                      // 16: kube.v1.NodeStats
+	(*CPUStats)(nil),                       // 17: kube.v1.CPUStats
+	(*MemoryStats)(nil),                    // 18: kube.v1.MemoryStats
+	(*NetworkStats)(nil),                   // 19: kube.v1.NetworkStats
+	(*FsStats)(nil),                        // 20: kube.v1.FsStats
+	(*RuntimeStats)(nil),                   // 21: kube.v1.RuntimeStats
+	(*GetPodVolumesRequest)(nil),           // 22: kube.v1.GetPodVolumesRequest
+	(*GetPodVolumesResponse)(nil),          // 23: kube.v1.GetPodVolumesResponse
+	(*PodVolumeInfo)(nil),                  // 24: kube.v1.PodVolumeInfo
+	(*GetPodEphemeralStorageRequest)(nil),  // 25: kube.v1.GetPodEphemeralStorageRequest
+	(*GetPodEphemeralStorageResponse)(nil), // 26: kube.v1.GetPodEphemeralStorageResponse
+	(*PodEphemeralStorageInfo)(nil),        // 27: kube.v1.PodEphemeralStorageInfo
+	nil,                                    // 28: kube.v1.Node.LabelsEntry
 }
 var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	7,  // 0: kube.v1.GetIPInfoResponse.info:type_name -> kube.v1.IPInfo
@@ -1828,7 +2034,7 @@ var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	10, // 2: kube.v1.GetPodResponse.pod:type_name -> kube.v1.Pod
 	0,  // 3: kube.v1.Pod.workload_kind:type_name -> kube.v1.WorkloadKind
 	13, // 4: kube.v1.GetNodeResponse.node:type_name -> kube.v1.Node
-	25, // 5: kube.v1.Node.labels:type_name -> kube.v1.Node.LabelsEntry
+	28, // 5: kube.v1.Node.labels:type_name -> kube.v1.Node.LabelsEntry
 	16, // 6: kube.v1.GetNodeStatsSummaryResponse.node:type_name -> kube.v1.NodeStats
 	17, // 7: kube.v1.NodeStats.cpu:type_name -> kube.v1.CPUStats
 	18, // 8: kube.v1.NodeStats.memory:type_name -> kube.v1.MemoryStats
@@ -1838,25 +2044,28 @@ var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	20, // 12: kube.v1.RuntimeStats.image_fs:type_name -> kube.v1.FsStats
 	20, // 13: kube.v1.RuntimeStats.container_fs:type_name -> kube.v1.FsStats
 	24, // 14: kube.v1.GetPodVolumesResponse.volumes:type_name -> kube.v1.PodVolumeInfo
-	1,  // 15: kube.v1.KubeAPI.GetClusterInfo:input_type -> kube.v1.GetClusterInfoRequest
-	3,  // 16: kube.v1.KubeAPI.GetIPInfo:input_type -> kube.v1.GetIPInfoRequest
-	5,  // 17: kube.v1.KubeAPI.GetIPsInfo:input_type -> kube.v1.GetIPsInfoRequest
-	8,  // 18: kube.v1.KubeAPI.GetPod:input_type -> kube.v1.GetPodRequest
-	11, // 19: kube.v1.KubeAPI.GetNode:input_type -> kube.v1.GetNodeRequest
-	14, // 20: kube.v1.KubeAPI.GetNodeStatsSummary:input_type -> kube.v1.GetNodeStatsSummaryRequest
-	22, // 21: kube.v1.KubeAPI.GetPodVolumes:input_type -> kube.v1.GetPodVolumesRequest
-	2,  // 22: kube.v1.KubeAPI.GetClusterInfo:output_type -> kube.v1.GetClusterInfoResponse
-	4,  // 23: kube.v1.KubeAPI.GetIPInfo:output_type -> kube.v1.GetIPInfoResponse
-	6,  // 24: kube.v1.KubeAPI.GetIPsInfo:output_type -> kube.v1.GetIPsInfoResponse
-	9,  // 25: kube.v1.KubeAPI.GetPod:output_type -> kube.v1.GetPodResponse
-	12, // 26: kube.v1.KubeAPI.GetNode:output_type -> kube.v1.GetNodeResponse
-	15, // 27: kube.v1.KubeAPI.GetNodeStatsSummary:output_type -> kube.v1.GetNodeStatsSummaryResponse
-	23, // 28: kube.v1.KubeAPI.GetPodVolumes:output_type -> kube.v1.GetPodVolumesResponse
-	22, // [22:29] is the sub-list for method output_type
-	15, // [15:22] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	27, // 15: kube.v1.GetPodEphemeralStorageResponse.pods:type_name -> kube.v1.PodEphemeralStorageInfo
+	1,  // 16: kube.v1.KubeAPI.GetClusterInfo:input_type -> kube.v1.GetClusterInfoRequest
+	3,  // 17: kube.v1.KubeAPI.GetIPInfo:input_type -> kube.v1.GetIPInfoRequest
+	5,  // 18: kube.v1.KubeAPI.GetIPsInfo:input_type -> kube.v1.GetIPsInfoRequest
+	8,  // 19: kube.v1.KubeAPI.GetPod:input_type -> kube.v1.GetPodRequest
+	11, // 20: kube.v1.KubeAPI.GetNode:input_type -> kube.v1.GetNodeRequest
+	14, // 21: kube.v1.KubeAPI.GetNodeStatsSummary:input_type -> kube.v1.GetNodeStatsSummaryRequest
+	22, // 22: kube.v1.KubeAPI.GetPodVolumes:input_type -> kube.v1.GetPodVolumesRequest
+	25, // 23: kube.v1.KubeAPI.GetPodEphemeralStorage:input_type -> kube.v1.GetPodEphemeralStorageRequest
+	2,  // 24: kube.v1.KubeAPI.GetClusterInfo:output_type -> kube.v1.GetClusterInfoResponse
+	4,  // 25: kube.v1.KubeAPI.GetIPInfo:output_type -> kube.v1.GetIPInfoResponse
+	6,  // 26: kube.v1.KubeAPI.GetIPsInfo:output_type -> kube.v1.GetIPsInfoResponse
+	9,  // 27: kube.v1.KubeAPI.GetPod:output_type -> kube.v1.GetPodResponse
+	12, // 28: kube.v1.KubeAPI.GetNode:output_type -> kube.v1.GetNodeResponse
+	15, // 29: kube.v1.KubeAPI.GetNodeStatsSummary:output_type -> kube.v1.GetNodeStatsSummaryResponse
+	23, // 30: kube.v1.KubeAPI.GetPodVolumes:output_type -> kube.v1.GetPodVolumesResponse
+	26, // 31: kube.v1.KubeAPI.GetPodEphemeralStorage:output_type -> kube.v1.GetPodEphemeralStorageResponse
+	24, // [24:32] is the sub-list for method output_type
+	16, // [16:24] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_kube_kube_api_proto_init() }
@@ -1870,7 +2079,7 @@ func file_api_v1_kube_kube_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_kube_kube_api_proto_rawDesc), len(file_api_v1_kube_kube_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

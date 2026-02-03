@@ -100,6 +100,10 @@ type K8sPodVolumeMetricsWriter interface {
 	Write(metrics ...K8sPodVolumeMetric) error
 }
 
+type K8sPodEphemeralStorageMetricsWriter interface {
+	Write(metrics ...K8sPodEphemeralStorageMetric) error
+}
+
 func NewBlockDeviceMetricsWriter(metricsClient custommetrics.MetricClient) (BlockDeviceMetricsWriter, error) {
 	return custommetrics.NewMetric[BlockDeviceMetric](
 		metricsClient,
@@ -132,6 +136,14 @@ func NewK8sPodVolumeMetricsWriter(metricsClient custommetrics.MetricClient) (K8s
 	)
 }
 
+func NewK8sPodEphemeralStorageMetricsWriter(metricsClient custommetrics.MetricClient) (K8sPodEphemeralStorageMetricsWriter, error) {
+	return custommetrics.NewMetric[K8sPodEphemeralStorageMetric](
+		metricsClient,
+		custommetrics.WithCollectionName[K8sPodEphemeralStorageMetric]("k8s_pod_ephemeral_storage_metrics"),
+		custommetrics.WithSkipTimestamp[K8sPodEphemeralStorageMetric](),
+	)
+}
+
 func NewController(
 	log *logging.Logger,
 	cfg Config,
@@ -149,6 +161,7 @@ func NewController(
 	storageInfoProvider StorageInfoProvider,
 	nodeStatsSummaryWriter NodeStatsSummaryWriter,
 	podVolumeMetricsWriter K8sPodVolumeMetricsWriter,
+	podEphemeralStorageMetricsWriter K8sPodEphemeralStorageMetricsWriter,
 ) *Controller {
 	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
@@ -183,11 +196,12 @@ func NewController(
 		eventGroups:          make(map[uint64]*containerEventsGroup),
 		containerStatsGroups: make(map[uint64]*containerStatsGroup),
 
-		blockDeviceMetricsWriter: blockDeviceMetricsWriter,
-		filesystemMetricsWriter:  filesystemMetricsWriter,
-		storageInfoProvider:      storageInfoProvider,
-		nodeStatsSummaryWriter:   nodeStatsSummaryWriter,
-		podVolumeMetricsWriter:   podVolumeMetricsWriter,
+		blockDeviceMetricsWriter:         blockDeviceMetricsWriter,
+		filesystemMetricsWriter:          filesystemMetricsWriter,
+		storageInfoProvider:              storageInfoProvider,
+		nodeStatsSummaryWriter:           nodeStatsSummaryWriter,
+		podVolumeMetricsWriter:           podVolumeMetricsWriter,
+		podEphemeralStorageMetricsWriter: podEphemeralStorageMetricsWriter,
 	}
 }
 
@@ -218,11 +232,12 @@ type Controller struct {
 	containerStatsGroups map[uint64]*containerStatsGroup
 
 	// Storage metrics
-	blockDeviceMetricsWriter BlockDeviceMetricsWriter
-	filesystemMetricsWriter  FilesystemMetricsWriter
-	storageInfoProvider      StorageInfoProvider
-	nodeStatsSummaryWriter   NodeStatsSummaryWriter
-	podVolumeMetricsWriter   K8sPodVolumeMetricsWriter
+	blockDeviceMetricsWriter            BlockDeviceMetricsWriter
+	filesystemMetricsWriter             FilesystemMetricsWriter
+	storageInfoProvider                 StorageInfoProvider
+	nodeStatsSummaryWriter              NodeStatsSummaryWriter
+	podVolumeMetricsWriter              K8sPodVolumeMetricsWriter
+	podEphemeralStorageMetricsWriter    K8sPodEphemeralStorageMetricsWriter
 }
 
 func (c *Controller) Run(ctx context.Context) error {
