@@ -67,8 +67,6 @@ spec:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
             - "--containerd-enabled={{ .Values.agent.containerdEnabled }}"
-            - "--containerd-sock={{ .Values.agent.containerdSocketPath }}"
-            - "--cri-endpoint=unix://{{ .Values.agent.containerdSocketPath }}"
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
@@ -153,7 +151,7 @@ spec:
             - name: debugfs
               mountPath: /sys/kernel/debug
             - name: runtime-sock
-              mountPath: {{ .Values.agent.containerdSocketPath }}
+              mountPath: /run/containerd/containerd.sock
               readOnly: true
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}

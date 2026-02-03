@@ -168,7 +168,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer criCloseFn() //nolint:errcheck
 
-	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
+	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, cfg.ContainerdEnabled, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
 	if err != nil {
 		return err
 	}
@@ -407,7 +407,6 @@ func applyContainerdSettings(cfg *config.Config, log *logging.Logger) {
 		return
 	}
 
-	cfg.ContainerdSockPath = ""
 	if cfg.ProcessTree.Enabled {
 		log.Warn("process tree requires containerd, disabling because containerd is not enabled")
 		cfg.ProcessTree.Enabled = false

@@ -99,7 +99,7 @@ type Client struct {
 	inactiveContainersDuration time.Duration
 }
 
-func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
+func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, containerdEnabled bool, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
 	labels, annotations []string) (*Client, error) {
 
 	client := &Client{
@@ -112,11 +112,11 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		forwardedLabels:            labels,
 		forwardedAnnotations:       annotations,
 		inactiveContainersDuration: 2 * time.Minute,
-		containerdAvailable:        containerdSock != "",
+		containerdAvailable:        containerdEnabled,
 	}
 
-	if !client.containerdAvailable {
-		log.Info("containerd client disabled (not needed for this runtime)")
+	if !containerdEnabled {
+		log.Info("containerd client disabled")
 		return client, nil
 	}
 
@@ -337,11 +337,13 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	}
 	cont.markAccessed()
 
-	imageDigest, err := c.findImageDigest(container)
-	if err != nil {
-		c.log.Warnf("finding image digest for container %v: %v", container.Id, err)
+	if c.containerdAvailable {
+		imageDigest, err := c.findImageDigest(container)
+		if err != nil {
+			c.log.Warnf("finding image digest for container %v: %v", container.Id, err)
+		}
+		cont.ImageDigest = imageDigest
 	}
-	cont.ImageDigest = imageDigest
 
 	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -389,10 +391,6 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 // findImageDigest tries to find actual image digest based on config file or manifest.
 // Image digest on the container can point to index manifest digest.
 func (c *Client) findImageDigest(container *criapi.Container) (digest.Digest, error) {
-	if !c.containerdAvailable {
-		return "", nil
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -57,7 +57,7 @@ func NewNetflowsDebugCommand() *cobra.Command {
 			return err
 		}
 
-		containersClient, err := containers.NewClient(log, cgroupClient, *containerdSockPath, procHandler, criClient, []string{}, []string{})
+		containersClient, err := containers.NewClient(log, cgroupClient, *containerdSockPath, true, procHandler, criClient, []string{}, []string{})
 		if err != nil {
 			return err
 		}
