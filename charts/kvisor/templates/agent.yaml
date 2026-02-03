@@ -66,6 +66,12 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
+            - "--container-runtime={{ .Values.agent.containerRuntime.type }}"
+            - "--cri-endpoint={{ include "kvisor.agent.criSocketPath" . }}"
+          {{- $containerdPath := include "kvisor.agent.containerdSocketPath" . | trim }}
+          {{- if $containerdPath }}
+            - "--containerd-sock={{ $containerdPath }}"
+          {{- end }}
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
@@ -149,8 +155,8 @@ spec:
               readOnly: true
             - name: debugfs
               mountPath: /sys/kernel/debug
-            - name: containerd-sock
-              mountPath: /run/containerd/containerd.sock
+            - name: runtime-sock
+              mountPath: {{ include "kvisor.agent.runtimeSocketMountPath" . }}
               readOnly: true
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -181,9 +187,9 @@ spec:
             path: /sys/fs/cgroup
         - name: cgroup-mountdir
           emptyDir: {}
-        - name: containerd-sock
+        - name: runtime-sock
           hostPath:
-            path: {{ .Values.agent.containerdSocketPath }}
+            path: {{ include "kvisor.agent.runtimeSocketHostPath" . }}
             type: Socket
         {{- with .Values.agent.extraVolumes }}
         {{- toYaml . | nindent 8 }}

@@ -160,6 +160,8 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
+	applyContainerRuntimePresets(cfg, log)
+
 	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
 		return fmt.Errorf("new CRI runtime client: %w", err)
@@ -398,6 +400,26 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	}
 
 	return cleanup
+}
+
+func applyContainerRuntimePresets(cfg *config.Config, log *logging.Logger) {
+	switch cfg.ContainerRuntime {
+	case "crio":
+		if cfg.CRIEndpoint == "unix:///run/containerd/containerd.sock" {
+			cfg.CRIEndpoint = "unix:///var/run/crio/crio.sock"
+		}
+		cfg.ContainerdSockPath = ""
+		if cfg.ProcessTree.Enabled {
+			log.Warn("process tree requires containerd, disabling for CRI-O runtime")
+			cfg.ProcessTree.Enabled = false
+		}
+	case "containerd":
+		// Explicit containerd mode - current defaults work
+	case "auto", "":
+		// Current behavior unchanged
+	default:
+		log.Warnf("unknown container runtime %q, using auto", cfg.ContainerRuntime)
+	}
 }
 
 func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {

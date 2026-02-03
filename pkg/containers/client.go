@@ -82,6 +82,7 @@ type Client struct {
 	cgroupClient                cgroupsClient
 	criRuntimeServiceClient     criClient
 	containerContentStoreClient containerContentStoreClient
+	containerdAvailable         bool
 
 	containerCreatedListeners []ContainerCreatedListener
 	containerDeletedListeners []ContainerDeletedListener
@@ -100,6 +101,24 @@ type Client struct {
 
 func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
 	labels, annotations []string) (*Client, error) {
+
+	client := &Client{
+		log:                        log.WithField("component", "cgroups"),
+		cgroupClient:               cgroupClient,
+		containersByCgroup:         map[uint64]*Container{},
+		containersByID:             map[string]*Container{},
+		procHandler:                procHandler,
+		criRuntimeServiceClient:    criRuntimeServiceClient,
+		forwardedLabels:            labels,
+		forwardedAnnotations:       annotations,
+		inactiveContainersDuration: 2 * time.Minute,
+		containerdAvailable:        containerdSock != "",
+	}
+
+	if !client.containerdAvailable {
+		log.Info("containerd client disabled (not needed for this runtime)")
+		return client, nil
+	}
 
 	backoffConfig := backoff.DefaultConfig
 	backoffConfig.MaxDelay = 3 * time.Second
@@ -128,23 +147,17 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		return nil, fmt.Errorf("failed connecting to containerd client: %w", err)
 	}
 
-	return &Client{
-		log:                         log.WithField("component", "cgroups"),
-		containerdClient:            containerdClient,
-		containerContentStoreClient: containerdClient.ContentStore(),
-		cgroupClient:                cgroupClient,
-		containersByCgroup:          map[uint64]*Container{},
-		containersByID:              map[string]*Container{},
-		procHandler:                 procHandler,
-		criRuntimeServiceClient:     criRuntimeServiceClient,
-		forwardedLabels:             labels,
-		forwardedAnnotations:        annotations,
-		inactiveContainersDuration:  2 * time.Minute,
-	}, nil
+	client.containerdClient = containerdClient
+	client.containerContentStoreClient = containerdClient.ContentStore()
+
+	return client, nil
 }
 
 func (c *Client) Close() error {
-	return c.containerdClient.Close()
+	if c.containerdAvailable {
+		return c.containerdClient.Close()
+	}
+	return nil
 }
 
 type ContainerProcess struct {
@@ -376,6 +389,10 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 // findImageDigest tries to find actual image digest based on config file or manifest.
 // Image digest on the container can point to index manifest digest.
 func (c *Client) findImageDigest(container *criapi.Container) (digest.Digest, error) {
+	if !c.containerdAvailable {
+		return "", nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

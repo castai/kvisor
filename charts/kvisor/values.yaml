@@ -145,8 +145,14 @@ agent:
   # Additional environment variables for the agent container via configMaps or secrets.
   envFrom: []
 
-  # Custom socket path for containerd.
-  containerdSocketPath: "/run/containerd/containerd.sock"
+  # Container runtime configuration
+  containerRuntime:
+    # Runtime type: auto, containerd, crio
+    type: "auto"
+    # Override CRI socket path (auto-configured based on type if empty)
+    criSocketPath: ""
+    # Override containerd socket path (auto-configured based on type if empty)
+    containerdSocketPath: ""
 
 controller:
   enabled: true
