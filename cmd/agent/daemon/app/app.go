@@ -160,7 +160,9 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
-	disableFeaturesRequiringContainerd(cfg, log)
+	if cfg.DisableContainerd {
+		disableFeaturesRequiringContainerd(cfg, log)
+	}
 
 	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
@@ -403,10 +405,6 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 }
 
 func disableFeaturesRequiringContainerd(cfg *config.Config, log *logging.Logger) {
-	if !cfg.DisableContainerd {
-		return
-	}
-
 	if cfg.ProcessTree.Enabled {
 		log.Warn("process tree requires containerd, disabling because containerd is disabled")
 		cfg.ProcessTree.Enabled = false
