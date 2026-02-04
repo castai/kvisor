@@ -160,7 +160,7 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
-	applyContainerdSettings(cfg, log)
+	disableFeaturesRequiringContainerd(cfg, log)
 
 	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
@@ -402,7 +402,7 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	return cleanup
 }
 
-func applyContainerdSettings(cfg *config.Config, log *logging.Logger) {
+func disableFeaturesRequiringContainerd(cfg *config.Config, log *logging.Logger) {
 	if !cfg.DisableContainerd {
 		return
 	}

@@ -155,7 +155,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 }
 
 func (c *Client) Close() error {
-	if !c.containerdDisabled {
+	if c.containerdClient != nil {
 		return c.containerdClient.Close()
 	}
 	return nil
