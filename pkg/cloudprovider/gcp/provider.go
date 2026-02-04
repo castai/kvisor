@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -22,10 +23,6 @@ type Provider struct {
 	// Cached network state
 	networkStateMu sync.RWMutex
 	networkState   *types.NetworkState
-
-	// Cached storage state
-	storageStateMu sync.RWMutex
-	storageState   *types.StorageState
 }
 
 // NewProvider creates a new GCP provider instance.
@@ -89,8 +86,7 @@ func (p *Provider) Close() error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("errors closing GCP provider: %v", errs)
+		return fmt.Errorf("errors closing GCP provider: %w", errors.Join(errs...))
 	}
-
 	return nil
 }

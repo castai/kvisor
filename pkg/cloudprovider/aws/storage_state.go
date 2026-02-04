@@ -15,9 +15,8 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 	p.log.Debug("refreshing storage state")
 
 	state := &types.StorageState{
-		Domain:          "amazonaws.com",
-		Provider:        types.TypeAWS,
-		InstanceVolumes: make(map[string][]types.Volume),
+		Domain:   "amazonaws.com",
+		Provider: types.TypeAWS,
 	}
 
 	instanceVolumes, err := p.fetchInstanceVolumes(ctx, instanceIds...)
@@ -26,11 +25,7 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 	}
 	state.InstanceVolumes = instanceVolumes
 
-	p.storageStateMu.Lock()
-	defer p.storageStateMu.Unlock()
-	p.storageState = state
-
-	return p.storageState, nil
+	return state, nil
 }
 
 // fetchInstanceVolumes retrieves instance volumes from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Volume.html

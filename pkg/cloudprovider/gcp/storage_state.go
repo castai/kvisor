@@ -19,9 +19,8 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 	p.log.Debug("refreshing storage state")
 
 	state := &types.StorageState{
-		Domain:          "googleapis.com",
-		Provider:        types.TypeGCP,
-		InstanceVolumes: make(map[string][]types.Volume),
+		Domain:   "googleapis.com",
+		Provider: types.TypeGCP,
 	}
 
 	instanceVolumes, err := p.fetchInstanceVolumes(ctx, instanceIds...)
@@ -30,11 +29,7 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 	}
 	state.InstanceVolumes = instanceVolumes
 
-	p.storageStateMu.Lock()
-	defer p.storageStateMu.Unlock()
-	p.storageState = state
-
-	return p.storageState, nil
+	return state, nil
 }
 
 // fetchInstanceVolumes retrieves instance volumes from https://docs.cloud.google.com/compute/docs/reference/rest/v1/disks/aggregatedList
@@ -48,6 +43,10 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds ...stri
 	instanceUrlsMap := make(map[string]string, len(instanceIds))
 	for _, instanceId := range instanceIds {
 		url := buildInstanceUrlFromId(instanceId)
+		if url == "" {
+			p.log.WithField("instance_id", instanceId).Warn("could not build instance url")
+			continue
+		}
 		instanceUrlsMap[url] = instanceId
 	}
 
@@ -59,17 +58,18 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds ...stri
 	}
 
 	it := p.disksClient.AggregatedList(ctx, req)
-	for {
-		result, err := it.Next()
+	for result, err := range it.All() {
 		if errors.Is(err, iterator.Done) {
 			break
 		}
+
 		if err != nil {
 			return instanceVolumes, fmt.Errorf("listing disks: %w", err)
 		}
 
 		for _, disk := range result.Value.Disks {
-			if disk.Name == nil {
+			if disk.GetName() == "" {
+				p.log.Error("disk missing name, skipping")
 				continue
 			}
 

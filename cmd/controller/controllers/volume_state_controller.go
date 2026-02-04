@@ -69,10 +69,12 @@ func (c *VolumeStateController) fetchInitialStorageState(ctx context.Context, vo
 		instanceIDToNodeName := make(map[string]string, len(nodes))
 		for _, node := range nodes {
 			instanceID := extractInstanceIDFromProviderID(node.Spec.ProviderID)
-			if instanceID != "" {
-				instanceIDs = append(instanceIDs, instanceID)
-				instanceIDToNodeName[instanceID] = node.Name
+			if instanceID == "" {
+				c.log.WithField("provider_id", node.Spec.ProviderID).Warn("could not extract instance id from provider id")
+				continue
 			}
+			instanceIDs = append(instanceIDs, instanceID)
+			instanceIDToNodeName[instanceID] = node.Name
 		}
 
 		state, err := c.cloudProvider.GetStorageState(ctx, instanceIDs...)
@@ -120,10 +122,12 @@ func (c *VolumeStateController) runRefreshLoop(ctx context.Context, volumeIndex 
 			instanceIDToNodeName := make(map[string]string, len(nodes))
 			for _, node := range nodes {
 				instanceID := extractInstanceIDFromProviderID(node.Spec.ProviderID)
-				if instanceID != "" {
-					instanceIDs = append(instanceIDs, instanceID)
-					instanceIDToNodeName[instanceID] = node.Name
+				if instanceID == "" {
+					c.log.WithField("provider_id", node.Spec.ProviderID).Warn("could not extract instance id from provider id")
+					continue
 				}
+				instanceIDs = append(instanceIDs, instanceID)
+				instanceIDToNodeName[instanceID] = node.Name
 			}
 
 			state, err := c.cloudProvider.GetStorageState(ctx, instanceIDs...)
