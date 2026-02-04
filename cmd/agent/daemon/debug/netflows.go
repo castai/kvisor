@@ -29,6 +29,7 @@ func NewNetflowsDebugCommand() *cobra.Command {
 	criEndpoint := cmd.Flags().String("cri-endpoint", "unix:///run/containerd/containerd.sock", "CRI endpoint")
 	hostCgroupsDir := cmd.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 	containerdSockPath := cmd.Flags().String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
+	disableContainerd := cmd.Flags().Bool("disable-containerd", true, "Disable containerd-specific features")
 	btfPath := cmd.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 	waitDuration := cmd.Flags().Duration("wait", 2*time.Second, "Wait duration before scraping netflows")
 	limit := cmd.Flags().Int("limit", 500, "Limit netflows output")
@@ -57,7 +58,7 @@ func NewNetflowsDebugCommand() *cobra.Command {
 			return err
 		}
 
-		containersClient, err := containers.NewClient(log, cgroupClient, *containerdSockPath, true, procHandler, criClient, []string{}, []string{})
+		containersClient, err := containers.NewClient(log, cgroupClient, *containerdSockPath, *disableContainerd, procHandler, criClient, []string{}, []string{})
 		if err != nil {
 			return err
 		}

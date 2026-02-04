@@ -117,7 +117,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 	}
 
 	if disableContainerd {
-		log.Info("containerd features disabled (CRI-O mode)")
+		log.Info("containerd features disabled")
 		return client, nil
 	}
 
@@ -167,6 +167,10 @@ type ContainerProcess struct {
 }
 
 func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, error) {
+	if c.containerdClient == nil {
+		return nil, nil
+	}
+
 	resp, err := c.containerdClient.TaskService().List(ctx, nil)
 	if err != nil {
 		return nil, err
