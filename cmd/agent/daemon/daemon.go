@@ -36,7 +36,7 @@ func NewRunCommand(version string) *cobra.Command {
 		promMetricsExportInterval = command.Flags().Duration("prom-metrics-export-interval", 5*time.Minute, "Internal prometheus metrics export interval")
 
 		sendLogLevel          = command.Flags().String("send-logs-level", slog.LevelInfo.String(), "send logs level")
-		containerdEnabled     = command.Flags().Bool("containerd-enabled", true, "Enable containerd-specific features (process tree, image digest). Disable for CRI-O.")
+		disableContainerd     = command.Flags().Bool("disable-containerd", false, "Disable containerd-specific features (process tree, image digest). Set to true for CRI-O clusters.")
 		containerdSockPath    = command.Flags().String("containerd-sock", "/run/containerd/containerd.sock", "Path to containerd socket file")
 		metricsHTTPListenPort = command.Flags().Int("metrics-http-listen-port", 6060, "metrics http listen port")
 		hostCgroupsDir        = command.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
@@ -151,7 +151,7 @@ func NewRunCommand(version string) *cobra.Command {
 			PromMetricsExportInterval: *promMetricsExportInterval,
 			Version:                   version,
 			BTFPath:                   *btfPath,
-			ContainerdEnabled:         *containerdEnabled,
+			DisableContainerd:         *disableContainerd,
 			ContainerdSockPath:        *containerdSockPath,
 			HostCgroupsDir:            *hostCgroupsDir,
 			MetricsHTTPListenPort:     *metricsHTTPListenPort,

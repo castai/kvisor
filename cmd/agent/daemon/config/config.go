@@ -23,7 +23,7 @@ type Config struct {
 	PromMetricsExportInterval      time.Duration                   `json:"promMetricsExportInterval"`
 	Version                        string                          `json:"version"`
 	BTFPath                        string                          `json:"BTFPath"`
-	ContainerdEnabled              bool                            `json:"containerdEnabled"`
+	DisableContainerd              bool                            `json:"disableContainerd"`
 	ContainerdSockPath             string                          `json:"containerdSockPath"`
 	HostCgroupsDir                 string                          `json:"hostCgroupsDir"`
 	MetricsHTTPListenPort          int                             `json:"metricsHTTPListenPort"`

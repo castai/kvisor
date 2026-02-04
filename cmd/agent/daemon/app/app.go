@@ -168,7 +168,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer criCloseFn() //nolint:errcheck
 
-	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, cfg.ContainerdEnabled, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
+	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, cfg.DisableContainerd, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
 	if err != nil {
 		return err
 	}
@@ -403,12 +403,12 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 }
 
 func applyContainerdSettings(cfg *config.Config, log *logging.Logger) {
-	if cfg.ContainerdEnabled {
+	if !cfg.DisableContainerd {
 		return
 	}
 
 	if cfg.ProcessTree.Enabled {
-		log.Warn("process tree requires containerd, disabling because containerd is not enabled")
+		log.Warn("process tree requires containerd, disabling because containerd is disabled")
 		cfg.ProcessTree.Enabled = false
 	}
 }

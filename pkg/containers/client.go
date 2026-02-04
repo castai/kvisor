@@ -12,10 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
-	"github.com/castai/kvisor/pkg/cgroup"
-	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/proc"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/content"
@@ -25,6 +21,11 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
+	"github.com/castai/kvisor/pkg/cgroup"
+	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 )
 
 var (
@@ -82,7 +83,7 @@ type Client struct {
 	cgroupClient                cgroupsClient
 	criRuntimeServiceClient     criClient
 	containerContentStoreClient containerContentStoreClient
-	containerdAvailable         bool
+	containerdDisabled          bool
 
 	containerCreatedListeners []ContainerCreatedListener
 	containerDeletedListeners []ContainerDeletedListener
@@ -99,7 +100,7 @@ type Client struct {
 	inactiveContainersDuration time.Duration
 }
 
-func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, containerdEnabled bool, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
+func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, disableContainerd bool, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
 	labels, annotations []string) (*Client, error) {
 
 	client := &Client{
@@ -112,11 +113,11 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		forwardedLabels:            labels,
 		forwardedAnnotations:       annotations,
 		inactiveContainersDuration: 2 * time.Minute,
-		containerdAvailable:        containerdEnabled,
+		containerdDisabled:         disableContainerd,
 	}
 
-	if !containerdEnabled {
-		log.Info("containerd client disabled")
+	if disableContainerd {
+		log.Info("containerd features disabled (CRI-O mode)")
 		return client, nil
 	}
 
@@ -154,7 +155,7 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 }
 
 func (c *Client) Close() error {
-	if c.containerdAvailable {
+	if !c.containerdDisabled {
 		return c.containerdClient.Close()
 	}
 	return nil
@@ -337,7 +338,7 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	}
 	cont.markAccessed()
 
-	if c.containerdAvailable {
+	if !c.containerdDisabled {
 		imageDigest, err := c.findImageDigest(container)
 		if err != nil {
 			c.log.Warnf("finding image digest for container %v: %v", container.Id, err)
