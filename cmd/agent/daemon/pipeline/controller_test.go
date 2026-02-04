@@ -1382,7 +1382,7 @@ func (m *mockCloudVolumeMetricsWriter) Write(metrics ...CloudVolumeMetric) error
 
 type mockStorageInfoProvider struct{}
 
-func (m *mockStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
+func (m *mockStorageInfoProvider) CollectFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error) {
 	return []FilesystemMetric{
 		{
 			NodeName:     "test-node",
@@ -1396,7 +1396,7 @@ func (m *mockStorageInfoProvider) BuildFilesystemMetrics(ctx context.Context, ti
 	}, nil
 }
 
-func (m *mockStorageInfoProvider) BuildBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
+func (m *mockStorageInfoProvider) CollectBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
 	return []BlockDeviceMetric{
 		{
 			Name:                 "sda",

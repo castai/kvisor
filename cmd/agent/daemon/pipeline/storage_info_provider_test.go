@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -389,7 +390,7 @@ func TestReadProcDiskStats(t *testing.T) {
 	}
 }
 
-func TestBuildBlockDeviceMetrics(t *testing.T) {
+func TestCollectBlockDeviceMetrics(t *testing.T) {
 	diskStatsData := `   8       0 sda 1000 100 50000 2000 500 50 25000 1000 0 1500 3000
    8       1 sda1 800 80 40000 1600 400 40 20000 800 0 1200 2400`
 
@@ -485,6 +486,54 @@ func TestBuildBlockDeviceMetrics(t *testing.T) {
 
 	assert.Equal(t, "test-node", sdaMetric.NodeName)
 	// NodeTemplate will be nil since kubeClient is nil in this test
+}
+
+func TestCollectBlockDeviceMetricsWithLVM(t *testing.T) {
+	r := require.New(t)
+	tmpDir := t.TempDir()
+
+	// Create sysfs structure for dm-0
+	dm0Path := filepath.Join(tmpDir, "sys/block/dm-0")
+	err := os.MkdirAll(dm0Path, 0755)
+	r.NoError(err)
+	err = os.WriteFile(filepath.Join(dm0Path, "dev"), []byte("253:0\n"), 0644)
+	r.NoError(err)
+
+	// Create udev database for dm-0 with LVM tags
+	udevDataDir := filepath.Join(tmpDir, "proc/1/root/run/udev/data")
+	err = os.MkdirAll(udevDataDir, 0755)
+	r.NoError(err)
+
+	udevContent := `E:DM_NAME=vg-lv_data
+E:DM_VG_NAME=vg
+E:DM_LV_NAME=lv_data
+E:DM_UUID=LVM-abcd1234
+E:DEVNAME=/dev/dm-0
+E:SUBSYSTEM=block
+`
+	err = os.WriteFile(filepath.Join(udevDataDir, "b253:0"), []byte(udevContent), 0644)
+	r.NoError(err)
+
+	provider := &SysfsStorageInfoProvider{
+		log:            logging.NewTestLog(),
+		nodeName:       "test-node",
+		kubeClient:     nil, // Not needed for this test
+		sysBlockPrefix: tmpDir,
+		hostRootPath:   filepath.Join(tmpDir, "proc/1/root"),
+		storageState: &storageMetricsState{
+			blockDevices: make(map[string]*BlockDeviceMetric),
+		},
+	}
+
+	now := time.Now().UTC()
+	dm0Metric := provider.buildBlockDeviceMetric("dm-0", DiskStats{}, now)
+	r.Equal("dm-0", dm0Metric.Name)
+
+	// LVM metadata is populated for dm-0
+	r.Len(dm0Metric.LVMInfo, 3)
+	r.Equal("vg-lv_data", dm0Metric.LVMInfo["dm_name"])
+	r.Equal("vg", dm0Metric.LVMInfo["vg_name"])
+	r.Equal("lv_data", dm0Metric.LVMInfo["lv_name"])
 }
 
 func TestCalculateBlockDeviceRates(t *testing.T) {
