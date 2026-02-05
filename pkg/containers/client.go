@@ -12,10 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
-	"github.com/castai/kvisor/pkg/cgroup"
-	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/proc"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/content"
@@ -25,6 +21,11 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+
+	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
+	"github.com/castai/kvisor/pkg/cgroup"
+	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/kvisor/pkg/proc"
 )
 
 var (
@@ -82,6 +83,7 @@ type Client struct {
 	cgroupClient                cgroupsClient
 	criRuntimeServiceClient     criClient
 	containerContentStoreClient containerContentStoreClient
+	containerdDisabled          bool
 
 	containerCreatedListeners []ContainerCreatedListener
 	containerDeletedListeners []ContainerDeletedListener
@@ -98,8 +100,26 @@ type Client struct {
 	inactiveContainersDuration time.Duration
 }
 
-func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
+func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock string, disableContainerd bool, procHandler *proc.Proc, criRuntimeServiceClient criapi.RuntimeServiceClient,
 	labels, annotations []string) (*Client, error) {
+
+	client := &Client{
+		log:                        log.WithField("component", "cgroups"),
+		cgroupClient:               cgroupClient,
+		containersByCgroup:         map[uint64]*Container{},
+		containersByID:             map[string]*Container{},
+		procHandler:                procHandler,
+		criRuntimeServiceClient:    criRuntimeServiceClient,
+		forwardedLabels:            labels,
+		forwardedAnnotations:       annotations,
+		inactiveContainersDuration: 2 * time.Minute,
+		containerdDisabled:         disableContainerd,
+	}
+
+	if disableContainerd {
+		log.Info("containerd features disabled")
+		return client, nil
+	}
 
 	backoffConfig := backoff.DefaultConfig
 	backoffConfig.MaxDelay = 3 * time.Second
@@ -128,23 +148,17 @@ func NewClient(log *logging.Logger, cgroupClient *cgroup.Client, containerdSock 
 		return nil, fmt.Errorf("failed connecting to containerd client: %w", err)
 	}
 
-	return &Client{
-		log:                         log.WithField("component", "cgroups"),
-		containerdClient:            containerdClient,
-		containerContentStoreClient: containerdClient.ContentStore(),
-		cgroupClient:                cgroupClient,
-		containersByCgroup:          map[uint64]*Container{},
-		containersByID:              map[string]*Container{},
-		procHandler:                 procHandler,
-		criRuntimeServiceClient:     criRuntimeServiceClient,
-		forwardedLabels:             labels,
-		forwardedAnnotations:        annotations,
-		inactiveContainersDuration:  2 * time.Minute,
-	}, nil
+	client.containerdClient = containerdClient
+	client.containerContentStoreClient = containerdClient.ContentStore()
+
+	return client, nil
 }
 
 func (c *Client) Close() error {
-	return c.containerdClient.Close()
+	if c.containerdClient != nil {
+		return c.containerdClient.Close()
+	}
+	return nil
 }
 
 type ContainerProcess struct {
@@ -153,6 +167,10 @@ type ContainerProcess struct {
 }
 
 func (c *Client) LoadContainerTasks(ctx context.Context) ([]ContainerProcess, error) {
+	if c.containerdClient == nil {
+		return nil, nil
+	}
+
 	resp, err := c.containerdClient.TaskService().List(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -324,11 +342,13 @@ func (c *Client) addContainerWithCgroup(container *criapi.Container, cg *cgroup.
 	}
 	cont.markAccessed()
 
-	imageDigest, err := c.findImageDigest(container)
-	if err != nil {
-		c.log.Warnf("finding image digest for container %v: %v", container.Id, err)
+	if !c.containerdDisabled {
+		imageDigest, err := c.findImageDigest(container)
+		if err != nil {
+			c.log.Warnf("finding image digest for container %v: %v", container.Id, err)
+		}
+		cont.ImageDigest = imageDigest
 	}
-	cont.ImageDigest = imageDigest
 
 	getSandboxCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

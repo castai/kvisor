@@ -261,6 +261,7 @@ func newTestClient() *Client {
 		inactiveContainersDuration:  1 * time.Minute,
 		containerdClient:            &mockContainerdClient{},
 		containerContentStoreClient: &mockContainerContentStoreClient{},
+		containerdDisabled:          false,
 	}
 }
 

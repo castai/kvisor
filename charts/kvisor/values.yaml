@@ -145,8 +145,12 @@ agent:
   # Additional environment variables for the agent container via configMaps or secrets.
   envFrom: []
 
-  # Custom socket path for containerd.
+  # Path to the container runtime socket (containerd or CRI-O)
   containerdSocketPath: "/run/containerd/containerd.sock"
+
+  # Disable containerd-specific features (process tree, image digest resolution).
+  # Set to true for CRI-O clusters.
+  disableContainerd: false
 
 controller:
   enabled: true

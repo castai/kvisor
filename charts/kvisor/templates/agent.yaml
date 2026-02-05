@@ -66,6 +66,7 @@ spec:
           args:
             - "run"
             - "--metrics-http-listen-port={{.Values.agent.metricsHTTPListenPort}}"
+            - "--disable-containerd={{ .Values.agent.disableContainerd }}"
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}

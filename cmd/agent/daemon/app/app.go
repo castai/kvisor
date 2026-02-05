@@ -160,13 +160,17 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 
+	if cfg.DisableContainerd {
+		disableFeaturesRequiringContainerd(cfg, log)
+	}
+
 	criClient, criCloseFn, err := cri.NewRuntimeClient(ctx, cfg.CRIEndpoint)
 	if err != nil {
 		return fmt.Errorf("new CRI runtime client: %w", err)
 	}
 	defer criCloseFn() //nolint:errcheck
 
-	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
+	containersClient, err := containers.NewClient(log, cgroupClient, cfg.ContainerdSockPath, cfg.DisableContainerd, procHandler, criClient, cfg.EventLabels, cfg.EventAnnotations)
 	if err != nil {
 		return err
 	}
@@ -398,6 +402,13 @@ func enableBPFStats(cfg *config.Config, log *logging.Logger) func() {
 	}
 
 	return cleanup
+}
+
+func disableFeaturesRequiringContainerd(cfg *config.Config, log *logging.Logger) {
+	if cfg.ProcessTree.Enabled {
+		log.Warn("process tree requires containerd, disabling because containerd is disabled")
+		cfg.ProcessTree.Enabled = false
+	}
 }
 
 func buildEBPFPolicy(log *logging.Logger, cfg *config.Config, signatureEngine *signature.SignatureEngine) *ebpftracer.Policy {
