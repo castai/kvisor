@@ -27,7 +27,13 @@ jobs:
           go-version-file: "go.mod"
 
       - name: Get release tag
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        run: |
+          RELEASE_TAG="${GITHUB_REF#refs/*/}"
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "GITHUB_REF is empty, using github.event.release.tag_name: ${{ github.event.release.tag_name }}"
+            RELEASE_TAG="${{ github.event.release.tag_name }}"
+          fi
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
 
       - name: Build agent go binary amd64
         run: UNAME_M=x86_64 VERSION=${RELEASE_TAG:-commit-$GITHUB_SHA} make kvisor-agent
@@ -123,7 +129,13 @@ jobs:
           fetch-depth: "0"
 
       - name: Get release tag
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        run: |
+          RELEASE_TAG="${GITHUB_REF#refs/*/}"
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "GITHUB_REF is empty, using github.event.release.tag_name: ${{ github.event.release.tag_name }}"
+            RELEASE_TAG="${{ github.event.release.tag_name }}"
+          fi
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
 
       - name: Checkout helm-charts
         # The cr tool only works if the target repository is already checked out
