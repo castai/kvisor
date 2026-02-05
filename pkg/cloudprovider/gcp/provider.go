@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -17,6 +18,7 @@ type Provider struct {
 	// GCP clients
 	networksClient    *compute.NetworksClient
 	subnetworksClient *compute.SubnetworksClient
+	disksClient       *compute.DisksClient
 
 	// Cached network state
 	networkStateMu sync.RWMutex
@@ -43,11 +45,17 @@ func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider,
 		return nil, fmt.Errorf("creating subnetworks client: %w", err)
 	}
 
+	disksClient, err := compute.NewDisksRESTClient(ctx, clientOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("creating disks client: %w", err)
+	}
+
 	p := &Provider{
 		log:               log,
 		cfg:               cfg,
 		networksClient:    networksClient,
 		subnetworksClient: subnetworksClient,
+		disksClient:       disksClient,
 	}
 
 	log.With("project", cfg.GCPProjectID).Info("gcp provider initialized")
@@ -71,10 +79,14 @@ func (p *Provider) Close() error {
 			errs = append(errs, fmt.Errorf("closing subnetworks client: %w", err))
 		}
 	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("errors closing GCP provider: %v", errs)
+	if p.disksClient != nil {
+		if err := p.disksClient.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("closing disks client: %w", err))
+		}
 	}
 
+	if len(errs) > 0 {
+		return fmt.Errorf("errors closing GCP provider: %w", errors.Join(errs...))
+	}
 	return nil
 }

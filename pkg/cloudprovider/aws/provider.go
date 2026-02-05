@@ -17,10 +17,6 @@ type Provider struct {
 	// AWS clients
 	ec2Client *ec2.Client
 
-	// Cached storage state
-	storageStateMu sync.RWMutex
-	storageState   *types.StorageState
-
 	// Cached network state
 	networkStateMu sync.RWMutex
 	networkState   *types.NetworkState

@@ -5,6 +5,7 @@ package integration_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -83,4 +84,54 @@ func TestRefreshNetworkState(t *testing.T) {
 		}
 	}
 	// t.Logf("  Service Ranges: %+v", state.ServiceRanges)
+}
+
+// TestGetStorageState calls GetStorageState and prints the results.
+func TestGetStorageState(t *testing.T) {
+	cfg := getTestConfig(t)
+	ctx := t.Context()
+
+	provider, err := gcp.NewProvider(ctx, cfg)
+	if err != nil {
+		t.Fatalf("NewProvider failed: %v", err)
+	}
+
+	p := provider.(*gcp.Provider)
+
+	instanceIDsStr := os.Getenv("GCP_INSTANCE_IDS")
+	if instanceIDsStr == "" {
+		t.Fatal("GCP_INSTANCE_IDS not set")
+	}
+
+	instanceIDs := strings.Split(instanceIDsStr, ",")
+	for i := range instanceIDs {
+		instanceIDs[i] = strings.TrimSpace(instanceIDs[i])
+	}
+
+	state, err := p.GetStorageState(ctx, instanceIDs...)
+	if err != nil {
+		t.Fatalf("GetStorageState failed: %v", err)
+	}
+
+	for _, instanceID := range instanceIDs {
+		t.Logf("Testing instance: %s", instanceID)
+
+		volumes, ok := state.InstanceVolumes[instanceID]
+		if !ok {
+			t.Fatalf("No volumes found for instance %s", instanceID)
+		}
+
+		t.Logf("Found %d volumes attached to instance %s:", len(volumes), instanceID)
+		for _, v := range volumes {
+			t.Logf("  Volume:")
+			t.Logf("    VolumeID: %s", v.VolumeID)
+			t.Logf("    VolumeType: %s", v.VolumeType)
+			t.Logf("    VolumeState: %s", v.VolumeState)
+			t.Logf("    SizeBytes: %d", v.SizeBytes)
+			t.Logf("    Zone: %s", v.Zone)
+			t.Logf("    Encrypted: %v", v.Encrypted)
+			t.Logf("    IOPS: %d", v.IOPS)
+			t.Logf("    ThroughputBytes: %d B/s", v.ThroughputBytes)
+		}
+	}
 }

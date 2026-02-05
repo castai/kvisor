@@ -87,7 +87,12 @@ func TestExtractInstanceIDFromProviderID(t *testing.T) {
 		{
 			name:       "GCP format",
 			providerID: "gce://my-project/us-central1-a/instance-name",
-			want:       "instance-name",
+			want:       "my-project/us-central1-a/instance-name",
+		},
+		{
+			name:       "GCP format with missing zone",
+			providerID: "gce://my-project/instance-name",
+			want:       "",
 		},
 		{
 			name:       "Azure format",

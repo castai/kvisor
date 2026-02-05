@@ -65,11 +65,15 @@ func (c *VolumeStateController) fetchInitialStorageState(ctx context.Context, vo
 			return nil
 		}
 
-		instanceIDs := make([]string, len(nodes))
+		instanceIDs := make([]string, 0, len(nodes))
 		instanceIDToNodeName := make(map[string]string, len(nodes))
-		for i, node := range nodes {
+		for _, node := range nodes {
 			instanceID := extractInstanceIDFromProviderID(node.Spec.ProviderID)
-			instanceIDs[i] = instanceID
+			if instanceID == "" {
+				c.log.WithField("provider_id", node.Spec.ProviderID).Warn("could not extract instance id from provider id")
+				continue
+			}
+			instanceIDs = append(instanceIDs, instanceID)
 			instanceIDToNodeName[instanceID] = node.Name
 		}
 
@@ -114,11 +118,15 @@ func (c *VolumeStateController) runRefreshLoop(ctx context.Context, volumeIndex 
 				continue
 			}
 
-			instanceIDs := make([]string, len(nodes))
+			instanceIDs := make([]string, 0, len(nodes))
 			instanceIDToNodeName := make(map[string]string, len(nodes))
-			for i, node := range nodes {
+			for _, node := range nodes {
 				instanceID := extractInstanceIDFromProviderID(node.Spec.ProviderID)
-				instanceIDs[i] = instanceID
+				if instanceID == "" {
+					c.log.WithField("provider_id", node.Spec.ProviderID).Warn("could not extract instance id from provider id")
+					continue
+				}
+				instanceIDs = append(instanceIDs, instanceID)
 				instanceIDToNodeName[instanceID] = node.Name
 			}
 
@@ -162,10 +170,10 @@ func extractInstanceIDFromProviderID(providerID string) string {
 	}
 
 	// GCP format: gce://project-id/zone/instance-name
-	if strings.HasPrefix(providerID, "gce://") {
-		parts := strings.Split(providerID, "/")
-		if len(parts) >= 4 {
-			return parts[len(parts)-1]
+	if instanceID, ok := strings.CutPrefix(providerID, "gce://"); ok {
+		parts := strings.Split(instanceID, "/")
+		if len(parts) == 3 {
+			return instanceID
 		}
 	}
 
