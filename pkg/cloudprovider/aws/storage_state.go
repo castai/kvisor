@@ -86,6 +86,22 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []strin
 			Zone:        aws.ToString(vol.AvailabilityZone),
 		}
 
+		attachments := make([]types.AWSDiskAttachment, len(vol.Attachments))
+		for i, v := range vol.Attachments {
+			if v.InstanceId == nil || v.Device == nil {
+				continue
+			}
+
+			attachments[i] = types.AWSDiskAttachment{
+				InstanceID: aws.ToString(v.InstanceId),
+				Device:     aws.ToString(v.Device),
+			}
+		}
+
+		volume.AwsDetails = &types.AWSDetails{
+			Attachments: attachments,
+		}
+
 		// Size is in GiB, convert to bytes
 		if vol.Size != nil && *vol.Size > 0 {
 			volume.SizeBytes = int64(*vol.Size) * 1024 * 1024 * 1024

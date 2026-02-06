@@ -12,6 +12,7 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/pkg/cloudprovider/types"
 )
 
 func NewServer(client *Client) kubepb.KubeAPIServer {
@@ -163,8 +164,9 @@ func (s *Server) GetNode(ctx context.Context, req *kubepb.GetNodeRequest) (*kube
 	}
 	return &kubepb.GetNodeResponse{
 		Node: &kubepb.Node{
-			Name:   node.Name,
-			Labels: node.Labels,
+			Name:          node.Name,
+			Labels:        node.Labels,
+			CloudProvider: string(s.client.cloudProvider),
 		},
 	}, nil
 }
@@ -302,6 +304,26 @@ func (s *Server) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolume
 			Iops:            vol.IOPS,
 			ThroughputBytes: vol.ThroughputBytes,
 			Encrypted:       vol.Encrypted,
+		}
+
+		switch cloudProvider {
+		case types.TypeAWS:
+			attachments := make([]*kubepb.AWSDiskAttachment, len(vol.AwsDetails.Attachments))
+			if len(attachments) == 0 {
+				break
+			}
+			for i, a := range attachments {
+				attachments[i] = &kubepb.AWSDiskAttachment{
+					InstanceId: a.InstanceId,
+					Device:     a.Device,
+				}
+			}
+
+			volInfo.CloudSpecific = &kubepb.CloudVolumeInfo_AwsInfo{
+				AwsInfo: &kubepb.AWSCloudVolumeInfo{
+					Attachments: attachments,
+				},
+			}
 		}
 
 		volumes = append(volumes, volInfo)
