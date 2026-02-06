@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	v1 "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/logging"
 )
 
@@ -429,7 +430,7 @@ func TestCollectBlockDeviceMetrics(t *testing.T) {
 	require.NoError(t, err)
 
 	for deviceName, stats := range stats1 {
-		metric := provider.buildBlockDeviceMetric(deviceName, stats, timestamp1)
+		metric := provider.buildBlockDeviceMetric(t.Context(), deviceName, stats, timestamp1)
 		provider.storageState.blockDevices[deviceName] = &metric
 	}
 
@@ -449,7 +450,7 @@ func TestCollectBlockDeviceMetrics(t *testing.T) {
 
 	blockMetrics = make([]BlockDeviceMetric, 0)
 	for deviceName, stats := range stats2 {
-		current := provider.buildBlockDeviceMetric(deviceName, stats, timestamp2)
+		current := provider.buildBlockDeviceMetric(t.Context(), deviceName, stats, timestamp2)
 
 		prev, exists := provider.storageState.blockDevices[current.Name]
 		if exists {
@@ -526,7 +527,7 @@ E:SUBSYSTEM=block
 	}
 
 	now := time.Now().UTC()
-	dm0Metric := provider.buildBlockDeviceMetric("dm-0", DiskStats{}, now)
+	dm0Metric := provider.buildBlockDeviceMetric(t.Context(), "dm-0", DiskStats{}, now)
 	r.Equal("dm-0", dm0Metric.Name)
 
 	// LVM metadata is populated for dm-0
@@ -727,6 +728,556 @@ func TestGetDiskType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := provider.getDiskType(tt.deviceName)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractIdentifierFromVDP83h(t *testing.T) {
+	t.Run("all data present", func(t *testing.T) {
+		r := require.New(t)
+
+		data := []byte{
+			0x00,
+			0x83,       // Page Code
+			0x00, 0x18, // Page Length
+			0x02, // Protocol Identifier and Code Set
+			0x00,
+			0x00,
+			0x14,                                           // Identifier Length
+			0x70, 0x70, 0x69, 0x63, 0x68, 0x6C, 0x65, 0x72, // Identifier (ppichler-test-disk-2)
+			0x2D, 0x74, 0x65, 0x73, 0x74, 0x2D, 0x64, 0x69,
+			0x73, 0x6B, 0x2D, 0x32,
+		}
+
+		identifier, err := extractGCPIdentifierFromVDP83h(data)
+		r.NoError(err)
+		r.Equal("ppichler-test-disk-2", identifier)
+	})
+
+	t.Run("page length smaller than remaining data", func(t *testing.T) {
+		r := require.New(t)
+
+		data := []byte{
+			0x00,
+			0x83,       // Page Code
+			0x00, 0x08, // Too small Page Length
+			0x02, // Protocol Identifier and Code Set
+			0x00,
+			0x00,
+			0x14,                                           // Identifier Length
+			0x70, 0x70, 0x69, 0x63, 0x68, 0x6C, 0x65, 0x72, // Identifier (ppichler-test-disk-2)
+			0x2D, 0x74, 0x65, 0x73, 0x74, 0x2D, 0x64, 0x69,
+			0x73, 0x6B, 0x2D, 0x32,
+		}
+
+		identifier, err := extractGCPIdentifierFromVDP83h(data)
+		r.Error(err)
+		r.Equal("", identifier)
+	})
+
+	t.Run("page length bigger than remaining data", func(t *testing.T) {
+		r := require.New(t)
+
+		data := []byte{
+			0x00,
+			0x83,       // Page Code
+			0x00, 0xFF, // Too large Page Length
+			0x02, // Protocol Identifier and Code Set
+			0x00,
+			0x00,
+			0x14,                                           // Identifier Length
+			0x70, 0x70, 0x69, 0x63, 0x68, 0x6C, 0x65, 0x72, // Identifier (ppichler-test-disk-2)
+			0x2D, 0x74, 0x65, 0x73, 0x74, 0x2D, 0x64, 0x69,
+			0x73, 0x6B, 0x2D, 0x32,
+		}
+
+		identifier, err := extractGCPIdentifierFromVDP83h(data)
+		r.Error(err)
+		r.Equal("", identifier)
+	})
+
+	t.Run("identifier length bigger than remaining data", func(t *testing.T) {
+		r := require.New(t)
+
+		data := []byte{
+			0x00,
+			0x83,       // Page Code
+			0x00, 0x18, // Page Length
+			0x02, // Protocol Identifier and Code Set
+			0x00,
+			0x00,
+			0xFF,                                           // Too large Identifier Length
+			0x70, 0x70, 0x69, 0x63, 0x68, 0x6C, 0x65, 0x72, // Identifier (ppichler-test-disk-2)
+			0x2D, 0x74, 0x65, 0x73, 0x74, 0x2D, 0x64, 0x69,
+			0x73, 0x6B, 0x2D, 0x32,
+		}
+
+		identifier, err := extractGCPIdentifierFromVDP83h(data)
+		r.Error(err)
+		r.Equal("", identifier)
+	})
+
+	t.Run("only return first identifier if multiple are present", func(t *testing.T) {
+		r := require.New(t)
+
+		data := []byte{
+			0x00,
+			0x83,       // Page Code
+			0x00, 0x29, // Page Length
+			// First Identifier
+			0x02,
+			0x00,
+			0x00,
+			0x14,                                           // Identifier Length
+			0x70, 0x70, 0x69, 0x63, 0x68, 0x6C, 0x65, 0x72, // Identifier (ppichler-test-disk-2)
+			0x2D, 0x74, 0x65, 0x73, 0x74, 0x2D, 0x64, 0x69,
+			0x73, 0x6B, 0x2D, 0x32,
+			// Second Identifier
+			0x02,
+			0x00,
+			0x00,
+			0x0D,                                           // Identifier Length
+			0x70, 0x70, 0x69, 0x63, 0x68, 0x6C, 0x65, 0x72, // Identifier (ppichler-test)
+			0x2D, 0x74, 0x65, 0x73, 0x74,
+		}
+
+		identifier, err := extractGCPIdentifierFromVDP83h(data)
+		r.NoError(err)
+		r.Equal("ppichler-test-disk-2", identifier)
+	})
+}
+
+func TestParseUDevDB(t *testing.T) {
+	tests := []struct {
+		name         string
+		udevContent  string
+		wantedTags   map[string]string
+		expectError  bool
+		expectedTags map[string]string
+	}{
+		{
+			name: "GCP volume ID",
+			udevContent: `S:disk/by-path/pci-0000:00:05.0-nvme-2
+S:disk/by-id/nvme-nvme.1ae0-6e766d655f636172642d7064-6e766d655f636172642d7064-00000002
+S:disk/by-id/nvme-nvme_card-pd_nvme_card-pd
+S:disk/by-id/google-ppichler-test-disk-1
+S:disk/by-diskseq/10
+S:disk/by-id/nvme-nvme_card-pd_nvme_card-pd_2
+I:69298529
+E:ID_SERIAL_SHORT=ppichler-test-disk-1
+E:ID_WWN=nvme.1ae0-6e766d655f636172642d7064-6e766d655f636172642d7064-00000002
+E:ID_MODEL=nvme_card-pd
+E:ID_REVISION=2
+E:ID_NSID=2
+E:ID_SERIAL=Google_PersistentDisk_ppichler-test-disk-1
+E:ID_PATH=pci-0000:00:05.0-nvme-2
+E:ID_PATH_TAG=pci-0000_00_05_0-nvme-2
+G:systemd
+Q:systemd
+V:1`,
+			wantedTags: map[string]string{
+				"ID_SERIAL_SHORT": "serial",
+			},
+			expectedTags: map[string]string{
+				"serial": "ppichler-test-disk-1",
+			},
+		},
+		{
+			name: "valid LVM tags",
+			udevContent: `E:DM_NAME=vg-lv_data
+E:DM_VG_NAME=vg
+E:DM_LV_NAME=lv_data
+E:DM_UUID=LVM-abcd1234
+E:DEVNAME=/dev/dm-0
+E:SUBSYSTEM=block
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_LV_NAME": "lv_name",
+				"DM_VG_NAME": "vg_name",
+			},
+			expectedTags: map[string]string{
+				"dm_name": "vg-lv_data",
+				"lv_name": "lv_data",
+				"vg_name": "vg",
+			},
+		},
+		{
+			name: "partial match - only some tags present",
+			udevContent: `E:DM_NAME=vg-lv_data
+E:DM_UUID=LVM-abcd1234
+E:DEVNAME=/dev/dm-0
+E:SUBSYSTEM=block
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_LV_NAME": "lv_name",
+				"DM_VG_NAME": "vg_name",
+			},
+			expectedTags: map[string]string{
+				"dm_name": "vg-lv_data",
+			},
+		},
+		{
+			name: "no matching tags",
+			udevContent: `E:DEVNAME=/dev/sda1
+E:SUBSYSTEM=block
+E:ID_SERIAL=ABC123
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_LV_NAME": "lv_name",
+			},
+			expectedTags: map[string]string{},
+		},
+		{
+			name: "empty value skipped",
+			udevContent: `E:DM_NAME=
+E:DM_VG_NAME=vg
+E:DM_LV_NAME=lv_data
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_VG_NAME": "vg_name",
+				"DM_LV_NAME": "lv_name",
+			},
+			expectedTags: map[string]string{
+				"vg_name": "vg",
+				"lv_name": "lv_data",
+			},
+		},
+		{
+			name: "non-E lines ignored",
+			udevContent: `I:1234
+G:systemd
+E:DM_NAME=vg-lv_data
+Q:test
+E:DM_VG_NAME=vg
+L:100
+E:DM_LV_NAME=lv_data
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_VG_NAME": "vg_name",
+				"DM_LV_NAME": "lv_name",
+			},
+			expectedTags: map[string]string{
+				"dm_name": "vg-lv_data",
+				"vg_name": "vg",
+				"lv_name": "lv_data",
+			},
+		},
+		{
+			name: "malformed lines without equals sign skipped",
+			udevContent: `E:DM_NAME=vg-lv_data
+E:INVALID_LINE_NO_EQUALS
+E:DM_VG_NAME=vg
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_VG_NAME": "vg_name",
+			},
+			expectedTags: map[string]string{
+				"dm_name": "vg-lv_data",
+				"vg_name": "vg",
+			},
+		},
+		{
+			name: "value with equals sign preserved",
+			udevContent: `E:DM_NAME=test=value
+E:DM_VG_NAME=vg
+`,
+			wantedTags: map[string]string{
+				"DM_NAME":    "dm_name",
+				"DM_VG_NAME": "vg_name",
+			},
+			expectedTags: map[string]string{
+				"dm_name": "test=value",
+				"vg_name": "vg",
+			},
+		},
+		{
+			name:        "empty content",
+			udevContent: "",
+			wantedTags: map[string]string{
+				"DM_NAME": "dm_name",
+			},
+			expectedTags: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.udevContent)
+
+			tags, err := parseUDevDB(reader, tt.wantedTags)
+
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedTags, tags)
+		})
+	}
+}
+
+func TestFindGCPVolumeIDForDisk(t *testing.T) {
+	type testCase struct {
+		title            string
+		givenDevice      string
+		expectedVolumeID string
+		expectError      bool
+		testDataPath     string
+		cloudVolumeCache []*v1.CloudVolumeInfo
+	}
+
+	testCases := []testCase{
+		{
+			title:            "nvme",
+			givenDevice:      "nvme0n1",
+			expectedVolumeID: "ppichler-test",
+			expectError:      false,
+			testDataPath:     "gcp_nvme",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test",
+						},
+					},
+				},
+			},
+		},
+		{
+			title:            "remapped device name",
+			givenDevice:      "nvme0n1",
+			expectedVolumeID: "test-disk-1",
+			expectError:      false,
+			testDataPath:     "gcp_nvme",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "test-disk-1",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test",
+						},
+					},
+				},
+			},
+		},
+		{
+			title:            "scsi",
+			givenDevice:      "sda",
+			expectedVolumeID: "ppichler-test-disk-2",
+			expectError:      false,
+			testDataPath:     "gcp_scsi",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test-disk-2",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test-disk-2",
+						},
+					},
+				},
+			},
+		},
+		{
+			title:        "missing device",
+			givenDevice:  "sdc",
+			expectError:  true,
+			testDataPath: "gcp_scsi",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test-disk-2",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test-disk-2",
+						},
+					},
+				},
+			},
+		},
+		{
+			title:            "unsupported disk type",
+			givenDevice:      "dm-0",
+			expectedVolumeID: "",
+			expectError:      false,
+			testDataPath:     "gcp_scsi",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test-disk-2",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test-disk-2",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			testDataPath := filepath.Join("testdata", tc.testDataPath)
+
+			provider := &SysfsStorageInfoProvider{
+				log:            logging.New(),
+				nodeName:       "test-node",
+				kubeClient:     nil, // Not needed for this test
+				sysBlockPrefix: filepath.Join(testDataPath),
+				hostRootPath:   filepath.Join(testDataPath),
+				storageState: &storageMetricsState{
+					blockDevices: make(map[string]*BlockDeviceMetric),
+				},
+				cloudVolumeCache: cloudVolumeCache{
+					cloudVolumesResp: &v1.GetCloudVolumesResponse{
+						Volumes: tc.cloudVolumeCache,
+					},
+					lastLoadTime: time.Now(),
+				},
+			}
+
+			r := require.New(t)
+
+			volumeID, err := provider.findGCPVolumeIDForDisk(t.Context(), tc.givenDevice)
+			if tc.expectError {
+				r.Error(err)
+			} else {
+				r.NoError(err)
+			}
+
+			r.Equal(tc.expectedVolumeID, volumeID)
+		})
+	}
+}
+
+func TestExtractSCSIDiskName(t *testing.T) {
+	tests := []struct {
+		name     string
+		device   string
+		expected string
+	}{
+		{
+			name:     "sda partition 1",
+			device:   "sda1",
+			expected: "sda",
+		},
+		{
+			name:     "sda partition 2",
+			device:   "sda2",
+			expected: "sda",
+		},
+		{
+			name:     "sdb partition 10",
+			device:   "sdb10",
+			expected: "sdb",
+		},
+		{
+			name:     "xvda partition 1",
+			device:   "xvda1",
+			expected: "xvda",
+		},
+		{
+			name:     "xvdf partition 5",
+			device:   "xvdf5",
+			expected: "xvdf",
+		},
+		{
+			name:     "base device with no partition - sda",
+			device:   "sda",
+			expected: "sda",
+		},
+		{
+			name:     "base device with no partition - xvda",
+			device:   "xvda",
+			expected: "xvda",
+		},
+		{
+			name:     "empty string",
+			device:   "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractSCSIDiskName(tt.device)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractNVMeDiskName(t *testing.T) {
+	tests := []struct {
+		name     string
+		device   string
+		expected string
+	}{
+		{
+			name:     "nvme0n1 partition 1",
+			device:   "nvme0n1p1",
+			expected: "nvme0n1",
+		},
+		{
+			name:     "nvme0n1 partition 2",
+			device:   "nvme0n1p2",
+			expected: "nvme0n1",
+		},
+		{
+			name:     "nvme1n1 partition 10",
+			device:   "nvme1n1p10",
+			expected: "nvme1n1",
+		},
+		{
+			name:     "nvme2n1 partition 256",
+			device:   "nvme2n1p256",
+			expected: "nvme2n1",
+		},
+		{
+			name:     "base device with no partition - nvme0n1",
+			device:   "nvme0n1",
+			expected: "nvme0n1",
+		},
+		{
+			name:     "base device with no partition - nvme1n1",
+			device:   "nvme1n1",
+			expected: "nvme1n1",
+		},
+		{
+			name:     "device with p but not partition",
+			device:   "nvmep0n1",
+			expected: "nvme",
+		},
+		{
+			name:     "empty string",
+			device:   "",
+			expected: "",
+		},
+		{
+			name:     "device without p",
+			device:   "sda1",
+			expected: "sda1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractNVMeDiskName(tt.device)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

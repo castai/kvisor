@@ -85,6 +85,7 @@ func NewClient(
 	podName, kvisorNamespace string,
 	version Version,
 	client kubernetes.Interface,
+	cloudProvider cloudtypes.Type,
 ) *Client {
 	return &Client{
 		log:                           log.WithField("component", "kube_watcher"),
@@ -95,6 +96,7 @@ func NewClient(
 		index:                         NewIndex(),
 		version:                       version,
 		ipInfoTTL:                     30 * time.Second,
+		cloudProvider:                 cloudProvider,
 	}
 }
 
@@ -376,10 +378,6 @@ func (c *Client) GetVolumesForNode(nodeName string) []cloudtypes.Volume {
 
 func (c *Client) GetCloudProvider() cloudtypes.Type {
 	return c.cloudProvider
-}
-
-func (c *Client) SetCloudProvider(provider cloudtypes.Type) {
-	c.cloudProvider = provider
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {

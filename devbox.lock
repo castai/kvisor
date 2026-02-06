@@ -93,6 +93,10 @@
         }
       }
     },
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2026-02-11T12:16:34Z",
+      "resolved": "github:NixOS/nixpkgs/8482c7ded03bae7550f3d69884f1e611e3bd19e8?lastModified=1770812194&narHash=sha256-OH%2BlkaIKAvPXR3nITO7iYZwew2nW9Y7Xxq0yfM%2FUcUU%3D"
+    },
     "go@1.24.0": {
       "last_modified": "2025-02-23T09:42:26Z",
       "resolved": "github:NixOS/nixpkgs/2d068ae5c6516b2d04562de50a58c682540de9bf#go_1_24",

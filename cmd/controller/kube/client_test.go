@@ -27,7 +27,7 @@ func TestClient(t *testing.T) {
 	clientset := fake.NewClientset()
 	listener := &mockListener{items: map[types.UID]Object{}}
 	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
+	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset, "")
 	client.RegisterHandlers(informersFactory)
 	client.RegisterPodsHandlers(informersFactory)
 	client.RegisterKubernetesChangeListener(listener)
