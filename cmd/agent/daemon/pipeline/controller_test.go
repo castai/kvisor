@@ -1396,7 +1396,7 @@ func (m *mockStorageInfoProvider) CollectFilesystemMetrics(ctx context.Context, 
 	}, nil
 }
 
-func (m *mockStorageInfoProvider) CollectBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
+func (m *mockStorageInfoProvider) CollectBlockDeviceMetrics(ctx context.Context, timestamp time.Time) ([]BlockDeviceMetric, error) {
 	return []BlockDeviceMetric{
 		{
 			Name:                 "sda",

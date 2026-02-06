@@ -144,7 +144,7 @@ func TestServerGetNodeStatsSummary(t *testing.T) {
 
 	t.Run("empty node name returns error", func(t *testing.T) {
 		clientset := fake.NewClientset()
-		client := NewClient(log, "test-pod", "kvisor-test", Version{}, clientset)
+		client := NewClient(log, "test-pod", "kvisor-test", Version{}, clientset, "")
 		srv := NewServer(client)
 
 		resp, err := srv.GetNodeStatsSummary(context.Background(), &kubepb.GetNodeStatsSummaryRequest{

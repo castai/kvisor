@@ -124,7 +124,9 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kubeClient := kube.NewClient(log, cfg.PodName, cfg.PodNamespace, k8sVersion, clientset)
+	kubeClient := kube.NewClient(log, cfg.PodName, cfg.PodNamespace, k8sVersion, clientset,
+		cfg.CloudProviderConfig.CloudProvider.Type)
+
 	kubeClient.RegisterHandlers(informersFactory)
 
 	errg.Go(func() error {
@@ -136,8 +138,6 @@ func (a *App) Run(ctx context.Context) error {
 		provider, err := cloudprovider.NewProvider(ctx, log, cfg.CloudProviderConfig.CloudProvider)
 		if err == nil {
 			log.Infof("cloud provider %s initialized successfully", provider.Type())
-
-			kubeClient.SetCloudProvider(provider.Type())
 
 			if cfg.CloudProviderConfig.VPCStateController.Enabled {
 				errg.Go(func() error {

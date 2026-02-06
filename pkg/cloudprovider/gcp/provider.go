@@ -20,6 +20,7 @@ type Provider struct {
 	networksClient    *compute.NetworksClient
 	subnetworksClient *compute.SubnetworksClient
 	disksClient       *compute.DisksClient
+	instancesClient   *compute.InstancesClient
 
 	// Cached network state
 	networkStateMu sync.RWMutex
@@ -51,12 +52,18 @@ func NewProvider(ctx context.Context, log *logging.Logger, cfg types.ProviderCon
 		return nil, fmt.Errorf("creating disks client: %w", err)
 	}
 
+	instancesClient, err := compute.NewInstancesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("creating instances client: %w", err)
+	}
+
 	p := &Provider{
 		log:               log,
 		cfg:               cfg,
 		networksClient:    networksClient,
 		subnetworksClient: subnetworksClient,
 		disksClient:       disksClient,
+		instancesClient:   instancesClient,
 	}
 
 	log.With("project", cfg.GCPProjectID).Info("gcp provider initialized")
@@ -83,6 +90,11 @@ func (p *Provider) Close() error {
 	if p.disksClient != nil {
 		if err := p.disksClient.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("closing disks client: %w", err))
+		}
+	}
+	if p.instancesClient != nil {
+		if err := p.instancesClient.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("closing instancesClient client: %w", err))
 		}
 	}
 

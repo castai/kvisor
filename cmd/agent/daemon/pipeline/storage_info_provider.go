@@ -2,13 +2,16 @@ package pipeline
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +23,7 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/castai/logging"
 )
 
@@ -39,6 +43,8 @@ type BlockDeviceMetric struct {
 	IsVirtual    bool              `avro:"is_virtual"`   // dm-* or md* devices
 	RaidLevel    string            `avro:"raid_level"`   // raid0, raid1, raid5, etc
 	LVMInfo      map[string]string `avro:"lvm_info"`     // LVM metadata for this device
+
+	CloudVolumeID string `avro:"volume_id"` // ID of the correlating CSP disk
 
 	ReadIOPS             float64   `avro:"read_iops"`
 	WriteIOPS            float64   `avro:"write_iops"`
@@ -138,10 +144,16 @@ type storageMetricsState struct {
 
 type StorageInfoProvider interface {
 	CollectFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error)
-	CollectBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error)
+	CollectBlockDeviceMetrics(ctx context.Context, timestamp time.Time) ([]BlockDeviceMetric, error)
 	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
 	CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error)
+}
+
+type cloudVolumeCache struct {
+	mu               sync.Mutex
+	cloudVolumesResp *kubepb.GetCloudVolumesResponse
+	lastLoadTime     time.Time
 }
 
 type SysfsStorageInfoProvider struct {
@@ -153,6 +165,7 @@ type SysfsStorageInfoProvider struct {
 	sysBlockPrefix        string
 	kubeClient            kubepb.KubeAPIClient
 	nodeCache             *freelru.SyncedLRU[string, *kubepb.Node]
+	cloudVolumeCache      cloudVolumeCache
 	wellKnownPathDeviceID map[string]uint64
 }
 
@@ -407,6 +420,29 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 	return metrics, nil
 }
 
+func (s *SysfsStorageInfoProvider) getNodeCloudVolumes(ctx context.Context) (*kubepb.GetCloudVolumesResponse, error) {
+	s.cloudVolumeCache.mu.Lock()
+	defer s.cloudVolumeCache.mu.Unlock()
+
+	// HACK(patrick.pichler): This needs some refactoring. It works for now, but we need a better caching strategy.
+
+	// TODO(patrick.pichler): Make cache lifetime configurable
+	if s.cloudVolumeCache.cloudVolumesResp != nil && s.cloudVolumeCache.lastLoadTime.After(time.Now().Add(-30*time.Second)) {
+		return s.cloudVolumeCache.cloudVolumesResp, nil
+	}
+
+	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	s.cloudVolumeCache.cloudVolumesResp = resp
+
+	return resp, nil
+}
+
 // CollectCloudVolumeMetrics retrieves cloud volume metadata from the cloud provider and builds metrics
 func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error) {
 	if s.kubeClient == nil {
@@ -416,9 +452,7 @@ func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context
 	log := s.log.WithField("collector", "cloud_volumes")
 
 	log.Debugf("requesting cloud volumes for node %s", s.nodeName)
-	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
-		NodeName: s.nodeName,
-	}, grpc.UseCompressor(gzip.Name))
+	resp, err := s.getNodeCloudVolumes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
 	}
@@ -632,7 +666,7 @@ func (s *SysfsStorageInfoProvider) getLVMDMDevice(device string) []string {
 	}
 }
 
-func (s *SysfsStorageInfoProvider) CollectBlockDeviceMetrics(timestamp time.Time) ([]BlockDeviceMetric, error) {
+func (s *SysfsStorageInfoProvider) CollectBlockDeviceMetrics(ctx context.Context, timestamp time.Time) ([]BlockDeviceMetric, error) {
 	// Read stats from /proc/diskstats
 	diskStats, err := readProcDiskStats()
 	if err != nil {
@@ -642,7 +676,7 @@ func (s *SysfsStorageInfoProvider) CollectBlockDeviceMetrics(timestamp time.Time
 	blockMetrics := make([]BlockDeviceMetric, 0, len(diskStats))
 
 	for deviceName, stats := range diskStats {
-		current := s.buildBlockDeviceMetric(deviceName, stats, timestamp)
+		current := s.buildBlockDeviceMetric(ctx, deviceName, stats, timestamp)
 
 		prev, exists := s.storageState.blockDevices[current.Name]
 		if exists {
@@ -659,7 +693,311 @@ func (s *SysfsStorageInfoProvider) CollectBlockDeviceMetrics(timestamp time.Time
 	return blockMetrics, nil
 }
 
-func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stats DiskStats, timestamp time.Time) BlockDeviceMetric {
+func (s *SysfsStorageInfoProvider) getCurrentCloudProvider() (types.Type, error) {
+	n, err := s.getNode()
+	if err != nil {
+		return "", err
+	}
+
+	return types.NewProviderType(n.CloudProvider)
+}
+
+func (s *SysfsStorageInfoProvider) findAWSXenVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
+	// For Xen instances devices are always exposed under /dev/xvd*. * in matches the name
+	// of the mapping as specifid in the AWS console. There is nothing exposed by the Xen
+	// driver that helps to extract the volume ID, hence all mapped volumes on the device
+	//	need to be searched.
+	//
+	// For example:
+	// 	one mapping of vol-1234abc to /dev/sdx
+	// becomes
+	// 		/dev/xvdx
+	resp, err := s.getNodeCloudVolumes(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
+	}
+
+	devicePath := "/dev/" + deviceName
+	adjustedDevicePath := strings.Replace(devicePath, "xvd", "sd", 1)
+
+	for _, cvi := range resp.Volumes {
+		awsInfo := cvi.GetAwsInfo()
+		if awsInfo == nil {
+			continue
+		}
+
+		if awsInfo.Device == devicePath || awsInfo.Device == adjustedDevicePath {
+			return cvi.VolumeId, nil
+		}
+	}
+
+	s.log.With(
+		"device", deviceName,
+		"adjustedDevicePath", adjustedDevicePath,
+	).Debug("could not find matching volume for xen based instance")
+
+	return "", nil
+}
+
+func (s *SysfsStorageInfoProvider) findAWSNitroVolumeIDForDisk(deviceName string) (string, error) {
+	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
+	modelPath := filepath.Join(devicePath, "device", "model")
+
+	modelData, err := readFileTrimmed(modelPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading device model of `%s`: %w", deviceName, err)
+	}
+
+	// We only care about AWS EBS devices.
+	if string(modelData) != "Amazon Elastic Block Store" {
+		s.log.With(
+			"device", deviceName,
+			"model", string(modelData),
+		).Debug("got non AWS model")
+		return "", nil
+	}
+
+	serialPath := filepath.Join(devicePath, "device", "serial")
+	serialData, err := readFileTrimmed(serialPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading device serial of `%s`: %w", deviceName, err)
+	}
+
+	serial := string(serialData)
+
+	if rawSerial, found := strings.CutPrefix(serial, "vol"); found {
+		// We want the serial in format `vol-`.
+		return "vol-" + rawSerial, nil
+	} else {
+		s.log.With("serial", serial).Warn("got serial for EBS device without `vol` prefix")
+		return "", nil
+	}
+}
+
+func extractSCSIDiskName(device string) string {
+	num := strings.IndexFunc(device, func(r rune) bool {
+		return r >= '0' && r <= '9'
+	})
+
+	// For SCSI devices a number indicates that we got a partitoin.
+	if num > 0 {
+		return device[0:num]
+	}
+
+	return device
+}
+
+func extractNVMeDiskName(device string) string {
+	num := strings.IndexRune(device, 'p')
+
+	// NVMe partitions contain a `p` in the device name.
+	if num > 0 {
+		return device[0:num]
+	}
+
+	return device
+}
+
+func (s *SysfsStorageInfoProvider) findAWSVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
+	switch {
+	case strings.HasPrefix(deviceName, "xvd"):
+		diskName := extractSCSIDiskName(deviceName)
+
+		s.log.With(
+			"device", deviceName,
+			"disk", diskName,
+		).Debug("extract AWS volume id for Xen based instance")
+
+		return s.findAWSXenVolumeIDForDisk(ctx, diskName)
+
+	case strings.HasPrefix(deviceName, "nvme"):
+		diskName := extractNVMeDiskName(deviceName)
+
+		s.log.With(
+			"device", deviceName,
+			"disk", diskName,
+		).Debug("extract AWS volume id for Nitro based instance")
+
+		return s.findAWSNitroVolumeIDForDisk(diskName)
+
+	}
+
+	s.log.With("device", deviceName).Info("unsupported disk type")
+
+	return "", nil
+}
+
+// extractIdentifierFromVDP83h extracts the identifier of the given raw data
+// according to Vital Product Data page 83 specification. For more details see
+// page 364 of
+// https://www.seagate.com/files/staticfiles/support/docs/manual/Interface%20manuals/100293068h.pdf
+// The function will always return the fist identifier encountered, as it seems
+// like GCP always will provide a single identifier.
+func extractGCPIdentifierFromVDP83h(rawData []byte) (string, error) {
+	// Page length is encoded in BigEndian.
+	pageLength := (int32(rawData[2])<<8 | int32(rawData[3]))
+
+	// The page length sepcifies the data length minus the header (4 bytes).
+	if pageLength != int32(len(rawData))-4 { // nolint:gosec
+		// TODO(patrick.pichler): should this be a warning instead of an hard error?
+		return "", fmt.Errorf("page length %d is not equals len of read data (%d)", pageLength, len(rawData)-4)
+	}
+
+	identifierData := rawData[4:]
+	identifierLength := identifierData[3]
+
+	// Ensure that the data contains the full identifier as specified by length.
+	if len(identifierData)-4 < int(identifierLength) {
+		return "", fmt.Errorf("identifier length %d is bigger than remaining data (%d)", pageLength, len(identifierData)-4)
+	}
+
+	return string(identifierData[4 : 4+identifierLength]), nil
+}
+
+func readFileTrimmed(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.TrimSpace(data), nil
+}
+
+func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForSCSIDisk(deviceName string) (string, error) {
+	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
+	vendorPath := filepath.Join(devicePath, "device", "vendor")
+
+	vendorData, err := readFileTrimmed(vendorPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading device vendor of `%s`: %w", deviceName, err)
+	}
+
+	// We only care about Google type disks.
+	if string(vendorData) != "Google" {
+		return "", nil
+	}
+
+	// The disk name is encoded in the Vital Product Data page 83.
+	vdp83Path := filepath.Join(devicePath, "device", "vpd_pg83")
+	vdp83Data, err := os.ReadFile(vdp83Path)
+	if err != nil {
+		return "", fmt.Errorf("error reading vdp_pg83 of `%s`: %w", deviceName, err)
+	}
+
+	volumeID, err := extractGCPIdentifierFromVDP83h(vdp83Data)
+	if err != nil {
+		return "", fmt.Errorf("error while parsing VDP 83 of device `%s`: %w", deviceName, err)
+	}
+
+	return volumeID, nil
+}
+
+func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForNVMeDisk(deviceName string) (string, error) {
+	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
+	deviceModelPath := filepath.Join(devicePath, "device", "model")
+
+	modelData, err := readFileTrimmed(deviceModelPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading device serial of `%s`: %w", deviceName, err)
+	}
+
+	// Ensure device is a persistent disk. This is required, as local SSDs are also mounted
+	// using the NVMe driver.
+	if string(modelData) != "nvme_card-pd" {
+		return "", nil
+	}
+
+	devPath := filepath.Join(devicePath, "dev")
+	deviceNumberData, err := readFileTrimmed(devPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading device number of `%s`: %w", deviceName, err)
+	}
+
+	// GCP mounts persitent volumes under the same NVMe device in different namespaces. To
+	// extract the ID, kvisor would need to communicate directly with the NVMe device, which
+	// is only possible in a privileged container. To work around this, we try to retrieve the
+	// serial from the udev db. This solution is not perfect, as it requries certain udev rules
+	// to be present, but good enough for now.
+	udevDBPath := filepath.Join(s.hostRootPath, "run", "udev", "data", "b"+string(deviceNumberData))
+	udevDBFile, err := os.Open(udevDBPath)
+	if err != nil {
+		s.log.Errorf("failed to open udev database for device %s: %v", deviceName, err)
+		return "", nil
+	}
+	defer udevDBFile.Close()
+
+	tags, err := parseUDevDB(udevDBFile, map[string]string{
+		"ID_SERIAL_SHORT": "serial",
+	})
+	if err != nil {
+		s.log.With(
+			"device", deviceName,
+			"error", err,
+		).Warn("error while parsing udev db")
+		return "", nil
+	}
+
+	if serial, found := tags["serial"]; found {
+		return serial, nil
+	}
+
+	return "", nil
+}
+
+func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
+	resp, err := s.getNodeCloudVolumes(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error while fetching node volumes: %w", err)
+	}
+
+	// There are no cloud volumes, so nothing we can do to resolve the underlying volume id.
+	if len(resp.Volumes) == 0 {
+		return "", nil
+	}
+
+	var (
+		resolvedDeviceName string
+	)
+
+	// GCP mounts disks using SCSI or NVMe. All cloud backed volume devices should have either `sd` or `nvme` prefix.
+	switch {
+	case strings.HasPrefix(deviceName, "sd"):
+		deviceName = extractSCSIDiskName(deviceName)
+
+		resolvedDeviceName, err = s.extractGCPDeviceNameForSCSIDisk(deviceName)
+	case strings.HasPrefix(deviceName, "nvme"):
+		deviceName = extractNVMeDiskName(deviceName)
+
+		resolvedDeviceName, err = s.extractGCPDeviceNameForNVMeDisk(deviceName)
+
+	default:
+		// Unsupported disk driver.
+		return "", nil
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	for _, volInfo := range resp.GetVolumes() {
+		gcpInfo := volInfo.GetGcpInfo()
+
+		// We need GCP specific information to resolve the volume id.
+		if gcpInfo == nil {
+			continue
+		}
+
+		if gcpInfo.GetDeviceName() == resolvedDeviceName {
+			return volInfo.VolumeId, nil
+		}
+	}
+
+	// TODO(patrick.pichler): should we fall back to the raw resolvedDeviceName name in case
+	// the disk was mounted after the last server cache refresh?
+	return "", nil
+}
+
+func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(ctx context.Context, blockName string, stats DiskStats, timestamp time.Time) BlockDeviceMetric {
 	// Get device metadata
 	diskType := s.getDiskType(blockName)
 
@@ -685,6 +1023,51 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 		s.log.Debugf("failed to get node template for %s: %v", blockName, err)
 	}
 
+	var volumeID string
+
+	cloudProvider, err := s.getCurrentCloudProvider()
+	if err != nil {
+		s.log.Debugf("failed to get current cloud provider: %v", err)
+	} else {
+		switch cloudProvider {
+		case types.TypeAWS:
+			awsVolumeId, err := s.findAWSVolumeIDForDisk(ctx, blockName)
+			if err != nil {
+				s.log.
+					With(
+						"error", err,
+						"device", blockName,
+					).
+					Warn("issue while resolving aws volume id")
+				break
+			}
+
+			// VolumeID could not be resolved. This can happen as not all volumes are EBS backed.
+			if awsVolumeId == "" {
+				break
+			}
+
+			volumeID = awsVolumeId
+		case types.TypeGCP:
+			gcpVolumeId, err := s.findGCPVolumeIDForDisk(ctx, blockName)
+			if err != nil {
+				s.log.
+					With(
+						"error", err,
+						"device", blockName,
+					).
+					Warn("issue while resolving aws volume id")
+				break
+			}
+			// VolumeID could not be resolved. This can happen as not all volumes are GCP owned.
+			if gcpVolumeId == "" {
+				break
+			}
+
+			volumeID = gcpVolumeId
+		}
+	}
+
 	return BlockDeviceMetric{
 		Name:             blockName,
 		NodeName:         s.nodeName,
@@ -699,6 +1082,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(blockName string, stat
 		LVMInfo:          lvmInfo,
 		Timestamp:        timestamp,
 		InFlightRequests: safeUint64ToInt64(stats.InFlight),
+		CloudVolumeID:    volumeID,
 
 		// Internal fields for delta calculation
 		logicalSectorSize: logicalSectorSize,
@@ -943,16 +1327,47 @@ func (s *SysfsStorageInfoProvider) getHolders(deviceName string) []string {
 	return holders
 }
 
+func parseUDevDB(f io.Reader, wantedTags map[string]string) (map[string]string, error) {
+	tags := make(map[string]string, len(wantedTags))
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Only process device property lines (E:)
+		property, found := strings.CutPrefix(line, "E:")
+
+		if !found {
+			continue
+		}
+
+		parts := strings.SplitN(property, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key, value := parts[0], parts[1]
+		if name, ok := wantedTags[key]; ok && value != "" {
+			tags[name] = value
+		}
+
+		// Exit early if desired tags are found
+		if len(tags) == len(wantedTags) {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
+
 // getLVMInfo returns LVM metadata (dm_name, lv_name, vg_name) for device-mapper devices
 func (s *SysfsStorageInfoProvider) getLVMInfo(deviceName string) map[string]string {
 	if !strings.HasPrefix(deviceName, "dm-") {
 		return nil
-	}
-
-	requiredTags := map[string]string{
-		"DM_NAME":    "dm_name",
-		"DM_LV_NAME": "lv_name",
-		"DM_VG_NAME": "vg_name",
 	}
 
 	// Read device major:minor from /sys/block/<device>/dev
@@ -975,35 +1390,12 @@ func (s *SysfsStorageInfoProvider) getLVMInfo(deviceName string) map[string]stri
 	}
 	defer udevDBFile.Close()
 
-	tags := make(map[string]string)
-
-	scanner := bufio.NewScanner(udevDBFile)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Only process device property lines (E:)
-		if !strings.HasPrefix(line, "E:") {
-			continue
-		}
-		property := strings.TrimPrefix(line, "E:")
-
-		parts := strings.SplitN(property, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key, value := parts[0], parts[1]
-		if name, ok := requiredTags[key]; ok && value != "" {
-			tags[name] = value
-		}
-
-		// Exit early if desired tags are found
-		if len(tags) == len(requiredTags) {
-			break
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
+	tags, err := parseUDevDB(udevDBFile, map[string]string{
+		"DM_NAME":    "dm_name",
+		"DM_LV_NAME": "lv_name",
+		"DM_VG_NAME": "vg_name",
+	})
+	if err != nil {
 		s.log.Errorf("failed to scan udev database for device %s: %v", deviceName, err)
 		return nil
 	}

@@ -31,7 +31,7 @@ func (c *Controller) collectStorageMetrics(ctx context.Context) {
 	c.log.Debug("starting storage stats collection")
 
 	timestamp := time.Now().UTC()
-	if err := c.processBlockDeviceMetrics(timestamp); err != nil {
+	if err := c.processBlockDeviceMetrics(ctx, timestamp); err != nil {
 		c.log.Errorf("failed to collect block device metrics: %v", err)
 	}
 
@@ -50,12 +50,12 @@ func (c *Controller) collectStorageMetrics(ctx context.Context) {
 	c.log.Debugf("storage stats collection completed in %v", time.Since(start))
 }
 
-func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
+func (c *Controller) processBlockDeviceMetrics(ctx context.Context, timestamp time.Time) error {
 	if c.blockDeviceMetricsWriter == nil {
 		return fmt.Errorf("block device metrics writer not initialized")
 	}
 
-	blockMetrics, err := c.storageInfoProvider.CollectBlockDeviceMetrics(timestamp)
+	blockMetrics, err := c.storageInfoProvider.CollectBlockDeviceMetrics(ctx, timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to collect block device metrics: %w", err)
 	}
