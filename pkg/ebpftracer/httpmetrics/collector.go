@@ -191,7 +191,7 @@ func (c *Collector) handleRequest(key ConnectionKey, req *packet.HTTPRequest, ev
 		Method:    req.Method,
 		Path:      req.Path,
 		Host:      req.Host,
-		Timestamp: time.Unix(0, int64(event.Context.Ts)),
+		Timestamp: time.Unix(0, int64(event.Context.Ts)), //nolint:gosec // timestamp overflow is not a concern
 		Container: event.Container,
 	}
 	c.pendingRequests.Add(key, pending)
@@ -217,7 +217,7 @@ func (c *Collector) handleResponse(key ConnectionKey, resp *packet.HTTPResponse,
 	c.pendingRequests.Remove(reverseKey)
 
 	// Calculate latency
-	responseTime := time.Unix(0, int64(event.Context.Ts))
+	responseTime := time.Unix(0, int64(event.Context.Ts)) //nolint:gosec // timestamp overflow is not a concern
 	latency := responseTime.Sub(pending.Timestamp)
 
 	// Normalize path
@@ -386,7 +386,7 @@ func (c *Collector) DumpToJSON() ([]byte, error) {
 // hashConnectionKey generates a hash for the ConnectionKey
 func hashConnectionKey(key ConnectionKey) uint32 {
 	// Simple hash combining cgroup and ports
-	h := uint32(key.CgroupID)
+	h := uint32(key.CgroupID) //nolint:gosec // hash truncation is intentional
 	h ^= uint32(key.SrcPort) << 16
 	h ^= uint32(key.DstPort)
 	// Include some address bits
