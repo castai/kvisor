@@ -47,6 +47,7 @@ enum event_id_e {
     NET_PACKET_DNS,
     NET_PACKET_SOCKS5,
     NET_PACKET_SSH,
+    NET_PACKET_HTTP,
     NET_FLOW_BASE,
     MAX_NET_EVENT_ID,
     // Common event IDs

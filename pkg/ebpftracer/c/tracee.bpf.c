@@ -1651,6 +1651,8 @@ statfunc enum event_id_e net_packet_to_net_event(net_packet_t packet_type)
             return NET_PACKET_SOCKS5;
         case SUB_NET_PACKET_SSH:
             return NET_PACKET_SSH;
+        case SUB_NET_PACKET_HTTP:
+            return NET_PACKET_HTTP;
     };
     return MAX_EVENT_ID;
 }
@@ -1692,6 +1694,7 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_dns);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_socks5);
 CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh);
+CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_http);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp);
 CGROUP_SKB_HANDLE_FUNCTION(proto_udp_dns);
 
@@ -2294,6 +2297,61 @@ out:
     return false;
 }
 
+// HTTP/1.x request detection - looks for HTTP method at start of payload
+// see https://datatracker.ietf.org/doc/html/rfc7230 for HTTP/1.1 message format
+statfunc bool net_l7_is_http(struct __sk_buff *skb, u32 l7_off)
+{
+    char buf[http_min_len];
+    __builtin_memset(&buf, 0, sizeof(buf));
+
+    if (skb->len < l7_off) {
+        return false;
+    }
+
+    u32 payload_len = skb->len - l7_off;
+    if (payload_len < 4) {
+        return false; // minimum: "GET " or "HTTP"
+    }
+
+    u32 read_len = payload_len;
+    // inline bounds check to force compiler to use the register of size
+    asm volatile("if %[size] < %[max_size] goto +1;\n"
+                 "%[size] = %[max_size];\n"
+                 :
+                 : [size] "r"(read_len), [max_size] "i"(http_min_len));
+
+    // make the verifier happy
+    asm goto("if %[size] < 4 goto %l[out]" ::[size] "r"(read_len)::out);
+
+    if (read_len < 4) {
+        return false;
+    }
+
+    // load first http_min_len bytes from layer 7 in packet.
+    if (bpf_skb_load_bytes(skb, l7_off, buf, read_len) < 0) {
+        return false;
+    }
+
+    // Check for HTTP request methods
+    if (has_prefix("GET ", buf, 4) ||
+        has_prefix("POST", buf, 4) ||
+        has_prefix("PUT ", buf, 4) ||
+        has_prefix("HEAD", buf, 4) ||
+        has_prefix("DELE", buf, 4) ||  // DELETE
+        has_prefix("PATC", buf, 4) ||  // PATCH
+        has_prefix("OPTI", buf, 4)) {  // OPTIONS
+        return true;
+    }
+
+    // Check for HTTP response: "HTTP/1."
+    if (has_prefix("HTTP", buf, 4)) {
+        return true;
+    }
+
+out:
+    return false;
+}
+
 // see https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1 for dns header.
 statfunc bool net_l7_empty_dns_answer(struct __sk_buff *skb, u32 l7_off)
 {
@@ -2334,9 +2392,10 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
     bool submit_dns = should_submit_net_event(neteventctx, SUB_NET_PACKET_DNS);
     bool submit_socks5 = should_submit_net_event(neteventctx, SUB_NET_PACKET_SOCKS5);
     bool submit_ssh = should_submit_net_event(neteventctx, SUB_NET_PACKET_SSH);
+    bool submit_http = should_submit_net_event(neteventctx, SUB_NET_PACKET_HTTP);
 
     // Fastpath: return if no other L7 network events.
-    if (!submit_dns && !submit_socks5 && !submit_ssh)
+    if (!submit_dns && !submit_socks5 && !submit_ssh && !submit_http)
         goto done;
 
     // Guess layer 7 protocols by src/dst ports ...
@@ -2367,7 +2426,13 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
             return CGROUP_SKB_HANDLE(proto_tcp_socks5);
         }
     }
-    // ... continue with net_l7_is_protocol_xxx
+
+    // Check for HTTP traffic by analyzing payload
+    if (submit_http) {
+        if (net_l7_is_http(ctx, md.header_size)) {
+            return CGROUP_SKB_HANDLE(proto_tcp_http);
+        }
+    }
 
 done:
     return 1; // NOTE: might block TCP here if needed (return 0)
@@ -2463,6 +2528,19 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_ssh)
     }
 
     return 1; // NOTE: might block SSH here if needed (return 0)
+}
+
+CGROUP_SKB_HANDLE_FUNCTION(proto_tcp_http)
+{
+    u32 payload_len = ctx->len - md.header_size;
+
+    // submit HTTP base event if needed (full packet)
+    // we only care about packets that have a payload
+    if (should_submit_net_event(neteventctx, SUB_NET_PACKET_HTTP) && payload_len > 0) {
+        cgroup_skb_submit_event(ctx, md, neteventctx, NET_PACKET_HTTP, FULL);
+    }
+
+    return 1; // NOTE: might block HTTP here if needed (return 0)
 }
 
 // That will allow to subscribe only to wanted events and make handing easier.
