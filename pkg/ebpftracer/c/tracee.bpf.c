@@ -2429,7 +2429,17 @@ CGROUP_SKB_HANDLE_FUNCTION(proto_tcp)
 
     // Check for HTTP traffic by analyzing payload
     if (submit_http) {
+        u32 payload_len_dbg = ctx->len - md.header_size;
+        if (payload_len_dbg >= 4) {
+            char dbg_buf[8];
+            __builtin_memset(&dbg_buf, 0, sizeof(dbg_buf));
+            if (bpf_skb_load_bytes(ctx, md.header_size, dbg_buf, 4) == 0) {
+                bpf_printk("HTTP check: payload_len=%d, first4=%c%c%c%c", payload_len_dbg,
+                    dbg_buf[0], dbg_buf[1], dbg_buf[2], dbg_buf[3]);
+            }
+        }
         if (net_l7_is_http(ctx, md.header_size)) {
+            bpf_printk("HTTP DETECTED!");
             return CGROUP_SKB_HANDLE(proto_tcp_http);
         }
     }
