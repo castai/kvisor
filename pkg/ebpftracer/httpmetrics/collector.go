@@ -151,6 +151,7 @@ func (c *Collector) flushLoop() {
 
 // ProcessHTTPEvent processes an HTTP packet event
 func (c *Collector) ProcessHTTPEvent(event *types.Event, payload []byte) {
+	c.log.Infof("ProcessHTTPEvent called with payload len=%d, cgroup=%d", len(payload), event.Context.CgroupID)
 	if len(payload) == 0 {
 		return
 	}
