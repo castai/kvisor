@@ -29,12 +29,11 @@
 
     #define has_prefix(p, s, n)                                                                    \
         ({                                                                                         \
-            int rc = 0;                                                                            \
+            int rc = 1;                                                                            \
             char *pre = p, *str = s;                                                               \
             _Pragma("unroll") for (int z = 0; z < n; pre++, str++, z++)                            \
             {                                                                                      \
                 if (!*pre) {                                                                       \
-                    rc = 1;                                                                        \
                     break;                                                                         \
                 } else if (*pre != *str) {                                                         \
                     rc = 0;                                                                        \
