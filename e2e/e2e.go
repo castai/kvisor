@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -30,6 +32,7 @@ import (
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
+	"github.com/castai/logging/components"
 	metricspb "github.com/castai/metrics/api/v1beta"
 )
 
@@ -71,12 +74,20 @@ func run(ctx context.Context) error {
 		return errors.New("image-tag flag is not set")
 	}
 
-	addr := fmt.Sprintf(":%d", 8443)
-	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
+	httpAddr := fmt.Sprintf(":%d", 8080)
+	httpServer := &testCASTAIHTTPServer{}
+	go func() {
+		if err := http.ListenAndServe(httpAddr, httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			fmt.Printf("http server listen error: %v\n", err)
+		}
+	}()
+
+	grpcAddr := fmt.Sprintf(":%d", 8443)
+	grpcListener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", grpcAddr)
 	if err != nil {
 		return err
 	}
-	s := grpc.NewServer()
+	grpcServer := grpc.NewServer()
 	inClusterConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -87,10 +98,10 @@ func run(ctx context.Context) error {
 	}
 
 	srv := &testCASTAIServer{clientset: clientset, testStartTime: time.Now().UTC(), outputReceivedData: false}
-	castaipb.RegisterRuntimeSecurityAgentAPIServer(s, srv)
-	metricspb.RegisterIngestionAPIServer(s, srv)
+	castaipb.RegisterRuntimeSecurityAgentAPIServer(grpcServer, srv)
+	metricspb.RegisterIngestionAPIServer(grpcServer, srv)
 	go func() {
-		if err := s.Serve(lis); err != nil {
+		if err := grpcServer.Serve(grpcListener); err != nil {
 			fmt.Printf("serving grcp failed: %v\n", err)
 		}
 	}()
@@ -180,11 +191,15 @@ func run(ctx context.Context) error {
 	srv.storageMetricsAsserted = true
 	srv.storageMetrics = nil
 
-	fmt.Println("🙏waiting for flogs")
-	if err := srv.assertLogs(ctx); err != nil {
-		return fmt.Errorf("assert logs: %w", err)
+	fmt.Println("🙏waiting for kvisor agent logs")
+	if err := httpServer.assertLogs(ctx, "kvisor-agent"); err != nil {
+		return fmt.Errorf("assert kvisor logs: %w", err)
 	}
-	srv.logs = nil
+
+	fmt.Println("🙏waiting for kvisor controller logs")
+	if err := httpServer.assertLogs(ctx, "kvisor-controller"); err != nil {
+		return fmt.Errorf("assert controller logs: %w", err)
+	}
 
 	fmt.Println("👌e2e finished")
 
@@ -199,6 +214,7 @@ func installChart(ctx context.Context, ns, imageTag string) ([]byte, error) {
 	}
 
 	grpcAddr := fmt.Sprintf("%s:8443", os.Getenv("POD_IP"))
+	httpAddr := fmt.Sprintf("%s:8080", os.Getenv("POD_IP"))
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", fmt.Sprintf(
 		`helm upgrade --install kvisor-e2e ./charts/kvisor \
@@ -236,6 +252,7 @@ func installChart(ctx context.Context, ns, imageTag string) ([]byte, error) {
   --set castai.grpcAddr=%s \
   --set castai.apiKey=%s \
   --set castai.clusterID=%s \
+  --set castai.apiURL=%s \
   --wait --timeout=5m`,
 		ns,
 		repo,
@@ -243,6 +260,7 @@ func installChart(ctx context.Context, ns, imageTag string) ([]byte, error) {
 		grpcAddr,
 		apiKey,
 		clusterID,
+		httpAddr,
 	))
 	return cmd.CombinedOutput()
 }
@@ -261,7 +279,6 @@ type testCASTAIServer struct {
 	containerEvents         []*castaipb.ContainerEvents
 	eventsAsserted          bool
 
-	logs               []*castaipb.LogEvent
 	imageMetadatas     []*castaipb.ImageMetadata
 	kubeBenchReports   []*castaipb.KubeBenchReport
 	kubeLinterReports  []*castaipb.KubeLinterReport
@@ -515,50 +532,7 @@ func (t *testCASTAIServer) GetConfiguration(ctx context.Context, req *castaipb.G
 }
 
 func (t *testCASTAIServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_LogsWriteStreamServer) error {
-	for {
-		event, err := server.Recv()
-		if err != nil {
-			return err
-		}
-		if t.outputReceivedData {
-			fmt.Println("received log:", event)
-		}
-		t.mu.Lock()
-		t.logs = append(t.logs, event)
-		t.mu.Unlock()
-	}
-}
-
-func (t *testCASTAIServer) assertLogs(ctx context.Context) error {
-	timeout := time.After(10 * time.Second)
-
-	r := newAssertions()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timeout:
-			return errors.New("timeout waiting for received logs")
-		case <-time.After(1 * time.Second):
-			t.mu.Lock()
-			logs := slices.Clone(t.logs)
-			t.mu.Unlock()
-
-			if len(logs) > 0 {
-				l1 := logs[0]
-				r.NotEmpty(l1.Msg)
-
-				for _, l := range logs {
-					if strings.Contains(l.Msg, "panic") {
-						return fmt.Errorf("received logs contains panic error: %s", l.Msg)
-					}
-				}
-
-				return r.error()
-			}
-		}
-	}
+	return errors.New("should not be called")
 }
 
 func (t *testCASTAIServer) assertStorageMetrics(ctx context.Context) error {
@@ -1521,5 +1495,90 @@ func newAssertions() *assertions {
 	return &assertions{
 		Assertions: r,
 		t:          t,
+	}
+}
+
+type testCASTAIHTTPServer struct {
+	mu             sync.Mutex
+	agentLogs      []components.Entry
+	controllerLogs []components.Entry
+}
+
+func (s *testCASTAIHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("HTTP req: %v\n", r.URL.Path)
+	switch r.URL.Path {
+	case fmt.Sprintf("/v1/clusters/%s/components/kvisor-agent/logs", clusterID):
+		s.handleLogs("kvisor-agent")(w, r)
+	case fmt.Sprintf("/v1/clusters/%s/components/kvisor-controller/logs", clusterID):
+		s.handleLogs("kvisor-controller")(w, r)
+	}
+}
+
+func (s *testCASTAIHTTPServer) handleLogs(component string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var bodyReader io.Reader = r.Body
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			gz, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, "invalid gzip body", http.StatusBadRequest)
+				return
+			}
+			defer gz.Close()
+			bodyReader = gz
+		}
+
+		var req components.IngestLogsRequest
+		if err := json.NewDecoder(bodyReader).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		switch component {
+		case "kvisor-agent":
+			s.agentLogs = append(s.agentLogs, req.Entries...)
+		case "kvisor-controller":
+			s.controllerLogs = append(s.controllerLogs, req.Entries...)
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (t *testCASTAIHTTPServer) assertLogs(ctx context.Context, component string) error {
+	timeout := time.After(10 * time.Second)
+
+	r := newAssertions()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return errors.New("timeout waiting for received logs")
+		case <-time.After(1 * time.Second):
+			var logs []components.Entry
+			t.mu.Lock()
+			switch component {
+			case "kvisor-agent":
+				logs = slices.Clone(t.agentLogs)
+			case "kvisor-controller":
+				logs = slices.Clone(t.controllerLogs)
+			}
+			t.mu.Unlock()
+
+			if len(logs) > 0 {
+				l1 := logs[0]
+				r.NotEmpty(l1.Message)
+
+				for _, l := range logs {
+					if strings.Contains(l.Message, "panic") {
+						return fmt.Errorf("received logs contains panic error: %s", l.Message)
+					}
+				}
+
+				return r.error()
+			}
+		}
 	}
 }

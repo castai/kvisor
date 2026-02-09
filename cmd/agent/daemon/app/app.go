@@ -85,7 +85,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		if cfg.SendLogsLevel != "" {
 			logsApiClient, err := components.NewAPIClient(components.Config{
-				APIBaseURL: a.cfg.Castai.APIBaseURL,
+				APIBaseURL: a.cfg.Castai.APIURL,
 				APIKey:     a.cfg.Castai.APIKey,
 				ClusterID:  a.cfg.Castai.ClusterID,
 				Component:  "kvisor-agent",

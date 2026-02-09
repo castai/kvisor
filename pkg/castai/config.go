@@ -9,7 +9,7 @@ import (
 type Config struct {
 	ClusterID   string `json:"clusterID"`
 	APIKey      string `json:"-"`
-	APIBaseURL  string `json:"-"`
+	APIURL      string `json:"APIURL"`
 	APIGrpcAddr string `json:"APIGrpcAddr"`
 	Insecure    bool   `json:"insecure"`
 
@@ -32,13 +32,21 @@ func NewConfigFromEnv(insecure bool) (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{
+	cfg := Config{
 		APIKey:      apiKey,
 		APIGrpcAddr: gRPCAddress,
 		ClusterID:   clusterID,
 		Insecure:    insecure,
-		APIBaseURL:  getAPIBaseURL(gRPCAddress),
-	}, nil
+	}
+
+	apiURL, err := lookupConfigVariable("API_URL")
+	if apiURL != "" {
+		cfg.APIURL = apiURL
+	} else {
+		cfg.APIURL = getAPURL(gRPCAddress)
+	}
+
+	return cfg, nil
 }
 
 func (c Config) Valid() bool {
@@ -59,7 +67,7 @@ func lookupConfigVariable(name string) (string, error) {
 	return "", fmt.Errorf("environment variable missing: please provide either `CAST_%s` or `%s`", name, name)
 }
 
-func getAPIBaseURL(grpcAddr string) string {
+func getAPURL(grpcAddr string) string {
 	envsMapping := map[string]string{
 		"kvisor.dev-master.cast.ai":  "https://api.dev-master.cast.ai",
 		"kvisor.prod-master.cast.ai": "https://api.cast.ai",
@@ -72,7 +80,7 @@ func getAPIBaseURL(grpcAddr string) string {
 	}
 
 	// Fallback to local dev envs.
-	res := strings.ReplaceAll(grpcAddr, "grpc--", "api--")
-	res = strings.ReplaceAll(res, "api-grpc--", "api--")
+	res := strings.ReplaceAll(grpcAddr, "grpc--", "https://api--")
+	res = strings.ReplaceAll(res, "api-grpc--", "https://api--")
 	return res
 }

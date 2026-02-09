@@ -17,6 +17,8 @@ castai:
   # Note: If your cluster is in the EU region, update the grpcAddr to: https://kvisor.prod-eu.cast.ai:443
   grpcAddr: "kvisor.prod-master.cast.ai:443"
 
+  apiURL: ""
+
   # clusterID and clusterIdSecretKeyRef are mutually exclusive
   clusterID: ""
   # clusterIdSecretKeyRef -- Name and Key of secret with ClusterID

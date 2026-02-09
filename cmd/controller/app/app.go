@@ -69,7 +69,7 @@ func (a *App) Run(ctx context.Context) error {
 		defer castaiClient.Close()
 
 		logsApiClient, err := components.NewAPIClient(components.Config{
-			APIBaseURL: a.cfg.CastaiEnv.APIBaseURL,
+			APIBaseURL: a.cfg.CastaiEnv.APIURL,
 			APIKey:     a.cfg.CastaiEnv.APIKey,
 			ClusterID:  a.cfg.CastaiEnv.ClusterID,
 			Component:  "kvisor-controller",

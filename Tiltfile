@@ -67,14 +67,6 @@ local_resource(
 )
 
 local_resource(
-    'kvisor-event-generator-compile',
-    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-event-generator ./cmd/event-generator',
-    deps=[
-        './cmd/event-generator',
-    ],
-)
-
-local_resource(
     'kvisor-castai-mock-server-compile',
     'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-mock-server ./cmd/mock-server',
     deps=[
