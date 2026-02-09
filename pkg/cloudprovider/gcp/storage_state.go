@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"path"
+	"slices"
 	"strings"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -13,6 +15,10 @@ import (
 	"google.golang.org/api/iterator"
 
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+)
+
+const (
+	instanceChunkSize = 20
 )
 
 func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (*types.StorageState, error) {
@@ -23,7 +29,7 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 		Provider: types.TypeGCP,
 	}
 
-	instanceVolumes, err := p.fetchInstanceVolumes(ctx, instanceIds...)
+	instanceVolumes, err := p.chunkAndFetchInstanceVolumes(ctx, instanceIds...)
 	if err != nil {
 		return nil, fmt.Errorf("fetching volumes: %w", err)
 	}
@@ -32,13 +38,30 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 	return state, nil
 }
 
-// fetchInstanceVolumes retrieves instance volumes from https://docs.cloud.google.com/compute/docs/reference/rest/v1/disks/aggregatedList
-func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds ...string) (map[string][]types.Volume, error) {
+// chunkAndFetchInstanceVolumes chunks instance IDs into smaller batches and fetches volumes for each batch
+// to avoid API limits
+func (p *Provider) chunkAndFetchInstanceVolumes(ctx context.Context, instanceIds ...string) (map[string][]types.Volume, error) {
 	instanceVolumes := make(map[string][]types.Volume, len(instanceIds))
 
 	if len(instanceIds) == 0 {
 		return instanceVolumes, nil
 	}
+
+	for chunk := range slices.Chunk(instanceIds, instanceChunkSize) {
+		chunkVolumes, err := p.fetchInstanceVolumes(ctx, chunk)
+		if err != nil {
+			return nil, err
+		}
+
+		maps.Copy(instanceVolumes, chunkVolumes)
+	}
+
+	return instanceVolumes, nil
+}
+
+// fetchInstanceVolumes retrieves instance volumes from https://docs.cloud.google.com/compute/docs/reference/rest/v1/disks/aggregatedList
+func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []string) (map[string][]types.Volume, error) {
+	instanceVolumes := make(map[string][]types.Volume, len(instanceIds))
 
 	instanceUrlsMap := make(map[string]string, len(instanceIds))
 	for _, instanceId := range instanceIds {
@@ -48,6 +71,10 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds ...stri
 			continue
 		}
 		instanceUrlsMap[url] = instanceId
+	}
+
+	if len(instanceUrlsMap) == 0 {
+		return instanceVolumes, nil
 	}
 
 	filter := buildDisksUsedByInstanceFilter(lo.Keys(instanceUrlsMap))

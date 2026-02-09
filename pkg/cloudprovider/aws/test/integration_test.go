@@ -5,6 +5,7 @@ package integration_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -14,7 +15,7 @@ import (
 )
 
 // Use .env file or run tests with environment variables:
-// AWS_PROFILE=default AWS_INSTANCE_ID=i-1234567890abcdef0 go test -v ./pkg/cloudprovider/aws/test/...
+// AWS_PROFILE=default AWS_INSTANCE_IDS=i-1234567890abcdef0,i-0987654321fedcba0 go test -v ./pkg/cloudprovider/aws/test/...
 func init() {
 	_ = godotenv.Load(".env")
 }
@@ -60,34 +61,34 @@ func TestGetStorageState(t *testing.T) {
 
 	p := provider.(*aws.Provider)
 
-	// Test storage state refresh with instance ID
-	instanceID := os.Getenv("AWS_INSTANCE_ID")
-	if instanceID == "" {
-		t.Fatal("AWS_INSTANCE_ID not set")
+	instanceIDsStr := os.Getenv("AWS_INSTANCE_IDS")
+	if instanceIDsStr == "" {
+		t.Fatal("AWS_INSTANCE_IDS not set")
 	}
 
-	// Get the cached storage state
-	state, err := p.GetStorageState(ctx, instanceID)
+	instanceIDs := strings.Split(instanceIDsStr, ",")
+	for i := range instanceIDs {
+		instanceIDs[i] = strings.TrimSpace(instanceIDs[i])
+	}
+
+	state, err := p.GetStorageState(ctx, instanceIDs...)
 	if err != nil {
 		t.Fatalf("GetStorageState failed: %v", err)
 	}
 
-	volumes, ok := state.InstanceVolumes[instanceID]
-	if !ok {
-		t.Fatalf("No volumes found for instance %s", instanceID)
-	}
-
-	t.Logf("Found %d volumes attached to instance %s:", len(volumes), instanceID)
-	for _, v := range volumes {
-		t.Logf("  Volume:")
-		t.Logf("    VolumeID: %s", v.VolumeID)
-		t.Logf("    VolumeType: %s", v.VolumeType)
-		t.Logf("    VolumeState: %s", v.VolumeState)
-		t.Logf("    SizeBytes: %d", v.SizeBytes)
-		t.Logf("    AvailabilityZone: %s", v.Zone)
-		t.Logf("    Encrypted: %v", v.Encrypted)
-		t.Logf("    IOPS: %d", v.IOPS)
-		t.Logf("    ThroughputBytes: %d B/s", v.ThroughputBytes)
+	for instanceID, volumes := range state.InstanceVolumes {
+		t.Logf("Found %d volumes attached to instance %s:", len(volumes), instanceID)
+		for _, v := range volumes {
+			t.Logf("  Volume:")
+			t.Logf("    VolumeID: %s", v.VolumeID)
+			t.Logf("    VolumeType: %s", v.VolumeType)
+			t.Logf("    VolumeState: %s", v.VolumeState)
+			t.Logf("    SizeBytes: %d", v.SizeBytes)
+			t.Logf("    Zone: %s", v.Zone)
+			t.Logf("    Encrypted: %v", v.Encrypted)
+			t.Logf("    IOPS: %d", v.IOPS)
+			t.Logf("    ThroughputBytes: %d B/s", v.ThroughputBytes)
+		}
 	}
 }
 
