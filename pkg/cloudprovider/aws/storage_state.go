@@ -3,12 +3,18 @@ package aws
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+)
+
+const (
+	instanceChunkSize = 20
 )
 
 func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (*types.StorageState, error) {
@@ -19,7 +25,7 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 		Provider: types.TypeAWS,
 	}
 
-	instanceVolumes, err := p.fetchInstanceVolumes(ctx, instanceIds...)
+	instanceVolumes, err := p.chunkAndFetchInstanceVolumes(ctx, instanceIds...)
 	if err != nil {
 		return nil, fmt.Errorf("fetching volumes: %w", err)
 	}
@@ -28,13 +34,30 @@ func (p *Provider) GetStorageState(ctx context.Context, instanceIds ...string) (
 	return state, nil
 }
 
-// fetchInstanceVolumes retrieves instance volumes from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Volume.html
-func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds ...string) (map[string][]types.Volume, error) {
+// chunkAndFetchInstanceVolumes chunks instance IDs into smaller batches and fetches volumes for each batch
+// to avoid API limits
+func (p *Provider) chunkAndFetchInstanceVolumes(ctx context.Context, instanceIds ...string) (map[string][]types.Volume, error) {
 	instanceVolumes := make(map[string][]types.Volume)
 
 	if len(instanceIds) == 0 {
 		return instanceVolumes, nil
 	}
+
+	for chunk := range slices.Chunk(instanceIds, instanceChunkSize) {
+		chunkVolumes, err := p.fetchInstanceVolumes(ctx, chunk)
+		if err != nil {
+			return nil, err
+		}
+
+		maps.Copy(instanceVolumes, chunkVolumes)
+	}
+
+	return instanceVolumes, nil
+}
+
+// fetchInstanceVolumes retrieves instance volumes from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Volume.html
+func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []string) (map[string][]types.Volume, error) {
+	instanceVolumes := make(map[string][]types.Volume)
 
 	input := &ec2.DescribeVolumesInput{
 		Filters: []ec2types.Filter{

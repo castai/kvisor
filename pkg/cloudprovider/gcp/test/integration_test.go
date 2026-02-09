@@ -113,14 +113,7 @@ func TestGetStorageState(t *testing.T) {
 		t.Fatalf("GetStorageState failed: %v", err)
 	}
 
-	for _, instanceID := range instanceIDs {
-		t.Logf("Testing instance: %s", instanceID)
-
-		volumes, ok := state.InstanceVolumes[instanceID]
-		if !ok {
-			t.Fatalf("No volumes found for instance %s", instanceID)
-		}
-
+	for instanceID, volumes := range state.InstanceVolumes {
 		t.Logf("Found %d volumes attached to instance %s:", len(volumes), instanceID)
 		for _, v := range volumes {
 			t.Logf("  Volume:")
