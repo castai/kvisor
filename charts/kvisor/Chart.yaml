@@ -2,5 +2,5 @@ apiVersion: v2
 name: castai-kvisor
 description: CAST AI security and observability.
 type: application
-version: 1.0.118
-appVersion: "v1.50.1"
+version: 1.0.119
+appVersion: "v1.50.2"
