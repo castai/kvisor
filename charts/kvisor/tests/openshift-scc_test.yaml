@@ -6,9 +6,9 @@ templates:
 values:
   - openshift-scc_values.yaml
 tests:
-  - it: should not create SCC when openshift.scc.agent.enabled is false
+  - it: should not create SCC when agent.openshift.scc.create is false
     set:
-      openshift.scc.agent.enabled: false
+      agent.openshift.scc.create: false
     asserts:
       - hasDocuments:
           count: 0
@@ -104,9 +104,9 @@ tests:
         template: agent.yaml
         documentIndex: 2
 
-  - it: should not add SCC use rule when openshift.scc.agent.enabled is false
+  - it: should not add SCC use rule when agent.openshift.scc.create is false
     set:
-      openshift.scc.agent.enabled: false
+      agent.openshift.scc.create: false
     asserts:
       - notContains:
           path: rules

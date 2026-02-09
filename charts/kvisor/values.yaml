@@ -152,6 +152,10 @@ agent:
   # Set to true for CRI-O clusters.
   disableContainerd: false
 
+  openshift:
+    scc:
+      create: false
+
 controller:
   enabled: true
 
@@ -230,11 +234,6 @@ controller:
 
   # Deprecated: use additionalEnv instead.
   extraEnv: {}
-
-openshift:
-  scc:
-    agent:
-      enabled: false
 
 eventGenerator:
   enabled: false

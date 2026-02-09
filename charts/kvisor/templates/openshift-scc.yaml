@@ -1,4 +1,4 @@
-{{- if and .Values.agent.enabled .Values.openshift.scc.agent.enabled }}
+{{- if and .Values.agent.enabled .Values.agent.openshift.scc.create }}
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
@@ -34,5 +34,6 @@ volumes:
 - downwardAPI
 - emptyDir
 - hostPath
+- projected
 - secret
 {{- end }}
