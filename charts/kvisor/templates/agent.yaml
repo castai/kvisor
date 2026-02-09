@@ -239,6 +239,16 @@ rules:
       - get
       - list
       - watch
+  {{- if .Values.openshift.scc.agent.enabled }}
+  - apiGroups:
+      - "security.openshift.io"
+    resources:
+      - securitycontextconstraints
+    resourceNames:
+      - {{ include "kvisor.agent.fullname" . }}-scc
+    verbs:
+      - use
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -231,6 +231,11 @@ controller:
   # Deprecated: use additionalEnv instead.
   extraEnv: {}
 
+openshift:
+  scc:
+    agent:
+      enabled: false
+
 eventGenerator:
   enabled: false
   image:
