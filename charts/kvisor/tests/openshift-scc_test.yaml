@@ -1,0 +1,123 @@
+suite: openshift scc tests
+templates:
+  - openshift-scc.yaml
+  - agent.yaml
+  - secret.yaml
+values:
+  - openshift-scc_values.yaml
+tests:
+  - it: should not create SCC when agent.openshift.scc.create is false
+    set:
+      agent.openshift.scc.create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: openshift-scc.yaml
+
+  - it: should not create SCC when agent.enabled is false
+    set:
+      agent.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: openshift-scc.yaml
+
+  - it: should create SCC resource
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: openshift-scc.yaml
+      - isKind:
+          of: SecurityContextConstraints
+        template: openshift-scc.yaml
+
+  - it: should scope SCC users to agent service account
+    asserts:
+      - contains:
+          path: users
+          content: system:serviceaccount:NAMESPACE:RELEASE-NAME-castai-kvisor
+        template: openshift-scc.yaml
+
+  - it: should have empty groups to prevent group-based leaking
+    asserts:
+      - isEmpty:
+          path: groups
+        template: openshift-scc.yaml
+
+  - it: should require hostPID and deny privilege escalation
+    asserts:
+      - equal:
+          path: allowHostPID
+          value: true
+        template: openshift-scc.yaml
+      - equal:
+          path: allowPrivilegeEscalation
+          value: false
+        template: openshift-scc.yaml
+
+  - it: should allow only SYS_PTRACE for storage metrics collection
+    asserts:
+      - lengthEqual:
+          path: allowedCapabilities
+          count: 1
+        template: openshift-scc.yaml
+      - contains:
+          path: allowedCapabilities
+          content: SYS_PTRACE
+        template: openshift-scc.yaml
+
+  - it: should set SELinux context to spc_t
+    asserts:
+      - equal:
+          path: seLinuxContext.type
+          value: MustRunAs
+        template: openshift-scc.yaml
+      - equal:
+          path: seLinuxContext.seLinuxOptions.type
+          value: spc_t
+        template: openshift-scc.yaml
+
+  - it: should allow hostPath volumes
+    asserts:
+      - equal:
+          path: allowHostDirVolumePlugin
+          value: true
+        template: openshift-scc.yaml
+      - contains:
+          path: volumes
+          content: hostPath
+        template: openshift-scc.yaml
+
+  - it: should add SCC use rule to agent ClusterRole
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - "security.openshift.io"
+            resources:
+              - securitycontextconstraints
+            resourceNames:
+              - RELEASE-NAME-castai-kvisor-agent-scc
+            verbs:
+              - use
+        template: agent.yaml
+        documentIndex: 2
+
+  - it: should not add SCC use rule when agent.openshift.scc.create is false
+    set:
+      agent.openshift.scc.create: false
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups:
+              - "security.openshift.io"
+            resources:
+              - securitycontextconstraints
+            resourceNames:
+              - RELEASE-NAME-castai-kvisor-agent-scc
+            verbs:
+              - use
+        template: agent.yaml
+        documentIndex: 2

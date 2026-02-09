@@ -1,0 +1,9 @@
+agent:
+  enabled: true
+  openshift:
+    scc:
+      create: true
+
+castai:
+  apiKey: test-api-key
+  clusterID: test-cluster-id

@@ -1,0 +1,39 @@
+{{- if and .Values.agent.enabled .Values.agent.openshift.scc.create }}
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-scc
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+allowHostDirVolumePlugin: true
+allowHostPID: true
+allowPrivilegeEscalation: false
+allowedCapabilities:
+- SYS_PTRACE
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: true
+requiredDropCapabilities:
+- ALL
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+  seLinuxOptions:
+    level: s0
+    type: spc_t
+seccompProfiles:
+- "*"
+supplementalGroups:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{ .Release.Namespace }}:{{ include "kvisor.agent.serviceAccountName" . }}
+groups: []
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- hostPath
+- projected
+- secret
+{{- end }}

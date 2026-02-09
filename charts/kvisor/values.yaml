@@ -152,6 +152,10 @@ agent:
   # Set to true for CRI-O clusters.
   disableContainerd: false
 
+  openshift:
+    scc:
+      create: false
+
 controller:
   enabled: true
 
