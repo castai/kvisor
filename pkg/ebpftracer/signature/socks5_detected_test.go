@@ -7,7 +7,7 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -341,7 +341,7 @@ func TestSOCKS5DetectedSignature(t *testing.T) {
 		},
 	}
 
-	log := logging.New(&logging.Config{})
+	log := logging.New()
 
 	for _, test := range testCases {
 		t.Run(test.title, func(t *testing.T) {

@@ -2,17 +2,15 @@ package process
 
 import (
 	"fmt"
-	"log/slog"
 	"testing"
 
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/stretchr/testify/require"
+
+	"github.com/castai/logging"
 )
 
 func TestFindContainerID(t *testing.T) {
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	log := logging.New()
 	client := NewClient(log, "./testdata")
 
 	tests := []struct {

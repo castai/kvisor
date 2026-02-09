@@ -9,11 +9,10 @@ import (
 	"testing"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -21,6 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/castai/kvisor/cmd/controller/kube"
+	"github.com/castai/logging"
 )
 
 var castaiNamespace = "castai-sec"
@@ -31,7 +33,7 @@ func TestSubscriber(t *testing.T) {
 		ctx := context.Background()
 		clientset := fake.NewSimpleClientset()
 		mockCast := &mockCastaiClient{}
-		log := logging.NewTestLog()
+		log := logging.New()
 		logProvider := newMockLogProvider(readReport())
 		kubeCtrl := &mockKubeController{}
 
@@ -92,7 +94,7 @@ func TestSubscriber(t *testing.T) {
 		ctx := context.Background()
 		clientset := fake.NewSimpleClientset()
 		mockCast := &mockCastaiClient{}
-		log := logging.NewTestLog()
+		log := logging.New()
 		logProvider := newMockLogProvider(readReport())
 		kubeCtrl := &mockKubeController{}
 
@@ -133,7 +135,7 @@ func TestSubscriber(t *testing.T) {
 		clientset := fake.NewSimpleClientset()
 		mockCast := &mockCastaiClient{}
 
-		log := logging.NewTestLog()
+		log := logging.New()
 		logProvider := newMockLogProvider(readReport())
 		kubeCtrl := &mockKubeController{}
 

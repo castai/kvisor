@@ -12,6 +12,7 @@ import (
 
 	"github.com/castai/kvisor/pkg/cloudprovider/gcp"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+	"github.com/castai/logging"
 )
 
 // Use .env file or run tests with environment variables:
@@ -48,7 +49,7 @@ func TestRefreshNetworkState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := context.Background()
 
-	provider, err := gcp.NewProvider(ctx, cfg)
+	provider, err := gcp.NewProvider(ctx, logging.New(), cfg)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestGetStorageState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := t.Context()
 
-	provider, err := gcp.NewProvider(ctx, cfg)
+	provider, err := gcp.NewProvider(ctx, logging.New(), cfg)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}

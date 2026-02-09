@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 // VolumeIndex maintains a mapping of node names to cloud volumes.

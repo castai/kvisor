@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -19,7 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -34,7 +32,8 @@ import (
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cloudprovider"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
+	"github.com/castai/logging/components"
 )
 
 func New(cfg config.Config, clientset kubernetes.Interface) *App {
@@ -54,17 +53,13 @@ func (a *App) Run(ctx context.Context) error {
 	cfg := a.cfg
 	clientset := a.kubeClient
 
-	var log *logging.Logger
-	logCfg := &logging.Config{
-		AddSource: true,
-		Level:     logging.MustParseLevel(cfg.LogLevel),
-		RateLimiter: logging.RateLimiterConfig{
-			Limit:  rate.Every(cfg.LogRateInterval),
-			Burst:  cfg.LogRateBurst,
-			Inform: true,
-		},
+	errg, ctx := errgroup.WithContext(ctx)
+
+	logHandlers := []logging.Handler{
+		logging.NewTextHandler(logging.DefaultTextHandlerConfig),
 	}
 	var castaiClient *castai.Client
+	var log *logging.Logger
 	if a.cfg.CastaiEnv.Valid() {
 		var err error
 		castaiClient, err = castai.NewClient(fmt.Sprintf("kvisor-controller/%s", cfg.Version), cfg.CastaiEnv)
@@ -72,24 +67,34 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("setting up castai api client: %w", err)
 		}
 		defer castaiClient.Close()
-		castaiLogsExporter := castai.NewLogsExporter(castaiClient)
-		go castaiLogsExporter.Run(ctx) //nolint:errcheck
 
-		if a.cfg.PromMetricsExportEnabled {
-			castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
-				PodName:        a.cfg.PodName,
-				ExportInterval: a.cfg.PromMetricsExportInterval,
-			})
-			go castaiMetricsExporter.Run(ctx) //nolint:errcheck
+		logsApiClient, err := components.NewAPIClient(components.Config{
+			APIBaseURL: a.cfg.CastaiEnv.APIBaseURL,
+			APIKey:     a.cfg.CastaiEnv.APIKey,
+			ClusterID:  a.cfg.CastaiEnv.ClusterID,
+			Component:  "kvisor-controller",
+			Version:    a.cfg.Version,
+		})
+		if err != nil {
+			return fmt.Errorf("creating logs api client: %w", err)
 		}
+		batchLogsApiClient := components.NewBatchClient(logsApiClient)
+		errg.Go(func() error {
+			return batchLogsApiClient.Run(ctx)
+		})
+		logsExportHandler := logging.NewExportHandler(batchLogsApiClient, logging.DefaultExportHandlerConfig)
+		logHandlers = append(logHandlers, logsExportHandler)
+		log = logging.New(logHandlers...)
 
-		logCfg.Export = logging.ExportConfig{
-			ExportFunc: castaiLogsExporter.ExportFunc(),
-			MinLevel:   slog.LevelInfo,
-		}
-		log = logging.New(logCfg)
+		castaiMetricsExporter := castai.NewPromMetricsExporter(log, batchLogsApiClient, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+			PodName:        a.cfg.PodName,
+			ExportInterval: a.cfg.PromMetricsExportInterval,
+		})
+		errg.Go(func() error {
+			return castaiMetricsExporter.Run(ctx)
+		})
 	} else {
-		log = logging.New(logCfg)
+		log = logging.New(logHandlers...)
 	}
 
 	log.Infof("running kvisor-controller, cluster_id=%s, grpc_addr=%s, version=%s", cfg.CastaiEnv.ClusterID, cfg.CastaiEnv.APIGrpcAddr, cfg.Version)
@@ -103,14 +108,13 @@ func (a *App) Run(ctx context.Context) error {
 	kubeClient := kube.NewClient(log, cfg.PodName, cfg.PodNamespace, k8sVersion, clientset)
 	kubeClient.RegisterHandlers(informersFactory)
 
-	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return kubeClient.Run(ctx)
 	})
 
 	// Initialize cloud provider if enabled
 	if cfg.CloudProviderConfig.IsAnyControllerEnabled() {
-		provider, err := cloudprovider.NewProvider(ctx, cfg.CloudProviderConfig.CloudProvider)
+		provider, err := cloudprovider.NewProvider(ctx, log, cfg.CloudProviderConfig.CloudProvider)
 		if err == nil {
 			log.Infof("cloud provider %s initialized successfully", provider.Type())
 

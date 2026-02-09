@@ -6,12 +6,12 @@ import (
 	"time"
 
 	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVPCIndex(t *testing.T) {
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	t.Run("new VPC index", func(t *testing.T) {
 		r := require.New(t)

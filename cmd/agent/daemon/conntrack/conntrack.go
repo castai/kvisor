@@ -4,7 +4,7 @@ import (
 	"net/netip"
 	"os"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/florianl/go-conntrack"
 	"github.com/vishvananda/netns"
 

@@ -8,19 +8,20 @@ import (
 	"os/signal"
 	"syscall"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/logging"
 )
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	cfg := logging.DefaultTextHandlerConfig
+	cfg.Level = slog.LevelDebug
+	log := logging.New(logging.NewTextHandler(cfg))
 
 	// nolint:gosec
 	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", ":8443")

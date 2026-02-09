@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +17,7 @@ func TestJobsCleanupController(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	log := logging.NewTestLog()
+	log := logging.New()
 	ns := "castai-agent"
 
 	oldJob := &batchv1.Job{

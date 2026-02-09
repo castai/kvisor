@@ -3,17 +3,17 @@ package castai
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
+	"github.com/castai/logging/components"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type logsExporter interface {
-	AddLogEvent(e *castaipb.LogEvent)
+	IngestLogs(ctx context.Context, entries []components.Entry) error
 }
 
 type PromMetricsExporterConfig struct {
@@ -81,9 +81,15 @@ func (e *PromMetricsExporter) export() error {
 			msgs = append(msgs, fmt.Sprintf("%s %s %d", name, strings.Join(labels, " "), int(val)))
 		}
 	}
-	e.logsExporter.AddLogEvent(&castaipb.LogEvent{
-		Level: int32(slog.LevelInfo),
-		Msg:   fmt.Sprintf("kvisor metrics, pod=%s:\n%s", e.cfg.PodName, strings.Join(msgs, "\n")),
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return e.logsExporter.IngestLogs(ctx, []components.Entry{
+		{
+			Level:   string(components.LogLevelInfo),
+			Message: fmt.Sprintf("kvisor metrics, pod=%s:\n%s", e.cfg.PodName, strings.Join(msgs, "\n")),
+			Time:    time.Now().UTC(),
+			Fields:  nil,
+		},
 	})
-	return nil
 }

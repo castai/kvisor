@@ -6,11 +6,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/castai/kvisor/pkg/ebpftracer/debug"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
+
+	"github.com/castai/kvisor/pkg/ebpftracer/debug"
+	"github.com/castai/logging"
 )
 
 func NewSocketDebugCommand() *cobra.Command {
@@ -23,7 +24,7 @@ func NewSocketDebugCommand() *cobra.Command {
 	)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		log := logging.New(&logging.Config{})
+		log := logging.New()
 		d, err := debug.New(log, debug.DebugCfg{
 			TargetPID: *targetPID,
 		})

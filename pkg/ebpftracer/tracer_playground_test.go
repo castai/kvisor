@@ -5,13 +5,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/netip"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -20,14 +25,9 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sys/unix"
+	"github.com/castai/logging"
 )
 
 func TestTracer(t *testing.T) {
@@ -37,9 +37,7 @@ func TestTracer(t *testing.T) {
 
 	ctx := context.Background()
 
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	log := logging.New()
 
 	procHandle := proc.New()
 	pidNS, err := procHandle.GetCurrentPIDNSID()

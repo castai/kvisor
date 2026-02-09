@@ -9,16 +9,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/castai/kvisor/cmd/agent/daemon/cri"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
+	"github.com/castai/logging"
 )
 
 func NewNetflowsDebugCommand() *cobra.Command {
@@ -35,7 +36,7 @@ func NewNetflowsDebugCommand() *cobra.Command {
 	limit := cmd.Flags().Int("limit", 500, "Limit netflows output")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		log := logging.New(&logging.Config{})
+		log := logging.New()
 
 		procHandler := proc.New()
 

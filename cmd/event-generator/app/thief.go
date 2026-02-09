@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/redis/go-redis/v9"
 )
 

@@ -8,13 +8,13 @@ import (
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	noop "github.com/castai/kvisor/pkg/cloudprovider/noop"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestVPCStateController(t *testing.T) {
-	log := logging.NewTestLog()
+	log := logging.New()
 	k8sClient := fake.NewSimpleClientset()
 	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient)
 

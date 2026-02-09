@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 type Provider struct {
@@ -23,8 +24,8 @@ type Provider struct {
 }
 
 // NewProvider creates a new AWS provider instance.
-func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider, error) {
-	log := logging.New(&logging.Config{}).WithField("cloudprovider", "aws")
+func NewProvider(ctx context.Context, log *logging.Logger, cfg types.ProviderConfig) (types.Provider, error) {
+	log = log.WithField("cloudprovider", "aws")
 
 	awsConfig, err := buildAWSConfig(ctx, cfg)
 	if err != nil {

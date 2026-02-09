@@ -8,7 +8,7 @@ import (
 	"time"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 const (

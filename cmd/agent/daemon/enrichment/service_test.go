@@ -7,7 +7,7 @@ import (
 
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestEnrichmentService(t *testing.T) {
 		r := require.New(t)
 		var wantedPID uint32 = 99
 
-		svc := NewService(logging.New(&logging.Config{}), Config{
+		svc := NewService(logging.New(), Config{
 			WorkerCount: 1,
 			EventEnrichers: []EventEnricher{
 				enricherFrom(func(ctx context.Context, req *EnrichedContainerEvent) {

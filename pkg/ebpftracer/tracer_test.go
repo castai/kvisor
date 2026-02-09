@@ -2,19 +2,22 @@ package ebpftracer
 
 import (
 	"bytes"
+	"log/slog"
 	"testing"
 
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/stretchr/testify/require"
+
+	"github.com/castai/logging"
 )
 
 func TestTracer(t *testing.T) {
 	t.Run("log ebpf issue as warning", func(t *testing.T) {
 		r := require.New(t)
 		logOut := bytes.NewBuffer(nil)
-		log := logging.New(&logging.Config{
+		log := logging.New(logging.NewTextHandler(logging.TextHandlerConfig{
+			Level:  slog.LevelDebug,
 			Output: logOut,
-		})
+		}))
 		tr := &Tracer{
 			log:                      log,
 			currentTracerEbpfMetrics: map[string]uint64{},

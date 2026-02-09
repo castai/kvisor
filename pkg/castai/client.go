@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 )
 
 func NewClient(userAgent string, cfg Config) (*Client, error) {

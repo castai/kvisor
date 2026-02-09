@@ -9,7 +9,7 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,7 +70,7 @@ func TestFilterAnd(t *testing.T) {
 
 func TestDNSPolicyFilter(t *testing.T) {
 	r := require.New(t)
-	log := logging.NewTestLog()
+	log := logging.New()
 	f := DeduplicateDNSEventsPreFilter(log, 2, 1*time.Hour)
 	g := f()
 

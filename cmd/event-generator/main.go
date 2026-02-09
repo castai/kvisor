@@ -3,9 +3,10 @@ package main
 import (
 	"time"
 
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
+	"github.com/castai/logging"
 
 	"github.com/castai/kvisor/cmd/event-generator/app"
 )
@@ -21,9 +22,9 @@ var (
 func main() {
 	pflag.Parse()
 
-	log := logging.New(&logging.Config{
+	log := logging.New(logging.NewTextHandler(logging.TextHandlerConfig{
 		Level: logging.MustParseLevel(*logLevel),
-	})
+	}))
 
 	genapp, err := app.New(&app.Config{
 		Version:       Version,

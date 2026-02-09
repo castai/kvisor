@@ -4,9 +4,9 @@ import (
 	v1 "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/net/packet"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/logging"
 	"github.com/elastic/go-freelru"
 )
 

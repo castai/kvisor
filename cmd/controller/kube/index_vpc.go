@@ -7,7 +7,7 @@ import (
 
 	"github.com/castai/kvisor/pkg/cidrindex"
 	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 // IPVPCInfo contains network state for a specific IP address.

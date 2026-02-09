@@ -54,7 +54,7 @@ func TestGetStorageState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := t.Context()
 
-	provider, err := aws.NewProvider(ctx, cfg)
+	provider, err := aws.NewProvider(ctx, nil, cfg)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestRefreshNetworkState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := context.Background()
 
-	provider, err := aws.NewProvider(ctx, cfg)
+	provider, err := aws.NewProvider(ctx, nil, cfg)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}

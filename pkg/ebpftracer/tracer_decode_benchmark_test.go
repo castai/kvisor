@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
@@ -21,7 +21,7 @@ func BenchmarkFilterDecodeAndExportEvent(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			dec := decoder.NewEventDecoder(logging.NewTestLog(), []byte{})
+			dec := decoder.NewEventDecoder(logging.New(), []byte{})
 
 			tracer := buildTestTracer()
 
@@ -50,7 +50,7 @@ func BenchmarkModuleLoad(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		mo := newModule(logging.NewTestLog())
+		mo := newModule(logging.New())
 		if err := mo.load(Config{
 			BTFPath:                    "/sys/kernel/btf/vmlinux",
 			SignalEventsRingBufferSize: 4096,

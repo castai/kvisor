@@ -14,7 +14,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/controllers/kubebench/spec"
 	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/cenkalti/backoff/v5"
 	"github.com/cespare/xxhash/v2"
 	lru "github.com/elastic/go-freelru"

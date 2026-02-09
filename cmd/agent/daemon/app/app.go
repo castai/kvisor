@@ -21,7 +21,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -44,10 +43,10 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
 	"github.com/castai/kvisor/pkg/processtree"
-	castlog "github.com/castai/logging"
+	"github.com/castai/logging"
+	"github.com/castai/logging/components"
 	custommetrics "github.com/castai/metrics"
 )
 
@@ -65,20 +64,15 @@ type App struct {
 func (a *App) Run(ctx context.Context) error {
 	start := time.Now()
 
-	cfg := a.cfg
-	logCfg := &logging.Config{
-		Level:     logging.MustParseLevel(a.cfg.LogLevel),
-		AddSource: true,
-		RateLimiter: logging.RateLimiterConfig{
-			Limit:  rate.Every(a.cfg.LogRateInterval),
-			Burst:  a.cfg.LogRateBurst,
-			Inform: true,
-		},
-	}
+	errg, ctx := errgroup.WithContext(ctx)
 
+	cfg := a.cfg
 	podName := os.Getenv("POD_NAME")
 
 	var log *logging.Logger
+	logHandlers := []logging.Handler{
+		logging.NewTextHandler(logging.DefaultTextHandlerConfig),
+	}
 	var exporters []export.DataBatchWriter
 	// Castai specific spetup if config is valid.
 	if cfg.Castai.Valid() {
@@ -90,28 +84,40 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("sync remote config: %w", err)
 		}
 		if cfg.SendLogsLevel != "" {
-			castaiLogsExporter := castai.NewLogsExporter(castaiClient)
-			go castaiLogsExporter.Run(ctx) //nolint:errcheck
+			logsApiClient, err := components.NewAPIClient(components.Config{
+				APIBaseURL: a.cfg.Castai.APIBaseURL,
+				APIKey:     a.cfg.Castai.APIKey,
+				ClusterID:  a.cfg.Castai.ClusterID,
+				Component:  "kvisor-agent",
+				Version:    a.cfg.Version,
+			})
+			if err != nil {
+				return fmt.Errorf("creating logs api client: %w", err)
+			}
+			batchLogsApiClient := components.NewBatchClient(logsApiClient)
+			errg.Go(func() error {
+				return batchLogsApiClient.Run(ctx)
+			})
+			logsExportHandler := logging.NewExportHandler(batchLogsApiClient, logging.ExportHandlerConfig{
+				MinLevel: logging.MustParseLevel(cfg.SendLogsLevel),
+			})
+			logHandlers = append(logHandlers, logsExportHandler)
 
 			if cfg.PromMetricsExportEnabled {
-				castaiMetricsExporter := castai.NewPromMetricsExporter(log, castaiLogsExporter, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
+				castaiMetricsExporter := castai.NewPromMetricsExporter(log, batchLogsApiClient, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
 					PodName:        podName,
 					ExportInterval: cfg.PromMetricsExportInterval,
 				})
-				go castaiMetricsExporter.Run(ctx) //nolint:errcheck
-			}
-
-			logCfg.Export = logging.ExportConfig{
-				ExportFunc: castaiLogsExporter.ExportFunc(),
-				MinLevel:   logging.MustParseLevel(cfg.SendLogsLevel),
+				errg.Go(func() error {
+					return castaiMetricsExporter.Run(ctx)
+				})
 			}
 		}
-		log = logging.New(logCfg)
-
+		log = logging.New(logHandlers...)
 		exporters = append(exporters, castaiexport.NewDataBatchWriter(castaiClient, log))
 
 	} else {
-		log = logging.New(logCfg)
+		log = logging.New(logHandlers...)
 		log.Warn("castai config is not set or it is invalid, running agent in standalone mode")
 	}
 
@@ -263,7 +269,7 @@ func (a *App) Run(ctx context.Context) error {
 	var cloudVolumeMetricsWriter pipeline.CloudVolumeMetricsWriter
 	var storageInfoProvider pipeline.StorageInfoProvider
 	if cfg.Stats.StorageEnabled {
-		metricsClient, err := createMetricsClient(cfg)
+		metricsClient, err := createMetricsClient(cfg, log)
 		if err != nil {
 			return fmt.Errorf("failed to create metrics client: %w", err)
 		}
@@ -323,7 +329,6 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
-	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
 		return a.runHTTPServer(ctx, log)
 	})
@@ -648,7 +653,7 @@ func resolveMetricsAddr(addr string) string {
 	return addr
 }
 
-func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error) {
+func createMetricsClient(cfg *config.Config, log *logging.Logger) (custommetrics.MetricClient, error) {
 	if !cfg.Castai.Valid() {
 		return nil, fmt.Errorf("cast config is not valid")
 	}
@@ -660,7 +665,7 @@ func createMetricsClient(cfg *config.Config) (custommetrics.MetricClient, error)
 		Insecure:  cfg.Castai.Insecure,
 	}
 
-	return custommetrics.NewMetricClient(metricsClientConfig, castlog.New())
+	return custommetrics.NewMetricClient(metricsClientConfig, log)
 }
 
 type noopTracer struct{}

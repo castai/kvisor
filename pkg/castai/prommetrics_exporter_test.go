@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
+	"github.com/castai/logging/components"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,7 @@ func TestPrometheusExporter(t *testing.T) {
 	}, []string{"event_type"})
 	testMetric3.WithLabelValues("other").Add(15)
 
-	log := logging.NewTestLog()
+	log := logging.New()
 	logsExp := &mockLogsExporter{}
 	exp := NewPromMetricsExporter(log, logsExp, prometheus.DefaultGatherer, PromMetricsExporterConfig{
 		MetricsPrefix:  "kvisor_test",
@@ -55,17 +56,18 @@ func TestPrometheusExporter(t *testing.T) {
 	r.Len(logsExp.logs, 2)
 	r.Equal(`kvisor metrics, pod=pod1:
 kvisor_test_counter event_type=exec 10
-kvisor_test_gauge event_name=Connect event_type=tcp_connect 15`, logsExp.logs[0].Msg)
+kvisor_test_gauge event_name=Connect event_type=tcp_connect 15`, logsExp.logs[0].Message)
 }
 
 type mockLogsExporter struct {
-	logs []*v1.LogEvent
+	logs []components.Entry
 	mu   sync.Mutex
 }
 
-func (m *mockLogsExporter) AddLogEvent(e *v1.LogEvent) {
+func (m *mockLogsExporter) IngestLogs(ctx context.Context, entries []components.Entry) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.logs = append(m.logs, e)
+	m.logs = append(m.logs, entries...)
+	return nil
 }

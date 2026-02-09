@@ -7,8 +7,9 @@ import (
 	"sync"
 
 	compute "cloud.google.com/go/compute/apiv1"
+
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 type Provider struct {
@@ -26,8 +27,8 @@ type Provider struct {
 }
 
 // NewProvider creates a new GCP provider instance.
-func NewProvider(ctx context.Context, cfg types.ProviderConfig) (types.Provider, error) {
-	log := logging.New(&logging.Config{}).WithField("cloudprovider", "gcp")
+func NewProvider(ctx context.Context, log *logging.Logger, cfg types.ProviderConfig) (types.Provider, error) {
+	log = log.WithField("cloudprovider", "gcp")
 
 	// Build client options with authentication
 	clientOptions, err := buildClientOptions(cfg)

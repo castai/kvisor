@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/dns/dnsmessage"
@@ -882,7 +882,7 @@ func TestDecodeSSH(t *testing.T) {
 		},
 	}
 
-	log := logging.New(&logging.Config{})
+	log := logging.New()
 
 	for _, test := range testCases {
 		t.Run(test.title, func(t *testing.T) {

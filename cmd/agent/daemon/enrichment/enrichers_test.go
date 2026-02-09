@@ -10,11 +10,12 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	castpb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
-	"github.com/stretchr/testify/require"
+	"github.com/castai/logging"
 )
 
 func TestFileHashEnricher(t *testing.T) {
@@ -29,7 +30,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		enricher := EnrichWithFileHash(
-			logging.New(&logging.Config{}),
+			logging.New(),
 			createDummyMntNSPIDStore(0, 10),
 			fsys)
 
@@ -82,7 +83,7 @@ func TestFileHashEnricher(t *testing.T) {
 		fileName := "test"
 		fsys := fstest.MapFS{}
 
-		enricher := EnrichWithFileHash(logging.New(&logging.Config{}),
+		enricher := EnrichWithFileHash(logging.New(),
 			createDummyMntNSPIDStore(0, 1),
 			fsys)
 
@@ -111,7 +112,7 @@ func TestFileHashEnricher(t *testing.T) {
 		r := require.New(t)
 		fsys := fstest.MapFS{}
 
-		enricher := EnrichWithFileHash(logging.New(&logging.Config{}),
+		enricher := EnrichWithFileHash(logging.New(),
 			createDummyMntNSPIDStore(0, 1),
 			fsys)
 
@@ -141,7 +142,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		enricher := EnrichWithFileHash(
-			logging.New(&logging.Config{}),
+			logging.New(),
 			createDummyMntNSPIDStore(0, pid),
 			fsys)
 
@@ -202,7 +203,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		enricher := EnrichWithFileHash(
-			logging.New(&logging.Config{}),
+			logging.New(),
 			createDummyMntNSPIDStore(mountNSID, pid),
 			fsys)
 
@@ -243,7 +244,7 @@ func TestFileHashEnricher(t *testing.T) {
 		}
 
 		enricher := EnrichWithFileHash(
-			logging.New(&logging.Config{}),
+			logging.New(),
 			createDummyMntNSPIDStore(mountNSID, rootPid, pid),
 			fsys)
 

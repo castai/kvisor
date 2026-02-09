@@ -10,7 +10,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/castai"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"golang.org/x/sync/errgroup"
 )
 

@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouseexport "github.com/castai/kvisor/cmd/agent/daemon/export/clickhouse"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/spf13/cobra"
+
+	clickhouseexport "github.com/castai/kvisor/cmd/agent/daemon/export/clickhouse"
+	"github.com/castai/logging"
 )
 
 func NewClickhouseInitCommand() *cobra.Command {
@@ -24,7 +25,7 @@ func NewClickhouseInitCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use: "clickhouse-init",
 		Run: func(cmd *cobra.Command, args []string) {
-			log := logging.New(&logging.Config{})
+			log := logging.New()
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
