@@ -214,7 +214,7 @@ func installChart(ctx context.Context, ns, imageTag string) ([]byte, error) {
 	}
 
 	grpcAddr := fmt.Sprintf("%s:8443", os.Getenv("POD_IP"))
-	httpAddr := fmt.Sprintf("%s:8080", os.Getenv("POD_IP"))
+	httpAddr := fmt.Sprintf("http://%s:8080", os.Getenv("POD_IP"))
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", fmt.Sprintf(
 		`helm upgrade --install kvisor-e2e ./charts/kvisor \
