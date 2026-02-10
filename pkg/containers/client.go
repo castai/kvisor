@@ -24,8 +24,8 @@ import (
 
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cgroup"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/logging"
 )
 
 var (

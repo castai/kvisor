@@ -31,8 +31,8 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
+	"github.com/castai/logging"
 )
 
 type testAddr struct {
@@ -895,7 +895,7 @@ type customizeMockTracer func(t *mockEbpfTracer)
 type customizeMockContainersClient func(t *mockContainersClient)
 
 func newTestController(opts ...any) *Controller {
-	log := logging.NewTestLog()
+	log := logging.New()
 	cfg := Config{
 		Stats: config.StatsConfig{
 			Enabled:        false,

@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVolumeIndex(t *testing.T) {
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	t.Run("new volume index", func(t *testing.T) {
 		r := require.New(t)

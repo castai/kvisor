@@ -6,7 +6,7 @@ import (
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 type VPCStateControllerConfig struct {

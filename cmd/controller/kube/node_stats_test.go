@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestGetNodeStatsSummary(t *testing.T) {
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	// Create mock stats summary response
 	mockStats := NodeStatsSummary{
@@ -55,7 +55,7 @@ func TestGetNodeStatsSummary(t *testing.T) {
 		},
 	}
 
-	_ = json.Marshal // Keep json import for potential future use
+	_ = json.Marshal  // Keep json import for potential future use
 	_ = http.StatusOK // Keep http import for potential future use
 	_ = log           // Keep log for consistency
 
@@ -140,7 +140,7 @@ func TestGetNodeStatsSummary(t *testing.T) {
 }
 
 func TestServerGetNodeStatsSummary(t *testing.T) {
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	t.Run("empty node name returns error", func(t *testing.T) {
 		clientset := fake.NewClientset()

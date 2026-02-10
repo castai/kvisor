@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,7 +21,7 @@ import (
 func TestServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	clientset := fake.NewClientset()
 	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)

@@ -3,23 +3,21 @@ package controllers
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes/fake"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/castai"
-	"github.com/castai/kvisor/pkg/logging"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"k8s.io/client-go/kubernetes/fake"
+	"github.com/castai/logging"
 )
 
 func TestCastaiController(t *testing.T) {
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	log := logging.New()
 	k8sClient := fake.NewSimpleClientset()
 	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient)
 	ctx, cancel := context.WithCancel(context.Background())

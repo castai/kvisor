@@ -5,18 +5,19 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"testing"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/controller/kube"
+	"github.com/castai/logging"
 )
 
 func TestSubscriber(t *testing.T) {
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	t.Run("sends linter checks", func(t *testing.T) {
 		r := require.New(t)

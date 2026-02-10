@@ -54,8 +54,12 @@ spec:
     {{- include "kvisor.castaiMockServer.selectorLabels" . | nindent 4 }}
   type: ClusterIP
   ports:
-  - name: server
+  - name: grpc
     protocol: TCP
     port: 8443
     targetPort: 8443
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
 {{- end }}

@@ -1,6 +1,6 @@
 package signature
 
-import "github.com/castai/kvisor/pkg/logging"
+import "github.com/castai/logging"
 
 type DefaultSignatureConfig struct {
 	SOCKS5DetectedSignatureEnabled          bool                           `json:"SOCKS5DetectedSignatureEnabled"`

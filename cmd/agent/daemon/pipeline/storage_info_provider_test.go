@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 // readProcDiskStatsFromPath is a test helper that reads diskstats from a custom path
@@ -414,7 +414,7 @@ func TestCollectBlockDeviceMetrics(t *testing.T) {
 	tmpFile2.Close()
 
 	provider := &SysfsStorageInfoProvider{
-		log:        logging.NewTestLog(),
+		log:        logging.New(),
 		nodeName:   "test-node",
 		kubeClient: nil, // Not needed for this test
 		storageState: &storageMetricsState{
@@ -515,7 +515,7 @@ E:SUBSYSTEM=block
 	r.NoError(err)
 
 	provider := &SysfsStorageInfoProvider{
-		log:            logging.NewTestLog(),
+		log:            logging.New(),
 		nodeName:       "test-node",
 		kubeClient:     nil, // Not needed for this test
 		sysBlockPrefix: tmpDir,
@@ -620,7 +620,7 @@ func TestCalculateBlockDeviceRates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			provider := &SysfsStorageInfoProvider{
-				log: logging.NewTestLog(),
+				log: logging.New(),
 			}
 
 			current := tt.current
@@ -685,7 +685,7 @@ func TestGetDiskType(t *testing.T) {
 	require.NoError(t, err)
 
 	provider := &SysfsStorageInfoProvider{
-		log:            logging.NewTestLog(),
+		log:            logging.New(),
 		sysBlockPrefix: tmpDir,
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetric),

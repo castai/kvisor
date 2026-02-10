@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 const sectorSizeBytes = 512

@@ -1,45 +1,64 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/errgroup"
+	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/pkg/logging"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/logging"
+	"github.com/castai/logging/components"
 )
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	cfg := logging.DefaultTextHandlerConfig
+	cfg.Level = slog.LevelDebug
+	log := logging.New(logging.NewTextHandler(cfg))
 
 	// nolint:gosec
-	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", ":8443")
+	grpcLis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", ":8443")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	defer lis.Close()
+	defer grpcLis.Close()
 
-	srv := grpc.NewServer()
-	castaipb.RegisterRuntimeSecurityAgentAPIServer(srv, NewMockServer(log))
+	grpcServer := grpc.NewServer()
+	castaipb.RegisterRuntimeSecurityAgentAPIServer(grpcServer, NewMockServer(log))
 
 	go func() {
 		<-ctx.Done()
 		log.Info("shutting down grpc ingestor server")
-		srv.Stop()
+		grpcServer.Stop()
 	}()
 
-	fmt.Println("listening at :8443")
-	if err := srv.Serve(lis); err != nil {
+	var errg errgroup.Group
+	errg.Go(func() error {
+		fmt.Println("listening grpc at :8443")
+		return grpcServer.Serve(grpcLis)
+	})
+
+	errg.Go(func() error {
+		log.Info("listening http at :8080")
+		httpServer := &testCASTAIHTTPServer{}
+		return http.ListenAndServe(":8080", httpServer) //nolint:gosec
+	})
+
+	if err := errg.Wait(); err != nil {
 		log.Fatal(err.Error())
 	}
 }
@@ -100,5 +119,34 @@ func (m *MockServer) LogsWriteStream(server castaipb.RuntimeSecurityAgentAPI_Log
 			return err
 		}
 		m.log.Debugf("log: %v", event)
+	}
+}
+
+type testCASTAIHTTPServer struct {
+}
+
+func (s *testCASTAIHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var bodyReader io.Reader = r.Body
+	if r.Header.Get("Content-Encoding") == "gzip" {
+		gz, err := gzip.NewReader(r.Body)
+		if err != nil {
+			http.Error(w, "invalid gzip body", http.StatusBadRequest)
+			return
+		}
+		defer gz.Close()
+		bodyReader = gz
+	}
+
+	if strings.HasSuffix(r.URL.Path, "/logs") {
+		var req components.IngestLogsRequest
+		if err := json.NewDecoder(bodyReader).Decode(&req); err != nil {
+			fmt.Printf("failed to decode logs request: %v\n", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		fmt.Printf("received logs\n")
+		for _, entry := range req.Entries {
+			fmt.Printf("	level=%v msg=%v\n", entry.Level, entry.Message)
+		}
 	}
 }

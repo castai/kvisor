@@ -6,15 +6,16 @@ import (
 	"testing"
 	"time"
 
-	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+
+	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/logging"
 )
 
 func TestNewClusterInfo(t *testing.T) {
 	r := require.New(t)
-	log := logging.NewTestLog()
+	log := logging.New()
 	mockClient := &mockKubeClient{}
 
 	info := newClusterInfo(mockClient, log)
@@ -74,7 +75,7 @@ func TestClusterInfoSync(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			log := logging.NewTestLog()
+			log := logging.New()
 
 			mockClient := &mockKubeClientWithRetry{
 				response: tt.response,

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/cespare/xxhash/v2"
 	lru "github.com/elastic/go-freelru"
 	"github.com/labstack/echo/v4"

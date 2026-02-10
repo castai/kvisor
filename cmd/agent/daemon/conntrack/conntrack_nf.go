@@ -6,7 +6,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/florianl/go-conntrack"
 	"github.com/samber/lo"
 )

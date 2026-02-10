@@ -5,7 +5,7 @@ package conntrack
 import (
 	"net/netip"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 func iniCiliumMaps(log *logging.Logger) bool {

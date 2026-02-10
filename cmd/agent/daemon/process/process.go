@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 )
 
 var (

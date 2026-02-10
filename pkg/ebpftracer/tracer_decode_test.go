@@ -14,8 +14,8 @@ import (
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -134,7 +134,7 @@ func TestFilterDecodeAndExportEvent(t *testing.T) {
 				applyTestPolicy(tracer, tc.policy)
 			}
 
-			dec := decoder.NewEventDecoder(logging.NewTestLog(), testEventData)
+			dec := decoder.NewEventDecoder(logging.New(), testEventData)
 			err := tracer.decodeAndExportEvent(context.TODO(), dec)
 			require.NoError(t, err)
 
@@ -153,7 +153,7 @@ func TestDecodeMagicWriteEvent(t *testing.T) {
 	data, err := os.ReadFile(path)
 	r.NoError(err)
 
-	dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), data)
+	dec := decoder.NewEventDecoder(logging.New(), data)
 
 	tr := &Tracer{
 		eventsChan: make(chan *types.Event),
@@ -199,7 +199,7 @@ func TestDecodeSchedProcessExecEvent(t *testing.T) {
 		}.Encode()
 		r.NoError(err)
 
-		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
+		dec := decoder.NewEventDecoder(logging.New(), eventCtx)
 
 		go func() {
 			err = tr.decodeAndExportEvent(context.Background(), dec)
@@ -243,7 +243,7 @@ func TestDecodeSchedProcessExitEvent(t *testing.T) {
 		eventCtx, err := exitEvent.Encode()
 		r.NoError(err)
 
-		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
+		dec := decoder.NewEventDecoder(logging.New(), eventCtx)
 
 		go func() {
 			err = tr.decodeAndExportEvent(context.Background(), dec)
@@ -261,7 +261,7 @@ func TestDecodeSchedProcessExitEvent(t *testing.T) {
 		eventCtx, err := exitEvent.Encode()
 		r.NoError(err)
 
-		dec := decoder.NewEventDecoder(logging.New(&logging.Config{}), eventCtx)
+		dec := decoder.NewEventDecoder(logging.New(), eventCtx)
 
 		go func() {
 			err = tr.decodeAndExportEvent(context.Background(), dec)

@@ -7,7 +7,7 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/export"
 	"github.com/castai/kvisor/pkg/castai"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/cenkalti/backoff/v5"
 	"google.golang.org/grpc"
 )

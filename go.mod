@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.13
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.279.1
 	github.com/castai/image-analyzer v0.10.0
-	github.com/castai/logging v0.2.0
+	github.com/castai/logging v0.3.0
 	github.com/castai/metrics v0.0.0-20250917084341-1533777a055a
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/cespare/xxhash/v2 v2.3.0
@@ -54,7 +54,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
 	golang.org/x/net v0.46.0
-	golang.org/x/sync v0.18.0
+	golang.org/x/sync v0.19.0
 	golang.org/x/sys v0.37.0
 	golang.org/x/time v0.14.0
 	golang.stackrox.io/kube-linter v0.7.3-0.20250507172404-3f4b9037f56f

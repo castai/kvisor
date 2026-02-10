@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/pkg/containers"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/logging"
 )
 
 type ProcessAction int

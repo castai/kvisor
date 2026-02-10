@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,7 +22,7 @@ import (
 
 func TestClient(t *testing.T) {
 	ctx := context.Background()
-	log := logging.NewTestLog()
+	log := logging.New()
 
 	clientset := fake.NewClientset()
 	listener := &mockListener{items: map[types.UID]Object{}}

@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	ia "github.com/castai/image-analyzer"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+
+	ia "github.com/castai/image-analyzer"
+	"github.com/castai/logging"
 )
 
 func TestBlobsCacheServer(t *testing.T) {
@@ -20,7 +20,7 @@ func TestBlobsCacheServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	log := logging.New(&logging.Config{Level: slog.LevelDebug})
+	log := logging.New()
 
 	srv := NewServer(log)
 	e := echo.New()

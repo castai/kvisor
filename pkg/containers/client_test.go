@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/pkg/cgroup"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/content"
@@ -253,7 +253,7 @@ func TestClient(t *testing.T) {
 
 func newTestClient() *Client {
 	return &Client{
-		log:                         logging.NewTestLog(),
+		log:                         logging.New(),
 		criRuntimeServiceClient:     &mockCriClient{},
 		cgroupClient:                &mockCgroupClient{},
 		containersByID:              map[string]*Container{},

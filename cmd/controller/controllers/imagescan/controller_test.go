@@ -3,15 +3,11 @@ package imagescan
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"sort"
 	"sync"
 	"testing"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
-	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -21,14 +17,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
+	"github.com/castai/kvisor/cmd/controller/kube"
+	"github.com/castai/logging"
+
 	imgcollectorconfig "github.com/castai/kvisor/cmd/imagescan/config"
 )
 
 func TestSubscriber(t *testing.T) {
 	ctx := context.Background()
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	log := logging.New()
 
 	createNode := func(name string) *corev1.Node {
 		return &corev1.Node{

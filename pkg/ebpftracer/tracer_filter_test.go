@@ -2,18 +2,18 @@ package ebpftracer
 
 import (
 	"context"
-	"log/slog"
 	"testing"
+
+	"github.com/google/gopacket/layers"
+	"github.com/stretchr/testify/require"
 
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/processtree"
-	"github.com/google/gopacket/layers"
-	"github.com/stretchr/testify/require"
+	"github.com/castai/logging"
 )
 
 func TestAllowedByPolicyShouldBePerCgroup(t *testing.T) {
@@ -151,9 +151,7 @@ func (c *MockContainerClient) CleanupByCgroupID(cgroup uint64) {
 type tracerOption func(*Tracer)
 
 func buildTestTracer(options ...tracerOption) *Tracer {
-	log := logging.New(&logging.Config{
-		Level: slog.LevelDebug,
-	})
+	log := logging.New()
 
 	tracer := &Tracer{
 		log: log,

@@ -16,7 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/castai/kvisor/cmd/controller/kube"
-	"github.com/castai/kvisor/pkg/logging"
+	"github.com/castai/logging"
 	"github.com/samber/lo"
 )
 

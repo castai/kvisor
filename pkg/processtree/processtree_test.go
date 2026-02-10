@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castai/kvisor/pkg/containers"
-	"github.com/castai/kvisor/pkg/logging"
-	"github.com/castai/kvisor/pkg/proc"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+
+	"github.com/castai/kvisor/pkg/containers"
+	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/logging"
 )
 
 func TestInitProcessTree(t *testing.T) {
@@ -22,7 +23,7 @@ func TestInitProcessTree(t *testing.T) {
 		containerID1 := "container-1"
 		containerID2 := "container-2"
 
-		tree := New(logging.New(&logging.Config{}), proc.NewFromFS(fs.(proc.ProcFS)),
+		tree := New(logging.New(), proc.NewFromFS(fs.(proc.ProcFS)),
 			&dummyContainerClient{
 				loadContainerTaskFn: func(ctx context.Context) ([]containers.ContainerProcess, error) {
 					return []containers.ContainerProcess{

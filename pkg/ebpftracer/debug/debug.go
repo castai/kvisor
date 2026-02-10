@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 
 	"github.com/castai/kvisor/pkg/ebpftracer/helpers"
-	"github.com/castai/kvisor/pkg/logging"
 	"github.com/castai/kvisor/pkg/proc"
+	"github.com/castai/logging"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )

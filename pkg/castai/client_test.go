@@ -9,13 +9,14 @@ import (
 	"testing"
 	"time"
 
-	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
+
+	castaipb "github.com/castai/kvisor/api/v1/runtime"
 )
 
 func TestClient(t *testing.T) {
@@ -97,6 +98,45 @@ func TestRemote(t *testing.T) {
 	})
 
 	r.NoError(errg.Wait())
+}
+
+func TestGetAPIURL(t *testing.T) {
+	tests := []struct {
+		addr     string
+		expected string
+	}{
+		{
+			addr:     "kvisor.dev-master.cast.ai:443",
+			expected: "https://api.dev-master.cast.ai",
+		},
+		{
+			addr:     "kvisor.prod-master.cast.ai:443",
+			expected: "https://api.cast.ai",
+		},
+		{
+			addr:     "kvisor.prod-eu.cast.ai:443",
+			expected: "https://api.eu.cast.ai",
+		},
+		{
+			addr:     "grpc-some-other-env.cast.ai:443",
+			expected: "https://api-some-other-env.cast.ai:443",
+		},
+		{
+			addr:     "api-grpc-some-other-env.cast.ai:443",
+			expected: "https://api-some-other-env.cast.ai:443",
+		},
+		{
+			addr:     "no-match-addr:443",
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.addr, func(t *testing.T) {
+			r := require.New(t)
+			r.Equal(test.expected, getAPIURL(test.addr))
+		})
+	}
 }
 
 type testServer struct {
