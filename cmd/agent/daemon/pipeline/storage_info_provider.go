@@ -340,14 +340,19 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 
 	log := s.log.WithField("collector", "pod_volumes")
 
-	log.Infof("requesting pod volumes for node %s", s.nodeName)
+	log.Debugf("requesting pod volumes for node %s", s.nodeName)
 	resp, err := s.kubeClient.GetPodVolumes(ctx, &kubepb.GetPodVolumesRequest{
 		NodeName: s.nodeName,
 	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod volumes for node %s: %w", s.nodeName, err)
 	}
-	log.Infof("received %d volumes from controller for node %s", len(resp.Volumes), s.nodeName)
+
+	if len(resp.Volumes) == 0 {
+		return nil, nil
+	}
+
+	log.Debugf("received %d volumes from controller for node %s", len(resp.Volumes), s.nodeName)
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
@@ -410,14 +415,19 @@ func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context
 
 	log := s.log.WithField("collector", "cloud_volumes")
 
-	log.Infof("requesting cloud volumes for node %s", s.nodeName)
+	log.Debugf("requesting cloud volumes for node %s", s.nodeName)
 	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
 		NodeName: s.nodeName,
 	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
 	}
-	log.Infof("received %d cloud volumes from controller for node %s", len(resp.Volumes), s.nodeName)
+
+	if len(resp.Volumes) == 0 {
+		return nil, nil
+	}
+
+	log.Debugf("received %d cloud volumes from controller for node %s", len(resp.Volumes), s.nodeName)
 
 	nodeTemplate, err := s.getNodeTemplate()
 	if err != nil {
@@ -1192,7 +1202,7 @@ func buildFilesystemLabels(log *logging.Logger, fsMountPointDeviceID uint64, wel
 		if castaiStorageDeviceID == fsMountPointDeviceID {
 			labels["castai-storage"] = "true"
 		}
-	} else {
+	} else if !os.IsNotExist(err) {
 		log.With("path", castaiStorageResolvedPath).
 			With("error", err).
 			Warn("failed to get device ID for castai storage path")

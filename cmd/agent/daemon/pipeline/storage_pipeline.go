@@ -60,7 +60,7 @@ func (c *Controller) processBlockDeviceMetrics(timestamp time.Time) error {
 		return fmt.Errorf("failed to collect block device metrics: %w", err)
 	}
 
-	c.log.Infof("collected %d block device metrics", len(blockMetrics))
+	c.log.Debugf("collected %d block device metrics", len(blockMetrics))
 
 	if err := c.blockDeviceMetricsWriter.Write(blockMetrics...); err != nil {
 		return fmt.Errorf("failed to write block device metrics: %w", err)
@@ -79,7 +79,7 @@ func (c *Controller) processFilesystemMetrics(ctx context.Context, timestamp tim
 		return fmt.Errorf("failed to collect filesystem metrics: %w", err)
 	}
 
-	c.log.Infof("collected %d filesystem metrics", len(fsMetrics))
+	c.log.Debugf("collected %d filesystem metrics", len(fsMetrics))
 
 	if err := c.filesystemMetricsWriter.Write(fsMetrics...); err != nil {
 		return fmt.Errorf("failed to write filesystem metric: %w", err)
@@ -102,11 +102,11 @@ func (c *Controller) processPodVolumeMetrics(ctx context.Context) error {
 	}
 
 	if len(metrics) == 0 {
-		c.log.Info("no pod volume metrics collected from controller (empty response)")
+		c.log.Debug("no pod volume metrics collected from controller (empty response)")
 		return nil
 	}
 
-	c.log.Infof("collected %d pod volume metrics", len(metrics))
+	c.log.Debugf("collected %d pod volume metrics", len(metrics))
 
 	if err := c.podVolumeMetricsWriter.Write(metrics...); err != nil {
 		return fmt.Errorf("failed to write pod volume metrics: %w", err)
@@ -130,11 +130,11 @@ func (c *Controller) processCloudVolumeMetrics(ctx context.Context) error {
 	}
 
 	if len(metrics) == 0 {
-		c.log.Info("no cloud volume metrics collected from controller (empty response)")
+		c.log.Debug("no cloud volume metrics collected from controller (empty response)")
 		return nil
 	}
 
-	c.log.Infof("collected %d cloud volume metrics", len(metrics))
+	c.log.Debugf("collected %d cloud volume metrics", len(metrics))
 
 	if err := c.cloudVolumeMetricsWriter.Write(metrics...); err != nil {
 		c.log.Errorf("failed to write cloud volumes metrics: %v", err)
@@ -151,13 +151,14 @@ func (c *Controller) collectNodeStatsSummary(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	start := time.Now().UTC()
 	metric, err := c.storageInfoProvider.CollectNodeStatsSummary(ctx)
 	if err != nil {
 		c.log.Errorf("failed to collect node stats summary: %v", err)
 		return
 	}
 
-	c.log.Info("collected node stats summary")
+	c.log.With("duration", time.Since(start)).Info("collected node stats summary")
 
 	if err := c.nodeStatsSummaryWriter.Write(*metric); err != nil {
 		c.log.Errorf("failed to write node stats summary: %v", err)
