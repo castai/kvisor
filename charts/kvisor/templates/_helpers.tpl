@@ -256,6 +256,34 @@ When storage-stats-enabled (without eBPF):
 {{- toYaml $secCtx -}}
 {{- end -}}
 
+{{/*
+OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
+Uses fine-grained capabilities instead of privileged: true.
+Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.
+Can be overridden via .Values.agent.reliabilityMetrics.containerSecurityContext.
+*/}}
+{{- define "kvisor.obi.containerSecurityContext" -}}
+{{- $override := .Values.agent.reliabilityMetrics.containerSecurityContext -}}
+{{- if $override }}
+{{- toYaml $override }}
+{{- else }}
+runAsUser: 0
+readOnlyRootFilesystem: true
+allowPrivilegeEscalation: false
+capabilities:
+  drop:
+    - ALL
+  add:
+    - BPF
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_RAW
+    - CHECKPOINT_RESTORE
+    - DAC_READ_SEARCH
+    - PERFMON
+{{- end }}
+{{- end }}
+
 {{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}
 {{- define "GOMEMLIMITEnv" -}}
 {{- $memory := . -}}

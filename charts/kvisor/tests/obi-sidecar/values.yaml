@@ -1,0 +1,30 @@
+agent:
+  enabled: true
+  reliabilityMetrics:
+    enabled: false
+    image:
+      repository: otel/ebpf-instrument
+      tag: "v0.4.1"
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+    openPorts: "80,443,8080,8443,8090,3000,9090,6379"
+    env: {}
+    containerSecurityContext: {}
+    collector:
+      enabled: true
+      image:
+        repository: otel/opentelemetry-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+      prometheusPort: 9400
+
+castai:
+  apiKey: test-api-key
+  clusterID: test-cluster-id

@@ -1,0 +1,30 @@
+{{- if and .Values.agent.enabled (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-obi
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+    {{- with (dig "reliabilityMetrics" "collector" "podMonitorLabels" nil .Values.agent) }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    - honorLabels: true
+      path: /metrics
+      port: otel-prom
+      scheme: http
+      scrapeTimeout: 30s
+    - honorLabels: false
+      path: /metrics
+      port: otel-metrics
+      scheme: http
+      scrapeTimeout: 10s
+  selector:
+    matchLabels:
+      {{- include "kvisor.agent.selectorLabels" . | nindent 6 }}
+{{- end }}
