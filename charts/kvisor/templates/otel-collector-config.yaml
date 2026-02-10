@@ -1,0 +1,98 @@
+{{- if and .Values.agent.enabled (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: "0.0.0.0:4318"
+
+    processors:
+      # Keep only golden signal metrics from OBI — drop everything else.
+      filter/golden-signals:
+        metrics:
+          include:
+            match_type: regexp
+            metric_names:
+              # HTTP server latency (RED)
+              - "http\\.server\\.request\\.duration"
+              # gRPC server latency
+              - "rpc\\.server\\.duration"
+              # Database client latency
+              - "sql\\.client\\.duration"
+              # Redis client latency
+              - "redis\\.client\\.duration"
+              # Messaging latency
+              - "messaging\\.publish\\.duration"
+              - "messaging\\.process\\.duration"
+
+      # Strip high-cardinality attributes to control Prometheus series count.
+      # Keep only what WOOP and SLO calculations need.
+      transform/cardinality:
+        metric_statements:
+          - context: datapoint
+            statements:
+              # Remove high-cardinality URL/path attributes
+              - delete_key(attributes, "url.full")
+              - delete_key(attributes, "url.path")
+              - delete_key(attributes, "server.address")
+              - delete_key(attributes, "server.port")
+              - delete_key(attributes, "client.address")
+              - delete_key(attributes, "client.port")
+              - delete_key(attributes, "network.peer.address")
+              - delete_key(attributes, "network.peer.port")
+              - delete_key(attributes, "user_agent.original")
+              # Sanitise messaging.destination.name — OBI eBPF probes may
+              # read past the Go string boundary, appending garbage bytes.
+              # Truncate at the first non-printable / obviously invalid char.
+              - replace_pattern(attributes["messaging.destination.name"], "^([a-zA-Z0-9._-]+).*", "$$1")
+              # Keep: http.request.method, http.response.status_code,
+              #        service.name, service.instance.id,
+              #        rpc.method, rpc.service, rpc.grpc.status_code,
+              #        db.system, db.operation.name,
+              #        messaging.system, messaging.destination.name
+
+      # Batch before export to reduce scrape overhead.
+      batch:
+        send_batch_size: 1024
+        timeout: 10s
+
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 100
+        spike_limit_mib: 25
+
+    exporters:
+      prometheus:
+        endpoint: "0.0.0.0:{{ .Values.agent.reliabilityMetrics.collector.prometheusPort }}"
+        resource_to_telemetry_conversion:
+          enabled: true
+        metric_expiration: 5m
+
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:13133"
+
+    service:
+      telemetry:
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: "0.0.0.0"
+                    port: 8888
+      extensions: [health_check]
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, filter/golden-signals, transform/cardinality, batch]
+          exporters: [prometheus]
+{{- end }}
