@@ -107,5 +107,5 @@ data:
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, filter/golden-signals, transform/cardinality, batch]
-          exporters: [prometheus]
+          exporters: [prometheus, clickhouse]
 {{- end }}
