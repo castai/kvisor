@@ -77,6 +77,7 @@ func run(ctx context.Context) error {
 	httpAddr := fmt.Sprintf(":%d", 8080)
 	httpServer := &testCASTAIHTTPServer{}
 	go func() {
+		//nolint:gosec
 		if err := http.ListenAndServe(httpAddr, httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			fmt.Printf("http server listen error: %v\n", err)
 		}

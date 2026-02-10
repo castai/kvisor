@@ -55,7 +55,7 @@ func main() {
 	errg.Go(func() error {
 		log.Info("listening http at :8080")
 		httpServer := &testCASTAIHTTPServer{}
-		return http.ListenAndServe(":8080", httpServer)
+		return http.ListenAndServe(":8080", httpServer) //nolint:gosec
 	})
 
 	if err := errg.Wait(); err != nil {

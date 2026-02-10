@@ -39,11 +39,11 @@ func NewConfigFromEnv(insecure bool) (Config, error) {
 		Insecure:    insecure,
 	}
 
-	apiURL, err := lookupConfigVariable("API_URL")
+	apiURL, _ := lookupConfigVariable("API_URL")
 	if apiURL != "" {
 		cfg.APIURL = apiURL
 	} else {
-		cfg.APIURL = getAPURL(gRPCAddress)
+		cfg.APIURL = getAPIURL(gRPCAddress)
 	}
 
 	return cfg, nil
@@ -67,11 +67,11 @@ func lookupConfigVariable(name string) (string, error) {
 	return "", fmt.Errorf("environment variable missing: please provide either `CAST_%s` or `%s`", name, name)
 }
 
-func getAPURL(grpcAddr string) string {
+func getAPIURL(grpcAddr string) string {
 	envsMapping := map[string]string{
-		"kvisor.dev-master.cast.ai":  "https://api.dev-master.cast.ai",
-		"kvisor.prod-master.cast.ai": "https://api.cast.ai",
-		"kvisor.prod-eu.cast.ai":     "https://api.eu.cast.ai",
+		"kvisor.dev-master.cast.ai:443":  "https://api.dev-master.cast.ai",
+		"kvisor.prod-master.cast.ai:443": "https://api.cast.ai",
+		"kvisor.prod-eu.cast.ai:443":     "https://api.eu.cast.ai",
 	}
 	for k, v := range envsMapping {
 		if grpcAddr == k {
@@ -79,8 +79,12 @@ func getAPURL(grpcAddr string) string {
 		}
 	}
 
-	// Fallback to local dev envs.
-	res := strings.ReplaceAll(grpcAddr, "grpc--", "https://api--")
-	res = strings.ReplaceAll(res, "api-grpc--", "https://api--")
-	return res
+	// Other ennvs.
+	if strings.HasPrefix(grpcAddr, "api-grpc") {
+		return strings.Replace(grpcAddr, "api-grpc", "https://api", 1)
+	}
+	if strings.HasPrefix(grpcAddr, "grpc") {
+		return strings.Replace(grpcAddr, "grpc", "https://api", 1)
+	}
+	return ""
 }
