@@ -22,8 +22,8 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
-	"github.com/castai/logging"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+	"github.com/castai/logging"
 )
 
 const sectorSizeBytes = 512
@@ -920,6 +920,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(ctx context.Context, b
 	if err != nil {
 		s.log.Debugf("failed to get current cloud provider: %v", err)
 	} else {
+		s.log.Infof("cloud provider: %v", cloudProvider)
 		switch cloudProvider {
 		case types.TypeAWS:
 			awsVolumeId, err := s.findAWSVolumeIDForDisk(ctx, blockName)
@@ -932,6 +933,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(ctx context.Context, b
 					Warn("issue while resolving aws volume id")
 				break
 			}
+			s.log.Infof("volume_id: %v", awsVolumeId)
 
 			// VolumeID could not be resolved. This can happen as not all volumes are EBS backed.
 			if awsVolumeId == "" {
