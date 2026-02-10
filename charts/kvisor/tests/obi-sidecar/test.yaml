@@ -1,0 +1,438 @@
+suite: obi sidecar tests
+templates:
+  - agent.yaml
+  - secret.yaml
+  - otel-collector-config.yaml
+  - pod-monitor.yaml
+values:
+  - values.yaml
+tests:
+  # --- OBI disabled ---
+  - it: should not have obi container when reliabilityMetrics is disabled
+    set:
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: DaemonSet
+        template: agent.yaml
+        documentIndex: 0
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+        template: agent.yaml
+        documentIndex: 0
+
+  # --- OBI + Collector enabled (default) ---
+  - it: should have 3 containers when reliabilityMetrics and collector are enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 3
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: kvisor
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: obi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[2].name
+          value: otel-collector
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use correct OBI image
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: "otel/ebpf-instrument:v0.4.1"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use correct collector image
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[2].image
+          pattern: "otel/opentelemetry-collector-contrib:0.145.0"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should configure open ports including gRPC and Redis
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.openPorts: "8080,8090,6379"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EBPF_OPEN_PORT
+            value: "8080,8090,6379"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should point OBI to localhost collector when collector enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://localhost:4318"
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EXPORTER_OTLP_PROTOCOL
+            value: "http/protobuf"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should enable kubernetes metadata autodetect
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EBPF_KUBE_METADATA_ENABLE
+            value: "autodetect"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should set obi security context with required eBPF capabilities
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.runAsUser
+          value: 0
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.add
+          content: BPF
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.add
+          content: SYS_ADMIN
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.add
+          content: SYS_PTRACE
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.add
+          content: PERFMON
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.drop
+          content: ALL
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should set collector security context without any capabilities
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[2].securityContext.runAsUser
+          value: 0
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[2].securityContext.readOnlyRootFilesystem
+          value: true
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[2].securityContext.capabilities.drop
+          content: ALL
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use custom obi security context when provided
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.containerSecurityContext:
+        privileged: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.privileged
+          value: true
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should add all required volumes when enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: var-run-obi
+            emptyDir: {}
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: otel-collector-config
+            configMap:
+              name: RELEASE-NAME-castai-kvisor-agent-otel-collector
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should mount config in collector container
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[2].volumeMounts
+          content:
+            name: otel-collector-config
+            mountPath: /etc/otelcol
+            readOnly: true
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should set obi resource limits
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.resources:
+        requests:
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 1Gi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should set collector resource limits
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[2].resources.limits.memory
+          value: 128Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[2].resources.requests.memory
+          value: 64Mi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should expose prometheus, otlp, and telemetry ports on collector
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[2].ports
+          content:
+            containerPort: 9400
+            name: otel-prom
+            protocol: TCP
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[2].ports
+          content:
+            containerPort: 4318
+            name: otlp-http
+            protocol: TCP
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[2].ports
+          content:
+            containerPort: 8888
+            name: otel-metrics
+            protocol: TCP
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should add apparmor annotation for obi when enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - isNotNull:
+          path: spec.template.metadata.annotations["container.apparmor.security.beta.kubernetes.io/obi"]
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.metadata.annotations["container.apparmor.security.beta.kubernetes.io/obi"]
+          value: unconfined
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should not have custom prometheus scrape-obi annotations
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - isNull:
+          path: spec.template.metadata.annotations["prometheus.io/scrape-obi"]
+        template: agent.yaml
+        documentIndex: 0
+      - isNull:
+          path: spec.template.metadata.annotations["prometheus.io/port-obi"]
+        template: agent.yaml
+        documentIndex: 0
+
+  # --- PodMonitor tests ---
+  - it: should create PodMonitor for OBI collector when enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - isKind:
+          of: PodMonitor
+        template: pod-monitor.yaml
+      - equal:
+          path: apiVersion
+          value: monitoring.coreos.com/v1
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: otel-prom
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[0].path
+          value: /metrics
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[0].honorLabels
+          value: true
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[0].scrapeTimeout
+          value: 30s
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[0].scheme
+          value: http
+        template: pod-monitor.yaml
+
+  - it: should have second PodMonitor endpoint for collector telemetry
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[1].port
+          value: otel-metrics
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[1].honorLabels
+          value: false
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.podMetricsEndpoints[1].scrapeTimeout
+          value: 10s
+        template: pod-monitor.yaml
+
+  - it: should set correct selector labels on PodMonitor
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: RELEASE-NAME-castai-kvisor-agent
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+        template: pod-monitor.yaml
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: agent
+        template: pod-monitor.yaml
+
+  - it: should not create PodMonitor when reliabilityMetrics is disabled
+    set:
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: pod-monitor.yaml
+
+  - it: should add extra labels to PodMonitor when podMonitorLabels is set
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.collector.podMonitorLabels:
+        release: kube-prometheus-stack
+    asserts:
+      - equal:
+          path: metadata.labels.release
+          value: kube-prometheus-stack
+        template: pod-monitor.yaml
+
+  - it: should add extra env vars to obi container
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.env:
+        OTEL_EBPF_LOG_LEVEL: debug
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EBPF_LOG_LEVEL
+            value: "debug"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should not affect kvisor container when obi is enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: kvisor
+        template: agent.yaml
+        documentIndex: 0
+
+  # --- ConfigMap tests ---
+  - it: should create collector ConfigMap with golden signal filter
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - isKind:
+          of: ConfigMap
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "http.*server.*request.*duration"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "rpc.*server.*duration"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "redis.*client.*duration"
+        template: otel-collector-config.yaml
+
+  - it: should not create collector ConfigMap when disabled
+    set:
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: otel-collector-config.yaml
