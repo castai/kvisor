@@ -846,6 +846,8 @@ github.com/castai/image-analyzer v0.10.0 h1:qJjJtbgsZHQtDci8FacbQ1v8xOk9nzWvnMR6
 github.com/castai/image-analyzer v0.10.0/go.mod h1:2ncQ2nejVVEqYPFdwZvq3Sl6G3DjM0ZIKS5copHQCxA=
 github.com/castai/logging v0.2.1-0.20260209131414-bd8d736fddb5 h1:ts1mTdTf/hOQPNTUjlpePsgupdVRDvrrGTm7Mc6B3xo=
 github.com/castai/logging v0.2.1-0.20260209131414-bd8d736fddb5/go.mod h1:khOuV7bUcqeYx/4FSpJ1ntbe+JCHLaoR/PkY2Yc98rg=
+github.com/castai/logging v0.3.0 h1:3S34to2Vn+vDrheeoi1GG2yVSjbZ58H3pvotGhq9Edg=
+github.com/castai/logging v0.3.0/go.mod h1:khOuV7bUcqeYx/4FSpJ1ntbe+JCHLaoR/PkY2Yc98rg=
 github.com/castai/metrics v0.0.0-20250917084341-1533777a055a h1:wFcMa6dOMaMf3dGK9PIicZnRqBPIBxolvibHyA4k3to=
 github.com/castai/metrics v0.0.0-20250917084341-1533777a055a/go.mod h1:m63MWJd4H5a8Z21sGc0Ya0zci/JrSpR+/y+RCA1y59I=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=

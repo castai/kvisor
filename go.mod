@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.13
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.279.1
 	github.com/castai/image-analyzer v0.10.0
-	github.com/castai/logging v0.2.1-0.20260209131414-bd8d736fddb5
+	github.com/castai/logging v0.3.0
 	github.com/castai/metrics v0.0.0-20250917084341-1533777a055a
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/cespare/xxhash/v2 v2.3.0
