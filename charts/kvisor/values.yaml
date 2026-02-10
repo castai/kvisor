@@ -158,6 +158,46 @@ agent:
     scc:
       create: false
 
+  # Reliability metrics collection via OBI (OpenTelemetry eBPF Instrumentation).
+  # Deploys OBI as a sidecar container in the kvisor agent DaemonSet to collect
+  # RED metrics (request rate, error rate, duration histograms) from customer workloads.
+  # Memory usage scales with instrumented processes (~27 MiB per process).
+  reliabilityMetrics:
+    enabled: false
+
+    # --- OBI (eBPF instrumentation) settings ---
+    image:
+      repository: otel/ebpf-instrument
+      tag: "v0.4.1"
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+    # Ports to instrument — controls memory usage (~27 MiB per instrumented process).
+    # Comma-separated list. 8080=HTTP APIs, 8090=gRPC APIs, 6379=Redis.
+    openPorts: "80,443,8080,8443,8090,3000,9090,6379"
+    # Extra environment variables for the OBI container.
+    env: {}
+    # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
+    containerSecurityContext: {}
+
+    # --- OTel Collector sidecar settings ---
+    # Receives OTLP from OBI, applies golden signal filtering, cardinality control,
+    # and batching, then exports via Prometheus scrape endpoint.
+    collector:
+      enabled: true
+      image:
+        repository: otel/opentelemetry-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+      # Port for the collector's Prometheus exporter (scraped by cluster Prometheus).
+      prometheusPort: 9400
+
 controller:
   enabled: true
 

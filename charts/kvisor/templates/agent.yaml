@@ -33,6 +33,9 @@ spec:
         profiles.grafana.com/goroutine.port: "{{ .Values.agent.metricsHTTPListenPort }}"
       {{- end }}
         container.apparmor.security.beta.kubernetes.io/kvisor: unconfined
+      {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
+        container.apparmor.security.beta.kubernetes.io/obi: unconfined
+      {{- end }}
       {{- with .Values.agent.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -162,6 +165,83 @@ spec:
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+      {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
+        - name: obi
+          image: "{{ .Values.agent.reliabilityMetrics.image.repository }}:{{ .Values.agent.reliabilityMetrics.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "kvisor.obi.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.agent.reliabilityMetrics.resources | nindent 12 }}
+          env:
+            {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.resources.limits.memory | nindent 12 }}
+            - name: OTEL_EBPF_OPEN_PORT
+              value: {{ .Values.agent.reliabilityMetrics.openPorts | quote }}
+          {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://localhost:4318"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
+          {{- end }}
+            - name: OTEL_EBPF_KUBE_METADATA_ENABLE
+              value: "autodetect"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          {{- range $k, $v := .Values.agent.reliabilityMetrics.env }}
+            - name: {{ $k }}
+              value: "{{ $v }}"
+          {{- end }}
+          volumeMounts:
+            - name: var-run-obi
+              mountPath: /var/run/beyla
+            - name: cgroups
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+      {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
+        - name: otel-collector
+          image: "{{ .Values.agent.reliabilityMetrics.collector.image.repository }}:{{ .Values.agent.reliabilityMetrics.collector.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- toYaml .Values.agent.reliabilityMetrics.collector.resources | nindent 12 }}
+          args:
+            - "--config=/etc/otelcol/config.yaml"
+          env:
+            {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.agent.reliabilityMetrics.collector.prometheusPort }}
+              name: otel-prom
+              protocol: TCP
+            - containerPort: 4318
+              name: otlp-http
+              protocol: TCP
+            - containerPort: 8888
+              name: otel-metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              port: 13133
+              path: /
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              port: 13133
+              path: /
+            periodSeconds: 5
+          volumeMounts:
+            - name: otel-collector-config
+              mountPath: /etc/otelcol
+              readOnly: true
+      {{- end }}
+      {{- end }}
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
@@ -192,6 +272,15 @@ spec:
           hostPath:
             path: {{ .Values.agent.containerdSocketPath }}
             type: Socket
+      {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
+        - name: var-run-obi
+          emptyDir: {}
+      {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
+        - name: otel-collector-config
+          configMap:
+            name: {{ include "kvisor.agent.fullname" . }}-otel-collector
+      {{- end }}
+      {{- end }}
         {{- with .Values.agent.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -245,7 +334,7 @@ rules:
       - get
       - list
       - watch
-  {{- if .Values.agent.openshift.scc.create }}
+  {{- if (dig "openshift" "scc" "create" false .Values.agent) }}
   - apiGroups:
       - "security.openshift.io"
     resources:

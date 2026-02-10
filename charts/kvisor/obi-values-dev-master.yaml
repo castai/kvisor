@@ -1,0 +1,44 @@
+# OBI reliability metrics values for dev-master.
+# Usage:
+#   helm upgrade castai-kvisor charts/kvisor -n castai-agent \
+#     --kube-context dev-master --reuse-values --history-max 0 \
+#     -f charts/kvisor/obi-values-dev-master.yaml
+#
+# Key differences from obi-values.yaml (test cluster):
+#   - No podMonitorLabels needed: dev-master Prometheus has podMonitorSelector: {}
+#     (selects ALL PodMonitors from all namespaces).
+#   - Mirrored images: dev-master has Binary Authorization (always_deny default),
+#     so Docker Hub images (otel/*) are blocked. Images mirrored to castai-hub AR.
+#   - Higher OBI memory limits: 38 nodes means more instrumented processes.
+
+agent:
+  reliabilityMetrics:
+    enabled: true
+    image:
+      # Mirrored from otel/ebpf-instrument:v0.4.1 (Docker Hub blocked by BinAuthz).
+      repository: us-docker.pkg.dev/castai-hub/library/otel-ebpf-instrument
+      tag: "v0.4.1"
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+    # Ports to instrument — each discovered process adds ~27 MiB to OBI memory.
+    # Include common service ports on dev-master.
+    openPorts: "80,443,8080,8443,8090,3000,9090,6379"
+    env: {}
+    containerSecurityContext: {}
+    collector:
+      enabled: true
+      image:
+        # Mirrored from otel/opentelemetry-collector-contrib:0.145.0 (Docker Hub blocked by BinAuthz).
+        repository: us-docker.pkg.dev/castai-hub/library/otel-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+      prometheusPort: 9400
+      # No podMonitorLabels needed — dev-master Prometheus uses podMonitorSelector: {}
+      # which scrapes ALL PodMonitors across all namespaces without label filtering.
