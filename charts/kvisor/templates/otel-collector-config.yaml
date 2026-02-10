@@ -76,6 +76,19 @@ data:
           enabled: true
         metric_expiration: 5m
 
+      clickhouse:
+        endpoint: tcp://${env:OTEL_CLICKHOUSE_CONFIG_ADDRESS}?dial_timeout=10s&compress=lz4
+        database: otel
+        username: ${env:OTEL_CLICKHOUSE_CONFIG_USERNAME}
+        password: ${env:OTEL_CLICKHOUSE_CONFIG_PASSWORD}
+        ttl: 72h
+        timeout: 10s
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 300s
+
     extensions:
       health_check:
         endpoint: "0.0.0.0:13133"
