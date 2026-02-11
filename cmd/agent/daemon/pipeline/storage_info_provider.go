@@ -721,7 +721,7 @@ func (s *SysfsStorageInfoProvider) findAWSNitroVolumeIDForDisk(deviceName string
 	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
 	modelPath := filepath.Join(devicePath, "device", "model")
 
-	modelData, err := os.ReadFile(modelPath)
+	modelData, err := readFileTrimmed(modelPath)
 	if err != nil {
 		return "", fmt.Errorf("error reading device model of `%s`: %w", deviceName, err)
 	}
