@@ -948,16 +948,31 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForNVMeDisk(deviceName string)
 }
 
 func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (string, error) {
+	var (
+		volumeID string
+		err      error
+	)
+
 	// GCP mounts disks using SCSI or NVMe. All cloud backed volume devices should have either `sd` or `nvme` prefix.
 	switch {
 	case strings.HasPrefix(deviceName, "sd"):
 		deviceName = extractSCSIDiskName(deviceName)
 
-		return s.findGCPVolumeIDForSCSIDisk(deviceName)
+		volumeID, err = s.findGCPVolumeIDForSCSIDisk(deviceName)
 	case strings.HasPrefix(deviceName, "nvme"):
 		deviceName = extractNVMeDiskName(deviceName)
 
-		return s.findGCPVolumeIDForNVMeDisk(deviceName)
+		volumeID, err = s.findGCPVolumeIDForNVMeDisk(deviceName)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// GCP does not give the root disk the proper volume id. It will always be called
+	// `persistent-disk-0`. The volume id will always be the same name as the node.
+	if volumeID == "persistent-disk-0" {
+		return s.nodeName, nil
 	}
 
 	// Unsupported disk driver.
