@@ -963,6 +963,10 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (st
 		deviceName = extractNVMeDiskName(deviceName)
 
 		volumeID, err = s.findGCPVolumeIDForNVMeDisk(deviceName)
+
+	default:
+		// Unsupported disk driver.
+		return "", nil
 	}
 
 	if err != nil {
@@ -975,8 +979,7 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (st
 		return s.nodeName, nil
 	}
 
-	// Unsupported disk driver.
-	return "", nil
+	return volumeID, nil
 }
 
 func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(ctx context.Context, blockName string, stats DiskStats, timestamp time.Time) BlockDeviceMetric {
