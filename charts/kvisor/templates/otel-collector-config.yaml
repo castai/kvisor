@@ -33,6 +33,17 @@ data:
               - "messaging\\.publish\\.duration"
               - "messaging\\.process\\.duration"
 
+      # Dedup guard: K8s infrastructure metrics are owned by the controller
+      # collector's k8s_cluster receiver. Drop them here to prevent duplicates
+      # if a future Prometheus receiver scrapes targets that emit kube_* or k8s.* metrics.
+      filter/drop-k8s:
+        metrics:
+          exclude:
+            match_type: regexp
+            metric_names:
+              - "k8s\\..*"
+              - "kube_.*"
+
       # Strip high-cardinality attributes to control Prometheus series count.
       # Keep only what WOOP and SLO calculations need.
       transform/cardinality:
@@ -106,6 +117,111 @@ data:
       pipelines:
         metrics:
           receivers: [otlp]
-          processors: [memory_limiter, filter/golden-signals, transform/cardinality, batch]
+          processors: [memory_limiter, filter/drop-k8s, filter/golden-signals, transform/cardinality, batch]
           exporters: [prometheus, clickhouse]
+{{- end }}
+---
+{{- if and .Values.controller.enabled (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}-otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    receivers:
+      # Watches K8s API server for cluster state — KSM-equivalent metrics.
+      # Must run as single instance (not per-node) to avoid duplicate data.
+      k8s_cluster:
+        auth_type: serviceAccount
+        collection_interval: 30s
+        node_conditions_to_report:
+          - Ready
+        allocatable_types_to_report:
+          - cpu
+          - memory
+
+    processors:
+      # Keep only reliability-relevant K8s metrics — drop everything else.
+      filter/reliability:
+        metrics:
+          include:
+            match_type: regexp
+            metric_names:
+              # Pod health
+              - "k8s\\.pod\\.phase"
+              # Container health
+              - "k8s\\.container\\.restarts"
+              - "k8s\\.container\\.ready"
+              # Deployment availability
+              - "k8s\\.deployment\\.desired"
+              - "k8s\\.deployment\\.available"
+              # ReplicaSet health
+              - "k8s\\.replicaset\\.desired"
+              - "k8s\\.replicaset\\.available"
+              # DaemonSet health
+              - "k8s\\.daemonset\\.desired_scheduled"
+              - "k8s\\.daemonset\\.current_scheduled"
+              - "k8s\\.daemonset\\.ready"
+              - "k8s\\.daemonset\\.misscheduled"
+              # StatefulSet health
+              - "k8s\\.statefulset\\.desired_pods"
+              - "k8s\\.statefulset\\.ready_pods"
+              - "k8s\\.statefulset\\.current_pods"
+              - "k8s\\.statefulset\\.updated_pods"
+              # Job / CronJob health
+              - "k8s\\.job\\.active_pods"
+              - "k8s\\.job\\.failed_pods"
+              - "k8s\\.job\\.successful_pods"
+              - "k8s\\.cronjob\\.active_jobs"
+              # HPA scaling pressure
+              - "k8s\\.hpa\\.current_replicas"
+              - "k8s\\.hpa\\.desired_replicas"
+              - "k8s\\.hpa\\.max_replicas"
+              - "k8s\\.hpa\\.min_replicas"
+              # Node conditions
+              - "k8s\\.node\\.condition_ready"
+              # Resource requests and limits
+              - "k8s\\.container\\.cpu_request"
+              - "k8s\\.container\\.cpu_limit"
+              - "k8s\\.container\\.memory_request"
+              - "k8s\\.container\\.memory_limit"
+
+      batch:
+        send_batch_size: 1024
+        timeout: 10s
+
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 200
+        spike_limit_mib: 50
+
+    exporters:
+      prometheus:
+        endpoint: "0.0.0.0:{{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}"
+        resource_to_telemetry_conversion:
+          enabled: true
+        metric_expiration: 5m
+
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:13134"
+
+    service:
+      telemetry:
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: "0.0.0.0"
+                    port: 8889
+      extensions: [health_check]
+      pipelines:
+        metrics:
+          receivers: [k8s_cluster]
+          processors: [memory_limiter, filter/reliability, batch]
+          exporters: [prometheus]
 {{- end }}

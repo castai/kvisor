@@ -15,6 +15,9 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+        checksum/otel-config: {{ include (print $.Template.BasePath "/otel-collector-config.yaml") . | sha256sum }}
+      {{- end }}
       {{- if .Values.controller.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{.Values.controller.metricsHTTPListenPort}}"
@@ -140,6 +143,46 @@ spec:
               port: http-server
               path: /healthz
             periodSeconds: 5
+      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+        - name: otel-collector
+          image: "{{ .Values.controller.reliabilityMetrics.collector.image.repository }}:{{ .Values.controller.reliabilityMetrics.collector.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsUser: 10001
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- toYaml .Values.controller.reliabilityMetrics.collector.resources | nindent 12 }}
+          args:
+            - "--config=/etc/otelcol/config.yaml"
+          env:
+            {{- include "GOMEMLIMITEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
+              name: k8s-prom
+              protocol: TCP
+            - containerPort: 8889
+              name: k8s-metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              port: 13134
+              path: /
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              port: 13134
+              path: /
+            periodSeconds: 5
+          volumeMounts:
+            - name: controller-otel-collector-config
+              mountPath: /etc/otelcol
+              readOnly: true
+      {{- end }}
       terminationGracePeriodSeconds: 10
       {{- with .Values.controller.nodeSelector }}
       nodeSelector:
@@ -154,6 +197,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+        - name: controller-otel-collector-config
+          configMap:
+            name: {{ include "kvisor.controller.fullname" . }}-otel-collector
+      {{- end }}
         {{- with .Values.controller.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -315,6 +363,28 @@ rules:
       - get
       - list
       - watch
+{{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+  # Additional read-only RBAC for k8s_cluster OTel receiver.
+  # The receiver watches all standard K8s resource types via informers;
+  # missing permissions block initial cache sync and prevent ANY metrics.
+  - apiGroups:
+      - ""
+    resources:
+      - resourcequotas
+      - replicationcontrollers
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "autoscaling"
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

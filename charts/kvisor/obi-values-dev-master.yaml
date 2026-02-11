@@ -45,3 +45,21 @@ agent:
       prometheusPort: 9400
       # No podMonitorLabels needed — dev-master Prometheus uses podMonitorSelector: {}
       # which scrapes ALL PodMonitors across all namespaces without label filtering.
+
+controller:
+  reliabilityMetrics:
+    enabled: true
+    collector:
+      enabled: true
+      image:
+        # Mirrored from otel/opentelemetry-collector-contrib:0.145.0 (Docker Hub blocked by BinAuthz).
+        repository: us-docker.pkg.dev/castai-hub/library/otel-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+      prometheusPort: 9401
+      # No podMonitorLabels needed — dev-master Prometheus uses podMonitorSelector: {}
