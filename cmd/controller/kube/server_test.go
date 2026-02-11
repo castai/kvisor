@@ -24,7 +24,7 @@ func TestServer(t *testing.T) {
 	log := logging.New()
 
 	clientset := fake.NewClientset()
-	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
+	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset, "")
 	client.index = NewIndex()
 	client.vpcIndex = NewVPCIndex(log, 0, 0)
 
@@ -192,7 +192,7 @@ func TestServer(t *testing.T) {
 	t.Run("get service cidr from fallback", func(t *testing.T) {
 		r := require.New(t)
 		clientset := fake.NewClientset()
-		client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset)
+		client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset, "")
 		client.index = NewIndex()
 
 		client.index.ipsDetails[netip.MustParseAddr("10.10.10.10")] = []IPInfo{

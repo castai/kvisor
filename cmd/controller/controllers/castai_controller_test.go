@@ -19,7 +19,7 @@ import (
 func TestCastaiController(t *testing.T) {
 	log := logging.New()
 	k8sClient := fake.NewSimpleClientset()
-	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient)
+	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient, "")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
