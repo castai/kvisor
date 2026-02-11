@@ -312,9 +312,9 @@ func (s *Server) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolume
 			if len(attachments) == 0 {
 				break
 			}
-			for i, a := range attachments {
+			for i, a := range vol.AwsDetails.Attachments {
 				attachments[i] = &kubepb.AWSDiskAttachment{
-					InstanceId: a.InstanceId,
+					InstanceId: a.InstanceID,
 					Device:     a.Device,
 				}
 			}
