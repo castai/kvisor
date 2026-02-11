@@ -743,17 +743,45 @@ func (s *SysfsStorageInfoProvider) findAWSNitroVolumeIDForDisk(deviceName string
 	}
 }
 
-func (s *SysfsStorageInfoProvider) findAWSVolumeIDForDisk(ctx context.Context, deviceNamme string) (string, error) {
-	switch {
-	case strings.HasPrefix(deviceNamme, "xvd"):
-		return s.findAWSXenVolumeIDForDisk(ctx, deviceNamme)
+func extractSCSIDiskName(device string) string {
+	num := strings.IndexFunc(device, func(r rune) bool {
+		return r >= '0' && r <= '9'
+	})
 
-	case strings.HasPrefix(deviceNamme, "nvme"):
-		return s.findAWSNitroVolumeIDForDisk(deviceNamme)
+	// For SCSI devices a number indicates that we got a partitoin.
+	if num > 0 {
+		return device[0:num]
+	}
+
+	return device
+}
+
+func extractNVMeDiskName(device string) string {
+	num := strings.IndexRune(device, 'p')
+
+	// NVMe partitions contain a `p` in the device name.
+	if num > 0 {
+		return device[0:num]
+	}
+
+	return device
+}
+
+func (s *SysfsStorageInfoProvider) findAWSVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
+	switch {
+	case strings.HasPrefix(deviceName, "xvd"):
+		deviceName = extractSCSIDiskName(deviceName)
+
+		return s.findAWSXenVolumeIDForDisk(ctx, deviceName)
+
+	case strings.HasPrefix(deviceName, "nvme"):
+		deviceName = extractNVMeDiskName(deviceName)
+
+		return s.findAWSNitroVolumeIDForDisk(deviceName)
 
 	}
 
-	s.log.With("device", deviceNamme).Info("unsupported disk type")
+	s.log.With("device", deviceName).Info("unsupported disk type")
 
 	return "", nil
 }
@@ -879,8 +907,12 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (st
 	// GCP mounts disks using SCSI or NVMe. All cloud backed volume devices should have either `sd` or `nvme` prefix.
 	switch {
 	case strings.HasPrefix(deviceName, "sd"):
+		deviceName = extractSCSIDiskName(deviceName)
+
 		return s.findGCPVolumeIDForSCSIDisk(deviceName)
 	case strings.HasPrefix(deviceName, "nvme"):
+		deviceName = extractNVMeDiskName(deviceName)
+
 		return s.findGCPVolumeIDForNVMeDisk(deviceName)
 	}
 

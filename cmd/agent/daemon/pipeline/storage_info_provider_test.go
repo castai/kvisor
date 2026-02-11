@@ -1090,3 +1090,120 @@ func TestFindGCPVolumeIDForDisk(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractSCSIDiskName(t *testing.T) {
+	tests := []struct {
+		name     string
+		device   string
+		expected string
+	}{
+		{
+			name:     "sda partition 1",
+			device:   "sda1",
+			expected: "sda",
+		},
+		{
+			name:     "sda partition 2",
+			device:   "sda2",
+			expected: "sda",
+		},
+		{
+			name:     "sdb partition 10",
+			device:   "sdb10",
+			expected: "sdb",
+		},
+		{
+			name:     "xvda partition 1",
+			device:   "xvda1",
+			expected: "xvda",
+		},
+		{
+			name:     "xvdf partition 5",
+			device:   "xvdf5",
+			expected: "xvdf",
+		},
+		{
+			name:     "base device with no partition - sda",
+			device:   "sda",
+			expected: "sda",
+		},
+		{
+			name:     "base device with no partition - xvda",
+			device:   "xvda",
+			expected: "xvda",
+		},
+		{
+			name:     "empty string",
+			device:   "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractSCSIDiskName(tt.device)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractNVMeDiskName(t *testing.T) {
+	tests := []struct {
+		name     string
+		device   string
+		expected string
+	}{
+		{
+			name:     "nvme0n1 partition 1",
+			device:   "nvme0n1p1",
+			expected: "nvme0n1",
+		},
+		{
+			name:     "nvme0n1 partition 2",
+			device:   "nvme0n1p2",
+			expected: "nvme0n1",
+		},
+		{
+			name:     "nvme1n1 partition 10",
+			device:   "nvme1n1p10",
+			expected: "nvme1n1",
+		},
+		{
+			name:     "nvme2n1 partition 256",
+			device:   "nvme2n1p256",
+			expected: "nvme2n1",
+		},
+		{
+			name:     "base device with no partition - nvme0n1",
+			device:   "nvme0n1",
+			expected: "nvme0n1",
+		},
+		{
+			name:     "base device with no partition - nvme1n1",
+			device:   "nvme1n1",
+			expected: "nvme1n1",
+		},
+		{
+			name:     "device with p but not partition",
+			device:   "nvmep0n1",
+			expected: "nvme",
+		},
+		{
+			name:     "empty string",
+			device:   "",
+			expected: "",
+		},
+		{
+			name:     "device without p",
+			device:   "sda1",
+			expected: "sda1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractNVMeDiskName(tt.device)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
