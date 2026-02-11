@@ -19,6 +19,9 @@ spec:
       port: otel-prom
       scheme: http
       scrapeTimeout: 30s
+      metricRelabelings:
+        - action: labeldrop
+          regex: instance
     - honorLabels: false
       path: /metrics
       port: otel-metrics
@@ -50,6 +53,9 @@ spec:
       port: k8s-prom
       scheme: http
       scrapeTimeout: 30s
+      metricRelabelings:
+        - action: labeldrop
+          regex: instance
     - honorLabels: false
       path: /metrics
       port: k8s-metrics
