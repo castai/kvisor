@@ -161,6 +161,20 @@ spec:
             - "--config=/etc/otelcol/config.yaml"
           env:
             {{- include "GOMEMLIMITEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller) }}
+            - name: OTEL_CLICKHOUSE_CONFIG_ADDRESS
+              value: {{ .Values.controller.reliabilityMetrics.collector.clickhouseExporter.address }}
+            - name: OTEL_CLICKHOUSE_CONFIG_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: otel-clickhouse-credentials
+            - name: OTEL_CLICKHOUSE_CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: otel-clickhouse-credentials
+            {{- end }}
           ports:
             - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
               name: k8s-prom

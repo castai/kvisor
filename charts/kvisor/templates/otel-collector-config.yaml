@@ -16,6 +16,8 @@ data:
 
     processors:
       # Keep only golden signal metrics from OBI — drop everything else.
+      # Covers: Latency (server+client), Errors (via status_code attrs),
+      #         Traffic (histogram _count for RPS, body sizes for bytes).
       filter/golden-signals:
         metrics:
           include:
@@ -23,15 +25,26 @@ data:
             metric_names:
               # HTTP server latency (RED)
               - "http\\.server\\.request\\.duration"
+              # HTTP client dependency latency (outbound calls)
+              - "http\\.client\\.request\\.duration"
               # gRPC server latency
               - "rpc\\.server\\.duration"
-              # Database client latency
-              - "sql\\.client\\.duration"
-              # Redis client latency
-              - "redis\\.client\\.duration"
+              # gRPC client dependency latency
+              - "rpc\\.client\\.duration"
+              # Database client latency (Redis, SQL, etc. — OBI uses OTel semconv
+              # db.client.operation.duration with db.system attribute for differentiation)
+              - "db\\.client\\.operation\\.duration"
               # Messaging latency
               - "messaging\\.publish\\.duration"
               - "messaging\\.process\\.duration"
+              # HTTP request/response body sizes (byte throughput)
+              - "http\\.server\\.request\\.body\\.size"
+              - "http\\.server\\.response\\.body\\.size"
+              - "http\\.client\\.request\\.body\\.size"
+              - "http\\.client\\.response\\.body\\.size"
+              # OBI network flow counters
+              - "obi\\.network\\.flow\\.bytes"
+              - "obi\\.network\\.inter\\.zone\\.bytes"
 
       # Dedup guard: K8s infrastructure metrics are owned by the controller
       # collector's k8s_cluster receiver. Drop them here to prevent duplicates
@@ -67,7 +80,7 @@ data:
               # Keep: http.request.method, http.response.status_code,
               #        service.name, service.instance.id,
               #        rpc.method, rpc.service, rpc.grpc.status_code,
-              #        db.system, db.operation.name,
+              #        db.system.name, db.operation.name, error.type,
               #        messaging.system, messaging.destination.name
 
       # Batch before export to reduce scrape overhead.
@@ -87,6 +100,7 @@ data:
           enabled: true
         metric_expiration: 5m
 
+{{- if dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent }}
       clickhouse:
         endpoint: tcp://${env:OTEL_CLICKHOUSE_CONFIG_ADDRESS}?dial_timeout=10s&compress=lz4
         database: otel
@@ -99,6 +113,7 @@ data:
           initial_interval: 5s
           max_interval: 30s
           max_elapsed_time: 300s
+{{- end }}
 
     extensions:
       health_check:
@@ -118,7 +133,7 @@ data:
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, filter/drop-k8s, filter/golden-signals, transform/cardinality, batch]
-          exporters: [prometheus, clickhouse]
+          exporters: [prometheus{{- if dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent }}, clickhouse{{- end }}]
 {{- end }}
 ---
 {{- if and .Values.controller.enabled (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
@@ -205,6 +220,21 @@ data:
           enabled: true
         metric_expiration: 5m
 
+{{- if dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller }}
+      clickhouse:
+        endpoint: tcp://${env:OTEL_CLICKHOUSE_CONFIG_ADDRESS}?dial_timeout=10s&compress=lz4
+        database: otel
+        username: ${env:OTEL_CLICKHOUSE_CONFIG_USERNAME}
+        password: ${env:OTEL_CLICKHOUSE_CONFIG_PASSWORD}
+        ttl: 72h
+        timeout: 10s
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 300s
+{{- end }}
+
     extensions:
       health_check:
         endpoint: "0.0.0.0:13134"
@@ -223,5 +253,5 @@ data:
         metrics:
           receivers: [k8s_cluster]
           processors: [memory_limiter, filter/reliability, batch]
-          exporters: [prometheus]
+          exporters: [prometheus{{- if dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller }}, clickhouse{{- end }}]
 {{- end }}

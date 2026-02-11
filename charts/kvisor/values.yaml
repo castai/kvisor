@@ -294,6 +294,9 @@ controller:
           memory: 128Mi
         limits:
           memory: 256Mi
+      # Optional ClickHouse exporter — mirrors agent collector pattern.
+      clickhouseExporter:
+        enabled: false
       # Port for the collector's Prometheus exporter (different from agent collector's 9400).
       prometheusPort: 9401
       # Labels to add to the PodMonitor (e.g., for Prometheus Operator selector filtering).

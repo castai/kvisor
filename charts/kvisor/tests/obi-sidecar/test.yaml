@@ -426,7 +426,34 @@ tests:
         template: otel-collector-config.yaml
       - matchRegex:
           path: data["config.yaml"]
-          pattern: "redis.*client.*duration"
+          pattern: "db.*client.*operation.*duration"
+        template: otel-collector-config.yaml
+      # Client-side dependency latency
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "http.*client.*request.*duration"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "rpc.*client.*duration"
+        template: otel-collector-config.yaml
+      # Body size metrics (byte throughput)
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "http.*server.*body.*size"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "http.*client.*body.*size"
+        template: otel-collector-config.yaml
+      # OBI network flow counters
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "obi.*network.*flow"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "obi.*network.*inter.*zone"
         template: otel-collector-config.yaml
 
   - it: should include dedup guard to drop k8s infrastructure metrics
