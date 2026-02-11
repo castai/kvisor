@@ -119,6 +119,7 @@ func (a *App) Run(ctx context.Context) error {
 				MinLevel: logging.MustParseLevel(cfg.SendLogsLevel),
 			})
 			logHandlers = append(logHandlers, logsExportHandler)
+			log = logging.New(logHandlers...)
 
 			if cfg.PromMetricsExportEnabled {
 				castaiMetricsExporter := castai.NewPromMetricsExporter(log, batchLogsApiClient, prometheus.DefaultGatherer, castai.PromMetricsExporterConfig{
@@ -129,10 +130,11 @@ func (a *App) Run(ctx context.Context) error {
 					return castaiMetricsExporter.Run(ctx)
 				})
 			}
+		} else {
+			log = logging.New(logHandlers...)
 		}
-		log = logging.New(logHandlers...)
-		exporters = append(exporters, castaiexport.NewDataBatchWriter(castaiClient, log))
 
+		exporters = append(exporters, castaiexport.NewDataBatchWriter(castaiClient, log))
 	} else {
 		log = logging.New(logHandlers...)
 		log.Warn("castai config is not set or it is invalid, running agent in standalone mode")
