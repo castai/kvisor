@@ -282,6 +282,28 @@ controller:
   # Deprecated: use additionalEnv instead.
   extraEnv: {}
 
+  # --- K8s cluster state metrics (reliability) ---
+  # Runs an OTel Collector sidecar with k8s_cluster receiver to collect
+  # KSM-equivalent infrastructure metrics (pod restarts, deployment availability,
+  # node conditions, resource requests/limits). No OBI needed — purely API server watch-based.
+  reliabilityMetrics:
+    enabled: false
+    collector:
+      enabled: true
+      image:
+        repository: otel/opentelemetry-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+      # Port for the collector's Prometheus exporter (different from agent collector's 9400).
+      prometheusPort: 9401
+      # Labels to add to the PodMonitor (e.g., for Prometheus Operator selector filtering).
+      podMonitorLabels: {}
+
 eventGenerator:
   enabled: false
   image:
