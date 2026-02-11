@@ -61,6 +61,16 @@ type App struct {
 	cfg *config.Config
 }
 
+func parseLogLevel(lvlStr string) (slog.Level, error) {
+	var lvl slog.Level
+
+	if err := lvl.UnmarshalText([]byte(lvlStr)); err != nil {
+		return 0, err
+	}
+
+	return lvl, nil
+}
+
 func (a *App) Run(ctx context.Context) error {
 	start := time.Now()
 
@@ -69,9 +79,16 @@ func (a *App) Run(ctx context.Context) error {
 	cfg := a.cfg
 	podName := os.Getenv("POD_NAME")
 
+	logCfg := logging.DefaultTextHandlerConfig
+	logLvl, err := parseLogLevel(cfg.LogLevel)
+	if err != nil {
+		return err
+	}
+	logCfg.Level = logLvl
+
 	var log *logging.Logger
 	logHandlers := []logging.Handler{
-		logging.NewTextHandler(logging.DefaultTextHandlerConfig),
+		logging.NewTextHandler(logCfg),
 	}
 	var exporters []export.DataBatchWriter
 	// Castai specific spetup if config is valid.

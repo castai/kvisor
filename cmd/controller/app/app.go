@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -49,14 +50,32 @@ type App struct {
 	kubeClient kubernetes.Interface
 }
 
+func parseLogLevel(lvlStr string) (slog.Level, error) {
+	var lvl slog.Level
+
+	if err := lvl.UnmarshalText([]byte(lvlStr)); err != nil {
+		return 0, err
+	}
+
+	return lvl, nil
+}
+
 func (a *App) Run(ctx context.Context) error {
 	cfg := a.cfg
 	clientset := a.kubeClient
 
 	errg, ctx := errgroup.WithContext(ctx)
 
+	logCfg := logging.DefaultTextHandlerConfig
+	logLvl, err := parseLogLevel(cfg.LogLevel)
+	if err != nil {
+		return err
+	} else {
+		logCfg.Level = logLvl
+	}
+
 	logHandlers := []logging.Handler{
-		logging.NewTextHandler(logging.DefaultTextHandlerConfig),
+		logging.NewTextHandler(logCfg),
 	}
 	var castaiClient *castai.Client
 	var log *logging.Logger
