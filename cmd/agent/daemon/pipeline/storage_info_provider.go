@@ -709,6 +709,11 @@ func (s *SysfsStorageInfoProvider) findAWSXenVolumeIDForDisk(ctx context.Context
 		}
 	}
 
+	s.log.With(
+		"device", deviceName,
+		"adjustedDevicePath", adjustedDevicePath,
+	).Debug("could not find matching volume for xen based instance")
+
 	return "", nil
 }
 
@@ -723,6 +728,7 @@ func (s *SysfsStorageInfoProvider) findAWSNitroVolumeIDForDisk(deviceName string
 
 	// We only care about AWS EBS devices.
 	if string(modelData) != "Amazon Elastic Block Store" {
+		s.log.With("device", deviceName).Debug("got non AWS model")
 		return "", nil
 	}
 
@@ -770,14 +776,24 @@ func extractNVMeDiskName(device string) string {
 func (s *SysfsStorageInfoProvider) findAWSVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
 	switch {
 	case strings.HasPrefix(deviceName, "xvd"):
-		deviceName = extractSCSIDiskName(deviceName)
+		diskName := extractSCSIDiskName(deviceName)
 
-		return s.findAWSXenVolumeIDForDisk(ctx, deviceName)
+		s.log.With(
+			"device", deviceName,
+			"disk", diskName,
+		).Debug("extract AWS volume id for Xen based instance")
+
+		return s.findAWSXenVolumeIDForDisk(ctx, diskName)
 
 	case strings.HasPrefix(deviceName, "nvme"):
-		deviceName = extractNVMeDiskName(deviceName)
+		diskName := extractNVMeDiskName(deviceName)
 
-		return s.findAWSNitroVolumeIDForDisk(deviceName)
+		s.log.With(
+			"device", deviceName,
+			"disk", diskName,
+		).Debug("extract AWS volume id for Nitro based instance")
+
+		return s.findAWSNitroVolumeIDForDisk(diskName)
 
 	}
 
