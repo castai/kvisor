@@ -199,6 +199,9 @@ spec:
             - name: cgroups
               mountPath: /sys/fs/cgroup
               readOnly: true
+            - name: obi-sa-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
       {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
         - name: otel-collector
           image: "{{ .Values.agent.reliabilityMetrics.collector.image.repository }}:{{ .Values.agent.reliabilityMetrics.collector.image.tag }}"
@@ -289,6 +292,25 @@ spec:
       {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
         - name: var-run-obi
           emptyDir: {}
+        # Projected SA token for OBI — enables K8s metadata decoration
+        # (namespace, pod, deployment labels) without setting
+        # automountServiceAccountToken=true for the entire pod.
+        - name: obi-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3600
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
       {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
         - name: otel-collector-config
           configMap:
@@ -324,6 +346,8 @@ rules:
       - ""
     resources:
       - pods
+      - nodes
+      - services
     verbs:
       - get
       - list
