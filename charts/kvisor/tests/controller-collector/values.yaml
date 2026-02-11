@@ -1,0 +1,67 @@
+controller:
+  enabled: true
+  replicas: 1
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  podAnnotations: {}
+  podLabels: {}
+  priorityClass: ""
+  securityContext:
+    fsGroup: 1001
+    runAsNonRoot: true
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  dnsPolicy: ClusterFirst
+  httpListenPort: 8080
+  kubeAPIListenPort: 8090
+  metricsHTTPListenPort: 6060
+  extraArgs:
+    log-level: info
+  prometheusScrape:
+    enabled: true
+  additionalEnv: {}
+  envFrom: []
+  extraEnv: {}
+  extraVolumes: []
+  extraVolumeMounts: []
+  reliabilityMetrics:
+    enabled: false
+    collector:
+      enabled: true
+      image:
+        repository: otel/opentelemetry-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+      prometheusPort: 9401
+      podMonitorLabels: {}
+
+agent:
+  enabled: false
+  reliabilityMetrics:
+    enabled: false
+
+castai:
+  apiKey: test-api-key
+  clusterID: test-cluster-id
+
+image:
+  repository: ghcr.io/castai/kvisor/kvisor
+  pullPolicy: IfNotPresent
+  tag: "latest"
