@@ -51,6 +51,9 @@ controller:
     enabled: true
     collector:
       enabled: true
+      clickhouseExporter:
+        enabled: true
+        address: "cost-report-clickhouse-zonal.clickhouse.svc.cluster.local:9000"
       image:
         # Mirrored from otel/opentelemetry-collector-contrib:0.145.0 (Docker Hub blocked by BinAuthz).
         repository: us-docker.pkg.dev/castai-hub/library/otel-collector-contrib

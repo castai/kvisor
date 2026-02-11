@@ -1,0 +1,517 @@
+suite: controller collector sidecar tests
+templates:
+  - controller.yaml
+  - secret.yaml
+  - otel-collector-config.yaml
+  - pod-monitor.yaml
+values:
+  - values.yaml
+tests:
+  # --- Collector disabled (default) ---
+  - it: should not have otel-collector container when controller reliabilityMetrics is disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: Deployment
+        template: controller.yaml
+        documentIndex: 0
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not create controller ConfigMap when reliabilityMetrics disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: otel-collector-config.yaml
+
+  - it: should not create controller PodMonitor when reliabilityMetrics disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: pod-monitor.yaml
+
+  # --- Collector enabled ---
+  - it: should have 2 containers when controller reliabilityMetrics is enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: controller
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: otel-collector
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use correct collector image
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: "otel/opentelemetry-collector-contrib:0.145.0"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use custom collector image when overridden
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.image.repository: us-docker.pkg.dev/castai-hub/library/otel-collector-contrib
+      controller.reliabilityMetrics.collector.image.tag: "0.145.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: "us-docker.pkg.dev/castai-hub/library/otel-collector-contrib:0.145.0"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should set collector security context
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.runAsUser
+          value: 10001
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.runAsNonRoot
+          value: true
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.readOnlyRootFilesystem
+          value: true
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.drop
+          content: ALL
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should set collector resource limits
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 256Mi
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 128Mi
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.cpu
+          value: 50m
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should expose prometheus and telemetry ports on collector
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            containerPort: 9401
+            name: k8s-prom
+            protocol: TCP
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            containerPort: 8889
+            name: k8s-metrics
+            protocol: TCP
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should mount config in collector container
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: controller-otel-collector-config
+            mountPath: /etc/otelcol
+            readOnly: true
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should add ConfigMap volume when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: controller-otel-collector-config
+            configMap:
+              name: RELEASE-NAME-castai-kvisor-controller-otel-collector
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should add checksum annotation for ConfigMap
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - isNotNull:
+          path: spec.template.metadata.annotations["checksum/otel-config"]
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not have checksum annotation when disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+    asserts:
+      - isNull:
+          path: spec.template.metadata.annotations["checksum/otel-config"]
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not affect controller container when collector is enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: controller
+        template: controller.yaml
+        documentIndex: 0
+
+  # --- ConfigMap tests ---
+  - it: should create controller ConfigMap with k8s_cluster receiver
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: ConfigMap
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s_cluster"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "filter/reliability"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  - it: should include reliability metrics in filter
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*pod.*phase"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*container.*restarts"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*deployment.*desired"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*node.*condition_ready"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*job.*failed_pods"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*cronjob.*active_jobs"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*hpa.*current_replicas"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s.*statefulset.*updated_pods"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  - it: should use correct prometheus port in controller ConfigMap
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.prometheusPort: 9401
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "9401"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  # --- PodMonitor tests ---
+  - it: should create controller PodMonitor when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: PodMonitor
+        template: pod-monitor.yaml
+        documentIndex: 0
+      - equal:
+          path: apiVersion
+          value: monitoring.coreos.com/v1
+        template: pod-monitor.yaml
+        documentIndex: 0
+
+  - it: should set correct port names on controller PodMonitor
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: k8s-prom
+        template: pod-monitor.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.podMetricsEndpoints[1].port
+          value: k8s-metrics
+        template: pod-monitor.yaml
+        documentIndex: 0
+
+  - it: should set correct selector labels on controller PodMonitor
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: RELEASE-NAME-castai-kvisor-controller
+        template: pod-monitor.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+        template: pod-monitor.yaml
+        documentIndex: 0
+
+  - it: should add extra labels to controller PodMonitor when podMonitorLabels is set
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.podMonitorLabels:
+        release: kube-prometheus-stack
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - equal:
+          path: metadata.labels.release
+          value: kube-prometheus-stack
+        template: pod-monitor.yaml
+        documentIndex: 0
+
+  # --- RBAC tests ---
+  - it: should add extra ClusterRole rules for k8s_cluster receiver when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - isKind:
+          of: ClusterRole
+        template: controller.yaml
+        documentIndex: 4
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - resourcequotas
+              - replicationcontrollers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - "autoscaling"
+            resources:
+              - horizontalpodautoscalers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+
+  - it: should not have extra ClusterRole rules when reliabilityMetrics disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: ClusterRole
+        template: controller.yaml
+        documentIndex: 4
+      - notContains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - resourcequotas
+              - replicationcontrollers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+      - notContains:
+          path: rules
+          content:
+            apiGroups:
+              - "autoscaling"
+            resources:
+              - horizontalpodautoscalers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+
+  # --- ClickHouse exporter tests ---
+  - it: should include clickhouse exporter in controller ConfigMap when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse.svc:9000"
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "clickhouse:"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "OTEL_CLICKHOUSE_CONFIG_ADDRESS"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  - it: should not include clickhouse exporter in controller ConfigMap when disabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "clickhouse:"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  - it: should include clickhouse in controller pipeline exporters when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse.svc:9000"
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters:.*prometheus.*clickhouse"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  - it: should not include clickhouse in controller pipeline exporters when disabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters: \\[prometheus\\]"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+
+  - it: should inject ClickHouse env vars into otel-collector container when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse.svc:9000"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_CLICKHOUSE_CONFIG_ADDRESS
+            value: clickhouse.svc:9000
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_CLICKHOUSE_CONFIG_USERNAME
+            valueFrom:
+              secretKeyRef:
+                key: username
+                name: otel-clickhouse-credentials
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_CLICKHOUSE_CONFIG_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: otel-clickhouse-credentials
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not inject ClickHouse env vars when clickhouseExporter is disabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_CLICKHOUSE_CONFIG_ADDRESS
+          any: true
+        template: controller.yaml
+        documentIndex: 0
