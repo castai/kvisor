@@ -28,3 +28,34 @@ spec:
     matchLabels:
       {{- include "kvisor.agent.selectorLabels" . | nindent 6 }}
 {{- end }}
+---
+{{- if and .Values.controller.enabled (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}-k8s-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+    {{- with (dig "reliabilityMetrics" "collector" "podMonitorLabels" nil .Values.controller) }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    - honorLabels: true
+      path: /metrics
+      port: k8s-prom
+      scheme: http
+      scrapeTimeout: 30s
+    - honorLabels: false
+      path: /metrics
+      port: k8s-metrics
+      scheme: http
+      scrapeTimeout: 10s
+  selector:
+    matchLabels:
+      {{- include "kvisor.controller.selectorLabels" . | nindent 6 }}
+{{- end }}

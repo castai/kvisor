@@ -429,6 +429,23 @@ tests:
           pattern: "redis.*client.*duration"
         template: otel-collector-config.yaml
 
+  - it: should include dedup guard to drop k8s infrastructure metrics
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "filter/drop-k8s"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "k8s"
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "kube_"
+        template: otel-collector-config.yaml
+
   - it: should not create collector ConfigMap when disabled
     set:
       agent.reliabilityMetrics.enabled: false
