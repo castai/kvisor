@@ -736,14 +736,14 @@ func (s *SysfsStorageInfoProvider) findAWSNitroVolumeIDForDisk(deviceName string
 	}
 
 	serialPath := filepath.Join(devicePath, "device", "serial")
-	serialData, err := os.ReadFile(serialPath)
+	serialData, err := readFileTrimmed(serialPath)
 	if err != nil {
 		return "", fmt.Errorf("error reading device serial of `%s`: %w", deviceName, err)
 	}
 
 	serial := string(serialData)
 
-	if rawSerial, found := strings.CutPrefix("vol", serial); found {
+	if rawSerial, found := strings.CutPrefix(serial, "vol"); found {
 		// We want the serial in format `vol-`.
 		return "vol-" + rawSerial, nil
 	} else {
