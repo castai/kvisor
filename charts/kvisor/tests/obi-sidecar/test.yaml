@@ -387,6 +387,17 @@ tests:
           value: 10s
         template: pod-monitor.yaml
 
+  - it: should drop Prometheus-injected instance label via metricRelabelings
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.podMetricsEndpoints[0].metricRelabelings
+          content:
+            action: labeldrop
+            regex: instance
+        template: pod-monitor.yaml
+
   - it: should set correct selector labels on PodMonitor
     set:
       agent.reliabilityMetrics.enabled: true
@@ -569,6 +580,11 @@ tests:
       - matchRegex:
           path: data["config.yaml"]
           pattern: 'delete_key\(attributes, "telemetry\.sdk\.name"\)'
+        template: otel-collector-config.yaml
+      # Per-instance ID stripped — O(pods × processes) cardinality
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'delete_key\(attributes, "service\.instance\.id"\)'
         template: otel-collector-config.yaml
       # http.route stripped as high-cardinality URL-path attribute
       - matchRegex:
