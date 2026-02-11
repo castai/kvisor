@@ -728,7 +728,10 @@ func (s *SysfsStorageInfoProvider) findAWSNitroVolumeIDForDisk(deviceName string
 
 	// We only care about AWS EBS devices.
 	if string(modelData) != "Amazon Elastic Block Store" {
-		s.log.With("device", deviceName).Debug("got non AWS model")
+		s.log.With(
+			"device", deviceName,
+			"model", string(modelData),
+		).Debug("got non AWS model")
 		return "", nil
 	}
 
