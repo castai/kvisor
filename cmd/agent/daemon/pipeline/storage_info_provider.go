@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -149,6 +150,12 @@ type StorageInfoProvider interface {
 	CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error)
 }
 
+type cloudVolumeCache struct {
+	mu               sync.Mutex
+	cloudVolumesResp *kubepb.GetCloudVolumesResponse
+	lastLoadTime     time.Time
+}
+
 type SysfsStorageInfoProvider struct {
 	log                   *logging.Logger
 	storageState          *storageMetricsState
@@ -158,6 +165,7 @@ type SysfsStorageInfoProvider struct {
 	sysBlockPrefix        string
 	kubeClient            kubepb.KubeAPIClient
 	nodeCache             *freelru.SyncedLRU[string, *kubepb.Node]
+	cloudVolumeCache      cloudVolumeCache
 	wellKnownPathDeviceID map[string]uint64
 }
 
@@ -412,6 +420,29 @@ func (s *SysfsStorageInfoProvider) CollectPodVolumeMetrics(ctx context.Context) 
 	return metrics, nil
 }
 
+func (s *SysfsStorageInfoProvider) getNodeCloudVolumes(ctx context.Context) (*kubepb.GetCloudVolumesResponse, error) {
+	s.cloudVolumeCache.mu.Lock()
+	defer s.cloudVolumeCache.mu.Unlock()
+
+	// HACK(patrick.pichler): This needs some refactoring. It works for now, but we need a better caching strategy.
+
+	// TODO(patrick.pichler): Make cache lifetime configurable
+	if s.cloudVolumeCache.cloudVolumesResp != nil && !s.cloudVolumeCache.lastLoadTime.After(time.Now().Add(30*time.Second)) {
+		return s.cloudVolumeCache.cloudVolumesResp, nil
+	}
+
+	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
+		NodeName: s.nodeName,
+	}, grpc.UseCompressor(gzip.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	s.cloudVolumeCache.cloudVolumesResp = resp
+
+	return resp, nil
+}
+
 // CollectCloudVolumeMetrics retrieves cloud volume metadata from the cloud provider and builds metrics
 func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error) {
 	if s.kubeClient == nil {
@@ -421,9 +452,7 @@ func (s *SysfsStorageInfoProvider) CollectCloudVolumeMetrics(ctx context.Context
 	log := s.log.WithField("collector", "cloud_volumes")
 
 	log.Debugf("requesting cloud volumes for node %s", s.nodeName)
-	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
-		NodeName: s.nodeName,
-	}, grpc.UseCompressor(gzip.Name))
+	resp, err := s.getNodeCloudVolumes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
 	}
@@ -683,11 +712,7 @@ func (s *SysfsStorageInfoProvider) findAWSXenVolumeIDForDisk(ctx context.Context
 	// 	one mapping of vol-1234abc to /dev/sdx
 	// becomes
 	// 		/dev/xvdx
-	// TODO(patrick.pichler): GetCloudVolumes call should be cached. There is no need to
-	// query it that often.
-	resp, err := s.kubeClient.GetCloudVolumes(ctx, &kubepb.GetCloudVolumesRequest{
-		NodeName: s.nodeName,
-	}, grpc.UseCompressor(gzip.Name))
+	resp, err := s.getNodeCloudVolumes(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get cloud volumes for %s: %w", s.nodeName, err)
 	}
