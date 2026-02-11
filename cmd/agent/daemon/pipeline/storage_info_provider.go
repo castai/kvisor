@@ -427,7 +427,7 @@ func (s *SysfsStorageInfoProvider) getNodeCloudVolumes(ctx context.Context) (*ku
 	// HACK(patrick.pichler): This needs some refactoring. It works for now, but we need a better caching strategy.
 
 	// TODO(patrick.pichler): Make cache lifetime configurable
-	if s.cloudVolumeCache.cloudVolumesResp != nil && !s.cloudVolumeCache.lastLoadTime.After(time.Now().Add(30*time.Second)) {
+	if s.cloudVolumeCache.cloudVolumesResp != nil && s.cloudVolumeCache.lastLoadTime.After(time.Now().Add(30*time.Second)) {
 		return s.cloudVolumeCache.cloudVolumesResp, nil
 	}
 
