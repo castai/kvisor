@@ -1,14 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "Prometheus datasource containing OBI reliability metrics",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
   "__requires": [
     {
       "type": "grafana",
@@ -368,63 +358,6 @@
       ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 1
-      },
-      "id": 106,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "title": "Network Flow",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum(rate(obi_network_flow_bytes_total{namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -497,8 +430,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
         {
@@ -506,8 +439,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         },
         {
@@ -515,8 +448,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(service_name) (rate({__name__=~\"http_server_request_duration_seconds_sum|http_server_request_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} avg",
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_sum|http_server_request_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
           "refId": "C"
         }
       ]
@@ -664,8 +597,8 @@
         "x": 0,
         "y": 14
       },
-      "id": 300,
-      "title": "gRPC Server (Inbound)",
+      "id": 800,
+      "title": "HTTP Client (Outbound)",
       "type": "row"
     },
     {
@@ -706,7 +639,7 @@
         "x": 0,
         "y": 15
       },
-      "id": 301,
+      "id": 801,
       "options": {
         "legend": {
           "calcs": [
@@ -721,7 +654,7 @@
           "sort": "desc"
         }
       },
-      "title": "gRPC Server Duration",
+      "title": "HTTP Client Duration",
       "type": "timeseries",
       "targets": [
         {
@@ -729,8 +662,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
         {
@@ -738,8 +671,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         },
         {
@@ -747,8 +680,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(service_name) (rate({__name__=~\"rpc_server_duration_seconds_sum|rpc_server_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(service_name) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} avg",
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_client_request_duration_seconds_sum|http_client_request_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
           "refId": "C"
         }
       ]
@@ -790,6 +723,238 @@
         "w": 8,
         "x": 8,
         "y": 15
+      },
+      "id": 802,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "HTTP Client Rate by Status",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{http_response_status_code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 15
+      },
+      "id": 803,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "HTTP Client Error Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / ignoring(http_response_status_code) group_left sum(rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{http_response_status_code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 300,
+      "title": "gRPC Server (Inbound)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
+      "id": 301,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "gRPC Server Duration",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_server_duration_seconds_sum|rpc_server_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
       },
       "id": 302,
       "options": {
@@ -857,7 +1022,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 15
+        "y": 24
       },
       "id": 303,
       "options": {
@@ -894,7 +1059,239 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 32
+      },
+      "id": 850,
+      "title": "gRPC Client (Outbound)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      },
+      "id": 851,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "gRPC Client Duration",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_client_duration_seconds_sum|rpc_client_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
+      "id": 852,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "gRPC Client Rate by Status",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "gRPC {{rpc_grpc_status_code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
+      "id": 853,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "gRPC Client Error Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",rpc_grpc_status_code!=\"0\"}[$__rate_interval])) / ignoring(rpc_grpc_status_code) group_left sum(rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "gRPC {{rpc_grpc_status_code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
       },
       "id": 400,
       "title": "Database & Redis Client",
@@ -936,7 +1333,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 24
+        "y": 42
       },
       "id": 401,
       "options": {
@@ -961,8 +1358,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
         {
@@ -970,8 +1367,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
       ]
@@ -1012,7 +1409,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 24
+        "y": 42
       },
       "id": 402,
       "options": {
@@ -1036,8 +1433,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(db_operation_name, service_name) (rate(db_client_operation_duration_seconds_count{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} {{db_operation_name}}",
+          "expr": "sum by(k8s_namespace_name, db_operation_name, service_name) (rate(db_client_operation_duration_seconds_count{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} {{db_operation_name}}",
           "refId": "A"
         }
       ]
@@ -1078,7 +1475,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 24
+        "y": 42
       },
       "id": 403,
       "options": {
@@ -1103,8 +1500,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
         {
@@ -1112,8 +1509,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
       ]
@@ -1124,7 +1521,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 50
       },
       "id": 450,
       "title": "Messaging (Kafka)",
@@ -1166,7 +1563,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 33
+        "y": 51
       },
       "id": 451,
       "options": {
@@ -1191,8 +1588,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
         {
@@ -1200,8 +1597,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
       ]
@@ -1242,7 +1639,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 33
+        "y": 51
       },
       "id": 452,
       "options": {
@@ -1266,8 +1663,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(messaging_destination_name, service_name) (rate({__name__=~\"messaging_publish_duration_seconds_count|messaging_publish_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} → {{messaging_destination_name}}",
+          "expr": "sum by(k8s_namespace_name, messaging_destination_name, service_name) (rate({__name__=~\"messaging_publish_duration_seconds_count|messaging_publish_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} → {{messaging_destination_name}}",
           "refId": "A"
         }
       ]
@@ -1308,7 +1705,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 33
+        "y": 51
       },
       "id": 453,
       "options": {
@@ -1333,8 +1730,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
         {
@@ -1342,8 +1739,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
       ]
@@ -1354,7 +1751,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 59
       },
       "id": 500,
       "title": "Infrastructure Overview",
@@ -1395,7 +1792,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 42
+        "y": 60
       },
       "id": 501,
       "options": {
@@ -1417,8 +1814,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}}",
+          "expr": "topk(10, sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}}",
           "refId": "A"
         }
       ]
@@ -1459,7 +1856,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 42
+        "y": 60
       },
       "id": 502,
       "options": {
@@ -1484,8 +1881,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))))",
-          "legendFormat": "{{service_name}}",
+          "expr": "topk(10, histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))))",
+          "legendFormat": "{{k8s_namespace_name}}/{{service_name}}",
           "refId": "A"
         }
       ]
@@ -1496,7 +1893,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 50
+        "y": 68
       },
       "id": 600,
       "title": "Agent Resource Usage",
@@ -1538,7 +1935,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 51
+        "y": 69
       },
       "id": 601,
       "options": {
@@ -1605,7 +2002,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 51
+        "y": 69
       },
       "id": 602,
       "options": {
@@ -1672,7 +2069,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 51
+        "y": 69
       },
       "id": 603,
       "options": {
@@ -1739,7 +2136,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 59
+        "y": 77
       },
       "id": 604,
       "options": {
@@ -1815,7 +2212,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 59
+        "y": 77
       },
       "id": 605,
       "options": {
@@ -1908,7 +2305,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 59
+        "y": 77
       },
       "id": 606,
       "options": {
@@ -1932,7 +2329,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(service_name) ({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\"}))",
+          "expr": "count(count by(k8s_namespace_name, service_name) ({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\"}))",
           "legendFormat": "instrumented services",
           "refId": "A"
         },
@@ -1963,7 +2360,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 67
+        "y": 85
       },
       "id": 700,
       "title": "K8s Cluster State",
@@ -2017,7 +2414,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 68
+        "y": 86
       },
       "id": 701,
       "options": {
@@ -2095,7 +2492,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 68
+        "y": 86
       },
       "id": 702,
       "options": {
@@ -2173,7 +2570,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 68
+        "y": 86
       },
       "id": 703,
       "options": {
@@ -2258,7 +2655,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 76
+        "y": 94
       },
       "id": 704,
       "options": {
@@ -2333,7 +2730,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 76
+        "y": 94
       },
       "id": 705,
       "options": {
@@ -2418,7 +2815,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 76
+        "y": 94
       },
       "id": 706,
       "options": {
@@ -2505,7 +2902,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 84
+        "y": 102
       },
       "id": 707,
       "options": {
@@ -2587,7 +2984,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 84
+        "y": 102
       },
       "id": 708,
       "options": {
@@ -2672,7 +3069,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 84
+        "y": 102
       },
       "id": 709,
       "options": {
@@ -2754,7 +3151,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 92
+        "y": 110
       },
       "id": 710,
       "options": {
@@ -2839,7 +3236,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 92
+        "y": 110
       },
       "id": 711,
       "options": {
@@ -2921,7 +3318,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 92
+        "y": 110
       },
       "id": 712,
       "options": {
@@ -2951,733 +3348,6 @@
           "refId": "A"
         }
       ]
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 100
-      },
-      "id": 800,
-      "title": "HTTP Client (Outbound)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 101
-      },
-      "id": 801,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "HTTP Client Duration",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(service_name) (rate({__name__=~\"http_client_request_duration_seconds_sum|http_client_request_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(service_name) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} avg",
-          "refId": "C"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 101
-      },
-      "id": 802,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "HTTP Client Rate by Status",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{http_response_status_code}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "red",
-            "mode": "fixed"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "percentunit",
-          "max": 1
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 101
-      },
-      "id": 803,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "HTTP Client Error Rate",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / ignoring(http_response_status_code) group_left sum(rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{http_response_status_code}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 109
-      },
-      "id": 850,
-      "title": "gRPC Client (Outbound)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 110
-      },
-      "id": 851,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "gRPC Client Duration",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.99, sum by(service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p99",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} p95",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(service_name) (rate({__name__=~\"rpc_client_duration_seconds_sum|rpc_client_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(service_name) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} avg",
-          "refId": "C"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 110
-      },
-      "id": 852,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "gRPC Client Rate by Status",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "gRPC {{rpc_grpc_status_code}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "red",
-            "mode": "fixed"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "percentunit",
-          "max": 1
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 110
-      },
-      "id": 853,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "gRPC Client Error Rate",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",rpc_grpc_status_code!=\"0\"}[$__rate_interval])) / ignoring(rpc_grpc_status_code) group_left sum(rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "gRPC {{rpc_grpc_status_code}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 118
-      },
-      "id": 900,
-      "title": "Traffic & Throughput",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 119
-      },
-      "id": 901,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "HTTP Response Body Size (p95)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"http_server_response_body_size_bytes_bucket|http_server_response_body_size_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} server resp",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"http_client_response_body_size_bytes_bucket|http_client_response_body_size_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} client resp",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 119
-      },
-      "id": 902,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "HTTP Request Body Size (p95)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"http_server_request_body_size_bytes_bucket|http_server_request_body_size_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} server req",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by(service_name, le) (rate({__name__=~\"http_client_request_body_size_bytes_bucket|http_client_request_body_size_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{service_name}} client req",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "Bps"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "inter-zone"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [10, 10]
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 119
-      },
-      "id": 903,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "Network Flow Rate",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(service_name) (rate(obi_network_flow_bytes_total{namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}}",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by(service_name) (rate(obi_network_inter_zone_bytes_total{namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{service_name}} inter-zone",
-          "refId": "B"
-        }
-      ]
     }
   ],
   "schemaVersion": 39,
@@ -3693,8 +3363,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default",
-          "value": "default"
+          "text": "Prometheus",
+          "value": "Prometheus"
         },
         "hide": 0,
         "includeAll": false,
@@ -3704,7 +3374,7 @@
         "query": "prometheus",
         "queryValue": "",
         "refresh": 1,
-        "regex": "",
+        "regex": "/[Pp]rometheus/",
         "skipUrlSync": false,
         "type": "datasource"
       },
@@ -3806,7 +3476,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "CAST AI \u2014 Reliability Metrics (OBI)",
+  "title": "CAST AI — Reliability Metrics (OBI)",
   "uid": "castai-reliability-obi",
   "version": 1,
   "refresh": "30s"
