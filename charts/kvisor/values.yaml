@@ -197,6 +197,9 @@ agent:
           memory: 128Mi
       # Port for the collector's Prometheus exporter (scraped by cluster Prometheus).
       prometheusPort: 9400
+      # Optional ClickHouse exporter for reliability scoring pipeline.
+      clickhouseExporter:
+        enabled: false
 
 controller:
   enabled: true

@@ -199,6 +199,45 @@ tests:
         template: agent.yaml
         documentIndex: 0
 
+  - it: should add projected SA token volume for OBI K8s metadata
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: obi-sa-token
+            projected:
+              sources:
+                - serviceAccountToken:
+                    expirationSeconds: 3600
+                    path: token
+                - configMap:
+                    name: kube-root-ca.crt
+                    items:
+                      - key: ca.crt
+                        path: ca.crt
+                - downwardAPI:
+                    items:
+                      - path: namespace
+                        fieldRef:
+                          fieldPath: metadata.namespace
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should mount SA token in obi container for K8s API access
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: obi-sa-token
+            mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+            readOnly: true
+        template: agent.yaml
+        documentIndex: 0
+
   - it: should mount config in collector container
     set:
       agent.reliabilityMetrics.enabled: true
@@ -437,23 +476,14 @@ tests:
           path: data["config.yaml"]
           pattern: "rpc.*client.*duration"
         template: otel-collector-config.yaml
-      # Body size metrics (byte throughput)
+      # Messaging latency
       - matchRegex:
           path: data["config.yaml"]
-          pattern: "http.*server.*body.*size"
+          pattern: "messaging.*publish.*duration"
         template: otel-collector-config.yaml
       - matchRegex:
           path: data["config.yaml"]
-          pattern: "http.*client.*body.*size"
-        template: otel-collector-config.yaml
-      # OBI network flow counters
-      - matchRegex:
-          path: data["config.yaml"]
-          pattern: "obi.*network.*flow"
-        template: otel-collector-config.yaml
-      - matchRegex:
-          path: data["config.yaml"]
-          pattern: "obi.*network.*inter.*zone"
+          pattern: "messaging.*process.*duration"
         template: otel-collector-config.yaml
 
   - it: should include dedup guard to drop k8s infrastructure metrics
@@ -473,10 +503,89 @@ tests:
           pattern: "kube_"
         template: otel-collector-config.yaml
 
+  - it: should not include body size or network flow metrics in golden-signals filter
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "body.*size"
+        template: otel-collector-config.yaml
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "obi.*network"
+        template: otel-collector-config.yaml
+
   - it: should not create collector ConfigMap when disabled
     set:
       agent.reliabilityMetrics.enabled: false
     asserts:
       - hasDocuments:
           count: 0
+        template: otel-collector-config.yaml
+
+  # --- ClickHouse dedicated pipeline tests ---
+  - it: should have dedicated metrics/clickhouse pipeline when clickhouseExporter enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.collector.clickhouseExporter.enabled: true
+      agent.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse:9000"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "metrics/clickhouse:"
+        template: otel-collector-config.yaml
+
+  - it: should not include clickhouse in main metrics pipeline exporters
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.collector.clickhouseExporter.enabled: true
+      agent.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse:9000"
+    asserts:
+      # Main pipeline has only prometheus
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters: \\[prometheus\\]"
+        template: otel-collector-config.yaml
+      # ClickHouse pipeline has only clickhouse
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters: \\[clickhouse\\]"
+        template: otel-collector-config.yaml
+
+  - it: should strip resource and http.route attributes in shared cardinality processor
+    set:
+      agent.reliabilityMetrics.enabled: true
+    asserts:
+      # Resource attributes stripped to prevent per-node series multiplier
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'delete_key\(attributes, "host\.id"\)'
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'delete_key\(attributes, "host\.name"\)'
+        template: otel-collector-config.yaml
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'delete_key\(attributes, "telemetry\.sdk\.name"\)'
+        template: otel-collector-config.yaml
+      # http.route stripped as high-cardinality URL-path attribute
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'delete_key\(attributes, "http\.route"\)'
+        template: otel-collector-config.yaml
+
+  - it: should not have clickhouse pipeline when clickhouseExporter disabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.collector.clickhouseExporter.enabled: false
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "metrics/clickhouse"
+        template: otel-collector-config.yaml
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "clickhouse:"
         template: otel-collector-config.yaml
