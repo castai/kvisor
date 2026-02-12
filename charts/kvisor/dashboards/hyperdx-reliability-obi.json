@@ -1,0 +1,1570 @@
+{
+  "version": "0.1.0",
+  "name": "CAST AI — Reliability Metrics (OBI)",
+  "tiles": [
+    {
+      "id": "row-overview",
+      "x": 0,
+      "y": 0,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "Overview",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## Overview\nGolden signal metrics (RED) collected via OpenTelemetry eBPF Instrumentation (OBI)",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "overview-http-request-rate",
+      "x": 0,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "config": {
+        "name": "HTTP Request Rate",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "http.server.request.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "overview-http-error-rate",
+      "x": 4,
+      "y": 2,
+      "w": 6,
+      "h": 4,
+      "config": {
+        "name": "HTTP Error Rate (4xx+5xx)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "http.server.request.duration.count"
+          }
+        ],
+        "where": "Attributes['http.response.status_code'] >= '400'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "overview-http-p95-latency",
+      "x": 10,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "config": {
+        "name": "HTTP P95 Latency",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.request.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "overview-grpc-request-rate",
+      "x": 14,
+      "y": 2,
+      "w": 6,
+      "h": 4,
+      "config": {
+        "name": "gRPC Request Rate",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "rpc.server.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "overview-http-client-p95",
+      "x": 20,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "config": {
+        "name": "HTTP Client P95",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.client.request.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "row-http-server",
+      "x": 0,
+      "y": 6,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "HTTP Server Inbound",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## HTTP Server (Inbound)\nRequest duration, rate, and error rate for inbound HTTP traffic",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "http-server-duration",
+      "x": 0,
+      "y": 8,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "HTTP Server Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "http.server.request.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "http.server.request.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "http.server.request.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "http-server-request-rate",
+      "x": 8,
+      "y": 8,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "HTTP Server Request Rate by Status",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "http.server.request.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "Attributes['http.response.status_code']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "http-server-error-rate",
+      "x": 16,
+      "y": 8,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "HTTP Server Error Rate (4xx+5xx)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "errors",
+            "metricType": "sum",
+            "metricName": "http.server.request.duration.count"
+          }
+        ],
+        "where": "Attributes['http.response.status_code'] >= '400'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "row-http-client",
+      "x": 0,
+      "y": 16,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "HTTP Client Outbound",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## HTTP Client (Outbound)\nRequest duration, rate, and error rate for outbound HTTP traffic",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "http-client-duration",
+      "x": 0,
+      "y": 18,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "HTTP Client Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "http.client.request.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "http.client.request.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "http.client.request.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "http-client-request-rate",
+      "x": 8,
+      "y": 18,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "HTTP Client Request Rate by Status",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "http.client.request.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "Attributes['http.response.status_code']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "http-client-error-rate",
+      "x": 16,
+      "y": 18,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "HTTP Client Error Rate (4xx+5xx)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "errors",
+            "metricType": "sum",
+            "metricName": "http.client.request.duration.count"
+          }
+        ],
+        "where": "Attributes['http.response.status_code'] >= '400'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "row-grpc-server",
+      "x": 0,
+      "y": 26,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "gRPC Server Inbound",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## gRPC Server (Inbound)\nRPC duration, rate, and error rate for inbound gRPC traffic",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "grpc-server-duration",
+      "x": 0,
+      "y": 28,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "gRPC Server Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "rpc.server.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "rpc.server.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "rpc.server.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "grpc-server-request-rate",
+      "x": 8,
+      "y": 28,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "gRPC Server Rate by Status",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "rpc.server.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "Attributes['rpc.grpc.status_code']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "grpc-server-error-rate",
+      "x": 16,
+      "y": 28,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "gRPC Server Error Rate (non-OK)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "errors",
+            "metricType": "sum",
+            "metricName": "rpc.server.duration.count"
+          }
+        ],
+        "where": "Attributes['rpc.grpc.status_code'] != '0'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "row-grpc-client",
+      "x": 0,
+      "y": 36,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "gRPC Client Outbound",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## gRPC Client (Outbound)\nRPC duration, rate, and error rate for outbound gRPC traffic",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "grpc-client-duration",
+      "x": 0,
+      "y": 38,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "gRPC Client Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "rpc.client.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "rpc.client.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "rpc.client.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "grpc-client-request-rate",
+      "x": 8,
+      "y": 38,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "gRPC Client Rate by Status",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "rpc.client.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "Attributes['rpc.grpc.status_code']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "grpc-client-error-rate",
+      "x": 16,
+      "y": 38,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "gRPC Client Error Rate (non-OK)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "errors",
+            "metricType": "sum",
+            "metricName": "rpc.client.duration.count"
+          }
+        ],
+        "where": "Attributes['rpc.grpc.status_code'] != '0'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "row-db-redis",
+      "x": 0,
+      "y": 46,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "Database & Redis Client",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## Database & Redis Client\nSQL and Redis client operation duration and rates",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "db-sql-duration",
+      "x": 0,
+      "y": 48,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "SQL Client Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "db.client.operation.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "db.client.operation.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "db.client.operation.duration"
+          }
+        ],
+        "where": "Attributes['db.system.name'] = 'other_sql'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "db-sql-query-rate",
+      "x": 8,
+      "y": 48,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "SQL Query Rate by Operation",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "db.client.operation.duration.count"
+          }
+        ],
+        "where": "Attributes['db.system.name'] = 'other_sql'",
+        "whereLanguage": "sql",
+        "groupBy": [
+          {
+            "valueExpression": "Attributes['db.operation.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "db-redis-duration",
+      "x": 16,
+      "y": 48,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "Redis Client Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "db.client.operation.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "db.client.operation.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "db.client.operation.duration"
+          }
+        ],
+        "where": "Attributes['db.system.name'] = 'redis'",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "row-messaging",
+      "x": 0,
+      "y": 56,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "Messaging / Kafka",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## Messaging / Kafka\nPublish and process duration and rates\n\n*Note: messaging.publish.duration and messaging.process.duration may not have data if no Kafka traffic is present*",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "messaging-publish-duration",
+      "x": 0,
+      "y": 58,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "Publish Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "messaging.publish.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "messaging.publish.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "messaging.publish.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "messaging-publish-rate",
+      "x": 8,
+      "y": 58,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "Publish Rate by Destination",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "messaging.publish.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "Attributes['messaging.destination.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "messaging-process-duration",
+      "x": 16,
+      "y": 58,
+      "w": 8,
+      "h": 8,
+      "config": {
+        "name": "Process Duration (p99 / p95 / p50)",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p99",
+            "metricType": "histogram",
+            "metricName": "messaging.process.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.95,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p95",
+            "metricType": "histogram",
+            "metricName": "messaging.process.duration"
+          },
+          {
+            "aggFn": "quantile",
+            "level": 0.5,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "p50",
+            "metricType": "histogram",
+            "metricName": "messaging.process.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": "row-infrastructure",
+      "x": 0,
+      "y": 66,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "Infrastructure Overview",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## Infrastructure Overview\nTop services by request rate and latency",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "infra-top-services-rate",
+      "x": 0,
+      "y": 68,
+      "w": 12,
+      "h": 8,
+      "config": {
+        "name": "Top 10 Services by Request Rate",
+        "source": "Logs",
+        "displayType": "stacked_bar",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "sum",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "sum",
+            "metricName": "http.server.request.duration.count"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ServiceName"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        },
+        "limit": {
+          "limit": 10
+        }
+      }
+    },
+    {
+      "id": "infra-p99-by-service",
+      "x": 12,
+      "y": 68,
+      "w": 12,
+      "h": 8,
+      "config": {
+        "name": "P99 Latency by Service",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "quantile",
+            "level": 0.99,
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "histogram",
+            "metricName": "http.server.request.duration"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['service.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "time",
+          "mantissa": 2,
+          "unit": "s"
+        },
+        "limit": {
+          "limit": 10
+        }
+      }
+    },
+    {
+      "id": "row-k8s-cluster",
+      "x": 0,
+      "y": 76,
+      "w": 24,
+      "h": 2,
+      "config": {
+        "name": "K8s Cluster State",
+        "source": "Logs",
+        "displayType": "markdown",
+        "markdown": "## Kubernetes Cluster State\nKSM metrics exported by the Kvisor Controller OTel pipeline",
+        "select": [],
+        "where": ""
+      }
+    },
+    {
+      "id": "k8s-pods-not-running",
+      "x": 0,
+      "y": 78,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Pods NOT Running",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "count",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "gauge",
+            "metricName": "k8s.pod.phase"
+          }
+        ],
+        "where": "Value != 2",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-container-restarts",
+      "x": 6,
+      "y": 78,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Container Restarts",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "max",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "gauge",
+            "metricName": "k8s.container.restarts"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.pod.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        },
+        "limit": {
+          "limit": 10
+        }
+      }
+    },
+    {
+      "id": "k8s-nodes-not-ready",
+      "x": 12,
+      "y": 78,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Nodes NOT Ready",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "count",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "gauge",
+            "metricName": "k8s.node.condition_ready"
+          }
+        ],
+        "where": "Value = 0",
+        "whereLanguage": "sql",
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-deployment-available",
+      "x": 18,
+      "y": 78,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Deployment Available Replicas",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "available",
+            "metricType": "gauge",
+            "metricName": "k8s.deployment.available"
+          },
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "desired",
+            "metricType": "gauge",
+            "metricName": "k8s.deployment.desired"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.deployment.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        },
+        "limit": {
+          "limit": 10
+        }
+      }
+    },
+    {
+      "id": "k8s-daemonset-readiness",
+      "x": 0,
+      "y": 86,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "DaemonSet Ready vs Desired",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "ready",
+            "metricType": "gauge",
+            "metricName": "k8s.daemonset.ready_nodes"
+          },
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "desired",
+            "metricType": "gauge",
+            "metricName": "k8s.daemonset.desired_scheduled_nodes"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.daemonset.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-job-failures",
+      "x": 6,
+      "y": 86,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Job Failed Pods",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "max",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "gauge",
+            "metricName": "k8s.job.failed_pods"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.job.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        },
+        "limit": {
+          "limit": 10
+        }
+      }
+    },
+    {
+      "id": "k8s-cronjob-active",
+      "x": 12,
+      "y": 86,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "CronJob Active Jobs",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "gauge",
+            "metricName": "k8s.cronjob.active_jobs"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.cronjob.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-hpa-saturation",
+      "x": 18,
+      "y": 86,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "HPA Current vs Max Replicas",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "current",
+            "metricType": "gauge",
+            "metricName": "k8s.hpa.current_replicas"
+          },
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "max",
+            "metricType": "gauge",
+            "metricName": "k8s.hpa.max_replicas"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.hpa.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-hpa-scaling-lag",
+      "x": 0,
+      "y": 94,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "HPA Desired vs Current Replicas",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "desired",
+            "metricType": "gauge",
+            "metricName": "k8s.hpa.desired_replicas"
+          },
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "current",
+            "metricType": "gauge",
+            "metricName": "k8s.hpa.current_replicas"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.hpa.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-statefulset-rollout",
+      "x": 6,
+      "y": 94,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "StatefulSet Updated vs Desired",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "updated",
+            "metricType": "gauge",
+            "metricName": "k8s.statefulset.updated_pods"
+          },
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "desired",
+            "metricType": "gauge",
+            "metricName": "k8s.statefulset.desired_pods"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.statefulset.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-job-active",
+      "x": 12,
+      "y": 94,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Job Active Pods",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "metricType": "gauge",
+            "metricName": "k8s.job.active_pods"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.job.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "number",
+          "mantissa": 0
+        }
+      }
+    },
+    {
+      "id": "k8s-memory-limit-request",
+      "x": 18,
+      "y": 94,
+      "w": 6,
+      "h": 8,
+      "config": {
+        "name": "Container Memory Limit vs Request",
+        "source": "Logs",
+        "displayType": "line",
+        "seriesReturnType": "column",
+        "select": [
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "limit",
+            "metricType": "gauge",
+            "metricName": "k8s.container.memory_limit"
+          },
+          {
+            "aggFn": "last_value",
+            "aggCondition": "",
+            "valueExpression": "Value",
+            "alias": "request",
+            "metricType": "gauge",
+            "metricName": "k8s.container.memory_request"
+          }
+        ],
+        "where": "",
+        "whereLanguage": "lucene",
+        "groupBy": [
+          {
+            "valueExpression": "ResourceAttributes['k8s.pod.name']"
+          }
+        ],
+        "granularity": "auto",
+        "numberFormat": {
+          "output": "byte",
+          "mantissa": 1
+        },
+        "limit": {
+          "limit": 10
+        }
+      }
+    }
+  ],
+  "filters": [
+    {
+      "id": "filter-service",
+      "type": "QUERY_EXPRESSION",
+      "name": "Service",
+      "expression": "ServiceName",
+      "source": "Logs"
+    },
+    {
+      "id": "filter-namespace",
+      "type": "QUERY_EXPRESSION",
+      "name": "Namespace",
+      "expression": "ResourceAttributes['service.namespace']",
+      "source": "Logs"
+    }
+  ]
+}
