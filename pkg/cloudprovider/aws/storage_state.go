@@ -86,20 +86,15 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []strin
 			Zone:        aws.ToString(vol.AvailabilityZone),
 		}
 
-		attachments := make([]types.AWSDiskAttachment, len(vol.Attachments))
-		for i, v := range vol.Attachments {
+		attachments := make(map[string]types.AWSVolumeDetails, len(vol.Attachments))
+		for _, v := range vol.Attachments {
 			if v.InstanceId == nil || v.Device == nil {
 				continue
 			}
 
-			attachments[i] = types.AWSDiskAttachment{
-				InstanceID: aws.ToString(v.InstanceId),
-				Device:     aws.ToString(v.Device),
+			attachments[*v.InstanceId] = types.AWSVolumeDetails{
+				Device: aws.ToString(v.Device),
 			}
-		}
-
-		volume.AwsDetails = &types.AWSDetails{
-			Attachments: attachments,
 		}
 
 		// Size is in GiB, convert to bytes
@@ -121,7 +116,14 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []strin
 		for _, attachment := range vol.Attachments {
 			if attachment.InstanceId != nil {
 				instanceID := aws.ToString(attachment.InstanceId)
-				instanceVolumes[instanceID] = append(instanceVolumes[instanceID], volume)
+				instanceVolume := volume
+
+				volDetails, found := attachments[instanceID]
+				if found {
+					instanceVolume.AwsDetails = &volDetails
+				}
+
+				instanceVolumes[instanceID] = append(instanceVolumes[instanceID], instanceVolume)
 			}
 		}
 	}

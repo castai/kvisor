@@ -726,11 +726,8 @@ func (s *SysfsStorageInfoProvider) findAWSXenVolumeIDForDisk(ctx context.Context
 			continue
 		}
 
-		for _, a := range awsInfo.Attachments {
-			if a.Device == devicePath || a.Device == adjustedDevicePath {
-				return cvi.VolumeId, nil
-			}
-
+		if awsInfo.Device == devicePath || awsInfo.Device == adjustedDevicePath {
+			return cvi.VolumeId, nil
 		}
 	}
 

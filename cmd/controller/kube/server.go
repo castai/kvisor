@@ -308,20 +308,15 @@ func (s *Server) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolume
 
 		switch cloudProvider {
 		case types.TypeAWS:
-			attachments := make([]*kubepb.AWSDiskAttachment, len(vol.AwsDetails.Attachments))
-			if len(attachments) == 0 {
+			awsDetails := vol.AwsDetails
+
+			if awsDetails == nil {
 				break
-			}
-			for i, a := range vol.AwsDetails.Attachments {
-				attachments[i] = &kubepb.AWSDiskAttachment{
-					InstanceId: a.InstanceID,
-					Device:     a.Device,
-				}
 			}
 
 			volInfo.CloudSpecific = &kubepb.CloudVolumeInfo_AwsInfo{
 				AwsInfo: &kubepb.AWSCloudVolumeInfo{
-					Attachments: attachments,
+					Device: awsDetails.Device,
 				},
 			}
 		}

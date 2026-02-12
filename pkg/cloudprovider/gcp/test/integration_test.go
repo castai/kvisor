@@ -126,6 +126,10 @@ func TestGetStorageState(t *testing.T) {
 			t.Logf("    Encrypted: %v", v.Encrypted)
 			t.Logf("    IOPS: %d", v.IOPS)
 			t.Logf("    ThroughputBytes: %d B/s", v.ThroughputBytes)
+			if v.GCPDetails != nil {
+				t.Log("    GCPDetails:")
+				t.Log("      DeviceName: ", v.GCPDetails.DeviceName)
+			}
 		}
 	}
 }

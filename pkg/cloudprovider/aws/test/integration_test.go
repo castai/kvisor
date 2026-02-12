@@ -12,6 +12,7 @@ import (
 
 	"github.com/castai/kvisor/pkg/cloudprovider/aws"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+	"github.com/castai/logging"
 )
 
 // Use .env file or run tests with environment variables:
@@ -54,7 +55,7 @@ func TestGetStorageState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := t.Context()
 
-	provider, err := aws.NewProvider(ctx, nil, cfg)
+	provider, err := aws.NewProvider(ctx, logging.New(), cfg)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
@@ -88,6 +89,10 @@ func TestGetStorageState(t *testing.T) {
 			t.Logf("    Encrypted: %v", v.Encrypted)
 			t.Logf("    IOPS: %d", v.IOPS)
 			t.Logf("    ThroughputBytes: %d B/s", v.ThroughputBytes)
+			if v.AwsDetails != nil {
+				t.Log("    AWSDetails:")
+				t.Log("      Device: ", v.AwsDetails.Device)
+			}
 		}
 	}
 }
@@ -96,7 +101,7 @@ func TestRefreshNetworkState(t *testing.T) {
 	cfg := getTestConfig(t)
 	ctx := context.Background()
 
-	provider, err := aws.NewProvider(ctx, nil, cfg)
+	provider, err := aws.NewProvider(ctx, logging.New(), cfg)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}

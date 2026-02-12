@@ -195,13 +195,12 @@ message GetCloudVolumesResponse {
   repeated CloudVolumeInfo volumes = 1;
 }
 
-message AWSDiskAttachment {
-  string instance_id = 1;
-  string device = 2;
+message AWSCloudVolumeInfo {
+  string device = 1;
 }
 
-message AWSCloudVolumeInfo {
-  repeated AWSDiskAttachment attachments = 1;
+message GCPCloudVolumeInfo {
+  string device_name = 1;
 }
 
 message CloudVolumeInfo {
@@ -217,5 +216,6 @@ message CloudVolumeInfo {
 
   oneof cloud_specific {
     AWSCloudVolumeInfo aws_info = 10;
+    GCPCloudVolumeInfo gcp_info = 11;
   }
 }
