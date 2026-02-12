@@ -14,7 +14,7 @@ golden signal metrics — zero-code, zero-SDK, works on any Go/generic binary.
 │                  to processes         ↓                              │
 │                  on open ports       filter/golden-signals           │
 │                       │              transform/cardinality           │
-│                       │              batch (1024, 10s)               │
+│                       │              batch (1024, 1s)                │
 │                       └──OTLP──→     memory_limiter (100 MiB)       │
 │                                      ↓                              │
 │                                      prometheus exporter :9400      │
@@ -33,9 +33,10 @@ golden signal metrics — zero-code, zero-SDK, works on any Go/generic binary.
 | Metric                           | Signal  | Source          |
 |----------------------------------|---------|-----------------|
 | `http.server.request.duration`   | Latency | HTTP server     |
+| `http.client.request.duration`   | Latency | HTTP client     |
 | `rpc.server.duration`            | Latency | gRPC server     |
-| `sql.client.duration`            | Latency | database/sql    |
-| `redis.client.duration`          | Latency | go-redis        |
+| `rpc.client.duration`            | Latency | gRPC client     |
+| `db.client.operation.duration`   | Latency | DB clients (Redis, SQL, etc.) |
 | `messaging.publish.duration`     | Latency | Kafka producer  |
 | `messaging.process.duration`     | Latency | Kafka consumer  |
 
@@ -49,7 +50,7 @@ High-cardinality attributes stripped before Prometheus export:
 
 Retained for dashboards/SLOs: `http.request.method`, `http.response.status_code`,
 `service.name`, `rpc.method`, `rpc.service`, `rpc.grpc.status_code`,
-`db.system`, `messaging.system`, `messaging.destination.name`.
+`db.system.name`, `db.operation.name`, `messaging.system`, `messaging.destination.name`.
 
 ## Values files
 
@@ -134,13 +135,13 @@ kubectl --context <CONTEXT> -n monitoring exec -it prometheus-kube-prometheus-st
 - **PodMonitor labels vary by cluster** — check `kubectl get prometheus -A -o jsonpath='{.items[*].spec.podMonitorSelector}'` to see if the target Prometheus requires specific labels.
 - **nil-safety in templates** — use `dig` for optional nested values (e.g. `dig "reliabilityMetrics" "enabled" false .Values.agent`).
 - **Scratch containers** — all 3 containers are minimal/scratch, no shell or debugging tools.
-- **OBI v0.4.1 support matrix**: HTTP server, gRPC server, HTTP client, Kafka (segmentio/kafka-go). Does NOT support: `database/sql` client or `go-redis` client metrics yet.
+- **OBI v0.4.1 support matrix**: HTTP server/client, gRPC server/client, DB clients (`db.client.operation.duration` with `db.system.name` attribute), Kafka (segmentio/kafka-go).
 
 ## Tests
 
 ```shell
 helm unittest charts/kvisor -f tests/obi-sidecar/test.yaml
-# 26 tests covering: sidecar injection, collector config, PodMonitor, RBAC, security contexts
+# 35 tests covering: sidecar injection, collector config, PodMonitor, RBAC, security contexts
 ```
 
 ## Future: push-based pipeline (no Prometheus dependency)

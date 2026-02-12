@@ -104,9 +104,11 @@ data:
               #        k8s.node.name
 
       # Batch before export to reduce scrape overhead.
+      # Keep timeout low (1s) so Prometheus exporter counters increment
+      # near-continuously — avoids step-function spikes in rate() queries.
       batch:
         send_batch_size: 1024
-        timeout: 10s
+        timeout: 1s
 
       memory_limiter:
         check_interval: 5s
@@ -232,7 +234,7 @@ data:
 
       batch:
         send_batch_size: 1024
-        timeout: 10s
+        timeout: 1s
 
       memory_limiter:
         check_interval: 5s

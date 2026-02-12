@@ -99,7 +99,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "refId": "A"
         }
       ]
@@ -165,7 +165,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "100 * sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "100 * sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "refId": "A"
         }
       ]
@@ -230,7 +230,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "refId": "A"
         }
       ]
@@ -287,7 +287,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum(rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "refId": "A"
         }
       ]
@@ -352,7 +352,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "refId": "A"
         }
       ]
@@ -430,7 +430,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -439,7 +439,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         },
@@ -448,7 +448,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_sum|http_server_request_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_sum|http_server_request_duration_sum\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
           "refId": "C"
         }
@@ -514,7 +514,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{http_response_status_code}}",
           "refId": "A"
         }
@@ -583,7 +583,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / ignoring(http_response_status_code) group_left sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / ignoring(http_response_status_code) group_left sum(rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{http_response_status_code}}",
           "refId": "A"
         }
@@ -662,7 +662,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -671,7 +671,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_client_request_duration_seconds_bucket|http_client_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         },
@@ -680,7 +680,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_client_request_duration_seconds_sum|http_client_request_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_client_request_duration_seconds_sum|http_client_request_duration_sum\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
           "refId": "C"
         }
@@ -746,7 +746,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{http_response_status_code}}",
           "refId": "A"
         }
@@ -815,7 +815,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / ignoring(http_response_status_code) group_left sum(rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(http_response_status_code) (rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\",http_response_status_code=~\"(4|5).*\"}[$__rate_interval])) / ignoring(http_response_status_code) group_left sum(rate({__name__=~\"http_client_request_duration_seconds_count|http_client_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{http_response_status_code}}",
           "refId": "A"
         }
@@ -894,7 +894,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -903,7 +903,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_server_duration_seconds_bucket|rpc_server_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         },
@@ -912,7 +912,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_server_duration_seconds_sum|rpc_server_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_server_duration_seconds_sum|rpc_server_duration_sum\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
           "refId": "C"
         }
@@ -978,7 +978,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "gRPC {{rpc_grpc_status_code}}",
           "refId": "A"
         }
@@ -1047,7 +1047,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",rpc_grpc_status_code!=\"0\"}[$__rate_interval])) / ignoring(rpc_grpc_status_code) group_left sum(rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\",rpc_grpc_status_code!=\"0\"}[$__rate_interval])) / ignoring(rpc_grpc_status_code) group_left sum(rate({__name__=~\"rpc_server_duration_seconds_count|rpc_server_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "gRPC {{rpc_grpc_status_code}}",
           "refId": "A"
         }
@@ -1126,7 +1126,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -1135,7 +1135,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"rpc_client_duration_seconds_bucket|rpc_client_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         },
@@ -1144,7 +1144,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_client_duration_seconds_sum|rpc_client_duration_sum\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_client_duration_seconds_sum|rpc_client_duration_sum\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])) / sum by(k8s_namespace_name, service_name) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} avg",
           "refId": "C"
         }
@@ -1210,7 +1210,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "gRPC {{rpc_grpc_status_code}}",
           "refId": "A"
         }
@@ -1279,7 +1279,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\",rpc_grpc_status_code!=\"0\"}[$__rate_interval])) / ignoring(rpc_grpc_status_code) group_left sum(rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(rpc_grpc_status_code) (rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\",rpc_grpc_status_code!=\"0\"}[$__rate_interval])) / ignoring(rpc_grpc_status_code) group_left sum(rate({__name__=~\"rpc_client_duration_seconds_count|rpc_client_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "gRPC {{rpc_grpc_status_code}}",
           "refId": "A"
         }
@@ -1358,7 +1358,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -1367,7 +1367,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"other_sql\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
@@ -1433,7 +1433,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(k8s_namespace_name, db_operation_name, service_name) (rate(db_client_operation_duration_seconds_count{db_system_name=\"other_sql\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(k8s_namespace_name, db_operation_name, service_name) (rate(db_client_operation_duration_seconds_count{db_system_name=\"other_sql\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} {{db_operation_name}}",
           "refId": "A"
         }
@@ -1500,7 +1500,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -1509,7 +1509,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate(db_client_operation_duration_seconds_bucket{db_system_name=\"redis\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
@@ -1588,7 +1588,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -1597,7 +1597,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_publish_duration_seconds_bucket|messaging_publish_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
@@ -1663,7 +1663,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by(k8s_namespace_name, messaging_destination_name, service_name) (rate({__name__=~\"messaging_publish_duration_seconds_count|messaging_publish_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by(k8s_namespace_name, messaging_destination_name, service_name) (rate({__name__=~\"messaging_publish_duration_seconds_count|messaging_publish_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} → {{messaging_destination_name}}",
           "refId": "A"
         }
@@ -1730,7 +1730,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p99",
           "refId": "A"
         },
@@ -1739,7 +1739,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"messaging_process_duration_seconds_bucket|messaging_process_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}} p95",
           "refId": "B"
         }
@@ -1814,7 +1814,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
+          "expr": "topk(10, sum by(k8s_namespace_name, service_name) (rate({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}}",
           "refId": "A"
         }
@@ -1881,7 +1881,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",namespace=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))))",
+          "expr": "topk(10, histogram_quantile(0.99, sum by(k8s_namespace_name, service_name, le) (rate({__name__=~\"http_server_request_duration_seconds_bucket|http_server_request_duration_bucket\",k8s_namespace_name=~\"$namespace\",service_name=~\"$service\"}[$__rate_interval]))))",
           "legendFormat": "{{k8s_namespace_name}}/{{service_name}}",
           "refId": "A"
         }
@@ -2329,7 +2329,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(k8s_namespace_name, service_name) ({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\"}))",
+          "expr": "count(count by(k8s_namespace_name, service_name) ({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\"}))",
           "legendFormat": "instrumented services",
           "refId": "A"
         },
@@ -2348,7 +2348,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count({__name__=~\"http_server_request_duration_seconds_count|rpc_server_duration_seconds_count|messaging_publish_duration_seconds_count|messaging_process_duration_seconds_count\",namespace=~\"$namespace\"})",
+          "expr": "count({__name__=~\"http_server_request_duration_seconds_count|rpc_server_duration_seconds_count|messaging_publish_duration_seconds_count|messaging_process_duration_seconds_count\",k8s_namespace_name=~\"$namespace\"})",
           "legendFormat": "active time series",
           "refId": "C"
         }
@@ -3392,7 +3392,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\"}, namespace)",
+        "definition": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\"}, k8s_namespace_name)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -3400,7 +3400,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\"}, namespace)",
+          "query": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\"}, k8s_namespace_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -3423,7 +3423,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\"}, service_name)",
+        "definition": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\"}, service_name)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -3431,7 +3431,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",namespace=~\"$namespace\"}, service_name)",
+          "query": "label_values({__name__=~\"http_server_request_duration_seconds_count|http_server_request_duration_count\",k8s_namespace_name=~\"$namespace\"}, service_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
