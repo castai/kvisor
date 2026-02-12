@@ -427,7 +427,7 @@ func (s *SysfsStorageInfoProvider) getNodeCloudVolumes(ctx context.Context) (*ku
 	// HACK(patrick.pichler): This needs some refactoring. It works for now, but we need a better caching strategy.
 
 	// TODO(patrick.pichler): Make cache lifetime configurable
-	if s.cloudVolumeCache.cloudVolumesResp != nil && s.cloudVolumeCache.lastLoadTime.After(time.Now().Add(30*time.Second)) {
+	if s.cloudVolumeCache.cloudVolumesResp != nil && s.cloudVolumeCache.lastLoadTime.After(time.Now().Add(-30*time.Second)) {
 		return s.cloudVolumeCache.cloudVolumesResp, nil
 	}
 
@@ -863,7 +863,7 @@ func readFileTrimmed(path string) ([]byte, error) {
 	return bytes.TrimSpace(data), nil
 }
 
-func (s *SysfsStorageInfoProvider) findGCPVolumeIDForSCSIDisk(deviceName string) (string, error) {
+func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForSCSIDisk(deviceName string) (string, error) {
 	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
 	vendorPath := filepath.Join(devicePath, "device", "vendor")
 
@@ -892,7 +892,7 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForSCSIDisk(deviceName string)
 	return volumeID, nil
 }
 
-func (s *SysfsStorageInfoProvider) findGCPVolumeIDForNVMeDisk(deviceName string) (string, error) {
+func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForNVMeDisk(deviceName string) (string, error) {
 	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
 	deviceSerialPath := filepath.Join(devicePath, "device", "serial")
 
@@ -944,10 +944,10 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForNVMeDisk(deviceName string)
 	return "", nil
 }
 
-func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (string, error) {
+func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
 	var (
-		volumeID string
-		err      error
+		resolvedDeviceName string
+		err                error
 	)
 
 	// GCP mounts disks using SCSI or NVMe. All cloud backed volume devices should have either `sd` or `nvme` prefix.
@@ -955,11 +955,11 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (st
 	case strings.HasPrefix(deviceName, "sd"):
 		deviceName = extractSCSIDiskName(deviceName)
 
-		volumeID, err = s.findGCPVolumeIDForSCSIDisk(deviceName)
+		resolvedDeviceName, err = s.extractGCPDeviceNameForSCSIDisk(deviceName)
 	case strings.HasPrefix(deviceName, "nvme"):
 		deviceName = extractNVMeDiskName(deviceName)
 
-		volumeID, err = s.findGCPVolumeIDForNVMeDisk(deviceName)
+		resolvedDeviceName, err = s.extractGCPDeviceNameForNVMeDisk(deviceName)
 
 	default:
 		// Unsupported disk driver.
@@ -970,13 +970,27 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(deviceName string) (st
 		return "", err
 	}
 
-	// GCP does not give the root disk the proper volume id. It will always be called
-	// `persistent-disk-0`. The volume id will always be the same name as the node.
-	if volumeID == "persistent-disk-0" {
-		return s.nodeName, nil
+	resp, err := s.getNodeCloudVolumes(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error while fetching node volumes: %w", err)
 	}
 
-	return volumeID, nil
+	for _, volInfo := range resp.GetVolumes() {
+		gcpInfo := volInfo.GetGcpInfo()
+
+		// We need GCP specific information to resolve the volume id.
+		if gcpInfo == nil {
+			continue
+		}
+
+		if gcpInfo.GetDeviceName() == resolvedDeviceName {
+			return volInfo.VolumeId, nil
+		}
+	}
+
+	// TODO(patrick.pichler): should we fall back to the raw resolvedDeviceName name in case
+	// the disk was mounted after the last server cache refresh?
+	return "", nil
 }
 
 func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(ctx context.Context, blockName string, stats DiskStats, timestamp time.Time) BlockDeviceMetric {
@@ -1031,7 +1045,7 @@ func (s *SysfsStorageInfoProvider) buildBlockDeviceMetric(ctx context.Context, b
 
 			volumeID = awsVolumeId
 		case types.TypeGCP:
-			gcpVolumeId, err := s.findGCPVolumeIDForDisk(blockName)
+			gcpVolumeId, err := s.findGCPVolumeIDForDisk(ctx, blockName)
 			if err != nil {
 				s.log.
 					With(

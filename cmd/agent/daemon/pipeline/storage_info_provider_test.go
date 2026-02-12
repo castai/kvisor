@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	v1 "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/logging"
 )
 
@@ -1030,6 +1031,7 @@ func TestFindGCPVolumeIDForDisk(t *testing.T) {
 		expectedVolumeID string
 		expectError      bool
 		testDataPath     string
+		cloudVolumeCache []*v1.CloudVolumeInfo
 	}
 
 	testCases := []testCase{
@@ -1039,6 +1041,37 @@ func TestFindGCPVolumeIDForDisk(t *testing.T) {
 			expectedVolumeID: "ppichler-test",
 			expectError:      false,
 			testDataPath:     "gcp_nvme",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test",
+						},
+					},
+				},
+			},
+		},
+		{
+			title:            "remapped device name",
+			givenDevice:      "nvme0n1",
+			expectedVolumeID: "test-disk-1",
+			expectError:      false,
+			testDataPath:     "gcp_nvme",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "test-disk-1",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test",
+						},
+					},
+				},
+			},
 		},
 		{
 			title:            "scsi",
@@ -1046,12 +1079,36 @@ func TestFindGCPVolumeIDForDisk(t *testing.T) {
 			expectedVolumeID: "ppichler-test-disk-2",
 			expectError:      false,
 			testDataPath:     "gcp_scsi",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test-disk-2",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test-disk-2",
+						},
+					},
+				},
+			},
 		},
 		{
 			title:        "missing device",
 			givenDevice:  "sdc",
 			expectError:  true,
 			testDataPath: "gcp_scsi",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test-disk-2",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test-disk-2",
+						},
+					},
+				},
+			},
 		},
 		{
 			title:            "unsupported disk type",
@@ -1059,6 +1116,18 @@ func TestFindGCPVolumeIDForDisk(t *testing.T) {
 			expectedVolumeID: "",
 			expectError:      false,
 			testDataPath:     "gcp_scsi",
+			cloudVolumeCache: []*v1.CloudVolumeInfo{
+				{
+					CloudProvider: "gcp",
+					Zone:          "europe-central1-a",
+					VolumeId:      "ppichler-test-disk-2",
+					CloudSpecific: &v1.CloudVolumeInfo_GcpInfo{
+						GcpInfo: &v1.GCPCloudVolumeInfo{
+							DeviceName: "ppichler-test-disk-2",
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -1075,11 +1144,17 @@ func TestFindGCPVolumeIDForDisk(t *testing.T) {
 				storageState: &storageMetricsState{
 					blockDevices: make(map[string]*BlockDeviceMetric),
 				},
+				cloudVolumeCache: cloudVolumeCache{
+					cloudVolumesResp: &v1.GetCloudVolumesResponse{
+						Volumes: tc.cloudVolumeCache,
+					},
+					lastLoadTime: time.Now(),
+				},
 			}
 
 			r := require.New(t)
 
-			volumeID, err := provider.findGCPVolumeIDForDisk(tc.givenDevice)
+			volumeID, err := provider.findGCPVolumeIDForDisk(t.Context(), tc.givenDevice)
 			if tc.expectError {
 				r.Error(err)
 			} else {
