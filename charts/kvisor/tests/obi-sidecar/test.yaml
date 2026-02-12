@@ -362,8 +362,12 @@ tests:
           value: true
         template: pod-monitor.yaml
       - equal:
+          path: spec.podMetricsEndpoints[0].interval
+          value: 15s
+        template: pod-monitor.yaml
+      - equal:
           path: spec.podMetricsEndpoints[0].scrapeTimeout
-          value: 30s
+          value: 15s
         template: pod-monitor.yaml
       - equal:
           path: spec.podMetricsEndpoints[0].scheme
