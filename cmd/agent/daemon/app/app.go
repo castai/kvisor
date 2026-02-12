@@ -40,6 +40,7 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/httpmetrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
@@ -234,11 +235,25 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	var ebpfTracer pipeline.EBPFTracer = &noopTracer{}
+	var httpMetricsCollector *httpmetrics.Collector
 	tracererr := make(chan error, 1)
 	if cfg.Events.Enabled || cfg.Netflow.Enabled {
 		pidNSID, err := procHandler.GetCurrentPIDNSID()
 		if err != nil {
 			return fmt.Errorf("proc handler: %w", err)
+		}
+
+		// Initialize HTTP metrics collector if enabled
+		if cfg.HTTPMetrics.Enabled {
+			httpMetricsCollector, err = httpmetrics.NewCollector(log, httpmetrics.Config{
+				PendingRequestsCacheSize: cfg.HTTPMetrics.PendingRequestsCacheSize,
+				PendingRequestTTL:        cfg.HTTPMetrics.PendingRequestTTL,
+				FlushInterval:            cfg.HTTPMetrics.FlushInterval,
+				MaxPathTemplates:         cfg.HTTPMetrics.MaxPathTemplates,
+			})
+			if err != nil {
+				return fmt.Errorf("creating HTTP metrics collector: %w", err)
+			}
 		}
 
 		tracer := ebpftracer.New(log, ebpftracer.Config{
@@ -262,7 +277,8 @@ func (a *App) Run(ctx context.Context) error {
 				ProgramMetricsEnabled: cfg.EBPFMetrics.ProgramMetricsEnabled,
 				TracerMetricsEnabled:  cfg.EBPFMetrics.TracerMetricsEnabled,
 			},
-			PodName: podName,
+			PodName:              podName,
+			HTTPMetricsCollector: httpMetricsCollector,
 		})
 		ebpfTracer = tracer
 		if err := tracer.Load(); err != nil {
@@ -279,6 +295,13 @@ func (a *App) Run(ctx context.Context) error {
 		go func() {
 			tracererr <- tracer.Run(ctx)
 		}()
+
+		// Start HTTP metrics collector if enabled
+		if httpMetricsCollector != nil {
+			httpMetricsCollector.Start()
+			defer httpMetricsCollector.Stop()
+			log.Info("HTTP metrics collector started")
+		}
 	}
 
 	var blockDeviceMetricsWriter pipeline.BlockDeviceMetricsWriter
@@ -500,6 +523,12 @@ Currently we care only care about dns responses with valid answers.
 	if cfg.Stats.FileAccessEnabled {
 		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
 			ID: events.FileAccessStats,
+		})
+	}
+
+	if cfg.HTTPMetrics.Enabled {
+		policy.Events = append(policy.Events, &ebpftracer.EventPolicy{
+			ID: events.NetPacketHTTPBase,
 		})
 	}
 

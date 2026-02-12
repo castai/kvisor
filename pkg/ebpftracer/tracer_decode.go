@@ -10,6 +10,7 @@ import (
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/decoder"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/httpmetrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/kernel"
 	"github.com/castai/kvisor/pkg/proc"
@@ -125,6 +126,11 @@ func (t *Tracer) decodeAndExportEvent(ctx context.Context, ebpfMsgDecoder *decod
 		}
 	}
 
+	// Process HTTP events for metrics collection
+	if eventId == events.NetPacketHTTPBase {
+		t.handleNetPacketHTTPEvent(event, parsedArgs)
+	}
+
 	select {
 	case t.eventsChan <- event:
 	default:
@@ -190,6 +196,23 @@ func (t *Tracer) handleNetPacketDNSEvent(eventCtx *types.EventContext, parsedArg
 	event := parsedArgs.(types.NetPacketDNSBaseArgs).Payload
 	err := t.addDNSResponseToCache(eventCtx.CgroupID, event.Answers)
 	return err
+}
+
+func (t *Tracer) handleNetPacketHTTPEvent(event *types.Event, parsedArgs types.Args) {
+	if t.cfg.HTTPMetricsCollector == nil {
+		return
+	}
+	args, ok := parsedArgs.(types.NetPacketHTTPBaseArgs)
+	if !ok {
+		t.log.Debugf("invalid HTTP event args type: %T", parsedArgs)
+		return
+	}
+	t.cfg.HTTPMetricsCollector.ProcessHTTPEvent(event, args.Payload)
+}
+
+// SetHTTPMetricsCollector sets the HTTP metrics collector for the tracer
+func (t *Tracer) SetHTTPMetricsCollector(collector *httpmetrics.Collector) {
+	t.cfg.HTTPMetricsCollector = collector
 }
 
 func (t *Tracer) MuteEventsFromCgroup(cgroup uint64, reason string) error {

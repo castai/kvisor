@@ -21,6 +21,7 @@ const (
 	NetPacketDNSBase
 	NetPacketSOCKS5Base
 	NetPacketSSHBase
+	NetPacketHTTPBase
 	NetFlowBase
 	MaxNetID // network base events go ABOVE this item
 

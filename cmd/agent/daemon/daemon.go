@@ -117,6 +117,12 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventAnnotations = command.Flags().StringSlice("ebpf-events-include-pod-annotations", []string{}, "List of annotation keys to be sent with eBPF events, separated by comma")
 
 		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 2*time.Minute, "Containers refresh interval")
+
+		httpMetricsEnabled              = command.Flags().Bool("http-metrics-enabled", false, "Enable HTTP metrics collection from eBPF")
+		httpMetricsFlushInterval        = command.Flags().Duration("http-metrics-flush-interval", 30*time.Second, "HTTP metrics flush/log interval")
+		httpMetricsPendingRequestsCache = command.Flags().Uint32("http-metrics-pending-requests-cache", 4096, "Max pending HTTP requests to track for correlation")
+		httpMetricsPendingRequestTTL    = command.Flags().Duration("http-metrics-pending-request-ttl", 30*time.Second, "TTL for pending HTTP requests awaiting response")
+		httpMetricsMaxPathTemplates     = command.Flags().Int("http-metrics-max-path-templates", 1000, "Max unique path templates to track before overflow")
 	)
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
@@ -226,6 +232,13 @@ func NewRunCommand(version string) *cobra.Command {
 			EventLabels:               *ebpfEventLabels,
 			EventAnnotations:          *ebpfEventAnnotations,
 			ContainersRefreshInterval: *containersRefreshInterval,
+			HTTPMetrics: config.HTTPMetricsConfig{
+				Enabled:                  *httpMetricsEnabled,
+				FlushInterval:            *httpMetricsFlushInterval,
+				PendingRequestsCacheSize: *httpMetricsPendingRequestsCache,
+				PendingRequestTTL:        *httpMetricsPendingRequestTTL,
+				MaxPathTemplates:         *httpMetricsMaxPathTemplates,
+			},
 		}).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error(err.Error())
 			os.Exit(1)
