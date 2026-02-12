@@ -18,7 +18,8 @@ spec:
       path: /metrics
       port: otel-prom
       scheme: http
-      scrapeTimeout: 30s
+      interval: 15s
+      scrapeTimeout: 15s
       metricRelabelings:
         - action: labeldrop
           regex: instance
