@@ -945,9 +945,18 @@ func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForNVMeDisk(deviceName st
 }
 
 func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(ctx context.Context, deviceName string) (string, error) {
+	resp, err := s.getNodeCloudVolumes(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error while fetching node volumes: %w", err)
+	}
+
+	// There are no cloud volumes, so nothing we can do to resolve the underlying volume id.
+	if len(resp.Volumes) == 0 {
+		return "", nil
+	}
+
 	var (
 		resolvedDeviceName string
-		err                error
 	)
 
 	// GCP mounts disks using SCSI or NVMe. All cloud backed volume devices should have either `sd` or `nvme` prefix.
@@ -968,11 +977,6 @@ func (s *SysfsStorageInfoProvider) findGCPVolumeIDForDisk(ctx context.Context, d
 
 	if err != nil {
 		return "", err
-	}
-
-	resp, err := s.getNodeCloudVolumes(ctx)
-	if err != nil {
-		return "", fmt.Errorf("error while fetching node volumes: %w", err)
 	}
 
 	for _, volInfo := range resp.GetVolumes() {
