@@ -903,7 +903,7 @@ func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForNVMeDisk(deviceName st
 
 	// Ensure device is a persistent disk. This is required, as local SSDs are also mounted
 	// using the NVMe driver.
-	if string(modelData) == "nvme_card-pd" {
+	if string(modelData) != "nvme_card-pd" {
 		return "", nil
 	}
 
