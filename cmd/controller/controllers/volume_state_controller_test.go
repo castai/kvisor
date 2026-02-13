@@ -16,7 +16,7 @@ import (
 func TestVolumeStateController(t *testing.T) {
 	log := logging.New()
 	k8sClient := fake.NewSimpleClientset()
-	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient)
+	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient, "")
 
 	t.Run("stops on context cancellation", func(t *testing.T) {
 		r := require.New(t)

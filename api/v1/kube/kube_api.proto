@@ -98,6 +98,7 @@ message GetNodeResponse {
 message Node {
   string name = 1;
   map<string, string> labels = 2;
+  string cloud_provider = 3;
 }
 
 message GetNodeStatsSummaryRequest {
@@ -182,8 +183,8 @@ message PodVolumeInfo {
   string storage_class = 13;
   string csi_driver = 14;
   string csi_volume_handle = 15;
-  string volume_mode = 16;    // "Filesystem" or "Block"
-  string device_path = 17;    // For block volumes: container's volumeDevices[].devicePath
+  string volume_mode = 16; // "Filesystem" or "Block"
+  string device_path = 17; // For block volumes: container's volumeDevices[].devicePath
 }
 
 message GetCloudVolumesRequest {
@@ -192,6 +193,14 @@ message GetCloudVolumesRequest {
 
 message GetCloudVolumesResponse {
   repeated CloudVolumeInfo volumes = 1;
+}
+
+message AWSCloudVolumeInfo {
+  string device = 1;
+}
+
+message GCPCloudVolumeInfo {
+  string device_name = 1;
 }
 
 message CloudVolumeInfo {
@@ -204,4 +213,9 @@ message CloudVolumeInfo {
   int32 iops = 7;
   int32 throughput_bytes = 8;
   bool encrypted = 9;
+
+  oneof cloud_specific {
+    AWSCloudVolumeInfo aws_info = 10;
+    GCPCloudVolumeInfo gcp_info = 11;
+  }
 }

@@ -770,6 +770,7 @@ type Node struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Labels        map[string]string      `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	CloudProvider string                 `protobuf:"bytes,3,opt,name=cloud_provider,json=cloudProvider,proto3" json:"cloud_provider,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -816,6 +817,13 @@ func (x *Node) GetLabels() map[string]string {
 		return x.Labels
 	}
 	return nil
+}
+
+func (x *Node) GetCloudProvider() string {
+	if x != nil {
+		return x.CloudProvider
+	}
+	return ""
 }
 
 type GetNodeStatsSummaryRequest struct {
@@ -1726,6 +1734,94 @@ func (x *GetCloudVolumesResponse) GetVolumes() []*CloudVolumeInfo {
 	return nil
 }
 
+type AWSCloudVolumeInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Device        string                 `protobuf:"bytes,1,opt,name=device,proto3" json:"device,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AWSCloudVolumeInfo) Reset() {
+	*x = AWSCloudVolumeInfo{}
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AWSCloudVolumeInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AWSCloudVolumeInfo) ProtoMessage() {}
+
+func (x *AWSCloudVolumeInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AWSCloudVolumeInfo.ProtoReflect.Descriptor instead.
+func (*AWSCloudVolumeInfo) Descriptor() ([]byte, []int) {
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AWSCloudVolumeInfo) GetDevice() string {
+	if x != nil {
+		return x.Device
+	}
+	return ""
+}
+
+type GCPCloudVolumeInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceName    string                 `protobuf:"bytes,1,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GCPCloudVolumeInfo) Reset() {
+	*x = GCPCloudVolumeInfo{}
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GCPCloudVolumeInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GCPCloudVolumeInfo) ProtoMessage() {}
+
+func (x *GCPCloudVolumeInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GCPCloudVolumeInfo.ProtoReflect.Descriptor instead.
+func (*GCPCloudVolumeInfo) Descriptor() ([]byte, []int) {
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GCPCloudVolumeInfo) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
 type CloudVolumeInfo struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	CloudProvider   string                 `protobuf:"bytes,1,opt,name=cloud_provider,json=cloudProvider,proto3" json:"cloud_provider,omitempty"`
@@ -1737,13 +1833,18 @@ type CloudVolumeInfo struct {
 	Iops            int32                  `protobuf:"varint,7,opt,name=iops,proto3" json:"iops,omitempty"`
 	ThroughputBytes int32                  `protobuf:"varint,8,opt,name=throughput_bytes,json=throughputBytes,proto3" json:"throughput_bytes,omitempty"`
 	Encrypted       bool                   `protobuf:"varint,9,opt,name=encrypted,proto3" json:"encrypted,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Types that are valid to be assigned to CloudSpecific:
+	//
+	//	*CloudVolumeInfo_AwsInfo
+	//	*CloudVolumeInfo_GcpInfo
+	CloudSpecific isCloudVolumeInfo_CloudSpecific `protobuf_oneof:"cloud_specific"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CloudVolumeInfo) Reset() {
 	*x = CloudVolumeInfo{}
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[26]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1755,7 +1856,7 @@ func (x *CloudVolumeInfo) String() string {
 func (*CloudVolumeInfo) ProtoMessage() {}
 
 func (x *CloudVolumeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_kube_kube_api_proto_msgTypes[26]
+	mi := &file_api_v1_kube_kube_api_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1768,7 +1869,7 @@ func (x *CloudVolumeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloudVolumeInfo.ProtoReflect.Descriptor instead.
 func (*CloudVolumeInfo) Descriptor() ([]byte, []int) {
-	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{26}
+	return file_api_v1_kube_kube_api_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CloudVolumeInfo) GetCloudProvider() string {
@@ -1834,6 +1935,47 @@ func (x *CloudVolumeInfo) GetEncrypted() bool {
 	return false
 }
 
+func (x *CloudVolumeInfo) GetCloudSpecific() isCloudVolumeInfo_CloudSpecific {
+	if x != nil {
+		return x.CloudSpecific
+	}
+	return nil
+}
+
+func (x *CloudVolumeInfo) GetAwsInfo() *AWSCloudVolumeInfo {
+	if x != nil {
+		if x, ok := x.CloudSpecific.(*CloudVolumeInfo_AwsInfo); ok {
+			return x.AwsInfo
+		}
+	}
+	return nil
+}
+
+func (x *CloudVolumeInfo) GetGcpInfo() *GCPCloudVolumeInfo {
+	if x != nil {
+		if x, ok := x.CloudSpecific.(*CloudVolumeInfo_GcpInfo); ok {
+			return x.GcpInfo
+		}
+	}
+	return nil
+}
+
+type isCloudVolumeInfo_CloudSpecific interface {
+	isCloudVolumeInfo_CloudSpecific()
+}
+
+type CloudVolumeInfo_AwsInfo struct {
+	AwsInfo *AWSCloudVolumeInfo `protobuf:"bytes,10,opt,name=aws_info,json=awsInfo,proto3,oneof"`
+}
+
+type CloudVolumeInfo_GcpInfo struct {
+	GcpInfo *GCPCloudVolumeInfo `protobuf:"bytes,11,opt,name=gcp_info,json=gcpInfo,proto3,oneof"`
+}
+
+func (*CloudVolumeInfo_AwsInfo) isCloudVolumeInfo_CloudSpecific() {}
+
+func (*CloudVolumeInfo_GcpInfo) isCloudVolumeInfo_CloudSpecific() {}
+
 var File_api_v1_kube_kube_api_proto protoreflect.FileDescriptor
 
 const file_api_v1_kube_kube_api_proto_rawDesc = "" +
@@ -1883,10 +2025,11 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x0eGetNodeRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"4\n" +
 	"\x0fGetNodeResponse\x12!\n" +
-	"\x04node\x18\x01 \x01(\v2\r.kube.v1.NodeR\x04node\"\x88\x01\n" +
+	"\x04node\x18\x01 \x01(\v2\r.kube.v1.NodeR\x04node\"\xaf\x01\n" +
 	"\x04Node\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
-	"\x06labels\x18\x02 \x03(\v2\x19.kube.v1.Node.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x02 \x03(\v2\x19.kube.v1.Node.LabelsEntryR\x06labels\x12%\n" +
+	"\x0ecloud_provider\x18\x03 \x01(\tR\rcloudProvider\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"9\n" +
@@ -1968,7 +2111,12 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x16GetCloudVolumesRequest\x12\x1b\n" +
 	"\tnode_name\x18\x01 \x01(\tR\bnodeName\"M\n" +
 	"\x17GetCloudVolumesResponse\x122\n" +
-	"\avolumes\x18\x01 \x03(\v2\x18.kube.v1.CloudVolumeInfoR\avolumes\"\xa9\x02\n" +
+	"\avolumes\x18\x01 \x03(\v2\x18.kube.v1.CloudVolumeInfoR\avolumes\",\n" +
+	"\x12AWSCloudVolumeInfo\x12\x16\n" +
+	"\x06device\x18\x01 \x01(\tR\x06device\"5\n" +
+	"\x12GCPCloudVolumeInfo\x12\x1f\n" +
+	"\vdevice_name\x18\x01 \x01(\tR\n" +
+	"deviceName\"\xaf\x03\n" +
 	"\x0fCloudVolumeInfo\x12%\n" +
 	"\x0ecloud_provider\x18\x01 \x01(\tR\rcloudProvider\x12\x12\n" +
 	"\x04zone\x18\x02 \x01(\tR\x04zone\x12\x1b\n" +
@@ -1980,7 +2128,11 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"size_bytes\x18\x06 \x01(\x03R\tsizeBytes\x12\x12\n" +
 	"\x04iops\x18\a \x01(\x05R\x04iops\x12)\n" +
 	"\x10throughput_bytes\x18\b \x01(\x05R\x0fthroughputBytes\x12\x1c\n" +
-	"\tencrypted\x18\t \x01(\bR\tencrypted*\xed\x01\n" +
+	"\tencrypted\x18\t \x01(\bR\tencrypted\x128\n" +
+	"\baws_info\x18\n" +
+	" \x01(\v2\x1b.kube.v1.AWSCloudVolumeInfoH\x00R\aawsInfo\x128\n" +
+	"\bgcp_info\x18\v \x01(\v2\x1b.kube.v1.GCPCloudVolumeInfoH\x00R\agcpInfoB\x10\n" +
+	"\x0ecloud_specific*\xed\x01\n" +
 	"\fWorkloadKind\x12\x19\n" +
 	"\x15WORKLOAD_KIND_UNKNOWN\x10\x00\x12\x1c\n" +
 	"\x18WORKLOAD_KIND_DEPLOYMENT\x10\x01\x12\x1d\n" +
@@ -2014,7 +2166,7 @@ func file_api_v1_kube_kube_api_proto_rawDescGZIP() []byte {
 }
 
 var file_api_v1_kube_kube_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_v1_kube_kube_api_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_api_v1_kube_kube_api_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_api_v1_kube_kube_api_proto_goTypes = []any{
 	(WorkloadKind)(0),                   // 0: kube.v1.WorkloadKind
 	(*GetClusterInfoRequest)(nil),       // 1: kube.v1.GetClusterInfoRequest
@@ -2043,8 +2195,10 @@ var file_api_v1_kube_kube_api_proto_goTypes = []any{
 	(*PodVolumeInfo)(nil),               // 24: kube.v1.PodVolumeInfo
 	(*GetCloudVolumesRequest)(nil),      // 25: kube.v1.GetCloudVolumesRequest
 	(*GetCloudVolumesResponse)(nil),     // 26: kube.v1.GetCloudVolumesResponse
-	(*CloudVolumeInfo)(nil),             // 27: kube.v1.CloudVolumeInfo
-	nil,                                 // 28: kube.v1.Node.LabelsEntry
+	(*AWSCloudVolumeInfo)(nil),          // 27: kube.v1.AWSCloudVolumeInfo
+	(*GCPCloudVolumeInfo)(nil),          // 28: kube.v1.GCPCloudVolumeInfo
+	(*CloudVolumeInfo)(nil),             // 29: kube.v1.CloudVolumeInfo
+	nil,                                 // 30: kube.v1.Node.LabelsEntry
 }
 var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	7,  // 0: kube.v1.GetIPInfoResponse.info:type_name -> kube.v1.IPInfo
@@ -2052,7 +2206,7 @@ var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	10, // 2: kube.v1.GetPodResponse.pod:type_name -> kube.v1.Pod
 	0,  // 3: kube.v1.Pod.workload_kind:type_name -> kube.v1.WorkloadKind
 	13, // 4: kube.v1.GetNodeResponse.node:type_name -> kube.v1.Node
-	28, // 5: kube.v1.Node.labels:type_name -> kube.v1.Node.LabelsEntry
+	30, // 5: kube.v1.Node.labels:type_name -> kube.v1.Node.LabelsEntry
 	16, // 6: kube.v1.GetNodeStatsSummaryResponse.node:type_name -> kube.v1.NodeStats
 	17, // 7: kube.v1.NodeStats.cpu:type_name -> kube.v1.CPUStats
 	18, // 8: kube.v1.NodeStats.memory:type_name -> kube.v1.MemoryStats
@@ -2062,28 +2216,30 @@ var file_api_v1_kube_kube_api_proto_depIdxs = []int32{
 	20, // 12: kube.v1.RuntimeStats.image_fs:type_name -> kube.v1.FsStats
 	20, // 13: kube.v1.RuntimeStats.container_fs:type_name -> kube.v1.FsStats
 	24, // 14: kube.v1.GetPodVolumesResponse.volumes:type_name -> kube.v1.PodVolumeInfo
-	27, // 15: kube.v1.GetCloudVolumesResponse.volumes:type_name -> kube.v1.CloudVolumeInfo
-	1,  // 16: kube.v1.KubeAPI.GetClusterInfo:input_type -> kube.v1.GetClusterInfoRequest
-	3,  // 17: kube.v1.KubeAPI.GetIPInfo:input_type -> kube.v1.GetIPInfoRequest
-	5,  // 18: kube.v1.KubeAPI.GetIPsInfo:input_type -> kube.v1.GetIPsInfoRequest
-	8,  // 19: kube.v1.KubeAPI.GetPod:input_type -> kube.v1.GetPodRequest
-	11, // 20: kube.v1.KubeAPI.GetNode:input_type -> kube.v1.GetNodeRequest
-	14, // 21: kube.v1.KubeAPI.GetNodeStatsSummary:input_type -> kube.v1.GetNodeStatsSummaryRequest
-	22, // 22: kube.v1.KubeAPI.GetPodVolumes:input_type -> kube.v1.GetPodVolumesRequest
-	25, // 23: kube.v1.KubeAPI.GetCloudVolumes:input_type -> kube.v1.GetCloudVolumesRequest
-	2,  // 24: kube.v1.KubeAPI.GetClusterInfo:output_type -> kube.v1.GetClusterInfoResponse
-	4,  // 25: kube.v1.KubeAPI.GetIPInfo:output_type -> kube.v1.GetIPInfoResponse
-	6,  // 26: kube.v1.KubeAPI.GetIPsInfo:output_type -> kube.v1.GetIPsInfoResponse
-	9,  // 27: kube.v1.KubeAPI.GetPod:output_type -> kube.v1.GetPodResponse
-	12, // 28: kube.v1.KubeAPI.GetNode:output_type -> kube.v1.GetNodeResponse
-	15, // 29: kube.v1.KubeAPI.GetNodeStatsSummary:output_type -> kube.v1.GetNodeStatsSummaryResponse
-	23, // 30: kube.v1.KubeAPI.GetPodVolumes:output_type -> kube.v1.GetPodVolumesResponse
-	26, // 31: kube.v1.KubeAPI.GetCloudVolumes:output_type -> kube.v1.GetCloudVolumesResponse
-	24, // [24:32] is the sub-list for method output_type
-	16, // [16:24] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	29, // 15: kube.v1.GetCloudVolumesResponse.volumes:type_name -> kube.v1.CloudVolumeInfo
+	27, // 16: kube.v1.CloudVolumeInfo.aws_info:type_name -> kube.v1.AWSCloudVolumeInfo
+	28, // 17: kube.v1.CloudVolumeInfo.gcp_info:type_name -> kube.v1.GCPCloudVolumeInfo
+	1,  // 18: kube.v1.KubeAPI.GetClusterInfo:input_type -> kube.v1.GetClusterInfoRequest
+	3,  // 19: kube.v1.KubeAPI.GetIPInfo:input_type -> kube.v1.GetIPInfoRequest
+	5,  // 20: kube.v1.KubeAPI.GetIPsInfo:input_type -> kube.v1.GetIPsInfoRequest
+	8,  // 21: kube.v1.KubeAPI.GetPod:input_type -> kube.v1.GetPodRequest
+	11, // 22: kube.v1.KubeAPI.GetNode:input_type -> kube.v1.GetNodeRequest
+	14, // 23: kube.v1.KubeAPI.GetNodeStatsSummary:input_type -> kube.v1.GetNodeStatsSummaryRequest
+	22, // 24: kube.v1.KubeAPI.GetPodVolumes:input_type -> kube.v1.GetPodVolumesRequest
+	25, // 25: kube.v1.KubeAPI.GetCloudVolumes:input_type -> kube.v1.GetCloudVolumesRequest
+	2,  // 26: kube.v1.KubeAPI.GetClusterInfo:output_type -> kube.v1.GetClusterInfoResponse
+	4,  // 27: kube.v1.KubeAPI.GetIPInfo:output_type -> kube.v1.GetIPInfoResponse
+	6,  // 28: kube.v1.KubeAPI.GetIPsInfo:output_type -> kube.v1.GetIPsInfoResponse
+	9,  // 29: kube.v1.KubeAPI.GetPod:output_type -> kube.v1.GetPodResponse
+	12, // 30: kube.v1.KubeAPI.GetNode:output_type -> kube.v1.GetNodeResponse
+	15, // 31: kube.v1.KubeAPI.GetNodeStatsSummary:output_type -> kube.v1.GetNodeStatsSummaryResponse
+	23, // 32: kube.v1.KubeAPI.GetPodVolumes:output_type -> kube.v1.GetPodVolumesResponse
+	26, // 33: kube.v1.KubeAPI.GetCloudVolumes:output_type -> kube.v1.GetCloudVolumesResponse
+	26, // [26:34] is the sub-list for method output_type
+	18, // [18:26] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_kube_kube_api_proto_init() }
@@ -2091,13 +2247,17 @@ func file_api_v1_kube_kube_api_proto_init() {
 	if File_api_v1_kube_kube_api_proto != nil {
 		return
 	}
+	file_api_v1_kube_kube_api_proto_msgTypes[28].OneofWrappers = []any{
+		(*CloudVolumeInfo_AwsInfo)(nil),
+		(*CloudVolumeInfo_GcpInfo)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_kube_kube_api_proto_rawDesc), len(file_api_v1_kube_kube_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   28,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
