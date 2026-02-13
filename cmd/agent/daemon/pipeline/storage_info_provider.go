@@ -894,16 +894,16 @@ func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForSCSIDisk(deviceName st
 
 func (s *SysfsStorageInfoProvider) extractGCPDeviceNameForNVMeDisk(deviceName string) (string, error) {
 	devicePath := filepath.Join(s.sysBlockPrefix, "sys", "block", deviceName)
-	deviceSerialPath := filepath.Join(devicePath, "device", "serial")
+	deviceModelPath := filepath.Join(devicePath, "device", "model")
 
-	serialData, err := readFileTrimmed(deviceSerialPath)
+	modelData, err := readFileTrimmed(deviceModelPath)
 	if err != nil {
 		return "", fmt.Errorf("error reading device serial of `%s`: %w", deviceName, err)
 	}
 
 	// Ensure device is a persistent disk. This is required, as local SSDs are also mounted
 	// using the NVMe driver.
-	if strings.Contains(string(serialData), "nvme_card-pd") {
+	if string(modelData) == "nvme_card-pd" {
 		return "", nil
 	}
 
