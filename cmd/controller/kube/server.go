@@ -319,6 +319,18 @@ func (s *Server) GetCloudVolumes(ctx context.Context, req *kubepb.GetCloudVolume
 					Device: awsDetails.Device,
 				},
 			}
+		case types.TypeGCP:
+			gcpDetails := vol.GCPDetails
+
+			if gcpDetails == nil {
+				break
+			}
+
+			volInfo.CloudSpecific = &kubepb.CloudVolumeInfo_GcpInfo{
+				GcpInfo: &kubepb.GCPCloudVolumeInfo{
+					DeviceName: gcpDetails.DeviceName,
+				},
+			}
 		}
 
 		volumes = append(volumes, volInfo)
