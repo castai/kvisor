@@ -1,6 +1,6 @@
 module github.com/castai/kvisor
 
-go 1.24.6
+go 1.25.0
 
 require (
 	cloud.google.com/go/compute v1.52.0
@@ -34,7 +34,8 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/labstack/echo/v4 v4.13.3
+	github.com/labstack/echo/v4 v4.15.0
+	github.com/labstack/echo/v5 v5.0.4
 	github.com/magiconair/properties v1.8.9
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/miekg/dns v1.1.62
@@ -53,9 +54,9 @@ require (
 	github.com/yl2chen/cidranger v1.0.2
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/net v0.46.0
+	golang.org/x/net v0.49.0
 	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.37.0
+	golang.org/x/sys v0.40.0
 	golang.org/x/time v0.14.0
 	golang.stackrox.io/kube-linter v0.7.3-0.20250507172404-3f4b9037f56f
 	google.golang.org/grpc v1.76.0
@@ -242,7 +243,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.37.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/tools v0.40.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -419,12 +420,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.28.0
+	golang.org/x/mod v0.31.0
 	golang.org/x/oauth2 v0.33.0 // indirect
-	golang.org/x/term v0.36.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	google.golang.org/api v0.256.0
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
