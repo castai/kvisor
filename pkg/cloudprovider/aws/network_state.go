@@ -169,10 +169,41 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.PeeredVPC, error) {
 	var peeredVPCs []types.PeeredVPC
 
+	// Fetch peerings where our VPC is the requester (peer info is in AccepterVpcInfo).
+	requesterPeerings, err := p.describePeeringConnections(ctx, "requester-vpc-info.vpc-id", vpcID)
+	if err != nil {
+		return nil, err
+	}
+	for _, peering := range requesterPeerings {
+		if peerVPC, ok := p.peeringToPeeredVPC(peering, peering.AccepterVpcInfo); ok {
+			peeredVPCs = append(peeredVPCs, peerVPC)
+		}
+	}
+
+	// Fetch peerings where our VPC is the accepter (peer info is in RequesterVpcInfo).
+	accepterPeerings, err := p.describePeeringConnections(ctx, "accepter-vpc-info.vpc-id", vpcID)
+	if err != nil {
+		return nil, err
+	}
+	for _, peering := range accepterPeerings {
+		if peerVPC, ok := p.peeringToPeeredVPC(peering, peering.RequesterVpcInfo); ok {
+			peeredVPCs = append(peeredVPCs, peerVPC)
+		}
+	}
+
+	p.log.
+		With("count", len(peeredVPCs)).
+		With("vpc", vpcID).
+		Info("fetched peered VPCs")
+
+	return peeredVPCs, nil
+}
+
+func (p *Provider) describePeeringConnections(ctx context.Context, filterName, vpcID string) ([]ec2types.VpcPeeringConnection, error) {
 	input := &ec2.DescribeVpcPeeringConnectionsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   lo.ToPtr("requester-vpc-info.vpc-id"),
+				Name:   lo.ToPtr(filterName),
 				Values: []string{vpcID},
 			},
 			{
@@ -184,56 +215,52 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 
 	result, err := p.ec2Client.DescribeVpcPeeringConnections(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("describing VPC peering connections: %w", err)
+		return nil, fmt.Errorf("describing VPC peering connections (filter %s): %w", filterName, err)
 	}
 
-	for _, peering := range result.VpcPeeringConnections {
-		if peering.AccepterVpcInfo == nil {
+	return result.VpcPeeringConnections, nil
+}
+
+// peeringToPeeredVPC extracts CIDRs from the remote side of a peering connection.
+// peerInfo is the VpcInfo of the remote VPC (AccepterVpcInfo when we are the requester,
+// RequesterVpcInfo when we are the accepter).
+func (p *Provider) peeringToPeeredVPC(peering ec2types.VpcPeeringConnection, peerInfo *ec2types.VpcPeeringConnectionVpcInfo) (types.PeeredVPC, bool) {
+	if peerInfo == nil {
+		return types.PeeredVPC{}, false
+	}
+
+	peerVPC := types.PeeredVPC{
+		Name: lo.FromPtr(peering.VpcPeeringConnectionId),
+	}
+
+	if peerInfo.CidrBlock != nil {
+		cidr, err := netip.ParsePrefix(*peerInfo.CidrBlock)
+		if err != nil {
+			p.log.Warnf("parsing peered VPC CIDR %s: %v", *peerInfo.CidrBlock, err)
+		} else {
+			peerVPC.Ranges = append(peerVPC.Ranges, types.PeeredVPCRange{
+				CIDR:   cidr,
+				Region: lo.FromPtr(peerInfo.Region),
+			})
+		}
+	}
+
+	for _, cidrBlock := range peerInfo.CidrBlockSet {
+		if cidrBlock.CidrBlock == nil {
 			continue
 		}
-
-		peerVPC := types.PeeredVPC{
-			Name: lo.FromPtr(peering.VpcPeeringConnectionId),
+		cidr, err := netip.ParsePrefix(*cidrBlock.CidrBlock)
+		if err != nil {
+			p.log.Warnf("parsing peered VPC additional CIDR %s: %v", *cidrBlock.CidrBlock, err)
+			continue
 		}
-
-		if peering.AccepterVpcInfo.CidrBlock != nil {
-			cidr, err := netip.ParsePrefix(*peering.AccepterVpcInfo.CidrBlock)
-			if err != nil {
-				p.log.Warnf("parsing peered VPC CIDR %s: %v", *peering.AccepterVpcInfo.CidrBlock, err)
-			} else {
-				peerRange := types.PeeredVPCRange{
-					CIDR:   cidr,
-					Region: lo.FromPtr(peering.AccepterVpcInfo.Region),
-				}
-				peerVPC.Ranges = append(peerVPC.Ranges, peerRange)
-			}
-		}
-
-		for _, cidrBlock := range peering.AccepterVpcInfo.CidrBlockSet {
-			if cidrBlock.CidrBlock == nil {
-				continue
-			}
-			cidr, err := netip.ParsePrefix(*cidrBlock.CidrBlock)
-			if err != nil {
-				p.log.Warnf("parsing peered VPC additional CIDR %s: %v", *cidrBlock.CidrBlock, err)
-				continue
-			}
-			peerRange := types.PeeredVPCRange{
-				CIDR:   cidr,
-				Region: lo.FromPtr(peering.AccepterVpcInfo.Region),
-			}
-			peerVPC.Ranges = append(peerVPC.Ranges, peerRange)
-		}
-
-		peeredVPCs = append(peeredVPCs, peerVPC)
+		peerVPC.Ranges = append(peerVPC.Ranges, types.PeeredVPCRange{
+			CIDR:   cidr,
+			Region: lo.FromPtr(peerInfo.Region),
+		})
 	}
 
-	p.log.
-		With("count", len(peeredVPCs)).
-		With("vpc", vpcID).
-		Info("fetched peered VPCs")
-
-	return peeredVPCs, nil
+	return peerVPC, true
 }
 
 type awsIPRangesResponse struct {
