@@ -1,0 +1,149 @@
+suite: cluster ID configuration tests
+templates:
+  - agent.yaml
+  - controller.yaml
+  - secret.yaml
+values:
+  - values.yaml
+tests:
+  - it: should use direct clusterID value when provided
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "test-cluster-id"
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "test-cluster-id"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use clusterIdConfigMapKeyRef when provided
+    set:
+      castai.clusterID: ""
+      castai.clusterIdConfigMapKeyRef:
+        name: "cluster-config"
+        key: "CLUSTER_ID"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              configMapKeyRef:
+                name: "cluster-config"
+                key: "CLUSTER_ID"
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              configMapKeyRef:
+                name: "cluster-config"
+                key: "CLUSTER_ID"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use clusterIdSecretKeyRef when provided
+    set:
+      castai.clusterID: ""
+      castai.clusterIdSecretKeyRef:
+        name: "cluster-secret"
+        key: "CLUSTER_ID"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              secretKeyRef:
+                name: "cluster-secret"
+                key: "CLUSTER_ID"
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              secretKeyRef:
+                name: "cluster-secret"
+                key: "CLUSTER_ID"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use custom key from clusterIdConfigMapKeyRef
+    set:
+      castai.clusterID: ""
+      castai.clusterIdConfigMapKeyRef:
+        name: "my-config"
+        key: "MY_CUSTOM_KEY"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              configMapKeyRef:
+                name: "my-config"
+                key: "MY_CUSTOM_KEY"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should fail when both clusterID and clusterIdSecretKeyRef are set
+    set:
+      castai.clusterIdSecretKeyRef:
+        name: "cluster-secret"
+        key: "CLUSTER_ID"
+    asserts:
+      - failedTemplate:
+          errorMessage: "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef"
+        template: controller.yaml
+
+  - it: should fail when both clusterID and clusterIdConfigMapKeyRef are set
+    set:
+      castai.clusterIdConfigMapKeyRef:
+        name: "cluster-config"
+        key: "CLUSTER_ID"
+    asserts:
+      - failedTemplate:
+          errorMessage: "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef"
+        template: controller.yaml
+
+  - it: should prefer clusterIdConfigMapKeyRef over clusterIdSecretKeyRef when both are set
+    set:
+      castai.clusterID: ""
+      castai.clusterIdSecretKeyRef:
+        name: "cluster-secret"
+        key: "SECRET_KEY"
+      castai.clusterIdConfigMapKeyRef:
+        name: "cluster-config"
+        key: "CONFIG_KEY"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              configMapKeyRef:
+                name: "cluster-config"
+                key: "CONFIG_KEY"
+        template: agent.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            valueFrom:
+              secretKeyRef:
+                name: "cluster-secret"
+                key: "SECRET_KEY"
+        template: agent.yaml
+        documentIndex: 0

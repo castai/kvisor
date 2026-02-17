@@ -19,8 +19,13 @@ castai:
 
   apiURL: ""
 
-  # clusterID and clusterIdSecretKeyRef are mutually exclusive
+  # clusterID, clusterIdConfigMapKeyRef and clusterIdSecretKeyRef are mutually exclusive
   clusterID: ""
+  # clusterIdConfigMapKeyRef -- Name and Key of configMap with ClusterID
+  # The referenced configMap must provide the ClusterID in .data[<<.Values.castai.clusterIdConfigMapKeyRef.key>>]
+  clusterIdConfigMapKeyRef:
+    name: ""
+    key: "CLUSTER_ID"
   # clusterIdSecretKeyRef -- Name and Key of secret with ClusterID
   # The referenced secret must provide the ClusterID in .data[<<.Values.castai.clusterIdSecretKeyRef.key>>]
   clusterIdSecretKeyRef:

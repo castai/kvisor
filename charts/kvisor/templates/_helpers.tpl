@@ -56,11 +56,17 @@ Create chart name and version as used by the chart label.
 
 {{- define "kvisor.clusterIDEnv" -}}
 {{- $envFrom := .envFrom -}}
-{{- if and .Values.castai.clusterID .Values.castai.clusterIdSecretKeyRef.name }}
-  {{- fail "clusterID and clusterIdSecretKeyRef are mutually exclusive" }}
+{{- if and .Values.castai.clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
+  {{- fail "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef" }}
 {{- else if .Values.castai.clusterID }}
 - name: CLUSTER_ID
   value: {{ .Values.castai.clusterID | quote }}
+{{- else if .Values.castai.clusterIdConfigMapKeyRef.name }}
+- name: CLUSTER_ID
+  valueFrom:
+    configMapKeyRef:
+      name: {{ .Values.castai.clusterIdConfigMapKeyRef.name }}
+      key: {{ .Values.castai.clusterIdConfigMapKeyRef.key }}
 {{- else if .Values.castai.clusterIdSecretKeyRef.name }}
 - name: CLUSTER_ID
   valueFrom:
@@ -68,7 +74,7 @@ Create chart name and version as used by the chart label.
       name: {{ .Values.castai.clusterIdSecretKeyRef.name }}
       key: {{ .Values.castai.clusterIdSecretKeyRef.key }}
 {{- else if not $envFrom }}
-  {{- fail "castai.clusterID or castai.clusterIdSecretKeyRef must be provided" }}
+  {{- fail "castai.clusterID, castai.clusterIdConfigMapKeyRef or castai.clusterIdSecretKeyRef must be provided" }}
 {{- end }}
 {{- end }}
 
