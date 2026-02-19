@@ -54,7 +54,7 @@ pyroscope:
   enabled: false
 
 agent:
-  enabled: false
+  enabled: true
 
   # -- Used to set additional volumes.
   extraVolumes: []
