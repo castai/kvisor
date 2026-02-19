@@ -439,6 +439,7 @@ func (s *SysfsStorageInfoProvider) getNodeCloudVolumes(ctx context.Context) (*ku
 	}
 
 	s.cloudVolumeCache.cloudVolumesResp = resp
+	s.cloudVolumeCache.lastLoadTime = time.Now()
 
 	return resp, nil
 }
