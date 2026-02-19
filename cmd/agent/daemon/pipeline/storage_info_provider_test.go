@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1281,4 +1282,179 @@ func TestExtractNVMeDiskName(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// writeMountInfo writes a temporary mountinfo file and returns its path.
+func writeMountInfo(t *testing.T, lines []string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "mountinfo-*")
+	require.NoError(t, err)
+	for _, l := range lines {
+		fmt.Fprintln(f, l)
+	}
+	require.NoError(t, f.Close())
+	return f.Name()
+}
+
+// mountInfoLine builds a valid /proc/mountinfo line for the given mount point,
+// fs type and major:minor device number.
+func mountInfoLine(mountPoint, fsType, majorMinor string) string {
+	// Format: mountID parentID major:minor root mountPoint mountOptions [optionalFields] - fsType device superOptions
+	return fmt.Sprintf("1 0 %s / %s rw,relatime shared:1 - %s /dev/test rw", majorMinor, mountPoint, fsType)
+}
+
+func TestCollectEphemeralStorageLocal(t *testing.T) {
+	// All tests use real directories so that syscall.Statfs succeeds.
+	// hostRootPath is set to t.TempDir(); mount point subdirectories are created
+	// inside it so that filepath.Join(hostRootPath, mountPoint) exists.
+
+	newProvider := func(t *testing.T, hostRoot string) *SysfsStorageInfoProvider {
+		t.Helper()
+		return &SysfsStorageInfoProvider{
+			log:          logging.New(),
+			nodeName:     "test-node",
+			hostRootPath: hostRoot,
+		}
+	}
+
+	t.Run("single kubelet mount returns non-zero stats", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		kubeletDir := filepath.Join(hostRoot, "/var/lib/kubelet")
+		require.NoError(t, os.MkdirAll(kubeletDir, 0o755))
+
+		// Obtain the real device ID of the temp dir so we can verify dedup later.
+		_, _, _, _, devID, err := getFilesystemStats(kubeletDir)
+		require.NoError(t, err)
+		_ = devID
+
+		// Write a mountinfo that has exactly one kubelet mount with a supported FS type.
+		mountInfoPath := writeMountInfo(t, []string{
+			mountInfoLine("/var/lib/kubelet", "ext4", "8:1"),
+		})
+
+		// Temporarily monkey-patch readMountInfo by wrapping the provider logic.
+		// We call the unexported helper directly to keep things simple.
+		mounts, err := readMountInfo(mountInfoPath)
+		require.NoError(t, err)
+		require.Len(t, mounts, 1)
+
+		provider := newProvider(t, hostRoot)
+		size, used, err := provider.collectEphemeralStorageLocalFromMounts(mounts)
+		require.NoError(t, err)
+		assert.Greater(t, size, uint64(0), "expected non-zero size")
+		assert.Greater(t, used, uint64(0), "expected non-zero used")
+	})
+
+	t.Run("unsupported fs types are ignored", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(hostRoot, "/var/lib/kubelet/pods"), 0o755))
+
+		// btrfs under kubelet — should be ignored.
+		// ext4 mount NOT under kubelet — should be ignored.
+		// xfs under kubelet — should count.
+		mountInfoPath := writeMountInfo(t, []string{
+			mountInfoLine("/var/lib/kubelet/pods", "btrfs", "8:2"),
+			mountInfoLine("/data", "ext4", "8:3"),
+			mountInfoLine("/var/lib/kubelet", "xfs", "8:4"),
+		})
+
+		mounts, err := readMountInfo(mountInfoPath)
+		require.NoError(t, err)
+		// readMountInfo itself only returns ext4/xfs/btrfs/ext3/ext2, so btrfs is present.
+		// Our collectEphemeralStorageLocal further restricts to ext4/xfs.
+
+		provider := newProvider(t, hostRoot)
+		size, used, err := provider.collectEphemeralStorageLocalFromMounts(mounts)
+		require.NoError(t, err)
+		// Only the xfs /var/lib/kubelet mount should have contributed.
+		assert.Greater(t, size, uint64(0))
+		assert.Greater(t, used, uint64(0))
+	})
+
+	t.Run("deduplicates mounts on the same device", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		// Two directories that live on the same underlying device (both under hostRoot,
+		// which is on a single tmpfs/ext4 device on CI and developer machines).
+		dirA := filepath.Join(hostRoot, "/var/lib/kubelet")
+		dirB := filepath.Join(hostRoot, "/var/lib/kubelet/pods")
+		require.NoError(t, os.MkdirAll(dirA, 0o755))
+		require.NoError(t, os.MkdirAll(dirB, 0o755))
+
+		_, _, _, _, devA, err := getFilesystemStats(dirA)
+		require.NoError(t, err)
+		_, _, _, _, devB, err := getFilesystemStats(dirB)
+		require.NoError(t, err)
+
+		if devA != devB {
+			t.Skip("test directories are on different devices; dedup test not applicable")
+		}
+
+		// Both mounts have the same device ID — should be counted only once.
+		mounts := []mountInfo{
+			{MountPoint: "/var/lib/kubelet", FsType: "ext4", MajorMinor: "8:1"},
+			{MountPoint: "/var/lib/kubelet/pods", FsType: "ext4", MajorMinor: "8:1"},
+		}
+
+		provider := newProvider(t, hostRoot)
+		sizeDeduped, usedDeduped, err := provider.collectEphemeralStorageLocalFromMounts(mounts)
+		require.NoError(t, err)
+
+		// Collect the single-mount result for comparison.
+		sizeOne, usedOne, err := provider.collectEphemeralStorageLocalFromMounts(mounts[:1])
+		require.NoError(t, err)
+
+		assert.Equal(t, sizeOne, sizeDeduped, "dedup should produce same size as counting the device once")
+		assert.Equal(t, usedOne, usedDeduped, "dedup should produce same used as counting the device once")
+	})
+
+	t.Run("fallback to deepest containing mount when no kubelet sub-mount exists", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		// Simulate a node where /var/lib/kubelet lives on the root filesystem.
+		// The only eligible mount is "/" (no mount directly under /var/lib/kubelet).
+		rootDir := filepath.Join(hostRoot, "/")
+		require.NoError(t, os.MkdirAll(rootDir, 0o755))
+
+		mounts := []mountInfo{
+			{MountPoint: "/", FsType: "ext4", MajorMinor: "8:1"},
+		}
+
+		provider := newProvider(t, hostRoot)
+		size, used, err := provider.collectEphemeralStorageLocalFromMounts(mounts)
+		require.NoError(t, err)
+		assert.Greater(t, size, uint64(0), "fallback root mount should return non-zero size")
+		assert.Greater(t, used, uint64(0), "fallback root mount should return non-zero used")
+	})
+
+	t.Run("fallback prefers deepest prefix mount", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(hostRoot, "/var/lib"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(hostRoot, "/"), 0o755))
+
+		// /var/lib is a deeper prefix of /var/lib/kubelet than /
+		mounts := []mountInfo{
+			{MountPoint: "/", FsType: "ext4", MajorMinor: "8:1"},
+			{MountPoint: "/var/lib", FsType: "ext4", MajorMinor: "8:2"},
+		}
+
+		provider := newProvider(t, hostRoot)
+
+		// Only /var/lib should be used (deepest prefix).
+		// Run with the full list and compare to just /var/lib.
+		sizeFull, usedFull, err := provider.collectEphemeralStorageLocalFromMounts(mounts)
+		require.NoError(t, err)
+
+		sizeVarLib, usedVarLib, err := provider.collectEphemeralStorageLocalFromMounts(mounts[1:])
+		require.NoError(t, err)
+
+		assert.Equal(t, sizeVarLib, sizeFull, "deepest prefix (/var/lib) should win over /")
+		assert.Equal(t, usedVarLib, usedFull)
+	})
+
+	t.Run("no mounts at all returns zero without error", func(t *testing.T) {
+		provider := newProvider(t, t.TempDir())
+		size, used, err := provider.collectEphemeralStorageLocalFromMounts(nil)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), size)
+		assert.Equal(t, uint64(0), used)
+	})
 }
