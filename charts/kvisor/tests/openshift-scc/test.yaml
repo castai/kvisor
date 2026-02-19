@@ -4,7 +4,7 @@ templates:
   - agent.yaml
   - secret.yaml
 values:
-  - openshift-scc_values.yaml
+  - values.yaml
 tests:
   - it: should not create SCC when agent.openshift.scc.create is false
     set:
