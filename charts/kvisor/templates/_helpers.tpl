@@ -61,18 +61,21 @@ Create chart name and version as used by the chart label.
 {{- else if .Values.castai.clusterID }}
 - name: CLUSTER_ID
   value: {{ .Values.castai.clusterID | quote }}
+  valueFrom: null # workaround for https://github.com/helm/helm/issues/8994
 {{- else if .Values.castai.clusterIdConfigMapKeyRef.name }}
 - name: CLUSTER_ID
   valueFrom:
     configMapKeyRef:
       name: {{ .Values.castai.clusterIdConfigMapKeyRef.name }}
       key: {{ .Values.castai.clusterIdConfigMapKeyRef.key }}
+  value: null # workaround for https://github.com/helm/helm/issues/8994
 {{- else if .Values.castai.clusterIdSecretKeyRef.name }}
 - name: CLUSTER_ID
   valueFrom:
     secretKeyRef:
       name: {{ .Values.castai.clusterIdSecretKeyRef.name }}
       key: {{ .Values.castai.clusterIdSecretKeyRef.key }}
+  value: null # workaround for https://github.com/helm/helm/issues/8994
 {{- else if not $envFrom }}
   {{- fail "castai.clusterID, castai.clusterIdConfigMapKeyRef or castai.clusterIdSecretKeyRef must be provided" }}
 {{- end }}
