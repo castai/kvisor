@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 
@@ -62,11 +63,50 @@ type DataBatchConfig struct {
 	ExportTimeout     time.Duration `validate:"required" json:"exportTimeout"`
 }
 
+// EphemeralStorageSource controls how node ephemeral storage metrics are collected.
+type EphemeralStorageSource string
+
+const (
+	// EphemeralStorageSourceNone disables ephemeral storage metric collection.
+	EphemeralStorageSourceNone EphemeralStorageSource = "none"
+	// EphemeralStorageSourceKubelet collects ephemeral storage metrics via the
+	// kubelet /stats/summary endpoint (node.fs capacity and used bytes).
+	EphemeralStorageSourceKubelet EphemeralStorageSource = "kubelet"
+	// EphemeralStorageSourceStorageOptimization collects ephemeral storage as the
+	// sum of the disk hosting /var/lib/kubelet and the disk backing the
+	// csi.cast.ai CSI driver (/var/lib/castai-storage), deduplicated by device ID.
+	// This avoids double-counting PVC-backed mounts that reside under /var/lib/kubelet.
+	EphemeralStorageSourceStorageOptimization EphemeralStorageSource = "storage-optimization"
+	// EphemeralStorageSourceAuto probes for the presence of /var/lib/castai-storage
+	// during startup. If the path exists the config option will be set to EphemeralStorageSourceStorageOptimization;
+	// otherwise it falls back to EphemeralStorageSourceKubelet.
+	EphemeralStorageSourceAuto EphemeralStorageSource = "auto"
+)
+
+func (e *EphemeralStorageSource) String() string {
+	return string(*e)
+}
+
+func (e *EphemeralStorageSource) Set(s string) error {
+	switch EphemeralStorageSource(s) {
+	case EphemeralStorageSourceNone, EphemeralStorageSourceKubelet, EphemeralStorageSourceStorageOptimization, EphemeralStorageSourceAuto:
+		*e = EphemeralStorageSource(s)
+		return nil
+	default:
+		return fmt.Errorf("unknown ephemeral storage source %q, valid values: none, kubelet, storage-optimization, auto", s)
+	}
+}
+
+func (e *EphemeralStorageSource) Type() string {
+	return "EphemeralStorageSource"
+}
+
 type StatsConfig struct {
-	Enabled           bool          `json:"enabled"`
-	ScrapeInterval    time.Duration `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
-	FileAccessEnabled bool          `json:"fileAccessEnabled"`
-	StorageEnabled    bool          `json:"storageEnabled"`
+	Enabled                bool                   `json:"enabled"`
+	ScrapeInterval         time.Duration          `json:"scrapeInterval"` // TODO: Should we change this to export interval, naming as in netflows.
+	FileAccessEnabled      bool                   `json:"fileAccessEnabled"`
+	StorageEnabled         bool                   `json:"storageEnabled"`
+	EphemeralStorageSource EphemeralStorageSource `json:"ephemeralStorageSource"`
 }
 
 type EventsConfig struct {
@@ -79,13 +119,13 @@ type EnricherConfig struct {
 }
 
 type NetflowConfig struct {
-	Enabled                     bool                       `json:"enabled"`
-	ExportInterval              time.Duration              `json:"exportInterval"`
-	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
-	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
-	CheckClusterNetworkRanges   bool                       `json:"checkClusterNetworkRanges"`
-	ClusterInfoRefreshInterval  time.Duration              `json:"clusterInfoRefreshInterval"`
-	CgroupDNSCacheMaxEntries    uint32                     `json:"cgroupDNSCacheMaxEntries"`
+	Enabled                    bool                       `json:"enabled"`
+	ExportInterval             time.Duration              `json:"exportInterval"`
+	Grouping                   ebpftracer.NetflowGrouping `json:"grouping"`
+	MaxPublicIPs               int16                      `json:"maxPublicIPs"`
+	CheckClusterNetworkRanges  bool                       `json:"checkClusterNetworkRanges"`
+	ClusterInfoRefreshInterval time.Duration              `json:"clusterInfoRefreshInterval"`
+	CgroupDNSCacheMaxEntries   uint32                     `json:"cgroupDNSCacheMaxEntries"`
 }
 
 type FileAccessConfig struct {

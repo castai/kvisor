@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/logging"
 )
 
@@ -1281,4 +1282,126 @@ func TestExtractNVMeDiskName(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestCollectEphemeralStorageStorageOptimization(t *testing.T) {
+	// All tests use real directories so that syscall.Statfs succeeds.
+	// hostRootPath is set to a temp dir; kubelet/castai-storage subdirectories
+	// are created inside it so filepath.Join(hostRootPath, path) exists.
+
+	newProvider := func(t *testing.T, hostRoot string) *SysfsStorageInfoProvider {
+		t.Helper()
+		return &SysfsStorageInfoProvider{
+			log:          logging.New(),
+			nodeName:     "test-node",
+			hostRootPath: hostRoot,
+		}
+	}
+
+	t.Run("only kubelet path exists returns non-zero stats", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(hostRoot, kubeletPath), 0o755))
+		// castai-storage does NOT exist → should be silently skipped.
+
+		provider := newProvider(t, hostRoot)
+		size, used, err := provider.collectEphemeralStorageStorageOptimization()
+		require.NoError(t, err)
+		assert.Greater(t, size, int64(0), "expected non-zero size from kubelet disk")
+		assert.Greater(t, used, int64(0), "expected non-zero used from kubelet disk")
+	})
+
+	t.Run("both paths on same device are deduplicated", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		kubeletDir := filepath.Join(hostRoot, kubeletPath)
+		castaiDir := filepath.Join(hostRoot, castaiStoragePath)
+		require.NoError(t, os.MkdirAll(kubeletDir, 0o755))
+		require.NoError(t, os.MkdirAll(castaiDir, 0o755))
+
+		_, _, _, _, devKubelet, err := getFilesystemStats(kubeletDir)
+		require.NoError(t, err)
+		_, _, _, _, devCastai, err := getFilesystemStats(castaiDir)
+		require.NoError(t, err)
+
+		if devKubelet != devCastai {
+			t.Skip("test directories are on different devices; dedup test not applicable")
+		}
+
+		provider := newProvider(t, hostRoot)
+		size, used, err := provider.collectEphemeralStorageStorageOptimization()
+		require.NoError(t, err)
+
+		// Both paths share the same device. The result must equal a single statfs
+		// call on the kubelet directory — no double-counting.
+		wantSize, wantUsed, _, _, _, err := getFilesystemStats(kubeletDir)
+		require.NoError(t, err)
+
+		assert.Equal(t, wantSize, size, "same-device paths should be counted only once")
+		assert.Equal(t, wantUsed, used)
+	})
+
+	t.Run("both paths on different devices sums both", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		kubeletDir := filepath.Join(hostRoot, kubeletPath)
+		castaiDir := filepath.Join(hostRoot, castaiStoragePath)
+		require.NoError(t, os.MkdirAll(kubeletDir, 0o755))
+		require.NoError(t, os.MkdirAll(castaiDir, 0o755))
+
+		_, _, _, _, devKubelet, err := getFilesystemStats(kubeletDir)
+		require.NoError(t, err)
+		_, _, _, _, devCastai, err := getFilesystemStats(castaiDir)
+		require.NoError(t, err)
+
+		if devKubelet == devCastai {
+			t.Skip("test directories share a device; different-device test not applicable")
+		}
+
+		provider := newProvider(t, hostRoot)
+		size, used, err := provider.collectEphemeralStorageStorageOptimization()
+		require.NoError(t, err)
+
+		sizeKubelet, usedKubelet, _, _, _, err := getFilesystemStats(kubeletDir)
+		require.NoError(t, err)
+		sizeCastai, usedCastai, _, _, _, err := getFilesystemStats(castaiDir)
+		require.NoError(t, err)
+
+		assert.Equal(t, sizeKubelet+sizeCastai, size, "expected sum of both disks")
+		assert.Equal(t, usedKubelet+usedCastai, used)
+	})
+
+	t.Run("neither path exists returns zero without error", func(t *testing.T) {
+		// hostRoot with no subdirectories — both stat calls will fail with ENOENT.
+		provider := newProvider(t, t.TempDir())
+		size, used, err := provider.collectEphemeralStorageStorageOptimization()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), size)
+		assert.Equal(t, int64(0), used)
+	})
+}
+
+func TestResolveEphemeralStorageSource(t *testing.T) {
+	log := logging.New()
+
+	t.Run("auto resolves to storage-optimization when castai-storage path exists", func(t *testing.T) {
+		hostRoot := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(hostRoot, castaiStoragePath), 0o755))
+
+		got := resolveEphemeralStorageSource(log, hostRoot, config.EphemeralStorageSourceAuto)
+		assert.Equal(t, config.EphemeralStorageSourceStorageOptimization, got)
+	})
+
+	t.Run("auto resolves to kubelet when castai-storage path is absent", func(t *testing.T) {
+		got := resolveEphemeralStorageSource(log, t.TempDir(), config.EphemeralStorageSourceAuto)
+		assert.Equal(t, config.EphemeralStorageSourceKubelet, got)
+	})
+
+	t.Run("non-auto sources are returned unchanged", func(t *testing.T) {
+		for _, src := range []config.EphemeralStorageSource{
+			config.EphemeralStorageSourceNone,
+			config.EphemeralStorageSourceKubelet,
+			config.EphemeralStorageSourceStorageOptimization,
+		} {
+			got := resolveEphemeralStorageSource(log, t.TempDir(), src)
+			assert.Equal(t, src, got)
+		}
+	})
 }

@@ -309,7 +309,7 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to setup storage metrics: %w", err)
 		}
 
-		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient, cfg.Castai.ClusterID)
+		storageInfoProvider, err = pipeline.NewStorageInfoProvider(log, kubeAPIServerClient, cfg.Castai.ClusterID, cfg.Stats.EphemeralStorageSource)
 		if err != nil {
 			return err
 		}

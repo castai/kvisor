@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/castai/logging"
 )
@@ -89,13 +91,15 @@ type FilesystemMetric struct {
 
 // NodeStatsSummaryMetric represents node-level filesystem statistics from kubelet
 type NodeStatsSummaryMetric struct {
-	NodeName             string    `avro:"node_name"`
-	NodeTemplate         *string   `avro:"node_template"`
-	ImageFsSizeBytes     *int64    `avro:"image_fs_size_bytes"`
-	ImageFsUsedBytes     *int64    `avro:"image_fs_used_bytes"`
-	ContainerFsSizeBytes *int64    `avro:"container_fs_size_bytes"`
-	ContainerFsUsedBytes *int64    `avro:"container_fs_used_bytes"`
-	Timestamp            time.Time `avro:"ts"`
+	NodeName                  string    `avro:"node_name"`
+	NodeTemplate              *string   `avro:"node_template"`
+	ImageFsSizeBytes          *int64    `avro:"image_fs_size_bytes"`
+	ImageFsUsedBytes          *int64    `avro:"image_fs_used_bytes"`
+	ContainerFsSizeBytes      *int64    `avro:"container_fs_size_bytes"`
+	ContainerFsUsedBytes      *int64    `avro:"container_fs_used_bytes"`
+	EphemeralStorageSizeBytes *int64    `avro:"ephemeral_storage_size_bytes"`
+	EphemeralStorageUsedBytes *int64    `avro:"ephemeral_storage_used_bytes"`
+	Timestamp                 time.Time `avro:"ts"`
 }
 
 // K8sPodVolumeMetric represents pod volume information from Kubernetes
@@ -157,16 +161,17 @@ type cloudVolumeCache struct {
 }
 
 type SysfsStorageInfoProvider struct {
-	log                   *logging.Logger
-	storageState          *storageMetricsState
-	nodeName              string
-	clusterID             string
-	hostRootPath          string
-	sysBlockPrefix        string
-	kubeClient            kubepb.KubeAPIClient
-	nodeCache             *freelru.SyncedLRU[string, *kubepb.Node]
-	cloudVolumeCache      cloudVolumeCache
-	wellKnownPathDeviceID map[string]uint64
+	log                    *logging.Logger
+	storageState           *storageMetricsState
+	nodeName               string
+	clusterID              string
+	hostRootPath           string
+	sysBlockPrefix         string
+	kubeClient             kubepb.KubeAPIClient
+	nodeCache              *freelru.SyncedLRU[string, *kubepb.Node]
+	cloudVolumeCache       cloudVolumeCache
+	wellKnownPathDeviceID  map[string]uint64
+	ephemeralStorageSource config.EphemeralStorageSource
 }
 
 const (
@@ -176,7 +181,7 @@ const (
 	castaiStoragePath = "/var/lib/castai-storage"
 )
 
-func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient, clusterID string) (StorageInfoProvider, error) {
+func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient, clusterID string, ephemeralStorageSource config.EphemeralStorageSource) (StorageInfoProvider, error) {
 	nodeCache, err := freelru.NewSynced[string, *kubepb.Node](4, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
 	})
@@ -216,19 +221,24 @@ func NewStorageInfoProvider(log *logging.Logger, kubeClient kubepb.KubeAPIClient
 			Warn("failed to stat crio path")
 	}
 
+	// Resolve the "auto" source at construction time so that every subsequent
+	// collection cycle uses the concrete strategy without re-probing.
+	ephemeralStorageSource = resolveEphemeralStorageSource(log, hostPathRoot, ephemeralStorageSource)
+
 	return &SysfsStorageInfoProvider{
 		storageState: &storageMetricsState{
 			blockDevices: make(map[string]*BlockDeviceMetric),
 			filesystems:  make(map[string]*FilesystemMetric),
 		},
-		log:                   log,
-		nodeName:              os.Getenv("NODE_NAME"),
-		clusterID:             clusterID,
-		hostRootPath:          hostPathRoot,
-		sysBlockPrefix:        "",
-		kubeClient:            kubeClient,
-		nodeCache:             nodeCache,
-		wellKnownPathDeviceID: wellKnownPathDeviceID,
+		log:                    log,
+		nodeName:               os.Getenv("NODE_NAME"),
+		clusterID:              clusterID,
+		hostRootPath:           hostPathRoot,
+		sysBlockPrefix:         "",
+		kubeClient:             kubeClient,
+		nodeCache:              nodeCache,
+		wellKnownPathDeviceID:  wellKnownPathDeviceID,
+		ephemeralStorageSource: ephemeralStorageSource,
 	}, nil
 }
 
@@ -288,7 +298,9 @@ func (s *SysfsStorageInfoProvider) getNodeTemplate() (*string, error) {
 	return nil, nil
 }
 
-// CollectNodeStatsSummary retrieves node stats summary from the controller and builds a metric
+// CollectNodeStatsSummary retrieves node stats summary from the controller and builds a metric.
+// The ephemeral storage strategy is determined by s.ephemeralStorageSource, which is resolved
+// once at construction time (including auto-detection when EphemeralStorageSourceAuto is configured).
 func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error) {
 	if s.kubeClient == nil {
 		return nil, fmt.Errorf("kube client is not initialized")
@@ -342,7 +354,105 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 		}
 	}
 
+	// s.ephemeralStorageSource is already resolved to a concrete strategy at construction
+	// time (EphemeralStorageSourceAuto is never present here).
+	switch s.ephemeralStorageSource {
+	case config.EphemeralStorageSourceKubelet:
+		// node.fs represents the root filesystem where ephemeral storage resides.
+		// This is the same data source kubelet uses when enforcing ephemeral-storage limits.
+		if resp.Node.Fs != nil {
+			if resp.Node.Fs.CapacityBytes > 0 {
+				metric.EphemeralStorageSizeBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Fs.CapacityBytes))
+			}
+			if resp.Node.Fs.UsedBytes > 0 {
+				metric.EphemeralStorageUsedBytes = lo.ToPtr(safeUint64ToInt64(resp.Node.Fs.UsedBytes))
+			}
+		}
+	case config.EphemeralStorageSourceStorageOptimization:
+		size, used, localErr := s.collectEphemeralStorageStorageOptimization()
+		if localErr != nil {
+			log.Warnf("failed to collect storage-optimization ephemeral storage: %v", localErr)
+		} else {
+			if size > 0 {
+				metric.EphemeralStorageSizeBytes = lo.ToPtr(size)
+			}
+			if used > 0 {
+				metric.EphemeralStorageUsedBytes = lo.ToPtr(used)
+			}
+		}
+		// EphemeralStorageSourceNone: leave fields nil.
+	}
+
 	return metric, nil
+}
+
+// resolveEphemeralStorageSource resolves EphemeralStorageSourceAuto to a concrete
+// strategy by probing for the presence of the csi.cast.ai storage path on the host.
+// All other source values are returned unchanged.
+func resolveEphemeralStorageSource(log *logging.Logger, hostRootPath string, source config.EphemeralStorageSource) config.EphemeralStorageSource {
+	if source != config.EphemeralStorageSourceAuto {
+		return source
+	}
+	castaiHostPath := filepath.Join(hostRootPath, castaiStoragePath)
+	if _, err := os.Stat(castaiHostPath); err == nil {
+		log.Infof("ephemeral-storage-source auto: %s detected, using storage-optimization strategy", castaiHostPath)
+		return config.EphemeralStorageSourceStorageOptimization
+	}
+	log.Infof("ephemeral-storage-source auto: %s not detected, falling back to kubelet strategy", castaiHostPath)
+	return config.EphemeralStorageSourceKubelet
+}
+
+// collectEphemeralStorageStorageOptimization measures ephemeral storage as the
+// sum of the disk hosting /var/lib/kubelet and the disk backing the csi.cast.ai
+// CSI driver (/var/lib/castai-storage), deduplicated by device ID.
+//
+// This avoids the pitfall of scanning all mounts under /var/lib/kubelet, which
+// includes PVC-backed volumes and would over-count ephemeral storage.
+func (s *SysfsStorageInfoProvider) collectEphemeralStorageStorageOptimization() (sizeBytes, usedBytes int64, err error) {
+	type candidate struct {
+		logicalPath string // path relative to the host root (for logging)
+		hostPath    string // resolved path via hostRootPath
+	}
+
+	candidates := []candidate{
+		{kubeletPath, filepath.Join(s.hostRootPath, kubeletPath)},
+		{castaiStoragePath, filepath.Join(s.hostRootPath, castaiStoragePath)},
+	}
+
+	seen := make(map[uint64]struct{}, len(candidates))
+	for _, c := range candidates {
+		size, used, _, _, devID, statErr := getFilesystemStats(c.hostPath)
+		if statErr != nil {
+			if os.IsNotExist(statErr) || isNotExistError(statErr) {
+				// castai-storage may not be present on all nodes — silently skip.
+				continue
+			}
+			return 0, 0, fmt.Errorf("collectEphemeralStorageStorageOptimization: failed to stat %s: %w", c.logicalPath, statErr)
+		}
+		if _, alreadySeen := seen[devID]; alreadySeen {
+			// Both paths share the same underlying disk — count it only once.
+			continue
+		}
+		seen[devID] = struct{}{}
+		sizeBytes += size
+		usedBytes += used
+	}
+
+	return sizeBytes, usedBytes, nil
+}
+
+// isNotExistError returns true when err (possibly wrapped) is a "no such file
+// or directory" syscall error, covering cases where os.IsNotExist returns false
+// for wrapped errors from statfs.
+func isNotExistError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		return errno == syscall.ENOENT
+	}
+	return false
 }
 
 // CollectPodVolumeMetrics retrieves pod volume information from the controller
