@@ -169,7 +169,7 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.PeeredVPC, error) {
 	var peeredVPCs []types.PeeredVPC
 
-	// Fetch peerings where our VPC is the requester (peer info is in AccepterVpcInfo).
+	// Fetch peerings where account VPC is the requester (peer info is in AccepterVpcInfo).
 	requesterPeerings, err := p.describePeeringConnections(ctx, "requester-vpc-info.vpc-id", vpcID)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 		}
 	}
 
-	// Fetch peerings where our VPC is the accepter (peer info is in RequesterVpcInfo).
+	// Fetch peerings where account VPC is the accepter (peer info is in RequesterVpcInfo).
 	accepterPeerings, err := p.describePeeringConnections(ctx, "accepter-vpc-info.vpc-id", vpcID)
 	if err != nil {
 		return nil, err
@@ -221,9 +221,8 @@ func (p *Provider) describePeeringConnections(ctx context.Context, filterName, v
 	return result.VpcPeeringConnections, nil
 }
 
-// peeringToPeeredVPC extracts CIDRs from the remote side of a peering connection.
-// peerInfo is the VpcInfo of the remote VPC (AccepterVpcInfo when we are the requester,
-// RequesterVpcInfo when we are the accepter).
+// peeringToPeeredVPC extracts CIDRs from the remote side of a peering connection
+// where peerInfo is the VpcInfo of the remote VPC
 func (p *Provider) peeringToPeeredVPC(peering ec2types.VpcPeeringConnection, peerInfo *ec2types.VpcPeeringConnectionVpcInfo) (types.PeeredVPC, bool) {
 	if peerInfo == nil {
 		return types.PeeredVPC{}, false
