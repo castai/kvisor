@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	"github.com/castai/kvisor/cmd/agent/daemon/config"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/castai/logging"
 )
@@ -89,13 +90,15 @@ type FilesystemMetric struct {
 
 // NodeStatsSummaryMetric represents node-level filesystem statistics from kubelet
 type NodeStatsSummaryMetric struct {
-	NodeName             string    `avro:"node_name"`
-	NodeTemplate         *string   `avro:"node_template"`
-	ImageFsSizeBytes     *int64    `avro:"image_fs_size_bytes"`
-	ImageFsUsedBytes     *int64    `avro:"image_fs_used_bytes"`
-	ContainerFsSizeBytes *int64    `avro:"container_fs_size_bytes"`
-	ContainerFsUsedBytes *int64    `avro:"container_fs_used_bytes"`
-	Timestamp            time.Time `avro:"ts"`
+	NodeName                  string    `avro:"node_name"`
+	NodeTemplate              *string   `avro:"node_template"`
+	ImageFsSizeBytes          *int64    `avro:"image_fs_size_bytes"`
+	ImageFsUsedBytes          *int64    `avro:"image_fs_used_bytes"`
+	ContainerFsSizeBytes      *int64    `avro:"container_fs_size_bytes"`
+	ContainerFsUsedBytes      *int64    `avro:"container_fs_used_bytes"`
+	EphemeralStorageSizeBytes *uint64   `avro:"ephemeral_storage_size_bytes"`
+	EphemeralStorageUsedBytes *uint64   `avro:"ephemeral_storage_used_bytes"`
+	Timestamp                 time.Time `avro:"ts"`
 }
 
 // K8sPodVolumeMetric represents pod volume information from Kubernetes
@@ -145,7 +148,7 @@ type storageMetricsState struct {
 type StorageInfoProvider interface {
 	CollectFilesystemMetrics(ctx context.Context, timestamp time.Time) ([]FilesystemMetric, error)
 	CollectBlockDeviceMetrics(ctx context.Context, timestamp time.Time) ([]BlockDeviceMetric, error)
-	CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error)
+	CollectNodeStatsSummary(ctx context.Context, source config.EphemeralStorageSource) (*NodeStatsSummaryMetric, error)
 	CollectPodVolumeMetrics(ctx context.Context) ([]K8sPodVolumeMetric, error)
 	CollectCloudVolumeMetrics(ctx context.Context) ([]CloudVolumeMetric, error)
 }
@@ -288,8 +291,10 @@ func (s *SysfsStorageInfoProvider) getNodeTemplate() (*string, error) {
 	return nil, nil
 }
 
-// CollectNodeStatsSummary retrieves node stats summary from the controller and builds a metric
-func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error) {
+// CollectNodeStatsSummary retrieves node stats summary from the controller and builds a metric.
+// The source parameter controls how ephemeral storage fields are populated; EphemeralStorageSourceNone
+// leaves them nil.
+func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context, source config.EphemeralStorageSource) (*NodeStatsSummaryMetric, error) {
 	if s.kubeClient == nil {
 		return nil, fmt.Errorf("kube client is not initialized")
 	}
@@ -342,7 +347,120 @@ func (s *SysfsStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) 
 		}
 	}
 
+	switch source {
+	case config.EphemeralStorageSourceKubelet:
+		// node.fs represents the root filesystem where ephemeral storage resides.
+		// This is the same data source kubelet uses when enforcing ephemeral-storage limits.
+		if resp.Node.Fs != nil {
+			if resp.Node.Fs.CapacityBytes > 0 {
+				metric.EphemeralStorageSizeBytes = lo.ToPtr(resp.Node.Fs.CapacityBytes)
+			}
+			if resp.Node.Fs.UsedBytes > 0 {
+				metric.EphemeralStorageUsedBytes = lo.ToPtr(resp.Node.Fs.UsedBytes)
+			}
+		}
+	case config.EphemeralStorageSourceLocal:
+		size, used, localErr := s.collectEphemeralStorageLocal()
+		if localErr != nil {
+			log.Warnf("failed to collect local ephemeral storage: %v", localErr)
+		} else {
+			if size > 0 {
+				metric.EphemeralStorageSizeBytes = lo.ToPtr(size)
+			}
+			if used > 0 {
+				metric.EphemeralStorageUsedBytes = lo.ToPtr(used)
+			}
+		}
+		// EphemeralStorageSourceNone: leave fields nil.
+	}
+
 	return metric, nil
+}
+
+// collectEphemeralStorageLocal measures ephemeral storage by inspecting the host's
+// mount table (/proc/1/mountinfo).  It finds all ext4/xfs mounts under
+// /var/lib/kubelet, deduplicates them by device ID, and sums their statfs
+// capacity and used bytes.  If no dedicated mount exists under /var/lib/kubelet
+// the deepest mount whose point is a prefix of /var/lib/kubelet is used as a
+// fallback (e.g. the root filesystem "/").
+func (s *SysfsStorageInfoProvider) collectEphemeralStorageLocal() (sizeBytes, usedBytes uint64, err error) {
+	mounts, err := readMountInfo("")
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read mount info: %w", err)
+	}
+	return s.collectEphemeralStorageLocalFromMounts(mounts)
+}
+
+// collectEphemeralStorageLocalFromMounts is the testable core of
+// collectEphemeralStorageLocal; it accepts a pre-parsed mount list so tests
+// can inject arbitrary mount tables without touching the filesystem.
+func (s *SysfsStorageInfoProvider) collectEphemeralStorageLocalFromMounts(mounts []mountInfo) (sizeBytes, usedBytes uint64, err error) {
+	// Collect mounts directly under /var/lib/kubelet (ext4 / xfs only).
+	var kubeletMounts []mountInfo
+	for _, m := range mounts {
+		if !isEphemeralLocalFilesystem(m.FsType) {
+			continue
+		}
+		if strings.HasPrefix(m.MountPoint, kubeletPath) {
+			kubeletMounts = append(kubeletMounts, m)
+		}
+	}
+
+	// Fallback: no dedicated mount found — find the deepest mount whose point
+	// is a prefix of /var/lib/kubelet (e.g. "/" or "/var/lib").
+	if len(kubeletMounts) == 0 {
+		var best *mountInfo
+		for i := range mounts {
+			m := &mounts[i]
+			if !isEphemeralLocalFilesystem(m.FsType) {
+				continue
+			}
+			// The mount point must be a prefix of kubeletPath.
+			prefix := m.MountPoint
+			if prefix != "/" {
+				prefix = prefix + "/"
+			}
+			if !strings.HasPrefix(kubeletPath+"/", prefix) {
+				continue
+			}
+			// Prefer the deepest (longest) matching mount point.
+			if best == nil || len(m.MountPoint) > len(best.MountPoint) {
+				best = m
+			}
+		}
+		if best != nil {
+			kubeletMounts = []mountInfo{*best}
+		}
+	}
+
+	if len(kubeletMounts) == 0 {
+		return 0, 0, nil
+	}
+
+	// Deduplicate by device ID, then sum.
+	seen := make(map[uint64]struct{}, len(kubeletMounts))
+	for _, m := range kubeletMounts {
+		hostPath := filepath.Join(s.hostRootPath, m.MountPoint)
+		size, used, _, _, devID, statErr := getFilesystemStats(hostPath)
+		if statErr != nil {
+			s.log.Warnf("collectEphemeralStorageLocal: skipping %s: %v", m.MountPoint, statErr)
+			continue
+		}
+		if _, alreadySeen := seen[devID]; alreadySeen {
+			continue
+		}
+		seen[devID] = struct{}{}
+		sizeBytes += safeInt64ToUint64(size)
+		usedBytes += safeInt64ToUint64(used)
+	}
+
+	return sizeBytes, usedBytes, nil
+}
+
+// isEphemeralLocalFilesystem returns true for the filesystem types supported by
+// the local ephemeral storage collector.
+func isEphemeralLocalFilesystem(fsType string) bool {
+	return fsType == "ext4" || fsType == "xfs"
 }
 
 // CollectPodVolumeMetrics retrieves pod volume information from the controller

@@ -41,10 +41,11 @@ func NewRunCommand(version string) *cobra.Command {
 		metricsHTTPListenPort = command.Flags().Int("metrics-http-listen-port", 6060, "metrics http listen port")
 		hostCgroupsDir        = command.Flags().String("host-cgroups", "/cgroups", "Host /sys/fs/cgroups directory name mounted to container")
 
-		statsEnabled           = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
-		statsScrapeInterval    = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
-		statsFileAccessEnabled = command.Flags().Bool("stats-file-access-enabled", false, "Enable file access stats tracking")
-		storageStatsEnabled    = command.Flags().Bool("storage-stats-enabled", true, "Enable storage stats scraping")
+		statsEnabled                = command.Flags().Bool("stats-enabled", false, "Enable stats scraping")
+		statsScrapeInterval         = command.Flags().Duration("stats-scrape-interval", 60*time.Second, "Stats scrape interval")
+		statsFileAccessEnabled      = command.Flags().Bool("stats-file-access-enabled", false, "Enable file access stats tracking")
+		storageStatsEnabled         = command.Flags().Bool("storage-stats-enabled", true, "Enable storage stats scraping")
+		storageEphemeralStatsSource = config.EphemeralStorageSourceKubelet
 
 		btfPath           = command.Flags().String("btf-path", "/sys/kernel/btf/vmlinux", "btf file path")
 		ebpfEventsEnabled = command.Flags().Bool("ebpf-events-enabled", false, "Enable ebpf events")
@@ -121,6 +122,7 @@ func NewRunCommand(version string) *cobra.Command {
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
 	command.Flags().Var(&ebpfEventsPolicy, "ebpf-events-policy", "Specify which ebpf events should be traced")
+	command.Flags().Var(&storageEphemeralStatsSource, "storage-ephemeral-source", "Ephemeral storage metrics collection source (none, kubelet, local)")
 
 	command.Run = func(cmd *cobra.Command, args []string) {
 		ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
@@ -161,10 +163,11 @@ func NewRunCommand(version string) *cobra.Command {
 				ExportTimeout:     *dataBatchExportTimeout,
 			},
 			Stats: config.StatsConfig{
-				Enabled:           *statsEnabled,
-				ScrapeInterval:    *statsScrapeInterval,
-				FileAccessEnabled: *statsFileAccessEnabled,
-				StorageEnabled:    *storageStatsEnabled,
+				Enabled:                *statsEnabled,
+				ScrapeInterval:         *statsScrapeInterval,
+				FileAccessEnabled:      *statsFileAccessEnabled,
+				StorageEnabled:         *storageStatsEnabled,
+				EphemeralStorageSource: storageEphemeralStatsSource,
 			},
 			Events: config.EventsConfig{
 				Enabled: *ebpfEventsEnabled,

@@ -1415,7 +1415,7 @@ func (m *mockStorageInfoProvider) CollectBlockDeviceMetrics(ctx context.Context,
 	}, nil
 }
 
-func (m *mockStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context) (*NodeStatsSummaryMetric, error) {
+func (m *mockStorageInfoProvider) CollectNodeStatsSummary(ctx context.Context, source config.EphemeralStorageSource) (*NodeStatsSummaryMetric, error) {
 	return &NodeStatsSummaryMetric{
 		NodeName:             "test-node",
 		NodeTemplate:         lo.ToPtr("test-template"),

@@ -152,7 +152,7 @@ func (c *Controller) collectNodeStatsSummary(ctx context.Context) {
 	defer cancel()
 
 	start := time.Now().UTC()
-	metric, err := c.storageInfoProvider.CollectNodeStatsSummary(ctx)
+	metric, err := c.storageInfoProvider.CollectNodeStatsSummary(ctx, c.cfg.Stats.EphemeralStorageSource)
 	if err != nil {
 		c.log.Errorf("failed to collect node stats summary: %v", err)
 		return
