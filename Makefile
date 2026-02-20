@@ -218,6 +218,30 @@ kvisor-controller-docker-image: clean-kvisor-controller kvisor-controller
 kvisor-controller-push-deploy: kvisor-controller-docker-image
 	docker push $(IMAGE_REPO)-controller:$(IMAGE_TAG)
 
+# Collector build.
+.PHONY: clean-kvisor-collector
+clean-kvisor-collector:
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/kvisor-collector-$(GO_ARCH)
+
+.PHONY: kvisor-collector
+kvisor-collector: $(OUTPUT_DIR_BIN)/kvisor-collector-$(GO_ARCH)
+
+$(OUTPUT_DIR_BIN)/kvisor-collector-$(GO_ARCH):
+	$(GO_ENV_SERVER) $(CMD_GO) build \
+		-ldflags="$(GO_DEBUG_FLAG) \
+			-X main.Version=\"$(VERSION)\" \
+			" \
+		-v -o $@ \
+		./cmd/agent/collector/
+
+.PHONY: kvisor-collector-docker-image
+kvisor-collector-docker-image: clean-kvisor-collector kvisor-collector
+	docker build -t $(IMAGE_REPO)-collector:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.collector
+
+.PHONY: kvisor-collector-push-deploy
+kvisor-collector-push-deploy: kvisor-collector-docker-image
+	docker push $(IMAGE_REPO)-collector:$(IMAGE_TAG)
+
 # Scanners build.
 .PHONY: kvisor-scanners-docker
 kvisor-scanners-docker:

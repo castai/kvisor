@@ -48,6 +48,51 @@ agent:
      memory: 128Mi
     limits:
      memory: 256Mi
+  reliabilityMetrics:
+    enabled: true
+    image:
+      repository: otel/ebpf-instrument
+      tag: "v0.4.1"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 1Gi
+    openPorts: "80,443,8080,8443,8090,6379"
+    env:
+      # Increase internal Go channel buffer from default 10 to 500.
+      # Fixes "subscriber channel is taking too long to respond" warnings
+      # that cause span drops and metric under-counting on busy nodes.
+      OTEL_EBPF_CHANNEL_BUFFER_LEN: "500"
+      # Reduce metrics export interval from default 60s to 15s.
+      # Flushes histogram aggregations 4x more often, reducing backpressure
+      # on the spanNameAggregatedMetrics pipeline stage.
+      OTEL_EBPF_METRICS_INTERVAL: "15s"
+      # Send eBPF events immediately instead of batching — reduces burst
+      # size hitting the Go pipeline during high-throughput periods.
+      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
+    containerSecurityContext: { }
+    collector:
+      enabled: true
+      clickhouseExporter:
+        enabled: false
+      image:
+        repository: kvisor-collector
+        tag: latest
+      args:
+        - "run"
+        - "--otlp-http-endpoint=0.0.0.0:4318"
+        - "--metrics-exporter-port=9400"
+        - "--health-check-endpoint=0.0.0.0:13133"
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+      prometheusPort: 9400
+      podMonitorLabels:
+        release: kube-prometheus-stack
 
 controller:
   enabled: true
@@ -71,6 +116,46 @@ controller:
 
   prometheusScrape:
     enabled: true
+  reliabilityMetrics:
+    enabled: true
+    image:
+      repository: otel/ebpf-instrument
+      tag: "v0.4.1"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 1Gi
+    openPorts: "80,443,8080,8443,8090,6379"
+    env:
+      # Increase internal Go channel buffer from default 10 to 500.
+      # Fixes "subscriber channel is taking too long to respond" warnings
+      # that cause span drops and metric under-counting on busy nodes.
+      OTEL_EBPF_CHANNEL_BUFFER_LEN: "500"
+      # Reduce metrics export interval from default 60s to 15s.
+      # Flushes histogram aggregations 4x more often, reducing backpressure
+      # on the spanNameAggregatedMetrics pipeline stage.
+      OTEL_EBPF_METRICS_INTERVAL: "15s"
+      # Send eBPF events immediately instead of batching — reduces burst
+      # size hitting the Go pipeline during high-throughput periods.
+      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
+    containerSecurityContext: { }
+    collector:
+      enabled: true
+      clickhouseExporter:
+        enabled: false
+      image:
+        repository: otel/opentelemetry-collector-contrib
+        tag: "0.145.0"
+      resources:
+        requests:
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+      prometheusPort: 9400
+      podMonitorLabels:
+        release: kube-prometheus-stack
 
 eventGenerator:
   enabled: false

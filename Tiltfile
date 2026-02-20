@@ -8,7 +8,7 @@ if read_file ('.env' , default = '' ):
 
 update_settings(max_parallel_updates=16)
 secret_settings (disable_scrub = True)
-allow_k8s_contexts(['kind-kind'])
+allow_k8s_contexts(['kind-kvisor'])
 namespace = 'kvisor'
 user = os.environ.get('USER', 'unknown-user')
 
@@ -45,6 +45,14 @@ local_resource(
     deps=[
         './cmd/controller',
         './api'
+    ],
+)
+
+local_resource(
+    'kvisor-collector-compile',
+    'CGO_ENABLED=0 GOOS=linux go build -o ./bin/kvisor-collector ./cmd/agent/collector',
+    deps=[
+        './cmd/agent/collector'
     ],
 )
 
@@ -97,6 +105,22 @@ docker_build_with_restart(
     live_update=[
         sync('./bin/kvisor-agent', '/usr/local/bin/kvisor-agent'),
         sync('./cmd/agent/kubebench/kubebench-rules', '/etc/kubebench-rules'),
+    ],
+)
+
+docker_build_with_restart(
+    'kvisor-collector',
+    '.',
+    entrypoint=['/usr/local/bin/kvisor-collector'],
+    dockerfile='Dockerfile.collector.local',
+    only=[
+        './bin/kvisor-collector',
+    ],
+    build_args={
+        'ARCH': '{}'.format(str(GOARCH))
+    },
+    live_update=[
+        sync('./bin/kvisor-collector', '/usr/local/bin/kvisor-collector'),
     ],
 )
 

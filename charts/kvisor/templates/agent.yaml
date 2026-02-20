@@ -216,7 +216,11 @@ spec:
           resources:
             {{- toYaml .Values.agent.reliabilityMetrics.collector.resources | nindent 12 }}
           args:
+            {{- if (dig "reliabilityMetrics" "collector" "args" nil .Values.agent) }}
+            {{- toYaml .Values.agent.reliabilityMetrics.collector.args | nindent 12 }}
+            {{- else }}
             - "--config=/etc/otelcol/config.yaml"
+            {{- end }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent) }}
