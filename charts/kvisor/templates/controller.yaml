@@ -53,6 +53,11 @@ spec:
           image: "{{ .Values.image.repository }}-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{.Values.image.pullPolicy}}
           volumeMounts:
+            {{- if .Values.controller.vpcStaticCIDRs.enabled }}
+            - name: vpc-static-cidrs
+              mountPath: /etc/kvisor/vpc-static-cidrs
+              readOnly: true
+            {{- end }}
             {{- with .Values.controller.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -70,6 +75,9 @@ spec:
           {{- end }}
           {{- if eq .Values.agent.enabled true }}
             - "--agent-enabled=true"
+          {{- end }}
+          {{- if .Values.controller.vpcStaticCIDRs.enabled }}
+            - "--cloud-provider-vpc-static-cidrs-file=/etc/kvisor/vpc-static-cidrs/static-cidrs.yaml"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
@@ -154,6 +162,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        {{- if .Values.controller.vpcStaticCIDRs.enabled }}
+        - name: vpc-static-cidrs
+          configMap:
+            name: {{ include "kvisor.fullname" . }}-vpc-static-cidrs
+        {{- end }}
         {{- with .Values.controller.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

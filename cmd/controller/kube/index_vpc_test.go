@@ -381,4 +381,216 @@ func TestVPCIndex(t *testing.T) {
 		r.NotNil(info)
 		r.Equal("us-east-1a", info.Zone)
 	})
+
+	t.Run("static CIDRs with metadata", func(t *testing.T) {
+		r := require.New(t)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
+
+		// Add static CIDR mappings with rich metadata
+		staticMappings := []StaticCIDREntry{
+			{
+				CIDR:               "10.100.1.0/24",
+				Zone:               "us-east-1a",
+				ZoneId:             "use1-az1",
+				Region:             "us-east-1",
+				WorkloadName:       "production-vpc",
+				WorkloadKind:       "VPC",
+				ConnectivityMethod: "AWS-TransitGateway",
+			},
+			{
+				CIDR:               "10.0.0.13/32", // Single IP for Cloud SQL
+				Zone:               "us-east4-a",
+				Region:             "us-east4",
+				WorkloadName:       "production-cloudsql",
+				WorkloadKind:       "CloudSQL",
+				ConnectivityMethod: "Private-Service-Connect",
+			},
+			{
+				CIDR:               "10.200.0.0/16", // GCP regional subnet
+				Zone:               "",
+				Region:             "us-central1",
+				WorkloadName:       "gcp-app-vpc",
+				WorkloadKind:       "VPC",
+				ConnectivityMethod: "VPC-Peering",
+			},
+		}
+
+		err := index.AddStaticCIDRs(staticMappings)
+		r.NoError(err)
+
+		// Update with empty cloud state to trigger rebuild
+		err = index.Update(&cloudtypes.NetworkState{})
+		r.NoError(err)
+
+		// Verify AWS TGW subnet lookup
+		info, found := index.LookupIP(netip.MustParseAddr("10.100.1.5"))
+		r.True(found)
+		r.Equal("us-east-1a", info.Zone)
+		r.Equal("use1-az1", info.ZoneId)
+		r.Equal("us-east-1", info.Region)
+		r.Equal("production-vpc", info.WorkloadName)
+		r.Equal("VPC", info.WorkloadKind)
+		r.Equal("AWS-TransitGateway", info.ConnectivityMethod)
+
+		// Verify specific Cloud SQL IP lookup
+		info, found = index.LookupIP(netip.MustParseAddr("10.0.0.13"))
+		r.True(found)
+		r.Equal("us-east4-a", info.Zone)
+		r.Equal("production-cloudsql", info.WorkloadName)
+		r.Equal("CloudSQL", info.WorkloadKind)
+
+		// Verify GCP regional subnet lookup (no zone)
+		info, found = index.LookupIP(netip.MustParseAddr("10.200.5.10"))
+		r.True(found)
+		r.Equal("", info.Zone)
+		r.Equal("us-central1", info.Region)
+		r.Equal("gcp-app-vpc", info.WorkloadName)
+	})
+
+	t.Run("static CIDRs override cloud discovery", func(t *testing.T) {
+		r := require.New(t)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
+
+		// Add cloud-discovered subnet
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID: "vpc-1",
+					Subnets: []cloudtypes.Subnet{
+						{
+							ID:     "subnet-1",
+							CIDR:   netip.MustParsePrefix("10.0.0.0/16"),
+							Zone:   "us-east-1a",
+							Region: "us-east-1",
+						},
+					},
+				},
+			},
+		}
+
+		// Add static CIDR with more specific /32 that should override
+		staticMappings := []StaticCIDREntry{
+			{
+				CIDR:               "10.0.0.13/32",
+				Zone:               "us-east4-a",
+				Region:             "us-east4",
+				WorkloadName:       "specific-database",
+				WorkloadKind:       "CloudSQL",
+				ConnectivityMethod: "Private-Service-Connect",
+			},
+		}
+
+		err := index.AddStaticCIDRs(staticMappings)
+		r.NoError(err)
+
+		err = index.Update(state)
+		r.NoError(err)
+
+		// IP 10.0.0.13 should match static /32, not cloud-discovered /16
+		info, found := index.LookupIP(netip.MustParseAddr("10.0.0.13"))
+		r.True(found)
+		r.Equal("us-east4-a", info.Zone)
+		r.Equal("us-east4", info.Region)
+		r.Equal("specific-database", info.WorkloadName)
+		r.Equal("CloudSQL", info.WorkloadKind)
+
+		// Other IP in /16 should match cloud-discovered subnet
+		info, found = index.LookupIP(netip.MustParseAddr("10.0.0.100"))
+		r.True(found)
+		r.Equal("us-east-1a", info.Zone)
+		r.Equal("us-east-1", info.Region)
+		r.Equal("", info.WorkloadName)
+		r.Equal("", info.WorkloadKind)
+	})
+
+	t.Run("invalid static CIDRs", func(t *testing.T) {
+		r := require.New(t)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
+
+		// Add invalid CIDR
+		staticMappings := []StaticCIDREntry{
+			{
+				CIDR:   "invalid-cidr",
+				Zone:   "us-east-1a",
+				Region: "us-east-1",
+			},
+			{
+				CIDR:   "10.0.1.0/24",
+				Zone:   "us-east-1a",
+				Region: "us-east-1",
+			},
+		}
+
+		err := index.AddStaticCIDRs(staticMappings)
+		r.NoError(err) // Should not error, just skip invalid
+
+		err = index.Update(&cloudtypes.NetworkState{})
+		r.NoError(err)
+
+		// Valid CIDR should work
+		info, found := index.LookupIP(netip.MustParseAddr("10.0.1.5"))
+		r.True(found)
+		r.Equal("us-east-1a", info.Zone)
+	})
+
+	t.Run("cross-account zone ID matching", func(t *testing.T) {
+		r := require.New(t)
+		index := NewVPCIndex(log, 1*time.Hour, 1000)
+
+		// Simulate cross-account scenario:
+		// Local account: us-east-1a = use1-az1
+		// Remote account: us-east-1a = use1-az2 (different physical zone!)
+		staticMappings := []StaticCIDREntry{
+			{
+				CIDR:               "10.1.0.0/24",
+				Zone:               "us-east-1a", // Remote account zone name
+				ZoneId:             "use1-az2",   // Different physical zone
+				Region:             "us-east-1",
+				WorkloadName:       "remote-vpc",
+				ConnectivityMethod: "VPC-Peering",
+			},
+		}
+
+		err := index.AddStaticCIDRs(staticMappings)
+		r.NoError(err)
+
+		// Simulate local VPC subnet with same zone name but different zone ID
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID: "vpc-local",
+					Subnets: []cloudtypes.Subnet{
+						{
+							ID:     "subnet-local",
+							CIDR:   netip.MustParsePrefix("10.0.0.0/24"),
+							Zone:   "us-east-1a", // Same zone name
+							ZoneId: "use1-az1",   // Different physical zone!
+							Region: "us-east-1",
+						},
+					},
+				},
+			},
+		}
+
+		err = index.Update(state)
+		r.NoError(err)
+
+		// Lookup local subnet
+		localInfo, found := index.LookupIP(netip.MustParseAddr("10.0.0.5"))
+		r.True(found)
+		r.Equal("us-east-1a", localInfo.Zone)
+		r.Equal("use1-az1", localInfo.ZoneId)
+
+		// Lookup remote subnet
+		remoteInfo, found := index.LookupIP(netip.MustParseAddr("10.1.0.5"))
+		r.True(found)
+		r.Equal("us-east-1a", remoteInfo.Zone)
+		r.Equal("use1-az2", remoteInfo.ZoneId)
+
+		// Key insight: Zone names match but ZoneIds differ!
+		// For accurate cost calculation, compare ZoneIds not zone names
+		r.Equal(localInfo.Zone, remoteInfo.Zone)       // Zone names match
+		r.NotEqual(localInfo.ZoneId, remoteInfo.ZoneId) // But physical zones differ!
+		// Cost: Cross-AZ traffic ($0.01/GB) despite matching zone names
+	})
 }

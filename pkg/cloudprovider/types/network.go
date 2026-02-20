@@ -15,21 +15,13 @@ type ServiceRanges struct {
 	CIRDs  []netip.Prefix
 }
 
-// VPC represents a virtual private cloud/network.
-type VPC struct {
-	ID         string
-	Name       string
-	CIDRs      []netip.Prefix // GCP does not have CIDR on vpc level
-	Subnets    []Subnet
-	PeeredVPCs []PeeredVPC
-}
-
 // Subnet represents a subnet within a VPC.
 type Subnet struct {
 	ID              string
 	Name            string
 	CIDR            netip.Prefix
-	Zone            string // AWS specific, GCP does not have zonal subnets
+	Zone            string // AWS zone name (e.g., "us-east-1a") - account-specific, GCP does not have zonal subnets
+	ZoneId          string // AWS zone ID (e.g., "use1-az1") - consistent across accounts
 	Region          string
 	SecondaryRanges []SecondaryRange // GCP specific
 }
@@ -41,15 +33,25 @@ type SecondaryRange struct {
 	Type string // "pods" or "services"
 }
 
+// PeeredVPCRange represents a VPC peering IP ranges.
+type PeeredVPCRange struct {
+	Zone   string // AWS zone name (e.g., "us-east-1a") - account-specific
+	ZoneId string // AWS zone ID (e.g., "use1-az1") - consistent across accounts
+	Region string
+	CIDR   netip.Prefix
+}
+
 // PeeredVPC represents a VPC peering connection.
 type PeeredVPC struct {
 	Name   string
 	Ranges []PeeredVPCRange
 }
 
-// PeeredVPCRange represents a VPC peering IP ranges.
-type PeeredVPCRange struct {
-	Zone   string
-	Region string
-	CIDR   netip.Prefix
+// VPC represents a virtual private cloud/network.
+type VPC struct {
+	ID         string
+	Name       string
+	CIDRs      []netip.Prefix // GCP does not have CIDR on vpc level
+	Subnets    []Subnet
+	PeeredVPCs []PeeredVPC
 }

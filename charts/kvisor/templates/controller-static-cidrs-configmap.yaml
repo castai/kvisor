@@ -1,0 +1,32 @@
+{{- if .Values.controller.vpcStaticCIDRs.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvisor.fullname" . }}-vpc-static-cidrs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+data:
+  static-cidrs.yaml: |
+    staticCIDRMappings:
+{{- range .Values.controller.vpcStaticCIDRs.mappings }}
+      - cidr: {{ .cidr | quote }}
+        zone: {{ .zone | default "" | quote }}
+        {{- if .zoneId }}
+        zoneId: {{ .zoneId | quote }}
+        {{- end }}
+        region: {{ .region | quote }}
+        {{- if .workloadName }}
+        workloadName: {{ .workloadName | quote }}
+        {{- end }}
+        {{- if .workloadKind }}
+        workloadKind: {{ .workloadKind | quote }}
+        {{- end }}
+        {{- if .connectivityMethod }}
+        connectivityMethod: {{ .connectivityMethod | quote }}
+        {{- end }}
+        {{- if .description }}
+        description: {{ .description | quote }}
+        {{- end }}
+{{- end }}
+{{- end }}

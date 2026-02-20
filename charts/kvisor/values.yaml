@@ -230,6 +230,41 @@ controller:
     log-level: info
     #pyroscope-addr: http://kvisord-pyroscope.kvisord-trace:4040
 
+  # Static CIDR to zone/region/service mappings (optional)
+  # Use this to manually specify network destinations without cloud API discovery
+  vpcStaticCIDRs:
+    enabled: false
+    mappings: []
+    # Examples:
+    # mappings:
+    #   # Cross-account AWS VPC via Transit Gateway (use ZoneId!)
+    #   - cidr: "10.1.0.0/24"
+    #     zone: "us-east-1a"      # Remote account zone name (optional)
+    #     zoneId: "use1-az1"      # AWS Zone ID for accurate cross-account cost calc
+    #     region: "us-east-1"
+    #     workloadName: "production-vpc"
+    #     workloadKind: "VPC"
+    #     connectivityMethod: "AWS-TransitGateway"
+    #     description: "Production VPC via TGW"
+    #
+    #   # GCP Cloud SQL with specific zone (overrides regional subnet)
+    #   - cidr: "10.0.0.13/32"  # Single IP
+    #     zone: "us-east4-a"
+    #     region: "us-east4"
+    #     workloadName: "production-cloudsql"
+    #     workloadKind: "CloudSQL"
+    #     connectivityMethod: "Private-Service-Connect"
+    #     description: "Cloud SQL instance"
+    #
+    #   # GCP regional subnet (no zone)
+    #   - cidr: "10.2.0.0/16"
+    #     zone: ""
+    #     region: "us-central1"
+    #     workloadName: "gcp-app-vpc"
+    #     workloadKind: "VPC"
+    #     connectivityMethod: "VPC-Peering"
+    #     description: "GCP regional subnet"
+
   prometheusScrape:
     enabled: true
 

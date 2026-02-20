@@ -151,6 +151,7 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 			Name:   getTagValue(subnet.Tags, "Name"),
 			CIDR:   cidr,
 			Zone:   lo.FromPtr(subnet.AvailabilityZone),
+			ZoneId: lo.FromPtr(subnet.AvailabilityZoneId),
 			Region: extractRegion(lo.FromPtr(subnet.AvailabilityZone)),
 		}
 
