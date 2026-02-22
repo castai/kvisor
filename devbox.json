@@ -1,18 +1,18 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetpack-io/devbox/0.10.4/.schema/devbox.schema.json",
   "packages": [
-    "go@1.24.0",
+    "go@1.26.0",
     "llvm_14@14.0.6",
     "clang_14@14.0.6",
     "protobuf@32.0",
-    "protoc-gen-go@1.36.9",
-    "protoc-gen-go-grpc@1.5.1",
-    "tilt@0.33.21",
-    "bpftrace@0.22.1",
+    "protoc-gen-go@1.36.11",
+    "protoc-gen-go-grpc@1.6.0",
+    "tilt@0.36.3",
+    "bpftrace@0.24.2",
     "bpftool@5.19.12",
-    "kind@0.27.0",
-    "kubectl@1.32.2",
-    "golangci-lint@2.0.0"
+    "kind@0.31.0",
+    "kubectl@1.35.0",
+    "golangci-lint@2.9.0"
   ],
   "env": {
     "GOROOT": "$PWD/.devbox/nix/profile/default/share/go"
