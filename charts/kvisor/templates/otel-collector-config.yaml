@@ -146,7 +146,12 @@ data:
               - delete_key(attributes, "k8s.cluster.name")
               - delete_key(attributes, "k8s.owner.name")
               - delete_key(attributes, "k8s.kind")
-              # Keep: service.name, service.namespace,
+              # Cloud provider metadata — no analytical value, wastes bronze storage
+              - delete_key(attributes, "cloud.account.id")
+              - delete_key(attributes, "cloud.platform")
+              - delete_key(attributes, "cloud.provider")
+              - delete_key(attributes, "cloud.region")
+              # Keep: service.name, service.namespace (used as k8s_namespace fallback),
               #        k8s.namespace.name, k8s.deployment.name,
               #        k8s.daemonset.name, k8s.statefulset.name,
               #        k8s.node.name
@@ -191,10 +196,11 @@ data:
         database: otel
         username: ${env:OTEL_CLICKHOUSE_CONFIG_USERNAME}
         password: ${env:OTEL_CLICKHOUSE_CONFIG_PASSWORD}
-        # Schema managed by us (ddl/001_medallion_schema.sql) — disable
-        # auto-creation to prevent the exporter from creating tables with
-        # its own schema and the redundant histogram_to_sum_mv.
-        # create_schema: false
+        # Schema managed by us (goose migrations) — disable auto-creation
+        # to prevent the exporter from creating tables with its own schema.
+        # Also prevents the startup crash when ClickHouse DNS is not yet
+        # resolvable (create_schema runs a synchronous DDL on Start()).
+        create_schema: false
         # Let ClickHouse batch small inserts server-side. Combined with
         # batch/clickhouse processor, this gives two levels of batching:
         # collector-side (10K points) + CH-side (async insert buffer).
@@ -204,7 +210,16 @@ data:
           enabled: true
           initial_interval: 5s
           max_interval: 30s
-          max_elapsed_time: 300s
+          # 0 = retry forever. The collector should never give up on
+          # ClickHouse — it may take minutes to start (PVC provisioning,
+          # image pull, operator reconciliation). Data is buffered in
+          # the sending_queue meanwhile.
+          max_elapsed_time: 0s
+        sending_queue:
+          enabled: true
+          # ~500 batches × 10K points = ~5M data points buffered.
+          # At OBI's typical rate this covers 10-15 min of CH downtime.
+          queue_size: 500
 {{- end }}
 
     extensions:
@@ -353,15 +368,21 @@ data:
         database: otel
         username: ${env:OTEL_CLICKHOUSE_CONFIG_USERNAME}
         password: ${env:OTEL_CLICKHOUSE_CONFIG_PASSWORD}
-        # Schema managed by us — disable auto-creation
-        # create_schema: false
+        # Schema managed by us (goose migrations) — disable auto-creation.
+        # Also prevents startup crash when CH DNS is not yet resolvable.
+        create_schema: false
         async_insert: true
         timeout: 10s
         retry_on_failure:
           enabled: true
           initial_interval: 5s
           max_interval: 30s
-          max_elapsed_time: 300s
+          max_elapsed_time: 0s
+        sending_queue:
+          enabled: true
+          # Controller volume is lower (30s k8s_cluster interval) so
+          # a smaller queue suffices. ~200 batches covers 10+ min.
+          queue_size: 200
 {{- end }}
 
     extensions:

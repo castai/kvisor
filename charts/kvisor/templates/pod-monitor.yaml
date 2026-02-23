@@ -1,4 +1,4 @@
-{{- if and .Values.agent.enabled (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
+{{- if and .Values.agent.enabled (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "podMonitorEnabled" true .Values.agent) }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -33,7 +33,7 @@ spec:
       {{- include "kvisor.agent.selectorLabels" . | nindent 6 }}
 {{- end }}
 ---
-{{- if and .Values.controller.enabled (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+{{- if and .Values.controller.enabled (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "podMonitorEnabled" true .Values.controller) }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:

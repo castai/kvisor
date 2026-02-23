@@ -376,6 +376,8 @@ mockServer:
   enabled: false
 
 clickhouse:
+  # Simple single-container ClickHouse StatefulSet (for dev/testing).
+  # For production, use operator.enabled + install.enabled instead.
   enabled: false
 
   auth:
@@ -395,3 +397,69 @@ clickhouse:
   persistentVolume:
     size: 20Gi
     #storageClass: premium-rwo
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ClickHouse Operator (Altinity) + ClickHouseInstallation CR
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Production-grade ClickHouse deployment using Altinity operator.
+  # Installs operator CRDs and creates a single-node ClickHouseInstallation CR.
+  operator:
+    # Install Altinity ClickHouse operator in the release namespace.
+    enabled: false
+    # Operator image version (tag from altinity/clickhouse-operator).
+    version: "0.26.0"
+    image:
+      repository: altinity/clickhouse-operator
+      pullPolicy: IfNotPresent
+    metricsExporterImage:
+      repository: altinity/metrics-exporter
+      pullPolicy: IfNotPresent
+
+  # Deploy a single-node ClickHouse instance via ClickHouseInstallation CR.
+  # Requires operator.enabled=true OR an existing operator in the cluster.
+  install:
+    enabled: false
+    # ClickHouse server image.
+    image:
+      repository: clickhouse/clickhouse-server
+      tag: "25.12.6-alpine"
+    # Resources for the ClickHouse pod.
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    # Persistent volume for ClickHouse data.
+    persistence:
+      size: 100Gi
+      # storageClass: ""  # Uses default if not set.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # External ClickHouse (BYO)
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Use an existing ClickHouse instance instead of deploying one.
+  # When enabled, operator.enabled and install.enabled are ignored for OTel config.
+  external:
+    enabled: false
+    # ClickHouse native protocol address (host:port).
+    address: ""
+    # Credentials (if different from clickhouse.auth).
+    username: ""
+    password: ""
+    database: "otel"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Schema Migrations
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Run goose migrations to create Bronze/Silver/Gold OTEL schema.
+  # Automatically enabled when install.enabled=true. Set migrate.enabled=true
+  # to run migrations against external ClickHouse.
+  migrate:
+    # Run migrations on install/upgrade. Auto-enabled when install.enabled=true.
+    enabled: false
+    image:
+      repository: ghcr.io/castai/kvisor/kvisor-clickhouse-migrate
+      pullPolicy: IfNotPresent
+      # Overrides the image tag whose default is the chart appVersion.
+      tag: ""

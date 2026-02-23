@@ -1,9 +1,25 @@
+clickhouse:
+  operator:
+    enabled: true
+  install:
+    enabled: true
+    persistence:
+      size: 50Gi
+  auth:
+    database: "kvisor"
+    username: "kvisor"
+    password: "kvisor"
+  migrate:
+    image:
+      repository: eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate
+      tag: "95aafa7-v4"
+
 agent:
   reliabilityMetrics:
     enabled: true
     image:
       repository: otel/ebpf-instrument
-      tag: "v0.4.1"
+      tag: "main"
     resources:
       requests:
         cpu: 100m
@@ -27,7 +43,7 @@ agent:
     collector:
       enabled: true
       clickhouseExporter:
-        enabled: false
+        enabled: true
       image:
         repository: otel/opentelemetry-collector-contrib
         tag: "0.145.0"
@@ -37,8 +53,7 @@ agent:
         limits:
           memory: 128Mi
       prometheusPort: 9400
-      podMonitorLabels:
-        release: kube-prometheus-stack
+      podMonitorEnabled: false
 
 controller:
   reliabilityMetrics:
@@ -46,7 +61,7 @@ controller:
     collector:
       enabled: true
       clickhouseExporter:
-        enabled: false
+        enabled: true
       image:
         repository: otel/opentelemetry-collector-contrib
         tag: "0.145.0"
@@ -57,5 +72,4 @@ controller:
         limits:
           memory: 256Mi
       prometheusPort: 9401
-      podMonitorLabels:
-        release: kube-prometheus-stack
+      podMonitorEnabled: false

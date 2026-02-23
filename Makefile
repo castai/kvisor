@@ -231,6 +231,30 @@ kvisor-scanners-docker-image: clean-kvisor-image-scanner kvisor-image-scanner cl
 kvisor-scanners-push-deploy: kvisor-scanners-docker-image
 	docker push $(IMAGE_REPO)-scanners:$(IMAGE_TAG)
 
+# ClickHouse migrate build.
+.PHONY: clean-clickhouse-migrate
+clean-clickhouse-migrate:
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/clickhouse-migrate-$(GO_ARCH)
+
+.PHONY: clickhouse-migrate
+clickhouse-migrate: $(OUTPUT_DIR_BIN)/clickhouse-migrate-$(GO_ARCH)
+
+$(OUTPUT_DIR_BIN)/clickhouse-migrate-$(GO_ARCH):
+	$(GO_ENV_SERVER) $(CMD_GO) build \
+		-ldflags="$(GO_DEBUG_FLAG) \
+			-X main.Version=\"$(VERSION)\" \
+			" \
+		-v -o $@ \
+		./cmd/clickhouse-migrate
+
+.PHONY: clickhouse-migrate-docker-image
+clickhouse-migrate-docker-image: clean-clickhouse-migrate clickhouse-migrate
+	docker build -t $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.clickhouse-migrate
+
+.PHONY: clickhouse-migrate-push-deploy
+clickhouse-migrate-push-deploy: clickhouse-migrate-docker-image
+	docker push $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG)
+
 # Event generator build.
 .PHONY: clean-kvisor-event-generator
 clean-kvisor-event-generator:

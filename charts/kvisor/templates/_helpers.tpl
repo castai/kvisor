@@ -216,6 +216,54 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ include "kvisor.labels" . }}
 {{- end }}
 
+{{/*
+ClickHouse connection details for OTel collectors.
+Resolves address based on: external > install (operator CR) > enabled (StatefulSet).
+*/}}
+{{- define "kvisor.clickhouse.address" -}}
+{{- if (dig "external" "enabled" false .Values.clickhouse) -}}
+{{ .Values.clickhouse.external.address }}
+{{- else if (dig "install" "enabled" false .Values.clickhouse) -}}
+{{- /* ClickHouseInstallation serviceTemplate creates: <generateName>.<namespace>.svc.cluster.local */ -}}
+{{ include "kvisor.fullname" . }}-clickhouse.{{ .Release.Namespace }}.svc.cluster.local:9000
+{{- else if .Values.clickhouse.enabled -}}
+{{ include "kvisor.clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:9000
+{{- else -}}
+{{- /* Fallback: allow manual address in clickhouseExporter config */ -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "kvisor.clickhouse.username" -}}
+{{- if and (dig "external" "enabled" false .Values.clickhouse) (dig "external" "username" "" .Values.clickhouse) -}}
+{{ .Values.clickhouse.external.username }}
+{{- else -}}
+{{ .Values.clickhouse.auth.username }}
+{{- end -}}
+{{- end -}}
+
+{{- define "kvisor.clickhouse.password" -}}
+{{- if and (dig "external" "enabled" false .Values.clickhouse) (dig "external" "password" "" .Values.clickhouse) -}}
+{{ .Values.clickhouse.external.password }}
+{{- else -}}
+{{ .Values.clickhouse.auth.password }}
+{{- end -}}
+{{- end -}}
+
+{{- define "kvisor.clickhouse.database" -}}
+{{- if and (dig "external" "enabled" false .Values.clickhouse) (dig "external" "database" "" .Values.clickhouse) -}}
+{{ .Values.clickhouse.external.database }}
+{{- else -}}
+{{ .Values.clickhouse.auth.database }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if any ClickHouse is configured (for conditional OTel exporter).
+*/}}
+{{- define "kvisor.clickhouse.isConfigured" -}}
+{{- or (dig "external" "enabled" false .Values.clickhouse) (dig "install" "enabled" false .Values.clickhouse) .Values.clickhouse.enabled -}}
+{{- end -}}
+
 
 {{/*
 Agent container security context with conditional capabilities.
