@@ -14,24 +14,24 @@ import (
 )
 
 type VPCStateControllerConfig struct {
-	Enabled            bool                  `json:"enabled"`
-	NetworkName        string                `json:"networkName"`
-	RefreshInterval    time.Duration         `json:"refreshInterval"`
-	CacheSize          uint32                `json:"CacheSize"`
-	StaticCIDRMappings []StaticCIDRMapping   `json:"staticCIDRMappings"` // Direct config
-	StaticCIDRsFile    string                `json:"staticCIDRsFile"`    // Path to YAML file
+	Enabled            bool                `json:"enabled"`
+	NetworkName        string              `json:"networkName"`
+	RefreshInterval    time.Duration       `json:"refreshInterval"`
+	CacheSize          uint32              `json:"CacheSize"`
+	StaticCIDRMappings []StaticCIDRMapping `json:"staticCIDRMappings"` // Direct config
+	StaticCIDRsFile    string              `json:"staticCIDRsFile"`    // Path to YAML file
 }
 
 // StaticCIDRMapping represents a manual CIDR to zone/region/service mapping.
 type StaticCIDRMapping struct {
 	CIDR               string `json:"cidr" yaml:"cidr"`
-	Zone               string `json:"zone" yaml:"zone"`                         // AWS zone name (e.g., "us-east-1a") - optional
-	ZoneId             string `json:"zoneId" yaml:"zoneId"`                     // AWS zone ID (e.g., "use1-az1") - for cross-account
+	Zone               string `json:"zone" yaml:"zone"`     // AWS zone name (e.g., "us-east-1a") - optional
+	ZoneId             string `json:"zoneId" yaml:"zoneId"` // AWS zone ID (e.g., "use1-az1") - for cross-account
 	Region             string `json:"region" yaml:"region"`
 	WorkloadName       string `json:"workloadName" yaml:"workloadName"`
 	WorkloadKind       string `json:"workloadKind" yaml:"workloadKind"`
 	ConnectivityMethod string `json:"connectivityMethod" yaml:"connectivityMethod"`
-	Description        string `json:"description" yaml:"description"`           // Optional human-readable note
+	Description        string `json:"description" yaml:"description"` // Optional human-readable note
 }
 
 type cloudProvider interface {
@@ -66,7 +66,7 @@ func (c *VPCStateController) Run(ctx context.Context) error {
 	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval, c.cfg.CacheSize)
 
 	// Load static CIDR mappings if configured
-	if err := c.loadStaticCIDRs(ctx, vpcIndex); err != nil {
+	if err := c.loadStaticCIDRs(vpcIndex); err != nil {
 		c.log.Warnf("failed to load static CIDRs: %v", err)
 		// Non-fatal - continue with cloud discovery only
 	}
@@ -153,7 +153,7 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 }
 
 // loadStaticCIDRs loads static CIDR mappings from config or file.
-func (c *VPCStateController) loadStaticCIDRs(ctx context.Context, vpcIndex *kube.VPCIndex) error {
+func (c *VPCStateController) loadStaticCIDRs(vpcIndex *kube.VPCIndex) error {
 	// Option 1: Load from config struct (direct)
 	if len(c.cfg.StaticCIDRMappings) > 0 {
 		entries := convertStaticMappingsToEntries(c.cfg.StaticCIDRMappings)
