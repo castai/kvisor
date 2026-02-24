@@ -480,18 +480,3 @@ func toProtoProcessAction(action processtree.ProcessAction) castaipb.ProcessActi
 	return castaipb.ProcessAction_PROCESS_ACTION_UNKNOWN
 }
 
-func getZone(n *kubepb.Node) string {
-	if n == nil {
-		return ""
-	}
-	zone := n.Labels["topology.kubernetes.io/zone"]
-	return zone
-}
-
-func getRegion(n *kubepb.Node) string {
-	if n == nil {
-		return ""
-	}
-	region := n.Labels["topology.kubernetes.io/region"]
-	return region
-}

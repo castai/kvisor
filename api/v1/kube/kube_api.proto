@@ -18,6 +18,7 @@ service KubeAPI {
 
 message GetClusterInfoRequest {
   bool exclude_other_cidr = 1;
+  bool exclude_cloud_cidr = 2;
 }
 
 message GetClusterInfoResponse {
@@ -25,8 +26,10 @@ message GetClusterInfoResponse {
   repeated string service_cidr = 2;
   repeated string node_cidr = 4;
   repeated string vpc_cidr = 5;
-  // other_cidr is a list of known cloud services CIDRs
+  // other_cidr is a list of static CIDRs defined via config
   repeated string other_cidr = 3;
+  // cloud_cidr is a list of cloud services CIDRs
+  repeated string cloud_cidr = 6;
 }
 
 message GetIPInfoRequest {

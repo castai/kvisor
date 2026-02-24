@@ -78,6 +78,8 @@ type Client struct {
 	ipInfoTTL         time.Duration
 
 	cloudProvider cloudtypes.Type
+
+	useAwsZoneId bool
 }
 
 func NewClient(
@@ -86,6 +88,7 @@ func NewClient(
 	version Version,
 	client kubernetes.Interface,
 	cloudProvider cloudtypes.Type,
+	useAwsZoneId bool,
 ) *Client {
 	return &Client{
 		log:                           log.WithField("component", "kube_watcher"),
@@ -93,10 +96,11 @@ func NewClient(
 		podName:                       podName,
 		kvisorControllerContainerName: "controller",
 		client:                        client,
-		index:                         NewIndex(),
+		index:                         NewIndex(WithUseAwsZoneId(useAwsZoneId)),
 		version:                       version,
 		ipInfoTTL:                     30 * time.Second,
 		cloudProvider:                 cloudProvider,
+		useAwsZoneId:                  useAwsZoneId,
 	}
 }
 
@@ -319,6 +323,9 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 		val.zone = vpcInfo.Zone
 		val.region = vpcInfo.Region
 		val.cloudDomain = vpcInfo.CloudDomain
+		val.workloadKind = vpcInfo.WorkloadKind
+		val.workloadName = vpcInfo.WorkloadName
+		val.conectivityMethod = vpcInfo.ConnectivityMethod
 		return val, true
 	}
 
@@ -378,6 +385,10 @@ func (c *Client) GetVolumesForNode(nodeName string) []cloudtypes.Volume {
 
 func (c *Client) GetCloudProvider() cloudtypes.Type {
 	return c.cloudProvider
+}
+
+func (c *Client) IsUseAwsZoneId() bool {
+	return c.useAwsZoneId
 }
 
 func (c *Client) GetOwnerUID(obj Object) string {

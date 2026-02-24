@@ -12,8 +12,8 @@ import (
 
 // IPVPCInfo contains network state for a specific IP address.
 type IPVPCInfo struct {
-	Zone        string // AWS zone name (e.g., "us-east-1a") - account-specific
-	ZoneId      string // AWS zone ID (e.g., "use1-az1") - consistent across accounts
+	Zone string // AWS zone name (e.g., "us-east-1a") - account-specific
+	// ZoneId      string // AWS zone ID (e.g., "use1-az1") - consistent across accounts
 	Region      string
 	CloudDomain string // filled when IP is public cloud service
 
@@ -25,9 +25,9 @@ type IPVPCInfo struct {
 
 // StaticCIDREntry represents a user-provided CIDR to zone/region mapping.
 type StaticCIDREntry struct {
-	CIDR               string
-	Zone               string // AWS zone name (e.g., "us-east-1a") - optional, for display
-	ZoneId             string // AWS zone ID (e.g., "use1-az1") - required for accurate cross-account cost calc
+	CIDR string
+	Zone string // AWS zone name (e.g., "us-east-1a") - optional, for display
+	// ZoneId             string // AWS zone ID (e.g., "use1-az1") - required for accurate cross-account cost calc
 	Region             string
 	WorkloadName       string
 	WorkloadKind       string
@@ -49,19 +49,28 @@ type VPCIndex struct {
 
 	// Last successful refresh
 	lastRefresh time.Time
+
+	cfg VPCConfig
+}
+
+type VPCConfig struct {
+	RefreshInterval time.Duration
+	CacheSize       uint32
+	UseAwsZoneId    bool
 }
 
 // NewVPCIndex creates a new VPC index.
-func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration, cacheSize uint32) *VPCIndex {
-	cidrIdx, err := cidrindex.NewIndex[IPVPCInfo](cacheSize, refreshInterval)
+func NewVPCIndex(log *logging.Logger, cfg VPCConfig) *VPCIndex {
+	cidrIdx, err := cidrindex.NewIndex[IPVPCInfo](cfg.CacheSize, cfg.RefreshInterval)
 	if err != nil {
 		log.Warnf("failed to create CIDR index: %v", err)
 		// Create without cache
-		cidrIdx, _ = cidrindex.NewIndex[IPVPCInfo](0, refreshInterval)
+		cidrIdx, _ = cidrindex.NewIndex[IPVPCInfo](0, cfg.RefreshInterval)
 	}
 
 	return &VPCIndex{
 		log:         log,
+		cfg:         cfg,
 		cidrIndex:   cidrIdx,
 		vpcCIDRs:    make([]string, 0),
 		subnetCIDRs: make([]string, 0),
@@ -94,7 +103,7 @@ func (vi *VPCIndex) Update(state *cloudtypes.NetworkState) error {
 		staticCIDRStrs[i] = entry.CIDR.String()
 	}
 
-	vi.log.Infof(
+	vi.log.Debugf(
 		"VPC index updated: vpc_cidrs=%v, subnet_cidrs=%v, peer_cidrs=%v, static_cidrs=%v",
 		vi.vpcCIDRs, vi.subnetCIDRs, vi.peerCIDRs, staticCIDRStrs,
 	)
@@ -102,7 +111,6 @@ func (vi *VPCIndex) Update(state *cloudtypes.NetworkState) error {
 }
 
 // AddStaticCIDRs injects user-provided CIDR mappings into the index.
-// These will be merged with cloud-discovered CIDRs during the next Update().
 func (vi *VPCIndex) AddStaticCIDRs(mappings []StaticCIDREntry) error {
 	if vi == nil {
 		return nil
@@ -120,21 +128,25 @@ func (vi *VPCIndex) AddStaticCIDRs(mappings []StaticCIDREntry) error {
 			continue
 		}
 
-		entries = append(entries, cidrindex.Entry[IPVPCInfo]{
+		entry := cidrindex.Entry[IPVPCInfo]{
 			CIDR: cidr,
 			Metadata: IPVPCInfo{
-				Zone:               mapping.Zone,
-				ZoneId:             mapping.ZoneId,
+				Zone: mapping.Zone,
+				// ZoneIdk             mapping.ZoneId,
 				Region:             mapping.Region,
 				WorkloadName:       mapping.WorkloadName,
 				WorkloadKind:       mapping.WorkloadKind,
 				ConnectivityMethod: mapping.ConnectivityMethod,
 			},
-		})
+		}
+		entries = append(entries, entry)
+		if err := vi.cidrIndex.Add(entry.CIDR, entry.Metadata); err != nil {
+			vi.log.Warnf("failed to add static CIDR %s: %v", mapping.CIDR, err)
+		}
 	}
 
 	vi.staticCIDRs = entries
-	vi.log.Infof("loaded %d static CIDR mappings", len(entries))
+	vi.log.Debugf("loaded %d static CIDR mappings", len(entries))
 	return nil
 }
 
@@ -174,12 +186,15 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 		// Index subnet CIDRs
 		for _, subnet := range vpc.Subnets {
+			subnetZone := subnet.Zone
+			if vi.cfg.UseAwsZoneId {
+				subnetZone = subnet.ZoneId
+			}
 			subnetCIDRs = append(subnetCIDRs, subnet.CIDR.String())
 			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR: subnet.CIDR,
 				Metadata: IPVPCInfo{
-					Zone:   subnet.Zone,
-					ZoneId: subnet.ZoneId,
+					Zone:   subnetZone,
 					Region: subnet.Region,
 				},
 			})
@@ -190,8 +205,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: secondary.CIDR,
 					Metadata: IPVPCInfo{
-						Zone:   subnet.Zone,
-						ZoneId: subnet.ZoneId,
+						Zone:   subnetZone,
 						Region: subnet.Region,
 					},
 				})
@@ -201,12 +215,15 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 		// Index peered VPC CIDRs
 		for _, peer := range vpc.PeeredVPCs {
 			for _, cidrRange := range peer.Ranges {
+				peerZone := cidrRange.Zone
+				if vi.cfg.UseAwsZoneId {
+					peerZone = cidrRange.ZoneId
+				}
 				peerCIDRs = append(peerCIDRs, cidrRange.CIDR.String())
 				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: cidrRange.CIDR,
 					Metadata: IPVPCInfo{
-						Zone:   cidrRange.Zone,
-						ZoneId: cidrRange.ZoneId,
+						Zone:   peerZone,
 						Region: cidrRange.Region,
 					},
 				})
@@ -217,7 +234,10 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 	// Add static CIDRs LAST (highest priority - most specific match wins)
 	// Static /32 IPs will override broader cloud-discovered CIDRs
-	entries = append(entries, vi.staticCIDRs...)
+	// entries = append(entries, vi.staticCIDRs...)
+	for _, entry := range vi.staticCIDRs {
+		entries = append(entries, entry)
+	}
 
 	vi.vpcCIDRs = vpcCIDRs
 	vi.subnetCIDRs = subnetCIDRs
@@ -236,12 +256,12 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 
 	result, found := vi.cidrIndex.Lookup(ip)
 	if !found {
+		vi.log.Debugf("IP %s not found in CIDR index", ip.String())
 		return nil, false
 	}
 
 	return &IPVPCInfo{
 		Zone:               result.Metadata.Zone,
-		ZoneId:             result.Metadata.ZoneId,
 		Region:             result.Metadata.Region,
 		CloudDomain:        result.Metadata.CloudDomain,
 		WorkloadName:       result.Metadata.WorkloadName,
@@ -276,6 +296,18 @@ func (vi *VPCIndex) CloudServiceCIDRs() []string {
 	var knownCIDRs []string
 	for _, svcRange := range vi.state.ServiceRanges {
 		knownCIDRs = append(knownCIDRs, netsToStrings(svcRange.CIRDs)...)
+	}
+	return knownCIDRs
+}
+
+func (vi *VPCIndex) StaticServiceCIDRs() []string {
+	if vi == nil || vi.staticCIDRs == nil {
+		return []string{}
+	}
+
+	var knownCIDRs []string
+	for _, svcRange := range vi.staticCIDRs {
+		knownCIDRs = append(knownCIDRs, svcRange.CIDR.String())
 	}
 	return knownCIDRs
 }

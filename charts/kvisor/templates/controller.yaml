@@ -77,7 +77,7 @@ spec:
             - "--agent-enabled=true"
           {{- end }}
           {{- if .Values.controller.vpcStaticCIDRs.enabled }}
-            - "--cloud-provider-vpc-static-cidrs-file=/etc/kvisor/vpc-static-cidrs/static-cidrs.yaml"
+            - "--cloud-provider-static-cidrs-file=/etc/kvisor/vpc-static-cidrs/static-cidrs.yaml"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
