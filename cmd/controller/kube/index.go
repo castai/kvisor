@@ -341,7 +341,7 @@ type IPInfo struct {
 	// IP record specific details to override default values
 	workloadName      string
 	workloadKind      string
-	conectivityMethod string
+	connectivityMethod string
 }
 
 type PodInfo struct {

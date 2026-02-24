@@ -237,33 +237,29 @@ controller:
     mappings: []
     # Examples:
     # mappings:
-    #   # Cross-account AWS VPC via Transit Gateway (use ZoneId!)
+    #   # Cross-account AWS VPC via Transit Gateway
     #   - cidr: "10.1.0.0/24"
-    #     zone: "us-east-1a"      # Remote account zone name (optional)
-    #     zoneId: "use1-az1"      # AWS Zone ID for accurate cross-account cost calc
+    #     zone: "us-east-1a"      # Zone name, or zone ID (e.g., "use1-az1") when cloud-provider-aws-use-zone-id is enabled
     #     region: "us-east-1"
-    #     workloadName: "production-vpc"
-    #     workloadKind: "VPC"
+    #     name: "production-vpc"
+    #     kind: "VPC"
     #     connectivityMethod: "AWS-TransitGateway"
-    #     description: "Production VPC via TGW"
     #
     #   # GCP Cloud SQL with specific zone (overrides regional subnet)
     #   - cidr: "10.0.0.13/32"  # Single IP
     #     zone: "us-east4-a"
     #     region: "us-east4"
-    #     workloadName: "production-cloudsql"
-    #     workloadKind: "CloudSQL"
+    #     name: "production-cloudsql"
+    #     kind: "CloudSQL"
     #     connectivityMethod: "Private-Service-Connect"
-    #     description: "Cloud SQL instance"
     #
     #   # GCP regional subnet (no zone)
     #   - cidr: "10.2.0.0/16"
     #     zone: ""
     #     region: "us-central1"
-    #     workloadName: "gcp-app-vpc"
-    #     workloadKind: "VPC"
+    #     name: "gcp-app-vpc"
+    #     kind: "VPC"
     #     connectivityMethod: "VPC-Peering"
-    #     description: "GCP regional subnet"
 
   prometheusScrape:
     enabled: true

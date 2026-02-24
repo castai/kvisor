@@ -150,7 +150,7 @@ func (a *App) Run(ctx context.Context) error {
 			kube.VPCConfig{
 				RefreshInterval: vpcCfg.RefreshInterval,
 				CacheSize:       vpcCfg.CacheSize,
-				UseAwsZoneId:    cfg.CloudProviderConfig.VPCStateController.UseZoneID,
+				UseAwsZoneId:    vpcCfg.UseZoneID,
 			},
 		)
 		if err := controllers.LoadStaticCIDRsFromFile(log, vpcCfg.StaticCIDRsFile, vpcIndex); err != nil {

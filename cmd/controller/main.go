@@ -52,7 +52,6 @@ var (
 	cloudProviderVPCName         = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
 	cloudProviderVPCSyncInterval = pflag.Duration("cloud-provider-vpc-sync-interval", 1*time.Hour, "Cloud provider VPC sync interval")
 	cloudProviderVPCCacheSize    = pflag.Uint32("cloud-provider-vpc-cache-size", 10000, "Cloud provider VPC cache size")
-	// cloudProviderVPCStaticCIDRsEnabled = pflag.Bool("cloud-provider-static-cidrs-enabled", false, "Enable static-only VPC CIDR mapping (no cloud provider required)")
 	cloudProviderVPCStaticCIDRsFile = pflag.String("cloud-provider-static-cidrs-file", "", "Path to YAML file containing static CIDR to zone/region mappings")
 
 	cloudProviderStorageSyncEnabled  = pflag.Bool("cloud-provider-storage-sync-enabled", false, "Enable cloud provider storage controller")
@@ -218,8 +217,7 @@ func main() {
 			},
 			VPCStateController: controllers.VPCStateControllerConfig{
 				Enabled:   *cloudProviderVPCSyncEnabled,
-				UseZoneID: *cloudProviderAWSUseZoneID,
-				// StaticCIDRsEnabled: *cloudProviderVPCStaticCIDRsEnabled,
+				UseZoneID:   *cloudProviderAWSUseZoneID,
 				NetworkName:     *cloudProviderVPCName,
 				RefreshInterval: *cloudProviderVPCSyncInterval,
 				CacheSize:       *cloudProviderVPCCacheSize,

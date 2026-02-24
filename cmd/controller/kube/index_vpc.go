@@ -12,9 +12,8 @@ import (
 
 // IPVPCInfo contains network state for a specific IP address.
 type IPVPCInfo struct {
-	Zone string // AWS zone name (e.g., "us-east-1a") - account-specific
-	// ZoneId      string // AWS zone ID (e.g., "use1-az1") - consistent across accounts
-	Region      string
+	Zone   string // AWS zone name (e.g., "us-east-1a"), or zone ID (e.g., "use1-az1") when UseAwsZoneId is enabled
+	Region string
 	CloudDomain string // filled when IP is public cloud service
 
 	// Service/workload metadata (from static config or cloud discovery)
@@ -25,9 +24,8 @@ type IPVPCInfo struct {
 
 // StaticCIDREntry represents a user-provided CIDR to zone/region mapping.
 type StaticCIDREntry struct {
-	CIDR string
-	Zone string // AWS zone name (e.g., "us-east-1a") - optional, for display
-	// ZoneId             string // AWS zone ID (e.g., "use1-az1") - required for accurate cross-account cost calc
+	CIDR               string
+	Zone               string // AWS zone name or zone ID (depending on controller config)
 	Region             string
 	WorkloadName       string
 	WorkloadKind       string
@@ -131,8 +129,7 @@ func (vi *VPCIndex) AddStaticCIDRs(mappings []StaticCIDREntry) error {
 		entry := cidrindex.Entry[IPVPCInfo]{
 			CIDR: cidr,
 			Metadata: IPVPCInfo{
-				Zone: mapping.Zone,
-				// ZoneIdk             mapping.ZoneId,
+				Zone:               mapping.Zone,
 				Region:             mapping.Region,
 				WorkloadName:       mapping.WorkloadName,
 				WorkloadKind:       mapping.WorkloadKind,
@@ -234,10 +231,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 	// Add static CIDRs LAST (highest priority - most specific match wins)
 	// Static /32 IPs will override broader cloud-discovered CIDRs
-	// entries = append(entries, vi.staticCIDRs...)
-	for _, entry := range vi.staticCIDRs {
-		entries = append(entries, entry)
-	}
+	entries = append(entries, vi.staticCIDRs...)
 
 	vi.vpcCIDRs = vpcCIDRs
 	vi.subnetCIDRs = subnetCIDRs
@@ -271,7 +265,14 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 }
 
 func (vi *VPCIndex) VpcCIDRs() []string {
-	if vi == nil || vi.state == nil {
+	if vi == nil {
+		return []string{}
+	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+
+	if vi.state == nil {
 		return []string{}
 	}
 
@@ -289,7 +290,14 @@ func (vi *VPCIndex) VpcCIDRs() []string {
 }
 
 func (vi *VPCIndex) CloudServiceCIDRs() []string {
-	if vi == nil || vi.state == nil {
+	if vi == nil {
+		return []string{}
+	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+
+	if vi.state == nil {
 		return []string{}
 	}
 
@@ -301,9 +309,12 @@ func (vi *VPCIndex) CloudServiceCIDRs() []string {
 }
 
 func (vi *VPCIndex) StaticServiceCIDRs() []string {
-	if vi == nil || vi.staticCIDRs == nil {
+	if vi == nil {
 		return []string{}
 	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
 
 	var knownCIDRs []string
 	for _, svcRange := range vi.staticCIDRs {

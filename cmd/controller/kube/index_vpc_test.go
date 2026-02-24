@@ -17,7 +17,7 @@ func TestVPCIndex(t *testing.T) {
 		r := require.New(t)
 		refreshInterval := 1 * time.Hour
 
-		index := NewVPCIndex(log, refreshInterval, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: refreshInterval, CacheSize: 1000})
 
 		r.NotNil(index)
 		r.NotNil(index.cidrIndex)
@@ -25,7 +25,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("update state", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			Domain: "example.com",
@@ -46,7 +46,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in subnet", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -79,7 +79,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in service range", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			Domain: "googleapis.com",
@@ -105,7 +105,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in secondary range", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -143,7 +143,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP in peered VPC", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -179,7 +179,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup IP not found", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -209,7 +209,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("lookup uses cache", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -247,7 +247,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("cache invalidated on update", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state1 := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -303,7 +303,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("most specific match wins", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -337,7 +337,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("empty state", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{}
 		err := index.Update(state)
@@ -352,7 +352,7 @@ func TestVPCIndex(t *testing.T) {
 	t.Run("cache expiry", func(t *testing.T) {
 		r := require.New(t)
 		shortRefresh := 50 * time.Millisecond
-		index := NewVPCIndex(log, shortRefresh, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: shortRefresh, CacheSize: 1000})
 
 		state := &cloudtypes.NetworkState{
 			VPCs: []cloudtypes.VPC{
@@ -384,14 +384,13 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("static CIDRs with metadata", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		// Add static CIDR mappings with rich metadata
 		staticMappings := []StaticCIDREntry{
 			{
 				CIDR:               "10.100.1.0/24",
 				Zone:               "us-east-1a",
-				ZoneID:             "use1-az1",
 				Region:             "us-east-1",
 				WorkloadName:       "production-vpc",
 				WorkloadKind:       "VPC",
@@ -426,7 +425,6 @@ func TestVPCIndex(t *testing.T) {
 		info, found := index.LookupIP(netip.MustParseAddr("10.100.1.5"))
 		r.True(found)
 		r.Equal("us-east-1a", info.Zone)
-		r.Equal("use1-az1", info.ZoneID)
 		r.Equal("us-east-1", info.Region)
 		r.Equal("production-vpc", info.WorkloadName)
 		r.Equal("VPC", info.WorkloadKind)
@@ -449,7 +447,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("static CIDRs override cloud discovery", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		// Add cloud-discovered subnet
 		state := &cloudtypes.NetworkState{
@@ -505,7 +503,7 @@ func TestVPCIndex(t *testing.T) {
 
 	t.Run("invalid static CIDRs", func(t *testing.T) {
 		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
+		index := NewVPCIndex(log, VPCConfig{RefreshInterval: 1 * time.Hour, CacheSize: 1000})
 
 		// Add invalid CIDR
 		staticMappings := []StaticCIDREntry{
@@ -533,64 +531,4 @@ func TestVPCIndex(t *testing.T) {
 		r.Equal("us-east-1a", info.Zone)
 	})
 
-	t.Run("cross-account zone ID matching", func(t *testing.T) {
-		r := require.New(t)
-		index := NewVPCIndex(log, 1*time.Hour, 1000)
-
-		// Simulate cross-account scenario:
-		// Local account: us-east-1a = use1-az1
-		// Remote account: us-east-1a = use1-az2 (different physical zone!)
-		staticMappings := []StaticCIDREntry{
-			{
-				CIDR:               "10.1.0.0/24",
-				Zone:               "us-east-1a", // Remote account zone name
-				ZoneID:             "use1-az2",   // Different physical zone
-				Region:             "us-east-1",
-				WorkloadName:       "remote-vpc",
-				ConnectivityMethod: "VPC-Peering",
-			},
-		}
-
-		err := index.AddStaticCIDRs(staticMappings)
-		r.NoError(err)
-
-		// Simulate local VPC subnet with same zone name but different zone ID
-		state := &cloudtypes.NetworkState{
-			VPCs: []cloudtypes.VPC{
-				{
-					ID: "vpc-local",
-					Subnets: []cloudtypes.Subnet{
-						{
-							ID:     "subnet-local",
-							CIDR:   netip.MustParsePrefix("10.0.0.0/24"),
-							Zone:   "us-east-1a", // Same zone name
-							ZoneId: "use1-az1",   // Different physical zone!
-							Region: "us-east-1",
-						},
-					},
-				},
-			},
-		}
-
-		err = index.Update(state)
-		r.NoError(err)
-
-		// Lookup local subnet
-		localInfo, found := index.LookupIP(netip.MustParseAddr("10.0.0.5"))
-		r.True(found)
-		r.Equal("us-east-1a", localInfo.Zone)
-		r.Equal("use1-az1", localInfo.ZoneID)
-
-		// Lookup remote subnet
-		remoteInfo, found := index.LookupIP(netip.MustParseAddr("10.1.0.5"))
-		r.True(found)
-		r.Equal("us-east-1a", remoteInfo.Zone)
-		r.Equal("use1-az2", remoteInfo.ZoneID)
-
-		// Key insight: Zone names match but ZoneIds differ!
-		// For accurate cost calculation, compare ZoneIds not zone names
-		r.Equal(localInfo.Zone, remoteInfo.Zone)        // Zone names match
-		r.NotEqual(localInfo.ZoneID, remoteInfo.ZoneID) // But physical zones differ!
-		// Cost: Cross-AZ traffic ($0.01/GB) despite matching zone names
-	})
 }

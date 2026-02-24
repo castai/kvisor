@@ -326,7 +326,7 @@ func (c *Client) GetIPInfo(ip netip.Addr) (IPInfo, bool) {
 		val.cloudDomain = vpcInfo.CloudDomain
 		val.workloadKind = vpcInfo.WorkloadKind
 		val.workloadName = vpcInfo.WorkloadName
-		val.conectivityMethod = vpcInfo.ConnectivityMethod
+		val.connectivityMethod = vpcInfo.ConnectivityMethod
 		return val, true
 	}
 

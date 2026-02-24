@@ -89,7 +89,7 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 			pbInfo.CloudDomain = info.cloudDomain
 			pbInfo.WorkloadKind = info.workloadKind
 			pbInfo.WorkloadName = info.workloadName
-			pbInfo.Namespace = info.conectivityMethod
+			pbInfo.Namespace = info.connectivityMethod
 
 			if info.Node != nil {
 				pbInfo.Zone = k8s.NodeZoneOrID(info.Node.Labels, s.client.IsUseAwsZoneId())
@@ -135,7 +135,7 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	if !req.ExcludeOtherCidr {
 		otherCidr = append(otherCidr, s.client.vpcIndex.StaticServiceCIDRs()...)
 	}
-	if !req.ExcludeOtherCidr {
+	if !req.ExcludeCloudCidr {
 		cloudCidr = append(cloudCidr, s.client.vpcIndex.CloudServiceCIDRs()...)
 	}
 	return &kubepb.GetClusterInfoResponse{

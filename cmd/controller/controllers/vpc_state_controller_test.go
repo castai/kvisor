@@ -27,7 +27,7 @@ func TestVPCStateController(t *testing.T) {
 			RefreshInterval: 1 * time.Hour,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, time.Hour, 1000)
+		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 
 		err := ctrl.Run(ctx)
@@ -47,7 +47,7 @@ func TestVPCStateController(t *testing.T) {
 			RefreshInterval: 0,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, time.Hour, 1000)
+		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 		r.Equal(1*time.Hour, ctrl.cfg.RefreshInterval)
 	})
@@ -63,7 +63,7 @@ func TestVPCStateController(t *testing.T) {
 			RefreshInterval: customInterval,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, time.Hour, 1000)
+		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 		r.Equal(customInterval, ctrl.cfg.RefreshInterval)
 	})

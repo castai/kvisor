@@ -16,19 +16,16 @@ import (
 type VPCStateControllerConfig struct {
 	Enabled   bool `json:"enabled"`
 	UseZoneID bool `json:"useZoneID"`
-	// StaticCIDRsEnabled bool                `json:"staticCIDRsEnabled"` // Enable static-only mode (no cloud sync needed)
 	NetworkName     string        `json:"networkName"`
 	RefreshInterval time.Duration `json:"refreshInterval"`
 	CacheSize       uint32        `json:"cacheSize"`
-	// StaticCIDRMappings []StaticCIDRMapping `json:"staticCIDRMappings"` // Direct config
-	StaticCIDRsFile string `json:"staticCIDRsFile"` // Path to YAML file
+	StaticCIDRsFile string        `json:"staticCIDRsFile"` // Path to YAML file
 }
 
 // StaticCIDRMapping represents a manual CIDR to zone/region/service mapping.
 type StaticCIDRMapping struct {
 	CIDR string `json:"cidr" yaml:"cidr"`
-	Zone string `json:"zone" yaml:"zone"` // AWS zone name (e.g., "us-east-1a") or AWS zone ID (e.g., "use1-az1") - for cross-account
-	// ZoneId             string `json:"zoneId" yaml:"zoneId"` // AWS zone name (e.g., "us-east-1a") or AWS zone ID (e.g., "use1-az1") - for cross-account
+	Zone string `json:"zone" yaml:"zone"` // AWS zone name (e.g., "us-east-1a") or zone ID (e.g., "use1-az1") depending on controller config
 	Region             string `json:"region" yaml:"region"`
 	WorkloadName       string `json:"name" yaml:"name"`
 	WorkloadKind       string `json:"kind" yaml:"kind"`
@@ -173,9 +170,8 @@ func convertStaticMappingsToEntries(mappings []StaticCIDRMapping) []kube.StaticC
 	entries := make([]kube.StaticCIDREntry, len(mappings))
 	for i, m := range mappings {
 		entries[i] = kube.StaticCIDREntry{
-			CIDR: m.CIDR,
-			Zone: m.Zone,
-			// ZoneId:             m.ZoneId,
+			CIDR:               m.CIDR,
+			Zone:               m.Zone,
 			Region:             m.Region,
 			WorkloadName:       m.WorkloadName,
 			WorkloadKind:       m.WorkloadKind,
