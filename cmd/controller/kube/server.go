@@ -14,7 +14,6 @@ import (
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
 	k8s "github.com/castai/kvisor/pkg/k8s"
-	"github.com/samber/lo"
 )
 
 func NewServer(client *Client) kubepb.KubeAPIServer {
@@ -34,10 +33,9 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "pod by ip %s not found", addr)
 	}
-	zoneFn := lo.Ternary(s.client.IsUseAwsZoneId(), k8s.NodeZoneID, k8s.NodeZone)
 	res := &kubepb.IPInfo{}
 	if info.Node != nil {
-		res.Zone = zoneFn(info.Node.Labels)
+		res.Zone = k8s.NodeZoneOrID(info.Node.Labels, s.client.IsUseAwsZoneId())
 		res.NodeName = info.Node.GetName()
 	}
 	if podInfo := info.PodInfo; podInfo != nil {
@@ -177,6 +175,8 @@ func (s *Server) GetNode(ctx context.Context, req *kubepb.GetNodeRequest) (*kube
 			Name:          node.Name,
 			Labels:        node.Labels,
 			CloudProvider: string(s.client.cloudProvider),
+			Zone:          k8s.NodeZoneOrID(node.Labels, s.client.IsUseAwsZoneId()),
+			Region:        k8s.NodeRegion(node.Labels),
 		},
 	}, nil
 }

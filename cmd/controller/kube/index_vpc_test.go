@@ -391,7 +391,7 @@ func TestVPCIndex(t *testing.T) {
 			{
 				CIDR:               "10.100.1.0/24",
 				Zone:               "us-east-1a",
-				ZoneId:             "use1-az1",
+				ZoneID:             "use1-az1",
 				Region:             "us-east-1",
 				WorkloadName:       "production-vpc",
 				WorkloadKind:       "VPC",
@@ -426,7 +426,7 @@ func TestVPCIndex(t *testing.T) {
 		info, found := index.LookupIP(netip.MustParseAddr("10.100.1.5"))
 		r.True(found)
 		r.Equal("us-east-1a", info.Zone)
-		r.Equal("use1-az1", info.ZoneId)
+		r.Equal("use1-az1", info.ZoneID)
 		r.Equal("us-east-1", info.Region)
 		r.Equal("production-vpc", info.WorkloadName)
 		r.Equal("VPC", info.WorkloadKind)
@@ -544,7 +544,7 @@ func TestVPCIndex(t *testing.T) {
 			{
 				CIDR:               "10.1.0.0/24",
 				Zone:               "us-east-1a", // Remote account zone name
-				ZoneId:             "use1-az2",   // Different physical zone
+				ZoneID:             "use1-az2",   // Different physical zone
 				Region:             "us-east-1",
 				WorkloadName:       "remote-vpc",
 				ConnectivityMethod: "VPC-Peering",
@@ -579,18 +579,18 @@ func TestVPCIndex(t *testing.T) {
 		localInfo, found := index.LookupIP(netip.MustParseAddr("10.0.0.5"))
 		r.True(found)
 		r.Equal("us-east-1a", localInfo.Zone)
-		r.Equal("use1-az1", localInfo.ZoneId)
+		r.Equal("use1-az1", localInfo.ZoneID)
 
 		// Lookup remote subnet
 		remoteInfo, found := index.LookupIP(netip.MustParseAddr("10.1.0.5"))
 		r.True(found)
 		r.Equal("us-east-1a", remoteInfo.Zone)
-		r.Equal("use1-az2", remoteInfo.ZoneId)
+		r.Equal("use1-az2", remoteInfo.ZoneID)
 
 		// Key insight: Zone names match but ZoneIds differ!
 		// For accurate cost calculation, compare ZoneIds not zone names
-		r.Equal(localInfo.Zone, remoteInfo.Zone)       // Zone names match
-		r.NotEqual(localInfo.ZoneId, remoteInfo.ZoneId) // But physical zones differ!
+		r.Equal(localInfo.Zone, remoteInfo.Zone)        // Zone names match
+		r.NotEqual(localInfo.ZoneID, remoteInfo.ZoneID) // But physical zones differ!
 		// Cost: Cross-AZ traffic ($0.01/GB) despite matching zone names
 	})
 }

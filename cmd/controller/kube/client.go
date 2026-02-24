@@ -90,18 +90,19 @@ func NewClient(
 	cloudProvider cloudtypes.Type,
 	useAwsZoneId bool,
 ) *Client {
-	return &Client{
+	c := &Client{
 		log:                           log.WithField("component", "kube_watcher"),
 		kvisorNamespace:               kvisorNamespace,
 		podName:                       podName,
 		kvisorControllerContainerName: "controller",
 		client:                        client,
-		index:                         NewIndex(WithUseAwsZoneId(useAwsZoneId)),
 		version:                       version,
 		ipInfoTTL:                     30 * time.Second,
 		cloudProvider:                 cloudProvider,
 		useAwsZoneId:                  useAwsZoneId,
 	}
+	c.index = NewIndex(WithUseAwsZoneId(c.IsUseAwsZoneId()))
+	return c
 }
 
 // SetVPCIndex sets the VPC index for enriching external IPs with VPC metadata.
@@ -388,6 +389,9 @@ func (c *Client) GetCloudProvider() cloudtypes.Type {
 }
 
 func (c *Client) IsUseAwsZoneId() bool {
+	if c.cloudProvider != cloudtypes.TypeAWS {
+		return false
+	}
 	return c.useAwsZoneId
 }
 

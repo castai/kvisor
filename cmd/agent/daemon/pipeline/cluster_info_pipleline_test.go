@@ -27,7 +27,7 @@ func TestNewClusterInfo(t *testing.T) {
 	r.Empty(info.serviceCidr)
 	r.Empty(info.nodeCidr)
 	r.Empty(info.vpcCidr)
-	r.Empty(info.cloudCidr)
+	r.Empty(info.staticCidr)
 	r.Empty(info.clusterCidr)
 }
 
@@ -117,9 +117,9 @@ func TestClusterInfoSync(t *testing.T) {
 				r.Equal(expected, info.vpcCidr[i].String())
 			}
 
-			r.Len(info.cloudCidr, len(tt.expectedCloudCidr))
+			r.Len(info.staticCidr, len(tt.expectedCloudCidr))
 			for i, expected := range tt.expectedCloudCidr {
-				r.Equal(expected, info.cloudCidr[i].String())
+				r.Equal(expected, info.staticCidr[i].String())
 			}
 
 			// Verify cluster CIDR is aggregate of all

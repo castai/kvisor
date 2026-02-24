@@ -788,6 +788,8 @@ type Node struct {
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Labels        map[string]string      `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	CloudProvider string                 `protobuf:"bytes,3,opt,name=cloud_provider,json=cloudProvider,proto3" json:"cloud_provider,omitempty"`
+	Zone          string                 `protobuf:"bytes,4,opt,name=zone,proto3" json:"zone,omitempty"`
+	Region        string                 `protobuf:"bytes,5,opt,name=region,proto3" json:"region,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -839,6 +841,20 @@ func (x *Node) GetLabels() map[string]string {
 func (x *Node) GetCloudProvider() string {
 	if x != nil {
 		return x.CloudProvider
+	}
+	return ""
+}
+
+func (x *Node) GetZone() string {
+	if x != nil {
+		return x.Zone
+	}
+	return ""
+}
+
+func (x *Node) GetRegion() string {
+	if x != nil {
+		return x.Region
 	}
 	return ""
 }
@@ -2045,11 +2061,13 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x0eGetNodeRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"4\n" +
 	"\x0fGetNodeResponse\x12!\n" +
-	"\x04node\x18\x01 \x01(\v2\r.kube.v1.NodeR\x04node\"\xaf\x01\n" +
+	"\x04node\x18\x01 \x01(\v2\r.kube.v1.NodeR\x04node\"\xdb\x01\n" +
 	"\x04Node\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
 	"\x06labels\x18\x02 \x03(\v2\x19.kube.v1.Node.LabelsEntryR\x06labels\x12%\n" +
-	"\x0ecloud_provider\x18\x03 \x01(\tR\rcloudProvider\x1a9\n" +
+	"\x0ecloud_provider\x18\x03 \x01(\tR\rcloudProvider\x12\x12\n" +
+	"\x04zone\x18\x04 \x01(\tR\x04zone\x12\x16\n" +
+	"\x06region\x18\x05 \x01(\tR\x06region\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"9\n" +

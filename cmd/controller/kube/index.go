@@ -6,7 +6,6 @@ import (
 
 	"github.com/castai/kvisor/pkg/cidrindex"
 	k8s "github.com/castai/kvisor/pkg/k8s"
-	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +17,7 @@ type IndexOptions func(*Index)
 
 func WithUseAwsZoneId(useAwsZoneId bool) IndexOptions {
 	return func(i *Index) {
-		i.zoneFn = lo.Ternary(useAwsZoneId, k8s.NodeZoneID, k8s.NodeZone)
+		i.useAwsZoneId = useAwsZoneId
 	}
 }
 
@@ -55,7 +54,7 @@ type Index struct {
 	pvs            map[string]*corev1.PersistentVolume      // key: PV name
 
 	// AWS specific, when specified will use AWS zone IDs instead of names
-	zoneFn func(map[string]string) string
+	useAwsZoneId bool
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
@@ -63,7 +62,7 @@ func (i *Index) addFromPod(pod *corev1.Pod) {
 	node := i.nodesByName[pod.Spec.NodeName]
 	var zone, region string
 	if node != nil {
-		zone = i.zoneFn(node.Labels)
+		zone = k8s.NodeZoneOrID(node.Labels, i.useAwsZoneId)
 		region = k8s.NodeRegion(node.Labels)
 	}
 	podInfo := &PodInfo{
@@ -138,7 +137,7 @@ func (i *Index) addFromService(v *corev1.Service) {
 func (i *Index) addFromNode(v *corev1.Node) {
 	i.nodesByName[v.Name] = v
 
-	zone := i.zoneFn(v.Labels)
+	zone := k8s.NodeZoneOrID(v.Labels, i.useAwsZoneId)
 	region := k8s.NodeRegion(v.Labels)
 
 	// Associate pods CIDR with node reference to be able to find pods

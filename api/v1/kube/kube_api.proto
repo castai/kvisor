@@ -102,6 +102,8 @@ message Node {
   string name = 1;
   map<string, string> labels = 2;
   string cloud_provider = 3;
+  string zone = 4;
+  string region = 5;
 }
 
 message GetNodeStatsSummaryRequest {

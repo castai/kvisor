@@ -14,7 +14,6 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/pkg/cloudprovider"
-	k8s "github.com/castai/kvisor/pkg/k8s"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
@@ -357,10 +356,10 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 	if res.Zone == "" || res.Region == "" {
 		if nodeInfo, found := c.getNodeInfo(res.NodeName); found {
 			if res.Zone == "" {
-				res.Zone = k8s.NodeZone(nodeInfo.Labels)
+				res.Zone = nodeInfo.Zone
 			}
 			if res.Region == "" {
-				res.Region = k8s.NodeRegion(nodeInfo.Labels)
+				res.Region = nodeInfo.Region
 			}
 		}
 	}
