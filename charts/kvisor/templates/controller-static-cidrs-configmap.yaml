@@ -1,4 +1,4 @@
-{{- if .Values.controller.staticCIDRs.enabled }}
+{{- if .Values.controller.netflow.staticCIDRs.mappings }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,7 +9,7 @@ metadata:
 data:
   static-cidrs.yaml: |
     staticCIDRMappings:
-{{- range .Values.controller.staticCIDRs.mappings }}
+{{- range .Values.controller.netflow.staticCIDRs.mappings }}
       - cidr: {{ .cidr | quote }}
         zone: {{ .zone | default "" | quote }}
         region: {{ .region | quote }}

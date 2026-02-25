@@ -526,39 +526,39 @@ Static entries take **highest priority** in IP lookups — a static `/32` will o
 
 ### Configuration via Helm
 
-Add `staticCIDRs` under `controller` in your `values.yaml`:
+Add `staticCIDRs` under `controller.netflow` in your `values.yaml`. The ConfigMap is created and mounted automatically when the list is non-empty:
 
 ```yaml
 controller:
-  staticCIDRs:
-    enabled: true
-    mappings:
-      # Cross-account VPC via Transit Gateway
-      - cidr: "10.1.0.0/24"
-        zone: "us-east-1a"
-        region: "us-east-1"
-        name: "production-vpc"
-        kind: "VPC"
-        connectivityMethod: "TransitGateway"
+  netflow:
+    staticCIDRs:
+      mappings:
+        # Cross-account VPC via Transit Gateway
+        - cidr: "10.1.0.0/24"
+          zone: "us-east-1a"
+          region: "us-east-1"
+          name: "production-vpc"
+          kind: "VPC"
+          connectivityMethod: "TransitGateway"
 
-      # Single IP (overrides broader cloud-discovered CIDRs)
-      - cidr: "10.0.0.13/32"
-        zone: "us-east-1a"
-        region: "us-east-1"
-        name: "production-rds"
-        kind: "RDS"
-        connectivityMethod: "PrivateLink"
+        # Single IP (overrides broader cloud-discovered CIDRs)
+        - cidr: "10.0.0.13/32"
+          zone: "us-east-1a"
+          region: "us-east-1"
+          name: "production-rds"
+          kind: "RDS"
+          connectivityMethod: "PrivateLink"
 
-      # Regional range without a specific zone
-      - cidr: "10.2.0.0/16"
-        zone: ""
-        region: "us-east-1"
-        name: "peered-vpc"
-        kind: "VPC"
-        connectivityMethod: "VPCPeering"
+        # Regional range without a specific zone
+        - cidr: "10.2.0.0/16"
+          zone: ""
+          region: "us-east-1"
+          name: "peered-vpc"
+          kind: "VPC"
+          connectivityMethod: "VPCPeering"
 ```
 
-When `staticCIDRs.enabled: true`, Helm creates a ConfigMap and mounts it into the controller pod. The controller reads it at startup via `--cloud-provider-static-cidrs-file`.
+When `mappings` is non-empty, Helm creates a ConfigMap and mounts it into the controller pod. The controller reads it at startup via `--cloud-provider-static-cidrs-file`.
 
 ### Mapping Fields
 
@@ -646,12 +646,12 @@ controller:
     cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
 
-  staticCIDRs:
-    enabled: true
-    mappings:
-      # This /32 overrides whatever the cloud API says about 10.0.0.13
-      - cidr: "10.0.0.13/32"
-        region: "us-east-1"
-        name: "cross-account-rds"
-        connectivityMethod: "TransitGateway"
+  netflow:
+    staticCIDRs:
+      mappings:
+        # This /32 overrides whatever the cloud API says about 10.0.0.13
+        - cidr: "10.0.0.13/32"
+          region: "us-east-1"
+          name: "cross-account-rds"
+          connectivityMethod: "TransitGateway"
 ```
