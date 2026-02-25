@@ -26,7 +26,7 @@ type clusterInfo struct {
 	nodeCidr    []netip.Prefix
 	vpcCidr     []netip.Prefix
 	cloudCidr   []netip.Prefix
-	staticCIDRs  []netip.Prefix
+	staticCIDRs []netip.Prefix
 	clusterCidr []netip.Prefix
 }
 
@@ -152,7 +152,7 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 	for _, cidr := range resp.GetCloudCidr() {
 		subnet, err := netip.ParsePrefix(cidr)
 		if err != nil {
-			c.log.Errorf("parsing other cidr: %v", err)
+			c.log.Errorf("parsing cloud cidr: %v", err)
 			continue
 		}
 		cloudCidr = append(cloudCidr, subnet)
