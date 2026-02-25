@@ -1,7 +1,51 @@
 # OBI + In-Cluster ClickHouse Upgrade Guide
 
 Upgrade a cluster from default kvisor (single container, no OBI) to full OBI reliability
-metrics with an in-cluster ClickHouse instance.
+metrics with an in-cluster ClickHouse instance and export to mothership.
+
+## Architecture
+
+```
+In-Cluster (kvisor)                              Mothership (dev-master)
+┌──────────────────────────────────────┐         ┌──────────────────────────────────────┐
+│  OBI eBPF ──▶ OTel Collector         │         │  Silver × 5 (ReplicatedReplacingMT)  │
+│                  │                    │         │    ▲                                 │
+│          ClickHouse (single node)    │         │    │ gRPC/Avro                       │
+│  ┌────────────────────────────────┐  │         │    │                                 │
+│  │ Bronze (MergeTree, 4h TTL)    │  │         │  metrics-ingestor                    │
+│  │  otel_metrics_histogram       │  │         │                                      │
+│  │  otel_metrics_gauge           │  │         │  Silver ──▶ Gold MVs ──▶ Views       │
+│  │         │ MVs                  │  │         │  (7d TTL)   (90d TTL)               │
+│  │         ▼                     │  │         └──────────────────────────────────────┘
+│  │ Silver (AggregatingMT, 7d)   │  │
+│  │  reliability_metrics_http     │──┼── ch-exporter ──▶
+│  │  reliability_metrics_grpc     │  │
+│  │  reliability_metrics_db       │  │
+│  │  reliability_metrics_messaging│  │
+│  │  reliability_metrics_gauge    │  │
+│  └────────────────────────────────┘  │
+└──────────────────────────────────────┘
+```
+
+**Database:** `metrics` (both in-cluster and mothership)
+
+**Migrations (in-cluster, goose):**
+
+| File | Content |
+|------|---------|
+| `001_bronze_tables.sql` | Raw OTLP tables (histogram + gauge) |
+| `002_silver_tables.sql` | 5 silver tables (AggregatingMergeTree) |
+| `003_bronze_to_silver_mvs.sql` | 5 bronze→silver MVs with `cityHash64` pk |
+| `004_export_progress.sql` | Cursor tracking for ch-exporter sidecar |
+
+**Mothership migration (`000034_add_reliability_metrics`):**
+
+| Layer | Objects |
+|-------|---------|
+| Silver | 5 local + 5 distributed (ReplicatedReplacingMergeTree, 7d TTL) |
+| Gold | `reliability_gold_reporting_overview` (ReplicatedAggregatingMergeTree, 90d TTL) |
+| MVs | 4 silver→gold (HTTP/gRPC/DB/Messaging → overview) |
+| Views | `reliability_v_reporting_overview` (error rates, avg/max latency, RPS) |
 
 ## Prerequisites
 
@@ -53,7 +97,7 @@ helm upgrade $RELEASE ./charts/kvisor -n $NAMESPACE \
   --kube-context $CONTEXT \
   --timeout 10m \
   -f charts/kvisor/obi-values.yaml \
-  --set castai.apiKey=13153335c377efa94bce6c3d123ea65e3f45bad9d222d39c9dbb328c36122089 \
+  --set castai.apiKey=<api-key> \
   --set castai.clusterID=1e59b18a-f20e-4d7a-ba61-aff2636552a1 \
   --set castai.grpcAddr=kvisor.dev-master.cast.ai:443 \
   --set agent.extraArgs.netflow-enabled=true \
@@ -99,7 +143,7 @@ kubectl get pods -n $NAMESPACE --context $CONTEXT
 Expected:
 - `castai-kvisor-agent-*` -- `3/3 Running` (kvisor-agent + obi + otel-collector)
 - `castai-kvisor-controller-*` -- `2/2 Running` (controller + otel-collector)
-- `chi-castai-kvisor-clickhouse-otel-0-0-0` -- `1/1 Running`
+- `chi-castai-kvisor-clickhouse-otel-0-0-0` -- `2/2 Running` (clickhouse + ch-exporter)
 - `castai-kvisor-clickhouse-operator-*` -- `2/2 Running`
 - `castai-kvisor-clickhouse-migrate-*` -- `0/1 Completed`
 
@@ -159,7 +203,7 @@ Should show `k8s_cluster` receiver started and `Everything is ready`.
 ### 3.4 ClickHouse Logs
 
 ```bash
-kubectl logs chi-castai-kvisor-clickhouse-otel-0-0-0 -n $NAMESPACE --context $CONTEXT --tail=5
+kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse --tail=5
 ```
 
 Should show:
@@ -178,27 +222,38 @@ kubectl logs -l app.kubernetes.io/component=clickhouse-migrate \
 
 Expected:
 ```
-... INFO ensuring database exists database=kvisor
-... INFO connected to ClickHouse addr=castai-kvisor-clickhouse...:9000 database=kvisor
+... INFO ensuring database exists database=metrics
+... INFO connected to ClickHouse addr=castai-kvisor-clickhouse...:9000 database=metrics
 ... INFO running migrations: up
 ... OK   001_bronze_tables.sql (...)
-... OK   002_silver_http_grpc.sql (...)
-... OK   003_silver_db_messaging_gauge.sql (...)
-... goose: successfully migrated database to version: 3
+... OK   002_silver_tables.sql (...)
+... OK   003_bronze_to_silver_mvs.sql (...)
+... OK   004_export_progress.sql (...)
+... goose: successfully migrated database to version: 4
 ... INFO migrations completed successfully
 ```
+
+### 3.6 CH Exporter Logs
+
+The exporter sidecar runs inside the ClickHouse pod and exports silver data to mothership:
+
+```bash
+kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c ch-exporter --tail=20
+```
+
+Expected: periodic export logs showing rows exported per table. If you see
+`no new rows` that's normal when there's no new data since last export.
 
 ## Step 4: Validate Data Flow
 
 ### 4.1 Check Tables Exist
 
 ```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    SELECT name, engine, total_rows, total_bytes
+kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
+  clickhouse-client -d metrics -q "
+    SELECT name, engine
     FROM system.tables
-    WHERE database = 'otel'
+    WHERE database = 'metrics'
     ORDER BY name
     FORMAT PrettyCompact"
 ```
@@ -207,26 +262,23 @@ Expected tables:
 
 | Table | Engine | Description |
 |-------|--------|-------------|
-| `otel_metrics_histogram` | MergeTree | Bronze: OBI latency/duration histograms |
-| `otel_metrics_gauge` | MergeTree | Bronze: k8s reliability gauges |
-| `otel_metrics_sum` | MergeTree | Bronze: sum metrics (may be empty) |
-| `otel_metrics_exponential_histogram` | MergeTree | Bronze: exp histograms (usually empty) |
-| `otel_metrics_summary` | MergeTree | Bronze: summary metrics (usually empty) |
-| `silver_http_1m` | AggregatingMergeTree | Silver: HTTP request aggregates |
-| `silver_grpc_1m` | AggregatingMergeTree | Silver: gRPC request aggregates |
-| `silver_gauge_1m` | AggregatingMergeTree | Silver: k8s gauge aggregates |
-| `silver_db_1m` | AggregatingMergeTree | Silver: DB client aggregates |
-| `silver_messaging_1m` | AggregatingMergeTree | Silver: messaging aggregates |
-| `mv_bronze_to_silver_*` | MaterializedView | MVs powering bronze-to-silver |
+| `otel_metrics_histogram` | MergeTree | Bronze: OBI latency/duration histograms (4h TTL) |
+| `otel_metrics_gauge` | MergeTree | Bronze: k8s reliability gauges (4h TTL) |
+| `reliability_metrics_http` | AggregatingMergeTree | Silver: HTTP request aggregates (7d TTL) |
+| `reliability_metrics_grpc` | AggregatingMergeTree | Silver: gRPC request aggregates (7d TTL) |
+| `reliability_metrics_db` | AggregatingMergeTree | Silver: DB client aggregates (7d TTL) |
+| `reliability_metrics_messaging` | AggregatingMergeTree | Silver: messaging aggregates (7d TTL) |
+| `reliability_metrics_gauge` | AggregatingMergeTree | Silver: k8s gauge aggregates (7d TTL) |
+| `reliability_mv_bronze_to_silver_*` | MaterializedView | 5 bronze→silver MVs |
+| `export_progress` | ReplacingMergeTree | Exporter cursor tracking |
 
 ### 4.2 Check Bronze Data (Raw OTLP)
 
 Wait 2-3 minutes after deployment, then:
 
 ```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
+kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
+  clickhouse-client -d metrics -q "
     SELECT
       'histogram' as tbl, count() as rows, uniqExact(MetricName) as metrics,
       min(TimeUnix) as earliest, max(TimeUnix) as latest
@@ -246,11 +298,10 @@ kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
 ### 4.3 Check Histogram Metrics by Service
 
 ```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
+kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
+  clickhouse-client -d metrics -q "
     SELECT
-      ResourceAttributes['service.name'] as service_name,
+      ServiceName as service_name,
       MetricName,
       count() as cnt
     FROM otel_metrics_histogram
@@ -259,347 +310,220 @@ kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
     FORMAT PrettyCompact"
 ```
 
-Should show services discovered by OBI (e.g., `castai-workload-autoscaler`,
-`castai-pod-mutator`, `castai-kvisor-controller`) with golden signal metrics.
+Should show services discovered by OBI (e.g., `castai-kvisor-controller`,
+`castai-pod-mutator`) with golden signal metrics.
 
-### 4.4 Check Gauge Metrics (Reliability)
+### 4.4 Check Silver Layer (Aggregated)
 
 ```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    SELECT MetricName, count() as cnt
-    FROM otel_metrics_gauge
-    GROUP BY MetricName
-    ORDER BY cnt DESC
+kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
+  clickhouse-client -d metrics -q "
+    SELECT 'http' as tbl, count() as rows FROM reliability_metrics_http
+    UNION ALL SELECT 'grpc', count() FROM reliability_metrics_grpc
+    UNION ALL SELECT 'db', count() FROM reliability_metrics_db
+    UNION ALL SELECT 'messaging', count() FROM reliability_metrics_messaging
+    UNION ALL SELECT 'gauge', count() FROM reliability_metrics_gauge
     FORMAT PrettyCompact"
 ```
 
-Expected metrics from the controller's `k8s_cluster` receiver:
-- `k8s.container.restarts`, `k8s.container.ready`, `k8s.pod.phase`
-- `k8s.deployment.desired`, `k8s.deployment.available`
-- `k8s.daemonset.*`, `k8s.statefulset.*`, `k8s.replicaset.*`
-- `k8s.node.condition_ready`
-- `k8s.container.cpu_request`, `k8s.container.memory_limit`, etc.
+- `http` and `grpc` should have rows if OBI discovered HTTP/gRPC services
+- `gauge` should have rows from the controller's k8s reliability gauges
+- `db` and `messaging` will be 0 unless workloads make DB or messaging calls
 
-### 4.5 Check Silver Layer (Aggregated)
+### 4.5 Sample Silver HTTP Data
 
 ```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
+kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
+  clickhouse-client -d metrics -q "
     SELECT
-      'silver_http_1m'  as tbl, count() as rows FROM silver_http_1m
-    UNION ALL SELECT
-      'silver_grpc_1m', count() FROM silver_grpc_1m
-    UNION ALL SELECT
-      'silver_gauge_1m', count() FROM silver_gauge_1m
-    UNION ALL SELECT
-      'silver_db_1m', count() FROM silver_db_1m
-    UNION ALL SELECT
-      'silver_messaging_1m', count() FROM silver_messaging_1m
+      minute, service_name, k8s_deployment, http_method, http_status_code,
+      total_count, total_sum, sample_count
+    FROM reliability_metrics_http
+    ORDER BY minute DESC
+    LIMIT 10
     FORMAT PrettyCompact"
 ```
 
-- `silver_http_1m` and `silver_grpc_1m` should have rows if OBI discovered HTTP/gRPC services
-- `silver_gauge_1m` should have rows from the controller's k8s reliability gauges
-- `silver_db_1m` and `silver_messaging_1m` will be 0 unless workloads make DB or messaging calls
+### 4.6 Check Export Progress
 
-### 4.6 Sample Silver HTTP Data
+Verify the exporter cursor is advancing:
 
 ```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
+kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
+  clickhouse-client -d metrics -q "
     SELECT
-      service_name, http_method, http_status_code, count() as cnt
-    FROM silver_http_1m
-    GROUP BY service_name, http_method, http_status_code
-    ORDER BY cnt DESC
-    LIMIT 20
+      table_name,
+      last_exported_time,
+      last_exported_pk
+    FROM export_progress FINAL
     FORMAT PrettyCompact"
 ```
 
-## Step 5: Simulate Data Flow (DB and Messaging Metrics)
+`last_exported_time` should be recent if the exporter is running. If it's still at
+`1970-01-01`, the exporter hasn't started exporting yet.
 
-The `silver_db_1m` and `silver_messaging_1m` tables will be empty unless the cluster runs
-workloads that make database or messaging calls instrumented by OBI. This section shows
-how to inject synthetic bronze data to verify the full MV pipeline works end-to-end.
+## Step 5: Validate Mothership Data
 
-### How the Pipeline Works
+After the ch-exporter sidecar has been running for a few minutes, verify data arrived
+on the mothership.
 
-```
-Bronze (otel_metrics_histogram)
-  │
-  ├── mv_bronze_to_silver_http     ──▶  silver_http_1m       (WHERE MetricName IN http.*.request.duration)
-  ├── mv_bronze_to_silver_grpc     ──▶  silver_grpc_1m       (WHERE MetricName IN rpc.*.duration)
-  ├── mv_bronze_to_silver_db       ──▶  silver_db_1m         (WHERE MetricName = db.client.operation.duration)
-  └── mv_bronze_to_silver_messaging──▶  silver_messaging_1m  (WHERE MetricName IN messaging.*.duration)
-```
-
-Materialized Views fire on INSERT into the source table. Inserting rows with the correct
-`MetricName` and `Attributes` keys into `otel_metrics_histogram` will automatically
-populate the corresponding silver tables.
-
-### 5.1 Inject Synthetic DB Client Metrics
-
-This simulates a PostgreSQL database client generating `db.client.operation.duration`
-histogram data, as if OBI had instrumented a Go service making DB calls.
+**Set mothership variables:**
 
 ```bash
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-INSERT INTO otel_metrics_histogram (
-    ResourceAttributes, ResourceSchemaUrl, ScopeName, ScopeVersion,
-    ScopeAttributes, ScopeDroppedAttrCount, ScopeSchemaUrl,
-    ServiceName, MetricName, MetricDescription, MetricUnit,
-    Attributes, StartTimeUnix, TimeUnix,
-    Count, Sum, BucketCounts, ExplicitBounds,
-    Flags, Min, Max, AggregationTemporality
-) VALUES
--- Simulated: orders-api SELECT queries against PostgreSQL
-(
-    {'service.name':'orders-api','k8s.namespace.name':'production','k8s.deployment.name':'orders-api','k8s.node.name':'node-1'},
-    '', 'obi', '1.0', {}, 0, '',
-    'orders-api', 'db.client.operation.duration', 'Duration of database client operations', 's',
-    {'db.system.name':'postgresql','db.operation.name':'SELECT','error.type':''},
-    now64(9) - 60, now64(9),
-    150, 4.5, [10,30,40,35,20,10,5,0,0,0,0], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.001, 0.22, 1
-),
--- Simulated: orders-api INSERT queries
-(
-    {'service.name':'orders-api','k8s.namespace.name':'production','k8s.deployment.name':'orders-api','k8s.node.name':'node-1'},
-    '', 'obi', '1.0', {}, 0, '',
-    'orders-api', 'db.client.operation.duration', 'Duration of database client operations', 's',
-    {'db.system.name':'postgresql','db.operation.name':'INSERT','error.type':''},
-    now64(9) - 60, now64(9),
-    45, 2.25, [5,10,15,10,3,2,0,0,0,0,0], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.002, 0.09, 1
-),
--- Simulated: orders-api queries with errors
-(
-    {'service.name':'orders-api','k8s.namespace.name':'production','k8s.deployment.name':'orders-api','k8s.node.name':'node-1'},
-    '', 'obi', '1.0', {}, 0, '',
-    'orders-api', 'db.client.operation.duration', 'Duration of database client operations', 's',
-    {'db.system.name':'postgresql','db.operation.name':'SELECT','error.type':'timeout'},
-    now64(9) - 60, now64(9),
-    3, 3.0, [0,0,0,0,0,0,0,0,0,1,2], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.8, 1.5, 1
-),
--- Simulated: payments-service Redis calls
-(
-    {'service.name':'payments-service','k8s.namespace.name':'production','k8s.deployment.name':'payments-service','k8s.node.name':'node-2'},
-    '', 'obi', '1.0', {}, 0, '',
-    'payments-service', 'db.client.operation.duration', 'Duration of database client operations', 's',
-    {'db.system.name':'redis','db.operation.name':'GET','error.type':''},
-    now64(9) - 60, now64(9),
-    500, 0.5, [400,80,15,5,0,0,0,0,0,0,0], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.0001, 0.04, 1
-)"
+export MS_CONTEXT="dev-master"
+export MS_NAMESPACE="custom-metrics"
+export MS_POD="chi-custom-metrics-clickhouse-cmetrics-0-0-0"
 ```
 
-### 5.2 Inject Synthetic Messaging Metrics
-
-This simulates Kafka producer/consumer latencies via `messaging.publish.duration` and
-`messaging.process.duration`.
+### 5.1 Check Silver Tables on Mothership
 
 ```bash
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-INSERT INTO otel_metrics_histogram (
-    ResourceAttributes, ResourceSchemaUrl, ScopeName, ScopeVersion,
-    ScopeAttributes, ScopeDroppedAttrCount, ScopeSchemaUrl,
-    ServiceName, MetricName, MetricDescription, MetricUnit,
-    Attributes, StartTimeUnix, TimeUnix,
-    Count, Sum, BucketCounts, ExplicitBounds,
-    Flags, Min, Max, AggregationTemporality
-) VALUES
--- Simulated: notification-service publishing to Kafka
-(
-    {'service.name':'notification-service','k8s.namespace.name':'production','k8s.deployment.name':'notification-service','k8s.node.name':'node-1'},
-    '', 'obi', '1.0', {}, 0, '',
-    'notification-service', 'messaging.publish.duration', 'Duration of message publish', 's',
-    {'messaging.system':'kafka','messaging.destination.name':'user-events','error.type':''},
-    now64(9) - 60, now64(9),
-    200, 2.0, [50,60,40,30,15,5,0,0,0,0,0], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.001, 0.08, 1
-),
--- Simulated: notification-service publish errors
-(
-    {'service.name':'notification-service','k8s.namespace.name':'production','k8s.deployment.name':'notification-service','k8s.node.name':'node-1'},
-    '', 'obi', '1.0', {}, 0, '',
-    'notification-service', 'messaging.publish.duration', 'Duration of message publish', 's',
-    {'messaging.system':'kafka','messaging.destination.name':'user-events','error.type':'broker_unavailable'},
-    now64(9) - 60, now64(9),
-    5, 5.0, [0,0,0,0,0,0,0,0,0,2,3], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.7, 1.2, 1
-),
--- Simulated: email-worker consuming from Kafka
-(
-    {'service.name':'email-worker','k8s.namespace.name':'production','k8s.deployment.name':'email-worker','k8s.node.name':'node-2'},
-    '', 'obi', '1.0', {}, 0, '',
-    'email-worker', 'messaging.process.duration', 'Duration of message processing', 's',
-    {'messaging.system':'kafka','messaging.destination.name':'user-events','error.type':''},
-    now64(9) - 60, now64(9),
-    180, 18.0, [10,20,30,40,35,25,15,3,2,0,0], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.002, 0.6, 1
-),
--- Simulated: email-worker RabbitMQ queue
-(
-    {'service.name':'email-worker','k8s.namespace.name':'production','k8s.deployment.name':'email-worker','k8s.node.name':'node-2'},
-    '', 'obi', '1.0', {}, 0, '',
-    'email-worker', 'messaging.process.duration', 'Duration of message processing', 's',
-    {'messaging.system':'rabbitmq','messaging.destination.name':'email-queue','error.type':''},
-    now64(9) - 60, now64(9),
-    90, 4.5, [20,25,20,15,5,3,2,0,0,0,0], [0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,1.0],
-    0, 0.001, 0.2, 1
-)"
-```
-
-### 5.3 Verify Silver Tables Populated
-
-The Materialized Views fire synchronously on INSERT, so data should appear immediately.
-
-**Check silver_db_1m:**
-
-```bash
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    SELECT
-      service_name, db_system, db_operation, error_type,
-      total_count, total_sum, min_value, max_value
-    FROM silver_db_1m
-    ORDER BY service_name, db_system, db_operation
+kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
+  exec $MS_POD -c clickhouse-pod -- clickhouse-client --query "
+    SELECT 'http' as tbl, count() as rows, min(minute) as min_ts, max(minute) as max_ts
+    FROM metrics.reliability_metrics_http
+    UNION ALL SELECT 'grpc', count(), min(minute), max(minute)
+    FROM metrics.reliability_metrics_grpc
+    UNION ALL SELECT 'db', count(), min(minute), max(minute)
+    FROM metrics.reliability_metrics_db
+    UNION ALL SELECT 'messaging', count(), min(minute), max(minute)
+    FROM metrics.reliability_metrics_messaging
+    UNION ALL SELECT 'gauge', count(), min(minute), max(minute)
+    FROM metrics.reliability_metrics_gauge
     FORMAT PrettyCompact"
 ```
 
-Expected output:
-```
-┌─service_name─────┬─db_system──┬─db_operation─┬─error_type─┬─total_count─┬─total_sum─┬─min_value─┬─max_value─┐
-│ orders-api       │ postgresql │ INSERT       │            │          45 │      2.25 │     0.002 │      0.09 │
-│ orders-api       │ postgresql │ SELECT       │            │         150 │       4.5 │     0.001 │      0.22 │
-│ orders-api       │ postgresql │ SELECT       │ timeout    │           3 │         3 │       0.8 │       1.5 │
-│ payments-service │ redis      │ GET          │            │         500 │       0.5 │    0.0001 │      0.04 │
-└──────────────────┴────────────┴──────────────┴────────────┴─────────────┴───────────┴───────────┴───────────┘
-```
-
-**Check silver_messaging_1m:**
+### 5.2 Check Gold Overview Table
 
 ```bash
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    SELECT
-      service_name, metric_name, messaging_system, messaging_destination,
-      error_type, total_count, total_sum, min_value, max_value
-    FROM silver_messaging_1m
-    ORDER BY service_name, messaging_system, messaging_destination
+kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
+  exec $MS_POD -c clickhouse-pod -- clickhouse-client --query "
+    SELECT count() as rows, min(five_min) as min_ts, max(five_min) as max_ts
+    FROM metrics.reliability_gold_reporting_overview
     FORMAT PrettyCompact"
 ```
 
-Expected output:
-```
-┌─service_name─────────┬─metric_name────────────────┬─messaging_system─┬─messaging_destination─┬─error_type─────────┬─total_count─┬─...─┐
-│ email-worker         │ messaging.process.duration │ kafka            │ user-events           │                    │         180 │     │
-│ email-worker         │ messaging.process.duration │ rabbitmq         │ email-queue           │                    │          90 │     │
-│ notification-service │ messaging.publish.duration │ kafka            │ user-events           │                    │         200 │     │
-│ notification-service │ messaging.publish.duration │ kafka            │ user-events           │ broker_unavailable │           5 │     │
-└──────────────────────┴────────────────────────────┴──────────────────┴───────────────────────┴────────────────────┴─────────────┴─────┘
-```
+Gold rows are created automatically by the 4 silver→gold MVs whenever silver data is
+inserted.
 
-### 5.4 Verify All Silver Tables Summary
+### 5.3 Query the Convenience View
 
 ```bash
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    SELECT 'silver_http_1m' as tbl, count() as rows FROM silver_http_1m
-    UNION ALL SELECT 'silver_grpc_1m', count() FROM silver_grpc_1m
-    UNION ALL SELECT 'silver_gauge_1m', count() FROM silver_gauge_1m
-    UNION ALL SELECT 'silver_db_1m', count() FROM silver_db_1m
-    UNION ALL SELECT 'silver_messaging_1m', count() FROM silver_messaging_1m
+kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
+  exec $MS_POD -c clickhouse-pod -- clickhouse-client --query "
+    SELECT *
+    FROM metrics.reliability_v_reporting_overview
+    ORDER BY five_min DESC
+    LIMIT 5
+    FORMAT Vertical"
+```
+
+This shows computed metrics: `error_rate`, `total_rps`, `*_avg_latency_ms`,
+`*_max_latency_ms` per (namespace, service, deployment, 5-min window).
+
+### 5.4 List All Reliability Objects on Mothership
+
+```bash
+kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
+  exec $MS_POD -c clickhouse-pod -- clickhouse-client --query "
+    SELECT name, engine
+    FROM system.tables
+    WHERE database = 'metrics' AND name LIKE 'reliability%'
+    ORDER BY name
     FORMAT PrettyCompact"
 ```
 
-After simulation, `silver_db_1m` should have 4 rows and `silver_messaging_1m` should have
-4 rows (in addition to any real data in the other tables).
+Expected (17 objects):
 
-### 5.5 Clean Up Synthetic Data
+| Object | Engine |
+|--------|--------|
+| `reliability_gold_reporting_overview` | Distributed |
+| `reliability_gold_reporting_overview_local` | ReplicatedAggregatingMergeTree |
+| `reliability_metrics_http` / `_local` | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_grpc` / `_local` | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_db` / `_local` | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_messaging` / `_local` | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_gauge` / `_local` | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_mv_silver_http_to_gold_overview` | MaterializedView |
+| `reliability_mv_silver_grpc_to_gold_overview` | MaterializedView |
+| `reliability_mv_silver_db_to_gold_overview` | MaterializedView |
+| `reliability_mv_silver_messaging_to_gold_overview` | MaterializedView |
+| `reliability_v_reporting_overview` | View |
 
-Remove the injected test data when done:
+## Step 6: Schema Management
 
-```bash
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    ALTER TABLE otel_metrics_histogram DELETE
-    WHERE ServiceName IN ('orders-api','payments-service','notification-service','email-worker')
-      AND ScopeName = 'obi' AND ScopeVersion = '1.0'"
+### In-Cluster (kvisor)
 
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    ALTER TABLE silver_db_1m DELETE
-    WHERE service_name IN ('orders-api','payments-service')"
-
-kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client --user kvisor --password kvisor -d otel -q "
-    ALTER TABLE silver_messaging_1m DELETE
-    WHERE service_name IN ('notification-service','email-worker')"
-```
-
-> Note: `ALTER TABLE DELETE` is async in ClickHouse (creates a mutation). Rows disappear
-> after the next merge. Run `OPTIMIZE TABLE <name> FINAL` to force immediate cleanup.
-
-### 5.6 Adding a New Migration
-
-To add a new metric type (e.g., a new silver table), create a new SQL file following the
-goose convention:
+Migrations live in `cmd/clickhouse-migrate/migrations/otel/` and are run by goose.
+To add a new migration:
 
 ```bash
-# In cmd/clickhouse-migrate/migrations/otel/
-cp 003_silver_db_messaging_gauge.sql 004_silver_custom.sql
+# Create new file following goose naming convention
+vim cmd/clickhouse-migrate/migrations/otel/005_new_feature.sql
 ```
 
-Edit `004_silver_custom.sql`:
 ```sql
 -- +goose Up
-CREATE TABLE IF NOT EXISTS otel.silver_custom_1m ( ... )
+CREATE TABLE IF NOT EXISTS metrics.new_table ( ... )
 ENGINE = AggregatingMergeTree ...;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.mv_bronze_to_silver_custom
-TO otel.silver_custom_1m AS
-SELECT ...
-FROM otel.otel_metrics_histogram
-WHERE MetricName = 'custom.metric.name'
-GROUP BY ...;
-
 -- +goose Down
-DROP VIEW IF EXISTS otel.mv_bronze_to_silver_custom;
-DROP TABLE IF EXISTS otel.silver_custom_1m;
+DROP TABLE IF EXISTS metrics.new_table;
 ```
 
-Then rebuild the migration image and redeploy:
+Build and push:
 ```bash
-# Build
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/clickhouse-migrate-amd64 ./cmd/clickhouse-migrate
-docker build --platform linux/amd64 -t eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate:latest \
+docker build --platform linux/amd64 -t eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate:<tag> \
   --build-arg TARGETARCH=amd64 . -f Dockerfile.clickhouse-migrate
-docker push eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate:latest
-
-# Update tag in obi-values.yaml, then deploy (pass 2 only if CH is already running)
-helm upgrade $RELEASE ./charts/kvisor -n $NAMESPACE \
-  --kube-context $CONTEXT --timeout 5m \
-  -f charts/kvisor/obi-values.yaml \
-  --set castai.apiKey=2a4dd76049e759eb4903e468666748f08f47157d5dbb5d65d78992d10e349963 \
-  --set castai.clusterID=1e59b18a-f20e-4d7a-ba61-aff2636552a1 \
-  --set castai.grpcAddr=kvisor.dev-master.cast.ai:443 \
-  --set agent.extraArgs.netflow-enabled=true \
-  --set controller.extraArgs.image-scan-enabled=true \
-  --set controller.extraArgs.kube-bench-cloud-provider=gke \
-  --set controller.extraArgs.kube-bench-enabled=true \
-  --set controller.extraArgs.kube-linter-enabled=true
+docker push eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate:<tag>
 ```
 
-The migration Job will run `goose up`, detect that migrations 001-003 are already applied,
-and only apply the new `004_silver_custom.sql`.
+Update `obi-values.yaml` with the new tag and redeploy. The migration Job detects
+already-applied migrations and only runs new ones.
+
+### Mothership (metrics-ingestor)
+
+The mothership schema lives in `services/metrics-ingestor/clickhouse/migrations/000034_add_reliability_metrics.up.sql`.
+It is applied via the metrics-ingestor's standard migration flow.
+
+To apply manually on dev-master:
+
+```bash
+kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
+  exec $MS_POD -c clickhouse-pod -- clickhouse-client --multiquery --query "$(cat \
+  /path/to/000034_add_reliability_metrics.up.sql)"
+```
+
+### Key Schema Differences: In-Cluster vs Mothership
+
+| Aspect | In-Cluster | Mothership |
+|--------|-----------|------------|
+| Engine (silver) | `AggregatingMergeTree` | `ReplicatedReplacingMergeTree()` |
+| `bucket_counts` | `AggregateFunction(sumForEach, Array(UInt64))` | `Array(UInt64)` |
+| `explicit_bounds` | `SimpleAggregateFunction(anyLast, Array(Float64))` | `Array(Float64)` |
+| Replication | Single node, no replication | `ON CLUSTER '{cluster}'` |
+| Storage policy | Default | `move_to_gcs` |
+| Gold layer | None (silver only) | `reliability_gold_reporting_overview` (90d TTL) |
+| Export cursor | `export_progress` table | N/A (ingestor handles) |
+
+The `bucket_counts` difference is intentional: in-cluster uses `AggregateFunction` for
+correct background merges in `AggregatingMergeTree`. The ch-exporter finalizes it with
+`sumForEachMerge(bucket_counts)` in the SELECT (baked into `export_progress.columns`),
+so mothership receives plain `Array(UInt64)`.
+
+## Known Limitations
+
+- **`min_value`/`max_value` are always 0**: OTLP histogram `Min`/`Max` fields are optional
+  and OBI does not populate them. These columns exist for forward compatibility. For max
+  latency estimation, use the highest non-zero bucket boundary.
+- **Histograms and gauge data not in gold table**: `bucket_counts`/`explicit_bounds` are
+  plain arrays that can't merge correctly in `AggregatingMergeTree`. Gauge data has a
+  pod-to-deployment mapping gap. Both are queried from silver at read time.
+- **Delta temporality zero rows**: OBI uses delta temporality (`AggregationTemporality=1`).
+  The OTEL collector emits data points even when there's no activity in a window, resulting
+  in rows with `total_count=0`. These don't affect correctness — `sum(total_count)` in gold
+  MVs correctly aggregates only actual request counts.
 
 ## Troubleshooting
 
@@ -615,8 +539,7 @@ helm rollback $RELEASE <revision-number> -n $NAMESPACE --kube-context $CONTEXT
 
 Check logs:
 ```bash
-kubectl logs chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT --previous
+kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse --previous
 ```
 
 Common causes:
@@ -659,23 +582,11 @@ kubectl get svc -n $NAMESPACE --context $CONTEXT | grep click
 The serviceTemplate creates `castai-kvisor-clickhouse` (ClusterIP) -- the migration
 should connect to `castai-kvisor-clickhouse.<namespace>.svc.cluster.local:9000`.
 
-### Migration Job `Database X does not exist`
-
-This is handled automatically by the v2 migration image which runs
-`CREATE DATABASE IF NOT EXISTS` before connecting. If using an older image, create the
-database manually:
-
-```bash
-kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
-  -n $NAMESPACE --context $CONTEXT -- \
-  clickhouse-client -q "CREATE DATABASE IF NOT EXISTS kvisor"
-```
-
 ### No data in ClickHouse after 5 minutes
 
 1. Check OBI is instrumenting processes: `kubectl logs $POD -n $NAMESPACE --context $CONTEXT -c obi | grep instrumenting`
 2. Check collector has no errors: `kubectl logs $POD -n $NAMESPACE --context $CONTEXT -c otel-collector | grep -i error`
-3. Verify ClickHouse is accepting connections: `kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT | grep "Ready for connections"`
+3. Verify ClickHouse is accepting connections: `kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse | grep "Ready for connections"`
 4. Check ClickHouse service is reachable from within the cluster:
    ```bash
    kubectl run ch-test --rm -it --image=busybox --restart=Never \
@@ -683,3 +594,9 @@ kubectl exec chi-castai-kvisor-clickhouse-otel-0-0-0 \
      wget -qO- http://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:8123/ping
    ```
    Should return `Ok.`
+
+### No data on mothership
+
+1. Check ch-exporter logs: `kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c ch-exporter --tail=30`
+2. Check export cursor is advancing (see Step 4.6)
+3. Verify the exporter gRPC address matches mothership: check `clickhouse.exporter.grpcAddr` in values
