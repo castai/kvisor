@@ -20,7 +20,8 @@ func TestVPCIndex(t *testing.T) {
 		index := NewVPCIndex(log, VPCConfig{RefreshInterval: refreshInterval, CacheSize: 1000})
 
 		r.NotNil(index)
-		r.NotNil(index.cidrIndex)
+		r.NotNil(index.cloudCIDRIndex)
+		r.NotNil(index.staticCIDRIndex)
 	})
 
 	t.Run("update state", func(t *testing.T) {
