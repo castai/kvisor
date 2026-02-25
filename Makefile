@@ -255,6 +255,26 @@ clickhouse-migrate-docker-image: clean-clickhouse-migrate clickhouse-migrate
 clickhouse-migrate-push-deploy: clickhouse-migrate-docker-image
 	docker push $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG)
 
+# Multi-arch clickhouse-migrate: builds both amd64+arm64 binaries and pushes a manifest list.
+# Requires: docker buildx (with a multi-platform builder).
+# Usage: IMAGE_TAG=v8-histogram IMAGE_REPO=eu.gcr.io/engineering-test-353509/kvisor make clickhouse-migrate-multiarch
+.PHONY: clickhouse-migrate-multiarch
+clickhouse-migrate-multiarch:
+	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/clickhouse-migrate-amd64 $(OUTPUT_DIR_BIN)/clickhouse-migrate-arm64
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(CMD_GO) build \
+		-ldflags="$(GO_DEBUG_FLAG) -X main.Version=\"$(VERSION)\"" \
+		-v -o $(OUTPUT_DIR_BIN)/clickhouse-migrate-amd64 \
+		./cmd/clickhouse-migrate
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(CMD_GO) build \
+		-ldflags="$(GO_DEBUG_FLAG) -X main.Version=\"$(VERSION)\"" \
+		-v -o $(OUTPUT_DIR_BIN)/clickhouse-migrate-arm64 \
+		./cmd/clickhouse-migrate
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		-t $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG) \
+		--push \
+		-f Dockerfile.clickhouse-migrate .
+
 # Event generator build.
 .PHONY: clean-kvisor-event-generator
 clean-kvisor-event-generator:

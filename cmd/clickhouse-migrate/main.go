@@ -76,7 +76,7 @@ Examples:
 	}
 
 	command.Flags().StringVar(&clickhouseAddr, "clickhouse-addr", "localhost:9000", "ClickHouse address (host:port)")
-	command.Flags().StringVar(&clickhouseDatabase, "clickhouse-database", "otel", "ClickHouse database name")
+	command.Flags().StringVar(&clickhouseDatabase, "clickhouse-database", "metrics", "ClickHouse database name")
 	command.Flags().StringVar(&clickhouseUsername, "clickhouse-username", "default", "ClickHouse username")
 	command.Flags().StringVar(&migrationType, "migrations", "otel", "Migration type: otel")
 

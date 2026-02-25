@@ -6,10 +6,8 @@
 -- We define them ourselves (create_schema: false) to control TTL and settings.
 -- TTL: 4 hours — just enough for debugging and feeding Silver MVs.
 
-CREATE DATABASE IF NOT EXISTS otel;
-
 -- Bronze: Histogram metrics (latency, error rate, traffic — golden signals)
-CREATE TABLE IF NOT EXISTS otel.otel_metrics_histogram
+CREATE TABLE IF NOT EXISTS metrics.otel_metrics_histogram
 (
     ResourceAttributes Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     ResourceSchemaUrl String CODEC(ZSTD(1)),
@@ -54,7 +52,7 @@ TTL toDateTime(TimeUnix) + INTERVAL 4 HOUR
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 
 -- Bronze: Gauge metrics (KSM — pod phase, deployment desired, etc.)
-CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
+CREATE TABLE IF NOT EXISTS metrics.otel_metrics_gauge
 (
     ResourceAttributes Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     ResourceSchemaUrl String CODEC(ZSTD(1)),
@@ -93,5 +91,5 @@ TTL toDateTime(TimeUnix) + INTERVAL 4 HOUR
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 
 -- +goose Down
-DROP TABLE IF EXISTS otel.otel_metrics_gauge;
-DROP TABLE IF EXISTS otel.otel_metrics_histogram;
+DROP TABLE IF EXISTS metrics.otel_metrics_gauge;
+DROP TABLE IF EXISTS metrics.otel_metrics_histogram;

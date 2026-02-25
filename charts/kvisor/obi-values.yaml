@@ -3,16 +3,28 @@ clickhouse:
     enabled: true
   install:
     enabled: true
+    resources:
+      requests:
+        cpu: 500m
+        memory: 4Gi
+      limits:
+        memory: 8Gi
     persistence:
       size: 50Gi
   auth:
-    database: "kvisor"
+    database: "metrics"
     username: "kvisor"
     password: "kvisor"
+  exporter:
+    enabled: true
+    image:
+      repository: eu.gcr.io/engineering-test-353509/reliability-metrics-ch-exporter
+      tag: "v0.12-subquery"
+    grpcAddr: "telemetry.dev-master.cast.ai:443"
   migrate:
     image:
       repository: eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate
-      tag: "95aafa7-v4"
+      tag: "v8-histogram-amd64"
 
 agent:
   reliabilityMetrics:

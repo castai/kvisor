@@ -1,0 +1,191 @@
+{{/*
+ClickHouseInstallation CR and its credentials Secret.
+Deployed as a post-install/post-upgrade Helm hook so the Altinity CRDs
+(registered in the pre-install/pre-upgrade hook in clickhouse-operator-crd.yaml)
+are already present when Helm tries to build this resource.
+*/}}
+{{- if (dig "install" "enabled" false .Values.clickhouse) }}
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# ClickHouse credentials Secret
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "kvisor.fullname" . }}-clickhouse-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: clickhouse
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/resource-policy": keep
+type: Opaque
+stringData:
+  username: {{ .Values.clickhouse.auth.username | quote }}
+  password: {{ .Values.clickhouse.auth.password | quote }}
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# ClickHouseInstallation CR
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: {{ include "kvisor.fullname" . }}-clickhouse
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: clickhouse
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/resource-policy": keep
+spec:
+  defaults:
+    templates:
+      dataVolumeClaimTemplate: data-volume
+      serviceTemplate: svc-template
+  configuration:
+    users:
+      {{ .Values.clickhouse.auth.username }}/password_sha256_hex: {{ .Values.clickhouse.auth.password | sha256sum }}
+      {{ .Values.clickhouse.auth.username }}/networks/ip: "::/0"
+      {{ .Values.clickhouse.auth.username }}/profile: default
+      {{ .Values.clickhouse.auth.username }}/quota: default
+    profiles:
+      default/async_insert: 1
+      default/async_insert_max_data_size: 10000000
+      default/async_insert_busy_timeout_ms: 5000
+      default/wait_for_async_insert: 0
+      default/custom_org_id: "'{{ .Values.castai.clusterID | default "00000000-0000-0000-0000-000000000000" }}'"
+      default/custom_cluster_id: "'{{ .Values.castai.clusterID | default "00000000-0000-0000-0000-000000000000" }}'"
+      # Required by the Altinity operator's injected clickhouse_operator user.
+      clickhouse_operator/readonly: 0
+    settings:
+      logger/level: information
+      logger/console: 1
+      listen_host: "0.0.0.0"
+      tcp_port: 9000
+      http_port: 8123
+      interserver_http_port: 9009
+      custom_settings_prefixes: "custom_"
+    files:
+      disable_ssl.xml: |
+        <clickhouse>
+            <tcp_port_secure remove="true"/>
+            <https_port remove="true"/>
+            <mysql_port remove="true"/>
+            <postgresql_port remove="true"/>
+        </clickhouse>
+    clusters:
+      - name: otel
+        layout:
+          shardsCount: 1
+          replicasCount: 1
+        templates:
+          podTemplate: pod-template
+  templates:
+    podTemplates:
+      - name: pod-template
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: clickhouse
+              image: "{{ .Values.clickhouse.install.image.repository }}:{{ .Values.clickhouse.install.image.tag }}"
+              ports:
+                - name: http
+                  containerPort: 8123
+                - name: native
+                  containerPort: 9000
+                - name: interserver
+                  containerPort: 9009
+              {{- with .Values.clickhouse.install.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            {{- if (dig "exporter" "enabled" false .Values.clickhouse) }}
+            - name: ch-exporter
+              image: "{{ .Values.clickhouse.exporter.image.repository }}:{{ .Values.clickhouse.exporter.image.tag }}"
+              imagePullPolicy: {{ .Values.clickhouse.exporter.image.pullPolicy | default "IfNotPresent" }}
+              args: ["exporter"]
+              env:
+                - name: CASTAI_API_KEY
+                  {{- if .Values.castai.apiKey }}
+                  value: {{ .Values.castai.apiKey | quote }}
+                  {{- else if .Values.castai.apiKeySecretRef }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.castai.apiKeySecretRef }}
+                      key: API_KEY
+                  {{- end }}
+                - name: CASTAI_CLUSTER_ID
+                  {{- if .Values.castai.clusterID }}
+                  value: {{ .Values.castai.clusterID | quote }}
+                  {{- else if .Values.castai.clusterIdSecretKeyRef.name }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.castai.clusterIdSecretKeyRef.name }}
+                      key: {{ .Values.castai.clusterIdSecretKeyRef.key | default "CLUSTER_ID" }}
+                  {{- end }}
+                - name: CASTAI_GRPC_ADDR
+                  value: {{ .Values.clickhouse.exporter.grpcAddr | default .Values.castai.grpcAddr | quote }}
+                - name: CLICKHOUSE_ADDR
+                  value: "localhost:9000"
+                - name: CLICKHOUSE_DATABASE
+                  value: {{ .Values.clickhouse.auth.database | quote }}
+                - name: CLICKHOUSE_USERNAME
+                  value: {{ .Values.clickhouse.auth.username | quote }}
+                - name: CLICKHOUSE_PASSWORD
+                  value: {{ .Values.clickhouse.auth.password | quote }}
+                - name: CLICKHOUSE_EXPORTER_METADATA_TABLE
+                  value: {{ .Values.clickhouse.exporter.metadataTable | default "export_progress" | quote }}
+                {{- with .Values.clickhouse.exporter.env }}
+                {{- range $key, $value := . }}
+                - name: {{ $key }}
+                  value: {{ $value | quote }}
+                {{- end }}
+                {{- end }}
+              {{- with .Values.clickhouse.exporter.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            {{- end }}
+          {{- with .Values.clickhouse.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.clickhouse.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.clickhouse.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+    volumeClaimTemplates:
+      - name: data-volume
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          {{- if .Values.clickhouse.install.persistence.storageClass }}
+          storageClassName: {{ .Values.clickhouse.install.persistence.storageClass | quote }}
+          {{- end }}
+          resources:
+            requests:
+              storage: {{ .Values.clickhouse.install.persistence.size }}
+    serviceTemplates:
+      - name: svc-template
+        generateName: {{ include "kvisor.fullname" . }}-clickhouse
+        spec:
+          ports:
+            - name: http
+              port: 8123
+              targetPort: 8123
+            - name: native
+              port: 9000
+              targetPort: 9000
+          type: ClusterIP
+{{- end }}

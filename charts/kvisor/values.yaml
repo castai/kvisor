@@ -19,6 +19,9 @@ castai:
 
   apiURL: ""
 
+  # Organization ID — used by the ClickHouse exporter and silver table MVs.
+  orgID: ""
+
   # clusterID, clusterIdConfigMapKeyRef and clusterIdSecretKeyRef are mutually exclusive
   clusterID: ""
   # clusterIdConfigMapKeyRef -- Name and Key of configMap with ClusterID
@@ -436,6 +439,30 @@ clickhouse:
       # storageClass: ""  # Uses default if not set.
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # ClickHouse Exporter Sidecar (reliability-metrics-ch-exporter)
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Runs as a sidecar in the ClickHouse pod, polling silver tables and
+  # exporting rows to CAST AI mothership via gRPC.
+  exporter:
+    enabled: false
+    image:
+      repository: ghcr.io/castai/kvisor/reliability-metrics-ch-exporter
+      pullPolicy: IfNotPresent
+      tag: "latest"
+    # Override the gRPC address for the exporter (defaults to castai.grpcAddr).
+    grpcAddr: ""
+    # Name of the export_progress metadata table in ClickHouse.
+    metadataTable: "export_progress"
+    # Extra environment variables for the exporter container.
+    env: {}
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # External ClickHouse (BYO)
   # ─────────────────────────────────────────────────────────────────────────────
   # Use an existing ClickHouse instance instead of deploying one.
@@ -447,7 +474,7 @@ clickhouse:
     # Credentials (if different from clickhouse.auth).
     username: ""
     password: ""
-    database: "otel"
+    database: "metrics"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Schema Migrations

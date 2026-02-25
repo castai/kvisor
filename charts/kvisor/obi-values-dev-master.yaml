@@ -23,6 +23,12 @@ clickhouse:
     database: "kvisor"
     username: "kvisor"
     password: "kvisor"
+  exporter:
+    enabled: true
+    image:
+      repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
+      tag: "v0.1"
+    grpcAddr: "telemetry.dev-master.cast.ai:443"
   migrate:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/kvisor-clickhouse-migrate
