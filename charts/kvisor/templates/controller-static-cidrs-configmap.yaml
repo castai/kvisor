@@ -1,0 +1,26 @@
+{{- if .Values.controller.netflow.staticCIDRs.mappings }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvisor.fullname" . }}-static-cidrs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.controller.labels" . | nindent 4 }}
+data:
+  static-cidrs.yaml: |
+    staticCIDRMappings:
+{{- range .Values.controller.netflow.staticCIDRs.mappings }}
+      - cidr: {{ .cidr | quote }}
+        zone: {{ .zone | default "" | quote }}
+        region: {{ .region | quote }}
+        {{- if .name }}
+        name: {{ .name | quote }}
+        {{- end }}
+        {{- if .kind }}
+        kind: {{ .kind | quote }}
+        {{- end }}
+        {{- if .connectivityMethod }}
+        connectivityMethod: {{ .connectivityMethod | quote }}
+        {{- end }}
+{{- end }}
+{{- end }}

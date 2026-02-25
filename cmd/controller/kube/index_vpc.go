@@ -10,11 +10,55 @@ import (
 	"github.com/castai/logging"
 )
 
+// Well-known ConnectivityMethod values for static CIDR mappings.
+// The connectivityMethod field is optional and free-form — it can be empty or set to any
+// custom string. These constants are provided as a recommended set of standardized values
+// for common AWS networking paths. kvisor does not validate or enforce this field;
+// it is passed through as-is in netflow records so that downstream systems
+// (e.g. CAST AI cost attribution) can distinguish traffic by connectivity type.
+const (
+	// ConnectivityVPCPeering — inter-VPC peering (same or cross-region).
+	ConnectivityVPCPeering = "VPCPeering"
+
+	// ConnectivityTransitGateway — AWS Transit Gateway.
+	ConnectivityTransitGateway = "TransitGateway"
+
+	// ConnectivityPrivateLink — AWS PrivateLink / VPC Endpoints (Interface type).
+	ConnectivityPrivateLink = "PrivateLink"
+
+	// ConnectivityDirectConnect — AWS Direct Connect.
+	ConnectivityDirectConnect = "DirectConnect"
+
+	// ConnectivitySiteToSiteVPN — AWS Site-to-Site VPN.
+	ConnectivitySiteToSiteVPN = "SiteToSiteVPN"
+
+	// ConnectivityNATGateway — traffic routed through a NAT Gateway.
+	ConnectivityNATGateway = "NATGateway"
+
+	// ConnectivityIntraVPC — traffic within the same VPC.
+	ConnectivityIntraVPC = "IntraVPC"
+)
+
 // IPVPCInfo contains network state for a specific IP address.
 type IPVPCInfo struct {
-	Zone        string // filled only for AWS
+	Zone        string // AWS zone name (e.g., "us-east-1a"), or zone ID (e.g., "use1-az1") when UseAwsZoneId is enabled
 	Region      string
 	CloudDomain string // filled when IP is public cloud service
+
+	// Service/workload metadata (from static config or cloud discovery)
+	WorkloadName       string // Destination VPC name, DB name, service name
+	WorkloadKind       string // VPC, CloudSQL, RDS, External, etc.
+	ConnectivityMethod string // Transit Gateway, VPC Peering, Direct, etc.
+}
+
+// StaticCIDREntry represents a user-provided CIDR to zone/region mapping.
+type StaticCIDREntry struct {
+	CIDR               string
+	Zone               string // AWS zone name or zone ID (depending on controller config)
+	Region             string
+	WorkloadName       string
+	WorkloadKind       string
+	ConnectivityMethod string
 }
 
 type VPCIndex struct {
@@ -26,28 +70,43 @@ type VPCIndex struct {
 	vpcCIDRs    []string
 	subnetCIDRs []string
 	peerCIDRs   []string
+	staticCIDRs []cidrindex.Entry[IPVPCInfo] // User-provided static CIDR mappings
 
-	cidrIndex *cidrindex.Index[IPVPCInfo]
+	cloudCIDRIndex  *cidrindex.Index[IPVPCInfo] // rebuilt on every cloud update
+	staticCIDRIndex *cidrindex.Index[IPVPCInfo] // populated once at startup, never rebuilt
 
 	// Last successful refresh
 	lastRefresh time.Time
+
+	cfg VPCConfig
+}
+
+type VPCConfig struct {
+	RefreshInterval time.Duration
+	CacheSize       uint32
+	UseAwsZoneId    bool
 }
 
 // NewVPCIndex creates a new VPC index.
-func NewVPCIndex(log *logging.Logger, refreshInterval time.Duration, cacheSize uint32) *VPCIndex {
-	cidrIdx, err := cidrindex.NewIndex[IPVPCInfo](cacheSize, refreshInterval)
+func NewVPCIndex(log *logging.Logger, cfg VPCConfig) *VPCIndex {
+	cloudIdx, err := cidrindex.NewIndex[IPVPCInfo](cfg.CacheSize, cfg.RefreshInterval)
 	if err != nil {
-		log.Warnf("failed to create CIDR index: %v", err)
+		log.Warnf("failed to create cloud CIDR index: %v", err)
 		// Create without cache
-		cidrIdx, _ = cidrindex.NewIndex[IPVPCInfo](0, refreshInterval)
+		cloudIdx, _ = cidrindex.NewIndex[IPVPCInfo](0, cfg.RefreshInterval)
 	}
 
+	// Static index no need cache, it is small and never rebuilt.
+	staticIdx, _ := cidrindex.NewIndex[IPVPCInfo](0, cfg.RefreshInterval)
+
 	return &VPCIndex{
-		log:         log,
-		cidrIndex:   cidrIdx,
-		vpcCIDRs:    make([]string, 0),
-		subnetCIDRs: make([]string, 0),
-		peerCIDRs:   make([]string, 0),
+		log:             log,
+		cfg:             cfg,
+		cloudCIDRIndex:  cloudIdx,
+		staticCIDRIndex: staticIdx,
+		vpcCIDRs:        make([]string, 0),
+		subnetCIDRs:     make([]string, 0),
+		peerCIDRs:       make([]string, 0),
 	}
 }
 
@@ -65,15 +124,54 @@ func (vi *VPCIndex) Update(state *cloudtypes.NetworkState) error {
 
 	entries := vi.buildCIDREntries(state)
 
-	if err := vi.cidrIndex.Rebuild(entries); err != nil {
+	if err := vi.cloudCIDRIndex.Rebuild(entries); err != nil {
 		vi.log.Warnf("failed to rebuild CIDR index: %v", err)
 		return err
 	}
 
-	vi.log.Infof(
+	vi.log.Debugf(
 		"VPC index updated: vpc_cidrs=%v, subnet_cidrs=%v, peer_cidrs=%v",
 		vi.vpcCIDRs, vi.subnetCIDRs, vi.peerCIDRs,
 	)
+	return nil
+}
+
+// AddStaticCIDRs injects user-provided CIDR mappings into the index.
+func (vi *VPCIndex) AddStaticCIDRs(mappings []StaticCIDREntry) error {
+	if vi == nil {
+		return nil
+	}
+
+	vi.mu.Lock()
+	defer vi.mu.Unlock()
+
+	// Validate and parse CIDRs
+	entries := make([]cidrindex.Entry[IPVPCInfo], 0, len(mappings))
+	for _, mapping := range mappings {
+		cidr, err := netip.ParsePrefix(mapping.CIDR)
+		if err != nil {
+			vi.log.Warnf("invalid static CIDR %s: %v", mapping.CIDR, err)
+			continue
+		}
+
+		entry := cidrindex.Entry[IPVPCInfo]{
+			CIDR: cidr,
+			Metadata: IPVPCInfo{
+				Zone:               mapping.Zone,
+				Region:             mapping.Region,
+				WorkloadName:       mapping.WorkloadName,
+				WorkloadKind:       mapping.WorkloadKind,
+				ConnectivityMethod: mapping.ConnectivityMethod,
+			},
+		}
+		entries = append(entries, entry)
+		if err := vi.staticCIDRIndex.Add(entry.CIDR, entry.Metadata); err != nil {
+			vi.log.Warnf("failed to add static CIDR %s: %v", mapping.CIDR, err)
+		}
+	}
+
+	vi.staticCIDRs = entries
+	vi.log.Debugf("loaded %d static CIDR mappings", len(entries))
 	return nil
 }
 
@@ -113,11 +211,15 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 
 		// Index subnet CIDRs
 		for _, subnet := range vpc.Subnets {
+			subnetZone := subnet.Zone
+			if vi.cfg.UseAwsZoneId {
+				subnetZone = subnet.ZoneId
+			}
 			subnetCIDRs = append(subnetCIDRs, subnet.CIDR.String())
 			entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 				CIDR: subnet.CIDR,
 				Metadata: IPVPCInfo{
-					Zone:   subnet.Zone,
+					Zone:   subnetZone,
 					Region: subnet.Region,
 				},
 			})
@@ -128,7 +230,7 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: secondary.CIDR,
 					Metadata: IPVPCInfo{
-						Zone:   subnet.Zone,
+						Zone:   subnetZone,
 						Region: subnet.Region,
 					},
 				})
@@ -138,16 +240,21 @@ func (vi *VPCIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidrindex
 		// Index peered VPC CIDRs
 		for _, peer := range vpc.PeeredVPCs {
 			for _, cidrRange := range peer.Ranges {
+				peerZone := cidrRange.Zone
+				if vi.cfg.UseAwsZoneId {
+					peerZone = cidrRange.ZoneId
+				}
 				peerCIDRs = append(peerCIDRs, cidrRange.CIDR.String())
 				entries = append(entries, cidrindex.Entry[IPVPCInfo]{
 					CIDR: cidrRange.CIDR,
 					Metadata: IPVPCInfo{
-						Zone:   cidrRange.Zone,
+						Zone:   peerZone,
 						Region: cidrRange.Region,
 					},
 				})
 			}
 		}
+
 	}
 
 	vi.vpcCIDRs = vpcCIDRs
@@ -165,20 +272,40 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 
-	result, found := vi.cidrIndex.Lookup(ip)
-	if !found {
-		return nil, false
+	if result, found := vi.staticCIDRIndex.Lookup(ip); found {
+		return &IPVPCInfo{
+			Zone:               result.Metadata.Zone,
+			Region:             result.Metadata.Region,
+			CloudDomain:        result.Metadata.CloudDomain,
+			WorkloadName:       result.Metadata.WorkloadName,
+			WorkloadKind:       result.Metadata.WorkloadKind,
+			ConnectivityMethod: result.Metadata.ConnectivityMethod,
+		}, true
 	}
 
-	return &IPVPCInfo{
-		Zone:        result.Metadata.Zone,
-		Region:      result.Metadata.Region,
-		CloudDomain: result.Metadata.CloudDomain,
-	}, true
+	if result, found := vi.cloudCIDRIndex.Lookup(ip); found {
+		return &IPVPCInfo{
+			Zone:               result.Metadata.Zone,
+			Region:             result.Metadata.Region,
+			CloudDomain:        result.Metadata.CloudDomain,
+			WorkloadName:       result.Metadata.WorkloadName,
+			WorkloadKind:       result.Metadata.WorkloadKind,
+			ConnectivityMethod: result.Metadata.ConnectivityMethod,
+		}, true
+	}
+
+	return nil, false
 }
 
 func (vi *VPCIndex) VpcCIDRs() []string {
-	if vi == nil || vi.state == nil {
+	if vi == nil {
+		return []string{}
+	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+
+	if vi.state == nil {
 		return []string{}
 	}
 
@@ -196,13 +323,35 @@ func (vi *VPCIndex) VpcCIDRs() []string {
 }
 
 func (vi *VPCIndex) CloudServiceCIDRs() []string {
-	if vi == nil || vi.state == nil {
+	if vi == nil {
+		return []string{}
+	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+
+	if vi.state == nil {
 		return []string{}
 	}
 
 	var knownCIDRs []string
 	for _, svcRange := range vi.state.ServiceRanges {
 		knownCIDRs = append(knownCIDRs, netsToStrings(svcRange.CIRDs)...)
+	}
+	return knownCIDRs
+}
+
+func (vi *VPCIndex) StaticServiceCIDRs() []string {
+	if vi == nil {
+		return []string{}
+	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+
+	var knownCIDRs []string
+	for _, svcRange := range vi.staticCIDRs {
+		knownCIDRs = append(knownCIDRs, svcRange.CIDR.String())
 	}
 	return knownCIDRs
 }

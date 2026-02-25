@@ -2,7 +2,11 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/castai/kvisor/cmd/controller/kube"
 	cloudtypes "github.com/castai/kvisor/pkg/cloudprovider/types"
@@ -11,9 +15,21 @@ import (
 
 type VPCStateControllerConfig struct {
 	Enabled         bool          `json:"enabled"`
+	UseZoneID       bool          `json:"useZoneID"`
 	NetworkName     string        `json:"networkName"`
 	RefreshInterval time.Duration `json:"refreshInterval"`
-	CacheSize       uint32        `json:"CacheSize"`
+	CacheSize       uint32        `json:"cacheSize"`
+	StaticCIDRsFile string        `json:"staticCIDRsFile"` // Path to YAML file
+}
+
+// StaticCIDRMapping represents a manual CIDR to zone/region/service mapping.
+type StaticCIDRMapping struct {
+	CIDR               string `json:"cidr" yaml:"cidr"`
+	Zone               string `json:"zone" yaml:"zone"` // AWS zone name (e.g., "us-east-1a") or zone ID (e.g., "use1-az1") depending on controller config
+	Region             string `json:"region" yaml:"region"`
+	WorkloadName       string `json:"name" yaml:"name"`
+	WorkloadKind       string `json:"kind" yaml:"kind"`
+	ConnectivityMethod string `json:"connectivityMethod" yaml:"connectivityMethod"`
 }
 
 type cloudProvider interface {
@@ -22,7 +38,7 @@ type cloudProvider interface {
 	RefreshNetworkState(ctx context.Context, network string) error
 }
 
-func NewVPCStateController(log *logging.Logger, cfg VPCStateControllerConfig, cloudProvider cloudProvider, kubeClient *kube.Client) *VPCStateController {
+func NewVPCStateController(log *logging.Logger, cfg VPCStateControllerConfig, cloudProvider cloudProvider, vpcIndex *kube.VPCIndex) *VPCStateController {
 	if cfg.RefreshInterval == 0 {
 		cfg.RefreshInterval = 1 * time.Hour
 	}
@@ -30,7 +46,7 @@ func NewVPCStateController(log *logging.Logger, cfg VPCStateControllerConfig, cl
 		log:           log.WithField("component", "vpc_state_controller"),
 		cfg:           cfg,
 		cloudProvider: cloudProvider,
-		kubeClient:    kubeClient,
+		vpcIndex:      vpcIndex,
 	}
 }
 
@@ -38,23 +54,19 @@ type VPCStateController struct {
 	log           *logging.Logger
 	cfg           VPCStateControllerConfig
 	cloudProvider cloudProvider
-	kubeClient    *kube.Client
+	vpcIndex      *kube.VPCIndex
 }
 
 func (c *VPCStateController) Run(ctx context.Context) error {
-	c.log.Infof("running for cloud provider: %s", c.cloudProvider.Type())
-	defer c.log.Infof("stopping")
+	c.log.Infof("running VPC cloud sync for provider: %s", c.cloudProvider.Type())
+	defer c.log.Info("stopping VPC cloud sync")
 
-	vpcIndex := kube.NewVPCIndex(c.log, c.cfg.RefreshInterval, c.cfg.CacheSize)
-
-	if err := c.fetchInitialNetworkState(ctx, vpcIndex); err != nil {
+	if err := c.fetchInitialNetworkState(ctx, c.vpcIndex); err != nil {
 		c.log.Errorf("failed to fetch initial VPC state: %v", err)
 		return nil
 	}
 
-	c.kubeClient.SetVPCIndex(vpcIndex)
-
-	return c.runRefreshLoop(ctx, vpcIndex)
+	return c.runRefreshLoop(ctx, c.vpcIndex)
 }
 
 func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIndex *kube.VPCIndex) error {
@@ -126,4 +138,44 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 			c.log.Debug("VPC state refreshed successfully")
 		}
 	}
+}
+
+// LoadStaticCIDRsFromFile loads static CIDRs from a YAML file.
+func LoadStaticCIDRsFromFile(log *logging.Logger, path string, vpcIndex *kube.VPCIndex) error {
+	if path == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading file: %w", err)
+	}
+
+	var config struct {
+		StaticCIDRMappings []StaticCIDRMapping `yaml:"staticCIDRMappings"`
+	}
+
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("parsing YAML: %w", err)
+	}
+
+	entries := convertStaticMappingsToEntries(config.StaticCIDRMappings)
+	log.Infof("loaded %d static CIDR mappings from file %s", len(entries), path)
+	return vpcIndex.AddStaticCIDRs(entries)
+}
+
+// convertStaticMappingsToEntries converts config mappings to VPCIndex entries.
+func convertStaticMappingsToEntries(mappings []StaticCIDRMapping) []kube.StaticCIDREntry {
+	entries := make([]kube.StaticCIDREntry, len(mappings))
+	for i, m := range mappings {
+		entries[i] = kube.StaticCIDREntry{
+			CIDR:               m.CIDR,
+			Zone:               m.Zone,
+			Region:             m.Region,
+			WorkloadName:       m.WorkloadName,
+			WorkloadKind:       m.WorkloadKind,
+			ConnectivityMethod: m.ConnectivityMethod,
+		}
+	}
+	return entries
 }

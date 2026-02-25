@@ -46,11 +46,13 @@ var (
 	cloudProvider             = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
 	cloudProviderGCPProjectID = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider GCP project ID")
 	cloudProviderAWSRegion    = pflag.String("cloud-provider-aws-region", "", "Cloud provider AWS region")
+	cloudProviderAWSUseZoneID = pflag.Bool("cloud-provider-aws-use-zone-id", false, "Use zoneId instead of zoneName for AWS")
 
 	cloudProviderVPCSyncEnabled  = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC controller")
 	cloudProviderVPCName         = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
 	cloudProviderVPCSyncInterval = pflag.Duration("cloud-provider-vpc-sync-interval", 1*time.Hour, "Cloud provider VPC sync interval")
 	cloudProviderVPCCacheSize    = pflag.Uint32("cloud-provider-vpc-cache-size", 10000, "Cloud provider VPC cache size")
+	cloudProviderStaticCIDRsFile = pflag.String("cloud-provider-static-cidrs-file", "", "Path to YAML file containing static CIDR to zone/region mappings")
 
 	cloudProviderStorageSyncEnabled  = pflag.Bool("cloud-provider-storage-sync-enabled", false, "Enable cloud provider storage controller")
 	cloudProviderStorageSyncInterval = pflag.Duration("cloud-provider-storage-sync-interval", 5*time.Minute, "Cloud provider storage sync interval")
@@ -214,10 +216,12 @@ func main() {
 				AWSRegion:    *cloudProviderAWSRegion,
 			},
 			VPCStateController: controllers.VPCStateControllerConfig{
-				Enabled:         *cloudProviderVPCSyncEnabled,
+				Enabled:   *cloudProviderVPCSyncEnabled,
+				UseZoneID:   *cloudProviderAWSUseZoneID,
 				NetworkName:     *cloudProviderVPCName,
 				RefreshInterval: *cloudProviderVPCSyncInterval,
 				CacheSize:       *cloudProviderVPCCacheSize,
+				StaticCIDRsFile: *cloudProviderStaticCIDRsFile,
 			},
 			VolumeStateController: controllers.VolumeStateControllerConfig{
 				Enabled:         *cloudProviderStorageSyncEnabled,

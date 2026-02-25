@@ -230,6 +230,49 @@ controller:
     log-level: info
     #pyroscope-addr: http://kvisord-pyroscope.kvisord-trace:4040
 
+  netflow:
+    # Static CIDR to zone/region/service mappings (optional)
+    # Use this to manually specify network destinations without cloud API discovery.
+    # The ConfigMap is only created when mappings is non-empty.
+    #
+    # connectivityMethod is optional and free-form — it can be empty or any custom string.
+    # kvisor does not validate this field; it is forwarded as-is in netflow records for
+    # downstream cost attribution. Well-known values for AWS:
+    #   VPCPeering      — VPC Peering
+    #   TransitGateway  — AWS Transit Gateway
+    #   PrivateLink     — AWS PrivateLink / VPC Endpoints
+    #   DirectConnect   — AWS Direct Connect
+    #   SiteToSiteVPN   — AWS Site-to-Site VPN
+    #   NATGateway      — NAT Gateway
+    #   IntraVPC        — Same VPC
+    staticCIDRs:
+      mappings: []
+      # Examples:
+      # mappings:
+      #   # Cross-account AWS VPC via Transit Gateway
+      #   - cidr: "10.1.0.0/24"
+      #     zone: "us-east-1a"      # Zone name, or zone ID (e.g., "use1-az1") when cloud-provider-aws-use-zone-id is enabled
+      #     region: "us-east-1"
+      #     name: "production-vpc"
+      #     kind: "VPC"
+      #     connectivityMethod: "TransitGateway"
+      #
+      #   # Single IP — overrides broader cloud-discovered CIDRs
+      #   - cidr: "10.0.0.13/32"
+      #     zone: "us-east-1a"
+      #     region: "us-east-1"
+      #     name: "production-rds"
+      #     kind: "RDS"
+      #     connectivityMethod: "PrivateLink"
+      #
+      #   # Regional subnet (no zone)
+      #   - cidr: "10.2.0.0/16"
+      #     zone: ""
+      #     region: "us-east-1"
+      #     name: "peered-vpc"
+      #     kind: "VPC"
+      #     connectivityMethod: "VPCPeering"
+
   prometheusScrape:
     enabled: true
 

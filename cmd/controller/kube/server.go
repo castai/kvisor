@@ -13,6 +13,7 @@ import (
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
+	k8s "github.com/castai/kvisor/pkg/k8s"
 )
 
 func NewServer(client *Client) kubepb.KubeAPIServer {
@@ -34,7 +35,7 @@ func (s *Server) GetIPInfo(ctx context.Context, req *kubepb.GetIPInfoRequest) (*
 	}
 	res := &kubepb.IPInfo{}
 	if info.Node != nil {
-		res.Zone = getZone(info.Node)
+		res.Zone = k8s.NodeZoneOrID(info.Node.Labels, s.client.IsUseAwsZoneId())
 		res.NodeName = info.Node.GetName()
 	}
 	if podInfo := info.PodInfo; podInfo != nil {
@@ -86,10 +87,13 @@ func (s *Server) GetIPsInfo(ctx context.Context, req *kubepb.GetIPsInfoRequest) 
 			pbInfo.Zone = info.zone
 			pbInfo.Region = info.region
 			pbInfo.CloudDomain = info.cloudDomain
+			pbInfo.WorkloadKind = info.workloadKind
+			pbInfo.WorkloadName = info.workloadName
+			pbInfo.Namespace = info.connectivityMethod
 
 			if info.Node != nil {
-				pbInfo.Zone = getZone(info.Node)
-				pbInfo.Region = getRegion(info.Node)
+				pbInfo.Zone = k8s.NodeZoneOrID(info.Node.Labels, s.client.IsUseAwsZoneId())
+				pbInfo.Region = k8s.NodeRegion(info.Node.Labels)
 				pbInfo.NodeName = info.Node.GetName()
 			}
 			if podInfo := info.PodInfo; podInfo != nil {
@@ -127,15 +131,19 @@ func (s *Server) GetClusterInfo(ctx context.Context, req *kubepb.GetClusterInfoR
 	if err != nil || info == nil {
 		return nil, status.Errorf(codes.NotFound, "cluster info not found: %v", err)
 	}
-	var otherCidr []string
+	var otherCidr, cloudCidr []string
 	if !req.ExcludeOtherCidr {
-		otherCidr = s.client.vpcIndex.CloudServiceCIDRs()
+		otherCidr = append(otherCidr, s.client.vpcIndex.StaticServiceCIDRs()...)
+	}
+	if !req.ExcludeCloudCidr {
+		cloudCidr = append(cloudCidr, s.client.vpcIndex.CloudServiceCIDRs()...)
 	}
 	return &kubepb.GetClusterInfoResponse{
 		PodsCidr:    info.PodCidr,
 		ServiceCidr: info.ServiceCidr,
 		NodeCidr:    info.NodeCidr,
 		OtherCidr:   otherCidr,
+		CloudCidr:   cloudCidr,
 		VpcCidr:     s.client.vpcIndex.VpcCIDRs(),
 	}, nil
 }
@@ -167,6 +175,8 @@ func (s *Server) GetNode(ctx context.Context, req *kubepb.GetNodeRequest) (*kube
 			Name:          node.Name,
 			Labels:        node.Labels,
 			CloudProvider: string(s.client.cloudProvider),
+			Zone:          k8s.NodeZoneOrID(node.Labels, s.client.IsUseAwsZoneId()),
+			Region:        k8s.NodeRegion(node.Labels),
 		},
 	}, nil
 }
