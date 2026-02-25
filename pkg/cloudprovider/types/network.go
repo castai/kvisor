@@ -15,6 +15,15 @@ type ServiceRanges struct {
 	CIRDs  []netip.Prefix
 }
 
+// VPC represents a virtual private cloud/network.
+type VPC struct {
+	ID         string
+	Name       string
+	CIDRs      []netip.Prefix // GCP does not have CIDR on vpc level
+	Subnets    []Subnet
+	PeeredVPCs []PeeredVPC
+}
+
 // Subnet represents a subnet within a VPC.
 type Subnet struct {
 	ID              string
@@ -45,13 +54,4 @@ type PeeredVPCRange struct {
 type PeeredVPC struct {
 	Name   string
 	Ranges []PeeredVPCRange
-}
-
-// VPC represents a virtual private cloud/network.
-type VPC struct {
-	ID         string
-	Name       string
-	CIDRs      []netip.Prefix // GCP does not have CIDR on vpc level
-	Subnets    []Subnet
-	PeeredVPCs []PeeredVPC
 }

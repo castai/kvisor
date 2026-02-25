@@ -41,8 +41,8 @@ const (
 
 // IPVPCInfo contains network state for a specific IP address.
 type IPVPCInfo struct {
-	Zone   string // AWS zone name (e.g., "us-east-1a"), or zone ID (e.g., "use1-az1") when UseAwsZoneId is enabled
-	Region string
+	Zone        string // AWS zone name (e.g., "us-east-1a"), or zone ID (e.g., "use1-az1") when UseAwsZoneId is enabled
+	Region      string
 	CloudDomain string // filled when IP is public cloud service
 
 	// Service/workload metadata (from static config or cloud discovery)
@@ -279,7 +279,6 @@ func (vi *VPCIndex) LookupIP(ip netip.Addr) (*IPVPCInfo, bool) {
 
 	result, found := vi.cidrIndex.Lookup(ip)
 	if !found {
-		vi.log.Debugf("IP %s not found in CIDR index", ip.String())
 		return nil, false
 	}
 

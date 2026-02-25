@@ -14,8 +14,8 @@ import (
 )
 
 type VPCStateControllerConfig struct {
-	Enabled   bool `json:"enabled"`
-	UseZoneID bool `json:"useZoneID"`
+	Enabled         bool          `json:"enabled"`
+	UseZoneID       bool          `json:"useZoneID"`
 	NetworkName     string        `json:"networkName"`
 	RefreshInterval time.Duration `json:"refreshInterval"`
 	CacheSize       uint32        `json:"cacheSize"`
@@ -24,8 +24,8 @@ type VPCStateControllerConfig struct {
 
 // StaticCIDRMapping represents a manual CIDR to zone/region/service mapping.
 type StaticCIDRMapping struct {
-	CIDR string `json:"cidr" yaml:"cidr"`
-	Zone string `json:"zone" yaml:"zone"` // AWS zone name (e.g., "us-east-1a") or zone ID (e.g., "use1-az1") depending on controller config
+	CIDR               string `json:"cidr" yaml:"cidr"`
+	Zone               string `json:"zone" yaml:"zone"` // AWS zone name (e.g., "us-east-1a") or zone ID (e.g., "use1-az1") depending on controller config
 	Region             string `json:"region" yaml:"region"`
 	WorkloadName       string `json:"name" yaml:"name"`
 	WorkloadKind       string `json:"kind" yaml:"kind"`
@@ -141,7 +141,6 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 }
 
 // LoadStaticCIDRsFromFile loads static CIDRs from a YAML file.
-// ConfigMaps can be mounted as files, so this also supports ConfigMap-based configuration.
 func LoadStaticCIDRsFromFile(log *logging.Logger, path string, vpcIndex *kube.VPCIndex) error {
 	if path == "" {
 		return nil

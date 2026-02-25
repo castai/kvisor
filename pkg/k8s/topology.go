@@ -7,18 +7,14 @@ const (
 	LabelAWSZoneID      = "topology.k8s.aws/zone-id"
 )
 
-// NodeZone returns the zone from a node's labels map.
-// Reading from a nil map is safe in Go and returns "".
 func NodeZone(labels map[string]string) string {
 	return labels[LabelTopologyZone]
 }
 
-// NodeRegion returns the region from a node's labels map.
 func NodeRegion(labels map[string]string) string {
 	return labels[LabelTopologyRegion]
 }
 
-// NodeZoneID returns the AWS zone ID from a node's labels map.
 func NodeZoneID(labels map[string]string) string {
 	return labels[LabelAWSZoneID]
 }
