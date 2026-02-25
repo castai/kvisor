@@ -1,15 +1,15 @@
-{{- if .Values.controller.vpcStaticCIDRs.enabled }}
+{{- if .Values.controller.staticCIDRs.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "kvisor.fullname" . }}-vpc-static-cidrs
+  name: {{ include "kvisor.fullname" . }}-static-cidrs
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kvisor.controller.labels" . | nindent 4 }}
 data:
   static-cidrs.yaml: |
     staticCIDRMappings:
-{{- range .Values.controller.vpcStaticCIDRs.mappings }}
+{{- range .Values.controller.staticCIDRs.mappings }}
       - cidr: {{ .cidr | quote }}
         zone: {{ .zone | default "" | quote }}
         region: {{ .region | quote }}

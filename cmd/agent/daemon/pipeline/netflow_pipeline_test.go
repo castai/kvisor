@@ -261,7 +261,7 @@ func TestAddNetflowDestination(t *testing.T) {
 			},
 			destAddr: netip.MustParseAddr("35.199.192.2"),
 			clusterInfo: &clusterInfo{
-				staticCidr: []netip.Prefix{
+				staticCIDRs: []netip.Prefix{
 					netip.MustParsePrefix("35.199.192.0/19"),
 				},
 			},

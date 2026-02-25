@@ -371,6 +371,7 @@ controller:
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
     cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
     cloud-provider-vpc-cache-size: 10000  # Optional: cache size
+    # cloud-provider-aws-use-zone-id: true  # Optional: use zone IDs (e.g. "use1-az1") instead of zone names (e.g. "us-east-1a")
 
   serviceAccount:
     create: true
@@ -392,6 +393,7 @@ controller:
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
     cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
     cloud-provider-vpc-cache-size: 10000  # Optional: cache size
+    # cloud-provider-aws-use-zone-id: true  # Optional: use zone IDs (e.g. "use1-az1") instead of zone names (e.g. "us-east-1a")
 
   serviceAccount:
     create: false
@@ -483,6 +485,7 @@ controller:
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
     cloud-provider-vpc-sync-interval: 1h  # Optional: refresh interval
     cloud-provider-vpc-cache-size: 10000  # Optional: cache size
+    # cloud-provider-aws-use-zone-id: true  # Optional: use zone IDs (e.g. "use1-az1") instead of zone names (e.g. "us-east-1a")
 
   # Mount credentials as environment variables
   envFrom:
@@ -504,3 +507,151 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
 ```
 
 ---
+
+## Static CIDR Mappings
+
+Static CIDR mappings let you manually annotate IP ranges such as cross-account VPCs, Transit Gateway destinations etc.
+
+> **Note:** kvisor does not perform any cost calculations. The `connectivityMethod` field is purely a label attached to netflow records so that downstream systems (e.g. CAST AI cost attribution) can distinguish traffic by connectivity type.
+
+### When to Use
+
+Use static mappings when:
+- The destination is in another AWS account or cloud provider and not reachable via the cloud API
+- You use AWS Transit Gateway, Direct Connect, or Site-to-Site VPN
+- You have managed services (RDS, Cloud SQL, etc.) with known private IPs
+- Cloud provider API discovery is not enabled (`cloud-provider-vpc-sync-enabled: false`)
+
+Static entries take **highest priority** in IP lookups — a static `/32` will override a broader cloud-discovered subnet.
+
+### Configuration via Helm
+
+Add `staticCIDRs` under `controller` in your `values.yaml`:
+
+```yaml
+controller:
+  staticCIDRs:
+    enabled: true
+    mappings:
+      # Cross-account VPC via Transit Gateway
+      - cidr: "10.1.0.0/24"
+        zone: "us-east-1a"
+        region: "us-east-1"
+        name: "production-vpc"
+        kind: "VPC"
+        connectivityMethod: "TransitGateway"
+
+      # Single IP (overrides broader cloud-discovered CIDRs)
+      - cidr: "10.0.0.13/32"
+        zone: "us-east-1a"
+        region: "us-east-1"
+        name: "production-rds"
+        kind: "RDS"
+        connectivityMethod: "PrivateLink"
+
+      # Regional range without a specific zone
+      - cidr: "10.2.0.0/16"
+        zone: ""
+        region: "us-east-1"
+        name: "peered-vpc"
+        kind: "VPC"
+        connectivityMethod: "VPCPeering"
+```
+
+When `staticCIDRs.enabled: true`, Helm creates a ConfigMap and mounts it into the controller pod. The controller reads it at startup via `--cloud-provider-static-cidrs-file`.
+
+### Mapping Fields
+
+| Field | Required | Description |
+|---|---|---|
+| `cidr` | yes | IP range in CIDR notation (e.g. `10.1.0.0/24`) or single IP (`10.0.0.1/32`) |
+| `region` | yes | Cloud region (e.g. `us-east-1`) |
+| `zone` | no | Availability zone. Leave empty for regional ranges. See note below about zone names vs zone IDs |
+| `name` | no | Human-readable name for the destination (e.g. `production-rds`) |
+| `kind` | no | Resource type (e.g. `VPC`, `RDS`, `CloudSQL`, `OnPrem`) |
+| `connectivityMethod` | no | See supported values below |
+
+#### Zone Names vs Zone IDs (`cloud-provider-aws-use-zone-id`)
+
+By default, kvisor uses **zone names** (e.g. `us-east-1a`) for zone resolution. AWS also exposes **zone IDs** (e.g. `use1-az1`) which are consistent identifiers across accounts — useful for cross-account cost attribution where zone names may differ.
+
+You can switch to zone IDs with the controller flag:
+
+```yaml
+controller:
+  extraArgs:
+    cloud-provider-aws-use-zone-id: true
+```
+
+When this flag is enabled, the `zone` field in your static CIDR mappings must also use zone IDs (e.g. `use1-az1`) instead of zone names (e.g. `us-east-1a`) to match correctly.
+
+### `connectivityMethod` Values
+
+The `connectivityMethod` field is **optional and free-form** — it can be left empty or set to any custom string value. kvisor does not validate or enforce this field; it is passed through as-is in netflow records.
+
+The following values are a recommended set for common AWS networking paths. Using them enables downstream systems (e.g. CAST AI cost attribution) to recognize and categorize traffic consistently.
+
+| Value | Description |
+|---|---|
+| `VPCPeering` | VPC Peering |
+| `TransitGateway` | AWS Transit Gateway |
+| `PrivateLink` | AWS PrivateLink / VPC Endpoints ($0.01/GB processing) |
+| `DirectConnect` | AWS Direct Connect (port-hour + ~$0.02/GB data-out) |
+| `SiteToSiteVPN` | AWS Site-to-Site VPN |
+| `NATGateway` | NAT Gateway |
+| `IntraVPC` | Same VPC |
+
+You may also use custom values (e.g. `"on-prem-mpls"`, `"ExpressRoute"`) — they will appear as-is in netflow records.
+
+### Using a Pre-existing ConfigMap
+
+If you manage your own ConfigMap (e.g. via GitOps), mount it manually and pass the file path via `extraArgs`:
+
+```yaml
+controller:
+  extraArgs:
+    cloud-provider-static-cidrs-file: /etc/kvisor/my-cidrs/static-cidrs.yaml
+
+  extraVolumes:
+    - name: my-static-cidrs
+      configMap:
+        name: my-existing-configmap
+
+  extraVolumeMounts:
+    - name: my-static-cidrs
+      mountPath: /etc/kvisor/my-cidrs
+      readOnly: true
+```
+
+The file must be valid YAML with the following structure:
+
+```yaml
+staticCIDRMappings:
+  - cidr: "10.1.0.0/24"
+    zone: "us-east-1a"
+    region: "us-east-1"
+    name: "production-vpc"
+    kind: "VPC"
+    connectivityMethod: "TransitGateway"
+```
+
+### Combining with Cloud Provider Discovery
+
+Static mappings and cloud provider VPC discovery can be used together. Static entries always win over cloud-discovered entries for the same IP.
+
+```yaml
+controller:
+  extraArgs:
+    cloud-provider: aws
+    cloud-provider-vpc-sync-enabled: true
+    cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+
+  staticCIDRs:
+    enabled: true
+    mappings:
+      # This /32 overrides whatever the cloud API says about 10.0.0.13
+      - cidr: "10.0.0.13/32"
+        region: "us-east-1"
+        name: "cross-account-rds"
+        connectivityMethod: "TransitGateway"
+```

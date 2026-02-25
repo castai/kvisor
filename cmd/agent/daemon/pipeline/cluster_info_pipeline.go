@@ -26,7 +26,7 @@ type clusterInfo struct {
 	nodeCidr    []netip.Prefix
 	vpcCidr     []netip.Prefix
 	cloudCidr   []netip.Prefix
-	staticCidr  []netip.Prefix
+	staticCIDRs  []netip.Prefix
 	clusterCidr []netip.Prefix
 }
 
@@ -86,7 +86,7 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 		// There is no point to refersh cloud CIDRs as they are changed very infrequently
 		resp, err = c.kubeClient.GetClusterInfo(
 			ctx, &kubepb.GetClusterInfoRequest{
-				ExcludeOtherCidr: len(c.staticCidr) > 0,
+				ExcludeOtherCidr: len(c.staticCIDRs) > 0,
 				ExcludeCloudCidr: len(c.cloudCidr) > 0,
 			},
 		)
@@ -111,7 +111,7 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 		}
 	}
 
-	var podCidr, serviceCidr, nodeCidr, vpcCidr, cloudCidr, staticCidr, clusterCidr []netip.Prefix
+	var podCidr, serviceCidr, nodeCidr, vpcCidr, cloudCidr, staticCIDRs, clusterCidr []netip.Prefix
 
 	for _, cidr := range resp.GetPodsCidr() {
 		subnet, err := netip.ParsePrefix(cidr)
@@ -164,7 +164,7 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 			c.log.Errorf("parsing other cidr: %v", err)
 			continue
 		}
-		staticCidr = append(staticCidr, subnet)
+		staticCIDRs = append(staticCIDRs, subnet)
 		clusterCidr = append(clusterCidr, subnet)
 	}
 
@@ -177,12 +177,12 @@ func (c *clusterInfo) sync(ctx context.Context) error {
 	if len(cloudCidr) > 0 {
 		c.cloudCidr = cloudCidr
 	}
-	if len(staticCidr) > 0 {
-		c.staticCidr = staticCidr
+	if len(staticCIDRs) > 0 {
+		c.staticCIDRs = staticCIDRs
 	}
 	c.log.Debugf(
 		"fetched cluster info, pod_cidr=%s, service_cidr=%s, node_cidr=%s, vpc_cidr=%s, cloud_cidr_count=%d, static_cidr_count=%d",
-		c.podCidr, c.serviceCidr, c.nodeCidr, c.vpcCidr, len(c.cloudCidr), len(c.staticCidr),
+		c.podCidr, c.serviceCidr, c.nodeCidr, c.vpcCidr, len(c.cloudCidr), len(c.staticCIDRs),
 	)
 	c.mu.Unlock()
 

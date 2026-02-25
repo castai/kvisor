@@ -10,6 +10,35 @@ import (
 	"github.com/castai/logging"
 )
 
+// Well-known ConnectivityMethod values for static CIDR mappings.
+// The connectivityMethod field is optional and free-form — it can be empty or set to any
+// custom string. These constants are provided as a recommended set of standardized values
+// for common AWS networking paths. kvisor does not validate or enforce this field;
+// it is passed through as-is in netflow records so that downstream systems
+// (e.g. CAST AI cost attribution) can distinguish traffic by connectivity type.
+const (
+	// ConnectivityVPCPeering — inter-VPC peering (same or cross-region).
+	ConnectivityVPCPeering = "VPCPeering"
+
+	// ConnectivityTransitGateway — AWS Transit Gateway.
+	ConnectivityTransitGateway = "TransitGateway"
+
+	// ConnectivityPrivateLink — AWS PrivateLink / VPC Endpoints (Interface type).
+	ConnectivityPrivateLink = "PrivateLink"
+
+	// ConnectivityDirectConnect — AWS Direct Connect.
+	ConnectivityDirectConnect = "DirectConnect"
+
+	// ConnectivitySiteToSiteVPN — AWS Site-to-Site VPN.
+	ConnectivitySiteToSiteVPN = "SiteToSiteVPN"
+
+	// ConnectivityNATGateway — traffic routed through a NAT Gateway.
+	ConnectivityNATGateway = "NATGateway"
+
+	// ConnectivityIntraVPC — traffic within the same VPC.
+	ConnectivityIntraVPC = "IntraVPC"
+)
+
 // IPVPCInfo contains network state for a specific IP address.
 type IPVPCInfo struct {
 	Zone   string // AWS zone name (e.g., "us-east-1a"), or zone ID (e.g., "use1-az1") when UseAwsZoneId is enabled

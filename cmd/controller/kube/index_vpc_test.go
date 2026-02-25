@@ -394,7 +394,7 @@ func TestVPCIndex(t *testing.T) {
 				Region:             "us-east-1",
 				WorkloadName:       "production-vpc",
 				WorkloadKind:       "VPC",
-				ConnectivityMethod: "AWS-TransitGateway",
+				ConnectivityMethod: ConnectivityTransitGateway,
 			},
 			{
 				CIDR:               "10.0.0.13/32", // Single IP for Cloud SQL
@@ -402,7 +402,7 @@ func TestVPCIndex(t *testing.T) {
 				Region:             "us-east4",
 				WorkloadName:       "production-cloudsql",
 				WorkloadKind:       "CloudSQL",
-				ConnectivityMethod: "Private-Service-Connect",
+				ConnectivityMethod: ConnectivityPrivateLink,
 			},
 			{
 				CIDR:               "10.200.0.0/16", // GCP regional subnet
@@ -410,7 +410,7 @@ func TestVPCIndex(t *testing.T) {
 				Region:             "us-central1",
 				WorkloadName:       "gcp-app-vpc",
 				WorkloadKind:       "VPC",
-				ConnectivityMethod: "VPC-Peering",
+				ConnectivityMethod: ConnectivityVPCPeering,
 			},
 		}
 
@@ -428,7 +428,7 @@ func TestVPCIndex(t *testing.T) {
 		r.Equal("us-east-1", info.Region)
 		r.Equal("production-vpc", info.WorkloadName)
 		r.Equal("VPC", info.WorkloadKind)
-		r.Equal("AWS-TransitGateway", info.ConnectivityMethod)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
 
 		// Verify specific Cloud SQL IP lookup
 		info, found = index.LookupIP(netip.MustParseAddr("10.0.0.13"))
@@ -474,7 +474,7 @@ func TestVPCIndex(t *testing.T) {
 				Region:             "us-east4",
 				WorkloadName:       "specific-database",
 				WorkloadKind:       "CloudSQL",
-				ConnectivityMethod: "Private-Service-Connect",
+				ConnectivityMethod: ConnectivityPrivateLink,
 			},
 		}
 
