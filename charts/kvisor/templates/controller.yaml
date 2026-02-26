@@ -71,6 +71,13 @@ spec:
           {{- if eq .Values.agent.enabled true }}
             - "--agent-enabled=true"
           {{- end }}
+          {{- $extraArgs := .Values.controller.extraArgs | default dict }}
+          {{- if not (hasKey $extraArgs "cloud-provider") }}
+          {{- $cloudProvider := include "kvisor.cloudProvider" . }}
+          {{- if $cloudProvider }}
+            - "--cloud-provider={{ $cloudProvider }}"
+          {{- end }}
+          {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
         {{- end }}

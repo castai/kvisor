@@ -265,6 +265,15 @@ When storage-stats-enabled (without eBPF):
 {{- toYaml $secCtx -}}
 {{- end -}}
 
+{{/*
+Resolve cloud provider for --cloud-provider arg.
+Only used as a fallback when controller.extraArgs.cloud-provider is not set.
+*/}}
+{{- define "kvisor.cloudProvider" -}}
+{{- $global := .Values.global | default dict -}}
+{{- dig "castai" "provider" "" $global -}}
+{{- end }}
+
 {{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}
 {{- define "GOMEMLIMITEnv" -}}
 {{- $memory := . -}}
