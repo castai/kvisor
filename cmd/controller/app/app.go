@@ -124,8 +124,15 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kubeClient := kube.NewClient(log, cfg.PodName, cfg.PodNamespace, k8sVersion, clientset,
-		cfg.CloudProviderConfig.CloudProvider.Type)
+	kubeClient := kube.NewClient(
+		log,
+		cfg.PodName,
+		cfg.PodNamespace,
+		k8sVersion,
+		clientset,
+		cfg.CloudProviderConfig.CloudProvider.Type,
+		cfg.CloudProviderConfig.VPCStateController.UseZoneID,
+	)
 
 	kubeClient.RegisterHandlers(informersFactory)
 
@@ -133,16 +140,34 @@ func (a *App) Run(ctx context.Context) error {
 		return kubeClient.Run(ctx)
 	})
 
-	// Initialize cloud provider if enabled
+	vpcCfg := cfg.CloudProviderConfig.VPCStateController
+
+	// Create and populate VPC index upfront (no cloud provider required for this)
+	var vpcIndex *kube.VPCIndex
+	if vpcCfg.Enabled || vpcCfg.StaticCIDRsFile != "" {
+		vpcIndex = kube.NewVPCIndex(
+			log,
+			kube.VPCConfig{
+				RefreshInterval: vpcCfg.RefreshInterval,
+				CacheSize:       vpcCfg.CacheSize,
+				UseAwsZoneId:    vpcCfg.UseZoneID,
+			},
+		)
+		if err := controllers.LoadStaticCIDRsFromFile(log, vpcCfg.StaticCIDRsFile, vpcIndex); err != nil {
+			log.Warnf("failed to load static CIDRs: %v", err)
+		}
+		kubeClient.SetVPCIndex(vpcIndex)
+	}
+
+	// Initialize cloud provider for cloud-sync features
 	if cfg.CloudProviderConfig.IsAnyControllerEnabled() {
 		provider, err := cloudprovider.NewProvider(ctx, log, cfg.CloudProviderConfig.CloudProvider)
 		if err == nil {
 			log.Infof("cloud provider %s initialized successfully", provider.Type())
 
-			if cfg.CloudProviderConfig.VPCStateController.Enabled {
+			if vpcCfg.Enabled && vpcIndex != nil {
 				errg.Go(func() error {
-					return controllers.NewVPCStateController(log,
-						cfg.CloudProviderConfig.VPCStateController, provider, kubeClient).Run(ctx)
+					return controllers.NewVPCStateController(log, vpcCfg, provider, vpcIndex).Run(ctx)
 				})
 			}
 

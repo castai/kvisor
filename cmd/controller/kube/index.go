@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/castai/kvisor/pkg/cidrindex"
+	k8s "github.com/castai/kvisor/pkg/k8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,9 +13,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewIndex() *Index {
+type IndexOptions func(*Index)
+
+func WithUseAwsZoneId(useAwsZoneId bool) IndexOptions {
+	return func(i *Index) {
+		i.useAwsZoneId = useAwsZoneId
+	}
+}
+
+func NewIndex(opts ...IndexOptions) *Index {
 	nodesCIDRIndex, _ := cidrindex.NewIndex[string](1000, 30*time.Second)
-	return &Index{
+	i := &Index{
 		ipsDetails:     make(ipsDetails),
 		replicaSets:    make(map[types.UID]metav1.ObjectMeta),
 		jobs:           make(map[types.UID]metav1.ObjectMeta),
@@ -25,6 +34,12 @@ func NewIndex() *Index {
 		pvcs:           make(map[string]*corev1.PersistentVolumeClaim),
 		pvs:            make(map[string]*corev1.PersistentVolume),
 	}
+
+	for _, opt := range opts {
+		opt(i)
+	}
+
+	return i
 }
 
 type Index struct {
@@ -37,13 +52,19 @@ type Index struct {
 	nodesCIDRIndex *cidrindex.Index[string]
 	pvcs           map[string]*corev1.PersistentVolumeClaim // key: namespace/name
 	pvs            map[string]*corev1.PersistentVolume      // key: PV name
+
+	// AWS specific, when specified will use AWS zone IDs instead of names
+	useAwsZoneId bool
 }
 
 func (i *Index) addFromPod(pod *corev1.Pod) {
 	owner := i.getPodOwner(pod)
 	node := i.nodesByName[pod.Spec.NodeName]
-	zone := getZone(node)
-	region := getRegion(node)
+	var zone, region string
+	if node != nil {
+		zone = k8s.NodeZoneOrID(node.Labels, i.useAwsZoneId)
+		region = k8s.NodeRegion(node.Labels)
+	}
 	podInfo := &PodInfo{
 		Pod:    pod,
 		Owner:  owner,
@@ -116,8 +137,8 @@ func (i *Index) addFromService(v *corev1.Service) {
 func (i *Index) addFromNode(v *corev1.Node) {
 	i.nodesByName[v.Name] = v
 
-	zone := getZone(v)
-	region := getRegion(v)
+	zone := k8s.NodeZoneOrID(v.Labels, i.useAwsZoneId)
+	region := k8s.NodeRegion(v.Labels)
 
 	// Associate pods CIDR with node reference to be able to find pods
 	// in cases when multiple pods have the same IP (i.e. hostNetwork: true)
@@ -296,22 +317,6 @@ func getServiceIPs(svc *corev1.Service) []string {
 	return svc.Spec.ExternalIPs
 }
 
-func getZone(n *corev1.Node) string {
-	if n == nil {
-		return ""
-	}
-	zone := n.Labels["topology.kubernetes.io/zone"]
-	return zone
-}
-
-func getRegion(n *corev1.Node) string {
-	if n == nil {
-		return ""
-	}
-	region := n.Labels["topology.kubernetes.io/region"]
-	return region
-}
-
 type IPEndpoint struct {
 	ID        string
 	Name      string
@@ -332,6 +337,11 @@ type IPInfo struct {
 	resourceID  types.UID
 	setAt       time.Time
 	deleteAt    *time.Time
+
+	// IP record specific details to override default values
+	workloadName      string
+	workloadKind      string
+	connectivityMethod string
 }
 
 type PodInfo struct {

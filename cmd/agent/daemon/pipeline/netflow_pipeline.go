@@ -356,10 +356,10 @@ func (c *Controller) toNetflow(ctx context.Context, key *ebpftracer.TrafficKey, 
 	if res.Zone == "" || res.Region == "" {
 		if nodeInfo, found := c.getNodeInfo(res.NodeName); found {
 			if res.Zone == "" {
-				res.Zone = getZone(nodeInfo)
+				res.Zone = nodeInfo.Zone
 			}
 			if res.Region == "" {
-				res.Region = getRegion(nodeInfo)
+				res.Region = nodeInfo.Region
 			}
 		}
 	}

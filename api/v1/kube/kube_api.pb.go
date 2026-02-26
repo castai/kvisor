@@ -88,6 +88,7 @@ func (WorkloadKind) EnumDescriptor() ([]byte, []int) {
 type GetClusterInfoRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	ExcludeOtherCidr bool                   `protobuf:"varint,1,opt,name=exclude_other_cidr,json=excludeOtherCidr,proto3" json:"exclude_other_cidr,omitempty"`
+	ExcludeCloudCidr bool                   `protobuf:"varint,2,opt,name=exclude_cloud_cidr,json=excludeCloudCidr,proto3" json:"exclude_cloud_cidr,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -129,14 +130,23 @@ func (x *GetClusterInfoRequest) GetExcludeOtherCidr() bool {
 	return false
 }
 
+func (x *GetClusterInfoRequest) GetExcludeCloudCidr() bool {
+	if x != nil {
+		return x.ExcludeCloudCidr
+	}
+	return false
+}
+
 type GetClusterInfoResponse struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	PodsCidr    []string               `protobuf:"bytes,1,rep,name=pods_cidr,json=podsCidr,proto3" json:"pods_cidr,omitempty"`
 	ServiceCidr []string               `protobuf:"bytes,2,rep,name=service_cidr,json=serviceCidr,proto3" json:"service_cidr,omitempty"`
 	NodeCidr    []string               `protobuf:"bytes,4,rep,name=node_cidr,json=nodeCidr,proto3" json:"node_cidr,omitempty"`
 	VpcCidr     []string               `protobuf:"bytes,5,rep,name=vpc_cidr,json=vpcCidr,proto3" json:"vpc_cidr,omitempty"`
-	// other_cidr is a list of known cloud services CIDRs
-	OtherCidr     []string `protobuf:"bytes,3,rep,name=other_cidr,json=otherCidr,proto3" json:"other_cidr,omitempty"`
+	// other_cidr is a list of static CIDRs defined via config
+	OtherCidr []string `protobuf:"bytes,3,rep,name=other_cidr,json=otherCidr,proto3" json:"other_cidr,omitempty"`
+	// cloud_cidr is a list of cloud services CIDRs
+	CloudCidr     []string `protobuf:"bytes,6,rep,name=cloud_cidr,json=cloudCidr,proto3" json:"cloud_cidr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -202,6 +212,13 @@ func (x *GetClusterInfoResponse) GetVpcCidr() []string {
 func (x *GetClusterInfoResponse) GetOtherCidr() []string {
 	if x != nil {
 		return x.OtherCidr
+	}
+	return nil
+}
+
+func (x *GetClusterInfoResponse) GetCloudCidr() []string {
+	if x != nil {
+		return x.CloudCidr
 	}
 	return nil
 }
@@ -771,6 +788,8 @@ type Node struct {
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Labels        map[string]string      `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	CloudProvider string                 `protobuf:"bytes,3,opt,name=cloud_provider,json=cloudProvider,proto3" json:"cloud_provider,omitempty"`
+	Zone          string                 `protobuf:"bytes,4,opt,name=zone,proto3" json:"zone,omitempty"`
+	Region        string                 `protobuf:"bytes,5,opt,name=region,proto3" json:"region,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -822,6 +841,20 @@ func (x *Node) GetLabels() map[string]string {
 func (x *Node) GetCloudProvider() string {
 	if x != nil {
 		return x.CloudProvider
+	}
+	return ""
+}
+
+func (x *Node) GetZone() string {
+	if x != nil {
+		return x.Zone
+	}
+	return ""
+}
+
+func (x *Node) GetRegion() string {
+	if x != nil {
+		return x.Region
 	}
 	return ""
 }
@@ -1980,16 +2013,19 @@ var File_api_v1_kube_kube_api_proto protoreflect.FileDescriptor
 
 const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\n" +
-	"\x1aapi/v1/kube/kube_api.proto\x12\akube.v1\"E\n" +
+	"\x1aapi/v1/kube/kube_api.proto\x12\akube.v1\"s\n" +
 	"\x15GetClusterInfoRequest\x12,\n" +
-	"\x12exclude_other_cidr\x18\x01 \x01(\bR\x10excludeOtherCidr\"\xaf\x01\n" +
+	"\x12exclude_other_cidr\x18\x01 \x01(\bR\x10excludeOtherCidr\x12,\n" +
+	"\x12exclude_cloud_cidr\x18\x02 \x01(\bR\x10excludeCloudCidr\"\xce\x01\n" +
 	"\x16GetClusterInfoResponse\x12\x1b\n" +
 	"\tpods_cidr\x18\x01 \x03(\tR\bpodsCidr\x12!\n" +
 	"\fservice_cidr\x18\x02 \x03(\tR\vserviceCidr\x12\x1b\n" +
 	"\tnode_cidr\x18\x04 \x03(\tR\bnodeCidr\x12\x19\n" +
 	"\bvpc_cidr\x18\x05 \x03(\tR\avpcCidr\x12\x1d\n" +
 	"\n" +
-	"other_cidr\x18\x03 \x03(\tR\totherCidr\"\"\n" +
+	"other_cidr\x18\x03 \x03(\tR\totherCidr\x12\x1d\n" +
+	"\n" +
+	"cloud_cidr\x18\x06 \x03(\tR\tcloudCidr\"\"\n" +
 	"\x10GetIPInfoRequest\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\fR\x02ip\"8\n" +
 	"\x11GetIPInfoResponse\x12#\n" +
@@ -2025,11 +2061,13 @@ const file_api_v1_kube_kube_api_proto_rawDesc = "" +
 	"\x0eGetNodeRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"4\n" +
 	"\x0fGetNodeResponse\x12!\n" +
-	"\x04node\x18\x01 \x01(\v2\r.kube.v1.NodeR\x04node\"\xaf\x01\n" +
+	"\x04node\x18\x01 \x01(\v2\r.kube.v1.NodeR\x04node\"\xdb\x01\n" +
 	"\x04Node\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
 	"\x06labels\x18\x02 \x03(\v2\x19.kube.v1.Node.LabelsEntryR\x06labels\x12%\n" +
-	"\x0ecloud_provider\x18\x03 \x01(\tR\rcloudProvider\x1a9\n" +
+	"\x0ecloud_provider\x18\x03 \x01(\tR\rcloudProvider\x12\x12\n" +
+	"\x04zone\x18\x04 \x01(\tR\x04zone\x12\x16\n" +
+	"\x06region\x18\x05 \x01(\tR\x06region\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"9\n" +

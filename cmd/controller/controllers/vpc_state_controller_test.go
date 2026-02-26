@@ -10,13 +10,10 @@ import (
 	noop "github.com/castai/kvisor/pkg/cloudprovider/noop"
 	"github.com/castai/logging"
 	"github.com/stretchr/testify/require"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestVPCStateController(t *testing.T) {
 	log := logging.New()
-	k8sClient := fake.NewSimpleClientset()
-	kubeClient := kube.NewClient(log, "agent", "ns", kube.Version{}, k8sClient, "")
 
 	t.Run("stops on context cancellation", func(t *testing.T) {
 		r := require.New(t)
@@ -30,7 +27,8 @@ func TestVPCStateController(t *testing.T) {
 			RefreshInterval: 1 * time.Hour,
 		}
 
-		ctrl := NewVPCStateController(log, cfg, provider, kubeClient)
+		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 
 		err := ctrl.Run(ctx)
 		// Should either be nil (failed to init provider) or context deadline exceeded
@@ -49,7 +47,8 @@ func TestVPCStateController(t *testing.T) {
 			RefreshInterval: 0,
 		}
 
-		ctrl := NewVPCStateController(log, cfg, provider, kubeClient)
+		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 		r.Equal(1*time.Hour, ctrl.cfg.RefreshInterval)
 	})
 
@@ -64,7 +63,8 @@ func TestVPCStateController(t *testing.T) {
 			RefreshInterval: customInterval,
 		}
 
-		ctrl := NewVPCStateController(log, cfg, provider, kubeClient)
+		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 		r.Equal(customInterval, ctrl.cfg.RefreshInterval)
 	})
 }

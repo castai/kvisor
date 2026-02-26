@@ -53,6 +53,11 @@ spec:
           image: "{{ .Values.image.repository }}-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{.Values.image.pullPolicy}}
           volumeMounts:
+            {{- if .Values.controller.netflow.staticCIDRs.mappings }}
+            - name: static-cidrs
+              mountPath: /etc/kvisor/static-cidrs
+              readOnly: true
+            {{- end }}
             {{- with .Values.controller.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -77,6 +82,9 @@ spec:
           {{- if $cloudProvider }}
             - "--cloud-provider={{ $cloudProvider }}"
           {{- end }}
+          {{- end }}
+          {{- if .Values.controller.netflow.staticCIDRs.mappings }}
+            - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
@@ -161,6 +169,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        {{- if .Values.controller.netflow.staticCIDRs.mappings }}
+        - name: static-cidrs
+          configMap:
+            name: {{ include "kvisor.fullname" . }}-static-cidrs
+        {{- end }}
         {{- with .Values.controller.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
