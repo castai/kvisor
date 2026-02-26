@@ -12,12 +12,10 @@ TO metrics.reliability_metrics_http
 AS
 SELECT
     toStartOfMinute(TimeUnix)                                           AS minute,
-    ServiceName                                                         AS service_name,
     MetricName                                                          AS metric_name,
-    if(ResourceAttributes['k8s.namespace.name'] != '',
-       ResourceAttributes['k8s.namespace.name'],
-       ResourceAttributes['service.namespace'])                         AS k8s_namespace,
-    ResourceAttributes['k8s.deployment.name']                           AS k8s_deployment,
+    Attributes['workload_name']                                         AS workload_name,
+    Attributes['workload_namespace']                                    AS workload_namespace,
+    Attributes['workload_kind']                                         AS workload_kind,
     ResourceAttributes['k8s.node.name']                                 AS k8s_node,
     Attributes['error.type']                                            AS error_type,
     Attributes['http.request.method']                                   AS http_method,
@@ -30,17 +28,13 @@ SELECT
     anyLast(ExplicitBounds)                                             AS explicit_bounds,
     count()                                                             AS sample_count,
     now64(3)                                                            AS timestamp,
-    cityHash64(ServiceName,
-               if(ResourceAttributes['k8s.namespace.name'] != '',
-                  ResourceAttributes['k8s.namespace.name'],
-                  ResourceAttributes['service.namespace']),
-               ResourceAttributes['k8s.deployment.name'],
+    cityHash64(Attributes['workload_name'],Attributes['workload_namespace'],Attributes['workload_kind'],
                Attributes['http.request.method'],
                Attributes['http.response.status_code'],
                toString(toStartOfMinute(TimeUnix)))                    AS pk
 FROM metrics.otel_metrics_histogram
 WHERE MetricName IN ('http.server.request.duration', 'http.client.request.duration')
-GROUP BY minute, service_name, metric_name, k8s_namespace, k8s_deployment,
+GROUP BY minute, workload_name, metric_name, workload_namespace, workload_kind,
          k8s_node, error_type, http_method, http_status_code;
 
 -- Bronze histograms -> Silver gRPC
@@ -49,12 +43,10 @@ TO metrics.reliability_metrics_grpc
 AS
 SELECT
     toStartOfMinute(TimeUnix)                                           AS minute,
-    ServiceName                                                         AS service_name,
     MetricName                                                          AS metric_name,
-    if(ResourceAttributes['k8s.namespace.name'] != '',
-       ResourceAttributes['k8s.namespace.name'],
-       ResourceAttributes['service.namespace'])                         AS k8s_namespace,
-    ResourceAttributes['k8s.deployment.name']                           AS k8s_deployment,
+    Attributes['workload_name']                                         AS workload_name,
+    Attributes['workload_namespace']                                    AS workload_namespace,
+    Attributes['workload_kind']                                         AS workload_kind,
     ResourceAttributes['k8s.node.name']                                 AS k8s_node,
     Attributes['error.type']                                            AS error_type,
     Attributes['rpc.method']                                            AS rpc_method,
@@ -74,11 +66,7 @@ SELECT
     anyLast(ExplicitBounds)                                             AS explicit_bounds,
     count()                                                             AS sample_count,
     now64(3)                                                            AS timestamp,
-    cityHash64(ServiceName,
-               if(ResourceAttributes['k8s.namespace.name'] != '',
-                  ResourceAttributes['k8s.namespace.name'],
-                  ResourceAttributes['service.namespace']),
-               ResourceAttributes['k8s.deployment.name'],
+    cityHash64(Attributes['workload_name'],Attributes['workload_namespace'],Attributes['workload_kind'],
                Attributes['rpc.method'],
                if(Attributes['rpc.service'] != '',
                   Attributes['rpc.service'],
@@ -89,7 +77,7 @@ SELECT
                toString(toStartOfMinute(TimeUnix)))                    AS pk
 FROM metrics.otel_metrics_histogram
 WHERE MetricName IN ('rpc.server.duration', 'rpc.client.duration')
-GROUP BY minute, service_name, metric_name, k8s_namespace, k8s_deployment,
+GROUP BY minute, workload_name, metric_name, workload_namespace, workload_kind,
          k8s_node, error_type, rpc_method, rpc_service, rpc_grpc_status_code;
 
 -- Bronze histograms -> Silver DB
@@ -98,12 +86,10 @@ TO metrics.reliability_metrics_db
 AS
 SELECT
     toStartOfMinute(TimeUnix)                                           AS minute,
-    ServiceName                                                         AS service_name,
     MetricName                                                          AS metric_name,
-    if(ResourceAttributes['k8s.namespace.name'] != '',
-       ResourceAttributes['k8s.namespace.name'],
-       ResourceAttributes['service.namespace'])                         AS k8s_namespace,
-    ResourceAttributes['k8s.deployment.name']                           AS k8s_deployment,
+    Attributes['workload_name']                                         AS workload_name,
+    Attributes['workload_namespace']                                    AS workload_namespace,
+    Attributes['workload_kind']                                         AS workload_kind,
     ResourceAttributes['k8s.node.name']                                 AS k8s_node,
     Attributes['error.type']                                            AS error_type,
     Attributes['db.system.name']                                        AS db_system,
@@ -116,17 +102,13 @@ SELECT
     anyLast(ExplicitBounds)                                             AS explicit_bounds,
     count()                                                             AS sample_count,
     now64(3)                                                            AS timestamp,
-    cityHash64(ServiceName,
-               if(ResourceAttributes['k8s.namespace.name'] != '',
-                  ResourceAttributes['k8s.namespace.name'],
-                  ResourceAttributes['service.namespace']),
-               ResourceAttributes['k8s.deployment.name'],
+    cityHash64(Attributes['workload_name'],Attributes['workload_namespace'],Attributes['workload_kind'],
                Attributes['db.system.name'],
                Attributes['db.operation.name'],
                toString(toStartOfMinute(TimeUnix)))                    AS pk
 FROM metrics.otel_metrics_histogram
 WHERE MetricName = 'db.client.operation.duration'
-GROUP BY minute, service_name, metric_name, k8s_namespace, k8s_deployment,
+GROUP BY minute, workload_name, metric_name, workload_namespace, workload_kind,
          k8s_node, error_type, db_system, db_operation;
 
 -- Bronze histograms -> Silver Messaging
@@ -135,12 +117,10 @@ TO metrics.reliability_metrics_messaging
 AS
 SELECT
     toStartOfMinute(TimeUnix)                                           AS minute,
-    ServiceName                                                         AS service_name,
     MetricName                                                          AS metric_name,
-    if(ResourceAttributes['k8s.namespace.name'] != '',
-       ResourceAttributes['k8s.namespace.name'],
-       ResourceAttributes['service.namespace'])                         AS k8s_namespace,
-    ResourceAttributes['k8s.deployment.name']                           AS k8s_deployment,
+    Attributes['workload_name']                                         AS workload_name,
+    Attributes['workload_namespace']                                    AS workload_namespace,
+    Attributes['workload_kind']                                         AS workload_kind,
     ResourceAttributes['k8s.node.name']                                 AS k8s_node,
     Attributes['error.type']                                            AS error_type,
     Attributes['messaging.system']                                      AS messaging_system,
@@ -153,17 +133,13 @@ SELECT
     anyLast(ExplicitBounds)                                             AS explicit_bounds,
     count()                                                             AS sample_count,
     now64(3)                                                            AS timestamp,
-    cityHash64(ServiceName,
-               if(ResourceAttributes['k8s.namespace.name'] != '',
-                  ResourceAttributes['k8s.namespace.name'],
-                  ResourceAttributes['service.namespace']),
-               ResourceAttributes['k8s.deployment.name'],
+    cityHash64(Attributes['workload_name'],Attributes['workload_namespace'],Attributes['workload_kind'],
                Attributes['messaging.system'],
                Attributes['messaging.destination.name'],
                toString(toStartOfMinute(TimeUnix)))                    AS pk
 FROM metrics.otel_metrics_histogram
 WHERE MetricName IN ('messaging.publish.duration', 'messaging.process.duration')
-GROUP BY minute, service_name, metric_name, k8s_namespace, k8s_deployment,
+GROUP BY minute, workload_name, metric_name, workload_namespace, workload_kind,
          k8s_node, error_type, messaging_system, messaging_destination;
 
 -- Bronze gauges -> Silver Gauge
@@ -173,65 +149,21 @@ AS
 SELECT
     toStartOfMinute(TimeUnix)                                           AS minute,
     MetricName                                                          AS metric_name,
-    ResourceAttributes['k8s.namespace.name']                            AS k8s_namespace,
-    multiIf(
-        MetricName LIKE 'k8s.deployment.%',    'deployment',
-        MetricName LIKE 'k8s.statefulset.%',   'statefulset',
-        MetricName LIKE 'k8s.daemonset.%',     'daemonset',
-        MetricName LIKE 'k8s.replicaset.%',    'replicaset',
-        MetricName LIKE 'k8s.pod.%' OR MetricName LIKE 'k8s.container.%', 'pod',
-        MetricName LIKE 'k8s.node.%',          'node',
-        MetricName LIKE 'k8s.hpa.%',           'hpa',
-        MetricName LIKE 'k8s.job.%',           'job',
-        MetricName LIKE 'k8s.cronjob.%',       'cronjob',
-        'unknown'
-    )                                                                   AS resource_type,
-    coalesce(
-        nullIf(ResourceAttributes['k8s.deployment.name'], ''),
-        nullIf(ResourceAttributes['k8s.statefulset.name'], ''),
-        nullIf(ResourceAttributes['k8s.daemonset.name'], ''),
-        nullIf(ResourceAttributes['k8s.replicaset.name'], ''),
-        nullIf(ResourceAttributes['k8s.cronjob.name'], ''),
-        nullIf(ResourceAttributes['k8s.job.name'], ''),
-        nullIf(ResourceAttributes['k8s.hpa.name'], ''),
-        nullIf(ResourceAttributes['k8s.pod.name'], ''),
-        nullIf(ResourceAttributes['k8s.node.name'], ''),
-        ''
-    )                                                                   AS resource_name,
+    Attributes['workload_name']                                         AS workload_name,
+    Attributes['workload_namespace']                                    AS workload_namespace,
+    Attributes['workload_kind']                                         AS workload_kind,
     ResourceAttributes['k8s.node.name']                                 AS k8s_node,
     anyLast(Value)                                                      AS last_value,
     min(Value)                                                          AS min_value,
     max(Value)                                                          AS max_value,
     count()                                                             AS sample_count,
     now64(3)                                                            AS timestamp,
-    cityHash64(ResourceAttributes['k8s.namespace.name'],
-               multiIf(
-                   MetricName LIKE 'k8s.deployment.%',    'deployment',
-                   MetricName LIKE 'k8s.statefulset.%',   'statefulset',
-                   MetricName LIKE 'k8s.daemonset.%',     'daemonset',
-                   MetricName LIKE 'k8s.replicaset.%',    'replicaset',
-                   MetricName LIKE 'k8s.pod.%' OR MetricName LIKE 'k8s.container.%', 'pod',
-                   MetricName LIKE 'k8s.node.%',          'node',
-                   MetricName LIKE 'k8s.hpa.%',           'hpa',
-                   MetricName LIKE 'k8s.job.%',           'job',
-                   MetricName LIKE 'k8s.cronjob.%',       'cronjob',
-                   'unknown'),
-               coalesce(
-                   nullIf(ResourceAttributes['k8s.deployment.name'], ''),
-                   nullIf(ResourceAttributes['k8s.statefulset.name'], ''),
-                   nullIf(ResourceAttributes['k8s.daemonset.name'], ''),
-                   nullIf(ResourceAttributes['k8s.replicaset.name'], ''),
-                   nullIf(ResourceAttributes['k8s.cronjob.name'], ''),
-                   nullIf(ResourceAttributes['k8s.job.name'], ''),
-                   nullIf(ResourceAttributes['k8s.hpa.name'], ''),
-                   nullIf(ResourceAttributes['k8s.pod.name'], ''),
-                   nullIf(ResourceAttributes['k8s.node.name'], ''),
-                   ''),
+    cityHash64(Attributes['workload_name'],Attributes['workload_namespace'],Attributes['workload_kind'],
                MetricName,
                ResourceAttributes['k8s.node.name'],
                toString(toStartOfMinute(TimeUnix)))                    AS pk
 FROM metrics.otel_metrics_gauge
-GROUP BY minute, metric_name, k8s_namespace, resource_type, resource_name, k8s_node;
+GROUP BY minute, metric_name, workload_namespace, workload_kind, workload_name, k8s_node;
 
 -- +goose Down
 DROP VIEW IF EXISTS metrics.reliability_mv_bronze_to_silver_gauge;

@@ -24,7 +24,7 @@ clickhouse:
   migrate:
     image:
       repository: eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate
-      tag: "v8-histogram-amd64"
+      tag: "v11-workload-amd64"
 
 agent:
   reliabilityMetrics:
@@ -56,9 +56,10 @@ agent:
       enabled: true
       clickhouseExporter:
         enabled: true
+        address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
       image:
-        repository: otel/opentelemetry-collector-contrib
-        tag: "0.145.0"
+        repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
+        tag: "v0.0.6"
       resources:
         requests:
           memory: 64Mi
@@ -74,9 +75,10 @@ controller:
       enabled: true
       clickhouseExporter:
         enabled: true
+        address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
       image:
-        repository: otel/opentelemetry-collector-contrib
-        tag: "0.145.0"
+        repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
+        tag: "v0.0.6"
       resources:
         requests:
           cpu: 50m

@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_http
     org_id                  UUID,
     cluster_id              UUID,
     minute                  DateTime CODEC(Delta, ZSTD(1)),
-    service_name            LowCardinality(String) CODEC(ZSTD(1)),
     metric_name             LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_namespace           LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_deployment          LowCardinality(String) CODEC(ZSTD(1)),
+    workload_name           LowCardinality(String) CODEC(ZSTD(1)),
+    workload_namespace      LowCardinality(String) CODEC(ZSTD(1)),
+    workload_kind           LowCardinality(String) CODEC(ZSTD(1)),
     k8s_node                LowCardinality(String) CODEC(ZSTD(1)),
     error_type              LowCardinality(String) CODEC(ZSTD(1)),
     http_method             LowCardinality(String) CODEC(ZSTD(1)),
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_http
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(minute)
-ORDER BY (service_name, k8s_namespace, k8s_deployment, http_method, http_status_code, minute)
+ORDER BY (workload_name, workload_namespace, workload_kind, http_method, http_status_code, minute)
 TTL minute + INTERVAL 7 DAY
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 
@@ -42,10 +42,10 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_grpc
     org_id                  UUID,
     cluster_id              UUID,
     minute                  DateTime CODEC(Delta, ZSTD(1)),
-    service_name            LowCardinality(String) CODEC(ZSTD(1)),
     metric_name             LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_namespace           LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_deployment          LowCardinality(String) CODEC(ZSTD(1)),
+    workload_name           LowCardinality(String) CODEC(ZSTD(1)),
+    workload_namespace      LowCardinality(String) CODEC(ZSTD(1)),
+    workload_kind           LowCardinality(String) CODEC(ZSTD(1)),
     k8s_node                LowCardinality(String) CODEC(ZSTD(1)),
     error_type              LowCardinality(String) CODEC(ZSTD(1)),
     rpc_method              LowCardinality(String) CODEC(ZSTD(1)),
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_grpc
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(minute)
-ORDER BY (service_name, k8s_namespace, k8s_deployment, rpc_method, rpc_service, rpc_grpc_status_code, minute)
+ORDER BY (workload_name, workload_namespace, workload_kind, rpc_method, rpc_service, rpc_grpc_status_code, minute)
 TTL minute + INTERVAL 7 DAY
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 
@@ -73,10 +73,10 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_db
     org_id                  UUID,
     cluster_id              UUID,
     minute                  DateTime CODEC(Delta, ZSTD(1)),
-    service_name            LowCardinality(String) CODEC(ZSTD(1)),
     metric_name             LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_namespace           LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_deployment          LowCardinality(String) CODEC(ZSTD(1)),
+    workload_name           LowCardinality(String) CODEC(ZSTD(1)),
+    workload_namespace      LowCardinality(String) CODEC(ZSTD(1)),
+    workload_kind           LowCardinality(String) CODEC(ZSTD(1)),
     k8s_node                LowCardinality(String) CODEC(ZSTD(1)),
     error_type              LowCardinality(String) CODEC(ZSTD(1)),
     db_system               LowCardinality(String) CODEC(ZSTD(1)),
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_db
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(minute)
-ORDER BY (service_name, k8s_namespace, k8s_deployment, db_system, db_operation, minute)
+ORDER BY (workload_name, workload_namespace, workload_kind, db_system, db_operation, minute)
 TTL minute + INTERVAL 7 DAY
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 
@@ -103,10 +103,10 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_messaging
     org_id                  UUID,
     cluster_id              UUID,
     minute                  DateTime CODEC(Delta, ZSTD(1)),
-    service_name            LowCardinality(String) CODEC(ZSTD(1)),
     metric_name             LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_namespace           LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_deployment          LowCardinality(String) CODEC(ZSTD(1)),
+    workload_name           LowCardinality(String) CODEC(ZSTD(1)),
+    workload_namespace      LowCardinality(String) CODEC(ZSTD(1)),
+    workload_kind           LowCardinality(String) CODEC(ZSTD(1)),
     k8s_node                LowCardinality(String) CODEC(ZSTD(1)),
     error_type              LowCardinality(String) CODEC(ZSTD(1)),
     messaging_system        LowCardinality(String) CODEC(ZSTD(1)),
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_messaging
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(minute)
-ORDER BY (service_name, k8s_namespace, k8s_deployment, messaging_system, messaging_destination, minute)
+ORDER BY (workload_name, workload_namespace, workload_kind, messaging_system, messaging_destination, minute)
 TTL minute + INTERVAL 7 DAY
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 
@@ -134,9 +134,9 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_gauge
     cluster_id              UUID,
     minute                  DateTime CODEC(Delta, ZSTD(1)),
     metric_name             LowCardinality(String) CODEC(ZSTD(1)),
-    k8s_namespace           LowCardinality(String) CODEC(ZSTD(1)),
-    resource_type           LowCardinality(String) CODEC(ZSTD(1)),
-    resource_name           LowCardinality(String) CODEC(ZSTD(1)),
+    workload_name           LowCardinality(String) CODEC(ZSTD(1)),
+    workload_namespace      LowCardinality(String) CODEC(ZSTD(1)),
+    workload_kind           LowCardinality(String) CODEC(ZSTD(1)),
     k8s_node                LowCardinality(String) CODEC(ZSTD(1)),
     last_value              SimpleAggregateFunction(anyLast, Float64),
     min_value               SimpleAggregateFunction(min, Float64),
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_gauge
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(minute)
-ORDER BY (k8s_namespace, resource_type, resource_name, metric_name, k8s_node, minute)
+ORDER BY (workload_namespace, workload_kind, workload_name, metric_name, k8s_node, minute)
 TTL minute + INTERVAL 7 DAY
 SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
 

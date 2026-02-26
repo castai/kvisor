@@ -215,27 +215,33 @@ spec:
                 - ALL
           resources:
             {{- toYaml .Values.agent.reliabilityMetrics.collector.resources | nindent 12 }}
-          args:
-            - "--config=/etc/otelcol/config.yaml"
           env:
             {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent) }}
-            - name: OTEL_CLICKHOUSE_CONFIG_ADDRESS
+            - name: CLICKHOUSE_ENABLED
+              value: "true"
+            - name: COLLECTOR_MODE
+              value: "daemonset"
+            - name: CLICKHOUSE_ADDR
               {{- if .Values.agent.reliabilityMetrics.collector.clickhouseExporter.address }}
               value: {{ .Values.agent.reliabilityMetrics.collector.clickhouseExporter.address | quote }}
               {{- else }}
               value: {{ include "kvisor.clickhouse.address" . | quote }}
               {{- end }}
-            - name: OTEL_CLICKHOUSE_CONFIG_USERNAME
+            - name: CLICKHOUSE_USERNAME
               valueFrom:
                 secretKeyRef:
                   key: username
                   name: {{ include "kvisor.fullname" . }}-otel-clickhouse-credentials
-            - name: OTEL_CLICKHOUSE_CONFIG_PASSWORD
+            - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
                   name: {{ include "kvisor.fullname" . }}-otel-clickhouse-credentials
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             {{- end }}
           ports:
             - containerPort: {{ .Values.agent.reliabilityMetrics.collector.prometheusPort }}
@@ -251,15 +257,20 @@ spec:
             httpGet:
               port: 13133
               path: /
+            initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
             httpGet:
               port: 13133
               path: /
+            initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
             - name: otel-collector-config
               mountPath: /etc/otelcol
+              readOnly: true
+            - name: obi-sa-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
       {{- end }}
       {{- end }}
