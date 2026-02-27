@@ -18,13 +18,13 @@ clickhouse:
   exporter:
     enabled: true
     image:
-      repository: eu.gcr.io/engineering-test-353509/reliability-metrics-ch-exporter
-      tag: "v0.12-subquery"
+      repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
+      tag: "v0.1.9"
     grpcAddr: "telemetry.dev-master.cast.ai:443"
   migrate:
     image:
       repository: eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate
-      tag: "v11-workload-amd64"
+      tag: "v12-workload-amd64"
 
 agent:
   reliabilityMetrics:

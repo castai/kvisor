@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS metrics.export_progress
     table_name            String,
     mothership_table_name String,
     columns               String,
-    uploaded_at           DateTime64(3),
-    last_exported_time    DateTime64(3),
+    uploaded_at           DateTime,
+    last_exported_time    DateTime,
     last_exported_pk      UInt64
 )
 ENGINE = ReplacingMergeTree()
@@ -35,27 +35,27 @@ VALUES
     ('reliability_metrics_http',
      'reliability_metrics_http_local',
      'minute, workload_name, metric_name, workload_namespace, workload_kind, k8s_node, error_type, http_method, http_status_code, total_count, total_sum, min_value, max_value, sumForEachMerge(bucket_counts) AS bucket_counts, explicit_bounds, sample_count',
-     now64(3), toDateTime64('1970-01-01 00:00:00.000', 3), 0),
+     now(), toDateTime('1970-01-01 00:00:00'), 0),
 
     ('reliability_metrics_grpc',
      'reliability_metrics_grpc_local',
      'minute, workload_name, metric_name, workload_namespace, workload_kind, k8s_node, error_type, rpc_method, rpc_service, rpc_grpc_status_code, total_count, total_sum, min_value, max_value, sumForEachMerge(bucket_counts) AS bucket_counts, explicit_bounds, sample_count',
-     now64(3), toDateTime64('1970-01-01 00:00:00.000', 3), 0),
+     now(), toDateTime('1970-01-01 00:00:00'), 0),
 
     ('reliability_metrics_db',
      'reliability_metrics_db_local',
      'minute, workload_name, metric_name, workload_namespace, workload_kind, k8s_node, error_type, db_system, db_operation, total_count, total_sum, min_value, max_value, sumForEachMerge(bucket_counts) AS bucket_counts, explicit_bounds, sample_count',
-     now64(3), toDateTime64('1970-01-01 00:00:00.000', 3), 0),
+     now(), toDateTime('1970-01-01 00:00:00'), 0),
 
     ('reliability_metrics_messaging',
      'reliability_metrics_messaging_local',
      'minute, workload_name, metric_name, workload_namespace, workload_kind, k8s_node, error_type, messaging_system, messaging_destination, total_count, total_sum, min_value, max_value, sumForEachMerge(bucket_counts) AS bucket_counts, explicit_bounds, sample_count',
-     now64(3), toDateTime64('1970-01-01 00:00:00.000', 3), 0),
+     now(), toDateTime('1970-01-01 00:00:00'), 0),
 
     ('reliability_metrics_gauge',
      'reliability_metrics_gauge_local',
      'minute, metric_name, workload_namespace, workload_kind, workload_name, k8s_node, last_value, min_value, max_value, sample_count',
-     now64(3), toDateTime64('1970-01-01 00:00:00.000', 3), 0);
+     now(), toDateTime('1970-01-01 00:00:00'), 0);
 
 -- +goose Down
 DROP TABLE IF EXISTS metrics.export_progress;

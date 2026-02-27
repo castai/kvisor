@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_http
     bucket_counts           AggregateFunction(sumForEach, Array(UInt64)),
     explicit_bounds         SimpleAggregateFunction(anyLast, Array(Float64)),
     sample_count            SimpleAggregateFunction(sum, UInt64),
-    timestamp               SimpleAggregateFunction(max, DateTime64(3)) CODEC(Delta, ZSTD(1)),
+    timestamp               SimpleAggregateFunction(max, DateTime) CODEC(Delta, ZSTD(1)),
     pk                      UInt64 CODEC(ZSTD(1))
 )
 ENGINE = AggregatingMergeTree
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_grpc
     bucket_counts           AggregateFunction(sumForEach, Array(UInt64)),
     explicit_bounds         SimpleAggregateFunction(anyLast, Array(Float64)),
     sample_count            SimpleAggregateFunction(sum, UInt64),
-    timestamp               SimpleAggregateFunction(max, DateTime64(3)) CODEC(Delta, ZSTD(1)),
+    timestamp               SimpleAggregateFunction(max, DateTime) CODEC(Delta, ZSTD(1)),
     pk                      UInt64 CODEC(ZSTD(1))
 )
 ENGINE = AggregatingMergeTree
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_db
     bucket_counts           AggregateFunction(sumForEach, Array(UInt64)),
     explicit_bounds         SimpleAggregateFunction(anyLast, Array(Float64)),
     sample_count            SimpleAggregateFunction(sum, UInt64),
-    timestamp               SimpleAggregateFunction(max, DateTime64(3)) CODEC(Delta, ZSTD(1)),
+    timestamp               SimpleAggregateFunction(max, DateTime) CODEC(Delta, ZSTD(1)),
     pk                      UInt64 CODEC(ZSTD(1))
 )
 ENGINE = AggregatingMergeTree
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_messaging
     bucket_counts           AggregateFunction(sumForEach, Array(UInt64)),
     explicit_bounds         SimpleAggregateFunction(anyLast, Array(Float64)),
     sample_count            SimpleAggregateFunction(sum, UInt64),
-    timestamp               SimpleAggregateFunction(max, DateTime64(3)) CODEC(Delta, ZSTD(1)),
+    timestamp               SimpleAggregateFunction(max, DateTime) CODEC(Delta, ZSTD(1)),
     pk                      UInt64 CODEC(ZSTD(1))
 )
 ENGINE = AggregatingMergeTree
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS metrics.reliability_metrics_gauge
     min_value               SimpleAggregateFunction(min, Float64),
     max_value               SimpleAggregateFunction(max, Float64),
     sample_count            SimpleAggregateFunction(sum, UInt64),
-    timestamp               SimpleAggregateFunction(max, DateTime64(3)) CODEC(Delta, ZSTD(1)),
+    timestamp               SimpleAggregateFunction(max, DateTime) CODEC(Delta, ZSTD(1)),
     pk                      UInt64 CODEC(ZSTD(1))
 )
 ENGINE = AggregatingMergeTree
