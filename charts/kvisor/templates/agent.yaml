@@ -73,11 +73,6 @@ spec:
           {{- if eq .Values.mockServer.enabled true }}
             - "--castai-server-insecure=true"
           {{- end }}
-          {{- if .Values.clickhouse.enabled }}
-            - "--clickhouse-addr={{ include "kvisor.clickhouse.fullname" . }}.{{ .Release.Namespace}}:9000"
-            - "--clickhouse-database={{.Values.clickhouse.auth.database}}"
-            - "--clickhouse-username={{.Values.clickhouse.auth.username}}"
-          {{- end }}
             - "--kube-api-service-addr={{ include "kvisor.controller.fullname" .}}.{{.Release.Namespace}}:{{ .Values.controller.kubeAPIListenPort }}"
           {{- range $key, $value := .Values.agent.extraArgs }}
             - "--{{ $key }}={{ $value }}"
@@ -88,10 +83,6 @@ spec:
           {{- end }}
           {{- if .Values.castai.enabled }}
           {{- include "kvisor.apiKeyEnvFrom" (set (deepCopy .) "envFrom" .Values.agent.envFrom) | nindent 12 }}
-          {{- end }}
-          {{- if .Values.clickhouse.enabled }}
-            - secretRef:
-                name:  {{ include "kvisor.clickhouse.fullname" . }}
           {{- end }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.agent.resources.limits.memory | nindent 12 }}
@@ -232,12 +223,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: {{ include "kvisor.fullname" . }}-otel-clickhouse-credentials
+                  name: {{ include "kvisor.clickhouse.credentialsSecretName" . }}
             - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: {{ include "kvisor.fullname" . }}-otel-clickhouse-credentials
+                  name: {{ include "kvisor.clickhouse.credentialsSecretName" . }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

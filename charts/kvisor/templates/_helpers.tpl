@@ -197,71 +197,37 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 
 {{/*
-Common helpers for clickhouse.
+ClickHouse helpers.
+When the subchart is loaded (clickhouse.enabled=true), these produce
+the same names the subchart uses for its resources.
+*/}}
+
+{{/*
+ClickHouse fullname — matches the subchart's clickhouse.fullname output.
+With alias "clickhouse" and no nameOverride, this produces <release>-clickhouse.
 */}}
 {{- define "kvisor.clickhouse.fullname" -}}
-{{ include "kvisor.fullname" . }}-clickhouse
-{{- end }}
-
-{{- define "kvisor.clickhouse.service" -}}
-{{ include "kvisor.fullname" . }}-clickhouse
-{{- end }}
-
-{{- define "kvisor.clickhouse.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "kvisor.name" . }}-clickhouse
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{- define "kvisor.clickhouse.labels" -}}
-{{ include "kvisor.labels" . }}
-{{- end }}
+{{- printf "%s-clickhouse" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end -}}
 
 {{/*
-ClickHouse connection details for OTel collectors.
-Resolves address based on: external > install (operator CR) > enabled (StatefulSet).
+ClickHouse credentials Secret name — produced by the subchart.
+Used by OTel collector containers to get CH connection details.
+*/}}
+{{- define "kvisor.clickhouse.credentialsSecretName" -}}
+{{ include "kvisor.clickhouse.fullname" . }}-credentials
+{{- end -}}
+
+{{/*
+ClickHouse connection address.
+Resolves based on: external > install (operator CR) > devStatefulSet.
 */}}
 {{- define "kvisor.clickhouse.address" -}}
-{{- if (dig "external" "enabled" false .Values.clickhouse) -}}
-{{ .Values.clickhouse.external.address }}
-{{- else if (dig "install" "enabled" false .Values.clickhouse) -}}
-{{- /* ClickHouseInstallation serviceTemplate creates: <generateName>.<namespace>.svc.cluster.local */ -}}
-{{ include "kvisor.fullname" . }}-clickhouse.{{ .Release.Namespace }}.svc.cluster.local:9000
-{{- else if .Values.clickhouse.enabled -}}
+{{- if (dig "external" "enabled" false .Values.reliabilityMetrics) -}}
+{{ .Values.reliabilityMetrics.external.address }}
+{{- else if (dig "install" "enabled" false .Values.reliabilityMetrics) -}}
 {{ include "kvisor.clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:9000
-{{- else -}}
-{{- /* Fallback: allow manual address in clickhouseExporter config */ -}}
 {{- end -}}
-{{- end -}}
-
-{{- define "kvisor.clickhouse.username" -}}
-{{- if and (dig "external" "enabled" false .Values.clickhouse) (dig "external" "username" "" .Values.clickhouse) -}}
-{{ .Values.clickhouse.external.username }}
-{{- else -}}
-{{ .Values.clickhouse.auth.username }}
-{{- end -}}
-{{- end -}}
-
-{{- define "kvisor.clickhouse.password" -}}
-{{- if and (dig "external" "enabled" false .Values.clickhouse) (dig "external" "password" "" .Values.clickhouse) -}}
-{{ .Values.clickhouse.external.password }}
-{{- else -}}
-{{ .Values.clickhouse.auth.password }}
-{{- end -}}
-{{- end -}}
-
-{{- define "kvisor.clickhouse.database" -}}
-{{- if and (dig "external" "enabled" false .Values.clickhouse) (dig "external" "database" "" .Values.clickhouse) -}}
-{{ .Values.clickhouse.external.database }}
-{{- else -}}
-{{ .Values.clickhouse.auth.database }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Check if any ClickHouse is configured (for conditional OTel exporter).
-*/}}
-{{- define "kvisor.clickhouse.isConfigured" -}}
-{{- or (dig "external" "enabled" false .Values.clickhouse) (dig "install" "enabled" false .Values.clickhouse) .Values.clickhouse.enabled -}}
 {{- end -}}
 
 

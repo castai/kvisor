@@ -490,7 +490,7 @@ tests:
             valueFrom:
               secretKeyRef:
                 key: username
-                name: otel-clickhouse-credentials
+                name: RELEASE-NAME-clickhouse-credentials
         template: controller.yaml
         documentIndex: 0
       - contains:
@@ -500,7 +500,7 @@ tests:
             valueFrom:
               secretKeyRef:
                 key: password
-                name: otel-clickhouse-credentials
+                name: RELEASE-NAME-clickhouse-credentials
         template: controller.yaml
         documentIndex: 0
 

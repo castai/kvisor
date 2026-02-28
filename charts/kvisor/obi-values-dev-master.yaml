@@ -13,6 +13,7 @@
 #   - Uses us-docker.pkg.dev registry for clickhouse-migrate image.
 
 clickhouse:
+  enabled: true
   operator:
     enabled: true
   install:

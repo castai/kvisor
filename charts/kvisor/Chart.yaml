@@ -4,3 +4,10 @@ description: CAST AI security and observability.
 type: application
 version: 1.0.127
 appVersion: "v1.53.0"
+
+dependencies:
+  - name: reliability-metrics-ch-exporter
+    version: "0.3.0"
+    repository: "https://castai.github.io/helm-charts"
+    condition: reliabilityMetrics.enabled
+    alias: reliabilityMetrics

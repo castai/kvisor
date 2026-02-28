@@ -27,25 +27,29 @@ In-Cluster (kvisor)                              Mothership (dev-master)
 └──────────────────────────────────────┘
 ```
 
-**Database:** `metrics` (both in-cluster and mothership)
-
 **Migrations (in-cluster, goose):**
 
-| File | Content |
-|------|---------|
-| `001_bronze_tables.sql` | Raw OTLP tables (histogram + gauge) |
-| `002_silver_tables.sql` | 5 silver tables (AggregatingMergeTree) |
+| File                           | Content                                  |
+| ------------------------------ | ---------------------------------------- |
+| `001_bronze_tables.sql`        | Raw OTLP tables (histogram + gauge)      |
+| `002_silver_tables.sql`        | 5 silver tables (AggregatingMergeTree)   |
 | `003_bronze_to_silver_mvs.sql` | 5 bronze→silver MVs with `cityHash64` pk |
-| `004_export_progress.sql` | Cursor tracking for ch-exporter sidecar |
+| `004_export_progress.sql`      | Cursor tracking for ch-exporter sidecar  |
+
+> **Note on table names:** Migration SQL uses **unqualified table names** (no `metrics.` prefix).
+> The target database is specified via the `--clickhouse-database` flag on the migrate command,
+> which sets the ClickHouse connection's default database. This allows the same migration files
+> to work against both the production `metrics` database and alternative databases (e.g., `kvisor`
+> for local Tilt development).
 
 **Mothership migration (`000034_add_reliability_metrics`):**
 
-| Layer | Objects |
-|-------|---------|
-| Silver | 5 local + 5 distributed (ReplicatedReplacingMergeTree, 7d TTL) |
-| Gold | `reliability_gold_reporting_overview` (ReplicatedAggregatingMergeTree, 90d TTL) |
-| MVs | 4 silver→gold (HTTP/gRPC/DB/Messaging → overview) |
-| Views | `reliability_v_reporting_overview` (error rates, avg/max latency, RPS) |
+| Layer  | Objects                                                                         |
+| ------ | ------------------------------------------------------------------------------- |
+| Silver | 5 local + 5 distributed (ReplicatedReplacingMergeTree, 7d TTL)                  |
+| Gold   | `reliability_gold_reporting_overview` (ReplicatedAggregatingMergeTree, 90d TTL) |
+| MVs    | 4 silver→gold (HTTP/gRPC/DB/Messaging → overview)                               |
+| Views  | `reliability_v_reporting_overview` (error rates, avg/max latency, RPS)          |
 
 ## Prerequisites
 
@@ -53,12 +57,42 @@ In-Cluster (kvisor)                              Mothership (dev-master)
 - `helm`, `kubectl` configured with cluster context
 - Migration image available in a registry accessible by the cluster
 
-> **CRDs**: The Altinity ClickHouse operator CRDs (v0.26.0) are bundled in
-> `templates/clickhouse-operator-crd.yaml` and installed automatically by Helm when
-> `clickhouse.operator.enabled=true`. No manual `kubectl apply` needed.
-> Note: Helm does not auto-upgrade CRDs on `helm upgrade`. If upgrading the operator
-> version, apply the new CRDs manually first:
-> `kubectl apply -f https://raw.githubusercontent.com/Altinity/clickhouse-operator/<version>/deploy/operator/parts/crd.yaml`
+> **CRDs**: The Altinity ClickHouse operator (v0.26.0) is installed as a Helm subchart
+> dependency when `reliabilityMetrics.operator.enabled=true`. CRDs are managed by the
+> official `altinity-clickhouse-operator` chart. Run `helm dependency update` before
+> deploying to fetch the subchart.
+
+## Chart Dependency
+
+The `reliability-metrics-ch-exporter` chart is published to the CAST AI GitHub Helm repo
+and referenced as a subchart dependency in `Chart.yaml`:
+
+```yaml
+dependencies:
+  - name: reliability-metrics-ch-exporter
+    version: "0.3.0"
+    repository: "https://castai.github.io/helm-charts"
+    condition: reliabilityMetrics.enabled
+    alias: reliabilityMetrics
+```
+
+After modifying the dependency version, run:
+
+```bash
+helm dependency update ./charts/kvisor
+```
+
+This downloads the `.tgz` into `charts/kvisor/charts/` and updates `Chart.lock`.
+
+### Publishing a new chart version
+
+The chart source lives in `kubecast/services/reliability-metrics-ch-exporter/chart/`.
+To publish a new version:
+
+1. Bump `version` in `Chart.yaml`
+2. Push a tag matching `reliability-metrics-ch-exporter/v*` (e.g., `reliability-metrics-ch-exporter/v0.4.0`)
+3. CI runs `remote-release` which uses [chart-releaser](https://github.com/helm/chart-releaser) to publish to `castai/helm-charts` GitHub Pages
+4. Update the `version` in kvisor's `Chart.yaml` dependency and run `helm dependency update`
 
 ## Step 1: obi-values.yaml
 
@@ -93,6 +127,8 @@ export CH_POD="chi-castai-kvisor-clickhouse-otel-0-0-0"
 **Deploy:**
 
 ```bash
+helm dependency update ./charts/kvisor
+
 helm upgrade $RELEASE ./charts/kvisor -n $NAMESPACE \
   --kube-context $CONTEXT \
   --timeout 10m \
@@ -122,13 +158,13 @@ kubectl wait pod -l clickhouse.altinity.com/chi=castai-kvisor-clickhouse \
 
 ### Startup Timeline
 
-| Time | What happens |
-|------|-------------|
-| t=0s | Helm applies all manifests: operator, CHI CR, secrets, agent/controller pods, configmaps |
-| t=5s | OTel collectors start, pass health probes, begin buffering data in sending_queue |
-| t=30-120s | ClickHouse operator reconciles, StatefulSet + PVC created, CH pod starts |
-| t=60-180s | ClickHouse ready, collectors drain queue, data flows |
-| t=post-install hook | Migration Job runs, creates schema (retries up to 30 attempts × 2s) |
+| Time                | What happens                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| t=0s                | Helm applies all manifests: operator, CHI CR, secrets, agent/controller pods, configmaps |
+| t=5s                | OTel collectors start, pass health probes, begin buffering data in sending_queue         |
+| t=30-120s           | ClickHouse operator reconciles, StatefulSet + PVC created, CH pod starts                 |
+| t=60-180s           | ClickHouse ready, collectors drain queue, data flows                                     |
+| t=post-install hook | Migration Job runs, creates schema (retries up to 30 attempts × 2s)                      |
 
 ## Step 3: Validate Deployment
 
@@ -141,6 +177,7 @@ kubectl get pods -n $NAMESPACE --context $CONTEXT
 ```
 
 Expected:
+
 - `castai-kvisor-agent-*` -- `3/3 Running` (kvisor-agent + obi + otel-collector)
 - `castai-kvisor-controller-*` -- `2/2 Running` (controller + otel-collector)
 - `chi-castai-kvisor-clickhouse-otel-0-0-0` -- `2/2 Running` (clickhouse + ch-exporter)
@@ -160,11 +197,13 @@ kubectl logs $POD -n $NAMESPACE --context $CONTEXT -c obi | grep 'instrumenting'
 ```
 
 Expected output (one line per instrumented process on that node):
+
 ```
 time=... level=INFO msg="instrumenting process" component=discover.traceAttacher cmd=... pid=... type=go
 ```
 
 **Benign warnings to ignore:**
+
 - `falling back to IMDSv1` -- Expected on non-AWS clusters
 - `error reading itab section in Go program` -- Some Go binaries lack symbol tables; auto-instrumentation still works
 - `creating OTEL namespace in bpffs failed` -- bpffs not mounted; log enricher disabled but eBPF instrumentation works
@@ -179,11 +218,13 @@ kubectl logs $POD -n $NAMESPACE --context $CONTEXT -c otel-collector --tail=5
 ```
 
 Should end with:
+
 ```
 ... info service@.../service.go:264 Everything is ready. Begin running and processing data.
 ```
 
 Check for errors:
+
 ```bash
 kubectl logs $POD -n $NAMESPACE --context $CONTEXT -c otel-collector | \
   grep -iE 'error|drop|refused|timeout|retry' | grep -v 'filter configured'
@@ -207,6 +248,7 @@ kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse --tail=5
 ```
 
 Should show:
+
 ```
 ... Listening for http://0.0.0.0:8123
 ... Listening for native protocol (tcp): 0.0.0.0:9000
@@ -216,11 +258,12 @@ Should show:
 ### 3.5 Migration Logs
 
 ```bash
-kubectl logs -l app.kubernetes.io/component=clickhouse-migrate \
+kubectl logs -l app.kubernetes.io/component=migrate \
   -n $NAMESPACE --context $CONTEXT
 ```
 
 Expected:
+
 ```
 ... INFO ensuring database exists database=metrics
 ... INFO connected to ClickHouse addr=castai-kvisor-clickhouse...:9000 database=metrics
@@ -260,17 +303,17 @@ kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
 
 Expected tables:
 
-| Table | Engine | Description |
-|-------|--------|-------------|
-| `otel_metrics_histogram` | MergeTree | Bronze: OBI latency/duration histograms (4h TTL) |
-| `otel_metrics_gauge` | MergeTree | Bronze: k8s reliability gauges (4h TTL) |
-| `reliability_metrics_http` | AggregatingMergeTree | Silver: HTTP request aggregates (7d TTL) |
-| `reliability_metrics_grpc` | AggregatingMergeTree | Silver: gRPC request aggregates (7d TTL) |
-| `reliability_metrics_db` | AggregatingMergeTree | Silver: DB client aggregates (7d TTL) |
-| `reliability_metrics_messaging` | AggregatingMergeTree | Silver: messaging aggregates (7d TTL) |
-| `reliability_metrics_gauge` | AggregatingMergeTree | Silver: k8s gauge aggregates (7d TTL) |
-| `reliability_mv_bronze_to_silver_*` | MaterializedView | 5 bronze→silver MVs |
-| `export_progress` | ReplacingMergeTree | Exporter cursor tracking |
+| Table                               | Engine               | Description                                      |
+| ----------------------------------- | -------------------- | ------------------------------------------------ |
+| `otel_metrics_histogram`            | MergeTree            | Bronze: OBI latency/duration histograms (4h TTL) |
+| `otel_metrics_gauge`                | MergeTree            | Bronze: k8s reliability gauges (4h TTL)          |
+| `reliability_metrics_http`          | AggregatingMergeTree | Silver: HTTP request aggregates (7d TTL)         |
+| `reliability_metrics_grpc`          | AggregatingMergeTree | Silver: gRPC request aggregates (7d TTL)         |
+| `reliability_metrics_db`            | AggregatingMergeTree | Silver: DB client aggregates (7d TTL)            |
+| `reliability_metrics_messaging`     | AggregatingMergeTree | Silver: messaging aggregates (7d TTL)            |
+| `reliability_metrics_gauge`         | AggregatingMergeTree | Silver: k8s gauge aggregates (7d TTL)            |
+| `reliability_mv_bronze_to_silver_*` | MaterializedView     | 5 bronze→silver MVs                              |
+| `export_progress`                   | ReplacingMergeTree   | Exporter cursor tracking                         |
 
 ### 4.2 Check Bronze Data (Raw OTLP)
 
@@ -336,8 +379,8 @@ kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
 kubectl exec $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse -- \
   clickhouse-client -d metrics -q "
     SELECT
-      minute, service_name, k8s_deployment, http_method, http_status_code,
-      total_count, total_sum, sample_count
+      minute, workload_name, workload_namespace, workload_kind,
+      http_method, http_status_code, total_count, total_sum, sample_count
     FROM reliability_metrics_http
     ORDER BY minute DESC
     LIMIT 10
@@ -435,52 +478,69 @@ kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
 
 Expected (17 objects):
 
-| Object | Engine |
-|--------|--------|
-| `reliability_gold_reporting_overview` | Distributed |
-| `reliability_gold_reporting_overview_local` | ReplicatedAggregatingMergeTree |
-| `reliability_metrics_http` / `_local` | Distributed / ReplicatedReplacingMergeTree |
-| `reliability_metrics_grpc` / `_local` | Distributed / ReplicatedReplacingMergeTree |
-| `reliability_metrics_db` / `_local` | Distributed / ReplicatedReplacingMergeTree |
-| `reliability_metrics_messaging` / `_local` | Distributed / ReplicatedReplacingMergeTree |
-| `reliability_metrics_gauge` / `_local` | Distributed / ReplicatedReplacingMergeTree |
-| `reliability_mv_silver_http_to_gold_overview` | MaterializedView |
-| `reliability_mv_silver_grpc_to_gold_overview` | MaterializedView |
-| `reliability_mv_silver_db_to_gold_overview` | MaterializedView |
-| `reliability_mv_silver_messaging_to_gold_overview` | MaterializedView |
-| `reliability_v_reporting_overview` | View |
+| Object                                             | Engine                                     |
+| -------------------------------------------------- | ------------------------------------------ |
+| `reliability_gold_reporting_overview`              | Distributed                                |
+| `reliability_gold_reporting_overview_local`        | ReplicatedAggregatingMergeTree             |
+| `reliability_metrics_http` / `_local`              | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_grpc` / `_local`              | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_db` / `_local`                | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_messaging` / `_local`         | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_metrics_gauge` / `_local`             | Distributed / ReplicatedReplacingMergeTree |
+| `reliability_mv_silver_http_to_gold_overview`      | MaterializedView                           |
+| `reliability_mv_silver_grpc_to_gold_overview`      | MaterializedView                           |
+| `reliability_mv_silver_db_to_gold_overview`        | MaterializedView                           |
+| `reliability_mv_silver_messaging_to_gold_overview` | MaterializedView                           |
+| `reliability_v_reporting_overview`                 | View                                       |
 
 ## Step 6: Schema Management
 
-### In-Cluster (kvisor)
+### In-Cluster (reliability-metrics subchart)
 
-Migrations live in `cmd/clickhouse-migrate/migrations/otel/` and are run by goose.
+Migrations live in `kubecast/services/reliability-metrics-ch-exporter/cmd/migrate/migrations/otel/`
+and are run by goose. The `migrate` command is a subcommand of the exporter binary, so there's
+only one image to build and deploy.
+
 To add a new migration:
 
 ```bash
 # Create new file following goose naming convention
-vim cmd/clickhouse-migrate/migrations/otel/005_new_feature.sql
+vim cmd/migrate/migrations/otel/005_new_feature.sql
 ```
 
 ```sql
 -- +goose Up
-CREATE TABLE IF NOT EXISTS metrics.new_table ( ... )
+CREATE TABLE IF NOT EXISTS new_table ( ... )
 ENGINE = AggregatingMergeTree ...;
 
 -- +goose Down
-DROP TABLE IF EXISTS metrics.new_table;
+DROP TABLE IF EXISTS new_table;
 ```
 
-Build and push:
+> **Important:** Use unqualified table names (no `metrics.` prefix). The target database
+> is set by the `--clickhouse-database` flag when running the migrate command.
+
+Build and push (CI does this automatically):
+
 ```bash
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/clickhouse-migrate-amd64 ./cmd/clickhouse-migrate
-docker build --platform linux/amd64 -t eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate:<tag> \
-  --build-arg TARGETARCH=amd64 . -f Dockerfile.clickhouse-migrate
-docker push eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate:<tag>
+go build -o bin/reliability-metrics-ch-exporter .
+docker build -t <registry>/reliability-metrics-ch-exporter:<tag> .
+docker push <registry>/reliability-metrics-ch-exporter:<tag>
 ```
 
-Update `obi-values.yaml` with the new tag and redeploy. The migration Job detects
+Update `obi-values.yaml` with the new exporter image tag and redeploy. The migration Job
+uses the same image as the exporter with the `migrate` subcommand. The Job detects
 already-applied migrations and only runs new ones.
+
+### Publishing a new chart version
+
+The chart is published to `castai/helm-charts` GitHub repo via the `remote-release` CI job:
+
+1. Update `version` in `services/reliability-metrics-ch-exporter/chart/Chart.yaml`
+2. Push a tag `reliability-metrics-ch-exporter/v<version>` in kubecast
+3. CI uses [chart-releaser](https://github.com/helm/chart-releaser) (configured in `cr.yaml`) to publish
+4. Update the dependency version in `kvisor/charts/kvisor/Chart.yaml`
+5. Run `helm dependency update ./charts/kvisor` to fetch the new chart
 
 ### Mothership (metrics-ingestor)
 
@@ -497,20 +557,31 @@ kubectl --context=$MS_CONTEXT -n $MS_NAMESPACE \
 
 ### Key Schema Differences: In-Cluster vs Mothership
 
-| Aspect | In-Cluster | Mothership |
-|--------|-----------|------------|
-| Engine (silver) | `AggregatingMergeTree` | `ReplicatedReplacingMergeTree()` |
-| `bucket_counts` | `AggregateFunction(sumForEach, Array(UInt64))` | `Array(UInt64)` |
-| `explicit_bounds` | `SimpleAggregateFunction(anyLast, Array(Float64))` | `Array(Float64)` |
-| Replication | Single node, no replication | `ON CLUSTER '{cluster}'` |
-| Storage policy | Default | `move_to_gcs` |
-| Gold layer | None (silver only) | `reliability_gold_reporting_overview` (90d TTL) |
-| Export cursor | `export_progress` table | N/A (ingestor handles) |
+| Aspect            | In-Cluster                                         | Mothership                                      |
+| ----------------- | -------------------------------------------------- | ----------------------------------------------- |
+| Engine (silver)   | `AggregatingMergeTree`                             | `ReplicatedReplacingMergeTree()`                |
+| `bucket_counts`   | `AggregateFunction(sumForEach, Array(UInt64))`     | `Array(UInt64)`                                 |
+| `explicit_bounds` | `SimpleAggregateFunction(anyLast, Array(Float64))` | `Array(Float64)`                                |
+| Replication       | Single node, no replication                        | `ON CLUSTER '{cluster}'`                        |
+| Storage policy    | Default                                            | `move_to_gcs`                                   |
+| Gold layer        | None (silver only)                                 | `reliability_gold_reporting_overview` (90d TTL) |
+| Export cursor     | `export_progress` table                            | N/A (ingestor handles)                          |
+| Table name prefix | None (unqualified, DB set by connection)           | `metrics.` (fully qualified)                    |
 
 The `bucket_counts` difference is intentional: in-cluster uses `AggregateFunction` for
 correct background merges in `AggregatingMergeTree`. The ch-exporter finalizes it with
 `sumForEachMerge(bucket_counts)` in the SELECT (baked into `export_progress.columns`),
 so mothership receives plain `Array(UInt64)`.
+
+## Local Development (Tilt)
+
+The Tilt setup for running the full reliability metrics stack locally lives in the
+**kubecast** repo. See `services/reliability-metrics-ch-exporter/chart/README.md` for details.
+
+```bash
+# In kubecast repo
+make tilt-orb-up-metrics-ingestor
+```
 
 ## Known Limitations
 
@@ -538,11 +609,13 @@ helm rollback $RELEASE <revision-number> -n $NAMESPACE --kube-context $CONTEXT
 ### ClickHouse CrashLoopBackOff
 
 Check logs:
+
 ```bash
 kubectl logs $CH_POD -n $NAMESPACE --context $CONTEXT -c clickhouse --previous
 ```
 
 Common causes:
+
 - **`Profile clickhouse_operator was not found`** -- The `clickhouse_operator/readonly: 0` profile is missing from the CHI spec
 - **`SSL Exception: no certificate file`** -- The `files.disable_ssl.xml` override is missing from the CHI spec
 - **`Listen [::]:9000 failed: Address family not supported`** -- IPv6 not available; ensure `listen_host: "0.0.0.0"` (not `"::"`)
@@ -564,9 +637,11 @@ in a `sending_queue`. Normally no action is needed — once ClickHouse is ready,
 drains automatically.
 
 If the collector has been running for 10+ minutes and still shows `connection refused`:
+
 1. Verify ClickHouse pod is Running: `kubectl get pod $CH_POD -n $NAMESPACE --context $CONTEXT`
 2. Verify the ClickHouse service exists: `kubectl get svc -n $NAMESPACE --context $CONTEXT | grep click`
 3. If ClickHouse is healthy but collectors still fail, restart:
+
 ```bash
 kubectl rollout restart daemonset/castai-kvisor-agent -n $NAMESPACE --context $CONTEXT
 kubectl rollout restart deployment/castai-kvisor-controller -n $NAMESPACE --context $CONTEXT
@@ -575,6 +650,7 @@ kubectl rollout restart deployment/castai-kvisor-controller -n $NAMESPACE --cont
 ### Migration Job `no such host`
 
 The ClickHouse service DNS name doesn't match. Verify the service exists:
+
 ```bash
 kubectl get svc -n $NAMESPACE --context $CONTEXT | grep click
 ```

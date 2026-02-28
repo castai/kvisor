@@ -1,4 +1,17 @@
-clickhouse:
+# ─────────────────────────────────────────────────────────────────────────────
+# Reliability Metrics (subchart: reliability-metrics)
+# ─────────────────────────────────────────────────────────────────────────────
+# Components: in-cluster-clickhouse, schema-migration, exporter
+reliabilityMetrics:
+  enabled: true
+  # CAST AI credentials for the exporter
+  castai:
+    apiKeySecretRef: "castai-kvisor" # Read API key from castai-kvisor Secret
+    clusterIdConfigMapRef:
+      name: "castai-agent-metadata" # Read cluster ID from castai-agent-metadata ConfigMap
+      key: "CLUSTER_ID"
+    grpcAddr: "telemetry.dev-master.cast.ai:443"
+  # In-cluster ClickHouse (Altinity operator)
   operator:
     enabled: true
   install:
@@ -15,23 +28,21 @@ clickhouse:
     database: "metrics"
     username: "kvisor"
     password: "kvisor"
+  # Exporter (exports metrics from ClickHouse to CAST AI)
+  # Also used for schema migrations (migrate is a subcommand)
   exporter:
     enabled: true
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.1.9"
+      tag: "v0.3.0"
     grpcAddr: "telemetry.dev-master.cast.ai:443"
-  migrate:
-    image:
-      repository: eu.gcr.io/engineering-test-353509/kvisor-clickhouse-migrate
-      tag: "v12-workload-amd64"
 
 agent:
   reliabilityMetrics:
     enabled: true
     image:
       repository: otel/ebpf-instrument
-      tag: "main"
+      tag: "v0.5.0"
     resources:
       requests:
         cpu: 100m
@@ -40,6 +51,9 @@ agent:
         memory: 1Gi
     openPorts: "80,443,8080,8443,8090,6379"
     env:
+      # Disable tracing - we only need metrics
+      OTEL_TRACES_SAMPLER: "always_off"
+      OTEL_EBPF_TRACE_PRINTER: "disabled"
       # Increase internal Go channel buffer from default 10 to 500.
       # Fixes "subscriber channel is taking too long to respond" warnings
       # that cause span drops and metric under-counting on busy nodes.

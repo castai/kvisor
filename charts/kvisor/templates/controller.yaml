@@ -189,12 +189,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: {{ include "kvisor.fullname" . }}-otel-clickhouse-credentials
+                  name: {{ include "kvisor.clickhouse.credentialsSecretName" . }}
             - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: {{ include "kvisor.fullname" . }}-otel-clickhouse-credentials
+                  name: {{ include "kvisor.clickhouse.credentialsSecretName" . }}
             {{- end }}
           ports:
             - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
