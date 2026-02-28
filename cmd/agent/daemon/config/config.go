@@ -51,6 +51,7 @@ type Config struct {
 	EventLabels                    []string                        `json:"eventLabels"`
 	EventAnnotations               []string                        `json:"eventAnnotations"`
 	ContainersRefreshInterval      time.Duration                   `json:"containersRefreshInterval"`
+	HTTPMetrics                    HTTPMetricsConfig               `json:"httpMetrics"`
 }
 
 type DataBatchConfig struct {
@@ -79,13 +80,13 @@ type EnricherConfig struct {
 }
 
 type NetflowConfig struct {
-	Enabled                     bool                       `json:"enabled"`
-	ExportInterval              time.Duration              `json:"exportInterval"`
-	Grouping                    ebpftracer.NetflowGrouping `json:"grouping"`
-	MaxPublicIPs                int16                      `json:"maxPublicIPs"`
-	CheckClusterNetworkRanges   bool                       `json:"checkClusterNetworkRanges"`
-	ClusterInfoRefreshInterval  time.Duration              `json:"clusterInfoRefreshInterval"`
-	CgroupDNSCacheMaxEntries    uint32                     `json:"cgroupDNSCacheMaxEntries"`
+	Enabled                    bool                       `json:"enabled"`
+	ExportInterval             time.Duration              `json:"exportInterval"`
+	Grouping                   ebpftracer.NetflowGrouping `json:"grouping"`
+	MaxPublicIPs               int16                      `json:"maxPublicIPs"`
+	CheckClusterNetworkRanges  bool                       `json:"checkClusterNetworkRanges"`
+	ClusterInfoRefreshInterval time.Duration              `json:"clusterInfoRefreshInterval"`
+	CgroupDNSCacheMaxEntries   uint32                     `json:"cgroupDNSCacheMaxEntries"`
 }
 
 type FileAccessConfig struct {
@@ -101,4 +102,12 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool `json:"enabled"`
+}
+
+type HTTPMetricsConfig struct {
+	Enabled                  bool          `json:"enabled"`
+	FlushInterval            time.Duration `json:"flushInterval"`
+	PendingRequestsCacheSize uint32        `json:"pendingRequestsCacheSize"`
+	PendingRequestTTL        time.Duration `json:"pendingRequestTTL"`
+	MaxPathTemplates         int           `json:"maxPathTemplates"`
 }

@@ -17848,6 +17848,37 @@ func ParseNetPacketSSHBaseArgs(decoder *Decoder) (types.NetPacketSSHBaseArgs, er
 	return result, nil
 }
 
+func ParseNetPacketHTTPBaseArgs(decoder *Decoder) (types.NetPacketHTTPBaseArgs, error) {
+	var result types.NetPacketHTTPBaseArgs
+	var err error
+
+	var numArgs uint8
+	err = decoder.DecodeUint8(&numArgs)
+	if err != nil {
+		return types.NetPacketHTTPBaseArgs{}, err
+	}
+	if numArgs > 1 {
+		return types.NetPacketHTTPBaseArgs{}, ErrTooManyArguments
+	}
+
+	for arg := 0; arg < int(numArgs); arg++ {
+		var currArg uint8
+		err = decoder.DecodeUint8(&currArg)
+		if err != nil {
+			return types.NetPacketHTTPBaseArgs{}, err
+		}
+
+		switch currArg {
+		case 0:
+			result.Payload, err = decoder.ReadMaxByteSliceFromBuff(eventMaxByteSliceBufferSize(events.NetPacketHTTPBase))
+			if err != nil {
+				return types.NetPacketHTTPBaseArgs{}, err
+			}
+		}
+	}
+	return result, nil
+}
+
 func ParseSockSetStateArgs(decoder *Decoder) (types.SockSetStateArgs, error) {
 	var result types.SockSetStateArgs
 	var err error
@@ -18960,6 +18991,8 @@ func ParseArgs(decoder *Decoder, event events.ID) (types.Args, error) {
 		return ParseNetPacketSOCKS5BaseArgs(decoder)
 	case events.NetPacketSSHBase:
 		return ParseNetPacketSSHBaseArgs(decoder)
+	case events.NetPacketHTTPBase:
+		return ParseNetPacketHTTPBaseArgs(decoder)
 	case events.SockSetState:
 		return ParseSockSetStateArgs(decoder)
 	case events.TrackSyscallStats:

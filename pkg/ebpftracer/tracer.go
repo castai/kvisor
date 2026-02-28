@@ -13,6 +13,7 @@ import (
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer/events"
+	"github.com/castai/kvisor/pkg/ebpftracer/httpmetrics"
 	"github.com/castai/kvisor/pkg/ebpftracer/signature"
 	"github.com/castai/kvisor/pkg/ebpftracer/types"
 	"github.com/castai/kvisor/pkg/proc"
@@ -86,6 +87,7 @@ type Config struct {
 	ProcessTreeCollector     processTreeCollector
 	MetricsReporting         MetricsReportingConfig
 	PodName                  string
+	HTTPMetricsCollector     *httpmetrics.Collector
 }
 
 type cgroupCleanupRequest struct {

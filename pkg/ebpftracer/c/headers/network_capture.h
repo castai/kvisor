@@ -78,6 +78,7 @@ typedef enum net_packet {
     SUB_NET_PACKET_DNS = 1 << 6,
     SUB_NET_PACKET_SOCKS5 = 1 << 8,
     SUB_NET_PACKET_SSH = 1 << 9,
+    SUB_NET_PACKET_HTTP = 1 << 10,
 } net_packet_t;
 
 typedef struct net_event_contextmd {
@@ -115,6 +116,7 @@ typedef struct net_task_context {
 // layer 7 parsing related constants
 #define socks5_min_len 4
 #define ssh_min_len    4 // the initial SSH messages always send `SSH-`
+#define http_min_len   16 // enough for "GET / HTTP/1.1\r\n" or "HTTP/1.1 200 OK"
 
 #define MAX_NETFLOWS 65535
 

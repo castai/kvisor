@@ -3537,6 +3537,12 @@ type NetPacketSSHBaseArgs struct {
 	Payload *ProtoSSH
 }
 
+type NetPacketHTTPBaseArgs struct {
+	internalArgs
+
+	Payload []byte
+}
+
 type SockSetStateArgs struct {
 	internalArgs
 

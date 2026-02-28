@@ -753,7 +753,7 @@ func TestDecodeContext(t *testing.T) {
 		Comm:            [16]byte{0x74, 0x61, 0x72},
 		LeaderStartTime: 4693381625195,
 		ParentStartTime: 4361168401687,
-		EventID:         717,
+		EventID:         718,
 		Syscall:         64,
 		Retval:          9728,
 		ProcessorId:     1,
