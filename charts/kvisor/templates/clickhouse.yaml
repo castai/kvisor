@@ -1,0 +1,141 @@
+{{- if .Values.clickhouse.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kvisor.clickhouse.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.clickhouse.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: clickhouse
+  selector:
+    matchLabels:
+      {{- include "kvisor.clickhouse.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/clickhouse-config.yaml") . | sha256sum }}
+      labels:
+        {{- include "kvisor.clickhouse.selectorLabels" . | nindent 8 }}
+        {{- include "kvisor.commonLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {}
+      containers:
+        - name: schema
+          image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          command:
+            - "/usr/local/bin/kvisor-agent"
+          args:
+            - "clickhouse-init"
+            - "--clickhouse-addr=127.0.0.1:9000"
+            - "--clickhouse-database={{.Values.clickhouse.auth.database}}"
+            - "--clickhouse-username={{.Values.clickhouse.auth.username}}"
+          envFrom:
+            - secretRef:
+                name: {{ include "kvisor.clickhouse.fullname" . }}
+        - name: storage
+          securityContext: {}
+          image: "{{ .Values.clickhouse.image.repository }}:{{ .Values.clickhouse.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.clickhouse.image.pullPolicy }}
+          env:
+            - name: CLICKHOUSE_USER
+              value: {{.Values.clickhouse.auth.username}}
+            - name: CLICKHOUSE_DB
+              value: {{.Values.clickhouse.auth.database}}
+            - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: {{ include "kvisor.clickhouse.fullname" . }}
+          volumeMounts:
+            - mountPath: /var/lib/clickhouse
+              name: storage
+            - name: config
+              mountPath: /etc/clickhouse-server/config.d
+          ports:
+            - containerPort: 9000
+              name: native
+              protocol: TCP
+            - containerPort: 8123
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              port: 8123
+              path: /ping
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              port: 8123
+              path: /ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      dnsPolicy: {{.Values.clickhouse.dnsPolicy}}
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "kvisor.clickhouse.fullname" . }}
+        - name: config
+          configMap:
+            name: {{ include "kvisor.clickhouse.fullname" . }}
+      {{- with .Values.clickhouse.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clickhouse.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clickhouse.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kvisor.clickhouse.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - port: 9000
+      name: native
+      targetPort: native
+      protocol: TCP
+    - port: 8123
+      name: http
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "kvisor.clickhouse.selectorLabels" . | nindent 6 }}
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kvisor.clickhouse.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.clickhouse.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.clickhouse.persistentVolume.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.clickhouse.persistentVolume.size }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "kvisor.clickhouse.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+data:
+  CLICKHOUSE_PASSWORD: {{ .Values.clickhouse.auth.password | b64enc | quote }}
+{{- end }}
