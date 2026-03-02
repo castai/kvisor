@@ -9,12 +9,3 @@ node_modules
 .vscode
 __snapshot__
 local
-*.swp
-*.swo
-
-# Compiled binaries in repo root (use bin/ directory instead)
-/controller
-/daemon
-
-# Credential files
-castai-gke-*.json
