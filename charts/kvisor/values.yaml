@@ -395,13 +395,37 @@ mockServer:
   enabled: false
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ClickHouse (subchart: reliability-metrics-ch-exporter)
+# ClickHouse (for netflow export - legacy single-node deployment)
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPRECATED: This is the legacy ClickHouse deployment for netflow export only.
+# For reliability metrics, use the reliabilityMetrics section below which deploys
+# a managed ClickHouse instance via the reliability-metrics-ch-exporter subchart.
+clickhouse:
+  enabled: false
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: "23.8.2.7-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    database: "default"
+    username: "default"
+    password: "clickhouse"
+  persistentVolume:
+    size: 10Gi
+    storageClass: ""
+  dnsPolicy: ClusterFirst
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reliability Metrics (subchart: reliability-metrics-ch-exporter)
 # ─────────────────────────────────────────────────────────────────────────────
 # All ClickHouse infrastructure (deployment, schema migrations, exporter) is
-# managed by the reliability-metrics-ch-exporter subchart (alias: clickhouse).
+# managed by the reliability-metrics-ch-exporter subchart (alias: reliabilityMetrics).
 # Values under this key are passed through to the subchart.
 # See the subchart's values.yaml for all available options.
-clickhouse:
+reliabilityMetrics:
   enabled: false
   castai:
     apiKeySecretRef: "castai-kvisor" # Read API key from castai-kvisor Secret
