@@ -28,3 +28,10 @@ agent:
 castai:
   apiKey: test-api-key
   clusterID: test-cluster-id
+
+reliabilityMetrics:
+  enabled: false
+  install:
+    enabled: false
+  auth:
+    database: "metrics"

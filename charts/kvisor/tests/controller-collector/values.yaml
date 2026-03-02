@@ -65,3 +65,10 @@ image:
   repository: ghcr.io/castai/kvisor/kvisor
   pullPolicy: IfNotPresent
   tag: "latest"
+
+reliabilityMetrics:
+  enabled: false
+  install:
+    enabled: false
+  auth:
+    database: "metrics"
