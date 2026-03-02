@@ -1,4 +1,4 @@
-{{- if and .Values.agent.enabled (dig "openshift" "scc" "create" false .Values.agent) }}
+{{- if and .Values.agent.enabled .Values.agent.openshift.scc.create }}
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
