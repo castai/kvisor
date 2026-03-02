@@ -15,7 +15,6 @@ local
 # Compiled binaries in repo root (use bin/ directory instead)
 /controller
 /daemon
-/clickhouse-migrate
 
 # Credential files
 castai-gke-*.json
