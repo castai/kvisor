@@ -219,6 +219,8 @@ spec:
               {{- else }}
               value: {{ include "kvisor.clickhouse.address" . | quote }}
               {{- end }}
+            - name: CLICKHOUSE_DATABASE
+              value: {{ include "kvisor.clickhouse.database" . | quote }}
             - name: CLICKHOUSE_USERNAME
               valueFrom:
                 secretKeyRef:

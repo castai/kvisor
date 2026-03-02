@@ -230,6 +230,18 @@ Resolves based on: external > install (operator CR) > devStatefulSet.
 {{- end -}}
 {{- end -}}
 
+{{/*
+ClickHouse database name.
+Checks external.database first, then auth.database, defaults to "metrics".
+*/}}
+{{- define "kvisor.clickhouse.database" -}}
+{{- if (dig "external" "database" "" .Values.reliabilityMetrics) -}}
+{{ .Values.reliabilityMetrics.external.database }}
+{{- else -}}
+{{ dig "auth" "database" "metrics" .Values.reliabilityMetrics }}
+{{- end -}}
+{{- end -}}
+
 
 {{/*
 Agent container security context with conditional capabilities.

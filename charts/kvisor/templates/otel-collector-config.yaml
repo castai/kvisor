@@ -192,10 +192,10 @@ data:
 
 {{- if dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent }}
       clickhouse:
-        endpoint: tcp://${env:OTEL_CLICKHOUSE_CONFIG_ADDRESS}?dial_timeout=10s&compress=lz4
-        database: metrics
-        username: ${env:OTEL_CLICKHOUSE_CONFIG_USERNAME}
-        password: ${env:OTEL_CLICKHOUSE_CONFIG_PASSWORD}
+        endpoint: tcp://${env:CLICKHOUSE_ADDR}?dial_timeout=10s&compress=lz4
+        database: ${env:CLICKHOUSE_DATABASE}
+        username: ${env:CLICKHOUSE_USERNAME}
+        password: ${env:CLICKHOUSE_PASSWORD}
         # Schema managed by us (goose migrations) — disable auto-creation
         # to prevent the exporter from creating tables with its own schema.
         # Also prevents the startup crash when ClickHouse DNS is not yet
@@ -364,10 +364,10 @@ data:
 
 {{- if dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller }}
       clickhouse:
-        endpoint: tcp://${env:OTEL_CLICKHOUSE_CONFIG_ADDRESS}?dial_timeout=10s&compress=lz4
-        database: metrics
-        username: ${env:OTEL_CLICKHOUSE_CONFIG_USERNAME}
-        password: ${env:OTEL_CLICKHOUSE_CONFIG_PASSWORD}
+        endpoint: tcp://${env:CLICKHOUSE_ADDR}?dial_timeout=10s&compress=lz4
+        database: ${env:CLICKHOUSE_DATABASE}
+        username: ${env:CLICKHOUSE_USERNAME}
+        password: ${env:CLICKHOUSE_PASSWORD}
         # Schema managed by us (goose migrations) — disable auto-creation.
         # Also prevents startup crash when CH DNS is not yet resolvable.
         create_schema: false
