@@ -350,7 +350,6 @@ tests:
     set:
       controller.reliabilityMetrics.enabled: true
       controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
-      controller.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse.svc:9000"
       agent.reliabilityMetrics.enabled: false
     asserts:
       - matchRegex:
@@ -360,13 +359,14 @@ tests:
         documentIndex: 0
       - matchRegex:
           path: data["config.yaml"]
-          pattern: "OTEL_CLICKHOUSE_CONFIG_ADDRESS"
+          pattern: "CLICKHOUSE_ADDR"
         template: otel-collector-config.yaml
         documentIndex: 0
 
   - it: should not include clickhouse exporter in controller ConfigMap when disabled
     set:
       controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: false
       agent.reliabilityMetrics.enabled: false
     asserts:
       - notMatchRegex:
@@ -379,23 +379,28 @@ tests:
     set:
       controller.reliabilityMetrics.enabled: true
       controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
-      controller.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse.svc:9000"
       agent.reliabilityMetrics.enabled: false
     asserts:
       - matchRegex:
           path: data["config.yaml"]
-          pattern: "exporters:.*prometheus.*clickhouse"
+          pattern: "metrics/clickhouse:"
+        template: otel-collector-config.yaml
+        documentIndex: 0
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters: \\[clickhouse\\]"
         template: otel-collector-config.yaml
         documentIndex: 0
 
   - it: should not include clickhouse in controller pipeline exporters when disabled
     set:
       controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: false
       agent.reliabilityMetrics.enabled: false
     asserts:
-      - matchRegex:
+      - notMatchRegex:
           path: data["config.yaml"]
-          pattern: "exporters: \\[prometheus\\]"
+          pattern: "metrics/clickhouse:"
         template: otel-collector-config.yaml
         documentIndex: 0
 
@@ -403,44 +408,38 @@ tests:
     set:
       controller.reliabilityMetrics.enabled: true
       controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
-      controller.reliabilityMetrics.collector.clickhouseExporter.address: "clickhouse.svc:9000"
     asserts:
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: OTEL_CLICKHOUSE_CONFIG_ADDRESS
-            value: clickhouse.svc:9000
+            name: CLICKHOUSE_ENABLED
+            value: "true"
         template: controller.yaml
         documentIndex: 0
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: OTEL_CLICKHOUSE_CONFIG_USERNAME
-            valueFrom:
-              secretKeyRef:
-                key: username
-                name: RELEASE-NAME-clickhouse-credentials
+            name: CLICKHOUSE_ADDR
+            value: tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000
         template: controller.yaml
         documentIndex: 0
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: OTEL_CLICKHOUSE_CONFIG_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                key: password
-                name: RELEASE-NAME-clickhouse-credentials
+            name: CLICKHOUSE_DATABASE
+            value: metrics
         template: controller.yaml
         documentIndex: 0
 
   - it: should not inject ClickHouse env vars when clickhouseExporter is disabled
     set:
       controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: false
     asserts:
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: OTEL_CLICKHOUSE_CONFIG_ADDRESS
+            name: CLICKHOUSE_ENABLED
           any: true
         template: controller.yaml
         documentIndex: 0
