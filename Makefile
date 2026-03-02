@@ -231,50 +231,6 @@ kvisor-scanners-docker-image: clean-kvisor-image-scanner kvisor-image-scanner cl
 kvisor-scanners-push-deploy: kvisor-scanners-docker-image
 	docker push $(IMAGE_REPO)-scanners:$(IMAGE_TAG)
 
-# ClickHouse migrate build.
-.PHONY: clean-clickhouse-migrate
-clean-clickhouse-migrate:
-	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/clickhouse-migrate-$(GO_ARCH)
-
-.PHONY: clickhouse-migrate
-clickhouse-migrate: $(OUTPUT_DIR_BIN)/clickhouse-migrate-$(GO_ARCH)
-
-$(OUTPUT_DIR_BIN)/clickhouse-migrate-$(GO_ARCH):
-	$(GO_ENV_SERVER) $(CMD_GO) build \
-		-ldflags="$(GO_DEBUG_FLAG) \
-			-X main.Version=\"$(VERSION)\" \
-			" \
-		-v -o $@ \
-		./cmd/clickhouse-migrate
-
-.PHONY: clickhouse-migrate-docker-image
-clickhouse-migrate-docker-image: clean-clickhouse-migrate clickhouse-migrate
-	docker build -t $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG) --build-arg TARGETARCH=$(GO_ARCH) . -f Dockerfile.clickhouse-migrate
-
-.PHONY: clickhouse-migrate-push-deploy
-clickhouse-migrate-push-deploy: clickhouse-migrate-docker-image
-	docker push $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG)
-
-# Multi-arch clickhouse-migrate: builds both amd64+arm64 binaries and pushes a manifest list.
-# Requires: docker buildx (with a multi-platform builder).
-# Usage: IMAGE_TAG=v8-histogram IMAGE_REPO=eu.gcr.io/engineering-test-353509/kvisor make clickhouse-migrate-multiarch
-.PHONY: clickhouse-migrate-multiarch
-clickhouse-migrate-multiarch:
-	$(CMD_RM) -rf $(OUTPUT_DIR_BIN)/clickhouse-migrate-amd64 $(OUTPUT_DIR_BIN)/clickhouse-migrate-arm64
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(CMD_GO) build \
-		-ldflags="$(GO_DEBUG_FLAG) -X main.Version=\"$(VERSION)\"" \
-		-v -o $(OUTPUT_DIR_BIN)/clickhouse-migrate-amd64 \
-		./cmd/clickhouse-migrate
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(CMD_GO) build \
-		-ldflags="$(GO_DEBUG_FLAG) -X main.Version=\"$(VERSION)\"" \
-		-v -o $(OUTPUT_DIR_BIN)/clickhouse-migrate-arm64 \
-		./cmd/clickhouse-migrate
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		-t $(IMAGE_REPO)-clickhouse-migrate:$(IMAGE_TAG) \
-		--push \
-		-f Dockerfile.clickhouse-migrate .
-
 # Event generator build.
 .PHONY: clean-kvisor-event-generator
 clean-kvisor-event-generator:
