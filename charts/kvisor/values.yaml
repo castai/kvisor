@@ -184,7 +184,7 @@ agent:
         memory: 512Mi
     # Ports to instrument — controls memory usage (~27 MiB per instrumented process).
     # Comma-separated list. 8080=HTTP APIs, 8090=gRPC APIs, 6379=Redis.
-    openPorts: "80,443,8080,8443,8090,3000,9090,6379"
+    openPorts: "80,443,8080,8443,8090,6379"
     # Extra environment variables for the OBI container.
     env:
       # Disable tracing - we only need metrics
@@ -402,21 +402,24 @@ mockServer:
 # a managed ClickHouse instance via the reliability-metrics-ch-exporter subchart.
 clickhouse:
   enabled: false
+
+  auth:
+    database: "kvisor"
+    username: "kvisor"
+    password: "kvisor"
+
   image:
     repository: clickhouse/clickhouse-server
-    tag: "23.8.2.7-alpine"
     pullPolicy: IfNotPresent
-  auth:
-    database: "default"
-    username: "default"
-    password: "clickhouse"
-  persistentVolume:
-    size: 10Gi
-    storageClass: ""
-  dnsPolicy: ClusterFirst
+    tag: "25.2.1.3085-alpine@sha256:49e2bbe28760d0af142096d837ca2337b0265c910a07504a3175fc9326965bd7"
+
   nodeSelector: {}
-  affinity: {}
   tolerations: []
+  affinity: {}
+  dnsPolicy: ClusterFirst
+  persistentVolume:
+    size: 20Gi
+    #storageClass: premium-rwo
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Reliability Metrics (subchart: reliability-metrics-ch-exporter)
