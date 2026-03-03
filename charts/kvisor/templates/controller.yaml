@@ -76,6 +76,13 @@ spec:
           {{- if eq .Values.agent.enabled true }}
             - "--agent-enabled=true"
           {{- end }}
+          {{- $extraArgs := .Values.controller.extraArgs | default dict }}
+          {{- if not (hasKey $extraArgs "cloud-provider") }}
+          {{- $cloudProvider := include "kvisor.cloudProvider" . }}
+          {{- if $cloudProvider }}
+            - "--cloud-provider={{ $cloudProvider }}"
+          {{- end }}
+          {{- end }}
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
           {{- end }}

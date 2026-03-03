@@ -1,0 +1,9 @@
+agent:
+  enabled: true
+
+controller:
+  enabled: true
+
+castai:
+  apiKey: test-api-key
+  clusterID: test-cluster-id
