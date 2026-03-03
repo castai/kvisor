@@ -435,6 +435,9 @@ reliabilityMetrics:
     clusterIdConfigMapRef:
       name: "castai-agent-metadata" # Read cluster ID from castai-agent-metadata ConfigMap
       key: "CLUSTER_ID"
+  # ClickHouse authentication credentials
+  # Can be plain values OR valueFrom references (secretKeyRef/configMapKeyRef)
+  # See subchart documentation for valueFrom examples
   auth:
     database: "metrics"
     username: "kvisor"

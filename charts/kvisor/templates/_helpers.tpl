@@ -243,6 +243,36 @@ Reliability metrics ClickHouse helpers (for subchart).
 {{- end -}}
 {{- end -}}
 
+{{/*
+Reliability metrics ClickHouse username - returns either direct value or valueFrom configMapKeyRef
+Supports both plain string and valueFrom object in auth.username
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.username" -}}
+{{- $username := dig "auth" "username" "kvisor" .Values.reliabilityMetrics -}}
+{{- if kindIs "string" $username -}}
+value: {{ $username | quote }}
+{{- else if and (kindIs "map" $username) $username.valueFrom -}}
+{{- toYaml $username | nindent 0 }}
+{{- else -}}
+value: "kvisor"
+{{- end -}}
+{{- end -}}
+
+{{/*
+Reliability metrics ClickHouse password - returns either direct value or valueFrom secretKeyRef
+Supports both plain string and valueFrom object in auth.password
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.password" -}}
+{{- $password := dig "auth" "password" "kvisor" .Values.reliabilityMetrics -}}
+{{- if kindIs "string" $password -}}
+value: {{ $password | quote }}
+{{- else if and (kindIs "map" $password) $password.valueFrom -}}
+{{- toYaml $password | nindent 0 }}
+{{- else -}}
+value: "kvisor"
+{{- end -}}
+{{- end -}}
+
 
 {{/*
 Agent container security context with conditional capabilities.

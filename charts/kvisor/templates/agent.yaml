@@ -231,15 +231,9 @@ spec:
             - name: CLICKHOUSE_DATABASE
               value: {{ include "kvisor.reliabilityMetrics.clickhouse.database" . | quote }}
             - name: CLICKHOUSE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  key: username
-                  name: {{ include "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" . }}
+              {{- include "kvisor.reliabilityMetrics.clickhouse.username" . | nindent 14 }}
             - name: CLICKHOUSE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: password
-                  name: {{ include "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" . }}
+              {{- include "kvisor.reliabilityMetrics.clickhouse.password" . | nindent 14 }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
