@@ -197,44 +197,45 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 
 {{/*
-ClickHouse helpers.
-When the subchart is loaded (clickhouse.enabled=true), these produce
-the same names the subchart uses for its resources.
-*/}}
-
-{{/*
-ClickHouse fullname — matches the subchart's clickhouse.fullname output.
-With alias "clickhouse" and no nameOverride, this produces <release>-clickhouse.
+ClickHouse helpers for legacy netflow deployment.
 */}}
 {{- define "kvisor.clickhouse.fullname" -}}
+{{ include "kvisor.fullname" . }}-clickhouse
+{{- end }}
+
+{{- define "kvisor.clickhouse.service" -}}
+{{ include "kvisor.fullname" . }}-clickhouse
+{{- end }}
+
+{{- define "kvisor.clickhouse.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kvisor.name" . }}-clickhouse
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "kvisor.clickhouse.labels" -}}
+{{ include "kvisor.labels" . }}
+{{- end }}
+
+{{/*
+Reliability metrics ClickHouse helpers (for subchart).
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.fullname" -}}
 {{- printf "%s-clickhouse" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- end -}}
 
-{{/*
-ClickHouse credentials Secret name — produced by the subchart.
-Used by OTel collector containers to get CH connection details.
-*/}}
-{{- define "kvisor.clickhouse.credentialsSecretName" -}}
-{{ include "kvisor.clickhouse.fullname" . }}-credentials
+{{- define "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" -}}
+{{ include "kvisor.reliabilityMetrics.clickhouse.fullname" . }}-credentials
 {{- end -}}
 
-{{/*
-ClickHouse connection address.
-Resolves based on: external > install (operator CR) > devStatefulSet.
-*/}}
-{{- define "kvisor.clickhouse.address" -}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.address" -}}
 {{- if (dig "external" "enabled" false .Values.reliabilityMetrics) -}}
 {{ .Values.reliabilityMetrics.external.address }}
 {{- else if (dig "install" "enabled" false .Values.reliabilityMetrics) -}}
-{{ include "kvisor.clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:9000
+{{ include "kvisor.reliabilityMetrics.clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:9000
 {{- end -}}
 {{- end -}}
 
-{{/*
-ClickHouse database name.
-Checks external.database first, then auth.database, defaults to "metrics".
-*/}}
-{{- define "kvisor.clickhouse.database" -}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.database" -}}
 {{- if (dig "external" "database" "" .Values.reliabilityMetrics) -}}
 {{ .Values.reliabilityMetrics.external.database }}
 {{- else -}}

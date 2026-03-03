@@ -217,20 +217,20 @@ spec:
               {{- if .Values.agent.reliabilityMetrics.collector.clickhouseExporter.address }}
               value: {{ .Values.agent.reliabilityMetrics.collector.clickhouseExporter.address | quote }}
               {{- else }}
-              value: {{ include "kvisor.clickhouse.address" . | quote }}
+              value: {{ include "kvisor.reliabilityMetrics.clickhouse.address" . | quote }}
               {{- end }}
             - name: CLICKHOUSE_DATABASE
-              value: {{ include "kvisor.clickhouse.database" . | quote }}
+              value: {{ include "kvisor.reliabilityMetrics.clickhouse.database" . | quote }}
             - name: CLICKHOUSE_USERNAME
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: {{ include "kvisor.clickhouse.credentialsSecretName" . }}
+                  name: {{ include "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" . }}
             - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: {{ include "kvisor.clickhouse.credentialsSecretName" . }}
+                  name: {{ include "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" . }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
