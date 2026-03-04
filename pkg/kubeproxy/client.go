@@ -38,10 +38,10 @@ var allowedResponseHeaders = map[string]bool{
 }
 
 var blockedRequestHeaders = map[string]bool{
-	"authorization":       true,
-	"impersonate-user":    true,
-	"impersonate-group":   true,
-	"impersonate-uid":     true,
+	"authorization":     true,
+	"impersonate-user":  true,
+	"impersonate-group": true,
+	"impersonate-uid":   true,
 }
 
 func isBlockedRequestHeader(key string) bool {
@@ -296,7 +296,8 @@ func sanitizeRequestURL(raw string) string {
 }
 
 func isAllowedPath(p string) bool {
-	return strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/apis/")
+	return p == "/api" || p == "/apis" ||
+		strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/apis/")
 }
 
 func extractSubresource(path string) string {
