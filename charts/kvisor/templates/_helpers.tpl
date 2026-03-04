@@ -248,10 +248,12 @@ Reliability metrics ClickHouse helpers (for subchart).
 {{- end -}}
 
 {{- define "kvisor.reliabilityMetrics.clickhouse.database" -}}
-{{- if (dig "external" "database" "" .Values.reliabilityMetrics) -}}
-{{ .Values.reliabilityMetrics.external.database }}
+{{- if and .Values.reliabilityMetrics.external .Values.reliabilityMetrics.external.enabled .Values.reliabilityMetrics.external.database -}}
+{{- .Values.reliabilityMetrics.external.database -}}
+{{- else if .Values.reliabilityMetrics.auth -}}
+{{- .Values.reliabilityMetrics.auth.database -}}
 {{- else -}}
-{{ dig "auth" "database" "metrics" .Values.reliabilityMetrics }}
+metrics
 {{- end -}}
 {{- end -}}
 
