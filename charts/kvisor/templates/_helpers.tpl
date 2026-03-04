@@ -197,7 +197,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 
 {{/*
-Common helpers for clickhouse.
+ClickHouse helpers for legacy netflow deployment.
 */}}
 {{- define "kvisor.clickhouse.fullname" -}}
 {{ include "kvisor.fullname" . }}-clickhouse
@@ -215,6 +215,63 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "kvisor.clickhouse.labels" -}}
 {{ include "kvisor.labels" . }}
 {{- end }}
+
+{{/*
+Reliability metrics ClickHouse helpers (for subchart).
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.fullname" -}}
+{{- printf "%s-clickhouse" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end -}}
+
+{{- define "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" -}}
+{{ include "kvisor.reliabilityMetrics.clickhouse.fullname" . }}-credentials
+{{- end -}}
+
+{{- define "kvisor.reliabilityMetrics.clickhouse.address" -}}
+{{- if (dig "external" "enabled" false .Values.reliabilityMetrics) -}}
+{{ .Values.reliabilityMetrics.external.address }}
+{{- else if (dig "install" "enabled" false .Values.reliabilityMetrics) -}}
+{{ include "kvisor.reliabilityMetrics.clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:9000
+{{- end -}}
+{{- end -}}
+
+{{- define "kvisor.reliabilityMetrics.clickhouse.database" -}}
+{{- if (dig "external" "database" "" .Values.reliabilityMetrics) -}}
+{{ .Values.reliabilityMetrics.external.database }}
+{{- else -}}
+{{ dig "auth" "database" "metrics" .Values.reliabilityMetrics }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Reliability metrics ClickHouse username - returns either direct value or valueFrom configMapKeyRef
+Supports both plain string and valueFrom object in auth.username
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.username" -}}
+{{- $username := dig "auth" "username" "kvisor" .Values.reliabilityMetrics -}}
+{{- if kindIs "string" $username -}}
+value: {{ $username | quote }}
+{{- else if and (kindIs "map" $username) $username.valueFrom -}}
+{{- toYaml $username | nindent 0 }}
+{{- else -}}
+value: "kvisor"
+{{- end -}}
+{{- end -}}
+
+{{/*
+Reliability metrics ClickHouse password - returns either direct value or valueFrom secretKeyRef
+Supports both plain string and valueFrom object in auth.password
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.password" -}}
+{{- $password := dig "auth" "password" "kvisor" .Values.reliabilityMetrics -}}
+{{- if kindIs "string" $password -}}
+value: {{ $password | quote }}
+{{- else if and (kindIs "map" $password) $password.valueFrom -}}
+{{- toYaml $password | nindent 0 }}
+{{- else -}}
+value: "kvisor"
+{{- end -}}
+{{- end -}}
 
 
 {{/*
@@ -272,6 +329,34 @@ Only used as a fallback when controller.extraArgs.cloud-provider is not set.
 {{- define "kvisor.cloudProvider" -}}
 {{- $global := .Values.global | default dict -}}
 {{- dig "castai" "provider" "" $global -}}
+{{- end }}
+
+{{/*
+OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
+Uses fine-grained capabilities instead of privileged: true.
+Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.
+Can be overridden via .Values.agent.reliabilityMetrics.containerSecurityContext.
+*/}}
+{{- define "kvisor.obi.containerSecurityContext" -}}
+{{- $override := .Values.agent.reliabilityMetrics.containerSecurityContext -}}
+{{- if $override }}
+{{- toYaml $override }}
+{{- else }}
+runAsUser: 0
+readOnlyRootFilesystem: true
+allowPrivilegeEscalation: false
+capabilities:
+  drop:
+    - ALL
+  add:
+    - BPF
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_RAW
+    - CHECKPOINT_RESTORE
+    - DAC_READ_SEARCH
+    - PERFMON
+{{- end }}
 {{- end }}
 
 {{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}

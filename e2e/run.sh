@@ -13,6 +13,9 @@ fi
 
 name=kvisor
 
+# Build chart dependencies (subcharts like reliability-metrics-ch-exporter).
+helm dependency build ./charts/kvisor
+
 # Build e2e docker image.
 pushd ./e2e
 GOOS=linux GOARCH=$GOARCH CGO_ENABLED=0 go build -o ../bin/$name-e2e .
