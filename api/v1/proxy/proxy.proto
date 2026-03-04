@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package proxy.v1;
+
+option go_package = "github.com/castai/kvisor/api/v1/proxy";
+
+service KubernetesProxy {
+  rpc Subscribe(SubscribeRequest) returns (stream HttpRequest) {}
+  rpc SendResponse(stream HttpResponse) returns (SendResponseResult) {}
+}
+
+message SubscribeRequest {}
+
+message SendResponseResult {}
+
+message HttpRequest {
+  string request_id = 1;
+  string method = 2;
+  string path = 3;
+  repeated Header headers = 4;
+  bytes body = 5;
+}
+
+message HttpResponse {
+  string request_id = 1;
+  int32 status_code = 2;
+  repeated Header headers = 3;
+  bytes body = 4;
+  bool more = 5;
+  string error = 6;
+}
+
+message Header {
+  string key = 1;
+  repeated string values = 2;
+}

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"runtime/debug"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -23,7 +24,12 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
+	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	proxypb "github.com/castai/kvisor/api/v1/proxy"
 	"github.com/castai/kvisor/cmd/controller/config"
 	"github.com/castai/kvisor/cmd/controller/controllers"
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
@@ -33,6 +39,7 @@ import (
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cloudprovider"
+	"github.com/castai/kvisor/pkg/kubeproxy"
 	"github.com/castai/logging"
 	"github.com/castai/logging/components"
 )
@@ -230,6 +237,15 @@ func (a *App) Run(ctx context.Context) error {
 				return kubeBenchCtrl.Run(ctx)
 			})
 		}
+
+		if cfg.KubeProxy.Enabled {
+			proxyClient, err := setupKubeProxy(log, cfg, castaiClient, clientset)
+			if err != nil {
+				log.Errorf("failed to setup kube proxy: %v", err)
+			} else {
+				go runKubeProxy(ctx, log, proxyClient)
+			}
+		}
 	}
 
 	errg.Go(func() error {
@@ -371,4 +387,56 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 	}
 
 	return nil
+}
+
+func runKubeProxy(ctx context.Context, log *logging.Logger, client *kubeproxy.Client) {
+	defer func() {
+		if r := recover(); r != nil {
+			stack := string(debug.Stack())
+			log.Errorf("kube proxy panicked: %v, stack=%s", r, stack)
+		}
+	}()
+	if err := client.Run(ctx); err != nil && ctx.Err() == nil {
+		log.Errorf("kube proxy stopped: %v", err)
+	}
+}
+
+func setupKubeProxy(log *logging.Logger, cfg config.Config, castaiClient *castai.Client, clientset kubernetes.Interface) (*kubeproxy.Client, error) {
+	restCfg, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("getting in-cluster config: %w", err)
+	}
+
+	expSeconds := cfg.KubeProxy.TokenExpirationSeconds
+	tokenProvider := kubeproxy.NewTokenProvider(kubeproxy.TokenProviderConfig{
+		CreateToken: func(ctx context.Context) (string, time.Time, error) {
+			treq, err := clientset.CoreV1().ServiceAccounts(cfg.KubeProxy.RestrictedSANamespace).CreateToken(
+				ctx,
+				cfg.KubeProxy.RestrictedSAName,
+				&authv1.TokenRequest{
+					Spec: authv1.TokenRequestSpec{
+						ExpirationSeconds: &expSeconds,
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			if err != nil {
+				return "", time.Time{}, fmt.Errorf("creating token for restricted SA: %w", err)
+			}
+			return treq.Status.Token, treq.Status.ExpirationTimestamp.Time, nil
+		},
+	})
+
+	baseTransport, err := rest.TransportFor(restCfg)
+	if err != nil {
+		return nil, fmt.Errorf("building k8s transport: %w", err)
+	}
+
+	httpClient := &http.Client{
+		Transport: kubeproxy.NewTokenRoundTripper(tokenProvider, baseTransport),
+		Timeout:   30 * time.Second,
+	}
+
+	proxyGRPC := proxypb.NewKubernetesProxyClient(castaiClient.GRPCConn())
+	return kubeproxy.NewClient(log, proxyGRPC, httpClient, restCfg.Host), nil
 }

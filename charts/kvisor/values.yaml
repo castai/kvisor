@@ -282,6 +282,11 @@ controller:
   # Additional environment variables for the controller container via configMaps or secrets.
   envFrom: []
 
+  kubeProxy:
+    enabled: false
+    restrictedServiceAccount:
+      name: "kvisor-proxy"
+
   # Deprecated: use additionalEnv instead.
   extraEnv: {}
 

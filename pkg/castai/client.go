@@ -53,6 +53,10 @@ func (c *Client) Close() {
 	}
 }
 
+func (c *Client) GRPCConn() grpc.ClientConnInterface {
+	return c.grpcConn
+}
+
 func (c *Client) GetCompressionName() string {
 	return c.compressionName
 }

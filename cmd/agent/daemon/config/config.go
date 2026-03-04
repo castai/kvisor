@@ -102,3 +102,4 @@ type ClickhouseConfig struct {
 type ProcessTreeConfig struct {
 	Enabled bool `json:"enabled"`
 }
+

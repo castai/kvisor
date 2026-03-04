@@ -91,9 +91,11 @@ func (a *App) Run(ctx context.Context) error {
 		logging.NewTextHandler(logCfg),
 	}
 	var exporters []export.DataBatchWriter
+	var castaiClient *castai.Client
 	// Castai specific spetup if config is valid.
 	if cfg.Castai.Valid() {
-		castaiClient, err := castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.Castai)
+		var err error
+		castaiClient, err = castai.NewClient(fmt.Sprintf("kvisor-agent/%s", cfg.Version), cfg.Castai)
 		if err != nil {
 			return fmt.Errorf("setting up castai api client: %w", err)
 		}
