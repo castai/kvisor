@@ -192,17 +192,30 @@ func (c *Client) streamResponse(ctx context.Context, requestID string, resp *htt
 	sendCtx, sendCancel := context.WithTimeout(ctx, sendResponseTimeout)
 	defer sendCancel()
 
+	log := c.log.With("request_id", requestID)
+
 	sendStream, err := c.proxyClient.SendResponse(sendCtx)
 	if err != nil {
 		return fmt.Errorf("opening send stream: %w", err)
+	}
+
+	if deadline, ok := sendCtx.Deadline(); ok {
+		log.Debugf("send stream opened, context deadline: %s (timeout in %s)", deadline.Format(time.RFC3339), time.Until(deadline).Round(time.Millisecond))
+	} else {
+		log.Debugf("send stream opened, no context deadline")
 	}
 
 	headers := filterResponseHeaders(resp.Header)
 
 	buf := make([]byte, maxResponseChunkSize)
 	first := true
+	chunkIdx := 0
+	streamStart := time.Now()
 	for {
+		log.Debugf("reading body chunk %d", chunkIdx)
+		readStart := time.Now()
 		n, readErr := resp.Body.Read(buf)
+		log.Debugf("read body chunk %d: n=%d err=%v, elapsed=%s", chunkIdx, n, readErr, time.Since(readStart).Round(time.Millisecond))
 		isLast := readErr != nil
 
 		if n > 0 {
@@ -216,10 +229,15 @@ func (c *Client) streamResponse(ctx context.Context, requestID string, resp *htt
 				msg.Headers = headers
 				first = false
 			}
+			log.Debugf("sending gRPC chunk %d: body_size=%d more=%v", chunkIdx, n, !isLast)
+			sendStart := time.Now()
 			if err := sendStream.Send(msg); err != nil {
 				return fmt.Errorf("send response chunk: %w", err)
 			}
+			log.Debugf("sent gRPC chunk %d in %s", chunkIdx, time.Since(sendStart).Round(time.Millisecond))
 		}
+
+		chunkIdx++
 
 		if readErr == io.EOF {
 			break
@@ -243,9 +261,12 @@ func (c *Client) streamResponse(ctx context.Context, requestID string, resp *htt
 		}
 	}
 
+	log.Debugf("closing send stream after %d chunks", chunkIdx)
+	closeStart := time.Now()
 	if _, err := sendStream.CloseAndRecv(); err != nil {
 		return fmt.Errorf("close send stream: %w", err)
 	}
+	log.Debugf("send stream closed in %s (total stream time: %s)", time.Since(closeStart).Round(time.Millisecond), time.Since(streamStart).Round(time.Millisecond))
 	return nil
 }
 
