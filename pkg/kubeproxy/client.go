@@ -97,7 +97,9 @@ func (c *Client) Run(ctx context.Context) error {
 	eb.InitialInterval = 1 * time.Second
 	eb.MaxInterval = 30 * time.Second
 
-	_, err := backoff.Retry(ctx, op,
+	// context.Background() prevents sibling errgroup cancellations from interrupting
+	// the backoff sleep; shutdown is handled inside op via ctx.Err().
+	_, err := backoff.Retry(context.Background(), op,
 		backoff.WithBackOff(eb),
 	)
 	return err
@@ -238,8 +240,17 @@ func (c *Client) streamResponse(ctx context.Context, requestID string, resp *htt
 		}
 
 		chunkIdx++
-
+		// EOF with 0 bytes means the previous chunk was already sent with More=true
+		// (we didn't know it was last until this read). Send an explicit terminator.
 		if readErr == io.EOF {
+			if n == 0 && !first {
+				if err := sendStream.Send(&proxypb.HttpResponse{
+					RequestId: requestID,
+					More:      false,
+				}); err != nil {
+					return fmt.Errorf("send response chunk: %w", err)
+				}
+			}
 			break
 		}
 		if readErr != nil {

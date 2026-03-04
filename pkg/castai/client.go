@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
@@ -25,6 +27,11 @@ func NewClient(userAgent string, cfg Config) (*Client, error) {
 		grpc.WithUserAgent(userAgent),
 		grpc.WithUnaryInterceptor(newCastaiGrpcUnaryMetadataInterceptor(cfg)),
 		grpc.WithStreamInterceptor(newCastaiGrpcStreamMetadataInterceptor(cfg)),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			Timeout:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("castai grpc server dial: %w", err)
