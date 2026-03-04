@@ -332,6 +332,20 @@ Only used as a fallback when controller.extraArgs.cloud-provider is not set.
 {{- end }}
 
 {{/*
+Resolve CASTAI_API_GRPC_ADDR: global.castai.grpcURL > .Values.castai.grpcAddr
+*/}}
+{{- define "kvisor.apiGrpcAddr" -}}
+{{- coalesce (dig "castai" "grpcURL" "" (.Values.global | default dict)) .Values.castai.grpcAddr -}}
+{{- end }}
+
+{{/*
+Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
+*/}}
+{{- define "kvisor.apiURL" -}}
+{{- coalesce (dig "castai" "apiURL" "" (.Values.global | default dict)) .Values.castai.apiURL -}}
+{{- end }}
+
+{{/*
 OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
 Uses fine-grained capabilities instead of privileged: true.
 Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.

@@ -1,0 +1,129 @@
+suite: global values fallback tests
+templates:
+  - agent.yaml
+  - controller.yaml
+  - secret.yaml
+values:
+  - values.yaml
+tests:
+  - it: should use global.castai.apiURL when local castai.apiURL is not set
+    set:
+      global:
+        castai:
+          apiURL: "https://global.cast.ai/"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://global.cast.ai/"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://global.cast.ai/"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use global.castai.grpcURL over local default grpcAddr
+    set:
+      global:
+        castai:
+          grpcURL: "grpc.global.cast.ai:443"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "grpc.global.cast.ai:443"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "grpc.global.cast.ai:443"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should prefer global.castai.apiURL over local castai.apiURL
+    set:
+      castai.apiURL: "https://local.cast.ai/"
+      global:
+        castai:
+          apiURL: "https://global.cast.ai/"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://global.cast.ai/"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://global.cast.ai/"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should prefer global.castai.grpcURL over local castai.grpcAddr
+    set:
+      castai.grpcAddr: "grpc.local.cast.ai:443"
+      global:
+        castai:
+          grpcURL: "grpc.global.cast.ai:443"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "grpc.global.cast.ai:443"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "grpc.global.cast.ai:443"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use default grpcAddr when neither local nor global is set
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "kvisor.prod-master.cast.ai:443"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "kvisor.prod-master.cast.ai:443"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use local castai.apiURL when global is not set
+    set:
+      castai.apiURL: "https://local.cast.ai/"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://local.cast.ai/"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://local.cast.ai/"
+        template: agent.yaml
+        documentIndex: 0

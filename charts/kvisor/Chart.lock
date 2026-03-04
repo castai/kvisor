@@ -1,0 +1,6 @@
+dependencies:
+- name: reliability-metrics-ch-exporter
+  repository: https://castai.github.io/helm-charts
+  version: 0.3.1
+digest: sha256:f686400ca4350e304714cb6da639af4da5832fdfdec9d42779921c0b62879155
+generated: "2026-03-04T21:45:30.868068+01:00"

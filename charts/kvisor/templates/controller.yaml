@@ -108,13 +108,13 @@ spec:
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "%s:8443" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ .Values.castai.grpcAddr | quote }}
+                       {{ include "kvisor.apiGrpcAddr" . | quote }}
                      {{- end }}
             - name: CASTAI_API_URL
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "http://%s:8080" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ .Values.castai.apiURL | quote }}
+                       {{ include "kvisor.apiURL" . | quote }}
                      {{- end }}
           {{- include "kvisor.clusterIDEnv" (set (deepCopy .) "envFrom" .Values.controller.envFrom) | nindent 12 }}
           {{- range $k, $v := .Values.controller.additionalEnv }}
