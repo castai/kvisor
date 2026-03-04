@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"runtime/debug"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -21,11 +20,10 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
@@ -44,17 +42,17 @@ import (
 	"github.com/castai/logging/components"
 )
 
-func New(cfg config.Config, clientset kubernetes.Interface) *App {
+func New(cfg config.Config, clientset kubernetes.Interface, kubeConfig *rest.Config) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
-	return &App{cfg: cfg, kubeClient: clientset}
+	return &App{cfg: cfg, kubeClient: clientset, kubeConfig: kubeConfig}
 }
 
 type App struct {
-	cfg config.Config
-
+	cfg        config.Config
 	kubeClient kubernetes.Interface
+	kubeConfig *rest.Config
 }
 
 func parseLogLevel(lvlStr string) (slog.Level, error) {
@@ -239,11 +237,16 @@ func (a *App) Run(ctx context.Context) error {
 		}
 
 		if cfg.KubeProxy.Enabled {
-			proxyClient, err := setupKubeProxy(log, cfg, castaiClient, clientset)
+			proxyClient, err := setupKubeProxy(log, cfg, castaiClient, clientset, a.kubeConfig)
 			if err != nil {
 				log.Errorf("failed to setup kube proxy: %v", err)
 			} else {
-				go runKubeProxy(ctx, log, proxyClient)
+				errg.Go(func() error {
+					if err := proxyClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+						log.Errorf("kube proxy client stopped: %v", err)
+					}
+					return nil
+				})
 			}
 		}
 	}
@@ -389,24 +392,7 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 	return nil
 }
 
-func runKubeProxy(ctx context.Context, log *logging.Logger, client *kubeproxy.Client) {
-	defer func() {
-		if r := recover(); r != nil {
-			stack := string(debug.Stack())
-			log.Errorf("kube proxy panicked: %v, stack=%s", r, stack)
-		}
-	}()
-	if err := client.Run(ctx); err != nil && ctx.Err() == nil {
-		log.Errorf("kube proxy stopped: %v", err)
-	}
-}
-
-func setupKubeProxy(log *logging.Logger, cfg config.Config, castaiClient *castai.Client, clientset kubernetes.Interface) (*kubeproxy.Client, error) {
-	restCfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("getting in-cluster config: %w", err)
-	}
-
+func setupKubeProxy(log *logging.Logger, cfg config.Config, castaiClient *castai.Client, clientset kubernetes.Interface, restCfg *rest.Config) (*kubeproxy.Client, error) {
 	expSeconds := cfg.KubeProxy.TokenExpirationSeconds
 	tokenProvider := kubeproxy.NewTokenProvider(kubeproxy.TokenProviderConfig{
 		CreateToken: func(ctx context.Context) (string, time.Time, error) {
@@ -438,5 +424,5 @@ func setupKubeProxy(log *logging.Logger, cfg config.Config, castaiClient *castai
 	}
 
 	proxyGRPC := proxypb.NewKubernetesProxyClient(castaiClient.GRPCConn())
-	return kubeproxy.NewClient(log, proxyGRPC, httpClient, restCfg.Host), nil
+	return kubeproxy.NewClient(log, proxyGRPC, httpClient, restCfg.Host)
 }

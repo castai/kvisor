@@ -117,7 +117,6 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventAnnotations = command.Flags().StringSlice("ebpf-events-include-pod-annotations", []string{}, "List of annotation keys to be sent with eBPF events, separated by comma")
 
 		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 2*time.Minute, "Containers refresh interval")
-
 	)
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
@@ -235,4 +234,3 @@ func NewRunCommand(version string) *cobra.Command {
 
 	return command
 }
-

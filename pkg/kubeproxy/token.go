@@ -51,7 +51,8 @@ func (tp *TokenProvider) refreshToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	tp.token = token
-	tp.expiresAt = expiresAt.Add(-1 * time.Minute)
+	ttl := time.Until(expiresAt)
+	tp.expiresAt = expiresAt.Add(-ttl / 2)
 	return token, nil
 }
 

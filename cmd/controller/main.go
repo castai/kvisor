@@ -240,6 +240,7 @@ func main() {
 		},
 	},
 		clientset,
+		kubeConfig,
 	)
 
 	if err := appInstance.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {

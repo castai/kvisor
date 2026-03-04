@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"sync"
@@ -26,6 +27,7 @@ const (
 )
 
 var allowedResponseHeaders = map[string]bool{
+	"Audit-Id":                          true,
 	"Content-Type":                      true,
 	"Content-Length":                    true,
 	"Content-Encoding":                  true,
@@ -58,16 +60,20 @@ type Client struct {
 	log         *logging.Logger
 	proxyClient proxypb.KubernetesProxyClient
 	httpClient  *http.Client
-	kubeHost    string
+	kubeHost    *url.URL
 }
 
-func NewClient(log *logging.Logger, proxyClient proxypb.KubernetesProxyClient, httpClient *http.Client, kubeHost string) *Client {
+func NewClient(log *logging.Logger, proxyClient proxypb.KubernetesProxyClient, httpClient *http.Client, kubeHost string) (*Client, error) {
+	parsed, err := url.Parse(kubeHost)
+	if err != nil {
+		return nil, fmt.Errorf("parsing kube host URL: %w", err)
+	}
 	return &Client{
 		log:         log,
 		proxyClient: proxyClient,
 		httpClient:  httpClient,
-		kubeHost:    kubeHost,
-	}
+		kubeHost:    parsed,
+	}, nil
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -143,7 +149,12 @@ func (c *Client) handleRequest(ctx context.Context, req *proxypb.HttpRequest) {
 		return
 	}
 
-	url := fmt.Sprintf("%s%s", c.kubeHost, sanitizeRequestURL(req.Path))
+	sanitized := sanitizeRequestURL(req.Path)
+	pathPart, rawQuery, _ := strings.Cut(sanitized, "?")
+	reqURL := *c.kubeHost
+	reqURL.Path = pathPart
+	reqURL.RawQuery = rawQuery
+	url := reqURL.String()
 	var body io.Reader
 	if len(req.Body) > 0 {
 		body = bytes.NewReader(req.Body)
@@ -262,7 +273,7 @@ func validateRequest(req *proxypb.HttpRequest) error {
 	}
 
 	pathPart, _, _ := strings.Cut(req.Path, "?")
-	cleaned := cleanPath(pathPart)
+	cleaned := path.Clean(pathPart)
 	if !isAllowedPath(cleaned) {
 		return fmt.Errorf("path %q is not allowed, must start with /api/ or /apis/", req.Path)
 	}
@@ -275,13 +286,9 @@ func validateRequest(req *proxypb.HttpRequest) error {
 	return nil
 }
 
-func cleanPath(p string) string {
-	return path.Clean(p)
-}
-
 func sanitizeRequestURL(raw string) string {
 	pathPart, query, _ := strings.Cut(raw, "?")
-	cleaned := cleanPath(pathPart)
+	cleaned := path.Clean(pathPart)
 	if query != "" {
 		return cleaned + "?" + query
 	}
@@ -301,10 +308,8 @@ func extractSubresource(path string) string {
 		return ""
 	}
 
-	hasNamespaces := false
 	for i, p := range parts {
 		if p == "namespaces" && i+1 < len(parts) {
-			hasNamespaces = true
 			rest := parts[i+2:]
 			if len(rest) >= 3 {
 				return rest[2]
@@ -313,16 +318,14 @@ func extractSubresource(path string) string {
 		}
 	}
 
-	if !hasNamespaces {
-		// /api/v1/{resource}/{name}/{subresource}
-		// /apis/{group}/{version}/{resource}/{name}/{subresource}
-		startIdx := 2
-		if parts[0] == "apis" {
-			startIdx = 3
-		}
-		if len(parts) > startIdx+2 {
-			return parts[startIdx+2]
-		}
+	// /api/v1/{resource}/{name}/{subresource}
+	// /apis/{group}/{version}/{resource}/{name}/{subresource}
+	startIdx := 2
+	if parts[0] == "apis" {
+		startIdx = 3
+	}
+	if len(parts) > startIdx+2 {
+		return parts[startIdx+2]
 	}
 
 	return ""
