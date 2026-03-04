@@ -223,7 +223,6 @@ func (c *Client) streamResponse(ctx context.Context, requestID string, resp *htt
 			}
 		}
 
-		chunkIdx++
 		// EOF with 0 bytes means the previous chunk was already sent with More=true
 		// (we didn't know it was last until this read). Send an explicit terminator.
 		if readErr == io.EOF {
