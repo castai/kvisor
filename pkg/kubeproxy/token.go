@@ -25,9 +25,13 @@ func NewTokenProvider(cfg TokenProviderConfig) *TokenProvider {
 	return &TokenProvider{createToken: cfg.CreateToken}
 }
 
+func (tp *TokenProvider) isValid() bool {
+	return tp.token != "" && time.Now().Before(tp.expiresAt)
+}
+
 func (tp *TokenProvider) GetToken(ctx context.Context) (string, error) {
 	tp.mu.RLock()
-	if tp.token != "" && time.Now().Before(tp.expiresAt) {
+	if tp.isValid() {
 		token := tp.token
 		tp.mu.RUnlock()
 		return token, nil
@@ -39,7 +43,7 @@ func (tp *TokenProvider) GetToken(ctx context.Context) (string, error) {
 func (tp *TokenProvider) refreshToken(ctx context.Context) (string, error) {
 	tp.mu.Lock()
 	defer tp.mu.Unlock()
-	if tp.token != "" && time.Now().Before(tp.expiresAt) {
+	if tp.isValid() {
 		return tp.token, nil
 	}
 	token, expiresAt, err := tp.createToken(ctx)
@@ -48,7 +52,7 @@ func (tp *TokenProvider) refreshToken(ctx context.Context) (string, error) {
 	}
 	tp.token = token
 	tp.expiresAt = expiresAt.Add(-1 * time.Minute)
-	return tp.token, nil
+	return token, nil
 }
 
 type tokenRoundTripper struct {

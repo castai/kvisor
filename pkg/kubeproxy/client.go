@@ -13,9 +13,9 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	proxypb "github.com/castai/kvisor/api/v1/proxy"
+	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/logging"
 )
 
@@ -26,13 +26,13 @@ const (
 )
 
 var allowedResponseHeaders = map[string]bool{
-	"content-type":                      true,
-	"content-length":                    true,
-	"content-encoding":                  true,
-	"cache-control":                     true,
-	"date":                              true,
-	"x-kubernetes-pf-flowschema-uid":    true,
-	"x-kubernetes-pf-prioritylevel-uid": true,
+	"Content-Type":                      true,
+	"Content-Length":                    true,
+	"Content-Encoding":                  true,
+	"Cache-Control":                     true,
+	"Date":                              true,
+	"X-Kubernetes-Pf-Flowschema-Uid":    true,
+	"X-Kubernetes-Pf-Prioritylevel-Uid": true,
 }
 
 var blockedRequestHeaders = map[string]bool{
@@ -40,6 +40,11 @@ var blockedRequestHeaders = map[string]bool{
 	"impersonate-user":    true,
 	"impersonate-group":   true,
 	"impersonate-uid":     true,
+}
+
+func isBlockedRequestHeader(key string) bool {
+	lower := strings.ToLower(key)
+	return blockedRequestHeaders[lower] || strings.HasPrefix(lower, "impersonate-extra-")
 }
 
 var blockedSubresources = map[string]bool{
@@ -74,7 +79,7 @@ func (c *Client) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return struct{}{}, backoff.Permanent(ctx.Err())
 		}
-		if isPermanentGRPCError(err) {
+		if castai.IsGRPCError(err, codes.PermissionDenied, codes.Unauthenticated, codes.Unimplemented) {
 			c.log.Errorf("proxy subscription failed permanently: %v", err)
 			return struct{}{}, backoff.Permanent(err)
 		}
@@ -114,7 +119,12 @@ func (c *Client) subscribe(ctx context.Context) error {
 			return fmt.Errorf("recv: %w", err)
 		}
 
-		sem <- struct{}{}
+		select {
+		case sem <- struct{}{}:
+		case <-subCtx.Done():
+			wg.Wait()
+			return subCtx.Err()
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -146,11 +156,7 @@ func (c *Client) handleRequest(ctx context.Context, req *proxypb.HttpRequest) {
 	}
 
 	for _, h := range req.Headers {
-		lowerKey := strings.ToLower(h.Key)
-		if blockedRequestHeaders[lowerKey] {
-			continue
-		}
-		if strings.HasPrefix(lowerKey, "impersonate-extra-") {
+		if isBlockedRequestHeader(h.Key) {
 			continue
 		}
 		for _, v := range h.Values {
@@ -189,16 +195,13 @@ func (c *Client) streamResponse(ctx context.Context, requestID string, resp *htt
 		isLast := readErr != nil
 
 		if n > 0 {
-			body := make([]byte, n)
-			copy(body, buf[:n])
-
 			msg := &proxypb.HttpResponse{
-				RequestId:  requestID,
-				StatusCode: int32(resp.StatusCode),
-				Body:       body,
-				More:       !isLast,
+				RequestId: requestID,
+				Body:      buf[:n],
+				More:      !isLast,
 			}
 			if first {
+				msg.StatusCode = int32(resp.StatusCode)
 				msg.Headers = headers
 				first = false
 			}
@@ -258,12 +261,13 @@ func validateRequest(req *proxypb.HttpRequest) error {
 		return fmt.Errorf("only GET requests are allowed, got %s", req.Method)
 	}
 
-	cleanPath := cleanRequestPath(req.Path)
-	if !isAllowedPath(cleanPath) {
+	pathPart, _, _ := strings.Cut(req.Path, "?")
+	cleaned := cleanPath(pathPart)
+	if !isAllowedPath(cleaned) {
 		return fmt.Errorf("path %q is not allowed, must start with /api/ or /apis/", req.Path)
 	}
 
-	subresource := extractSubresource(cleanPath)
+	subresource := extractSubresource(cleaned)
 	if blockedSubresources[subresource] {
 		return fmt.Errorf("subresource %q is not allowed", subresource)
 	}
@@ -271,16 +275,13 @@ func validateRequest(req *proxypb.HttpRequest) error {
 	return nil
 }
 
-func cleanRequestPath(p string) string {
-	if i := strings.IndexByte(p, '?'); i >= 0 {
-		p = p[:i]
-	}
+func cleanPath(p string) string {
 	return path.Clean(p)
 }
 
 func sanitizeRequestURL(raw string) string {
 	pathPart, query, _ := strings.Cut(raw, "?")
-	cleaned := path.Clean(pathPart)
+	cleaned := cleanPath(pathPart)
 	if query != "" {
 		return cleaned + "?" + query
 	}
@@ -327,22 +328,10 @@ func extractSubresource(path string) string {
 	return ""
 }
 
-func isPermanentGRPCError(err error) bool {
-	st, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	switch st.Code() {
-	case codes.PermissionDenied, codes.Unauthenticated, codes.Unimplemented:
-		return true
-	}
-	return false
-}
-
 func filterResponseHeaders(headers http.Header) []*proxypb.Header {
 	var result []*proxypb.Header
 	for k, v := range headers {
-		if allowedResponseHeaders[strings.ToLower(k)] {
+		if allowedResponseHeaders[k] {
 			result = append(result, &proxypb.Header{
 				Key:    k,
 				Values: v,
