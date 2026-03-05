@@ -154,6 +154,18 @@ app.kubernetes.io/component: controller
 
 
 {{/*
+Common helpers for kube proxy.
+*/}}
+{{- define "kvisor.proxy.fullname" -}}
+{{ include "kvisor.fullname" . }}-proxy
+{{- end }}
+
+{{- define "kvisor.proxy.serviceAccountName" -}}
+{{ include "kvisor.proxy.fullname" . }}
+{{- end }}
+
+
+{{/*
 Common helpers for event generator.
 */}}
 {{- define "kvisor.eventGenerator.fullname" -}}

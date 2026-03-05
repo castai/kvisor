@@ -86,6 +86,9 @@ spec:
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
           {{- end }}
+          {{- if and (hasKey $extraArgs "kube-proxy-enabled") (not (hasKey $extraArgs "kube-proxy-sa-name")) }}
+            - "--kube-proxy-sa-name={{ include "kvisor.proxy.serviceAccountName" . }}"
+          {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
         {{- end }}
@@ -335,6 +338,16 @@ rules:
       - get
       - list
       - watch
+  {{- if hasKey (.Values.controller.extraArgs | default dict) "kube-proxy-enabled" }}
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts/token
+    resourceNames:
+      - {{ include "kvisor.proxy.serviceAccountName" . }}
+    verbs:
+      - create
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

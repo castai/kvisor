@@ -20,10 +20,15 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
+	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kubepb "github.com/castai/kvisor/api/v1/kube"
+	proxypb "github.com/castai/kvisor/api/v1/proxy"
 	"github.com/castai/kvisor/cmd/controller/config"
 	"github.com/castai/kvisor/cmd/controller/controllers"
 	"github.com/castai/kvisor/cmd/controller/controllers/imagescan"
@@ -33,21 +38,22 @@ import (
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cloudprovider"
+	"github.com/castai/kvisor/pkg/kubeproxy"
 	"github.com/castai/logging"
 	"github.com/castai/logging/components"
 )
 
-func New(cfg config.Config, clientset kubernetes.Interface) *App {
+func New(cfg config.Config, clientset kubernetes.Interface, kubeConfig *rest.Config) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
-	return &App{cfg: cfg, kubeClient: clientset}
+	return &App{cfg: cfg, kubeClient: clientset, kubeConfig: kubeConfig}
 }
 
 type App struct {
-	cfg config.Config
-
+	cfg        config.Config
 	kubeClient kubernetes.Interface
+	kubeConfig *rest.Config
 }
 
 func parseLogLevel(lvlStr string) (slog.Level, error) {
@@ -230,6 +236,21 @@ func (a *App) Run(ctx context.Context) error {
 				return kubeBenchCtrl.Run(ctx)
 			})
 		}
+
+		if cfg.KubeProxy.Enabled {
+			proxyClient, grpcConn, err := setupKubeProxy(log, cfg, clientset, a.kubeConfig)
+			if err != nil {
+				log.Errorf("failed to setup kube proxy: %v", err)
+			} else {
+				errg.Go(func() error {
+					defer grpcConn.Close()
+					if err := proxyClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+						log.Errorf("kube proxy client stopped: %v", err)
+					}
+					return nil
+				})
+			}
+		}
 	}
 
 	errg.Go(func() error {
@@ -371,4 +392,53 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 	}
 
 	return nil
+}
+
+func setupKubeProxy(log *logging.Logger, cfg config.Config, clientset kubernetes.Interface, restCfg *rest.Config) (*kubeproxy.Client, *grpc.ClientConn, error) {
+	expSeconds := cfg.KubeProxy.TokenExpirationSeconds
+	tokenProvider := kubeproxy.NewTokenProvider(kubeproxy.TokenProviderConfig{
+		CreateToken: func(ctx context.Context) (string, time.Time, error) {
+			treq, err := clientset.CoreV1().ServiceAccounts(cfg.KubeProxy.SANamespace).CreateToken(
+				ctx,
+				cfg.KubeProxy.SAName,
+				&authv1.TokenRequest{
+					Spec: authv1.TokenRequestSpec{
+						ExpirationSeconds: &expSeconds,
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			if err != nil {
+				return "", time.Time{}, fmt.Errorf("creating token for restricted SA: %w", err)
+			}
+			return treq.Status.Token, treq.Status.ExpirationTimestamp.Time, nil
+		},
+	})
+
+	baseTransport, err := rest.TransportFor(restCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("building k8s transport: %w", err)
+	}
+
+	httpClient := &http.Client{
+		Transport: kubeproxy.NewTokenRoundTripper(tokenProvider, baseTransport),
+		Timeout:   30 * time.Second,
+	}
+
+	grpcConn, err := castai.NewGRPCConn(cfg.CastaiEnv, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                10 * time.Second,
+		Timeout:             5 * time.Second,
+		PermitWithoutStream: true,
+	}))
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating proxy grpc connection: %w", err)
+	}
+
+	proxyGRPC := proxypb.NewKubernetesProxyClient(grpcConn)
+	client, err := kubeproxy.NewClient(log, proxyGRPC, httpClient, restCfg.Host)
+	if err != nil {
+		grpcConn.Close()
+		return nil, nil, err
+	}
+	return client, grpcConn, nil
 }

@@ -96,6 +96,10 @@ var (
 	jobsCleanupJobAge   = pflag.Duration("jobs-cleanup-job-age", 10*time.Minute, "Jobs cleanup job age")
 
 	agentEnabled = pflag.Bool("agent-enabled", false, "Whether kvisor-agent is enabled (used for reporting; does not enable agent)")
+
+	kubeProxyEnabled     = pflag.Bool("kube-proxy-enabled", false, "Enable kube proxy for remote K8s API access")
+	kubeProxySAName      = pflag.String("kube-proxy-sa-name", "kvisor-proxy", "Name of the service account for proxy")
+	kubeProxyTokenExpiry = pflag.Int64("kube-proxy-token-expiration", 900, "Token expiration in seconds for the proxy SA")
 )
 
 func main() {
@@ -209,6 +213,12 @@ func main() {
 		AgentConfig: config.AgentConfig{
 			Enabled: *agentEnabled,
 		},
+		KubeProxy: config.KubeProxyConfig{
+			Enabled:                *kubeProxyEnabled,
+			SAName:                 *kubeProxySAName,
+			SANamespace:            podNs,
+			TokenExpirationSeconds: *kubeProxyTokenExpiry,
+		},
 		CloudProviderConfig: config.CloudProviderConfig{
 			CloudProvider: cloudtypes.ProviderConfig{
 				Type:         cloudProviderType,
@@ -230,6 +240,7 @@ func main() {
 		},
 	},
 		clientset,
+		kubeConfig,
 	)
 
 	if err := appInstance.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
