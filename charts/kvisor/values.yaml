@@ -216,6 +216,8 @@ agent:
     # --- OTel Collector sidecar settings ---
     # Receives OTLP from OBI, applies golden signal filtering, cardinality control,
     # and batching, then exports to ClickHouse.
+    # The pipeline config is compiled into the collector binary (no ConfigMap needed).
+    # Bumping the image tag = changing the pipeline behavior.
     collector:
       enabled: true
       image:
@@ -359,6 +361,7 @@ controller:
   # Runs an OTel Collector sidecar with k8s_cluster receiver to collect
   # KSM-equivalent infrastructure metrics (pod restarts, deployment availability,
   # node conditions, resource requests/limits). No OBI needed — purely API server watch-based.
+  # Pipeline config is compiled into the collector binary (no ConfigMap needed).
   reliabilityMetrics:
     enabled: false
     collector:
@@ -454,4 +457,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.2"
+      tag: "v0.3.4"

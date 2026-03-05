@@ -15,9 +15,6 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
-        checksum/otel-config: {{ include (print $.Template.BasePath "/otel-collector-config.yaml") . | sha256sum }}
-      {{- end }}
       {{- if .Values.controller.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{.Values.controller.metricsHTTPListenPort}}"
@@ -212,9 +209,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
-            - name: controller-otel-collector-config
-              mountPath: /etc/otelcol
-              readOnly: true
             - name: obi-sa-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -239,9 +233,6 @@ spec:
             name: {{ include "kvisor.fullname" . }}-static-cidrs
         {{- end }}
       {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
-        - name: controller-otel-collector-config
-          configMap:
-            name: {{ include "kvisor.controller.fullname" . }}-otel-collector
         - name: obi-sa-token
           projected:
             sources:
