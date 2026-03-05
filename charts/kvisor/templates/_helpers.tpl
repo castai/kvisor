@@ -56,11 +56,12 @@ Create chart name and version as used by the chart label.
 
 {{- define "kvisor.clusterIDEnv" -}}
 {{- $envFrom := .envFrom -}}
-{{- if and .Values.castai.clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
+{{- $clusterID := coalesce (dig "castai" "clusterID" "" (.Values.global | default dict)) .Values.castai.clusterID -}}
+{{- if and $clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
   {{- fail "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef" }}
-{{- else if .Values.castai.clusterID }}
+{{- else if $clusterID }}
 - name: CLUSTER_ID
-  value: {{ .Values.castai.clusterID | quote }}
+  value: {{ $clusterID | quote }}
   valueFrom: null # workaround for https://github.com/helm/helm/issues/8994
 {{- else if .Values.castai.clusterIdConfigMapKeyRef.name }}
 - name: CLUSTER_ID
@@ -329,8 +330,21 @@ Resolve cloud provider for --cloud-provider arg.
 Only used as a fallback when controller.extraArgs.cloud-provider is not set.
 */}}
 {{- define "kvisor.cloudProvider" -}}
-{{- $global := .Values.global | default dict -}}
-{{- dig "castai" "provider" "" $global -}}
+{{- dig "castai" "provider" "" (.Values.global | default dict) -}}
+{{- end }}
+
+{{/*
+Resolve CASTAI_API_GRPC_ADDR: global.castai.grpcURL > .Values.castai.grpcAddr
+*/}}
+{{- define "kvisor.apiGrpcAddr" -}}
+{{- coalesce (dig "castai" "grpcURL" "" (.Values.global | default dict)) .Values.castai.grpcAddr -}}
+{{- end }}
+
+{{/*
+Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
+*/}}
+{{- define "kvisor.apiURL" -}}
+{{- coalesce (dig "castai" "apiURL" "" (.Values.global | default dict)) .Values.castai.apiURL -}}
 {{- end }}
 
 {{/*
