@@ -179,9 +179,9 @@ spec:
               value: {{ .Values.agent.reliabilityMetrics.openPorts | quote }}
           {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://localhost:4318"
+              value: "http://localhost:4317"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: "http/protobuf"
+              value: "grpc"
           {{- end }}
             - name: OTEL_EBPF_KUBE_METADATA_ENABLE
               value: "autodetect"
@@ -242,6 +242,9 @@ spec:
           ports:
             - containerPort: {{ .Values.agent.reliabilityMetrics.collector.prometheusPort }}
               name: otel-prom
+              protocol: TCP
+            - containerPort: 4317
+              name: otlp-grpc
               protocol: TCP
             - containerPort: 4318
               name: otlp-http
