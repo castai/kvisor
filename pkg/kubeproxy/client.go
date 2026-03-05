@@ -213,7 +213,7 @@ func (c *Client) streamResponse(ctx context.Context, log *logging.Logger, reques
 				More:      !isLast,
 			}
 			if first {
-				msg.StatusCode = int32(resp.StatusCode)
+				msg.StatusCode = int32(resp.StatusCode) //nolint:gosec // G115: HTTP status codes are 1xx-5xx, no overflow risk
 				msg.Headers = headers
 				first = false
 			}
@@ -249,7 +249,7 @@ func (c *Client) streamResponse(ctx context.Context, log *logging.Logger, reques
 	if first {
 		if err := sendStream.Send(&proxypb.HttpResponse{
 			RequestId:  requestID,
-			StatusCode: int32(resp.StatusCode),
+			StatusCode: int32(resp.StatusCode), //nolint:gosec // G115: HTTP status codes are 1xx-5xx, no overflow risk
 			Headers:    headers,
 		}); err != nil {
 			return fmt.Errorf("send empty response: %w", err)
@@ -276,7 +276,7 @@ func (c *Client) sendErrorResponse(ctx context.Context, requestID string, status
 
 	_ = sendStream.Send(&proxypb.HttpResponse{
 		RequestId:  requestID,
-		StatusCode: int32(statusCode),
+		StatusCode: int32(statusCode), //nolint:gosec // G115: HTTP status codes are 1xx-5xx, no overflow risk
 		Error:      errMsg,
 	})
 	_, _ = sendStream.CloseAndRecv()
