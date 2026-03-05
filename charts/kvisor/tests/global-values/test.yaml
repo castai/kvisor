@@ -262,3 +262,24 @@ tests:
       - failedTemplate:
           errorMessage: "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef"
         template: controller.yaml
+
+  - it: should use local castai.clusterID when global is empty map
+    set:
+      global: {}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "test-cluster-id"
+            valueFrom: null
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "test-cluster-id"
+            valueFrom: null
+        template: agent.yaml
+        documentIndex: 0

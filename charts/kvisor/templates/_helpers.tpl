@@ -330,8 +330,7 @@ Resolve cloud provider for --cloud-provider arg.
 Only used as a fallback when controller.extraArgs.cloud-provider is not set.
 */}}
 {{- define "kvisor.cloudProvider" -}}
-{{- $global := .Values.global | default dict -}}
-{{- dig "castai" "provider" "" $global -}}
+{{- dig "castai" "provider" "" (.Values.global | default dict) -}}
 {{- end }}
 
 {{/*
