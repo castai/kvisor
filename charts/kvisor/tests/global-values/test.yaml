@@ -127,3 +127,77 @@ tests:
             value: "https://local.cast.ai/"
         template: agent.yaml
         documentIndex: 0
+
+  - it: should fall back to defaults when global is empty map
+    set:
+      global: {}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "kvisor.prod-master.cast.ai:443"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "kvisor.prod-master.cast.ai:443"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should fall back to defaults when global.castai is empty map
+    set:
+      global:
+        castai: {}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "kvisor.prod-master.cast.ai:443"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "kvisor.prod-master.cast.ai:443"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use local values when global is empty map
+    set:
+      global: {}
+      castai.apiURL: "https://local.cast.ai/"
+      castai.grpcAddr: "grpc.local.cast.ai:443"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://local.cast.ai/"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "grpc.local.cast.ai:443"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_URL
+            value: "https://local.cast.ai/"
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CASTAI_API_GRPC_ADDR
+            value: "grpc.local.cast.ai:443"
+        template: agent.yaml
+        documentIndex: 0
