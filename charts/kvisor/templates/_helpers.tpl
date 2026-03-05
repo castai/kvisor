@@ -56,11 +56,12 @@ Create chart name and version as used by the chart label.
 
 {{- define "kvisor.clusterIDEnv" -}}
 {{- $envFrom := .envFrom -}}
-{{- if and .Values.castai.clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
+{{- $clusterID := coalesce (dig "castai" "clusterID" "" (.Values.global | default dict)) .Values.castai.clusterID -}}
+{{- if and $clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
   {{- fail "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef" }}
-{{- else if .Values.castai.clusterID }}
+{{- else if $clusterID }}
 - name: CLUSTER_ID
-  value: {{ .Values.castai.clusterID | quote }}
+  value: {{ $clusterID | quote }}
   valueFrom: null # workaround for https://github.com/helm/helm/issues/8994
 {{- else if .Values.castai.clusterIdConfigMapKeyRef.name }}
 - name: CLUSTER_ID

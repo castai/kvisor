@@ -201,3 +201,64 @@ tests:
             value: "grpc.local.cast.ai:443"
         template: agent.yaml
         documentIndex: 0
+
+  - it: should use global.castai.clusterID over local castai.clusterID
+    set:
+      global:
+        castai:
+          clusterID: "global-cluster-id"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "global-cluster-id"
+            valueFrom: null
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "global-cluster-id"
+            valueFrom: null
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should prefer global.castai.clusterID over local castai.clusterID
+    set:
+      castai.clusterID: "local-cluster-id"
+      global:
+        castai:
+          clusterID: "global-cluster-id"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "global-cluster-id"
+            valueFrom: null
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLUSTER_ID
+            value: "global-cluster-id"
+            valueFrom: null
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should fail when global.castai.clusterID and clusterIdSecretKeyRef are both set
+    set:
+      castai.clusterID: ""
+      castai.clusterIdSecretKeyRef:
+        name: "cluster-secret"
+        key: "CLUSTER_ID"
+      global:
+        castai:
+          clusterID: "global-cluster-id"
+    asserts:
+      - failedTemplate:
+          errorMessage: "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef"
+        template: controller.yaml
