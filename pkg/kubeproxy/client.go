@@ -35,23 +35,20 @@ var allowedResponseHeaders = map[string]bool{
 	"X-Kubernetes-Pf-Prioritylevel-Uid": true,
 }
 
-var blockedRequestHeaders = map[string]bool{
-	"authorization":     true,
-	"impersonate-user":  true,
-	"impersonate-group": true,
-	"impersonate-uid":   true,
+var allowedRequestHeaders = map[string]bool{
+	"accept":          true,
+	"accept-encoding": true,
+	"content-type":    true,
+	"content-length":  true,
 }
 
-func isBlockedRequestHeader(key string) bool {
-	lower := strings.ToLower(key)
-	return blockedRequestHeaders[lower] || strings.HasPrefix(lower, "impersonate-extra-")
+func isAllowedRequestHeader(key string) bool {
+	return allowedRequestHeaders[strings.ToLower(key)]
 }
 
-var blockedSubresources = map[string]bool{
-	"exec":        true,
-	"attach":      true,
-	"portforward": true,
-	"proxy":       true,
+var allowedSubresources = map[string]bool{
+	"log":  true,
+	"logs": true,
 }
 
 type Client struct {
@@ -164,8 +161,8 @@ func (c *Client) handleRequest(ctx context.Context, req *proxypb.HttpRequest) {
 	}
 
 	for _, h := range req.Headers {
-		if isBlockedRequestHeader(h.Key) {
-			log.Debugf("stripped blocked request header: %s", h.Key)
+		if !isAllowedRequestHeader(h.Key) {
+			log.Debugf("stripped non-allowed request header: %s", h.Key)
 			continue
 		}
 		for _, v := range h.Values {
@@ -288,13 +285,17 @@ func validateRequest(req *proxypb.HttpRequest) error {
 	}
 
 	pathPart, _, _ := strings.Cut(req.Path, "?")
-	cleaned := path.Clean(pathPart)
+	decoded, err := url.PathUnescape(pathPart)
+	if err != nil {
+		return fmt.Errorf("invalid URL encoding in path: %w", err)
+	}
+	cleaned := path.Clean(decoded)
 	if !isAllowedPath(cleaned) {
 		return fmt.Errorf("path %q is not allowed, must start with /api/ or /apis/", req.Path)
 	}
 
 	subresource := extractSubresource(cleaned)
-	if blockedSubresources[subresource] {
+	if subresource != "" && !allowedSubresources[subresource] {
 		return fmt.Errorf("subresource %q is not allowed", subresource)
 	}
 

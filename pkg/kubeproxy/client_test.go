@@ -139,17 +139,26 @@ func TestValidateRequest(t *testing.T) {
 			wantErr: `subresource "proxy" is not allowed`,
 		},
 		{
-			name: "status subresource allowed",
+			name: "status subresource blocked",
 			req: &proxypb.HttpRequest{
 				Method: http.MethodGet,
 				Path:   "/api/v1/namespaces/default/pods/my-pod/status",
 			},
+			wantErr: `subresource "status" is not allowed`,
 		},
 		{
 			name: "path traversal via .. rejected",
 			req: &proxypb.HttpRequest{
 				Method: http.MethodGet,
 				Path:   "/api/v1/../../debug/pprof/",
+			},
+			wantErr: "is not allowed",
+		},
+		{
+			name: "path traversal via URL-encoded .. rejected",
+			req: &proxypb.HttpRequest{
+				Method: http.MethodGet,
+				Path:   "/api/%2E%2E/debug/pprof",
 			},
 			wantErr: "is not allowed",
 		},

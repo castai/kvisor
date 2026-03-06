@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KubernetesProxy_Subscribe_FullMethodName    = "/proxy.v1.KubernetesProxy/Subscribe"
-	KubernetesProxy_SendResponse_FullMethodName = "/proxy.v1.KubernetesProxy/SendResponse"
+	KubernetesProxy_Subscribe_FullMethodName    = "/kube_proxy.v1alpha1.KubernetesProxy/Subscribe"
+	KubernetesProxy_SendResponse_FullMethodName = "/kube_proxy.v1alpha1.KubernetesProxy/SendResponse"
 )
 
 // KubernetesProxyClient is the client API for KubernetesProxy service.
@@ -134,7 +134,7 @@ type KubernetesProxy_SendResponseServer = grpc.ClientStreamingServer[HttpRespons
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var KubernetesProxy_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proxy.v1.KubernetesProxy",
+	ServiceName: "kube_proxy.v1alpha1.KubernetesProxy",
 	HandlerType: (*KubernetesProxyServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

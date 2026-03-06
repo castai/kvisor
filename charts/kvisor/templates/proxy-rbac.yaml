@@ -18,7 +18,6 @@ rules:
     resources:
       - pods
       - pods/log
-      - pods/status
       - services
       - configmaps
       - namespaces
@@ -75,6 +74,14 @@ rules:
       - pods
       - nodes
     verbs: ["get", "list"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      - gateways
+      - gatewayclasses
+      - httproutes
+      - grpcroutes
+      - referencegrants
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

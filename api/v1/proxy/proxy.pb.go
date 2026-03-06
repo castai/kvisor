@@ -309,31 +309,31 @@ var File_api_v1_proxy_proxy_proto protoreflect.FileDescriptor
 
 const file_api_v1_proxy_proxy_proto_rawDesc = "" +
 	"\n" +
-	"\x18api/v1/proxy/proxy.proto\x12\bproxy.v1\"\x12\n" +
+	"\x18api/v1/proxy/proxy.proto\x12\x13kube_proxy.v1alpha1\"\x12\n" +
 	"\x10SubscribeRequest\"\x14\n" +
-	"\x12SendResponseResult\"\x98\x01\n" +
+	"\x12SendResponseResult\"\xa3\x01\n" +
 	"\vHttpRequest\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12\x16\n" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\x12*\n" +
-	"\aheaders\x18\x04 \x03(\v2\x10.proxy.v1.HeaderR\aheaders\x12\x12\n" +
-	"\x04body\x18\x05 \x01(\fR\x04body\"\xb8\x01\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\x125\n" +
+	"\aheaders\x18\x04 \x03(\v2\x1b.kube_proxy.v1alpha1.HeaderR\aheaders\x12\x12\n" +
+	"\x04body\x18\x05 \x01(\fR\x04body\"\xc3\x01\n" +
 	"\fHttpResponse\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1f\n" +
 	"\vstatus_code\x18\x02 \x01(\x05R\n" +
-	"statusCode\x12*\n" +
-	"\aheaders\x18\x03 \x03(\v2\x10.proxy.v1.HeaderR\aheaders\x12\x12\n" +
+	"statusCode\x125\n" +
+	"\aheaders\x18\x03 \x03(\v2\x1b.kube_proxy.v1alpha1.HeaderR\aheaders\x12\x12\n" +
 	"\x04body\x18\x04 \x01(\fR\x04body\x12\x12\n" +
 	"\x04more\x18\x05 \x01(\bR\x04more\x12\x14\n" +
 	"\x05error\x18\x06 \x01(\tR\x05error\"2\n" +
 	"\x06Header\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x16\n" +
-	"\x06values\x18\x02 \x03(\tR\x06values2\x9f\x01\n" +
-	"\x0fKubernetesProxy\x12B\n" +
-	"\tSubscribe\x12\x1a.proxy.v1.SubscribeRequest\x1a\x15.proxy.v1.HttpRequest\"\x000\x01\x12H\n" +
-	"\fSendResponse\x12\x16.proxy.v1.HttpResponse\x1a\x1c.proxy.v1.SendResponseResult\"\x00(\x01B'Z%github.com/castai/kvisor/api/v1/proxyb\x06proto3"
+	"\x06values\x18\x02 \x03(\tR\x06values2\xcb\x01\n" +
+	"\x0fKubernetesProxy\x12X\n" +
+	"\tSubscribe\x12%.kube_proxy.v1alpha1.SubscribeRequest\x1a .kube_proxy.v1alpha1.HttpRequest\"\x000\x01\x12^\n" +
+	"\fSendResponse\x12!.kube_proxy.v1alpha1.HttpResponse\x1a'.kube_proxy.v1alpha1.SendResponseResult\"\x00(\x01B'Z%github.com/castai/kvisor/api/v1/proxyb\x06proto3"
 
 var (
 	file_api_v1_proxy_proxy_proto_rawDescOnce sync.Once
@@ -349,19 +349,19 @@ func file_api_v1_proxy_proxy_proto_rawDescGZIP() []byte {
 
 var file_api_v1_proxy_proxy_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_api_v1_proxy_proxy_proto_goTypes = []any{
-	(*SubscribeRequest)(nil),   // 0: proxy.v1.SubscribeRequest
-	(*SendResponseResult)(nil), // 1: proxy.v1.SendResponseResult
-	(*HttpRequest)(nil),        // 2: proxy.v1.HttpRequest
-	(*HttpResponse)(nil),       // 3: proxy.v1.HttpResponse
-	(*Header)(nil),             // 4: proxy.v1.Header
+	(*SubscribeRequest)(nil),   // 0: kube_proxy.v1alpha1.SubscribeRequest
+	(*SendResponseResult)(nil), // 1: kube_proxy.v1alpha1.SendResponseResult
+	(*HttpRequest)(nil),        // 2: kube_proxy.v1alpha1.HttpRequest
+	(*HttpResponse)(nil),       // 3: kube_proxy.v1alpha1.HttpResponse
+	(*Header)(nil),             // 4: kube_proxy.v1alpha1.Header
 }
 var file_api_v1_proxy_proxy_proto_depIdxs = []int32{
-	4, // 0: proxy.v1.HttpRequest.headers:type_name -> proxy.v1.Header
-	4, // 1: proxy.v1.HttpResponse.headers:type_name -> proxy.v1.Header
-	0, // 2: proxy.v1.KubernetesProxy.Subscribe:input_type -> proxy.v1.SubscribeRequest
-	3, // 3: proxy.v1.KubernetesProxy.SendResponse:input_type -> proxy.v1.HttpResponse
-	2, // 4: proxy.v1.KubernetesProxy.Subscribe:output_type -> proxy.v1.HttpRequest
-	1, // 5: proxy.v1.KubernetesProxy.SendResponse:output_type -> proxy.v1.SendResponseResult
+	4, // 0: kube_proxy.v1alpha1.HttpRequest.headers:type_name -> kube_proxy.v1alpha1.Header
+	4, // 1: kube_proxy.v1alpha1.HttpResponse.headers:type_name -> kube_proxy.v1alpha1.Header
+	0, // 2: kube_proxy.v1alpha1.KubernetesProxy.Subscribe:input_type -> kube_proxy.v1alpha1.SubscribeRequest
+	3, // 3: kube_proxy.v1alpha1.KubernetesProxy.SendResponse:input_type -> kube_proxy.v1alpha1.HttpResponse
+	2, // 4: kube_proxy.v1alpha1.KubernetesProxy.Subscribe:output_type -> kube_proxy.v1alpha1.HttpRequest
+	1, // 5: kube_proxy.v1alpha1.KubernetesProxy.SendResponse:output_type -> kube_proxy.v1alpha1.SendResponseResult
 	4, // [4:6] is the sub-list for method output_type
 	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
