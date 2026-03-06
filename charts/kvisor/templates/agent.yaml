@@ -179,9 +179,9 @@ spec:
               value: {{ .Values.agent.reliabilityMetrics.openPorts | quote }}
           {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://localhost:4318"
+              value: "http://localhost:4317"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: "http/protobuf"
+              value: "grpc"
           {{- end }}
             - name: OTEL_EBPF_KUBE_METADATA_ENABLE
               value: "autodetect"
@@ -243,6 +243,9 @@ spec:
             - containerPort: {{ .Values.agent.reliabilityMetrics.collector.prometheusPort }}
               name: otel-prom
               protocol: TCP
+            - containerPort: 4317
+              name: otlp-grpc
+              protocol: TCP
             - containerPort: 4318
               name: otlp-http
               protocol: TCP
@@ -262,9 +265,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
-            - name: otel-collector-config
-              mountPath: /etc/otelcol
-              readOnly: true
             - name: obi-sa-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -322,11 +322,6 @@ spec:
                     - path: namespace
                       fieldRef:
                         fieldPath: metadata.namespace
-      {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
-        - name: otel-collector-config
-          configMap:
-            name: {{ include "kvisor.agent.fullname" . }}-otel-collector
-      {{- end }}
       {{- end }}
         {{- with .Values.agent.extraVolumes }}
         {{- toYaml . | nindent 8 }}
