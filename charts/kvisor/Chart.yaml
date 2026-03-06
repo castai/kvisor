@@ -7,7 +7,7 @@ appVersion: "v1.54.1"
 
 dependencies:
   - name: reliability-metrics-ch-exporter
-    version: "0.3.2"
+    version: "0.3.5"
     repository: "https://castai.github.io/helm-charts"
     condition: reliabilityMetrics.enabled
     alias: reliabilityMetrics
