@@ -4,25 +4,25 @@ agent:
     enabled: false
     image:
       repository: otel/ebpf-instrument
-      tag: "v0.4.1"
+      tag: "v0.5.0"
     resources:
       requests:
         memory: 128Mi
       limits:
         memory: 512Mi
-    openPorts: "80,443,8080,8443,8090,3000,9090,6379"
+    openPorts: "8080,8443,8090,6379"
     env: {}
     containerSecurityContext: {}
     collector:
       enabled: true
       image:
-        repository: otel/opentelemetry-collector-contrib
-        tag: "0.145.0"
+        repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
+        tag: "v0.1.2"
       resources:
         requests:
-          memory: 64Mi
-        limits:
           memory: 128Mi
+        limits:
+          memory: 256Mi
       prometheusPort: 9400
 
 castai:

@@ -15,9 +15,6 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
-        checksum/otel-config: {{ include (print $.Template.BasePath "/otel-collector-config.yaml") . | sha256sum }}
-      {{- end }}
       {{- if .Values.controller.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{.Values.controller.metricsHTTPListenPort}}"
@@ -88,9 +85,6 @@ spec:
           {{- end }}
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
-          {{- end }}
-          {{- if and (hasKey $extraArgs "cluster-proxy-enabled") (not (hasKey $extraArgs "cluster-proxy-sa-name")) }}
-            - "--cluster-proxy-sa-name={{ include "kvisor.clusterproxy.serviceAccountName" . }}"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
@@ -215,9 +209,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
-            - name: controller-otel-collector-config
-              mountPath: /etc/otelcol
-              readOnly: true
             - name: obi-sa-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -242,9 +233,6 @@ spec:
             name: {{ include "kvisor.fullname" . }}-static-cidrs
         {{- end }}
       {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
-        - name: controller-otel-collector-config
-          configMap:
-            name: {{ include "kvisor.controller.fullname" . }}-otel-collector
         - name: obi-sa-token
           projected:
             sources:
@@ -423,16 +411,6 @@ rules:
       - get
       - list
       - watch
-  {{- if hasKey (.Values.controller.extraArgs | default dict) "cluster-proxy-enabled" }}
-  - apiGroups:
-      - ""
-    resources:
-      - serviceaccounts/token
-    resourceNames:
-      - {{ include "kvisor.clusterproxy.serviceAccountName" . }}
-    verbs:
-      - create
-  {{- end }}
 {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
   # Additional read-only RBAC for k8s_cluster OTel receiver.
   # The receiver watches all standard K8s resource types via informers;
