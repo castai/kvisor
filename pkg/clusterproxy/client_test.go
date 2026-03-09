@@ -160,7 +160,7 @@ func TestValidateRequest(t *testing.T) {
 				Method: http.MethodGet,
 				Path:   "/api/%2E%2E/debug/pprof",
 			},
-			wantErr: "is not allowed",
+			wantErr: "percent-encoded characters are not allowed in path",
 		},
 		{
 			name: "exec with query string still blocked",
@@ -181,8 +181,32 @@ func TestValidateRequest(t *testing.T) {
 			name: "valid path with query string allowed",
 			req: &proxypb.HttpRequest{
 				Method: http.MethodGet,
+				Path:   "/api/v1/pods?labelSelector=app=nginx",
+			},
+		},
+		{
+			name: "percent-encoded char in query string rejected",
+			req: &proxypb.HttpRequest{
+				Method: http.MethodGet,
 				Path:   "/api/v1/pods?labelSelector=app%3Dnginx",
 			},
+			wantErr: "percent-encoded characters are not allowed in query",
+		},
+		{
+			name: "percent-encoded char in path rejected",
+			req: &proxypb.HttpRequest{
+				Method: http.MethodGet,
+				Path:   "/api/v1/pods/my%2Dpod",
+			},
+			wantErr: "percent-encoded characters are not allowed in path",
+		},
+		{
+			name: "double-encoded char in path rejected",
+			req: &proxypb.HttpRequest{
+				Method: http.MethodGet,
+				Path:   "/api/v1/pods/my%252Dpod",
+			},
+			wantErr: "percent-encoded characters are not allowed in path",
 		},
 	}
 
@@ -320,3 +344,4 @@ func TestFilterResponseHeaders(t *testing.T) {
 	require.NotContains(t, resultMap, "X-Secret-Header")
 	require.NotContains(t, resultMap, "Set-Cookie")
 }
+
