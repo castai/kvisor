@@ -86,7 +86,7 @@ spec:
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
           {{- end }}
-          {{- if and (hasKey $extraArgs "cluster-proxy-enabled") (not (hasKey $extraArgs "cluster-proxy-sa-name")) }}
+          {{- if hasKey $extraArgs "cluster-proxy-enabled" }}
             - "--cluster-proxy-sa-name={{ include "kvisor.clusterproxy.serviceAccountName" . }}"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}

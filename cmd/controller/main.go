@@ -98,7 +98,7 @@ var (
 	agentEnabled = pflag.Bool("agent-enabled", false, "Whether kvisor-agent is enabled (used for reporting; does not enable agent)")
 
 	clusterProxyEnabled     = pflag.Bool("cluster-proxy-enabled", false, "Enable cluster proxy for remote K8s API access")
-	clusterProxySAName      = pflag.String("cluster-proxy-sa-name", "kvisor-proxy", "Name of the service account for cluster proxy")
+	clusterProxySAName      = pflag.String("cluster-proxy-sa-name", "", "Name of the service account for cluster proxy")
 	clusterProxyTokenExpiry = pflag.Int64("cluster-proxy-token-expiration", 900, "Token expiration in seconds for the proxy SA")
 )
 
