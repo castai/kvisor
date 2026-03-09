@@ -89,8 +89,8 @@ spec:
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
           {{- end }}
-          {{- if and (hasKey $extraArgs "kube-proxy-enabled") (not (hasKey $extraArgs "kube-proxy-sa-name")) }}
-            - "--kube-proxy-sa-name={{ include "kvisor.proxy.serviceAccountName" . }}"
+          {{- if and (hasKey $extraArgs "cluster-proxy-enabled") (not (hasKey $extraArgs "cluster-proxy-sa-name")) }}
+            - "--cluster-proxy-sa-name={{ include "kvisor.clusterproxy.serviceAccountName" . }}"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
@@ -423,13 +423,13 @@ rules:
       - get
       - list
       - watch
-  {{- if hasKey (.Values.controller.extraArgs | default dict) "kube-proxy-enabled" }}
+  {{- if hasKey (.Values.controller.extraArgs | default dict) "cluster-proxy-enabled" }}
   - apiGroups:
       - ""
     resources:
       - serviceaccounts/token
     resourceNames:
-      - {{ include "kvisor.proxy.serviceAccountName" . }}
+      - {{ include "kvisor.clusterproxy.serviceAccountName" . }}
     verbs:
       - create
   {{- end }}

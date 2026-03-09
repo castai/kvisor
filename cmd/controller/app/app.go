@@ -38,7 +38,7 @@ import (
 	"github.com/castai/kvisor/pkg/blobscache"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cloudprovider"
-	"github.com/castai/kvisor/pkg/kubeproxy"
+	"github.com/castai/kvisor/pkg/clusterproxy"
 	"github.com/castai/logging"
 	"github.com/castai/logging/components"
 )
@@ -237,15 +237,15 @@ func (a *App) Run(ctx context.Context) error {
 			})
 		}
 
-		if cfg.KubeProxy.Enabled {
-			proxyClient, grpcConn, err := setupKubeProxy(log, cfg, clientset, a.kubeConfig)
+		if cfg.ClusterProxy.Enabled {
+			proxyClient, grpcConn, err := setupClusterProxy(log, cfg, clientset, a.kubeConfig)
 			if err != nil {
-				log.Errorf("failed to setup kube proxy: %v", err)
+				log.Errorf("failed to setup cluster proxy: %v", err)
 			} else {
 				errg.Go(func() error {
 					defer grpcConn.Close()
 					if err := proxyClient.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-						log.Errorf("kube proxy client stopped: %v", err)
+						log.Errorf("cluster proxy client stopped: %v", err)
 					}
 					return nil
 				})
@@ -394,13 +394,13 @@ func (a *App) runMetricsHTTPServer(ctx context.Context, log *logging.Logger) err
 	return nil
 }
 
-func setupKubeProxy(log *logging.Logger, cfg config.Config, clientset kubernetes.Interface, restCfg *rest.Config) (*kubeproxy.Client, *grpc.ClientConn, error) {
-	expSeconds := cfg.KubeProxy.TokenExpirationSeconds
-	tokenProvider := kubeproxy.NewTokenProvider(kubeproxy.TokenProviderConfig{
+func setupClusterProxy(log *logging.Logger, cfg config.Config, clientset kubernetes.Interface, restCfg *rest.Config) (*clusterproxy.Client, *grpc.ClientConn, error) {
+	expSeconds := cfg.ClusterProxy.TokenExpirationSeconds
+	tokenProvider := clusterproxy.NewTokenProvider(clusterproxy.TokenProviderConfig{
 		CreateToken: func(ctx context.Context) (string, time.Time, error) {
-			treq, err := clientset.CoreV1().ServiceAccounts(cfg.KubeProxy.SANamespace).CreateToken(
+			treq, err := clientset.CoreV1().ServiceAccounts(cfg.ClusterProxy.SANamespace).CreateToken(
 				ctx,
-				cfg.KubeProxy.SAName,
+				cfg.ClusterProxy.SAName,
 				&authv1.TokenRequest{
 					Spec: authv1.TokenRequestSpec{
 						ExpirationSeconds: &expSeconds,
@@ -421,7 +421,7 @@ func setupKubeProxy(log *logging.Logger, cfg config.Config, clientset kubernetes
 	}
 
 	httpClient := &http.Client{
-		Transport: kubeproxy.NewTokenRoundTripper(tokenProvider, baseTransport),
+		Transport: clusterproxy.NewTokenRoundTripper(tokenProvider, baseTransport),
 		Timeout:   30 * time.Second,
 	}
 
@@ -434,8 +434,8 @@ func setupKubeProxy(log *logging.Logger, cfg config.Config, clientset kubernetes
 		return nil, nil, fmt.Errorf("creating proxy grpc connection: %w", err)
 	}
 
-	proxyGRPC := proxypb.NewKubernetesProxyClient(grpcConn)
-	client, err := kubeproxy.NewClient(log, proxyGRPC, httpClient, restCfg.Host)
+	proxyGRPC := proxypb.NewClusterProxyClient(grpcConn)
+	client, err := clusterproxy.NewClient(log, proxyGRPC, httpClient, restCfg.Host)
 	if err != nil {
 		grpcConn.Close()
 		return nil, nil, err

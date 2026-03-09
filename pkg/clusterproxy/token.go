@@ -1,4 +1,4 @@
-package kubeproxy
+package clusterproxy
 
 import (
 	"context"

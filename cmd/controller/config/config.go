@@ -41,10 +41,10 @@ type Config struct {
 	JobsCleanup         controllers.JobsCleanupConfig `json:"jobsCleanup"`
 	AgentConfig         AgentConfig                   `json:"agentConfig"`
 	CloudProviderConfig CloudProviderConfig           `json:"cloudProviderConfig"`
-	KubeProxy           KubeProxyConfig               `json:"kubeProxy"`
+	ClusterProxy        ClusterProxyConfig            `json:"clusterProxy"`
 }
 
-type KubeProxyConfig struct {
+type ClusterProxyConfig struct {
 	Enabled                bool   `json:"enabled"`
 	SAName                 string `json:"saName"`
 	SANamespace            string `json:"saNamespace"`

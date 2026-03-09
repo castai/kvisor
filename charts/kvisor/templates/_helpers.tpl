@@ -155,14 +155,14 @@ app.kubernetes.io/component: controller
 
 
 {{/*
-Common helpers for kube proxy.
+Common helpers for cluster proxy.
 */}}
-{{- define "kvisor.proxy.fullname" -}}
-{{ include "kvisor.fullname" . }}-proxy
+{{- define "kvisor.clusterproxy.fullname" -}}
+{{ include "kvisor.fullname" . }}-cluster-proxy
 {{- end }}
 
-{{- define "kvisor.proxy.serviceAccountName" -}}
-{{ include "kvisor.proxy.fullname" . }}
+{{- define "kvisor.clusterproxy.serviceAccountName" -}}
+{{ include "kvisor.clusterproxy.fullname" . }}
 {{- end }}
 
 

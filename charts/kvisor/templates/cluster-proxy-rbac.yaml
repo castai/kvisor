@@ -1,8 +1,8 @@
-{{- if and .Values.controller.enabled (hasKey (.Values.controller.extraArgs | default dict) "kube-proxy-enabled") }}
+{{- if and .Values.controller.enabled (hasKey (.Values.controller.extraArgs | default dict) "cluster-proxy-enabled") }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "kvisor.proxy.serviceAccountName" . }}
+  name: {{ include "kvisor.clusterproxy.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kvisor.labels" . | nindent 4 }}
@@ -10,7 +10,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "kvisor.proxy.fullname" . }}
+  name: {{ include "kvisor.clusterproxy.fullname" . }}
   labels:
     {{- include "kvisor.labels" . | nindent 4 }}
 rules:
@@ -86,15 +86,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "kvisor.proxy.fullname" . }}
+  name: {{ include "kvisor.clusterproxy.fullname" . }}
   labels:
     {{- include "kvisor.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "kvisor.proxy.fullname" . }}
+  name: {{ include "kvisor.clusterproxy.fullname" . }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "kvisor.proxy.serviceAccountName" . }}
+    name: {{ include "kvisor.clusterproxy.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}

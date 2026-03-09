@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package kube_proxy.v1alpha1;
+package cluster_proxy.v1alpha1;
 
 option go_package = "github.com/castai/kvisor/api/v1/proxy";
 
-service KubernetesProxy {
+service ClusterProxy {
   rpc Subscribe(SubscribeRequest) returns (stream HttpRequest) {}
   rpc SendResponse(stream HttpResponse) returns (SendResponseResult) {}
 }

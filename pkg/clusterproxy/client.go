@@ -1,4 +1,4 @@
-package kubeproxy
+package clusterproxy
 
 import (
 	"bytes"
@@ -53,12 +53,12 @@ var allowedSubresources = map[string]bool{
 
 type Client struct {
 	log         *logging.Logger
-	proxyClient proxypb.KubernetesProxyClient
+	proxyClient proxypb.ClusterProxyClient
 	httpClient  *http.Client
 	kubeHost    *url.URL
 }
 
-func NewClient(log *logging.Logger, proxyClient proxypb.KubernetesProxyClient, httpClient *http.Client, kubeHost string) (*Client, error) {
+func NewClient(log *logging.Logger, proxyClient proxypb.ClusterProxyClient, httpClient *http.Client, kubeHost string) (*Client, error) {
 	parsed, err := url.Parse(kubeHost)
 	if err != nil {
 		return nil, fmt.Errorf("parsing kube host URL: %w", err)
@@ -72,8 +72,8 @@ func NewClient(log *logging.Logger, proxyClient proxypb.KubernetesProxyClient, h
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	c.log.Info("starting kube proxy client")
-	defer c.log.Info("stopping kube proxy client")
+	c.log.Info("starting cluster proxy client")
+	defer c.log.Info("stopping cluster proxy client")
 
 	eb := backoff.NewExponentialBackOff()
 	eb.InitialInterval = 1 * time.Second
