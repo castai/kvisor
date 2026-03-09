@@ -19,29 +19,29 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KubernetesProxy_Subscribe_FullMethodName    = "/kube_proxy.v1alpha1.KubernetesProxy/Subscribe"
-	KubernetesProxy_SendResponse_FullMethodName = "/kube_proxy.v1alpha1.KubernetesProxy/SendResponse"
+	ClusterProxy_Subscribe_FullMethodName    = "/cluster_proxy.v1alpha1.ClusterProxy/Subscribe"
+	ClusterProxy_SendResponse_FullMethodName = "/cluster_proxy.v1alpha1.ClusterProxy/SendResponse"
 )
 
-// KubernetesProxyClient is the client API for KubernetesProxy service.
+// ClusterProxyClient is the client API for ClusterProxy service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type KubernetesProxyClient interface {
+type ClusterProxyClient interface {
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HttpRequest], error)
 	SendResponse(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[HttpResponse, SendResponseResult], error)
 }
 
-type kubernetesProxyClient struct {
+type clusterProxyClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewKubernetesProxyClient(cc grpc.ClientConnInterface) KubernetesProxyClient {
-	return &kubernetesProxyClient{cc}
+func NewClusterProxyClient(cc grpc.ClientConnInterface) ClusterProxyClient {
+	return &clusterProxyClient{cc}
 }
 
-func (c *kubernetesProxyClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HttpRequest], error) {
+func (c *clusterProxyClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HttpRequest], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &KubernetesProxy_ServiceDesc.Streams[0], KubernetesProxy_Subscribe_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ClusterProxy_ServiceDesc.Streams[0], ClusterProxy_Subscribe_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +56,11 @@ func (c *kubernetesProxyClient) Subscribe(ctx context.Context, in *SubscribeRequ
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type KubernetesProxy_SubscribeClient = grpc.ServerStreamingClient[HttpRequest]
+type ClusterProxy_SubscribeClient = grpc.ServerStreamingClient[HttpRequest]
 
-func (c *kubernetesProxyClient) SendResponse(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[HttpResponse, SendResponseResult], error) {
+func (c *clusterProxyClient) SendResponse(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[HttpResponse, SendResponseResult], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &KubernetesProxy_ServiceDesc.Streams[1], KubernetesProxy_SendResponse_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ClusterProxy_ServiceDesc.Streams[1], ClusterProxy_SendResponse_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,83 +69,83 @@ func (c *kubernetesProxyClient) SendResponse(ctx context.Context, opts ...grpc.C
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type KubernetesProxy_SendResponseClient = grpc.ClientStreamingClient[HttpResponse, SendResponseResult]
+type ClusterProxy_SendResponseClient = grpc.ClientStreamingClient[HttpResponse, SendResponseResult]
 
-// KubernetesProxyServer is the server API for KubernetesProxy service.
-// All implementations should embed UnimplementedKubernetesProxyServer
+// ClusterProxyServer is the server API for ClusterProxy service.
+// All implementations should embed UnimplementedClusterProxyServer
 // for forward compatibility.
-type KubernetesProxyServer interface {
+type ClusterProxyServer interface {
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[HttpRequest]) error
 	SendResponse(grpc.ClientStreamingServer[HttpResponse, SendResponseResult]) error
 }
 
-// UnimplementedKubernetesProxyServer should be embedded to have
+// UnimplementedClusterProxyServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedKubernetesProxyServer struct{}
+type UnimplementedClusterProxyServer struct{}
 
-func (UnimplementedKubernetesProxyServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[HttpRequest]) error {
+func (UnimplementedClusterProxyServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[HttpRequest]) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
-func (UnimplementedKubernetesProxyServer) SendResponse(grpc.ClientStreamingServer[HttpResponse, SendResponseResult]) error {
+func (UnimplementedClusterProxyServer) SendResponse(grpc.ClientStreamingServer[HttpResponse, SendResponseResult]) error {
 	return status.Errorf(codes.Unimplemented, "method SendResponse not implemented")
 }
-func (UnimplementedKubernetesProxyServer) testEmbeddedByValue() {}
+func (UnimplementedClusterProxyServer) testEmbeddedByValue() {}
 
-// UnsafeKubernetesProxyServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to KubernetesProxyServer will
+// UnsafeClusterProxyServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ClusterProxyServer will
 // result in compilation errors.
-type UnsafeKubernetesProxyServer interface {
-	mustEmbedUnimplementedKubernetesProxyServer()
+type UnsafeClusterProxyServer interface {
+	mustEmbedUnimplementedClusterProxyServer()
 }
 
-func RegisterKubernetesProxyServer(s grpc.ServiceRegistrar, srv KubernetesProxyServer) {
-	// If the following call pancis, it indicates UnimplementedKubernetesProxyServer was
+func RegisterClusterProxyServer(s grpc.ServiceRegistrar, srv ClusterProxyServer) {
+	// If the following call pancis, it indicates UnimplementedClusterProxyServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&KubernetesProxy_ServiceDesc, srv)
+	s.RegisterService(&ClusterProxy_ServiceDesc, srv)
 }
 
-func _KubernetesProxy_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _ClusterProxy_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(KubernetesProxyServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, HttpRequest]{ServerStream: stream})
+	return srv.(ClusterProxyServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, HttpRequest]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type KubernetesProxy_SubscribeServer = grpc.ServerStreamingServer[HttpRequest]
+type ClusterProxy_SubscribeServer = grpc.ServerStreamingServer[HttpRequest]
 
-func _KubernetesProxy_SendResponse_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(KubernetesProxyServer).SendResponse(&grpc.GenericServerStream[HttpResponse, SendResponseResult]{ServerStream: stream})
+func _ClusterProxy_SendResponse_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ClusterProxyServer).SendResponse(&grpc.GenericServerStream[HttpResponse, SendResponseResult]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type KubernetesProxy_SendResponseServer = grpc.ClientStreamingServer[HttpResponse, SendResponseResult]
+type ClusterProxy_SendResponseServer = grpc.ClientStreamingServer[HttpResponse, SendResponseResult]
 
-// KubernetesProxy_ServiceDesc is the grpc.ServiceDesc for KubernetesProxy service.
+// ClusterProxy_ServiceDesc is the grpc.ServiceDesc for ClusterProxy service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var KubernetesProxy_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "kube_proxy.v1alpha1.KubernetesProxy",
-	HandlerType: (*KubernetesProxyServer)(nil),
+var ClusterProxy_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "cluster_proxy.v1alpha1.ClusterProxy",
+	HandlerType: (*ClusterProxyServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Subscribe",
-			Handler:       _KubernetesProxy_Subscribe_Handler,
+			Handler:       _ClusterProxy_Subscribe_Handler,
 			ServerStreams: true,
 		},
 		{
 			StreamName:    "SendResponse",
-			Handler:       _KubernetesProxy_SendResponse_Handler,
+			Handler:       _ClusterProxy_SendResponse_Handler,
 			ClientStreams: true,
 		},
 	},
