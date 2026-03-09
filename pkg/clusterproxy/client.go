@@ -284,12 +284,9 @@ func validateRequest(req *proxypb.HttpRequest) error {
 		return fmt.Errorf("only GET requests are allowed, got %s", req.Method)
 	}
 
-	pathPart, query, _ := strings.Cut(req.Path, "?")
+	pathPart, _, _ := strings.Cut(req.Path, "?")
 	if strings.ContainsRune(pathPart, '%') {
 		return fmt.Errorf("percent-encoded characters are not allowed in path: %q", req.Path)
-	}
-	if strings.ContainsRune(query, '%') {
-		return fmt.Errorf("percent-encoded characters are not allowed in query: %q", req.Path)
 	}
 	cleaned := path.Clean(pathPart)
 	if !isAllowedPath(cleaned) {

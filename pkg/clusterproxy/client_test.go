@@ -181,16 +181,8 @@ func TestValidateRequest(t *testing.T) {
 			name: "valid path with query string allowed",
 			req: &proxypb.HttpRequest{
 				Method: http.MethodGet,
-				Path:   "/api/v1/pods?labelSelector=app=nginx",
-			},
-		},
-		{
-			name: "percent-encoded char in query string rejected",
-			req: &proxypb.HttpRequest{
-				Method: http.MethodGet,
 				Path:   "/api/v1/pods?labelSelector=app%3Dnginx",
 			},
-			wantErr: "percent-encoded characters are not allowed in query",
 		},
 		{
 			name: "percent-encoded char in path rejected",
