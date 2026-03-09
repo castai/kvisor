@@ -171,6 +171,7 @@ spec:
             {{- toYaml .Values.controller.reliabilityMetrics.collector.resources | nindent 12 }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- include "MemoryLimiterEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller) }}
             - name: COLLECTOR_MODE
               value: "controller"

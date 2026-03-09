@@ -217,6 +217,7 @@ spec:
             {{- toYaml .Values.agent.reliabilityMetrics.collector.resources | nindent 12 }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- include "MemoryLimiterEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent) }}
             - name: CLICKHOUSE_ENABLED
               value: "true"
