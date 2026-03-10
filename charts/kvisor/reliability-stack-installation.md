@@ -163,6 +163,9 @@ agent:
       OTEL_EBPF_BPF_WAKEUP_LEN: "10"                      # Batch eBPF events per wakeup
       OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"      # Only cache local node metadata
       OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"    # Disable unused informers
+      OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
+      OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
+      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
 
     # OTel Collector sidecar (agent)
     collector:
@@ -206,6 +209,12 @@ reliabilityMetrics:
     clusterIdConfigMapRef:
       name: "castai-agent-metadata"
       key: "CLUSTER_ID"
+    # Telemetry server gRPC address. The ch-exporter uses this to send
+    # aggregated metrics to the CAST AI mothership. Unlike the kvisor agent
+    # (which auto-derives telemetry.* from castai.grpcAddr), the exporter
+    # needs an explicit address.
+    # EU region: "telemetry.prod-eu.cast.ai:443"
+    grpcAddr: "telemetry.prod-master.cast.ai:443"
 
   # ClickHouse credentials
   auth:
@@ -235,7 +244,7 @@ reliabilityMetrics:
   # ch-exporter sidecar
   exporter:
     enabled: true
-    grpcAddr: ""           # Defaults to castai.grpcAddr if empty
+    grpcAddr: ""           # Defaults to reliabilityMetrics.castai.grpcAddr if empty
     image:
       repository: ghcr.io/castai/kvisor/reliability-metrics-ch-exporter
       tag: "v0.3.6"
