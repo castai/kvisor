@@ -22,6 +22,7 @@ func TestVPCIndex(t *testing.T) {
 		r.NotNil(index)
 		r.NotNil(index.cloudCIDRIndex)
 		r.NotNil(index.staticCIDRIndex)
+		r.NotNil(index.cloudPublicCIDRIndex)
 	})
 
 	t.Run("update state", func(t *testing.T) {
@@ -78,31 +79,142 @@ func TestVPCIndex(t *testing.T) {
 		r.Equal("", info.CloudDomain)
 	})
 
-	// t.Run("lookup IP in service range", func(t *testing.T) {
-	// 	r := require.New(t)
-	// 	index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
-	//
-	// 	state := &cloudtypes.NetworkState{
-	// 		Domain: "googleapis.com",
-	// 		ServiceRanges: []cloudtypes.ServiceRanges{
-	// 			{
-	// 				Region: "us-central1",
-	// 				CIRDs:  []netip.Prefix{netip.MustParsePrefix("34.126.0.0/18")},
-	// 			},
-	// 		},
-	// 	}
-	//
-	// 	err := index.Update(state)
-	// 	r.NoError(err)
-	//
-	// 	// Lookup IP in service range
-	// 	ip := netip.MustParseAddr("34.126.10.1")
-	// 	info, found := index.LookupIP(ip)
-	// 	r.True(found)
-	// 	r.NotNil(info)
-	// 	r.Equal("us-central1", info.Region)
-	// 	r.Equal("googleapis.com", info.CloudDomain)
-	// })
+	t.Run("lookup IP in cloud public service range", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		err := index.UpdateCloudPublicCIDRs("googleapis.com", []cloudtypes.ServiceRanges{
+			{
+				Region: "us-central1",
+				CIRDs:  []netip.Prefix{netip.MustParsePrefix("34.126.0.0/18")},
+			},
+		})
+		r.NoError(err)
+
+		// Lookup IP in cloud public service range
+		ip := netip.MustParseAddr("34.126.10.1")
+		info, found := index.LookupIP(ip)
+		r.True(found)
+		r.NotNil(info)
+		r.Equal("us-central1", info.Region)
+		r.Equal("googleapis.com", info.CloudDomain)
+
+		// IP not in any range should not be found
+		info, found = index.LookupIP(netip.MustParseAddr("8.8.8.8"))
+		r.False(found)
+		r.Nil(info)
+	})
+
+	t.Run("UpdateCloudPublicCIDRs replaces previous data", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		// First update
+		err := index.UpdateCloudPublicCIDRs("amazonaws.com", []cloudtypes.ServiceRanges{
+			{
+				Region: "us-east-1",
+				CIRDs:  []netip.Prefix{netip.MustParsePrefix("3.0.0.0/8")},
+			},
+		})
+		r.NoError(err)
+
+		info, found := index.LookupIP(netip.MustParseAddr("3.1.2.3"))
+		r.True(found)
+		r.Equal("us-east-1", info.Region)
+
+		// Second update with different data — old data should be gone
+		err = index.UpdateCloudPublicCIDRs("amazonaws.com", []cloudtypes.ServiceRanges{
+			{
+				Region: "eu-west-1",
+				CIRDs:  []netip.Prefix{netip.MustParsePrefix("52.0.0.0/8")},
+			},
+		})
+		r.NoError(err)
+
+		// Old range should no longer match
+		_, found = index.LookupIP(netip.MustParseAddr("3.1.2.3"))
+		r.False(found)
+
+		// New range should match
+		info, found = index.LookupIP(netip.MustParseAddr("52.1.2.3"))
+		r.True(found)
+		r.Equal("eu-west-1", info.Region)
+	})
+
+	t.Run("cloud CIDRs take priority over cloud public CIDRs", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		// Add cloud public range (broad)
+		err := index.UpdateCloudPublicCIDRs("amazonaws.com", []cloudtypes.ServiceRanges{
+			{
+				Region: "us-east-1",
+				CIRDs:  []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+			},
+		})
+		r.NoError(err)
+
+		// Add cloud-discovered subnet (more specific, with zone)
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID: "vpc-1",
+					Subnets: []cloudtypes.Subnet{
+						{
+							ID:     "subnet-1",
+							CIDR:   netip.MustParsePrefix("10.0.1.0/24"),
+							Zone:   "us-east-1a",
+							Region: "us-east-1",
+						},
+					},
+				},
+			},
+		}
+		err = index.Update(state)
+		r.NoError(err)
+
+		// IP in cloud-discovered subnet should return cloud data (with zone), not cloud public
+		info, found := index.LookupIP(netip.MustParseAddr("10.0.1.50"))
+		r.True(found)
+		r.Equal("us-east-1a", info.Zone)
+		r.Equal("us-east-1", info.Region)
+		r.Equal("", info.CloudDomain) // cloud-discovered subnet has no domain
+
+		// IP only in cloud public range should return cloud public data
+		info, found = index.LookupIP(netip.MustParseAddr("10.5.5.5"))
+		r.True(found)
+		r.Equal("", info.Zone)
+		r.Equal("us-east-1", info.Region)
+		r.Equal("amazonaws.com", info.CloudDomain)
+	})
+
+	t.Run("CloudServiceCIDRs returns cloud public ranges", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		// Before any update, should return empty
+		cidrs := index.CloudServiceCIDRs()
+		r.Empty(cidrs)
+
+		// After update, should return the CIDRs
+		err := index.UpdateCloudPublicCIDRs("amazonaws.com", []cloudtypes.ServiceRanges{
+			{
+				Region: "us-east-1",
+				CIRDs:  []netip.Prefix{netip.MustParsePrefix("3.0.0.0/8"), netip.MustParsePrefix("52.0.0.0/8")},
+			},
+			{
+				Region: "global",
+				CIRDs:  []netip.Prefix{netip.MustParsePrefix("99.0.0.0/8")},
+			},
+		})
+		r.NoError(err)
+
+		cidrs = index.CloudServiceCIDRs()
+		r.Len(cidrs, 3)
+		r.Contains(cidrs, "3.0.0.0/8")
+		r.Contains(cidrs, "52.0.0.0/8")
+		r.Contains(cidrs, "99.0.0.0/8")
+	})
 
 	t.Run("lookup IP in secondary range", func(t *testing.T) {
 		r := require.New(t)
