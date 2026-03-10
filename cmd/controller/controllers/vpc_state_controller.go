@@ -13,13 +13,14 @@ import (
 	"github.com/castai/logging"
 )
 
-type VPCStateControllerConfig struct {
-	Enabled         bool          `json:"enabled"`
-	UseZoneID       bool          `json:"useZoneID"`
-	NetworkName     string        `json:"networkName"`
-	RefreshInterval time.Duration `json:"refreshInterval"`
-	CacheSize       uint32        `json:"cacheSize"`
-	StaticCIDRsFile string        `json:"staticCIDRsFile"` // Path to YAML file
+type NetworkStateControllerConfig struct {
+	Enabled                    bool          `json:"enabled"`
+	UseZoneID                  bool          `json:"useZoneID"`
+	NetworkName                string        `json:"networkName"`
+	NetworkRefreshInterval     time.Duration `json:"networkRefreshInterval"`
+	PublicCIDRsRefreshInterval time.Duration `json:"publicCIDRsRefreshInterval"`
+	CacheSize                  uint32        `json:"cacheSize"`
+	StaticCIDRsFile            string        `json:"staticCIDRsFile"` // Path to YAML file
 }
 
 // StaticCIDRMapping represents a manual CIDR to zone/region/service mapping.
@@ -38,9 +39,9 @@ type cloudProvider interface {
 	RefreshNetworkState(ctx context.Context, network string) error
 }
 
-func NewVPCStateController(log *logging.Logger, cfg VPCStateControllerConfig, cloudProvider cloudProvider, vpcIndex *kube.VPCIndex) *VPCStateController {
-	if cfg.RefreshInterval == 0 {
-		cfg.RefreshInterval = 1 * time.Hour
+func NewVPCStateController(log *logging.Logger, cfg NetworkStateControllerConfig, cloudProvider cloudProvider, vpcIndex *kube.VPCIndex) *VPCStateController {
+	if cfg.NetworkRefreshInterval == 0 {
+		cfg.NetworkRefreshInterval = 1 * time.Hour
 	}
 	return &VPCStateController{
 		log:           log.WithField("component", "vpc_state_controller"),
@@ -52,7 +53,7 @@ func NewVPCStateController(log *logging.Logger, cfg VPCStateControllerConfig, cl
 
 type VPCStateController struct {
 	log           *logging.Logger
-	cfg           VPCStateControllerConfig
+	cfg           NetworkStateControllerConfig
 	cloudProvider cloudProvider
 	vpcIndex      *kube.VPCIndex
 }
@@ -108,10 +109,10 @@ func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIn
 }
 
 func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.VPCIndex) error {
-	ticker := time.NewTicker(c.cfg.RefreshInterval)
+	ticker := time.NewTicker(c.cfg.NetworkRefreshInterval)
 	defer ticker.Stop()
 
-	c.log.Infof("starting VPC state refresh (interval: %v)", c.cfg.RefreshInterval)
+	c.log.Infof("starting VPC state refresh (interval: %v)", c.cfg.NetworkRefreshInterval)
 
 	for {
 		select {

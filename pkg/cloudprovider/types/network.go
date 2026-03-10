@@ -3,10 +3,9 @@ package types
 import "net/netip"
 
 type NetworkState struct {
-	Provider      Type
-	Domain        string // Cloud domain (e.g., googleapis.com, amazonaws.com)
-	VPCs          []VPC
-	ServiceRanges []ServiceRanges // Cloud provider service IP ranges (e.g., GCP APIs)
+	Provider Type
+	Domain   string // Cloud domain (e.g., googleapis.com, amazonaws.com)
+	VPCs     []VPC
 }
 
 // ServiceRanges contains cloud provider service IP ranges.
