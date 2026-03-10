@@ -14,20 +14,28 @@ import (
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 )
 
-func NewClient(userAgent string, cfg Config) (*Client, error) {
+func NewGRPCConn(cfg Config, extraOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	tls := credentials.NewTLS(nil)
 	if strings.HasPrefix(cfg.APIGrpcAddr, "localhost") || cfg.Insecure {
 		tls = insecure.NewCredentials()
 	}
-	grpcConn, err := grpc.NewClient(
-		cfg.APIGrpcAddr,
+	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(tls),
-		grpc.WithUserAgent(userAgent),
 		grpc.WithUnaryInterceptor(newCastaiGrpcUnaryMetadataInterceptor(cfg)),
 		grpc.WithStreamInterceptor(newCastaiGrpcStreamMetadataInterceptor(cfg)),
-	)
+	}
+	opts = append(opts, extraOpts...)
+	conn, err := grpc.NewClient(cfg.APIGrpcAddr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("castai grpc server dial: %w", err)
+	}
+	return conn, nil
+}
+
+func NewClient(userAgent string, cfg Config) (*Client, error) {
+	grpcConn, err := NewGRPCConn(cfg, grpc.WithUserAgent(userAgent))
+	if err != nil {
+		return nil, err
 	}
 	if cfg.CompressionName == "" {
 		cfg.CompressionName = gzip.Name
