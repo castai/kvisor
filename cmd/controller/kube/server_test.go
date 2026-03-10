@@ -26,7 +26,7 @@ func TestServer(t *testing.T) {
 	clientset := fake.NewClientset()
 	client := NewClient(log, "castai-kvisor", "kvisor", Version{}, clientset, "", false)
 	client.index = NewIndex()
-	client.vpcIndex = NewVPCIndex(log, VPCConfig{})
+	client.vpcIndex = NewNetworkIndex(log, NetworkConfig{})
 
 	go func() {
 		_ = client.Run(ctx)

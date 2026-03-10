@@ -39,7 +39,7 @@ type cloudProvider interface {
 	RefreshNetworkState(ctx context.Context, network string) error
 }
 
-func NewVPCStateController(log *logging.Logger, cfg NetworkStateControllerConfig, cloudProvider cloudProvider, vpcIndex *kube.VPCIndex) *VPCStateController {
+func NewVPCStateController(log *logging.Logger, cfg NetworkStateControllerConfig, cloudProvider cloudProvider, vpcIndex *kube.NetworkIndex) *VPCStateController {
 	if cfg.NetworkRefreshInterval == 0 {
 		cfg.NetworkRefreshInterval = 1 * time.Hour
 	}
@@ -55,7 +55,7 @@ type VPCStateController struct {
 	log           *logging.Logger
 	cfg           NetworkStateControllerConfig
 	cloudProvider cloudProvider
-	vpcIndex      *kube.VPCIndex
+	vpcIndex      *kube.NetworkIndex
 }
 
 func (c *VPCStateController) Run(ctx context.Context) error {
@@ -70,7 +70,7 @@ func (c *VPCStateController) Run(ctx context.Context) error {
 	return c.runRefreshLoop(ctx, c.vpcIndex)
 }
 
-func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIndex *kube.VPCIndex) error {
+func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIndex *kube.NetworkIndex) error {
 	backoff := 2 * time.Second
 	maxRetries := 5
 
@@ -108,7 +108,7 @@ func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIn
 	return nil
 }
 
-func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.VPCIndex) error {
+func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.NetworkIndex) error {
 	ticker := time.NewTicker(c.cfg.NetworkRefreshInterval)
 	defer ticker.Stop()
 
@@ -142,7 +142,7 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 }
 
 // LoadStaticCIDRsFromFile loads static CIDRs from a YAML file.
-func LoadStaticCIDRsFromFile(log *logging.Logger, path string, vpcIndex *kube.VPCIndex) error {
+func LoadStaticCIDRsFromFile(log *logging.Logger, path string, vpcIndex *kube.NetworkIndex) error {
 	if path == "" {
 		return nil
 	}
@@ -165,7 +165,7 @@ func LoadStaticCIDRsFromFile(log *logging.Logger, path string, vpcIndex *kube.VP
 	return vpcIndex.AddStaticCIDRs(entries)
 }
 
-// convertStaticMappingsToEntries converts config mappings to VPCIndex entries.
+// convertStaticMappingsToEntries converts config mappings to NetworkIndex entries.
 func convertStaticMappingsToEntries(mappings []StaticCIDRMapping) []kube.StaticCIDREntry {
 	entries := make([]kube.StaticCIDREntry, len(mappings))
 	for i, m := range mappings {

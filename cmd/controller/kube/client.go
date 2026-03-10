@@ -67,7 +67,7 @@ type Client struct {
 	kvisorControllerPodSpec *corev1.PodSpec
 
 	index       *Index
-	vpcIndex    *VPCIndex
+	vpcIndex    *NetworkIndex
 	volumeIndex *VolumeIndex
 
 	clusterInfo *ClusterInfo
@@ -106,12 +106,12 @@ func NewClient(
 }
 
 // SetVPCIndex sets the VPC index for enriching external IPs with VPC metadata.
-func (c *Client) SetVPCIndex(vpcIndex *VPCIndex) {
+func (c *Client) SetVPCIndex(vpcIndex *NetworkIndex) {
 	c.vpcIndex = vpcIndex
 }
 
 // GetVPCIndex returns the VPC index if available.
-func (c *Client) GetVPCIndex() *VPCIndex {
+func (c *Client) GetVPCIndex() *NetworkIndex {
 	return c.vpcIndex
 }
 

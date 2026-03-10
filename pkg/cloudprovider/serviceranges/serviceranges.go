@@ -190,6 +190,8 @@ func FetchServiceIPRanges(ctx context.Context, log *logging.Logger, providerType
 	}
 }
 
+const maxResponseSize = 20 * 1024 * 1024 // 20MB
+
 func fetchURL(ctx context.Context, url string) ([]byte, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -197,22 +199,22 @@ func fetchURL(ctx context.Context, url string) ([]byte, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf("creating request for %s: %w", url, err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fetching IP ranges: %w", err)
+		return nil, fmt.Errorf("fetching %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("fetching %s: unexpected status code %d", url, resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
+		return nil, fmt.Errorf("reading response from %s: %w", url, err)
 	}
 
 	return body, nil

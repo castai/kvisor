@@ -27,7 +27,7 @@ func TestVPCStateController(t *testing.T) {
 			NetworkRefreshInterval: 1 * time.Hour,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		vpcIndex := kube.NewNetworkIndex(log, kube.NetworkConfig{NetworkRefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 
 		err := ctrl.Run(ctx)
@@ -47,7 +47,7 @@ func TestVPCStateController(t *testing.T) {
 			NetworkRefreshInterval: 0,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		vpcIndex := kube.NewNetworkIndex(log, kube.NetworkConfig{NetworkRefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 		r.Equal(1*time.Hour, ctrl.cfg.NetworkRefreshInterval)
 	})
@@ -63,7 +63,7 @@ func TestVPCStateController(t *testing.T) {
 			NetworkRefreshInterval: customInterval,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		vpcIndex := kube.NewNetworkIndex(log, kube.NetworkConfig{NetworkRefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 		r.Equal(customInterval, ctrl.cfg.NetworkRefreshInterval)
 	})

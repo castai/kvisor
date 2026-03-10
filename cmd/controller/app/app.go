@@ -149,9 +149,10 @@ func (a *App) Run(ctx context.Context) error {
 		networkIndex = kube.NewNetworkIndex(
 			log,
 			kube.NetworkConfig{
-				NetworkRefreshInterval: vpcCfg.NetworkRefreshInterval,
-				CacheSize:              vpcCfg.CacheSize,
-				UseAwsZoneId:           vpcCfg.UseZoneID,
+				NetworkRefreshInterval:     vpcCfg.NetworkRefreshInterval,
+				PublicCIDRsRefreshInterval: vpcCfg.PublicCIDRsRefreshInterval,
+				CacheSize:                  vpcCfg.CacheSize,
+				UseAwsZoneId:               vpcCfg.UseZoneID,
 			},
 		)
 		if err := controllers.LoadStaticCIDRsFromFile(log, vpcCfg.StaticCIDRsFile, networkIndex); err != nil {
@@ -164,7 +165,7 @@ func (a *App) Run(ctx context.Context) error {
 			errg.Go(func() error {
 				return controllers.NewCloudPublicCIDRController(log, controllers.CloudPublicCIDRControllerConfig{
 					CloudProviderType: cloudProviderType,
-					RefreshInterval:   vpcCfg.NetworkRefreshInterval,
+					RefreshInterval:   vpcCfg.PublicCIDRsRefreshInterval,
 				}, networkIndex).Run(ctx)
 			})
 		}

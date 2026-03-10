@@ -216,7 +216,7 @@ func main() {
 				GCPProjectID: *cloudProviderGCPProjectID,
 				AWSRegion:    *cloudProviderAWSRegion,
 			},
-			VPCStateController: controllers.NetworkStateControllerConfig{
+			NetworkStateController: controllers.NetworkStateControllerConfig{
 				Enabled:                    *cloudProviderVPCSyncEnabled,
 				UseZoneID:                  *cloudProviderAWSUseZoneID,
 				NetworkName:                *cloudProviderVPCName,
