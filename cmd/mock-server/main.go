@@ -40,10 +40,18 @@ func main() {
 	grpcServer := grpc.NewServer()
 	castaipb.RegisterRuntimeSecurityAgentAPIServer(grpcServer, NewMockServer(log))
 
+	httpServer := &http.Server{
+		Addr:    ":8080",
+		Handler: &testCASTAIHTTPServer{},
+	}
+
 	go func() {
 		<-ctx.Done()
-		log.Info("shutting down grpc ingestor server")
+		log.Info("shutting down servers")
 		grpcServer.Stop()
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			log.Errorf("http shutdown: %v", err)
+		}
 	}()
 
 	var errg errgroup.Group
@@ -54,8 +62,10 @@ func main() {
 
 	errg.Go(func() error {
 		log.Info("listening http at :8080")
-		httpServer := &testCASTAIHTTPServer{}
-		return http.ListenAndServe(":8080", httpServer) //nolint:gosec
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			return err
+		}
+		return nil
 	})
 
 	if err := errg.Wait(); err != nil {
