@@ -176,7 +176,7 @@ agent:
     # --- OBI (eBPF instrumentation) settings ---
     image:
       repository: otel/ebpf-instrument
-      tag: "v0.5.0"
+      tag: "v0.6.0"
     resources:
       requests:
         memory: 128Mi
@@ -210,6 +210,20 @@ agent:
       # namespace, node name) come from the pod informer's owner references
       # and spec.nodeName.
       OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"
+      # Timeout for HTTP request completion. Requests open beyond this duration
+      # are forcibly closed by eBPF and reported with their current state.
+      # Default 30s prevents long-lived connections (SSE, WebSocket upgrades,
+      # streaming) from accumulating as open spans and inflating memory.
+      OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"
+      # Skip Go-specific uprobes for HTTP/2 and gRPC tracing. Go binaries use
+      # non-standard calling conventions that require expensive uprobe attachment.
+      # Disabling avoids per-binary probe setup overhead and false-positive spans.
+      OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"
+      # Enable high-request-volume mode. Uses ring-buffer instead of perf-buffer
+      # for eBPF→userspace event delivery, reducing per-event overhead at the
+      # cost of slightly higher baseline memory. Recommended for clusters with
+      # high-throughput services (>1k req/s per node).
+      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
     # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
     containerSecurityContext: {}
 
@@ -222,7 +236,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.2"
+        tag: "v0.1.4"
       resources:
         requests:
           memory: 128Mi
@@ -368,13 +382,13 @@ controller:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.2"
+        tag: "v0.1.4"
       resources:
         requests:
           cpu: 250m
-          memory: 128Mi
-        limits:
           memory: 256Mi
+        limits:
+          memory: 512Mi
       # ClickHouse exporter — mirrors agent collector pattern.
       clickhouseExporter:
         enabled: true
@@ -447,6 +461,11 @@ reliabilityMetrics:
     clusterIdConfigMapRef:
       name: "castai-agent-metadata" # Read cluster ID from castai-agent-metadata ConfigMap
       key: "CLUSTER_ID"
+    # gRPC address for the telemetry server (ch-exporter → mothership).
+    # The kvisor agent auto-derives telemetry.* from castai.grpcAddr, but the
+    # ch-exporter subchart has no such logic — it needs an explicit address.
+    # Note: If your cluster is in the EU region, use: "telemetry.prod-eu.cast.ai:443"
+    grpcAddr: "telemetry.prod-master.cast.ai:443"
   # ClickHouse authentication credentials
   # Can be plain values OR valueFrom references (secretKeyRef/configMapKeyRef)
   # See subchart documentation for valueFrom examples
@@ -457,4 +476,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.5"
+      tag: "v0.3.6"
