@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -41,8 +42,9 @@ func main() {
 	castaipb.RegisterRuntimeSecurityAgentAPIServer(grpcServer, NewMockServer(log))
 
 	httpServer := &http.Server{
-		Addr:    ":8080",
-		Handler: &testCASTAIHTTPServer{},
+		Addr:              ":8080",
+		Handler:           &testCASTAIHTTPServer{},
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
