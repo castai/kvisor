@@ -64,14 +64,19 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
 - CAST AI account with API key and cluster onboarded to CAST AI
 - **Altinity ClickHouse operator**: Either let the chart install it (`reliabilityMetrics.operator.enabled=true`) or ensure one is already running in the cluster (`reliabilityMetrics.operator.enabled=false`)
 
+### Helm Repo Setup
+
+```bash
+helm repo add castai-helm https://castai.github.io/helm-charts
+helm repo update castai-helm
+```
+
 ## Installation
 
 ### Option 1: Fresh Installation
 
 ```bash
-helm dependency update ./charts/kvisor
-
-helm install castai-kvisor ./charts/kvisor \
+helm install castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent --create-namespace \
   --set castai.apiKey=<your-api-key> \
   --set castai.clusterID=<your-cluster-id> \
@@ -86,9 +91,9 @@ helm install castai-kvisor ./charts/kvisor \
 ### Option 2: Enable on Existing Kvisor
 
 ```bash
-helm dependency update ./charts/kvisor
+helm repo update castai-helm
 
-helm upgrade castai-kvisor ./charts/kvisor \
+helm upgrade castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent \
   --reset-then-reuse-values \
   --set agent.reliabilityMetrics.enabled=true \
@@ -514,7 +519,7 @@ If the operator uses `WATCH_NAMESPACES` env var, ensure `castai-agent` is in the
 ### Disable Reliability Metrics (Keep Kvisor)
 
 ```bash
-helm upgrade castai-kvisor ./charts/kvisor \
+helm upgrade castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent \
   --reset-then-reuse-values \
   --set agent.reliabilityMetrics.enabled=false \
