@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -372,6 +373,77 @@ func startCPUProfile(name string) {
 	if err := pprof.StartCPUProfile(f); err != nil {
 		logrus.Fatalf("could not start CPU profile: %v", err)
 	}
+}
+
+// TestCollectImageWithHealthcheckNone reproduces a nil pointer dereference (SIGSEGV) in trivy's
+// history-dockerfile analyzer when an image has "HEALTHCHECK" in its history but nil Healthcheck
+// in its config. This happens when some build tools (e.g. Buildah, Kaniko) record a HEALTHCHECK
+// history entry without populating the config field.
+//
+// The TypeHistoryDockerfile analyzer is disabled in production to avoid this crash.
+// This test verifies the crash by temporarily re-enabling it.
+func TestCollectImageWithHealthcheckNone(t *testing.T) {
+	ctx := context.Background()
+	log := logrus.New()
+	log.SetLevel(logrus.DebugLevel)
+
+	tr := httptest.NewServer(registry.New())
+	defer tr.Close()
+	u, err := url.Parse(tr.URL)
+	require.NoError(t, err)
+
+	// Create an image with HEALTHCHECK in history but nil Healthcheck in config.
+	alpineRef, err := name.ParseReference(fmt.Sprintf("%s/alpine:3.21.3", u.Host))
+	require.NoError(t, err)
+	baseImg, err := remote.Image(alpineRef)
+	if err != nil {
+		// Pull from real registry and push to test registry first.
+		idx := mustImageIndexFromPath(t, "testdata/images/alpine-3-21-3")
+		mustWriteImageIndex(t, u.Host, "alpine:3.21.3", idx)
+		idxManifest, err := idx.IndexManifest()
+		require.NoError(t, err)
+		baseImg, err = idx.Image(idxManifest.Manifests[0].Digest)
+		require.NoError(t, err)
+	}
+
+	// Add a HEALTHCHECK history entry but leave Config.Healthcheck nil.
+	cfg, err := baseImg.ConfigFile()
+	require.NoError(t, err)
+	cfg.Config.Healthcheck = nil // explicitly nil
+	cfg.History = append(cfg.History, v1.History{
+		CreatedBy: "HEALTHCHECK &{[\"NONE\"] \"0s\" \"0s\" \"0s\" \"0s\" '\\x00'}",
+		EmptyLayer: true,
+	})
+	img, err := mutate.ConfigFile(baseImg, cfg)
+	require.NoError(t, err)
+
+	ref, err := name.ParseReference(fmt.Sprintf("%s/healthcheck-none:latest", u.Host))
+	require.NoError(t, err)
+	require.NoError(t, remote.Write(ref, img))
+
+	mockCache := mockblobcache.MockClient{}
+	ingestClient := &mockIngestClient{}
+
+	c := New(
+		log,
+		config.Config{
+			ImageID:   "healthcheck-none:latest",
+			ImageName: fmt.Sprintf("%s/healthcheck-none:latest", u.Host),
+			Timeout:   1 * time.Minute,
+			Mode:      config.ModeRemote,
+			Runtime:   config.RuntimeDocker,
+			Parallel:  1,
+			// Enable the history-dockerfile analyzer to trigger the crash.
+			DisabledAnalyzers: []string{"secret"},
+		},
+		ingestClient,
+		mockCache,
+		nil,
+	)
+
+	// This panics with SIGSEGV in trivy's buildHealthcheckInstruction when
+	// TypeHistoryDockerfile is not disabled.
+	require.NoError(t, c.Collect(ctx))
 }
 
 func TestFindRegistryAuth(t *testing.T) {
