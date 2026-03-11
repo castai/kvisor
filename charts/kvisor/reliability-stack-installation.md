@@ -172,6 +172,17 @@ agent:
       OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
       OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
 
+    # OBI internal metrics — exposes OBI's own health via Prometheus endpoint
+    internalMetrics:
+      enabled: false
+      port: 6060                   # HTTP port for internal metrics
+      path: "/internal/metrics"    # Scrape path
+      podMonitor:
+        enabled: false
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
+
     # OTel Collector sidecar (agent)
     collector:
       enabled: true
@@ -187,6 +198,12 @@ agent:
       clickhouseExporter:
         enabled: true
         address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
+      # PodMonitor for Prometheus Operator (scrapes collector self-metrics on port 8888)
+      podMonitor:
+        enabled: false
+        labels: {}           # Extra labels for Prometheus Operator selector filtering
+        interval: 30s
+        scrapeTimeout: 10s
 
 controller:
   reliabilityMetrics:
@@ -200,6 +217,12 @@ controller:
         limits:
           memory: 512Mi
       prometheusPort: 9401
+      # PodMonitor for Prometheus Operator (scrapes collector self-metrics on port 8889)
+      podMonitor:
+        enabled: false
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
 
 # Subchart (reliability-metrics-ch-exporter)
 reliabilityMetrics:
@@ -259,6 +282,13 @@ reliabilityMetrics:
         memory: 64Mi
       limits:
         memory: 128Mi
+    # PodMonitor for Prometheus Operator (scrapes exporter metrics on port 8080)
+    podMonitor:
+      enabled: false
+      labels: {}
+      selectorLabels: {}    # Override auto-detected pod selector
+      interval: 30s
+      scrapeTimeout: 10s
 
   # External ClickHouse (alternative to install.enabled)
   external:
@@ -417,6 +447,90 @@ Approximate per-component resource consumption:
 | ch-exporter | 5m | 14 MiB | Number of Silver table rows to export |
 
 For clusters with 30+ nodes or high-cardinality workloads, consider increasing the agent OTel Collector memory limit above 256 MiB.
+
+## Monitoring with Prometheus Operator
+
+If your cluster runs [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator), you can create PodMonitor resources to scrape the reliability metrics components automatically.
+
+### Available PodMonitors
+
+| Component | Values path | Metrics port | Key metrics |
+|-----------|------------|-------------|-------------|
+| Agent OTel Collector | `agent.reliabilityMetrics.collector.podMonitor` | 8888 | `otelcol_receiver_accepted_metric_points`, `otelcol_exporter_sent_metric_points`, `otelcol_processor_dropped_metric_points`, queue sizes |
+| OBI (eBPF instrumenter) | `agent.reliabilityMetrics.internalMetrics` | 6060 | Instrumented process count, eBPF map usage, Go runtime stats |
+| Controller OTel Collector | `controller.reliabilityMetrics.collector.podMonitor` | 8889 | Same as agent collector (k8s_cluster receiver pipeline) |
+| ch-exporter | `reliabilityMetrics.exporter.podMonitor` | 8080 | Export throughput, ClickHouse query latency, gRPC send errors |
+
+**Note:** OBI internal metrics require two enable flags: `agent.reliabilityMetrics.internalMetrics.enabled` (exposes the `/internal/metrics` endpoint) and `agent.reliabilityMetrics.internalMetrics.podMonitor.enabled` (creates the PodMonitor).
+
+### Enable All PodMonitors
+
+Add these to your values file to enable scraping of all components:
+
+```yaml
+agent:
+  reliabilityMetrics:
+    # OBI internal metrics
+    internalMetrics:
+      enabled: true
+      podMonitor:
+        enabled: true
+        labels:
+          release: prometheus
+    # Agent OTel Collector
+    collector:
+      podMonitor:
+        enabled: true
+        labels:
+          release: prometheus   # Match your Prometheus Operator's serviceMonitorSelector
+
+controller:
+  reliabilityMetrics:
+    collector:
+      podMonitor:
+        enabled: true
+        labels:
+          release: prometheus
+
+reliabilityMetrics:
+  exporter:
+    podMonitor:
+      enabled: true
+      labels:
+        release: prometheus
+```
+
+Or via `--set` flags:
+
+```bash
+helm upgrade castai-kvisor castai-helm/castai-kvisor \
+  -n castai-agent \
+  --reset-then-reuse-values \
+  --set agent.reliabilityMetrics.internalMetrics.enabled=true \
+  --set agent.reliabilityMetrics.internalMetrics.podMonitor.enabled=true \
+  --set agent.reliabilityMetrics.collector.podMonitor.enabled=true \
+  --set controller.reliabilityMetrics.collector.podMonitor.enabled=true \
+  --set reliabilityMetrics.exporter.podMonitor.enabled=true
+```
+
+### Prometheus Operator Label Matching
+
+Prometheus Operator uses label selectors to decide which PodMonitors to pick up. If your Prometheus is configured with a `podMonitorSelector` (e.g., `release: prometheus`), add matching labels:
+
+```yaml
+podMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+```
+
+To check what selector your Prometheus uses:
+
+```bash
+kubectl get prometheus -A -o jsonpath='{.items[*].spec.podMonitorSelector}'
+```
+
+An empty `podMonitorSelector` means Prometheus picks up all PodMonitors in its namespace.
 
 ## Troubleshooting
 

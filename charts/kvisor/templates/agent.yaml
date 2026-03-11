@@ -189,9 +189,25 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+          {{- if (dig "reliabilityMetrics" "internalMetrics" "enabled" false .Values.agent) }}
+            - name: OTEL_EBPF_INTERNAL_METRICS_EXPORTER
+              value: "prometheus"
+            - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PORT
+              value: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6060 | quote }}
+            {{- with (dig "reliabilityMetrics" "internalMetrics" "path" "" .Values.agent) }}
+            - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PATH
+              value: {{ . | quote }}
+            {{- end }}
+          {{- end }}
           {{- range $k, $v := .Values.agent.reliabilityMetrics.env }}
             - name: {{ $k }}
               value: "{{ $v }}"
+          {{- end }}
+          {{- if (dig "reliabilityMetrics" "internalMetrics" "enabled" false .Values.agent) }}
+          ports:
+            - containerPort: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6060 }}
+              name: obi-metrics
+              protocol: TCP
           {{- end }}
           volumeMounts:
             - name: var-run-obi

@@ -226,6 +226,19 @@ agent:
       OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
     # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
     containerSecurityContext: {}
+    # OBI internal metrics — exposes OBI's own health via a Prometheus endpoint.
+    # Metrics include: instrumented process count, eBPF map usage, Go runtime stats.
+    # Disabled by default. Set port > 0 to enable.
+    internalMetrics:
+      enabled: false
+      port: 6060
+      path: "/internal/metrics"
+      # PodMonitor for Prometheus Operator — scrapes OBI internal metrics.
+      podMonitor:
+        enabled: false
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
 
     # --- OTel Collector sidecar settings ---
     # Receives OTLP from OBI, applies golden signal filtering, cardinality control,
@@ -248,6 +261,15 @@ agent:
       clickhouseExporter:
         enabled: true
         address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
+      # PodMonitor for Prometheus Operator — scrapes collector self-metrics (port 8888).
+      # Provides: otelcol_receiver_accepted_metric_points, otelcol_exporter_sent_metric_points,
+      # otelcol_processor_dropped_metric_points, queue sizes, Go runtime metrics.
+      podMonitor:
+        enabled: false
+        # Extra labels on the PodMonitor metadata (for Prometheus Operator selector filtering).
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
 
 controller:
   enabled: true
@@ -395,8 +417,13 @@ controller:
         address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
       # Port for the collector's Prometheus exporter (different from agent collector's 9400).
       prometheusPort: 9401
-      # Labels to add to the PodMonitor (e.g., for Prometheus Operator selector filtering).
-      podMonitorLabels: {}
+      # PodMonitor for Prometheus Operator — scrapes collector self-metrics (port 8889).
+      podMonitor:
+        enabled: false
+        # Extra labels on the PodMonitor metadata (for Prometheus Operator selector filtering).
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
 
 eventGenerator:
   enabled: false
@@ -476,4 +503,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.6"
+      tag: "v0.3.7"
