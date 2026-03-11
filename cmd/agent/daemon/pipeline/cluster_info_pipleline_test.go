@@ -174,3 +174,11 @@ func (m *mockKubeClientWithRetry) GetNodeStatsSummary(ctx context.Context, req *
 func (m *mockKubeClientWithRetry) GetPodVolumes(ctx context.Context, in *kubepb.GetPodVolumesRequest, opts ...grpc.CallOption) (*kubepb.GetPodVolumesResponse, error) {
 	return &kubepb.GetPodVolumesResponse{}, nil
 }
+
+func (m *mockKubeClientWithRetry) GetPodByName(ctx context.Context, in *kubepb.GetPodByNameRequest, opts ...grpc.CallOption) (*kubepb.GetPodResponse, error) {
+	return &kubepb.GetPodResponse{}, nil
+}
+
+func (m *mockKubeClientWithRetry) GetPodsOnNode(ctx context.Context, in *kubepb.GetPodsOnNodeRequest, opts ...grpc.CallOption) (*kubepb.GetPodsOnNodeResponse, error) {
+	return &kubepb.GetPodsOnNodeResponse{}, nil
+}
