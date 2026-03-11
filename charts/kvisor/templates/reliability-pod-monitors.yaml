@@ -1,0 +1,94 @@
+{{/*
+PodMonitors for the reliability metrics stack components.
+
+1. Agent OTel Collector — self-metrics (port 8888):
+     otelcol_receiver_accepted_metric_points, otelcol_exporter_sent_metric_points,
+     otelcol_processor_dropped_metric_points, queue sizes, Go runtime metrics
+2. OBI (eBPF instrumentation) — internal metrics (port 6061 default):
+     Instrumented process count, eBPF map usage, Go runtime stats
+3. Controller OTel Collector — self-metrics (port 8889):
+     Same as agent collector for the k8s_cluster receiver pipeline
+*/}}
+{{- if and (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "podMonitor" "enabled" false .Values.agent) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+    {{- with .Values.agent.reliabilityMetrics.collector.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    - port: otel-metrics
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      interval: {{ .Values.agent.reliabilityMetrics.collector.podMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.agent.reliabilityMetrics.collector.podMonitor.scrapeTimeout | default "10s" }}
+  selector:
+    matchLabels:
+      {{- include "kvisor.agent.selectorLabels" . | nindent 6 }}
+{{- end }}
+---
+{{- if and (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "obi" "internalMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "obi" "internalMetrics" "podMonitor" "enabled" false .Values.agent) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-obi
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: obi
+    {{- with .Values.agent.reliabilityMetrics.obi.internalMetrics.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    - port: obi-metrics
+      path: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.path | default "/internal/metrics" }}
+      scheme: http
+      honorLabels: true
+      interval: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.podMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.podMonitor.scrapeTimeout | default "10s" }}
+  selector:
+    matchLabels:
+      {{- include "kvisor.agent.selectorLabels" . | nindent 6 }}
+{{- end }}
+---
+{{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "podMonitor" "enabled" false .Values.controller) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kvisor.controller.fullname" . }}-otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+    {{- with .Values.controller.reliabilityMetrics.collector.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+    - port: k8s-metrics
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      interval: {{ .Values.controller.reliabilityMetrics.collector.podMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.controller.reliabilityMetrics.collector.podMonitor.scrapeTimeout | default "10s" }}
+  selector:
+    matchLabels:
+      {{- include "kvisor.controller.selectorLabels" . | nindent 6 }}
+{{- end }}
