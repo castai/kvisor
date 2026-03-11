@@ -957,6 +957,7 @@ func newTestController(opts ...any) *Controller {
 		nodeStatsSummaryWriter,
 		podVolumeMetricsWriter,
 		cloudVolumeMetricsWriter,
+		nil, // gpuPipeline
 	)
 	return ctrl
 }
@@ -1275,6 +1276,14 @@ func (m *mockKubeClient) GetCloudVolumes(ctx context.Context, req *kubepb.GetClo
 	return &kubepb.GetCloudVolumesResponse{
 		Volumes: []*kubepb.CloudVolumeInfo{},
 	}, nil
+}
+
+func (m *mockKubeClient) GetPodByName(ctx context.Context, in *kubepb.GetPodByNameRequest, opts ...grpc.CallOption) (*kubepb.GetPodResponse, error) {
+	return &kubepb.GetPodResponse{}, nil
+}
+
+func (m *mockKubeClient) GetPodsOnNode(ctx context.Context, in *kubepb.GetPodsOnNodeRequest, opts ...grpc.CallOption) (*kubepb.GetPodsOnNodeResponse, error) {
+	return &kubepb.GetPodsOnNodeResponse{}, nil
 }
 
 type mockProcessTreeController struct {

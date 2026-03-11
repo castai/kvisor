@@ -35,6 +35,7 @@ import (
 	clickhouseexport "github.com/castai/kvisor/cmd/agent/daemon/export/clickhouse"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
 	"github.com/castai/kvisor/cmd/agent/daemon/pipeline"
+	gpupipeline "github.com/castai/kvisor/cmd/agent/daemon/pipeline/gpu"
 	"github.com/castai/kvisor/pkg/castai"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
@@ -315,6 +316,15 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
+	var gpuPipeline *gpupipeline.Pipeline
+	if cfg.GPU.Enabled {
+		var gpuErr error
+		gpuPipeline, gpuErr = setupGPUPipeline(ctx, cfg, kubeAPIServerClient, log)
+		if gpuErr != nil {
+			return fmt.Errorf("setting up gpu pipeline: %w", gpuErr)
+		}
+	}
+
 	ctrl := pipeline.NewController(
 		log,
 		pipeline.Config{
@@ -323,6 +333,7 @@ func (a *App) Run(ctx context.Context) error {
 			Stats:       cfg.Stats,
 			ProcessTree: cfg.ProcessTree,
 			DataBatch:   cfg.DataBatch,
+			GPU:         cfg.GPU,
 		},
 		exporters,
 		containersClient,
@@ -339,6 +350,7 @@ func (a *App) Run(ctx context.Context) error {
 		nodeStatsSummaryWriter,
 		podVolumeMetricsWriter,
 		cloudVolumeMetricsWriter,
+		gpuPipeline,
 	)
 
 	for _, namespace := range cfg.MutedNamespaces {
@@ -670,6 +682,83 @@ func resolveMetricsAddr(addr string) string {
 	}
 
 	return addr
+}
+
+func setupGPUPipeline(ctx context.Context, cfg *config.Config, kubeAPIClient kubepb.KubeAPIClient, log *logging.Logger) (*gpupipeline.Pipeline, error) {
+	var err error
+	var metricsClient custommetrics.MetricClient
+	if cfg.Castai.Valid() {
+		metricsClient, err = createMetricsClient(cfg, log)
+		if err != nil {
+			log.Warnf("gpu pipeline: failed to create metrics client, telemetry export disabled: %v", err)
+		} else {
+			go func() {
+				if err := metricsClient.Start(ctx); err != nil {
+					log.Warnf("gpu metrics client failed: %v", err)
+				}
+			}()
+		}
+	}
+
+	var castaiClient gpupipeline.CastAIClient
+	if cfg.Castai.Valid() {
+		castaiClient = gpupipeline.NewCastAIClient(gpupipeline.CastAIClientConfig{
+			APIURL:    cfg.Castai.APIURL,
+			APIKey:    cfg.Castai.APIKey,
+			ClusterID: cfg.Castai.ClusterID,
+			Version:   cfg.Version,
+		}, log)
+	}
+
+	gpuCfg := gpupipeline.Config{
+		ExportInterval:    cfg.GPU.ExportInterval,
+		DCGMExporterPort:  cfg.GPU.DCGMPort,
+		DCGMExporterPath:  cfg.GPU.DCGMPath,
+		DCGMExporterHost:  cfg.GPU.DCGMHost,
+		Selector:          cfg.GPU.DCGMSelector,
+		NodeName:          os.Getenv("NODE_NAME"),
+		WorkloadLabelKeys: cfg.GPU.WorkloadLabelKeys,
+	}
+
+	// Apply results written by the gpu-feature-discovery init container (if present).
+	readGPUDiscoveryOverrides(cfg.GPU.SharedDir, &gpuCfg, log)
+
+	return gpupipeline.NewPipeline(gpuCfg, kubeAPIClient, metricsClient, castaiClient, log)
+}
+
+// readGPUDiscoveryOverrides reads the files written by the feature-discovery init container
+// and overrides the GPU pipeline configuration accordingly.
+// If the shared dir is absent or files are missing, the config is left unchanged.
+func readGPUDiscoveryOverrides(sharedDir string, cfg *gpupipeline.Config, log *logging.Logger) {
+	if sharedDir == "" {
+		return
+	}
+
+	selector := readSharedFile(sharedDir + "/dcgm-selector")
+	dcgmExists := readSharedFile(sharedDir + "/dcgm-exists")
+
+	switch {
+	case selector != "":
+		// Existing DCGM found with a known selector — use pod discovery mode.
+		log.Infof("gpu: using discovered dcgm-exporter selector %q (from init container)", selector)
+		cfg.Selector = selector
+		cfg.DCGMExporterHost = "" // ensure pod discovery mode (not fixed-host)
+	case dcgmExists == "false":
+		// No existing DCGM found — our own sidecar is running on localhost.
+		log.Info("gpu: no existing dcgm-exporter found, using localhost sidecar")
+		cfg.DCGMExporterHost = "localhost"
+	default:
+		// Shared volume is absent or init container didn't run — leave config as-is.
+	}
+}
+
+// readSharedFile reads a small text file and returns its trimmed content, or "" on any error.
+func readSharedFile(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func createMetricsClient(cfg *config.Config, log *logging.Logger) (custommetrics.MetricClient, error) {

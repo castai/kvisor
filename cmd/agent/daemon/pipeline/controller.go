@@ -19,6 +19,7 @@ import (
 	"github.com/castai/kvisor/cmd/agent/daemon/enrichment"
 	"github.com/castai/kvisor/cmd/agent/daemon/export"
 	"github.com/castai/kvisor/cmd/agent/daemon/metrics"
+	"github.com/castai/kvisor/cmd/agent/daemon/pipeline/gpu"
 	"github.com/castai/kvisor/pkg/cgroup"
 	"github.com/castai/kvisor/pkg/containers"
 	"github.com/castai/kvisor/pkg/ebpftracer"
@@ -36,6 +37,7 @@ type Config struct {
 	Events      config.EventsConfig      `validate:"required"`
 	Stats       config.StatsConfig       `validate:"required"`
 	ProcessTree config.ProcessTreeConfig `validate:"required"`
+	GPU         config.GPUConfig
 }
 
 type containersClient interface {
@@ -162,6 +164,7 @@ func NewController(
 	nodeStatsSummaryWriter NodeStatsSummaryWriter,
 	podVolumeMetricsWriter K8sPodVolumeMetricsWriter,
 	cloudVolumeMetricsWriter CloudVolumeMetricsWriter,
+	gpuPipeline *gpu.Pipeline,
 ) *Controller {
 	podCache, err := freelru.NewSynced[string, *kubepb.Pod](256, func(k string) uint32 {
 		return uint32(xxhash.Sum64String(k)) // nolint:gosec
@@ -202,6 +205,8 @@ func NewController(
 		nodeStatsSummaryWriter:   nodeStatsSummaryWriter,
 		podVolumeMetricsWriter:   podVolumeMetricsWriter,
 		cloudVolumeMetricsWriter: cloudVolumeMetricsWriter,
+
+		gpuPipeline: gpuPipeline,
 	}
 }
 
@@ -238,6 +243,9 @@ type Controller struct {
 	nodeStatsSummaryWriter   NodeStatsSummaryWriter
 	podVolumeMetricsWriter   K8sPodVolumeMetricsWriter
 	cloudVolumeMetricsWriter CloudVolumeMetricsWriter
+
+	// GPU metrics
+	gpuPipeline *gpu.Pipeline
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -299,6 +307,12 @@ func (c *Controller) Run(ctx context.Context) error {
 				c.log.Errorf("collecting initial process tree: %v", err)
 			}
 			return nil
+		})
+	}
+
+	if c.cfg.GPU.Enabled && c.gpuPipeline != nil {
+		errg.Go(func() error {
+			return c.gpuPipeline.Run(ctx)
 		})
 	}
 
@@ -463,6 +477,8 @@ func workloadKindString(kind kubepb.WorkloadKind) string {
 		return "CronJob"
 	case kubepb.WorkloadKind_WORKLOAD_KIND_POD:
 		return "Pod"
+	case kubepb.WorkloadKind_WORKLOAD_KIND_ROLLOUT:
+		return "Rollout"
 	default:
 		return "Unknown"
 	}
