@@ -172,16 +172,18 @@ agent:
       OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
       OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
 
-    # OBI internal metrics — exposes OBI's own health via Prometheus endpoint
-    internalMetrics:
-      enabled: false
-      port: 6061                   # HTTP port for internal metrics
-      path: "/internal/metrics"    # Scrape path
-      podMonitor:
+    # OBI-specific settings
+    obi:
+      # Internal metrics — exposes OBI's own health via Prometheus endpoint
+      internalMetrics:
         enabled: false
-        labels: {}
-        interval: 30s
-        scrapeTimeout: 10s
+        port: 6061                   # HTTP port for internal metrics
+        path: "/internal/metrics"    # Scrape path
+        podMonitor:
+          enabled: false
+          labels: {}
+          interval: 30s
+          scrapeTimeout: 10s
 
     # OTel Collector sidecar (agent)
     collector:
@@ -457,11 +459,11 @@ If your cluster runs [Prometheus Operator](https://github.com/prometheus-operato
 | Component | Values path | Metrics port | Key metrics |
 |-----------|------------|-------------|-------------|
 | Agent OTel Collector | `agent.reliabilityMetrics.collector.podMonitor` | 8888 | `otelcol_receiver_accepted_metric_points`, `otelcol_exporter_sent_metric_points`, `otelcol_processor_dropped_metric_points`, queue sizes |
-| OBI (eBPF instrumenter) | `agent.reliabilityMetrics.internalMetrics` | 6061 | Instrumented process count, eBPF map usage, Go runtime stats |
+| OBI (eBPF instrumenter) | `agent.reliabilityMetrics.obi.internalMetrics` | 6061 | Instrumented process count, eBPF map usage, Go runtime stats |
 | Controller OTel Collector | `controller.reliabilityMetrics.collector.podMonitor` | 8889 | Same as agent collector (k8s_cluster receiver pipeline) |
 | ch-exporter | `reliabilityMetrics.exporter.podMonitor` | 8080 | Export throughput, ClickHouse query latency, gRPC send errors |
 
-**Note:** OBI internal metrics require two enable flags: `agent.reliabilityMetrics.internalMetrics.enabled` (exposes the `/internal/metrics` endpoint) and `agent.reliabilityMetrics.internalMetrics.podMonitor.enabled` (creates the PodMonitor).
+**Note:** OBI internal metrics require two enable flags: `agent.reliabilityMetrics.obi.internalMetrics.enabled` (exposes the `/internal/metrics` endpoint) and `agent.reliabilityMetrics.obi.internalMetrics.podMonitor.enabled` (creates the PodMonitor).
 
 ### Enable All PodMonitors
 
@@ -470,13 +472,14 @@ Add these to your values file to enable scraping of all components:
 ```yaml
 agent:
   reliabilityMetrics:
-    # OBI internal metrics
-    internalMetrics:
-      enabled: true
-      podMonitor:
+    # OBI settings
+    obi:
+      internalMetrics:
         enabled: true
-        labels:
-          release: prometheus
+        podMonitor:
+          enabled: true
+          labels:
+            release: prometheus
     # Agent OTel Collector
     collector:
       podMonitor:
@@ -506,8 +509,8 @@ Or via `--set` flags:
 helm upgrade castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent \
   --reset-then-reuse-values \
-  --set agent.reliabilityMetrics.internalMetrics.enabled=true \
-  --set agent.reliabilityMetrics.internalMetrics.podMonitor.enabled=true \
+  --set agent.reliabilityMetrics.obi.internalMetrics.enabled=true \
+  --set agent.reliabilityMetrics.obi.internalMetrics.podMonitor.enabled=true \
   --set agent.reliabilityMetrics.collector.podMonitor.enabled=true \
   --set controller.reliabilityMetrics.collector.podMonitor.enabled=true \
   --set reliabilityMetrics.exporter.podMonitor.enabled=true

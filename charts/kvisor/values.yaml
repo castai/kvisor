@@ -226,19 +226,21 @@ agent:
       OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
     # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
     containerSecurityContext: {}
-    # OBI internal metrics — exposes OBI's own health via a Prometheus endpoint.
-    # Metrics include: instrumented process count, eBPF map usage, Go runtime stats.
-    # Disabled by default. Set port > 0 to enable.
-    internalMetrics:
-      enabled: false
-      port: 6061
-      path: "/internal/metrics"
-      # PodMonitor for Prometheus Operator — scrapes OBI internal metrics.
-      podMonitor:
+    # --- OBI-specific settings ---
+    obi:
+      # Internal metrics — exposes OBI's own health via a Prometheus endpoint.
+      # Metrics include: instrumented process count, eBPF map usage, Go runtime stats.
+      # Disabled by default. Set port > 0 to enable.
+      internalMetrics:
         enabled: false
-        labels: {}
-        interval: 30s
-        scrapeTimeout: 10s
+        port: 6061
+        path: "/internal/metrics"
+        # PodMonitor for Prometheus Operator — scrapes OBI internal metrics.
+        podMonitor:
+          enabled: false
+          labels: {}
+          interval: 30s
+          scrapeTimeout: 10s
 
     # --- OTel Collector sidecar settings ---
     # Receives OTLP from OBI, applies golden signal filtering, cardinality control,

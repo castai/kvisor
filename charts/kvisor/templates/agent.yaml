@@ -189,12 +189,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          {{- if (dig "reliabilityMetrics" "internalMetrics" "enabled" false .Values.agent) }}
+          {{- if (dig "reliabilityMetrics" "obi" "internalMetrics" "enabled" false .Values.agent) }}
             - name: OTEL_EBPF_INTERNAL_METRICS_EXPORTER
               value: "prometheus"
             - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PORT
-              value: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6061 | quote }}
-            {{- with (dig "reliabilityMetrics" "internalMetrics" "path" "" .Values.agent) }}
+              value: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.port | default 6061 | quote }}
+            {{- with (dig "reliabilityMetrics" "obi" "internalMetrics" "path" "" .Values.agent) }}
             - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PATH
               value: {{ . | quote }}
             {{- end }}
@@ -203,9 +203,9 @@ spec:
             - name: {{ $k }}
               value: "{{ $v }}"
           {{- end }}
-          {{- if (dig "reliabilityMetrics" "internalMetrics" "enabled" false .Values.agent) }}
+          {{- if (dig "reliabilityMetrics" "obi" "internalMetrics" "enabled" false .Values.agent) }}
           ports:
-            - containerPort: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6061 }}
+            - containerPort: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.port | default 6061 }}
               name: obi-metrics
               protocol: TCP
           {{- end }}
