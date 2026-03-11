@@ -175,7 +175,7 @@ agent:
     # OBI internal metrics — exposes OBI's own health via Prometheus endpoint
     internalMetrics:
       enabled: false
-      port: 6060                   # HTTP port for internal metrics
+      port: 6061                   # HTTP port for internal metrics
       path: "/internal/metrics"    # Scrape path
       podMonitor:
         enabled: false
@@ -457,7 +457,7 @@ If your cluster runs [Prometheus Operator](https://github.com/prometheus-operato
 | Component | Values path | Metrics port | Key metrics |
 |-----------|------------|-------------|-------------|
 | Agent OTel Collector | `agent.reliabilityMetrics.collector.podMonitor` | 8888 | `otelcol_receiver_accepted_metric_points`, `otelcol_exporter_sent_metric_points`, `otelcol_processor_dropped_metric_points`, queue sizes |
-| OBI (eBPF instrumenter) | `agent.reliabilityMetrics.internalMetrics` | 6060 | Instrumented process count, eBPF map usage, Go runtime stats |
+| OBI (eBPF instrumenter) | `agent.reliabilityMetrics.internalMetrics` | 6061 | Instrumented process count, eBPF map usage, Go runtime stats |
 | Controller OTel Collector | `controller.reliabilityMetrics.collector.podMonitor` | 8889 | Same as agent collector (k8s_cluster receiver pipeline) |
 | ch-exporter | `reliabilityMetrics.exporter.podMonitor` | 8080 | Export throughput, ClickHouse query latency, gRPC send errors |
 

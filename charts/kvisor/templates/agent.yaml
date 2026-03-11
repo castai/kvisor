@@ -193,7 +193,7 @@ spec:
             - name: OTEL_EBPF_INTERNAL_METRICS_EXPORTER
               value: "prometheus"
             - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PORT
-              value: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6060 | quote }}
+              value: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6061 | quote }}
             {{- with (dig "reliabilityMetrics" "internalMetrics" "path" "" .Values.agent) }}
             - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PATH
               value: {{ . | quote }}
@@ -205,7 +205,7 @@ spec:
           {{- end }}
           {{- if (dig "reliabilityMetrics" "internalMetrics" "enabled" false .Values.agent) }}
           ports:
-            - containerPort: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6060 }}
+            - containerPort: {{ .Values.agent.reliabilityMetrics.internalMetrics.port | default 6061 }}
               name: obi-metrics
               protocol: TCP
           {{- end }}

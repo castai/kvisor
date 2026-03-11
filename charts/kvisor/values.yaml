@@ -231,7 +231,7 @@ agent:
     # Disabled by default. Set port > 0 to enable.
     internalMetrics:
       enabled: false
-      port: 6060
+      port: 6061
       path: "/internal/metrics"
       # PodMonitor for Prometheus Operator — scrapes OBI internal metrics.
       podMonitor:
