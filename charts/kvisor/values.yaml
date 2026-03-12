@@ -419,7 +419,7 @@ controller:
         address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
       # Port for the collector's Prometheus exporter (different from agent collector's 9400).
       prometheusPort: 9401
-      # PodMonitor for Prometheus Operator — scrapes collector self-metrics (port 8889).
+      # PodMonitor for Prometheus Operator — scrapes collector self-metrics (port 8888).
       podMonitor:
         enabled: false
         # Extra labels on the PodMonitor metadata (for Prometheus Operator selector filtering).
