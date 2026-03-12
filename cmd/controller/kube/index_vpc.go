@@ -283,6 +283,34 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 			}
 		}
 
+		// Index Transit Gateway VPC CIDRs
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			if len(tgwVPC.Subnets) > 0 {
+				for _, subnet := range tgwVPC.Subnets {
+					subnetZone := subnet.Zone
+					if vi.cfg.UseAwsZoneId {
+						subnetZone = subnet.ZoneId
+					}
+					entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
+						CIDR: subnet.CIDR,
+						Metadata: NetworkIPInfo{
+							Zone:   subnetZone,
+							Region: subnet.Region,
+						},
+					})
+				}
+			} else {
+				for _, cidr := range tgwVPC.CIDRs {
+					entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
+						CIDR: cidr,
+						Metadata: NetworkIPInfo{
+							Region: tgwVPC.Region,
+						},
+					})
+				}
+			}
+		}
+
 	}
 
 	vi.vpcCIDRs = vpcCIDRs

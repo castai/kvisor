@@ -103,6 +103,13 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			vpcObj.PeeredVPCs = peeredVPCs
 		}
 
+		tgwVPCs, err := p.fetchTransitGatewayVPCs(ctx, vpcID)
+		if err != nil {
+			p.log.With("vpc", vpcID).Warnf("fetching Transit Gateway VPCs: %v", err)
+		} else {
+			vpcObj.TransitGatewayVPCs = tgwVPCs
+		}
+
 		vpcs = append(vpcs, vpcObj)
 	}
 

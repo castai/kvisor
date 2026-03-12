@@ -6,6 +6,7 @@ The Cloud state controller enriches netflow data with cloud provider network inf
 
 - VPC and subnet details: CIDR ranges, regions, zones.
 - VPC peering connections and their IP ranges
+- Transit Gateway cross-account VPC discovery (AWS)
 - Cloud provider service IP ranges
 
 This network state enables better network flow analysis and region/zone attribution for network traffic.
@@ -216,6 +217,10 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
    - `ec2:DescribeVpcs`
    - `ec2:DescribeSubnets`
    - `ec2:DescribeVpcPeeringConnections`
+   - `ec2:DescribeTransitGatewayAttachments` (for Transit Gateway discovery)
+   - `ec2:DescribeTransitGatewayRouteTables` (for Transit Gateway discovery)
+   - `ec2:SearchTransitGatewayRoutes` (for Transit Gateway discovery)
+   - `sts:AssumeRole` (for cross-account subnet discovery, optional)
 
    **Recommended IAM Policy:**
    ```json
@@ -227,7 +232,10 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
          "Action": [
            "ec2:DescribeVpcs",
            "ec2:DescribeSubnets",
-           "ec2:DescribeVpcPeeringConnections"
+           "ec2:DescribeVpcPeeringConnections",
+           "ec2:DescribeTransitGatewayAttachments",
+           "ec2:DescribeTransitGatewayRouteTables",
+           "ec2:SearchTransitGatewayRoutes"
          ],
          "Resource": "*"
        }
@@ -258,7 +266,10 @@ cat > kvisor-vpc-policy.json <<EOF
       "Action": [
         "ec2:DescribeVpcs",
         "ec2:DescribeSubnets",
-        "ec2:DescribeVpcPeeringConnections"
+        "ec2:DescribeVpcPeeringConnections",
+        "ec2:DescribeTransitGatewayAttachments",
+        "ec2:DescribeTransitGatewayRouteTables",
+        "ec2:SearchTransitGatewayRoutes"
       ],
       "Resource": "*"
     }
@@ -429,7 +440,10 @@ cat > kvisor-vpc-policy.json <<EOF
       "Action": [
         "ec2:DescribeVpcs",
         "ec2:DescribeSubnets",
-        "ec2:DescribeVpcPeeringConnections"
+        "ec2:DescribeVpcPeeringConnections",
+        "ec2:DescribeTransitGatewayAttachments",
+        "ec2:DescribeTransitGatewayRouteTables",
+        "ec2:SearchTransitGatewayRoutes"
       ],
       "Resource": "*"
     }
@@ -505,6 +519,98 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
   --create-namespace \
   --values values.yaml
 ```
+
+---
+
+## AWS Transit Gateway (Multi-Account VPC Discovery)
+
+When your cluster VPC is connected to other VPCs via an [AWS Transit Gateway](https://docs.aws.amazon.com/vpc/latest/tgw/what-is-transit-gateway.html), kvisor can automatically discover remote VPCs and their CIDR ranges. This enables zone/region attribution for cross-account traffic without manual static CIDR configuration.
+
+### How It Works
+
+1. kvisor discovers Transit Gateway attachments for the cluster VPC
+2. For each TGW, it enumerates all VPC attachments (including remote accounts)
+3. It queries TGW route tables to discover destination CIDRs for each attachment
+4. If a cross-account role ARN is configured, kvisor assumes that role via STS to fetch subnet-level detail (zone, zone ID) from remote accounts
+5. Discovered CIDRs/subnets are indexed alongside VPC peering and local subnet data
+
+### Basic Setup (Route-Level CIDRs Only)
+
+Transit Gateway discovery works out of the box with the standard IAM permissions listed above — no additional configuration needed. kvisor will discover TGW-attached VPCs and index their route-level CIDRs (region only, no zone detail).
+
+### Cross-Account Subnet Discovery (Optional)
+
+For full subnet-level detail (zone names and zone IDs), configure a cross-account IAM role that kvisor can assume in each remote account.
+
+**Step 1: Create IAM Role in Each Remote Account**
+
+In each remote AWS account connected via the Transit Gateway, create an IAM role with:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeSubnets"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+The trust policy should allow the kvisor role in the cluster account to assume it:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::CLUSTER_ACCOUNT_ID:role/KvisorVPCReaderRole"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+**Step 2: Add `sts:AssumeRole` to the Cluster Account Role**
+
+The kvisor IAM role in the cluster account also needs permission to assume the remote roles:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "sts:AssumeRole",
+  "Resource": "arn:aws:iam::*:role/KvisorCrossAccountReader"
+}
+```
+
+**Step 3: Configure the Cross-Account Role ARN Template**
+
+Add the `cloud-provider-aws-cross-account-role` flag with the `{account-id}` placeholder:
+
+```yaml
+controller:
+  extraArgs:
+    cloud-provider: aws
+    cloud-provider-vpc-sync-enabled: true
+    cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+    cloud-provider-aws-cross-account-role: "arn:aws:iam::{account-id}:role/KvisorCrossAccountReader"
+```
+
+kvisor replaces `{account-id}` with the actual AWS account ID of each remote VPC discovered via the Transit Gateway.
+
+### What Gets Indexed
+
+| Scenario | Zone | Region | Source |
+|---|---|---|---|
+| Cross-account role configured, subnets found | Yes (zone name or zone ID) | Yes | Remote account `DescribeSubnets` |
+| No cross-account role, or `DescribeSubnets` fails | No | Yes | TGW route table CIDRs |
 
 ---
 
