@@ -61,6 +61,7 @@ spec:
         - name: cgroups
           hostPath:
             path: /sys/fs/cgroup
+{{- if .Values.eventGenerator.serviceAccount.create -}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -113,4 +114,5 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kvisor.eventGenerator.serviceAccountName" . }}
     namespace: {{.Release.Namespace}}
+{{- end }}
 {{- end }}
