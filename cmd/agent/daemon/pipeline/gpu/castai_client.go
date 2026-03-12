@@ -5,10 +5,10 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
-	"github.com/go-resty/resty/v2"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -43,25 +43,16 @@ type CastAIClientConfig struct {
 }
 
 type castaiClient struct {
-	restyClient *resty.Client
-	cfg         CastAIClientConfig
-	log         *logging.Logger
+	httpClient *http.Client
+	cfg        CastAIClientConfig
+	log        *logging.Logger
 }
 
 func NewCastAIClient(cfg CastAIClientConfig, log *logging.Logger) CastAIClient {
-	r := resty.New()
-	r.BaseURL = cfg.APIURL
-	r.SetHeaders(map[string]string{
-		castaiTokenHeader:                         cfg.APIKey,
-		http.CanonicalHeaderKey("Content-Type"):   "application/protobuf",
-		http.CanonicalHeaderKey("Content-Encoding"): "gzip",
-		http.CanonicalHeaderKey("User-Agent"):     fmt.Sprintf("castai-kvisor-gpu/%s", cfg.Version),
-	})
-
 	return &castaiClient{
-		restyClient: r,
-		cfg:         cfg,
-		log:         log,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		cfg:        cfg,
+		log:        log,
 	}
 }
 
@@ -71,25 +62,33 @@ func (c *castaiClient) UploadBatch(ctx context.Context, batch *pb.MetricsBatch) 
 		return err
 	}
 
-	return wait.ExponentialBackoffWithContext(ctx, castaiBackoff, func(ctx context.Context) (bool, error) {
-		resp, err := c.restyClient.R().
-			SetContext(ctx).
-			SetBody(buf.Bytes()).
-			Post(fmt.Sprintf("/v1/kubernetes/clusters/%s/gpu-metrics", c.cfg.ClusterID))
+	url := fmt.Sprintf("%s/v1/kubernetes/clusters/%s/gpu-metrics", c.cfg.APIURL, c.cfg.ClusterID)
 
+	return wait.ExponentialBackoffWithContext(ctx, castaiBackoff, func(ctx context.Context) (bool, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(buf.Bytes()))
+		if err != nil {
+			return false, fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set(castaiTokenHeader, c.cfg.APIKey)
+		req.Header.Set("Content-Type", "application/protobuf")
+		req.Header.Set("Content-Encoding", "gzip")
+		req.Header.Set("User-Agent", fmt.Sprintf("castai-kvisor-gpu/%s", c.cfg.Version))
+
+		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			c.log.WithField("error", err.Error()).Error("error making http request to gpu-metrics endpoint")
 			return false, nil
 		}
+		defer resp.Body.Close()
+		_, _ = io.Copy(io.Discard, resp.Body)
 
-		statusCode := resp.StatusCode()
 		switch {
-		case statusCode >= 200 && statusCode < 300:
+		case resp.StatusCode >= 200 && resp.StatusCode < 300:
 			return true, nil
-		case statusCode >= 400 && statusCode < 500:
-			return true, fmt.Errorf("gpu-metrics upload failed: status code: %d, status: %s", statusCode, resp.Status())
+		case resp.StatusCode >= 400 && resp.StatusCode < 500:
+			return true, fmt.Errorf("gpu-metrics upload failed: status code: %d, status: %s", resp.StatusCode, resp.Status)
 		default:
-			c.log.Errorf("gpu-metrics upload server error: status code: %d, status: %s", statusCode, resp.Status())
+			c.log.Errorf("gpu-metrics upload server error: status code: %d, status: %s", resp.StatusCode, resp.Status)
 			return false, nil
 		}
 	})

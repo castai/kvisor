@@ -346,6 +346,13 @@ Only used as a fallback when controller.extraArgs.cloud-provider is not set.
 {{- end }}
 
 {{/*
+Returns true if GPU metrics collection is enabled.
+*/}}
+{{- define "kvisor.gpuEnabled" -}}
+{{- if dig "gpu" "enabled" false .Values.agent }}true{{- end -}}
+{{- end }}
+
+{{/*
 Resolve CASTAI_API_GRPC_ADDR: global.castai.grpcURL > .Values.castai.grpcAddr
 */}}
 {{- define "kvisor.apiGrpcAddr" -}}
