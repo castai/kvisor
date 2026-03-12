@@ -6,7 +6,7 @@ PodMonitors for the reliability metrics stack components.
      otelcol_processor_dropped_metric_points, queue sizes, Go runtime metrics
 2. OBI (eBPF instrumentation) — internal metrics (port 6061 default):
      Instrumented process count, eBPF map usage, Go runtime stats
-3. Controller OTel Collector — self-metrics (port 8889):
+3. Controller OTel Collector — self-metrics (port 8888):
      Same as agent collector for the k8s_cluster receiver pipeline
 */}}
 {{- if and (dig "reliabilityMetrics" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) (dig "reliabilityMetrics" "collector" "podMonitor" "enabled" false .Values.agent) }}
@@ -82,7 +82,7 @@ spec:
     matchNames:
       - {{ .Release.Namespace }}
   podMetricsEndpoints:
-    - port: k8s-metrics
+    - port: "8888"
       path: /metrics
       scheme: http
       honorLabels: true
