@@ -1,0 +1,267 @@
+suite: controller collector sidecar tests
+templates:
+  - controller.yaml
+  - secret.yaml
+values:
+  - values.yaml
+tests:
+  # --- Collector disabled (default) ---
+  - it: should not have otel-collector container when controller reliabilityMetrics is disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: Deployment
+        template: controller.yaml
+        documentIndex: 0
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+        template: controller.yaml
+        documentIndex: 0
+
+  # --- Collector enabled ---
+  - it: should have 2 containers when controller reliabilityMetrics is enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: controller
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: otel-collector
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use correct collector image
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: "reliability-metrics-otel-collector:v0.1.2"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use custom collector image when overridden
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.image.repository: us-docker.pkg.dev/castai-hub/library/otel-collector-contrib
+      controller.reliabilityMetrics.collector.image.tag: "0.145.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: "us-docker.pkg.dev/castai-hub/library/otel-collector-contrib:0.145.0"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should set collector security context
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.runAsUser
+          value: 10001
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.runAsNonRoot
+          value: true
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.readOnlyRootFilesystem
+          value: true
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].securityContext.capabilities.drop
+          content: ALL
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should set collector resource limits
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 256Mi
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 128Mi
+        template: controller.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.cpu
+          value: 250m
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should expose prometheus and telemetry ports on collector
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            containerPort: 9401
+            name: k8s-prom
+            protocol: TCP
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            containerPort: 8888
+            name: k8s-metrics
+            protocol: TCP
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should mount SA token in collector container for K8s API access
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: obi-sa-token
+            mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+            readOnly: true
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not affect controller container when collector is enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: controller
+        template: controller.yaml
+        documentIndex: 0
+
+  # --- RBAC tests ---
+  - it: should add extra ClusterRole rules for k8s_cluster receiver when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+    asserts:
+      - isKind:
+          of: ClusterRole
+        template: controller.yaml
+        documentIndex: 4
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - resourcequotas
+              - replicationcontrollers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - "autoscaling"
+            resources:
+              - horizontalpodautoscalers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+
+  - it: should not have extra ClusterRole rules when reliabilityMetrics disabled
+    set:
+      controller.reliabilityMetrics.enabled: false
+    asserts:
+      - isKind:
+          of: ClusterRole
+        template: controller.yaml
+        documentIndex: 4
+      - notContains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - resourcequotas
+              - replicationcontrollers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+      - notContains:
+          path: rules
+          content:
+            apiGroups:
+              - "autoscaling"
+            resources:
+              - horizontalpodautoscalers
+            verbs:
+              - get
+              - list
+              - watch
+        template: controller.yaml
+        documentIndex: 4
+
+  # --- ClickHouse env var tests ---
+  - it: should inject ClickHouse env vars into otel-collector container when enabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: CLICKHOUSE_ENABLED
+            value: "true"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: CLICKHOUSE_ADDR
+            value: tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: CLICKHOUSE_DATABASE
+            value: metrics
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not inject ClickHouse env vars when clickhouseExporter is disabled
+    set:
+      controller.reliabilityMetrics.enabled: true
+      controller.reliabilityMetrics.collector.clickhouseExporter.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: CLICKHOUSE_ENABLED
+          any: true
+        template: controller.yaml
+        documentIndex: 0

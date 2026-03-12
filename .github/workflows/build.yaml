@@ -219,6 +219,10 @@ jobs:
         if: steps.changes.outputs.charts_changed == 'true'
         run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
 
+      - name: Build chart dependencies
+        if: steps.changes.outputs.charts_changed == 'true'
+        run: helm dependency build ./charts/kvisor
+
       - name: Run Helm unit tests
         if: steps.changes.outputs.charts_changed == 'true'
         run: helm unittest -f 'tests/**/test.yaml' ./charts/kvisor

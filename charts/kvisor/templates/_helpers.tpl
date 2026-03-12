@@ -56,11 +56,12 @@ Create chart name and version as used by the chart label.
 
 {{- define "kvisor.clusterIDEnv" -}}
 {{- $envFrom := .envFrom -}}
-{{- if and .Values.castai.clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
+{{- $clusterID := coalesce (dig "castai" "clusterID" "" (.Values.global | default dict)) .Values.castai.clusterID -}}
+{{- if and $clusterID (or .Values.castai.clusterIdConfigMapKeyRef.name .Values.castai.clusterIdSecretKeyRef.name) }}
   {{- fail "clusterID cannot be used together with clusterIdConfigMapKeyRef or clusterIdSecretKeyRef" }}
-{{- else if .Values.castai.clusterID }}
+{{- else if $clusterID }}
 - name: CLUSTER_ID
-  value: {{ .Values.castai.clusterID | quote }}
+  value: {{ $clusterID | quote }}
   valueFrom: null # workaround for https://github.com/helm/helm/issues/8994
 {{- else if .Values.castai.clusterIdConfigMapKeyRef.name }}
 - name: CLUSTER_ID
@@ -154,6 +155,18 @@ app.kubernetes.io/component: controller
 
 
 {{/*
+Common helpers for cluster proxy.
+*/}}
+{{- define "kvisor.clusterproxy.fullname" -}}
+{{ include "kvisor.fullname" . }}-cluster-proxy
+{{- end }}
+
+{{- define "kvisor.clusterproxy.serviceAccountName" -}}
+{{ include "kvisor.clusterproxy.fullname" . }}
+{{- end }}
+
+
+{{/*
 Common helpers for event generator.
 */}}
 {{- define "kvisor.eventGenerator.fullname" -}}
@@ -197,7 +210,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 
 {{/*
-Common helpers for clickhouse.
+ClickHouse helpers for legacy netflow deployment.
 */}}
 {{- define "kvisor.clickhouse.fullname" -}}
 {{ include "kvisor.fullname" . }}-clickhouse
@@ -215,6 +228,65 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "kvisor.clickhouse.labels" -}}
 {{ include "kvisor.labels" . }}
 {{- end }}
+
+{{/*
+Reliability metrics ClickHouse helpers (for subchart).
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.fullname" -}}
+{{- printf "%s-clickhouse" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end -}}
+
+{{- define "kvisor.reliabilityMetrics.clickhouse.credentialsSecretName" -}}
+{{ include "kvisor.reliabilityMetrics.clickhouse.fullname" . }}-credentials
+{{- end -}}
+
+{{- define "kvisor.reliabilityMetrics.clickhouse.address" -}}
+{{- if (dig "external" "enabled" false .Values.reliabilityMetrics) -}}
+{{ .Values.reliabilityMetrics.external.address }}
+{{- else if (dig "install" "enabled" false .Values.reliabilityMetrics) -}}
+{{ include "kvisor.reliabilityMetrics.clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:9000
+{{- end -}}
+{{- end -}}
+
+{{- define "kvisor.reliabilityMetrics.clickhouse.database" -}}
+{{- if and .Values.reliabilityMetrics.external .Values.reliabilityMetrics.external.enabled .Values.reliabilityMetrics.external.database -}}
+{{- .Values.reliabilityMetrics.external.database -}}
+{{- else if .Values.reliabilityMetrics.auth -}}
+{{- .Values.reliabilityMetrics.auth.database -}}
+{{- else -}}
+metrics
+{{- end -}}
+{{- end -}}
+
+{{/*
+Reliability metrics ClickHouse username - returns either direct value or valueFrom configMapKeyRef
+Supports both plain string and valueFrom object in auth.username
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.username" -}}
+{{- $username := dig "auth" "username" "kvisor" .Values.reliabilityMetrics -}}
+{{- if kindIs "string" $username -}}
+value: {{ $username | quote }}
+{{- else if and (kindIs "map" $username) $username.valueFrom -}}
+{{- toYaml $username | nindent 0 }}
+{{- else -}}
+value: "kvisor"
+{{- end -}}
+{{- end -}}
+
+{{/*
+Reliability metrics ClickHouse password - returns either direct value or valueFrom secretKeyRef
+Supports both plain string and valueFrom object in auth.password
+*/}}
+{{- define "kvisor.reliabilityMetrics.clickhouse.password" -}}
+{{- $password := dig "auth" "password" "kvisor" .Values.reliabilityMetrics -}}
+{{- if kindIs "string" $password -}}
+value: {{ $password | quote }}
+{{- else if and (kindIs "map" $password) $password.valueFrom -}}
+{{- toYaml $password | nindent 0 }}
+{{- else -}}
+value: "kvisor"
+{{- end -}}
+{{- end -}}
 
 
 {{/*
@@ -265,6 +337,56 @@ When storage-stats-enabled (without eBPF):
 {{- toYaml $secCtx -}}
 {{- end -}}
 
+{{/*
+Resolve cloud provider for --cloud-provider arg.
+Only used as a fallback when controller.extraArgs.cloud-provider is not set.
+*/}}
+{{- define "kvisor.cloudProvider" -}}
+{{- dig "castai" "provider" "" (.Values.global | default dict) -}}
+{{- end }}
+
+{{/*
+Resolve CASTAI_API_GRPC_ADDR: global.castai.grpcURL > .Values.castai.grpcAddr
+*/}}
+{{- define "kvisor.apiGrpcAddr" -}}
+{{- coalesce (dig "castai" "grpcURL" "" (.Values.global | default dict)) .Values.castai.grpcAddr -}}
+{{- end }}
+
+{{/*
+Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
+*/}}
+{{- define "kvisor.apiURL" -}}
+{{- coalesce (dig "castai" "apiURL" "" (.Values.global | default dict)) .Values.castai.apiURL -}}
+{{- end }}
+
+{{/*
+OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
+Uses fine-grained capabilities instead of privileged: true.
+Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.
+Can be overridden via .Values.agent.reliabilityMetrics.containerSecurityContext.
+*/}}
+{{- define "kvisor.obi.containerSecurityContext" -}}
+{{- $override := .Values.agent.reliabilityMetrics.containerSecurityContext -}}
+{{- if $override }}
+{{- toYaml $override }}
+{{- else }}
+runAsUser: 0
+readOnlyRootFilesystem: true
+allowPrivilegeEscalation: false
+capabilities:
+  drop:
+    - ALL
+  add:
+    - BPF
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_RAW
+    - CHECKPOINT_RESTORE
+    - DAC_READ_SEARCH
+    - PERFMON
+{{- end }}
+{{- end }}
+
 {{/*https://github.com/kubernetes/kubernetes/issues/91514#issuecomment-2209311103*/}}
 {{- define "GOMEMLIMITEnv" -}}
 {{- $memory := . -}}
@@ -280,5 +402,31 @@ When storage-stats-enabled (without eBPF):
   {{- end -}}
   {{- $percentageValue := int (mulf $valueMi 0.9) }}
   value: {{ printf "%dMiB" $percentageValue -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+MemoryLimiterEnv derives the OTel memory_limiter processor limits from the
+container memory limit. limit_mib = 80% of container limit, spike_limit_mib =
+25% of limit_mib. The resulting soft limit (limit - spike) is ~60% of the
+container limit, leaving headroom for Go GC (GOMEMLIMIT at 90%).
+*/}}
+{{- define "MemoryLimiterEnv" -}}
+{{- $memory := . -}}
+{{- if $memory -}}
+{{- $value := regexFind "^\\d*\\.?\\d+" $memory | float64 -}}
+{{- $unit := regexFind "[A-Za-z]+" $memory -}}
+{{- $valueMi := 0.0 -}}
+{{- if eq $unit "Gi" -}}
+  {{- $valueMi = mulf $value 1024 -}}
+{{- else if eq $unit "Mi" -}}
+  {{- $valueMi = $value -}}
+{{- end -}}
+{{- $limitMib := int (mulf $valueMi 0.8) -}}
+{{- $spikeMib := int (mulf (float64 $limitMib) 0.25) }}
+- name: MEMORY_LIMITER_LIMIT_MIB
+  value: {{ printf "%d" $limitMib | quote }}
+- name: MEMORY_LIMITER_SPIKE_LIMIT_MIB
+  value: {{ printf "%d" $spikeMib | quote }}
 {{- end -}}
 {{- end -}}

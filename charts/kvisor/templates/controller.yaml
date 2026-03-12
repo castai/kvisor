@@ -76,8 +76,18 @@ spec:
           {{- if eq .Values.agent.enabled true }}
             - "--agent-enabled=true"
           {{- end }}
+          {{- $extraArgs := .Values.controller.extraArgs | default dict }}
+          {{- if not (hasKey $extraArgs "cloud-provider") }}
+          {{- $cloudProvider := include "kvisor.cloudProvider" . }}
+          {{- if $cloudProvider }}
+            - "--cloud-provider={{ $cloudProvider }}"
+          {{- end }}
+          {{- end }}
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
+          {{- end }}
+          {{- if hasKey $extraArgs "cluster-proxy-enabled" }}
+            - "--cluster-proxy-sa-name={{ include "kvisor.clusterproxy.serviceAccountName" . }}"
           {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
@@ -98,13 +108,13 @@ spec:
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "%s:8443" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ .Values.castai.grpcAddr | quote }}
+                       {{ include "kvisor.apiGrpcAddr" . | quote }}
                      {{- end }}
             - name: CASTAI_API_URL
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "http://%s:8080" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ .Values.castai.apiURL | quote }}
+                       {{ include "kvisor.apiURL" . | quote }}
                      {{- end }}
           {{- include "kvisor.clusterIDEnv" (set (deepCopy .) "envFrom" .Values.controller.envFrom) | nindent 12 }}
           {{- range $k, $v := .Values.controller.additionalEnv }}
@@ -148,6 +158,65 @@ spec:
               port: http-server
               path: /healthz
             periodSeconds: 5
+      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+        - name: otel-collector
+          image: "{{ .Values.controller.reliabilityMetrics.collector.image.repository }}:{{ .Values.controller.reliabilityMetrics.collector.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsUser: 10001
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- toYaml .Values.controller.reliabilityMetrics.collector.resources | nindent 12 }}
+          env:
+            {{- include "GOMEMLIMITEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- include "MemoryLimiterEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller) }}
+            - name: COLLECTOR_MODE
+              value: "controller"
+            - name: CLICKHOUSE_ENABLED
+              value: "true"
+            - name: CLICKHOUSE_ADDR
+              {{- if .Values.agent.reliabilityMetrics.collector.clickhouseExporter.address }}
+              value: {{ .Values.agent.reliabilityMetrics.collector.clickhouseExporter.address | quote }}
+              {{- else }}
+              value: {{ include "kvisor.reliabilityMetrics.clickhouse.address" . | quote }}
+              {{- end }}
+            - name: CLICKHOUSE_DATABASE
+              value: {{ include "kvisor.reliabilityMetrics.clickhouse.database" . | quote }}
+            - name: CLICKHOUSE_USERNAME
+              {{- include "kvisor.reliabilityMetrics.clickhouse.username" . | nindent 14 }}
+            - name: CLICKHOUSE_PASSWORD
+              {{- include "kvisor.reliabilityMetrics.clickhouse.password" . | nindent 14 }}
+            {{- end }}
+          ports:
+            - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
+              name: k8s-prom
+              protocol: TCP
+            - containerPort: 8888
+              name: k8s-metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              port: 13133
+              path: /
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              port: 13133
+              path: /
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: obi-sa-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+      {{- end }}
       terminationGracePeriodSeconds: 10
       {{- with .Values.controller.nodeSelector }}
       nodeSelector:
@@ -167,6 +236,24 @@ spec:
           configMap:
             name: {{ include "kvisor.fullname" . }}-static-cidrs
         {{- end }}
+      {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+        - name: obi-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3600
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
+      {{- end }}
         {{- with .Values.controller.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -239,6 +326,14 @@ rules:
       - events
     verbs:
       - create
+{{- if and .Values.controller.enabled (hasKey (.Values.controller.extraArgs | default dict) "cluster-proxy-enabled") }}
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts/token
+    verbs:
+      - create
+{{- end }}
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -328,6 +423,28 @@ rules:
       - get
       - list
       - watch
+{{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
+  # Additional read-only RBAC for k8s_cluster OTel receiver.
+  # The receiver watches all standard K8s resource types via informers;
+  # missing permissions block initial cache sync and prevent ANY metrics.
+  - apiGroups:
+      - ""
+    resources:
+      - resourcequotas
+      - replicationcontrollers
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "autoscaling"
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

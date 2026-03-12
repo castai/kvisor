@@ -1,0 +1,184 @@
+suite: cloud provider configuration tests
+templates:
+  - controller.yaml
+  - secret.yaml
+values:
+  - values.yaml
+tests:
+  - it: should not include --cloud-provider arg when neither extraArgs nor global is set
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gcp"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gke"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aws"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=eks"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=azure"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aks"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use global.castai.provider as fallback
+    set:
+      global.castai.provider: eks
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=eks"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should prefer extraArgs.cloud-provider over global
+    set:
+      global.castai.provider: eks
+      controller.extraArgs.cloud-provider: gcp
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gcp"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=eks"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use extraArgs.cloud-provider when global is not set
+    set:
+      controller.extraArgs.cloud-provider: aws
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aws"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should use global.castai.provider as fallback for azure
+    set:
+      global.castai.provider: azure
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=azure"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not include --cloud-provider arg when global.castai.provider is empty string
+    set:
+      global.castai.provider: ""
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gcp"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gke"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aws"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=eks"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=azure"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aks"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should not include --cloud-provider arg when other extraArgs are set but neither cloud-provider nor global is set
+    set:
+      controller.extraArgs:
+        log-level: debug
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gcp"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=gke"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aws"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=eks"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=azure"
+        template: controller.yaml
+        documentIndex: 0
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=aks"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--log-level=debug"
+        template: controller.yaml
+        documentIndex: 0
+
+  - it: should pass through other extraArgs unchanged
+    set:
+      global.castai.provider: eks
+      controller.extraArgs:
+        log-level: debug
+        image-scan-enabled: "true"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--cloud-provider=eks"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--log-level=debug"
+        template: controller.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--image-scan-enabled=true"
+        template: controller.yaml
+        documentIndex: 0

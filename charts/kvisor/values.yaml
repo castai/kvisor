@@ -19,6 +19,9 @@ castai:
 
   apiURL: ""
 
+  # Organization ID — used by the ClickHouse exporter and silver table MVs.
+  orgID: ""
+
   # clusterID, clusterIdConfigMapKeyRef and clusterIdSecretKeyRef are mutually exclusive
   clusterID: ""
   # clusterIdConfigMapKeyRef -- Name and Key of configMap with ClusterID
@@ -163,6 +166,113 @@ agent:
     scc:
       create: false
 
+  # Reliability metrics collection via OBI (OpenTelemetry eBPF Instrumentation).
+  # Deploys OBI as a sidecar container in the kvisor agent DaemonSet to collect
+  # RED metrics (request rate, error rate, duration histograms) from customer workloads.
+  # Memory usage scales with instrumented processes (~27 MiB per process).
+  reliabilityMetrics:
+    enabled: false
+
+    # --- OBI (eBPF instrumentation) settings ---
+    image:
+      repository: otel/ebpf-instrument
+      tag: "v0.6.0"
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+    # Ports to instrument — controls memory usage (~27 MiB per instrumented process).
+    # Comma-separated list. 8080=HTTP APIs, 8090=gRPC APIs, 6379=Redis.
+    openPorts: "8080,8443,8090,6379"
+    # Extra environment variables for the OBI container.
+    env:
+      # Disable tracing - we only need metrics
+      OTEL_TRACES_SAMPLER: "always_off"
+      OTEL_EBPF_TRACE_PRINTER: "disabled"
+      # Internal Go channel buffer (default 10). 50 provides headroom for
+      # burst absorption without the excessive memory overhead of 500.
+      OTEL_EBPF_CHANNEL_BUFFER_LEN: "50"
+      # Reduce metrics export interval from default 60s to 15s.
+      # Flushes histogram aggregations 4x more often, reducing backpressure
+      # on the spanNameAggregatedMetrics pipeline stage.
+      OTEL_EBPF_METRICS_INTERVAL: "15s"
+      # Batch 10 eBPF events per wakeup instead of waking Go per-event.
+      # Reduces GC pressure from per-event allocations while keeping
+      # latency low for metrics (sub-second batching at typical rates).
+      OTEL_EBPF_BPF_WAKEUP_LEN: "10"
+      # Restrict Kubernetes informer to pods on the local node only.
+      # As a DaemonSet sidecar, OBI doesn't need cluster-wide pod/node/service
+      # metadata. Saves ~30-100 MiB by not caching remote objects.
+      OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"
+      # Disable node and service informers — their metadata is not used by the
+      # reliability metrics pipeline. All required attributes (workload name,
+      # namespace, node name) come from the pod informer's owner references
+      # and spec.nodeName.
+      OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"
+      # Timeout for HTTP request completion. Requests open beyond this duration
+      # are forcibly closed by eBPF and reported with their current state.
+      # Default 30s prevents long-lived connections (SSE, WebSocket upgrades,
+      # streaming) from accumulating as open spans and inflating memory.
+      OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"
+      # Skip Go-specific uprobes for HTTP/2 and gRPC tracing. Go binaries use
+      # non-standard calling conventions that require expensive uprobe attachment.
+      # Disabling avoids per-binary probe setup overhead and false-positive spans.
+      OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"
+      # Enable high-request-volume mode. Uses ring-buffer instead of perf-buffer
+      # for eBPF→userspace event delivery, reducing per-event overhead at the
+      # cost of slightly higher baseline memory. Recommended for clusters with
+      # high-throughput services (>1k req/s per node).
+      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
+    # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
+    containerSecurityContext: {}
+    # --- OBI-specific settings ---
+    obi:
+      # Internal metrics — exposes OBI's own health via a Prometheus endpoint.
+      # Metrics include: instrumented process count, eBPF map usage, Go runtime stats.
+      # Disabled by default. Set port > 0 to enable.
+      internalMetrics:
+        enabled: false
+        port: 6061
+        path: "/internal/metrics"
+        # PodMonitor for Prometheus Operator — scrapes OBI internal metrics.
+        podMonitor:
+          enabled: false
+          labels: {}
+          interval: 30s
+          scrapeTimeout: 10s
+
+    # --- OTel Collector sidecar settings ---
+    # Receives OTLP from OBI, applies golden signal filtering, cardinality control,
+    # and batching, then exports to ClickHouse.
+    # The pipeline config is compiled into the collector binary (no ConfigMap needed).
+    # Bumping the image tag = changing the pipeline behavior.
+    collector:
+      enabled: true
+      image:
+        repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
+        tag: "v0.1.4"
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+      # Port for the collector's Prometheus exporter (scraped by cluster Prometheus).
+      prometheusPort: 9400
+      # ClickHouse exporter for reliability scoring pipeline.
+      clickhouseExporter:
+        enabled: true
+        address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
+      # PodMonitor for Prometheus Operator — scrapes collector self-metrics (port 8888).
+      # Provides: otelcol_receiver_accepted_metric_points, otelcol_exporter_sent_metric_points,
+      # otelcol_processor_dropped_metric_points, queue sizes, Go runtime metrics.
+      podMonitor:
+        enabled: false
+        # Extra labels on the PodMonitor metadata (for Prometheus Operator selector filtering).
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
+
 controller:
   enabled: true
 
@@ -285,6 +395,38 @@ controller:
   # Deprecated: use additionalEnv instead.
   extraEnv: {}
 
+  # --- K8s cluster state metrics (reliability) ---
+  # Runs an OTel Collector sidecar with k8s_cluster receiver to collect
+  # KSM-equivalent infrastructure metrics (pod restarts, deployment availability,
+  # node conditions, resource requests/limits). No OBI needed — purely API server watch-based.
+  # Pipeline config is compiled into the collector binary (no ConfigMap needed).
+  reliabilityMetrics:
+    enabled: false
+    collector:
+      enabled: true
+      image:
+        repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
+        tag: "v0.1.4"
+      resources:
+        requests:
+          cpu: 250m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+      # ClickHouse exporter — mirrors agent collector pattern.
+      clickhouseExporter:
+        enabled: true
+        address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
+      # Port for the collector's Prometheus exporter (different from agent collector's 9400).
+      prometheusPort: 9401
+      # PodMonitor for Prometheus Operator — scrapes collector self-metrics (port 8888).
+      podMonitor:
+        enabled: false
+        # Extra labels on the PodMonitor metadata (for Prometheus Operator selector filtering).
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
+
 eventGenerator:
   enabled: false
   serviceAccount:
@@ -309,11 +451,17 @@ eventGenerator:
 mockServer:
   enabled: false
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ClickHouse (for netflow export - legacy single-node deployment)
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPRECATED: This is the legacy ClickHouse deployment for netflow export only.
+# For reliability metrics, use the reliabilityMetrics section below which deploys
+# a managed ClickHouse instance via the reliability-metrics-ch-exporter subchart.
 clickhouse:
   enabled: false
 
   auth:
-    database: "kvisor"
+    database: "metrics"
     username: "kvisor"
     password: "kvisor"
 
@@ -329,3 +477,34 @@ clickhouse:
   persistentVolume:
     size: 20Gi
     #storageClass: premium-rwo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reliability Metrics (subchart: reliability-metrics-ch-exporter)
+# ─────────────────────────────────────────────────────────────────────────────
+# All ClickHouse infrastructure (deployment, schema migrations, exporter) is
+# managed by the reliability-metrics-ch-exporter subchart (alias: reliabilityMetrics).
+# Values under this key are passed through to the subchart.
+# See the subchart's values.yaml for all available options.
+reliabilityMetrics:
+  enabled: false
+  castai:
+    apiKeySecretRef: "castai-kvisor" # Read API key from castai-kvisor Secret
+    clusterIdConfigMapRef:
+      name: "castai-agent-metadata" # Read cluster ID from castai-agent-metadata ConfigMap
+      key: "CLUSTER_ID"
+    # gRPC address for the telemetry server (ch-exporter → mothership).
+    # The kvisor agent auto-derives telemetry.* from castai.grpcAddr, but the
+    # ch-exporter subchart has no such logic — it needs an explicit address.
+    # Note: If your cluster is in the EU region, use: "telemetry.prod-eu.cast.ai:443"
+    grpcAddr: "telemetry.prod-master.cast.ai:443"
+  # ClickHouse authentication credentials
+  # Can be plain values OR valueFrom references (secretKeyRef/configMapKeyRef)
+  # See subchart documentation for valueFrom examples
+  auth:
+    database: "metrics"
+    username: "kvisor"
+    password: "kvisor"
+  exporter:
+    image:
+      repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
+      tag: "v0.3.8"
