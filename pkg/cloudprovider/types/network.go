@@ -57,10 +57,12 @@ type PeeredVPC struct {
 }
 
 // TransitGatewayVPC represents a VPC discovered via AWS Transit Gateway.
+// Either Subnets (preferred, via cross-account access) or CIDRs (fallback
+// from TGW route tables) will be populated, but not both.
 type TransitGatewayVPC struct {
 	VPCID     string
 	AccountID string
 	Region    string
-	CIDRs     []netip.Prefix // VPC-level CIDRs (fallback)
-	Subnets   []Subnet       // Subnet-level detail (via cross-account access)
+	CIDRs     []netip.Prefix // VPC-level CIDRs from TGW route tables (fallback when cross-account access unavailable)
+	Subnets   []Subnet       // Subnet-level detail with zone info (via cross-account role assumption)
 }

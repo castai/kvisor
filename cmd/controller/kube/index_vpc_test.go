@@ -658,12 +658,14 @@ func TestVPCIndex(t *testing.T) {
 		r.NotNil(info)
 		r.Equal("us-west-2a", info.Zone)
 		r.Equal("us-west-2", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
 
 		info, found = index.LookupIP(netip.MustParseAddr("172.16.2.100"))
 		r.True(found)
 		r.NotNil(info)
 		r.Equal("us-west-2b", info.Zone)
 		r.Equal("us-west-2", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
 	})
 
 	t.Run("lookup IP in Transit Gateway VPC subnet with UseAwsZoneId", func(t *testing.T) {
@@ -707,6 +709,7 @@ func TestVPCIndex(t *testing.T) {
 		r.NotNil(info)
 		r.Equal("usw2-az1", info.Zone)
 		r.Equal("us-west-2", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
 	})
 
 	t.Run("lookup IP in Transit Gateway VPC with CIDR fallback", func(t *testing.T) {
@@ -738,6 +741,7 @@ func TestVPCIndex(t *testing.T) {
 		r.NotNil(info)
 		r.Equal("", info.Zone) // No zone when using CIDR fallback
 		r.Equal("eu-west-1", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
 	})
 
 	t.Run("invalid static CIDRs", func(t *testing.T) {

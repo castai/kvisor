@@ -536,7 +536,7 @@ When your cluster VPC is connected to other VPCs via an [AWS Transit Gateway](ht
 
 ### Basic Setup (Route-Level CIDRs Only)
 
-Transit Gateway discovery works out of the box with the standard IAM permissions listed above — no additional configuration needed. kvisor will discover TGW-attached VPCs and index their route-level CIDRs (region only, no zone detail).
+Transit Gateway discovery works out of the box when `cloud-provider-vpc-sync-enabled: true` and `cloud-provider-vpc-name` are configured (same as VPC peering discovery). No additional flags are needed beyond the standard IAM permissions listed above. kvisor will discover TGW-attached VPCs and index their route-level CIDRs (region only, no zone detail).
 
 ### Cross-Account Subnet Discovery (Optional)
 
@@ -616,7 +616,7 @@ kvisor replaces `{account-id}` with the actual AWS account ID of each remote VPC
 
 ## Static CIDR Mappings
 
-Static CIDR mappings let you manually annotate IP ranges such as cross-account VPCs, Transit Gateway destinations etc.
+Static CIDR mappings let you manually annotate IP ranges that are not automatically discovered, such as on-premises networks, VPN endpoints, or cross-account VPCs without Transit Gateway connectivity.
 
 > **Note:** kvisor does not perform any cost calculations. The `connectivityMethod` field is purely a label attached to netflow records so that downstream systems (e.g. CAST AI cost attribution) can distinguish traffic by connectivity type.
 

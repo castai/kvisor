@@ -15,7 +15,9 @@ import (
 	"github.com/samber/lo"
 )
 
-// fetchTransitGatewayVPCs discovers VPCs connected via Transit Gateway attachments.
+// fetchTransitGatewayVPCs discovers VPCs connected via Transit Gateway.
+// It fetches route-level CIDRs for all attachments and optionally enriches
+// with subnet-level detail via cross-account role assumption.
 func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([]types.TransitGatewayVPC, error) {
 	// Find all TGW attachments for this VPC.
 	attachments, err := p.fetchTGWAttachments(ctx, vpcID)
@@ -36,13 +38,18 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 
 	// For each TGW, discover all VPC attachments (including remote accounts).
 	var allAttachments []ec2types.TransitGatewayAttachment
+	var failedTGWAttachments int
 	for tgwID := range tgwIDs {
 		tgwAttachments, err := p.fetchAllTGWAttachments(ctx, tgwID)
 		if err != nil {
+			failedTGWAttachments++
 			p.log.With("tgw", tgwID).Warnf("fetching all TGW attachments: %v", err)
 			continue
 		}
 		allAttachments = append(allAttachments, tgwAttachments...)
+	}
+	if failedTGWAttachments > 0 && failedTGWAttachments == len(tgwIDs) {
+		p.log.Errorf("all %d Transit Gateway attachment fetches failed; TGW VPC discovery returned no results", failedTGWAttachments)
 	}
 
 	// Also discover routes from TGW route tables to find remote CIDRs.
@@ -68,6 +75,7 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 				}
 				cidr, err := netip.ParsePrefix(*route.DestinationCidrBlock)
 				if err != nil {
+					p.log.Warnf("parsing TGW route CIDR %s: %v", *route.DestinationCidrBlock, err)
 					continue
 				}
 				for _, att := range route.TransitGatewayAttachments {
@@ -80,6 +88,9 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 			}
 		}
 	}
+
+	// Cache cross-account EC2 clients by account ID to avoid repeated STS calls.
+	crossAccountClients := make(map[string]*ec2.Client)
 
 	// Build TransitGatewayVPC list from remote attachments.
 	seen := make(map[string]struct{})
@@ -111,10 +122,10 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 
 		// Try cross-account subnet discovery if role ARN is configured.
 		if p.cfg.AWSCrossAccountRoleARN != "" {
-			subnets, region, err := p.fetchRemoteSubnets(ctx, remoteAccountID, remoteVPCID)
+			subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, crossAccountClients, remoteAccountID, remoteVPCID)
 			if err != nil {
 				p.log.With("vpc", remoteVPCID, "account", remoteAccountID).
-					Warnf("fetching remote subnets: %v", err)
+					Errorf("cross-account subnet fetch failed (falling back to route CIDRs): %v", err)
 			} else {
 				tgwVPC.Subnets = subnets
 				tgwVPC.Region = region
@@ -209,7 +220,7 @@ func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2
 	return routeTables, nil
 }
 
-// searchTGWRoutes searches for active/blackhole routes in a TGW route table.
+// searchTGWRoutes searches for active routes in a TGW route table.
 func (p *Provider) searchTGWRoutes(ctx context.Context, routeTableID string) ([]ec2types.TransitGatewayRoute, error) {
 	input := &ec2.SearchTransitGatewayRoutesInput{
 		TransitGatewayRouteTableId: lo.ToPtr(routeTableID),
@@ -223,12 +234,23 @@ func (p *Provider) searchTGWRoutes(ctx context.Context, routeTableID string) ([]
 		return nil, fmt.Errorf("searching TGW routes for %s: %w", routeTableID, err)
 	}
 
+	if result.AdditionalRoutesAvailable != nil && *result.AdditionalRoutesAvailable {
+		p.log.Warnf("TGW route table %s has more than 1000 routes; results are truncated", routeTableID)
+	}
+
 	return result.Routes, nil
 }
 
 // buildCrossAccountEC2Client creates an EC2 client that assumes a role in a remote account.
 func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID string) (*ec2.Client, error) {
+	if accountID == "" {
+		return nil, fmt.Errorf("empty account ID for cross-account role assumption")
+	}
+
 	roleARN := strings.ReplaceAll(p.cfg.AWSCrossAccountRoleARN, "{account-id}", accountID)
+	if roleARN == p.cfg.AWSCrossAccountRoleARN {
+		return nil, fmt.Errorf("cross-account role ARN template %q does not contain {account-id} placeholder", p.cfg.AWSCrossAccountRoleARN)
+	}
 
 	awsCfg, err := buildAWSConfig(ctx, p.cfg)
 	if err != nil {
@@ -242,27 +264,41 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID str
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
-// fetchRemoteSubnets fetches subnets from a remote account's VPC using cross-account role assumption.
-func (p *Provider) fetchRemoteSubnets(ctx context.Context, accountID, vpcID string) ([]types.Subnet, string, error) {
-	remoteEC2, err := p.buildCrossAccountEC2Client(ctx, accountID)
-	if err != nil {
-		return nil, "", fmt.Errorf("building cross-account EC2 client: %w", err)
+// fetchRemoteSubnetsWithCache fetches remote subnets using a cached cross-account EC2 client.
+func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache map[string]*ec2.Client, accountID, vpcID string) ([]types.Subnet, string, error) {
+	client, ok := clientCache[accountID]
+	if !ok {
+		var err error
+		client, err = p.buildCrossAccountEC2Client(ctx, accountID)
+		if err != nil {
+			return nil, "", fmt.Errorf("building cross-account EC2 client: %w", err)
+		}
+		clientCache[accountID] = client
 	}
+	return p.fetchRemoteSubnets(ctx, client, vpcID)
+}
 
+// fetchRemoteSubnets fetches subnets from a remote account's VPC using a pre-built EC2 client.
+func (p *Provider) fetchRemoteSubnets(ctx context.Context, remoteEC2 *ec2.Client, vpcID string) ([]types.Subnet, string, error) {
 	input := &ec2.DescribeSubnetsInput{
 		Filters: []ec2types.Filter{
 			{Name: lo.ToPtr("vpc-id"), Values: []string{vpcID}},
 		},
 	}
 
-	result, err := remoteEC2.DescribeSubnets(ctx, input)
-	if err != nil {
-		return nil, "", fmt.Errorf("describing remote subnets: %w", err)
+	var allSubnets []ec2types.Subnet
+	paginator := ec2.NewDescribeSubnetsPaginator(remoteEC2, input)
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, "", fmt.Errorf("describing remote subnets: %w", err)
+		}
+		allSubnets = append(allSubnets, page.Subnets...)
 	}
 
 	var subnets []types.Subnet
 	var region string
-	for _, subnet := range result.Subnets {
+	for _, subnet := range allSubnets {
 		cidr, err := netip.ParsePrefix(lo.FromPtr(subnet.CidrBlock))
 		if err != nil {
 			p.log.Warnf("parsing remote subnet CIDR %s: %v", lo.FromPtr(subnet.CidrBlock), err)

@@ -91,7 +91,7 @@ type NetworkConfig struct {
 	UseAwsZoneId               bool
 }
 
-// NewNetworkIndex creates a new VPC index.
+// NewNetworkIndex creates a new network index for IP-to-metadata lookups.
 func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 	cloudIdx, err := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.NetworkRefreshInterval)
 	if err != nil {
@@ -100,10 +100,10 @@ func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 		cloudIdx, _ = cidrindex.NewIndex[NetworkIPInfo](0, 0)
 	}
 
-	// Static index no need cache, it is small and never rebuilt.
+	// Static index does not use a cache; it is populated once at startup.
 	staticIdx, _ := cidrindex.NewIndex[NetworkIPInfo](0, 0)
 
-	// Cloud public index: small, rebuilt on fetch from public endpoints.
+	// Cloud public index: rebuilt on each fetch from public cloud endpoints.
 	cloudPublicIdx, _ := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.PublicCIDRsRefreshInterval)
 
 	return &NetworkIndex{
@@ -118,7 +118,7 @@ func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 	}
 }
 
-// Update updates the VPC state and rebuilds the CIDR tree.
+// Update replaces the cloud-discovered network state and rebuilds the CIDR index.
 func (vi *NetworkIndex) Update(state *cloudtypes.NetworkState) error {
 	if vi == nil {
 		return nil
@@ -294,8 +294,9 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 					entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 						CIDR: subnet.CIDR,
 						Metadata: NetworkIPInfo{
-							Zone:   subnetZone,
-							Region: subnet.Region,
+							Zone:               subnetZone,
+							Region:             subnet.Region,
+							ConnectivityMethod: ConnectivityTransitGateway,
 						},
 					})
 				}
@@ -304,7 +305,8 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 					entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 						CIDR: cidr,
 						Metadata: NetworkIPInfo{
-							Region: tgwVPC.Region,
+							Region:             tgwVPC.Region,
+							ConnectivityMethod: ConnectivityTransitGateway,
 						},
 					})
 				}
@@ -319,7 +321,8 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 	return entries
 }
 
-// LookupIP looks up VPC state for an IP address.
+// LookupIP looks up network metadata for an IP address, checking static mappings first,
+// then cloud-discovered CIDRs, then public cloud service ranges.
 func (vi *NetworkIndex) LookupIP(ip netip.Addr) (*NetworkIPInfo, bool) {
 	if vi == nil {
 		return nil, false
