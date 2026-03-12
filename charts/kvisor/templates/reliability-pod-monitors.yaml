@@ -82,7 +82,7 @@ spec:
     matchNames:
       - {{ .Release.Namespace }}
   podMetricsEndpoints:
-    - port: "8888"
+    - port: k8s-metrics
       path: /metrics
       scheme: http
       honorLabels: true
