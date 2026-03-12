@@ -1,4 +1,4 @@
-{{- if (dig "gpu" "enabled" false .Values.agent) }}
+{{- if (include "kvisor.gpuEnabled" .) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

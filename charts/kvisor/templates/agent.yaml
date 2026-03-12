@@ -56,7 +56,7 @@ spec:
       securityContext:
         {{- toYaml .Values.agent.securityContext | nindent 8 }}
       priorityClassName: {{ .Values.agent.priorityClass }}
-      {{- if (dig "gpu" "enabled" false .Values.agent) }}
+      {{- if (include "kvisor.gpuEnabled" .) }}
       initContainers:
         - name: gpu-feature-discovery
           image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -108,7 +108,7 @@ spec:
           {{- range $key, $value := .Values.agent.extraArgs }}
             - "--{{ $key }}={{ $value }}"
           {{- end }}
-          {{- if (dig "gpu" "enabled" false .Values.agent) }}
+          {{- if (include "kvisor.gpuEnabled" .) }}
             - "--gpu-enabled=true"
             - "--gpu-export-interval={{ .Values.agent.gpu.exportInterval }}"
             - "--gpu-dcgm-port={{ .Values.agent.gpu.dcgmExporter.port }}"
@@ -197,7 +197,7 @@ spec:
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-            {{- if (dig "gpu" "enabled" false .Values.agent) }}
+            {{- if (include "kvisor.gpuEnabled" .) }}
             - name: gpu-shared
               mountPath: {{ .Values.agent.gpu.sharedDir }}
             {{- end }}
@@ -323,11 +323,13 @@ spec:
               readOnly: true
       {{- end }}
       {{- end }}
-      {{- if (dig "gpu" "enabled" false .Values.agent) }}
+      {{- if (include "kvisor.gpuEnabled" .) }}
+        {{- $provider := include "kvisor.cloudProvider" . }}
         - name: dcgm-exporter
           image: "{{ .Values.agent.gpu.dcgmExporter.image.repository }}:{{ .Values.agent.gpu.dcgmExporter.image.tag }}"
           imagePullPolicy: {{ .Values.agent.gpu.dcgmExporter.image.pullPolicy }}
           securityContext:
+            privileged: {{ eq $provider "gke" }}
             runAsNonRoot: false
             runAsUser: 0
             allowPrivilegeEscalation: true
@@ -347,7 +349,32 @@ spec:
                 echo "Existing DCGM exporter found on node. Standing by."
                 while true; do sleep 3600; done
               fi
+              {{- if eq $provider "gke" }}
+              # Wait for GKE NVIDIA driver installation (cos-nvidia-installer runs asynchronously).
+              # 30s timeout handles CPU-only nodes where drivers will never appear.
+              elapsed=0
+              while [ $elapsed -lt 30 ]; do
+                if ls "/usr/local/nvidia/lib64/libnvidia-ml.so.1" &>/dev/null; then
+                  echo "nvml drivers found"
+                  break
+                fi
+                echo "waiting for nvml drivers ($elapsed/30s)"
+                sleep 1
+                elapsed=$((elapsed + 1))
+              done
+              if ! ls "/usr/local/nvidia/lib64/libnvidia-ml.so.1" &>/dev/null; then
+                echo "nvml drivers not found after 30s (CPU-only node). Standing by."
+                while true; do sleep 3600; done
+              fi
               hostname $NODE_NAME; exec dcgm-exporter -f /etc/dcgm-exporter/counters.csv
+              {{- else }}
+              hostname $NODE_NAME
+              for ((;;)); do
+                dcgm-exporter -f /etc/dcgm-exporter/counters.csv
+                echo "dcgm-exporter exited (no GPU or driver not ready). Retrying in 60s."
+                sleep 60
+              done
+              {{- end }}
           ports:
             - name: dcgm-metrics
               containerPort: {{ .Values.agent.gpu.dcgmExporter.port }}
@@ -365,6 +392,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            {{- if eq $provider "gke" }}
+            - name: DISABLE_STARTUP_VALIDATE
+              value: "true"
+            {{- end }}
           volumeMounts:
             - name: gpu-shared
               mountPath: {{ .Values.agent.gpu.sharedDir }}
@@ -374,6 +405,11 @@ spec:
             - name: dcgm-config
               mountPath: /etc/dcgm-exporter
               readOnly: true
+            {{- if eq $provider "gke" }}
+            - name: nvidia-install-dir-host
+              mountPath: /usr/local/nvidia
+              readOnly: true
+            {{- end }}
       {{- end }}
       dnsPolicy: {{.Values.agent.dnsPolicy}}
       {{- with .Values.agent.nodeSelector }}
@@ -428,7 +464,7 @@ spec:
                       fieldRef:
                         fieldPath: metadata.namespace
       {{- end }}
-      {{- if (dig "gpu" "enabled" false .Values.agent) }}
+      {{- if (include "kvisor.gpuEnabled" .) }}
         - name: gpu-shared
           emptyDir: {}
         - name: pod-gpu-resources
@@ -437,6 +473,12 @@ spec:
         - name: dcgm-config
           configMap:
             name: {{ include "kvisor.agent.fullname" . }}-dcgm-config
+        {{- if eq (include "kvisor.cloudProvider" .) "gke" }}
+        - name: nvidia-install-dir-host
+          hostPath:
+            path: /home/kubernetes/bin/nvidia
+            type: DirectoryOrCreate
+        {{- end }}
         - name: gpu-sa-token
           projected:
             sources:
@@ -489,7 +531,7 @@ rules:
       - get
       - list
       - watch
-  {{- if (dig "gpu" "enabled" false .Values.agent) }}
+  {{- if (include "kvisor.gpuEnabled" .) }}
   - apiGroups:
       - ""
     resources:

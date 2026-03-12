@@ -25,7 +25,6 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/florianl/go-conntrack v0.4.0
 	github.com/go-playground/validator/v10 v10.26.0
-	github.com/go-resty/resty/v2 v2.16.2
 	github.com/golang/glog v1.2.5
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/gopacket v1.1.19
