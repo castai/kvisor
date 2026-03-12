@@ -197,7 +197,7 @@ spec:
             - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
               name: k8s-prom
               protocol: TCP
-            - containerPort: 8889
+            - containerPort: 8888
               name: k8s-metrics
               protocol: TCP
           livenessProbe:
