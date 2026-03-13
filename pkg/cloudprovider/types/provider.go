@@ -15,7 +15,8 @@ type ProviderConfig struct {
 	GCPProjectID string
 
 	// AWS specific
-	AWSRegion string
+	AWSRegion              string
+	AWSCrossAccountRoleARN string // template with {account-id} placeholder
 
 	// Azure specific (for future)
 	AzureSubscriptionID string

@@ -137,7 +137,7 @@ func (a *App) Run(ctx context.Context) error {
 		k8sVersion,
 		clientset,
 		cfg.CloudProviderConfig.CloudProvider.Type,
-		cfg.CloudProviderConfig.VPCStateController.UseZoneID,
+		cfg.CloudProviderConfig.NetworkStateController.UseZoneID,
 	)
 
 	kubeClient.RegisterHandlers(informersFactory)
@@ -146,23 +146,35 @@ func (a *App) Run(ctx context.Context) error {
 		return kubeClient.Run(ctx)
 	})
 
-	vpcCfg := cfg.CloudProviderConfig.VPCStateController
+	vpcCfg := cfg.CloudProviderConfig.NetworkStateController
 
 	// Create and populate VPC index upfront (no cloud provider required for this)
-	var vpcIndex *kube.VPCIndex
-	if vpcCfg.Enabled || vpcCfg.StaticCIDRsFile != "" {
-		vpcIndex = kube.NewVPCIndex(
+	var networkIndex *kube.NetworkIndex
+	cloudProviderType := cfg.CloudProviderConfig.CloudProvider.Type
+	if vpcCfg.Enabled || vpcCfg.StaticCIDRsFile != "" || cloudProviderType != "" {
+		networkIndex = kube.NewNetworkIndex(
 			log,
-			kube.VPCConfig{
-				RefreshInterval: vpcCfg.RefreshInterval,
-				CacheSize:       vpcCfg.CacheSize,
-				UseAwsZoneId:    vpcCfg.UseZoneID,
+			kube.NetworkConfig{
+				NetworkRefreshInterval:     vpcCfg.NetworkRefreshInterval,
+				PublicCIDRsRefreshInterval: vpcCfg.PublicCIDRsRefreshInterval,
+				CacheSize:                  vpcCfg.CacheSize,
+				UseAwsZoneId:               vpcCfg.UseZoneID,
 			},
 		)
-		if err := controllers.LoadStaticCIDRsFromFile(log, vpcCfg.StaticCIDRsFile, vpcIndex); err != nil {
+		if err := controllers.LoadStaticCIDRsFromFile(log, vpcCfg.StaticCIDRsFile, networkIndex); err != nil {
 			log.Warnf("failed to load static CIDRs: %v", err)
 		}
-		kubeClient.SetVPCIndex(vpcIndex)
+		kubeClient.SetVPCIndex(networkIndex)
+
+		// Launch cloud public CIDR controller (fetches from public endpoints, no auth needed).
+		if cloudProviderType != "" {
+			errg.Go(func() error {
+				return controllers.NewCloudPublicCIDRController(log, controllers.CloudPublicCIDRControllerConfig{
+					CloudProviderType: cloudProviderType,
+					RefreshInterval:   vpcCfg.PublicCIDRsRefreshInterval,
+				}, networkIndex).Run(ctx)
+			})
+		}
 	}
 
 	// Initialize cloud provider for cloud-sync features
@@ -171,9 +183,9 @@ func (a *App) Run(ctx context.Context) error {
 		if err == nil {
 			log.Infof("cloud provider %s initialized successfully", provider.Type())
 
-			if vpcCfg.Enabled && vpcIndex != nil {
+			if vpcCfg.Enabled && networkIndex != nil {
 				errg.Go(func() error {
-					return controllers.NewVPCStateController(log, vpcCfg, provider, vpcIndex).Run(ctx)
+					return controllers.NewVPCStateController(log, vpcCfg, provider, networkIndex).Run(ctx)
 				})
 			}
 

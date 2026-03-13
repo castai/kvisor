@@ -2,14 +2,10 @@ package gcp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/netip"
 	"strings"
-	"time"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
@@ -40,13 +36,6 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 		return fmt.Errorf("fetching VPCs: %w", err)
 	}
 	state.VPCs = vpcs
-
-	serviceRanges, err := p.fetchServiceIPRanges(ctx)
-	if err != nil {
-		p.log.Warnf("fetching service IP ranges: %v", err)
-	} else {
-		state.ServiceRanges = serviceRanges
-	}
 
 	p.networkStateMu.Lock()
 	p.networkState = state
@@ -228,106 +217,6 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, network *computepb.Netwo
 		With("network", network.GetName()).
 		Info("fetched peered VPCs")
 	return peered
-}
-
-type gcpIPRangesResponse struct {
-	SyncToken    string      `json:"syncToken"`
-	CreationTime string      `json:"creationTime"`
-	Prefixes     []gcpPrefix `json:"prefixes"`
-}
-
-type gcpPrefix struct {
-	IPv4Prefix string `json:"ipv4Prefix,omitempty"`
-	IPv6Prefix string `json:"ipv6Prefix,omitempty"`
-	Service    string `json:"service"`
-	Scope      string `json:"scope"`
-}
-
-func (p *Provider) fetchServiceIPRanges(ctx context.Context) ([]types.ServiceRanges, error) {
-	// GCP publishes service IP ranges within URL below
-	const gcpIPRangesURL = "https://www.gstatic.com/ipranges/cloud.json"
-
-	rangesByRegion := make(map[string][]netip.Prefix)
-
-	// Add known global ranges for Private Google Access and Restricted Google Access
-	// https://cloud.google.com/vpc/docs/configure-private-google-access
-	knownGlobalRanges := []string{
-		"35.199.192.0/19",          // GCP APIs
-		"199.36.153.4/30",          // restricted.googleapis.com CIDR Ranges
-		"199.36.153.8/30",          // private.googleapis.com CIDR Ranges
-		"2600:2d00:0002:1000::/64", // private.googleapis.com CIDR Ranges
-		"2600:2d00:0002:2000::/64", // restricted.googleapis.com CIDR Ranges
-	}
-
-	for _, r := range knownGlobalRanges {
-		prefix, err := netip.ParsePrefix(r)
-		if err != nil {
-			p.log.Warnf("parsing known range %s: %v", r, err)
-			continue
-		}
-		rangesByRegion["global"] = append(rangesByRegion["global"], prefix)
-	}
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gcpIPRangesURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetching IP ranges: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	var ipRanges gcpIPRangesResponse
-	if err := json.Unmarshal(body, &ipRanges); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-
-	for _, prefix := range ipRanges.Prefixes {
-		var cidrStr string
-		if prefix.IPv4Prefix != "" {
-			cidrStr = prefix.IPv4Prefix
-		} else if prefix.IPv6Prefix != "" {
-			cidrStr = prefix.IPv6Prefix
-		} else {
-			continue // Skip entries without IP prefix
-		}
-
-		cidr, err := netip.ParsePrefix(cidrStr)
-		if err != nil {
-			p.log.Warnf("parsing CIDR %s: %v", cidrStr, err)
-			continue
-		}
-
-		rangesByRegion[prefix.Scope] = append(rangesByRegion[prefix.Scope], cidr)
-	}
-
-	var serviceRanges []types.ServiceRanges
-	for region, cidrs := range rangesByRegion {
-		serviceRanges = append(serviceRanges, types.ServiceRanges{
-			Region: region,
-			CIRDs:  cidrs,
-		})
-	}
-
-	p.log.Infof("fetched %d service IP ranges across %d regions (including %d global ranges)",
-		len(ipRanges.Prefixes)+len(knownGlobalRanges), len(serviceRanges), len(knownGlobalRanges))
-
-	return serviceRanges, nil
 }
 
 // extractRegionFromURL extracts the zone from a GCP region/zone URL.

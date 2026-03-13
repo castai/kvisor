@@ -2,12 +2,8 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/netip"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -39,13 +35,6 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 		return fmt.Errorf("fetching VPCs: %w", err)
 	}
 	metadata.VPCs = vpcs
-
-	serviceRanges, err := p.fetchServiceIPRanges(ctx)
-	if err != nil {
-		p.log.Warnf("fetching service IP ranges: %v", err)
-	} else {
-		metadata.ServiceRanges = serviceRanges
-	}
 
 	p.networkStateMu.Lock()
 	p.networkState = metadata
@@ -112,6 +101,13 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			p.log.With("vpc", vpcID).Warnf("fetching peered VPCs: %v", err)
 		} else {
 			vpcObj.PeeredVPCs = peeredVPCs
+		}
+
+		tgwVPCs, err := p.fetchTransitGatewayVPCs(ctx, vpcID)
+		if err != nil {
+			p.log.With("vpc", vpcID).Warnf("fetching Transit Gateway VPCs: %v", err)
+		} else {
+			vpcObj.TransitGatewayVPCs = tgwVPCs
 		}
 
 		vpcs = append(vpcs, vpcObj)
@@ -261,108 +257,6 @@ func (p *Provider) peeringToPeeredVPC(peering ec2types.VpcPeeringConnection, pee
 	}
 
 	return peerVPC, true
-}
-
-type awsIPRangesResponse struct {
-	SyncToken  string      `json:"syncToken"`
-	CreateDate string      `json:"createDate"`
-	Prefixes   []awsPrefix `json:"prefixes"`
-	IPv6       []awsIPv6   `json:"ipv6_prefixes"`
-}
-
-type awsPrefix struct {
-	IPPrefix           string `json:"ip_prefix"`
-	Region             string `json:"region"`
-	Service            string `json:"service"`
-	NetworkBorderGroup string `json:"network_border_group"`
-}
-
-type awsIPv6 struct {
-	IPv6Prefix         string `json:"ipv6_prefix"`
-	Region             string `json:"region"`
-	Service            string `json:"service"`
-	NetworkBorderGroup string `json:"network_border_group"`
-}
-
-func (p *Provider) fetchServiceIPRanges(ctx context.Context) ([]types.ServiceRanges, error) {
-	// AWS publishes service IP ranges at this URL
-	const awsIPRangesURL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
-
-	rangesByRegion := make(map[string][]netip.Prefix)
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, awsIPRangesURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetching IP ranges: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	var ipRanges awsIPRangesResponse
-	if err := json.Unmarshal(body, &ipRanges); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-
-	// IPv4 prefixes
-	for _, prefix := range ipRanges.Prefixes {
-		cidr, err := netip.ParsePrefix(prefix.IPPrefix)
-		if err != nil {
-			p.log.Warnf("parsing CIDR %s: %v", prefix.IPPrefix, err)
-			continue
-		}
-
-		region := prefix.Region
-		if region == "" {
-			region = "global"
-		}
-
-		rangesByRegion[region] = append(rangesByRegion[region], cidr)
-	}
-
-	// IPv6 prefixes
-	for _, prefix := range ipRanges.IPv6 {
-		cidr, err := netip.ParsePrefix(prefix.IPv6Prefix)
-		if err != nil {
-			p.log.Warnf("parsing IPv6 CIDR %s: %v", prefix.IPv6Prefix, err)
-			continue
-		}
-
-		region := prefix.Region
-		if region == "" {
-			region = "global"
-		}
-
-		rangesByRegion[region] = append(rangesByRegion[region], cidr)
-	}
-
-	var serviceRanges []types.ServiceRanges
-	for region, cidrs := range rangesByRegion {
-		serviceRanges = append(serviceRanges, types.ServiceRanges{
-			Region: region,
-			CIRDs:  cidrs,
-		})
-	}
-
-	p.log.Infof("fetched %d service IP ranges across %d regions",
-		len(ipRanges.Prefixes)+len(ipRanges.IPv6), len(serviceRanges))
-
-	return serviceRanges, nil
 }
 
 func getTagValue(tags []ec2types.Tag, key string) string {
