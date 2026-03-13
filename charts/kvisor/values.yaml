@@ -166,6 +166,34 @@ agent:
     scc:
       create: false
 
+  # GPU metrics collection via DCGM exporter.
+  # When enabled, an init container discovers any existing DCGM exporter in the cluster
+  # and a DCGM sidecar is added to the pod. If an existing DCGM is found, the sidecar
+  # sleeps (avoiding exclusive GPU access conflicts). Otherwise the sidecar runs DCGM.
+  gpu:
+    enabled: false
+
+    # Path to the emptyDir volume shared between the init container and main containers.
+    sharedDir: "/shared"
+
+    # How often GPU metrics are collected and exported.
+    exportInterval: "15s"
+
+    # DCGM exporter sidecar settings.
+    dcgmExporter:
+      image:
+        repository: nvcr.io/nvidia/k8s/dcgm-exporter
+        tag: "4.5.2-4.8.1-ubuntu22.04"
+        pullPolicy: IfNotPresent
+      # Port DCGM exporter listens on.
+      port: 9400
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          memory: 500Mi
+
   # Reliability metrics collection via OBI (OpenTelemetry eBPF Instrumentation).
   # Deploys OBI as a sidecar container in the kvisor agent DaemonSet to collect
   # RED metrics (request rate, error rate, duration histograms) from customer workloads.

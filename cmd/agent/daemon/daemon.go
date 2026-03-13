@@ -117,6 +117,15 @@ func NewRunCommand(version string) *cobra.Command {
 		ebpfEventAnnotations = command.Flags().StringSlice("ebpf-events-include-pod-annotations", []string{}, "List of annotation keys to be sent with eBPF events, separated by comma")
 
 		containersRefreshInterval = command.Flags().Duration("containers-refresh-interval", 2*time.Minute, "Containers refresh interval")
+
+		gpuEnabled            = command.Flags().Bool("gpu-enabled", false, "Enable GPU metrics collection via DCGM exporter")
+		gpuExportInterval     = command.Flags().Duration("gpu-export-interval", 15*time.Second, "GPU metrics export interval")
+		gpuDCGMPort           = command.Flags().Int("gpu-dcgm-port", 9400, "DCGM exporter metrics port")
+		gpuDCGMPath           = command.Flags().String("gpu-dcgm-path", "/metrics", "DCGM exporter metrics HTTP path")
+		gpuDCGMHost           = command.Flags().String("gpu-dcgm-host", "", "Fixed DCGM exporter host (leave empty to use pod discovery)")
+		gpuDCGMSelector       = command.Flags().String("gpu-dcgm-selector", "app.kubernetes.io/name=dcgm-exporter", "Label selector to discover DCGM exporter pods")
+		gpuWorkloadLabelKeys = command.Flags().StringSlice("gpu-workload-label-keys", nil, "Pod label keys whose values override workload name resolution (e.g. workloads.cast.ai/custom-workload)")
+		gpuSharedDir           = command.Flags().String("gpu-shared-dir", "/shared", "Path to emptyDir shared with the gpu-feature-discovery init container")
 	)
 
 	command.Flags().Var(&netflowGrouping, "netflow-grouping", "Group netflow to reduce cardinality. Eg: drop_src_port to drop source port")
@@ -218,6 +227,16 @@ func NewRunCommand(version string) *cobra.Command {
 			},
 			ProcessTree: config.ProcessTreeConfig{
 				Enabled: *processTreeEnabled,
+			},
+			GPU: config.GPUConfig{
+				Enabled:           *gpuEnabled,
+				ExportInterval:    *gpuExportInterval,
+				DCGMPort:          *gpuDCGMPort,
+				DCGMPath:          *gpuDCGMPath,
+				DCGMHost:          *gpuDCGMHost,
+				DCGMSelector:      *gpuDCGMSelector,
+				WorkloadLabelKeys: *gpuWorkloadLabelKeys,
+				SharedDir:         *gpuSharedDir,
 			},
 			KubeAPIServiceAddr:        *kubeAPIServiceAddr,
 			ExportersQueueSize:        *exportersQueueSize,

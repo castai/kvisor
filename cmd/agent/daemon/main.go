@@ -26,6 +26,7 @@ func main() {
 	root.AddCommand(
 		NewRunCommand(Version),
 		NewClickhouseInitCommand(),
+		NewFeatureDiscoveryCommand(),
 		debugCmd,
 	)
 

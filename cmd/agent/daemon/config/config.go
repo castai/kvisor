@@ -43,6 +43,7 @@ type Config struct {
 	EnricherConfig                 EnricherConfig                  `json:"enricherConfig"`
 	Netflow                        NetflowConfig                   `json:"netflow"`
 	ProcessTree                    ProcessTreeConfig               `json:"processTree"`
+	GPU                            GPUConfig                       `json:"gpu"`
 	Clickhouse                     ClickhouseConfig                `json:"clickhouse"`
 	KubeAPIServiceAddr             string                          `json:"kubeAPIServiceAddr"`
 	ExportersQueueSize             int                             `validate:"required" json:"exportersQueueSize"`
@@ -101,4 +102,17 @@ type ClickhouseConfig struct {
 
 type ProcessTreeConfig struct {
 	Enabled bool `json:"enabled"`
+}
+
+type GPUConfig struct {
+	Enabled           bool          `json:"enabled"`
+	ExportInterval    time.Duration `json:"exportInterval"`
+	DCGMPort          int           `json:"dcgmPort"`
+	DCGMPath          string        `json:"dcgmPath"`
+	DCGMHost          string        `json:"dcgmHost"`
+	DCGMSelector      string        `json:"dcgmSelector"`
+	WorkloadLabelKeys []string `json:"workloadLabelKeys"`
+	// SharedDir is the path to the emptyDir volume shared with the init container.
+	// The init container writes dcgm-exists and dcgm-selector files here.
+	SharedDir string `json:"sharedDir"`
 }
