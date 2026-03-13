@@ -56,11 +56,11 @@ type AgentConfig struct {
 }
 
 type CloudProviderConfig struct {
-	CloudProvider         cloudtypes.ProviderConfig               `json:"cloudProvider"`
-	VPCStateController    controllers.VPCStateControllerConfig    `json:"vpcStateController"`
-	VolumeStateController controllers.VolumeStateControllerConfig `json:"volumeStateController"`
+	CloudProvider          cloudtypes.ProviderConfig                `json:"cloudProvider"`
+	NetworkStateController controllers.NetworkStateControllerConfig `json:"vpcStateController"`
+	VolumeStateController  controllers.VolumeStateControllerConfig  `json:"volumeStateController"`
 }
 
 func (c CloudProviderConfig) IsAnyControllerEnabled() bool {
-	return c.VPCStateController.Enabled || c.VolumeStateController.Enabled
+	return c.NetworkStateController.Enabled || c.VolumeStateController.Enabled
 }
