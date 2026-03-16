@@ -15,20 +15,65 @@ import (
 	"github.com/samber/lo"
 )
 
+// tgwDiscovery holds shared state for a single fetchTransitGatewayVPCs invocation:
+// cross-account client cache, route-table CIDRs, and deduplication tracking.
+type tgwDiscovery struct {
+	provider            *Provider
+	crossAccountClients map[string]*ec2.Client
+	routeCIDRs          map[string][]netip.Prefix // attachment ID -> CIDRs
+	seen                map[string]struct{}
+}
+
 // fetchTransitGatewayVPCs discovers VPCs connected via Transit Gateway.
 // It fetches route-level CIDRs for all attachments and optionally enriches
 // with subnet-level detail via cross-account role assumption.
 func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([]types.TransitGatewayVPC, error) {
-	// Find all TGW attachments for this VPC.
-	attachments, err := p.fetchTGWAttachments(ctx, vpcID)
+	tgwIDs, allAttachments, err := p.collectTGWAttachments(ctx, vpcID)
 	if err != nil {
-		return nil, fmt.Errorf("fetching TGW attachments for vpc %s: %w", vpcID, err)
+		return nil, err
 	}
-	if len(attachments) == 0 {
+	if len(allAttachments) == 0 {
 		return nil, nil
 	}
 
-	// Collect unique TGW IDs from attachments.
+	d := &tgwDiscovery{
+		provider:            p,
+		crossAccountClients: make(map[string]*ec2.Client),
+		routeCIDRs:          p.collectTGWRouteCIDRs(ctx, tgwIDs),
+		seen:                make(map[string]struct{}),
+	}
+
+	var result []types.TransitGatewayVPC
+	for _, att := range allAttachments {
+		if lo.FromPtr(att.ResourceId) == vpcID {
+			continue
+		}
+
+		switch att.ResourceType {
+		case ec2types.TransitGatewayAttachmentResourceTypeVpc:
+			if vpc, ok := d.resolveVPCAttachment(ctx, att); ok {
+				result = append(result, vpc)
+			}
+		case ec2types.TransitGatewayAttachmentResourceTypePeering:
+			result = append(result, d.resolvePeeringAttachment(ctx, att)...)
+		}
+	}
+
+	p.log.With("count", len(result), "vpc", vpcID).Debug("fetched Transit Gateway VPCs")
+	return result, nil
+}
+
+// collectTGWAttachments finds TGW IDs for our VPC, then fetches all attachments
+// (including remote accounts) across those TGWs.
+func (p *Provider) collectTGWAttachments(ctx context.Context, vpcID string) (map[string]struct{}, []ec2types.TransitGatewayAttachment, error) {
+	attachments, err := p.fetchTGWAttachments(ctx, vpcID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching TGW attachments for vpc %s: %w", vpcID, err)
+	}
+	if len(attachments) == 0 {
+		return nil, nil, nil
+	}
+
 	tgwIDs := make(map[string]struct{})
 	for _, att := range attachments {
 		if att.TransitGatewayId != nil {
@@ -36,24 +81,28 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 		}
 	}
 
-	// For each TGW, discover all VPC attachments (including remote accounts).
 	var allAttachments []ec2types.TransitGatewayAttachment
-	var failedTGWAttachments int
+	var failures int
 	for tgwID := range tgwIDs {
 		tgwAttachments, err := p.fetchAllTGWAttachments(ctx, tgwID)
 		if err != nil {
-			failedTGWAttachments++
+			failures++
 			p.log.With("tgw", tgwID).Warnf("fetching all TGW attachments: %v", err)
 			continue
 		}
 		allAttachments = append(allAttachments, tgwAttachments...)
 	}
-	if failedTGWAttachments > 0 && failedTGWAttachments == len(tgwIDs) {
-		p.log.Errorf("all %d Transit Gateway attachment fetches failed; TGW VPC discovery returned no results", failedTGWAttachments)
+	if failures > 0 && failures == len(tgwIDs) {
+		p.log.Errorf("all %d Transit Gateway attachment fetches failed; TGW VPC discovery returned no results", failures)
 	}
 
-	// Also discover routes from TGW route tables to find remote CIDRs.
-	tgwRoutes := make(map[string][]netip.Prefix) // attachment ID -> CIDRs
+	return tgwIDs, allAttachments, nil
+}
+
+// collectTGWRouteCIDRs discovers CIDRs from TGW route tables, indexed by attachment ID.
+// These serve as a fallback when subnet-level detail isn't available.
+func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]struct{}) map[string][]netip.Prefix {
+	routeCIDRs := make(map[string][]netip.Prefix)
 	for tgwID := range tgwIDs {
 		routeTables, err := p.fetchTGWRouteTables(ctx, tgwID)
 		if err != nil {
@@ -80,76 +129,134 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 				}
 				for _, att := range route.TransitGatewayAttachments {
 					if att.TransitGatewayAttachmentId != nil {
-						tgwRoutes[*att.TransitGatewayAttachmentId] = append(
-							tgwRoutes[*att.TransitGatewayAttachmentId], cidr,
+						routeCIDRs[*att.TransitGatewayAttachmentId] = append(
+							routeCIDRs[*att.TransitGatewayAttachmentId], cidr,
 						)
 					}
 				}
 			}
 		}
 	}
+	return routeCIDRs
+}
 
-	// Cache cross-account EC2 clients by account ID to avoid repeated STS calls.
-	crossAccountClients := make(map[string]*ec2.Client)
+func (d *tgwDiscovery) markSeen(accountID, resourceID string) bool {
+	key := accountID + "/" + resourceID
+	if _, ok := d.seen[key]; ok {
+		return false
+	}
+	d.seen[key] = struct{}{}
+	return true
+}
 
-	// Build TransitGatewayVPC list from remote attachments.
-	seen := make(map[string]struct{})
-	var result []types.TransitGatewayVPC
+func (d *tgwDiscovery) resolveVPCAttachment(ctx context.Context, att ec2types.TransitGatewayAttachment) (types.TransitGatewayVPC, bool) {
+	accountID := lo.FromPtr(att.ResourceOwnerId)
+	vpcID := lo.FromPtr(att.ResourceId)
+	attID := lo.FromPtr(att.TransitGatewayAttachmentId)
 
-	for _, att := range allAttachments {
-		remoteVPCID := lo.FromPtr(att.ResourceId)
-		remoteAccountID := lo.FromPtr(att.ResourceOwnerId)
-
-		// Skip our own VPC.
-		if remoteVPCID == vpcID {
-			continue
-		}
-		// Skip non-VPC attachments.
-		if att.ResourceType != ec2types.TransitGatewayAttachmentResourceTypeVpc {
-			continue
-		}
-		// Deduplicate.
-		key := remoteAccountID + "/" + remoteVPCID
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-
-		tgwVPC := types.TransitGatewayVPC{
-			VPCID:     remoteVPCID,
-			AccountID: remoteAccountID,
-		}
-
-		// Try cross-account subnet discovery if role ARN is configured.
-		if p.cfg.AWSCrossAccountRoleARN != "" {
-			subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, crossAccountClients, remoteAccountID, remoteVPCID)
-			if err != nil {
-				p.log.With("vpc", remoteVPCID, "account", remoteAccountID).
-					Errorf("cross-account subnet fetch failed (falling back to route CIDRs): %v", err)
-			} else {
-				tgwVPC.Subnets = subnets
-				tgwVPC.Region = region
-			}
-		}
-
-		// Use route CIDRs as fallback if no subnets were discovered.
-		if len(tgwVPC.Subnets) == 0 {
-			attID := lo.FromPtr(att.TransitGatewayAttachmentId)
-			if cidrs, ok := tgwRoutes[attID]; ok {
-				tgwVPC.CIDRs = cidrs
-			}
-		}
-
-		// Infer region from subnets if not set.
-		if tgwVPC.Region == "" && len(tgwVPC.Subnets) > 0 {
-			tgwVPC.Region = tgwVPC.Subnets[0].Region
-		}
-
-		result = append(result, tgwVPC)
+	if !d.markSeen(accountID, vpcID) {
+		return types.TransitGatewayVPC{}, false
 	}
 
-	p.log.With("count", len(result), "vpc", vpcID).Debug("fetched Transit Gateway VPCs")
-	return result, nil
+	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID)
+	return tgwVPC, true
+}
+
+// resolvePeeringAttachment handles a TGW peering attachment by attempting to discover
+// VPCs behind the peer TGW via cross-account role assumption. Falls back to
+// route-table CIDRs when cross-account access isn't configured or fails.
+func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2types.TransitGatewayAttachment) []types.TransitGatewayVPC {
+	peerTGWID := lo.FromPtr(att.ResourceId) // for peering, ResourceId = peer TGW ID
+	peerAccountID := lo.FromPtr(att.ResourceOwnerId)
+	attID := lo.FromPtr(att.TransitGatewayAttachmentId)
+	p := d.provider
+
+	if p.cfg.AWSCrossAccountRoleARN != "" {
+		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, attID)
+		if len(vpcs) > 0 {
+			return vpcs
+		}
+	}
+
+	// Fallback: emit a single entry with route-table CIDRs.
+	if !d.markSeen(peerAccountID, peerTGWID) {
+		return nil
+	}
+	tgwVPC := types.TransitGatewayVPC{
+		VPCID:     peerTGWID,
+		AccountID: peerAccountID,
+	}
+	if cidrs, ok := d.routeCIDRs[attID]; ok {
+		tgwVPC.CIDRs = cidrs
+	}
+	return []types.TransitGatewayVPC{tgwVPC}
+}
+
+// discoverVPCsBehindPeerTGW assumes a role in the peer TGW's account, enumerates
+// VPC attachments on the peer TGW, and fetches subnets for each discovered VPC.
+func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, attID string) []types.TransitGatewayVPC {
+	p := d.provider
+
+	remoteEC2, err := p.getCrossAccountClient(ctx, d.crossAccountClients, peerAccountID)
+	if err != nil {
+		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID).
+			Warnf("failed to assume role in peer TGW account (falling back to route CIDRs): %v", err)
+		return nil
+	}
+
+	peerVPCAtts, err := p.fetchPeerTGWVPCAttachments(ctx, remoteEC2, peerTGWID)
+	if err != nil {
+		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID).
+			Warnf("failed to discover VPCs behind peer TGW (falling back to route CIDRs): %v", err)
+		return nil
+	}
+
+	var result []types.TransitGatewayVPC
+	for _, vpcAtt := range peerVPCAtts {
+		vpcID := lo.FromPtr(vpcAtt.ResourceId)
+		vpcAccountID := lo.FromPtr(vpcAtt.ResourceOwnerId)
+
+		if !d.markSeen(vpcAccountID, vpcID) {
+			continue
+		}
+
+		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, attID))
+	}
+	return result
+}
+
+// buildTGWVPC creates a TransitGatewayVPC, enriching with subnet detail via
+// cross-account role assumption when configured, falling back to route CIDRs otherwise.
+func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID string) types.TransitGatewayVPC {
+	p := d.provider
+
+	tgwVPC := types.TransitGatewayVPC{
+		VPCID:     vpcID,
+		AccountID: accountID,
+	}
+
+	if p.cfg.AWSCrossAccountRoleARN != "" {
+		subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID)
+		if err != nil {
+			p.log.With("vpc", vpcID, "account", accountID).
+				Warnf("cross-account subnet fetch failed (falling back to route CIDRs): %v", err)
+		} else {
+			tgwVPC.Subnets = subnets
+			tgwVPC.Region = region
+		}
+	}
+
+	if len(tgwVPC.Subnets) == 0 {
+		if cidrs, ok := d.routeCIDRs[fallbackAttID]; ok {
+			tgwVPC.CIDRs = cidrs
+		}
+	}
+
+	if tgwVPC.Region == "" && len(tgwVPC.Subnets) > 0 {
+		tgwVPC.Region = tgwVPC.Subnets[0].Region
+	}
+
+	return tgwVPC
 }
 
 // fetchTGWAttachments returns TGW VPC attachments for a specific VPC.
@@ -176,13 +283,11 @@ func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2
 	return attachments, nil
 }
 
-// fetchAllTGWAttachments returns all VPC attachments for a given Transit Gateway.
+// fetchAllTGWAttachments returns all attachments for a given Transit Gateway.
 func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
 		Filters: []ec2types.Filter{
 			{Name: lo.ToPtr("transit-gateway-id"), Values: []string{tgwID}},
-			// should we also filter peer VPCs? so multi accounts get here?
-			{Name: lo.ToPtr("resource-type"), Values: []string{"vpc"}},
 			{Name: lo.ToPtr("state"), Values: []string{"available"}},
 		},
 	}
@@ -269,16 +374,49 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID str
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
+// fetchPeerTGWVPCAttachments discovers VPC attachments on a remote (peer) Transit Gateway.
+func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec2.Client, peerTGWID string) ([]ec2types.TransitGatewayAttachment, error) {
+	input := &ec2.DescribeTransitGatewayAttachmentsInput{
+		Filters: []ec2types.Filter{
+			{Name: lo.ToPtr("transit-gateway-id"), Values: []string{peerTGWID}},
+			{Name: lo.ToPtr("resource-type"), Values: []string{"vpc"}},
+			{Name: lo.ToPtr("state"), Values: []string{"available"}},
+		},
+	}
+
+	var attachments []ec2types.TransitGatewayAttachment
+	paginator := ec2.NewDescribeTransitGatewayAttachmentsPaginator(remoteEC2, input)
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("describing VPC attachments for peer TGW %s: %w", peerTGWID, err)
+		}
+		attachments = append(attachments, page.TransitGatewayAttachments...)
+	}
+
+	p.log.Debugf("found %d VPC attachments on peer TGW %s", len(attachments), peerTGWID)
+	return attachments, nil
+}
+
+// getCrossAccountClient returns a cached cross-account EC2 client, creating one if needed.
+func (p *Provider) getCrossAccountClient(ctx context.Context, clientCache map[string]*ec2.Client, accountID string) (*ec2.Client, error) {
+	client, ok := clientCache[accountID]
+	if ok {
+		return client, nil
+	}
+	client, err := p.buildCrossAccountEC2Client(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	clientCache[accountID] = client
+	return client, nil
+}
+
 // fetchRemoteSubnetsWithCache fetches remote subnets using a cached cross-account EC2 client.
 func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache map[string]*ec2.Client, accountID, vpcID string) ([]types.Subnet, string, error) {
-	client, ok := clientCache[accountID]
-	if !ok {
-		var err error
-		client, err = p.buildCrossAccountEC2Client(ctx, accountID)
-		if err != nil {
-			return nil, "", fmt.Errorf("building cross-account EC2 client: %w", err)
-		}
-		clientCache[accountID] = client
+	client, err := p.getCrossAccountClient(ctx, clientCache, accountID)
+	if err != nil {
+		return nil, "", fmt.Errorf("building cross-account EC2 client: %w", err)
 	}
 	return p.fetchRemoteSubnets(ctx, client, vpcID)
 }
