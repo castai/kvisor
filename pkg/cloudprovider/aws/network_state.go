@@ -23,7 +23,7 @@ func (p *Provider) GetNetworkState(ctx context.Context) (*types.NetworkState, er
 }
 
 func (p *Provider) RefreshNetworkState(ctx context.Context, network string) error {
-	p.log.Info("refreshing AWS metadata")
+	p.log.Debug("refreshing AWS metadata")
 
 	metadata := &types.NetworkState{
 		Domain:   types.DomainAWS,
@@ -40,7 +40,7 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.networkState = metadata
 	p.networkStateMu.Unlock()
 
-	p.log.Info("refreshed vpc metadata")
+	p.log.Debug("refreshed vpc metadata")
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 		vpcs = append(vpcs, vpcObj)
 	}
 
-	p.log.With("count", len(vpcs)).Info("fetched VPCs")
+	p.log.With("count", len(vpcs)).Debug("fetched VPCs")
 	return vpcs, nil
 }
 
@@ -157,7 +157,7 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 	p.log.
 		With("count", len(subnets)).
 		With("vpc", vpcID).
-		Info("fetched subnets")
+		Debug("fetched subnets")
 
 	return subnets, nil
 }
@@ -191,7 +191,7 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 	p.log.
 		With("count", len(peeredVPCs)).
 		With("vpc", vpcID).
-		Info("fetched peered VPCs")
+		Debug("fetched peered VPCs")
 
 	return peeredVPCs, nil
 }

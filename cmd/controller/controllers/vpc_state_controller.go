@@ -77,7 +77,7 @@ func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIn
 	for i := 0; i < maxRetries; i++ {
 		err := c.cloudProvider.RefreshNetworkState(ctx, c.cfg.NetworkName)
 		if err != nil {
-			c.log.Errorf("VPC state refresh failed: %v", err)
+			c.log.Warnf("VPC state refresh failed: %v", err)
 			continue
 		}
 		state, err := c.cloudProvider.GetNetworkState(ctx)
@@ -136,7 +136,13 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 				continue
 			}
 
-			c.log.Debug("VPC state refreshed successfully")
+			var subnets, peers, tgwVPCs int
+			for _, vpc := range state.VPCs {
+				subnets += len(vpc.Subnets)
+				peers += len(vpc.PeeredVPCs)
+				tgwVPCs += len(vpc.TransitGatewayVPCs)
+			}
+			c.log.Infof("VPC state refreshed successfully: %d subnets, %d peers, %d TGW VPCs", subnets, peers, tgwVPCs)
 		}
 	}
 }

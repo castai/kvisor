@@ -148,7 +148,7 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 		result = append(result, tgwVPC)
 	}
 
-	p.log.With("count", len(result), "vpc", vpcID).Info("fetched Transit Gateway VPCs")
+	p.log.With("count", len(result), "vpc", vpcID).Debug("fetched Transit Gateway VPCs")
 	return result, nil
 }
 
@@ -172,6 +172,7 @@ func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
+	p.log.Debugf("found %d TGW attachments for vpc %s", len(attachments), vpcID)
 	return attachments, nil
 }
 
@@ -180,6 +181,7 @@ func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
 		Filters: []ec2types.Filter{
 			{Name: lo.ToPtr("transit-gateway-id"), Values: []string{tgwID}},
+			// should we also filter peer VPCs? so multi accounts get here?
 			{Name: lo.ToPtr("resource-type"), Values: []string{"vpc"}},
 			{Name: lo.ToPtr("state"), Values: []string{"available"}},
 		},
@@ -195,6 +197,7 @@ func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
+	p.log.Debugf("found %d attachments for tgw %s", len(attachments), tgwID)
 	return attachments, nil
 }
 
@@ -217,6 +220,7 @@ func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2
 		routeTables = append(routeTables, page.TransitGatewayRouteTables...)
 	}
 
+	p.log.Debugf("found %d route tables for tgw %s", len(routeTables), tgwID)
 	return routeTables, nil
 }
 
@@ -261,6 +265,7 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID str
 	creds := stscreds.NewAssumeRoleProvider(stsClient, roleARN)
 	awsCfg.Credentials = aws.NewCredentialsCache(creds)
 
+	p.log.Debugf("assuming cross-account role %s for account %s", roleARN, accountID)
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
