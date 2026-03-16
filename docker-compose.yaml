@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:25.2.1.3085-alpine@sha256:49e2bbe28760d0af142096d837ca2337b0265c910a07504a3175fc9326965bd7
+    image: clickhouse/clickhouse-server:25.12.8.9-alpine@sha256:f6200b2d040ae9af6b289bc1d10f2bddff7df97e77319d706953f7aa15751dfe
     restart: always
     environment:
       - CLICKHOUSE_USER=storage
