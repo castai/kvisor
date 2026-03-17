@@ -103,7 +103,7 @@ func FetchAWSServiceIPRanges(ctx context.Context, log *logging.Logger) ([]types.
 		})
 	}
 
-	log.Infof("fetched %d service IP ranges across %d regions",
+	log.Debugf("fetched %d service IP ranges across %d regions",
 		len(ipRanges.Prefixes)+len(ipRanges.IPv6), len(serviceRanges))
 
 	return serviceRanges, nil
@@ -170,7 +170,7 @@ func FetchGCPServiceIPRanges(ctx context.Context, log *logging.Logger) ([]types.
 		})
 	}
 
-	log.Infof("fetched %d service IP ranges across %d regions (including %d global ranges)",
+	log.Debugf("fetched %d service IP ranges across %d regions (including %d global ranges)",
 		len(ipRanges.Prefixes)+len(knownGlobalRanges), len(serviceRanges), len(knownGlobalRanges))
 
 	return serviceRanges, nil

@@ -93,6 +93,10 @@ func (c *CloudPublicCIDRController) fetchOnce(ctx context.Context) bool {
 		return false
 	}
 
-	c.log.Infof("cloud public CIDRs updated successfully (%d region groups)", len(ranges))
+	var totalCIDRs int
+	for _, r := range ranges {
+		totalCIDRs += len(r.CIRDs)
+	}
+	c.log.Infof("cloud public CIDRs updated: %d entries across %d regions", totalCIDRs, len(ranges))
 	return true
 }

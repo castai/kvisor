@@ -203,7 +203,7 @@ func (vi *NetworkIndex) UpdateCloudPublicCIDRs(domain string, serviceRanges []cl
 	}
 
 	vi.cloudPublicServiceRanges = serviceRanges
-	vi.log.Debugf("cloud public CIDR index updated: %d entries across %d regions", len(entries), len(serviceRanges))
+	vi.log.Debugf("cloud public CIDR index rebuilt: %d entries", len(entries))
 	return nil
 }
 
