@@ -41,8 +41,28 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.networkState = state
 	p.networkStateMu.Unlock()
 
-	p.log.Debug("refreshed network state")
+	p.logNetworkStateSummary(state)
 	return nil
+}
+
+func (p *Provider) logNetworkStateSummary(state *types.NetworkState) {
+	var (
+		vpcCount       int
+		subnetCount    int
+		peeredVPCCount int
+	)
+
+	for _, vpc := range state.VPCs {
+		vpcCount++
+		subnetCount += len(vpc.Subnets)
+		peeredVPCCount += len(vpc.PeeredVPCs)
+	}
+
+	p.log.
+		With("vpcs", vpcCount).
+		With("subnets", subnetCount).
+		With("peered_vpcs", peeredVPCCount).
+		Info("network state refreshed")
 }
 
 // https://docs.cloud.google.com/compute/docs/reference/rest/v1/networks/list

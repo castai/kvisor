@@ -19,7 +19,7 @@ import (
 // cross-account client cache, route-table CIDRs, and deduplication tracking.
 type tgwDiscovery struct {
 	provider            *Provider
-	crossAccountClients map[string]*ec2.Client // key: accountID/region
+	crossAccountClients map[string]*ec2.Client    // key: accountID/region
 	routeCIDRs          map[string][]netip.Prefix // attachment ID -> CIDRs
 	seen                map[string]struct{}
 	peerTGWRegions      map[string]string // peer TGW ID -> region

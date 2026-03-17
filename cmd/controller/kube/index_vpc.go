@@ -67,9 +67,6 @@ type NetworkIndex struct {
 	mu    sync.RWMutex
 	state *cloudtypes.NetworkState
 
-	vpcCIDRs    []string
-	subnetCIDRs []string
-	peerCIDRs   []string
 	staticCIDRs []cidrindex.Entry[NetworkIPInfo] // User-provided static CIDR mappings
 
 	cloudCIDRIndex       *cidrindex.Index[NetworkIPInfo] // rebuilt on every cloud update
@@ -112,9 +109,6 @@ func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 		cloudCIDRIndex:       cloudIdx,
 		staticCIDRIndex:      staticIdx,
 		cloudPublicCIDRIndex: cloudPublicIdx,
-		vpcCIDRs:             make([]string, 0),
-		subnetCIDRs:          make([]string, 0),
-		peerCIDRs:            make([]string, 0),
 	}
 }
 
@@ -137,10 +131,7 @@ func (vi *NetworkIndex) Update(state *cloudtypes.NetworkState) error {
 		return err
 	}
 
-	vi.log.Debugf(
-		"VPC index updated: vpc_cidrs=%v, subnet_cidrs=%v, peer_cidrs=%v",
-		vi.vpcCIDRs, vi.subnetCIDRs, vi.peerCIDRs,
-	)
+	vi.log.Debugf("VPC index rebuilt: %d cloud CIDR entries", len(entries))
 	return nil
 }
 
@@ -223,14 +214,10 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 	}
 
 	var entries []cidrindex.Entry[NetworkIPInfo]
-	var vpcCIDRs []string
-	var subnetCIDRs []string
-	var peerCIDRs []string
 
 	// Index VPC and subnet CIDRs
 	for _, vpc := range state.VPCs {
 		for _, cidr := range vpc.CIDRs {
-			vpcCIDRs = append(vpcCIDRs, cidr.String())
 			entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 				CIDR:     cidr,
 				Metadata: NetworkIPInfo{},
@@ -243,7 +230,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 			if vi.cfg.UseAwsZoneId {
 				subnetZone = subnet.ZoneId
 			}
-			subnetCIDRs = append(subnetCIDRs, subnet.CIDR.String())
 			entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 				CIDR: subnet.CIDR,
 				Metadata: NetworkIPInfo{
@@ -254,7 +240,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 
 			// Index secondary ranges (GKE alias IPs)
 			for _, secondary := range subnet.SecondaryRanges {
-				subnetCIDRs = append(subnetCIDRs, secondary.CIDR.String())
 				entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 					CIDR: secondary.CIDR,
 					Metadata: NetworkIPInfo{
@@ -272,7 +257,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 				if vi.cfg.UseAwsZoneId {
 					peerZone = cidrRange.ZoneId
 				}
-				peerCIDRs = append(peerCIDRs, cidrRange.CIDR.String())
 				entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 					CIDR: cidrRange.CIDR,
 					Metadata: NetworkIPInfo{
@@ -315,9 +299,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 
 	}
 
-	vi.vpcCIDRs = vpcCIDRs
-	vi.subnetCIDRs = subnetCIDRs
-	vi.peerCIDRs = peerCIDRs
 	return entries
 }
 

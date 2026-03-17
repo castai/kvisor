@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -40,8 +41,58 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.networkState = metadata
 	p.networkStateMu.Unlock()
 
-	p.log.Debug("refreshed vpc metadata")
+	p.logNetworkStateSummary(metadata)
 	return nil
+}
+
+func (p *Provider) logNetworkStateSummary(state *types.NetworkState) {
+	var (
+		vpcCount            int
+		subnetCount         int
+		peeredVPCCount      int
+		tgwVPCCount         int
+		tgwVPCsWithSubnets  int
+		tgwVPCsCIDROnly     int
+		tgwAccounts         = make(map[string]struct{})
+		tgwRegions          = make(map[string]struct{})
+	)
+
+	for _, vpc := range state.VPCs {
+		vpcCount++
+		subnetCount += len(vpc.Subnets)
+		peeredVPCCount += len(vpc.PeeredVPCs)
+
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			tgwVPCCount++
+			if len(tgwVPC.Subnets) > 0 {
+				tgwVPCsWithSubnets++
+			} else {
+				tgwVPCsCIDROnly++
+			}
+			if tgwVPC.AccountID != "" {
+				tgwAccounts[tgwVPC.AccountID] = struct{}{}
+			}
+			if tgwVPC.Region != "" {
+				tgwRegions[tgwVPC.Region] = struct{}{}
+			}
+		}
+	}
+
+	l := p.log.
+		With("vpcs", vpcCount).
+		With("subnets", subnetCount).
+		With("peered_vpcs", peeredVPCCount).
+		With("tgw_vpcs", tgwVPCCount)
+
+	if tgwVPCCount > 0 {
+		l = l.
+			With("tgw_vpcs_with_subnets", tgwVPCsWithSubnets).
+			With("tgw_vpcs_cidr_only", tgwVPCsCIDROnly).
+			With("tgw_accounts", sortedKeys(tgwAccounts)).
+			With("tgw_regions", sortedKeys(tgwRegions))
+	}
+
+	l.Info("network state refreshed")
 }
 
 // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcs.html
@@ -266,6 +317,15 @@ func getTagValue(tags []ec2types.Tag, key string) string {
 		}
 	}
 	return ""
+}
+
+func sortedKeys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // extractRegion extracts region from availability zone.
