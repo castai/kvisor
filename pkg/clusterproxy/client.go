@@ -77,7 +77,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 	eb := backoff.NewExponentialBackOff()
 	eb.InitialInterval = 1 * time.Second
-	eb.MaxInterval = 30 * time.Second
+	eb.MaxInterval = 5 * time.Minute
 
 	op := func() (struct{}, error) {
 		err := c.subscribe(ctx)
@@ -90,6 +90,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 	_, err := backoff.Retry(ctx, op,
 		backoff.WithBackOff(eb),
+		backoff.WithMaxElapsedTime(0),
 	)
 	return err
 }
