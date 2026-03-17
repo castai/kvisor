@@ -429,6 +429,8 @@ controller:
 
 eventGenerator:
   enabled: false
+  serviceAccount:
+    create: true
   image:
     repository: ghcr.io/castai/kvisor/kvisor-event-generator
     pullPolicy: IfNotPresent
