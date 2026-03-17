@@ -19,9 +19,10 @@ import (
 // cross-account client cache, route-table CIDRs, and deduplication tracking.
 type tgwDiscovery struct {
 	provider            *Provider
-	crossAccountClients map[string]*ec2.Client
+	crossAccountClients map[string]*ec2.Client // key: accountID/region
 	routeCIDRs          map[string][]netip.Prefix // attachment ID -> CIDRs
 	seen                map[string]struct{}
+	peerTGWRegions      map[string]string // peer TGW ID -> region
 }
 
 // fetchTransitGatewayVPCs discovers VPCs connected via Transit Gateway.
@@ -41,6 +42,7 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 		crossAccountClients: make(map[string]*ec2.Client),
 		routeCIDRs:          p.collectTGWRouteCIDRs(ctx, tgwIDs),
 		seen:                make(map[string]struct{}),
+		peerTGWRegions:      make(map[string]string),
 	}
 
 	var result []types.TransitGatewayVPC
@@ -140,13 +142,13 @@ func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]s
 	return routeCIDRs
 }
 
-func (d *tgwDiscovery) markSeen(accountID, resourceID string) bool {
+func (d *tgwDiscovery) alreadyProcessed(accountID, resourceID string) bool {
 	key := accountID + "/" + resourceID
 	if _, ok := d.seen[key]; ok {
-		return false
+		return true
 	}
 	d.seen[key] = struct{}{}
-	return true
+	return false
 }
 
 func (d *tgwDiscovery) resolveVPCAttachment(ctx context.Context, att ec2types.TransitGatewayAttachment) (types.TransitGatewayVPC, bool) {
@@ -154,11 +156,11 @@ func (d *tgwDiscovery) resolveVPCAttachment(ctx context.Context, att ec2types.Tr
 	vpcID := lo.FromPtr(att.ResourceId)
 	attID := lo.FromPtr(att.TransitGatewayAttachmentId)
 
-	if !d.markSeen(accountID, vpcID) {
+	if d.alreadyProcessed(accountID, vpcID) {
 		return types.TransitGatewayVPC{}, false
 	}
 
-	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID)
+	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID, "")
 	return tgwVPC, true
 }
 
@@ -172,14 +174,17 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	p := d.provider
 
 	if p.cfg.AWSCrossAccountRoleARN != "" {
-		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, attID)
+		// Look up the peer TGW's region via the peering attachment.
+		peerRegion := d.getPeerTGWRegion(ctx, peerTGWID, attID)
+
+		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, attID, peerRegion)
 		if len(vpcs) > 0 {
 			return vpcs
 		}
 	}
 
 	// Fallback: emit a single entry with route-table CIDRs.
-	if !d.markSeen(peerAccountID, peerTGWID) {
+	if d.alreadyProcessed(peerAccountID, peerTGWID) {
 		return nil
 	}
 	tgwVPC := types.TransitGatewayVPC{
@@ -192,21 +197,36 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	return []types.TransitGatewayVPC{tgwVPC}
 }
 
+// getPeerTGWRegion returns the cached region for a peer TGW, fetching it if needed.
+func (d *tgwDiscovery) getPeerTGWRegion(ctx context.Context, peerTGWID, attachmentID string) string {
+	if region, ok := d.peerTGWRegions[peerTGWID]; ok {
+		return region
+	}
+	region, err := d.provider.fetchPeeringAttachmentRegion(ctx, attachmentID, peerTGWID)
+	if err != nil {
+		d.provider.log.With("peer_tgw", peerTGWID, "attachment", attachmentID).
+			Warnf("failed to fetch peer TGW region (will use local region): %v", err)
+		return ""
+	}
+	d.peerTGWRegions[peerTGWID] = region
+	return region
+}
+
 // discoverVPCsBehindPeerTGW assumes a role in the peer TGW's account, enumerates
 // VPC attachments on the peer TGW, and fetches subnets for each discovered VPC.
-func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, attID string) []types.TransitGatewayVPC {
+func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, attID, peerRegion string) []types.TransitGatewayVPC {
 	p := d.provider
 
-	remoteEC2, err := p.getCrossAccountClient(ctx, d.crossAccountClients, peerAccountID)
+	remoteEC2, err := p.getCrossAccountClient(ctx, d.crossAccountClients, peerAccountID, peerRegion)
 	if err != nil {
-		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID).
+		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID, "region", peerRegion).
 			Warnf("failed to assume role in peer TGW account (falling back to route CIDRs): %v", err)
 		return nil
 	}
 
 	peerVPCAtts, err := p.fetchPeerTGWVPCAttachments(ctx, remoteEC2, peerTGWID)
 	if err != nil {
-		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID).
+		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID, "region", peerRegion).
 			Warnf("failed to discover VPCs behind peer TGW (falling back to route CIDRs): %v", err)
 		return nil
 	}
@@ -216,18 +236,20 @@ func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID,
 		vpcID := lo.FromPtr(vpcAtt.ResourceId)
 		vpcAccountID := lo.FromPtr(vpcAtt.ResourceOwnerId)
 
-		if !d.markSeen(vpcAccountID, vpcID) {
+		if d.alreadyProcessed(vpcAccountID, vpcID) {
 			continue
 		}
 
-		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, attID))
+		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, attID, peerRegion))
 	}
 	return result
 }
 
 // buildTGWVPC creates a TransitGatewayVPC, enriching with subnet detail via
 // cross-account role assumption when configured, falling back to route CIDRs otherwise.
-func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID string) types.TransitGatewayVPC {
+// regionOverride, when non-empty, targets the cross-account client at a specific region
+// (used for VPCs behind a peer TGW in a different region).
+func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID, regionOverride string) types.TransitGatewayVPC {
 	p := d.provider
 
 	tgwVPC := types.TransitGatewayVPC{
@@ -236,7 +258,7 @@ func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallba
 	}
 
 	if p.cfg.AWSCrossAccountRoleARN != "" {
-		subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID)
+		subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID, regionOverride)
 		if err != nil {
 			p.log.With("vpc", vpcID, "account", accountID).
 				Warnf("cross-account subnet fetch failed (falling back to route CIDRs): %v", err)
@@ -351,7 +373,8 @@ func (p *Provider) searchTGWRoutes(ctx context.Context, routeTableID string) ([]
 }
 
 // buildCrossAccountEC2Client creates an EC2 client that assumes a role in a remote account.
-func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID string) (*ec2.Client, error) {
+// If region is non-empty, the client targets that region instead of the default (cluster) region.
+func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID, region string) (*ec2.Client, error) {
 	if accountID == "" {
 		return nil, fmt.Errorf("empty account ID for cross-account role assumption")
 	}
@@ -366,11 +389,15 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID str
 		return nil, fmt.Errorf("building base AWS config: %w", err)
 	}
 
+	if region != "" {
+		awsCfg.Region = region
+	}
+
 	stsClient := sts.NewFromConfig(awsCfg)
 	creds := stscreds.NewAssumeRoleProvider(stsClient, roleARN)
 	awsCfg.Credentials = aws.NewCredentialsCache(creds)
 
-	p.log.Debugf("assuming cross-account role %s for account %s", roleARN, accountID)
+	p.log.Debugf("assuming cross-account role %s for account %s (region %s)", roleARN, accountID, awsCfg.Region)
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
@@ -398,23 +425,57 @@ func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec
 	return attachments, nil
 }
 
+// fetchPeeringAttachmentRegion looks up the region of a peer TGW by inspecting the
+// peering attachment details. It calls DescribeTransitGatewayPeeringAttachments on the
+// local EC2 client (no cross-account needed) and returns the region of whichever side
+// matches peerTGWID.
+func (p *Provider) fetchPeeringAttachmentRegion(ctx context.Context, attachmentID, peerTGWID string) (string, error) {
+	input := &ec2.DescribeTransitGatewayPeeringAttachmentsInput{
+		TransitGatewayAttachmentIds: []string{attachmentID},
+	}
+
+	result, err := p.ec2Client.DescribeTransitGatewayPeeringAttachments(ctx, input)
+	if err != nil {
+		return "", fmt.Errorf("describing peering attachment %s: %w", attachmentID, err)
+	}
+
+	if len(result.TransitGatewayPeeringAttachments) == 0 {
+		return "", fmt.Errorf("peering attachment %s not found", attachmentID)
+	}
+
+	att := result.TransitGatewayPeeringAttachments[0]
+
+	// The peer is whichever side's TGW ID matches peerTGWID.
+	if att.AccepterTgwInfo != nil && lo.FromPtr(att.AccepterTgwInfo.TransitGatewayId) == peerTGWID {
+		return lo.FromPtr(att.AccepterTgwInfo.Region), nil
+	}
+	if att.RequesterTgwInfo != nil && lo.FromPtr(att.RequesterTgwInfo.TransitGatewayId) == peerTGWID {
+		return lo.FromPtr(att.RequesterTgwInfo.Region), nil
+	}
+
+	return "", fmt.Errorf("peer TGW %s not found in peering attachment %s", peerTGWID, attachmentID)
+}
+
 // getCrossAccountClient returns a cached cross-account EC2 client, creating one if needed.
-func (p *Provider) getCrossAccountClient(ctx context.Context, clientCache map[string]*ec2.Client, accountID string) (*ec2.Client, error) {
-	client, ok := clientCache[accountID]
+// The cache is keyed by accountID/region to support the same account in different regions.
+func (p *Provider) getCrossAccountClient(ctx context.Context, clientCache map[string]*ec2.Client, accountID, region string) (*ec2.Client, error) {
+	cacheKey := accountID + "/" + region
+	client, ok := clientCache[cacheKey]
 	if ok {
 		return client, nil
 	}
-	client, err := p.buildCrossAccountEC2Client(ctx, accountID)
+	client, err := p.buildCrossAccountEC2Client(ctx, accountID, region)
 	if err != nil {
 		return nil, err
 	}
-	clientCache[accountID] = client
+	clientCache[cacheKey] = client
 	return client, nil
 }
 
 // fetchRemoteSubnetsWithCache fetches remote subnets using a cached cross-account EC2 client.
-func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache map[string]*ec2.Client, accountID, vpcID string) ([]types.Subnet, string, error) {
-	client, err := p.getCrossAccountClient(ctx, clientCache, accountID)
+// If region is non-empty, the client targets that region instead of the default.
+func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache map[string]*ec2.Client, accountID, vpcID, region string) ([]types.Subnet, string, error) {
+	client, err := p.getCrossAccountClient(ctx, clientCache, accountID, region)
 	if err != nil {
 		return nil, "", fmt.Errorf("building cross-account EC2 client: %w", err)
 	}
