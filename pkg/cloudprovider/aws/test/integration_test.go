@@ -47,6 +47,10 @@ func getTestConfig(t *testing.T) types.ProviderConfig {
 		cfg.AWSRegion = region
 	}
 
+	if arn := os.Getenv("AWS_CROSS_ACCOUNT_ROLE_ARN"); arn != "" {
+		cfg.AWSCrossAccountRoleARN = arn
+	}
+
 	return cfg
 }
 
@@ -131,6 +135,15 @@ func TestRefreshNetworkState(t *testing.T) {
 		for _, peer := range vpc.PeeredVPCs {
 			for _, r := range peer.Ranges {
 				t.Logf("    Peered VPC: %s; Region: %s; CIDR: %s", peer.Name, r.Region, r.CIDR)
+			}
+		}
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			t.Logf("    TGW VPC: %s (Account: %s, Region: %s)", tgwVPC.VPCID, tgwVPC.AccountID, tgwVPC.Region)
+			for _, cidr := range tgwVPC.CIDRs {
+				t.Logf("      CIDR: %s", cidr)
+			}
+			for _, subnet := range tgwVPC.Subnets {
+				t.Logf("      Subnet: %s; Zone: %s; ZoneId: %s; Region: %s; CIDR: %s", subnet.Name, subnet.Zone, subnet.ZoneId, subnet.Region, subnet.CIDR)
 			}
 		}
 	}
