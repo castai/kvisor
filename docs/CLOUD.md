@@ -218,6 +218,7 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
    - `ec2:DescribeSubnets`
    - `ec2:DescribeVpcPeeringConnections`
    - `ec2:DescribeTransitGatewayAttachments` (for Transit Gateway discovery)
+   - `ec2:DescribeTransitGatewayPeeringAttachments` (for Transit Gateway peering discovery)
    - `ec2:DescribeTransitGatewayRouteTables` (for Transit Gateway discovery)
    - `ec2:SearchTransitGatewayRoutes` (for Transit Gateway discovery)
    - `sts:AssumeRole` (for cross-account subnet discovery, optional)
@@ -234,6 +235,7 @@ helm upgrade --install castai-kvisor castai-helm/castai-kvisor \
            "ec2:DescribeSubnets",
            "ec2:DescribeVpcPeeringConnections",
            "ec2:DescribeTransitGatewayAttachments",
+           "ec2:DescribeTransitGatewayPeeringAttachments",
            "ec2:DescribeTransitGatewayRouteTables",
            "ec2:SearchTransitGatewayRoutes"
          ],
@@ -268,6 +270,7 @@ cat > kvisor-vpc-policy.json <<EOF
         "ec2:DescribeSubnets",
         "ec2:DescribeVpcPeeringConnections",
         "ec2:DescribeTransitGatewayAttachments",
+        "ec2:DescribeTransitGatewayPeeringAttachments",
         "ec2:DescribeTransitGatewayRouteTables",
         "ec2:SearchTransitGatewayRoutes"
       ],
@@ -442,6 +445,7 @@ cat > kvisor-vpc-policy.json <<EOF
         "ec2:DescribeSubnets",
         "ec2:DescribeVpcPeeringConnections",
         "ec2:DescribeTransitGatewayAttachments",
+        "ec2:DescribeTransitGatewayPeeringAttachments",
         "ec2:DescribeTransitGatewayRouteTables",
         "ec2:SearchTransitGatewayRoutes"
       ],
@@ -553,7 +557,8 @@ In each remote AWS account connected via the Transit Gateway, create an IAM role
     {
       "Effect": "Allow",
       "Action": [
-        "ec2:DescribeSubnets"
+        "ec2:DescribeSubnets",
+        "ec2:DescribeTransitGatewayAttachments"
       ],
       "Resource": "*"
     }
@@ -578,6 +583,65 @@ The trust policy should allow the kvisor role in the cluster account to assume i
 }
 ```
 
+**AWS CLI (run once per remote account):**
+
+```bash
+export CLUSTER_ACCOUNT_ID="123456789012"  # replace with your cluster account ID
+
+# Trust policy
+cat > kvisor-cross-account-trust-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::${CLUSTER_ACCOUNT_ID}:role/KvisorVPCReaderRole"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+
+# Permissions policy
+cat > kvisor-cross-account-permissions-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeSubnets",
+        "ec2:DescribeTransitGatewayAttachments"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+
+# Create the role
+aws iam create-role \
+  --role-name KvisorCrossAccountReader \
+  --assume-role-policy-document file://kvisor-cross-account-trust-policy.json \
+  --description "Allows kvisor in cluster account to read subnet info for TGW discovery"
+
+# Create and attach the permissions policy
+aws iam create-policy \
+  --policy-name KvisorCrossAccountReaderPolicy \
+  --policy-document file://kvisor-cross-account-permissions-policy.json
+
+REMOTE_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+aws iam attach-role-policy \
+  --role-name KvisorCrossAccountReader \
+  --policy-arn arn:aws:iam::${REMOTE_ACCOUNT_ID}:policy/KvisorCrossAccountReaderPolicy
+
+# Clean up local files
+rm kvisor-cross-account-trust-policy.json kvisor-cross-account-permissions-policy.json
+```
+
 **Step 2: Add `sts:AssumeRole` to the Cluster Account Role**
 
 The kvisor IAM role in the cluster account also needs permission to assume the remote roles:
@@ -588,6 +652,38 @@ The kvisor IAM role in the cluster account also needs permission to assume the r
   "Action": "sts:AssumeRole",
   "Resource": "arn:aws:iam::*:role/KvisorCrossAccountReader"
 }
+```
+
+**AWS CLI (run in the cluster account):**
+
+```bash
+cat > kvisor-cross-account-assume-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::*:role/KvisorCrossAccountReader"
+    }
+  ]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name KvisorVPCReaderRole \
+  --policy-name KvisorCrossAccountAssumePolicy \
+  --policy-document file://kvisor-cross-account-assume-policy.json
+
+rm kvisor-cross-account-assume-policy.json
+```
+
+**Optional: verify the role can be assumed from the cluster account:**
+
+```bash
+aws sts assume-role \
+  --role-arn arn:aws:iam::REMOTE_ACCOUNT_ID:role/KvisorCrossAccountReader \
+  --role-session-name kvisor-test
 ```
 
 **Step 3: Configure the Cross-Account Role ARN Template**
