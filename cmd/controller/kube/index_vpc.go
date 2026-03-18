@@ -86,7 +86,7 @@ type NetworkIndex struct {
 
 type NetworkConfig struct {
 	NetworkRefreshInterval     time.Duration
-	PublicCIDRsRefreshInterval time.Duration `json:"publicCIDRsRefreshInterval"`
+	PublicCIDRsRefreshInterval time.Duration
 	CacheSize                  uint32
 	UseAwsZoneId               bool
 }
