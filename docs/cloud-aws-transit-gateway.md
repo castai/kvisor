@@ -80,11 +80,11 @@ When a TGW has peering attachments, kvisor follows the peer to discover VPCs beh
   │                                │  ✗ Missing: AZ / zone-level detail       │
   ├────────────────────────────────┼──────────────────────────────────────────┤
   │  VPC sync + cross-account role │  Subnet CIDRs, zone name + zone ID       │
-  │                                │  ✓ Full: per-AZ cost attribution          │
-  │                                │  ✓ Full: zone-aware network mapping       │
+  │                                │   ✓ Full: zone-aware network mapping     │
+  │                                │                                          │
   ├────────────────────────────────┼──────────────────────────────────────────┤
   │  Role configured but STS fails │  Falls back to TGW route CIDRs           │
-  │                                │  (logged as warning, non-fatal)           │
+  │                                │  (logged as warning, non-fatal)          │
   └────────────────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -111,7 +111,7 @@ controller:
 
 ## Cross-Account Subnet Discovery (Optional)
 
-For full subnet-level detail (zone names and zone IDs), configure a cross-account IAM role that kvisor can assume in each remote account. This enables per-AZ cost attribution for cross-account traffic.
+For full subnet-level detail (zone names and zone IDs), configure a cross-account IAM role that kvisor can assume in each remote account.
 
 ### Step 1: Create IAM Role in Each Remote Account
 
