@@ -64,7 +64,7 @@ func (c *VPCStateController) Run(ctx context.Context) error {
 
 	if err := c.fetchInitialNetworkState(ctx, c.vpcIndex); err != nil {
 		c.log.Errorf("failed to fetch initial VPC state: %v", err)
-		return err
+		return nil
 	}
 
 	return c.runRefreshLoop(ctx, c.vpcIndex)
