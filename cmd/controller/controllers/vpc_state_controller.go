@@ -130,13 +130,7 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 				continue
 			}
 
-			var subnets, peers, tgwVPCs int
-			for _, vpc := range state.VPCs {
-				subnets += len(vpc.Subnets)
-				peers += len(vpc.PeeredVPCs)
-				tgwVPCs += len(vpc.TransitGatewayVPCs)
-			}
-			c.log.Infof("VPC state refreshed successfully: %d subnets, %d peers, %d TGW VPCs", subnets, peers, tgwVPCs)
+			c.log.Infof("VPC state refreshed successfully")
 		}
 	}
 }
