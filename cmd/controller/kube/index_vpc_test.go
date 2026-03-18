@@ -744,6 +744,48 @@ func TestVPCIndex(t *testing.T) {
 		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
 	})
 
+	t.Run("VpcCIDRs includes Transit Gateway VPC CIDRs and subnets", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID:    "vpc-1",
+					CIDRs: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")},
+					Subnets: []cloudtypes.Subnet{
+						{ID: "subnet-1", CIDR: netip.MustParsePrefix("10.0.1.0/24")},
+					},
+					TransitGatewayVPCs: []cloudtypes.TransitGatewayVPC{
+						{
+							VPCID:     "vpc-remote-1",
+							AccountID: "123456789012",
+							Subnets: []cloudtypes.Subnet{
+								{ID: "subnet-remote-1", CIDR: netip.MustParsePrefix("172.16.1.0/24")},
+								{ID: "subnet-remote-2", CIDR: netip.MustParsePrefix("172.16.2.0/24")},
+							},
+						},
+						{
+							VPCID:     "vpc-remote-2",
+							AccountID: "987654321098",
+							CIDRs:     []netip.Prefix{netip.MustParsePrefix("10.200.0.0/16")},
+						},
+					},
+				},
+			},
+		}
+
+		err := index.Update(state)
+		r.NoError(err)
+
+		cidrs := index.VpcCIDRs()
+		r.Contains(cidrs, "10.0.0.0/16")
+		r.Contains(cidrs, "10.0.1.0/24")
+		r.Contains(cidrs, "172.16.1.0/24")
+		r.Contains(cidrs, "172.16.2.0/24")
+		r.Contains(cidrs, "10.200.0.0/16")
+	})
+
 	t.Run("invalid static CIDRs", func(t *testing.T) {
 		r := require.New(t)
 		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})

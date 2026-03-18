@@ -92,16 +92,24 @@ type NetworkConfig struct {
 func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 	cloudIdx, err := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.NetworkRefreshInterval)
 	if err != nil {
-		log.Warnf("failed to create cloud CIDR index: %v", err)
-		// Create without cache
-		cloudIdx, _ = cidrindex.NewIndex[NetworkIPInfo](0, 0)
+		log.Warnf("failed to create cloud CIDR index with cache size %d: %v; creating without cache", cfg.CacheSize, err)
+		cloudIdx, err = cidrindex.NewIndex[NetworkIPInfo](0, 0)
+		if err != nil {
+			log.Errorf("failed to create fallback cloud CIDR index: %v", err)
+		}
 	}
 
 	// Static index does not use a cache; it is populated once at startup.
-	staticIdx, _ := cidrindex.NewIndex[NetworkIPInfo](0, 0)
+	staticIdx, err := cidrindex.NewIndex[NetworkIPInfo](0, 0)
+	if err != nil {
+		log.Errorf("failed to create static CIDR index: %v", err)
+	}
 
 	// Cloud public index: rebuilt on each fetch from public cloud endpoints.
-	cloudPublicIdx, _ := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.PublicCIDRsRefreshInterval)
+	cloudPublicIdx, err := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.PublicCIDRsRefreshInterval)
+	if err != nil {
+		log.Errorf("failed to create cloud public CIDR index: %v", err)
+	}
 
 	return &NetworkIndex{
 		log:                  log,
@@ -313,36 +321,18 @@ func (vi *NetworkIndex) LookupIP(ip netip.Addr) (*NetworkIPInfo, bool) {
 	defer vi.mu.RUnlock()
 
 	if result, found := vi.staticCIDRIndex.Lookup(ip); found {
-		return &NetworkIPInfo{
-			Zone:               result.Metadata.Zone,
-			Region:             result.Metadata.Region,
-			CloudDomain:        result.Metadata.CloudDomain,
-			WorkloadName:       result.Metadata.WorkloadName,
-			WorkloadKind:       result.Metadata.WorkloadKind,
-			ConnectivityMethod: result.Metadata.ConnectivityMethod,
-		}, true
+		info := result.Metadata
+		return &info, true
 	}
 
 	if result, found := vi.cloudCIDRIndex.Lookup(ip); found {
-		return &NetworkIPInfo{
-			Zone:               result.Metadata.Zone,
-			Region:             result.Metadata.Region,
-			CloudDomain:        result.Metadata.CloudDomain,
-			WorkloadName:       result.Metadata.WorkloadName,
-			WorkloadKind:       result.Metadata.WorkloadKind,
-			ConnectivityMethod: result.Metadata.ConnectivityMethod,
-		}, true
+		info := result.Metadata
+		return &info, true
 	}
 
 	if result, found := vi.cloudPublicCIDRIndex.Lookup(ip); found {
-		return &NetworkIPInfo{
-			Zone:               result.Metadata.Zone,
-			Region:             result.Metadata.Region,
-			CloudDomain:        result.Metadata.CloudDomain,
-			WorkloadName:       result.Metadata.WorkloadName,
-			WorkloadKind:       result.Metadata.WorkloadKind,
-			ConnectivityMethod: result.Metadata.ConnectivityMethod,
-		}, true
+		info := result.Metadata
+		return &info, true
 	}
 
 	return nil, false
@@ -367,6 +357,12 @@ func (vi *NetworkIndex) VpcCIDRs() []string {
 			knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
 			for _, secondaryRange := range subnet.SecondaryRanges {
 				knownCIDRs = append(knownCIDRs, secondaryRange.CIDR.String())
+			}
+		}
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			knownCIDRs = append(knownCIDRs, netsToStrings(tgwVPC.CIDRs)...)
+			for _, subnet := range tgwVPC.Subnets {
+				knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
 			}
 		}
 	}
