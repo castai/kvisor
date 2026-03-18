@@ -720,7 +720,7 @@ Static CIDR mappings let you manually annotate IP ranges that are not automatica
 
 Use static mappings when:
 - The destination is in another AWS account or cloud provider and not reachable via the cloud API
-- You use AWS Transit Gateway, Direct Connect, or Site-to-Site VPN
+- You use Direct Connect, Site-to-Site VPN, or other connectivity not automatically discovered
 - You have managed services (RDS, Cloud SQL, etc.) with known private IPs
 - Cloud provider API discovery is not enabled (`cloud-provider-vpc-sync-enabled: false`)
 
