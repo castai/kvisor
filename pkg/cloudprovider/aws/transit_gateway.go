@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"strings"
-
 	"regexp"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -175,10 +174,10 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	attID := lo.FromPtr(att.TransitGatewayAttachmentId)
 	p := d.provider
 
-	if p.cfg.AWSCrossAccountRoleARN != "" {
-		// Look up the peer TGW's region via the peering attachment.
-		peerRegion := d.getPeerTGWRegion(ctx, peerTGWID, attID)
+	// Look up the peer TGW's region via the peering attachment.
+	peerRegion := d.getPeerTGWRegion(ctx, peerTGWID, attID)
 
+	if p.cfg.AWSCrossAccountRoleARN != "" {
 		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, attID, peerRegion)
 		if len(vpcs) > 0 {
 			return vpcs
@@ -194,6 +193,7 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	tgwVPC := types.TransitGatewayVPC{
 		VPCID:     peerTGWID,
 		AccountID: peerAccountID,
+		Region:    peerRegion,
 	}
 	if cidrs, ok := d.routeCIDRs[attID]; ok {
 		tgwVPC.CIDRs = cidrs
