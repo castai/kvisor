@@ -37,7 +37,7 @@ Per-node (DaemonSet)                       Per-cluster (Deployment)
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| **OBI** (eBPF instrumenter) | Agent DaemonSet sidecar | Auto-instruments Go/HTTP/gRPC/DB processes, emits OTLP metrics |
+| **OBI** (eBPF instrumenter) | Agent DaemonSet sidecar | Auto-instruments HTTP/gRPC/DB/messaging processes via eBPF, emits OTLP metrics |
 | **OTel Collector** (agent) | Agent DaemonSet sidecar | Filters golden signals, converts cumulative-to-delta, writes to ClickHouse |
 | **OTel Collector** (controller) | Controller Deployment sidecar | Collects K8s state metrics (pod health, deployments, HPA) via k8s_cluster receiver |
 | **ClickHouse** | StatefulSet (via Altinity operator) | Stores Bronze (raw OTel) and Silver (1-minute aggregated) tables |
@@ -62,16 +62,21 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
 - Kubernetes cluster (1.25+)
 - `helm` (3.12+) and `kubectl` installed and configured
 - CAST AI account with API key and cluster onboarded to CAST AI
-- **Altinity ClickHouse operator**: Either let the chart install it (`operator.enabled=true`) or ensure one is already running in the cluster (`operator.enabled=false`)
+- **Altinity ClickHouse operator**: Either let the chart install it (`reliabilityMetrics.operator.enabled=true`) or ensure one is already running in the cluster (`reliabilityMetrics.operator.enabled=false`)
+
+### Helm Repo Setup
+
+```bash
+helm repo add castai-helm https://castai.github.io/helm-charts
+helm repo update castai-helm
+```
 
 ## Installation
 
 ### Option 1: Fresh Installation
 
 ```bash
-helm dependency update ./charts/kvisor
-
-helm install castai-kvisor ./charts/kvisor \
+helm install castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent --create-namespace \
   --set castai.apiKey=<your-api-key> \
   --set castai.clusterID=<your-cluster-id> \
@@ -86,9 +91,9 @@ helm install castai-kvisor ./charts/kvisor \
 ### Option 2: Enable on Existing Kvisor
 
 ```bash
-helm dependency update ./charts/kvisor
+helm repo update castai-helm
 
-helm upgrade castai-kvisor ./charts/kvisor \
+helm upgrade castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent \
   --reset-then-reuse-values \
   --set agent.reliabilityMetrics.enabled=true \
@@ -145,7 +150,7 @@ agent:
     # OBI image
     image:
       repository: otel/ebpf-instrument
-      tag: "v0.5.0"
+      tag: "v0.6.0"
     # OBI resources (scales with instrumented processes, ~27 MiB each)
     resources:
       requests:
@@ -153,20 +158,39 @@ agent:
       limits:
         memory: 512Mi
     # Ports to instrument (comma-separated)
-    openPorts: "80,443,8080,8443,8090,6379"
+    openPorts: "8080,8443,8090,6379"
     # OBI tuning environment variables
     env:
-      OTEL_TRACES_SAMPLER: "always_off"       # Metrics only, no traces
-      OTEL_EBPF_METRICS_INTERVAL: "15s"       # Flush interval (default: 60s)
-      OTEL_EBPF_CHANNEL_BUFFER_LEN: "500"     # Internal channel buffer
-      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
+      OTEL_TRACES_SAMPLER: "always_off"                    # Metrics only, no traces
+      OTEL_EBPF_TRACE_PRINTER: "disabled"                  # Disable trace output
+      OTEL_EBPF_CHANNEL_BUFFER_LEN: "50"                   # Internal channel buffer (default 10)
+      OTEL_EBPF_METRICS_INTERVAL: "15s"                    # Flush interval (default: 60s)
+      OTEL_EBPF_BPF_WAKEUP_LEN: "10"                      # Batch eBPF events per wakeup
+      OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"      # Only cache local node metadata
+      OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"    # Disable unused informers
+      OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
+      OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
+      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
+
+    # OBI-specific settings
+    obi:
+      # Internal metrics — exposes OBI's own health via Prometheus endpoint
+      internalMetrics:
+        enabled: false
+        port: 6061                   # HTTP port for internal metrics
+        path: "/internal/metrics"    # Scrape path
+        podMonitor:
+          enabled: false
+          labels: {}
+          interval: 30s
+          scrapeTimeout: 10s
 
     # OTel Collector sidecar (agent)
     collector:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.2"
+        tag: "v0.1.4"
       resources:
         requests:
           memory: 128Mi
@@ -176,6 +200,12 @@ agent:
       clickhouseExporter:
         enabled: true
         address: "tcp://castai-kvisor-clickhouse.castai-agent.svc.cluster.local:9000"
+      # PodMonitor for Prometheus Operator (scrapes collector self-metrics on port 8888)
+      podMonitor:
+        enabled: false
+        labels: {}           # Extra labels for Prometheus Operator selector filtering
+        interval: 30s
+        scrapeTimeout: 10s
 
 controller:
   reliabilityMetrics:
@@ -185,10 +215,16 @@ controller:
       resources:
         requests:
           cpu: 250m
-          memory: 128Mi
-        limits:
           memory: 256Mi
+        limits:
+          memory: 512Mi
       prometheusPort: 9401
+      # PodMonitor for Prometheus Operator (scrapes collector self-metrics on port 8889)
+      podMonitor:
+        enabled: false
+        labels: {}
+        interval: 30s
+        scrapeTimeout: 10s
 
 # Subchart (reliability-metrics-ch-exporter)
 reliabilityMetrics:
@@ -203,6 +239,12 @@ reliabilityMetrics:
     clusterIdConfigMapRef:
       name: "castai-agent-metadata"
       key: "CLUSTER_ID"
+    # Telemetry server gRPC address. The ch-exporter uses this to send
+    # aggregated metrics to the CAST AI mothership. Unlike the kvisor agent
+    # (which auto-derives telemetry.* from castai.grpcAddr), the exporter
+    # needs an explicit address.
+    # EU region: "telemetry.prod-eu.cast.ai:443"
+    grpcAddr: "telemetry.prod-master.cast.ai:443"
 
   # ClickHouse credentials
   auth:
@@ -232,16 +274,23 @@ reliabilityMetrics:
   # ch-exporter sidecar
   exporter:
     enabled: true
-    grpcAddr: ""           # Defaults to castai.grpcAddr if empty
+    grpcAddr: ""           # Defaults to reliabilityMetrics.castai.grpcAddr if empty
     image:
       repository: ghcr.io/castai/kvisor/reliability-metrics-ch-exporter
-      tag: "v0.3.5"
+      tag: "v0.3.11"
     resources:
       requests:
         cpu: 50m
         memory: 64Mi
       limits:
         memory: 128Mi
+    # PodMonitor for Prometheus Operator (scrapes exporter metrics on port 8080)
+    podMonitor:
+      enabled: false
+      labels: {}
+      selectorLabels: {}    # Override auto-detected pod selector
+      interval: 30s
+      scrapeTimeout: 10s
 
   # External ClickHouse (alternative to install.enabled)
   external:
@@ -296,7 +345,7 @@ Expected pods:
 | `castai-kvisor-agent-*` | 3/3 (kvisor, obi, otel-collector) | Per-node DaemonSet |
 | `castai-kvisor-controller-*` | 2/2 (controller, otel-collector) | Single Deployment |
 | `chi-castai-kvisor-clickhouse-otel-0-0-0` | 2/2 (clickhouse, ch-exporter) | ClickHouse + exporter |
-| `castai-kvisor-clickhouse-operator-*` | 2/2 | Altinity operator (if `operator.enabled=true`) |
+| `castai-kvisor-clickhouse-operator-*` | 2/2 | Altinity operator (if `reliabilityMetrics.operator.enabled=true`) |
 
 ### 2. Verify OBI Instrumentation
 
@@ -369,7 +418,7 @@ OBI automatically discovers and instruments application processes via eBPF (no c
 | **HTTP** | `http.server.request.duration`, `http.client.request.duration` | method, status_code, error_type |
 | **gRPC** | `rpc.server.duration`, `rpc.client.duration` | rpc.method, rpc.service, grpc.status_code |
 | **Database** | `db.client.operation.duration` | db.system.name, db.operation.name |
-| **Messaging** | `messaging.publish.duration`, `messaging.process.duration` | messaging.system, messaging.destination |
+| **Messaging** | `messaging.publish.duration`, `messaging.process.duration` | messaging.system, messaging.destination.name |
 | **K8s state** | Pod phase, container restarts, deployment availability, HPA pressure | namespace, workload_name, node |
 
 Only golden signal metrics are retained. The OTel Collector drops all other metrics via `filter/golden-signals` before they reach ClickHouse.
@@ -400,6 +449,91 @@ Approximate per-component resource consumption:
 | ch-exporter | 5m | 14 MiB | Number of Silver table rows to export |
 
 For clusters with 30+ nodes or high-cardinality workloads, consider increasing the agent OTel Collector memory limit above 256 MiB.
+
+## Monitoring with Prometheus Operator
+
+If your cluster runs [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator), you can create PodMonitor resources to scrape the reliability metrics components automatically.
+
+### Available PodMonitors
+
+| Component | Values path | Metrics port | Key metrics |
+|-----------|------------|-------------|-------------|
+| Agent OTel Collector | `agent.reliabilityMetrics.collector.podMonitor` | 8888 | `otelcol_receiver_accepted_metric_points`, `otelcol_exporter_sent_metric_points`, `otelcol_processor_dropped_metric_points`, queue sizes |
+| OBI (eBPF instrumenter) | `agent.reliabilityMetrics.obi.internalMetrics` | 6061 | Instrumented process count, eBPF map usage, Go runtime stats |
+| Controller OTel Collector | `controller.reliabilityMetrics.collector.podMonitor` | 8889 | Same as agent collector (k8s_cluster receiver pipeline) |
+| ch-exporter | `reliabilityMetrics.exporter.podMonitor` | 8080 | Export throughput, ClickHouse query latency, gRPC send errors |
+
+**Note:** OBI internal metrics require two enable flags: `agent.reliabilityMetrics.obi.internalMetrics.enabled` (exposes the `/internal/metrics` endpoint) and `agent.reliabilityMetrics.obi.internalMetrics.podMonitor.enabled` (creates the PodMonitor).
+
+### Enable All PodMonitors
+
+Add these to your values file to enable scraping of all components:
+
+```yaml
+agent:
+  reliabilityMetrics:
+    # OBI settings
+    obi:
+      internalMetrics:
+        enabled: true
+        podMonitor:
+          enabled: true
+          labels:
+            release: prometheus
+    # Agent OTel Collector
+    collector:
+      podMonitor:
+        enabled: true
+        labels:
+          release: prometheus   # Match your Prometheus Operator's serviceMonitorSelector
+
+controller:
+  reliabilityMetrics:
+    collector:
+      podMonitor:
+        enabled: true
+        labels:
+          release: prometheus
+
+reliabilityMetrics:
+  exporter:
+    podMonitor:
+      enabled: true
+      labels:
+        release: prometheus
+```
+
+Or via `--set` flags:
+
+```bash
+helm upgrade castai-kvisor castai-helm/castai-kvisor \
+  -n castai-agent \
+  --reset-then-reuse-values \
+  --set agent.reliabilityMetrics.obi.internalMetrics.enabled=true \
+  --set agent.reliabilityMetrics.obi.internalMetrics.podMonitor.enabled=true \
+  --set agent.reliabilityMetrics.collector.podMonitor.enabled=true \
+  --set controller.reliabilityMetrics.collector.podMonitor.enabled=true \
+  --set reliabilityMetrics.exporter.podMonitor.enabled=true
+```
+
+### Prometheus Operator Label Matching
+
+Prometheus Operator uses label selectors to decide which PodMonitors to pick up. If your Prometheus is configured with a `podMonitorSelector` (e.g., `release: prometheus`), add matching labels:
+
+```yaml
+podMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+```
+
+To check what selector your Prometheus uses:
+
+```bash
+kubectl get prometheus -A -o jsonpath='{.items[*].spec.podMonitorSelector}'
+```
+
+An empty `podMonitorSelector` means Prometheus picks up all PodMonitors in its namespace.
 
 ## Troubleshooting
 
@@ -502,7 +636,7 @@ If the operator uses `WATCH_NAMESPACES` env var, ensure `castai-agent` is in the
 ### Disable Reliability Metrics (Keep Kvisor)
 
 ```bash
-helm upgrade castai-kvisor ./charts/kvisor \
+helm upgrade castai-kvisor castai-helm/castai-kvisor \
   -n castai-agent \
   --reset-then-reuse-values \
   --set agent.reliabilityMetrics.enabled=false \

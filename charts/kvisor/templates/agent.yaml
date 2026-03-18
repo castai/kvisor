@@ -189,9 +189,25 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+          {{- if (dig "reliabilityMetrics" "obi" "internalMetrics" "enabled" false .Values.agent) }}
+            - name: OTEL_EBPF_INTERNAL_METRICS_EXPORTER
+              value: "prometheus"
+            - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PORT
+              value: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.port | default 6061 | quote }}
+            {{- with (dig "reliabilityMetrics" "obi" "internalMetrics" "path" "" .Values.agent) }}
+            - name: OTEL_EBPF_INTERNAL_METRICS_PROMETHEUS_PATH
+              value: {{ . | quote }}
+            {{- end }}
+          {{- end }}
           {{- range $k, $v := .Values.agent.reliabilityMetrics.env }}
             - name: {{ $k }}
               value: "{{ $v }}"
+          {{- end }}
+          {{- if (dig "reliabilityMetrics" "obi" "internalMetrics" "enabled" false .Values.agent) }}
+          ports:
+            - containerPort: {{ .Values.agent.reliabilityMetrics.obi.internalMetrics.port | default 6061 }}
+              name: obi-metrics
+              protocol: TCP
           {{- end }}
           volumeMounts:
             - name: var-run-obi
@@ -217,6 +233,7 @@ spec:
             {{- toYaml .Values.agent.reliabilityMetrics.collector.resources | nindent 12 }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- include "MemoryLimiterEnv" .Values.agent.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.agent) }}
             - name: CLICKHOUSE_ENABLED
               value: "true"

@@ -91,6 +91,9 @@ func (c *Collector) Collect(ctx context.Context) error {
 		fanalyzer.TypeAzureARM,
 		fanalyzer.TypeCloudFormation,
 		fanalyzer.TypeDockerfile,
+		// Disabled this because we don't need it (it is part of misconfiguration scanning, not vulnerability scanning)
+		// and also due to nil pointer crash in trivy when image has HEALTHCHECK NONE in history
+		fanalyzer.TypeHistoryDockerfile,
 		fanalyzer.TypeHelm,
 		fanalyzer.TypeKubernetes,
 		fanalyzer.TypeTerraform,

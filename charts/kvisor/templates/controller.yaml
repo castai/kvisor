@@ -86,6 +86,9 @@ spec:
           {{- if .Values.controller.netflow.staticCIDRs.mappings }}
             - "--cloud-provider-static-cidrs-file=/etc/kvisor/static-cidrs/static-cidrs.yaml"
           {{- end }}
+          {{- if hasKey $extraArgs "cluster-proxy-enabled" }}
+            - "--cluster-proxy-sa-name={{ include "kvisor.clusterproxy.serviceAccountName" . }}"
+          {{- end }}
         {{- range $key, $value := .Values.controller.extraArgs }}
             - "--{{ $key }}={{ $value }}"
         {{- end }}
@@ -171,6 +174,7 @@ spec:
             {{- toYaml .Values.controller.reliabilityMetrics.collector.resources | nindent 12 }}
           env:
             {{- include "GOMEMLIMITEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            {{- include "MemoryLimiterEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller) }}
             - name: COLLECTOR_MODE
               value: "controller"
@@ -193,7 +197,7 @@ spec:
             - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
               name: k8s-prom
               protocol: TCP
-            - containerPort: 8889
+            - containerPort: 8888
               name: k8s-metrics
               protocol: TCP
           livenessProbe:
@@ -322,6 +326,14 @@ rules:
       - events
     verbs:
       - create
+{{- if and .Values.controller.enabled (hasKey (.Values.controller.extraArgs | default dict) "cluster-proxy-enabled") }}
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts/token
+    verbs:
+      - create
+{{- end }}
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

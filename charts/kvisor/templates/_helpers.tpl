@@ -155,6 +155,18 @@ app.kubernetes.io/component: controller
 
 
 {{/*
+Common helpers for cluster proxy.
+*/}}
+{{- define "kvisor.clusterproxy.fullname" -}}
+{{ include "kvisor.fullname" . }}-cluster-proxy
+{{- end }}
+
+{{- define "kvisor.clusterproxy.serviceAccountName" -}}
+{{ include "kvisor.clusterproxy.fullname" . }}
+{{- end }}
+
+
+{{/*
 Common helpers for event generator.
 */}}
 {{- define "kvisor.eventGenerator.fullname" -}}
@@ -390,5 +402,31 @@ capabilities:
   {{- end -}}
   {{- $percentageValue := int (mulf $valueMi 0.9) }}
   value: {{ printf "%dMiB" $percentageValue -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+MemoryLimiterEnv derives the OTel memory_limiter processor limits from the
+container memory limit. limit_mib = 80% of container limit, spike_limit_mib =
+25% of limit_mib. The resulting soft limit (limit - spike) is ~60% of the
+container limit, leaving headroom for Go GC (GOMEMLIMIT at 90%).
+*/}}
+{{- define "MemoryLimiterEnv" -}}
+{{- $memory := . -}}
+{{- if $memory -}}
+{{- $value := regexFind "^\\d*\\.?\\d+" $memory | float64 -}}
+{{- $unit := regexFind "[A-Za-z]+" $memory -}}
+{{- $valueMi := 0.0 -}}
+{{- if eq $unit "Gi" -}}
+  {{- $valueMi = mulf $value 1024 -}}
+{{- else if eq $unit "Mi" -}}
+  {{- $valueMi = $value -}}
+{{- end -}}
+{{- $limitMib := int (mulf $valueMi 0.8) -}}
+{{- $spikeMib := int (mulf (float64 $limitMib) 0.25) }}
+- name: MEMORY_LIMITER_LIMIT_MIB
+  value: {{ printf "%d" $limitMib | quote }}
+- name: MEMORY_LIMITER_SPIKE_LIMIT_MIB
+  value: {{ printf "%d" $spikeMib | quote }}
 {{- end -}}
 {{- end -}}
