@@ -6,6 +6,8 @@ import (
 	"net/netip"
 	"strings"
 
+	"regexp"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -95,7 +97,7 @@ func (p *Provider) collectTGWAttachments(ctx context.Context, vpcID string) (map
 		allAttachments = append(allAttachments, tgwAttachments...)
 	}
 	if failures > 0 && failures == len(tgwIDs) {
-		p.log.Errorf("all %d Transit Gateway attachment fetches failed; TGW VPC discovery returned no results", failures)
+		return nil, nil, fmt.Errorf("all %d Transit Gateway attachment fetches failed", failures)
 	}
 
 	return tgwIDs, allAttachments, nil
@@ -181,6 +183,8 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 		if len(vpcs) > 0 {
 			return vpcs
 		}
+		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID).
+			Warnf("cross-account discovery returned no VPCs; falling back to route-table CIDRs")
 	}
 
 	// Fallback: emit a single entry with route-table CIDRs.
@@ -372,11 +376,16 @@ func (p *Provider) searchTGWRoutes(ctx context.Context, routeTableID string) ([]
 	return result.Routes, nil
 }
 
+var awsAccountIDRegexp = regexp.MustCompile(`^\d{12}$`)
+
 // buildCrossAccountEC2Client creates an EC2 client that assumes a role in a remote account.
 // If region is non-empty, the client targets that region instead of the default (cluster) region.
 func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID, region string) (*ec2.Client, error) {
 	if accountID == "" {
 		return nil, fmt.Errorf("empty account ID for cross-account role assumption")
+	}
+	if !awsAccountIDRegexp.MatchString(accountID) {
+		return nil, fmt.Errorf("invalid AWS account ID format: %q", accountID)
 	}
 
 	roleARN := strings.ReplaceAll(p.cfg.AWSCrossAccountRoleARN, "{account-id}", accountID)
