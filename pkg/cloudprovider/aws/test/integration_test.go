@@ -134,5 +134,4 @@ func TestRefreshNetworkState(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("  Service Ranges: %d regions", len(metadata.ServiceRanges))
 }

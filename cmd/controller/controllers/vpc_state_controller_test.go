@@ -22,12 +22,12 @@ func TestVPCStateController(t *testing.T) {
 
 		provider := noop.NewProvider()
 
-		cfg := VPCStateControllerConfig{
-			NetworkName:     "test-network",
-			RefreshInterval: 1 * time.Hour,
+		cfg := NetworkStateControllerConfig{
+			NetworkName:            "test-network",
+			NetworkRefreshInterval: 1 * time.Hour,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		vpcIndex := kube.NewNetworkIndex(log, kube.NetworkConfig{NetworkRefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
 
 		err := ctrl.Run(ctx)
@@ -42,14 +42,14 @@ func TestVPCStateController(t *testing.T) {
 
 		provider := noop.NewProvider()
 
-		cfg := VPCStateControllerConfig{
-			NetworkName:     "test-network",
-			RefreshInterval: 0,
+		cfg := NetworkStateControllerConfig{
+			NetworkName:            "test-network",
+			NetworkRefreshInterval: 0,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		vpcIndex := kube.NewNetworkIndex(log, kube.NetworkConfig{NetworkRefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
-		r.Equal(1*time.Hour, ctrl.cfg.RefreshInterval)
+		r.Equal(1*time.Hour, ctrl.cfg.NetworkRefreshInterval)
 	})
 
 	t.Run("uses configured refresh interval", func(t *testing.T) {
@@ -58,13 +58,13 @@ func TestVPCStateController(t *testing.T) {
 		provider := noop.NewProvider()
 
 		customInterval := 30 * time.Minute
-		cfg := VPCStateControllerConfig{
-			NetworkName:     "test-network",
-			RefreshInterval: customInterval,
+		cfg := NetworkStateControllerConfig{
+			NetworkName:            "test-network",
+			NetworkRefreshInterval: customInterval,
 		}
 
-		vpcIndex := kube.NewVPCIndex(log, kube.VPCConfig{RefreshInterval: time.Hour, CacheSize: 1000})
+		vpcIndex := kube.NewNetworkIndex(log, kube.NetworkConfig{NetworkRefreshInterval: time.Hour, CacheSize: 1000})
 		ctrl := NewVPCStateController(log, cfg, provider, vpcIndex)
-		r.Equal(customInterval, ctrl.cfg.RefreshInterval)
+		r.Equal(customInterval, ctrl.cfg.NetworkRefreshInterval)
 	})
 }
