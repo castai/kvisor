@@ -23,11 +23,6 @@ const (
 	gpuInstanceID  = "GPU_I_ID"
 )
 
-// WorkloadLookup resolves a pod name+namespace to its top-level workload name and kind.
-type WorkloadLookup interface {
-	FindWorkloadForPod(ctx context.Context, podName, namespace string) (workloadName, workloadKind string, err error)
-}
-
 // MetricMapper transforms raw DCGM Prometheus metric families into exportable forms.
 type MetricMapper interface {
 	Map(metrics []MetricFamilyMap) *pb.MetricsBatch

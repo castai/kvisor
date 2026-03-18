@@ -36,8 +36,6 @@ type Config struct {
 
 	// WorkloadLabelKeys are pod label keys checked first for a custom workload name override.
 	WorkloadLabelKeys []string
-
-
 }
 
 // Pipeline scrapes DCGM exporter metrics on the local node and exports them
@@ -65,10 +63,12 @@ func NewPipeline(
 
 	scraper := newScraper(&http.Client{}, logger)
 
-	workloadLookup := newKubeWorkloadLookup(kubeClient, cfg.WorkloadLabelKeys)
+	workloadLookup, err := newWorkloadLookup(kubeClient, cfg.WorkloadLabelKeys, 512)
+	if err != nil {
+		return nil, fmt.Errorf("creating workload lookup: %w", err)
+	}
 	mapper := newMapper(cfg.NodeName, workloadLookup, logger)
 
-	var err error
 	var metricWriter custommetrics.Metric[GPUMetric]
 	if metricsClient != nil {
 		metricWriter, err = custommetrics.NewMetric[GPUMetric](
@@ -193,54 +193,4 @@ func (p *Pipeline) getDCGMURLs(ctx context.Context) ([]string, error) {
 	}
 
 	return urls, nil
-}
-
-// kubeWorkloadLookup implements WorkloadLookup by calling the controller gRPC API.
-type kubeWorkloadLookup struct {
-	kubeClient        kubepb.KubeAPIClient
-	workloadLabelKeys []string
-}
-
-func newKubeWorkloadLookup(kubeClient kubepb.KubeAPIClient, workloadLabelKeys []string) WorkloadLookup {
-	return &kubeWorkloadLookup{
-		kubeClient:        kubeClient,
-		workloadLabelKeys: workloadLabelKeys,
-	}
-}
-
-func (w *kubeWorkloadLookup) FindWorkloadForPod(ctx context.Context, podName, namespace string) (workloadName, workloadKind string, err error) {
-	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-
-	resp, err := w.kubeClient.GetPodByName(reqCtx, &kubepb.GetPodByNameRequest{
-		Namespace:         namespace,
-		Name:              podName,
-		WorkloadLabelKeys: w.workloadLabelKeys,
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	return resp.Pod.WorkloadName, workloadKindToString(resp.Pod.WorkloadKind), nil
-}
-
-func workloadKindToString(kind kubepb.WorkloadKind) string {
-	switch kind {
-	case kubepb.WorkloadKind_WORKLOAD_KIND_DEPLOYMENT:
-		return "Deployment"
-	case kubepb.WorkloadKind_WORKLOAD_KIND_REPLICA_SET:
-		return "ReplicaSet"
-	case kubepb.WorkloadKind_WORKLOAD_KIND_DAEMON_SET:
-		return "DaemonSet"
-	case kubepb.WorkloadKind_WORKLOAD_KIND_STATEFUL_SET:
-		return "StatefulSet"
-	case kubepb.WorkloadKind_WORKLOAD_KIND_JOB:
-		return "Job"
-	case kubepb.WorkloadKind_WORKLOAD_KIND_CRONJOB:
-		return "CronJob"
-	case kubepb.WorkloadKind_WORKLOAD_KIND_ROLLOUT:
-		return "Rollout"
-	default:
-		return "Pod"
-	}
 }
