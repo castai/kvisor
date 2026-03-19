@@ -108,7 +108,7 @@ spec:
               value: {{ if .Values.mockServer.enabled -}}
                        {{ (printf "%s:8443" (include "kvisor.castaiMockServer.service" .)) | quote }}
                      {{- else -}}
-                       {{ include "kvisor.apiGrpcAddr" . | quote }}
+                       {{ .Values.castai.grpcAddr | quote }}
                      {{- end }}
             - name: CASTAI_API_URL
               value: {{ if .Values.mockServer.enabled -}}
