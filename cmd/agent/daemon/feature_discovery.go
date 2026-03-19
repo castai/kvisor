@@ -27,6 +27,11 @@ var dcgmExporterImages = []string{
 
 const dcgmExporterCommandSubstring = "dcgm-exporter"
 
+// gpuMetricsExporterImages are the known gpu-metrics-exporter container image prefixes to match against.
+var gpuMetricsExporterImages = []string{
+	"ghcr.io/castai/gpu-metrics-exporter/gpu-metrics-exporter",
+}
+
 // discoveryResult holds the outcome of the cluster scan.
 type discoveryResult struct {
 	// DCGMExists is true if an existing DCGM exporter DaemonSet was found.
@@ -34,6 +39,9 @@ type discoveryResult struct {
 	// DCGMSelector is the label selector (e.g. "app.kubernetes.io/name=dcgm-exporter")
 	// that identifies the DCGM exporter pods. Empty when DCGMExists is false.
 	DCGMSelector string
+	// GPUMetricsExporterExists is true if a castai/gpu-metrics-exporter DaemonSet was found.
+	// When true, kvisor should skip GPU metrics collection to prevent double-counting.
+	GPUMetricsExporterExists bool
 }
 
 // NewFeatureDiscoveryCommand returns the cobra command for the feature-discovery subcommand.
@@ -89,6 +97,9 @@ func runFeatureDiscovery(ctx context.Context, log *logging.Logger, outputDir, se
 		return fmt.Errorf("scanning cluster for dcgm-exporter: %w", err)
 	}
 
+	if result.GPUMetricsExporterExists {
+		log.Info("discovered gpu-metrics-exporter in cluster, kvisor GPU metrics collection will be disabled to prevent double-counting")
+	}
 	if result.DCGMExists {
 		log.Infof("discovered existing dcgm-exporter (selector=%q), kvisor will scrape it", result.DCGMSelector)
 	} else {
@@ -105,6 +116,8 @@ func discoverDCGM(ctx context.Context, log *logging.Logger, client kubernetes.In
 		return discoveryResult{}, fmt.Errorf("listing namespaces: %w", err)
 	}
 
+	var result discoveryResult
+
 	for _, ns := range namespaces.Items {
 		dsList, err := client.AppsV1().DaemonSets(ns.Name).List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -118,14 +131,18 @@ func discoverDCGM(ctx context.Context, log *logging.Logger, client kubernetes.In
 				continue
 			}
 
-			if isDCGMExporter(ds) {
-				selector := extractDCGMSelector(ds)
-				return discoveryResult{DCGMExists: true, DCGMSelector: selector}, nil
+			if !result.DCGMExists && isDCGMExporter(ds) {
+				result.DCGMExists = true
+				result.DCGMSelector = extractDCGMSelector(ds)
+			}
+
+			if !result.GPUMetricsExporterExists && isGPUMetricsExporter(ds) {
+				result.GPUMetricsExporterExists = true
 			}
 		}
 	}
 
-	return discoveryResult{DCGMExists: false}, nil
+	return result, nil
 }
 
 // isDCGMExporter returns true if the DaemonSet is running dcgm-exporter,
@@ -149,6 +166,29 @@ func isDCGMExporter(ds appsv1.DaemonSet) bool {
 			if strings.Contains(arg, dcgmExporterCommandSubstring) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// isGPUMetricsExporter returns true if the DaemonSet is running castai/gpu-metrics-exporter,
+// detected via container image or the well-known app.kubernetes.io/name label.
+func isGPUMetricsExporter(ds appsv1.DaemonSet) bool {
+	for _, c := range ds.Spec.Template.Spec.Containers {
+		for _, knownImage := range gpuMetricsExporterImages {
+			if strings.Contains(c.Image, knownImage) {
+				return true
+			}
+		}
+	}
+	// Check well-known label on DaemonSet metadata.
+	if v, ok := ds.Labels["app.kubernetes.io/name"]; ok && v == "gpu-metrics-exporter" {
+		return true
+	}
+	// Check well-known label in spec selector.
+	if ds.Spec.Selector != nil {
+		if v, ok := ds.Spec.Selector.MatchLabels["app.kubernetes.io/name"]; ok && v == "gpu-metrics-exporter" {
+			return true
 		}
 	}
 	return false
@@ -194,6 +234,15 @@ func writeResult(log *logging.Logger, outputDir string, result discoveryResult) 
 		log.Infof("wrote %s/dcgm-selector = %s", outputDir, result.DCGMSelector)
 	}
 
+	gpuMetricsExporterExistsVal := "false"
+	if result.GPUMetricsExporterExists {
+		gpuMetricsExporterExistsVal = "true"
+	}
+	if err := writeFile(filepath.Join(outputDir, "gpu-metrics-exporter-exists"), gpuMetricsExporterExistsVal); err != nil {
+		return fmt.Errorf("writing gpu-metrics-exporter-exists: %w", err)
+	}
+	log.Infof("wrote %s/gpu-metrics-exporter-exists = %s", outputDir, gpuMetricsExporterExistsVal)
+
 	return nil
 }
 
@@ -205,6 +254,9 @@ func writeDefaults(log *logging.Logger, outputDir string) {
 	}
 	if err := writeFile(filepath.Join(outputDir, "dcgm-selector"), ""); err != nil {
 		log.Warnf("writing default dcgm-selector: %v", err)
+	}
+	if err := writeFile(filepath.Join(outputDir, "gpu-metrics-exporter-exists"), "false"); err != nil {
+		log.Warnf("writing default gpu-metrics-exporter-exists: %v", err)
 	}
 }
 

@@ -36,6 +36,10 @@ type Config struct {
 
 	// WorkloadLabelKeys are pod label keys checked first for a custom workload name override.
 	WorkloadLabelKeys []string
+
+	// Disabled, when true, causes the pipeline to skip all metric collection and export.
+	// Set when gpu-metrics-exporter is already running in the cluster to prevent double-counting.
+	Disabled bool
 }
 
 // Pipeline scrapes DCGM exporter metrics on the local node and exports them
@@ -94,6 +98,12 @@ func NewPipeline(
 
 // Run starts the GPU metrics collection loop. It blocks until ctx is cancelled.
 func (p *Pipeline) Run(ctx context.Context) error {
+	if p.cfg.Disabled {
+		p.log.Info("gpu metrics pipeline disabled: gpu-metrics-exporter already running in cluster, skipping to prevent double-counting")
+		<-ctx.Done()
+		return ctx.Err()
+	}
+
 	p.log.Info("running gpu metrics pipeline")
 	defer p.log.Info("gpu metrics pipeline done")
 

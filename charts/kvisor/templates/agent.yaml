@@ -345,8 +345,9 @@ spec:
             - "-c"
           args:
             - |
-              if [ "$(cat {{ .Values.agent.gpu.sharedDir }}/dcgm-exists 2>/dev/null)" = "true" ]; then
-                echo "Existing DCGM exporter found on node. Standing by."
+              if [ "$(cat {{ .Values.agent.gpu.sharedDir }}/dcgm-exists 2>/dev/null)" = "true" ] || \
+                 [ "$(cat {{ .Values.agent.gpu.sharedDir }}/gpu-metrics-exporter-exists 2>/dev/null)" = "true" ]; then
+                echo "Existing DCGM exporter or gpu-metrics-exporter found on node. Standing by."
                 while true; do sleep 3600; done
               fi
               {{- if eq $provider "gke" }}

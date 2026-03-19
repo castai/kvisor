@@ -734,6 +734,14 @@ func readGPUDiscoveryOverrides(sharedDir string, cfg *gpupipeline.Config, log *l
 		return
 	}
 
+	// If gpu-metrics-exporter is already running in the cluster, disable GPU metrics collection
+	// in kvisor to prevent double-counting on the CAST AI backend.
+	if readSharedFile(sharedDir+"/gpu-metrics-exporter-exists") == "true" {
+		log.Info("gpu: gpu-metrics-exporter found in cluster, disabling GPU metrics collection to prevent double-counting")
+		cfg.Disabled = true
+		return
+	}
+
 	selector := readSharedFile(sharedDir + "/dcgm-selector")
 	dcgmExists := readSharedFile(sharedDir + "/dcgm-exists")
 

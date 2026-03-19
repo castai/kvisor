@@ -144,6 +144,68 @@ func TestExtractDCGMSelector(t *testing.T) {
 	}
 }
 
+func TestIsGPUMetricsExporter(t *testing.T) {
+	tests := []struct {
+		name   string
+		ds     appsv1.DaemonSet
+		expect bool
+	}{
+		{
+			name:   "detected by known image",
+			ds:     makeDSWithContainer(corev1.Container{Image: "ghcr.io/castai/gpu-metrics-exporter/gpu-metrics-exporter:0.1.29"}),
+			expect: true,
+		},
+		{
+			name: "detected by app.kubernetes.io/name metadata label",
+			ds: appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app.kubernetes.io/name": "gpu-metrics-exporter"},
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "detected by app.kubernetes.io/name in spec selector",
+			ds: appsv1.DaemonSet{
+				Spec: appsv1.DaemonSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app.kubernetes.io/name": "gpu-metrics-exporter"},
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:   "not matched by unrelated image",
+			ds:     makeDSWithContainer(corev1.Container{Image: "some-other-exporter:v1"}),
+			expect: false,
+		},
+		{
+			name: "not matched by different app name",
+			ds: appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app.kubernetes.io/name": "dcgm-exporter"},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:   "empty daemonset",
+			ds:     appsv1.DaemonSet{},
+			expect: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isGPUMetricsExporter(tt.ds)
+			if got != tt.expect {
+				t.Errorf("isGPUMetricsExporter() = %v, want %v", got, tt.expect)
+			}
+		})
+	}
+}
+
 func TestDiscoverDCGM(t *testing.T) {
 	log := logging.New()
 	ctx := context.Background()
@@ -213,6 +275,92 @@ func TestDiscoverDCGM(t *testing.T) {
 		}
 	})
 
+	t.Run("detects gpu-metrics-exporter by image", func(t *testing.T) {
+		k8sClient := fake.NewSimpleClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "castai-agent"}},
+			&appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gpu-metrics-exporter",
+					Namespace: "castai-agent",
+					Labels:    map[string]string{"app.kubernetes.io/name": "gpu-metrics-exporter"},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Image: "ghcr.io/castai/gpu-metrics-exporter/gpu-metrics-exporter:0.1.29"},
+							},
+						},
+					},
+				},
+			},
+		)
+
+		result, err := discoverDCGM(ctx, log, k8sClient, "kvisor", "castai-agent")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !result.GPUMetricsExporterExists {
+			t.Error("expected GPUMetricsExporterExists=true")
+		}
+		if result.DCGMExists {
+			t.Error("expected DCGMExists=false")
+		}
+	})
+
+	t.Run("detects both dcgm and gpu-metrics-exporter", func(t *testing.T) {
+		k8sClient := fake.NewSimpleClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "gpu-system"}},
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "castai-agent"}},
+			&appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dcgm-exporter",
+					Namespace: "gpu-system",
+					Labels:    map[string]string{"app.kubernetes.io/name": "dcgm-exporter"},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app.kubernetes.io/name": "dcgm-exporter"},
+					},
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Image: "nvcr.io/nvidia/k8s/dcgm-exporter:3.3.0"},
+							},
+						},
+					},
+				},
+			},
+			&appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gpu-metrics-exporter",
+					Namespace: "castai-agent",
+					Labels:    map[string]string{"app.kubernetes.io/name": "gpu-metrics-exporter"},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Image: "ghcr.io/castai/gpu-metrics-exporter/gpu-metrics-exporter:0.1.29"},
+							},
+						},
+					},
+				},
+			},
+		)
+
+		result, err := discoverDCGM(ctx, log, k8sClient, "kvisor", "castai-agent")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !result.DCGMExists {
+			t.Error("expected DCGMExists=true")
+		}
+		if !result.GPUMetricsExporterExists {
+			t.Error("expected GPUMetricsExporterExists=true")
+		}
+	})
+
 	t.Run("nothing found", func(t *testing.T) {
 		k8sClient := fake.NewSimpleClientset(
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
@@ -249,6 +397,7 @@ func TestWriteResult(t *testing.T) {
 
 	assertFileContent(t, filepath.Join(dir, "dcgm-exists"), "true")
 	assertFileContent(t, filepath.Join(dir, "dcgm-selector"), "app.kubernetes.io/name=dcgm-exporter")
+	assertFileContent(t, filepath.Join(dir, "gpu-metrics-exporter-exists"), "false")
 }
 
 func TestWriteResultNotFound(t *testing.T) {
@@ -262,6 +411,21 @@ func TestWriteResultNotFound(t *testing.T) {
 
 	assertFileContent(t, filepath.Join(dir, "dcgm-exists"), "false")
 	assertFileContent(t, filepath.Join(dir, "dcgm-selector"), "")
+	assertFileContent(t, filepath.Join(dir, "gpu-metrics-exporter-exists"), "false")
+}
+
+func TestWriteResultGPUMetricsExporterExists(t *testing.T) {
+	log := logging.New()
+	dir := t.TempDir()
+
+	result := discoveryResult{GPUMetricsExporterExists: true}
+	if err := writeResult(log, dir, result); err != nil {
+		t.Fatalf("writeResult failed: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(dir, "dcgm-exists"), "false")
+	assertFileContent(t, filepath.Join(dir, "dcgm-selector"), "")
+	assertFileContent(t, filepath.Join(dir, "gpu-metrics-exporter-exists"), "true")
 }
 
 func assertFileContent(t *testing.T, path, want string) {
