@@ -353,13 +353,6 @@ Returns true if GPU metrics collection is enabled.
 {{- end }}
 
 {{/*
-Resolve CASTAI_API_GRPC_ADDR: global.castai.grpcURL > .Values.castai.grpcAddr
-*/}}
-{{- define "kvisor.apiGrpcAddr" -}}
-{{- coalesce (dig "castai" "grpcURL" "" (.Values.global | default dict)) .Values.castai.grpcAddr -}}
-{{- end }}
-
-{{/*
 Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
 */}}
 {{- define "kvisor.apiURL" -}}
