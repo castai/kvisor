@@ -285,6 +285,7 @@ func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallba
 	return tgwVPC
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayAttachments.html
 // fetchTGWAttachments returns TGW VPC attachments for a specific VPC.
 func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
@@ -309,6 +310,7 @@ func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2
 	return attachments, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayAttachments.html
 // fetchAllTGWAttachments returns all attachments for a given Transit Gateway.
 func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
@@ -332,6 +334,7 @@ func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]
 	return attachments, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayRouteTables.html
 // fetchTGWRouteTables returns route tables for a given Transit Gateway.
 func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2types.TransitGatewayRouteTable, error) {
 	input := &ec2.DescribeTransitGatewayRouteTablesInput{
@@ -355,6 +358,7 @@ func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2
 	return routeTables, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayRoutes.html
 // searchTGWRoutes searches for active routes in a TGW route table.
 func (p *Provider) searchTGWRoutes(ctx context.Context, routeTableID string) ([]ec2types.TransitGatewayRoute, error) {
 	input := &ec2.SearchTransitGatewayRoutesInput{
@@ -410,6 +414,7 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID, re
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayAttachments.html
 // fetchPeerTGWVPCAttachments discovers VPC attachments on a remote (peer) Transit Gateway.
 func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec2.Client, peerTGWID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
@@ -434,6 +439,7 @@ func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec
 	return attachments, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayPeeringAttachments.html
 // fetchPeeringAttachmentRegion looks up the region of a peer TGW by inspecting the
 // peering attachment details. It calls DescribeTransitGatewayPeeringAttachments on the
 // local EC2 client (no cross-account needed) and returns the region of whichever side
@@ -491,6 +497,7 @@ func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache 
 	return p.fetchRemoteSubnets(ctx, client, vpcID)
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSubnets.html
 // fetchRemoteSubnets fetches subnets from a remote account's VPC using a pre-built EC2 client.
 func (p *Provider) fetchRemoteSubnets(ctx context.Context, remoteEC2 *ec2.Client, vpcID string) ([]types.Subnet, string, error) {
 	input := &ec2.DescribeSubnetsInput{
