@@ -62,7 +62,7 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 		}
 	}
 
-	p.log.With("count", len(result), "vpc", vpcID).Debug("fetched Transit Gateway VPCs")
+	p.log.With("count", len(result), "vpc", vpcID, "region", p.cfg.AWSRegion).Debug("fetched Transit Gateway VPCs")
 	return result, nil
 }
 
@@ -315,7 +315,7 @@ func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
-	p.log.Debugf("found %d TGW attachments for vpc %s", len(attachments), vpcID)
+	p.log.With("count", len(attachments), "vpc", vpcID, "region", p.cfg.AWSRegion).Debug("found TGW attachments")
 	return attachments, nil
 }
 
@@ -339,7 +339,7 @@ func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
-	p.log.Debugf("found %d attachments for tgw %s", len(attachments), tgwID)
+	p.log.With("count", len(attachments), "tgw", tgwID, "region", p.cfg.AWSRegion).Debug("found TGW attachments")
 	return attachments, nil
 }
 
@@ -363,7 +363,7 @@ func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2
 		routeTables = append(routeTables, page.TransitGatewayRouteTables...)
 	}
 
-	p.log.Debugf("found %d route tables for tgw %s", len(routeTables), tgwID)
+	p.log.With("count", len(routeTables), "tgw", tgwID, "region", p.cfg.AWSRegion).Debug("found TGW route tables")
 	return routeTables, nil
 }
 
@@ -419,7 +419,7 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID, re
 	creds := stscreds.NewAssumeRoleProvider(stsClient, roleARN)
 	awsCfg.Credentials = aws.NewCredentialsCache(creds)
 
-	p.log.Debugf("assuming cross-account role %s for account %s (region %s)", roleARN, accountID, awsCfg.Region)
+	p.log.With("role", roleARN, "account", accountID, "region", awsCfg.Region).Debug("assuming cross-account role")
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
@@ -444,7 +444,7 @@ func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
-	p.log.Debugf("found %d VPC attachments on peer TGW %s", len(attachments), peerTGWID)
+	p.log.With("count", len(attachments), "peer_tgw", peerTGWID, "region", remoteEC2.Options().Region).Debug("found VPC attachments on peer TGW")
 	return attachments, nil
 }
 
