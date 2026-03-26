@@ -171,7 +171,7 @@ func (d *tgwDiscovery) resolveVPCAttachment(ctx context.Context, att ec2types.Tr
 		return types.TransitGatewayVPC{}, false
 	}
 
-	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID, "")
+	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID, d.provider.cfg.AWSRegion)
 	return tgwVPC, true
 }
 
@@ -262,24 +262,22 @@ func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID,
 
 // buildTGWVPC creates a TransitGatewayVPC, enriching with subnet detail via
 // cross-account role assumption when configured, falling back to route CIDRs otherwise.
-// regionOverride, when non-empty, targets the cross-account client at a specific region
-// (used for VPCs behind a peer TGW in a different region).
-func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID, regionOverride string) types.TransitGatewayVPC {
+func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID, region string) types.TransitGatewayVPC {
 	p := d.provider
 
 	tgwVPC := types.TransitGatewayVPC{
 		VPCID:     vpcID,
 		AccountID: accountID,
+		Region:    region,
 	}
 
 	if p.cfg.AWSCrossAccountRoleARN != "" {
-		subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID, regionOverride)
+		subnets, _, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID, region)
 		if err != nil {
 			p.log.With("vpc", vpcID, "account", accountID).
 				Warnf("cross-account subnet fetch failed (falling back to route CIDRs): %v", err)
 		} else {
 			tgwVPC.Subnets = subnets
-			tgwVPC.Region = region
 		}
 	}
 
@@ -291,12 +289,6 @@ func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallba
 
 	if tgwVPC.Region == "" && len(tgwVPC.Subnets) > 0 {
 		tgwVPC.Region = tgwVPC.Subnets[0].Region
-	}
-
-	// For direct VPC attachments (same-region TGW) without cross-account access,
-	// default to the local region since the TGW and its VPC attachments are regional.
-	if tgwVPC.Region == "" && regionOverride == "" {
-		tgwVPC.Region = p.cfg.AWSRegion
 	}
 
 	return tgwVPC
