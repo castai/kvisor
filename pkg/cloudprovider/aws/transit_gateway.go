@@ -187,7 +187,7 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	peerRegion := d.getPeerTGWRegion(ctx, peerTGWID, attID)
 
 	if p.cfg.AWSCrossAccountRoleARN != "" {
-		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, attID, peerRegion)
+		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, peerRegion)
 		if len(vpcs) > 0 {
 			return vpcs
 		}
@@ -227,7 +227,7 @@ func (d *tgwDiscovery) getPeerTGWRegion(ctx context.Context, peerTGWID, attachme
 
 // discoverVPCsBehindPeerTGW assumes a role in the peer TGW's account, enumerates
 // VPC attachments on the peer TGW, and fetches subnets for each discovered VPC.
-func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, attID, peerRegion string) []types.TransitGatewayVPC {
+func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, peerRegion string) []types.TransitGatewayVPC {
 	p := d.provider
 
 	remoteEC2, err := p.getCrossAccountClient(ctx, d.crossAccountClients, peerAccountID, peerRegion)
@@ -248,12 +248,13 @@ func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID,
 	for _, vpcAtt := range peerVPCAtts {
 		vpcID := lo.FromPtr(vpcAtt.ResourceId)
 		vpcAccountID := lo.FromPtr(vpcAtt.ResourceOwnerId)
+		vpcAttID := lo.FromPtr(vpcAtt.TransitGatewayAttachmentId)
 
 		if d.alreadyProcessed(vpcAccountID, vpcID) {
 			continue
 		}
 
-		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, attID, peerRegion))
+		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, vpcAttID, peerRegion))
 	}
 	return result
 }
