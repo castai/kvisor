@@ -103,7 +103,8 @@ func (p *Provider) collectTGWAttachments(ctx context.Context, vpcID string) (map
 }
 
 // collectTGWRouteCIDRs discovers CIDRs from TGW route tables, indexed by attachment ID.
-// These serve as a fallback when subnet-level detail isn't available.
+// These provide region-level CIDR data and serve as the primary source when
+// cross-account access is not configured, or as a fallback when subnet fetch fails.
 func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]struct{}) map[string][]netip.Prefix {
 	// helper to track CIDRs already seen if same attachment appears in multiple route tables
 	seen := make(map[string]map[netip.Prefix]struct{})
@@ -218,7 +219,7 @@ func (d *tgwDiscovery) getPeerTGWRegion(ctx context.Context, peerTGWID, attachme
 	region, err := d.provider.fetchPeeringAttachmentRegion(ctx, attachmentID, peerTGWID)
 	if err != nil {
 		d.provider.log.With("peer_tgw", peerTGWID, "attachment", attachmentID).
-			Warnf("failed to fetch peer TGW region (will use local region): %v", err)
+			Warnf("failed to fetch peer TGW region: %v", err)
 		return ""
 	}
 	d.peerTGWRegions[peerTGWID] = region
