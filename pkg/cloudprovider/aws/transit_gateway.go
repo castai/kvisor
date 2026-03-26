@@ -293,6 +293,12 @@ func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallba
 		tgwVPC.Region = tgwVPC.Subnets[0].Region
 	}
 
+	// For direct VPC attachments (same-region TGW) without cross-account access,
+	// default to the local region since the TGW and its VPC attachments are regional.
+	if tgwVPC.Region == "" && regionOverride == "" {
+		tgwVPC.Region = p.cfg.AWSRegion
+	}
+
 	return tgwVPC
 }
 
