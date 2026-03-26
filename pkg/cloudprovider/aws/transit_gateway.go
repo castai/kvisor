@@ -105,6 +105,8 @@ func (p *Provider) collectTGWAttachments(ctx context.Context, vpcID string) (map
 // collectTGWRouteCIDRs discovers CIDRs from TGW route tables, indexed by attachment ID.
 // These serve as a fallback when subnet-level detail isn't available.
 func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]struct{}) map[string][]netip.Prefix {
+	// helper to track CIDRs already seen if same attachment appears in multiple route tables
+	seen := make(map[string]map[netip.Prefix]struct{})
 	routeCIDRs := make(map[string][]netip.Prefix)
 	for tgwID := range tgwIDs {
 		routeTables, err := p.fetchTGWRouteTables(ctx, tgwID)
@@ -131,11 +133,18 @@ func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]s
 					continue
 				}
 				for _, att := range route.TransitGatewayAttachments {
-					if att.TransitGatewayAttachmentId != nil {
-						routeCIDRs[*att.TransitGatewayAttachmentId] = append(
-							routeCIDRs[*att.TransitGatewayAttachmentId], cidr,
-						)
+					if att.TransitGatewayAttachmentId == nil {
+						continue
 					}
+					attID := *att.TransitGatewayAttachmentId
+					if seen[attID] == nil {
+						seen[attID] = make(map[netip.Prefix]struct{})
+					}
+					if _, dup := seen[attID][cidr]; dup {
+						continue
+					}
+					seen[attID][cidr] = struct{}{}
+					routeCIDRs[attID] = append(routeCIDRs[attID], cidr)
 				}
 			}
 		}
