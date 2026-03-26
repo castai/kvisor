@@ -542,6 +542,8 @@ When your cluster VPC is connected to other VPCs via an [AWS Transit Gateway](ht
 
 Transit Gateway discovery works out of the box when `cloud-provider-vpc-sync-enabled: true` and `cloud-provider-vpc-name` are configured (same as VPC peering discovery). No additional flags are needed beyond the standard IAM permissions listed above. kvisor will discover TGW-attached VPCs and index their route-level CIDRs (region only, no zone detail).
 
+> **Important:** Set `cloud-provider-aws-region` to the cluster's AWS region. This is used as the region for discovered TGW VPCs and for targeting cross-account API calls. If omitted, the SDK resolves the region from the environment (instance metadata, `AWS_REGION` env var), but the discovered VPCs will have no region attribution in netflow records.
+
 ### Cross-Account Subnet Discovery (Optional)
 
 For full subnet-level detail (zone names and zone IDs), configure a cross-account IAM role that kvisor can assume in each remote account.
@@ -694,6 +696,7 @@ Add the `cloud-provider-aws-cross-account-role` flag with the `{account-id}` pla
 controller:
   extraArgs:
     cloud-provider: aws
+    cloud-provider-aws-region: "us-east-1"
     cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
     cloud-provider-aws-cross-account-role: "arn:aws:iam::{account-id}:role/KvisorCrossAccountReader"
