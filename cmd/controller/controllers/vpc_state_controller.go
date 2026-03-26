@@ -75,23 +75,21 @@ func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIn
 	maxRetries := 5
 
 	for i := 0; i < maxRetries; i++ {
-		err := c.cloudProvider.RefreshNetworkState(ctx, c.cfg.NetworkName)
-		if err != nil {
-			c.log.Warnf("VPC state refresh failed: %v", err)
-			continue
-		}
-		state, err := c.cloudProvider.GetNetworkState(ctx)
-		if err == nil {
-			if err := vpcIndex.Update(state); err != nil {
-				c.log.Errorf("failed to update VPC index: %v", err)
-			} else {
-				c.log.Info("initial VPC state loaded successfully")
-				return nil
-			}
+		var retryErr error
+
+		if err := c.cloudProvider.RefreshNetworkState(ctx, c.cfg.NetworkName); err != nil {
+			retryErr = fmt.Errorf("refreshing network state: %w", err)
+		} else if state, err := c.cloudProvider.GetNetworkState(ctx); err != nil {
+			retryErr = fmt.Errorf("getting network state: %w", err)
+		} else if err := vpcIndex.Update(state); err != nil {
+			retryErr = fmt.Errorf("updating VPC index: %w", err)
+		} else {
+			c.log.Info("initial VPC state loaded successfully")
+			return nil
 		}
 
 		if i < maxRetries-1 {
-			c.log.Warnf("VPC state fetch attempt %d/%d failed: %v, retrying in %v", i+1, maxRetries, err, backoff)
+			c.log.Warnf("VPC state fetch attempt %d/%d failed: %v, retrying in %v", i+1, maxRetries, retryErr, backoff)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
