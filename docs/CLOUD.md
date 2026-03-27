@@ -37,6 +37,7 @@ IP lookup uses a three-tier priority: **static mappings > cloud-discovered > pub
 | `cloud-provider-vpc-name` | VPC ID (AWS) or network name (GCP) | — |
 | `cloud-provider-vpc-sync-interval` | Refresh interval | `1h` |
 | `cloud-provider-vpc-cache-size` | LRU cache size for IP lookups | `10000` |
+| `cloud-provider-aws-region` | AWS region (required for TGW region attribution) | — |
 | `cloud-provider-aws-use-zone-id` | Use zone IDs (`use1-az1`) instead of zone names (`us-east-1a`) | `false` |
 | `cloud-provider-aws-cross-account-role` | Cross-account role ARN template (see [TGW docs](cloud-aws-transit-gateway.md)) | — |
 | `cloud-provider-static-cidrs-file` | Path to static CIDR YAML (see [static CIDRs](cloud-static-cidrs.md)) | — |

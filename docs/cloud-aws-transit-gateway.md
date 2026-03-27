@@ -105,9 +105,12 @@ Requires the IAM permissions from [AWS EKS setup](cloud-aws.md#iam-policy) (the 
 controller:
   extraArgs:
     cloud-provider: aws
+    cloud-provider-aws-region: "us-east-1"
     cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
 ```
+
+> **Important:** Set `cloud-provider-aws-region` to the cluster's AWS region. This is used as the region for discovered TGW VPCs and for targeting cross-account API calls. Without it, discovered VPCs may have no region attribution in netflow records.
 
 ## Cross-Account Subnet Discovery (Optional)
 
@@ -262,6 +265,7 @@ Add the `cloud-provider-aws-cross-account-role` flag. kvisor replaces `{account-
 controller:
   extraArgs:
     cloud-provider: aws
+    cloud-provider-aws-region: "us-east-1"
     cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
     cloud-provider-aws-cross-account-role: "arn:aws:iam::{account-id}:role/KvisorCrossAccountReader"
