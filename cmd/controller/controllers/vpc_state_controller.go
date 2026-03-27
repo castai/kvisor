@@ -75,18 +75,21 @@ func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIn
 	maxRetries := 5
 
 	for i := 0; i < maxRetries; i++ {
+		var retryErr error
+
 		if err := c.cloudProvider.RefreshNetworkState(ctx, c.cfg.NetworkName); err != nil {
-			c.log.Warnf("VPC state refresh failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			retryErr = fmt.Errorf("refreshing network state: %w", err)
 		} else if state, err := c.cloudProvider.GetNetworkState(ctx); err != nil {
-			c.log.Warnf("VPC state fetch failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			retryErr = fmt.Errorf("getting network state: %w", err)
 		} else if err := vpcIndex.Update(state); err != nil {
-			c.log.Errorf("failed to update VPC index: %v", err)
+			retryErr = fmt.Errorf("updating VPC index: %w", err)
 		} else {
 			c.log.Info("initial VPC state loaded successfully")
 			return nil
 		}
 
 		if i < maxRetries-1 {
+			c.log.Warnf("VPC state fetch attempt %d/%d failed: %v, retrying in %v", i+1, maxRetries, retryErr, backoff)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -99,7 +102,8 @@ func (c *VPCStateController) fetchInitialNetworkState(ctx context.Context, vpcIn
 		}
 	}
 
-	return fmt.Errorf("failed to fetch initial VPC state after %d attempts", maxRetries)
+	c.log.Errorf("failed to fetch initial VPC state after %d attempts", maxRetries)
+	return nil
 }
 
 func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.NetworkIndex) error {
@@ -130,7 +134,13 @@ func (c *VPCStateController) runRefreshLoop(ctx context.Context, vpcIndex *kube.
 				continue
 			}
 
-			c.log.Infof("VPC state refreshed successfully")
+			var subnets, peers, tgwVPCs int
+			for _, vpc := range state.VPCs {
+				subnets += len(vpc.Subnets)
+				peers += len(vpc.PeeredVPCs)
+				tgwVPCs += len(vpc.TransitGatewayVPCs)
+			}
+			c.log.Infof("VPC state refreshed successfully: %d subnets, %d peers, %d TGW VPCs", subnets, peers, tgwVPCs)
 		}
 	}
 }

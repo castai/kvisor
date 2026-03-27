@@ -46,7 +46,8 @@ var (
 	cloudProvider             = pflag.String("cloud-provider", "", "Cloud provider in which the cluster is running")
 	cloudProviderGCPProjectID = pflag.String("cloud-provider-gcp-project-id", "", "Cloud provider GCP project ID")
 	cloudProviderAWSRegion    = pflag.String("cloud-provider-aws-region", "", "Cloud provider AWS region")
-	cloudProviderAWSUseZoneID = pflag.Bool("cloud-provider-aws-use-zone-id", false, "Use zoneId instead of zoneName for AWS")
+	cloudProviderAWSUseZoneID          = pflag.Bool("cloud-provider-aws-use-zone-id", false, "Use zoneId instead of zoneName for AWS")
+	cloudProviderAWSCrossAccountRole   = pflag.String("cloud-provider-aws-cross-account-role", "", "AWS cross-account role ARN template (use {account-id} as placeholder)")
 
 	cloudProviderVPCSyncEnabled          = pflag.Bool("cloud-provider-vpc-sync-enabled", false, "Enable cloud provider VPC controller")
 	cloudProviderVPCName                 = pflag.String("cloud-provider-vpc-name", "", "Cloud provider VPC name in which the cluster is running")
@@ -222,9 +223,10 @@ func main() {
 		},
 		CloudProviderConfig: config.CloudProviderConfig{
 			CloudProvider: cloudtypes.ProviderConfig{
-				Type:         cloudProviderType,
-				GCPProjectID: *cloudProviderGCPProjectID,
-				AWSRegion:    *cloudProviderAWSRegion,
+				Type:                   cloudProviderType,
+				GCPProjectID:           *cloudProviderGCPProjectID,
+				AWSRegion:              *cloudProviderAWSRegion,
+				AWSCrossAccountRoleARN: *cloudProviderAWSCrossAccountRole,
 			},
 			NetworkStateController: controllers.NetworkStateControllerConfig{
 				Enabled:                    *cloudProviderVPCSyncEnabled,

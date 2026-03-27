@@ -67,9 +67,6 @@ type NetworkIndex struct {
 	mu    sync.RWMutex
 	state *cloudtypes.NetworkState
 
-	vpcCIDRs    []string
-	subnetCIDRs []string
-	peerCIDRs   []string
 	staticCIDRs []cidrindex.Entry[NetworkIPInfo] // User-provided static CIDR mappings
 
 	cloudCIDRIndex       *cidrindex.Index[NetworkIPInfo] // rebuilt on every cloud update
@@ -91,20 +88,28 @@ type NetworkConfig struct {
 	UseAwsZoneId               bool
 }
 
-// NewNetworkIndex creates a new VPC index.
+// NewNetworkIndex creates a new network index for IP-to-metadata lookups.
 func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 	cloudIdx, err := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.NetworkRefreshInterval)
 	if err != nil {
-		log.Warnf("failed to create cloud CIDR index: %v", err)
-		// Create without cache
-		cloudIdx, _ = cidrindex.NewIndex[NetworkIPInfo](0, 0)
+		log.Warnf("failed to create cloud CIDR index with cache size %d: %v; creating without cache", cfg.CacheSize, err)
+		cloudIdx, err = cidrindex.NewIndex[NetworkIPInfo](0, 0)
+		if err != nil {
+			log.Errorf("failed to create fallback cloud CIDR index: %v", err)
+		}
 	}
 
-	// Static index no need cache, it is small and never rebuilt.
-	staticIdx, _ := cidrindex.NewIndex[NetworkIPInfo](0, 0)
+	// Static index does not use a cache; it is populated once at startup.
+	staticIdx, err := cidrindex.NewIndex[NetworkIPInfo](0, 0)
+	if err != nil {
+		log.Errorf("failed to create static CIDR index: %v", err)
+	}
 
-	// Cloud public index: small, rebuilt on fetch from public endpoints.
-	cloudPublicIdx, _ := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.PublicCIDRsRefreshInterval)
+	// Cloud public index: rebuilt on each fetch from public cloud endpoints.
+	cloudPublicIdx, err := cidrindex.NewIndex[NetworkIPInfo](cfg.CacheSize, cfg.PublicCIDRsRefreshInterval)
+	if err != nil {
+		log.Errorf("failed to create cloud public CIDR index: %v", err)
+	}
 
 	return &NetworkIndex{
 		log:                  log,
@@ -112,13 +117,10 @@ func NewNetworkIndex(log *logging.Logger, cfg NetworkConfig) *NetworkIndex {
 		cloudCIDRIndex:       cloudIdx,
 		staticCIDRIndex:      staticIdx,
 		cloudPublicCIDRIndex: cloudPublicIdx,
-		vpcCIDRs:             make([]string, 0),
-		subnetCIDRs:          make([]string, 0),
-		peerCIDRs:            make([]string, 0),
 	}
 }
 
-// Update updates the VPC state and rebuilds the CIDR tree.
+// Update replaces the cloud-discovered network state and rebuilds the CIDR index.
 func (vi *NetworkIndex) Update(state *cloudtypes.NetworkState) error {
 	if vi == nil {
 		return nil
@@ -137,10 +139,7 @@ func (vi *NetworkIndex) Update(state *cloudtypes.NetworkState) error {
 		return err
 	}
 
-	vi.log.Debugf(
-		"VPC index updated: vpc_cidrs=%v, subnet_cidrs=%v, peer_cidrs=%v",
-		vi.vpcCIDRs, vi.subnetCIDRs, vi.peerCIDRs,
-	)
+	vi.log.Debugf("VPC index rebuilt: %d cloud CIDR entries", len(entries))
 	return nil
 }
 
@@ -212,7 +211,7 @@ func (vi *NetworkIndex) UpdateCloudPublicCIDRs(domain string, serviceRanges []cl
 	}
 
 	vi.cloudPublicServiceRanges = serviceRanges
-	vi.log.Debugf("cloud public CIDR index updated: %d entries across %d regions", len(entries), len(serviceRanges))
+	vi.log.Debugf("cloud public CIDR index rebuilt: %d entries", len(entries))
 	return nil
 }
 
@@ -223,14 +222,10 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 	}
 
 	var entries []cidrindex.Entry[NetworkIPInfo]
-	var vpcCIDRs []string
-	var subnetCIDRs []string
-	var peerCIDRs []string
 
 	// Index VPC and subnet CIDRs
 	for _, vpc := range state.VPCs {
 		for _, cidr := range vpc.CIDRs {
-			vpcCIDRs = append(vpcCIDRs, cidr.String())
 			entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 				CIDR:     cidr,
 				Metadata: NetworkIPInfo{},
@@ -243,7 +238,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 			if vi.cfg.UseAwsZoneId {
 				subnetZone = subnet.ZoneId
 			}
-			subnetCIDRs = append(subnetCIDRs, subnet.CIDR.String())
 			entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 				CIDR: subnet.CIDR,
 				Metadata: NetworkIPInfo{
@@ -254,7 +248,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 
 			// Index secondary ranges (GKE alias IPs)
 			for _, secondary := range subnet.SecondaryRanges {
-				subnetCIDRs = append(subnetCIDRs, secondary.CIDR.String())
 				entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 					CIDR: secondary.CIDR,
 					Metadata: NetworkIPInfo{
@@ -272,7 +265,6 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 				if vi.cfg.UseAwsZoneId {
 					peerZone = cidrRange.ZoneId
 				}
-				peerCIDRs = append(peerCIDRs, cidrRange.CIDR.String())
 				entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
 					CIDR: cidrRange.CIDR,
 					Metadata: NetworkIPInfo{
@@ -283,15 +275,43 @@ func (vi *NetworkIndex) buildCIDREntries(state *cloudtypes.NetworkState) []cidri
 			}
 		}
 
+		// Index Transit Gateway VPC CIDRs
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			if len(tgwVPC.Subnets) > 0 {
+				for _, subnet := range tgwVPC.Subnets {
+					subnetZone := subnet.Zone
+					if vi.cfg.UseAwsZoneId {
+						subnetZone = subnet.ZoneId
+					}
+					entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
+						CIDR: subnet.CIDR,
+						Metadata: NetworkIPInfo{
+							Zone:               subnetZone,
+							Region:             subnet.Region,
+							ConnectivityMethod: ConnectivityTransitGateway,
+						},
+					})
+				}
+			} else {
+				for _, cidr := range tgwVPC.CIDRs {
+					entries = append(entries, cidrindex.Entry[NetworkIPInfo]{
+						CIDR: cidr,
+						Metadata: NetworkIPInfo{
+							Region:             tgwVPC.Region,
+							ConnectivityMethod: ConnectivityTransitGateway,
+						},
+					})
+				}
+			}
+		}
+
 	}
 
-	vi.vpcCIDRs = vpcCIDRs
-	vi.subnetCIDRs = subnetCIDRs
-	vi.peerCIDRs = peerCIDRs
 	return entries
 }
 
-// LookupIP looks up VPC state for an IP address.
+// LookupIP looks up network metadata for an IP address, checking static mappings first,
+// then cloud-discovered CIDRs, then public cloud service ranges.
 func (vi *NetworkIndex) LookupIP(ip netip.Addr) (*NetworkIPInfo, bool) {
 	if vi == nil {
 		return nil, false
@@ -301,36 +321,18 @@ func (vi *NetworkIndex) LookupIP(ip netip.Addr) (*NetworkIPInfo, bool) {
 	defer vi.mu.RUnlock()
 
 	if result, found := vi.staticCIDRIndex.Lookup(ip); found {
-		return &NetworkIPInfo{
-			Zone:               result.Metadata.Zone,
-			Region:             result.Metadata.Region,
-			CloudDomain:        result.Metadata.CloudDomain,
-			WorkloadName:       result.Metadata.WorkloadName,
-			WorkloadKind:       result.Metadata.WorkloadKind,
-			ConnectivityMethod: result.Metadata.ConnectivityMethod,
-		}, true
+		info := result.Metadata
+		return &info, true
 	}
 
 	if result, found := vi.cloudCIDRIndex.Lookup(ip); found {
-		return &NetworkIPInfo{
-			Zone:               result.Metadata.Zone,
-			Region:             result.Metadata.Region,
-			CloudDomain:        result.Metadata.CloudDomain,
-			WorkloadName:       result.Metadata.WorkloadName,
-			WorkloadKind:       result.Metadata.WorkloadKind,
-			ConnectivityMethod: result.Metadata.ConnectivityMethod,
-		}, true
+		info := result.Metadata
+		return &info, true
 	}
 
 	if result, found := vi.cloudPublicCIDRIndex.Lookup(ip); found {
-		return &NetworkIPInfo{
-			Zone:               result.Metadata.Zone,
-			Region:             result.Metadata.Region,
-			CloudDomain:        result.Metadata.CloudDomain,
-			WorkloadName:       result.Metadata.WorkloadName,
-			WorkloadKind:       result.Metadata.WorkloadKind,
-			ConnectivityMethod: result.Metadata.ConnectivityMethod,
-		}, true
+		info := result.Metadata
+		return &info, true
 	}
 
 	return nil, false
@@ -355,6 +357,12 @@ func (vi *NetworkIndex) VpcCIDRs() []string {
 			knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
 			for _, secondaryRange := range subnet.SecondaryRanges {
 				knownCIDRs = append(knownCIDRs, secondaryRange.CIDR.String())
+			}
+		}
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			knownCIDRs = append(knownCIDRs, netsToStrings(tgwVPC.CIDRs)...)
+			for _, subnet := range tgwVPC.Subnets {
+				knownCIDRs = append(knownCIDRs, subnet.CIDR.String())
 			}
 		}
 	}

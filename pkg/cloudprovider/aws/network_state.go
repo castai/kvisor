@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -23,7 +24,7 @@ func (p *Provider) GetNetworkState(ctx context.Context) (*types.NetworkState, er
 }
 
 func (p *Provider) RefreshNetworkState(ctx context.Context, network string) error {
-	p.log.Info("refreshing AWS metadata")
+	p.log.Debug("refreshing AWS metadata")
 
 	metadata := &types.NetworkState{
 		Domain:   types.DomainAWS,
@@ -40,8 +41,58 @@ func (p *Provider) RefreshNetworkState(ctx context.Context, network string) erro
 	p.networkState = metadata
 	p.networkStateMu.Unlock()
 
-	p.log.Info("refreshed vpc metadata")
+	p.logNetworkStateSummary(metadata)
 	return nil
+}
+
+func (p *Provider) logNetworkStateSummary(state *types.NetworkState) {
+	var (
+		vpcCount            int
+		subnetCount         int
+		peeredVPCCount      int
+		tgwVPCCount         int
+		tgwVPCsWithSubnets  int
+		tgwVPCsCIDROnly     int
+		tgwAccounts         = make(map[string]struct{})
+		tgwRegions          = make(map[string]struct{})
+	)
+
+	for _, vpc := range state.VPCs {
+		vpcCount++
+		subnetCount += len(vpc.Subnets)
+		peeredVPCCount += len(vpc.PeeredVPCs)
+
+		for _, tgwVPC := range vpc.TransitGatewayVPCs {
+			tgwVPCCount++
+			if len(tgwVPC.Subnets) > 0 {
+				tgwVPCsWithSubnets++
+			} else {
+				tgwVPCsCIDROnly++
+			}
+			if tgwVPC.AccountID != "" {
+				tgwAccounts[tgwVPC.AccountID] = struct{}{}
+			}
+			if tgwVPC.Region != "" {
+				tgwRegions[tgwVPC.Region] = struct{}{}
+			}
+		}
+	}
+
+	l := p.log.
+		With("vpcs", vpcCount).
+		With("subnets", subnetCount).
+		With("peered_vpcs", peeredVPCCount).
+		With("tgw_vpcs", tgwVPCCount)
+
+	if tgwVPCCount > 0 {
+		l = l.
+			With("tgw_vpcs_with_subnets", tgwVPCsWithSubnets).
+			With("tgw_vpcs_cidr_only", tgwVPCsCIDROnly).
+			With("tgw_accounts", sortedKeys(tgwAccounts)).
+			With("tgw_regions", sortedKeys(tgwRegions))
+	}
+
+	l.Info("network state refreshed")
 }
 
 // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcs.html
@@ -103,10 +154,17 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 			vpcObj.PeeredVPCs = peeredVPCs
 		}
 
+		tgwVPCs, err := p.fetchTransitGatewayVPCs(ctx, vpcID)
+		if err != nil {
+			p.log.With("vpc", vpcID).Warnf("fetching Transit Gateway VPCs: %v", err)
+		} else {
+			vpcObj.TransitGatewayVPCs = tgwVPCs
+		}
+
 		vpcs = append(vpcs, vpcObj)
 	}
 
-	p.log.With("count", len(vpcs)).Info("fetched VPCs")
+	p.log.With("count", len(vpcs)).With("region", p.cfg.AWSRegion).Debug("fetched VPCs")
 	return vpcs, nil
 }
 
@@ -150,7 +208,8 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 	p.log.
 		With("count", len(subnets)).
 		With("vpc", vpcID).
-		Info("fetched subnets")
+		With("region", p.cfg.AWSRegion).
+		Debug("fetched subnets")
 
 	return subnets, nil
 }
@@ -184,7 +243,8 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 	p.log.
 		With("count", len(peeredVPCs)).
 		With("vpc", vpcID).
-		Info("fetched peered VPCs")
+		With("region", p.cfg.AWSRegion).
+		Debug("fetched peered VPCs")
 
 	return peeredVPCs, nil
 }
@@ -259,6 +319,15 @@ func getTagValue(tags []ec2types.Tag, key string) string {
 		}
 	}
 	return ""
+}
+
+func sortedKeys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // extractRegion extracts region from availability zone.

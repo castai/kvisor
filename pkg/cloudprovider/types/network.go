@@ -20,7 +20,8 @@ type VPC struct {
 	Name       string
 	CIDRs      []netip.Prefix // GCP does not have CIDR on vpc level
 	Subnets    []Subnet
-	PeeredVPCs []PeeredVPC
+	PeeredVPCs         []PeeredVPC
+	TransitGatewayVPCs []TransitGatewayVPC
 }
 
 // Subnet represents a subnet within a VPC.
@@ -53,4 +54,15 @@ type PeeredVPCRange struct {
 type PeeredVPC struct {
 	Name   string
 	Ranges []PeeredVPCRange
+}
+
+// TransitGatewayVPC represents a VPC discovered via AWS Transit Gateway.
+// Either Subnets (preferred, via cross-account access) or CIDRs (fallback
+// from TGW route tables) will be populated, but not both.
+type TransitGatewayVPC struct {
+	VPCID     string
+	AccountID string
+	Region    string
+	CIDRs     []netip.Prefix // VPC-level CIDRs from TGW route tables (fallback when cross-account access unavailable)
+	Subnets   []Subnet       // Subnet-level detail with zone info (via cross-account role assumption)
 }

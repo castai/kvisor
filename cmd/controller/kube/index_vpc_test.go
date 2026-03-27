@@ -614,6 +614,178 @@ func TestVPCIndex(t *testing.T) {
 		r.Equal("", info.WorkloadKind)
 	})
 
+	t.Run("lookup IP in Transit Gateway VPC subnet", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID: "vpc-1",
+					TransitGatewayVPCs: []cloudtypes.TransitGatewayVPC{
+						{
+							VPCID:     "vpc-remote-1",
+							AccountID: "123456789012",
+							Region:    "us-west-2",
+							Subnets: []cloudtypes.Subnet{
+								{
+									ID:     "subnet-remote-1",
+									CIDR:   netip.MustParsePrefix("172.16.1.0/24"),
+									Zone:   "us-west-2a",
+									ZoneId: "usw2-az1",
+									Region: "us-west-2",
+								},
+								{
+									ID:     "subnet-remote-2",
+									CIDR:   netip.MustParsePrefix("172.16.2.0/24"),
+									Zone:   "us-west-2b",
+									ZoneId: "usw2-az2",
+									Region: "us-west-2",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		err := index.Update(state)
+		r.NoError(err)
+
+		// Lookup IP in TGW remote subnet
+		info, found := index.LookupIP(netip.MustParseAddr("172.16.1.50"))
+		r.True(found)
+		r.NotNil(info)
+		r.Equal("us-west-2a", info.Zone)
+		r.Equal("us-west-2", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
+
+		info, found = index.LookupIP(netip.MustParseAddr("172.16.2.100"))
+		r.True(found)
+		r.NotNil(info)
+		r.Equal("us-west-2b", info.Zone)
+		r.Equal("us-west-2", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
+	})
+
+	t.Run("lookup IP in Transit Gateway VPC subnet with UseAwsZoneId", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{
+			NetworkRefreshInterval: 1 * time.Hour,
+			CacheSize:              1000,
+			UseAwsZoneId:           true,
+		})
+
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID: "vpc-1",
+					TransitGatewayVPCs: []cloudtypes.TransitGatewayVPC{
+						{
+							VPCID:     "vpc-remote-1",
+							AccountID: "123456789012",
+							Region:    "us-west-2",
+							Subnets: []cloudtypes.Subnet{
+								{
+									ID:     "subnet-remote-1",
+									CIDR:   netip.MustParsePrefix("172.16.1.0/24"),
+									Zone:   "us-west-2a",
+									ZoneId: "usw2-az1",
+									Region: "us-west-2",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		err := index.Update(state)
+		r.NoError(err)
+
+		// With UseAwsZoneId, should return zone ID instead of zone name
+		info, found := index.LookupIP(netip.MustParseAddr("172.16.1.50"))
+		r.True(found)
+		r.NotNil(info)
+		r.Equal("usw2-az1", info.Zone)
+		r.Equal("us-west-2", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
+	})
+
+	t.Run("lookup IP in Transit Gateway VPC with CIDR fallback", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID: "vpc-1",
+					TransitGatewayVPCs: []cloudtypes.TransitGatewayVPC{
+						{
+							VPCID:     "vpc-remote-2",
+							AccountID: "987654321098",
+							Region:    "eu-west-1",
+							CIDRs:     []netip.Prefix{netip.MustParsePrefix("10.200.0.0/16")},
+						},
+					},
+				},
+			},
+		}
+
+		err := index.Update(state)
+		r.NoError(err)
+
+		// Lookup IP in TGW VPC CIDR (no subnet detail)
+		info, found := index.LookupIP(netip.MustParseAddr("10.200.5.10"))
+		r.True(found)
+		r.NotNil(info)
+		r.Equal("", info.Zone) // No zone when using CIDR fallback
+		r.Equal("eu-west-1", info.Region)
+		r.Equal(ConnectivityTransitGateway, info.ConnectivityMethod)
+	})
+
+	t.Run("VpcCIDRs includes Transit Gateway VPC CIDRs and subnets", func(t *testing.T) {
+		r := require.New(t)
+		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
+
+		state := &cloudtypes.NetworkState{
+			VPCs: []cloudtypes.VPC{
+				{
+					ID:    "vpc-1",
+					CIDRs: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")},
+					Subnets: []cloudtypes.Subnet{
+						{ID: "subnet-1", CIDR: netip.MustParsePrefix("10.0.1.0/24")},
+					},
+					TransitGatewayVPCs: []cloudtypes.TransitGatewayVPC{
+						{
+							VPCID:     "vpc-remote-1",
+							AccountID: "123456789012",
+							Subnets: []cloudtypes.Subnet{
+								{ID: "subnet-remote-1", CIDR: netip.MustParsePrefix("172.16.1.0/24")},
+								{ID: "subnet-remote-2", CIDR: netip.MustParsePrefix("172.16.2.0/24")},
+							},
+						},
+						{
+							VPCID:     "vpc-remote-2",
+							AccountID: "987654321098",
+							CIDRs:     []netip.Prefix{netip.MustParsePrefix("10.200.0.0/16")},
+						},
+					},
+				},
+			},
+		}
+
+		err := index.Update(state)
+		r.NoError(err)
+
+		cidrs := index.VpcCIDRs()
+		r.Contains(cidrs, "10.0.0.0/16")
+		r.Contains(cidrs, "10.0.1.0/24")
+		r.Contains(cidrs, "172.16.1.0/24")
+		r.Contains(cidrs, "172.16.2.0/24")
+		r.Contains(cidrs, "10.200.0.0/16")
+	})
+
 	t.Run("invalid static CIDRs", func(t *testing.T) {
 		r := require.New(t)
 		index := NewNetworkIndex(log, NetworkConfig{NetworkRefreshInterval: 1 * time.Hour, CacheSize: 1000})
