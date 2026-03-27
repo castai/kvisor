@@ -62,7 +62,7 @@ func (p *Provider) fetchTransitGatewayVPCs(ctx context.Context, vpcID string) ([
 		}
 	}
 
-	p.log.With("count", len(result), "vpc", vpcID).Debug("fetched Transit Gateway VPCs")
+	p.log.With("count", len(result), "vpc", vpcID, "region", p.cfg.AWSRegion).Debug("fetched Transit Gateway VPCs")
 	return result, nil
 }
 
@@ -103,8 +103,11 @@ func (p *Provider) collectTGWAttachments(ctx context.Context, vpcID string) (map
 }
 
 // collectTGWRouteCIDRs discovers CIDRs from TGW route tables, indexed by attachment ID.
-// These serve as a fallback when subnet-level detail isn't available.
+// These provide region-level CIDR data and serve as the primary source when
+// cross-account access is not configured, or as a fallback when subnet fetch fails.
 func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]struct{}) map[string][]netip.Prefix {
+	// helper to track CIDRs already seen if same attachment appears in multiple route tables
+	seen := make(map[string]map[netip.Prefix]struct{})
 	routeCIDRs := make(map[string][]netip.Prefix)
 	for tgwID := range tgwIDs {
 		routeTables, err := p.fetchTGWRouteTables(ctx, tgwID)
@@ -131,11 +134,18 @@ func (p *Provider) collectTGWRouteCIDRs(ctx context.Context, tgwIDs map[string]s
 					continue
 				}
 				for _, att := range route.TransitGatewayAttachments {
-					if att.TransitGatewayAttachmentId != nil {
-						routeCIDRs[*att.TransitGatewayAttachmentId] = append(
-							routeCIDRs[*att.TransitGatewayAttachmentId], cidr,
-						)
+					if att.TransitGatewayAttachmentId == nil {
+						continue
 					}
+					attID := *att.TransitGatewayAttachmentId
+					if seen[attID] == nil {
+						seen[attID] = make(map[netip.Prefix]struct{})
+					}
+					if _, dup := seen[attID][cidr]; dup {
+						continue
+					}
+					seen[attID][cidr] = struct{}{}
+					routeCIDRs[attID] = append(routeCIDRs[attID], cidr)
 				}
 			}
 		}
@@ -161,7 +171,7 @@ func (d *tgwDiscovery) resolveVPCAttachment(ctx context.Context, att ec2types.Tr
 		return types.TransitGatewayVPC{}, false
 	}
 
-	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID, "")
+	tgwVPC := d.buildTGWVPC(ctx, accountID, vpcID, attID, d.provider.cfg.AWSRegion)
 	return tgwVPC, true
 }
 
@@ -178,7 +188,7 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	peerRegion := d.getPeerTGWRegion(ctx, peerTGWID, attID)
 
 	if p.cfg.AWSCrossAccountRoleARN != "" {
-		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, attID, peerRegion)
+		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, peerRegion)
 		if len(vpcs) > 0 {
 			return vpcs
 		}
@@ -209,7 +219,7 @@ func (d *tgwDiscovery) getPeerTGWRegion(ctx context.Context, peerTGWID, attachme
 	region, err := d.provider.fetchPeeringAttachmentRegion(ctx, attachmentID, peerTGWID)
 	if err != nil {
 		d.provider.log.With("peer_tgw", peerTGWID, "attachment", attachmentID).
-			Warnf("failed to fetch peer TGW region (will use local region): %v", err)
+			Warnf("failed to fetch peer TGW region: %v", err)
 		return ""
 	}
 	d.peerTGWRegions[peerTGWID] = region
@@ -218,7 +228,7 @@ func (d *tgwDiscovery) getPeerTGWRegion(ctx context.Context, peerTGWID, attachme
 
 // discoverVPCsBehindPeerTGW assumes a role in the peer TGW's account, enumerates
 // VPC attachments on the peer TGW, and fetches subnets for each discovered VPC.
-func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, attID, peerRegion string) []types.TransitGatewayVPC {
+func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, peerRegion string) []types.TransitGatewayVPC {
 	p := d.provider
 
 	remoteEC2, err := p.getCrossAccountClient(ctx, d.crossAccountClients, peerAccountID, peerRegion)
@@ -239,36 +249,35 @@ func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID,
 	for _, vpcAtt := range peerVPCAtts {
 		vpcID := lo.FromPtr(vpcAtt.ResourceId)
 		vpcAccountID := lo.FromPtr(vpcAtt.ResourceOwnerId)
+		vpcAttID := lo.FromPtr(vpcAtt.TransitGatewayAttachmentId)
 
 		if d.alreadyProcessed(vpcAccountID, vpcID) {
 			continue
 		}
 
-		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, attID, peerRegion))
+		result = append(result, d.buildTGWVPC(ctx, vpcAccountID, vpcID, vpcAttID, peerRegion))
 	}
 	return result
 }
 
 // buildTGWVPC creates a TransitGatewayVPC, enriching with subnet detail via
 // cross-account role assumption when configured, falling back to route CIDRs otherwise.
-// regionOverride, when non-empty, targets the cross-account client at a specific region
-// (used for VPCs behind a peer TGW in a different region).
-func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID, regionOverride string) types.TransitGatewayVPC {
+func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallbackAttID, region string) types.TransitGatewayVPC {
 	p := d.provider
 
 	tgwVPC := types.TransitGatewayVPC{
 		VPCID:     vpcID,
 		AccountID: accountID,
+		Region:    region,
 	}
 
 	if p.cfg.AWSCrossAccountRoleARN != "" {
-		subnets, region, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID, regionOverride)
+		subnets, _, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID, region)
 		if err != nil {
 			p.log.With("vpc", vpcID, "account", accountID).
 				Warnf("cross-account subnet fetch failed (falling back to route CIDRs): %v", err)
 		} else {
 			tgwVPC.Subnets = subnets
-			tgwVPC.Region = region
 		}
 	}
 
@@ -285,6 +294,7 @@ func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallba
 	return tgwVPC
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayAttachments.html
 // fetchTGWAttachments returns TGW VPC attachments for a specific VPC.
 func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
@@ -305,10 +315,11 @@ func (p *Provider) fetchTGWAttachments(ctx context.Context, vpcID string) ([]ec2
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
-	p.log.Debugf("found %d TGW attachments for vpc %s", len(attachments), vpcID)
+	p.log.With("count", len(attachments), "vpc", vpcID, "region", p.cfg.AWSRegion).Debug("found TGW attachments")
 	return attachments, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayAttachments.html
 // fetchAllTGWAttachments returns all attachments for a given Transit Gateway.
 func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
@@ -328,10 +339,11 @@ func (p *Provider) fetchAllTGWAttachments(ctx context.Context, tgwID string) ([]
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
-	p.log.Debugf("found %d attachments for tgw %s", len(attachments), tgwID)
+	p.log.With("count", len(attachments), "tgw", tgwID, "region", p.cfg.AWSRegion).Debug("found TGW attachments")
 	return attachments, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayRouteTables.html
 // fetchTGWRouteTables returns route tables for a given Transit Gateway.
 func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2types.TransitGatewayRouteTable, error) {
 	input := &ec2.DescribeTransitGatewayRouteTablesInput{
@@ -351,10 +363,11 @@ func (p *Provider) fetchTGWRouteTables(ctx context.Context, tgwID string) ([]ec2
 		routeTables = append(routeTables, page.TransitGatewayRouteTables...)
 	}
 
-	p.log.Debugf("found %d route tables for tgw %s", len(routeTables), tgwID)
+	p.log.With("count", len(routeTables), "tgw", tgwID, "region", p.cfg.AWSRegion).Debug("found TGW route tables")
 	return routeTables, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayRoutes.html
 // searchTGWRoutes searches for active routes in a TGW route table.
 func (p *Provider) searchTGWRoutes(ctx context.Context, routeTableID string) ([]ec2types.TransitGatewayRoute, error) {
 	input := &ec2.SearchTransitGatewayRoutesInput{
@@ -406,10 +419,11 @@ func (p *Provider) buildCrossAccountEC2Client(ctx context.Context, accountID, re
 	creds := stscreds.NewAssumeRoleProvider(stsClient, roleARN)
 	awsCfg.Credentials = aws.NewCredentialsCache(creds)
 
-	p.log.Debugf("assuming cross-account role %s for account %s (region %s)", roleARN, accountID, awsCfg.Region)
+	p.log.With("role", roleARN, "account", accountID, "region", awsCfg.Region).Debug("assuming cross-account role")
 	return ec2.NewFromConfig(awsCfg), nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayAttachments.html
 // fetchPeerTGWVPCAttachments discovers VPC attachments on a remote (peer) Transit Gateway.
 func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec2.Client, peerTGWID string) ([]ec2types.TransitGatewayAttachment, error) {
 	input := &ec2.DescribeTransitGatewayAttachmentsInput{
@@ -430,10 +444,11 @@ func (p *Provider) fetchPeerTGWVPCAttachments(ctx context.Context, remoteEC2 *ec
 		attachments = append(attachments, page.TransitGatewayAttachments...)
 	}
 
-	p.log.Debugf("found %d VPC attachments on peer TGW %s", len(attachments), peerTGWID)
+	p.log.With("count", len(attachments), "peer_tgw", peerTGWID, "region", remoteEC2.Options().Region).Debug("found VPC attachments on peer TGW")
 	return attachments, nil
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGatewayPeeringAttachments.html
 // fetchPeeringAttachmentRegion looks up the region of a peer TGW by inspecting the
 // peering attachment details. It calls DescribeTransitGatewayPeeringAttachments on the
 // local EC2 client (no cross-account needed) and returns the region of whichever side
@@ -491,6 +506,7 @@ func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache 
 	return p.fetchRemoteSubnets(ctx, client, vpcID)
 }
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSubnets.html
 // fetchRemoteSubnets fetches subnets from a remote account's VPC using a pre-built EC2 client.
 func (p *Provider) fetchRemoteSubnets(ctx context.Context, remoteEC2 *ec2.Client, vpcID string) ([]types.Subnet, string, error) {
 	input := &ec2.DescribeSubnetsInput{

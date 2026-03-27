@@ -164,7 +164,7 @@ func (p *Provider) fetchVPCs(ctx context.Context, networkID string) ([]types.VPC
 		vpcs = append(vpcs, vpcObj)
 	}
 
-	p.log.With("count", len(vpcs)).Debug("fetched VPCs")
+	p.log.With("count", len(vpcs)).With("region", p.cfg.AWSRegion).Debug("fetched VPCs")
 	return vpcs, nil
 }
 
@@ -208,6 +208,7 @@ func (p *Provider) fetchSubnets(ctx context.Context, vpcID string) ([]types.Subn
 	p.log.
 		With("count", len(subnets)).
 		With("vpc", vpcID).
+		With("region", p.cfg.AWSRegion).
 		Debug("fetched subnets")
 
 	return subnets, nil
@@ -242,6 +243,7 @@ func (p *Provider) fetchPeeredVPCs(ctx context.Context, vpcID string) ([]types.P
 	p.log.
 		With("count", len(peeredVPCs)).
 		With("vpc", vpcID).
+		With("region", p.cfg.AWSRegion).
 		Debug("fetched peered VPCs")
 
 	return peeredVPCs, nil
