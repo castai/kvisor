@@ -155,6 +155,7 @@ controller:
     cloud-provider: aws
     cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+    # cloud-provider-aws-region: "us-east-1"  # Recommended; required if using Transit Gateway
     # cloud-provider-vpc-sync-interval: 1h
     # cloud-provider-vpc-cache-size: 10000
     # cloud-provider-aws-use-zone-id: true
@@ -238,6 +239,7 @@ controller:
     cloud-provider: aws
     cloud-provider-vpc-sync-enabled: true
     cloud-provider-vpc-name: "vpc-0123456789abcdef0"
+    # cloud-provider-aws-region: "us-east-1"  # Recommended; required if using Transit Gateway
     # cloud-provider-vpc-sync-interval: 1h
     # cloud-provider-vpc-cache-size: 10000
     # cloud-provider-aws-use-zone-id: true

@@ -64,9 +64,10 @@ When a TGW has peering attachments, kvisor follows the peer to discover VPCs beh
 
   Discovery flow:
     1. kvisor finds TGW-1 peering attachment → resolves peer TGW-2 region (eu-west-1)
-    2. Queries TGW-2 attachments and route tables in eu-west-1
-    3. Discovers VPC C and VPC D CIDRs from TGW-2 routes
-    4. If cross-account role configured → fetches subnet detail from accounts 444, 555
+    2. If cross-account role configured:
+       a. Assumes role in peer account → queries TGW-2 VPC attachments in eu-west-1
+       b. Fetches subnet details (CIDRs, zones) from VPC C and VPC D via DescribeSubnets
+    3. Without cross-account role: uses CIDRs from TGW-1's local route table (region only, no AZ detail)
 ```
 
 ### 3. Fallback Behavior Summary
