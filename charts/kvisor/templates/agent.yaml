@@ -56,8 +56,9 @@ spec:
       securityContext:
         {{- toYaml .Values.agent.securityContext | nindent 8 }}
       priorityClassName: {{ .Values.agent.priorityClass }}
-      {{- if (include "kvisor.gpuEnabled" .) }}
+      {{- if or (include "kvisor.gpuEnabled" .) (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
       initContainers:
+      {{- if (include "kvisor.gpuEnabled" .) }}
         - name: gpu-feature-discovery
           image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -81,6 +82,10 @@ spec:
             - name: gpu-sa-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+      {{- end }}
+      {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
+        {{- include "kvisor.obi.initContainer" . | nindent 8 }}
+      {{- end }}
       {{- end }}
       containers:
         - name: kvisor
@@ -203,16 +208,32 @@ spec:
             {{- end }}
       {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
         - name: obi
-          image: "{{ .Values.agent.reliabilityMetrics.image.repository }}:{{ .Values.agent.reliabilityMetrics.image.tag }}"
+          image: "{{ .Values.agent.reliabilityMetrics.obi.image.repository }}:{{ .Values.agent.reliabilityMetrics.obi.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+          command: ["/shared/entrypoint.sh"]
+        {{- end }}
           securityContext:
             {{- include "kvisor.obi.containerSecurityContext" . | nindent 12 }}
           resources:
-            {{- toYaml .Values.agent.reliabilityMetrics.resources | nindent 12 }}
+            {{- include "kvisor.obi.profileResources" .Values.agent.reliabilityMetrics.obi | nindent 12 }}
           env:
-            {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.resources.limits.memory | nindent 12 }}
+          {{- if not (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+            {{- $profile := .Values.agent.reliabilityMetrics.obi.sizingProfile | default "medium" -}}
+            {{- if eq $profile "small" }}
+            {{- include "GOMEMLIMITEnv" "256Mi" | nindent 12 }}
+            {{- else if eq $profile "medium" }}
+            {{- include "GOMEMLIMITEnv" "512Mi" | nindent 12 }}
+            {{- else if eq $profile "large" }}
+            {{- include "GOMEMLIMITEnv" "768Mi" | nindent 12 }}
+            {{- else if eq $profile "xlarge" }}
+            {{- include "GOMEMLIMITEnv" "1Gi" | nindent 12 }}
+            {{- else }}
+            {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.obi.resources.limits.memory | nindent 12 }}
+            {{- end }}
+          {{- end }}
             - name: OTEL_EBPF_OPEN_PORT
-              value: {{ .Values.agent.reliabilityMetrics.openPorts | quote }}
+              value: {{ .Values.agent.reliabilityMetrics.obi.openPorts | quote }}
           {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://localhost:4317"
@@ -235,7 +256,7 @@ spec:
               value: {{ . | quote }}
             {{- end }}
           {{- end }}
-          {{- range $k, $v := .Values.agent.reliabilityMetrics.env }}
+          {{- range $k, $v := .Values.agent.reliabilityMetrics.obi.env }}
             - name: {{ $k }}
               value: "{{ $v }}"
           {{- end }}
@@ -246,6 +267,11 @@ spec:
               protocol: TCP
           {{- end }}
           volumeMounts:
+          {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+            - name: obi-shared
+              mountPath: /shared
+              readOnly: true
+          {{- end }}
             - name: var-run-obi
               mountPath: /var/run/beyla
             - name: cgroups
@@ -450,6 +476,11 @@ spec:
       {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
         - name: var-run-obi
           emptyDir: {}
+      {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+        - name: obi-shared
+          emptyDir:
+            sizeLimit: 2Mi
+      {{- end }}
         # Projected SA token for OBI — enables K8s metadata decoration
         # (namespace, pod, deployment labels) without setting
         # automountServiceAccountToken=true for the entire pod.

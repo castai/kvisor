@@ -363,10 +363,10 @@ Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
 OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
 Uses fine-grained capabilities instead of privileged: true.
 Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.
-Can be overridden via .Values.agent.reliabilityMetrics.containerSecurityContext.
+Can be overridden via .Values.agent.reliabilityMetrics.obi.containerSecurityContext.
 */}}
 {{- define "kvisor.obi.containerSecurityContext" -}}
-{{- $override := .Values.agent.reliabilityMetrics.containerSecurityContext -}}
+    {{- $override := .Values.agent.reliabilityMetrics.obi.containerSecurityContext -}}
 {{- if $override }}
 {{- toYaml $override }}
 {{- else }}
@@ -429,4 +429,110 @@ container limit, leaving headroom for Go GC (GOMEMLIMIT at 90%).
 - name: MEMORY_LIMITER_SPIKE_LIMIT_MIB
   value: {{ printf "%d" $spikeMib | quote }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Map OBI sizing profile name to resource requests and limits.
+Accepts the full .Values.agent.reliabilityMetrics.obi context.
+Usage: {{ include "kvisor.obi.profileResources" .Values.agent.reliabilityMetrics.obi }}
+
+Profiles:
+  small  — up to 5 services/node   (requests: 96Mi,  limits: 256Mi)
+  medium — 5–15 services/node      (requests: 192Mi, limits: 512Mi)
+  large  — 15–30 services/node     (requests: 384Mi, limits: 768Mi)
+  xlarge — 30+ services/node       (requests: 512Mi, limits: 1Gi)
+  custom — uses the explicit .resources block
+*/}}
+{{- define "kvisor.obi.profileResources" -}}
+{{- $profile := .sizingProfile | default "medium" -}}
+{{- if eq $profile "small" }}
+requests:
+  memory: 96Mi
+limits:
+  memory: 256Mi
+{{- else if eq $profile "medium" }}
+requests:
+  memory: 192Mi
+limits:
+  memory: 512Mi
+{{- else if eq $profile "large" }}
+requests:
+  memory: 384Mi
+limits:
+  memory: 768Mi
+{{- else if eq $profile "xlarge" }}
+requests:
+  memory: 512Mi
+limits:
+  memory: 1Gi
+{{- else }}
+{{- /* "custom" or any unknown value → use explicit resources block */ -}}
+{{ .resources | toYaml }}
+{{- end }}
+{{- end -}}
+
+{{/*
+OBI dynamic sizing init container.
+Counts processes listening on configured openPorts via /proc/net/tcp from the
+host network namespace (using nsenter with hostPID), then writes a calculated
+GOMEMLIMIT value to a shared volume.
+
+Formula: memory = 40 + (N × 27) + 30 MiB, clamped to [120, 1024] MiB
+*/}}
+{{- define "kvisor.obi.sizerInitContainer" -}}
+- name: obi-sizer
+  image: "busybox:1.37.0-musl"
+  securityContext:
+    runAsUser: 0
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      add: ["SYS_PTRACE"]
+      drop: ["ALL"]
+  command: ["sh", "-c"]
+  args:
+    - |
+      # Count processes listening on configured openPorts via host network namespace.
+      # The DaemonSet pod has hostPID=true, so PID 1 is the host's init process.
+      PORTS="{{ .Values.agent.reliabilityMetrics.obi.openPorts }}"
+
+      # Convert port numbers to zero-padded hex for /proc/net/tcp matching.
+      # /proc/net/tcp format: "local_address" column is "IP:PORT" in hex.
+      HEX_PATTERN=$(echo "$PORTS" | tr ',' '\n' | while read p; do
+        printf '%04X\n' "$p"
+      done | paste -sd'|' -)
+
+      # Count unique listening sockets on these ports from the host network namespace.
+      # Field $4 == "0A" means LISTEN state in /proc/net/tcp.
+      COUNT=$(nsenter --target 1 --net sh -c 'cat /proc/net/tcp /proc/net/tcp6 2>/dev/null' \
+        | awk '$4 == "0A" {split($2, a, ":"); print a[2]}' \
+        | sort -u \
+        | grep -cE "$HEX_PATTERN" \
+      ) || COUNT=0
+
+      # Fallback: if zero (unlikely), assume a moderate workload
+      [ "$COUNT" -eq 0 ] && COUNT=5
+
+      # Formula: base(40) + processes × per_process(27) + headroom(30)
+      # Clamp between 120 MiB (minimum viable) and 1024 MiB (maximum safe)
+      MEM=$((40 + COUNT * 27 + 30))
+      [ "$MEM" -lt 120 ] && MEM=120
+      [ "$MEM" -gt 1024 ] && MEM=1024
+
+      echo "obi-sizer: discovered $COUNT listening processes on ports [$PORTS]"
+      echo "obi-sizer: calculated memory = $MEM MiB (formula: 40 + $COUNT × 27 + 30)"
+      echo "obi-sizer: setting GOMEMLIMIT=${MEM}MiB"
+      echo "${MEM}" > /shared/obi-gomemlimit
+      # Copy busybox to the shared volume for use as a script interpreter.
+      # The entrypoint script's shebang references /shared/busybox directly.
+      cp /bin/busybox /shared/busybox
+      chmod +x /shared/busybox
+      # Create entrypoint script using printf (heredocs break Helm YAML indentation).
+      # Uses shell read+redirect instead of cat (busybox sh has no cat applet).
+      # OBI binary is at /obi in otel/ebpf-instrument v0.6+.
+      printf '#!/shared/busybox sh\nif [ -f /shared/obi-gomemlimit ]; then\n  read CALCULATED < /shared/obi-gomemlimit\n  export GOMEMLIMIT="${CALCULATED}MiB"\n  /shared/busybox echo "obi: dynamic GOMEMLIMIT=$GOMEMLIMIT (from init container)"\nelse\n  /shared/busybox echo "obi: /shared/obi-gomemlimit not found, using static GOMEMLIMIT"\nfi\nexec /obi\n' > /shared/entrypoint.sh
+      chmod +x /shared/entrypoint.sh
+  volumeMounts:
+    - name: obi-shared
+      mountPath: /shared
 {{- end -}}
