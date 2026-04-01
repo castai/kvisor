@@ -40,7 +40,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 
 ARG TARGETARCH
 RUN export DEBIAN_FRONTEND=noninteractive && \
-    curl -L -o /tmp/golang.tar.xz https://go.dev/dl/go1.21.5.linux-$TARGETARCH.tar.gz && \
+    curl -L -o /tmp/golang.tar.xz https://go.dev/dl/go1.25.5.linux-$TARGETARCH.tar.gz && \
     tar -C /usr/local -xzf /tmp/golang.tar.xz && \
     update-alternatives --install /usr/bin/go go /usr/local/go/bin/go 1 && \
     rm /tmp/golang.tar.xz
