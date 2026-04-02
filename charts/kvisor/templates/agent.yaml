@@ -370,11 +370,16 @@ spec:
               hostname $NODE_NAME; exec dcgm-exporter -f /etc/dcgm-exporter/counters.csv
               {{- else }}
               hostname $NODE_NAME
-              for ((;;)); do
+              max_retries=10
+              attempt=0
+              while [ $attempt -lt $max_retries ]; do
                 dcgm-exporter -f /etc/dcgm-exporter/counters.csv
-                echo "dcgm-exporter exited (no GPU or driver not ready). Retrying in 60s."
+                attempt=$((attempt + 1))
+                echo "dcgm-exporter exited (no GPU or driver not ready). Retry $attempt/$max_retries in 60s."
                 sleep 60
               done
+              echo "dcgm-exporter failed after $max_retries attempts. Standing by."
+              while true; do sleep 3600; done
               {{- end }}
           ports:
             - name: dcgm-metrics
