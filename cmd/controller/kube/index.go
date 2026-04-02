@@ -245,7 +245,7 @@ func (i *Index) getPodOwner(pod *corev1.Pod) metav1.OwnerReference {
 	case "ReplicaSet":
 		if rs, found := i.replicaSets[owner.UID]; found {
 			rsOwner := findOwner(owner, rs.OwnerReferences)
-			if rsOwner.Kind == "Deployment" {
+			if rsOwner.Kind == "Deployment" || rsOwner.Kind == "Rollout" {
 				return rsOwner
 			}
 
@@ -339,8 +339,8 @@ type IPInfo struct {
 	deleteAt    *time.Time
 
 	// IP record specific details to override default values
-	workloadName      string
-	workloadKind      string
+	workloadName       string
+	workloadKind       string
 	connectivityMethod string
 }
 
@@ -389,4 +389,13 @@ func (i *Index) GetPodsOnNode(nodeName string) []*PodInfo {
 		}
 	}
 	return pods
+}
+
+func (i *Index) GetPodByName(namespace, name string) (*PodInfo, bool) {
+	for _, podInfo := range i.pods {
+		if podInfo.Pod.Namespace == namespace && podInfo.Pod.Name == name {
+			return podInfo, true
+		}
+	}
+	return nil, false
 }

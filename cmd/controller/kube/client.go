@@ -376,6 +376,13 @@ func (c *Client) GetPodsOnNode(nodeName string) []*PodInfo {
 	return c.index.GetPodsOnNode(nodeName)
 }
 
+func (c *Client) GetPodByName(namespace, name string) (*PodInfo, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.index.GetPodByName(namespace, name)
+}
+
 func (c *Client) GetVolumesForNode(nodeName string) []cloudtypes.Volume {
 	if c.volumeIndex == nil {
 		return nil

@@ -426,6 +426,110 @@ func extractVolumeID(csiVolumeHandle string) string {
 	return csiVolumeHandle
 }
 
+func (s *Server) GetPodByName(ctx context.Context, req *kubepb.GetPodByNameRequest) (*kubepb.GetPodResponse, error) {
+	if req.Namespace == "" || req.Name == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "namespace and name are required")
+	}
+
+	info, found := s.client.GetPodByName(req.Namespace, req.Name)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "pod %s/%s not found", req.Namespace, req.Name)
+	}
+
+	owner := info.Owner
+
+	// Check custom workload label keys — if any pod label matches, use its value as workload name.
+	if len(req.WorkloadLabelKeys) > 0 {
+		for _, key := range req.WorkloadLabelKeys {
+			if val, ok := info.Pod.Labels[key]; ok && val != "" {
+				return &kubepb.GetPodResponse{
+					Pod: &kubepb.Pod{
+						WorkloadName: val,
+						WorkloadKind: toProtoWorkloadKind(owner.Kind),
+						NodeName:     info.Pod.Spec.NodeName,
+						Zone:         info.Zone,
+						Region:       info.Region,
+					},
+				}, nil
+			}
+		}
+	}
+
+	return &kubepb.GetPodResponse{
+		Pod: &kubepb.Pod{
+			WorkloadUid:  string(owner.UID),
+			WorkloadName: owner.Name,
+			WorkloadKind: toProtoWorkloadKind(owner.Kind),
+			Zone:         info.Zone,
+			Region:       info.Region,
+			NodeName:     info.Pod.Spec.NodeName,
+		},
+	}, nil
+}
+
+func (s *Server) GetPodsOnNode(ctx context.Context, req *kubepb.GetPodsOnNodeRequest) (*kubepb.GetPodsOnNodeResponse, error) {
+	if req.NodeName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "node_name is required")
+	}
+
+	allPods := s.client.GetPodsOnNode(req.NodeName)
+
+	// Parse label selector: "key1=val1,key2=val2"
+	selectorLabels := parseLabelSelector(req.LabelSelector)
+
+	resp := &kubepb.GetPodsOnNodeResponse{}
+	for _, podInfo := range allPods {
+		pod := podInfo.Pod
+		if pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+		if !matchesLabels(pod.Labels, selectorLabels) {
+			continue
+		}
+		podIP := pod.Status.PodIP
+		if podIP == "" && len(pod.Status.PodIPs) > 0 {
+			podIP = pod.Status.PodIPs[0].IP
+		}
+		resp.Pods = append(resp.Pods, &kubepb.NodePodInfo{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			PodIp:     podIP,
+			Labels:    pod.Labels,
+		})
+	}
+
+	return resp, nil
+}
+
+// parseLabelSelector parses "key1=val1,key2=val2" into a map.
+func parseLabelSelector(selector string) map[string]string {
+	result := make(map[string]string)
+	if selector == "" {
+		return result
+	}
+	for _, pair := range strings.Split(selector, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 {
+			result[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return result
+}
+
+// matchesLabels returns true if podLabels contains all entries in selector.
+func matchesLabels(podLabels, selector map[string]string) bool {
+	for k, v := range selector {
+		if podLabels[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
 func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {
 	switch kind {
 	case "Deployment":
@@ -442,6 +546,8 @@ func toProtoWorkloadKind(kind string) kubepb.WorkloadKind {
 		return kubepb.WorkloadKind_WORKLOAD_KIND_CRONJOB
 	case "Pod":
 		return kubepb.WorkloadKind_WORKLOAD_KIND_POD
+	case "Rollout":
+		return kubepb.WorkloadKind_WORKLOAD_KIND_ROLLOUT
 	}
 	return kubepb.WorkloadKind_WORKLOAD_KIND_UNKNOWN
 }
