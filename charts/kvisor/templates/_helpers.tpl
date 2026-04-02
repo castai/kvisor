@@ -472,66 +472,121 @@ limits:
 {{- end -}}
 
 {{/*
-OBI dynamic sizing init container.
-Counts processes listening on configured openPorts via /proc/net/tcp from the
-host network namespace (using nsenter with hostPID), then writes a calculated
-GOMEMLIMIT value to a shared volume.
+OBI init container. Always included when reliability metrics are enabled.
+Sets up a cgroup-aware entrypoint that derives GOMEMLIMIT from the container's
+actual memory limit at runtime (not the Helm-time value). This ensures GOMEMLIMIT
+tracks VPA adjustments, LimitRange mutations, or any other post-render changes.
 
-Formula: memory = 40 + (N × 27) + 30 MiB, clamped to [120, 1024] MiB
+When dynamicSizing is enabled, also scans all network namespaces on the node to
+count listening sockets on configured openPorts, and writes a recommendation to
+/shared/obi-recommended-mem for the entrypoint to log.
+
+Formula (dynamicSizing): memory = 40 + (N × 27) + 30 MiB, clamped to [120, 1024] MiB
 */}}
-{{- define "kvisor.obi.sizerInitContainer" -}}
-- name: obi-sizer
+{{- define "kvisor.obi.initContainer" -}}
+- name: obi-init
   image: "busybox:1.37.0-musl"
   securityContext:
     runAsUser: 0
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
+    {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
       add: ["SYS_PTRACE"]
+    {{- end }}
       drop: ["ALL"]
   command: ["sh", "-c"]
   args:
     - |
-      # Count processes listening on configured openPorts via host network namespace.
-      # The DaemonSet pod has hostPID=true, so PID 1 is the host's init process.
+      {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+      # ── Dynamic sizing: count processes across all network namespaces ──
       PORTS="{{ .Values.agent.reliabilityMetrics.obi.openPorts }}"
 
-      # Convert port numbers to zero-padded hex for /proc/net/tcp matching.
-      # /proc/net/tcp format: "local_address" column is "IP:PORT" in hex.
       HEX_PATTERN=$(echo "$PORTS" | tr ',' '\n' | while read p; do
         printf '%04X\n' "$p"
       done | paste -sd'|' -)
 
-      # Count unique listening sockets on these ports from the host network namespace.
-      # Field $4 == "0A" means LISTEN state in /proc/net/tcp.
-      COUNT=$(nsenter --target 1 --net sh -c 'cat /proc/net/tcp /proc/net/tcp6 2>/dev/null' \
-        | awk '$4 == "0A" {split($2, a, ":"); print a[2]}' \
-        | sort -u \
+      # Discover unique network namespaces and pick one representative PID per netns.
+      # Each pod has its own netns; hostPID=true lets us see all PIDs on the node.
+      : > /shared/obi_seen_ns
+      : > /shared/obi_sockets
+      for pid_dir in /proc/[0-9]*; do
+        pid="${pid_dir##*/}"
+        ns=$(readlink "${pid_dir}/ns/net" 2>/dev/null) || continue
+        grep -qxF "$ns" /shared/obi_seen_ns 2>/dev/null && continue
+        echo "$ns" >> /shared/obi_seen_ns
+        cat "/proc/${pid}/net/tcp" "/proc/${pid}/net/tcp6" 2>/dev/null \
+          | awk -v ns="$ns" '$4 == "0A" {print ns ":" $2}' >> /shared/obi_sockets
+      done
+
+      NS_COUNT=$(wc -l < /shared/obi_seen_ns | tr -d ' ')
+      COUNT=$(sort -u /shared/obi_sockets \
+        | awk -F: '{print $NF}' \
         | grep -cE "$HEX_PATTERN" \
       ) || COUNT=0
+      rm -f /shared/obi_seen_ns /shared/obi_sockets
 
-      # Fallback: if zero (unlikely), assume a moderate workload
       [ "$COUNT" -eq 0 ] && COUNT=5
 
-      # Formula: base(40) + processes × per_process(27) + headroom(30)
-      # Clamp between 120 MiB (minimum viable) and 1024 MiB (maximum safe)
       MEM=$((40 + COUNT * 27 + 30))
       [ "$MEM" -lt 120 ] && MEM=120
       [ "$MEM" -gt 1024 ] && MEM=1024
 
-      echo "obi-sizer: discovered $COUNT listening processes on ports [$PORTS]"
-      echo "obi-sizer: calculated memory = $MEM MiB (formula: 40 + $COUNT × 27 + 30)"
-      echo "obi-sizer: setting GOMEMLIMIT=${MEM}MiB"
-      echo "${MEM}" > /shared/obi-gomemlimit
-      # Copy busybox to the shared volume for use as a script interpreter.
-      # The entrypoint script's shebang references /shared/busybox directly.
+      echo "obi-init: scanned $NS_COUNT network namespaces, found $COUNT listening processes on ports [$PORTS]"
+      echo "obi-init: recommended memory = ${MEM} MiB (formula: 40 + $COUNT x 27 + 30)"
+      echo "${COUNT} ${MEM}" > /shared/obi-recommended-mem
+      {{- end }}
+
+      # ── Copy busybox and create cgroup-aware entrypoint ──
       cp /bin/busybox /shared/busybox
       chmod +x /shared/busybox
-      # Create entrypoint script using printf (heredocs break Helm YAML indentation).
-      # Uses shell read+redirect instead of cat (busybox sh has no cat applet).
-      # OBI binary is at /obi in otel/ebpf-instrument v0.6+.
-      printf '#!/shared/busybox sh\nif [ -f /shared/obi-gomemlimit ]; then\n  read CALCULATED < /shared/obi-gomemlimit\n  export GOMEMLIMIT="${CALCULATED}MiB"\n  /shared/busybox echo "obi: dynamic GOMEMLIMIT=$GOMEMLIMIT (from init container)"\nelse\n  /shared/busybox echo "obi: /shared/obi-gomemlimit not found, using static GOMEMLIMIT"\nfi\nexec /obi\n' > /shared/entrypoint.sh
+
+      # Build entrypoint script line-by-line (heredocs break Helm YAML indentation).
+      # The entrypoint reads the container's actual cgroup memory limit at runtime,
+      # so GOMEMLIMIT always matches what the kubelet enforces — even after VPA changes.
+      {
+        echo '#!/shared/busybox sh'
+        echo 'E=/shared/busybox'
+        echo ''
+        echo '# ── Read cgroup memory limit (supports v2 and v1) ──'
+        echo 'LIMIT_BYTES=""'
+        echo '# cgroup v2: /proc/self/cgroup has "0::<path>"'
+        echo 'CGV2=$(grep "^0::" /proc/self/cgroup 2>/dev/null | cut -d: -f3)'
+        echo 'if [ -n "$CGV2" ] && [ -f "/sys/fs/cgroup${CGV2}/memory.max" ]; then'
+        echo '  read LIMIT_BYTES < "/sys/fs/cgroup${CGV2}/memory.max"'
+        echo 'fi'
+        echo '# cgroup v1 fallback'
+        echo 'if [ -z "$LIMIT_BYTES" ] || [ "$LIMIT_BYTES" = "max" ]; then'
+        echo '  CGV1=$(grep ":memory:" /proc/self/cgroup 2>/dev/null | cut -d: -f3)'
+        echo '  if [ -n "$CGV1" ] && [ -f "/sys/fs/cgroup/memory${CGV1}/memory.limit_in_bytes" ]; then'
+        echo '    read LIMIT_BYTES < "/sys/fs/cgroup/memory${CGV1}/memory.limit_in_bytes"'
+        echo '  fi'
+        echo 'fi'
+        echo ''
+        echo '# ── Derive GOMEMLIMIT as 90% of cgroup limit ──'
+        echo 'if [ -n "$LIMIT_BYTES" ] && [ "$LIMIT_BYTES" != "max" ] && [ "$LIMIT_BYTES" -gt 0 ] 2>/dev/null; then'
+        echo '  LIMIT_MIB=$((LIMIT_BYTES / 1048576))'
+        echo '  GOMEMLIMIT_VAL=$((LIMIT_MIB * 9 / 10))'
+        echo '  export GOMEMLIMIT="${GOMEMLIMIT_VAL}MiB"'
+        echo '  $E echo "obi: GOMEMLIMIT=${GOMEMLIMIT} (90% of ${LIMIT_MIB}MiB cgroup limit)"'
+        echo 'else'
+        echo '  $E echo "obi: WARNING: could not read cgroup memory limit, using default GOMEMLIMIT"'
+        echo 'fi'
+        echo ''
+        echo '# ── Compare with dynamic sizer recommendation if available ──'
+        echo 'if [ -f /shared/obi-recommended-mem ]; then'
+        echo '  read PROC_COUNT RECOMMENDED < /shared/obi-recommended-mem'
+        echo '  $E echo "obi: dynamic sizer found $PROC_COUNT processes, recommended ${RECOMMENDED}MiB"'
+        echo '  if [ -n "$LIMIT_MIB" ] && [ "$RECOMMENDED" -gt "$LIMIT_MIB" ]; then'
+        echo '    $E echo "obi: WARNING: recommended ${RECOMMENDED}MiB exceeds container limit ${LIMIT_MIB}MiB — risk of OOMKill"'
+        echo '    $E echo "obi: WARNING: increase sizingProfile or set custom memory limit >= ${RECOMMENDED}Mi"'
+        echo '  fi'
+        echo 'fi'
+        echo ''
+        echo 'exec /obi'
+      } > /shared/entrypoint.sh
       chmod +x /shared/entrypoint.sh
+      echo "obi-init: entrypoint ready"
   volumeMounts:
     - name: obi-shared
       mountPath: /shared

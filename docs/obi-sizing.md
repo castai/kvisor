@@ -42,12 +42,16 @@ Where **N** = number of processes listening on configured `openPorts` on the nod
 | 20                | 580 MiB     | 630 MiB        | 820 MiB           |
 | 30                | 850 MiB     | 900 MiB        | 1024 MiB          |
 
-> **Recommended limit** includes 30 MiB headroom above peak, clamped to [120, 1024] MiB.
+> **Recommended limit** = Peak + 30 MiB headroom, clamped to [120, 1024] MiB.
+> The `obi-init` dynamic sizing check uses a simplified formula (`40 + N × 27 + 30`)
+> for warning thresholds — this is intentionally less conservative than the table above.
 
 ## Configuring `openPorts`
 
-The `openPorts` setting controls **which ports OBI instruments**. Only processes
-listening on these ports are tracked. This directly affects memory usage.
+The `openPorts` setting controls **process discovery** — OBI finds processes listening
+on these ports and instruments them. Once discovered, **all** HTTP/gRPC traffic from
+that process is instrumented across all ports (not just the configured ones). The number
+of discovered processes directly affects memory usage.
 
 ```yaml
 agent:
@@ -234,11 +238,28 @@ Suggested values.yaml
             memory: 768Mi
 ```
 
-## Dynamic Sizing (Automatic)
+## GOMEMLIMIT: Cgroup-Aware Runtime Derivation
+
+OBI's `GOMEMLIMIT` is **always** derived at runtime from the container's actual cgroup
+memory limit — not from a static Helm value. An init container (`obi-init`) generates
+an entrypoint script that:
+
+1. Reads the container's enforced memory limit from the cgroup filesystem
+   - cgroup v2: `/sys/fs/cgroup/<path>/memory.max` (where path comes from `/proc/self/cgroup`)
+   - cgroup v1 fallback: `/sys/fs/cgroup/memory/<path>/memory.limit_in_bytes`
+2. Sets `GOMEMLIMIT` to **90% of the actual limit**
+3. Launches OBI with the calculated value
+
+This ensures `GOMEMLIMIT` automatically tracks VPA (Vertical Pod Autoscaler) mutations,
+admission webhook overrides, and any other post-Helm changes to the container's memory
+limit — avoiding a class of OOMKill caused by a stale static `GOMEMLIMIT` exceeding
+the container's actual budget.
+
+## Dynamic Sizing (Optional)
 
 For heterogeneous clusters where node density varies significantly, enable
-dynamic sizing. This adds a lightweight init container that counts processes
-at pod startup and sets `GOMEMLIMIT` accordingly.
+dynamic sizing. This extends the init container to also scan the node's processes
+and log a per-node memory recommendation.
 
 ```yaml
 agent:
@@ -246,18 +267,22 @@ agent:
     enabled: true
     obi:
       sizingProfile: "xlarge"        # Set ceiling for busiest node
-      dynamicSizing: true            # Auto-calculate GOMEMLIMIT per node
+      dynamicSizing: true            # Scan processes + warn if limit too low
       openPorts: "8080,8443,8090,6379"
 ```
 
 ### How It Works
 
-1. An init container (`obi-sizer`) runs before OBI starts
-2. It counts processes listening on `openPorts` via `/proc/net/tcp` (host namespace)
-3. Calculates: `40 + (N × 27) + 30` MiB, clamped to [120, 1024] MiB
-4. Writes the value to a shared volume
-5. OBI starts with `GOMEMLIMIT` set to the calculated value
-6. Go's garbage collector tunes itself to the actual per-node requirements
+1. The `obi-init` init container runs before OBI starts
+2. It enumerates **all network namespaces** on the node by scanning `/proc/[0-9]*/ns/net`
+   and deduplicating by inode (since `hostPID: true` gives visibility into all pods)
+3. For each unique netns, it reads `/proc/<pid>/net/tcp` and `/proc/<pid>/net/tcp6`
+   to find processes listening on configured `openPorts`
+4. Calculates recommended memory: `40 + (N × 27) + 30` MiB, clamped to [120, 1024]
+5. Writes the recommendation to `/shared/obi-recommended-mem`
+6. At startup, the entrypoint script compares the recommendation against the
+   cgroup-derived limit and **warns** if the limit is too low
+7. `GOMEMLIMIT` is always set from the cgroup limit (not the recommendation)
 
 ### When to Use Dynamic Sizing
 
@@ -266,7 +291,7 @@ agent:
 | Homogeneous nodes (all similar workload density) | Static profile is sufficient |
 | Heterogeneous nodes (mix of quiet and busy) | **Use dynamic sizing** |
 | Frequent workload rebalancing / scaling events | **Use dynamic sizing** |
-| Strict security requirements (no extra init containers) | Static profile |
+| Strict security requirements (no SYS_PTRACE) | Static profile only |
 | Unknown workload density | Run the helper script first, then decide |
 
 ### Limitations
@@ -277,6 +302,9 @@ agent:
   `limits.memory`. Set limits high enough for the busiest expected node.
 - **Adds ~2-5s to pod startup**: The init container runs quickly but adds sequential
   startup time.
+- **Requires SYS_PTRACE on init container**: The `obi-init` init container needs
+  this capability to traverse network namespaces of other processes. Note: the OBI
+  container itself always has SYS_PTRACE regardless of this setting.
 
 ## Achieving Uniform Node Density
 
@@ -324,7 +352,7 @@ spec:
 > These typically drive the density variance. Use the sizing report to identify which
 > workloads cause spikes:
 > ```bash
-> ./scripts/obi-sizing-report.sh -p 8080,8443 | head -40
+> ./charts/kvisor/scripts/obi-sizing-report.sh -p 8080,8443 | head -40
 > ```
 
 ### 2. Pod Anti-Affinity
@@ -459,10 +487,101 @@ enable dynamic sizing.
 kubectl exec <pod> -c obi -- cat /proc/1/environ | tr '\0' '\n' | grep GOMEMLIMIT
 ```
 
-### Init Container Logs (when dynamic sizing is enabled)
+### Init Container Logs
+
+The `obi-init` container always runs when reliability metrics are enabled (it sets up
+the cgroup-aware entrypoint). When `dynamicSizing` is also enabled, it additionally
+logs the process scan results:
 
 ```bash
-kubectl logs <pod> -c obi-sizer
-# Output: "obi-sizer: discovered N listening processes on ports [8080,8443,8090,6379]"
-# Output: "obi-sizer: setting GOMEMLIMIT=XXXMiB"
+kubectl logs <pod> -c obi-init
+
+# Always present (cgroup-aware GOMEMLIMIT):
+# Output: "obi-init: cgroup memory limit = 805306368 bytes"
+# Output: "obi-init: setting GOMEMLIMIT to 90% = 691MiB"
+
+# With dynamicSizing enabled:
+# Output: "obi-init: scanning network namespaces for listening processes..."
+# Output: "obi-init: found 15 unique netns, 23 processes on ports 8080,8443,8090,6379"
+# Output: "obi-init: recommended memory = 691 MiB"
 ```
+
+### Reducing Instrumented Process Count
+
+If OBI uses too much memory, reduce the number of instrumented processes:
+
+1. **Narrow `openPorts`**: Remove ports that don't serve user traffic (e.g., 6379 for Redis)
+2. **Exclude namespaces/services**: Use `obi.exclude` to skip entire namespaces or specific binaries
+3. **Exclude profilers**: Enable `obi.excludeProfilerEndpoints` (default: true) to prevent
+   profiler agents from being instrumented and producing misleading 10s P95 latencies
+4. **Ignore routes**: Use `obi.ignoredRoutes` to drop `/debug/pprof/*`, `/healthz`, etc.
+
+See [Service Exclusions](#service-exclusions) below.
+
+## Service Exclusions
+
+OBI supports three mechanisms to reduce noise and memory usage by excluding
+processes or URL paths from instrumentation.
+
+### Process Exclusions (`exclude`)
+
+Skip entire processes from being instrumented. Each entry can match on:
+`exe_path`, `k8s_namespace`, `open_ports`, `container_name`, `k8s_pod_labels`,
+`k8s_pod_annotations`, `cmd_args` (glob patterns supported).
+
+```yaml
+agent:
+  reliabilityMetrics:
+    obi:
+      exclude:
+        - k8s_namespace: "monitoring"
+        - k8s_namespace: "loki"
+        - exe_path: "*prometheus*"
+        - open_ports: "9090,9091"
+```
+
+See: [OBI Service Discovery — Exclude Services](https://opentelemetry.io/docs/zero-code/obi/configure/service-discovery/#exclude-services-from-instrumentation)
+
+### Profiler Endpoint Exclusion (`excludeProfilerEndpoints`)
+
+Enabled by default (`true`). This is a convenience toggle that:
+
+1. **Excludes profiler agent processes** from instrumentation: parca, pyroscope,
+   grafana-agent, alloy — preventing their outbound scrape calls from appearing
+   as instrumented traffic
+2. **Drops `/debug/pprof/*` and `/debug/*` URL paths** — these are Go pprof
+   endpoints that block for 10-30s during CPU profiling, producing misleading
+   10,000ms P95 latency spikes in RED metrics
+
+```yaml
+agent:
+  reliabilityMetrics:
+    obi:
+      excludeProfilerEndpoints: true   # default
+```
+
+### Route Exclusions (`ignoredRoutes`)
+
+Drop specific URL paths from metrics and traces. Uses glob patterns with `*` wildcard.
+Matched requests are silently dropped by OBI before export.
+
+```yaml
+agent:
+  reliabilityMetrics:
+    obi:
+      ignoredRoutes:
+        - /healthz
+        - /readyz
+        - /metrics
+        - /debug/pprof/*
+```
+
+See: [OBI Routes Decorator](https://opentelemetry.io/docs/zero-code/obi/configure/routes-decorator/)
+
+### How It Works (ConfigMap)
+
+Exclusion and route settings are YAML-only OBI features with no env var equivalent.
+When any exclusions are configured, the Helm chart creates a ConfigMap
+(`<release>-kvisor-agent-obi-config`) mounted at `/etc/obi/obi-config.yaml`, and
+sets `OTEL_EBPF_CONFIG_PATH` to point OBI at it. Other OBI settings (ports, OTLP
+endpoint, etc.) continue using env vars, which take precedence over YAML config.

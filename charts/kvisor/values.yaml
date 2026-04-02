@@ -217,14 +217,15 @@ agent:
       # See docs/obi-sizing.md for the sizing guide.
       sizingProfile: "medium"
 
-      # Dynamic GOMEMLIMIT sizing via init container.
-      # When enabled, an init container runs before OBI to count processes listening
-      # on openPorts and calculates a per-node GOMEMLIMIT using the formula:
-      #   memory = 40 + (N × 27) + 30 MiB  (clamped to [120, 1024] MiB)
-      # This prevents OOMKills on busy nodes and over-provisioning on quiet nodes.
-      # Can be combined with any sizingProfile — the profile sets the k8s resource
-      # envelope, while dynamicSizing tunes Go's GC pressure within it.
-      # Requires hostPID: true (already set on agent DaemonSet).
+      # GOMEMLIMIT is always derived at runtime from the container's actual cgroup
+      # memory limit (90% of the enforced limit). This ensures GOMEMLIMIT tracks
+      # VPA adjustments and admission webhook mutations automatically.
+      #
+      # Dynamic sizing (optional): when enabled, an init container scans all network
+      # namespaces on the node to count processes listening on openPorts. It logs the
+      # recommended memory and warns at OBI startup if the container limit is too low.
+      # Formula: memory = 40 + (N × 27) + 30 MiB  (clamped to [120, 1024] MiB)
+      # Requires hostPID: true (already set on agent DaemonSet) and SYS_PTRACE.
       # See docs/obi-sizing.md for details.
       dynamicSizing: false
 
@@ -240,6 +241,34 @@ agent:
       # Ports to instrument — controls memory usage (~27 MiB per instrumented process).
       # Comma-separated list. 8080=HTTP APIs, 8090=gRPC APIs, 6379=Redis.
       openPorts: "8080,8443,8090,6379"
+      # Service discovery exclusions — reduces instrumented process count and memory.
+      # OBI has built-in defaults (excludes kube-system, cert-manager, etc.) which
+      # are preserved unless you set excludeDefaults: false.
+      # Each entry can use: exe_path, k8s_namespace, open_ports, container_name,
+      #   k8s_pod_labels, k8s_pod_annotations, cmd_args (glob patterns supported).
+      # See: https://opentelemetry.io/docs/zero-code/obi/configure/service-discovery/
+      exclude: []
+        # Examples:
+        # - k8s_namespace: "monitoring"
+        # - k8s_namespace: "loki"
+        # - exe_path: "*prometheus*"
+        # - exe_path: "*profiler*"
+        # - open_ports: "9090,9091"
+      # Exclude profiler agent processes (parca, pyroscope, grafana-agent, alloy)
+      # from being instrumented. Prevents their outbound scrape calls from appearing
+      # in RED metrics.
+      excludeProfilerEndpoints: true
+      # URL paths to exclude from metrics and traces. Matching requests are silently
+      # dropped by OBI before export. Uses glob patterns with * wildcard.
+      # Default (when excludeProfilerEndpoints is true): drops /debug/pprof/* requests
+      # which block for 10-30s during CPU profiling and produce misleading P95 latency.
+      # See: https://opentelemetry.io/docs/zero-code/obi/configure/routes-decorator/
+      ignoredRoutes: []
+        # Examples:
+        # - /debug/pprof/*
+        # - /healthz
+        # - /readyz
+        # - /metrics
       # Extra environment variables for the OBI container.
       env:
         # Disable tracing - we only need metrics

@@ -184,7 +184,8 @@ agent:
     obi:
       # Sizing profile (small, medium, large, xlarge, custom)
       sizingProfile: "medium"
-      # Dynamic sizing — auto-calculates GOMEMLIMIT per node at startup
+      # Dynamic sizing — scans all network namespaces at startup to count
+      # instrumented processes and warn if container limit is too low
       dynamicSizing: false
       # OBI image
       image:
@@ -211,6 +212,19 @@ agent:
         OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
         OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
         OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
+      # Service discovery exclusions — skip processes from instrumentation
+      # Each entry can use: exe_path, k8s_namespace, open_ports, container_name, etc.
+      exclude: []
+        # - k8s_namespace: "monitoring"
+        # - exe_path: "*prometheus*"
+      # Exclude profiler agents (parca, pyroscope, alloy) and /debug/pprof/* routes
+      # Prevents misleading 10s P95 latency from Go pprof scraping
+      excludeProfilerEndpoints: true
+      # URL paths to exclude from metrics (glob patterns)
+      ignoredRoutes: []
+        # - /healthz
+        # - /readyz
+        # - /metrics
       # Custom OBI container security context (overrides default eBPF capabilities)
       containerSecurityContext: {}
       # Internal metrics — exposes OBI's own health via Prometheus endpoint
@@ -223,10 +237,12 @@ agent:
           labels: {}
           interval: 30s
           scrapeTimeout: 10s
+```
 
 > **📖 See also:** [OBI Sizing Guide](obi-sizing.md) for sizing profiles, the sizing report script,
 > dynamic sizing, and pod placement strategies to optimize OBI memory usage.
 
+```yaml
     # OTel Collector sidecar (agent)
     collector:
       enabled: true
@@ -457,13 +473,13 @@ OBI automatically discovers and instruments application processes via eBPF (no c
 
 | Protocol | Metrics | Key Attributes |
 |----------|---------|----------------|
-| **HTTP** | `http.server.request.duration`, `http.client.request.duration` | method, status_code, error_type |
-| **gRPC** | `rpc.server.duration`, `rpc.client.duration` | rpc.method, rpc.service, grpc.status_code |
+| **HTTP** | `http.server.request.duration` | method, status_code, error_type |
+| **gRPC** | `rpc.server.duration` | rpc.method, rpc.service, grpc.status_code |
 | **Database** | `db.client.operation.duration` | db.system.name, db.operation.name |
 | **Messaging** | `messaging.publish.duration`, `messaging.process.duration` | messaging.system, messaging.destination.name |
 | **K8s state** | Pod phase, container restarts, deployment availability, HPA pressure | namespace, workload_name, node |
 
-Only golden signal metrics are retained. The OTel Collector drops all other metrics via `filter/golden-signals` before they reach ClickHouse.
+Only **server-side** golden signal metrics are retained. The OTel Collector's `filter/golden-signals` drops client-side metrics (`http.client.request.duration`, `rpc.client.duration`) before they reach ClickHouse — this reduces Bronze write volume by ~59%. OBI instruments both client and server calls, but only server-side metrics measure each workload's own reliability; client-side metrics are redundant because the downstream service already reports its own server metrics.
 
 ## Startup Timeline
 

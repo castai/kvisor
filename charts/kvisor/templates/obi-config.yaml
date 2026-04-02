@@ -1,0 +1,46 @@
+{{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
+{{- $exclude := .Values.agent.reliabilityMetrics.obi.exclude | default list }}
+{{- $excludeProfilers := .Values.agent.reliabilityMetrics.obi.excludeProfilerEndpoints | default false }}
+{{- $ignoredRoutes := .Values.agent.reliabilityMetrics.obi.ignoredRoutes | default list }}
+{{- $hasExclusions := or (gt (len $exclude) 0) $excludeProfilers }}
+{{- $hasRouteExclusions := or (gt (len $ignoredRoutes) 0) $excludeProfilers }}
+{{- if or $hasExclusions $hasRouteExclusions }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kvisor.agent.fullname" . }}-obi-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kvisor.agent.labels" . | nindent 4 }}
+data:
+  obi-config.yaml: |
+    {{- if $hasExclusions }}
+    discovery:
+      exclude_instrument:
+        {{- if $excludeProfilers }}
+        - exe_path: "*parca*"
+        - exe_path: "*pyroscope*"
+        - exe_path: "*grafana-agent*"
+        - exe_path: "*alloy*"
+        {{- end }}
+        {{- range $exclude }}
+        - {{ toYaml . | nindent 10 | trim }}
+        {{- end }}
+    {{- end }}
+    {{- if $hasRouteExclusions }}
+    routes:
+      ignored_patterns:
+        {{- /* Profiler route exclusions — /debug/pprof/profile blocks for 10-30s
+               during CPU profiling, producing misleading P95 latency in RED metrics.
+               These requests are legitimate but are profiler infrastructure, not user traffic. */}}
+        {{- if $excludeProfilers }}
+        - /debug/pprof/*
+        - /debug/*
+        {{- end }}
+        {{- range $ignoredRoutes }}
+        - {{ . }}
+        {{- end }}
+      ignore_mode: all
+    {{- end }}
+{{- end }}
+{{- end }}

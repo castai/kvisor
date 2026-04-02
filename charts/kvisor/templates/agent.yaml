@@ -18,6 +18,9 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
+        checksum/obi-config: {{ include (print $.Template.BasePath "/obi-config.yaml") . | sha256sum }}
+      {{- end }}
       {{- if .Values.agent.prometheusScrape.enabled }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{ .Values.agent.metricsHTTPListenPort }}"
@@ -210,27 +213,19 @@ spec:
         - name: obi
           image: "{{ .Values.agent.reliabilityMetrics.obi.image.repository }}:{{ .Values.agent.reliabilityMetrics.obi.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
           command: ["/shared/entrypoint.sh"]
-        {{- end }}
           securityContext:
             {{- include "kvisor.obi.containerSecurityContext" . | nindent 12 }}
           resources:
             {{- include "kvisor.obi.profileResources" .Values.agent.reliabilityMetrics.obi | nindent 12 }}
           env:
-          {{- if not (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
-            {{- $profile := .Values.agent.reliabilityMetrics.obi.sizingProfile | default "medium" -}}
-            {{- if eq $profile "small" }}
-            {{- include "GOMEMLIMITEnv" "256Mi" | nindent 12 }}
-            {{- else if eq $profile "medium" }}
-            {{- include "GOMEMLIMITEnv" "512Mi" | nindent 12 }}
-            {{- else if eq $profile "large" }}
-            {{- include "GOMEMLIMITEnv" "768Mi" | nindent 12 }}
-            {{- else if eq $profile "xlarge" }}
-            {{- include "GOMEMLIMITEnv" "1Gi" | nindent 12 }}
-            {{- else }}
-            {{- include "GOMEMLIMITEnv" .Values.agent.reliabilityMetrics.obi.resources.limits.memory | nindent 12 }}
-            {{- end }}
+          {{- $obiExclude := .Values.agent.reliabilityMetrics.obi.exclude | default list }}
+          {{- $obiExcludeProfilers := .Values.agent.reliabilityMetrics.obi.excludeProfilerEndpoints | default false }}
+          {{- $obiIgnoredRoutes := .Values.agent.reliabilityMetrics.obi.ignoredRoutes | default list }}
+          {{- $obiHasConfig := or (gt (len $obiExclude) 0) $obiExcludeProfilers (gt (len $obiIgnoredRoutes) 0) }}
+          {{- if $obiHasConfig }}
+            - name: OTEL_EBPF_CONFIG_PATH
+              value: /etc/obi/obi-config.yaml
           {{- end }}
             - name: OTEL_EBPF_OPEN_PORT
               value: {{ .Values.agent.reliabilityMetrics.obi.openPorts | quote }}
@@ -267,11 +262,9 @@ spec:
               protocol: TCP
           {{- end }}
           volumeMounts:
-          {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
             - name: obi-shared
               mountPath: /shared
               readOnly: true
-          {{- end }}
             - name: var-run-obi
               mountPath: /var/run/beyla
             - name: cgroups
@@ -280,6 +273,11 @@ spec:
             - name: obi-sa-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+          {{- if $obiHasConfig }}
+            - name: obi-config
+              mountPath: /etc/obi
+              readOnly: true
+          {{- end }}
       {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
         - name: otel-collector
           image: "{{ .Values.agent.reliabilityMetrics.collector.image.repository }}:{{ .Values.agent.reliabilityMetrics.collector.image.tag }}"
@@ -476,10 +474,16 @@ spec:
       {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
         - name: var-run-obi
           emptyDir: {}
-      {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
         - name: obi-shared
           emptyDir:
             sizeLimit: 2Mi
+      {{- $obiExcludeVol := .Values.agent.reliabilityMetrics.obi.exclude | default list }}
+      {{- $obiExcludeProfilersVol := .Values.agent.reliabilityMetrics.obi.excludeProfilerEndpoints | default false }}
+      {{- $obiIgnoredRoutesVol := .Values.agent.reliabilityMetrics.obi.ignoredRoutes | default list }}
+      {{- if or (gt (len $obiExcludeVol) 0) $obiExcludeProfilersVol (gt (len $obiIgnoredRoutesVol) 0) }}
+        - name: obi-config
+          configMap:
+            name: {{ include "kvisor.agent.fullname" . }}-obi-config
       {{- end }}
         # Projected SA token for OBI — enables K8s metadata decoration
         # (namespace, pod, deployment labels) without setting

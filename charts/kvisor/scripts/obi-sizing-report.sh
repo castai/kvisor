@@ -192,6 +192,11 @@ for node in nodes_data.get("items", []):
     node_pool[name] = pool
 
 # ── Count containers per node matching target ports ──────────
+# NOTE: This counts Kubernetes containers with declared containerPort specs.
+# OBI instruments actual OS processes, which can be significantly higher because:
+#   1. Containers often don't declare containerPort (it's optional in K8s)
+#   2. A single container can run multiple worker processes (pre-fork, SO_REUSEPORT)
+# Treat these counts as a lower bound. Use dynamicSizing for accurate runtime counts.
 node_procs = {}  # node_name → count of matching containers
 for pod in pods_data.get("items", []):
     node = pod["spec"].get("nodeName", "")
@@ -244,8 +249,9 @@ pfmt = "{:<22s} {:>6s} {:>6s} {:>6s} {:>6s} {:>18s} {:>8s}"
 
 if machine_output != "true":
     print("Per-Node Analysis (nodes with matching containers)")
+    print("  (counts declared containerPorts only — actual OBI process count will be higher)")
     print("─" * 80)
-    print(fmt.format("NODE", "POOL", "PROCS", "STEADY", "PEAK", "RECOMMEND", "PROFILE"))
+    print(fmt.format("NODE", "POOL", "CNTRS", "STEADY", "PEAK", "RECOMMEND", "PROFILE"))
     print()
 
 # Sort by pool, then descending procs
@@ -326,8 +332,8 @@ if machine_output == "true":
 print("Suggested values.yaml")
 print("─" * 80)
 print()
-print(f"  # Recommended sizing profile based on max observed density")
-print(f"  # ({overall_max_procs} containers on busiest node):")
+print(f"  # Recommended sizing profile based on max observed container density")
+print(f"  # ({overall_max_procs} containers on busiest node — actual process count likely higher):")
 print(f"  agent:")
 print(f"    reliabilityMetrics:")
 print(f"      enabled: true")
@@ -349,7 +355,7 @@ print()
 
 # Check variance for dynamic sizing recommendation
 if high_variance:
-    print(f"  # ⚡ High variance detected ({global_min}–{global_max} containers/node).")
+    print(f"  # High variance detected ({global_min}–{global_max} containers/node).")
     print(f"  # Consider dynamic sizing to auto-tune per node:")
     print(f"  agent:")
     print(f"    reliabilityMetrics:")
@@ -388,9 +394,15 @@ print("  large  — 15–30 services/node     (requests: 384Mi, limits: 768Mi)")
 print("  xlarge — 30+ services/node       (requests: 512Mi, limits: 1Gi)")
 print("  custom — manual resources block")
 print()
-print("NOTE: Counts are based on declared containerPorts in pod specs.")
-print("      Processes listening on unlisted ports won't be detected.")
-print("      Use dynamicSizing for exact runtime counts.")
+print("IMPORTANT: Container counts above are a LOWER BOUND. OBI instruments actual")
+print("OS processes, which can be 10-50x higher than declared containerPorts because:")
+print("  1. containerPort declarations are optional in Kubernetes — many pods omit them")
+print("  2. A single container can run multiple worker processes (pre-fork, SO_REUSEPORT)")
+print("  3. Sidecar containers may also listen on configured ports")
+print()
+print("For accurate sizing, use one of these approaches:")
+print("  - dynamicSizing: true  — init container counts actual /proc/net/tcp sockets at startup")
+print("  - Check OBI's own metric: obi_instrumented_processes (shows real runtime count)")
 print()
 print("See docs/obi-sizing.md for detailed configuration guidance.")
 print()
