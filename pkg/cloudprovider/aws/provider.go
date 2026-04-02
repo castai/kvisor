@@ -6,14 +6,16 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/castai/kvisor/pkg/cloudprovider/types"
 	"github.com/castai/logging"
 )
 
 type Provider struct {
-	log *logging.Logger
-	cfg types.ProviderConfig
+	log       *logging.Logger
+	cfg       types.ProviderConfig
+	accountID string
 
 	// AWS clients
 	ec2Client *ec2.Client
@@ -34,12 +36,25 @@ func NewProvider(ctx context.Context, log *logging.Logger, cfg types.ProviderCon
 
 	ec2Client := ec2.NewFromConfig(awsConfig)
 
+	stsClient := sts.NewFromConfig(awsConfig)
+	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return nil, fmt.Errorf("getting caller identity: %w", err)
+	}
+
+	accountID := ""
+	if identity.Account != nil {
+		accountID = *identity.Account
+	}
+
 	p := &Provider{
 		log:       log,
 		cfg:       cfg,
+		accountID: accountID,
 		ec2Client: ec2Client,
 	}
 
+	log.With("account_id", accountID, "region", cfg.AWSRegion).Info("AWS provider initialized")
 	return p, nil
 }
 

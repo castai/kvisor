@@ -187,7 +187,7 @@ func (d *tgwDiscovery) resolvePeeringAttachment(ctx context.Context, att ec2type
 	// Look up the peer TGW's region via the peering attachment.
 	peerRegion := d.getPeerTGWRegion(ctx, peerTGWID, attID)
 
-	if p.cfg.AWSCrossAccountRoleARN != "" {
+	if p.cfg.AWSCrossAccountRoleARN != "" || peerAccountID == p.accountID {
 		vpcs := d.discoverVPCsBehindPeerTGW(ctx, peerTGWID, peerAccountID, peerRegion)
 		if len(vpcs) > 0 {
 			return vpcs
@@ -231,7 +231,7 @@ func (d *tgwDiscovery) getPeerTGWRegion(ctx context.Context, peerTGWID, attachme
 func (d *tgwDiscovery) discoverVPCsBehindPeerTGW(ctx context.Context, peerTGWID, peerAccountID, peerRegion string) []types.TransitGatewayVPC {
 	p := d.provider
 
-	remoteEC2, err := p.getCrossAccountClient(ctx, d.crossAccountClients, peerAccountID, peerRegion)
+	remoteEC2, err := p.getAccountClient(ctx, d.crossAccountClients, peerAccountID, peerRegion)
 	if err != nil {
 		p.log.With("peer_tgw", peerTGWID, "account", peerAccountID, "region", peerRegion).
 			Warnf("failed to assume role in peer TGW account (falling back to route CIDRs): %v", err)
@@ -271,7 +271,7 @@ func (d *tgwDiscovery) buildTGWVPC(ctx context.Context, accountID, vpcID, fallba
 		Region:    region,
 	}
 
-	if p.cfg.AWSCrossAccountRoleARN != "" {
+	if p.cfg.AWSCrossAccountRoleARN != "" || accountID == p.accountID {
 		subnets, _, err := p.fetchRemoteSubnetsWithCache(ctx, d.crossAccountClients, accountID, vpcID, region)
 		if err != nil {
 			p.log.With("vpc", vpcID, "account", accountID).
@@ -480,10 +480,28 @@ func (p *Provider) fetchPeeringAttachmentRegion(ctx context.Context, attachmentI
 	return "", fmt.Errorf("peer TGW %s not found in peering attachment %s", peerTGWID, attachmentID)
 }
 
-// getCrossAccountClient returns a cached cross-account EC2 client, creating one if needed.
-// The cache is keyed by accountID/region to support the same account in different regions.
-func (p *Provider) getCrossAccountClient(ctx context.Context, clientCache map[string]*ec2.Client, accountID, region string) (*ec2.Client, error) {
+// getAccountClient returns a cached EC2 client for the given account and region.
+func (p *Provider) getAccountClient(ctx context.Context, clientCache map[string]*ec2.Client, accountID, region string) (*ec2.Client, error) {
 	cacheKey := accountID + "/" + region
+	// if same-account -> use IRSA credentials directly, no role assumption needed.
+	if p.accountID != "" && accountID == p.accountID {
+		if region == "" || region == p.cfg.AWSRegion {
+			return p.ec2Client, nil
+		}
+		// if same account but different region -> build a client without role assumption.
+		if client, ok := clientCache[cacheKey]; ok {
+			return client, nil
+		}
+		awsCfg, err := buildAWSConfig(ctx, p.cfg)
+		if err != nil {
+			return nil, fmt.Errorf("building AWS config for region %s: %w", region, err)
+		}
+		awsCfg.Region = region
+		client := ec2.NewFromConfig(awsCfg)
+		clientCache[cacheKey] = client
+		return client, nil
+	}
+
 	client, ok := clientCache[cacheKey]
 	if ok {
 		return client, nil
@@ -499,7 +517,7 @@ func (p *Provider) getCrossAccountClient(ctx context.Context, clientCache map[st
 // fetchRemoteSubnetsWithCache fetches remote subnets using a cached cross-account EC2 client.
 // If region is non-empty, the client targets that region instead of the default.
 func (p *Provider) fetchRemoteSubnetsWithCache(ctx context.Context, clientCache map[string]*ec2.Client, accountID, vpcID, region string) ([]types.Subnet, string, error) {
-	client, err := p.getCrossAccountClient(ctx, clientCache, accountID, region)
+	client, err := p.getAccountClient(ctx, clientCache, accountID, region)
 	if err != nil {
 		return nil, "", fmt.Errorf("building cross-account EC2 client: %w", err)
 	}
