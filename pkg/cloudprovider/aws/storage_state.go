@@ -113,6 +113,8 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []strin
 			volume.ThroughputBytes = *vol.Throughput * 1024 * 1024
 		}
 
+		volume.FillMissingPerformanceParams()
+
 		for _, attachment := range vol.Attachments {
 			if attachment.InstanceId != nil {
 				instanceID := aws.ToString(attachment.InstanceId)

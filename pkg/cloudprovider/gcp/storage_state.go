@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"math"
 	"path"
 	"slices"
 	"strings"
@@ -209,13 +208,15 @@ func (p *Provider) fetchVolumesDetails(ctx context.Context, instanceIds []string
 				}
 
 				if disk.GetProvisionedIops() > 0 {
-					volume.IOPS = safeInt64ToInt32(disk.GetProvisionedIops())
+					volume.IOPS = types.SafeInt64ToInt32(disk.GetProvisionedIops())
 				}
 
 				if disk.GetProvisionedThroughput() > 0 {
 					// Throughput is in MB/s, convert to bytes/s
-					volume.ThroughputBytes = safeInt64ToInt32(disk.GetProvisionedThroughput() * 1024 * 1024)
+					volume.ThroughputBytes = types.SafeInt64ToInt32(disk.GetProvisionedThroughput() * 1024 * 1024)
 				}
+
+				volume.FillMissingPerformanceParams()
 
 				instanceVolumes[instanceId] = append(instanceVolumes[instanceId], volume)
 			}
@@ -257,9 +258,3 @@ func buildInstanceNameFilter(log *logging.Logger, instanceIDs []string) string {
 	return strings.Join(conditions, " OR ")
 }
 
-func safeInt64ToInt32(val int64) int32 {
-	if val > math.MaxInt32 {
-		return math.MaxInt32
-	}
-	return int32(val) // nolint:gosec
-}
