@@ -54,10 +54,22 @@ func TestFillMissingPerformanceParams(t *testing.T) {
 		},
 		// ── AWS ──────────────────────────────────────────────────────────────────
 		{
-			name:           "aws gp2: fills IOPS and throughput from size",
+			name:           "aws io1: fills throughput from provisioned IOPS",
+			input:          types.Volume{VolumeType: "io1", IOPS: 10000},
+			wantIOPS:       10000,
+			wantThroughput: types.SafeInt64ToInt32(10000 * 256 * mib / 1000), // 0.256 MiB/s per IOPS
+		},
+		{
+			name:           "aws io2: fills throughput from provisioned IOPS",
+			input:          types.Volume{VolumeType: "io2", IOPS: 10000},
+			wantIOPS:       10000,
+			wantThroughput: types.SafeInt64ToInt32(10000 * 256 * mib / 1000), // 0.256 MiB/s per IOPS
+		},
+		{
+			name:           "aws gp2: fills IOPS from size, throughput from IOPS",
 			input:          types.Volume{VolumeType: "gp2", SizeBytes: 100 * gib},
-			wantIOPS:       300,                                       // 100 * 3
-			wantThroughput: types.SafeInt64ToInt32(300 * (mib / 4)),   // IOPS * 0.25 MiB/s
+			wantIOPS:       300,                                     // 100 GiB * 3 IOPS/GiB
+			wantThroughput: types.SafeInt64ToInt32(300 * mib / 4),   // 300 IOPS * 0.25 MiB/s
 		},
 		{
 			name:           "aws st1: fills throughput from size (no IOPS)",
