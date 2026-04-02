@@ -227,6 +227,11 @@ spec:
             - name: OTEL_EBPF_CONFIG_PATH
               value: /etc/obi/obi-config.yaml
           {{- end }}
+            - name: OBI_MEMORY_LIMIT_BYTES
+              valueFrom:
+                resourceFieldRef:
+                  containerName: obi
+                  resource: limits.memory
             - name: OTEL_EBPF_OPEN_PORT
               value: {{ .Values.agent.reliabilityMetrics.obi.openPorts | quote }}
           {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}

@@ -473,9 +473,9 @@ limits:
 
 {{/*
 OBI init container. Always included when reliability metrics are enabled.
-Sets up a cgroup-aware entrypoint that derives GOMEMLIMIT from the container's
-actual memory limit at runtime (not the Helm-time value). This ensures GOMEMLIMIT
-tracks VPA adjustments, LimitRange mutations, or any other post-render changes.
+Sets up an entrypoint that derives GOMEMLIMIT from OBI_MEMORY_LIMIT_BYTES (injected
+via Kubernetes Downward API resourceFieldRef). This ensures GOMEMLIMIT tracks VPA
+adjustments, LimitRange mutations, or any other post-render changes.
 
 When dynamicSizing is enabled, also scans all network namespaces on the node to
 count listening sockets on configured openPorts, and writes a recommendation to
@@ -548,29 +548,19 @@ Formula (dynamicSizing): memory = 40 + (N × 27) + 30 MiB, clamped to [120, 1024
         echo '#!/shared/busybox sh'
         echo 'E=/shared/busybox'
         echo ''
-        echo '# ── Read cgroup memory limit (supports v2 and v1) ──'
-        echo 'LIMIT_BYTES=""'
-        echo '# cgroup v2: /proc/self/cgroup has "0::<path>"'
-        echo 'CGV2=$(grep "^0::" /proc/self/cgroup 2>/dev/null | cut -d: -f3)'
-        echo 'if [ -n "$CGV2" ] && [ -f "/sys/fs/cgroup${CGV2}/memory.max" ]; then'
-        echo '  read LIMIT_BYTES < "/sys/fs/cgroup${CGV2}/memory.max"'
-        echo 'fi'
-        echo '# cgroup v1 fallback'
-        echo 'if [ -z "$LIMIT_BYTES" ] || [ "$LIMIT_BYTES" = "max" ]; then'
-        echo '  CGV1=$(grep ":memory:" /proc/self/cgroup 2>/dev/null | cut -d: -f3)'
-        echo '  if [ -n "$CGV1" ] && [ -f "/sys/fs/cgroup/memory${CGV1}/memory.limit_in_bytes" ]; then'
-        echo '    read LIMIT_BYTES < "/sys/fs/cgroup/memory${CGV1}/memory.limit_in_bytes"'
-        echo '  fi'
-        echo 'fi'
+        echo '# ── Read container memory limit ──'
+        echo '# OBI_MEMORY_LIMIT_BYTES is injected via Kubernetes Downward API (resourceFieldRef).'
+        echo '# This works in all privilege modes and tracks VPA mutations automatically.'
+        echo 'LIMIT_BYTES="$OBI_MEMORY_LIMIT_BYTES"'
         echo ''
-        echo '# ── Derive GOMEMLIMIT as 90% of cgroup limit ──'
-        echo 'if [ -n "$LIMIT_BYTES" ] && [ "$LIMIT_BYTES" != "max" ] && [ "$LIMIT_BYTES" -gt 0 ] 2>/dev/null; then'
+        echo '# ── Derive GOMEMLIMIT as 90% of container limit ──'
+        echo 'if [ -n "$LIMIT_BYTES" ] && [ "$LIMIT_BYTES" -gt 0 ] 2>/dev/null; then'
         echo '  LIMIT_MIB=$((LIMIT_BYTES / 1048576))'
         echo '  GOMEMLIMIT_VAL=$((LIMIT_MIB * 9 / 10))'
         echo '  export GOMEMLIMIT="${GOMEMLIMIT_VAL}MiB"'
         echo '  $E echo "obi: GOMEMLIMIT=${GOMEMLIMIT} (90% of ${LIMIT_MIB}MiB cgroup limit)"'
         echo 'else'
-        echo '  $E echo "obi: WARNING: could not read cgroup memory limit, using default GOMEMLIMIT"'
+        echo '  $E echo "obi: WARNING: OBI_MEMORY_LIMIT_BYTES not set, using default GOMEMLIMIT"'
         echo 'fi'
         echo ''
         echo '# ── Compare with dynamic sizer recommendation if available ──'
