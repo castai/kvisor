@@ -108,34 +108,37 @@ run_cmd() {
   if [[ -n "$DRY_RUN" ]]; then
     printf "${YELLOW}[dry-run]${NC} %s\n" "$*"
   else
+    # Use eval because $HELM_CTX/$KUBECTL_CTX must expand to multiple args or nothing.
+    # Values containing shell metacharacters are single-quoted in build_creds_flags().
     eval "$@"
   fi
 }
 
 # Build helm flags for CAST AI credentials (fresh install only)
 # Outputs flags to stdout — caller captures via $()
+# Values are single-quoted to survive eval (handles $, spaces, backticks in API keys/paths).
 build_creds_flags() {
   if [[ -n "$VALUES_FILE" ]]; then
-    echo "-f $VALUES_FILE"
+    echo "-f '${VALUES_FILE//\'/\'\\\'\'}'"
   fi
 
   # API key: inline value or pre-existing Secret ref
   if [[ -n "$API_KEY" ]]; then
-    echo "--set castai.apiKey=$API_KEY"
+    echo "--set 'castai.apiKey=${API_KEY//\'/\'\\\'\'}'"
   elif [[ -n "$API_KEY_SECRET" ]]; then
-    echo "--set castai.apiKeySecretRef=$API_KEY_SECRET"
+    echo "--set 'castai.apiKeySecretRef=${API_KEY_SECRET//\'/\'\\\'\'}'"
   fi
 
   # Cluster ID: inline value or pre-existing Secret ref
   if [[ -n "$CLUSTER_ID" ]]; then
-    echo "--set castai.clusterID=$CLUSTER_ID"
+    echo "--set 'castai.clusterID=${CLUSTER_ID//\'/\'\\\'\'}'"
   elif [[ -n "$CLUSTER_ID_SECRET" ]]; then
-    echo "--set castai.clusterIdSecretKeyRef.name=$CLUSTER_ID_SECRET"
+    echo "--set 'castai.clusterIdSecretKeyRef.name=${CLUSTER_ID_SECRET//\'/\'\\\'\'}'"
   fi
 
   # Optional gRPC address
   if [[ -n "$GRPC_ADDR" ]]; then
-    echo "--set castai.grpcAddr=$GRPC_ADDR"
+    echo "--set 'castai.grpcAddr=${GRPC_ADDR//\'/\'\\\'\'}'"
   fi
 }
 

@@ -118,7 +118,8 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 > no matches for kind "ClickHouseInstallation" in version "clickhouse.altinity.com/v1"
 > ```
 > **Solution:** Use the automated script above, or perform a two-phase manual install:
-> 1. First deploy just the operator: `--set reliabilityMetrics.operator.enabled=true --set reliabilityMetrics.install.enabled=false`
+> 1. First deploy just the operator (must use `helm install` or `helm upgrade --install`, not plain `helm upgrade`, so CRDs get installed):
+>    `--set reliabilityMetrics.operator.enabled=true --set reliabilityMetrics.install.enabled=false`
 > 2. Wait for CRD: `kubectl get crd clickhouseinstallations.clickhouse.altinity.com`
 > 3. Then enable the full stack with `--set reliabilityMetrics.install.enabled=true`
 
