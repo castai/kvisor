@@ -37,19 +37,19 @@ func (v *Volume) FillMissingPerformanceParams() {
 	sizeGiB := v.SizeBytes / (1024 * 1024 * 1024)
 
 	if v.IOPS == 0 && sizeGiB > 0 && spec.IOPSDenominator > 0 {
-		v.IOPS = safeInt64ToInt32(spec.BaselineIOPS + sizeGiB*spec.IOPSNumerator/spec.IOPSDenominator)
+		v.IOPS = SafeInt64ToInt32(spec.BaselineIOPS + sizeGiB*spec.IOPSNumerator/spec.IOPSDenominator)
 	}
 
 	if v.ThroughputBytes == 0 {
 		if spec.ThroughputIOPSDenominator > 0 && v.IOPS > 0 {
-			v.ThroughputBytes = safeInt64ToInt32(int64(v.IOPS) * spec.ThroughputIOPSNumerator / spec.ThroughputIOPSDenominator)
+			v.ThroughputBytes = SafeInt64ToInt32(int64(v.IOPS) * spec.ThroughputIOPSNumerator / spec.ThroughputIOPSDenominator)
 		} else {
 			perGiB := int64(0)
 			if sizeGiB > 0 && spec.ThroughputDenominator > 0 {
 				perGiB = sizeGiB * spec.ThroughputNumerator / spec.ThroughputDenominator
 			}
 			if tput := spec.BaselineThroughputBytes + perGiB; tput > 0 {
-				v.ThroughputBytes = safeInt64ToInt32(tput)
+				v.ThroughputBytes = SafeInt64ToInt32(tput)
 			}
 		}
 	}
@@ -63,5 +63,3 @@ func SafeInt64ToInt32(val int64) int32 {
 	}
 	return int32(val) //nolint:gosec
 }
-
-func safeInt64ToInt32(val int64) int32 { return SafeInt64ToInt32(val) }
