@@ -2,6 +2,7 @@ suite: obi sidecar tests
 templates:
   - agent.yaml
   - secret.yaml
+  - obi-config.yaml
 values:
   - values.yaml
 tests:
@@ -69,7 +70,7 @@ tests:
   - it: should configure open ports including gRPC and Redis
     set:
       agent.reliabilityMetrics.enabled: true
-      agent.reliabilityMetrics.openPorts: "8080,8090,6379"
+      agent.reliabilityMetrics.obi.openPorts: "8080,8090,6379"
     asserts:
       - contains:
           path: spec.template.spec.containers[1].env
@@ -168,7 +169,7 @@ tests:
   - it: should use custom obi security context when provided
     set:
       agent.reliabilityMetrics.enabled: true
-      agent.reliabilityMetrics.containerSecurityContext:
+      agent.reliabilityMetrics.obi.containerSecurityContext:
         privileged: true
     asserts:
       - equal:
@@ -228,15 +229,85 @@ tests:
         template: agent.yaml
         documentIndex: 0
 
-  - it: should set obi resource limits
+  # --- Sizing Profiles ---
+  - it: should use medium profile resources by default
     set:
       agent.reliabilityMetrics.enabled: true
-      agent.reliabilityMetrics.resources:
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 192Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 512Mi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use small profile resources
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.sizingProfile: small
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 96Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 256Mi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use large profile resources
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.sizingProfile: large
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 384Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 768Mi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use xlarge profile resources
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.sizingProfile: xlarge
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 512Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 1Gi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should use custom resources when sizingProfile is custom
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.sizingProfile: custom
+      agent.reliabilityMetrics.obi.resources:
         requests:
           memory: 256Mi
         limits:
           memory: 1Gi
     asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 256Mi
+        template: agent.yaml
+        documentIndex: 0
       - equal:
           path: spec.template.spec.containers[1].resources.limits.memory
           value: 1Gi
@@ -325,7 +396,7 @@ tests:
   - it: should add extra env vars to obi container
     set:
       agent.reliabilityMetrics.enabled: true
-      agent.reliabilityMetrics.env:
+      agent.reliabilityMetrics.obi.env:
         OTEL_EBPF_LOG_LEVEL: debug
     asserts:
       - contains:
@@ -345,3 +416,175 @@ tests:
           value: kvisor
         template: agent.yaml
         documentIndex: 0
+
+  # --- Init Container & Cgroup-Aware GOMEMLIMIT ---
+  - it: should always have obi-init container when reliabilityMetrics is enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.dynamicSizing: false
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: obi-init
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: "busybox:1.37.0-musl"
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should have SYS_PTRACE capability on init container when dynamicSizing is enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.dynamicSizing: true
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].securityContext.capabilities.add
+          content: SYS_PTRACE
+        template: agent.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.initContainers[0].securityContext.capabilities.drop
+          content: ALL
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should not have SYS_PTRACE capability when dynamicSizing is disabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.dynamicSizing: false
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers[0].securityContext.capabilities.add
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should always add obi-shared volume when reliabilityMetrics is enabled
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.dynamicSizing: false
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: obi-shared
+            emptyDir:
+              sizeLimit: 2Mi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should always mount obi-shared volume in obi container
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.dynamicSizing: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: obi-shared
+            mountPath: /shared
+            readOnly: true
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should always use wrapper command on obi container
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.dynamicSizing: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].command
+          value: ["/shared/entrypoint.sh"]
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should not have init container when reliabilityMetrics is disabled even if dynamicSizing is true
+    set:
+      agent.reliabilityMetrics.enabled: false
+      agent.reliabilityMetrics.obi.dynamicSizing: true
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers
+        template: agent.yaml
+        documentIndex: 0
+
+  # --- Service Exclusion Config ---
+  - it: should not create obi-config ConfigMap when no exclusions are set
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.exclude: []
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: obi-config.yaml
+
+  - it: should create obi-config ConfigMap when excludeProfilerEndpoints is true
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: true
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: obi-config.yaml
+      - isKind:
+          of: ConfigMap
+        template: obi-config.yaml
+
+  - it: should set OTEL_EBPF_CONFIG_PATH when exclusions are configured
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EBPF_CONFIG_PATH
+            value: /etc/obi/obi-config.yaml
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should not set OTEL_EBPF_CONFIG_PATH when no exclusions
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.exclude: []
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: OTEL_EBPF_CONFIG_PATH
+            value: /etc/obi/obi-config.yaml
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should mount obi-config volume when exclusions are configured
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: obi-config
+            mountPath: /etc/obi
+            readOnly: true
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should create ConfigMap with user-defined exclusions
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.exclude:
+        - k8s_namespace: "monitoring"
+        - exe_path: "*prometheus*"
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: obi-config.yaml

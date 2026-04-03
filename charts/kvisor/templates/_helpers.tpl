@@ -363,10 +363,10 @@ Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
 OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
 Uses fine-grained capabilities instead of privileged: true.
 Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.
-Can be overridden via .Values.agent.reliabilityMetrics.containerSecurityContext.
+Can be overridden via .Values.agent.reliabilityMetrics.obi.containerSecurityContext.
 */}}
 {{- define "kvisor.obi.containerSecurityContext" -}}
-{{- $override := .Values.agent.reliabilityMetrics.containerSecurityContext -}}
+    {{- $override := .Values.agent.reliabilityMetrics.obi.containerSecurityContext -}}
 {{- if $override }}
 {{- toYaml $override }}
 {{- else }}
@@ -429,4 +429,155 @@ container limit, leaving headroom for Go GC (GOMEMLIMIT at 90%).
 - name: MEMORY_LIMITER_SPIKE_LIMIT_MIB
   value: {{ printf "%d" $spikeMib | quote }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Map OBI sizing profile name to resource requests and limits.
+Accepts the full .Values.agent.reliabilityMetrics.obi context.
+Usage: {{ include "kvisor.obi.profileResources" .Values.agent.reliabilityMetrics.obi }}
+
+Profiles:
+  small  — up to 5 services/node   (requests: 96Mi,  limits: 256Mi)
+  medium — 5–15 services/node      (requests: 192Mi, limits: 512Mi)
+  large  — 15–30 services/node     (requests: 384Mi, limits: 768Mi)
+  xlarge — 30+ services/node       (requests: 512Mi, limits: 1Gi)
+  custom — uses the explicit .resources block
+*/}}
+{{- define "kvisor.obi.profileResources" -}}
+{{- $profile := .sizingProfile | default "medium" -}}
+{{- if eq $profile "small" }}
+requests:
+  memory: 96Mi
+limits:
+  memory: 256Mi
+{{- else if eq $profile "medium" }}
+requests:
+  memory: 192Mi
+limits:
+  memory: 512Mi
+{{- else if eq $profile "large" }}
+requests:
+  memory: 384Mi
+limits:
+  memory: 768Mi
+{{- else if eq $profile "xlarge" }}
+requests:
+  memory: 512Mi
+limits:
+  memory: 1Gi
+{{- else }}
+{{- /* "custom" or any unknown value → use explicit resources block */ -}}
+{{ .resources | toYaml }}
+{{- end }}
+{{- end -}}
+
+{{/*
+OBI init container. Always included when reliability metrics are enabled.
+Sets up an entrypoint that derives GOMEMLIMIT from OBI_MEMORY_LIMIT_BYTES (injected
+via Kubernetes Downward API resourceFieldRef). This ensures GOMEMLIMIT tracks VPA
+adjustments, LimitRange mutations, or any other post-render changes.
+
+When dynamicSizing is enabled, also scans all network namespaces on the node to
+count listening sockets on configured openPorts, and writes a recommendation to
+/shared/obi-recommended-mem for the entrypoint to log.
+
+Formula (dynamicSizing): memory = 40 + (N × 27) + 30 MiB, clamped to [120, 1024] MiB
+*/}}
+{{- define "kvisor.obi.initContainer" -}}
+- name: obi-init
+  image: "busybox:1.37.0-musl"
+  securityContext:
+    runAsUser: 0
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+    {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+      add: ["SYS_PTRACE"]
+    {{- end }}
+      drop: ["ALL"]
+  command: ["sh", "-c"]
+  args:
+    - |
+      {{- if (dig "reliabilityMetrics" "obi" "dynamicSizing" false .Values.agent) }}
+      # ── Dynamic sizing: count processes across all network namespaces ──
+      PORTS="{{ .Values.agent.reliabilityMetrics.obi.openPorts }}"
+
+      HEX_PATTERN=$(echo "$PORTS" | tr ',' '\n' | while read p; do
+        printf '%04X\n' "$p"
+      done | paste -sd'|' -)
+
+      # Discover unique network namespaces and pick one representative PID per netns.
+      # Each pod has its own netns; hostPID=true lets us see all PIDs on the node.
+      : > /shared/obi_seen_ns
+      : > /shared/obi_sockets
+      for pid_dir in /proc/[0-9]*; do
+        pid="${pid_dir##*/}"
+        ns=$(readlink "${pid_dir}/ns/net" 2>/dev/null) || continue
+        grep -qxF "$ns" /shared/obi_seen_ns 2>/dev/null && continue
+        echo "$ns" >> /shared/obi_seen_ns
+        cat "/proc/${pid}/net/tcp" "/proc/${pid}/net/tcp6" 2>/dev/null \
+          | awk -v ns="$ns" '$4 == "0A" {print ns ":" $2}' >> /shared/obi_sockets
+      done
+
+      NS_COUNT=$(wc -l < /shared/obi_seen_ns | tr -d ' ')
+      COUNT=$(sort -u /shared/obi_sockets \
+        | awk -F: '{print $NF}' \
+        | grep -cE "$HEX_PATTERN" \
+      ) || COUNT=0
+      rm -f /shared/obi_seen_ns /shared/obi_sockets
+
+      [ "$COUNT" -eq 0 ] && COUNT=5
+
+      MEM=$((40 + COUNT * 27 + 30))
+      [ "$MEM" -lt 120 ] && MEM=120
+      [ "$MEM" -gt 1024 ] && MEM=1024
+
+      echo "obi-init: scanned $NS_COUNT network namespaces, found $COUNT listening processes on ports [$PORTS]"
+      echo "obi-init: recommended memory = ${MEM} MiB (formula: 40 + $COUNT x 27 + 30)"
+      echo "${COUNT} ${MEM}" > /shared/obi-recommended-mem
+      {{- end }}
+
+      # ── Copy busybox and create cgroup-aware entrypoint ──
+      cp /bin/busybox /shared/busybox
+      chmod +x /shared/busybox
+
+      # Build entrypoint script line-by-line (heredocs break Helm YAML indentation).
+      # The entrypoint reads the container's actual cgroup memory limit at runtime,
+      # so GOMEMLIMIT always matches what the kubelet enforces — even after VPA changes.
+      {
+        echo '#!/shared/busybox sh'
+        echo 'E=/shared/busybox'
+        echo ''
+        echo '# ── Read container memory limit ──'
+        echo '# OBI_MEMORY_LIMIT_BYTES is injected via Kubernetes Downward API (resourceFieldRef).'
+        echo '# This works in all privilege modes and tracks VPA mutations automatically.'
+        echo 'LIMIT_BYTES="$OBI_MEMORY_LIMIT_BYTES"'
+        echo ''
+        echo '# ── Derive GOMEMLIMIT as 90% of container limit ──'
+        echo 'if [ -n "$LIMIT_BYTES" ] && [ "$LIMIT_BYTES" -gt 0 ] 2>/dev/null; then'
+        echo '  LIMIT_MIB=$((LIMIT_BYTES / 1048576))'
+        echo '  GOMEMLIMIT_VAL=$((LIMIT_MIB * 9 / 10))'
+        echo '  export GOMEMLIMIT="${GOMEMLIMIT_VAL}MiB"'
+        echo '  $E echo "obi: GOMEMLIMIT=${GOMEMLIMIT} (90% of ${LIMIT_MIB}MiB cgroup limit)"'
+        echo 'else'
+        echo '  $E echo "obi: WARNING: OBI_MEMORY_LIMIT_BYTES not set, using default GOMEMLIMIT"'
+        echo 'fi'
+        echo ''
+        echo '# ── Compare with dynamic sizer recommendation if available ──'
+        echo 'if [ -f /shared/obi-recommended-mem ]; then'
+        echo '  read PROC_COUNT RECOMMENDED < /shared/obi-recommended-mem'
+        echo '  $E echo "obi: dynamic sizer found $PROC_COUNT processes, recommended ${RECOMMENDED}MiB"'
+        echo '  if [ -n "$LIMIT_MIB" ] && [ "$RECOMMENDED" -gt "$LIMIT_MIB" ]; then'
+        echo '    $E echo "obi: WARNING: recommended ${RECOMMENDED}MiB exceeds container limit ${LIMIT_MIB}MiB — risk of OOMKill"'
+        echo '    $E echo "obi: WARNING: increase sizingProfile or set custom memory limit >= ${RECOMMENDED}Mi"'
+        echo '  fi'
+        echo 'fi'
+        echo ''
+        echo 'exec /obi'
+      } > /shared/entrypoint.sh
+      chmod +x /shared/entrypoint.sh
+      echo "obi-init: entrypoint ready"
+  volumeMounts:
+    - name: obi-shared
+      mountPath: /shared
 {{- end -}}

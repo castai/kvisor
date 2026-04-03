@@ -73,6 +73,26 @@ helm repo update castai-helm
 
 ## Installation
 
+### Recommended: Automated Script
+
+The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD bootstrapping automatically. It detects whether the CRD exists, installs the operator first if needed, waits for the CRD to register, then enables the full stack.
+
+```bash
+# Basic usage (existing kvisor installation, auto-detects OBI profile)
+./charts/kvisor/scripts/enable-reliability-stack.sh
+
+# With context and explicit profile
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  --obi-profile large \
+  --dynamic-sizing
+
+# Dry-run (prints commands without executing)
+./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
+```
+
+Run `./charts/kvisor/scripts/enable-reliability-stack.sh --help` for all options.
+
 ### Option 1: Fresh Installation
 
 ```bash
@@ -84,11 +104,24 @@ helm install castai-kvisor castai-helm/castai-kvisor \
   --set agent.reliabilityMetrics.enabled=true \
   --set controller.reliabilityMetrics.enabled=true \
   --set reliabilityMetrics.enabled=true \
+  --set reliabilityMetrics.operator.enabled=true \
   --set reliabilityMetrics.install.enabled=true \
   --set reliabilityMetrics.exporter.enabled=true
 ```
 
-### Option 2: Enable on Existing Kvisor
+### Option 2: Enable on Existing Kvisor (Manual)
+
+> **⚠️ CRD Chicken-and-Egg Problem**
+>
+> If the cluster has no ClickHouse Operator CRD (`clickhouse.altinity.com/v1`), enabling `reliabilityMetrics.install.enabled=true` will fail with:
+> ```
+> no matches for kind "ClickHouseInstallation" in version "clickhouse.altinity.com/v1"
+> ```
+> **Solution:** Use the automated script above, or perform a two-phase manual install:
+> 1. First deploy just the operator (must use `helm install` or `helm upgrade --install`, not plain `helm upgrade`, so CRDs get installed):
+>    `--set reliabilityMetrics.operator.enabled=true --set reliabilityMetrics.install.enabled=false`
+> 2. Wait for CRD: `kubectl get crd clickhouseinstallations.clickhouse.altinity.com`
+> 3. Then enable the full stack with `--set reliabilityMetrics.install.enabled=true`
 
 ```bash
 helm repo update castai-helm
@@ -99,6 +132,7 @@ helm upgrade castai-kvisor castai-helm/castai-kvisor \
   --set agent.reliabilityMetrics.enabled=true \
   --set controller.reliabilityMetrics.enabled=true \
   --set reliabilityMetrics.enabled=true \
+  --set reliabilityMetrics.operator.enabled=true \
   --set reliabilityMetrics.install.enabled=true \
   --set reliabilityMetrics.exporter.enabled=true
 ```
@@ -147,33 +181,53 @@ reliabilityMetrics:
 agent:
   reliabilityMetrics:
     enabled: true
-    # OBI image
-    image:
-      repository: otel/ebpf-instrument
-      tag: "v0.6.0"
-    # OBI resources (scales with instrumented processes, ~27 MiB each)
-    resources:
-      requests:
-        memory: 128Mi
-      limits:
-        memory: 512Mi
-    # Ports to instrument (comma-separated)
-    openPorts: "8080,8443,8090,6379"
-    # OBI tuning environment variables
-    env:
-      OTEL_TRACES_SAMPLER: "always_off"                    # Metrics only, no traces
-      OTEL_EBPF_TRACE_PRINTER: "disabled"                  # Disable trace output
-      OTEL_EBPF_CHANNEL_BUFFER_LEN: "50"                   # Internal channel buffer (default 10)
-      OTEL_EBPF_METRICS_INTERVAL: "15s"                    # Flush interval (default: 60s)
-      OTEL_EBPF_BPF_WAKEUP_LEN: "10"                      # Batch eBPF events per wakeup
-      OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"      # Only cache local node metadata
-      OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"    # Disable unused informers
-      OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
-      OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
-      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
-
     # OBI-specific settings
     obi:
+      # Sizing profile (small, medium, large, xlarge, custom)
+      sizingProfile: "medium"
+      # Dynamic sizing — scans all network namespaces at startup to count
+      # instrumented processes and warn if container limit is too low
+      dynamicSizing: false
+      # OBI image
+      image:
+        repository: otel/ebpf-instrument
+        tag: "v0.6.0"
+      # OBI resources (scales with instrumented processes, ~27 MiB each)
+      # Used only when sizingProfile is "custom"; otherwise profile resources are applied
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      # Ports to instrument (comma-separated)
+      openPorts: "8080,8443,8090,6379"
+      # OBI tuning environment variables
+      env:
+        OTEL_TRACES_SAMPLER: "always_off"                    # Metrics only, no traces
+        OTEL_EBPF_TRACE_PRINTER: "disabled"                  # Disable trace output
+        OTEL_EBPF_CHANNEL_BUFFER_LEN: "50"                   # Internal channel buffer (default 10)
+        OTEL_EBPF_METRICS_INTERVAL: "15s"                    # Flush interval (default: 60s)
+        OTEL_EBPF_BPF_WAKEUP_LEN: "10"                      # Batch eBPF events per wakeup
+        OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"      # Only cache local node metadata
+        OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"    # Disable unused informers
+        OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
+        OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
+        OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
+      # Service discovery exclusions — skip processes from instrumentation
+      # Each entry can use: exe_path, k8s_namespace, open_ports, container_name, etc.
+      exclude: []
+        # - k8s_namespace: "monitoring"
+        # - exe_path: "*prometheus*"
+      # Exclude profiler agents (parca, pyroscope, alloy) and /debug/pprof/* routes
+      # Prevents misleading 10s P95 latency from Go pprof scraping
+      excludeProfilerEndpoints: true
+      # URL paths to exclude from metrics (glob patterns)
+      ignoredRoutes: []
+        # - /healthz
+        # - /readyz
+        # - /metrics
+      # Custom OBI container security context (overrides default eBPF capabilities)
+      containerSecurityContext: {}
       # Internal metrics — exposes OBI's own health via Prometheus endpoint
       internalMetrics:
         enabled: false
@@ -184,13 +238,18 @@ agent:
           labels: {}
           interval: 30s
           scrapeTimeout: 10s
+```
 
+> **📖 See also:** [OBI Sizing Guide](obi-sizing.md) for sizing profiles, the sizing report script,
+> dynamic sizing, and pod placement strategies to optimize OBI memory usage.
+
+```yaml
     # OTel Collector sidecar (agent)
     collector:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.4"
+        tag: "v0.1.7"
       resources:
         requests:
           memory: 128Mi
@@ -415,13 +474,13 @@ OBI automatically discovers and instruments application processes via eBPF (no c
 
 | Protocol | Metrics | Key Attributes |
 |----------|---------|----------------|
-| **HTTP** | `http.server.request.duration`, `http.client.request.duration` | method, status_code, error_type |
-| **gRPC** | `rpc.server.duration`, `rpc.client.duration` | rpc.method, rpc.service, grpc.status_code |
+| **HTTP** | `http.server.request.duration` | method, status_code, error_type |
+| **gRPC** | `rpc.server.duration` | rpc.method, rpc.service, grpc.status_code |
 | **Database** | `db.client.operation.duration` | db.system.name, db.operation.name |
 | **Messaging** | `messaging.publish.duration`, `messaging.process.duration` | messaging.system, messaging.destination.name |
 | **K8s state** | Pod phase, container restarts, deployment availability, HPA pressure | namespace, workload_name, node |
 
-Only golden signal metrics are retained. The OTel Collector drops all other metrics via `filter/golden-signals` before they reach ClickHouse.
+Only **server-side** golden signal metrics are retained. The OTel Collector's `filter/golden-signals` drops client-side metrics (`http.client.request.duration`, `rpc.client.duration`) before they reach ClickHouse — this reduces Bronze write volume by ~59%. OBI instruments both client and server calls, but only server-side metrics measure each workload's own reliability; client-side metrics are redundant because the downstream service already reports its own server metrics.
 
 ## Startup Timeline
 
@@ -449,6 +508,10 @@ Approximate per-component resource consumption:
 | ch-exporter | 5m | 14 MiB | Number of Silver table rows to export |
 
 For clusters with 30+ nodes or high-cardinality workloads, consider increasing the agent OTel Collector memory limit above 256 MiB.
+
+> **📖 OBI memory sizing:** OBI memory scales with the number of instrumented processes per node (~27 MiB each).
+> See the [OBI Sizing Guide](obi-sizing.md) for sizing profiles, a cluster analysis script,
+> dynamic per-node tuning, and pod placement strategies to reduce memory variance.
 
 ## Monitoring with Prometheus Operator
 

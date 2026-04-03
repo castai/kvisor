@@ -201,61 +201,115 @@ agent:
   reliabilityMetrics:
     enabled: false
 
-    # --- OBI (eBPF instrumentation) settings ---
-    image:
-      repository: otel/ebpf-instrument
-      tag: "v0.6.0"
-    resources:
-      requests:
-        memory: 128Mi
-      limits:
-        memory: 512Mi
-    # Ports to instrument — controls memory usage (~27 MiB per instrumented process).
-    # Comma-separated list. 8080=HTTP APIs, 8090=gRPC APIs, 6379=Redis.
-    openPorts: "8080,8443,8090,6379"
-    # Extra environment variables for the OBI container.
-    env:
-      # Disable tracing - we only need metrics
-      OTEL_TRACES_SAMPLER: "always_off"
-      OTEL_EBPF_TRACE_PRINTER: "disabled"
-      # Internal Go channel buffer (default 10). 50 provides headroom for
-      # burst absorption without the excessive memory overhead of 500.
-      OTEL_EBPF_CHANNEL_BUFFER_LEN: "50"
-      # Reduce metrics export interval from default 60s to 15s.
-      # Flushes histogram aggregations 4x more often, reducing backpressure
-      # on the spanNameAggregatedMetrics pipeline stage.
-      OTEL_EBPF_METRICS_INTERVAL: "15s"
-      # Batch 10 eBPF events per wakeup instead of waking Go per-event.
-      # Reduces GC pressure from per-event allocations while keeping
-      # latency low for metrics (sub-second batching at typical rates).
-      OTEL_EBPF_BPF_WAKEUP_LEN: "10"
-      # Restrict Kubernetes informer to pods on the local node only.
-      # As a DaemonSet sidecar, OBI doesn't need cluster-wide pod/node/service
-      # metadata. Saves ~30-100 MiB by not caching remote objects.
-      OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"
-      # Disable node and service informers — their metadata is not used by the
-      # reliability metrics pipeline. All required attributes (workload name,
-      # namespace, node name) come from the pod informer's owner references
-      # and spec.nodeName.
-      OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"
-      # Timeout for HTTP request completion. Requests open beyond this duration
-      # are forcibly closed by eBPF and reported with their current state.
-      # Default 30s prevents long-lived connections (SSE, WebSocket upgrades,
-      # streaming) from accumulating as open spans and inflating memory.
-      OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"
-      # Skip Go-specific uprobes for HTTP/2 and gRPC tracing. Go binaries use
-      # non-standard calling conventions that require expensive uprobe attachment.
-      # Disabling avoids per-binary probe setup overhead and false-positive spans.
-      OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"
-      # Enable high-request-volume mode. Uses ring-buffer instead of perf-buffer
-      # for eBPF→userspace event delivery, reducing per-event overhead at the
-      # cost of slightly higher baseline memory. Recommended for clusters with
-      # high-throughput services (>1k req/s per node).
-      OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
-    # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
-    containerSecurityContext: {}
-    # --- OBI-specific settings ---
+    # --- OBI (eBPF instrumentation) container settings ---
     obi:
+      # Sizing profile for the OBI container.
+      # Controls memory requests/limits based on expected workload density per node.
+      # Run `./scripts/obi-sizing-report.sh` to determine the right profile for your cluster.
+      #
+      # Available profiles:
+      #   small   — up to 5 services/node   (requests: 96Mi,  limits: 256Mi)
+      #   medium  — 5–15 services/node      (requests: 192Mi, limits: 512Mi)
+      #   large   — 15–30 services/node     (requests: 384Mi, limits: 768Mi)
+      #   xlarge  — 30+ services/node        (requests: 512Mi, limits: 1Gi)
+      #   custom  — use the 'resources' block below for manual sizing
+      #
+      # See docs/obi-sizing.md for the sizing guide.
+      sizingProfile: "medium"
+
+      # GOMEMLIMIT is always derived at runtime from the container's actual cgroup
+      # memory limit (90% of the enforced limit). This ensures GOMEMLIMIT tracks
+      # VPA adjustments and admission webhook mutations automatically.
+      #
+      # Dynamic sizing (optional): when enabled, an init container scans all network
+      # namespaces on the node to count processes listening on openPorts. It logs the
+      # recommended memory and warns at OBI startup if the container limit is too low.
+      # Formula: memory = 40 + (N × 27) + 30 MiB  (clamped to [120, 1024] MiB)
+      # Requires hostPID: true (already set on agent DaemonSet) and SYS_PTRACE.
+      # See docs/obi-sizing.md for details.
+      dynamicSizing: false
+
+      image:
+        repository: otel/ebpf-instrument
+        tag: "v0.6.0"
+      # Custom resources — only used when sizingProfile is "custom".
+      resources:
+        requests:
+          memory: 192Mi
+        limits:
+          memory: 512Mi
+      # Ports to instrument — controls memory usage (~27 MiB per instrumented process).
+      # Comma-separated list. 8080=HTTP APIs, 8090=gRPC APIs, 6379=Redis.
+      openPorts: "8080,8443,8090,6379"
+      # Service discovery exclusions — reduces instrumented process count and memory.
+      # OBI has built-in defaults (excludes kube-system, cert-manager, etc.) which
+      # are preserved unless you set excludeDefaults: false.
+      # Each entry can use: exe_path, k8s_namespace, open_ports, container_name,
+      #   k8s_pod_labels, k8s_pod_annotations, cmd_args (glob patterns supported).
+      # See: https://opentelemetry.io/docs/zero-code/obi/configure/service-discovery/
+      exclude: []
+        # Examples:
+        # - k8s_namespace: "monitoring"
+        # - k8s_namespace: "loki"
+        # - exe_path: "*prometheus*"
+        # - exe_path: "*profiler*"
+        # - open_ports: "9090,9091"
+      # Exclude profiler agent processes (parca, pyroscope, grafana-agent, alloy)
+      # from being instrumented. Prevents their outbound scrape calls from appearing
+      # in RED metrics.
+      excludeProfilerEndpoints: true
+      # URL paths to exclude from metrics and traces. Matching requests are silently
+      # dropped by OBI before export. Uses glob patterns with * wildcard.
+      # Default (when excludeProfilerEndpoints is true): drops /debug/pprof/* requests
+      # which block for 10-30s during CPU profiling and produce misleading P95 latency.
+      # See: https://opentelemetry.io/docs/zero-code/obi/configure/routes-decorator/
+      ignoredRoutes: []
+        # Examples:
+        # - /debug/pprof/*
+        # - /healthz
+        # - /readyz
+        # - /metrics
+      # Extra environment variables for the OBI container.
+      env:
+        # Disable tracing - we only need metrics
+        OTEL_TRACES_SAMPLER: "always_off"
+        OTEL_EBPF_TRACE_PRINTER: "disabled"
+        # Internal Go channel buffer (default 10). 50 provides headroom for
+        # burst absorption without the excessive memory overhead of 500.
+        OTEL_EBPF_CHANNEL_BUFFER_LEN: "50"
+        # Reduce metrics export interval from default 60s to 15s.
+        # Flushes histogram aggregations 4x more often, reducing backpressure
+        # on the spanNameAggregatedMetrics pipeline stage.
+        OTEL_EBPF_METRICS_INTERVAL: "15s"
+        # Batch 10 eBPF events per wakeup instead of waking Go per-event.
+        # Reduces GC pressure from per-event allocations while keeping
+        # latency low for metrics (sub-second batching at typical rates).
+        OTEL_EBPF_BPF_WAKEUP_LEN: "10"
+        # Restrict Kubernetes informer to pods on the local node only.
+        # As a DaemonSet sidecar, OBI doesn't need cluster-wide pod/node/service
+        # metadata. Saves ~30-100 MiB by not caching remote objects.
+        OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"
+        # Disable node and service informers — their metadata is not used by the
+        # reliability metrics pipeline. All required attributes (workload name,
+        # namespace, node name) come from the pod informer's owner references
+        # and spec.nodeName.
+        OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"
+        # Timeout for HTTP request completion. Requests open beyond this duration
+        # are forcibly closed by eBPF and reported with their current state.
+        # Default 30s prevents long-lived connections (SSE, WebSocket upgrades,
+        # streaming) from accumulating as open spans and inflating memory.
+        OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"
+        # Skip Go-specific uprobes for HTTP/2 and gRPC tracing. Go binaries use
+        # non-standard calling conventions that require expensive uprobe attachment.
+        # Disabling avoids per-binary probe setup overhead and false-positive spans.
+        OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"
+        # Enable high-request-volume mode. Uses ring-buffer instead of perf-buffer
+        # for eBPF→userspace event delivery, reducing per-event overhead at the
+        # cost of slightly higher baseline memory. Recommended for clusters with
+        # high-throughput services (>1k req/s per node).
+        OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"
+      # Container security context override (if empty, uses unprivileged defaults with fine-grained capabilities).
+      containerSecurityContext: {}
       # Internal metrics — exposes OBI's own health via a Prometheus endpoint.
       # Metrics include: instrumented process count, eBPF map usage, Go runtime stats.
       # Disabled by default. Set port > 0 to enable.
@@ -279,7 +333,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.4"
+        tag: "v0.1.8"
       resources:
         requests:
           memory: 128Mi
@@ -434,7 +488,7 @@ controller:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.4"
+        tag: "v0.1.8"
       resources:
         requests:
           cpu: 250m
@@ -533,4 +587,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.12"
+      tag: "v0.3.13"

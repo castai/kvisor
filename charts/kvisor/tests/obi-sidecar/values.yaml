@@ -2,17 +2,18 @@ agent:
   enabled: true
   reliabilityMetrics:
     enabled: false
-    image:
-      repository: otel/ebpf-instrument
-      tag: "v0.6.0"
-    resources:
-      requests:
-        memory: 128Mi
-      limits:
-        memory: 512Mi
-    openPorts: "8080,8443,8090,6379"
-    env: {}
-    containerSecurityContext: {}
+    obi:
+      image:
+        repository: otel/ebpf-instrument
+        tag: "v0.6.0"
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      openPorts: "8080,8443,8090,6379"
+      env: {}
+      containerSecurityContext: {}
     collector:
       enabled: true
       image:
