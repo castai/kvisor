@@ -68,8 +68,14 @@ func TestFillMissingPerformanceParams(t *testing.T) {
 		{
 			name:           "aws gp2: fills IOPS from size, throughput from IOPS",
 			input:          types.Volume{VolumeType: "gp2", SizeBytes: 100 * gib},
-			wantIOPS:       300,                                     // 100 GiB * 3 IOPS/GiB
-			wantThroughput: types.SafeInt64ToInt32(300 * mib / 4),   // 300 IOPS * 0.25 MiB/s
+			wantIOPS:       300,                                    // 100 GiB * 3 IOPS/GiB
+			wantThroughput: types.SafeInt64ToInt32(300 * mib / 4), // 300 IOPS * 0.25 MiB/s
+		},
+		{
+			name:           "aws gp2: small volume uses 100 IOPS minimum baseline",
+			input:          types.Volume{VolumeType: "gp2", SizeBytes: 10 * gib},
+			wantIOPS:       100,                                    // 10 GiB * 3 = 30, but minimum is 100
+			wantThroughput: types.SafeInt64ToInt32(100 * mib / 4), // 100 IOPS * 0.25 MiB/s = 25 MiB/s
 		},
 		{
 			name:           "aws st1: fills throughput from size (no IOPS)",

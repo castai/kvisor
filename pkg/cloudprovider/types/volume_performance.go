@@ -11,6 +11,8 @@ type VolumePerformanceSpec struct {
 	BaselineIOPS    int64
 	IOPSNumerator   int64 // additional IOPS per GiB = Numerator/Denominator
 	IOPSDenominator int64
+	// MinIOPS is the minimum IOPS value after size-based calculation (0 means no minimum).
+	MinIOPS int64
 
 	// BaselineThroughputBytes is the fixed throughput floor in bytes/s (0 if none).
 	BaselineThroughputBytes int64
@@ -37,7 +39,11 @@ func (v *Volume) FillMissingPerformanceParams() {
 	sizeGiB := v.SizeBytes / (1024 * 1024 * 1024)
 
 	if v.IOPS == 0 && sizeGiB > 0 && spec.IOPSDenominator > 0 {
-		v.IOPS = SafeInt64ToInt32(spec.BaselineIOPS + sizeGiB*spec.IOPSNumerator/spec.IOPSDenominator)
+		iops := spec.BaselineIOPS + sizeGiB*spec.IOPSNumerator/spec.IOPSDenominator
+		if spec.MinIOPS > 0 && iops < spec.MinIOPS {
+			iops = spec.MinIOPS
+		}
+		v.IOPS = SafeInt64ToInt32(iops)
 	}
 
 	if v.ThroughputBytes == 0 {

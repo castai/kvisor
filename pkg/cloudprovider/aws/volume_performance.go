@@ -29,9 +29,10 @@ func init() {
 	types.VolumePerformanceSpecs["io2"] = ioSpec
 
 	types.VolumePerformanceSpecs["gp2"] = types.VolumePerformanceSpec{
-		// 3 IOPS per GiB
+		// 3 IOPS per GiB, minimum 100 IOPS
 		IOPSNumerator:   3,
 		IOPSDenominator: 1,
+		MinIOPS:         100,
 		// Throughput = IOPS * 0.25 MiB/s
 		ThroughputIOPSNumerator:   mib / 4,
 		ThroughputIOPSDenominator: 1,
