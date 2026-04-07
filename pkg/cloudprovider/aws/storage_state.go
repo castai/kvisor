@@ -107,11 +107,13 @@ func (p *Provider) fetchInstanceVolumes(ctx context.Context, instanceIds []strin
 			volume.IOPS = *vol.Iops
 		}
 
-		// Throughput is only available for gp3 and st1/sc1 volume types
+		// Throughput is only returned by the API for gp3 volumes.
 		if vol.Throughput != nil && *vol.Throughput > 0 {
 			// Throughput is in MiB/s, convert to bytes/s
 			volume.ThroughputBytes = *vol.Throughput * 1024 * 1024
 		}
+
+		volume.FillMissingPerformanceParams()
 
 		for _, attachment := range vol.Attachments {
 			if attachment.InstanceId != nil {
