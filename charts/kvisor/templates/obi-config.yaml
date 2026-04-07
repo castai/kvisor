@@ -3,7 +3,7 @@
 {{- $excludeProfilers := .Values.agent.reliabilityMetrics.obi.excludeProfilerEndpoints | default false }}
 {{- $ignoredRoutes := .Values.agent.reliabilityMetrics.obi.ignoredRoutes | default list }}
 {{- $hasExclusions := or (gt (len $exclude) 0) $excludeProfilers }}
-{{- $hasRouteExclusions := or (gt (len $ignoredRoutes) 0) $excludeProfilers }}
+{{- $hasRouteExclusions := gt (len $ignoredRoutes) 0 }}
 {{- if or $hasExclusions $hasRouteExclusions }}
 apiVersion: v1
 kind: ConfigMap
@@ -30,13 +30,6 @@ data:
     {{- if $hasRouteExclusions }}
     routes:
       ignored_patterns:
-        {{- /* Profiler route exclusions — /debug/pprof/profile blocks for 10-30s
-               during CPU profiling, producing misleading P95 latency in RED metrics.
-               These requests are legitimate but are profiler infrastructure, not user traffic. */}}
-        {{- if $excludeProfilers }}
-        - /debug/pprof/*
-        - /debug/*
-        {{- end }}
         {{- range $ignoredRoutes }}
         - {{ . }}
         {{- end }}

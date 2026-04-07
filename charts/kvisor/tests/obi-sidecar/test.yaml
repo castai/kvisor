@@ -53,7 +53,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[1].image
-          pattern: "otel/ebpf-instrument:v0.6.0"
+          pattern: "otel/ebpf-instrument:v0.7.0"
         template: agent.yaml
         documentIndex: 0
 
@@ -520,21 +520,49 @@ tests:
       agent.reliabilityMetrics.enabled: true
       agent.reliabilityMetrics.obi.exclude: []
       agent.reliabilityMetrics.obi.excludeProfilerEndpoints: false
+      agent.reliabilityMetrics.obi.ignoredRoutes: []
     asserts:
       - hasDocuments:
           count: 0
         template: obi-config.yaml
 
-  - it: should create obi-config ConfigMap when excludeProfilerEndpoints is true
+  - it: should create obi-config ConfigMap with default ignoredRoutes and exclude
     set:
       agent.reliabilityMetrics.enabled: true
-      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: true
     asserts:
       - hasDocuments:
           count: 1
         template: obi-config.yaml
       - isKind:
           of: ConfigMap
+        template: obi-config.yaml
+
+  - it: should include default ignored routes in obi-config
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: false
+    asserts:
+      - matchRegex:
+          path: data["obi-config.yaml"]
+          pattern: "/healthz"
+        template: obi-config.yaml
+      - matchRegex:
+          path: data["obi-config.yaml"]
+          pattern: "/metrics"
+        template: obi-config.yaml
+      - matchRegex:
+          path: data["obi-config.yaml"]
+          pattern: "/actuator/\\*"
+        template: obi-config.yaml
+
+  - it: should not include service exclusions when exclude is empty
+    set:
+      agent.reliabilityMetrics.enabled: true
+      agent.reliabilityMetrics.obi.excludeProfilerEndpoints: false
+    asserts:
+      - notMatchRegex:
+          path: data["obi-config.yaml"]
+          pattern: "exclude_instrument"
         template: obi-config.yaml
 
   - it: should set OTEL_EBPF_CONFIG_PATH when exclusions are configured
@@ -555,6 +583,7 @@ tests:
       agent.reliabilityMetrics.enabled: true
       agent.reliabilityMetrics.obi.exclude: []
       agent.reliabilityMetrics.obi.excludeProfilerEndpoints: false
+      agent.reliabilityMetrics.obi.ignoredRoutes: []
     asserts:
       - notContains:
           path: spec.template.spec.containers[1].env

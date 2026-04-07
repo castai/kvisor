@@ -231,7 +231,7 @@ agent:
 
       image:
         repository: otel/ebpf-instrument
-        tag: "v0.6.0"
+        tag: "v0.7.0"
       # Custom resources — only used when sizingProfile is "custom".
       resources:
         requests:
@@ -250,9 +250,8 @@ agent:
       exclude: []
         # Examples:
         # - k8s_namespace: "monitoring"
-        # - k8s_namespace: "loki"
-        # - exe_path: "*prometheus*"
-        # - exe_path: "*profiler*"
+        # - exe_path: "*nginx*"
+        # - exe_path: "*rollouts-controller*"
         # - open_ports: "9090,9091"
       # Exclude profiler agent processes (parca, pyroscope, grafana-agent, alloy)
       # from being instrumented. Prevents their outbound scrape calls from appearing
@@ -260,15 +259,35 @@ agent:
       excludeProfilerEndpoints: true
       # URL paths to exclude from metrics and traces. Matching requests are silently
       # dropped by OBI before export. Uses glob patterns with * wildcard.
-      # Default (when excludeProfilerEndpoints is true): drops /debug/pprof/* requests
-      # which block for 10-30s during CPU profiling and produce misleading P95 latency.
+      # Default routes below cover common infrastructure endpoints that generate noise
+      # in application RED metrics without providing useful signal. Profiling/debug paths
+      # (/debug/pprof/*) are handled separately by excludeProfilerEndpoints.
       # See: https://opentelemetry.io/docs/zero-code/obi/configure/routes-decorator/
-      ignoredRoutes: []
-        # Examples:
-        # - /debug/pprof/*
-        # - /healthz
-        # - /readyz
-        # - /metrics
+      ignoredRoutes:
+        # ── Health / readiness probes ──
+        - /health
+        - /health/*
+        - /healthz
+        - /readyz
+        - /livez
+        - /ready
+        - /up
+        - /ping
+        # ── Prometheus / metrics endpoints ──
+        - /metrics
+        - /metrics/*
+        # ── Spring Boot actuator ──
+        - /actuator/*
+        # ── Profiling / debug ──
+        - /debug/*
+        - /debug/pprof/*
+        # ── JVM management (Jolokia) ──
+        - /jolokia
+        - /jolokia/*
+        # Additional examples:
+        # - /status
+        # - /version
+        # - /internal/*
       # Extra environment variables for the OBI container.
       env:
         # Disable tracing - we only need metrics
