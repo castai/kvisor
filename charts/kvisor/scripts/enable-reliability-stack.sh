@@ -154,7 +154,7 @@ if ! kubectl $KUBECTL_CTX cluster-info >/dev/null 2>&1; then
   err "Cannot connect to cluster${CONTEXT:+ (context: $CONTEXT)}"
   exit 1
 fi
-CLUSTER_NAME=$(kubectl $KUBECTL_CTX config current-context 2>/dev/null || echo "unknown")
+CLUSTER_NAME="${CONTEXT:-$(kubectl config current-context 2>/dev/null || echo "unknown")}"
 ok "Connected to cluster: $CLUSTER_NAME"
 
 # ── Helm repo ───────────────────────────────────────────────────────────────

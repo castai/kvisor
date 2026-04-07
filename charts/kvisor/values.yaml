@@ -606,4 +606,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.13"
+      tag: "v0.3.14"
