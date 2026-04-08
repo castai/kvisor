@@ -1,8 +1,8 @@
 # Kvisor Reliability Metrics Installation Guide
 
-> **ALPHA - NOT FOR PRODUCTION USE**
+> **BETA**
 >
-> This feature is currently in alpha and is not intended for production use. APIs, configurations, and functionality may change without notice.
+> This feature is in beta. Core functionality is stable and running in production, but APIs and configurations may still evolve.
 
 This guide covers installing Kvisor with the reliability metrics stack, which provides automated observability for applications running in your Kubernetes cluster.
 
@@ -60,9 +60,13 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
 ## Prerequisites
 
 - Kubernetes cluster (1.25+)
+- **Linux kernel ≥ 5.8** on all nodes (required for eBPF ring buffers and BTF support)
+- **Architecture**: amd64 or arm64 (OBI compiles eBPF programs for both; no 32-bit support)
 - `helm` (3.12+) and `kubectl` installed and configured
 - CAST AI account with API key and cluster onboarded to CAST AI
 - **Altinity ClickHouse operator**: Either let the chart install it (`reliabilityMetrics.operator.enabled=true`) or ensure one is already running in the cluster (`reliabilityMetrics.operator.enabled=false`)
+
+> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version and architecture on all nodes before proceeding. If any node fails, you'll be prompted to confirm before continuing.
 
 ### Helm Repo Setup
 
@@ -87,9 +91,16 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
   --obi-profile large \
   --dynamic-sizing
 
+# With a custom values file (overrides openPorts, exclusions, ClickHouse config, etc.)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  -f /path/to/my-values.yaml
+
 # Dry-run (prints commands without executing)
 ./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
 ```
+
+The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure `openPorts`, exclusions, ClickHouse resources, and exporter settings for production clusters.
 
 Run `./charts/kvisor/scripts/enable-reliability-stack.sh --help` for all options.
 
@@ -211,7 +222,6 @@ agent:
         OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"      # Only cache local node metadata
         OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"    # Disable unused informers
         OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
-        OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
         OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
       # Service discovery exclusions — skip processes from instrumentation
       # Each entry can use: exe_path, k8s_namespace, open_ports, container_name, etc.
@@ -221,11 +231,29 @@ agent:
       # Exclude profiler agents (parca, pyroscope, alloy) and /debug/pprof/* routes
       # Prevents misleading 10s P95 latency from Go pprof scraping
       excludeProfilerEndpoints: true
-      # URL paths to exclude from metrics (glob patterns)
-      ignoredRoutes: []
-        # - /healthz
-        # - /readyz
-        # - /metrics
+      # URL paths to exclude from metrics (glob patterns).
+      # Chart ships sensible defaults — override only if you need to customize.
+      ignoredRoutes:
+        # ── Health / readiness probes ──
+        - /health
+        - /health/*
+        - /healthz
+        - /readyz
+        - /livez
+        - /ready
+        - /up
+        - /ping
+        # ── Prometheus / metrics endpoints ──
+        - /metrics
+        - /metrics/*
+        # ── Spring Boot actuator ──
+        - /actuator/*
+        # ── Profiling / debug ──
+        - /debug/*
+        - /debug/pprof/*
+        # ── JVM management (Jolokia) ──
+        - /jolokia
+        - /jolokia/*
       # Custom OBI container security context (overrides default eBPF capabilities)
       containerSecurityContext: {}
       # Internal metrics — exposes OBI's own health via Prometheus endpoint
