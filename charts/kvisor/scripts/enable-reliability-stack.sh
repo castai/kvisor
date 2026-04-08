@@ -157,6 +157,118 @@ fi
 CLUSTER_NAME="${CONTEXT:-$(kubectl config current-context 2>/dev/null || echo "unknown")}"
 ok "Connected to cluster: $CLUSTER_NAME"
 
+# ── eBPF compatibility check ────────────────────────────────────────────────
+# OBI requires: Linux kernel ≥ 5.8 (ring buffers, BTF, bpf syscall), amd64 or arm64.
+# We check all nodes via kubectl — no exec or debug pods needed.
+step "eBPF Compatibility Check"
+
+EBPF_ISSUES=0
+NODE_DATA=$(kubectl $KUBECTL_CTX get nodes -o json 2>/dev/null) || {
+  warn "Could not list nodes — skipping eBPF preflight check"
+  NODE_DATA=""
+}
+
+if [[ -n "$NODE_DATA" ]]; then
+  NODE_COUNT=$(echo "$NODE_DATA" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo "0")
+
+  # Check kernel versions and architecture for all nodes at once
+  PREFLIGHT_RESULT=$(echo "$NODE_DATA" | python3 -c "
+import sys, json, re
+
+data = json.load(sys.stdin)
+min_major, min_minor = 5, 8
+bad_kernel = []
+bad_arch = []
+kernels = set()
+arches = set()
+
+for node in data['items']:
+    name = node['metadata']['name']
+    info = node['status'].get('nodeInfo', {})
+    kernel = info.get('kernelVersion', 'unknown')
+    arch = info.get('architecture', 'unknown')
+    kernels.add(kernel)
+    arches.add(arch)
+
+    # Parse kernel version (e.g., '5.15.0-1034-gke', '6.1.75+')
+    m = re.match(r'(\d+)\.(\d+)', kernel)
+    if m:
+        major, minor = int(m.group(1)), int(m.group(2))
+        if (major, minor) < (min_major, min_minor):
+            bad_kernel.append(f'{name} ({kernel})')
+    else:
+        bad_kernel.append(f'{name} (unparseable: {kernel})')
+
+    if arch not in ('amd64', 'arm64'):
+        bad_arch.append(f'{name} ({arch})')
+
+print(f'NODES={len(data[\"items\"])}')
+print(f'KERNELS={\" \".join(sorted(kernels))}')
+print(f'ARCHES={\" \".join(sorted(arches))}')
+print(f'BAD_KERNEL_COUNT={len(bad_kernel)}')
+print(f'BAD_ARCH_COUNT={len(bad_arch)}')
+for bk in bad_kernel:
+    print(f'BAD_KERNEL={bk}')
+for ba in bad_arch:
+    print(f'BAD_ARCH={ba}')
+" 2>/dev/null)
+
+  if [[ -n "$PREFLIGHT_RESULT" ]]; then
+    PREFLIGHT_NODES=""
+    PREFLIGHT_KERNELS=""
+    PREFLIGHT_ARCHES=""
+    BAD_KERNEL_COUNT=0
+    BAD_ARCH_COUNT=0
+    BAD_KERNEL_LIST=""
+    BAD_ARCH_LIST=""
+
+    while IFS='=' read -r key val; do
+      case "$key" in
+        NODES)            PREFLIGHT_NODES="$val" ;;
+        KERNELS)          PREFLIGHT_KERNELS="$val" ;;
+        ARCHES)           PREFLIGHT_ARCHES="$val" ;;
+        BAD_KERNEL_COUNT) BAD_KERNEL_COUNT="$val" ;;
+        BAD_ARCH_COUNT)   BAD_ARCH_COUNT="$val" ;;
+        BAD_KERNEL)       BAD_KERNEL_LIST="${BAD_KERNEL_LIST:+$BAD_KERNEL_LIST, }$val" ;;
+        BAD_ARCH)         BAD_ARCH_LIST="${BAD_ARCH_LIST:+$BAD_ARCH_LIST, }$val" ;;
+      esac
+    done <<< "$PREFLIGHT_RESULT"
+
+    info "Nodes: $PREFLIGHT_NODES | Kernels: $PREFLIGHT_KERNELS | Arch: $PREFLIGHT_ARCHES"
+
+    if [[ "$BAD_KERNEL_COUNT" -gt 0 ]]; then
+      err "Kernel < 5.8 detected on $BAD_KERNEL_COUNT node(s): $BAD_KERNEL_LIST"
+      err "OBI requires Linux 5.8+ for eBPF ring buffers and BTF support."
+      EBPF_ISSUES=1
+    else
+      ok "All nodes have kernel ≥ 5.8"
+    fi
+
+    if [[ "$BAD_ARCH_COUNT" -gt 0 ]]; then
+      err "Unsupported architecture on $BAD_ARCH_COUNT node(s): $BAD_ARCH_LIST"
+      err "OBI supports amd64 and arm64 only."
+      EBPF_ISSUES=1
+    else
+      ok "All nodes use supported architecture ($PREFLIGHT_ARCHES)"
+    fi
+  else
+    warn "Could not parse node info — skipping eBPF preflight check"
+  fi
+
+  if [[ "$EBPF_ISSUES" -gt 0 ]]; then
+    err "eBPF preflight check failed. OBI may not work on the affected nodes."
+    err "Proceed anyway? [y/N]"
+    if [[ -z "$DRY_RUN" ]]; then
+      read -r REPLY
+      if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+        err "Aborted."
+        exit 1
+      fi
+      warn "Proceeding despite eBPF compatibility issues"
+    fi
+  fi
+fi
+
 # ── Helm repo ───────────────────────────────────────────────────────────────
 if [[ -z "$SKIP_REPO" ]]; then
   step "Helm Repository"
@@ -215,6 +327,10 @@ else
   else
     PHASE1_CMD="$PHASE1_CMD \\
     --reset-then-reuse-values"
+    # Layer -f values on top of reused values (allows overriding openPorts, env, etc.)
+    if [[ -n "$VALUES_FILE" ]]; then
+      PHASE1_CMD="$PHASE1_CMD -f '${VALUES_FILE//"'"/"'\\''"}'"
+    fi
   fi
 
   PHASE1_CMD="$PHASE1_CMD \\
@@ -304,6 +420,10 @@ if [[ -n "$INSTALL_MODE" ]]; then
 else
   HELM_CMD="$HELM_CMD \\
   --reset-then-reuse-values"
+  # Layer -f values on top of reused values (allows overriding openPorts, env, etc.)
+  if [[ -n "$VALUES_FILE" ]]; then
+    HELM_CMD="$HELM_CMD -f '${VALUES_FILE//"'"/"'\\''"}'"
+  fi
 fi
 
 HELM_CMD="$HELM_CMD \\
