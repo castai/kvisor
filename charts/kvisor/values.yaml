@@ -318,10 +318,6 @@ agent:
         # Default 30s prevents long-lived connections (SSE, WebSocket upgrades,
         # streaming) from accumulating as open spans and inflating memory.
         OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"
-        # Skip Go-specific uprobes for HTTP/2 and gRPC tracing. Go binaries use
-        # non-standard calling conventions that require expensive uprobe attachment.
-        # Disabling avoids per-binary probe setup overhead and false-positive spans.
-        OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"
         # Enable high-request-volume mode. Uses ring-buffer instead of perf-buffer
         # for eBPF→userspace event delivery, reducing per-event overhead at the
         # cost of slightly higher baseline memory. Recommended for clusters with
