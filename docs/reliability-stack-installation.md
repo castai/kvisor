@@ -525,21 +525,75 @@ The OTel Collectors buffer up to ~5M data points (10-15 min of data) while waiti
 
 ## Resource Requirements
 
-Approximate per-component resource consumption:
+### Per-Component Breakdown
 
-| Component | CPU (typical) | Memory (typical) | Scales With |
-|-----------|-------------|-----------------|-------------|
-| OBI (per node) | 5-25m | 100-500 MiB | Number of instrumented processes (~27 MiB each) |
-| OTel Collector (per node) | 5-50m | 50-150 MiB | Metric cardinality and volume on the node |
-| OTel Collector (controller) | 200-500m | 100-200 MiB | Number of K8s objects in the cluster |
-| ClickHouse | 200-500m | 1-4 GiB | Data volume, query load, merge pressure |
-| ch-exporter | 5m | 14 MiB | Number of Silver table rows to export |
+Each component in the stack has different resource characteristics. The table below shows Kubernetes resource requests/limits and observed production usage.
 
-For clusters with 30+ nodes or high-cardinality workloads, consider increasing the agent OTel Collector memory limit above 256 MiB.
+| Component | Per | Requests (CPU / Mem) | Limits (Mem) | Observed Usage (CPU / Mem) | Scales With |
+|-----------|-----|---------------------|-------------|---------------------------|-------------|
+| **kvisor agent** | node | 30m / 128Mi | 512Mi | 5-15m / 150-200Mi | eBPF events on the node |
+| **OBI** (eBPF instrumenter) | node | — / 384Mi (medium) | 768Mi (medium) | 5-90m / 100-500Mi | Instrumented processes (~27 MiB each) |
+| **OTel Collector** (agent) | node | — / 128Mi | 256Mi | 2-10m / 50-150Mi | Metric cardinality and volume on the node |
+| **kvisor controller** | cluster | 30m / 256Mi | 512Mi | 30-80m / 400-600Mi | K8s objects (pods, deployments) |
+| **OTel Collector** (controller) | cluster | 250m / 256Mi | 512Mi | 30-80m / 100-200Mi | K8s objects (gauge metrics) |
+| **ClickHouse** | cluster | 500m / 1.5Gi | 2-4Gi | 200-500m / 1-1.3Gi | Data volume, merge pressure |
+| **ch-exporter** | cluster | 50m / 64Mi | 128Mi | <5m / <20Mi | Silver table rows to export |
+| **Migrate job** | one-shot | — | — | brief | Schema complexity |
 
-> **📖 OBI memory sizing:** OBI memory scales with the number of instrumented processes per node (~27 MiB each).
-> See the [OBI Sizing Guide](obi-sizing.md) for sizing profiles, a cluster analysis script,
-> dynamic per-node tuning, and pod placement strategies to reduce memory variance.
+### Cluster-Wide Resource Footprint
+
+The total resource cost is dominated by the **per-node DaemonSet** (agent + OBI + collector run on every node):
+
+| Cluster Size | Per-Node Request (CPU/Mem) | Total DaemonSet Request | Per-Cluster Overhead | **Total Stack** |
+|-------------|---------------------------|------------------------|---------------------|----------------|
+| 10 nodes | 30m / 640Mi | 300m / 6.3 GiB | 830m / 2.1 GiB | **1.1 cores / 8.4 GiB** |
+| 30 nodes | 30m / 640Mi | 900m / 18.8 GiB | 830m / 2.1 GiB | **1.7 cores / 20.9 GiB** |
+| 70 nodes | 30m / 640Mi | 2.1 cores / 43.8 GiB | 830m / 2.1 GiB | **2.9 cores / 45.9 GiB** |
+| 150 nodes | 30m / 640Mi | 4.5 cores / 93.8 GiB | 830m / 2.1 GiB | **5.3 cores / 95.9 GiB** |
+
+> Per-node request = kvisor (30m/128Mi) + OBI (—/384Mi) + collector (—/128Mi) = **30m / 640Mi** with medium OBI profile. OBI and collector have no CPU requests by default (best-effort CPU, guaranteed memory).
+
+### Key Considerations
+
+**OBI memory is the largest per-node cost.** Each instrumented process consumes ~27 MiB inside OBI. On a node running 15 services, OBI needs ~450 MiB steady-state. The sizing profile controls this:
+
+| OBI Profile | Memory Request | Memory Limit | Target Processes/Node |
+|-------------|---------------|-------------|----------------------|
+| small | 128Mi | 256Mi | 1-5 |
+| medium | 384Mi | 768Mi | 5-15 |
+| large | 512Mi | 1Gi | 15-30 |
+| xlarge | 768Mi | 1.5Gi | 30-50 |
+
+Use `obi-sizing-report.sh` to find your cluster's actual process distribution and choose the right profile. See [OBI Sizing Guide](obi-sizing.md) for details.
+
+**ClickHouse memory should match data volume.** The default 2 GiB limit handles clusters up to ~100 nodes. For larger clusters or high-cardinality workloads, increase to 4 GiB. Key sizing signals:
+- Gauge metrics dominate disk usage (~70-80% of Silver storage) because they emit per-container rows every minute
+- Bronze tables have a 4-hour TTL and Silver tables a 7-day TTL, so disk usage is bounded
+- Observed disk usage: ~800 MiB (28-node cluster, 7 days) to ~2.7 GiB (70-node cluster, 7 days)
+
+**ClickHouse disk (PVC) sizing.** With 7-day Silver TTL:
+- Small cluster (≤30 nodes): 20-50 GiB is sufficient
+- Medium cluster (30-100 nodes): 50-100 GiB
+- Large cluster (100+ nodes): 100-200 GiB
+
+**OTel Collector (controller) CPU can spike** during cluster churn (mass pod restarts, large deployments). The k8s_cluster receiver watches all pods/deployments and generates gauge metrics for each. If you see dropped metrics, increase the controller collector's CPU request above 250m.
+
+**Agent OTel Collector memory** can exceed 256 MiB on high-throughput nodes (many instrumented services with high request rates). Watch for `memory_limiter` refusals in collector logs and bump to 512 MiB if needed.
+
+**Binary Authorization / Image Policies.** If your cluster enforces image policies (e.g., GKE Binary Authorization), ensure all component images are from allowed registries. The chart defaults use `otel/ebpf-instrument` (Docker Hub) and `clickhouse/clickhouse-server` (Docker Hub), which may be blocked. Override with your organization's mirrored images:
+```yaml
+agent:
+  reliabilityMetrics:
+    obi:
+      image:
+        repository: your-registry.example.com/otel/ebpf-instrument
+reliabilityMetrics:
+  install:
+    image:
+      repository: your-registry.example.com/clickhouse/clickhouse-server
+```
+
+**Helm `--reset-then-reuse-values` deep-merges previous values.** If a prior failed release set image overrides (e.g., EU mirrors), those persist even after removing them from your values file. To change an image back, you must explicitly set it — omitting the key does not delete it.
 
 ## Monitoring with Prometheus Operator
 
