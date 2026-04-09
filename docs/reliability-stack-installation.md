@@ -277,7 +277,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.9"
+        tag: "v0.1.10"
       resources:
         requests:
           memory: 128Mi
