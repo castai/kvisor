@@ -565,16 +565,39 @@ agent:
 Drop specific URL paths from metrics and traces. Uses glob patterns with `*` wildcard.
 Matched requests are silently dropped by OBI before export.
 
+The chart ships with sensible defaults covering health probes, Prometheus endpoints,
+Spring Boot actuator, debug/pprof, and Jolokia. Override only if you need to customize:
+
 ```yaml
 agent:
   reliabilityMetrics:
     obi:
+      # Default ignored routes (override to customize):
       ignoredRoutes:
+        # Health / readiness probes
+        - /health
+        - /health/*
         - /healthz
         - /readyz
+        - /livez
+        - /ready
+        - /up
+        - /ping
+        # Prometheus / metrics endpoints
         - /metrics
+        - /metrics/*
+        # Spring Boot actuator
+        - /actuator/*
+        # Profiling / debug
+        - /debug/*
         - /debug/pprof/*
+        # JVM management (Jolokia)
+        - /jolokia
+        - /jolokia/*
 ```
+
+To add custom routes while keeping defaults, include all defaults plus your additions.
+Setting `ignoredRoutes` replaces the entire list — it does not merge with defaults.
 
 See: [OBI Routes Decorator](https://opentelemetry.io/docs/zero-code/obi/configure/routes-decorator/)
 

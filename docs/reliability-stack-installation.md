@@ -1,8 +1,8 @@
 # Kvisor Reliability Metrics Installation Guide
 
-> **ALPHA - NOT FOR PRODUCTION USE**
+> **BETA**
 >
-> This feature is currently in alpha and is not intended for production use. APIs, configurations, and functionality may change without notice.
+> This feature is in beta. Core functionality is stable and running in production, but APIs and configurations may still evolve.
 
 This guide covers installing Kvisor with the reliability metrics stack, which provides automated observability for applications running in your Kubernetes cluster.
 
@@ -60,9 +60,13 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
 ## Prerequisites
 
 - Kubernetes cluster (1.25+)
+- **Linux kernel ≥ 5.8** on all nodes (required for eBPF ring buffers and BTF support)
+- **Architecture**: amd64 or arm64 (OBI compiles eBPF programs for both; no 32-bit support)
 - `helm` (3.12+) and `kubectl` installed and configured
 - CAST AI account with API key and cluster onboarded to CAST AI
 - **Altinity ClickHouse operator**: Either let the chart install it (`reliabilityMetrics.operator.enabled=true`) or ensure one is already running in the cluster (`reliabilityMetrics.operator.enabled=false`)
+
+> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version and architecture on all nodes before proceeding. If any node fails, you'll be prompted to confirm before continuing.
 
 ### Helm Repo Setup
 
@@ -87,9 +91,16 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
   --obi-profile large \
   --dynamic-sizing
 
+# With a custom values file (overrides openPorts, exclusions, ClickHouse config, etc.)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  -f /path/to/my-values.yaml
+
 # Dry-run (prints commands without executing)
 ./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
 ```
+
+The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure `openPorts`, exclusions, ClickHouse resources, and exporter settings for production clusters.
 
 Run `./charts/kvisor/scripts/enable-reliability-stack.sh --help` for all options.
 
@@ -191,7 +202,7 @@ agent:
       # OBI image
       image:
         repository: otel/ebpf-instrument
-        tag: "v0.7.0"
+        tag: "v0.7.1"
       # OBI resources (scales with instrumented processes, ~27 MiB each)
       # Used only when sizingProfile is "custom"; otherwise profile resources are applied
       resources:
@@ -211,7 +222,6 @@ agent:
         OTEL_EBPF_KUBE_META_RESTRICT_LOCAL_NODE: "true"      # Only cache local node metadata
         OTEL_EBPF_KUBE_DISABLE_INFORMERS: "node,service"    # Disable unused informers
         OTEL_EBPF_BPF_HTTP_REQUEST_TIMEOUT: "30s"            # Force-close long-lived HTTP connections
-        OTEL_EBPF_SKIP_GO_SPECIFIC_TRACERS: "true"           # Skip expensive Go uprobe attachment
         OTEL_EBPF_BPF_HIGH_REQUEST_VOLUME: "true"            # Ring-buffer mode for high-throughput nodes
       # Service discovery exclusions — skip processes from instrumentation
       # Each entry can use: exe_path, k8s_namespace, open_ports, container_name, etc.
@@ -221,11 +231,29 @@ agent:
       # Exclude profiler agents (parca, pyroscope, alloy) and /debug/pprof/* routes
       # Prevents misleading 10s P95 latency from Go pprof scraping
       excludeProfilerEndpoints: true
-      # URL paths to exclude from metrics (glob patterns)
-      ignoredRoutes: []
-        # - /healthz
-        # - /readyz
-        # - /metrics
+      # URL paths to exclude from metrics (glob patterns).
+      # Chart ships sensible defaults — override only if you need to customize.
+      ignoredRoutes:
+        # ── Health / readiness probes ──
+        - /health
+        - /health/*
+        - /healthz
+        - /readyz
+        - /livez
+        - /ready
+        - /up
+        - /ping
+        # ── Prometheus / metrics endpoints ──
+        - /metrics
+        - /metrics/*
+        # ── Spring Boot actuator ──
+        - /actuator/*
+        # ── Profiling / debug ──
+        - /debug/*
+        - /debug/pprof/*
+        # ── JVM management (Jolokia) ──
+        - /jolokia
+        - /jolokia/*
       # Custom OBI container security context (overrides default eBPF capabilities)
       containerSecurityContext: {}
       # Internal metrics — exposes OBI's own health via Prometheus endpoint
@@ -249,7 +277,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.9"
+        tag: "v0.1.10"
       resources:
         requests:
           memory: 128Mi
@@ -495,23 +523,68 @@ Only **server-side** golden signal metrics are retained. The OTel Collector's `f
 
 The OTel Collectors buffer up to ~5M data points (10-15 min of data) while waiting for ClickHouse. Transient DNS and connection errors during this window are normal and resolve automatically.
 
-## Resource Requirements
+## Resource Consumption
 
-Approximate per-component resource consumption:
+### Per-Component Observed Usage
 
-| Component | CPU (typical) | Memory (typical) | Scales With |
-|-----------|-------------|-----------------|-------------|
-| OBI (per node) | 5-25m | 100-500 MiB | Number of instrumented processes (~27 MiB each) |
-| OTel Collector (per node) | 5-50m | 50-150 MiB | Metric cardinality and volume on the node |
-| OTel Collector (controller) | 200-500m | 100-200 MiB | Number of K8s objects in the cluster |
-| ClickHouse | 200-500m | 1-4 GiB | Data volume, query load, merge pressure |
-| ch-exporter | 5m | 14 MiB | Number of Silver table rows to export |
+The table below shows typical resource usage observed in production clusters. Values are **actual usage**, not Kubernetes requests/limits.
 
-For clusters with 30+ nodes or high-cardinality workloads, consider increasing the agent OTel Collector memory limit above 256 MiB.
+| Component | Runs on | CPU (typical) | Memory (typical) | Primary Scaling Factor |
+|-----------|---------|--------------|-----------------|----------------------|
+| **kvisor agent** | every node | 5–15m | 150–200 MiB | eBPF event rate on the node |
+| **OBI** (eBPF instrumenter) | every node | 5–90m | 100–500 MiB | Instrumented processes per node (~27 MiB each) |
+| **OTel Collector** (agent) | every node | 2–10m | 50–150 MiB | Metric volume and cardinality on the node |
+| **kvisor controller** | once per cluster | 30–80m | 400–600 MiB | Total K8s objects (pods, deployments) |
+| **OTel Collector** (controller) | once per cluster | 30–80m | 100–200 MiB | K8s gauge metrics (pod health, HPA, etc.) |
+| **ClickHouse** | once per cluster | 200–500m | 1–1.3 GiB | Data volume and background merge pressure |
+| **ch-exporter** | once per cluster | <5m | <20 MiB | Silver table rows pending export |
 
-> **📖 OBI memory sizing:** OBI memory scales with the number of instrumented processes per node (~27 MiB each).
-> See the [OBI Sizing Guide](obi-sizing.md) for sizing profiles, a cluster analysis script,
-> dynamic per-node tuning, and pod placement strategies to reduce memory variance.
+### What Dominates the Footprint
+
+The stack's cost splits into **per-node** (DaemonSet) and **per-cluster** (single-instance) components:
+
+- **Per-node cost** is ~200–400 MiB memory per node across the three agent containers. OBI is the largest contributor — its memory usage depends entirely on how many processes it instruments on each node.
+- **Per-cluster cost** is ~2–2.5 GiB memory total (controller + ClickHouse + ch-exporter). This is largely fixed regardless of cluster size.
+
+On a 30-node cluster, expect roughly **8–14 GiB** total memory usage across all components. On a 100-node cluster, **22–42 GiB**. The wide range reflects that OBI memory varies significantly between nodes — a node running 3 services uses ~120 MiB while a node running 18 services may use ~530 MiB.
+
+### OBI Memory Sizing
+
+OBI is the single most important component to size correctly. Each instrumented process consumes ~27 MiB of steady-state memory inside OBI for eBPF maps and metric buffers. Choose a sizing profile that covers the busiest node in your cluster:
+
+| OBI Profile | Memory Request / Limit | Handles Up To |
+|-------------|----------------------|---------------|
+| small | 128Mi / 256Mi | ~5 processes per node |
+| medium | 384Mi / 768Mi | ~15 processes per node |
+| large | 512Mi / 1 GiB | ~30 processes per node |
+| xlarge | 768Mi / 1.5 GiB | ~50 processes per node |
+
+Run `obi-sizing-report.sh` to see how many processes each node runs and get a profile recommendation. Enable `dynamicSizing: true` to have each node verify at startup that its memory limit is sufficient for its actual process count.
+
+> **📖 See also:** [OBI Sizing Guide](obi-sizing.md) for the full sizing model, dynamic sizing,
+> and pod placement strategies to reduce memory variance across nodes.
+
+### ClickHouse Sizing
+
+ClickHouse stores Bronze tables (raw OTel metrics, 4-hour TTL) and Silver tables (1-minute aggregations, 7-day TTL). Disk usage is bounded by the TTLs:
+
+| Cluster Size | Observed Disk Usage (7 days) | Recommended PVC |
+|-------------|-----------------------------|-----------------| 
+| ≤30 nodes | ~1 GiB | 20–50 GiB |
+| 30–100 nodes | 1–3 GiB | 50–100 GiB |
+| 100+ nodes | 3–10 GiB | 100–200 GiB |
+
+The default ClickHouse memory limit of 2 GiB is sufficient for clusters up to ~100 nodes. For larger clusters or workloads with high metric cardinality, increase to 4 GiB. Gauge metrics (pod phase, container restarts, resource requests/limits) typically dominate Silver storage volume because they emit one row per container per minute.
+
+### When to Increase Defaults
+
+| Symptom | Component | Action |
+|---------|-----------|--------|
+| OBI OOMKilled | OBI | Bump to a larger sizing profile or enable `dynamicSizing` |
+| `memory_limiter` refusing data in collector logs | Agent OTel Collector | Increase memory limit above 256 MiB |
+| Controller collector dropping metrics during churn | Controller OTel Collector | Increase CPU request above 250m |
+| ClickHouse merge backlog or slow queries | ClickHouse | Increase memory limit to 4 GiB |
+| PVC approaching capacity | ClickHouse | Expand PVC or reduce Silver TTL |
 
 ## Monitoring with Prometheus Operator
 

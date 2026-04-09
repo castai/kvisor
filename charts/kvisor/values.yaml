@@ -231,7 +231,7 @@ agent:
 
       image:
         repository: otel/ebpf-instrument
-        tag: "v0.7.0"
+        tag: "v0.7.1"
       # Custom resources — only used when sizingProfile is "custom".
       resources:
         requests:
@@ -348,7 +348,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.9"
+        tag: "v0.1.10"
       resources:
         requests:
           memory: 128Mi
@@ -503,7 +503,7 @@ controller:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.9"
+        tag: "v0.1.10"
       resources:
         requests:
           cpu: 250m
