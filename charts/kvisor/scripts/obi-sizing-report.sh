@@ -17,7 +17,7 @@
 set -euo pipefail
 
 # ──────────────────────────────────────────────────────────────
-# Constants: OBI memory formula (empirically validated on v0.7.0)
+# Constants: OBI memory formula (empirically validated on v0.7.1)
 # ──────────────────────────────────────────────────────────────
 readonly OBI_BASE_MIB=40       # Base overhead (Go runtime, maps, core structs)
 readonly OBI_PER_PROC_MIB=27   # Per instrumented process (symbols, ring buffer, aggregation)

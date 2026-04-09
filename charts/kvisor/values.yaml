@@ -231,7 +231,7 @@ agent:
 
       image:
         repository: otel/ebpf-instrument
-        tag: "v0.7.0"
+        tag: "v0.7.1"
       # Custom resources — only used when sizingProfile is "custom".
       resources:
         requests:
