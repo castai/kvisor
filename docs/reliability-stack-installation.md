@@ -364,7 +364,7 @@ reliabilityMetrics:
     grpcAddr: ""           # Defaults to reliabilityMetrics.castai.grpcAddr if empty
     image:
       repository: ghcr.io/castai/kvisor/reliability-metrics-ch-exporter
-      tag: "v0.3.15"
+      tag: "v0.3.16"
     resources:
       requests:
         cpu: 50m
