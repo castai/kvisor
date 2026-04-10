@@ -277,7 +277,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.10"
+        tag: "v0.1.11"
       resources:
         requests:
           memory: 128Mi
@@ -364,7 +364,7 @@ reliabilityMetrics:
     grpcAddr: ""           # Defaults to reliabilityMetrics.castai.grpcAddr if empty
     image:
       repository: ghcr.io/castai/kvisor/reliability-metrics-ch-exporter
-      tag: "v0.3.12"
+      tag: "v0.3.15"
     resources:
       requests:
         cpu: 50m

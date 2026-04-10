@@ -175,6 +175,13 @@ spec:
           env:
             {{- include "GOMEMLIMITEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
             {{- include "MemoryLimiterEnv" .Values.controller.reliabilityMetrics.collector.resources.limits.memory | nindent 12 }}
+            - name: API_URL
+              value: {{ if .Values.mockServer.enabled -}}
+                   {{ (printf "http://%s:8080" (include "kvisor.castaiMockServer.service" .)) | quote }}
+                 {{- else -}}
+                   {{ include "kvisor.apiURL" . | quote }}
+                 {{- end }}
+            {{- include "kvisor.clusterIDEnv" (set (deepCopy .) "envFrom" .Values.controller.envFrom) | nindent 12 }}
             {{- if (dig "reliabilityMetrics" "collector" "clickhouseExporter" "enabled" false .Values.controller) }}
             - name: COLLECTOR_MODE
               value: "controller"
@@ -193,6 +200,8 @@ spec:
             - name: CLICKHOUSE_PASSWORD
               {{- include "kvisor.reliabilityMetrics.clickhouse.password" . | nindent 14 }}
             {{- end }}
+          envFrom:
+          {{- include "kvisor.apiKeyEnvFrom" (set (deepCopy .) "envFrom" .Values.agent.envFrom) | nindent 12 }}
           ports:
             - containerPort: {{ .Values.controller.reliabilityMetrics.collector.prometheusPort }}
               name: k8s-prom
