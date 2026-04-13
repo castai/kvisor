@@ -332,6 +332,7 @@ reliabilityMetrics:
     # needs an explicit address.
     # EU region: "telemetry.prod-eu.cast.ai:443"
     grpcAddr: "telemetry.prod-master.cast.ai:443"
+    apiURL: "https://api.prod-master.cast.ai"
 
   # ClickHouse credentials
   auth:
@@ -362,9 +363,10 @@ reliabilityMetrics:
   exporter:
     enabled: true
     grpcAddr: ""           # Defaults to reliabilityMetrics.castai.grpcAddr if empty
+    apiURL: ""           # Defaults to reliabilityMetrics.castai.apiURL if empty
     image:
       repository: ghcr.io/castai/kvisor/reliability-metrics-ch-exporter
-      tag: "v0.3.16"
+      tag: "v0.3.17"
     resources:
       requests:
         cpu: 50m
