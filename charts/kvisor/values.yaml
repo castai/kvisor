@@ -592,7 +592,9 @@ reliabilityMetrics:
     # ch-exporter subchart has no such logic — it needs an explicit address.
     # Note: If your cluster is in the EU region, use: "telemetry.prod-eu.cast.ai:443"
     grpcAddr: "telemetry.prod-master.cast.ai:443"
-    apiURL: "https://api.prod-master.cast.ai"
+    # Note: If your cluster is in the EU region, use: "https://api.eu.cast.ai"
+    apiURL: "https://api.cast.ai"
+
   # ClickHouse authentication credentials
   # Can be plain values OR valueFrom references (secretKeyRef/configMapKeyRef)
   # See subchart documentation for valueFrom examples

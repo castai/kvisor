@@ -332,7 +332,8 @@ reliabilityMetrics:
     # needs an explicit address.
     # EU region: "telemetry.prod-eu.cast.ai:443"
     grpcAddr: "telemetry.prod-master.cast.ai:443"
-    apiURL: "https://api.prod-master.cast.ai"
+    # Note: If your cluster is in the EU region, use: "https://api.eu.cast.ai"
+    apiURL: "https://api.cast.ai"
 
   # ClickHouse credentials
   auth:
