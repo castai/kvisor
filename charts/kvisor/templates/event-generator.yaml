@@ -53,9 +53,9 @@ spec:
               readOnly: true
 
       dnsPolicy: {{.Values.eventGenerator.dnsPolicy}}
-      {{- with .Values.eventGenerator.tolerations }}
+      {{- with include "kvisor.tolerations" (dict "componentTolerations" .Values.eventGenerator.tolerations "Values" .Values) }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       volumes:
         - name: cgroups

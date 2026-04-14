@@ -235,9 +235,9 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.controller.tolerations }}
+      {{- with include "kvisor.tolerations" (dict "componentTolerations" .Values.controller.tolerations "Values" .Values) }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       volumes:
         {{- if .Values.controller.netflow.staticCIDRs.mappings }}
