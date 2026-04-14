@@ -2,8 +2,8 @@ apiVersion: v2
 name: castai-kvisor
 description: CAST AI security and observability.
 type: application
-version: 1.0.149
-appVersion: "v1.55.19"
+version: 1.0.150
+appVersion: "v1.55.20"
 
 dependencies:
   - name: reliability-metrics-ch-exporter
