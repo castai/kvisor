@@ -133,6 +133,10 @@ agent:
                 operator: NotIn
                 values:
                   - fargate
+              - key: kubernetes.io/os
+                operator: NotIn
+                values:
+                  - windows
 
   dnsPolicy: ClusterFirstWithHostNet
 
@@ -424,7 +428,15 @@ controller:
 
   tolerations: []
 
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/os
+                operator: NotIn
+                values:
+                  - windows
 
   dnsPolicy: ClusterFirst
 
