@@ -426,8 +426,6 @@ spec:
           env:
             - name: DCGM_EXPORTER_KUBERNETES
               value: "true"
-            - name: DCGM_EXPORTER_KUBERNETES_GPU_ID_TYPE
-              value: "device-name"
             - name: DCGM_EXPORTER_LISTEN
               value: ":{{ .Values.agent.gpu.dcgmExporter.port }}"
             - name: DCGM_EXPORTER_INTERVAL
@@ -437,6 +435,8 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
             {{- if eq $provider "gke" }}
+            - name: DCGM_EXPORTER_KUBERNETES_GPU_ID_TYPE
+              value: "device-name"
             - name: DISABLE_STARTUP_VALIDATE
               value: "true"
             {{- end }}
