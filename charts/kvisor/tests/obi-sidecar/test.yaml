@@ -53,7 +53,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[1].image
-          pattern: "otel/ebpf-instrument:v0.7.1"
+          pattern: "otel/ebpf-instrument:v0.8.0"
         template: agent.yaml
         documentIndex: 0
 
