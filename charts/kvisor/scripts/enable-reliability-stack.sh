@@ -29,6 +29,10 @@
 #       --obi-profile       OBI sizing profile: auto, small, medium, large, xlarge (default: auto)
 #                           'auto' runs obi-sizing-report.sh to detect the best profile
 #       --dynamic-sizing    Enable OBI dynamic sizing (default: false)
+#       --values-prefix     Prefix for all --set keys (for umbrella charts).
+#                           e.g. --values-prefix autoscaler.castai-kvisor
+#                           When set, keys like agent.reliabilityMetrics.enabled become
+#                           autoscaler.castai-kvisor.agent.reliabilityMetrics.enabled
 #       --dry-run           Print commands without executing
 #       --skip-repo         Skip helm repo add/update
 #   -h, --help              Show this help
@@ -48,6 +52,7 @@ CLUSTER_ID_SECRET=""
 GRPC_ADDR=""
 OBI_PROFILE="auto"
 DYNAMIC_SIZING="false"
+VALUES_PREFIX=""
 DRY_RUN=""
 SKIP_REPO=""
 INSTALL_MODE=""
@@ -88,6 +93,7 @@ while [[ $# -gt 0 ]]; do
     --grpc-addr)          GRPC_ADDR="$2"; shift 2 ;;
     --obi-profile)        OBI_PROFILE="$2"; shift 2 ;;
     --dynamic-sizing)     DYNAMIC_SIZING="true"; shift ;;
+    --values-prefix)      VALUES_PREFIX="$2"; shift 2 ;;
     --dry-run)            DRY_RUN="true"; shift ;;
     --skip-repo)          SKIP_REPO="true"; shift ;;
     -h|--help)            usage ;;
@@ -103,6 +109,17 @@ if [[ -n "$CONTEXT" ]]; then
   KUBECTL_CTX="--context $CONTEXT"
   HELM_CTX="--kube-context $CONTEXT"
 fi
+
+# Prefix a --set key with VALUES_PREFIX if set.
+# Usage: setkey "agent.reliabilityMetrics.enabled=true"  →  "--set autoscaler.castai-kvisor.agent.reliabilityMetrics.enabled=true"
+setkey() {
+  local kv="$1"
+  if [[ -n "$VALUES_PREFIX" ]]; then
+    echo "--set ${VALUES_PREFIX}.${kv}"
+  else
+    echo "--set ${kv}"
+  fi
+}
 
 run_cmd() {
   if [[ -n "$DRY_RUN" ]]; then
@@ -283,6 +300,22 @@ step "Checking Existing Release"
 if helm $HELM_CTX status "$RELEASE" -n "$NAMESPACE" >/dev/null 2>&1; then
   CURRENT_REVISION=$(helm $HELM_CTX history "$RELEASE" -n "$NAMESPACE" --max 1 -o json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['revision'])" 2>/dev/null || echo "?")
   ok "Release '$RELEASE' found (revision $CURRENT_REVISION) — upgrade mode"
+
+  # Auto-detect which Secret holds the CAST AI API key.
+  # Standalone kvisor creates "castai-kvisor"; the umbrella chart creates "castai-credentials".
+  # The ch-exporter subchart defaults to "castai-kvisor", so we must override when different.
+  DETECTED_API_KEY_SECRET=""
+  for candidate in castai-kvisor castai-credentials; do
+    if kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" >/dev/null 2>&1; then
+      DETECTED_API_KEY_SECRET="$candidate"
+      break
+    fi
+  done
+  if [[ -n "$DETECTED_API_KEY_SECRET" ]]; then
+    info "Detected API key secret: $DETECTED_API_KEY_SECRET"
+  else
+    warn "Could not detect API key secret — ch-exporter will use chart default (castai-kvisor)"
+  fi
 else
   warn "Release '$RELEASE' not found in namespace '$NAMESPACE'"
   # For fresh install, we need credentials from one of:
@@ -307,9 +340,52 @@ fi
 step "Phase 1: ClickHouse Operator CRD Check"
 
 CRD_EXISTS=""
+OPERATOR_RUNNING=""
 if kubectl $KUBECTL_CTX get crd clickhouseinstallations.clickhouse.altinity.com >/dev/null 2>&1; then
   CRD_EXISTS="true"
-  ok "ClickHouseInstallation CRD already exists — skipping operator install"
+  # CRD exists — but check if the operator is actually running.
+  # It may have been deleted (e.g. after a failed install cleanup) while the CRD remained.
+  if kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app=clickhouse-operator --field-selector=status.phase=Running 2>/dev/null | grep -q clickhouse-operator; then
+    OPERATOR_RUNNING="true"
+    ok "ClickHouseInstallation CRD already exists and operator is running — skipping operator install"
+  else
+    warn "ClickHouseInstallation CRD exists but operator is not running — will install operator"
+  fi
+fi
+
+if [[ -n "$OPERATOR_RUNNING" ]]; then
+  : # nothing to do
+elif [[ -n "$CRD_EXISTS" ]]; then
+  # CRD present but operator missing — run Phase 1 to reinstall the operator
+  info "Reinstalling ClickHouse operator (CRD already registered, skipping CRD wait)..."
+
+  PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
+    -n $NAMESPACE --create-namespace \\
+    $HELM_CTX"
+
+  if [[ -n "$INSTALL_MODE" ]]; then
+    PHASE1_CMD="$PHASE1_CMD $(build_creds_flags)"
+  else
+    PHASE1_CMD="$PHASE1_CMD \\
+    --reset-then-reuse-values"
+    if [[ -n "$VALUES_FILE" ]]; then
+      PHASE1_CMD="$PHASE1_CMD -f '${VALUES_FILE//"'"/"'\\''"}'"
+    fi
+  fi
+
+  PHASE1_CMD="$PHASE1_CMD \\
+    $(setkey reliabilityMetrics.enabled=true) \\
+    $(setkey reliabilityMetrics.operator.enabled=true) \\
+    $(setkey reliabilityMetrics.install.enabled=false) \\
+    $(setkey reliabilityMetrics.exporter.enabled=false)"
+
+  run_cmd "$PHASE1_CMD"
+
+  if [[ -z "$DRY_RUN" ]]; then
+    info "Waiting for operator pod to be ready..."
+    kubectl $KUBECTL_CTX rollout status deployment -n "$NAMESPACE" -l app=clickhouse-operator --timeout=60s 2>/dev/null || true
+    ok "ClickHouse operator ready"
+  fi
 else
   warn "ClickHouseInstallation CRD not found"
   info "Installing ClickHouse operator first (Phase 1)..."
@@ -334,10 +410,10 @@ else
   fi
 
   PHASE1_CMD="$PHASE1_CMD \\
-    --set reliabilityMetrics.enabled=true \\
-    --set reliabilityMetrics.operator.enabled=true \\
-    --set reliabilityMetrics.install.enabled=false \\
-    --set reliabilityMetrics.exporter.enabled=false"
+    $(setkey reliabilityMetrics.enabled=true) \\
+    $(setkey reliabilityMetrics.operator.enabled=true) \\
+    $(setkey reliabilityMetrics.install.enabled=false) \\
+    $(setkey reliabilityMetrics.exporter.enabled=false)"
 
   run_cmd "$PHASE1_CMD"
 
@@ -427,22 +503,42 @@ else
 fi
 
 HELM_CMD="$HELM_CMD \\
-  --set agent.reliabilityMetrics.enabled=true \\
-  --set agent.reliabilityMetrics.obi.sizingProfile=$OBI_PROFILE \\
-  --set agent.reliabilityMetrics.obi.dynamicSizing=$DYNAMIC_SIZING \\
-  --set controller.reliabilityMetrics.enabled=true \\
-  --set reliabilityMetrics.enabled=true \\
-  --set reliabilityMetrics.install.enabled=true \\
-  --set reliabilityMetrics.exporter.enabled=true"
+  $(setkey agent.reliabilityMetrics.enabled=true) \\
+  $(setkey agent.reliabilityMetrics.obi.sizingProfile=$OBI_PROFILE) \\
+  $(setkey agent.reliabilityMetrics.obi.dynamicSizing=$DYNAMIC_SIZING) \\
+  $(setkey controller.reliabilityMetrics.enabled=true) \\
+  $(setkey reliabilityMetrics.enabled=true) \\
+  $(setkey reliabilityMetrics.install.enabled=true) \\
+  $(setkey reliabilityMetrics.exporter.enabled=true)"
 
-# If operator was already present (external), don't install ours
-if [[ -n "$CRD_EXISTS" ]]; then
+# Override the ch-exporter API key secret ref if we detected a non-default secret
+if [[ -z "$INSTALL_MODE" && -n "$DETECTED_API_KEY_SECRET" && "$DETECTED_API_KEY_SECRET" != "castai-kvisor" ]]; then
   HELM_CMD="$HELM_CMD \\
-  --set reliabilityMetrics.operator.enabled=false"
+  $(setkey reliabilityMetrics.castai.apiKeySecretRef=$DETECTED_API_KEY_SECRET)"
+  info "Overriding ch-exporter apiKeySecretRef → $DETECTED_API_KEY_SECRET"
+fi
+
+# Under an umbrella chart the ClickHouse service is named <release>-clickhouse (e.g. castai-clickhouse)
+# rather than the standalone default castai-kvisor-clickhouse. Override the collector ClickHouse
+# address when the release name differs from the standalone default (castai-kvisor).
+if [[ "$RELEASE" != "castai-kvisor" ]]; then
+  CH_ADDR="tcp://${RELEASE}-clickhouse.${NAMESPACE}.svc.cluster.local:9000"
+  HELM_CMD="$HELM_CMD \\
+  $(setkey agent.reliabilityMetrics.collector.clickhouseExporter.address=$CH_ADDR) \\
+  $(setkey controller.reliabilityMetrics.collector.clickhouseExporter.address=$CH_ADDR)"
+  info "Overriding ClickHouse address → $CH_ADDR"
+fi
+
+# Only skip installing our operator if an external one was already running before we started.
+# If we installed it in Phase 1 (either CRD was missing, or CRD existed but operator wasn't running),
+# we need operator.enabled=true so it stays managed by this release.
+if [[ -n "$OPERATOR_RUNNING" ]]; then
+  HELM_CMD="$HELM_CMD \\
+  $(setkey reliabilityMetrics.operator.enabled=false)"
   info "Using existing ClickHouse operator (not installing chart's operator)"
 else
   HELM_CMD="$HELM_CMD \\
-  --set reliabilityMetrics.operator.enabled=true"
+  $(setkey reliabilityMetrics.operator.enabled=true)"
   info "ClickHouse operator enabled (installed in Phase 1)"
 fi
 
@@ -456,19 +552,30 @@ run_cmd "$HELM_CMD"
 if [[ -z "$DRY_RUN" ]]; then
   step "Phase 3: Verifying Rollout"
 
+  # Under an umbrella chart the release name is used as a helm instance label prefix,
+  # e.g. release=castai → daemonset castai-castai-kvisor-agent.
+  # Under a standalone chart, release=castai-kvisor → daemonset castai-kvisor-agent.
+  # Derive the resource name prefix: if VALUES_PREFIX is set we're in umbrella mode.
+  if [[ -n "$VALUES_PREFIX" ]]; then
+    AGENT_DS="${RELEASE}-castai-kvisor-agent"
+    AGENT_LABEL="app.kubernetes.io/name=castai-kvisor-agent"
+  else
+    AGENT_DS="${RELEASE}-agent"
+    AGENT_LABEL="app.kubernetes.io/name=${RELEASE}-agent"
+  fi
+
   info "Waiting for agent DaemonSet rollout..."
-  kubectl $KUBECTL_CTX rollout status daemonset/${RELEASE}-agent -n "$NAMESPACE" --timeout=120s 2>/dev/null || {
+  kubectl $KUBECTL_CTX rollout status daemonset/${AGENT_DS} -n "$NAMESPACE" --timeout=120s 2>/dev/null || {
     warn "DaemonSet rollout not complete within 120s. Check pods:"
-    kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app.kubernetes.io/name=${RELEASE}-agent
+    kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL"
   }
 
   echo ""
   info "Pod status:"
-  kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "app.kubernetes.io/instance=${RELEASE##castai-}" 2>/dev/null || \
-    kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -E "kvisor|clickhouse"
+  kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -E "kvisor|clickhouse"
 
   echo ""
-  AGENT_PODS=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app.kubernetes.io/name=${RELEASE}-agent -o name 2>/dev/null | head -1)
+  AGENT_PODS=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL" -o name 2>/dev/null | head -1)
   if [[ -n "$AGENT_PODS" ]]; then
     POD_NAME="${AGENT_PODS##*/}"
     info "Checking OBI container on $POD_NAME..."

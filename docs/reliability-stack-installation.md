@@ -122,6 +122,23 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 
 ### Option 2: Enable on Existing Kvisor (Manual)
 
+> **⚠️ Umbrella Chart: API Key Secret Name**
+>
+> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), the CAST AI API key is stored in a secret named `castai-credentials` rather than the default `castai-kvisor`. You must override `reliabilityMetrics.castai.apiKeySecretRef` accordingly, and prefix all values with `autoscaler.castai-kvisor.`:
+> ```bash
+> helm upgrade castai castai-helm/castai -n castai-agent --reuse-values \
+>   --set "autoscaler.castai-kvisor.agent.reliabilityMetrics.enabled=true" \
+>   --set "autoscaler.castai-kvisor.agent.reliabilityMetrics.collector.clickhouseExporter.address=tcp://castai-clickhouse.castai-agent.svc.cluster.local:9000" \
+>   --set "autoscaler.castai-kvisor.controller.reliabilityMetrics.enabled=true" \
+>   --set "autoscaler.castai-kvisor.controller.reliabilityMetrics.collector.clickhouseExporter.address=tcp://castai-clickhouse.castai-agent.svc.cluster.local:9000" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.operator.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.install.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.exporter.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.castai.apiKeySecretRef=castai-credentials"
+> ```
+> The `enable-reliability-stack.sh` script handles both of these automatically when `--release castai` is set — it detects the correct secret name and derives the correct ClickHouse service address from the release name.
+
 > **⚠️ CRD Chicken-and-Egg Problem**
 >
 > If the cluster has no ClickHouse Operator CRD (`clickhouse.altinity.com/v1`), enabling `reliabilityMetrics.install.enabled=true` will fail with:
