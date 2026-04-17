@@ -338,6 +338,17 @@ When storage-stats-enabled (without eBPF):
 {{- end -}}
 
 {{/*
+Resolve tolerations for a component: merge global tolerations with component-level tolerations.
+Usage: {{ include "kvisor.tolerations" (dict "componentTolerations" .Values.agent.tolerations "Values" .Values) }}
+*/}}
+{{- define "kvisor.tolerations" -}}
+{{- $global := .Values.global | default dict -}}
+{{- with concat ($global.tolerations | default list) (.componentTolerations | default list) -}}
+{{ toYaml . }}
+{{- end -}}
+{{- end }}
+
+{{/*
 Resolve cloud provider for --cloud-provider arg.
 Only used as a fallback when controller.extraArgs.cloud-provider is not set.
 */}}

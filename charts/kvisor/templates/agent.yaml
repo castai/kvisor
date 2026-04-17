@@ -464,9 +464,9 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.agent.tolerations }}
+      {{- with include "kvisor.tolerations" (dict "componentTolerations" .Values.agent.tolerations "Values" .Values) }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       # TODO: Since we run with hostPID these volumes could be removed and accessed via `/proc/1/root` prefix.
       volumes:

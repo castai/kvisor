@@ -39,9 +39,9 @@ spec:
         {{- end }}
 
       dnsPolicy: {{.Values.mockServer.dnsPolicy}}
-      {{- with .Values.mockServer.tolerations }}
+      {{- with include "kvisor.tolerations" (dict "componentTolerations" .Values.mockServer.tolerations "Values" .Values) }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
 ---
 apiVersion: v1
