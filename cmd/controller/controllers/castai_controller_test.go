@@ -31,7 +31,7 @@ func TestCastaiController(t *testing.T) {
 			},
 		}
 		ctrl := newTestCastaiController(log, kubeClient, client)
-		ctrl.cfg.RemoteConfigBackoffMaxElapsedTime = 50 * time.Millisecond
+		ctrl.remoteConfigBackoff.MaxElapsedTime = 50 * time.Millisecond
 		err := ctrl.Run(ctx)
 		r.EqualError(err, "fetching initial config: ups")
 	})
@@ -96,11 +96,15 @@ func newTestCastaiController(log *logging.Logger, kubeClient *kube.Client, clien
 		GRPC: client,
 	}
 	cfg := CastaiConfig{
-		RemoteConfigSyncDuration:        10 * time.Millisecond,
-		RemoteConfigBackoffInitInterval: 10 * time.Millisecond,
-		RemoteConfigBackoffMaxInterval:  50 * time.Millisecond,
+		RemoteConfigSyncDuration: 10 * time.Millisecond,
 	}
-	return NewCastaiController(log, cfg, []byte{}, kubeClient, castaiClient)
+	ctrl := NewCastaiController(log, cfg, []byte{}, kubeClient, castaiClient)
+	ctrl.remoteConfigBackoff = backoffConfig{
+		InitInterval:   10 * time.Millisecond,
+		MaxInterval:    50 * time.Millisecond,
+		MaxElapsedTime: 5 * time.Minute,
+	}
+	return ctrl
 }
 
 type testGrpcClient struct {
