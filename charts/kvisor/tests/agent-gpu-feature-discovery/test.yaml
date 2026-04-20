@@ -1,0 +1,69 @@
+suite: agent gpu feature-discovery init container tests
+templates:
+  - agent.yaml
+  - secret.yaml
+values:
+  - values.yaml
+tests:
+  - it: should render default resources on the gpu-feature-discovery init container
+    asserts:
+      - isKind:
+          of: DaemonSet
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: gpu-feature-discovery
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.requests.cpu
+          value: 10m
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.requests.memory
+          value: 32Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.limits.cpu
+          value: 100m
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.limits.memory
+          value: 64Mi
+        template: agent.yaml
+        documentIndex: 0
+
+  - it: should allow overriding resources via values
+    set:
+      agent.gpu.featureDiscovery.resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.requests.cpu
+          value: 50m
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.requests.memory
+          value: 128Mi
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.limits.cpu
+          value: 500m
+        template: agent.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.limits.memory
+          value: 256Mi
+        template: agent.yaml
+        documentIndex: 0

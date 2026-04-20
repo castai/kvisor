@@ -183,6 +183,16 @@ agent:
     # How often GPU metrics are collected and exported.
     exportInterval: "15s"
 
+    # Feature discovery init container settings.
+    featureDiscovery:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+
     # DCGM exporter sidecar settings.
     dcgmExporter:
       image:
