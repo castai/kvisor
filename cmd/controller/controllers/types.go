@@ -1,9 +1,5 @@
 package controllers
 
-import (
-	"context"
-	"time"
-)
 
 type PodsStats struct {
 	ContainerStatuses []ContainerStatusStats `json:"containerStatuses"`
@@ -51,13 +47,3 @@ type Namespace struct {
 	Name string `json:"name"`
 }
 
-func sleep(ctx context.Context, d time.Duration) {
-	timeout := time.NewTimer(d)
-	defer timeout.Stop()
-	select {
-	case <-ctx.Done():
-		return
-	case <-timeout.C:
-		return
-	}
-}
