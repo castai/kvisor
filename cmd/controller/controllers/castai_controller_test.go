@@ -23,18 +23,39 @@ func TestCastaiController(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	t.Run("stop on initial config failure", func(t *testing.T) {
+	t.Run("stop on initial config failure when context is cancelled", func(t *testing.T) {
 		r := require.New(t)
+		cancelCtx, cancelFn := context.WithCancel(ctx)
+		calls := 0
 		client := &testGrpcClient{
 			getConfigurationResponse: func() (*castaipb.GetConfigurationResponse, error) {
+				calls++
+				if calls >= 3 {
+					cancelFn()
+				}
 				return nil, errors.New("ups")
 			},
 		}
 		ctrl := newTestCastaiController(log, kubeClient, client)
-		ctrl.remoteConfigInitialSyncTimeout = 50 * time.Millisecond
-		ctrl.remoteConfigRetryWaitDuration = 10 * time.Millisecond
-		err := ctrl.Run(ctx)
-		r.ErrorIs(err, context.DeadlineExceeded)
+		err := ctrl.Run(cancelCtx)
+		r.ErrorIs(err, context.Canceled)
+	})
+
+	t.Run("retries initial config fetch until success", func(t *testing.T) {
+		r := require.New(t)
+		calls := 0
+		client := &testGrpcClient{
+			getConfigurationResponse: func() (*castaipb.GetConfigurationResponse, error) {
+				calls++
+				if calls < 3 {
+					return nil, errors.New("ups")
+				}
+				return &castaipb.GetConfigurationResponse{}, nil
+			},
+		}
+		ctrl := newTestCastaiController(log, kubeClient, client)
+		r.NoError(ctrl.fetchInitialRemoteConfig(ctx))
+		r.Equal(3, calls)
 	})
 
 	t.Run("stop on config loop failure after max retries", func(t *testing.T) {
@@ -51,8 +72,6 @@ func TestCastaiController(t *testing.T) {
 			},
 		}
 		ctrl := newTestCastaiController(log, kubeClient, client)
-		ctrl.remoteConfigInitialSyncTimeout = 50 * time.Millisecond
-		ctrl.remoteConfigRetryWaitDuration = 10 * time.Millisecond
 		ctrl.removeConfigMaxFailures = 3
 		err := ctrl.Run(ctx)
 		r.ErrorContains(err, "remote config fetch errors reached")
@@ -64,7 +83,9 @@ func newTestCastaiController(log *logging.Logger, kubeClient *kube.Client, clien
 		GRPC: client,
 	}
 	cfg := CastaiConfig{
-		RemoteConfigSyncDuration: 10 * time.Millisecond,
+		RemoteConfigSyncDuration:        10 * time.Millisecond,
+		RemoteConfigBackoffInitInterval: 10 * time.Millisecond,
+		RemoteConfigBackoffMaxInterval:  50 * time.Millisecond,
 	}
 	return NewCastaiController(log, cfg, []byte{}, kubeClient, castaiClient)
 }

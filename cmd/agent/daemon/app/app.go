@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -55,11 +56,17 @@ func New(cfg *config.Config) *App {
 	if err := validator.New().Struct(cfg); err != nil {
 		panic(fmt.Errorf("invalid config: %w", err).Error())
 	}
-	return &App{cfg: cfg}
+	return &App{
+		cfg:                             cfg,
+		remoteConfigBackoffInitInterval: 5 * time.Second,
+		remoteConfigBackoffMaxInterval:  5 * time.Minute,
+	}
 }
 
 type App struct {
-	cfg *config.Config
+	cfg                             *config.Config
+	remoteConfigBackoffInitInterval time.Duration
+	remoteConfigBackoffMaxInterval  time.Duration
 }
 
 func parseLogLevel(lvlStr string) (slog.Level, error) {
@@ -519,29 +526,29 @@ Currently we care only care about dns responses with valid answers.
 }
 
 func (a *App) syncRemoteConfig(ctx context.Context, client *castai.Client) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		jsonConfig, err := json.Marshal(a.cfg) //nolint:musttag
-		if err != nil {
-			return fmt.Errorf("marshaling config: %w", err)
-		}
-		_, err = client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{
+	jsonConfig, err := json.Marshal(a.cfg) //nolint:musttag
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
+	}
+
+	eb := backoff.NewExponentialBackOff()
+	eb.InitialInterval = a.remoteConfigBackoffInitInterval
+	eb.MaxInterval = a.remoteConfigBackoffMaxInterval
+
+	_, err = backoff.Retry(ctx, func() (struct{}, error) {
+		_, err := client.GRPC.GetConfiguration(ctx, &castaipb.GetConfigurationRequest{
 			CurrentConfig: &castaipb.GetConfigurationRequest_Agent{
 				Agent: jsonConfig,
 			},
 		})
 		if err != nil {
 			slog.Error(fmt.Sprintf("fetching initial config: %v", err))
-			time.Sleep(5 * time.Second)
-			continue
+			return struct{}{}, err
 		}
 		slog.Info("initial config synced")
-		return nil
-	}
+		return struct{}{}, nil
+	}, backoff.WithBackOff(eb), backoff.WithMaxElapsedTime(0))
+	return err
 }
 
 func getActiveEnrichers(cfg config.EnricherConfig, log *logging.Logger, mountNamespacePIDStore *types.PIDsPerNamespace) []enrichment.EventEnricher {

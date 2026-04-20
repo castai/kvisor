@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
+
 	castaipb "github.com/castai/kvisor/api/v1/runtime"
 	"github.com/castai/kvisor/cmd/controller/kube"
 	"github.com/castai/kvisor/pkg/castai"
@@ -15,26 +17,32 @@ import (
 )
 
 type CastaiConfig struct {
-	RemoteConfigSyncDuration time.Duration `validate:"required" json:"remoteConfigSyncDuration"`
+	RemoteConfigSyncDuration        time.Duration `validate:"required" json:"remoteConfigSyncDuration"`
+	RemoteConfigBackoffInitInterval time.Duration `json:"remoteConfigBackoffInitInterval"`
+	RemoteConfigBackoffMaxInterval  time.Duration `json:"remoteConfigBackoffMaxInterval"`
 }
 
 func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appJSONConfig []byte, kubeClient *kube.Client, castaiClient *castai.Client) *CastaiController {
 	if cfg.RemoteConfigSyncDuration == 0 {
 		cfg.RemoteConfigSyncDuration = 5 * time.Minute
 	}
+	if cfg.RemoteConfigBackoffInitInterval == 0 {
+		cfg.RemoteConfigBackoffInitInterval = 5 * time.Second
+	}
+	if cfg.RemoteConfigBackoffMaxInterval == 0 {
+		cfg.RemoteConfigBackoffMaxInterval = 5 * time.Minute
+	}
 	return &CastaiController{
-		id:                             "castai",
-		enabled:                        castaiClient != nil,
-		log:                            log.WithField("component", "castai_ctrl"),
-		kubeClient:                     kubeClient,
-		cfg:                            cfg,
-		appJSONConfig:                  appJSONConfig,
-		castaiClient:                   castaiClient,
-		remoteConfigFetchErrors:        &atomic.Int64{},
-		remoteConfigInitialSyncTimeout: 1 * time.Minute,
-		remoteConfigRetryWaitDuration:  20 * time.Second,
-		removeConfigMaxFailures:        10,
-		streamReconnectWaitDuration:    2 * time.Second,
+		id:                          "castai",
+		enabled:                     castaiClient != nil,
+		log:                         log.WithField("component", "castai_ctrl"),
+		kubeClient:                  kubeClient,
+		cfg:                         cfg,
+		appJSONConfig:               appJSONConfig,
+		castaiClient:                castaiClient,
+		remoteConfigFetchErrors:     &atomic.Int64{},
+		removeConfigMaxFailures:     10,
+		streamReconnectWaitDuration: 2 * time.Second,
 	}
 }
 
@@ -47,11 +55,9 @@ type CastaiController struct {
 	castaiClient  *castai.Client
 	appJSONConfig []byte
 
-	remoteConfigFetchErrors        *atomic.Int64
-	removeConfigMaxFailures        int64
-	streamReconnectWaitDuration    time.Duration
-	remoteConfigRetryWaitDuration  time.Duration
-	remoteConfigInitialSyncTimeout time.Duration
+	remoteConfigFetchErrors     *atomic.Int64
+	removeConfigMaxFailures     int64
+	streamReconnectWaitDuration time.Duration
 }
 
 func (c *CastaiController) Enabled() bool {
@@ -62,10 +68,7 @@ func (c *CastaiController) Run(ctx context.Context) error {
 	c.log.Info("running")
 	defer c.log.Infof("stopping")
 
-	ctxCtx, cancel := context.WithTimeout(ctx, c.remoteConfigInitialSyncTimeout)
-	defer cancel()
-
-	if err := c.fetchInitialRemoteConfig(ctxCtx); err != nil {
+	if err := c.fetchInitialRemoteConfig(ctx); err != nil {
 		return fmt.Errorf("fetching initial config: %w", err)
 	}
 
@@ -89,13 +92,11 @@ func (c *CastaiController) fetchConfig(ctx context.Context, req *castaipb.GetCon
 }
 
 func (c *CastaiController) fetchInitialRemoteConfig(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	eb := backoff.NewExponentialBackOff()
+	eb.InitialInterval = c.cfg.RemoteConfigBackoffInitInterval
+	eb.MaxInterval = c.cfg.RemoteConfigBackoffMaxInterval
 
+	_, err := backoff.Retry(ctx, func() (struct{}, error) {
 		cfg, err := c.fetchConfig(ctx, &castaipb.GetConfigurationRequest{
 			CurrentConfig: &castaipb.GetConfigurationRequest_Controller{
 				Controller: c.appJSONConfig,
@@ -103,13 +104,13 @@ func (c *CastaiController) fetchInitialRemoteConfig(ctx context.Context) error {
 		})
 		if err != nil {
 			c.log.Errorf("fetching initial config: %v", err)
-			sleep(ctx, c.remoteConfigRetryWaitDuration)
-			continue
+			return struct{}{}, err
 		}
 		c.updateRemoteConfig(cfg)
 		c.log.Info("initial config synced")
-		return nil
-	}
+		return struct{}{}, nil
+	}, backoff.WithBackOff(eb), backoff.WithMaxElapsedTime(0))
+	return err
 }
 
 func (c *CastaiController) runRemoteConfigSyncLoop(ctx context.Context) error {
