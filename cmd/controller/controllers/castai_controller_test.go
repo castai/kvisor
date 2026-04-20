@@ -23,6 +23,19 @@ func TestCastaiController(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	t.Run("stop on initial config failure after max elapsed time", func(t *testing.T) {
+		r := require.New(t)
+		client := &testGrpcClient{
+			getConfigurationResponse: func() (*castaipb.GetConfigurationResponse, error) {
+				return nil, errors.New("ups")
+			},
+		}
+		ctrl := newTestCastaiController(log, kubeClient, client)
+		ctrl.cfg.RemoteConfigBackoffMaxElapsedTime = 50 * time.Millisecond
+		err := ctrl.Run(ctx)
+		r.EqualError(err, "fetching initial config: ups")
+	})
+
 	t.Run("stop on initial config failure when context is cancelled", func(t *testing.T) {
 		r := require.New(t)
 		cancelCtx, cancelFn := context.WithCancel(ctx)

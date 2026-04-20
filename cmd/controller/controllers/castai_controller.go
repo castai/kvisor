@@ -17,9 +17,10 @@ import (
 )
 
 type CastaiConfig struct {
-	RemoteConfigSyncDuration        time.Duration `validate:"required" json:"remoteConfigSyncDuration"`
-	RemoteConfigBackoffInitInterval time.Duration `json:"remoteConfigBackoffInitInterval"`
-	RemoteConfigBackoffMaxInterval  time.Duration `json:"remoteConfigBackoffMaxInterval"`
+	RemoteConfigSyncDuration           time.Duration `validate:"required" json:"remoteConfigSyncDuration"`
+	RemoteConfigBackoffInitInterval    time.Duration `json:"remoteConfigBackoffInitInterval"`
+	RemoteConfigBackoffMaxInterval     time.Duration `json:"remoteConfigBackoffMaxInterval"`
+	RemoteConfigBackoffMaxElapsedTime  time.Duration `json:"remoteConfigBackoffMaxElapsedTime"`
 }
 
 func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appJSONConfig []byte, kubeClient *kube.Client, castaiClient *castai.Client) *CastaiController {
@@ -30,7 +31,10 @@ func NewCastaiController(log *logging.Logger, cfg CastaiConfig, appJSONConfig []
 		cfg.RemoteConfigBackoffInitInterval = 5 * time.Second
 	}
 	if cfg.RemoteConfigBackoffMaxInterval == 0 {
-		cfg.RemoteConfigBackoffMaxInterval = 5 * time.Minute
+		cfg.RemoteConfigBackoffMaxInterval = 60 * time.Second
+	}
+	if cfg.RemoteConfigBackoffMaxElapsedTime == 0 {
+		cfg.RemoteConfigBackoffMaxElapsedTime = 5 * time.Minute
 	}
 	return &CastaiController{
 		id:                          "castai",
@@ -109,7 +113,7 @@ func (c *CastaiController) fetchInitialRemoteConfig(ctx context.Context) error {
 		c.updateRemoteConfig(cfg)
 		c.log.Info("initial config synced")
 		return struct{}{}, nil
-	}, backoff.WithBackOff(eb), backoff.WithMaxElapsedTime(0))
+	}, backoff.WithBackOff(eb), backoff.WithMaxElapsedTime(c.cfg.RemoteConfigBackoffMaxElapsedTime))
 	return err
 }
 
