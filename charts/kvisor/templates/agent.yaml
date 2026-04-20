@@ -79,6 +79,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+          resources:
+            {{- toYaml .Values.agent.gpu.featureDiscovery.resources | nindent 12 }}
           volumeMounts:
             - name: gpu-shared
               mountPath: {{ .Values.agent.gpu.sharedDir }}
