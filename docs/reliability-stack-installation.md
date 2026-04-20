@@ -202,7 +202,7 @@ agent:
       # OBI image
       image:
         repository: otel/ebpf-instrument
-        tag: "v0.7.1"
+        tag: "v0.8.0"
       # OBI resources (scales with instrumented processes, ~27 MiB each)
       # Used only when sizingProfile is "custom"; otherwise profile resources are applied
       resources:
