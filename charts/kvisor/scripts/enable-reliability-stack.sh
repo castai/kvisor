@@ -39,6 +39,9 @@
 #                           unrelated components.
 #       --upgrade-chart     Upgrade to the latest chart version instead of pinning to
 #                           the currently deployed version.
+#       --cluster-proxy     Also enable the kvisor cluster proxy feature
+#       --print-only        Print the final helm commands and exit (no preflight,
+#                           no auto-detection from cluster — uses defaults/flags only)
 #       --dry-run           Print commands without executing
 #       --skip-repo         Skip helm repo add/update
 #   -h, --help              Show this help
@@ -61,11 +64,15 @@ DYNAMIC_SIZING="false"
 VALUES_PREFIX=""
 CHART_VERSION=""
 UPGRADE_CHART=""
+CLUSTER_PROXY=""
+PRINT_ONLY=""
 DRY_RUN=""
 SKIP_REPO=""
 INSTALL_MODE=""
 USER_SET_RELEASE=""
 USER_SET_CHART=""
+DETECTED_API_KEY_SECRET=""
+OPERATOR_RUNNING=""
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -106,6 +113,8 @@ while [[ $# -gt 0 ]]; do
     --values-prefix)      VALUES_PREFIX="$2"; shift 2 ;;
     --chart-version)      CHART_VERSION="$2"; shift 2 ;;
     --upgrade-chart)      UPGRADE_CHART="true"; shift ;;
+    --cluster-proxy)      CLUSTER_PROXY="true"; shift ;;
+    --print-only)         PRINT_ONLY="true"; DRY_RUN="true"; shift ;;
     --dry-run)            DRY_RUN="true"; shift ;;
     --skip-repo)          SKIP_REPO="true"; shift ;;
     -h|--help)            usage ;;
@@ -134,7 +143,9 @@ setkey() {
 }
 
 run_cmd() {
-  if [[ -n "$DRY_RUN" ]]; then
+  if [[ -n "$PRINT_ONLY" ]]; then
+    printf "%s\n" "$*"
+  elif [[ -n "$DRY_RUN" ]]; then
     printf "${YELLOW}[dry-run]${NC} %s\n" "$*"
   else
     # Use eval because $HELM_CTX/$KUBECTL_CTX must expand to multiple args or nothing.
@@ -170,6 +181,21 @@ build_creds_flags() {
     echo "--set 'castai.grpcAddr=${GRPC_ADDR//"'"/"'\\''"}'"
   fi
 }
+
+# ── Print-only mode: skip all cluster interaction ────────────────────────────
+# In --print-only mode we skip preflight, auto-detection, Phase 1, and OBI sizing.
+# The user must provide --release, --chart, --values-prefix if not using defaults.
+# If credentials are supplied via flags, assume fresh install mode.
+if [[ -n "$PRINT_ONLY" ]]; then
+  HAS_CREDS=""
+  [[ -n "$VALUES_FILE" ]] && HAS_CREDS="true"
+  [[ -n "$API_KEY" || -n "$API_KEY_SECRET" ]] && [[ -n "$CLUSTER_ID" || -n "$CLUSTER_ID_SECRET" ]] && HAS_CREDS="true"
+  if [[ -n "$HAS_CREDS" ]]; then
+    INSTALL_MODE="true"
+  fi
+fi
+
+if [[ -z "$PRINT_ONLY" ]]; then
 
 # ── Preflight checks ────────────────────────────────────────────────────────
 step "Preflight Checks"
@@ -574,7 +600,11 @@ else
   fi
 fi
 
+fi # end of [[ -z "$PRINT_ONLY" ]] — cluster-dependent sections
+
 # ── Auto-detect OBI profile ──────────────────────────────────────────────────
+# Runs outside the print-only guard — only needs kubectl (not helm).
+# Falls back gracefully if the cluster isn't reachable.
 if [[ "$OBI_PROFILE" == "auto" ]]; then
   step "Auto-detecting OBI Profile"
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -618,6 +648,46 @@ if [[ "$OBI_PROFILE" == "auto" ]]; then
       ok "Auto-detected profile: $OBI_PROFILE (max ${SIZING_MAX_PROCS:-?} procs across ${SIZING_NODES:-?} nodes)"
     fi
   fi
+fi
+
+# Rebuild version flag (may have been set inside the cluster-dependent block, or via --chart-version)
+HELM_VERSION_FLAG=""
+if [[ -n "$CHART_VERSION" ]]; then
+  HELM_VERSION_FLAG="--version $CHART_VERSION"
+fi
+
+# ── Print-only: Phase 1 (operator bootstrap) ────────────────────────────────
+# In print-only mode we can't check the cluster, so always output the Phase 1
+# command. The user can skip it if the CRD already exists.
+if [[ -n "$PRINT_ONLY" ]]; then
+  step "Phase 1: Install ClickHouse Operator (skip if CRD already exists)"
+  info "Check first: kubectl get crd clickhouseinstallations.clickhouse.altinity.com"
+  echo ""
+
+  PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
+  -n $NAMESPACE --create-namespace \\
+  $HELM_CTX $HELM_VERSION_FLAG"
+
+  if [[ -n "$INSTALL_MODE" ]]; then
+    PHASE1_CMD="$PHASE1_CMD $(build_creds_flags)"
+  else
+    PHASE1_CMD="$PHASE1_CMD \\
+  --reset-then-reuse-values"
+    if [[ -n "$VALUES_FILE" ]]; then
+      PHASE1_CMD="$PHASE1_CMD -f '${VALUES_FILE//"'"/"'\\''"}'"
+    fi
+  fi
+
+  PHASE1_CMD="$PHASE1_CMD \\
+  $(setkey reliabilityMetrics.enabled=true) \\
+  $(setkey reliabilityMetrics.operator.enabled=true) \\
+  $(setkey reliabilityMetrics.install.enabled=false) \\
+  $(setkey reliabilityMetrics.exporter.enabled=false)"
+
+  run_cmd "$PHASE1_CMD"
+  echo ""
+  info "Wait for CRD: kubectl wait --for=condition=Established crd/clickhouseinstallations.clickhouse.altinity.com --timeout=60s"
+  echo ""
 fi
 
 # ── Phase 2: Enable Full Reliability Stack ───────────────────────────────────
@@ -680,6 +750,13 @@ else
   info "ClickHouse operator enabled (installed in Phase 1)"
 fi
 
+# Enable cluster proxy if requested
+if [[ -n "$CLUSTER_PROXY" ]]; then
+  HELM_CMD="$HELM_CMD \\
+  $(setkey controller.extraArgs.cluster-proxy-enabled=true)"
+  info "Cluster proxy enabled"
+fi
+
 info "OBI sizing profile: $OBI_PROFILE"
 info "Dynamic sizing: $DYNAMIC_SIZING"
 echo ""
@@ -728,25 +805,27 @@ if [[ -z "$DRY_RUN" ]]; then
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
-step "Done"
-echo ""
-if [[ -n "$INSTALL_MODE" ]]; then
-  MODE_LABEL="install"
-  printf "${GREEN}${BOLD}Reliability metrics stack installed!${NC}\n"
-else
-  MODE_LABEL="upgrade"
-  printf "${GREEN}${BOLD}Reliability metrics stack upgraded!${NC}\n"
+if [[ -z "$PRINT_ONLY" ]]; then
+  step "Done"
+  echo ""
+  if [[ -n "$INSTALL_MODE" ]]; then
+    MODE_LABEL="install"
+    printf "${GREEN}${BOLD}Reliability metrics stack installed!${NC}\n"
+  else
+    MODE_LABEL="upgrade"
+    printf "${GREEN}${BOLD}Reliability metrics stack upgraded!${NC}\n"
+  fi
+  echo ""
+  echo "  Mode:           $MODE_LABEL"
+  echo "  Namespace:      $NAMESPACE"
+  echo "  Release:        $RELEASE"
+  echo "  OBI profile:    $OBI_PROFILE"
+  echo "  Dynamic sizing: $DYNAMIC_SIZING"
+  echo ""
+  echo "Next steps:"
+  echo "  • Verify ClickHouse is ready:  kubectl get chi -n $NAMESPACE"
+  echo "  • Check OBI logs:              kubectl logs -n $NAMESPACE <agent-pod> -c obi"
+  echo "  • Run OBI sizing report:       ./charts/kvisor/scripts/obi-sizing-report.sh"
+  echo "  • View sizing guide:           docs/obi-sizing.md"
+  echo ""
 fi
-echo ""
-echo "  Mode:           $MODE_LABEL"
-echo "  Namespace:      $NAMESPACE"
-echo "  Release:        $RELEASE"
-echo "  OBI profile:    $OBI_PROFILE"
-echo "  Dynamic sizing: $DYNAMIC_SIZING"
-echo ""
-echo "Next steps:"
-echo "  • Verify ClickHouse is ready:  kubectl get chi -n $NAMESPACE"
-echo "  • Check OBI logs:              kubectl logs -n $NAMESPACE <agent-pod> -c obi"
-echo "  • Run OBI sizing report:       ./charts/kvisor/scripts/obi-sizing-report.sh"
-echo "  • View sizing guide:           docs/obi-sizing.md"
-echo ""

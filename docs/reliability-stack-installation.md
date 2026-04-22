@@ -90,11 +90,23 @@ The script **auto-detects** whether kvisor is installed standalone (`castai-kvis
 # Dry-run (prints commands without executing — recommended for first run)
 ./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
 
+# Print-only mode — outputs both Phase 1 (operator) and Phase 2 (full stack)
+# helm commands without any cluster access. Useful for CI/CD or review.
+# Includes comments explaining when Phase 1 can be skipped.
+./charts/kvisor/scripts/enable-reliability-stack.sh --print-only \
+  --release castai --chart castai-helm/castai \
+  --values-prefix autoscaler.castai-kvisor
+
 # With context and explicit profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
   --context <kube-context> \
   --obi-profile large \
   --dynamic-sizing
+
+# With cluster proxy enabled (creates RBAC + service account for kvisor proxy)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  --cluster-proxy
 
 # With a custom values file (overrides openPorts, exclusions, ClickHouse config, etc.)
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
