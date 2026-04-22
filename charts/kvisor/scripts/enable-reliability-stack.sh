@@ -90,6 +90,18 @@ warn()  { printf "${YELLOW}⚠${NC}  %s\n" "$*"; }
 err()   { printf "${RED}✗${NC}  %s\n" "$*" >&2; }
 step()  { printf "\n${BOLD}${CYAN}━━━ %s${NC}\n" "$*"; }
 
+# Print a command inside a clearly delimited block for copy-pasting.
+# Usage: print_cmd_block "label" "command string"
+print_cmd_block() {
+  local label="$1" cmd="$2"
+  printf "\n${BOLD}${GREEN}▶ %s${NC}\n" "$label"
+  printf "${CYAN}┌─────────────────────────────────────────────────────────────────${NC}\n"
+  while IFS= read -r line; do
+    printf "${CYAN}│${NC} %s\n" "$line"
+  done <<< "$cmd"
+  printf "${CYAN}└─────────────────────────────────────────────────────────────────${NC}\n"
+}
+
 usage() {
   sed -n '/^# Usage:/,/^# ─/p' "$0" | sed '$ d' | sed 's/^# //' | sed 's/^#//'
   exit 0
@@ -152,6 +164,22 @@ run_cmd() {
     # Values containing shell metacharacters are single-quoted in build_creds_flags().
     eval "$@"
   fi
+}
+
+# Build the base "helm upgrade --install" prefix with optional context and version flags.
+# Avoids blank continuation lines when HELM_CTX or HELM_VERSION_FLAG are empty.
+build_helm_base() {
+  local cmd="helm upgrade --install $RELEASE $CHART \\
+  -n $NAMESPACE --create-namespace"
+  if [[ -n "$HELM_CTX" ]]; then
+    cmd="$cmd \\
+  $HELM_CTX"
+  fi
+  if [[ -n "$HELM_VERSION_FLAG" ]]; then
+    cmd="$cmd \\
+  $HELM_VERSION_FLAG"
+  fi
+  echo "$cmd"
 }
 
 # Build helm flags for CAST AI credentials (fresh install only)
@@ -523,25 +551,23 @@ elif [[ -n "$CRD_EXISTS" ]]; then
   # CRD present but operator missing — run Phase 1 to reinstall the operator
   info "Reinstalling ClickHouse operator (CRD already registered, skipping CRD wait)..."
 
-  PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
-    -n $NAMESPACE --create-namespace \\
-    $HELM_CTX $HELM_VERSION_FLAG"
+  PHASE1_CMD="$(build_helm_base)"
 
   if [[ -n "$INSTALL_MODE" ]]; then
     PHASE1_CMD="$PHASE1_CMD $(build_creds_flags)"
   else
     PHASE1_CMD="$PHASE1_CMD \\
-    --reset-then-reuse-values"
+  --reset-then-reuse-values"
     if [[ -n "$VALUES_FILE" ]]; then
       PHASE1_CMD="$PHASE1_CMD -f '${VALUES_FILE//"'"/"'\\''"}'"
     fi
   fi
 
   PHASE1_CMD="$PHASE1_CMD \\
-    $(setkey reliabilityMetrics.enabled=true) \\
-    $(setkey reliabilityMetrics.operator.enabled=true) \\
-    $(setkey reliabilityMetrics.install.enabled=false) \\
-    $(setkey reliabilityMetrics.exporter.enabled=false)"
+  $(setkey reliabilityMetrics.enabled=true) \\
+  $(setkey reliabilityMetrics.operator.enabled=true) \\
+  $(setkey reliabilityMetrics.install.enabled=false) \\
+  $(setkey reliabilityMetrics.exporter.enabled=false)"
 
   run_cmd "$PHASE1_CMD"
 
@@ -557,16 +583,14 @@ else
 
   # Phase 1: Install just the operator to register the CRD.
   # We explicitly disable install.enabled so the ClickHouseInstallation CR isn't created yet.
-  PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
-    -n $NAMESPACE --create-namespace \\
-    $HELM_CTX $HELM_VERSION_FLAG"
+  PHASE1_CMD="$(build_helm_base)"
 
   # Fresh installs need credentials; upgrades reuse existing values
   if [[ -n "$INSTALL_MODE" ]]; then
     PHASE1_CMD="$PHASE1_CMD $(build_creds_flags)"
   else
     PHASE1_CMD="$PHASE1_CMD \\
-    --reset-then-reuse-values"
+  --reset-then-reuse-values"
     # Layer -f values on top of reused values (allows overriding openPorts, env, etc.)
     if [[ -n "$VALUES_FILE" ]]; then
       PHASE1_CMD="$PHASE1_CMD -f '${VALUES_FILE//"'"/"'\\''"}'"
@@ -574,10 +598,10 @@ else
   fi
 
   PHASE1_CMD="$PHASE1_CMD \\
-    $(setkey reliabilityMetrics.enabled=true) \\
-    $(setkey reliabilityMetrics.operator.enabled=true) \\
-    $(setkey reliabilityMetrics.install.enabled=false) \\
-    $(setkey reliabilityMetrics.exporter.enabled=false)"
+  $(setkey reliabilityMetrics.enabled=true) \\
+  $(setkey reliabilityMetrics.operator.enabled=true) \\
+  $(setkey reliabilityMetrics.install.enabled=false) \\
+  $(setkey reliabilityMetrics.exporter.enabled=false)"
 
   run_cmd "$PHASE1_CMD"
 
@@ -664,9 +688,7 @@ if [[ -n "$PRINT_ONLY" ]]; then
   info "Check first: kubectl get crd clickhouseinstallations.clickhouse.altinity.com"
   echo ""
 
-  PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
-  -n $NAMESPACE --create-namespace \\
-  $HELM_CTX $HELM_VERSION_FLAG"
+  PHASE1_CMD="$(build_helm_base)"
 
   if [[ -n "$INSTALL_MODE" ]]; then
     PHASE1_CMD="$PHASE1_CMD $(build_creds_flags)"
@@ -684,9 +706,11 @@ if [[ -n "$PRINT_ONLY" ]]; then
   $(setkey reliabilityMetrics.install.enabled=false) \\
   $(setkey reliabilityMetrics.exporter.enabled=false)"
 
-  run_cmd "$PHASE1_CMD"
+  print_cmd_block "Command #1 — Install operator" "$PHASE1_CMD"
   echo ""
-  info "Wait for CRD: kubectl wait --for=condition=Established crd/clickhouseinstallations.clickhouse.altinity.com --timeout=60s"
+  info "Then wait for CRD before running command #2:"
+  print_cmd_block "Wait for CRD" "kubectl wait --for=condition=Established \\
+  crd/clickhouseinstallations.clickhouse.altinity.com --timeout=60s"
   echo ""
 fi
 
@@ -694,9 +718,7 @@ fi
 step "Phase 2: Enabling Full Reliability Stack"
 
 # Build the helm command with all reliability flags
-HELM_CMD="helm upgrade --install $RELEASE $CHART \\
-  -n $NAMESPACE --create-namespace \\
-  $HELM_CTX $HELM_VERSION_FLAG"
+HELM_CMD="$(build_helm_base)"
 
 # Fresh installs need credentials; upgrades reuse existing values
 if [[ -n "$INSTALL_MODE" ]]; then
@@ -759,9 +781,50 @@ fi
 
 info "OBI sizing profile: $OBI_PROFILE"
 info "Dynamic sizing: $DYNAMIC_SIZING"
-echo ""
 
-run_cmd "$HELM_CMD"
+if [[ -n "$PRINT_ONLY" ]]; then
+  print_cmd_block "Command #2 — Enable full reliability stack" "$HELM_CMD"
+else
+  echo ""
+  run_cmd "$HELM_CMD"
+fi
+
+# ── Print-only: Common Overrides ─────────────────────────────────────────────
+if [[ -n "$PRINT_ONLY" ]]; then
+  echo ""
+  step "Common Overrides (add to Phase 2 command above)"
+  echo ""
+  echo "  # OBI: which ports to instrument (controls process discovery)"
+  echo "  $(setkey 'agent.reliabilityMetrics.obi.openPorts=8080\,8443\,6379\,5432')"
+  echo ""
+  echo "  # OBI: sizing profile (small/medium/large/xlarge) — or use --obi-profile flag"
+  echo "  $(setkey agent.reliabilityMetrics.obi.sizingProfile=large)"
+  echo ""
+  echo "  # OBI: enable dynamic sizing (auto-checks process count at startup)"
+  echo "  $(setkey agent.reliabilityMetrics.obi.dynamicSizing=true)"
+  echo ""
+  echo "  # OBI: exclude a namespace from instrumentation (use -f values file for multiple)"
+  echo "  $(setkey 'agent.reliabilityMetrics.obi.exclude[0].k8s_namespace=monitoring')"
+  echo ""
+  echo "  # ClickHouse: increase memory for large clusters (100+ nodes)"
+  echo "  $(setkey reliabilityMetrics.install.resources.limits.memory=4Gi)"
+  echo ""
+  echo "  # ClickHouse: increase disk for high-cardinality workloads"
+  echo "  $(setkey reliabilityMetrics.install.persistence.size=200Gi)"
+  echo ""
+  echo "  # ClickHouse: credentials from existing Secret"
+  echo "  $(setkey 'reliabilityMetrics.auth.password.valueFrom.secretKeyRef.name=my-ch-secret')"
+  echo "  $(setkey 'reliabilityMetrics.auth.password.valueFrom.secretKeyRef.key=password')"
+  echo ""
+  echo "  # Cluster proxy (or use --cluster-proxy flag)"
+  echo "  $(setkey controller.extraArgs.cluster-proxy-enabled=true)"
+  echo ""
+  echo "  # Use a values file instead of --set flags (recommended for complex configs)"
+  echo "  # Script flag: -f /path/to/values.yaml"
+  echo ""
+  echo "  # Full docs: docs/reliability-stack-installation.md"
+  echo "  # OBI sizing: docs/obi-sizing.md"
+fi
 
 # ── Phase 3: Verify Rollout ──────────────────────────────────────────────────
 if [[ -z "$DRY_RUN" ]]; then
