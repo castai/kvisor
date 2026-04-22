@@ -10,7 +10,8 @@
 #   3. Install or upgrade the full reliability stack (Phase 2)
 #
 # Supports both fresh installs (with --api-key and --cluster-id) and upgrades
-# of existing kvisor releases.
+# of existing kvisor releases. Auto-detects whether kvisor is installed
+# standalone or via the CAST AI umbrella chart and adjusts accordingly.
 #
 # Usage:
 #   ./enable-reliability-stack.sh [options]
@@ -33,6 +34,11 @@
 #                           e.g. --values-prefix autoscaler.castai-kvisor
 #                           When set, keys like agent.reliabilityMetrics.enabled become
 #                           autoscaler.castai-kvisor.agent.reliabilityMetrics.enabled
+#       --chart-version     Pin chart version (e.g. 0.33.21). Default: auto-detected
+#                           from the currently deployed release to avoid upgrading
+#                           unrelated components.
+#       --upgrade-chart     Upgrade to the latest chart version instead of pinning to
+#                           the currently deployed version.
 #       --dry-run           Print commands without executing
 #       --skip-repo         Skip helm repo add/update
 #   -h, --help              Show this help
@@ -53,9 +59,13 @@ GRPC_ADDR=""
 OBI_PROFILE="auto"
 DYNAMIC_SIZING="false"
 VALUES_PREFIX=""
+CHART_VERSION=""
+UPGRADE_CHART=""
 DRY_RUN=""
 SKIP_REPO=""
 INSTALL_MODE=""
+USER_SET_RELEASE=""
+USER_SET_CHART=""
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -82,8 +92,8 @@ usage() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--namespace)       NAMESPACE="$2"; shift 2 ;;
-    -r|--release)         RELEASE="$2"; shift 2 ;;
-    -c|--chart)           CHART="$2"; shift 2 ;;
+    -r|--release)         RELEASE="$2"; USER_SET_RELEASE="true"; shift 2 ;;
+    -c|--chart)           CHART="$2"; USER_SET_CHART="true"; shift 2 ;;
     --context)            CONTEXT="$2"; shift 2 ;;
     -f|--values-file)     VALUES_FILE="$2"; shift 2 ;;
     --api-key)            API_KEY="$2"; shift 2 ;;
@@ -94,6 +104,8 @@ while [[ $# -gt 0 ]]; do
     --obi-profile)        OBI_PROFILE="$2"; shift 2 ;;
     --dynamic-sizing)     DYNAMIC_SIZING="true"; shift ;;
     --values-prefix)      VALUES_PREFIX="$2"; shift 2 ;;
+    --chart-version)      CHART_VERSION="$2"; shift 2 ;;
+    --upgrade-chart)      UPGRADE_CHART="true"; shift ;;
     --dry-run)            DRY_RUN="true"; shift ;;
     --skip-repo)          SKIP_REPO="true"; shift ;;
     -h|--help)            usage ;;
@@ -294,12 +306,132 @@ if [[ -z "$SKIP_REPO" ]]; then
   ok "Helm repo up to date"
 fi
 
+# ── Auto-detect installation type ────────────────────────────────────────────
+# When the user hasn't explicitly set --release or --chart, scan for an existing
+# kvisor release to determine if it was installed standalone or via the umbrella chart.
+if [[ -z "$USER_SET_RELEASE" ]]; then
+  step "Auto-detecting Installation Type"
+
+  # Get all releases in the namespace as JSON and detect kvisor's installation method.
+  # Chart column tells us: "castai-kvisor-1.x.x" = standalone, "castai-0.x.x" = umbrella.
+  DETECTED=$(helm $HELM_CTX list -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "
+import sys, json, re
+
+releases = json.load(sys.stdin)
+for r in releases:
+    chart = r.get('chart', '')
+    name = r.get('name', '')
+    # Standalone: chart starts with 'castai-kvisor-'
+    if chart.startswith('castai-kvisor-'):
+        print(f'TYPE=standalone')
+        print(f'RELEASE={name}')
+        print(f'CHART_NAME={chart}')
+        sys.exit(0)
+
+for r in releases:
+    chart = r.get('chart', '')
+    name = r.get('name', '')
+    # Umbrella: chart is 'castai-X.Y.Z' (version directly after 'castai-')
+    if re.match(r'^castai-\d+\.\d+\.\d+', chart):
+        print(f'TYPE=umbrella')
+        print(f'RELEASE={name}')
+        print(f'CHART_NAME={chart}')
+        sys.exit(0)
+
+print('TYPE=none')
+" 2>/dev/null) || DETECTED="TYPE=none"
+
+  DETECTED_TYPE=""
+  DETECTED_RELEASE=""
+  DETECTED_CHART_NAME=""
+  while IFS='=' read -r key val; do
+    case "$key" in
+      TYPE)       DETECTED_TYPE="$val" ;;
+      RELEASE)    DETECTED_RELEASE="$val" ;;
+      CHART_NAME) DETECTED_CHART_NAME="$val" ;;
+    esac
+  done <<< "$DETECTED"
+
+  case "$DETECTED_TYPE" in
+    standalone)
+      RELEASE="$DETECTED_RELEASE"
+      if [[ -z "$USER_SET_CHART" ]]; then
+        CHART="castai-helm/castai-kvisor"
+      fi
+      ok "Detected standalone kvisor (release: $RELEASE, chart: $DETECTED_CHART_NAME)"
+      ;;
+    umbrella)
+      RELEASE="$DETECTED_RELEASE"
+      if [[ -z "$USER_SET_CHART" ]]; then
+        CHART="castai-helm/castai"
+      fi
+      if [[ -z "$VALUES_PREFIX" ]]; then
+        # Discover the values path to castai-kvisor by inspecting the release's current values.
+        # The umbrella chart nests kvisor under an intermediate subchart (e.g. autoscaler.castai-kvisor).
+        # We walk the YAML tree to find the path containing a 'castai-kvisor' key with kvisor-like children.
+        VALUES_PREFIX=$(helm $HELM_CTX get values "$DETECTED_RELEASE" -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "
+import sys, json
+
+def find_kvisor_path(obj, path=''):
+    \"\"\"Recursively find the path to a 'castai-kvisor' key that has dict children (agent, controller, etc).\"\"\"
+    if not isinstance(obj, dict):
+        return None
+    for key, val in obj.items():
+        current = f'{path}.{key}' if path else key
+        if key == 'castai-kvisor' and isinstance(val, dict):
+            # Verify it looks like real kvisor config (has agent/controller/castai keys)
+            kvisor_keys = set(val.keys())
+            if kvisor_keys & {'agent', 'controller', 'castai', 'enabled'}:
+                return current
+        result = find_kvisor_path(val, current)
+        if result:
+            return result
+    return None
+
+data = json.load(sys.stdin)
+path = find_kvisor_path(data)
+if path:
+    print(path)
+else:
+    # Fallback: try common known paths
+    print('castai-kvisor')
+" 2>/dev/null) || VALUES_PREFIX="castai-kvisor"
+      fi
+      ok "Detected umbrella chart (release: $RELEASE, chart: $DETECTED_CHART_NAME)"
+      info "Auto-configured: --release $RELEASE --chart $CHART --values-prefix $VALUES_PREFIX"
+      ;;
+    *)
+      info "No existing CAST AI release found in namespace '$NAMESPACE' — using defaults"
+      ;;
+  esac
+fi
+
 # ── Check existing release ──────────────────────────────────────────────────
 step "Checking Existing Release"
 
 if helm $HELM_CTX status "$RELEASE" -n "$NAMESPACE" >/dev/null 2>&1; then
   CURRENT_REVISION=$(helm $HELM_CTX history "$RELEASE" -n "$NAMESPACE" --max 1 -o json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['revision'])" 2>/dev/null || echo "?")
   ok "Release '$RELEASE' found (revision $CURRENT_REVISION) — upgrade mode"
+
+  # Auto-detect chart version to pin upgrades (avoid bumping unrelated components).
+  # --upgrade-chart skips pinning; --chart-version overrides detection.
+  if [[ -z "$UPGRADE_CHART" && -z "$CHART_VERSION" ]]; then
+    CHART_VERSION=$(helm $HELM_CTX history "$RELEASE" -n "$NAMESPACE" --max 1 -o json 2>/dev/null | python3 -c "
+import sys, json, re
+entry = json.load(sys.stdin)[0]
+chart = entry.get('chart', '')
+# Extract version from chart string like 'castai-0.33.21' or 'castai-kvisor-1.0.117'
+m = re.match(r'.*?-(\d+\.\d+\.\d+.*)$', chart)
+if m:
+    print(m.group(1))
+" 2>/dev/null) || CHART_VERSION=""
+    if [[ -n "$CHART_VERSION" ]]; then
+      info "Pinning chart version to $CHART_VERSION (use --upgrade-chart for latest)"
+    fi
+  fi
+  if [[ -n "$UPGRADE_CHART" ]]; then
+    info "Upgrading to latest chart version (--upgrade-chart)"
+  fi
 
   # Auto-detect which Secret holds the CAST AI API key.
   # Standalone kvisor creates "castai-kvisor"; the umbrella chart creates "castai-credentials".
@@ -336,6 +468,12 @@ else
   ok "Fresh install mode — will create release '$RELEASE'"
 fi
 
+# ── Build version flag ───────────────────────────────────────────────────────
+HELM_VERSION_FLAG=""
+if [[ -n "$CHART_VERSION" ]]; then
+  HELM_VERSION_FLAG="--version $CHART_VERSION"
+fi
+
 # ── Phase 1: CRD Detection & Operator Bootstrap ─────────────────────────────
 step "Phase 1: ClickHouse Operator CRD Check"
 
@@ -361,7 +499,7 @@ elif [[ -n "$CRD_EXISTS" ]]; then
 
   PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
     -n $NAMESPACE --create-namespace \\
-    $HELM_CTX"
+    $HELM_CTX $HELM_VERSION_FLAG"
 
   if [[ -n "$INSTALL_MODE" ]]; then
     PHASE1_CMD="$PHASE1_CMD $(build_creds_flags)"
@@ -395,7 +533,7 @@ else
   # We explicitly disable install.enabled so the ClickHouseInstallation CR isn't created yet.
   PHASE1_CMD="helm upgrade --install $RELEASE $CHART \\
     -n $NAMESPACE --create-namespace \\
-    $HELM_CTX"
+    $HELM_CTX $HELM_VERSION_FLAG"
 
   # Fresh installs need credentials; upgrades reuse existing values
   if [[ -n "$INSTALL_MODE" ]]; then
@@ -488,7 +626,7 @@ step "Phase 2: Enabling Full Reliability Stack"
 # Build the helm command with all reliability flags
 HELM_CMD="helm upgrade --install $RELEASE $CHART \\
   -n $NAMESPACE --create-namespace \\
-  $HELM_CTX"
+  $HELM_CTX $HELM_VERSION_FLAG"
 
 # Fresh installs need credentials; upgrades reuse existing values
 if [[ -n "$INSTALL_MODE" ]]; then

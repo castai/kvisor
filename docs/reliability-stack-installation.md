@@ -81,9 +81,14 @@ helm repo update castai-helm
 
 The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD bootstrapping automatically. It detects whether the CRD exists, installs the operator first if needed, waits for the CRD to register, then enables the full stack.
 
+The script **auto-detects** whether kvisor is installed standalone (`castai-kvisor` chart) or via the CAST AI umbrella chart (`castai` chart) and adjusts the release name, chart reference, and values prefix accordingly. No manual flags needed in most cases.
+
 ```bash
-# Basic usage (existing kvisor installation, auto-detects OBI profile)
+# Basic usage — auto-detects standalone vs umbrella, auto-detects OBI profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh
+
+# Dry-run (prints commands without executing — recommended for first run)
+./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
 
 # With context and explicit profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
@@ -96,8 +101,11 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
   --context <kube-context> \
   -f /path/to/my-values.yaml
 
-# Dry-run (prints commands without executing)
-./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
+# Explicit overrides (if auto-detection doesn't apply to your setup)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --release <helm-release-name> \
+  --chart <chart-reference> \
+  --values-prefix <subchart-path>
 ```
 
 The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure `openPorts`, exclusions, ClickHouse resources, and exporter settings for production clusters.
@@ -122,11 +130,18 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 
 ### Option 2: Enable on Existing Kvisor (Manual)
 
-> **⚠️ Umbrella Chart: API Key Secret Name**
+> **⚠️ Umbrella Chart**
 >
-> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), the CAST AI API key is stored in a secret named `castai-credentials` rather than the default `castai-kvisor`. You must override `reliabilityMetrics.castai.apiKeySecretRef` accordingly, and prefix all values with `autoscaler.castai-kvisor.`:
+> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), three things differ:
+> 1. The API key secret is `castai-credentials` (not `castai-kvisor`)
+> 2. All `--set` keys must be prefixed to route into the kvisor subchart (e.g. `autoscaler.castai-kvisor.*` — the exact prefix depends on the umbrella chart structure)
+> 3. The ClickHouse service name becomes `castai-clickhouse` (not `castai-kvisor-clickhouse`)
+>
+> **Recommended:** Use the `enable-reliability-stack.sh` script — it auto-detects umbrella vs standalone and discovers the correct values prefix automatically.
+>
+> Manual example for reference (verify the prefix for your umbrella chart version):
 > ```bash
-> helm upgrade castai castai-helm/castai -n castai-agent --reuse-values \
+> helm upgrade castai castai-helm/castai -n castai-agent --reset-then-reuse-values \
 >   --set "autoscaler.castai-kvisor.agent.reliabilityMetrics.enabled=true" \
 >   --set "autoscaler.castai-kvisor.agent.reliabilityMetrics.collector.clickhouseExporter.address=tcp://castai-clickhouse.castai-agent.svc.cluster.local:9000" \
 >   --set "autoscaler.castai-kvisor.controller.reliabilityMetrics.enabled=true" \
@@ -137,7 +152,6 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 >   --set "autoscaler.castai-kvisor.reliabilityMetrics.exporter.enabled=true" \
 >   --set "autoscaler.castai-kvisor.reliabilityMetrics.castai.apiKeySecretRef=castai-credentials"
 > ```
-> The `enable-reliability-stack.sh` script handles both of these automatically when `--release castai` is set — it detects the correct secret name and derives the correct ClickHouse service address from the release name.
 
 > **⚠️ CRD Chicken-and-Egg Problem**
 >
