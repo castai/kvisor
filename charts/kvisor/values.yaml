@@ -14,7 +14,9 @@ castai:
   apiKeySecretRef: ""
 
   # CASTAI grpc public api address.
-  # Note: If your cluster is in the EU region, update the grpcAddr to: https://kvisor.prod-eu.cast.ai:443
+  # Must match the CAST AI console your organization is registered with:
+  #   console.cast.ai    -> kvisor.prod-master.cast.ai:443
+  #   console.eu.cast.ai -> kvisor.prod-eu.cast.ai:443
   grpcAddr: "kvisor.prod-master.cast.ai:443"
 
   apiURL: ""
