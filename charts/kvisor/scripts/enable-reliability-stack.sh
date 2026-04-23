@@ -72,7 +72,10 @@ INSTALL_MODE=""
 USER_SET_RELEASE=""
 USER_SET_CHART=""
 DETECTED_API_KEY_SECRET=""
+CRD_EXISTS=""
 OPERATOR_RUNNING=""
+OPERATOR_NS=""
+OPERATOR_WATCH_WARNING=""
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -163,6 +166,70 @@ run_cmd() {
     # Use eval because $HELM_CTX/$KUBECTL_CTX must expand to multiple args or nothing.
     # Values containing shell metacharacters are single-quoted in build_creds_flags().
     eval "$@"
+  fi
+}
+
+# Detect ClickHouse operator across all namespaces and verify it watches our target namespace.
+# Sets: OPERATOR_RUNNING="true" if operator is running AND watches NAMESPACE.
+#        OPERATOR_NS (namespace where operator was found)
+#        OPERATOR_WATCH_WARNING (set if operator runs but doesn't watch our namespace)
+detect_operator() {
+  OPERATOR_NS=""
+  OPERATOR_WATCH_WARNING=""
+
+  # Find the clickhouse-operator deployment across all namespaces.
+  # Different installation methods use different labels, so we search by multiple strategies:
+  #   1. Label: clickhouse.altinity.com/app=chop (Altinity's own label, most reliable)
+  #   2. Label: app=clickhouse-operator (older Altinity Helm chart)
+  #   3. Label: app.kubernetes.io/name contains clickhouse-operator (convention, may include version suffix)
+  local deploy_info=""
+  for label in "clickhouse.altinity.com/app=chop" "app=clickhouse-operator"; do
+    deploy_info=$(kubectl $KUBECTL_CTX get deployments --all-namespaces -l "$label" \
+      -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\n"}{end}' 2>/dev/null) || true
+    if [[ -n "$deploy_info" ]]; then
+      break
+    fi
+  done
+
+  # Fallback: search by deployment name containing "clickhouse-operator" (not just "clickhouse")
+  if [[ -z "$deploy_info" ]]; then
+    deploy_info=$(kubectl $KUBECTL_CTX get deployments --all-namespaces \
+      -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+      | grep "clickhouse-operator" || true)
+  fi
+
+  if [[ -z "$deploy_info" ]]; then
+    return 1
+  fi
+
+  # Take the first match
+  OPERATOR_NS=$(echo "$deploy_info" | head -1 | cut -f1)
+  local deploy_name
+  deploy_name=$(echo "$deploy_info" | head -1 | cut -f2)
+
+  # Verify the deployment has running pods
+  local ready_replicas
+  ready_replicas=$(kubectl $KUBECTL_CTX get deployment "$deploy_name" -n "$OPERATOR_NS" \
+    -o jsonpath='{.status.readyReplicas}' 2>/dev/null) || ready_replicas="0"
+  if [[ "${ready_replicas:-0}" -lt 1 ]]; then
+    return 1
+  fi
+
+  # Check if the operator watches our namespace.
+  # WATCH_NAMESPACES env var: empty = all namespaces, comma-separated list = specific namespaces.
+  local watch_ns
+  watch_ns=$(kubectl $KUBECTL_CTX get deployment "$deploy_name" -n "$OPERATOR_NS" \
+    -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="WATCH_NAMESPACES")].value}' 2>/dev/null) || watch_ns=""
+
+  if [[ -z "$watch_ns" ]]; then
+    # Empty WATCH_NAMESPACES = watches all namespaces
+    OPERATOR_RUNNING="true"
+  elif echo ",$watch_ns," | grep -q ",$NAMESPACE,"; then
+    # Our namespace is in the watch list
+    OPERATOR_RUNNING="true"
+  else
+    # Operator runs but doesn't watch our namespace
+    OPERATOR_WATCH_WARNING="true"
   fi
 }
 
@@ -535,11 +602,13 @@ CRD_EXISTS=""
 OPERATOR_RUNNING=""
 if kubectl $KUBECTL_CTX get crd clickhouseinstallations.clickhouse.altinity.com >/dev/null 2>&1; then
   CRD_EXISTS="true"
-  # CRD exists — but check if the operator is actually running.
-  # It may have been deleted (e.g. after a failed install cleanup) while the CRD remained.
-  if kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app=clickhouse-operator --field-selector=status.phase=Running 2>/dev/null | grep -q clickhouse-operator; then
-    OPERATOR_RUNNING="true"
-    ok "ClickHouseInstallation CRD already exists and operator is running — skipping operator install"
+  detect_operator || true
+  if [[ -n "$OPERATOR_RUNNING" ]]; then
+    ok "ClickHouseInstallation CRD exists and operator is running (in namespace: $OPERATOR_NS) — skipping operator install"
+  elif [[ -n "$OPERATOR_WATCH_WARNING" ]]; then
+    warn "ClickHouse operator found in namespace '$OPERATOR_NS' but it does NOT watch namespace '$NAMESPACE'"
+    warn "The operator's WATCH_NAMESPACES does not include '$NAMESPACE' — ClickHouseInstallation CRs will be ignored"
+    warn "Either add '$NAMESPACE' to the operator's WATCH_NAMESPACES or install a dedicated operator"
   else
     warn "ClickHouseInstallation CRD exists but operator is not running — will install operator"
   fi
@@ -674,6 +743,17 @@ if [[ "$OBI_PROFILE" == "auto" ]]; then
   fi
 fi
 
+# ── CRD / Operator Detection ─────────────────────────────────────────────────
+# Read-only kubectl checks — runs in all modes (including print-only) so we
+# know whether Phase 1 is needed. Falls back gracefully if cluster unreachable.
+if [[ -z "$CRD_EXISTS" ]]; then
+  # Only check if not already set by the cluster-dependent block above
+  if kubectl $KUBECTL_CTX get crd clickhouseinstallations.clickhouse.altinity.com >/dev/null 2>&1; then
+    CRD_EXISTS="true"
+    detect_operator || true
+  fi
+fi
+
 # Rebuild version flag (may have been set inside the cluster-dependent block, or via --chart-version)
 HELM_VERSION_FLAG=""
 if [[ -n "$CHART_VERSION" ]]; then
@@ -681,12 +761,23 @@ if [[ -n "$CHART_VERSION" ]]; then
 fi
 
 # ── Print-only: Phase 1 (operator bootstrap) ────────────────────────────────
-# In print-only mode we can't check the cluster, so always output the Phase 1
-# command. The user can skip it if the CRD already exists.
-if [[ -n "$PRINT_ONLY" ]]; then
-  step "Phase 1: Install ClickHouse Operator (skip if CRD already exists)"
-  info "Check first: kubectl get crd clickhouseinstallations.clickhouse.altinity.com"
-  echo ""
+# Show Phase 1 only when the operator isn't already running and watching our namespace.
+if [[ -n "$PRINT_ONLY" && -z "$OPERATOR_RUNNING" ]]; then
+  if [[ -n "$OPERATOR_WATCH_WARNING" ]]; then
+    step "Phase 1: ClickHouse Operator — WARNING"
+    warn "ClickHouse operator found in namespace '$OPERATOR_NS' but does NOT watch '$NAMESPACE'"
+    warn "Either add '$NAMESPACE' to the operator's WATCH_NAMESPACES env var,"
+    warn "or run Command #1 below to install a dedicated operator in '$NAMESPACE'."
+    echo ""
+  elif [[ -n "$CRD_EXISTS" ]]; then
+    step "Phase 1: Install ClickHouse Operator"
+    warn "CRD exists but operator is not running — Phase 1 will reinstall it"
+    echo ""
+  else
+    step "Phase 1: Install ClickHouse Operator"
+    info "ClickHouse CRD not found — Phase 1 installs the operator and registers the CRD"
+    echo ""
+  fi
 
   PHASE1_CMD="$(build_helm_base)"
 
@@ -712,6 +803,8 @@ if [[ -n "$PRINT_ONLY" ]]; then
   print_cmd_block "Wait for CRD" "kubectl wait --for=condition=Established \\
   crd/clickhouseinstallations.clickhouse.altinity.com --timeout=60s"
   echo ""
+elif [[ -n "$PRINT_ONLY" ]]; then
+  ok "ClickHouse operator already running (namespace: ${OPERATOR_NS:-$NAMESPACE}) — skipping Phase 1"
 fi
 
 # ── Phase 2: Enable Full Reliability Stack ───────────────────────────────────
