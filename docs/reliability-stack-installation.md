@@ -65,8 +65,15 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
 - `helm` (3.12+) and `kubectl` installed and configured
 - CAST AI account with API key and cluster onboarded to CAST AI
 - **Altinity ClickHouse operator**: Either let the chart install it (`reliabilityMetrics.operator.enabled=true`) or ensure one is already running in the cluster (`reliabilityMetrics.operator.enabled=false`)
+- **Default StorageClass** (or explicit override): ClickHouse requires a PersistentVolumeClaim. If your cluster has no default StorageClass (common on EKS 1.33+ where `gp2` exists but isn't marked default), either mark one as default or use the `--storage-class` flag:
+  ```bash
+  # Option A: Mark gp2 as default
+  kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
+  # Option B: Pass explicitly to the install script
+  ./enable-reliability-stack.sh --storage-class gp2
+  ```
 
-> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version and architecture on all nodes before proceeding. If any node fails, you'll be prompted to confirm before continuing.
+> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version, architecture, and StorageClass availability on all nodes before proceeding. If any check fails, you'll be prompted to confirm before continuing.
 
 ### Helm Repo Setup
 
@@ -107,6 +114,11 @@ The script **auto-detects** whether kvisor is installed standalone (`castai-kvis
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
   --context <kube-context> \
   --cluster-proxy
+
+# With explicit StorageClass (when no default SC exists, e.g. EKS 1.33+)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  --storage-class gp3
 
 # With a custom values file (overrides openPorts, exclusions, ClickHouse config, etc.)
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
@@ -402,6 +414,7 @@ reliabilityMetrics:
         memory: 2Gi
     persistence:
       size: 100Gi
+      # storageClass: gp3  # Explicit SC; omit to use cluster default
 
   # ch-exporter sidecar
   exporter:

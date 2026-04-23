@@ -39,6 +39,9 @@
 #                           unrelated components.
 #       --upgrade-chart     Upgrade to the latest chart version instead of pinning to
 #                           the currently deployed version.
+#       --storage-class     StorageClass for ClickHouse PVC (e.g. gp3, premium-rwo).
+#                           Overrides the cluster default. Useful when no default
+#                           StorageClass is set (common on EKS 1.33+)
 #       --cluster-proxy     Also enable the kvisor cluster proxy feature
 #       --print-only        Print the final helm commands and exit (no preflight,
 #                           no auto-detection from cluster — uses defaults/flags only)
@@ -64,6 +67,7 @@ DYNAMIC_SIZING="false"
 VALUES_PREFIX=""
 CHART_VERSION=""
 UPGRADE_CHART=""
+STORAGE_CLASS=""
 CLUSTER_PROXY=""
 PRINT_ONLY=""
 DRY_RUN=""
@@ -128,6 +132,7 @@ while [[ $# -gt 0 ]]; do
     --values-prefix)      VALUES_PREFIX="$2"; shift 2 ;;
     --chart-version)      CHART_VERSION="$2"; shift 2 ;;
     --upgrade-chart)      UPGRADE_CHART="true"; shift ;;
+    --storage-class)      STORAGE_CLASS="$2"; shift 2 ;;
     --cluster-proxy)      CLUSTER_PROXY="true"; shift ;;
     --print-only)         PRINT_ONLY="true"; DRY_RUN="true"; shift ;;
     --dry-run)            DRY_RUN="true"; shift ;;
@@ -419,6 +424,48 @@ for ba in bad_arch:
   fi
 fi
 
+# ── StorageClass check ──────────────────────────────────────────────────────
+# ClickHouse PVCs don't specify a storageClassName — they rely on a default.
+# EKS 1.33+ creates gp2 but doesn't mark it as default, causing silent PVC Pending.
+step "StorageClass Check"
+DEFAULT_SC=$(kubectl $KUBECTL_CTX get sc -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{"\n"}{end}' 2>/dev/null) || DEFAULT_SC=""
+if [[ -n "$STORAGE_CLASS" ]]; then
+  ok "StorageClass override: $STORAGE_CLASS (via --storage-class)"
+elif [[ -z "$DEFAULT_SC" ]]; then
+  warn "No default StorageClass found!"
+  warn "ClickHouse requires a default StorageClass for its PersistentVolumeClaim."
+  warn "Without one, the ClickHouse pod will stay Pending indefinitely."
+  echo ""
+  info "Option 1: Re-run with --storage-class <name> to target a specific StorageClass"
+  info "Option 2: Mark an existing StorageClass as default:"
+  # Check if gp2 exists (common on EKS) and suggest marking it as default
+  if kubectl $KUBECTL_CTX get sc gp2 >/dev/null 2>&1; then
+    info "  kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true"
+  elif kubectl $KUBECTL_CTX get sc gp3 >/dev/null 2>&1; then
+    info "  kubectl annotate storageclass gp3 storageclass.kubernetes.io/is-default-class=true"
+  else
+    SC_LIST=$(kubectl $KUBECTL_CTX get sc -o jsonpath='{.items[*].metadata.name}' 2>/dev/null) || SC_LIST=""
+    if [[ -n "$SC_LIST" ]]; then
+      info "Available StorageClasses: $SC_LIST"
+      info "  kubectl annotate storageclass <name> storageclass.kubernetes.io/is-default-class=true"
+    else
+      warn "No StorageClasses found at all — install a CSI driver (e.g. EBS CSI for EKS)"
+    fi
+  fi
+  echo ""
+  if [[ -z "$DRY_RUN" ]]; then
+    err "Proceed without a default StorageClass? [y/N]"
+    read -r REPLY
+    if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+      err "Aborted. Set a default StorageClass and re-run."
+      exit 1
+    fi
+    warn "Proceeding without default StorageClass — ClickHouse PVC may stay Pending"
+  fi
+else
+  ok "Default StorageClass: $DEFAULT_SC"
+fi
+
 # ── Helm repo ───────────────────────────────────────────────────────────────
 if [[ -z "$SKIP_REPO" ]]; then
   step "Helm Repository"
@@ -695,6 +742,29 @@ fi
 
 fi # end of [[ -z "$PRINT_ONLY" ]] — cluster-dependent sections
 
+# ── StorageClass check (print-only mode) ─────────────────────────────────────
+# When running in print-only mode, the preflight block above is skipped.
+# Still check for a default StorageClass since it's a kubectl-only read.
+if [[ -n "$PRINT_ONLY" ]]; then
+  if [[ -n "$STORAGE_CLASS" ]]; then
+    ok "StorageClass override: $STORAGE_CLASS (via --storage-class)"
+  else
+    DEFAULT_SC=$(kubectl $KUBECTL_CTX get sc -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{"\n"}{end}' 2>/dev/null) || DEFAULT_SC=""
+    if [[ -z "$DEFAULT_SC" ]]; then
+      warn "No default StorageClass found! ClickHouse PVC will stay Pending."
+      info "Fix: re-run with --storage-class <name>, or mark a default:"
+      if kubectl $KUBECTL_CTX get sc gp2 >/dev/null 2>&1; then
+        info "  kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true"
+      elif kubectl $KUBECTL_CTX get sc gp3 >/dev/null 2>&1; then
+        info "  kubectl annotate storageclass gp3 storageclass.kubernetes.io/is-default-class=true"
+      fi
+      echo ""
+    else
+      ok "Default StorageClass: $DEFAULT_SC"
+    fi
+  fi
+fi
+
 # ── Auto-detect OBI profile ──────────────────────────────────────────────────
 # Runs outside the print-only guard — only needs kubectl (not helm).
 # Falls back gracefully if the cluster isn't reachable.
@@ -872,6 +942,13 @@ if [[ -n "$CLUSTER_PROXY" ]]; then
   info "Cluster proxy enabled"
 fi
 
+# Override ClickHouse StorageClass if specified
+if [[ -n "$STORAGE_CLASS" ]]; then
+  HELM_CMD="$HELM_CMD \\
+  $(setkey reliabilityMetrics.install.persistence.storageClass=$STORAGE_CLASS)"
+  info "ClickHouse StorageClass: $STORAGE_CLASS"
+fi
+
 info "OBI sizing profile: $OBI_PROFILE"
 info "Dynamic sizing: $DYNAMIC_SIZING"
 
@@ -904,6 +981,9 @@ if [[ -n "$PRINT_ONLY" ]]; then
   echo ""
   echo "  # ClickHouse: increase disk for high-cardinality workloads"
   echo "  $(setkey reliabilityMetrics.install.persistence.size=200Gi)"
+  echo ""
+  echo "  # ClickHouse: explicit StorageClass (or use --storage-class flag)"
+  echo "  $(setkey reliabilityMetrics.install.persistence.storageClass=gp3)"
   echo ""
   echo "  # ClickHouse: credentials from existing Secret"
   echo "  $(setkey 'reliabilityMetrics.auth.password.valueFrom.secretKeyRef.name=my-ch-secret')"
@@ -977,6 +1057,9 @@ if [[ -z "$PRINT_ONLY" ]]; then
   echo "  Release:        $RELEASE"
   echo "  OBI profile:    $OBI_PROFILE"
   echo "  Dynamic sizing: $DYNAMIC_SIZING"
+  if [[ -n "$STORAGE_CLASS" ]]; then
+    echo "  StorageClass:   $STORAGE_CLASS"
+  fi
   echo ""
   echo "Next steps:"
   echo "  • Verify ClickHouse is ready:  kubectl get chi -n $NAMESPACE"
