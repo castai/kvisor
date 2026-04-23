@@ -197,7 +197,7 @@ agent:
     dcgmExporter:
       image:
         repository: nvcr.io/nvidia/k8s/dcgm-exporter
-        tag: "4.5.2-4.8.1-ubuntu22.04"
+        tag: "4.5.2-4.8.1-ubuntu22.04@sha256:17e9d49093f2d86d90260eec3c07b18b3f78fc5eadef3c8ab26a24fa5a9c1b2c"
         pullPolicy: IfNotPresent
       # Port DCGM exporter listens on.
       port: 9400
@@ -245,7 +245,7 @@ agent:
 
       image:
         repository: otel/ebpf-instrument
-        tag: "v0.8.0"
+        tag: "v0.8.0@sha256:9b5b40104338d178fe35916ca03c86a62af22bec535cd27841846bcac885bd44"
       # Custom resources — only used when sizingProfile is "custom".
       resources:
         requests:
@@ -362,7 +362,7 @@ agent:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.11"
+        tag: "v0.1.11@sha256:66f534e98ff31527c6db01a95453720a073402b59ba882459d61798340a56d92"
       resources:
         requests:
           memory: 128Mi
@@ -525,7 +525,7 @@ controller:
       enabled: true
       image:
         repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-otel-collector
-        tag: "v0.1.11"
+        tag: "v0.1.11@sha256:66f534e98ff31527c6db01a95453720a073402b59ba882459d61798340a56d92"
       resources:
         requests:
           cpu: 250m
@@ -627,4 +627,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.17"
+      tag: "v0.3.17@sha256:29572c48671c19bcede289c0babe30dbb6fbcb14aae5050f34f99e15012e006b"
