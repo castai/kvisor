@@ -537,7 +537,7 @@ print('TYPE=none')
         # Discover the values path to castai-kvisor by inspecting the release's current values.
         # The umbrella chart nests kvisor under an intermediate subchart (e.g. autoscaler.castai-kvisor).
         # We walk the YAML tree to find the path containing a 'castai-kvisor' key with kvisor-like children.
-        VALUES_PREFIX=$(helm $HELM_CTX get values "$DETECTED_RELEASE" -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "
+        VALUES_PREFIX=$(helm $HELM_CTX get values -a "$DETECTED_RELEASE" -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "
 import sys, json
 
 def find_kvisor_path(obj, path=''):
