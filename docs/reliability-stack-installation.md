@@ -65,8 +65,15 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
 - `helm` (3.12+) and `kubectl` installed and configured
 - CAST AI account with API key and cluster onboarded to CAST AI
 - **Altinity ClickHouse operator**: Either let the chart install it (`reliabilityMetrics.operator.enabled=true`) or ensure one is already running in the cluster (`reliabilityMetrics.operator.enabled=false`)
+- **Default StorageClass** (or explicit override): ClickHouse requires a PersistentVolumeClaim. If your cluster has no default StorageClass (common on EKS 1.33+ where `gp2` exists but isn't marked default), either mark one as default or use the `--storage-class` flag:
+  ```bash
+  # Option A: Mark gp2 as default
+  kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
+  # Option B: Pass explicitly to the install script
+  ./enable-reliability-stack.sh --storage-class gp2
+  ```
 
-> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version and architecture on all nodes before proceeding. If any node fails, you'll be prompted to confirm before continuing.
+> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version, architecture, and StorageClass availability on all nodes before proceeding. If any check fails, you'll be prompted to confirm before continuing.
 
 ### Helm Repo Setup
 
@@ -81,9 +88,21 @@ helm repo update castai-helm
 
 The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD bootstrapping automatically. It detects whether the CRD exists, installs the operator first if needed, waits for the CRD to register, then enables the full stack.
 
+The script **auto-detects** whether kvisor is installed standalone (`castai-kvisor` chart) or via the CAST AI umbrella chart (`castai` chart) and adjusts the release name, chart reference, and values prefix accordingly. No manual flags needed in most cases.
+
 ```bash
-# Basic usage (existing kvisor installation, auto-detects OBI profile)
+# Basic usage — auto-detects standalone vs umbrella, auto-detects OBI profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh
+
+# Dry-run (prints commands without executing — recommended for first run)
+./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
+
+# Print-only mode — outputs both Phase 1 (operator) and Phase 2 (full stack)
+# helm commands without any cluster access. Useful for CI/CD or review.
+# Includes comments explaining when Phase 1 can be skipped.
+./charts/kvisor/scripts/enable-reliability-stack.sh --print-only \
+  --release castai --chart castai-helm/castai \
+  --values-prefix autoscaler.castai-kvisor
 
 # With context and explicit profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
@@ -91,13 +110,26 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
   --obi-profile large \
   --dynamic-sizing
 
+# With cluster proxy enabled (creates RBAC + service account for kvisor proxy)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  --cluster-proxy
+
+# With explicit StorageClass (when no default SC exists, e.g. EKS 1.33+)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --context <kube-context> \
+  --storage-class gp3
+
 # With a custom values file (overrides openPorts, exclusions, ClickHouse config, etc.)
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
   --context <kube-context> \
   -f /path/to/my-values.yaml
 
-# Dry-run (prints commands without executing)
-./charts/kvisor/scripts/enable-reliability-stack.sh --dry-run
+# Explicit overrides (if auto-detection doesn't apply to your setup)
+./charts/kvisor/scripts/enable-reliability-stack.sh \
+  --release <helm-release-name> \
+  --chart <chart-reference> \
+  --values-prefix <subchart-path>
 ```
 
 The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure `openPorts`, exclusions, ClickHouse resources, and exporter settings for production clusters.
@@ -121,6 +153,29 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 ```
 
 ### Option 2: Enable on Existing Kvisor (Manual)
+
+> **⚠️ Umbrella Chart**
+>
+> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), three things differ:
+> 1. The API key secret is `castai-credentials` (not `castai-kvisor`)
+> 2. All `--set` keys must be prefixed to route into the kvisor subchart (e.g. `autoscaler.castai-kvisor.*` — the exact prefix depends on the umbrella chart structure)
+> 3. The ClickHouse service name becomes `castai-clickhouse` (not `castai-kvisor-clickhouse`)
+>
+> **Recommended:** Use the `enable-reliability-stack.sh` script — it auto-detects umbrella vs standalone and discovers the correct values prefix automatically.
+>
+> Manual example for reference (verify the prefix for your umbrella chart version):
+> ```bash
+> helm upgrade castai castai-helm/castai -n castai-agent --reset-then-reuse-values \
+>   --set "autoscaler.castai-kvisor.agent.reliabilityMetrics.enabled=true" \
+>   --set "autoscaler.castai-kvisor.agent.reliabilityMetrics.collector.clickhouseExporter.address=tcp://castai-clickhouse.castai-agent.svc.cluster.local:9000" \
+>   --set "autoscaler.castai-kvisor.controller.reliabilityMetrics.enabled=true" \
+>   --set "autoscaler.castai-kvisor.controller.reliabilityMetrics.collector.clickhouseExporter.address=tcp://castai-clickhouse.castai-agent.svc.cluster.local:9000" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.operator.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.install.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.exporter.enabled=true" \
+>   --set "autoscaler.castai-kvisor.reliabilityMetrics.castai.apiKeySecretRef=castai-credentials"
+> ```
 
 > **⚠️ CRD Chicken-and-Egg Problem**
 >
@@ -359,6 +414,7 @@ reliabilityMetrics:
         memory: 2Gi
     persistence:
       size: 100Gi
+      # storageClass: gp3  # Explicit SC; omit to use cluster default
 
   # ch-exporter sidecar
   exporter:
