@@ -102,6 +102,7 @@ var (
 	clusterProxyEnabled     = pflag.Bool("cluster-proxy-enabled", false, "Enable cluster proxy for remote K8s API access")
 	clusterProxySAName      = pflag.String("cluster-proxy-sa-name", "", "Name of the service account for cluster proxy")
 	clusterProxyTokenExpiry = pflag.Int64("cluster-proxy-token-expiration", 900, "Token expiration in seconds for the proxy SA")
+	clusterProxyGRPCAddr    = pflag.String("cluster-proxy-grpc-addr", "", "gRPC address for cluster-proxy communication")
 )
 
 func main() {
@@ -220,6 +221,7 @@ func main() {
 			SAName:                 *clusterProxySAName,
 			SANamespace:            podNs,
 			TokenExpirationSeconds: *clusterProxyTokenExpiry,
+			GRPCAddr:               *clusterProxyGRPCAddr,
 		},
 		CloudProviderConfig: config.CloudProviderConfig{
 			CloudProvider: cloudtypes.ProviderConfig{

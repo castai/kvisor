@@ -437,8 +437,10 @@ func setupClusterProxy(log *logging.Logger, cfg config.Config, clientset kuberne
 		Timeout:   30 * time.Second,
 	}
 
-	grpcConn, err := castai.NewGRPCConn(cfg.CastaiEnv, grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:                10 * time.Second,
+	proxyCastaiEnv := cfg.CastaiEnv
+	proxyCastaiEnv.APIGrpcAddr = cfg.ClusterProxy.GRPCAddr
+	grpcConn, err := castai.NewGRPCConn(proxyCastaiEnv, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                60 * time.Second,
 		Timeout:             5 * time.Second,
 		PermitWithoutStream: true,
 	}))
