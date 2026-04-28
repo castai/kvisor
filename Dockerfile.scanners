@@ -7,3 +7,11 @@ ARG TARGETARCH
 COPY bin/kvisor-linter-$TARGETARCH /usr/local/bin/kvisor-linter
 COPY bin/kvisor-image-scanner-$TARGETARCH /usr/local/bin/kvisor-image-scanner
 COPY cmd/linter/kubebench/kubebench-rules /etc/kubebench-rules
+
+# License and attribution bundle (Apache-2.0 §4(a), §4(c)).
+COPY LICENSE                                   /licenses/LICENSE
+COPY NOTICE.md                                 /licenses/NOTICE.md
+COPY licenses/scanners/THIRD_PARTY_NOTICES.md  /licenses/THIRD_PARTY_NOTICES.md
+
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/castai/kvisor"

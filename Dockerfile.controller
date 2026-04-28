@@ -3,4 +3,12 @@ FROM cgr.dev/chainguard/static:latest@sha256:95a45fc5fda9aa71dbdc645b20c6fb03f33
 ARG TARGETARCH
 COPY ./bin/kvisor-controller-$TARGETARCH /usr/local/bin/kvisor-controller
 
+# License and attribution bundle (Apache-2.0 §4(a), §4(c)).
+COPY LICENSE                                     /licenses/LICENSE
+COPY NOTICE.md                                   /licenses/NOTICE.md
+COPY licenses/controller/THIRD_PARTY_NOTICES.md  /licenses/THIRD_PARTY_NOTICES.md
+
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/castai/kvisor"
+
 ENTRYPOINT ["/usr/local/bin/kvisor-controller"]

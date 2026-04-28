@@ -1,3 +1,6 @@
+// Adapted from https://github.com/opencontainers/runc (libcontainer/cgroups).
+// Licensed under Apache-2.0. Modified by CAST AI on 2026-04-28.
+
 package cgroup
 
 // TODO: Implement IO stats later.
