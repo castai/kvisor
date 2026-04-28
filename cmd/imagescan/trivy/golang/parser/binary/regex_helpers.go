@@ -1,5 +1,5 @@
-// Original source by syft
-// https://github.com/anchore/syft/blob/c53f2fbad369b7c19d28b3b63511c95a04e33ff1/internal/regex_helpers.go#L1
+// Adapted from https://github.com/anchore/syft (internal/regex_helpers.go).
+// Licensed under Apache-2.0. Modified by CAST AI on 2026-04-28.
 package binary
 
 import (

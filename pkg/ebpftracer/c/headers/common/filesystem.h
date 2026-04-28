@@ -322,6 +322,10 @@ statfunc void fill_file_header(u8 header[FILE_MAGIC_HDR_SIZE], io_data_t io_data
     }
 }
 
+// get_exe_upper_layer: adapted from
+// https://github.com/falcosecurity/libs/blob/74725244659e556ced587c2f0bec7bbd42d39b96/driver/bpf/fillers.h#L2395
+// (Apache-2.0). Modified by CAST AI on 2026-04-28; redistributed here under
+// GPL-2.0 as part of the kvisor eBPF program (see /licenses/GPL-2.0.txt).
 statfunc bool get_exe_upper_layer(struct dentry *dentry, struct super_block *sb)
 {
     unsigned long sb_magic = BPF_CORE_READ(sb, s_magic);

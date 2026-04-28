@@ -3,6 +3,10 @@
 // Note: This file is licenced differently from the rest of the project
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (C) Aqua Security inc.
+//
+// Adapted from https://github.com/aquasecurity/tracee. Modified by CAST AI on
+// 2026-04-28. The eBPF headers under c/headers/ are likewise adapted from
+// Tracee under GPL-2.0; see /NOTICE.md and /licenses/GPL-2.0.txt for details.
 
 #include <vmlinux.h>
 #include <vmlinux_flavors.h>

@@ -1,3 +1,6 @@
+// Adapted from https://github.com/aquasecurity/trivy (pkg/dependency/parser/golang/binary).
+// Licensed under Apache-2.0. Modified by CAST AI on 2026-04-28.
+
 package binary
 
 import (
