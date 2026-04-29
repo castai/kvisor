@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.18
 	github.com/castai/image-analyzer v0.10.0
 	github.com/castai/logging v0.3.0
-	github.com/castai/metrics v0.0.0-20250917084341-1533777a055a
+	github.com/castai/metrics v0.0.0-20260319125942-0c27e45069cd
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
