@@ -18,7 +18,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/cilium v1.17.0-pre.2
 	github.com/cilium/ebpf v0.17.3
-	github.com/containerd/containerd v1.7.29
+	github.com/containerd/containerd/v2 v2.3.0
 	github.com/containerd/containerd/api v1.8.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/elastic/go-freelru v0.16.0
