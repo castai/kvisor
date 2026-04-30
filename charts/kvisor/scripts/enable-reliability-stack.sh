@@ -774,19 +774,16 @@ for pod in data.get('items', []):
   kvisor_version_in_chart() {
     local tmpdir
     tmpdir=$(mktemp -d) || return 1
+    trap 'rm -rf "$tmpdir"' RETURN
     if helm pull "$@" --untar --untardir "$tmpdir" 2>/dev/null; then
       # Find the castai-kvisor Chart.yaml (could be top-level or nested subchart)
       local chart_yaml
       chart_yaml=$(find "$tmpdir" -path "*/castai-kvisor/Chart.yaml" -print -quit 2>/dev/null)
       if [[ -n "$chart_yaml" ]]; then
-        python3 -c "
-import sys, yaml
-data = yaml.safe_load(open('$chart_yaml'))
-print(data.get('appVersion', ''))
-" 2>/dev/null
+        # Parse appVersion without PyYAML (not always available)
+        grep -m1 '^appVersion:' "$chart_yaml" 2>/dev/null | sed 's/^appVersion:[[:space:]]*//' | tr -d '"'"'"
       fi
     fi
-    rm -rf "$tmpdir"
   }
 
   # Show kvisor version info — both what's deployed and what's available.
@@ -901,8 +898,9 @@ else
   debug "Scanning namespace '$NAMESPACE' for pre-existing credentials..."
   if [[ -z "$API_KEY" && -z "$API_KEY_SECRET" ]]; then
     for candidate in castai-kvisor castai-credentials; do
-      if kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" \
-         -o jsonpath='{.data.API_KEY}' >/dev/null 2>&1; then
+      KEY_DATA=$(kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" \
+         -o jsonpath='{.data.API_KEY}' 2>/dev/null) || KEY_DATA=""
+      if [[ -n "$KEY_DATA" ]]; then
         API_KEY_SECRET="$candidate"
         ok "Auto-detected API key secret: $candidate"
         break
@@ -911,15 +909,17 @@ else
   fi
   if [[ -z "$CLUSTER_ID" && -z "$CLUSTER_ID_SECRET" && -z "$CLUSTER_ID_CONFIGMAP" ]]; then
     # Check ConfigMap first (most common: castai-agent-metadata)
-    if kubectl $KUBECTL_CTX get configmap castai-agent-metadata -n "$NAMESPACE" \
-       -o jsonpath='{.data.CLUSTER_ID}' >/dev/null 2>&1; then
+    CM_DATA=$(kubectl $KUBECTL_CTX get configmap castai-agent-metadata -n "$NAMESPACE" \
+       -o jsonpath='{.data.CLUSTER_ID}' 2>/dev/null) || CM_DATA=""
+    if [[ -n "$CM_DATA" ]]; then
       CLUSTER_ID_CONFIGMAP="castai-agent-metadata"
       ok "Auto-detected cluster ID configmap: castai-agent-metadata"
     else
       # Fall back to Secret-based cluster ID
       for candidate in castai-kvisor castai-credentials; do
-        if kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" \
-           -o jsonpath='{.data.CLUSTER_ID}' >/dev/null 2>&1; then
+        SEC_DATA=$(kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" \
+           -o jsonpath='{.data.CLUSTER_ID}' 2>/dev/null) || SEC_DATA=""
+        if [[ -n "$SEC_DATA" ]]; then
           CLUSTER_ID_SECRET="$candidate"
           ok "Auto-detected cluster ID secret: $candidate"
           break
@@ -961,7 +961,11 @@ fi
 # ── Verbose: Configuration Summary ──────────────────────────────────────────
 if [[ -n "$VERBOSE" ]]; then
   step "Configuration Summary"
-  debug "Mode:             ${INSTALL_MODE:+FRESH INSTALL}${INSTALL_MODE:-UPGRADE}"
+  if [[ -n "$INSTALL_MODE" ]]; then
+    debug "Mode:             FRESH INSTALL"
+  else
+    debug "Mode:             UPGRADE"
+  fi
   debug "Release:          $RELEASE"
   debug "Chart:            $CHART"
   debug "Namespace:        $NAMESPACE"
@@ -1154,9 +1158,10 @@ else
             | while IFS= read -r line; do debug "  $line"; done
 
           debug "Operator container logs (last 20 lines):"
-          kubectl $KUBECTL_CTX logs -n "$NAMESPACE" -l app=clickhouse-operator --tail=20 2>/dev/null \
-            | while IFS= read -r line; do debug "  $line"; done
-          if [[ $? -ne 0 ]]; then
+          OPERATOR_LOGS=$(kubectl $KUBECTL_CTX logs -n "$NAMESPACE" -l app=clickhouse-operator --tail=20 2>/dev/null) || true
+          if [[ -n "$OPERATOR_LOGS" ]]; then
+            while IFS= read -r line; do debug "  $line"; done <<< "$OPERATOR_LOGS"
+          else
             debug "  (no logs available — pod may not exist)"
           fi
 
