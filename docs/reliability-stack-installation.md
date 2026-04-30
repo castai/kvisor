@@ -72,8 +72,27 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
   # Option B: Pass explicitly to the install script
   ./enable-reliability-stack.sh --storage-class gp2
   ```
+- **CSI driver (EKS only)**: On EKS 1.31+, Kubernetes redirects in-tree volume provisioners (`kubernetes.io/aws-ebs`) to the EBS CSI driver (`ebs.csi.aws.com`) via CSI migration. EKS 1.33 removes in-tree provisioners entirely. Unlike GKE and AKS (which pre-install their CSI drivers), **EKS requires you to install the EBS CSI driver addon** and grant it IAM permissions:
+  ```bash
+  # Step 1: Install the addon
+  eksctl create addon --name aws-ebs-csi-driver --cluster <cluster-name> --region <region>
 
-> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version, architecture, and StorageClass availability on all nodes before proceeding. If any check fails, you'll be prompted to confirm before continuing.
+  # Step 2: Grant IAM permissions (attach to node role — simplest for dev/test)
+  NG=$(aws eks list-nodegroups --cluster-name <cluster> --region <region> --query 'nodegroups[0]' --output text)
+  NODE_ROLE=$(aws eks describe-nodegroup --cluster-name <cluster> --region <region> \
+    --nodegroup-name $NG --query 'nodegroup.nodeRole' --output text | xargs basename)
+  aws iam attach-role-policy --role-name $NODE_ROLE \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+
+  # For production, use IRSA instead (requires OIDC provider):
+  eksctl utils associate-iam-oidc-provider --region <region> --cluster <cluster> --approve
+  eksctl create iamserviceaccount --name ebs-csi-controller-sa --namespace kube-system \
+    --cluster <cluster> --region <region> --role-name AmazonEKS_EBS_CSI_DriverRole \
+    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve
+  ```
+  Without the CSI driver and IAM permissions, ClickHouse PVCs will stay Pending indefinitely.
+
+> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version, architecture, StorageClass availability, and CSI driver health (including IAM permission issues on EKS) on all nodes before proceeding. If any check fails, you'll be prompted to confirm before continuing.
 
 ### Helm Repo Setup
 
@@ -782,6 +801,45 @@ kubectl logs -l app.kubernetes.io/component=migrate -n castai-agent
 ```
 
 Common causes: wrong credentials, ClickHouse not ready, PVC still provisioning.
+
+### ClickHouse PVC Stuck in Pending
+
+The ClickHouse pod stays in `ContainerCreating` or `Pending` because its PersistentVolumeClaim cannot be provisioned.
+
+```bash
+# Check PVC status
+kubectl get pvc -n castai-agent
+# Look at events for the reason
+kubectl describe pvc -n castai-agent -l clickhouse.altinity.com/chi
+```
+
+**Common causes:**
+
+1. **No default StorageClass** — The PVC doesn't specify a `storageClassName`, so Kubernetes needs a default. Fix: `--storage-class gp2` or annotate a SC as default.
+
+2. **CSI driver not installed (EKS)** — On EKS 1.31+, the `gp2` StorageClass uses the in-tree `kubernetes.io/aws-ebs` provisioner, which is redirected to `ebs.csi.aws.com` via CSI migration. If the EBS CSI driver addon isn't installed, no volumes get provisioned:
+   ```bash
+   # Check if driver is registered
+   kubectl get csidrivers ebs.csi.aws.com
+   # Install if missing
+   eksctl create addon --name aws-ebs-csi-driver --cluster <cluster> --region <region>
+   ```
+
+3. **CSI driver crashing (missing IAM permissions)** — The EBS CSI driver is installed but its controller pods are in `CrashLoopBackOff`. The logs show `UnauthorizedOperation: You are not authorized to perform ec2:DescribeAvailabilityZones`:
+   ```bash
+   # Verify pods are crashing
+   kubectl get pods -n kube-system -l app=ebs-csi-controller
+   # Attach the required IAM policy to the node role
+   NG=$(aws eks list-nodegroups --cluster-name <cluster> --region <region> --query 'nodegroups[0]' --output text)
+   NODE_ROLE=$(aws eks describe-nodegroup --cluster-name <cluster> --region <region> \
+     --nodegroup-name $NG --query 'nodegroup.nodeRole' --output text | xargs basename)
+   aws iam attach-role-policy --role-name $NODE_ROLE \
+     --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+   # Restart the controller to pick up new permissions
+   kubectl rollout restart deployment ebs-csi-controller -n kube-system
+   ```
+
+> **Note:** GKE and AKS pre-install their CSI drivers with proper IAM/RBAC. This issue is specific to EKS.
 
 ### Connection Errors During Startup
 
