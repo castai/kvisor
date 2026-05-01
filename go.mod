@@ -1,6 +1,6 @@
 module github.com/castai/kvisor
 
-go 1.24.6
+go 1.25.0
 
 require (
 	cloud.google.com/go/compute v1.52.0
@@ -37,7 +37,8 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/labstack/echo/v4 v4.13.3
+	github.com/labstack/echo/v4 v4.15.2
+	github.com/labstack/echo/v5 v5.1.1
 	github.com/magiconair/properties v1.8.9
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/miekg/dns v1.1.62
@@ -56,10 +57,10 @@ require (
 	github.com/yl2chen/cidranger v1.0.2
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/net v0.48.0
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.40.0
-	golang.org/x/time v0.14.0
+	golang.org/x/net v0.53.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.43.0
+	golang.org/x/time v0.15.0
 	golang.stackrox.io/kube-linter v0.7.3-0.20250507172404-3f4b9037f56f
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.10
@@ -242,7 +243,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.40.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/tools v0.43.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -351,7 +352,7 @@ require (
 	github.com/knqyf263/go-apk-version v0.0.0-20200609155635-041fdbb8563f // indirect
 	github.com/knqyf263/go-deb-version v0.0.0-20241115132648-6f4aee6ccd23 // indirect
 	github.com/knqyf263/go-rpmdb v0.1.1 // indirect
-	github.com/labstack/gommon v0.4.2 // indirect
+	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
@@ -360,7 +361,7 @@ require (
 	github.com/masahiro331/go-ext4-filesystem v0.0.0-20240620024024-ca14e6327bbd // indirect
 	github.com/masahiro331/go-xfs-filesystem v0.0.0-20231205045356-1b22259a6c44 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect
@@ -419,12 +420,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20250711185948-6ae5c78190dc // indirect
-	golang.org/x/mod v0.30.0
+	golang.org/x/mod v0.34.0
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/term v0.38.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	google.golang.org/api v0.256.0
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
