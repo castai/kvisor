@@ -1621,16 +1621,23 @@ if [[ -z "$DRY_RUN" ]]; then
     SILVER_OK=""
     EXPORT_OK=""
     while [[ $PIPELINE_TRIES -lt $PIPELINE_MAX ]]; do
-      BRONZE_COUNT=$(kubectl $KUBECTL_CTX exec "$CH_POD" -n "$NAMESPACE" -c clickhouse -- \
-        clickhouse-client -d metrics -q "SELECT count() FROM otel_metrics_histogram WHERE TimeUnix > now() - INTERVAL 5 MINUTE" 2>/dev/null) || BRONZE_COUNT="0"
+      # Check Bronze: both histogram (HTTP/gRPC/DB) and gauge (k8s state) tables
+      if [[ -z "$BRONZE_OK" ]]; then
+        BRONZE_COUNT=$(kubectl $KUBECTL_CTX exec "$CH_POD" -n "$NAMESPACE" -c clickhouse -- \
+          clickhouse-client -d metrics -q "
+            SELECT sum(c) FROM (
+              SELECT count() as c FROM otel_metrics_histogram WHERE TimeUnix > now() - INTERVAL 5 MINUTE
+              UNION ALL SELECT count() FROM otel_metrics_gauge WHERE TimeUnix > now() - INTERVAL 5 MINUTE
+            )" 2>/dev/null) || BRONZE_COUNT="0"
 
-      if [[ "${BRONZE_COUNT:-0}" -gt 0 && -z "$BRONZE_OK" ]]; then
-        BRONZE_OK="true"
-        ok "Bronze data flowing ($BRONZE_COUNT rows in last 5 min)"
+        if [[ "${BRONZE_COUNT:-0}" -gt 0 ]]; then
+          BRONZE_OK="true"
+          ok "Bronze data flowing ($BRONZE_COUNT rows in last 5 min)"
+        fi
       fi
 
-      # Check Silver tables once Bronze is confirmed
-      if [[ -n "$BRONZE_OK" ]]; then
+      # Check Silver tables (can appear quickly via MVs, check independently of Bronze)
+      if [[ -z "$SILVER_OK" ]]; then
         SILVER_COUNT=$(kubectl $KUBECTL_CTX exec "$CH_POD" -n "$NAMESPACE" -c clickhouse -- \
           clickhouse-client -d metrics -q "
             SELECT sum(c) FROM (
@@ -1639,21 +1646,25 @@ if [[ -z "$DRY_RUN" ]]; then
               UNION ALL SELECT count() FROM reliability_metrics_gauge
             )" 2>/dev/null) || SILVER_COUNT="0"
 
-        if [[ "${SILVER_COUNT:-0}" -gt 0 && -z "$SILVER_OK" ]]; then
+        if [[ "${SILVER_COUNT:-0}" -gt 0 ]]; then
           SILVER_OK="true"
           ok "Silver data aggregated ($SILVER_COUNT rows)"
         fi
       fi
 
-      # Check exporter has sent data
-      if [[ -n "$SILVER_OK" ]]; then
+      # Check exporter logs (check every iteration — exporter may already be running)
+      if [[ -z "$EXPORT_OK" ]]; then
         EXPORTER_LOG=$(kubectl $KUBECTL_CTX logs "$CH_POD" -n "$NAMESPACE" -c ch-exporter --tail=50 2>/dev/null) || EXPORTER_LOG=""
         if echo "$EXPORTER_LOG" | grep -q "rows exported to CastAI\|data is synced to CastAI"; then
           EXPORT_OK="true"
           EXPORTED_TABLES=$(echo "$EXPORTER_LOG" | grep -o 'table=[^ ]*' | sort -u | sed 's/table=//' | tr '\n' ', ' | sed 's/,$//')
           ok "Exporter pushing metrics to mothership (tables: $EXPORTED_TABLES)"
-          break
         fi
+      fi
+
+      # All three confirmed — done
+      if [[ -n "$BRONZE_OK" && -n "$SILVER_OK" && -n "$EXPORT_OK" ]]; then
+        break
       fi
 
       PIPELINE_TRIES=$((PIPELINE_TRIES + 1))
@@ -1669,16 +1680,12 @@ if [[ -z "$DRY_RUN" ]]; then
       sleep 3
     done
 
-    if [[ -z "$EXPORT_OK" ]]; then
+    if [[ -z "$BRONZE_OK" || -z "$SILVER_OK" || -z "$EXPORT_OK" ]]; then
       echo ""
-      if [[ -n "$SILVER_OK" ]]; then
-        warn "Silver data present but exporter hasn't sent to mothership yet"
-        warn "This may resolve within a few more minutes (120s export delay for data settlement)"
-      elif [[ -n "$BRONZE_OK" ]]; then
-        warn "Bronze data present but no Silver data yet — materialized views may need more time"
-      else
-        warn "No Bronze data after $((PIPELINE_MAX * 3))s — check OBI and collector logs"
-      fi
+      [[ -z "$BRONZE_OK" ]] && warn "No Bronze data after $((PIPELINE_MAX * 3))s — check OBI and collector logs"
+      [[ -n "$BRONZE_OK" && -z "$SILVER_OK" ]] && warn "Bronze data present but no Silver data yet — materialized views may need more time"
+      [[ -z "$EXPORT_OK" && -n "$SILVER_OK" ]] && warn "Exporter hasn't sent to mothership yet (120s export delay for data settlement — may resolve shortly)"
+      [[ -z "$EXPORT_OK" && -z "$SILVER_OK" && -n "$BRONZE_OK" ]] && true  # already warned above
       VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
   fi
