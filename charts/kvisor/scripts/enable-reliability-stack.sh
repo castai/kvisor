@@ -1420,6 +1420,11 @@ fi
 # Override OBI open ports if specified
 # Commas must be escaped for helm --set (unescaped commas = array separator)
 if [[ -n "$OPEN_PORTS" ]]; then
+  if [[ ! "$OPEN_PORTS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    err "Invalid --open-ports value: '$OPEN_PORTS'"
+    err "Expected comma-separated port numbers (e.g. 8080,8443,6379)"
+    exit 1
+  fi
   ESCAPED_PORTS="${OPEN_PORTS//,/\\,}"
   HELM_CMD="$HELM_CMD \\
   $(setkey "agent.reliabilityMetrics.obi.openPorts=$ESCAPED_PORTS")"
