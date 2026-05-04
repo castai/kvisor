@@ -1425,6 +1425,14 @@ if [[ -n "$OPEN_PORTS" ]]; then
     err "Expected comma-separated port numbers (e.g. 8080,8443,6379)"
     exit 1
   fi
+  # Validate each port is in range 1-65535
+  IFS=',' read -ra PORT_LIST <<< "$OPEN_PORTS"
+  for port in "${PORT_LIST[@]}"; do
+    if [[ "$port" -lt 1 || "$port" -gt 65535 ]]; then
+      err "Port $port out of range (must be 1-65535)"
+      exit 1
+    fi
+  done
   ESCAPED_PORTS="${OPEN_PORTS//,/\\,}"
   HELM_CMD="$HELM_CMD \\
   $(setkey "agent.reliabilityMetrics.obi.openPorts=$ESCAPED_PORTS")"
@@ -1585,9 +1593,10 @@ if [[ -z "$DRY_RUN" ]]; then
     MIGRATE_MAX=30
     MIGRATE_DONE=""
     while [[ $MIGRATE_TRIES -lt $MIGRATE_MAX ]]; do
-      # Check if migrate pod completed successfully
+      # Check if the newest migrate pod completed successfully
       MIGRATE_PHASE=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" \
         -l "app.kubernetes.io/component=migrate" \
+        --sort-by=.metadata.creationTimestamp \
         -o jsonpath='{.items[-1:].status.phase}' 2>/dev/null) || MIGRATE_PHASE=""
       if [[ "$MIGRATE_PHASE" == "Succeeded" ]]; then
         MIGRATE_DONE="true"
