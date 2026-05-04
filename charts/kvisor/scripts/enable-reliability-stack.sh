@@ -1694,7 +1694,6 @@ if [[ -z "$DRY_RUN" ]]; then
       [[ -z "$BRONZE_OK" ]] && warn "No Bronze data after $((PIPELINE_MAX * 3))s — check OBI and collector logs"
       [[ -n "$BRONZE_OK" && -z "$SILVER_OK" ]] && warn "Bronze data present but no Silver data yet — materialized views may need more time"
       [[ -z "$EXPORT_OK" && -n "$SILVER_OK" ]] && warn "Exporter hasn't sent to mothership yet (120s export delay for data settlement — may resolve shortly)"
-      [[ -z "$EXPORT_OK" && -z "$SILVER_OK" && -n "$BRONZE_OK" ]] && true  # already warned above
       VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
   fi
