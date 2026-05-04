@@ -1433,7 +1433,8 @@ if [[ -n "$OPEN_PORTS" ]]; then
       exit 1
     fi
   done
-  ESCAPED_PORTS="${OPEN_PORTS//,/\\,}"
+  # Double-escape: \\, in the string survives eval (line 187) as \, for helm
+  ESCAPED_PORTS="${OPEN_PORTS//,/\\\\,}"
   HELM_CMD="$HELM_CMD \\
   $(setkey "agent.reliabilityMetrics.obi.openPorts=$ESCAPED_PORTS")"
   info "OBI open ports: $OPEN_PORTS"
