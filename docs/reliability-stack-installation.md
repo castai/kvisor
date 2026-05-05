@@ -72,8 +72,27 @@ OBI (eBPF probes) ──OTLP──▶ OTel Collector ──SQL INSERT──▶ C
   # Option B: Pass explicitly to the install script
   ./enable-reliability-stack.sh --storage-class gp2
   ```
+- **CSI driver (EKS only)**: On EKS 1.31+, Kubernetes redirects in-tree volume provisioners (`kubernetes.io/aws-ebs`) to the EBS CSI driver (`ebs.csi.aws.com`) via CSI migration. EKS 1.33 removes in-tree provisioners entirely. Unlike GKE and AKS (which pre-install their CSI drivers), **EKS requires you to install the EBS CSI driver addon** and grant it IAM permissions:
+  ```bash
+  # Step 1: Install the addon
+  eksctl create addon --name aws-ebs-csi-driver --cluster <cluster-name> --region <region>
 
-> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version, architecture, and StorageClass availability on all nodes before proceeding. If any check fails, you'll be prompted to confirm before continuing.
+  # Step 2: Grant IAM permissions (attach to node role — simplest for dev/test)
+  NG=$(aws eks list-nodegroups --cluster-name <cluster> --region <region> --query 'nodegroups[0]' --output text)
+  NODE_ROLE=$(aws eks describe-nodegroup --cluster-name <cluster> --region <region> \
+    --nodegroup-name $NG --query 'nodegroup.nodeRole' --output text | xargs basename)
+  aws iam attach-role-policy --role-name $NODE_ROLE \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+
+  # For production, use IRSA instead (requires OIDC provider):
+  eksctl utils associate-iam-oidc-provider --region <region> --cluster <cluster> --approve
+  eksctl create iamserviceaccount --name ebs-csi-controller-sa --namespace kube-system \
+    --cluster <cluster> --region <region> --role-name AmazonEKS_EBS_CSI_DriverRole \
+    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve
+  ```
+  Without the CSI driver and IAM permissions, ClickHouse PVCs will stay Pending indefinitely.
+
+> **Preflight check**: The `enable-reliability-stack.sh` script automatically checks kernel version, architecture, StorageClass availability, and CSI driver health (including IAM permission issues on EKS) on all nodes before proceeding. If any check fails, you'll be prompted to confirm before continuing.
 
 ### Helm Repo Setup
 
@@ -90,6 +109,12 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
 
 The script **auto-detects** whether kvisor is installed standalone (`castai-kvisor` chart) or via the CAST AI umbrella chart (`castai` chart) and adjusts the release name, chart reference, and values prefix accordingly. No manual flags needed in most cases.
 
+It also auto-handles a few umbrella-specific edge cases:
+
+- **Karpenter Enterprise (kent) mode**: when `kent.enabled=true` is detected, the script picks the `kent.castai-kvisor` values prefix and auto-injects `--set autoscaler.castai-kvisor.enabled=false` to suppress the umbrella's duplicate `castai-kvisor` copy that would otherwise strategic-merge over kent's render.
+- **Disabled-by-default kvisor agent/controller**: some umbrella profiles ship with `agent.enabled=false` (e.g. kent's cluster-proxy-only flavor). The script detects this for upgrades, prints a notice, and always passes `--set ...agent.enabled=true / controller.enabled=true` so install mode picks up the right defaults regardless of profile.
+- **Phase 3 data-pipeline verification**: after the helm upgrade succeeds, the script waits for the migrate Job + ClickHouse StatefulSet, then probes Bronze → Silver → mothership end-to-end (gauge metrics) to confirm the pipeline is actually flowing — not just that helm marked the release `deployed`.
+
 ```bash
 # Basic usage — auto-detects standalone vs umbrella, auto-detects OBI profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh
@@ -104,11 +129,12 @@ The script **auto-detects** whether kvisor is installed standalone (`castai-kvis
   --release castai --chart castai-helm/castai \
   --values-prefix autoscaler.castai-kvisor
 
-# With context and explicit profile
+# With context, explicit profile, and port list
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
   --context <kube-context> \
   --obi-profile large \
-  --dynamic-sizing
+  --dynamic-sizing \
+  --open-ports 8080,8443,6379,5432
 
 # With cluster proxy enabled (creates RBAC + service account for kvisor proxy)
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
@@ -132,7 +158,9 @@ The script **auto-detects** whether kvisor is installed standalone (`castai-kvis
   --values-prefix <subchart-path>
 ```
 
-The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure `openPorts`, exclusions, ClickHouse resources, and exporter settings for production clusters.
+The `--open-ports` flag sets which ports OBI monitors for process discovery (e.g. `--open-ports 8080,8443,6379`). This works correctly with both standalone and umbrella charts.
+
+The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure exclusions, ClickHouse resources, and exporter settings for production clusters.
 
 Run `./charts/kvisor/scripts/enable-reliability-stack.sh --help` for all options.
 
@@ -156,12 +184,15 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 
 > **⚠️ Umbrella Chart**
 >
-> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), three things differ:
+> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), four things differ:
 > 1. The API key secret is `castai-credentials` (not `castai-kvisor`)
-> 2. All `--set` keys must be prefixed to route into the kvisor subchart (e.g. `autoscaler.castai-kvisor.*` — the exact prefix depends on the umbrella chart structure)
+> 2. All `--set` keys must be prefixed to route into the kvisor subchart. The exact prefix depends on the umbrella's active profile:
+>    - **Karpenter Enterprise (kent) mode** (`kent.enabled=true`): use `kent.castai-kvisor.*` AND set `autoscaler.castai-kvisor.enabled=false` to suppress the duplicate copy
+>    - **Other umbrella variants**: typically `autoscaler.castai-kvisor.*`
 > 3. The ClickHouse service name becomes `castai-clickhouse` (not `castai-kvisor-clickhouse`)
+> 4. Some profiles disable kvisor's `agent`/`controller` by default — you must explicitly set `agent.enabled=true` and `controller.enabled=true` under the chosen prefix
 >
-> **Recommended:** Use the `enable-reliability-stack.sh` script — it auto-detects umbrella vs standalone and discovers the correct values prefix automatically.
+> **Recommended:** Use the `enable-reliability-stack.sh` script — it handles all four points automatically.
 >
 > Manual example for reference (verify the prefix for your umbrella chart version):
 > ```bash
@@ -501,7 +532,31 @@ service traffic bypasses the proxy.
 
 ## Verification
 
-### 1. Check Pod Status
+### Automated (Recommended)
+
+The `enable-reliability-stack.sh` script automatically verifies all components after installation. Phase 3 checks:
+
+1. Agent DaemonSet rollout (OBI + OTel Collector sidecars)
+2. Controller Deployment rollout (k8s_cluster receiver)
+3. ClickHouse pod readiness (waits for PVC provisioning + operator reconciliation)
+4. Migration job completion (Bronze/Silver table creation)
+5. End-to-end data pipeline: Bronze gauge → Silver gauge → ch-exporter cursor advancing past epoch
+
+The pipeline probe takes ~30–90s on a healthy cluster — gauge metrics from the controller's `k8s_cluster` receiver populate within seconds of startup, the Materialized View aggregates them into Silver every minute, and the export cursor advances 5 seconds later. Output looks like:
+```
+✓  Bronze: 2448 gauge rows in last 2 min
+✓  Silver: 5768 gauge rows aggregated (1-min windows)
+✓  ch-exporter forwarding to mothership (cursor advanced past epoch)
+ℹ  (Histogram tables — http/grpc/db/messaging — populate when application traffic flows; not checked here.)
+```
+
+Histogram tables only populate when something instrumentable (HTTP/gRPC/DB/messaging) is running in the cluster, so they're not gated at install time.
+
+### Manual Verification
+
+The steps below mirror the automated checks above. Run them after a manual install, or to investigate what failed when Phase 3 reports a problem.
+
+#### 1. Check Pod Status
 
 ```bash
 kubectl get pods -n castai-agent -l app.kubernetes.io/instance=castai-kvisor
@@ -516,7 +571,7 @@ Expected pods:
 | `chi-castai-kvisor-clickhouse-otel-0-0-0` | 2/2 (clickhouse, ch-exporter) | ClickHouse + exporter |
 | `castai-kvisor-clickhouse-operator-*` | 2/2 | Altinity operator (if `reliabilityMetrics.operator.enabled=true`) |
 
-### 2. Verify OBI Instrumentation
+#### 2. Verify OBI Instrumentation
 
 ```bash
 POD=$(kubectl get pods -n castai-agent \
@@ -530,7 +585,7 @@ Expected output:
 level=INFO msg="instrumenting process" cmd=myapp pid=1234 type=go
 ```
 
-### 3. Verify OTel Collectors
+#### 3. Verify OTel Collectors
 
 ```bash
 # Agent collector
@@ -543,7 +598,7 @@ kubectl logs -l app.kubernetes.io/name=castai-kvisor-controller \
 
 Should show `Everything is ready. Begin running and processing data.`
 
-### 4. Verify ClickHouse Data
+#### 4. Verify ClickHouse Data
 
 ```bash
 CH_POD=$(kubectl get pods -n castai-agent \
@@ -566,7 +621,7 @@ kubectl exec $CH_POD -n castai-agent -c clickhouse -- \
     FORMAT PrettyCompact"
 ```
 
-### 5. Verify ch-exporter
+#### 5. Verify ch-exporter
 
 ```bash
 kubectl logs $CH_POD -n castai-agent -c ch-exporter --tail=20
@@ -805,6 +860,45 @@ kubectl logs -l app.kubernetes.io/component=migrate -n castai-agent
 ```
 
 Common causes: wrong credentials, ClickHouse not ready, PVC still provisioning.
+
+### ClickHouse PVC Stuck in Pending
+
+The ClickHouse pod stays in `ContainerCreating` or `Pending` because its PersistentVolumeClaim cannot be provisioned.
+
+```bash
+# Check PVC status
+kubectl get pvc -n castai-agent
+# Look at events for the reason
+kubectl describe pvc -n castai-agent -l clickhouse.altinity.com/chi
+```
+
+**Common causes:**
+
+1. **No default StorageClass** — The PVC doesn't specify a `storageClassName`, so Kubernetes needs a default. Fix: `--storage-class gp2` or annotate a SC as default.
+
+2. **CSI driver not installed (EKS)** — On EKS 1.31+, the `gp2` StorageClass uses the in-tree `kubernetes.io/aws-ebs` provisioner, which is redirected to `ebs.csi.aws.com` via CSI migration. If the EBS CSI driver addon isn't installed, no volumes get provisioned:
+   ```bash
+   # Check if driver is registered
+   kubectl get csidrivers ebs.csi.aws.com
+   # Install if missing
+   eksctl create addon --name aws-ebs-csi-driver --cluster <cluster> --region <region>
+   ```
+
+3. **CSI driver crashing (missing IAM permissions)** — The EBS CSI driver is installed but its controller pods are in `CrashLoopBackOff`. The logs show `UnauthorizedOperation: You are not authorized to perform ec2:DescribeAvailabilityZones`:
+   ```bash
+   # Verify pods are crashing
+   kubectl get pods -n kube-system -l app=ebs-csi-controller
+   # Attach the required IAM policy to the node role
+   NG=$(aws eks list-nodegroups --cluster-name <cluster> --region <region> --query 'nodegroups[0]' --output text)
+   NODE_ROLE=$(aws eks describe-nodegroup --cluster-name <cluster> --region <region> \
+     --nodegroup-name $NG --query 'nodegroup.nodeRole' --output text | xargs basename)
+   aws iam attach-role-policy --role-name $NODE_ROLE \
+     --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+   # Restart the controller to pick up new permissions
+   kubectl rollout restart deployment ebs-csi-controller -n kube-system
+   ```
+
+> **Note:** GKE and AKS pre-install their CSI drivers with proper IAM/RBAC. This issue is specific to EKS.
 
 ### Connection Errors During Startup
 
