@@ -27,7 +27,7 @@ spec:
       containers:
         - name: generator
           securityContext: {}
-          image: "{{ .Values.eventGenerator.image.repository }}:{{ .Values.eventGenerator.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.eventGenerator.image.repository "Values" .Values) }}:{{ .Values.eventGenerator.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.eventGenerator.image.pullPolicy }}
           args:
             - "--mode=controller"

@@ -63,7 +63,7 @@ spec:
       initContainers:
       {{- if (include "kvisor.gpuEnabled" .) }}
         - name: gpu-feature-discovery
-          image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.image.repository "Values" .Values) }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - "/usr/local/bin/kvisor-agent"
@@ -96,7 +96,7 @@ spec:
         - name: kvisor
           securityContext:
             {{- include "kvisor.agent.containerSecurityContext" . | nindent 12 }}
-          image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.image.repository "Values" .Values) }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources:
             {{- toYaml .Values.agent.resources | nindent 12 }}
@@ -213,7 +213,7 @@ spec:
             {{- end }}
       {{- if (dig "reliabilityMetrics" "enabled" false .Values.agent) }}
         - name: obi
-          image: "{{ .Values.agent.reliabilityMetrics.obi.image.repository }}:{{ .Values.agent.reliabilityMetrics.obi.image.tag }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.agent.reliabilityMetrics.obi.image.repository "Values" .Values) }}:{{ .Values.agent.reliabilityMetrics.obi.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/shared/entrypoint.sh"]
           securityContext:
@@ -287,7 +287,7 @@ spec:
           {{- end }}
       {{- if (dig "reliabilityMetrics" "collector" "enabled" false .Values.agent) }}
         - name: otel-collector
-          image: "{{ .Values.agent.reliabilityMetrics.collector.image.repository }}:{{ .Values.agent.reliabilityMetrics.collector.image.tag }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.agent.reliabilityMetrics.collector.image.repository "Values" .Values) }}:{{ .Values.agent.reliabilityMetrics.collector.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsUser: 0
@@ -366,7 +366,7 @@ spec:
       {{- if (include "kvisor.gpuEnabled" .) }}
         {{- $provider := include "kvisor.cloudProvider" . }}
         - name: dcgm-exporter
-          image: "{{ .Values.agent.gpu.dcgmExporter.image.repository }}:{{ .Values.agent.gpu.dcgmExporter.image.tag }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.agent.gpu.dcgmExporter.image.repository "Values" .Values) }}:{{ .Values.agent.gpu.dcgmExporter.image.tag }}"
           imagePullPolicy: {{ .Values.agent.gpu.dcgmExporter.image.pullPolicy }}
           securityContext:
             privileged: {{ eq $provider "gke" }}
