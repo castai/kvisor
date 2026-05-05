@@ -476,6 +476,29 @@ reliabilityMetrics:
           key: "password"
 ```
 
+### Proxy Configuration (HTTPS_PROXY / HTTP_PROXY / NO_PROXY)
+
+Some clusters route outbound traffic through a corporate HTTP CONNECT proxy.
+Set proxy values once under `global.proxy` — they automatically propagate to
+the kvisor agent, controller, and the ch-exporter (subchart). Each variable
+is independently optional: only the ones you set are emitted.
+
+```yaml
+global:
+  proxy:
+    httpsProxy: "http://appproxy.corp.example:3128"
+    httpProxy:  "http://appproxy.corp.example:3128"
+    noProxy:    ".cluster.local,.svc,10.0.0.0/16,127.0.0.1,localhost"
+```
+
+**What gets the proxy vars:** kvisor agent, kvisor controller, ch-exporter —
+the components that initiate gRPC/REST calls to the CAST AI mothership.
+
+**What doesn't (intentionally):** OBI (only talks to `localhost`) and the
+OTel collector sidecars (write to ClickHouse over native TCP, which is not
+affected by HTTP proxies). Make sure `noProxy` includes `.svc` so in-cluster
+service traffic bypasses the proxy.
+
 ## Verification
 
 ### 1. Check Pod Status

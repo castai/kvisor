@@ -39,6 +39,22 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+# Proxy configuration — set any of these to inject the corresponding env var
+# into the kvisor agent, controller, and ch-exporter containers. Each var is
+# emitted independently when non-empty; presence implies activation.
+#
+# OTel collector sidecars and OBI are intentionally excluded: collectors talk
+# to ClickHouse via native TCP (unaffected by HTTP proxies), and OBI only
+# communicates on localhost.
+#
+# This block propagates automatically to the reliabilityMetrics subchart via
+# Helm's global values mechanism.
+global:
+  proxy:
+    httpProxy: ""
+    httpsProxy: ""
+    noProxy: ""
+
 # Labels to add to all resources.
 # TODO: Add for all resources
 commonLabels: {}

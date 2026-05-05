@@ -592,3 +592,26 @@ Formula (dynamicSizing): memory = 40 + (N × 27) + 30 MiB, clamped to [120, 1024
     - name: obi-shared
       mountPath: /shared
 {{- end -}}
+
+{{/*
+Emit HTTPS_PROXY / HTTP_PROXY / NO_PROXY env vars when the corresponding
+global.proxy.* value is non-empty. Each var is independently conditional —
+no envelope `enabled` flag.
+
+Include in containers that make external connections (agent, controller,
+ch-exporter). Do NOT include in OBI or OTel collector sidecars.
+*/}}
+{{- define "kvisor.proxyEnvVars" -}}
+{{- with ((.Values.global).proxy).httpsProxy }}
+- name: HTTPS_PROXY
+  value: {{ . | quote }}
+{{- end }}
+{{- with ((.Values.global).proxy).httpProxy }}
+- name: HTTP_PROXY
+  value: {{ . | quote }}
+{{- end }}
+{{- with ((.Values.global).proxy).noProxy }}
+- name: NO_PROXY
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}

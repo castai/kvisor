@@ -170,6 +170,7 @@ spec:
             - name: {{ $k }}
               value: "{{ $v }}"
           {{- end }}
+          {{- include "kvisor.proxyEnvVars" . | nindent 12 }}
           ports:
             - containerPort: {{.Values.agent.metricsHTTPListenPort}}
               name: metrics
