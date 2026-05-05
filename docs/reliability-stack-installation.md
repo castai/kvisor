@@ -531,7 +531,9 @@ Histogram tables only populate when something instrumentable (HTTP/gRPC/DB/messa
 
 ### Manual Verification
 
-### 1. Check Pod Status
+The steps below mirror the automated checks above. Run them after a manual install, or to investigate what failed when Phase 3 reports a problem.
+
+#### 1. Check Pod Status
 
 ```bash
 kubectl get pods -n castai-agent -l app.kubernetes.io/instance=castai-kvisor
@@ -546,7 +548,7 @@ Expected pods:
 | `chi-castai-kvisor-clickhouse-otel-0-0-0` | 2/2 (clickhouse, ch-exporter) | ClickHouse + exporter |
 | `castai-kvisor-clickhouse-operator-*` | 2/2 | Altinity operator (if `reliabilityMetrics.operator.enabled=true`) |
 
-### 2. Verify OBI Instrumentation
+#### 2. Verify OBI Instrumentation
 
 ```bash
 POD=$(kubectl get pods -n castai-agent \
@@ -560,7 +562,7 @@ Expected output:
 level=INFO msg="instrumenting process" cmd=myapp pid=1234 type=go
 ```
 
-### 3. Verify OTel Collectors
+#### 3. Verify OTel Collectors
 
 ```bash
 # Agent collector
@@ -573,7 +575,7 @@ kubectl logs -l app.kubernetes.io/name=castai-kvisor-controller \
 
 Should show `Everything is ready. Begin running and processing data.`
 
-### 4. Verify ClickHouse Data
+#### 4. Verify ClickHouse Data
 
 ```bash
 CH_POD=$(kubectl get pods -n castai-agent \
@@ -596,7 +598,7 @@ kubectl exec $CH_POD -n castai-agent -c clickhouse -- \
     FORMAT PrettyCompact"
 ```
 
-### 5. Verify ch-exporter
+#### 5. Verify ch-exporter
 
 ```bash
 kubectl logs $CH_POD -n castai-agent -c ch-exporter --tail=20
