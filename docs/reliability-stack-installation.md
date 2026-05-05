@@ -123,11 +123,12 @@ The script **auto-detects** whether kvisor is installed standalone (`castai-kvis
   --release castai --chart castai-helm/castai \
   --values-prefix autoscaler.castai-kvisor
 
-# With context and explicit profile
+# With context, explicit profile, and port list
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
   --context <kube-context> \
   --obi-profile large \
-  --dynamic-sizing
+  --dynamic-sizing \
+  --open-ports 8080,8443,6379,5432
 
 # With cluster proxy enabled (creates RBAC + service account for kvisor proxy)
 ./charts/kvisor/scripts/enable-reliability-stack.sh \
@@ -151,7 +152,9 @@ The script **auto-detects** whether kvisor is installed standalone (`castai-kvis
   --values-prefix <subchart-path>
 ```
 
-The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure `openPorts`, exclusions, ClickHouse resources, and exporter settings for production clusters.
+The `--open-ports` flag sets which ports OBI monitors for process discovery (e.g. `--open-ports 8080,8443,6379`). This works correctly with both standalone and umbrella charts.
+
+The `-f` / `--values-file` flag layers your values file on top of the chart defaults and any previously-set user values (via `--reset-then-reuse-values`). This is the recommended way to configure exclusions, ClickHouse resources, and exporter settings for production clusters.
 
 Run `./charts/kvisor/scripts/enable-reliability-stack.sh --help` for all options.
 
@@ -496,6 +499,25 @@ reliabilityMetrics:
 ```
 
 ## Verification
+
+### Automated (Recommended)
+
+The `enable-reliability-stack.sh` script automatically verifies all components after installation. Phase 3 checks:
+
+1. Agent DaemonSet rollout (OBI + OTel Collector sidecars)
+2. Controller Deployment rollout (k8s_cluster receiver)
+3. ClickHouse pod readiness (waits for PVC provisioning + operator reconciliation)
+4. Migration job completion (Bronze/Silver table creation)
+5. End-to-end data pipeline: Bronze data → Silver aggregation → Exporter pushing to CAST AI
+
+The pipeline check takes 2-4 minutes to confirm data flows all the way through. You'll see progress updates like:
+```
+✓  Bronze data flowing (142 rows in last 5 min)
+✓  Silver data aggregated (38 rows)
+✓  Exporter pushing metrics to mothership (tables: reliability_metrics_http, reliability_metrics_gauge)
+```
+
+### Manual Verification
 
 ### 1. Check Pod Status
 

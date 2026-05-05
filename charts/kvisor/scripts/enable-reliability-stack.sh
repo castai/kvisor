@@ -27,6 +27,9 @@
 #       --cluster-id        CAST AI cluster ID (inline, for fresh install)
 #       --cluster-id-secret Pre-existing Secret name containing CLUSTER_ID (for fresh install)
 #       --grpc-addr         CAST AI gRPC address (optional, for fresh install)
+#       --open-ports        Comma-separated list of ports for OBI to instrument
+#                           (e.g. --open-ports 8080,8443,6379). Controls process
+#                           discovery — unlisted ports = uninstrumented services
 #       --obi-profile       OBI sizing profile: auto, small, medium, large, xlarge (default: auto)
 #                           'auto' runs obi-sizing-report.sh to detect the best profile
 #       --dynamic-sizing    Enable OBI dynamic sizing (default: false)
@@ -70,6 +73,7 @@ DYNAMIC_SIZING="false"
 VALUES_PREFIX=""
 CHART_VERSION=""
 UPGRADE_CHART=""
+OPEN_PORTS=""
 STORAGE_CLASS=""
 CLUSTER_PROXY=""
 PRINT_ONLY=""
@@ -132,6 +136,7 @@ while [[ $# -gt 0 ]]; do
     --cluster-id)         CLUSTER_ID="$2"; shift 2 ;;
     --cluster-id-secret)  CLUSTER_ID_SECRET="$2"; shift 2 ;;
     --grpc-addr)          GRPC_ADDR="$2"; shift 2 ;;
+    --open-ports)         OPEN_PORTS="$2"; shift 2 ;;
     --obi-profile)        OBI_PROFILE="$2"; shift 2 ;;
     --dynamic-sizing)     DYNAMIC_SIZING="true"; shift ;;
     --values-prefix)      VALUES_PREFIX="$2"; shift 2 ;;
@@ -973,6 +978,7 @@ if [[ -n "$VERBOSE" ]]; then
   debug "Values prefix:    ${VALUES_PREFIX:-(none, standalone)}"
   debug "Values file:      ${VALUES_FILE:-(none)}"
   debug "OBI profile:      $OBI_PROFILE"
+  debug "OBI open ports:   ${OPEN_PORTS:-(chart default)}"
   debug "Dynamic sizing:   $DYNAMIC_SIZING"
   debug "Storage class:    ${STORAGE_CLASS:-(cluster default)}"
   debug "Cluster proxy:    ${CLUSTER_PROXY:-false}"
@@ -1411,6 +1417,29 @@ if [[ -n "$STORAGE_CLASS" ]]; then
   info "ClickHouse StorageClass: $STORAGE_CLASS"
 fi
 
+# Override OBI open ports if specified
+# Commas must be escaped for helm --set (unescaped commas = array separator)
+if [[ -n "$OPEN_PORTS" ]]; then
+  if [[ ! "$OPEN_PORTS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    err "Invalid --open-ports value: '$OPEN_PORTS'"
+    err "Expected comma-separated port numbers (e.g. 8080,8443,6379)"
+    exit 1
+  fi
+  # Validate each port is in range 1-65535
+  IFS=',' read -ra PORT_LIST <<< "$OPEN_PORTS"
+  for port in "${PORT_LIST[@]}"; do
+    if [[ "$port" -lt 1 || "$port" -gt 65535 ]]; then
+      err "Port $port out of range (must be 1-65535)"
+      exit 1
+    fi
+  done
+  # Double-escape: \\, in the string survives eval (line 187) as \, for helm
+  ESCAPED_PORTS="${OPEN_PORTS//,/\\\\,}"
+  HELM_CMD="$HELM_CMD \\
+  $(setkey "agent.reliabilityMetrics.obi.openPorts=$ESCAPED_PORTS")"
+  info "OBI open ports: $OPEN_PORTS"
+fi
+
 info "OBI sizing profile: $OBI_PROFILE"
 info "Dynamic sizing: $DYNAMIC_SIZING"
 
@@ -1426,7 +1455,7 @@ if [[ -n "$PRINT_ONLY" ]]; then
   echo ""
   step "Common Overrides (add to Phase 2 command above)"
   echo ""
-  echo "  # OBI: which ports to instrument (controls process discovery)"
+  echo "  # OBI: which ports to instrument (or use --open-ports flag)"
   echo "  $(setkey 'agent.reliabilityMetrics.obi.openPorts=8080\,8443\,6379\,5432')"
   echo ""
   echo "  # OBI: sizing profile (small/medium/large/xlarge) — or use --obi-profile flag"
@@ -1472,34 +1501,208 @@ if [[ -z "$DRY_RUN" ]]; then
   if [[ -n "$VALUES_PREFIX" ]]; then
     AGENT_DS="${RELEASE}-castai-kvisor-agent"
     AGENT_LABEL="app.kubernetes.io/name=castai-kvisor-agent"
+    CONTROLLER_DEPLOY="${RELEASE}-castai-kvisor-controller"
   else
     AGENT_DS="${RELEASE}-agent"
     AGENT_LABEL="app.kubernetes.io/name=${RELEASE}-agent"
+    CONTROLLER_DEPLOY="${RELEASE}-controller"
   fi
 
-  info "Waiting for agent DaemonSet rollout..."
-  kubectl $KUBECTL_CTX rollout status daemonset/${AGENT_DS} -n "$NAMESPACE" --timeout=120s 2>/dev/null || {
-    warn "DaemonSet rollout not complete within 120s. Check pods:"
-    kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL"
-  }
+  VERIFY_FAILURES=0
 
+  # ── 3a. Agent DaemonSet ────────────────────────────────────────────────────
+  info "Waiting for agent DaemonSet rollout..."
+  if kubectl $KUBECTL_CTX rollout status daemonset/${AGENT_DS} -n "$NAMESPACE" --timeout=120s 2>/dev/null; then
+    ok "Agent DaemonSet ready"
+  else
+    warn "DaemonSet rollout not complete within 120s"
+    VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+  fi
+
+  # ── 3b. OBI container ─────────────────────────────────────────────────────
+  AGENT_POD=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || AGENT_POD=""
+  if [[ -n "$AGENT_POD" ]]; then
+    OBI_STATE=$(kubectl $KUBECTL_CTX get pod "$AGENT_POD" -n "$NAMESPACE" \
+      -o jsonpath='{.status.containerStatuses[?(@.name=="obi")].state}' 2>/dev/null) || OBI_STATE=""
+    if echo "$OBI_STATE" | grep -q "running"; then
+      ok "OBI container running on $AGENT_POD"
+      if [[ -n "$VERBOSE" ]]; then
+        OBI_LOG=$(kubectl $KUBECTL_CTX logs -n "$NAMESPACE" "$AGENT_POD" -c obi --tail=5 2>/dev/null) || OBI_LOG=""
+        if [[ -n "$OBI_LOG" ]]; then
+          while IFS= read -r line; do debug "  $line"; done <<< "$OBI_LOG"
+        fi
+      fi
+    else
+      warn "OBI container not running on $AGENT_POD"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+    fi
+
+    # ── 3c. Agent OTel Collector ───────────────────────────────────────────────
+    COLLECTOR_STATE=$(kubectl $KUBECTL_CTX get pod "$AGENT_POD" -n "$NAMESPACE" \
+      -o jsonpath='{.status.containerStatuses[?(@.name=="otel-collector")].state}' 2>/dev/null) || COLLECTOR_STATE=""
+    if echo "$COLLECTOR_STATE" | grep -q "running"; then
+      ok "Agent OTel Collector running"
+    else
+      warn "Agent OTel Collector not running on $AGENT_POD"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+    fi
+  fi
+
+  # ── 3d. Controller ────────────────────────────────────────────────────────
+  info "Waiting for controller rollout..."
+  if kubectl $KUBECTL_CTX rollout status deployment/${CONTROLLER_DEPLOY} -n "$NAMESPACE" --timeout=60s 2>/dev/null; then
+    ok "Controller ready"
+  else
+    warn "Controller rollout not complete within 60s"
+    VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+  fi
+
+  # ── 3e. ClickHouse ────────────────────────────────────────────────────────
+  info "Waiting for ClickHouse to be ready..."
+  CH_POD=""
+  CH_READY=""
+  CH_TRIES=0
+  CH_MAX=60
+  while [[ $CH_TRIES -lt $CH_MAX ]]; do
+    CH_POD=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" \
+      -l "clickhouse.altinity.com/chi" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || CH_POD=""
+    if [[ -n "$CH_POD" ]]; then
+      CH_READY=$(kubectl $KUBECTL_CTX get pod "$CH_POD" -n "$NAMESPACE" \
+        -o jsonpath='{.status.containerStatuses[?(@.name=="clickhouse")].ready}' 2>/dev/null) || CH_READY=""
+      if [[ "$CH_READY" == "true" ]]; then
+        break
+      fi
+    fi
+    CH_TRIES=$((CH_TRIES + 1))
+    printf "."
+    sleep 2
+  done
+  if [[ "$CH_READY" == "true" ]]; then
+    echo ""
+    ok "ClickHouse ready ($CH_POD)"
+  else
+    echo ""
+    warn "ClickHouse not ready after $((CH_MAX * 2))s"
+    VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+  fi
+
+  # ── 3f. Migration job ─────────────────────────────────────────────────────
+  if [[ -n "$CH_POD" && "$CH_READY" == "true" ]]; then
+    info "Waiting for migration to complete..."
+    MIGRATE_TRIES=0
+    MIGRATE_MAX=30
+    MIGRATE_DONE=""
+    while [[ $MIGRATE_TRIES -lt $MIGRATE_MAX ]]; do
+      # Check if the newest migrate pod completed successfully
+      MIGRATE_PHASE=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" \
+        -l "app.kubernetes.io/component=migrate" \
+        --sort-by=.metadata.creationTimestamp \
+        -o jsonpath='{.items[-1:].status.phase}' 2>/dev/null) || MIGRATE_PHASE=""
+      if [[ "$MIGRATE_PHASE" == "Succeeded" ]]; then
+        MIGRATE_DONE="true"
+        break
+      elif [[ "$MIGRATE_PHASE" == "Failed" ]]; then
+        break
+      fi
+      MIGRATE_TRIES=$((MIGRATE_TRIES + 1))
+      printf "."
+      sleep 2
+    done
+    if [[ -n "$MIGRATE_DONE" ]]; then
+      echo ""
+      ok "ClickHouse migrations completed"
+    else
+      echo ""
+      warn "Migration not completed (phase: ${MIGRATE_PHASE:-unknown})"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+    fi
+  fi
+
+  # ── 3g. Data pipeline — wait for exporter to push metrics ──────────────────
+  if [[ -n "$CH_POD" && "$CH_READY" == "true" && -n "$MIGRATE_DONE" ]]; then
+    info "Waiting for data to flow through the pipeline..."
+    info "This may take 2-4 minutes (OBI → Collector → ClickHouse → Exporter)"
+
+    # Wait for Bronze data (OBI → Collector → ClickHouse)
+    PIPELINE_TRIES=0
+    PIPELINE_MAX=60
+    BRONZE_OK=""
+    SILVER_OK=""
+    EXPORT_OK=""
+    while [[ $PIPELINE_TRIES -lt $PIPELINE_MAX ]]; do
+      # Check Bronze: both histogram (HTTP/gRPC/DB) and gauge (k8s state) tables
+      if [[ -z "$BRONZE_OK" ]]; then
+        BRONZE_COUNT=$(kubectl $KUBECTL_CTX exec "$CH_POD" -n "$NAMESPACE" -c clickhouse -- \
+          clickhouse-client -d metrics -q "
+            SELECT sum(c) FROM (
+              SELECT count() as c FROM otel_metrics_histogram WHERE TimeUnix > now() - INTERVAL 5 MINUTE
+              UNION ALL SELECT count() FROM otel_metrics_gauge WHERE TimeUnix > now() - INTERVAL 5 MINUTE
+            )" 2>/dev/null) || BRONZE_COUNT="0"
+
+        if [[ "${BRONZE_COUNT:-0}" -gt 0 ]]; then
+          BRONZE_OK="true"
+          ok "Bronze data flowing ($BRONZE_COUNT rows in last 5 min)"
+        fi
+      fi
+
+      # Check Silver tables (can appear quickly via MVs, check independently of Bronze)
+      if [[ -z "$SILVER_OK" ]]; then
+        SILVER_COUNT=$(kubectl $KUBECTL_CTX exec "$CH_POD" -n "$NAMESPACE" -c clickhouse -- \
+          clickhouse-client -d metrics -q "
+            SELECT sum(c) FROM (
+              SELECT count() as c FROM reliability_metrics_http
+              UNION ALL SELECT count() FROM reliability_metrics_grpc
+              UNION ALL SELECT count() FROM reliability_metrics_gauge
+            )" 2>/dev/null) || SILVER_COUNT="0"
+
+        if [[ "${SILVER_COUNT:-0}" -gt 0 ]]; then
+          SILVER_OK="true"
+          ok "Silver data aggregated ($SILVER_COUNT rows)"
+        fi
+      fi
+
+      # Check exporter logs (check every iteration — exporter may already be running)
+      if [[ -z "$EXPORT_OK" ]]; then
+        EXPORTER_LOG=$(kubectl $KUBECTL_CTX logs "$CH_POD" -n "$NAMESPACE" -c ch-exporter --tail=50 2>/dev/null) || EXPORTER_LOG=""
+        if echo "$EXPORTER_LOG" | grep -q "rows exported to CastAI\|data is synced to CastAI"; then
+          EXPORT_OK="true"
+          EXPORTED_TABLES=$(echo "$EXPORTER_LOG" | grep -o 'table=[^ ]*' | sort -u | sed 's/table=//' | tr '\n' ', ' | sed 's/,$//')
+          ok "Exporter pushing metrics to mothership (tables: $EXPORTED_TABLES)"
+        fi
+      fi
+
+      # All three confirmed — done
+      if [[ -n "$BRONZE_OK" && -n "$SILVER_OK" && -n "$EXPORT_OK" ]]; then
+        break
+      fi
+
+      PIPELINE_TRIES=$((PIPELINE_TRIES + 1))
+      # Show progress every 15 seconds
+      if [[ $((PIPELINE_TRIES % 5)) -eq 0 ]]; then
+        ELAPSED=$((PIPELINE_TRIES * 3))
+        STATUS_PARTS=""
+        [[ -n "$BRONZE_OK" ]] && STATUS_PARTS="bronze ✓" || STATUS_PARTS="bronze …"
+        [[ -n "$SILVER_OK" ]] && STATUS_PARTS="$STATUS_PARTS, silver ✓" || STATUS_PARTS="$STATUS_PARTS, silver …"
+        [[ -n "$EXPORT_OK" ]] && STATUS_PARTS="$STATUS_PARTS, export ✓" || STATUS_PARTS="$STATUS_PARTS, export …"
+        info "  ${ELAPSED}s elapsed ($STATUS_PARTS)"
+      fi
+      sleep 3
+    done
+
+    if [[ -z "$BRONZE_OK" || -z "$SILVER_OK" || -z "$EXPORT_OK" ]]; then
+      echo ""
+      [[ -z "$BRONZE_OK" ]] && warn "No Bronze data after $((PIPELINE_MAX * 3))s — check OBI and collector logs"
+      [[ -n "$BRONZE_OK" && -z "$SILVER_OK" ]] && warn "Bronze data present but no Silver data yet — materialized views may need more time"
+      [[ -z "$EXPORT_OK" && -n "$SILVER_OK" ]] && warn "Exporter hasn't sent to mothership yet (120s export delay for data settlement — may resolve shortly)"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+    fi
+  fi
+
+  # ── Pod status summary ────────────────────────────────────────────────────
   echo ""
   info "Pod status:"
   kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -E "kvisor|clickhouse"
-
-  echo ""
-  AGENT_PODS=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL" -o name 2>/dev/null | head -1)
-  if [[ -n "$AGENT_PODS" ]]; then
-    POD_NAME="${AGENT_PODS##*/}"
-    info "Checking OBI container on $POD_NAME..."
-    OBI_LOG=$(kubectl $KUBECTL_CTX logs -n "$NAMESPACE" "$POD_NAME" -c obi 2>/dev/null | head -3)
-    if [[ -n "$OBI_LOG" ]]; then
-      ok "OBI container running"
-      echo "$OBI_LOG" | head -2 | sed 's/^/   /'
-    else
-      warn "OBI container not producing logs yet (may still be starting)"
-    fi
-  fi
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
@@ -1508,25 +1711,40 @@ if [[ -z "$PRINT_ONLY" ]]; then
   echo ""
   if [[ -n "$INSTALL_MODE" ]]; then
     MODE_LABEL="install"
-    printf "${GREEN}${BOLD}Reliability metrics stack installed!${NC}\n"
   else
     MODE_LABEL="upgrade"
-    printf "${GREEN}${BOLD}Reliability metrics stack upgraded!${NC}\n"
+  fi
+
+  if [[ "${VERIFY_FAILURES:-0}" -eq 0 ]]; then
+    printf "${GREEN}${BOLD}Reliability metrics stack ${MODE_LABEL}ed successfully!${NC}\n"
+  else
+    printf "${YELLOW}${BOLD}Reliability metrics stack ${MODE_LABEL}ed with ${VERIFY_FAILURES} warning(s)${NC}\n"
   fi
   echo ""
   echo "  Mode:           $MODE_LABEL"
   echo "  Namespace:      $NAMESPACE"
   echo "  Release:        $RELEASE"
   echo "  OBI profile:    $OBI_PROFILE"
+  if [[ -n "$OPEN_PORTS" ]]; then
+    echo "  Open ports:     $OPEN_PORTS"
+  fi
   echo "  Dynamic sizing: $DYNAMIC_SIZING"
   if [[ -n "$STORAGE_CLASS" ]]; then
     echo "  StorageClass:   $STORAGE_CLASS"
   fi
   echo ""
-  echo "Next steps:"
-  echo "  • Verify ClickHouse is ready:  kubectl get chi -n $NAMESPACE"
-  echo "  • Check OBI logs:              kubectl logs -n $NAMESPACE <agent-pod> -c obi"
-  echo "  • Run OBI sizing report:       ./charts/kvisor/scripts/obi-sizing-report.sh"
-  echo "  • View sizing guide:           docs/obi-sizing.md"
+  if [[ "${VERIFY_FAILURES:-0}" -gt 0 ]]; then
+    echo "Troubleshooting:"
+    echo "  • Check OBI logs:              kubectl logs -n $NAMESPACE <agent-pod> -c obi"
+    echo "  • Check collector logs:        kubectl logs -n $NAMESPACE <agent-pod> -c otel-collector"
+    echo "  • Check ClickHouse:            kubectl get chi -n $NAMESPACE"
+    echo "  • Check exporter logs:         kubectl logs -n $NAMESPACE <ch-pod> -c ch-exporter"
+    echo "  • Full docs:                   docs/reliability-stack-installation.md"
+  else
+    echo "Next steps:"
+    echo "  • View metrics in CAST AI console"
+    echo "  • Run OBI sizing report:       ./charts/kvisor/scripts/obi-sizing-report.sh"
+    echo "  • View sizing guide:           docs/obi-sizing.md"
+  fi
   echo ""
 fi
