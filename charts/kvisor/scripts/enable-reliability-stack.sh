@@ -557,6 +557,21 @@ def find_kvisor_path(obj, path=''):
     return None
 
 data = json.load(sys.stdin)
+
+# Karpenter Enterprise (kent) umbrellas ship an additional kent-specific
+# castai-kvisor copy alongside the generic one. Both render same-named
+# resources; only the kent copy is active for kent customers. Prefer it
+# explicitly — but validate kvisor-shaped children so a future stub or
+# rename falls through to the generic search instead of routing flags
+# into a black hole.
+kent = data.get('kent', {})
+kent_kvisor = kent.get('castai-kvisor', {}) if isinstance(kent, dict) else {}
+if isinstance(kent, dict) and kent.get('enabled') is True \
+        and isinstance(kent_kvisor, dict) \
+        and (kent_kvisor.keys() & {'agent', 'controller', 'castai', 'enabled'}):
+    print('kent.castai-kvisor')
+    sys.exit(0)
+
 path = find_kvisor_path(data)
 if path:
     print(path)
@@ -566,6 +581,9 @@ else:
 " 2>/dev/null) || VALUES_PREFIX="castai-kvisor"
       fi
       ok "Detected umbrella chart (release: $RELEASE, chart: $DETECTED_CHART_NAME)"
+      if [[ "$VALUES_PREFIX" == "kent.castai-kvisor" ]]; then
+        info "Detected kent (Karpenter Enterprise) mode — using kent.castai-kvisor prefix"
+      fi
       info "Auto-configured: --release $RELEASE --chart $CHART --values-prefix $VALUES_PREFIX"
       ;;
     *)
@@ -660,6 +678,11 @@ if kubectl $KUBECTL_CTX get crd clickhouseinstallations.clickhouse.altinity.com 
     warn "ClickHouseInstallation CRD exists but operator is not running — will install operator"
   fi
 fi
+# Snapshot the pre-Phase-1 state. The second-chance detect_operator at line ~841
+# (needed for print-only mode) re-runs after Phase 1 may have installed the
+# operator, which would otherwise make Phase 2 misclassify our just-installed
+# operator as "external, pre-existing" and set operator.enabled=false on it.
+OPERATOR_PRE_EXISTING="$OPERATOR_RUNNING"
 
 if [[ -n "$OPERATOR_RUNNING" ]]; then
   : # nothing to do
@@ -880,6 +903,46 @@ fi
 # ── Phase 2: Enable Full Reliability Stack ───────────────────────────────────
 step "Phase 2: Enabling Full Reliability Stack"
 
+# Reliability metrics need both kvisor agent (OBI eBPF) and controller running.
+# Some umbrella profiles ship with agent.enabled=false by default — silently
+# leaving us without an agent. Detect that for upgrades and notify the user
+# we're flipping it on as a prerequisite. We always pass --set ...agent.enabled
+# / controller.enabled below so install mode picks up the right defaults
+# regardless of profile. Failures reading prior values are surfaced as a warn
+# (not silently swallowed) so a wedged release isn't masked.
+if [[ -z "$INSTALL_MODE" ]]; then
+  HELM_VALUES_ERR=$(mktemp)
+  PRIOR_STATE=$(helm $HELM_CTX get values -a "$RELEASE" -n "$NAMESPACE" -o json 2>"$HELM_VALUES_ERR" | VALUES_PREFIX="$VALUES_PREFIX" python3 -c "
+import sys, json, os
+data = json.load(sys.stdin)
+prefix = os.environ.get('VALUES_PREFIX', '')
+node = data
+for part in (prefix.split('.') if prefix else []):
+    node = node.get(part, {}) if isinstance(node, dict) else {}
+def norm(v):
+    if v is None: return 'unset'
+    if v is True or (isinstance(v, str) and v.lower() == 'true'): return 'enabled'
+    if v is False or (isinstance(v, str) and v.lower() == 'false'): return 'disabled'
+    return 'unknown'
+agent = norm(node.get('agent', {}).get('enabled') if isinstance(node, dict) else None)
+ctrl  = norm(node.get('controller', {}).get('enabled') if isinstance(node, dict) else None)
+print(f'{agent}|{ctrl}')
+" 2>>"$HELM_VALUES_ERR") || PRIOR_STATE="error|error"
+  PRIOR_AGENT="${PRIOR_STATE%|*}"
+  PRIOR_CTRL="${PRIOR_STATE#*|}"
+  if [[ "$PRIOR_AGENT" == "error" ]]; then
+    warn "Could not read prior release values ($(head -1 "$HELM_VALUES_ERR" 2>/dev/null || echo "unknown error")) — proceeding with chart defaults"
+  else
+    if [[ "$PRIOR_AGENT" == "disabled" ]]; then
+      info "kvisor agent is currently disabled (${VALUES_PREFIX:+${VALUES_PREFIX}.}agent.enabled=false) — enabling as a reliability-metrics prerequisite"
+    fi
+    if [[ "$PRIOR_CTRL" == "disabled" ]]; then
+      info "kvisor controller is currently disabled (${VALUES_PREFIX:+${VALUES_PREFIX}.}controller.enabled=false) — enabling as a reliability-metrics prerequisite"
+    fi
+  fi
+  rm -f "$HELM_VALUES_ERR"
+fi
+
 # Build the helm command with all reliability flags
 HELM_CMD="$(build_helm_base)"
 
@@ -896,13 +959,26 @@ else
 fi
 
 HELM_CMD="$HELM_CMD \\
+  $(setkey agent.enabled=true) \\
   $(setkey agent.reliabilityMetrics.enabled=true) \\
   $(setkey agent.reliabilityMetrics.obi.sizingProfile=$OBI_PROFILE) \\
   $(setkey agent.reliabilityMetrics.obi.dynamicSizing=$DYNAMIC_SIZING) \\
+  $(setkey controller.enabled=true) \\
   $(setkey controller.reliabilityMetrics.enabled=true) \\
   $(setkey reliabilityMetrics.enabled=true) \\
   $(setkey reliabilityMetrics.install.enabled=true) \\
   $(setkey reliabilityMetrics.exporter.enabled=true)"
+
+# In kent mode the umbrella also ships an autoscaler.castai-kvisor copy that
+# renders same-named resources but with reliability metrics off. Disabling it
+# prevents the strategic-merge collisions that produced orphan volumeMounts
+# (Deployment.apps invalid: containers[1].volumeMounts[0].name: Not found).
+# Safe for kent users — autoscaler's kvisor copy is unused there.
+if [[ "$VALUES_PREFIX" == "kent.castai-kvisor" ]]; then
+  HELM_CMD="$HELM_CMD \\
+  --set autoscaler.castai-kvisor.enabled=false"
+  info "Disabling duplicate autoscaler.castai-kvisor subchart (kent ships its own copy)"
+fi
 
 # Override the ch-exporter API key secret ref if we detected a non-default secret
 if [[ -z "$INSTALL_MODE" && -n "$DETECTED_API_KEY_SECRET" && "$DETECTED_API_KEY_SECRET" != "castai-kvisor" ]]; then
@@ -922,10 +998,11 @@ if [[ "$RELEASE" != "castai-kvisor" ]]; then
   info "Overriding ClickHouse address → $CH_ADDR"
 fi
 
-# Only skip installing our operator if an external one was already running before we started.
-# If we installed it in Phase 1 (either CRD was missing, or CRD existed but operator wasn't running),
-# we need operator.enabled=true so it stays managed by this release.
-if [[ -n "$OPERATOR_RUNNING" ]]; then
+# Only skip installing our operator if an external one was already running BEFORE
+# this script started — checked via OPERATOR_PRE_EXISTING (snapshot before Phase 1).
+# Using OPERATOR_RUNNING here would misclassify the operator that Phase 1 just
+# installed as "external" and tear it down, orphaning the ClickHouseInstallation.
+if [[ -n "$OPERATOR_PRE_EXISTING" ]]; then
   HELM_CMD="$HELM_CMD \\
   $(setkey reliabilityMetrics.operator.enabled=false)"
   info "Using existing ClickHouse operator (not installing chart's operator)"
@@ -1037,6 +1114,91 @@ if [[ -z "$DRY_RUN" ]]; then
     else
       warn "OBI container not producing logs yet (may still be starting)"
     fi
+  fi
+
+  # ── Data-pipeline verification ────────────────────────────────────────────
+  # Helm reports "deployed" the moment its manifests apply; that doesn't prove
+  # data is flowing. Probe Bronze → Silver → mothership end-to-end so a wedged
+  # collector / busted MV / unreachable mothership doesn't slip past us.
+  echo ""
+  info "Verifying data pipeline..."
+
+  # ClickHouse pod (operator-managed, label is stable across release names).
+  CH_POD=$(kubectl $KUBECTL_CTX get pod -n "$NAMESPACE" -l clickhouse.altinity.com/cluster -o name 2>/dev/null | head -1)
+  if [[ -z "$CH_POD" ]]; then
+    warn "No ClickHouse pod found (label clickhouse.altinity.com/cluster) — operator may still be reconciling the StatefulSet"
+  else
+    CH_POD_NAME="${CH_POD##*/}"
+    if kubectl $KUBECTL_CTX wait --for=condition=Ready -n "$NAMESPACE" "$CH_POD" --timeout=120s >/dev/null 2>&1; then
+      ok "ClickHouse pod ready ($CH_POD_NAME)"
+    else
+      warn "ClickHouse pod $CH_POD_NAME not Ready within 120s"
+    fi
+  fi
+
+  # Schema migrations (Helm hook Job from the ch-exporter chart).
+  MIGRATE_JOB=""
+  for cand in "${RELEASE}-clickhouse-migrate" "castai-clickhouse-migrate"; do
+    if kubectl $KUBECTL_CTX get job -n "$NAMESPACE" "$cand" >/dev/null 2>&1; then
+      MIGRATE_JOB="$cand"; break
+    fi
+  done
+  if [[ -n "$MIGRATE_JOB" ]]; then
+    if kubectl $KUBECTL_CTX wait --for=condition=Complete -n "$NAMESPACE" "job/$MIGRATE_JOB" --timeout=120s >/dev/null 2>&1; then
+      ok "Schema migrations applied (job/$MIGRATE_JOB)"
+    else
+      warn "Migration job/$MIGRATE_JOB did not Complete within 120s — kubectl logs job/$MIGRATE_JOB -n $NAMESPACE"
+    fi
+  fi
+
+  # End-to-end probe: gauge metrics from the controller's k8s_cluster receiver
+  # populate within seconds of startup, so they're the cheapest signal that the
+  # whole Bronze → Silver → exporter path is alive. Histogram tables stay empty
+  # until application traffic flows — don't gate on them at install time.
+  if [[ -n "$CH_POD" ]]; then
+    ch_query() {
+      kubectl $KUBECTL_CTX exec -n "$NAMESPACE" "$CH_POD" -c clickhouse -- \
+        clickhouse-client -d metrics -q "$1" 2>/dev/null | tr -d '[:space:]'
+    }
+    PROBE_TIMEOUT=180
+    PROBE_ELAPSED=0
+    BRONZE_ROWS=""
+    SILVER_ROWS=""
+    EXPORT_TS=""
+    while (( PROBE_ELAPSED < PROBE_TIMEOUT )); do
+      if [[ -z "$BRONZE_ROWS" ]]; then
+        v=$(ch_query "SELECT count() FROM otel_metrics_gauge WHERE TimeUnix > now() - INTERVAL 2 MINUTE")
+        [[ "$v" =~ ^[0-9]+$ && "$v" -gt 0 ]] && BRONZE_ROWS="$v"
+      fi
+      if [[ -n "$BRONZE_ROWS" && -z "$SILVER_ROWS" ]]; then
+        v=$(ch_query "SELECT count() FROM reliability_metrics_gauge WHERE timestamp > now() - INTERVAL 5 MINUTE")
+        [[ "$v" =~ ^[0-9]+$ && "$v" -gt 0 ]] && SILVER_ROWS="$v"
+      fi
+      if [[ -n "$SILVER_ROWS" && -z "$EXPORT_TS" ]]; then
+        v=$(ch_query "SELECT toUnixTimestamp(max(last_exported_time)) FROM export_progress FINAL")
+        [[ "$v" =~ ^[0-9]+$ && "$v" -gt 0 ]] && EXPORT_TS="$v"
+      fi
+      [[ -n "$BRONZE_ROWS" && -n "$SILVER_ROWS" && -n "$EXPORT_TS" ]] && break
+      sleep 10
+      PROBE_ELAPSED=$((PROBE_ELAPSED + 10))
+    done
+
+    if [[ -n "$BRONZE_ROWS" ]]; then
+      ok "Bronze: $BRONZE_ROWS gauge rows in last 2 min"
+    else
+      warn "Bronze empty after ${PROBE_TIMEOUT}s — check agent OTel collector logs (kubectl logs -c otel-collector -l $AGENT_LABEL)"
+    fi
+    if [[ -n "$SILVER_ROWS" ]]; then
+      ok "Silver: $SILVER_ROWS gauge rows aggregated (1-min windows)"
+    else
+      warn "Silver empty — Bronze→Silver Materialized View may have failed; check migration logs"
+    fi
+    if [[ -n "$EXPORT_TS" ]]; then
+      ok "ch-exporter forwarding to mothership (cursor advanced past epoch)"
+    else
+      warn "Export cursor still at epoch — kubectl logs $CH_POD -c ch-exporter for connectivity issues"
+    fi
+    info "(Histogram tables — http/grpc/db/messaging — populate when application traffic flows; not checked here.)"
   fi
 fi
 
