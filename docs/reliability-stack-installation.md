@@ -90,6 +90,12 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
 
 The script **auto-detects** whether kvisor is installed standalone (`castai-kvisor` chart) or via the CAST AI umbrella chart (`castai` chart) and adjusts the release name, chart reference, and values prefix accordingly. No manual flags needed in most cases.
 
+It also auto-handles a few umbrella-specific edge cases:
+
+- **Karpenter Enterprise (kent) mode**: when `kent.enabled=true` is detected, the script picks the `kent.castai-kvisor` values prefix and auto-injects `--set autoscaler.castai-kvisor.enabled=false` to suppress the umbrella's duplicate `castai-kvisor` copy that would otherwise strategic-merge over kent's render.
+- **Disabled-by-default kvisor agent/controller**: some umbrella profiles ship with `agent.enabled=false` (e.g. kent's cluster-proxy-only flavor). The script detects this for upgrades, prints a notice, and always passes `--set ...agent.enabled=true / controller.enabled=true` so install mode picks up the right defaults regardless of profile.
+- **Phase 3 data-pipeline verification**: after the helm upgrade succeeds, the script waits for the migrate Job + ClickHouse StatefulSet, then probes Bronze → Silver → mothership end-to-end (gauge metrics) to confirm the pipeline is actually flowing — not just that helm marked the release `deployed`.
+
 ```bash
 # Basic usage — auto-detects standalone vs umbrella, auto-detects OBI profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh
@@ -156,12 +162,15 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 
 > **⚠️ Umbrella Chart**
 >
-> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), three things differ:
+> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), four things differ:
 > 1. The API key secret is `castai-credentials` (not `castai-kvisor`)
-> 2. All `--set` keys must be prefixed to route into the kvisor subchart (e.g. `autoscaler.castai-kvisor.*` — the exact prefix depends on the umbrella chart structure)
+> 2. All `--set` keys must be prefixed to route into the kvisor subchart. The exact prefix depends on the umbrella's active profile:
+>    - **Karpenter Enterprise (kent) mode** (`kent.enabled=true`): use `kent.castai-kvisor.*` AND set `autoscaler.castai-kvisor.enabled=false` to suppress the duplicate copy
+>    - **Other umbrella variants**: typically `autoscaler.castai-kvisor.*`
 > 3. The ClickHouse service name becomes `castai-clickhouse` (not `castai-kvisor-clickhouse`)
+> 4. Some profiles disable kvisor's `agent`/`controller` by default — you must explicitly set `agent.enabled=true` and `controller.enabled=true` under the chosen prefix
 >
-> **Recommended:** Use the `enable-reliability-stack.sh` script — it auto-detects umbrella vs standalone and discovers the correct values prefix automatically.
+> **Recommended:** Use the `enable-reliability-stack.sh` script — it handles all four points automatically.
 >
 > Manual example for reference (verify the prefix for your umbrella chart version):
 > ```bash
@@ -477,6 +486,8 @@ reliabilityMetrics:
 ```
 
 ## Verification
+
+> **💡 If you used `enable-reliability-stack.sh`**, its Phase 3 already ran most of the checks below: agent DaemonSet rollout, OBI logs, migrate Job completion, ClickHouse pod readiness, Bronze + Silver gauge populating, and ch-exporter cursor advancing past epoch. Steps 1–5 below are useful when investigating after a failure or when running a manual install path.
 
 ### 1. Check Pod Status
 
