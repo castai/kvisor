@@ -109,6 +109,12 @@ The `enable-reliability-stack.sh` script handles the ClickHouse Operator CRD boo
 
 The script **auto-detects** whether kvisor is installed standalone (`castai-kvisor` chart) or via the CAST AI umbrella chart (`castai` chart) and adjusts the release name, chart reference, and values prefix accordingly. No manual flags needed in most cases.
 
+It also auto-handles a few umbrella-specific edge cases:
+
+- **Karpenter Enterprise (kent) mode**: when `kent.enabled=true` is detected, the script picks the `kent.castai-kvisor` values prefix and auto-injects `--set autoscaler.castai-kvisor.enabled=false` to suppress the umbrella's duplicate `castai-kvisor` copy that would otherwise strategic-merge over kent's render.
+- **Disabled-by-default kvisor agent/controller**: some umbrella profiles ship with `agent.enabled=false` (e.g. kent's cluster-proxy-only flavor). The script detects this for upgrades, prints a notice, and always passes `--set ...agent.enabled=true / controller.enabled=true` so install mode picks up the right defaults regardless of profile.
+- **Phase 3 data-pipeline verification**: after the helm upgrade succeeds, the script waits for the migrate Job + ClickHouse StatefulSet, then probes Bronze → Silver → mothership end-to-end (gauge metrics) to confirm the pipeline is actually flowing — not just that helm marked the release `deployed`.
+
 ```bash
 # Basic usage — auto-detects standalone vs umbrella, auto-detects OBI profile
 ./charts/kvisor/scripts/enable-reliability-stack.sh
@@ -178,12 +184,15 @@ helm install castai-kvisor castai-helm/castai-kvisor \
 
 > **⚠️ Umbrella Chart**
 >
-> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), three things differ:
+> When kvisor is installed via the `castai` umbrella chart (not standalone `castai-kvisor`), four things differ:
 > 1. The API key secret is `castai-credentials` (not `castai-kvisor`)
-> 2. All `--set` keys must be prefixed to route into the kvisor subchart (e.g. `autoscaler.castai-kvisor.*` — the exact prefix depends on the umbrella chart structure)
+> 2. All `--set` keys must be prefixed to route into the kvisor subchart. The exact prefix depends on the umbrella's active profile:
+>    - **Karpenter Enterprise (kent) mode** (`kent.enabled=true`): use `kent.castai-kvisor.*` AND set `autoscaler.castai-kvisor.enabled=false` to suppress the duplicate copy
+>    - **Other umbrella variants**: typically `autoscaler.castai-kvisor.*`
 > 3. The ClickHouse service name becomes `castai-clickhouse` (not `castai-kvisor-clickhouse`)
+> 4. Some profiles disable kvisor's `agent`/`controller` by default — you must explicitly set `agent.enabled=true` and `controller.enabled=true` under the chosen prefix
 >
-> **Recommended:** Use the `enable-reliability-stack.sh` script — it auto-detects umbrella vs standalone and discovers the correct values prefix automatically.
+> **Recommended:** Use the `enable-reliability-stack.sh` script — it handles all four points automatically.
 >
 > Manual example for reference (verify the prefix for your umbrella chart version):
 > ```bash
@@ -508,18 +517,23 @@ The `enable-reliability-stack.sh` script automatically verifies all components a
 2. Controller Deployment rollout (k8s_cluster receiver)
 3. ClickHouse pod readiness (waits for PVC provisioning + operator reconciliation)
 4. Migration job completion (Bronze/Silver table creation)
-5. End-to-end data pipeline: Bronze data → Silver aggregation → Exporter pushing to CAST AI
+5. End-to-end data pipeline: Bronze gauge → Silver gauge → ch-exporter cursor advancing past epoch
 
-The pipeline check takes 2-4 minutes to confirm data flows all the way through. You'll see progress updates like:
+The pipeline probe takes ~30–90s on a healthy cluster — gauge metrics from the controller's `k8s_cluster` receiver populate within seconds of startup, the Materialized View aggregates them into Silver every minute, and the export cursor advances 5 seconds later. Output looks like:
 ```
-✓  Bronze data flowing (142 rows in last 5 min)
-✓  Silver data aggregated (38 rows)
-✓  Exporter pushing metrics to mothership (tables: reliability_metrics_http, reliability_metrics_gauge)
+✓  Bronze: 2448 gauge rows in last 2 min
+✓  Silver: 5768 gauge rows aggregated (1-min windows)
+✓  ch-exporter forwarding to mothership (cursor advanced past epoch)
+ℹ  (Histogram tables — http/grpc/db/messaging — populate when application traffic flows; not checked here.)
 ```
+
+Histogram tables only populate when something instrumentable (HTTP/gRPC/DB/messaging) is running in the cluster, so they're not gated at install time.
 
 ### Manual Verification
 
-### 1. Check Pod Status
+The steps below mirror the automated checks above. Run them after a manual install, or to investigate what failed when Phase 3 reports a problem.
+
+#### 1. Check Pod Status
 
 ```bash
 kubectl get pods -n castai-agent -l app.kubernetes.io/instance=castai-kvisor
@@ -534,7 +548,7 @@ Expected pods:
 | `chi-castai-kvisor-clickhouse-otel-0-0-0` | 2/2 (clickhouse, ch-exporter) | ClickHouse + exporter |
 | `castai-kvisor-clickhouse-operator-*` | 2/2 | Altinity operator (if `reliabilityMetrics.operator.enabled=true`) |
 
-### 2. Verify OBI Instrumentation
+#### 2. Verify OBI Instrumentation
 
 ```bash
 POD=$(kubectl get pods -n castai-agent \
@@ -548,7 +562,7 @@ Expected output:
 level=INFO msg="instrumenting process" cmd=myapp pid=1234 type=go
 ```
 
-### 3. Verify OTel Collectors
+#### 3. Verify OTel Collectors
 
 ```bash
 # Agent collector
@@ -561,7 +575,7 @@ kubectl logs -l app.kubernetes.io/name=castai-kvisor-controller \
 
 Should show `Everything is ready. Begin running and processing data.`
 
-### 4. Verify ClickHouse Data
+#### 4. Verify ClickHouse Data
 
 ```bash
 CH_POD=$(kubectl get pods -n castai-agent \
@@ -584,7 +598,7 @@ kubectl exec $CH_POD -n castai-agent -c clickhouse -- \
     FORMAT PrettyCompact"
 ```
 
-### 5. Verify ch-exporter
+#### 5. Verify ch-exporter
 
 ```bash
 kubectl logs $CH_POD -n castai-agent -c ch-exporter --tail=20
