@@ -587,7 +587,7 @@ clickhouse:
   image:
     repository: clickhouse/clickhouse-server
     pullPolicy: IfNotPresent
-    tag: "25.2.1.3085-alpine@sha256:49e2bbe28760d0af142096d837ca2337b0265c910a07504a3175fc9326965bd7"
+    tag: "25.12.11.4-alpine@sha256:7d93fb39bb2bfc8509bd621241db974e41041ac0ae626a5b06e172431fc709f7"
 
   nodeSelector: {}
   tolerations: []
@@ -629,4 +629,4 @@ reliabilityMetrics:
   exporter:
     image:
       repository: us-docker.pkg.dev/castai-hub/library/reliability-metrics-ch-exporter
-      tag: "v0.3.17"
+      tag: "v0.3.19@sha256:4a4023c2efab6d07af2bb35f735e94bccc47d7ea828edcc0fd9e8fe31b2db23d"
