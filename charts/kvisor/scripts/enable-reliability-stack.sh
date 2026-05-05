@@ -27,6 +27,9 @@
 #       --cluster-id        CAST AI cluster ID (inline, for fresh install)
 #       --cluster-id-secret Pre-existing Secret name containing CLUSTER_ID (for fresh install)
 #       --grpc-addr         CAST AI gRPC address (optional, for fresh install)
+#       --open-ports        Comma-separated list of ports for OBI to instrument
+#                           (e.g. --open-ports 8080,8443,6379). Controls process
+#                           discovery — unlisted ports = uninstrumented services
 #       --obi-profile       OBI sizing profile: auto, small, medium, large, xlarge (default: auto)
 #                           'auto' runs obi-sizing-report.sh to detect the best profile
 #       --dynamic-sizing    Enable OBI dynamic sizing (default: false)
@@ -47,6 +50,8 @@
 #                           no auto-detection from cluster — uses defaults/flags only)
 #       --dry-run           Print commands without executing
 #       --skip-repo         Skip helm repo add/update
+#   -v, --verbose           Show detailed diagnostic output (helm commands,
+#                           pod status, operator logs on failure)
 #   -h, --help              Show this help
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -61,17 +66,20 @@ API_KEY=""
 API_KEY_SECRET=""
 CLUSTER_ID=""
 CLUSTER_ID_SECRET=""
+CLUSTER_ID_CONFIGMAP=""
 GRPC_ADDR=""
 OBI_PROFILE="auto"
 DYNAMIC_SIZING="false"
 VALUES_PREFIX=""
 CHART_VERSION=""
 UPGRADE_CHART=""
+OPEN_PORTS=""
 STORAGE_CLASS=""
 CLUSTER_PROXY=""
 PRINT_ONLY=""
 DRY_RUN=""
 SKIP_REPO=""
+VERBOSE=""
 INSTALL_MODE=""
 USER_SET_RELEASE=""
 USER_SET_CHART=""
@@ -96,6 +104,7 @@ ok()    { printf "${GREEN}✓${NC}  %s\n" "$*"; }
 warn()  { printf "${YELLOW}⚠${NC}  %s\n" "$*"; }
 err()   { printf "${RED}✗${NC}  %s\n" "$*" >&2; }
 step()  { printf "\n${BOLD}${CYAN}━━━ %s${NC}\n" "$*"; }
+debug() { [[ -n "$VERBOSE" ]] && printf "${CYAN}   [debug]${NC} %s\n" "$*" || true; }
 
 # Print a command inside a clearly delimited block for copy-pasting.
 # Usage: print_cmd_block "label" "command string"
@@ -127,6 +136,7 @@ while [[ $# -gt 0 ]]; do
     --cluster-id)         CLUSTER_ID="$2"; shift 2 ;;
     --cluster-id-secret)  CLUSTER_ID_SECRET="$2"; shift 2 ;;
     --grpc-addr)          GRPC_ADDR="$2"; shift 2 ;;
+    --open-ports)         OPEN_PORTS="$2"; shift 2 ;;
     --obi-profile)        OBI_PROFILE="$2"; shift 2 ;;
     --dynamic-sizing)     DYNAMIC_SIZING="true"; shift ;;
     --values-prefix)      VALUES_PREFIX="$2"; shift 2 ;;
@@ -137,6 +147,7 @@ while [[ $# -gt 0 ]]; do
     --print-only)         PRINT_ONLY="true"; DRY_RUN="true"; shift ;;
     --dry-run)            DRY_RUN="true"; shift ;;
     --skip-repo)          SKIP_REPO="true"; shift ;;
+    -v|--verbose)         VERBOSE="true"; shift ;;
     -h|--help)            usage ;;
     *)                    err "Unknown option: $1"; usage ;;
   esac
@@ -168,6 +179,9 @@ run_cmd() {
   elif [[ -n "$DRY_RUN" ]]; then
     printf "${YELLOW}[dry-run]${NC} %s\n" "$*"
   else
+    if [[ -n "$VERBOSE" ]]; then
+      printf "\n${CYAN}   [cmd]${NC} %s\n\n" "$*"
+    fi
     # Use eval because $HELM_CTX/$KUBECTL_CTX must expand to multiple args or nothing.
     # Values containing shell metacharacters are single-quoted in build_creds_flags().
     eval "$@"
@@ -204,11 +218,13 @@ detect_operator() {
   fi
 
   if [[ -z "$deploy_info" ]]; then
+    debug "No clickhouse-operator deployment found in any namespace"
     return 1
   fi
 
   # Take the first match
   OPERATOR_NS=$(echo "$deploy_info" | head -1 | cut -f1)
+  debug "Found operator deployment: $(echo "$deploy_info" | head -1)"
   local deploy_name
   deploy_name=$(echo "$deploy_info" | head -1 | cut -f2)
 
@@ -216,7 +232,9 @@ detect_operator() {
   local ready_replicas
   ready_replicas=$(kubectl $KUBECTL_CTX get deployment "$deploy_name" -n "$OPERATOR_NS" \
     -o jsonpath='{.status.readyReplicas}' 2>/dev/null) || ready_replicas="0"
+  debug "Operator deployment '$deploy_name' in '$OPERATOR_NS': readyReplicas=${ready_replicas:-0}"
   if [[ "${ready_replicas:-0}" -lt 1 ]]; then
+    debug "Operator not ready (readyReplicas < 1)"
     return 1
   fi
 
@@ -226,6 +244,7 @@ detect_operator() {
   watch_ns=$(kubectl $KUBECTL_CTX get deployment "$deploy_name" -n "$OPERATOR_NS" \
     -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="WATCH_NAMESPACES")].value}' 2>/dev/null) || watch_ns=""
 
+  debug "Operator WATCH_NAMESPACES='${watch_ns:-<empty, watches all>}'"
   if [[ -z "$watch_ns" ]]; then
     # Empty WATCH_NAMESPACES = watches all namespaces
     OPERATOR_RUNNING="true"
@@ -269,11 +288,13 @@ build_creds_flags() {
     echo "--set 'castai.apiKeySecretRef=${API_KEY_SECRET//"'"/"'\\''"}'"
   fi
 
-  # Cluster ID: inline value or pre-existing Secret ref
+  # Cluster ID: inline value, pre-existing Secret ref, or pre-existing ConfigMap ref
   if [[ -n "$CLUSTER_ID" ]]; then
     echo "--set 'castai.clusterID=${CLUSTER_ID//"'"/"'\\''"}'"
   elif [[ -n "$CLUSTER_ID_SECRET" ]]; then
     echo "--set 'castai.clusterIdSecretKeyRef.name=${CLUSTER_ID_SECRET//"'"/"'\\''"}'"
+  elif [[ -n "$CLUSTER_ID_CONFIGMAP" ]]; then
+    echo "--set 'castai.clusterIdConfigMapKeyRef.name=${CLUSTER_ID_CONFIGMAP//"'"/"'\\''"}'"
   fi
 
   # Optional gRPC address
@@ -289,7 +310,7 @@ build_creds_flags() {
 if [[ -n "$PRINT_ONLY" ]]; then
   HAS_CREDS=""
   [[ -n "$VALUES_FILE" ]] && HAS_CREDS="true"
-  [[ -n "$API_KEY" || -n "$API_KEY_SECRET" ]] && [[ -n "$CLUSTER_ID" || -n "$CLUSTER_ID_SECRET" ]] && HAS_CREDS="true"
+  [[ -n "$API_KEY" || -n "$API_KEY_SECRET" ]] && [[ -n "$CLUSTER_ID" || -n "$CLUSTER_ID_SECRET" || -n "$CLUSTER_ID_CONFIGMAP" ]] && HAS_CREDS="true"
   if [[ -n "$HAS_CREDS" ]]; then
     INSTALL_MODE="true"
   fi
@@ -466,6 +487,127 @@ else
   ok "Default StorageClass: $DEFAULT_SC"
 fi
 
+# ── CSI driver check ──────────────────────────────────────────────────────
+# On EKS 1.31+, the in-tree kubernetes.io/aws-ebs provisioner is transparently
+# redirected to ebs.csi.aws.com via CSI migration. If the EBS CSI driver isn't
+# installed, PVCs silently stay Pending. Check that the CSI driver backing the
+# selected StorageClass actually has running pods.
+SELECTED_SC="${STORAGE_CLASS:-$DEFAULT_SC}"
+if [[ -n "$SELECTED_SC" ]]; then
+  SC_PROVISIONER=$(kubectl $KUBECTL_CTX get sc "$SELECTED_SC" -o jsonpath='{.provisioner}' 2>/dev/null) || SC_PROVISIONER=""
+  if [[ -n "$SC_PROVISIONER" ]]; then
+    # Map in-tree provisioners to their CSI migration targets
+    CSI_DRIVER=""
+    case "$SC_PROVISIONER" in
+      kubernetes.io/aws-ebs)    CSI_DRIVER="ebs.csi.aws.com" ;;
+      kubernetes.io/gce-pd)     CSI_DRIVER="pd.csi.storage.gke.io" ;;
+      kubernetes.io/azure-disk) CSI_DRIVER="disk.csi.azure.com" ;;
+      ebs.csi.aws.com|pd.csi.storage.gke.io|disk.csi.azure.com)
+        CSI_DRIVER="$SC_PROVISIONER" ;;
+    esac
+
+    if [[ -n "$CSI_DRIVER" ]]; then
+      # Check if the CSI driver is registered
+      if kubectl $KUBECTL_CTX get csidrivers "$CSI_DRIVER" >/dev/null 2>&1; then
+        debug "CSI driver '$CSI_DRIVER' is registered"
+
+        # On EKS, the EBS CSI driver may be registered but crashing due to missing IAM permissions.
+        # The driver needs AmazonEBSCSIDriverPolicy attached to the node role or via IRSA.
+        # Check controller pod health to catch this early.
+        CSI_HEALTHY="true"
+        if [[ "$CSI_DRIVER" == "ebs.csi.aws.com" ]]; then
+          CSI_PROBLEM_PODS=$(kubectl $KUBECTL_CTX get pods -n kube-system -l app=ebs-csi-controller \
+            -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{range .status.containerStatuses[*]}{.state.waiting.reason}{" "}{end}{"\n"}{end}' 2>/dev/null) || CSI_PROBLEM_PODS=""
+
+          if [[ -n "$CSI_PROBLEM_PODS" ]]; then
+            # Check for CrashLoopBackOff or other non-Running states
+            CSI_CRASH=$(echo "$CSI_PROBLEM_PODS" | grep -iE "CrashLoopBackOff|Error|ImagePullBackOff|CreateContainerConfigError" || true)
+            CSI_NOT_READY=$(echo "$CSI_PROBLEM_PODS" | grep -v "Running" | grep -v "^$" || true)
+
+            if [[ -n "$CSI_CRASH" ]]; then
+              CSI_HEALTHY=""
+              warn "EBS CSI driver pods are crashing!"
+              while IFS=$'\t' read -r pod_name pod_phase pod_reasons; do
+                [[ -z "$pod_name" ]] && continue
+                warn "  $pod_name: $pod_phase ${pod_reasons:+($pod_reasons)}"
+              done <<< "$CSI_CRASH"
+              echo ""
+              warn "This is usually caused by missing IAM permissions."
+              warn "The EBS CSI controller needs the AmazonEBSCSIDriverPolicy."
+              echo ""
+              info "Fix Option 1 — Attach policy to node instance role (simplest):"
+              info "  # Find the node role name:"
+              info "  NG=\$(aws eks list-nodegroups --cluster-name <cluster> --region <region> --query 'nodegroups[0]' --output text)"
+              info "  NODE_ROLE=\$(aws eks describe-nodegroup --cluster-name <cluster> --region <region> --nodegroup-name \$NG --query 'nodegroup.nodeRole' --output text | xargs basename)"
+              info "  aws iam attach-role-policy --role-name \$NODE_ROLE --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+              echo ""
+              info "Fix Option 2 — Use IRSA (recommended for production, requires OIDC provider):"
+              info "  # Step 1: Ensure OIDC provider exists (one-time per cluster):"
+              info "  eksctl utils associate-iam-oidc-provider --region <region> --cluster <cluster> --approve"
+              info "  # Step 2: Create the service account with IAM role:"
+              info "  eksctl create iamserviceaccount --name ebs-csi-controller-sa --namespace kube-system \\"
+              info "    --cluster <cluster> --region <region> --role-name AmazonEKS_EBS_CSI_DriverRole \\"
+              info "    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve"
+              echo ""
+              info "After attaching the policy, restart the CSI controller:"
+              info "  kubectl rollout restart deployment ebs-csi-controller -n kube-system"
+              echo ""
+            elif [[ -n "$CSI_NOT_READY" ]]; then
+              debug "EBS CSI controller pods not fully ready (may still be starting)"
+            fi
+          else
+            debug "No EBS CSI controller pods found — driver may not be fully deployed"
+          fi
+        fi
+
+        if [[ -n "$CSI_HEALTHY" ]]; then
+          ok "CSI driver: $CSI_DRIVER"
+        else
+          if [[ -z "$DRY_RUN" ]]; then
+            err "Proceed with unhealthy CSI driver? [y/N]"
+            read -r REPLY
+            if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+              err "Aborted. Fix the CSI driver IAM permissions and re-run."
+              exit 1
+            fi
+            warn "Proceeding with unhealthy CSI driver — ClickHouse PVC will likely stay Pending"
+          fi
+        fi
+      else
+        warn "CSI driver '$CSI_DRIVER' is not installed!"
+        warn "StorageClass '$SELECTED_SC' uses provisioner '$SC_PROVISIONER',"
+        warn "which requires the '$CSI_DRIVER' CSI driver to provision volumes."
+        warn "Without it, ClickHouse PVC will stay Pending indefinitely."
+        echo ""
+        if [[ "$CSI_DRIVER" == "ebs.csi.aws.com" ]]; then
+          info "Step 1 — Install the EBS CSI driver addon:"
+          info "  eksctl create addon --name aws-ebs-csi-driver --cluster <cluster> --region <region>"
+          info "  Or: EKS Console → Cluster → Add-ons → Amazon EBS CSI Driver"
+          echo ""
+          info "Step 2 — Grant IAM permissions (simplest: attach to node role):"
+          info "  NG=\$(aws eks list-nodegroups --cluster-name <cluster> --region <region> --query 'nodegroups[0]' --output text)"
+          info "  NODE_ROLE=\$(aws eks describe-nodegroup --cluster-name <cluster> --region <region> --nodegroup-name \$NG --query 'nodegroup.nodeRole' --output text | xargs basename)"
+          info "  aws iam attach-role-policy --role-name \$NODE_ROLE --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+          echo ""
+          info "For production, use IRSA instead (requires OIDC provider — see AWS EKS docs)"
+        fi
+        echo ""
+        if [[ -z "$DRY_RUN" ]]; then
+          err "Proceed without CSI driver? [y/N]"
+          read -r REPLY
+          if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+            err "Aborted. Install the CSI driver and re-run."
+            exit 1
+          fi
+          warn "Proceeding without CSI driver — ClickHouse PVC will likely stay Pending"
+        fi
+      fi
+    else
+      debug "Provisioner '$SC_PROVISIONER' — not a known CSI migration target, skipping driver check"
+    fi
+  fi
+fi
+
 # ── Helm repo ───────────────────────────────────────────────────────────────
 if [[ -z "$SKIP_REPO" ]]; then
   step "Helm Repository"
@@ -509,6 +651,7 @@ for r in releases:
 print('TYPE=none')
 " 2>/dev/null) || DETECTED="TYPE=none"
 
+  debug "Detection result: $DETECTED"
   DETECTED_TYPE=""
   DETECTED_RELEASE=""
   DETECTED_CHART_NAME=""
@@ -595,9 +738,11 @@ fi
 # ── Check existing release ──────────────────────────────────────────────────
 step "Checking Existing Release"
 
+debug "Checking helm release: helm status '$RELEASE' -n '$NAMESPACE'"
 if helm $HELM_CTX status "$RELEASE" -n "$NAMESPACE" >/dev/null 2>&1; then
   CURRENT_REVISION=$(helm $HELM_CTX history "$RELEASE" -n "$NAMESPACE" --max 1 -o json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['revision'])" 2>/dev/null || echo "?")
   ok "Release '$RELEASE' found (revision $CURRENT_REVISION) — upgrade mode"
+  debug "Install mode: UPGRADE (existing release found)"
 
   # Auto-detect chart version to pin upgrades (avoid bumping unrelated components).
   # --upgrade-chart skips pinning; --chart-version overrides detection.
@@ -619,6 +764,114 @@ if m:
     info "Upgrading to latest chart version (--upgrade-chart)"
   fi
 
+  # Detect deployed kvisor version from running pod image tag.
+  # The pod label varies by install type:
+  #   Standalone: app.kubernetes.io/name=castai-kvisor-agent
+  #   Umbrella:   app.kubernetes.io/name=castai-castai-kvisor-agent (release-chartname-agent)
+  # We search by component label which is consistent across both.
+  DEPLOYED_KVISOR_VERSION=""
+  KVISOR_IMAGE=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" \
+    -l app.kubernetes.io/component=agent -o jsonpath='{.items[0].spec.containers[?(@.name=="kvisor")].image}' 2>/dev/null) || KVISOR_IMAGE=""
+  # Fallback: try by name substring (covers non-standard labels)
+  if [[ -z "$KVISOR_IMAGE" ]]; then
+    KVISOR_IMAGE=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for pod in data.get('items', []):
+    name = pod['metadata']['name']
+    if 'kvisor' not in name or 'agent' not in name:
+        continue
+    for c in pod['spec']['containers']:
+        if c['name'] == 'kvisor':
+            print(c['image'])
+            sys.exit(0)
+" 2>/dev/null) || KVISOR_IMAGE=""
+  fi
+  if [[ -n "$KVISOR_IMAGE" ]]; then
+    DEPLOYED_KVISOR_VERSION="${KVISOR_IMAGE##*:}"
+  fi
+
+  # Extract the kvisor appVersion bundled in a chart package.
+  # Works for both umbrella (kvisor nested under autoscaler) and standalone charts.
+  # Usage: kvisor_version_in_chart <chart-ref> [--version X.Y.Z]
+  kvisor_version_in_chart() {
+    local tmpdir
+    tmpdir=$(mktemp -d) || return 1
+    trap 'rm -rf "$tmpdir"' RETURN
+    if helm pull "$@" --untar --untardir "$tmpdir" 2>/dev/null; then
+      # Find the castai-kvisor Chart.yaml (could be top-level or nested subchart)
+      local chart_yaml
+      chart_yaml=$(find "$tmpdir" -path "*/castai-kvisor/Chart.yaml" -print -quit 2>/dev/null)
+      if [[ -n "$chart_yaml" ]]; then
+        # Parse appVersion without PyYAML (not always available)
+        grep -m1 '^appVersion:' "$chart_yaml" 2>/dev/null | sed 's/^appVersion:[[:space:]]*//' | tr -d '"'"'"
+      fi
+    fi
+  }
+
+  # Show kvisor version info — both what's deployed and what's available.
+  # For umbrella charts, kvisor is locked to the umbrella version and can only be
+  # updated by upgrading the umbrella chart (--upgrade-chart).
+  if [[ -z "$SKIP_REPO" ]]; then
+    if [[ -n "$VALUES_PREFIX" ]]; then
+      # Umbrella chart: extract kvisor version from chart packages
+      PINNED_KVISOR=""
+      LATEST_UMBRELLA=""
+      LATEST_KVISOR=""
+
+      LATEST_UMBRELLA=$(helm search repo castai-helm/castai --output json 2>/dev/null \
+        | python3 -c "
+import sys, json
+for e in json.load(sys.stdin):
+    if e['name'] == 'castai-helm/castai':
+        print(e['version'])
+        break
+" 2>/dev/null) || LATEST_UMBRELLA=""
+
+      # Get kvisor version in the pinned umbrella chart
+      if [[ -n "$CHART_VERSION" ]]; then
+        PINNED_KVISOR=$(kvisor_version_in_chart "$CHART" --version "$CHART_VERSION")
+      fi
+      # Get kvisor version in the latest umbrella chart
+      if [[ -n "$LATEST_UMBRELLA" && "$LATEST_UMBRELLA" != "$CHART_VERSION" ]]; then
+        LATEST_KVISOR=$(kvisor_version_in_chart "$CHART" --version "$LATEST_UMBRELLA")
+      elif [[ -n "$LATEST_UMBRELLA" ]]; then
+        LATEST_KVISOR="$PINNED_KVISOR"
+      fi
+
+      # Display: "Deployed kvisor: v1.55.22 (chart 0.33.63 bundles v1.55.22, latest: 0.33.65 → v1.55.25)"
+      if [[ -n "$DEPLOYED_KVISOR_VERSION" ]]; then
+        info "Deployed kvisor: $DEPLOYED_KVISOR_VERSION"
+      fi
+      if [[ -n "$PINNED_KVISOR" ]]; then
+        info "Pinned umbrella chart $CHART_VERSION includes kvisor $PINNED_KVISOR"
+      fi
+      if [[ -n "$LATEST_UMBRELLA" && "$LATEST_UMBRELLA" != "${CHART_VERSION:-}" ]]; then
+        LATEST_MSG="Latest umbrella chart: $LATEST_UMBRELLA"
+        if [[ -n "$LATEST_KVISOR" ]]; then
+          LATEST_MSG="$LATEST_MSG (kvisor $LATEST_KVISOR)"
+        fi
+        info "$LATEST_MSG — use --upgrade-chart to update"
+      elif [[ -n "$PINNED_KVISOR" && "$PINNED_KVISOR" == "$LATEST_KVISOR" ]]; then
+        ok "Umbrella chart is up to date ($CHART_VERSION)"
+      fi
+    else
+      # Standalone: compare kvisor versions directly
+      LATEST_KVISOR_APP=$(helm search repo castai-helm/castai-kvisor --output json 2>/dev/null \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['app_version'])" 2>/dev/null) || LATEST_KVISOR_APP=""
+
+      if [[ -n "$DEPLOYED_KVISOR_VERSION" && -n "$LATEST_KVISOR_APP" ]]; then
+        if [[ "$DEPLOYED_KVISOR_VERSION" == "$LATEST_KVISOR_APP" ]]; then
+          ok "Kvisor $DEPLOYED_KVISOR_VERSION (up to date)"
+        else
+          info "Deployed kvisor: $DEPLOYED_KVISOR_VERSION → latest: $LATEST_KVISOR_APP (use --upgrade-chart to update)"
+        fi
+      elif [[ -n "$DEPLOYED_KVISOR_VERSION" ]]; then
+        info "Deployed kvisor: $DEPLOYED_KVISOR_VERSION"
+      fi
+    fi
+  fi
+
   # Auto-detect which Secret holds the CAST AI API key.
   # Standalone kvisor creates "castai-kvisor"; the umbrella chart creates "castai-credentials".
   # The ch-exporter subchart defaults to "castai-kvisor", so we must override when different.
@@ -634,20 +887,88 @@ if m:
   else
     warn "Could not detect API key secret — ch-exporter will use chart default (castai-kvisor)"
   fi
+
+  # Show current reliability-related values in upgrade mode
+  if [[ -n "$VERBOSE" ]]; then
+    debug "Current reliability-related values in release '$RELEASE':"
+    CURRENT_VALS=$(helm $HELM_CTX get values "$RELEASE" -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "
+import sys, json
+
+def find_reliability(obj, path=''):
+    if not isinstance(obj, dict):
+        return
+    for key, val in obj.items():
+        current = f'{path}.{key}' if path else key
+        if 'reliabilityMetrics' in key or 'reliability' in key:
+            print(f'  {current} = {json.dumps(val, default=str)[:200]}')
+        elif isinstance(val, dict):
+            find_reliability(val, current)
+
+find_reliability(json.load(sys.stdin))
+" 2>/dev/null) || CURRENT_VALS=""
+    if [[ -n "$CURRENT_VALS" ]]; then
+      while IFS= read -r line; do debug "$line"; done <<< "$CURRENT_VALS"
+    else
+      debug "  (no reliability-related values found in current release)"
+    fi
+  fi
 else
   warn "Release '$RELEASE' not found in namespace '$NAMESPACE'"
+  debug "Install mode: FRESH INSTALL (no existing release)"
+
+  # Auto-detect pre-existing credentials in the namespace.
+  # These may exist from a previous installation, or be managed externally.
+  debug "Scanning namespace '$NAMESPACE' for pre-existing credentials..."
+  if [[ -z "$API_KEY" && -z "$API_KEY_SECRET" ]]; then
+    for candidate in castai-kvisor castai-credentials; do
+      KEY_DATA=$(kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" \
+         -o jsonpath='{.data.API_KEY}' 2>/dev/null) || KEY_DATA=""
+      if [[ -n "$KEY_DATA" ]]; then
+        API_KEY_SECRET="$candidate"
+        ok "Auto-detected API key secret: $candidate"
+        break
+      fi
+    done
+  fi
+  if [[ -z "$CLUSTER_ID" && -z "$CLUSTER_ID_SECRET" && -z "$CLUSTER_ID_CONFIGMAP" ]]; then
+    # Check ConfigMap first (most common: castai-agent-metadata)
+    CM_DATA=$(kubectl $KUBECTL_CTX get configmap castai-agent-metadata -n "$NAMESPACE" \
+       -o jsonpath='{.data.CLUSTER_ID}' 2>/dev/null) || CM_DATA=""
+    if [[ -n "$CM_DATA" ]]; then
+      CLUSTER_ID_CONFIGMAP="castai-agent-metadata"
+      ok "Auto-detected cluster ID configmap: castai-agent-metadata"
+    else
+      # Fall back to Secret-based cluster ID
+      for candidate in castai-kvisor castai-credentials; do
+        SEC_DATA=$(kubectl $KUBECTL_CTX get secret "$candidate" -n "$NAMESPACE" \
+           -o jsonpath='{.data.CLUSTER_ID}' 2>/dev/null) || SEC_DATA=""
+        if [[ -n "$SEC_DATA" ]]; then
+          CLUSTER_ID_SECRET="$candidate"
+          ok "Auto-detected cluster ID secret: $candidate"
+          break
+        fi
+      done
+    fi
+  fi
+
   # For fresh install, we need credentials from one of:
   #   1. --values-file (contains castai.apiKey/apiKeySecretRef + clusterID)
   #   2. --api-key + --cluster-id (inline)
   #   3. --api-key-secret + --cluster-id-secret (pre-existing Secrets)
+  #   4. Auto-detected Secrets/ConfigMaps already on the cluster
+  debug "Credential sources: API_KEY=${API_KEY:+(inline)} API_KEY_SECRET=${API_KEY_SECRET:-(none)} CLUSTER_ID=${CLUSTER_ID:+(inline)} CLUSTER_ID_SECRET=${CLUSTER_ID_SECRET:-(none)} CLUSTER_ID_CONFIGMAP=${CLUSTER_ID_CONFIGMAP:-(none)} VALUES_FILE=${VALUES_FILE:-(none)}"
   HAS_CREDS=""
   [[ -n "$VALUES_FILE" ]] && HAS_CREDS="true"
-  [[ -n "$API_KEY" || -n "$API_KEY_SECRET" ]] && [[ -n "$CLUSTER_ID" || -n "$CLUSTER_ID_SECRET" ]] && HAS_CREDS="true"
+  [[ -n "$API_KEY" || -n "$API_KEY_SECRET" ]] && [[ -n "$CLUSTER_ID" || -n "$CLUSTER_ID_SECRET" || -n "$CLUSTER_ID_CONFIGMAP" ]] && HAS_CREDS="true"
   if [[ -z "$HAS_CREDS" ]]; then
     err "Fresh install requires credentials. Provide one of:"
     err "  --values-file <file>                     (values file with castai.* config)"
     err "  --api-key <key> --cluster-id <id>         (inline credentials)"
     err "  --api-key-secret <name> --cluster-id-secret <name>  (pre-existing Secrets)"
+    err ""
+    err "Or ensure these resources exist in namespace '$NAMESPACE':"
+    err "  Secret 'castai-kvisor' or 'castai-credentials' with .data.API_KEY"
+    err "  ConfigMap 'castai-agent-metadata' with .data.CLUSTER_ID"
     exit 1
   fi
   INSTALL_MODE="true"
@@ -658,6 +979,47 @@ fi
 HELM_VERSION_FLAG=""
 if [[ -n "$CHART_VERSION" ]]; then
   HELM_VERSION_FLAG="--version $CHART_VERSION"
+fi
+
+# ── Verbose: Configuration Summary ──────────────────────────────────────────
+if [[ -n "$VERBOSE" ]]; then
+  step "Configuration Summary"
+  if [[ -n "$INSTALL_MODE" ]]; then
+    debug "Mode:             FRESH INSTALL"
+  else
+    debug "Mode:             UPGRADE"
+  fi
+  debug "Release:          $RELEASE"
+  debug "Chart:            $CHART"
+  debug "Namespace:        $NAMESPACE"
+  debug "Chart version:    ${CHART_VERSION:-(latest)}${HELM_VERSION_FLAG:+ → $HELM_VERSION_FLAG}"
+  debug "Values prefix:    ${VALUES_PREFIX:-(none, standalone)}"
+  debug "Values file:      ${VALUES_FILE:-(none)}"
+  debug "OBI profile:      $OBI_PROFILE"
+  debug "OBI open ports:   ${OPEN_PORTS:-(chart default)}"
+  debug "Dynamic sizing:   $DYNAMIC_SIZING"
+  debug "Storage class:    ${STORAGE_CLASS:-(cluster default)}"
+  debug "Cluster proxy:    ${CLUSTER_PROXY:-false}"
+  if [[ -n "$INSTALL_MODE" ]]; then
+    if [[ -n "$API_KEY" ]]; then
+      debug "API key source:   inline (--api-key)"
+    elif [[ -n "$API_KEY_SECRET" ]]; then
+      debug "API key source:   Secret '$API_KEY_SECRET'"
+    else
+      debug "API key source:   values file"
+    fi
+    if [[ -n "$CLUSTER_ID" ]]; then
+      debug "Cluster ID src:   inline (--cluster-id)"
+    elif [[ -n "$CLUSTER_ID_CONFIGMAP" ]]; then
+      debug "Cluster ID src:   ConfigMap '$CLUSTER_ID_CONFIGMAP'"
+    elif [[ -n "$CLUSTER_ID_SECRET" ]]; then
+      debug "Cluster ID src:   Secret '$CLUSTER_ID_SECRET'"
+    else
+      debug "Cluster ID src:   values file"
+    fi
+  else
+    debug "API key secret:   ${DETECTED_API_KEY_SECRET:-(chart default)}"
+  fi
 fi
 
 # ── Phase 1: CRD Detection & Operator Bootstrap ─────────────────────────────
@@ -702,6 +1064,13 @@ elif [[ -n "$CRD_EXISTS" ]]; then
     fi
   fi
 
+  # Under the umbrella chart, the kvisor subchart is gated by a condition
+  # (e.g. condition: castai-kvisor.enabled in autoscaler/Chart.yaml).
+  # We must explicitly enable it so the subchart renders at all.
+  if [[ -n "$VALUES_PREFIX" ]]; then
+    PHASE1_CMD="$PHASE1_CMD \\
+  $(setkey enabled=true)"
+  fi
   PHASE1_CMD="$PHASE1_CMD \\
   $(setkey reliabilityMetrics.enabled=true) \\
   $(setkey reliabilityMetrics.operator.enabled=true) \\
@@ -712,8 +1081,16 @@ elif [[ -n "$CRD_EXISTS" ]]; then
 
   if [[ -z "$DRY_RUN" ]]; then
     info "Waiting for operator pod to be ready..."
-    kubectl $KUBECTL_CTX rollout status deployment -n "$NAMESPACE" -l app=clickhouse-operator --timeout=60s 2>/dev/null || true
-    ok "ClickHouse operator ready"
+    if ! kubectl $KUBECTL_CTX rollout status deployment -n "$NAMESPACE" -l app=clickhouse-operator --timeout=60s 2>/dev/null; then
+      warn "Operator rollout did not complete within 60s"
+      if [[ -n "$VERBOSE" ]]; then
+        debug "Operator pods:"
+        kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app=clickhouse-operator -o wide 2>/dev/null \
+          | while IFS= read -r line; do debug "  $line"; done
+      fi
+    else
+      ok "ClickHouse operator ready"
+    fi
   fi
 else
   warn "ClickHouseInstallation CRD not found"
@@ -736,6 +1113,13 @@ else
     fi
   fi
 
+  # Under the umbrella chart, the kvisor subchart is gated by a condition
+  # (e.g. condition: castai-kvisor.enabled in autoscaler/Chart.yaml).
+  # We must explicitly enable it so the subchart renders at all.
+  if [[ -n "$VALUES_PREFIX" ]]; then
+    PHASE1_CMD="$PHASE1_CMD \\
+  $(setkey enabled=true)"
+  fi
   PHASE1_CMD="$PHASE1_CMD \\
   $(setkey reliabilityMetrics.enabled=true) \\
   $(setkey reliabilityMetrics.operator.enabled=true) \\
@@ -745,6 +1129,31 @@ else
   run_cmd "$PHASE1_CMD"
 
   if [[ -z "$DRY_RUN" ]]; then
+    # Check if the operator deployment was actually created
+    if [[ -n "$VERBOSE" ]]; then
+      echo ""
+      debug "Checking for operator deployment after Phase 1 helm upgrade..."
+      OPERATOR_DEPLOY=$(kubectl $KUBECTL_CTX get deployments -n "$NAMESPACE" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.readyReplicas}/{.status.replicas}{"\n"}{end}' 2>/dev/null \
+        | grep -i "clickhouse" || true)
+      if [[ -n "$OPERATOR_DEPLOY" ]]; then
+        debug "Operator deployment(s) found:"
+        while IFS= read -r line; do debug "  $line"; done <<< "$OPERATOR_DEPLOY"
+      else
+        debug "No deployment with 'clickhouse' in name found in namespace '$NAMESPACE'"
+        debug "All deployments in namespace:"
+        kubectl $KUBECTL_CTX get deployments -n "$NAMESPACE" -o custom-columns=NAME:.metadata.name,READY:.status.readyReplicas,REPLICAS:.status.replicas 2>/dev/null \
+          | while IFS= read -r line; do debug "  $line"; done
+      fi
+
+      debug "Pods in namespace (clickhouse-related):"
+      kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -iE "clickhouse|operator" \
+        | while IFS= read -r line; do debug "  $line"; done
+      if ! kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -iq "clickhouse"; then
+        debug "No clickhouse/operator pods found at all"
+      fi
+    fi
+
     info "Waiting for CRD to be registered..."
     TRIES=0
     MAX_TRIES=30
@@ -753,6 +1162,52 @@ else
       if [[ $TRIES -ge $MAX_TRIES ]]; then
         err "Timed out waiting for ClickHouseInstallation CRD (${MAX_TRIES}s)"
         err "Check operator logs: kubectl logs -n $NAMESPACE -l app=clickhouse-operator"
+
+        # Verbose: dump diagnostics on timeout
+        if [[ -n "$VERBOSE" ]]; then
+          echo ""
+          debug "=== Timeout Diagnostics ==="
+          debug "Operator pods:"
+          kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app=clickhouse-operator -o wide 2>/dev/null \
+            | while IFS= read -r line; do debug "  $line"; done
+          if ! kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l app=clickhouse-operator 2>/dev/null | grep -q "clickhouse"; then
+            debug "  (none found with label app=clickhouse-operator)"
+            debug "All pods in namespace:"
+            kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -o wide 2>/dev/null \
+              | while IFS= read -r line; do debug "  $line"; done
+          fi
+
+          debug "Operator deployment details:"
+          kubectl $KUBECTL_CTX get deployments -n "$NAMESPACE" -o wide 2>/dev/null \
+            | grep -iE "clickhouse|NAME" | while IFS= read -r line; do debug "  $line"; done
+
+          debug "Recent events (operator/CRD related):"
+          kubectl $KUBECTL_CTX get events -n "$NAMESPACE" --sort-by='.lastTimestamp' 2>/dev/null \
+            | grep -iE "clickhouse|operator|crd" | tail -10 \
+            | while IFS= read -r line; do debug "  $line"; done
+
+          debug "Operator container logs (last 20 lines):"
+          OPERATOR_LOGS=$(kubectl $KUBECTL_CTX logs -n "$NAMESPACE" -l app=clickhouse-operator --tail=20 2>/dev/null) || true
+          if [[ -n "$OPERATOR_LOGS" ]]; then
+            while IFS= read -r line; do debug "  $line"; done <<< "$OPERATOR_LOGS"
+          else
+            debug "  (no logs available — pod may not exist)"
+          fi
+
+          debug "Helm release manifest check — does the operator template exist?"
+          OPERATOR_IN_MANIFEST=$(helm $HELM_CTX get manifest "$RELEASE" -n "$NAMESPACE" 2>/dev/null \
+            | grep -c "clickhouse-operator" || echo "0")
+          debug "  'clickhouse-operator' appears $OPERATOR_IN_MANIFEST times in rendered manifest"
+
+          debug "CRDs currently registered:"
+          kubectl $KUBECTL_CTX get crd 2>/dev/null | grep -i "clickhouse" \
+            | while IFS= read -r line; do debug "  $line"; done
+          if ! kubectl $KUBECTL_CTX get crd 2>/dev/null | grep -iq "clickhouse"; then
+            debug "  (no clickhouse CRDs found)"
+          fi
+          debug "=== End Diagnostics ==="
+        fi
+
         exit 1
       fi
       printf "."
@@ -760,6 +1215,7 @@ else
     done
     echo ""
     ok "ClickHouseInstallation CRD is now available"
+    CRD_EXISTS="true"
   fi
 fi
 
@@ -884,6 +1340,13 @@ if [[ -n "$PRINT_ONLY" && -z "$OPERATOR_RUNNING" ]]; then
     fi
   fi
 
+  # Under the umbrella chart, the kvisor subchart is gated by a condition
+  # (e.g. condition: castai-kvisor.enabled in autoscaler/Chart.yaml).
+  # We must explicitly enable it so the subchart renders at all.
+  if [[ -n "$VALUES_PREFIX" ]]; then
+    PHASE1_CMD="$PHASE1_CMD \\
+  $(setkey enabled=true)"
+  fi
   PHASE1_CMD="$PHASE1_CMD \\
   $(setkey reliabilityMetrics.enabled=true) \\
   $(setkey reliabilityMetrics.operator.enabled=true) \\
@@ -958,6 +1421,11 @@ else
   fi
 fi
 
+# Under the umbrella chart, ensure the kvisor subchart itself is enabled
+if [[ -n "$VALUES_PREFIX" ]]; then
+  HELM_CMD="$HELM_CMD \\
+  $(setkey enabled=true)"
+fi
 HELM_CMD="$HELM_CMD \\
   $(setkey agent.enabled=true) \\
   $(setkey agent.reliabilityMetrics.enabled=true) \\
@@ -1026,6 +1494,29 @@ if [[ -n "$STORAGE_CLASS" ]]; then
   info "ClickHouse StorageClass: $STORAGE_CLASS"
 fi
 
+# Override OBI open ports if specified
+# Commas must be escaped for helm --set (unescaped commas = array separator)
+if [[ -n "$OPEN_PORTS" ]]; then
+  if [[ ! "$OPEN_PORTS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    err "Invalid --open-ports value: '$OPEN_PORTS'"
+    err "Expected comma-separated port numbers (e.g. 8080,8443,6379)"
+    exit 1
+  fi
+  # Validate each port is in range 1-65535
+  IFS=',' read -ra PORT_LIST <<< "$OPEN_PORTS"
+  for port in "${PORT_LIST[@]}"; do
+    if [[ "$port" -lt 1 || "$port" -gt 65535 ]]; then
+      err "Port $port out of range (must be 1-65535)"
+      exit 1
+    fi
+  done
+  # Double-escape: \\, in the string survives eval (line 187) as \, for helm
+  ESCAPED_PORTS="${OPEN_PORTS//,/\\\\,}"
+  HELM_CMD="$HELM_CMD \\
+  $(setkey "agent.reliabilityMetrics.obi.openPorts=$ESCAPED_PORTS")"
+  info "OBI open ports: $OPEN_PORTS"
+fi
+
 info "OBI sizing profile: $OBI_PROFILE"
 info "Dynamic sizing: $DYNAMIC_SIZING"
 
@@ -1041,7 +1532,7 @@ if [[ -n "$PRINT_ONLY" ]]; then
   echo ""
   step "Common Overrides (add to Phase 2 command above)"
   echo ""
-  echo "  # OBI: which ports to instrument (controls process discovery)"
+  echo "  # OBI: which ports to instrument (or use --open-ports flag)"
   echo "  $(setkey 'agent.reliabilityMetrics.obi.openPorts=8080\,8443\,6379\,5432')"
   echo ""
   echo "  # OBI: sizing profile (small/medium/large/xlarge) — or use --obi-profile flag"
@@ -1087,77 +1578,136 @@ if [[ -z "$DRY_RUN" ]]; then
   if [[ -n "$VALUES_PREFIX" ]]; then
     AGENT_DS="${RELEASE}-castai-kvisor-agent"
     AGENT_LABEL="app.kubernetes.io/name=castai-kvisor-agent"
+    CONTROLLER_DEPLOY="${RELEASE}-castai-kvisor-controller"
   else
     AGENT_DS="${RELEASE}-agent"
     AGENT_LABEL="app.kubernetes.io/name=${RELEASE}-agent"
+    CONTROLLER_DEPLOY="${RELEASE}-controller"
   fi
 
+  VERIFY_FAILURES=0
+
+  # ── 3a. Agent DaemonSet ────────────────────────────────────────────────────
   info "Waiting for agent DaemonSet rollout..."
-  kubectl $KUBECTL_CTX rollout status daemonset/${AGENT_DS} -n "$NAMESPACE" --timeout=120s 2>/dev/null || {
-    warn "DaemonSet rollout not complete within 120s. Check pods:"
-    kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL"
-  }
-
-  echo ""
-  info "Pod status:"
-  kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -E "kvisor|clickhouse"
-
-  echo ""
-  AGENT_PODS=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL" -o name 2>/dev/null | head -1)
-  if [[ -n "$AGENT_PODS" ]]; then
-    POD_NAME="${AGENT_PODS##*/}"
-    info "Checking OBI container on $POD_NAME..."
-    OBI_LOG=$(kubectl $KUBECTL_CTX logs -n "$NAMESPACE" "$POD_NAME" -c obi 2>/dev/null | head -3)
-    if [[ -n "$OBI_LOG" ]]; then
-      ok "OBI container running"
-      echo "$OBI_LOG" | head -2 | sed 's/^/   /'
-    else
-      warn "OBI container not producing logs yet (may still be starting)"
-    fi
-  fi
-
-  # ── Data-pipeline verification ────────────────────────────────────────────
-  # Helm reports "deployed" the moment its manifests apply; that doesn't prove
-  # data is flowing. Probe Bronze → Silver → mothership end-to-end so a wedged
-  # collector / busted MV / unreachable mothership doesn't slip past us.
-  echo ""
-  info "Verifying data pipeline..."
-
-  # ClickHouse pod (operator-managed, label is stable across release names).
-  CH_POD=$(kubectl $KUBECTL_CTX get pod -n "$NAMESPACE" -l clickhouse.altinity.com/cluster -o name 2>/dev/null | head -1)
-  if [[ -z "$CH_POD" ]]; then
-    warn "No ClickHouse pod found (label clickhouse.altinity.com/cluster) — operator may still be reconciling the StatefulSet"
+  if kubectl $KUBECTL_CTX rollout status daemonset/${AGENT_DS} -n "$NAMESPACE" --timeout=120s 2>/dev/null; then
+    ok "Agent DaemonSet ready"
   else
-    CH_POD_NAME="${CH_POD##*/}"
-    if kubectl $KUBECTL_CTX wait --for=condition=Ready -n "$NAMESPACE" "$CH_POD" --timeout=120s >/dev/null 2>&1; then
-      ok "ClickHouse pod ready ($CH_POD_NAME)"
+    warn "DaemonSet rollout not complete within 120s"
+    VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+  fi
+
+  # ── 3b. OBI container ─────────────────────────────────────────────────────
+  AGENT_POD=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" -l "$AGENT_LABEL" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || AGENT_POD=""
+  if [[ -n "$AGENT_POD" ]]; then
+    OBI_STATE=$(kubectl $KUBECTL_CTX get pod "$AGENT_POD" -n "$NAMESPACE" \
+      -o jsonpath='{.status.containerStatuses[?(@.name=="obi")].state}' 2>/dev/null) || OBI_STATE=""
+    if echo "$OBI_STATE" | grep -q "running"; then
+      ok "OBI container running on $AGENT_POD"
+      if [[ -n "$VERBOSE" ]]; then
+        OBI_LOG=$(kubectl $KUBECTL_CTX logs -n "$NAMESPACE" "$AGENT_POD" -c obi --tail=5 2>/dev/null) || OBI_LOG=""
+        if [[ -n "$OBI_LOG" ]]; then
+          while IFS= read -r line; do debug "  $line"; done <<< "$OBI_LOG"
+        fi
+      fi
     else
-      warn "ClickHouse pod $CH_POD_NAME not Ready within 120s"
+      warn "OBI container not running on $AGENT_POD"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+    fi
+
+    # ── 3c. Agent OTel Collector ───────────────────────────────────────────────
+    COLLECTOR_STATE=$(kubectl $KUBECTL_CTX get pod "$AGENT_POD" -n "$NAMESPACE" \
+      -o jsonpath='{.status.containerStatuses[?(@.name=="otel-collector")].state}' 2>/dev/null) || COLLECTOR_STATE=""
+    if echo "$COLLECTOR_STATE" | grep -q "running"; then
+      ok "Agent OTel Collector running"
+    else
+      warn "Agent OTel Collector not running on $AGENT_POD"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
   fi
 
-  # Schema migrations (Helm hook Job from the ch-exporter chart).
-  MIGRATE_JOB=""
-  for cand in "${RELEASE}-clickhouse-migrate" "castai-clickhouse-migrate"; do
-    if kubectl $KUBECTL_CTX get job -n "$NAMESPACE" "$cand" >/dev/null 2>&1; then
-      MIGRATE_JOB="$cand"; break
+  # ── 3d. Controller ────────────────────────────────────────────────────────
+  info "Waiting for controller rollout..."
+  if kubectl $KUBECTL_CTX rollout status deployment/${CONTROLLER_DEPLOY} -n "$NAMESPACE" --timeout=60s 2>/dev/null; then
+    ok "Controller ready"
+  else
+    warn "Controller rollout not complete within 60s"
+    VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+  fi
+
+  # ── 3e. ClickHouse ────────────────────────────────────────────────────────
+  info "Waiting for ClickHouse to be ready..."
+  CH_POD=""
+  CH_READY=""
+  CH_TRIES=0
+  CH_MAX=60
+  while [[ $CH_TRIES -lt $CH_MAX ]]; do
+    CH_POD=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" \
+      -l "clickhouse.altinity.com/chi" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || CH_POD=""
+    if [[ -n "$CH_POD" ]]; then
+      CH_READY=$(kubectl $KUBECTL_CTX get pod "$CH_POD" -n "$NAMESPACE" \
+        -o jsonpath='{.status.containerStatuses[?(@.name=="clickhouse")].ready}' 2>/dev/null) || CH_READY=""
+      if [[ "$CH_READY" == "true" ]]; then
+        break
+      fi
     fi
+    CH_TRIES=$((CH_TRIES + 1))
+    printf "."
+    sleep 2
   done
-  if [[ -n "$MIGRATE_JOB" ]]; then
-    if kubectl $KUBECTL_CTX wait --for=condition=Complete -n "$NAMESPACE" "job/$MIGRATE_JOB" --timeout=120s >/dev/null 2>&1; then
-      ok "Schema migrations applied (job/$MIGRATE_JOB)"
+  if [[ "$CH_READY" == "true" ]]; then
+    echo ""
+    ok "ClickHouse ready ($CH_POD)"
+  else
+    echo ""
+    warn "ClickHouse not ready after $((CH_MAX * 2))s"
+    VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
+  fi
+
+  # ── 3f. Migration job ─────────────────────────────────────────────────────
+  if [[ -n "$CH_POD" && "$CH_READY" == "true" ]]; then
+    info "Waiting for migration to complete..."
+    MIGRATE_TRIES=0
+    MIGRATE_MAX=30
+    MIGRATE_DONE=""
+    while [[ $MIGRATE_TRIES -lt $MIGRATE_MAX ]]; do
+      # Check if the newest migrate pod completed successfully
+      MIGRATE_PHASE=$(kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" \
+        -l "app.kubernetes.io/component=migrate" \
+        --sort-by=.metadata.creationTimestamp \
+        -o jsonpath='{.items[-1:].status.phase}' 2>/dev/null) || MIGRATE_PHASE=""
+      if [[ "$MIGRATE_PHASE" == "Succeeded" ]]; then
+        MIGRATE_DONE="true"
+        break
+      elif [[ "$MIGRATE_PHASE" == "Failed" ]]; then
+        break
+      fi
+      MIGRATE_TRIES=$((MIGRATE_TRIES + 1))
+      printf "."
+      sleep 2
+    done
+    if [[ -n "$MIGRATE_DONE" ]]; then
+      echo ""
+      ok "ClickHouse migrations completed"
     else
-      warn "Migration job/$MIGRATE_JOB did not Complete within 120s — kubectl logs job/$MIGRATE_JOB -n $NAMESPACE"
+      echo ""
+      warn "Migration not completed (phase: ${MIGRATE_PHASE:-unknown})"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
   fi
 
-  # End-to-end probe: gauge metrics from the controller's k8s_cluster receiver
-  # populate within seconds of startup, so they're the cheapest signal that the
-  # whole Bronze → Silver → exporter path is alive. Histogram tables stay empty
-  # until application traffic flows — don't gate on them at install time.
-  if [[ -n "$CH_POD" ]]; then
+  # ── 3g. Data pipeline — Bronze → Silver → mothership ──────────────────────
+  # Helm reports "deployed" the moment its manifests apply; that doesn't prove
+  # data is flowing. Probe the pipeline end-to-end so a wedged collector / busted
+  # MV / unreachable mothership doesn't slip past us. Gauge metrics from the
+  # controller's k8s_cluster receiver populate within seconds of startup, so
+  # they're the cheapest signal that the whole path is alive. Histogram tables
+  # (http/grpc/db/messaging) stay empty until application traffic flows — we
+  # don't gate on them at install time.
+  if [[ -n "$CH_POD" && "$CH_READY" == "true" && -n "$MIGRATE_DONE" ]]; then
+    info "Probing data pipeline (Bronze → Silver → mothership)..."
     ch_query() {
-      kubectl $KUBECTL_CTX exec -n "$NAMESPACE" "$CH_POD" -c clickhouse -- \
+      kubectl $KUBECTL_CTX exec "$CH_POD" -n "$NAMESPACE" -c clickhouse -- \
         clickhouse-client -d metrics -q "$1" 2>/dev/null | tr -d '[:space:]'
     }
     PROBE_TIMEOUT=180
@@ -1179,6 +1729,14 @@ if [[ -z "$DRY_RUN" ]]; then
         [[ "$v" =~ ^[0-9]+$ && "$v" -gt 0 ]] && EXPORT_TS="$v"
       fi
       [[ -n "$BRONZE_ROWS" && -n "$SILVER_ROWS" && -n "$EXPORT_TS" ]] && break
+
+      # Progress hint every ~30s.
+      if (( PROBE_ELAPSED > 0 && PROBE_ELAPSED % 30 == 0 )); then
+        BPART="bronze …"; [[ -n "$BRONZE_ROWS" ]] && BPART="bronze ✓"
+        SPART="silver …"; [[ -n "$SILVER_ROWS" ]] && SPART="silver ✓"
+        EPART="export …"; [[ -n "$EXPORT_TS"   ]] && EPART="export ✓"
+        info "  ${PROBE_ELAPSED}s elapsed ($BPART, $SPART, $EPART)"
+      fi
       sleep 10
       PROBE_ELAPSED=$((PROBE_ELAPSED + 10))
     done
@@ -1186,20 +1744,28 @@ if [[ -z "$DRY_RUN" ]]; then
     if [[ -n "$BRONZE_ROWS" ]]; then
       ok "Bronze: $BRONZE_ROWS gauge rows in last 2 min"
     else
-      warn "Bronze empty after ${PROBE_TIMEOUT}s — check agent OTel collector logs (kubectl logs -c otel-collector -l $AGENT_LABEL)"
+      warn "Bronze empty after ${PROBE_TIMEOUT}s — check agent OTel collector logs"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
     if [[ -n "$SILVER_ROWS" ]]; then
       ok "Silver: $SILVER_ROWS gauge rows aggregated (1-min windows)"
     else
-      warn "Silver empty — Bronze→Silver Materialized View may have failed; check migration logs"
+      warn "Silver empty — Bronze→Silver Materialized View may have failed"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
     if [[ -n "$EXPORT_TS" ]]; then
       ok "ch-exporter forwarding to mothership (cursor advanced past epoch)"
     else
-      warn "Export cursor still at epoch — kubectl logs $CH_POD -c ch-exporter for connectivity issues"
+      warn "Export cursor still at epoch — check ch-exporter logs for connectivity issues"
+      VERIFY_FAILURES=$((VERIFY_FAILURES + 1))
     fi
     info "(Histogram tables — http/grpc/db/messaging — populate when application traffic flows; not checked here.)"
   fi
+
+  # ── Pod status summary ────────────────────────────────────────────────────
+  echo ""
+  info "Pod status:"
+  kubectl $KUBECTL_CTX get pods -n "$NAMESPACE" 2>/dev/null | grep -E "kvisor|clickhouse"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
@@ -1208,25 +1774,40 @@ if [[ -z "$PRINT_ONLY" ]]; then
   echo ""
   if [[ -n "$INSTALL_MODE" ]]; then
     MODE_LABEL="install"
-    printf "${GREEN}${BOLD}Reliability metrics stack installed!${NC}\n"
   else
     MODE_LABEL="upgrade"
-    printf "${GREEN}${BOLD}Reliability metrics stack upgraded!${NC}\n"
+  fi
+
+  if [[ "${VERIFY_FAILURES:-0}" -eq 0 ]]; then
+    printf "${GREEN}${BOLD}Reliability metrics stack ${MODE_LABEL}ed successfully!${NC}\n"
+  else
+    printf "${YELLOW}${BOLD}Reliability metrics stack ${MODE_LABEL}ed with ${VERIFY_FAILURES} warning(s)${NC}\n"
   fi
   echo ""
   echo "  Mode:           $MODE_LABEL"
   echo "  Namespace:      $NAMESPACE"
   echo "  Release:        $RELEASE"
   echo "  OBI profile:    $OBI_PROFILE"
+  if [[ -n "$OPEN_PORTS" ]]; then
+    echo "  Open ports:     $OPEN_PORTS"
+  fi
   echo "  Dynamic sizing: $DYNAMIC_SIZING"
   if [[ -n "$STORAGE_CLASS" ]]; then
     echo "  StorageClass:   $STORAGE_CLASS"
   fi
   echo ""
-  echo "Next steps:"
-  echo "  • Verify ClickHouse is ready:  kubectl get chi -n $NAMESPACE"
-  echo "  • Check OBI logs:              kubectl logs -n $NAMESPACE <agent-pod> -c obi"
-  echo "  • Run OBI sizing report:       ./charts/kvisor/scripts/obi-sizing-report.sh"
-  echo "  • View sizing guide:           docs/obi-sizing.md"
+  if [[ "${VERIFY_FAILURES:-0}" -gt 0 ]]; then
+    echo "Troubleshooting:"
+    echo "  • Check OBI logs:              kubectl logs -n $NAMESPACE <agent-pod> -c obi"
+    echo "  • Check collector logs:        kubectl logs -n $NAMESPACE <agent-pod> -c otel-collector"
+    echo "  • Check ClickHouse:            kubectl get chi -n $NAMESPACE"
+    echo "  • Check exporter logs:         kubectl logs -n $NAMESPACE <ch-pod> -c ch-exporter"
+    echo "  • Full docs:                   docs/reliability-stack-installation.md"
+  else
+    echo "Next steps:"
+    echo "  • View metrics in CAST AI console"
+    echo "  • Run OBI sizing report:       ./charts/kvisor/scripts/obi-sizing-report.sh"
+    echo "  • View sizing guide:           docs/obi-sizing.md"
+  fi
   echo ""
 fi
