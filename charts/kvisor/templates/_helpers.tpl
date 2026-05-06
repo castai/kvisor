@@ -371,6 +371,20 @@ Resolve CASTAI_API_URL: global.castai.apiURL > .Values.castai.apiURL
 {{- end }}
 
 {{/*
+Resolve image repository: prepend global.registry if set.
+Usage: {{ include "kvisor.imageRepository" (dict "repository" .Values.image.repository "Values" .Values) }}
+*/}}
+{{- define "kvisor.imageRepository" -}}
+{{- $repository := required "repository must be provided" .repository -}}
+{{- $registry := ((.Values.global | default dict).registry) | default "" -}}
+{{- if $registry -}}
+{{- printf "%s/%s" (trimSuffix "/" $registry) $repository -}}
+{{- else -}}
+{{- $repository -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 OBI (OpenTelemetry eBPF Instrumentation) sidecar container security context.
 Uses fine-grained capabilities instead of privileged: true.
 Capabilities: BPF, SYS_PTRACE, NET_RAW, CHECKPOINT_RESTORE, DAC_READ_SEARCH, PERFMON.

@@ -27,7 +27,7 @@ spec:
       securityContext: {}
       containers:
         - name: schema
-          image: "{{ .Values.image.repository }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.image.repository "Values" .Values) }}-agent:{{ .Values.image.tag | default .Chart.AppVersion }}"
           command:
             - "/usr/local/bin/kvisor-agent"
           args:
@@ -40,7 +40,7 @@ spec:
                 name: {{ include "kvisor.clickhouse.fullname" . }}
         - name: storage
           securityContext: {}
-          image: "{{ .Values.clickhouse.image.repository }}:{{ .Values.clickhouse.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.clickhouse.image.repository "Values" .Values) }}:{{ .Values.clickhouse.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.clickhouse.image.pullPolicy }}
           env:
             - name: CLICKHOUSE_USER

@@ -50,7 +50,7 @@ spec:
       priorityClassName: {{ .Values.controller.priorityClass }}
       containers:
         - name: controller
-          image: "{{ .Values.image.repository }}-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.image.repository "Values" .Values) }}-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{.Values.image.pullPolicy}}
           volumeMounts:
             {{- if .Values.controller.netflow.staticCIDRs.mappings }}
@@ -161,7 +161,7 @@ spec:
             periodSeconds: 5
       {{- if and (dig "reliabilityMetrics" "enabled" false .Values.controller) (dig "reliabilityMetrics" "collector" "enabled" false .Values.controller) }}
         - name: otel-collector
-          image: "{{ .Values.controller.reliabilityMetrics.collector.image.repository }}:{{ .Values.controller.reliabilityMetrics.collector.image.tag }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.controller.reliabilityMetrics.collector.image.repository "Values" .Values) }}:{{ .Values.controller.reliabilityMetrics.collector.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsUser: 10001

@@ -26,7 +26,7 @@ spec:
       containers:
         - name: generator
           securityContext: {}
-          image: "{{ .Values.mockServer.image.repository }}:{{ .Values.mockServer.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "kvisor.imageRepository" (dict "repository" .Values.mockServer.image.repository "Values" .Values) }}:{{ .Values.mockServer.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.mockServer.image.pullPolicy }}
           args:
             - "--mode=controller"
