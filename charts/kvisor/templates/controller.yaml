@@ -125,6 +125,7 @@ spec:
             - name: {{ $key }}
               value: {{ $value }}
           {{- end }}
+          {{- include "kvisor.proxyEnvVars" . | nindent 12 }}
           envFrom:
           {{- with .Values.controller.envFrom }}
             {{- toYaml . | nindent 12 }}
