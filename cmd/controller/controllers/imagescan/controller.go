@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"sort"
 	"sync"
@@ -372,6 +373,10 @@ func (c *Controller) syncFromRemoteState(ctx context.Context) {
 
 	// Set images as scanned from remote response.
 	c.delta.SetScannedImages(resp.Images.Images)
+
+	// log d.images values
+	c.log.Infof("Setting scanned images, scanned images: %+v", resp.Images.Images)
+	c.log.Infof("Setting scanned images, current images in delta state: %+v", spew.Sdump(lo.Values(c.delta.images)))
 
 	// If full resources resync is required it will be sent during next scheduled scan.
 	if resp.Images.FullResyncRequired {
