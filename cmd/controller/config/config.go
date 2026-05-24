@@ -49,6 +49,7 @@ type ClusterProxyConfig struct {
 	SAName                 string `json:"saName"`
 	SANamespace            string `json:"saNamespace"`
 	TokenExpirationSeconds int64  `json:"tokenExpirationSeconds"`
+	GRPCAddr               string `json:"grpcAddr"`
 }
 
 type AgentConfig struct {
